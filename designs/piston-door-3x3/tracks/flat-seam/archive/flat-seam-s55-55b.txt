@@ -1,0 +1,41 @@
+# verified WORKS: 55 blocks, open after 40 ticks, closed after 40 ticks
+# archived 2026-10-18 20:27Z from designs/piston-door-3x3/tracks/flat-seam/s55.txt (repo at 0f88f3b)
+name: flat-seam-s55
+port door: 0 0 0
+port lever: 4 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:stone
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ABBBE
+layer -1:
+  A
+layer 0:
+  rD.GGG.F
+layer 1:
+  AD.GGG.FS
+layer 2:
+  rD.GGG.FA
+layer 3:
+  A..G..F.A
+layer 4:
+  A..rsooAB
+layer 5:
+  A..As.AL
+layer 6:
+  oABC..AO
+layer 7:
+  .ooooooO
