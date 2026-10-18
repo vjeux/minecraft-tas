@@ -1,6 +1,6 @@
 # Track speed / wire: real (lever-only) versions of ideal-6
 
-Best: `wire/BEST.txt` = `wire/o2.txt` (open 11 / close 7, 137 blocks; see "o2" below). Before: `wire/w6.txt`, 161 blocks,
+Best: `wire/BEST.txt` = `wire/o3.txt` (open 11 / close 7, 135 blocks: o2 minus the 2 dead reach-through observers; see "o2" below). Before: `wire/w6.txt`, 161 blocks,
 category solid, slime-free, **open 12 / close 7**. Chain of verified steps: w1 (12/19),
 w2 (12/14), w4 (12/13), w5 (12/11), w6 (12/7; w6 = w5 + w6b.patch + w6c.patch + w6d.patch).
 Each wN.txt = w(N-1).txt + wN.patch (`door patch`).
