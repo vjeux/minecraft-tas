@@ -47,3 +47,17 @@ router (two routes: lever net -> late chain input, lever net -> O2's watched dus
   lever ((0,6,-2..-4) then a step down to (0,5,-5), whose floor powers the last repeater).
 `door minimize --moves all` finds nothing more (57 is a local minimum for it). rb1 minimized to
 67 by a renet (rb1-min.txt).
+
+## rb5: 52 blocks, category solid (BEST.txt)
+`mctas door gen rb5`. rb2 with a **silent hold (BUD) for Q** instead of the 24gt late chain:
+* H = block (-1,5,-1), next to Q's quasi cell (0,5,-1) (= X_L), strongly powered by L delayed
+  16gt (lever -> repeater (0,6,-2) -> dust (0,6,-3) -> dust (-1,5,-3) -> repeater (-1,5,-2) -> H).
+* When the lever goes off, Q is updated (X_L) but still quasi-powered by H, so it stays. H turns
+  off 16gt later; a repeater switching a solid block only updates that block's neighbors, so Q
+  is NOT updated and stays extended unpowered. At the end of the closing dance B lifts A back
+  next to Q's head; the head forwards that neighbor update to Q, which retracts: RB_A returns,
+  P_R pushes T back, A pushes T down.
+* H must outlast every update Q gets during the dance (P_L's retraction, X's 2nd-order updates
+  through Q's head at the first A pulse: off at L+12) and drop before A lands back (L+18): 14gt
+  failed (H dropped in the same tick as the first pulse ended), 16gt works.
+`door minimize --moves all`: no further removal.

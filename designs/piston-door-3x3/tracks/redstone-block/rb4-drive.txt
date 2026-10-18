@@ -1,0 +1,12 @@
+design designs/piston-door-3x3/tracks/redstone-block/rb4-bench.txt
+plane 0 -3 -2 4 6
+quiet 4
+print
+use 0 6 -1
+set -3 5 -1 minecraft:redstone_block
+quiet 30
+print
+use 0 6 -1
+step 14
+clear -3 5 -1
+step 30
