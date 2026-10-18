@@ -582,11 +582,25 @@ pub fn check(w: &mut Worker, v: &mut VanillaServer, oracle: &mut Oracle, design:
     // A file that is not its own rest state relies on the judge's `self` update (wire powers
     // recomputed, pistons re-checked) which vanilla has no command for: check its rest state.
     let rested;
+    let full = |w: &mut Worker, oracle: &mut Oracle, s: &str| -> Result<String> {
+        let mut r = Region { from: [0, 0, 0], size: [1, 1, 1], palette: vec![s.to_string()], flags: Vec::new(), data: vec![0] };
+        oracle.apply(w, &mut [&mut r])?;
+        Ok(r.palette[0].clone())
+    };
     let design = match rest_state(w, design)? {
         Some(r) if r.blocks != design.blocks => {
-            let n = r.blocks.iter().filter(|(p, s)| design.blocks.get(*p) != Some(*s)).count()
-                + design.blocks.keys().filter(|p| !r.blocks.contains_key(*p)).count();
-            println!("  note: {} is not at rest as written ({n} cells change when the judge settles it); checking its rest state", design.name);
+            // Bare names in the file (`minecraft:sculk_sensor`) are the full default states.
+            let mut n = design.blocks.keys().filter(|p| !r.blocks.contains_key(*p)).count();
+            for (p, s) in &r.blocks {
+                match design.blocks.get(p) {
+                    Some(f) if f == s => {}
+                    Some(f) if !f.contains('[') && full(w, oracle, f)? == *s => {}
+                    _ => n += 1,
+                }
+            }
+            if n > 0 {
+                println!("  note: {} is not at rest as written ({n} cells change when the judge settles it); checking its rest state", design.name);
+            }
             rested = r;
             &rested
         }
