@@ -1,0 +1,14 @@
+# s2 = s1 with M's torch moved next to the M piston: wall torch (0,-2,0) on stone (-1,-2,0), the
+# floor of new dust (-1,-1,0) fed through (-2,-1,0) (old dust (-2,-2,0) becomes its floor).
+clear -1 -3 0
+clear -1 -4 0
+clear 0 -4 0
+clear 0 -5 0
+clear 1 -4 0
+clear 1 -3 0
+clear -2 -3 0
+set -2 -2 0 minecraft:stone
+set -1 -2 0 minecraft:stone
+set -2 -1 0 minecraft:redstone_wire
+set -1 -1 0 minecraft:redstone_wire
+set 0 -2 0 minecraft:redstone_wall_torch[facing=east,lit=true]

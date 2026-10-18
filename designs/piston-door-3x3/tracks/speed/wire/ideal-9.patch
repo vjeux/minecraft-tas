@@ -1,0 +1,5 @@
+# TR pulse at k=14 (chain 2,3,-2 k6 -> 2,3,-3 k8 -> 3,3,-3 k10 -> 3,3,-2 k12 -> 3,3,-1 k14); blocker west of Q
+set 2 3 -3 minecraft:observer[facing=south,powered=false]
+set 3 3 -3 minecraft:observer[facing=west,powered=false]
+set 3 3 -2 minecraft:observer[facing=north,powered=false]
+set -2 3 0 minecraft:obsidian

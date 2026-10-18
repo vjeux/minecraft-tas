@@ -1,89 +1,45 @@
-name: piston-door-3x3-fresh-b-pd3d
+name: piston-door-3x3-fresh-b-mp8
 port door: 0 0 0
-port lever: 1 -2 -2
-origin: -1 0 -4
+port lever: 0 3 -1
+origin: -2 0 -1
 palette:
-  A minecraft:observer[facing=north,powered=false]
-  B minecraft:observer[facing=up,powered=false]
-  C minecraft:observer[facing=west,powered=false]
-  D minecraft:obsidian
-  E minecraft:redstone_wall_torch[facing=north,lit=true]
-  F minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
-  G minecraft:sticky_piston[extended=false,facing=down]
-  H minecraft:sticky_piston[extended=false,facing=east]
-  I minecraft:sticky_piston[extended=false,facing=up]
-  J minecraft:sticky_piston[extended=false,facing=west]
-  K minecraft:stone
-  L minecraft:lever[face=wall,facing=south,powered=false]
-  O minecraft:observer[facing=down,powered=false]
-  R minecraft:redstone_torch[lit=false]
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:stone
+  L minecraft:lever[face=ceiling,facing=north,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
   S minecraft:slime_block
-  o minecraft:observer[facing=east,powered=false]
-  r minecraft:redstone_torch[lit=true]
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
   s minecraft:smooth_stone
-layer -4:
-  .
-  .
-  .
-  .
-  ..oB
 layer -3:
   .
-  .
-  .
-  ..BC
-  ..OB
+  .s.DOo
 layer -2:
-  ..E
-  ..K
-  ..L
-  ..AO
-  ..IA
+  .
+  FRD..o
 layer -1:
-  ..K
   .
-  .
-  .SJK
-  SS.HS
+  o.SS.F
 layer 0:
-  ..R
   .
-  .
-  .
-  SKKKS
+  .FFFFS
 layer 1:
-  ..K
   .
-  .
-  .
-  SKKKS
+  .SFFFS
 layer 2:
-  ..r
   .
-  .
-  .
-  .KKK
+  .SFFFS
 layer 3:
-  ..K
-  .
-  ..s
-  .
-  .SSS
+  ..Ls
+  .SE.SS
 layer 4:
-  ..R
-  ..A
-  ..F
-  ..D
-  ..G
+  ..FrF
+  .FABCS
 layer 5:
   .
-  ..O
-  .
-  .
-  .G
-layer 6:
-  .
-  .oO
-  .A
-  .A
-  .
+  ....OF

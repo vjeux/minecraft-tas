@@ -13,9 +13,14 @@
 //! open b_on set 1 6 0 minecraft:redstone_block
 //! open b_on+8 clear 1 6 0           # ticks are sums/differences of integers and variables
 //! close 3 set 1 4 -1 minecraft:redstone_block
+//! open 0 use -2 4 0                 # right-click a block of the design (its real lever), so
+//!                                   # real wiring and ideal inputs can be mixed
 //! ```
 //! An event at tick `t` is applied after `t` game ticks of its phase (0 = at the flip), before
 //! the next tick runs, like a player acting between ticks.
+
+/// Marker state of a `use` event.
+const USE: &str = "@use";
 
 use crate::DoorSpec;
 use anyhow::{Context, Result, bail};
@@ -99,6 +104,8 @@ impl Schedule {
                     let state = match p[2] {
                         "set" => Some(p.get(6).with_context(ctx)?.to_string()),
                         "clear" => None,
+                        // Right-click the block (a real lever or button in the design).
+                        "use" => Some(USE.to_string()),
                         other => bail!("unknown action {other}: {}", ctx()),
                     };
                     events.push(Event { open: p[0] == "open", tick: p[1].to_string(), pos, state });
@@ -182,8 +189,12 @@ fn run_at(
             while i < evs.len() {
                 while i < evs.len() && evs[i].0 == t {
                     let (_, p, st) = &evs[i];
-                    let state = st.clone().unwrap_or_else(|| "minecraft:air".to_string());
-                    w.set_blocks(sb, &[(mv(*p), state)], PlaceMode::Update)?;
+                    if st.as_deref() == Some(USE) {
+                        w.use_block(sb, mv(*p))?;
+                    } else {
+                        let state = st.clone().unwrap_or_else(|| "minecraft:air".to_string());
+                        w.set_blocks(sb, &[(mv(*p), state)], PlaceMode::Update)?;
+                    }
                     i += 1;
                 }
                 if i >= evs.len() {

@@ -878,6 +878,57 @@ fn nets(g: &HashMap<Pos, Vec<Pos>>) -> Vec<Vec<Pos>> {
     out
 }
 
+/// Edits learnt from pairs of designs: for every (a, b) with the same door port where b has fewer
+/// blocks than a and differs from it in at most `max_cells` cells, the edit a -> b (with a, to
+/// check where it applies).
+pub fn library_patches(designs: &[Design], max_cells: usize) -> Vec<(Edit, Design)> {
+    let mut out: Vec<(Edit, Design)> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for a in designs {
+        for b in designs {
+            if block_count(b) >= block_count(a) || a.ports.get("door") != b.ports.get("door") {
+                continue;
+            }
+            let e = diff_edit(a, b, format!("patch {} -> {}", a.name, b.name));
+            let size = e.remove.len() + e.set.len() + e.ports.len();
+            if size == 0 || size > max_cells {
+                continue;
+            }
+            let key = format!("{:?}|{:?}|{:?}", e.remove, e.set, e.ports);
+            if seen.insert(key) {
+                out.push((e, a.clone()));
+            }
+        }
+    }
+    out
+}
+
+/// The patches that apply to `target`: every cell a patch removes or changes holds in `target`
+/// what it held in the patch's source design.
+pub fn transplants(target: &Design, patches: &[(Edit, Design)]) -> Vec<Edit> {
+    let mut out = Vec::new();
+    for (e, a) in patches {
+        let same = |p: &Pos| target.blocks.get(p) == a.blocks.get(p);
+        if e.remove.iter().all(same) && e.set.iter().all(|(p, _)| same(p)) && e.ports.iter().all(|(k, _)| target.ports.get(k) == a.ports.get(k)) {
+            let new = e.apply(target);
+            if new.blocks != target.blocks {
+                out.push(e.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Screen and judge `edits` of `base` (only those with fewer blocks); the verified designs, fewest
+/// blocks first.
+pub fn try_edits(pool: &Pool, base: &Design, edits: Vec<Edit>, opts: &SearchOptions, log: &dyn Fn(&str)) -> Vec<(Design, String)> {
+    let sandboxes = Sandboxes::new(pool);
+    let failed: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
+    let cands: Vec<Cand> =
+        edits.into_iter().filter(|e| block_count(&e.apply(base)) < block_count(base)).map(|edit| Cand { base: 0, edit }).collect();
+    evaluate(pool, &sandboxes, std::slice::from_ref(base), cands, opts, &failed, 0, log).into_iter().map(|(_, d, s)| (d, s)).collect()
+}
+
 /// The edit that turns `d` into `new`.
 fn diff_edit(d: &Design, new: &Design, desc: String) -> Edit {
     let remove = d.blocks.keys().filter(|p| !new.blocks.contains_key(*p)).copied().collect();
@@ -1121,7 +1172,7 @@ fn reroutes(ctx: &Ctx, d: &Design, space: &Space) -> (Vec<Edit>, Vec<Edit>) {
 
 /// The judge's verdict without per-tick frames: same placement, same checks on the final state of
 /// every phase (verify_at only uses frames for timings). Screening only; the judge is verify_in.
-fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<()> {
+pub(crate) fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<()> {
     use anyhow::bail;
     use mctas::sim::{PlaceMode, Region};
     let illegal = crate::legality_problems(design);
@@ -1487,6 +1538,13 @@ pub fn search(
     let sandboxes = Sandboxes::new(pool);
     let mut rng = opts.seed.max(1);
     let mut cur = start.clone();
+    // Air entries place nothing but would count as blocks (and removing them would look like an
+    // improvement): drop them.
+    let airs = cur.blocks.len();
+    cur.blocks.retain(|_, s| !mctas::blockstate::is_air(s));
+    if cur.blocks.len() != airs {
+        log(&format!("dropped {} air entries from the start design", airs - cur.blocks.len()));
+    }
     let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;
@@ -1700,9 +1758,13 @@ pub fn search(
 
 /// `door regrow`: every face-connected group of `size` non-piston control blocks is cut and
 /// re-grown with `size - 1` blocks from `states` inside the group's bounding box grown by
-/// `margin` (a "cut n, add n-1" move the removal-only minimizer cannot make). Returns the
-/// verified designs, fewest blocks first.
-pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], only: Option<(Pos, Pos)>, opts: &SearchOptions, want: usize, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+/// `margin` (a "cut n, add n-1" move the removal-only minimizer cannot make). With `any`, every
+/// group of `size` control blocks is cut, connected or not, and the new blocks go in the cells
+/// within `margin` of any cut block (two far-apart parts replaced by one block somewhere near
+/// either). `only` restricts the cut blocks to a box. Returns the verified designs, fewest blocks
+/// first.
+#[allow(clippy::too_many_arguments)]
+pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], only: Option<(Pos, Pos)>, opts: &SearchOptions, want: usize, any: bool, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
     let sandboxes = Sandboxes::new(pool);
     let ctx = Ctx::new(base)?;
     let inside = |p: &Pos| only.is_none_or(|(lo, hi)| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]));
@@ -1721,16 +1783,18 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
     for _ in 1..size {
         let mut next = Vec::new();
         for g in &frontier {
-            for p in g {
-                for f in FACES {
-                    let n = add(*p, f);
-                    if set.contains(&n) && !g.contains(&n) {
-                        let mut h = g.clone();
-                        h.push(n);
-                        h.sort();
-                        if groups.insert(h.clone()) {
-                            next.push(h);
-                        }
+            let around: Vec<Pos> = if any {
+                cuttable.clone()
+            } else {
+                g.iter().flat_map(|p| FACES.iter().map(move |f| add(*p, *f))).collect()
+            };
+            for n in around {
+                if set.contains(&n) && !g.contains(&n) {
+                    let mut h = g.clone();
+                    h.push(n);
+                    h.sort();
+                    if groups.insert(h.clone()) {
+                        next.push(h);
                     }
                 }
             }
@@ -1742,24 +1806,42 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
     for g in &groups {
         let cut = Edit::removal(g, base);
         let d = cut.apply(base);
-        let (mut lo, mut hi) = (g[0], g[0]);
-        for p in g {
-            for i in 0..3 {
-                lo[i] = lo[i].min(p[i] - margin);
-                hi[i] = hi[i].max(p[i] + margin);
+        let mut cells: Vec<Pos> = Vec::new();
+        if any {
+            let mut seen: HashSet<Pos> = HashSet::new();
+            for p in g {
+                for x in p[0] - margin..=p[0] + margin {
+                    for y in p[1] - margin..=p[1] + margin {
+                        for z in p[2] - margin..=p[2] + margin {
+                            if seen.insert([x, y, z]) {
+                                cells.push([x, y, z]);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            let (mut lo, mut hi) = (g[0], g[0]);
+            for p in g {
+                for i in 0..3 {
+                    lo[i] = lo[i].min(p[i] - margin);
+                    hi[i] = hi[i].max(p[i] + margin);
+                }
+            }
+            for x in lo[0]..=hi[0] {
+                for y in lo[1]..=hi[1] {
+                    for z in lo[2]..=hi[2] {
+                        cells.push([x, y, z]);
+                    }
+                }
             }
         }
         let mut singles: Vec<(Pos, String)> = Vec::new();
-        for x in lo[0]..=hi[0] {
-            for y in lo[1]..=hi[1] {
-                for z in lo[2]..=hi[2] {
-                    let p = [x, y, z];
-                    if d.blocks.contains_key(&p) || ctx.forbidden.contains(&p) {
-                        continue;
-                    }
-                    singles.extend(states.iter().map(|s| (p, s.clone())));
-                }
+        for p in cells {
+            if d.blocks.contains_key(&p) || ctx.forbidden.contains(&p) {
+                continue;
             }
+            singles.extend(states.iter().map(|s| (p, s.clone())));
         }
         let stands = |a: Pos, sa: &String, other: Option<(Pos, &String)>| match attachment(a, sa) {
             Some(at) => match other {

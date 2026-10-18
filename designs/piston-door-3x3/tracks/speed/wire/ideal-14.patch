@@ -1,0 +1,7 @@
+# ideal-14 = w6 with F's observer reach-through (O5 + chain observer (1,5,-2)) replaced by stone
+# (R_s floor / dust floor), plus P_X: normal piston (1,4,1) facing up. F's reach-through power is
+# scripted: R_X (redstone block) at (1,5,1) (QC-only for F), P_X silently QC-powered by a
+# scripted redstone block at (2,5,1). Test of F's 0-tick at open k11.
+set 1 5 -1 minecraft:stone
+set 1 5 -2 minecraft:stone
+set 1 4 1 minecraft:piston[extended=false,facing=up]
