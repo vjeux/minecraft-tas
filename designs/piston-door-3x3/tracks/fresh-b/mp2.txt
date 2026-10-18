@@ -1,0 +1,54 @@
+name: fresh-b-mp2
+port door: 0 0 0
+port lever: 1 5 -2
+origin: -1 0 -2
+palette:
+  A minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:redstone_wire[east=none,north=up,power=0,south=side,west=none]
+  S minecraft:slime_block
+  o minecraft:observer[facing=north,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
+  s minecraft:smooth_stone
+layer -3:
+  .
+  .
+  .D
+layer -2:
+  .
+  .
+  ..D
+layer -1:
+  .
+  .
+  .SSS
+layer 0:
+  .
+  .
+  .FFF
+layer 1:
+  .
+  .
+  SFFFS
+layer 2:
+  .
+  .
+  SFFFS
+layer 3:
+  .
+  .F
+  SE.SS
+layer 4:
+  .F
+  .R.s
+  ..BCS
+layer 5:
+  .rLF
+  ..oA
+  ...OF

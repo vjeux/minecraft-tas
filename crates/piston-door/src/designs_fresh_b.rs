@@ -156,3 +156,180 @@ pub fn pd3() -> Design {
     b.set([0, 5, -1], "observer[facing=north]"); // O_U -> U
     b.d
 }
+
+/// `mp-mech`: the MIRRORED top pump (mechanism only, ideal inputs: mp.sched). The bottom row is
+/// glued to a slime row (y=-1) that the pump P (1,-2,0) pushes up one cell and pulls back (C goes
+/// up into TM's cell) and U (0,-3,0) lowers at the end (P rides along). A (1,4,0) pulls TM up, the
+/// right structure's carrier (2,3,0) drags it east, A pulls C up. Sides pushed from the top.
+pub fn mp_mech() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "fresh-b-mp-mech".into();
+    for x in 0..3 {
+        for y in 0..3 {
+            b.set([x, y, 0], "minecraft:stone");
+        }
+        b.set([x, -1, 0], "slime_block");
+    }
+    for p in [[-1, 1, 0], [-1, 2, 0], [-1, 3, 0], [3, 1, 0], [3, 2, 0], [3, 3, 0], [3, 4, 0], [2, 3, 0]] {
+        b.set(p, "slime_block");
+    }
+    b.set([1, -2, 0], "sticky_piston[facing=up,extended=false]"); // P (pump)
+    b.set([0, -3, 0], "sticky_piston[facing=up,extended=false]"); // U (lower)
+    b.set([1, 4, 0], "sticky_piston[facing=down,extended=false]"); // A
+    b.set([0, 3, 0], "sticky_piston[facing=west,extended=false]"); // H
+    b.set([2, 4, 0], "sticky_piston[facing=east,extended=false]"); // F
+    b.set([4, -4, 0], "minecraft:stone");
+    b.set([4, -3, 0], "lever[face=floor,facing=west,powered=false]");
+    b.port("door", [0, 0, 0]);
+    b.port("lever", [4, -3, 0]);
+    b.d
+}
+
+/// `mp1-top`: mp-mech with the top wired (bottom P and U still ideal, see mp1-top.sched).
+/// Lever (0,6,0) on (0,6,-1). O_H (0,5,0) watches the lever -> H (QC) at 2. O_X (1,6,0) watches the
+/// lever, O_A (1,5,0) watches O_X -> A at 4. F chain O_b..O_f -> stone (2,4,-1) -> F at 12.
+/// A2: O_h (1,6,-1) watches O_e, O_i.. -> O_g (1,5,-1) -> stone (1,4,-1) -> A.
+pub fn mp1_top() -> Design {
+    let mut b = Builder::default();
+    let m = mp_mech();
+    for (p, s) in m.blocks.iter() {
+        if s.contains("lever") || *p == [4, -4, 0] {
+            continue;
+        }
+        b.set(*p, s);
+    }
+    b.d.name = "fresh-b-mp1-top".into();
+    let st = "minecraft:stone";
+    b.set([0, 6, -1], st);
+    b.set([0, 6, 0], "lever[face=wall,facing=south,powered=false]");
+    b.port("lever", [0, 6, 0]);
+    b.port("door", [0, 0, 0]);
+    b.set([0, 5, 0], "observer[facing=up]"); // O_H
+    b.set([1, 6, 0], "observer[facing=west]"); // O_X
+    b.set([1, 5, 0], "observer[facing=up]"); // O_A
+    b.set([2, 6, 0], "observer[facing=west]"); // O_b 4
+    b.set([2, 7, 0], "observer[facing=down]"); // O_c 6
+    b.set([2, 7, -1], "observer[facing=south]"); // O_d 8
+    b.set([2, 6, -1], "observer[facing=up]"); // O_e 10
+    b.set([2, 5, -1], "observer[facing=up]"); // O_f 12
+    b.set([2, 4, -1], st); // F
+    b.set([2, 6, -2], "observer[facing=south]"); // O_p 12 (watches O_e)
+    b.set([1, 6, -2], "observer[facing=east]"); // O_q 14
+    b.set([1, 6, -1], "observer[facing=north]"); // O_h 16
+    b.set([1, 5, -1], "observer[facing=up]"); // O_g 18
+    b.set([1, 4, -1], st); // A2
+    b.d
+}
+
+/// `mp2`: mirrored pump, top wired rb6-style. Lever (1,5,-2) on S (2,5,-2): O_L (1,5,-1) -> A QC;
+/// R_F (2,5,-1, d4) -> F QC; dust (0,5,-2) -> dust (0,4,-1) -> block (0,3,-1) -> H steady.
+/// A2: O_A2 (2,5,0) watches a flag (3,5,0) riding the right structure -> A QC.
+pub fn mp2() -> Design {
+    let mut b = Builder::default();
+    let m = mp_mech();
+    for (p, s) in m.blocks.iter() {
+        if s.contains("lever") || *p == [4, -4, 0] {
+            continue;
+        }
+        b.set(*p, s);
+    }
+    b.d.name = "fresh-b-mp2".into();
+    let st = "minecraft:stone";
+    let cross = "redstone_wire[north=side,east=side,south=side,west=side]";
+    b.set([2, 5, -2], st); // S
+    b.set([1, 5, -2], "lever[face=wall,facing=west,powered=false]");
+    b.port("lever", [1, 5, -2]);
+    b.port("door", [0, 0, 0]);
+    b.set([1, 5, -1], "observer[facing=north]"); // O_L -> A
+    b.set([2, 5, -1], "repeater[facing=north,delay=4]"); // R_F -> F (QC)
+    b.set([2, 4, -1], crate::designs::FLOOR);
+    b.set([0, 4, -2], st);
+    b.set([0, 5, -2], cross);
+    b.set([0, 3, -1], st);
+    b.set([0, 4, -1], cross);
+    b.set([3, 5, 0], st); // flag
+    b.set([2, 5, 0], "observer[facing=east]"); // O_A2
+    b.d
+}
+
+/// `mp5-mech`: mirrored pump where only BM and the bottom-LEFT corner ride the slime row
+/// ((0,-1,0),(1,-1,0)); the right column is 3 high. The pump can then run BEFORE the right side
+/// opens (it only needs TM up and the left side open): A1, H, pump, F, A2 = F+2, U.
+pub fn mp5_mech() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "fresh-b-mp5-mech".into();
+    for x in 0..3 {
+        for y in 0..3 {
+            b.set([x, y, 0], "minecraft:stone");
+        }
+    }
+    for p in [[0, -1, 0], [1, -1, 0], [-1, 1, 0], [-1, 2, 0], [-1, 3, 0], [3, 0, 0], [3, 1, 0], [3, 2, 0], [3, 3, 0], [3, 4, 0], [2, 3, 0]] {
+        b.set(p, "slime_block");
+    }
+    b.set([1, -2, 0], "sticky_piston[facing=up,extended=false]"); // P (pump)
+    b.set([0, -3, 0], "sticky_piston[facing=up,extended=false]"); // U (lower)
+    b.set([1, 4, 0], "sticky_piston[facing=down,extended=false]"); // A
+    b.set([0, 3, 0], "sticky_piston[facing=west,extended=false]"); // H
+    b.set([2, 4, 0], "sticky_piston[facing=east,extended=false]"); // F
+    b.set([5, -4, 0], "minecraft:stone");
+    b.set([5, -3, 0], "lever[face=floor,facing=west,powered=false]");
+    b.port("door", [0, 0, 0]);
+    b.port("lever", [5, -3, 0]);
+    b.d
+}
+
+/// `mp6`: the MIRRORED PUMP door, wired with motion triggers ("flags": plain blocks glued to a
+/// moving slime structure, watched by an observer that is not itself next to any slime).
+/// Order (same on open and close): A1, H | pump | F | A2 = F+2 | U.
+/// * Lever (0,3,-1) on the ceiling S' (0,4,-1): powers H directly; S' feeds R_F (d4) -> F at 8.
+/// * Left structure moves at 1: top-left flag (-1,4,0) -> O (0,4,0) -> A (A1, TM up);
+///   bottom-left flag (-1,1,-1) -> O_lf -> Y -> dust -> X -> R_P (d2, 4gt) -> slime cell (0,-1,0)
+///   -> quasi-powers the pump P (0,-2,0): bottom row (BM + left corner) up, C into TM's cell.
+/// * Right structure moves at 8 (drags TM east): top-right flag (3,5,0) -> O_a (2,5,0) -> A QC
+///   (A2, C up); bottom-right flag (3,-1,0) -> O_rf -> O2 -> O3 -> U (1,-3,0) lowers the row.
+pub fn mp6() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-fresh-b-mp6".into();
+    let st = "minecraft:stone";
+    let cross = "redstone_wire[north=side,east=side,south=side,west=side]";
+    for x in 0..3 {
+        for y in 0..3 {
+            b.set([x, y, 0], st);
+        }
+    }
+    for p in [[0, -1, 0], [1, -1, 0], [-1, 1, 0], [-1, 2, 0], [-1, 3, 0], [3, 0, 0], [3, 1, 0], [3, 2, 0], [3, 3, 0], [3, 4, 0], [2, 3, 0]] {
+        b.set(p, "slime_block");
+    }
+    b.set([0, -2, 0], "sticky_piston[facing=up,extended=false]"); // P (pump)
+    b.set([1, -3, 0], "sticky_piston[facing=up,extended=false]"); // U (lower)
+    b.set([1, 4, 0], "sticky_piston[facing=down,extended=false]"); // A
+    b.set([0, 3, 0], "sticky_piston[facing=west,extended=false]"); // H
+    b.set([2, 4, 0], "sticky_piston[facing=east,extended=false]"); // F
+    b.port("door", [0, 0, 0]);
+    // top
+    b.set([0, 4, -1], st); // S'
+    b.set([0, 3, -1], "lever[face=ceiling,facing=north,powered=false]");
+    b.port("lever", [0, 3, -1]);
+    b.set([-1, 4, 0], st); // top-left flag
+    b.set([0, 4, 0], "observer[facing=west]"); // O -> A1
+    b.set([1, 4, -1], "repeater[facing=west,delay=4]"); // R_F
+    b.set([1, 3, -1], crate::designs::FLOOR);
+    b.set([2, 4, -1], st); // F-block
+    b.set([3, 5, 0], st); // top-right flag
+    b.set([2, 5, 0], "observer[facing=east]"); // O_a -> A2
+    // bottom: pump
+    b.set([-1, 1, -1], st); // bottom-left flag
+    b.set([-1, 0, -1], "observer[facing=up]"); // O_lf
+    b.set([-1, -1, -1], st); // Y
+    b.set([-2, -1, -1], cross);
+    b.set([-2, -2, -1], st);
+    b.set([-2, -1, 0], st); // X
+    b.set([-1, -1, 0], "repeater[facing=west,delay=2]"); // R_P -> slime cell (0,-1,0)
+    b.set([-1, -2, 0], "minecraft:obsidian");
+    // bottom: lower
+    b.set([3, -1, 0], st); // bottom-right flag
+    b.set([3, -2, 0], "observer[facing=up]"); // O_rf
+    b.set([3, -3, 0], "observer[facing=up]"); // O2
+    b.set([2, -3, 0], "observer[facing=east]"); // O3 -> U
+    b.d
+}
