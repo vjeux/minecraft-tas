@@ -1,0 +1,23 @@
+# fbv7-89m (seamless's 8x9 hand variant: TR goes right, top row y=5 gone) completed with:
+# - T puller fed by the left column chain: (-3,3) observer down watches the left dust (-3,2) ->
+#   dust (-3,4) -> observer (-2,4) facing west -> repeater d2 (-1,4) on stone (-1,3) -> observer
+#   (0,4) facing west watching the repeater (pulse merger: one 2 gt pulse) -> T puller (1,4).
+# - right top+middle: the relay that watches the T puller (extend + retract = two pulses) merged by
+#   a delay-2 repeater (3,4) on a stone (3,3): observer (2,4)W -> repeater (3,4) -> observer (4,4)W
+#   -> observer (4,3) up -> (4,2) direct, (4,1) by QC.
+# - right bottom (4,0) fed from below: observer (4,-3)W watches R_B's input dust (3,-3), observers
+#   (4,-2) and (4,-1) facing down -> (4,0).
+clear -1 3 0
+clear 0 3 0
+clear 0 4 0
+set -3 3 0 minecraft:observer[facing=down,powered=false]
+set -3 4 0 minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+set -2 4 0 minecraft:observer[facing=west,powered=false]
+set -1 4 0 minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+set -1 3 0 minecraft:stone
+set 0 4 0 minecraft:observer[facing=west,powered=false]
+set 3 4 0 minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+set 3 3 0 minecraft:stone
+set 4 -3 0 minecraft:observer[facing=west,powered=false]
+set 4 -2 0 minecraft:observer[facing=down,powered=false]
+set 4 -1 0 minecraft:observer[facing=down,powered=false]

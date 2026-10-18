@@ -17,6 +17,7 @@
 
 pub mod cli;
 pub mod mechsynth;
+pub mod families;
 pub mod mechwire;
 pub mod archive;
 pub mod buildable;
@@ -48,6 +49,7 @@ pub mod showcase;
 pub mod synth;
 pub mod tickvideo;
 pub mod tile;
+pub mod topology;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
