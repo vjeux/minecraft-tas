@@ -35,4 +35,10 @@ Palette for every resynth: `block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,no
 |---|---|---|---|---|---|
 | `w41.txt` | **41** | slime-free (was 42) | wire19sf-w42 | resynth 2..4: A1's X dust + floor and the right-side feed (lamp (1,4,-1) on (1,3,-1), observers (2,4,-2) watching O_a and (2,4,-1)) -> smooth stone (1,4,-1) + smooth stone (2,3,-1) + cross dust (2,4,-1): the block next to A is powered by the dust, which also feeds the TR puller | 28 / 26 |
 | `fb44.txt` | **44** | flat (was 45) | flat-b-v6 | resynth 2..4: observers (-1,4,0), (-1,5,0), (0,5,0) + smooth stone (1,5,0) -> observer (0,5,0) facing down, observer (1,5,0) facing west, smooth stone (2,5,0) | 30 / 26 |
+<<<<<<< HEAD
 | fc2-40b | 40 | solid | - | resynth 2..4 (115 groups, up to 39k circuits each): nothing | |
+=======
+| `flat43.txt` | **43** | flat (was 45) | flat-v8 (49) | resynth 2..4, six steps in a row: (1) observers (-2,4,0), (-2,5,0), (-1,3,0), (-1,5,0) -> REDSTONE LAMP (-1,3,0) + cross dust (-1,4,0) + smooth stone (-1,5,0) (the lamp holds the signal 4 gt longer, which made the next five possible); (2-6) the observer/stone/repeater chain above (y=5..7) collapses into dust: a repeater d4 (1,6,0) fed by dust (0,6,0) | 46 / 44 |
+| fc2-40b, riders-fx1-40b, m05-21b-sym-40b | 40 | solid | - | resynth 2..4 (114-115 groups each, up to 40k circuits per group): nothing | |
+| sculk2-s4 | 36 | sculk | - | resynth 2..4: nothing | |
+>>>>>>> origin/explore/lamp-sweep

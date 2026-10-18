@@ -794,6 +794,12 @@ pub enum DoorCmd {
         screen_ticks: u32,
         #[arg(long, default_value_t = 50_000_000)]
         max_cands: usize,
+        /// Speed bounds (speed boards): reject doors that open later than this many ticks.
+        #[arg(long)]
+        max_open: Option<u32>,
+        /// Speed bounds: reject doors that close later than this many ticks.
+        #[arg(long)]
+        max_close: Option<u32>,
     },
     /// Large-neighborhood search by exact synthesis (see synth.rs `resynth`): every connected
     /// group of 2..--max-size removable blocks (wiring, still plain blocks) is cleared and every
@@ -828,6 +834,16 @@ pub enum DoorCmd {
         /// Settle cap while screening (the door settles in < 60 ticks; clocks hit the cap).
         #[arg(long, default_value_t = 100)]
         screen_ticks: u32,
+        /// Speed bounds (speed boards): reject doors that open later than this many ticks.
+        #[arg(long)]
+        max_open: Option<u32>,
+        /// Speed bounds: reject doors that close later than this many ticks.
+        #[arg(long)]
+        max_close: Option<u32>,
+        /// After an improvement, search every group again (default: only the groups whose
+        /// neighborhood, the blocks within margin + 3, changed).
+        #[arg(long)]
+        global_retry: bool,
     },
 }
 
@@ -1369,6 +1385,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             screen_offsets,
             screen_ticks,
             max_cands,
+            max_open,
+            max_close,
         } => {
             use crate::synth::*;
             let mut base = load_design(&context)?;
@@ -1420,6 +1438,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         keep_frames: false,
                     },
                     judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
+                    max_open,
+                    max_close,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -1443,10 +1463,22 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry } => {
             use crate::synth::*;
             let d = load_design(&design)?;
-            let o = ResynthOptions { min_size, max_size, palette: palette_states(&palette)?, floors: palette_states(&floors)?, margin, max_cands, loose };
+            let o = ResynthOptions {
+                min_size,
+                max_size,
+                palette: palette_states(&palette)?,
+                floors: palette_states(&floors)?,
+                margin,
+                max_cands,
+                loose,
+                max_open,
+                max_close,
+                save_to: Some(out.clone()),
+                global_retry,
+            };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
             let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false };
@@ -1455,7 +1487,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
             {
                 let mut w = pool.worker(0);
-                crate::verify(&mut w, &d, &judge).map_err(|e| anyhow::anyhow!("the start design does not pass the judge: {e:#}"))?;
+                let r = crate::verify(&mut w, &d, &judge).map_err(|e| anyhow::anyhow!("the start design does not pass the judge: {e:#}"))?;
+                let (o, c) = crate::search::worst_ticks(&r);
+                log(&format!("start: {} blocks, open {o} / close {c}", crate::block_count(&d)));
+                anyhow::ensure!(max_open.is_none_or(|m| o <= m) && max_close.is_none_or(|m| c <= m), "the start design misses the speed bounds (open {o} / close {c})");
             }
             let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
             // Keep the canonical rest state only if it still passes the judge (a design written
