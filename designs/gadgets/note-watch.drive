@@ -1,0 +1,10 @@
+# Both flips: N switches at once, O pulses P 2gt later (P extends for the 2gt pulse, then retracts).
+design designs/gadgets/note-watch.txt
+probe N 0 0 0
+probe P 2 0 0
+use 0 1 0
+expect N 1
+expect_trace P rEE~~r
+use 0 1 0
+expect N 0
+expect_trace P rEE~~r

@@ -112,6 +112,9 @@ pub fn palette_states(spec: &str) -> Result<Vec<String>> {
             "rblock" => out.push("minecraft:redstone_block".into()),
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
             "target" => out.push("minecraft:target[power=0]".into()),
+            // A conductor whose own state flips (powered) the tick its power changes: an
+            // observer can watch any powered spot through it, on both edges, with no delay.
+            "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => bail!("unknown palette entry {s:?}"),
         }
@@ -172,6 +175,8 @@ impl Node {
             "redstone_wall_torch" => (Kind::Torch, Some(add(pos, neg(facing))), false, true),
             "redstone_lamp" => (Kind::Lamp, None, true, true),
             "redstone_block" => (Kind::RBlock, None, true, false),
+            // A conductor that observers can see switch (its `powered` state follows its power).
+            "note_block" => (Kind::Block, None, true, true),
             "lever" => {
                 let s = match get("face").as_deref() {
                     Some("floor") => below,

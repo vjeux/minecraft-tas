@@ -744,7 +744,7 @@ pub enum DoorCmd {
         lo: String,
         #[arg(long)]
         hi: String,
-        /// Circuit blocks (see synth::palette_states): block,gt,glass,dust,dot,rep,rep1..4,cmp,obs,torch,rblock,lamp,...
+        /// Circuit blocks (see synth::palette_states): block,gt,glass,dust,dot,rep,rep1..4,cmp,obs,torch,rblock,lamp,target,note,...
         #[arg(long, default_value = "block,dust,rep4")]
         palette: String,
         /// Blocks added under parts that need support (they count).

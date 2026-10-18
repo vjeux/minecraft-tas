@@ -1925,7 +1925,8 @@ pub struct GrowOptions {
 /// Expand `door grow --states` shorthands: `obs` (observer, 6 facings), `block`
 /// (smooth_stone), `dust` (cross wire), `rep`/`rep2`/`rep3`/`rep4` (repeater, 4 facings, that
 /// delay), `torch` (standing + 4 wall torches), `glass`, `obsidian`, `rblock` (redstone block),
-/// `lamp`, or a full `minecraft:...` state.
+/// `lamp`, `note` (note block: a conductor whose `powered` state an observer can watch), or a
+/// full `minecraft:...` state.
 pub fn grow_states(spec: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -1945,6 +1946,7 @@ pub fn grow_states(spec: &str) -> Result<Vec<String>> {
             "obsidian" => out.push("minecraft:obsidian".into()),
             "rblock" => out.push("minecraft:redstone_block".into()),
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
+            "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => return Err(anyhow!("unknown grow state {s:?}")),
         }
