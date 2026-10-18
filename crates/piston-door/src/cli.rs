@@ -813,8 +813,14 @@ pub enum DoorCmd {
         extra_offsets: u32,
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Schedule variable overrides for an ideal schedule, "name=value" (repeatable).
+        #[arg(long = "set")]
+        set: Vec<String>,
+        /// Sweep schedule variables: "a=1,2,3;b=4..6" runs every combination (cartesian product,
+        /// first variable slowest), one SAT problem each, and stops at the first judged design.
+        #[arg(long)]
+        grid: Option<String>,
     },
-    /// The catalog of flat (1-wide) seamless mechanisms per box (families.rs): every door block
     /// leaves the 3x3 in 1-2 unit moves (center 2), each move provided by a pull or push piston
     /// (reused, or lifted by one elevator piston); every candidate solved exactly in the macro
     /// piston model with the FULL seamless open test, reduced to minimal mechanisms, mirror
@@ -2600,9 +2606,36 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, settle, rec_ticks, no_qc, levels, check, iters, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, settle, rec_ticks, no_qc, levels, check, iters, first, extra_offsets, out, set, grid } => {
             use crate::satwire as sw;
             let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
+            // Variable overrides: --set, then every combination of --grid.
+            use anyhow::Context as _;
+            use std::collections::BTreeMap;
+            let mut base: BTreeMap<String, i64> = BTreeMap::new();
+            for kv in &set {
+                let (k, v) = kv.split_once('=').with_context(|| format!("--set {kv}: name=value"))?;
+                base.insert(k.trim().to_string(), v.trim().parse()?);
+            }
+            let mut combos: Vec<BTreeMap<String, i64>> = vec![base.clone()];
+            if let Some(g) = &grid {
+                for part in g.split(';').filter(|p| !p.trim().is_empty()) {
+                    let (k, vs) = part.split_once('=').with_context(|| format!("--grid {part}: name=v1,v2 or name=lo..hi"))?;
+                    let mut vals: Vec<i64> = Vec::new();
+                    for v in vs.split(',') {
+                        match v.split_once("..") {
+                            Some((lo, hi)) => vals.extend(lo.trim().parse::<i64>()?..=hi.trim().parse::<i64>()?),
+                            None => vals.push(v.trim().parse()?),
+                        }
+                    }
+                    combos = combos.iter().flat_map(|c| vals.iter().map(move |v| { let mut c = c.clone(); c.insert(k.trim().to_string(), *v); c })).collect();
+                }
+            }
+            let many = combos.len() > 1;
+            for (ci, over) in combos.iter().enumerate() {
+            if many {
+                println!("=== grid {}/{}: {}", ci + 1, combos.len(), over.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(" "));
+            }
             let rec = {
                 let mut w = Worker::spawn(&cfg)?;
                 if from_wired || check {
@@ -2610,7 +2643,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     sw::record_wired(&mut w, &d, rec_ticks)?
                 } else {
                     let text = std::fs::read_to_string(&mechanism)?;
-                    let s = crate::ideal::Schedule::parse(&text)?;
+                    let s = crate::ideal::Schedule::parse_with(&text, over)?;
                     sw::record_ideal(&mut w, &s, rec_ticks)?
                 }
             };
@@ -2637,8 +2670,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 return sw::check(&p);
             }
             let name = format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default());
-            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
-            sw::run(&p, &o)?;
+            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out: out.clone(), name, version: version.to_string() };
+            if sw::run(&p, &o)?.is_some() {
+                if many {
+                    println!("grid: judged design found at {}", over.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(" "));
+                }
+                break;
+            }
+            }
         }
         DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve } => {
             if let Some(f) = resolve {
