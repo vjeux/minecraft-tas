@@ -61,7 +61,8 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 All candidates are screened at a few positions and accepted only by the full judge. The searches
 (and the routers) keep the 3x3 columns in front of and behind the door clear. Every search takes
 `--shape <preset or key<=n,...>` (only designs within those shape limits; the judge also checks the
-swept shape) and `--tile <spec>` (judge each candidate as a tile module).
+swept shape) and `--tile <spec>` (judge each candidate as a tile module); `minimize`, `regrow`,
+`grow` and `harvest` take `--rotation-safe` (accept only designs that also work turned).
 
 | command | when to use it |
 |---|---|

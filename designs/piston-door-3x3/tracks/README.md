@@ -9,7 +9,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 |---|---|---|
 | [buildable](buildable/NOTES.md) | integrity check: can a survival player build the records? | `door buildable`; every board leader buildable at 32/32 positions, none in the naive order; found the unwaxed-copper hazard |
 | [center-mech](center-mech/NOTES.md) | new mechanisms for the middle column | v2u2 96 (solid record: sides pushed out off one shared block), rb2-sculk 48 (sculk) |
-| [fast-clean](fast-clean/NOTES.md) | the fastest solid doors under the "nothing in front of or behind" rule | every fast door broke it in the same six cells (the lever net's staircase); re-laid over the top: a1c 107 (10 / 7), s4c 101 (12 / 7), n3c 116 (9 / 7) |
+| [fast-clean](fast-clean/NOTES.md) | the fastest solid doors under the "nothing in front of or behind" rule | every fast door broke it in the same six cells (the lever net's staircase); re-laid over the top: a1c 107 (10 / 7), s4c 101 (12 / 7), n3c 116 (9 / 7), c1r 108 (9 / 7) |
 | [flat](flat/NOTES.md) | the flat board (every block in the door's plane, no slime) | 60 -> 49 (flat-v8): observer chains, `synth` and `resynth` on the late chains |
 | [flat-b](flat-b/NOTES.md) | the flat board with a different mechanism | the 19-block mechanism upside down: 48 -> 44 (flat-b-v7) |
 | [fresh-a](fresh-a/NOTES.md) | a door from first principles | slime-free 122 (a side group drags the top-middle out) |
@@ -31,6 +31,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [riders](riders/NOTES.md) | blocks riding moving structures as timing elements | fx1 40 (ties fc2), r3 43, r2 46; P_M cannot be freed |
 | [router2](router2/NOTES.md) | a port-aware, timing-aware net router | `door route2`; no saving on any record |
 | [sculk-2](sculk-2/NOTES.md) | sculk sensors replacing control wiring | s1 38, s4 36 (works facing north/south only); gadgets sculk-delay-line, sculk-wool-occlusion |
+| [sculk-ew](sculk-ew/NOTES.md) | make sculk-2's doors work facing east/west | why they broke (gadget landing-race: the landing block's update order decides which piston fires first); s4r 36 = s4 with one repeater delay 1 -> 2: rotation-safe in all 8 orientations, vanilla-checked, buildable |
 | [search-tool](search-tool/NOTES.md) | automated local search | `door minimize`, `harvest`, `transplant`; v2 109, center-mech 88, sculk 43, gravity 46 / 45 |
 | [sf-holdA](sf-holdA/NOTES.md) | the 19-block slime-free mechanism with A held at rest | **b38 38**: the solid and slime-free record |
 | [shapes](shapes/NOTES.md) | door shapes relative to the opening, shape boards | `door shapes`, swept shapes, the ground check, `--shape` on every search; boards "in a 3-thick wall", "on the ground", "smallest box" |
@@ -41,7 +42,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [synth](synth/NOTES.md) | circuit synthesis by exhaustive simulation | `door synth`, `door resynth`; gravity 45 -> 42 |
 | [tick-door](tick-door/NOTES.md) | the fastest door with 0-tick and 1-tick mechanics | w14: **opens in 4 ticks** (the proven floor), closes in 15, 229 blocks: the first lever-wired open-4 |
 | [tick-study](tick-study/NOTES.md) | 0-tick and 1-tick gadgets, floors for the door | floors open >= 4, close >= 1; an opening clear at 4 that closes in 3 (ideal inputs); 25 gadgets, all identical in vanilla ([mechanics.md](../../../docs/mechanics.md#9-floors-for-the-fastest-3x3-door)) |
-| [tile](tile/NOTES.md) | tileable doors: one module copied N times, one lever | the tile judge (`door verify --tile`, `door tile-scan`); b38h-bus8: an opening every 8 blocks, 52 blocks per opening (b38 + a 14-block bus) |
+| [tile](tile/NOTES.md) | tileable doors: one module copied N times, one lever | the tile judge (`door verify --tile`, `door tile-scan`); an opening every 8 blocks at 52 blocks per opening (b38h-bus8: b38 + a 14-block bus), then 46 (b38h-obs8: the bus became an observer chain); a wide mechanism proven with ideal inputs |
 | [top-control](top-control/NOTES.md) | move all control near the top | rb6-bmobs 47 (solid record: observer-fired bottom-middle), st43 42 (sculk) |
 | [vanilla-build](vanilla-build/NOTES.md) | replay the build scripts on the official server | `door vanilla-build`; every leader passes |
 | [vanilla-check](vanilla-check/NOTES.md) | prove the simulator matches vanilla | `door vanilla-check`, `vanilla-fuzz`; no divergence |

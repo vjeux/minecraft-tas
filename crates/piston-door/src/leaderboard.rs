@@ -385,6 +385,9 @@ fn push_leader(s: &mut String, x: &Extras, tied: &[&Entry], progression: Option<
         track.map(|t| format!("From track {t}: [tracks/{t}/NOTES.md](tracks/{t}/NOTES.md).")).unwrap_or_default()
     });
     s.push_str(&format!("**{} blocks**, {kind}{timing}: [{}]({}){video}. {how}\n\n", e.blocks, label(&e.source), source_link(&e.source)));
+    if !std::ptr::eq(e, *first) {
+        s.push_str(&format!("(Tied with the #1 row, [{}]({}), which has no GIF yet.)\n\n", label(&first.source), source_link(&first.source)));
+    }
     if let Some(k) = progression.filter(|k| x.has(&format!("{k}-progression.mp4"))) {
         s.push_str(&format!(
             "Every record of this board in one video: [{k}-progression.mp4]({}) ([poster]({})).\n\n",

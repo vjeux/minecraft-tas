@@ -76,7 +76,8 @@ Every working design is also run turned 90, 180 and 270 degrees at the same posi
 own `BlockState.rotate` turns every block). Redstone updates neighbors in a fixed direction order,
 so a door can work facing one way only. This is not part of the judge: the boards rank
 **rotation-safe** designs, and the others are listed on their own board, "Not rotation-safe", with
-the first turn that breaks them (sculk-2's 36-block doors work facing north or south only). A door
+the first turn that breaks them (sculk-2's 36-block doors worked facing north or south only, until
+sculk-ew made them rotation-safe by changing one repeater's delay). A door
 that works facing one way only can get its own variant built for the other direction: `door turn`
 writes the design turned (and/or mirrored) with `door-axis: z`, which is judged facing east/west.
 `door verify --orientations` prints which of all 8 orientations (4 turns, each as built and
