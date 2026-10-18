@@ -6,7 +6,7 @@ Every design is judged by `mctas door verify --extra-offsets 28` from main (3 op
 32 world positions). [LEADERBOARD.md](../designs/piston-door-3x3/LEADERBOARD.md) ranks 166 working
 designs, and every design in the [archive](../designs/piston-door-3x3/archive/README.md) has a
 [video](../designs/piston-door-3x3/archive/VIDEOS.md). Times are UTC commit times; this page
-describes the state at 13:05.
+describes the state at 14:00.
 
 **In one minute**
 
@@ -14,16 +14,18 @@ describes the state at 13:05.
   fx1 (fc2's core with its left column toggled by an odd number of pulses: 27 + 13) and wire21's
   m05 (a new family, mech-synth's 21-block pulse-only mechanism: 21 + 19). No 39 yet; the last
   section says what every search ruled out.
-* **New board, asked by vjeux at 10:56: solid, flat (one z layer), no slime or honey.** 60 -> 54
-  (flat track), then 47 with the mechanism turned upside down (flat-b, 12:49).
-* **Slime-free 48 -> 43** (s7 45, s7q 44, then wire19sf's 43 on mech-synth's 19-block mechanism),
-  **gravity 45 -> 42** (`door resynth`), **sculk 42 -> 38** (sculk-2: one calibrated sculk sensor
-  replaces a 5-block chain), **fastest solid door: open 11 / close 7** (speed).
+* **New board, asked by vjeux at 10:56: solid, flat (one z layer), no slime or honey.** 60 -> 49
+  (flat track), 47 -> 44 with the mechanism turned upside down (flat-b), then **43** (lamp-sweep:
+  a redstone lamp + dust replace 4 observers in flat's 49, after which a chain collapses into dust).
+* **Slime-free 48 -> 41** (s7 45, s7q 44, wire19sf's 43 and 42 on mech-synth's 19-block mechanism,
+  then lamp-sweep's 41), **gravity 45 -> 42** (`door resynth`), **sculk 42 -> 36** (sculk-2: a
+  calibrated sculk sensor replaces a 5-block chain, then a moved pusher blocks an early pull),
+  **fastest solid door: open 10 / close 7** (speed-2, 125 blocks; 11 / 7 now takes 118).
 * **A stricter judge and two integrity checks.** Floating blocks (09:48) and randomly ticking
-  blocks (12:03) are now rejected. Every board leader up to 11:56 can be built by a survival
-  player (`door buildable`), and the unmodified official server matches every design it was run on,
-  tick for tick (`door vanilla-check`). The leaders found after 09:30 still need the vanilla check,
-  and m05, w43, flat-b 47 and sculk 38 the build check too.
+  blocks (12:03) are now rejected. Every board leader can be built by a survival player
+  (`door buildable`), and the unmodified official server matches every leader tick for tick
+  (`door vanilla-check`), including the build itself: `door vanilla-build` replays each build script
+  with a bot player on the official server, identical after every click.
 
 Every solid record, filmed by one camera (151 -> 40, 2:52):
 
@@ -42,24 +44,24 @@ Ticks are game ticks after the lever flip, worst of 3 cycles
 | **Solid** | [fc2-40b](../designs/piston-door-3x3/archive/fc2-40b.txt) | **40** | 24 / 9 | [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.gif), [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4) | symmetric control, no hold (fresh-c) |
 | Solid, tie | [riders-fx1-40b](../designs/piston-door-3x3/archive/riders-fx1-40b.txt) | 40 | 24 / 26 | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/riders-fx1-40b.mp4) | fc2 with the left piston next to X's floor: X's 3 pulses per flip toggle it (riders) |
 | Solid, tie | [m05-21b-sym-40b](../designs/piston-door-3x3/archive/m05-21b-sym-40b.txt) | 40 | 40 / 38 | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m05-21b-sym-40b.mp4) | a 21-block pulse-only mechanism; a lamp makes P_R's last pulse late (wire21, mech-synth) |
-| Solid, no slime or honey | [wire19sf-w43-43b](../designs/piston-door-3x3/archive/wire19sf-w43-43b.txt) | 43 | 26 / 24 | [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w43-43b.gif), [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w43-43b.mp4) | 19-block mechanism (every edge block on its own piston) on one pulse train (wire19sf) |
-| **Solid, flat, no slime or honey** (new) | [flat-b-v3](https://github.com/vjeux/minecraft-tas/blob/explore/flat-b/designs/piston-door-3x3/tracks/flat-b/BEST.txt) (on explore/flat-b, not archived yet) | 47 | 32 / 30 | video at the next sync | the 19-block mechanism upside down: the elevator below the door, so the late pulse is at the top, where one powered block fires both top pullers (flat-b) |
-| Sculk | [sculk2-s1-38b](../designs/piston-door-3x3/archive/sculk2-s1-38b.txt) | 38 | 19 / 38 | [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s1-38b.gif), [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s1-38b.mp4) | st43 (rb family, a sculk sensor as the hold) with its 5-block lever-to-R_B chain replaced by one calibrated sculk sensor (sculk-2) |
+| Solid, no slime or honey | [lamp-sweep-w41-41b](../designs/piston-door-3x3/archive/lamp-sweep-w41-41b.txt) | 41 | 28 / 26 | [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-w41-41b.gif), [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-w41-41b.mp4) | 19-block mechanism (every edge block on its own piston) on one pulse train (wire19sf's w42), re-synthesized: 2 stones + a cross dust replace a lamp, its floor and 2 observers (lamp-sweep) |
+| **Solid, flat, no slime or honey** (new) | [lamp-sweep-flat43-43b](../designs/piston-door-3x3/archive/lamp-sweep-flat43-43b.txt) | 43 | 46 / 44 | [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-flat43-43b.gif), [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-flat43-43b.mp4) | the 19-block mechanism in one plane (flat's 49), re-synthesized with a redstone lamp (lamp-sweep); flat-b's upside-down version is 44 ([flat-b-v7-44b](../designs/piston-door-3x3/archive/flat-b-v7-44b.txt)) |
+| Sculk | [sculk2-s4-36b](../designs/piston-door-3x3/archive/sculk2-s4-36b.txt) | 36 | 20 / 37 | [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.gif) (its twin s4b), [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4-36b.mp4) | st43 (rb family) with its lever-to-R_B chain replaced by one calibrated sculk sensor, and the left pusher moved so its retracting base blocks an early pull (sculk-2) |
 | Gravity | [synth-g42-42b](../designs/piston-door-3x3/archive/synth-g42-42b.txt) | 42 | 5 / 17 | [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/synth-g42-42b.gif), [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/synth-g42-42b.mp4) | g10's sand drop tower, 3 sub-circuits re-synthesized (synth) |
 
 | speed board | best | ticks | blocks |
 |---|---|---|---|
 | Fastest open | synth-g42-42b | 5 (close 17) | 42 |
-| Fastest open, solid | [speed-wire-o6-119b](../designs/piston-door-3x3/archive/speed-wire-o6-119b.txt) (the speed track's o7; [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o6-119b.gif), [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o6-119b.mp4)) | 11 (close 7) | 119 |
+| Fastest open, solid | [speed-2-a1-125b](../designs/piston-door-3x3/archive/speed-2-a1-125b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-2-a1-125b.mp4)): the speed track's o7 without Q's hold and with an odd-tick pulse (speed-2) | 10 (close 7) | 125 |
 | Fastest close | [speed-wire-s4-108b](../designs/piston-door-3x3/archive/speed-wire-s4-108b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-s4-108b.mp4)) | 7 (open 12) | 108 |
 | Fastest open + close | [gravity-g8-48b](../designs/piston-door-3x3/archive/gravity-g8-48b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g8-48b.mp4)) | 5 + 11 | 48 |
-| Fastest open + close, solid | speed-wire-o6-119b, also slime-free | 11 + 7 | 119 |
+| Fastest open + close, solid | speed-2-a1-125b, also slime-free | 10 + 7 | 125 |
 
-Other progression videos:
-[sculk 50 -> 42](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4),
-[slime-free 128 -> 48](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) and
-[gravity 69 -> 45](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4)
-(the last two were cut before the 45 / 44 / 43 and the 42).
+Other progression videos (re-cut at 13:20):
+[sculk](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4),
+[slime-free](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4),
+[gravity](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4) and
+[flat](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4).
 
 ## How 115 became 40
 
