@@ -71,7 +71,7 @@ pub fn design_hash(d: &Design) -> u64 {
 
 /// Verdict cache: design hash -> (verdict, open ticks, close ticks). Bump the file name when the
 /// rules change so old verdicts are dropped.
-const CACHE_FILE: &str = "verdicts-v3.tsv";
+const CACHE_FILE: &str = "verdicts-v4.tsv";
 type Cached = (std::result::Result<(), String>, Option<u32>, Option<u32>);
 
 fn load_cache(dir: &Path) -> std::collections::HashMap<u64, Cached> {

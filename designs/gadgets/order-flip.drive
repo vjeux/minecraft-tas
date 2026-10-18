@@ -1,0 +1,14 @@
+# Opening: S1 (push-type) has landed at t=4 while S2 (pull-type) is still moving.
+# Closing: S2 is back home at t=4 while S1 is still moving.
+design designs/gadgets/order-flip.txt
+probe S1 3 1 1
+probe S2 0 1 -1
+probe S1b 4 1 1
+probe S2b 1 1 -1
+use 2 3 0
+expect_trace S1b .~~#
+expect S2b ~
+quiet 6
+use 2 3 0
+expect_trace S2 .~~#
+expect S1 ~

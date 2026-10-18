@@ -287,6 +287,78 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 0)]
         extra_offsets: u32,
     },
+    /// Port-aware, timing-aware net router (route2.rs). Rips every connected group of up to
+    /// --max-rip control blocks (or the --rip groups) and re-routes the receivers whose signal
+    /// changed (taps anywhere, enters each piston any way, places dust, repeaters, observers and
+    /// conductor blocks to reproduce every piston cell's signal tick for tick in a static model),
+    /// with fewer blocks; candidates are screened and judged. With --need, routes a new net:
+    /// the listed piston cells must get the given waves (see `Wave::parse`).
+    Route2 {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Largest group of control blocks ripped at once.
+        #[arg(long, default_value_t = 5)]
+        max_rip: usize,
+        /// Rip exactly these groups: cells "x,y,z;x,y,z", groups separated by '|'.
+        #[arg(long, default_value = "")]
+        rip: String,
+        /// New net: "x,y,z=WAVE;..." piston cells and the signal each must get (level+D,
+        /// pulse+D/L, on, off, open:A-B;close:C-). Every other piston cell keeps its signal.
+        #[arg(long, default_value = "")]
+        need: String,
+        /// Only tap these cells ("x,y,z;..."; default: any powered block or watched cell).
+        #[arg(long, default_value = "")]
+        taps: String,
+        /// What the router may place: dust, rep, obs, block, gt, torch or full states.
+        #[arg(long, default_value = "dust,rep,obs,block,gt")]
+        palette: String,
+        /// Accept a piston cell's signal shifted by up to this many ticks.
+        #[arg(long, default_value_t = 0)]
+        tolerance: i32,
+        #[arg(long, default_value_t = 6)]
+        beam: usize,
+        #[arg(long, default_value_t = 4)]
+        hits: usize,
+        #[arg(long, default_value_t = 60000)]
+        max_states: usize,
+        /// Routing box: the design's bounds grown by this much.
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// Do not place observers watching cells the machine changes.
+        #[arg(long)]
+        no_watch: bool,
+        /// Simulate candidates even when the static model rejects them.
+        #[arg(long)]
+        no_check: bool,
+        /// Print the model: every piston cell's signal and a calibration against the simulator.
+        #[arg(long)]
+        verbose: bool,
+        /// Print the model and stop.
+        #[arg(long)]
+        model_only: bool,
+        /// Allow re-routes with this many more blocks than the rip removes (1 = same size: a
+        /// sanity check that the router re-finds the existing wiring; such designs are reported,
+        /// not kept).
+        #[arg(long, default_value_t = 0)]
+        extra_blocks: u32,
+        /// Also rip pairs of separate groups (two nets re-routed together, e.g. from one shared
+        /// source), up to --max-rip blocks in all.
+        #[arg(long)]
+        pairs: bool,
+        /// Plateau: re-route at equal size too, judge those designs, and give each a local search
+        /// (--moves, --polish-secs each, at most --polish-max designs).
+        #[arg(long)]
+        polish: bool,
+        #[arg(long, default_value_t = 60)]
+        polish_secs: u64,
+        #[arg(long, default_value_t = 20)]
+        polish_max: usize,
+        #[arg(long)]
+        archive: bool,
+        #[command(flatten)]
+        search: SearchArgs,
+    },
     /// Cut every face-connected group of --size control blocks (pistons excluded) and re-grow it
     /// with size-1 blocks from --states inside the group's box grown by --margin (see search.rs
     /// `regrow`). The best verified design is written to --out.
@@ -589,6 +661,38 @@ pub enum DoorCmd {
         /// Where diverging designs are written.
         #[arg(long, default_value = "designs/piston-door-3x3/tracks/vanilla-check/fuzz")]
         out_dir: PathBuf,
+    },
+    /// Can a survival player build it? Search for a build program (placement order with real
+    /// player placements and normal updates, the lever state while building, temporary helper
+    /// blocks) that ends exactly in the judge's rest state, then run the judge's cycles from the
+    /// built state (see buildable.rs). Designs: files, `@builtin`, or `<git ref>:<path>`.
+    Buildable {
+        designs: Vec<String>,
+        /// Search time per design, in seconds.
+        #[arg(long, default_value_t = 300)]
+        budget: u64,
+        /// Worker JVMs.
+        #[arg(long, default_value_t = 16)]
+        workers: usize,
+        /// Allow temporary helper blocks in the search.
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+        helpers: bool,
+        /// Re-check a found program at this many positions (the judge's default four first).
+        #[arg(long, default_value_t = 4)]
+        positions: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Write each design's build script / diagnosis here (one file per design).
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// Append one markdown table row per design here.
+        #[arg(long)]
+        table: Option<PathBuf>,
+        /// Lever state while building: `both` (search both), `off`, `on`.
+        #[arg(long, default_value = "both")]
+        lever: String,
+        #[arg(long)]
+        verbose: bool,
     },
     /// Check that a design is a working 3x3 piston door; print timings and block count.
     Verify {
@@ -897,6 +1001,99 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
         }
+        DoorCmd::Route2 {
+            design,
+            out,
+            max_rip,
+            rip,
+            need,
+            taps,
+            palette,
+            tolerance,
+            beam,
+            hits,
+            max_states,
+            margin,
+            no_watch,
+            no_check,
+            verbose,
+            model_only,
+            extra_blocks,
+            pairs,
+            polish,
+            polish_secs,
+            polish_max,
+            archive,
+            search,
+        } => {
+            use crate::route2;
+            let d = load_design(&design)?;
+            let pool = search.pool(version)?;
+            let t = std::time::Instant::now();
+            let sopts = search.options()?;
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let groups = rip.split('|').map(str::trim).filter(|g| !g.is_empty()).map(crate::synth::parse_cells).collect::<Result<Vec<_>>>()?;
+            let o = route2::RipOptions {
+                max_rip,
+                route: route2::RouteOptions {
+                    palette: route2::palette(&palette)?,
+                    tolerance,
+                    beam,
+                    hits,
+                    max_states,
+                    margin,
+                    taps: crate::synth::parse_cells(&taps)?,
+                    watch: !no_watch,
+                },
+                no_check,
+                rip: groups,
+                verbose: verbose || model_only,
+                extra_blocks: if polish { extra_blocks.max(1) } else { extra_blocks },
+                pairs,
+                polish,
+                polish_secs,
+                polish_max,
+            };
+            println!("{} workers; judge {} positions", pool.len(), sopts.judge.offsets.len());
+            if model_only {
+                let meas = route2::measure(&mut pool.worker(0), &d)?;
+                route2::model_report(&d, &meas, &log);
+                return Ok(());
+            }
+            if !need.is_empty() {
+                let meas = route2::measure(&mut pool.worker(0), &d)?;
+                let mut needs = Vec::new();
+                for item in need.split(';').map(str::trim).filter(|x| !x.is_empty()) {
+                    let (c, w) = item.split_once('=').ok_or_else(|| anyhow::anyhow!("expected x,y,z=WAVE, got {item:?}"))?;
+                    let p = crate::synth::parse_cells(c)?.first().copied().ok_or_else(|| anyhow::anyhow!("no cell in {item:?}"))?;
+                    needs.push((p, route2::Wave::parse(w)?));
+                }
+                let found = route2::route_new(&pool, &d, &meas, &needs, &o, &sopts, &log)?;
+                match found.first() {
+                    Some((best, desc)) => {
+                        best.save(&out)?;
+                        println!("WORKS: {} blocks: {desc}; written to {}", crate::block_count(best), out.display());
+                    }
+                    None => println!("nothing found"),
+                }
+                return Ok(());
+            }
+            let source = design.display().to_string();
+            let judge_n = sopts.judge.offsets.len();
+            let mut on_improve = |best: &mctas::design::Design, desc: &str| -> Result<()> {
+                best.save(&out)?;
+                log(&format!("written to {}: {} blocks ({desc})", out.display(), crate::block_count(best)));
+                if archive {
+                    let note = format!("verified WORKS: {} blocks (judge: {judge_n} positions x 3 cycles); door route2 from {source}", crate::block_count(best));
+                    if let Some(p) = crate::archive::save(&out, best, crate::block_count(best), &note, None)? {
+                        log(&format!("archived {}", p.display()));
+                    }
+                }
+                Ok(())
+            };
+            let best = route2::rip_and_reroute(&pool, &d, &o, &sopts, &log, &mut on_improve)?;
+            println!("{} -> {} blocks", crate::block_count(&d), crate::block_count(&best));
+        }
         DoorCmd::Regrow { design, out, size, margin, states, only, want, any, search } => {
             let d = load_design(&design)?;
             let pos = |s: &str| -> Result<mctas::sim::Pos> {
@@ -1081,6 +1278,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
+        }
+        DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
+            let lever = match lever.as_str() {
+                "both" => None,
+                "off" => Some(false),
+                "on" => Some(true),
+                other => anyhow::bail!("--lever {other}: expected both, off or on"),
+            };
+            let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
+            crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
         DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir } => {
             let d = load_design(&design)?;

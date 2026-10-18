@@ -18,6 +18,7 @@
 pub mod cli;
 pub mod mechsynth;
 pub mod archive;
+pub mod buildable;
 pub mod designs;
 pub mod designs_history;
 pub mod designs_fresh_b;
@@ -31,6 +32,7 @@ pub mod drive;
 pub mod harvest;
 pub mod ideal;
 pub mod route;
+pub mod route2;
 pub mod minimize;
 pub mod patch;
 pub mod place;
@@ -389,11 +391,16 @@ fn verify_at(
     }
     let (wlo, whi) = watch_box(d, spec);
     let rest = w.get_region(sb, wlo, whi)?;
-    // Survival-buildability: nothing may float (levers, torches, dust, repeaters on air...).
-    let floating = w.unsupported(sb, wlo, whi)?;
+    // Survival-buildability: nothing may float (levers, torches, dust, repeaters on air...), and
+    // nothing may change by itself over time (random ticks: unwaxed copper oxidizes...).
+    let (floating, ticking) = w.static_problems(sb, wlo, whi)?;
     if !floating.is_empty() {
         let list: Vec<String> = floating.iter().map(|p| format!("{p:?} {}", rest.get(*p).unwrap_or("?"))).collect();
         bail!("unsupported blocks (they could not stand there in survival): {}", list.join("; "));
+    }
+    if !ticking.is_empty() {
+        let list: Vec<String> = ticking.iter().map(|p| format!("{p:?} {}", rest.get(*p).unwrap_or("?"))).collect();
+        bail!("blocks that change by themselves over time (random ticks, e.g. unwaxed copper oxidizes; use waxed): {}", list.join("; "));
     }
     for (p, s) in &blocks {
         if rest.get(*p) != Some(s.as_str()) && first_position {

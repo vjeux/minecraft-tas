@@ -1,3 +1,4 @@
+# INVALID under the current rules: an unwaxed copper bulb oxidizes over time (random ticks) and the observer watching it then fires the door by itself (found by the buildable track: BROKEN at cycle 20 of 40). The waxed version is archived separately.
 # verified WORKS by door leaderboard: 47 blocks, category solid
 # archived 2026-10-18 09:48Z from origin/explore/fresh-d:designs/piston-door-3x3/tracks/fresh-d/archive/fresh-d-s3-47b.txt (repo at 638775a)
 name: fresh-d-s3
