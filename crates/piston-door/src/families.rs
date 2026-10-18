@@ -1758,6 +1758,18 @@ pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize, ver
             }
             let w = wiring(&m, &rest, &sol);
             println!("  wire {} regions {:?} forced {} riders {}: {}", w.class, w.regions, w.forced, w.riders, w.why);
+            println!("  topology: {}", topology_of(&m, &sol));
+            let (wld, map) = to_world(&m);
+            let msol = mechsynth::Solution { open: ms_seq(&map, &sol.open), close: ms_seq(&map, &sol.close), sym: sol.sym.as_ref().map(|s| ms_seq(&map, s)), states: 0 };
+            for symq in [true, false] {
+                if symq && msol.sym.is_none() {
+                    continue;
+                }
+                match mechsynth::ideal_plan(&wld, &msol, symq, 6, "check") {
+                    Ok(p) => println!("  ideal plan ({}): {} input events", if symq { "sym" } else { "oc" }, p.events.len()),
+                    Err(e) => println!("  ideal plan ({}): FAILS: {e:#}", if symq { "sym" } else { "oc" }),
+                }
+            }
         }
         Ok(None) => println!("does not open (FULL seamless) and close in the macro model"),
         Err(()) => println!("state cap hit"),
@@ -2083,15 +2095,18 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
             if sym && msol.sym.is_none() {
                 continue;
             }
-            if let Ok(plan) = mechsynth::ideal_plan(&wld, &msol, sym, o.gap, &id) {
-                let tag = if sym { "sym" } else { "oc" };
-                let mut dd = plan.design.clone();
-                dd.name = format!("{id}-{tag}");
-                let dpath = mdir.join(format!("{id}-{tag}.txt"));
-                dd.save(&dpath)?;
-                let text = plan.text.replace(&format!("design {id}.txt"), &format!("design {}", dpath.display()));
-                std::fs::write(mdir.join(format!("{id}-{tag}.ideal")), text)?;
-                files.push(format!("mech/{id}-{tag}.ideal"));
+            match mechsynth::ideal_plan(&wld, &msol, sym, o.gap, &id) {
+                Ok(plan) => {
+                    let tag = if sym { "sym" } else { "oc" };
+                    let mut dd = plan.design.clone();
+                    dd.name = format!("{id}-{tag}");
+                    let dpath = mdir.join(format!("{id}-{tag}.txt"));
+                    dd.save(&dpath)?;
+                    let text = plan.text.replace(&format!("design {id}.txt"), &format!("design {}", dpath.display()));
+                    std::fs::write(mdir.join(format!("{id}-{tag}.ideal")), text)?;
+                    files.push(format!("mech/{id}-{tag}.ideal"));
+                }
+                Err(err) => files.push(format!("(no {} ideal plan: {})", if sym { "sym" } else { "oc" }, format!("{err:#}").replace(['\t', '|'], " "))),
             }
         }
         let files = files.join(" ");
