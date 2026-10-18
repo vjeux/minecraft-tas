@@ -51,6 +51,11 @@ pub struct Tile {
     pub step: Pos,
     pub copies: usize,
     pub levers: LeverMode,
+    /// A shared end piece placed once in copy 0's frame (`--tile-extra`): the lever and the
+    /// connection a definition needs at the start of the row (e.g. a riser from the lever to a
+    /// bus under a wide door). With a `port lever`, that lever replaces copy 0's (every copy then
+    /// holds the relay).
+    pub extra: Option<Design>,
 }
 
 impl Tile {
@@ -72,7 +77,7 @@ impl Tile {
         };
         ensure!(n >= 1, "--tile {s:?}: at least one copy");
         ensure!(step != [0, 0, 0], "--tile {s:?}: copies would all stand in one place");
-        Ok(Tile { label: s.trim().to_string(), step, copies: n as usize, levers: LeverMode::One })
+        Ok(Tile { label: s.trim().to_string(), step, copies: n as usize, levers: LeverMode::One, extra: None })
     }
 
     /// The same tiling with another number of copies.
@@ -131,10 +136,12 @@ pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
     let mut shared = 0;
     let mut specs = Vec::new();
     let mut levers = Vec::new();
+    let extra_lever = tile.extra.as_ref().and_then(|e| e.ports.get("lever").copied());
+    let o0 = [-center * tile.step[0], -center * tile.step[1], -center * tile.step[2]];
     for k in 0..tile.copies {
         let o = [(k as i32 - center) * tile.step[0], (k as i32 - center) * tile.step[1], (k as i32 - center) * tile.step[2]];
         let mv = |p: Pos| [p[0] + o[0], p[1] + o[1], p[2] + o[2]];
-        let keeps_lever = k == 0 || tile.levers == LeverMode::Each;
+        let keeps_lever = (k == 0 && extra_lever.is_none()) || tile.levers == LeverMode::Each;
         for (p, s) in &module.blocks {
             let state = if *p == lever && !keeps_lever {
                 match &relay {
@@ -162,6 +169,26 @@ pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
             specs.push(DoorSpec { door: mv(s.door), lever: mv(lever), along_z: false });
         }
     }
+    // The end piece: placed once, in copy 0's frame; its lever (if any) is THE lever.
+    if let Some(e) = &tile.extra {
+        let mv0 = |p: Pos| [p[0] + o0[0], p[1] + o0[1], p[2] + o0[2]];
+        for (p, s) in &e.blocks {
+            let q = mv0(*p);
+            match blocks.get(&q) {
+                Some((other, j)) if other != s => bail!("tile {}: the end piece and copy {j} both need {q:?}: {s} vs {other}", tile.label),
+                Some(_) => shared += 1,
+                None => {
+                    blocks.insert(q, (s.clone(), usize::MAX));
+                }
+            }
+        }
+        if let Some(l) = extra_lever {
+            if tile.levers == LeverMode::One {
+                levers.insert(0, mv0(l));
+            }
+        }
+    }
+    ensure!(!levers.is_empty(), "tile {}: no lever", tile.label);
     // Copy 0's lever is the lever of every opening.
     let first_lever = levers[0];
     for s in specs.iter_mut() {
