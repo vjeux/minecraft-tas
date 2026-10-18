@@ -814,6 +814,9 @@ pub enum DoorCmd {
         max_cands: usize,
         #[arg(long)]
         loose: bool,
+        /// Only groups inside this box, "x0,y0,z0:x1,y1,z1" (inclusive).
+        #[arg(long)]
+        only: Option<String>,
         #[arg(long, default_value_t = 24)]
         workers: usize,
         #[arg(long, default_value_t = 28)]
@@ -1438,10 +1441,19 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks } => {
             use crate::synth::*;
             let d = load_design(&design)?;
-            let o = ResynthOptions { min_size, max_size, palette: palette_states(&palette)?, floors: palette_states(&floors)?, margin, max_cands, loose };
+            let only = match only {
+                Some(s) => {
+                    let (a, b) = s.split_once(':').ok_or_else(|| anyhow::anyhow!("--only wants x0,y0,z0:x1,y1,z1"))?;
+                    let a = parse_cells(a)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --only corner {a:?}"))?;
+                    let b = parse_cells(b)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --only corner {b:?}"))?;
+                    Some(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
+                }
+                None => None,
+            };
+            let o = ResynthOptions { min_size, max_size, palette: palette_states(&palette)?, floors: palette_states(&floors)?, margin, max_cands, loose, only };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
             let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false };

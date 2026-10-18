@@ -1195,6 +1195,9 @@ pub struct ResynthOptions {
     /// Skip a group whose enumeration exceeds this many circuits.
     pub max_cands: usize,
     pub loose: bool,
+    /// Only groups whose blocks all lie in this box (inclusive corners): focus a large-group
+    /// run on one region.
+    pub only: Option<(Pos, Pos)>,
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
@@ -1268,7 +1271,10 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
             door_motion(&mut w, &cur)?
         };
         let rem = removable(&cur, &changing);
-        let gs = groups(&rem, o.min_size.max(1), o.max_size);
+        let mut gs = groups(&rem, o.min_size.max(1), o.max_size);
+        if let Some((lo, hi)) = o.only {
+            gs.retain(|g| g.iter().all(|p| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i])));
+        }
         let h = crate::search::design_hash(&cur);
         log(&format!("{} blocks: {} removable, {} groups of {}..{}", crate::block_count(&cur), rem.len(), gs.len(), o.min_size, o.max_size));
         for g in gs {
