@@ -188,12 +188,17 @@ straight off the lever.
 Nothing found so far shortens fc2:
 
 * `door minimize --moves all`, with plateau pairs and a 100-step neutral walk;
-* `door regrow` at sizes 2 (5.4k candidates) and 3 (1.6M);
-* `door grow` after cutting P_L's observers or the window's O_b + J;
-* `door synth` on explore/synth: no smaller replacement for any sub-circuit in its model;
+* `door regrow` at sizes 2 (5.4k candidates) and 3 (1.6M), and with `--any` (cut any 2 control
+  blocks, add 1; 416k);
+* `door grow --k 2` after cutting 3 control blocks (up to 1.57M candidates);
+* `door synth`: no smaller replacement for any sub-circuit in its model;
 * fresh-b's flags: no gain.
 
-The open leads are in [the overnight report](overnight-2026-10-18.md#open-problems-and-next-ideas).
+fresh-c's round-2 analysis in its [notes](../designs/piston-door-3x3/tracks/fresh-c/NOTES.md)
+explains why the control is pinned. X must reach A in both positions, which fixes O_a and so the
+lever. Q must sit at (0,4,+-1), which fixes R_q's input. P_L only accepts 2 gt pulses or a push
+from the east. The open leads are in
+[the overnight report](overnight-2026-10-18.md#open-problems-and-next-ideas).
 
 ## How the mechanism evolved
 

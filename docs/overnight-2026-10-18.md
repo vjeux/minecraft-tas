@@ -4,9 +4,9 @@ At 05:14 UTC a coordinator agent started the first of about 20 agent tracks on t
 The solid record was vjeux's v2-min at **115 blocks**; by 08:10 it was **40** (fresh-c's `fc2`).
 Every design was judged by `mctas door verify --extra-offsets 28` from main (3 open/close cycles
 at 32 world positions), and the records match the unmodified vanilla server tick for tick.
-[LEADERBOARD.md](../designs/piston-door-3x3/LEADERBOARD.md) ranks 123 working designs, and the
-[archive](../designs/piston-door-3x3/archive/README.md) keeps 125 design files, each with a
-[video](../designs/piston-door-3x3/archive/VIDEOS.md). Times are UTC commit times.
+[LEADERBOARD.md](../designs/piston-door-3x3/LEADERBOARD.md) ranks over 120 working designs, and
+the [archive](../designs/piston-door-3x3/archive/README.md) keeps over 120 design files, each with
+a [video](../designs/piston-door-3x3/archive/VIDEOS.md). Times are UTC commit times.
 
 Every solid record, filmed by one camera (151 -> 40, 3:11):
 
@@ -31,13 +31,13 @@ Ticks are game ticks after the lever flip, worst of 3 cycles
 |---|---|---|---|
 | Fastest open | gravity-g10-45b | 5 (close 19) | 45 |
 | Fastest open, solid | [speed-wire-w1-114b](../designs/piston-door-3x3/archive/speed-wire-w1-114b.txt) | 12 (close 19) | 114 |
-| Fastest close | fc2-40b | 9 (open 24) | 40 |
+| Fastest close | [speed-wire-w6-161b](../designs/piston-door-3x3/archive/speed-wire-w6-161b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w6-161b.mp4)) | 7 (open 12) | 161 |
 | Fastest open + close | [gravity-g8-48b](../designs/piston-door-3x3/archive/gravity-g8-48b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g8-48b.mp4)) | 5 + 11 | 48 |
-| Fastest open + close, solid | [speed-wire-w5-122b](../designs/piston-door-3x3/archive/speed-wire-w5-122b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w5-122b.mp4)), also slime-free | 12 + 11 | 122 |
+| Fastest open + close, solid | speed-wire-w6-161b, also slime-free | 12 + 7 | 161 |
 
-Among small solid doors, [mp8-43b](../designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp8-43b.txt)
-opens fastest (16 / 16,
-[GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-mp8-43b.gif)),
+Among small solid doors, fc2 closes fastest (9 ticks),
+[mp8-43b](../designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp8-43b.txt) opens fastest
+(16 / 16, [GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-mp8-43b.gif)),
 and [fc2f-41b](../designs/piston-door-3x3/archive/fc2f-41b.txt) (22 / 9) has the best total.
 Record-progression videos:
 [slime-free](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4),
@@ -95,8 +95,11 @@ Record-progression videos:
   block has its own retracted sticky piston, and one cross dust fires a stack of three.
 * **Sculk** (50 -> 42). A sculk sensor is a one-block 30 gt hold, woken by each lever flip. Its own
   board, since footsteps trigger it; with no hold left in fc2, solid has passed it.
-* **Speed** (w1 -> w5). T leaves first, a pusher shoves a sticky puller into T's exit cell, and two
-  quick pulls take C out. The track's bound for this layout is 7 / 6.
+* **Speed** (w1 -> w6: 12 / 7 at 161 blocks, slime-free; a 134-block w6 is on explore/speed).
+  T leaves first, a pusher shoves a sticky puller into T's exit cell, and two quick pulls take C
+  out. w6 closes in 7 because F stays silently quasi-powered while open (a BUD) and pushes on the
+  first update after the flip. Open 12 is the bound with 2 gt pulses; the track's bound with
+  0-tick pulses is 7 / 6.
 
 ## Mechanics discoveries
 
@@ -157,7 +160,8 @@ All `mctas door <command>`; reference list in the [README](../README.md#tools).
 * `reuse-check`: one design verified many times in one sandbox (it found the torch leak).
 * `video-all`, `gallery`, `montage`: a video per design, a GIF per board, one-camera progressions.
 * `vanilla-check`: compares a design with the official server, tick for tick.
-* `synth` (explore/synth, not merged): exhaustive circuit synthesis.
+* `synth`: exhaustive circuit synthesis. It found fc2's sub-circuits minimal in its model, and that
+  a 12-tick lever hold needs 7 blocks ([hold-2rep](../designs/gadgets/hold-2rep.drive)).
 
 ## Simulator bugs found and fixed
 
@@ -181,15 +185,22 @@ The full results land with the track's next merge.
 
 ## Open problems and next ideas
 
-* **Below 40.** fc2 is a local minimum for `minimize` (plateau pairs, 100-step walk), `regrow`
-  (1.6M candidates), `grow` and `synth`. Its 15 control blocks: lever 2, Q's delay 2, early A pulse
-  3, B window 4, P_L 2, P_M 2. fresh-c's lead is one pulse source shared by two of P_L, P_M and the
-  window (39). It expects symmetric control on the mirrored pump to tie unless the bottom shares.
+* **Below 40.** fc2 is a local minimum for everything tried:
+  * `minimize` with plateau pairs and a 100-step walk;
+  * `regrow`, including `--any` (cut any 2 control blocks, add 1);
+  * `grow --k 2` after cutting 3 (up to 1.57M candidates);
+  * `synth`.
+
+  fresh-c's layout analysis shows why: X, Q, the lever and R_q are pinned by geometry. Its 15
+  control blocks are the lever 2, Q's delay 2, the early A pulse 3, the B window 4, P_L 2 and
+  P_M 2. The lead is one pulse source shared by two of P_L, P_M and the window (39); fresh-e
+  started on that and on a Q-less center.
 * **Slime-free below 48.** fresh-c's close works without slime with ideal inputs (-2 blocks), but
   needs an A source next to A that turns off fast and on slowly.
 * **Faster.** The symmetric open floor is 22 (fc2f); a split B window might give 21 (ideal study
-  only). Solid open + close is 23 against the speed track's bound of 7 + 6.
+  only). Solid open + close is 19 (w6). Opening in under 12 needs 0-tick pulses (the speed track's
+  bound is 7 + 6).
 
-Still running at ~09:30: fresh-c, fresh-d, slime-free, speed, riders, synth, mech-synth and
-vanilla-check. Each track's `designs/piston-door-3x3/tracks/<track>/NOTES.md` has what it tried
-and why things failed.
+Still running at ~09:30: fresh-d, fresh-e, slime-free, speed, riders, mech-synth (mechanism
+synthesis) and vanilla-check. Each track's `designs/piston-door-3x3/tracks/<track>/NOTES.md` has
+what it tried and why things failed.

@@ -86,5 +86,6 @@ The 3x3 door (`mctas door ...`):
 * `minimize`: local search for fewer blocks or ticks; only the full judge accepts a candidate.
 * `harvest`: run that search on the best designs of every branch and board.
 * `grow` / `regrow`: add the cheapest 1-2 blocks / rebuild 2-3 control blocks with one fewer.
+* `synth`: try every circuit of up to k blocks between two cells; judge each with the door or a spec.
 * `video` / `video-all` / `card`: record one design / a whole folder / draw just the title card.
 * `gallery` / `montage`: a GIF of each board's best (GALLERY.md) / a board's record progression.
