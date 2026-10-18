@@ -234,11 +234,41 @@ fn lever_state(d: Pos) -> String {
     }
 }
 
+/// `door mech-wire --box/--forbid/--forbid-ring`: the routing box (instead of the design's bounds
+/// +- margin; lever spots too) and cells nothing new may use (e.g. the door plane's hallway
+/// ring, for seamless doors).
+#[derive(Clone, Debug)]
+pub struct Region {
+    pub lo: Pos,
+    pub hi: Pos,
+    pub forbid: Vec<Pos>,
+}
+pub static REGION: std::sync::RwLock<Option<Region>> = std::sync::RwLock::new(None);
+
+fn region_box(lo: Pos, hi: Pos, mg: i32) -> (Pos, Pos) {
+    match REGION.read().unwrap().as_ref() {
+        Some(r) => (r.lo, r.hi),
+        None => ([lo[0] - mg, lo[1] - mg, lo[2] - mg], [hi[0] + mg, hi[1] + mg, hi[2] + mg]),
+    }
+}
+
+fn region_forbidden(d: &Design) -> Result<HashSet<Pos>> {
+    let mut f = route2::forbidden_cells(d)?;
+    if let Some(r) = REGION.read().unwrap().as_ref() {
+        f.extend(r.forbid.iter().copied());
+    }
+    Ok(f)
+}
+
 /// Lever spots within `radius` (Manhattan) of the `near` cells, on free cells the machine never
 /// uses, attached to an unmoving conductor block of the mechanism or to a new block.
 pub fn lever_spots(mech: &Mech, near: &[Pos], radius: i32) -> Result<Vec<LeverSpot>> {
-    let forbidden = route2::forbidden_cells(&mech.bare)?;
-    let used = |c: Pos| mech.bare.blocks.contains_key(&c) || mech.meas.occupied.contains(&c) || forbidden.contains(&c) || mech.meas.moving.contains(&c);
+    let forbidden = region_forbidden(&mech.bare)?;
+    let inside = |c: Pos| match REGION.read().unwrap().as_ref() {
+        Some(r) => (0..3).all(|i| r.lo[i] <= c[i] && c[i] <= r.hi[i]),
+        None => true,
+    };
+    let used = |c: Pos| !inside(c) || mech.bare.blocks.contains_key(&c) || mech.meas.occupied.contains(&c) || forbidden.contains(&c) || mech.meas.moving.contains(&c);
     let mut cells: HashSet<Pos> = HashSet::new();
     for &n in near {
         for dx in -radius..=radius {
@@ -363,9 +393,9 @@ pub fn spot_estimate(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Option<u
         base: &pb_base,
         meas: &mech.meas,
         lever: Some(spot.lever),
-        forbidden: route2::forbidden_cells(&pb_base).ok()?,
-        lo: [lo[0] - mg, lo[1] - mg, lo[2] - mg],
-        hi: [hi[0] + mg, hi[1] + mg, hi[2] + mg],
+        forbidden: region_forbidden(&pb_base).ok()?,
+        lo: region_box(lo, hi, mg).0,
+        hi: region_box(lo, hi, mg).1,
         wants,
     };
     for r in &recv.0 {
@@ -454,9 +484,9 @@ pub fn wire_spot(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Result<Vec<W
         base: &base,
         meas: &mech.meas,
         lever: Some(spot.lever),
-        forbidden: route2::forbidden_cells(&base)?,
-        lo: [lo[0] - mg, lo[1] - mg, lo[2] - mg],
-        hi: [hi[0] + mg, hi[1] + mg, hi[2] + mg],
+        forbidden: region_forbidden(&base)?,
+        lo: region_box(lo, hi, mg).0,
+        hi: region_box(lo, hi, mg).1,
         wants: wants.clone(),
     };
     let m = pb.model(&base.blocks);
