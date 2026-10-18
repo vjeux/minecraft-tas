@@ -3,3 +3,7 @@ e3cbac258b1aaa4b result of HEAD:designs/piston-door-3x3/archive/gravity-g6-49b.t
 812e42bd0cbfa286 HEAD:designs/piston-door-3x3/archive/gravity-g4-51b.txt 51 -> 46
 ce7ea046f6221807 result of HEAD:designs/piston-door-3x3/archive/gravity-g4-51b.txt 46
 e968985ea43ae3b1 HEAD:designs/piston-door-3x3/archive/st43-bmobs-42b.txt 42 -> 42
+32d39412658fc7a6 origin/explore/gravity:designs/piston-door-3x3/tracks/gravity/BEST.txt 49 -> 46
+d6fc1b1ae0756c16 result of origin/explore/gravity:designs/piston-door-3x3/tracks/gravity/BEST.txt 46
+43c4c15ec91fb0c3 HEAD:designs/piston-door-3x3/archive/m51-sculk-48b.txt 48 -> 43
+7111b2d33dc27ef3 result of HEAD:designs/piston-door-3x3/archive/m51-sculk-48b.txt 43
