@@ -61,3 +61,19 @@ P_D pushes R_F back at c2; c4 F's base, T and R_F land; c5 F extends.
   the old R_F cell's neighbors are updated. So R_F's early return must come from elsewhere (keep S_F
   normal). And with E empty at c2 and T not back, Q pushed A' into E at c4: the T-returner is the
   part that decides whether close 6 exists in this family.
+* **`close6-pad.drive`: CLOSE 6 with partly scripted inputs** (door cells all placed at c6, every
+  piece physical except the arming blocks and R_F's return). The FIFO block-event queue at c1 runs
+  S_F's retraction, F's extension (C pushed E -> N1; E's neighbors updated: Xa), the padding piston
+  Xa (1,3,1) (head into (2,3,1): Xb (2,4,1)), P_X (shoves R_X: F loses power), Xb (head into
+  (3,4,1): Xc (3,4,0)), F's retraction (C placed in N1, E air), Xc (its base update reaches D
+  (3,3,0) and P_D (3,4,-1)), then D pushes T into E (lands c3 BE). F's base lands c3 BE, F
+  pushes [T, C] at c4: closed at c6. Rule learned: a piston only queues an extend if its push
+  resolves WHEN IT IS UPDATED, so D must be updated after F's retraction, not just run after it;
+  a 3-piston chain from E's free neighbor does that.
+* What a real door still needs (none of it built): (a) the P_X re-arm in the open state after t12
+  (R_Z off -> P_X retracts; p pushes R_X back; R_Z back), with the repeater (1,6,-1) no longer
+  powering (1,6,0) (its lock chain gives t10/t14/t16 signals to time this); (b) silent late arming
+  of Xa (R_X arms it through (1,4,1) during t4..t10, when E changes 5 times: rotate P_X west so R_X
+  sits at (0,5,0) instead), Xb (the observer o at (2,4,0) points into it: o looks dead weight), Xc
+  (the observer (3,5,-1) updates it at t2/t4 through (3,5,0)), D and P_D; (c) R_F back by c3 BE:
+  Xc's base update also reaches P_D (3,4,-1), so an armed P_D pushes R_F at c1.

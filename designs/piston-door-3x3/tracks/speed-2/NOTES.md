@@ -155,3 +155,20 @@ F 0-ticks at k8 (R_X lands k4 BE, R_Z k6 BE in the 107 family: already early eno
 * **`c2-109b.txt` = BEST: 109 blocks, open 9 / close 7, compliant** (minimize on c1): X's pulse
   (k4..k6) comes from the observer (0,3,-1) watching S_a, so the repeater + stones that fed the
   old note-block chain are dead weight.
+
+## Final report (round 2)
+* Best: **`c2-109b.txt` = BEST.txt: 109 blocks, solid, slime-free, rotation-safe, compliant with
+  the front/back column rule, open 9 / close 7 (open+close 16)**. Pre-rule: n2 113 / n3 112 (9/7),
+  a1..a4 (10/7, 125 -> 122), o7m-118b (11/7).
+* Open 9 mechanism: Q gets S_a (k2..k4, its fall is the update after T lands) + an odd k3..k5 pulse
+  (observer watching F, which retracts at k1) into its quasi cell: Q extends at k4 and spits A'
+  into E at k5; A' (X k4..k6) pulls C at k6; Q's second pulse k7..k9 comes from an observer on S_F
+  (k1) -> stone -> dot dust -> floor -> delay-1 repeater (on at k5) -> observer into Q's back, all
+  on the west side so no dust update reaches F or P_X; F 0-ticks at k9. Obsidian (4,3,0) blocks
+  the late Q push after F's 0-tick re-fires the F observer.
+* Did not work / open: open 8 validated with scripted inputs only (e1.drive: Q 0-ticked at k4 by
+  partner P shoving its quasi redstone block R_Q); missing a k4-on/k5-off A' source (every observer
+  on a k1 change points away from E or disturbs TR) and a k6..k8 Q pulse that avoids P. Close 6
+  (F 0-tick at close k1 + TR in the same phase) not attempted beyond analysis.
+* Tools: route2 `--need` takes '|' between phases; route2 forbids the door's columns; gadget
+  `odd-pulse`.
