@@ -1,0 +1,16 @@
+# mp6 -> mp7: shorter pump path. O_lf now watches the cell the flag moves INTO (-2,1,-1), so its
+# output block Y (-2,-1,-1) can feed R_P (-1,-1,-1) directly, and R_P drives a dust (0,-1,-1) on
+# an obsidian (0,-2,-1) right next to P (no X block, no dust support, R_P floor is plain).
+clear -1 0 -1
+clear -1 -1 -1
+clear -2 -1 -1
+clear -2 -2 -1
+clear -2 -1 0
+clear -1 -1 0
+clear -1 -2 0
+set -2 0 -1 minecraft:observer[facing=up]
+set -2 -1 -1 minecraft:stone
+set -1 -2 -1 minecraft:smooth_stone
+set -1 -1 -1 minecraft:repeater[facing=west,delay=2]
+set 0 -2 -1 minecraft:obsidian
+set 0 -1 -1 minecraft:redstone_wire[north=side,east=side,south=side,west=side]
