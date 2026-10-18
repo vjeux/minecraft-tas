@@ -194,8 +194,33 @@ its own); agent strip does 12x5 / 11x5.
   room for a sequencer inside the row: the timing has to come up the x = -5 / x = 7 columns or
   ride in the rows (redstone blocks pushed along row 3 power the piston under them; a plain stone
   parked in the ceiling ring cell (2,3) is legal in both stable states and can carry the level by
-  being powered from the corner (3,3)). A redstone block parked at the corner (3,3) is NOT safe:
-  it quasi-powers the row-2 piston under (4,3) all the time.
+- **Wiring attempt (15:25-15:35, analysis only, nothing placed).** What I established for the
+  13 x 5 box (mechanism at x -4..6, free columns x = -5 and x = 7, wiring rows y = -1 and 3):
+  - the static end pistons are the easy part: E (x = 6, fires s1 and s7) and A (x = -4, c1) of
+    every row can be powered IN THE ROW from a strongly powered block at (7,y) / (-5,y) (the free
+    columns), so row 3 / row -1 need not reach x = 6 and x = -4;
+  - what is left per row: B at -2 (c2), C at 3 (s6), x = 4 (s2 D, s5 D, s9 C, c3 C), D at 5 (s8)
+    and the level at 2 (s3..s4). In row 3 (and row -1) the only parts that power the cell below
+    are a redstone block or a strongly powered conductor in (x,3) (an observer would have to face
+    up and watch row 4, a repeater or dust needs a floor that walks away). A conductor must be fed
+    sideways from a row-3 neighbour, so the consecutive firing cells 3, 4, 5 cannot all be
+    conductors: (4,3) has no free neighbour. Feeding (4,3) from an observer at (3,3) (facing west,
+    watching a block moved into the ring cell (2,3)) makes (4,3) quasi-power the row-2 piston
+    at (3,2) whenever it fires, and at s2 C stands there (it would push too): broken;
+  - the mirror family (r075/r079: SE(-4) SE(-3) SE(-2) + NW/SW(4) + SW(6)) fires at -4, -3, -2,
+    -1, 0 (open, all on the left) and -2, 6, 4 (close): four consecutive cells, worse;
+  - all 433 rows fire from >= 7 distinct cells (rows-fire), the best sets being
+    {-4,-2,2,3,4,5,6} (65 rows, r046's) and {-4,-3,-2,-1,0,4,6} (43, r075's).
+  So static row-3/row-(-1) conductors cannot drive a strip door; it needs MOVING power: redstone
+  blocks pushed along row 3 / row -1 by pistons there (a redstone block in (x,3) fires row 2 and
+  row 1 together, as in r046x3-plane.ideal), or a 6th row. Handed to satwire / strip with
+  r046x3-plane as the target.
+  - **Levels help:** a sticky push followed later by a pull of the block in front of the same head
+    is ONE level: E (x 6) held s1..s7, D (x 4) held s2..s5, C (x 2) held s3..s4, the nested
+    intervals E > D > C; then only C x 3 (s6), D x 5 (s8), C x 4 (s9) and the close A -4, B -2,
+    C 4 (c3 must stay a 2 gt spit) are pulses. [r046x3-plane-levels.ideal](r046x3-plane-levels.ideal)
+    WORKS (51 / 15). Long levels make moving redstone blocks (which power while they sit) a better
+    fit, and E's level can come in-row from (7,y) for all three rows.
 
 ## Log
 - `door minimize --moves all --plateau --shape flat --seamless full+hall` on 57b: nothing (48
