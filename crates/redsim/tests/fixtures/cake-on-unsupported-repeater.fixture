@@ -1,0 +1,7 @@
+box -1 2 9 1 5 11
+block 0 3 10 minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+block 0 4 10 minecraft:cake[bites=1]
+run 2
+frame 0
+frame 1
+frame 2
