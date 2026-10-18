@@ -61,3 +61,23 @@ R_B delay 1 -> 2 and nothing else; each verified at 32 positions in all 8 orient
 
 s1 broke east/west the same way (its RB/A/Q geometry is s4's: RB (1,4,-1) between Q (0,4,-1) and
 A (1,4,0)); with delay 2 its close goes like s4r's.
+
+## Checks on s4r
+* `door vanilla-check s4r.txt s4r-ew.txt --extra-offsets 28`: PASS for both, the unmodified 26.3
+  server matches the simulator tick for tick (9344 ticks at 32 positions x 3 cycles, plus a
+  real-time 20 tps cycle). So the east/west fix holds in the real game too.
+* `door verify --cycles 20` (s4r, s4r-ew): fine.
+* `door buildable`: both BUILDABLE (36 actions, lever off while building, 9 placements against a
+  temporary dirt block; the built door opens 22 / closes 37): `s4r-36b.build.txt`,
+  `s4r-ew-36b.build.txt`. `door vanilla-build` on both: PASS (a bot player builds each in the
+  unmodified server at 4 positions, the built world equals the judge's rest state, cycles
+  identical tick for tick).
+* `door minimize --moves all --plateau --rotation-safe` on s4r (new flag, see below): local minimum
+  at 36 (272k candidates, 17 verified neutral designs, 442 removals after them, none passes).
+
+## Tools and gadgets (own commits)
+* `door minimize/harvest/regrow/grow --rotation-safe`: accept only candidates that also pass the
+  judge turned 90, 180 and 270 degrees (the boards rank rotation-safe designs).
+* Gadget `landing-race` (+ `landing-race-turned`): the east/west failure in a minimal circuit. A powered
+  piston blocked by a moving block queues nothing until it lands; the landing block's
+  W,E,D,U,N,S update then decides which of it and another piston the block powers fires first.
