@@ -26,6 +26,8 @@ pub fn build(name: &str) -> Option<Design> {
         "v3b-skel" => Some(v3b_skel()),
         "v3b" => Some(v3b()),
         "v3c" => Some(v3c()),
+        "sf-skel" => Some(sf_skel()),
+        "sf1" => Some(sf1()),
         _ => None,
     }
 }
@@ -216,5 +218,56 @@ pub fn v3c() -> Design {
     b.dust([6, 3, -2]);
     b.dust([6, 3, -1]);
     b.dust([6, 3, 0]);
+    b.d
+}
+
+/// Slime-free skeleton from v2-min: the slime backbones and the two side pistons are replaced by
+/// a stack of three sticky pistons per side (one per row, heads touching the door blocks); each
+/// stack is powered by one torch on the middle row (side power to the middle piston, quasi power
+/// to the bottom one, strong power into the block above it for the top one). The torch
+/// attachments still have to be wired to v2's sides line (`door route`).
+pub fn sf_skel() -> Design {
+    let mut d = Design::load(std::path::Path::new("designs/piston-door-3x3/v2-min.txt")).expect("v2-min.txt");
+    d.name = "piston-door-3x3-sf1".into();
+    for p in [
+        [-1, 0, 0], [-1, 1, 0], [-1, 2, 0], [3, 0, 0], [3, 1, 0], [3, 2, 0], // slime
+        [-3, 0, 0], [-2, 0, 0], [5, 0, 0], [4, 0, 0], // side pistons + heads
+        [-3, -1, 0], [5, -1, 0], // their torches
+    ] {
+        d.blocks.remove(&p);
+    }
+    let mut b = Builder { d };
+    for y in 0..3 {
+        b.set([-2, y, 0], "sticky_piston[facing=east,extended=true]");
+        b.set([-1, y, 0], "piston_head[facing=east,type=sticky,short=false]");
+        b.set([4, y, 0], "sticky_piston[facing=west,extended=true]");
+        b.set([3, y, 0], "piston_head[facing=west,type=sticky,short=false]");
+    }
+    b.set([-3, 1, 0], "redstone_wall_torch[facing=east,lit=true]"); // attached to (-4,1,0)
+    b.set([-4, 1, 0], FLOOR);
+    b.set([-3, 2, 0], FLOOR);
+    b.set([5, 1, 0], "redstone_wall_torch[facing=west,lit=true]"); // attached to (6,1,0)
+    b.set([6, 1, 0], FLOOR);
+    b.set([5, 2, 0], FLOOR);
+    b.d
+}
+
+/// sf1: sf_skel with the two stack torches wired to v2's sides line (router).
+pub fn sf1() -> Design {
+    let mut b = Builder { d: sf_skel() };
+    for (p, s) in [
+        ([-2, -3, 2], FLOOR), ([-2, -2, 2], "redstone_wire"), ([-3, -2, 2], FLOOR), ([-3, -1, 2], "redstone_wire"),
+        ([-4, -1, 2], FLOOR), ([-4, 0, 2], "redstone_wire"), ([-4, 0, 1], FLOOR), ([-4, 1, 1], "redstone_wire"),
+        ([8, 1, 0], FLOOR), ([8, 2, 0], "redstone_wire"),
+    ] {
+        b.set(p, s);
+    }
+    b.repeater([7, 1, 0], "west", 1); // into the right stack's torch attachment (6,1,0)
+    // v2's lever drop (dust (5,4,0) on (5,3,0)) would quasi-power the top-right stack piston
+    // (4,2,0) through (4,3,0): start the sides line at (6,5,0) instead.
+    b.d.blocks.remove(&[5, 4, 0]);
+    b.d.blocks.remove(&[5, 3, 0]);
+    b.set([6, 4, 0], FLOOR);
+    b.set([6, 5, 0], "redstone_wire");
     b.d
 }
