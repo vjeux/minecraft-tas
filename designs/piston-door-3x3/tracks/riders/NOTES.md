@@ -96,8 +96,11 @@ block touches a slime/honey block, or with `--k 2` an added slime that touches o
 `--changed` skips seeds whose screen timings equal the start's (inert blocks; checked in
 parallel, ~3 s per seed per worker). Runs so far, all "nothing below the start":
 fc2 single observers/redstone blocks around the left structure (117 seeds) and the right
-structure (223 seeds); fx1 riders (`--glue`, 231 seeds); `door regrow --size 3` on fx1 (1.74M
-candidates, rider states included).
+structure (223 seeds); fx1 riders (`--glue`, 231 seeds: 1-42, 44-85, 87-128 searched; seeds 43,
+86 and 129 made a worker JVM run out of memory and wedged the pool, so the run was restarted
+past them with `--seed-from`); `door regrow --size 3` on fx1 (1.74M candidates, rider states
+included). Caveat for long seed runs: a seed whose machine runs away (a riding observer that
+keeps re-triggering) can OOM a worker and hang the pool; restart with `--seed-from`.
 
 ## What failed and why (summary)
 * rb family below 43: the B window still needs rb6's 6-block bridge (O2 must watch the lever
@@ -112,12 +115,31 @@ candidates, rider states included).
 * Pulse-driven A instead of RB: on close the B window then pushes A, T and C down and the
   dance pulses pull T back up; fc2 needs A extended during the close's B window.
 
+## Round 2 (coordinator, 11:00Z): free P_M in fx1/fc2 -- shown not to fit
+P_M (1,-2,0) is pulse-driven (retracted, M two cells away) and costs 2 blocks: observer (2,-1,0)
+watching BR, block (2,-2,0) behind it. A 1-block source must be an observer whose BACK is in one
+of P_M's power cells: P_M itself (observer at (0,-2,0) W, (2,-2,0) E, (1,-3,0) D, (1,-2,+-1) N/S)
+or its QC cell (1,-1,0) (observer at (0,-1,0) W, (2,-1,0) E, (1,-1,+-1) N/S; QC from an observer
+does update P_M, it updates its back cell's neighbors). Each of those watches a cell two away
+from P_M's column ((-1,-2,0), (3,-1,0), (1,-1,+-2)...) where nothing moves in fx1/fc2.
+* Riding observers (fire after every landing, gadget rider-observer): both structures move along
+  x, so a rider's two back cells are x-neighbors, while P_M's two power cells are y-neighbors:
+  no rider powers P_M in both positions. Powering it in one position only gives the wrong
+  parity: the right structure lands once per flip (P_M needs a pulse on both edges); fx1's left
+  structure lands out/in/out (open) and in/out/in (close), i.e. 1+2 or 2+1 landings per position.
+* A riding redstone block (steady P_M, rb6 style) next to P_M's cells needs 2 glue slimes.
+* Searches (all nothing): `door grow --k 1` on fx1 minus P_M's pair, box (-3,-4,-3)..(5,2,3), 24
+  states incl. slime/honey/redstone block (3733 candidates); fx1 with the left pusher moved to the
+  bottom next to P_M ((0,-1,0) facing west + arm slime (-1,-1,0), 37 blocks) + `--k 2` in the
+  bottom box (653k candidates: one 2-block source for both pistons); `door minimize --moves all
+  --depth 2` on fx1.
+* Cheapest equal-cost variants: observer (0,-1,0) facing west + slime (-1,-1,0) under the left
+  backbone (3 pulses per flip in fx1): 40 again.
+
 ## Next ideas
 * Odd pulse counts are free toggles: any pulse-driven piston can take any existing source
-  that fires an odd number of times per edge at harmless moments (X: 3). P_M is the remaining
-  pulse-driven piston with a dedicated 2-block source; a 3-pulse source near the floor would
-  save 2 (none exists in fc2 today: the left column's bottom block toggles 3 times in fx1, but
-  an observer watching it still needs a relay block to reach P_M).
+  that fires an odd number of times per edge at harmless moments (X: 3). P_M would need such a
+  source moved next to its column (see round 2: nothing moves there today).
 * r3's self-sequenced close (riding observer + X-kicked left structure) on fc2's layout would
   remove the B window's need on close entirely; it needs the left structure next to Q.
 * `door grow --glue --k 2 --changed --then-search` on fc2/fx1 (2-block riders: slime arm +

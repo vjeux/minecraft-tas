@@ -1,0 +1,14 @@
+# full door v1: top1 + chain O_e..O_k from O_d (t6) east along y=4,z=1 to P_R (t20), O_m for M (t22)
+# move P_R up to (5,2,0) (pulls slime (3,2,0) through gap (4,2,0))
+clear 5 1 0
+set 5 2 0 minecraft:sticky_piston[extended=false,facing=west]
+set 1 4 1 minecraft:observer[facing=west,powered=false]
+set 2 4 1 minecraft:observer[facing=west,powered=false]
+set 3 4 1 minecraft:observer[facing=west,powered=false]
+set 4 4 1 minecraft:observer[facing=west,powered=false]
+set 5 4 1 minecraft:observer[facing=west,powered=false]
+set 5 4 0 minecraft:observer[facing=south,powered=false]
+set 5 3 0 minecraft:observer[facing=up,powered=false]
+# O_m watches the right column's bottom block, fires P_M through smooth stone
+set 2 -1 0 minecraft:observer[facing=up,powered=false]
+set 2 -2 0 minecraft:smooth_stone
