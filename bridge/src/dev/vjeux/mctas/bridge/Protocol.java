@@ -148,6 +148,7 @@ public final class Protocol {
             case "set" -> set(r);
             case "fill" -> fill(r);
             case "get" -> get(r);
+            case "unsupported" -> unsupported(r);
             case "use" -> use(r);
             case "step" -> step(r);
             case "status" -> status(sandbox(r));
@@ -267,6 +268,33 @@ public final class Protocol {
     }
 
     /** Region read: palette + one u16 (little endian, base64) per block, x fastest, then z, then y. */
+    /**
+     * Blocks in the region whose state cannot survive where it stands (a floating lever, torch,
+     * dust or repeater, a button on air...): raw placement keeps them, but a survival player
+     * could not build them, so the judge rejects designs that contain any.
+     */
+    private JsonObject unsupported(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        int[] a = ints(r.getAsJsonArray("from"));
+        int[] b = ints(r.getAsJsonArray("to"));
+        JsonArray out = new JsonArray();
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int x = Math.min(a[0], b[0]); x <= Math.max(a[0], b[0]); x++) {
+            for (int y = Math.min(a[1], b[1]); y <= Math.max(a[1], b[1]); y++) {
+                for (int z = Math.min(a[2], b[2]); z <= Math.max(a[2], b[2]); z++) {
+                    p.set(x, y, z);
+                    BlockState s = sb.level.getBlockState(p);
+                    if (!s.isAir() && !s.canSurvive(sb.level, p)) {
+                        out.add(pos(x, y, z));
+                    }
+                }
+            }
+        }
+        JsonObject o = new JsonObject();
+        o.add("positions", out);
+        return o;
+    }
+
     private JsonObject get(JsonObject r) {
         Sandbox sb = sandbox(r);
         int[] a = ints(r.getAsJsonArray("from"));

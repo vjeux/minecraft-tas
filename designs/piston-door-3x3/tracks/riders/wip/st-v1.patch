@@ -1,0 +1,2 @@
+clear 0 3 -1
+set -1 4 -1 minecraft:observer[facing=west,powered=false]

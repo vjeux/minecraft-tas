@@ -47,6 +47,20 @@ Missing to wire it:
 * P_X's power must arrive SILENTLY after R_X lands (R_X's arrival updates P_X) and before k11:
   O5's pulse into (1,5,0) is noisy (it would fire P_X at k10 as soon as R_X is placed).
 
+## Size at equal speed (12/7): s1..s4 (each = previous + sN.patch; s1 from ../w6-134b.txt)
+* s1 128: TR's second hold = observer (3,4,0) (in TR's QC cell, facing north) watching S_R,
+  which only moves on close (extends k2) -> k4..6 into stone (3,4,1); OT2 + W-net tail gone.
+* s2 125: M's torch = wall torch (0,-2,0) beside the M piston, attached to (-1,-2,0), the floor
+  of dust (-1,-1,0) (fed via (-2,-1,0)).
+* s3 116: F's close-k2 update = dust (3,5,1) (on (3,4,1); lit by X_T k2..4, then by its floor
+  k4..6) -> dust (2,4,1) (2 cells from F, floor (2,3,1)); the 12-block W-net tail to (1,4,2) goes.
+* s4 109: Q's silent hold = repeater (-2,4,-1) (delay 2) reading G (W's output) into stone
+  (-2,4,0) (next to Q's QC cell); the west W-net loop + old repeater go.
+Tried/rejected on paper: sticky S_F (its retraction does not neighbor-update A, so F gets no k1
+update); torch attachments or floors next to a side piston (dust power on the block powers the
+piston); dust next to a torch-powered stone (latches the lever net); east trunk at y=3 (floors
+in the walkway).
+
 ## Signals in w5 (k = ticks after the lever flip)
 * Lever (0,4,-2) on (0,3,-2) at the north side; everything hangs off it.
 * F rest power: redstone block R_F at A (1,4,-1). S_F = NORMAL piston (0,4,-1) next to the lever

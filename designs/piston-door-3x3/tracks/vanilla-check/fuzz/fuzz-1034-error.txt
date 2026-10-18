@@ -1,0 +1,63 @@
+name: fuzz-1034
+port door: 0 0 0
+port lever: 3 5 5
+origin: 0 0 0
+palette:
+  A minecraft:redstone_torch[lit=true]
+  B minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  C minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  D minecraft:stone
+  H minecraft:honey_block
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=up]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:target[power=0]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=north,powered=false]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  .D.T
+  .
+  ..Ao
+  .....S
+  ..D
+  ...D
+layer 1:
+  .....D
+  ..DADS
+  .DRH
+  .R
+  .
+  .....P
+layer 2:
+  .H..A
+  ..B
+  ..O
+  ....A
+  ..D
+  .....C
+layer 3:
+  .D..DR
+  D..D
+  .D...N
+  r
+  ...D
+  .
+layer 4:
+  ....D
+  N.D
+  .
+  D
+  .
+  ..TDsW
+layer 5:
+  .
+  .
+  .
+  .
+  .
+  ...L
