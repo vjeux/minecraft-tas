@@ -94,13 +94,17 @@ pub struct Display {
 
 impl Display {
     pub fn start(width: u32, height: u32) -> Result<Display> {
+        // One at a time per process, and only a display whose Xvfb is still alive counts (two
+        // processes racing for the same number: the loser's Xvfb exits and it moves on).
+        static START: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = START.lock().unwrap_or_else(|e| e.into_inner());
         for number in 90..200u32 {
             let lock = PathBuf::from(format!("/tmp/.X{number}-lock"));
             let socket = PathBuf::from(format!("/tmp/.X11-unix/X{number}"));
             if lock.exists() || socket.exists() {
                 continue;
             }
-            let child = Command::new("Xvfb")
+            let mut child = Command::new("Xvfb")
                 .arg(format!(":{number}"))
                 .args(["-screen", "0", &format!("{width}x{height}x24"), "-nolisten", "tcp", "+extension", "GLX"])
                 .stdout(Stdio::null())
@@ -108,12 +112,26 @@ impl Display {
                 .spawn()
                 .context("starting Xvfb (install xorg-x11-server-Xvfb)")?;
             let deadline = Instant::now() + Duration::from_secs(10);
+            let mut died = false;
             while Instant::now() < deadline {
+                if child.try_wait().ok().flatten().is_some() {
+                    died = true;
+                    break;
+                }
                 if socket.exists() {
+                    std::thread::sleep(Duration::from_millis(200));
+                    if child.try_wait().ok().flatten().is_some() {
+                        died = true;
+                        break;
+                    }
                     return Ok(Display { child, number });
                 }
                 std::thread::sleep(Duration::from_millis(50));
             }
+            if died {
+                continue;
+            }
+            let _ = child.kill();
             bail!("Xvfb :{number} did not come up");
         }
         bail!("no free X display number")
@@ -169,6 +187,8 @@ impl Client {
             .args(["--width", &width.to_string(), "--height", &height.to_string()])
             .args(["--quickPlayMultiplayer", &format!("127.0.0.1:{port}")])
             .env("DISPLAY", display.name())
+            // Software Vulkan (llvmpipe) would start one thread per CPU; several clients share a box.
+            .env("LP_NUM_THREADS", std::env::var("LP_NUM_THREADS").unwrap_or_else(|_| "12".into()))
             .current_dir(game_dir)
             .stdout(std::fs::File::create(&log)?)
             .stderr(Stdio::from(std::fs::File::options().append(true).open(&log)?))

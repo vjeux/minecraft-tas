@@ -1,0 +1,39 @@
+name: v2-ideal-mech-pulsed
+port door: 0 0 0
+origin: -4 0 -1
+palette:
+  S minecraft:stone
+  s minecraft:slime_block
+  E minecraft:sticky_piston[facing=east,extended=false]
+  W minecraft:sticky_piston[facing=west,extended=false]
+  U minecraft:sticky_piston[facing=up,extended=false]
+  D minecraft:sticky_piston[facing=down,extended=false]
+  B minecraft:sticky_piston[facing=down,extended=false]
+  N minecraft:sticky_piston[facing=north,extended=true]
+  n minecraft:piston_head[facing=north,type=sticky,short=false]
+  x minecraft:redstone_wire[north=side,east=side,south=side,west=side]
+  R minecraft:redstone_block
+layer -2:
+  .
+  .....U
+layer 0:
+  .
+  .E.sSSSs.W
+layer 1:
+  .
+  ...sSSSs
+layer 2:
+  .
+  ...sSSSs
+layer 3:
+  .
+  ......S
+  .....n
+  .....N
+  .....R
+layer 4:
+  .
+  .....Dx
+layer 5:
+  .
+  .....B

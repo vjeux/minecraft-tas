@@ -1,0 +1,92 @@
+# verified WORKS by door leaderboard: 50 blocks, category sculk
+# archived 2026-10-18 06:05Z from origin/explore/center-mech:designs/piston-door-3x3/tracks/center-mech/BEST.txt (repo at a2bbc83)
+name: piston-door-3x3-rb2-sculk
+port door: 0 0 0
+port lever: 0 6 -1
+origin: -1 0 -3
+palette:
+  A minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  B minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
+  C minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  F minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  G minecraft:smooth_stone
+  H minecraft:sticky_piston[extended=false,facing=down]
+  I minecraft:sticky_piston[extended=false,facing=east]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=true,facing=down]
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  M minecraft:sticky_piston[extended=true,facing=up]
+  N minecraft:stone
+  O minecraft:observer[facing=north,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=up,powered=false]
+  p minecraft:piston_head[facing=up,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+  s minecraft:slime_block
+layer -2:
+  .
+  .
+  .
+  sRM
+  .
+  .
+layer -1:
+  .
+  .
+  .
+  s.p
+  .
+  .
+layer 0:
+  .
+  .
+  .
+  sNNNs
+  .
+  .
+layer 1:
+  .
+  .
+  .
+  sNNNs
+  .
+  .
+layer 2:
+  .
+  .
+  .
+  sNNNs
+  .
+  .
+layer 3:
+  .
+  .G
+  .
+  s.Pss
+  ..G
+  .
+layer 4:
+  .G
+  .E
+  SIR
+  sJKIs
+  ..D
+  .
+layer 5:
+  .B
+  .G
+  .G
+  ..H
+  .Go
+  .GG
+layer 6:
+  .
+  .A
+  .L
+  .O
+  .AF
+  .Cr

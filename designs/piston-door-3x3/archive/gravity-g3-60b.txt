@@ -1,0 +1,93 @@
+# verified WORKS by door leaderboard: 60 blocks, category gravity
+# archived 2026-10-18 06:03Z from origin/explore/gravity:designs/piston-door-3x3/tracks/gravity/BEST.txt (repo at 52eac42)
+name: gravity-g3
+port door: 0 0 0
+port lever: 1 0 -2
+origin: -1 0 -3
+palette:
+  A minecraft:piston_head[facing=up,short=false,type=sticky]
+  B minecraft:redstone_wire[east=none,north=none,power=11,south=side,west=side]
+  C minecraft:redstone_wire[east=none,north=none,power=9,south=side,west=side]
+  D minecraft:redstone_wire[east=none,north=side,power=15,south=side,west=none]
+  E minecraft:redstone_wire[east=none,north=side,power=6,south=side,west=none]
+  F minecraft:redstone_wire[east=none,north=side,power=7,south=side,west=none]
+  G minecraft:redstone_wire[east=none,north=side,power=8,south=side,west=none]
+  H minecraft:redstone_wire[east=none,north=up,power=14,south=none,west=side]
+  I minecraft:redstone_wire[east=side,north=none,power=12,south=up,west=none]
+  J minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  K minecraft:redstone_wire[east=side,north=side,power=10,south=none,west=none]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  M minecraft:redstone_wire[east=up,north=side,power=13,south=none,west=none]
+  N minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  O minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
+  P minecraft:piston[extended=true,facing=up]
+  Q minecraft:repeater[delay=3,facing=north,locked=false,powered=true]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:sand
+  T minecraft:smooth_stone
+  U minecraft:sticky_piston[extended=false,facing=east]
+  V minecraft:sticky_piston[extended=false,facing=west]
+  W minecraft:sticky_piston[extended=true,facing=up]
+  p minecraft:piston_head[facing=up,short=false,type=normal]
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+  s minecraft:slime_block
+layer -7:
+  .
+  .
+  ..T
+  ..T
+  .
+layer -6:
+  .TT
+  ..TT
+  ..NT
+  ..QT
+  ..WT
+layer -5:
+  .IB
+  .TKC
+  ..TG
+  ...F
+  ..AE
+layer -4:
+  .
+  .MT
+  ..O
+  ..W
+  ..s
+layer -3:
+  ..T
+  ..H
+  .
+  ..A
+  ..s
+layer -2:
+  ..D
+  .T.T
+  .
+  ..P
+  .
+layer -1:
+  ..R
+  .JTJ
+  .TrT
+  sVpUs
+  .
+layer 0:
+  .
+  ..L
+  .
+  sSSSs
+  .
+layer 1:
+  .
+  .
+  .
+  sSSSs
+  .
+layer 2:
+  .
+  .
+  .
+  sSSSs
+  .

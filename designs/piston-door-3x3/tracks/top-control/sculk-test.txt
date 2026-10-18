@@ -1,0 +1,15 @@
+name: sculk-test
+# Lever on F; sculk sensor S on block Y 3 blocks away; torch T on Y's east face (dark while S is
+# active: S strongly powers the block under it); piston P far away to test piston vibrations.
+origin: 0 0 0
+palette:
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  F minecraft:smooth_stone
+  S minecraft:sculk_sensor
+  Y minecraft:smooth_stone
+  T minecraft:redstone_wall_torch[facing=east,lit=true]
+  P minecraft:sticky_piston[facing=up,extended=false]
+layer 0:
+  F..YT.P
+layer 1:
+  L..S

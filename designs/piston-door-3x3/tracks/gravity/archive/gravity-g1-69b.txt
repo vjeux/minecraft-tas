@@ -1,0 +1,98 @@
+# verified WORKS: 69 blocks, open after 6 ticks, closed after 11 ticks
+# archived 2026-10-18 05:55Z from designs/piston-door-3x3/tracks/gravity/g1.txt (repo at e4d6e33)
+name: gravity-g1
+port door: 0 0 0
+port lever: 1 0 -2
+origin: -3 0 -3
+palette:
+  A minecraft:piston_head[facing=up,short=false,type=normal]
+  B minecraft:piston_head[facing=up,short=false,type=sticky]
+  C minecraft:piston_head[facing=west,short=false,type=sticky]
+  D minecraft:redstone_wire[east=none,north=none,power=14,south=up,west=side]
+  E minecraft:redstone_wire[east=none,north=none,power=8,south=side,west=side]
+  F minecraft:redstone_wire[east=none,north=side,power=5,south=side,west=none]
+  G minecraft:redstone_wire[east=none,north=side,power=6,south=side,west=none]
+  H minecraft:redstone_wire[east=none,north=side,power=7,south=side,west=none]
+  I minecraft:redstone_wire[east=side,north=none,power=13,south=none,west=side]
+  J minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=side]
+  K minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=up]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  M minecraft:redstone_wire[east=side,north=none,power=9,south=none,west=side]
+  N minecraft:redstone_wire[east=side,north=side,power=10,south=none,west=none]
+  O minecraft:obsidian
+  P minecraft:piston[extended=true,facing=up]
+  Q minecraft:redstone_wire[east=up,north=none,power=11,south=side,west=none]
+  R minecraft:redstone_wall_torch[facing=south,lit=true]
+  S minecraft:redstone_wire[east=up,north=side,power=13,south=none,west=none]
+  T minecraft:redstone_wire[east=up,north=side,power=15,south=none,west=side]
+  U minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  V minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
+  W minecraft:repeater[delay=3,facing=north,locked=false,powered=true]
+  X minecraft:slime_block
+  Y minecraft:smooth_stone
+  Z minecraft:sticky_piston[extended=true,facing=east]
+  a minecraft:sticky_piston[extended=true,facing=up]
+  b minecraft:sticky_piston[extended=true,facing=west]
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=none,power=12,south=up,west=side]
+  s minecraft:sand
+layer -7:
+  .
+  .
+  ....Y
+  ....Y
+  .
+layer -6:
+  ...Y
+  ...YYY
+  ....UY
+  ....WY
+  ....aY
+layer -5:
+  ...QY
+  ...NME
+  ....YH
+  .....G
+  ....BF
+layer -4:
+  ....r
+  ....Y
+  ....V
+  ....a
+  ....X
+layer -3:
+  .
+  ....SY
+  .
+  ....B
+  ....X
+layer -2:
+  .
+  .....D
+  ...Y.Y
+  ....P
+  .
+layer -1:
+  .
+  ....Y
+  .YYKRTYY
+  ..OYAYO
+  .
+layer 0:
+  .
+  ....L
+  YIJ...JIY
+  ZpXsssXCb
+  .
+layer 1:
+  .
+  .
+  .
+  ..XsssX
+  .
+layer 2:
+  .
+  .
+  .
+  ..XsssX
+  .
