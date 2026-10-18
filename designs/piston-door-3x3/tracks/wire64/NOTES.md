@@ -73,3 +73,33 @@ Variants checked in the catalog: BR right (SW(4,0)) removes K2 but not K0; BL do
 SU(0,-2) instead of SE(-2,0)) frees (-2,0) and lets K0 reach L1 at rest and, through the unused ring
 cell (-1,0), the lifted L1, but U0 (BL's puller) and UM still need single pulses from regions that
 only see E3/L1 (even or many-change links) or R0 (two pulses 4 gt apart).
+
+## 4. 8x8-118 (v2 catalog) and the bottom-elevator members 122-125/128
+
+Both families keep a level-held lift piston (E3+ at (-3,1), extended at rest) behind the center's
+puller L1, which rests IN THE RING at (-1,1) and fires twice on open (at (-1,1): C to (0,1); pulled back
+to (-2,1) by E3: C to (-1,1)), plus a second elevator: 118 lifts ML up (D at (0,3) in the ring, lift
+E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
+- Families' own ideal schedules fail in the simulator: their input for L1 at (-2,1) is a block behind it
+  (z=1), which also quasi-powers BL's puller L0 (-2,0) below it, so L0 pushes BL back. In the plane L1 at
+  (-2,1) has only pistons around it; it fires through its quasi cell (-2,2) (= L2): TL, sitting at (-1,2)
+  when open, strongly powered by an observer at (-1,3) facing up, quasi-powers it without touching L2
+  (that is L2's front) or L0. The same observer quasi-powers L1 at (-1,1) through (-1,2).
+  f118/f118a.ideal and f125/f125a.ideal (that observer real, poked at (-1,4)): WORK at 32 positions x
+  2 cycles. The second L1 shot is a landing fire: the observer must be on when E3's pull lands L1 at
+  (-2,1) (1-tick window, p6 = 19 with E3 released at 18); the first shot has a 6-tick window.
+- Odd links: a LEVEL piston moves once per edge, so an observer watching it fires exactly once (the
+  landing is swallowed). In 118 the bottom-left (L0, UM: free toggles there) can watch E3 from (-3,0)
+  and the top-right (D1, D2, R1 + R0 by quasi + BUD from one observer at (4,2)) can watch E5 from (1,5).
+- 118 (also 119, 126, 127, 129: same top-left) is blocked in the TOP-LEFT: D at (0,3) can only be armed
+  through its quasi cell (0,4) from (-1,4), and D at (0,4) only directly from (-1,4); (-1,4) is exactly
+  the cell the L1 observer (-1,3) watches. Anything at (-1,4) that changes state when it powers D (note
+  block, observer, torch) fires L1 2 gt later, while ML is still in L1's way at (0,1) (D's pull of ML is
+  what has to come first): f118b.txt/.ideal (note block N4 at (-1,4) + observer O4 (-2,4)) shows it,
+  L1 shoves ML, C and MR east at t4 for every timing. A plain conductor there (no state change) arms D
+  silently but leaves the observer with nothing to watch, and L1 at (-2,1) has no other driver
+  ((-3,2)/(-2,3) power L2 directly, whose push would shove TL and ML across the top row).
+- 122-125/128 (bottom elevator, no such coupling: f125a works) are blocked by TIMING: on open the
+  bottom-left must act first (L0, then U pulls ML down) and the top-left next (L1's first shot), then
+  E3, then the bottom-left again (lift, U's second shot). Both regions need lever-early signals, but
+  their only link (E3, a level piston) changes in the middle of the sequence on open (at t0 on close).
