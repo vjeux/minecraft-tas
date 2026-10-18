@@ -103,3 +103,35 @@ Patches (apply with `door patch`): pd3b-from-pd3.patch, pd3c-from-pd3b.patch, pd
 * `door minimize --moves all --plateau` finds nothing on pd3 / pd3c / pd3d.
 * pd3d control (28): lever + block, O_A1, O2, O3, O_S, P, 4 + 1 observers for A's 2nd pulse,
   torch tower 7 (to y=4), O_T + 4gt repeater + floor + block next to T, 4 + 1 observers for U.
+
+## 08:15Z MIRRORED PUMP: mp6 46 -> mp7 45 -> mp8 43 (= BEST.txt), opens 16 / closes 16
+Files: `door gen mp6` (designs_fresh_b.rs::mp6), patches mp7-from-mp6.patch, mp8-from-mp7.patch;
+mechanism-only checks: mp-mech.txt + mp.sched / mp2.sched (first order), mp5-mech.txt + mp5.sched
+(final order). All verified `--extra-offsets 28`.
+
+### Mechanism (25 = door 9 + slime 11 + 5 pistons, all retracted at rest)
+* Only BM and the bottom-LEFT corner ride a 2-slime row (0,-1,0),(1,-1,0); the right column is 3 high.
+* Pump P (0,-2,0, under the row): one 4gt pulse pushes the row up (BM pushes C into TM's cell) and
+  pulls it back (C is not glued, it stays at (1,2,0)).
+* U (1,-3,0, gap (1,-2,0)): one 2gt pulse at the end pulls the row down (BM + corner out); P is
+  pushed down with it and dragged back up on close (a retracted piston glued under slime RIDES it).
+* A (1,4,0, gap (1,3,0)): pulse 1 pulls TM up into (1,3,0); pulse 2 pulls C up into (1,3,0).
+* Left structure (slime (-1,1..3,0)) pushed west by H (0,3,0); right structure (slime (3,0..4,0)
+  + carrier (2,3,0)) pushed east by F (2,4,0); the carrier drags TM from (1,3,0) to (2,3,0).
+* ORDER (same on both edges): A1, H | pump | F | A2 | U. The pump only needs TM up and the LEFT
+  side open, so it runs before F; then A2 can be fired by F's own motion.
+  Ideal windows (mp5.sched): h 0..6, a1 <= t-3, t 5..9, tl 3..7, s 5..8 (and >= a1+5), a2 >= s+2
+  and > t, u >= t+tl+1; a double U pulse breaks the close.
+  Close: A1 pushes C from (1,3,0) down to (1,2,0) (spit), H pulls the left side back, the pump is a
+  no-op (P sits one lower), F brings TM back into (1,3,0), A2 pushes TM + C home (spit), U lifts the
+  row (spit; P rides back up).
+
+### Control (18): FLAGS = plain blocks glued to a moving slime structure, watched by an observer
+that touches no slime (an observer next to slime would be dragged). Watching the cell a flag moves
+INTO (instead of the one it leaves) is as good and frees the observer's back side.
+* Lever (0,3,-1) on the ceiling block S' (0,4,-1): powers H directly; S' feeds R_F (1,4,-1, d4,
+  floor (1,3,-1)) -> block (2,4,-1) -> F at 8.
+* Left structure moves at 1: top-left flag (-1,4,0) -> O (0,4,0) -> A (A1 at 3); bottom-left flag
+  (-1,0,0) -> O (-2,-1,0) watching (-2,0,0) -> block (-2,-2,0) -> R_P (-1,-2,0, d2 = 4gt pulse) -> P.
+* Right structure moves at 8: top-right flag (3,5,0) -> O_a (2,5,0) -> A's quasi cell (1,5,0) (A2 at
+  10); bottom-right flag (3,-1,0) -> O (3,-2,0) -> O (3,-3,0) -> O (2,-3,0) -> U (at 14).

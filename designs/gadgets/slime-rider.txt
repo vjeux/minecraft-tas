@@ -1,0 +1,21 @@
+name: gadget-slime-rider
+# A retracted sticky piston R right under a slime row RIDES it (fresh-b mp6..mp8): when U pulls the
+# row down (2 gt pulse into its gap) R is pushed down one cell, when U pushes the row back up (2 gt
+# pulse, spit) R is dragged back up, still facing the slime, so it can keep pumping the row from
+# either spot. Lever L on S, observer O watching L powers U directly.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  R minecraft:sticky_piston[extended=false,facing=up]
+  M minecraft:slime_block
+layer 0:
+  ...S
+layer 1:
+  .UOL
+layer 2:
+  R
+layer 3:
+  MM
