@@ -235,13 +235,36 @@ fn fits_default_sandbox(d: &Design, specs: &[DoorSpec], offsets: &[Pos]) -> bool
 pub type OpeningTicks = Vec<(u32, u32)>;
 
 /// The judge on a tiled module, in an existing sandbox of the default size (the search path).
+/// An arrangement too wide for it runs in a larger sandbox kept per worker.
 pub fn verify_tiled_in(w: &mut Worker, sb: u32, module: &Design, tile: &Tile, opts: &VerifyOptions) -> Result<(Report, OpeningTicks)> {
     let t = expand(module, tile)?;
-    if !fits_default_sandbox(&t.design, &t.specs, &opts.offsets) {
-        bail!("tile {}: the arrangement does not fit the search sandbox at every judge position (fewer copies)", tile.label);
+    if fits_default_sandbox(&t.design, &t.specs, &opts.offsets) {
+        return verify_multi_in(w, sb, &t.design, &t.specs, &t.levers, opts);
     }
-    verify_multi_in(w, sb, &t.design, &t.specs, &t.levers, opts)
+    let want = sandbox_for(&t.design, &t.specs, &opts.offsets);
+    let big = SandboxOptions { chunks: [-5, -5, 4, 4], seed: 0 };
+    let fits_big = want.chunks[0] >= big.chunks[0] && want.chunks[1] >= big.chunks[1] && want.chunks[2] <= big.chunks[2] && want.chunks[3] <= big.chunks[3];
+    if !fits_big {
+        let own = w.create(&want)?;
+        let r = verify_multi_in(w, own, &t.design, &t.specs, &t.levers, opts);
+        let _ = w.drop_sandbox(own);
+        return r;
+    }
+    let pid = w.pid();
+    let cached = BIG_SANDBOXES.lock().unwrap().get(&pid).copied();
+    let bsb = match cached {
+        Some(b) => b,
+        None => {
+            let b = w.create(&big)?;
+            BIG_SANDBOXES.lock().unwrap().insert(pid, b);
+            b
+        }
+    };
+    verify_multi_in(w, bsb, &t.design, &t.specs, &t.levers, opts)
 }
+
+/// Large sandboxes for wide arrangements, one per worker JVM (by process id).
+static BIG_SANDBOXES: std::sync::Mutex<BTreeMap<u32, u32>> = std::sync::Mutex::new(BTreeMap::new());
 
 /// The judge on a tiled module in a fresh sandbox sized for the arrangement.
 pub fn verify_tiled(w: &mut Worker, module: &Design, tile: &Tile, opts: &VerifyOptions) -> Result<(Report, OpeningTicks, Tiled)> {
