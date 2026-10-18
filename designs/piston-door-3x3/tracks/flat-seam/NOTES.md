@@ -12,9 +12,29 @@ door), blocks as the tie-break. flat-v2-57b (the only FULL + hallway flat door a
 
 | file | volume | blocks | seamless | hallway | open/close | how |
 |---|---|---|---|---|---|---|
-| [h44.txt](h44.txt) (archive/flat-seam-h44-44b.txt) = BEST | **9x9 = 81** | 44 | FULL | yes | 52 / 48 | h45 + `door minimize --shape thick<=1,volume<=81 --seamless full+hall`: the delay-2 repeater (-3,3) -> dust, the dust (-1,4) gone |
+| [e89.txt](e89.txt) (archive/flat-seam-e89-51b.txt) = BEST | **8x9 = 72** | 51 | FULL | yes (dentless) | 36 / 36 | cd19 (flat-b, center down) without row 5: seamless's hand variant fbv7-89m completed with two pulse mergers and a bottom feed for the right bottom piston ([e89.patch](e89.patch)) |
+| [h44.txt](h44.txt) (archive/flat-seam-h44-44b.txt) | 9x9 = 81 | 44 | FULL | yes | 52 / 48 | h45 + `door minimize --shape thick<=1,volume<=81 --seamless full+hall`: the delay-2 repeater (-3,3) -> dust, the dust (-1,4) gone |
 | [h45.txt](h45.txt) (archive/flat-seam-h45-45b.txt) | 9x9 = 81 | 45 | FULL | yes | 56 / 54 | lamp-sweep-flat43 made FULL in its own box: BL flag -> corner watcher, X floor obsidian -> stone (early P_T pulse removed with s55's right cluster) |
 | [s55.txt](s55.txt) (archive/flat-seam-s55-55b.txt) | 9x10 = 90 | 55 | FULL | yes | 40 / 40 | flat-v2-57b compacted by `resynth --fit` (x >= -3): the M chain's 4 blocks in column x = -4 regrown inside, then one block less |
+
+## e89: cd19 in 8 x 9 (the flat seamless record by volume)
+flat-b-v7-full (seamless, 8x10) needs row 5 because the right ceiling puller (2,4) can only be fed
+from the pocket (3,4) and nothing triggers the pocket. seamless's hand variant wip/fbv7-89m sends TR
+RIGHT instead (right 3-stack, no TR puller) and drops row 5, but its relay double-fired and the
+right bottom piston had no feed. e89 fixes it with three local changes (the rest is fbv7-89m):
+1. **T puller**: the left column chain continues up: observer (-3,3) facing down watches the left
+   stack's dust (-3,2), lights the dust (-3,4); observer (-2,4) facing west -> repeater delay 2
+   (-1,4) facing west on a stone (-1,3) -> observer (0,4) facing west watching the repeater -> T
+   puller (1,4) at t24 (a3 = t23). The repeater + observer pair is the pulse merger: whatever comes
+   in (one or two pulses within 4 gt), exactly one 2 gt pulse comes out.
+2. **Right top + middle**: observer (2,4) facing west watches the T puller (extend and retract: two
+   pulses) -> repeater delay 2 (3,4) facing west on a stone (3,3) -> observer (4,4) facing west
+   watching it (merged: one pulse) -> observer (4,3) facing up -> right top (4,2) direct, right middle
+   (4,1) by quasi-connectivity, t34.
+3. **Right bottom** (4,0): observer (4,-3) facing west watches R_B's input dust (3,-3), observers
+   (4,-2) and (4,-1) facing down -> (4,0), t10.
+Open state ring: left wall TL ML BL, right wall TR MR BR, ceiling T at (1,3) ((0,3), (2,3) air, never
+swept), floor M (0,-1), C (1,-1), X stone (2,-1): FULL, dentless, props-dyn hallway yes.
 
 ## h45: flat43 made FULL (9 x 9) in three edits
 flat43 (lamp-sweep, 43, QUART) had two open-state blockers: the BL flag observer (0,-1) (fires P_M
