@@ -1,89 +1,47 @@
-name: piston-door-3x3-fresh-b-pd3d
+name: piston-door-3x3-fresh-b-mp7
 port door: 0 0 0
-port lever: 1 -2 -2
-origin: -1 0 -4
+port lever: 0 3 -1
+origin: -2 0 -1
 palette:
-  A minecraft:observer[facing=north,powered=false]
-  B minecraft:observer[facing=up,powered=false]
-  C minecraft:observer[facing=west,powered=false]
-  D minecraft:obsidian
-  E minecraft:redstone_wall_torch[facing=north,lit=true]
-  F minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
-  G minecraft:sticky_piston[extended=false,facing=down]
-  H minecraft:sticky_piston[extended=false,facing=east]
-  I minecraft:sticky_piston[extended=false,facing=up]
-  J minecraft:sticky_piston[extended=false,facing=west]
-  K minecraft:stone
-  L minecraft:lever[face=wall,facing=south,powered=false]
-  O minecraft:observer[facing=down,powered=false]
-  R minecraft:redstone_torch[lit=false]
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:obsidian
+  C minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
+  L minecraft:lever[face=ceiling,facing=north,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   S minecraft:slime_block
-  o minecraft:observer[facing=east,powered=false]
-  r minecraft:redstone_torch[lit=true]
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
   s minecraft:smooth_stone
-layer -4:
-  .
-  .
-  .
-  .
-  ..oB
 layer -3:
   .
-  .
-  .
-  ..BC
-  ..OB
+  ...FOo
 layer -2:
-  ..E
-  ..K
-  ..L
-  ..AO
-  ..IA
+  .sB
+  ..F..o
 layer -1:
-  ..K
-  .
-  .
-  .SJK
-  SS.HS
+  HrR
+  ..SS.H
 layer 0:
-  ..R
-  .
-  .
-  .
-  SKKKS
+  o
+  ..HHHS
 layer 1:
-  ..K
-  .
-  .
-  .
-  SKKKS
+  .H
+  .SHHHS
 layer 2:
-  ..r
   .
-  .
-  .
-  .KKK
+  .SHHHS
 layer 3:
-  ..K
-  .
-  ..s
-  .
-  .SSS
+  ..Ls
+  .SG.SS
 layer 4:
-  ..R
-  ..A
-  ..F
-  ..D
-  ..G
+  ..HCH
+  .HADES
 layer 5:
   .
-  ..O
-  .
-  .
-  .G
-layer 6:
-  .
-  .oO
-  .A
-  .A
-  .
+  ....OH

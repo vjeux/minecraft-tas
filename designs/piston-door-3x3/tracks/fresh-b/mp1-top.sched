@@ -1,0 +1,12 @@
+design designs/piston-door-3x3/tracks/fresh-b/mp1-top.txt
+let t = 15
+let tl = 4
+let u = 24
+open t set 1 -2 -1 minecraft:redstone_block
+open t+tl clear 1 -2 -1
+open u set 0 -3 -1 minecraft:redstone_block
+open u+2 clear 0 -3 -1
+close t set 1 -2 -1 minecraft:redstone_block
+close t+tl clear 1 -2 -1
+close u set 0 -3 -1 minecraft:redstone_block
+close u+2 clear 0 -3 -1

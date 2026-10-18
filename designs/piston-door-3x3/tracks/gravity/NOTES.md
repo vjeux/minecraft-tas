@@ -141,3 +141,18 @@ to VL's/VR's head cells). The A net for the tower starts under T_AL.
 ## Router
 `door route` now widens its search box to the design bounds + a margin (the old fixed box stopped
 at y=-6, the gravity towers go to y=-8).
+
+## Session 2 (07:00-08:00Z): what else was tried
+* g8 -> g10 (above). The minimizer (`--moves all --plateau --plateau-pairs`, `--walk 100`) finds
+  no move on g10: 45 is a strict local minimum for it.
+* Walkway-free variants: g7 (49) and sf3w (64) move the lever from the walkway floor onto the
+  lever block's north face (same count); g8-g10 keep it there.
+* sf5 (slime-free with a pulse-driven S2 fired by an observer watching VL + one watching RS1):
+  the open works, but without S1's fast path the close fires S2's pulse while R3 still sits in
+  S2's top cell (next to S2's pulse block) -> R3 extends low. With a fast path it is no smaller than
+  sf4 (62), so dropped. A chain-riding observer (what makes g9/g10 self-sequence) needs slime.
+* Ideas that cost more than they save (counted, not built): lever next to both side targets (the
+  only cell, (1,-1,-1), must stay inert or R3 is QC-powered when open); glass under a walkway lever
+  (frees the side power, but T_A2 then has no L block to hang on); S1 above the chain facing down
+  (needs an AND: early off on close, late on on open); redstone blocks riding the side structures
+  (R3 off at +1 instead of +2 is not enough to drop S2's delay); the tower chain at x=0.

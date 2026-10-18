@@ -1,0 +1,56 @@
+name: speed-ideal-6
+# Sideways center lift. F (1,4,0) pulls T up into E=(1,3,0); Q (-1,3,0, facing east) pushes
+# [A' (0,3,0), T] east so A' takes E and T lands at (2,3,0); A' pulls C into N1=(1,2,0); Q pulls
+# A' back and F reaches through E for C. A' is driven by a real observer chain from the lever:
+# O_L (1,3,3) watches the lever, O_B (1,3,2) watches O_L, O_A (1,3,1) watches O_B and powers E.
+port door: 0 0 0
+port lever: 1 3 4
+origin: -3 0 -1
+palette:
+  s minecraft:stone
+  R minecraft:redstone_block
+  e minecraft:sticky_piston[extended=true,facing=east]
+  h minecraft:piston_head[facing=east,short=false,type=sticky]
+  w minecraft:sticky_piston[extended=true,facing=west]
+  g minecraft:piston_head[facing=west,short=false,type=sticky]
+  u minecraft:sticky_piston[extended=true,facing=up]
+  i minecraft:piston_head[facing=up,short=false,type=sticky]
+  d minecraft:sticky_piston[extended=true,facing=down]
+  j minecraft:piston_head[facing=down,short=false,type=sticky]
+  a minecraft:sticky_piston[extended=false,facing=down]
+  q minecraft:sticky_piston[extended=false,facing=east]
+  t minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:observer[facing=south,powered=false]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+layer -3:
+  .
+  ....R
+layer -2:
+  .
+  ....u
+layer -1:
+  .
+  ....i
+layer 0:
+  .
+  RehsssgwR
+layer 1:
+  .
+  RehsssgwR
+layer 2:
+  .
+  RehsssgwR
+  .
+  .
+  .
+  ....s
+layer 3:
+  .
+  ..qaj.t
+  ....O
+  ....O
+  ....O
+  ....L
+layer 4:
+  ....R
+  ....d

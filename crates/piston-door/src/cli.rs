@@ -187,6 +187,50 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// Cut every face-connected group of --size control blocks (pistons excluded) and re-grow it
+    /// with size-1 blocks from --states inside the group's box grown by --margin (see search.rs
+    /// `regrow`). The best verified design is written to --out.
+    Regrow {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Group size: 2 (re-grown with 1 block) or 3 (with 2).
+        #[arg(long, default_value_t = 2)]
+        size: usize,
+        #[arg(long, default_value_t = 1)]
+        margin: i32,
+        #[arg(long, default_value = "obs,block,dust,rep,rep2,rep3,rep4,torch,glass")]
+        states: String,
+        #[arg(long, default_value_t = 1)]
+        want: usize,
+        #[command(flatten)]
+        search: SearchArgs,
+    },
+    /// Add 1 or 2 blocks (from --states, in the free cells of --lo..--hi) to a design, usually
+    /// one whose old wiring was removed, screening every combination and judging the survivors
+    /// (see search.rs `grow`). The best verified design is written to --out.
+    Grow {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Box corner "x,y,z" (inclusive).
+        #[arg(long)]
+        lo: String,
+        /// Opposite box corner "x,y,z" (inclusive).
+        #[arg(long)]
+        hi: String,
+        /// Comma list: obs, block, dust, rep[1-4], torch, glass, obsidian, rblock, lamp, or full states.
+        #[arg(long, default_value = "obs,block,dust")]
+        states: String,
+        /// Blocks added together (1 or 2; 2 also tries singles).
+        #[arg(long, default_value_t = 2)]
+        k: usize,
+        /// Stop after this many verified designs (0 = all).
+        #[arg(long, default_value_t = 1)]
+        want: usize,
+        #[command(flatten)]
+        search: SearchArgs,
+    },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
     /// only if the full judge passes; every improvement is written to --out.
@@ -443,6 +487,60 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let best = crate::search::search(&pool, &d, &opts, &log, &mut on_improve)?;
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
+        }
+        DoorCmd::Regrow { design, out, size, margin, states, want, search } => {
+            let d = load_design(&design)?;
+            let pool = search.pool(version)?;
+            let t = std::time::Instant::now();
+            let opts = search.options()?;
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let st = crate::search::grow_states(&states)?;
+            let found = crate::search::regrow(&pool, &d, size, margin, &st, &opts, want, &log)?;
+            for (fd, desc) in &found {
+                println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
+            }
+            match found.first() {
+                Some((best, _)) => {
+                    let mut w = pool.worker(0);
+                    let canon = crate::canonicalize(&mut w, best)?;
+                    canon.save(&out)?;
+                    println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
+                }
+                None => println!("nothing found"),
+            }
+        }
+        DoorCmd::Grow { design, out, lo, hi, states, k, want, search } => {
+            let d = load_design(&design)?;
+            let pos = |s: &str| -> Result<mctas::sim::Pos> {
+                let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                anyhow::ensure!(v.len() == 3, "expected x,y,z, got {s:?}");
+                Ok([v[0], v[1], v[2]])
+            };
+            let (a, b) = (pos(&lo)?, pos(&hi)?);
+            let g = crate::search::GrowOptions {
+                lo: [a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])],
+                hi: [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])],
+                states: crate::search::grow_states(&states)?,
+                k,
+                want,
+            };
+            let pool = search.pool(version)?;
+            let t = std::time::Instant::now();
+            let opts = search.options()?;
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let found = crate::search::grow(&pool, &d, &g, &opts, &log)?;
+            for (fd, desc) in &found {
+                println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
+            }
+            match found.first() {
+                Some((best, _)) => {
+                    let mut w = pool.worker(0);
+                    let canon = crate::canonicalize(&mut w, best)?;
+                    canon.save(&out)?;
+                    println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
+                }
+                None => println!("nothing found"),
+            }
         }
         DoorCmd::Harvest { refs, fetch, max_blocks, top, within, minutes, every, hours, out_dir, search } => {
             let t = std::time::Instant::now();
