@@ -14,7 +14,9 @@ must be SEAMLESS, target FULL + hallway.
 
 | design | volume | blocks | seamless | lever open/close | repeater open/close | what |
 |---|---|---|---|---|---|---|
-| **[fl80n](fl80n.txt)** (BEST) | **80 (8x10x1)** | 51 | FULL + hallway | 32/32 | 33/33 | seamless's flat-b-v7-full + note block in the lever cell, lever on its west face (in-plane): flat, slime-free, rotation-safe |
+| **[fl80m](fl80m.txt)** (BEST) | **80 (8x10x1)** | **48** | FULL + hallway | 34/34 | 35/35 | seamless's 47-block flat-b-v7-full + note block in the lever cell, lever on its west face (in-plane): flat, slime-free, rotation-safe |
+| [fl80f](fl80f.txt) | 80 (8x10x1) | 51 | FULL + hallway | 30/30 | 31/31 | fl80n sped up: an observer -> iron trapdoor (`--objective total`) |
+| [fl80n](fl80n.txt) | 80 (8x10x1) | 51 | FULL + hallway | 32/32 | 33/33 | seamless's 50-block flat-b-v7-full + note block, lever on its west face |
 | [fl81f](fl81f.txt) | 81 (9x9x1) | 44 | FULL + hallway | 48/44 | 49/45 | fl81m sped up: two observers of the y=4 chain -> note block + iron trapdoor (`--objective total`) |
 | [fl81m](fl81m.txt) | 81 (9x9x1) | 44 | FULL + hallway | 52/48 | 53/49 | fl81n minus a dust the note block made redundant (`--objective volume`) |
 | [fl81n](fl81n.txt) | 81 (9x9x1) | 45 | FULL + hallway | 52/48 | 53/49 | seamless's flat43-full + note block in the lever cell, lever on its east face (in-plane) |
@@ -101,4 +103,5 @@ the wrong one the judge fails "not back to its rest state").
 - 20:13Z merged origin/main 9728b29 (seamless's --seamless filter).
 - 20:17Z f45n (45, FULL + hallway). 20:29Z fv58n (volume 100, FULL). 20:33Z fl81n (volume 81, FULL).
 - 20:40Z fl81m (81, 44 blocks). 20:56Z fl81f (81, 48/44). 21:00Z fl80n (volume 80, FULL, 32/32):
-  the smallest eligible door. 21:02Z s4ff (24/18): the fastest eligible FULL door.
+  the smallest eligible door. 21:02Z s4ff (24/18): the fastest eligible FULL door. 21:06Z fl80f
+  (80, 30/30). 21:09Z fl80m (80, 48 blocks: seamless's 47-block flat-b-v7-full + note block).
