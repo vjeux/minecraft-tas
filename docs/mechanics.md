@@ -107,6 +107,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `silent-hold` | block + repeater | a quasi-powered piston ignores its source switching on and off until a neighbor update |
 | `pulse-bridge` | block, cross dust, block | an observer pulse moved one cell sideways into a repeater's back with 4 blocks (mech-50) |
 | `lever-tap` | repeater | a repeater reading the lever feeds a net that the lever's block cannot back-feed (mech-89) |
+| `pulse-toggle` | observer + retracted sticky piston | one 2 gt pulse per lever edge drives a piston that is retracted at rest: the on pulse pulls its block (still: normal pull), the off pulse pushes it back and spits it (no torch, no steady line; logic-min) |
 * **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
   source that later turns off WITHOUT updating it stays extended, unpowered, until any later
   neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
@@ -120,3 +121,15 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   next to piston B switches A off at once (the block becomes a moving piston that tick) and B
   on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
   then A on".
+* **Pulse-driven pistons (logic-min, gadget `pulse-toggle`):** any door piston that only has to
+  move its block once per lever edge can be retracted at rest and fired by a 2 gt observer pulse
+  (pull on open, push + spit on close): v2's six pistons all work that way except P_T. The
+  measured windows (`door ideal`): side/bottom pistons accept the pulse at any tick on both
+  edges; A needs one pulse 0..4 gt after the flip plus the two B-edge pulses.
+* **Observers on pistons fire twice:** a piston (or its head cell) changes state at the event,
+  2 gt later and again 2 gt after that, so an observer watching it pulses twice per motion (a
+  pulse-toggled column then moves out and back). Watch a block that moves once, the lever, or
+  another observer instead.
+* **OR of two repeaters in one dust:** a dust sandwiched between the output block of one
+  repeater (above it) and of another (below it, its floor) is lit by either, and a cross dust
+  powers the block it points into: a 2-input OR feeding a torch with 1 dust (logic-min P_T).
