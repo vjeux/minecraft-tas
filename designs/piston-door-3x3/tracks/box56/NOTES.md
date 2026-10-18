@@ -36,3 +36,24 @@ positions. Leaders today: flat-b-v7 80 (8x10), flat43 81 (9x9).
 - Observer trick: an observer at (-2,2) facing up (output into the piston (-2,1)) fires (-2,1)
   directly and (-2,0) by QC (its output enters (-2,0)'s quasi cell), so a 2-stack at y=0,1 is
   fed from y=2 when TL exits up.
+
+## Quadrant argument (why the known families do not fit 7x8 FULL; 21:30Z)
+- Box cells left for wiring split into four QUADRANTS: the side cuts at y=1 (L/R pullers at
+  x=-2/x=4 + their swept gaps) separate top from bottom; the center column (A/B or U on top,
+  P_M or A'/B' below, plus the swept center path) separates left from right.
+- Links between quadrants exist only through pieces both can touch: one side-pair piston (a
+  2-stack whose corner exits vertically: fired from y=2 by the observer trick, watched from
+  y=-1) links top->bottom on that side; A/B link the top halves; P_M (or A'/B') the bottom
+  halves.
+- Parity: a pulse-driven (pull-type) piston moves out and back, so an observer on it fires
+  TWICE; B in window mode moves twice (b1, b2); A fires an observer 6 times per edge (measured,
+  tlupA). Every top-half link therefore carries an EVEN number of pulses, but each top half owns
+  a TL/TR mover (it can only be fed from its own quadrant) that needs an ODD count (1 or 3).
+  => With the lever in one top half, the other top half cannot fire its corner mover.
+- cd19 (center down): T's puller U at (1,4) is fed only from (0,4) or (2,4); with TL or TR going
+  up the other cell holds a piston, so one top quadrant is isolated outright.
+- Escape routes not closed: a LEVEL-driven link piston (torch-held, moves once per edge: one
+  observer pulse); door blocks pushed into / leaving a watchable cell; slime structures.
+- tlup (19 blocks, ideal inputs WORK): pist19r with TL up (puller (0,4)), T aside right
+  (P_T (3,3)), left pair (-2,0..1), right 3-stack; windows: pt 3..9, M >= a3, left pair, TL
+  puller and right stack anywhere in 0..40.
