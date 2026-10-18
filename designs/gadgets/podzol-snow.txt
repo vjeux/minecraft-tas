@@ -1,0 +1,23 @@
+name: gadget-podzol-snow
+# A shape relay with an asymmetric delay: podzol (SnowyBlock, no random ticks) sets SNOWY in
+# updateShape from the block above it (BlockTags.SNOW), at once. Lever L fires sticky piston S,
+# which pushes snow block W onto the cell above podzol P: the cell turns into a moving piston at
+# tick 1 (not snow: P stays) and into snow when W lands at tick 3, so P turns snowy at tick 3 and
+# observer O (watching P from the side) pulses at ticks 5..6. On lever off S pulls W back: the
+# cell above P is a moving piston at tick 1, P loses SNOWY at once and O pulses at ticks 3..4.
+# An observer watching the cell itself fires 2 gt after tick 1 both ways; through podzol an
+# arrival reads 2 gt later than a departure (a "motion lamp"), and the watcher may sit beside or
+# below the podzol instead of next to the moving block. Snow blocks are plain full blocks (door
+# blocks for this), wool would not do (only the SNOW tag counts).
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  T minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:snow_block
+  P minecraft:podzol[snowy=false]
+  O minecraft:observer[facing=west,powered=false]
+layer 0:
+  S..PO
+layer 1:
+  LTW
