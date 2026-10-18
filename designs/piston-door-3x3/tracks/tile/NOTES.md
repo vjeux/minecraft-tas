@@ -31,8 +31,20 @@ opening. The rotation check turns the whole arrangement.
 
 Tools: `door verify --tile`, `--tile-levers each` (diagnostic: every copy flips its own lever in
 the same tick: do copies interfere when they all run?), `--tile-out` (write the arrangement),
-`door tile-scan <designs> --tiles wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile`
-on `minimize`/`harvest` (SearchArgs), `synth` and `resynth`.
+`--tile-extra <end piece>` (a shared piece placed once: the lever and a connection at the start of
+the row, for definitions that need one), `door tile-scan <designs> --tiles
+wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile` on `minimize`/`harvest`
+(SearchArgs), `synth` and `resynth`.
+
+## Summary
+
+* PERIODIC: **46 blocks per opening at period 8** (`b38h-obs8.txt`), one lever, slime-free,
+  rotation-safe, checked with 2, 3, 4 and 6 copies. b38 + an 8-block observer bus.
+* VPERIOD: **49 blocks per opening every 9 blocks up** (`b38h-vobs9m.txt`), same family.
+* WIDE and STACK: no periodic design yet, and none can exist without a shared end piece or a
+  door-block channel: the two sides of a wide (tall) row share no cell (see below). The WIDE
+  mechanism itself (12 pistons, each column = b38's center column) works with ideal inputs.
+* No archived door tiles as is: wide/stack collide at once; periodic needs a bus.
 
 ## Results
 
@@ -40,7 +52,8 @@ on `minimize`/`harvest` (SearchArgs), `synth` and `resynth`.
 |---|---|---|---|---|
 | period:8 | **46** | 60 / 56 (copy k: 36+12k / 32+12k) | `b38h-obs8.txt` (BEST-period) | b38 + hopper + an 8-block observer bus (found by `door minimize --tile period:8:3` from b38h-bus8); slime-free, rotation-safe, N=3 and N=4 at 32 positions |
 | period:8 | 52 | 40 / 36 (copy k: 36+2k / 32+2k) | `b38h-bus8.txt` | b38 + 14-block dust bus, note block -> hopper |
-| vperiod:9 | **50** | 76 / 72 (copy k: 36+20k / 32+20k) | `b38h-vobs9.txt` (BEST-vperiod) | b38 + hopper + 2 observers on O + a 7-observer tower beside the openings + stone + dust; N=4 at 32 positions, rotation-safe |
+| vperiod:9 | **49** | 64 / 60 (copy k: 36+14k / 32+14k) | `b38h-vobs9m.txt` (BEST-vperiod) | tile-aware minimize of b38h-vobs9: one dust dot on the tower's stone replaces the 2 observers on O; N=4 at 32 positions, rotation-safe |
+| vperiod:9 | 50 | 76 / 72 (copy k: 36+20k / 32+20k) | `b38h-vobs9.txt` | b38 + hopper + 2 observers on O + a 7-observer tower beside the openings + stone + dust |
 | wide | none yet | | `wide-mech.txt` + `wide-mech.sched` | mechanism works with ideal inputs (open 24 / close 26); wiring blocked, see below |
 | stack | none | | | same obstruction as wide (left and right sides cannot talk) |
 
