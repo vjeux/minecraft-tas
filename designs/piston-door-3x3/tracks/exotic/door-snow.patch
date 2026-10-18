@@ -1,0 +1,11 @@
+# The 9 door cells (door port 0 0 0, plane z = 0) as snow blocks (plain full blocks; podzol under
+# one of them turns snowy at once: gadget podzol-snow).
+set 0 0 0 minecraft:snow_block
+set 1 0 0 minecraft:snow_block
+set 2 0 0 minecraft:snow_block
+set 0 1 0 minecraft:snow_block
+set 1 1 0 minecraft:snow_block
+set 2 1 0 minecraft:snow_block
+set 0 2 0 minecraft:snow_block
+set 1 2 0 minecraft:snow_block
+set 2 2 0 minecraft:snow_block
