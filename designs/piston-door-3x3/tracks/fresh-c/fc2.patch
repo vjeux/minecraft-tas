@@ -1,0 +1,10 @@
+# fc2: P_L pull-type from the west (pulse: pull on open, push+spit on close), fired by two
+# observers off the lever; backbone back to 3 slimes, no under-walkway parts for P_L.
+clear 0 -1 0
+clear -1 -1 0
+clear 2 -1 -1
+clear 1 -1 -1
+clear 0 -1 -1
+set -3 2 0 minecraft:sticky_piston[extended=false,facing=east]
+set -3 4 0 minecraft:observer[facing=east,powered=false]
+set -3 3 0 minecraft:observer[facing=up,powered=false]
