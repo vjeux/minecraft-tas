@@ -121,7 +121,8 @@ layout. A cheap t0 pulse (a cut of a lever-fed line at t1..t8 on open) would giv
 * `door minimize --objective open --slack 6 --moves all` on mp8: nothing. `--max-open 14
   --max-close 14` on mp7-repU: nothing (46 is a local minimum at 14/14).
 * `door minimize --moves all --plateau` at their own bounds: mp8-lampU (14/16) and mp7-leafC (15/13)
-  are local minima too.
+  are local minima too; so are the 47 and the three shuttle doors (`--moves all` at their bounds,
+  400k..450k candidates each, none passes the screen).
 * fast-clean's compliant 93 (12/7, `fast-clean-93.txt`, copied from origin/explore/fast-clean
   BEST.txt) at relaxed speeds, where any smaller door would be a frontier point: `door minimize
   --moves all` at `--max-open 13 --max-close 20` and at `--max-open 21 --max-close 12` (1.7M
