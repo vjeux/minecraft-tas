@@ -4,7 +4,8 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 
 | file | blocks | open/close | note |
 |---|---|---|---|
-| v5.txt = BEST.txt (archive/flat-b-v5-46b.txt) | 46 | 32 / 28 | the top pair fired from TL's rest-cell watcher (0,3) (5 observers + stone) instead of the long chain over the left stack |
+| v6.txt = BEST.txt (archive/flat-b-v6-45b.txt) | 45 | 32 / 28 | v5 with the bottom cluster mirrored: lever, a1, P_M (pusher side) on the LEFT, R_B/O/X on the right; the left feed starts at the pm observer (4 observers instead of 5) |
+| v5.txt (archive/flat-b-v5-46b.txt) | 46 | 32 / 28 | the top pair fired from TL's rest-cell watcher (0,3) (5 observers + stone) instead of the long chain over the left stack |
 | v3.txt (archive/flat-b-min-47b.txt) | 47 | 32 / 30 | v2 with the lever hanging under the observer that watches it (no floor) |
 | v2.txt (archive/flat-b-v2-48b.txt) | 48 | 32 / 30 | center goes DOWN (elevator below the door), top pair up, one observer chain |
 
@@ -20,6 +21,17 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
   pist19r's late M), left/right columns anytime.
 - Why down: the late piston is now at the TOP, where QC lets ONE powered block at (1,5) fire every
   puller facing down at y=4 ((1,4) directly, (0,4)/(2,4) through their quasi cells (0,5)/(2,5)).
+
+## Control of v6 (26 blocks)
+- Bottom cluster (12), mirrored from v2/v5: M parks at (0,-1) (P_M (-1,-1) facing east, pull-type),
+  X dust (2,-1) on O (2,-2), O watches R_B (2,-3) (repeater d4 facing east, floor = observer
+  (2,-4)), R_B reads the dust (3,-3) on stone (3,-4). Lever (0,-4) hangs under observer (0,-3)
+  facing down (t2) which strongly powers stone (0,-2) = a1 into A' (1,-2). (-1,-3) east watches
+  (0,-3) (t4), (-1,-2) down watches it (t6) and fires P_M = pm. (1,-4) west watches the lever (t2,
+  under B': emits east only), (2,-4) west (t4) powers stone (3,-4): R_B window t12..t20, O t14/t22.
+- Left feed (6): (-2,-2) east watches the pm observer (-1,-2) (t8), (-3,-2) east, (-3,-1) down,
+  (-3,0) down (t14) -> stone (-3,1) + dust (-3,2): the left 3-stack.
+- Top (6) and right pair (2): as v5.
 
 ## Control of v5 (27 blocks)
 - Bottom cluster (12): as v2 below, but the lever hangs under the observer (2,-3) (face=ceiling).
