@@ -86,6 +86,10 @@ fn is_piston(s: &str) -> bool {
 pub const READ_QC: Pos = [0, 0, 0];
 /// Reader code of a receiver that reads only its own neighbors (lamps, note blocks, doors...).
 pub const READ_DIRECT: Pos = [0, 9, 0];
+/// Pseudo-receiver of a quasi-connected cell: the power powered blocks give its QC cell. Whether
+/// the piston notices it depends on updates from elsewhere (a neighbor piston moving...), so a
+/// re-route must keep it exactly as it was.
+pub const READ_LATENT: Pos = [0, 7, 0];
 
 /// If `s` reads redstone power (an actuator the router must deliver signals to): its reader code
 /// (a piston's facing: blind on that face, quasi-connected; or READ_QC / READ_DIRECT).
@@ -750,10 +754,11 @@ impl Model {
     pub fn piston_wave(&self, p: Pos, facing: Pos) -> Wave {
         let mut w = Wave::OFF;
         let up = add(p, [0, 1, 0]);
+        let latent = facing == READ_LATENT;
         let qc = facing != READ_DIRECT;
         for d in FACES {
             let q = add(p, d);
-            if d != facing {
+            if d != facing && !latent {
                 if let Some(&i) = self.at.get(&q) {
                     if emits_into(&self.nodes[i], self.pts.get(&q).copied(), p) {
                         w = w.or(self.any[i]);
@@ -764,9 +769,9 @@ impl Model {
             if qc && r != p {
                 if let Some(&i) = self.at.get(&r) {
                     // A powered block's change does not update the piston two cells away, so its
-                    // quasi-connectivity power goes unnoticed (a BUD); only count emitters whose
-                    // own change updates the piston.
-                    if self.nodes[i].kind != Kind::Block && emits_into(&self.nodes[i], self.pts.get(&r).copied(), up) {
+                    // quasi-connectivity power is only noticed when something else updates the
+                    // piston: it is the separate READ_LATENT pseudo-receiver.
+                    if (self.nodes[i].kind == Kind::Block) == latent && emits_into(&self.nodes[i], self.pts.get(&r).copied(), up) {
                         w = w.or(self.any[i]);
                     }
                 }
@@ -959,6 +964,9 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
         }
         m.drag = near.difference(&m.moving).copied().collect();
         m.pistons = pistons.into_iter().collect();
+        // Every quasi-connected receiver also gets a latent pseudo-receiver (see READ_LATENT).
+        let qcs: Vec<Pos> = m.pistons.iter().filter(|(_, f)| *f != READ_DIRECT).map(|(p, _)| *p).collect();
+        m.pistons.extend(qcs.into_iter().map(|p| (p, READ_LATENT)));
         // Sources the machine drives: observers watching a non-control cell, sculk sensors.
         for (p, s) in &d.blocks {
             let watched_control = |q: Pos| {
@@ -1059,6 +1067,9 @@ pub struct Problem<'a> {
 /// [`Model::piston_wave`]) in a way the receiver notices?
 fn reaches(u: &Node, pts: Option<[bool; 4]>, p: Pos, facing: Pos) -> bool {
     let up = add(p, [0, 1, 0]);
+    if facing == READ_LATENT {
+        return u.pos != p && u.kind == Kind::Block && manhattan(u.pos, up) == 1 && emits_into(u, pts, up);
+    }
     (manhattan(u.pos, p) == 1 && sub(u.pos, p) != facing && emits_into(u, pts, p))
         || (facing != READ_DIRECT && u.pos != p && u.kind != Kind::Block && manhattan(u.pos, up) == 1 && emits_into(u, pts, up))
 }
@@ -1073,8 +1084,7 @@ fn poisons(wants: &[(Pos, Pos, Wave)], meas: &Measured, v: &Node, pts: Option<[b
         if extra.0[0] & mask.0[0] == 0 && extra.0[1] & mask.0[1] == 0 {
             return false;
         }
-        let up = add(q, [0, 1, 0]);
-        (manhattan(v.pos, q) == 1 && sub(v.pos, q) != f && emits_into(v, pts, q)) || (v.pos != q && manhattan(v.pos, up) == 1 && emits_into(v, pts, up))
+        reaches(v, pts, q, f)
     })
 }
 
@@ -1668,6 +1678,9 @@ pub fn rip_candidates(d: &Design, meas_raw: &Measured, o: &RipOptions, log: &(dy
     let mut refined = meas_raw.clone();
     let mut freed = 0;
     for &(p, f) in &meas_raw.pistons {
+        if f == READ_LATENT {
+            continue;
+        }
         let w = raw.piston_wave(p, f);
         if let (Some(occ), Some(still)) = (refined.occ.get_mut(&p), meas_raw.still.get(&p)) {
             let blocked = Wave([still.0[0] & w.0[0], still.0[1] & w.0[1]]);
