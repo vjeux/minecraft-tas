@@ -57,6 +57,7 @@ pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
 pub mod vanilla_gadget;
+pub mod pistfuzz;
 pub mod world;
 
 use anyhow::{Context, Result, bail};
