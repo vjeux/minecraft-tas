@@ -1,0 +1,17 @@
+name: shift2
+port door: 0 0 0
+origin: -3 0 -1
+palette:
+  A minecraft:sticky_piston[extended=false,facing=west]
+  B minecraft:stone
+  S minecraft:sticky_piston[extended=false,facing=east]
+  s minecraft:sticky_piston[extended=false,facing=south]
+layer 0:
+  ......s
+  .S.BBB.AA
+layer 1:
+  ..s
+  SS.BBB.A
+layer 2:
+  ..s
+  SS.BBB.A

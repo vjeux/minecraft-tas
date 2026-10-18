@@ -1,0 +1,106 @@
+# shift2m (Z0 mirrored to (3,0,-1) facing south, R0 parks at (3,0,1)): rows 1-2 exit left (P shifted by Q, L parked in z by Z), row 0 exits right (mirror),
+# the other side of each row pulled by a simple puller. One 7-step train for both edges:
+# P Z Q P Q P side (found by mech-synth --sym-bfs on bases/row-shift.txt, one row).
+# Power cells chosen so that no row-0 piston is quasi-powered by a row-1 piston's power:
+# stacked pistons are powered from above the top one (the lower one by quasi-connectivity).
+design designs/piston-door-3x3/tracks/ground/bases/shift2m.txt
+let a2 = 4
+let a3 = 6
+let a4 = 4
+let a5 = 4
+let a6 = 6
+let a7 = 4
+let b2 = 6
+let b3 = 8
+let b4 = 6
+let b5 = 6
+let b6 = 4
+let b7 = 2
+let L1 = 0
+let L2 = L1+a2
+let L3 = L2+a3
+let L4 = L3+a4
+let L5 = L4+a5
+let L6 = L5+a6
+let L7 = L6+a7
+let R1 = 0
+let R2 = R1+b2
+let R3 = R2+b3
+let R4 = R3+b4
+let R5 = R4+b5
+let R6 = R5+b6
+let R7 = R6+b7
+let w = 2
+# 1: P home (left rows 1-2 from above, right row 0)
+open L1 set -2 3 0 minecraft:redstone_block
+open R1 set 4 0 1 minecraft:redstone_block
+open L1+w clear -2 3 0
+open R1+w clear 4 0 1
+close L1 set -2 3 0 minecraft:redstone_block
+close R1 set 4 0 1 minecraft:redstone_block
+close L1+w clear -2 3 0
+close R1+w clear 4 0 1
+# 2: Z
+open L2 set -1 3 -1 minecraft:redstone_block
+open R2 set 3 0 -2 minecraft:redstone_block
+open L2+w clear -1 3 -1
+open R2+w clear 3 0 -2
+close L2 set -1 3 -1 minecraft:redstone_block
+close R2 set 3 0 -2 minecraft:redstone_block
+close L2+w clear -1 3 -1
+close R2+w clear 3 0 -2
+# 3: Q
+open L3 set -3 3 0 minecraft:redstone_block
+open R3 set 6 0 0 minecraft:redstone_block
+open L3+w clear -3 3 0
+open R3+w clear 6 0 0
+close L3 set -3 3 0 minecraft:redstone_block
+close R3 set 6 0 0 minecraft:redstone_block
+close L3+w clear -3 3 0
+close R3+w clear 6 0 0
+# 4: P shifted
+# (right: quasi-power through (3,1,0) from (3,1,-1), plus a block set in P's home cell for
+# the update an observer's output would give)
+open L4 set -1 3 0 minecraft:redstone_block
+open R4 set 3 1 1 minecraft:redstone_block
+open R4 set 4 0 0 minecraft:smooth_stone
+open L4+w clear -1 3 0
+open R4+w clear 3 1 1
+open R4+1 clear 4 0 0
+open R4+w set 4 0 0 minecraft:smooth_stone
+open R4+w+1 clear 4 0 0
+close L4 set -1 3 0 minecraft:redstone_block
+close R4 set 3 1 1 minecraft:redstone_block
+close R4 set 4 0 0 minecraft:smooth_stone
+close L4+w clear -1 3 0
+close R4+w clear 3 1 1
+close R4+1 clear 4 0 0
+close R4+w set 4 0 0 minecraft:smooth_stone
+close R4+w+1 clear 4 0 0
+# 5: Q
+open L5 set -3 3 0 minecraft:redstone_block
+open R5 set 6 0 0 minecraft:redstone_block
+open L5+w clear -3 3 0
+open R5+w clear 6 0 0
+close L5 set -3 3 0 minecraft:redstone_block
+close R5 set 6 0 0 minecraft:redstone_block
+close L5+w clear -3 3 0
+close R5+w clear 6 0 0
+# 6: P home
+open L6 set -2 3 0 minecraft:redstone_block
+open R6 set 4 0 1 minecraft:redstone_block
+open L6+w clear -2 3 0
+open R6+w clear 4 0 1
+close L6 set -2 3 0 minecraft:redstone_block
+close R6 set 4 0 1 minecraft:redstone_block
+close L6+w clear -2 3 0
+close R6+w clear 4 0 1
+# 7: simple pullers (row 0 left, rows 1-2 right)
+open R7 set -2 0 1 minecraft:redstone_block
+open L7 set 4 3 0 minecraft:redstone_block
+open R7+w clear -2 0 1
+open L7+w clear 4 3 0
+close R7 set -2 0 1 minecraft:redstone_block
+close L7 set 4 3 0 minecraft:redstone_block
+close R7+w clear -2 0 1
+close L7+w clear 4 3 0

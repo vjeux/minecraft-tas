@@ -1,0 +1,34 @@
+name: shift2
+port door: 0 0 0
+origin: -4 0 -1
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=south]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:stone
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  o minecraft:observer[facing=north,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  ........o
+  ..S.FFF.EEO
+  ..A....sA
+  .......A
+layer 1:
+  ...D...o
+  .SS.FFF.EB
+  .
+  .
+layer 2:
+  ...D
+  CSS.FFF.E
+  ..A
+  .
+layer 3:
+  ...B
+  .BBB....B
+  .
+  .
