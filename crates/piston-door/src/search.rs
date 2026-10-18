@@ -1702,15 +1702,16 @@ pub fn search(
 /// re-grown with `size - 1` blocks from `states` inside the group's bounding box grown by
 /// `margin` (a "cut n, add n-1" move the removal-only minimizer cannot make). Returns the
 /// verified designs, fewest blocks first.
-pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], opts: &SearchOptions, want: usize, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], only: Option<(Pos, Pos)>, opts: &SearchOptions, want: usize, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
     let sandboxes = Sandboxes::new(pool);
     let ctx = Ctx::new(base)?;
+    let inside = |p: &Pos| only.is_none_or(|(lo, hi)| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]));
     let cuttable: Vec<Pos> = ctx
         .removable(base)
         .into_iter()
         .filter(|p| {
             let k = kind(&base.blocks[p]);
-            !k.contains("piston")
+            !k.contains("piston") && inside(p)
         })
         .collect();
     let set: HashSet<Pos> = cuttable.iter().copied().collect();
