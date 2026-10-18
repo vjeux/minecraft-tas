@@ -33,6 +33,10 @@ branches) is [../LEADERBOARD.md](../LEADERBOARD.md). New records are archived he
 | 50 | mechanics-rb5-bchain-50b.txt | agent mechanics: redstone-block's rb5 (BUD hold for Q, 52) + the O2 to R_B pulse bridge |
 | 48 | mechanics-rb5-hold-48b.txt / piston-door-3x3-rb6-48b.txt | agents mechanics + redstone-block: the BUD silent hold shrunk to 7 blocks + the O2 to R_B pulse bridge (both reached 48) |
 | 47 | rb6-bmobs-47b.txt | agent top-control: rb6 with the bottom-middle piston retracted at rest, fired by an observer watching the bottom-right door block (pull on open, push+spit on close) |
+| 46 | piston-door-3x3-fresh-b-mp6-46b.txt | agent fresh-b: "mirrored pump" family (bottom row on a slime row, pump below the door, motion-triggered flags), also the fastest solid door (open 16 / close 16) |
+| 42 | fc1-42b.txt | agent fresh-c: "symmetric control" family: no hold at all (Q = lever through one repeater), an early A pulse spits the center down on close, the B window is harmlessly blocked on close |
+| 45 | piston-door-3x3-fresh-b-mp7-45b.txt | agent fresh-b: mirrored pump with a shorter pump path, open 16 / close 16 |
+| 40 | fc2-40b.txt | agent fresh-c: fc1 with the left pusher as a pull-type pulse piston west of the backbone fired by two observers off the lever |
 | 52 | piston-door-3x3-rb5-52b.txt | agent redstone-block: rb2 with a silent BUD hold for Q instead of the 24gt chain |
 
 Invalid (kept for history): piston-door-3x3-v1-invalid.txt (125) and -v1-min-invalid.txt (121)

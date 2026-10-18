@@ -1,0 +1,4 @@
+# R1 (lever -> d4 -> block above the OR dust) removed with its floor and output block: grow candidates
+clear 5 4 1
+clear 5 3 1
+clear 5 4 2

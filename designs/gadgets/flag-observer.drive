@@ -1,0 +1,17 @@
+# A flag glued to a moving slime block fires an observer that is not next to the slime; the
+# observer pulses once after the move out and once after the move back, and stays where it is
+# (probe value 0 = an unpowered observer, "." would mean it was dragged away).
+design designs/gadgets/flag-observer.txt
+probe obs 3 3 0
+probe old 2 2 0
+probe new 3 2 0
+use 0 1 0
+expect_trace obs 00110000
+expect new #
+expect old .
+expect obs 0
+use 0 1 0
+expect_trace obs 00110000
+expect old #
+expect new .
+expect obs 0

@@ -1,0 +1,40 @@
+# Ideal inputs for the rb mechanism (rb-ideal-mech.txt), nominal = rb6-bmobs-47 timing.
+#   A power: redstone block (1,4,-1) at rest (R's rest cell); P_R power: (2,4,-1) (R's other cell)
+#   H power: (0,4,-1) (F's cell); B: (1,6,0) (above B); X pulses: (1,4,2) next to the X dust (1,4,1)
+#   P_BM pulse: (2,-2,0)
+design designs/piston-door-3x3/tracks/logic-min/rb-ideal-mech.txt
+let a1 = 0
+let p1 = 3
+let h1 = 0
+let b = 9
+let bw = 8
+let dx = 2
+let m1 = 5
+let h2 = 9
+let p2 = 19
+let a2 = 22
+let m2 = 21
+
+open a1 clear 1 4 -1
+open p1 set 2 4 -1 minecraft:redstone_block
+open h1 set 0 4 -1 minecraft:redstone_block
+open b set 1 6 0 minecraft:redstone_block
+open b+bw clear 1 6 0
+open b+dx set 1 4 2 minecraft:redstone_block
+open b+dx+2 clear 1 4 2
+open b+bw+dx set 1 4 2 minecraft:redstone_block
+open b+bw+dx+2 clear 1 4 2
+open m1 set 2 -2 0 minecraft:redstone_block
+open m1+2 clear 2 -2 0
+
+close h2 clear 0 4 -1
+close b set 1 6 0 minecraft:redstone_block
+close b+bw clear 1 6 0
+close b+dx set 1 4 2 minecraft:redstone_block
+close b+dx+2 clear 1 4 2
+close b+bw+dx set 1 4 2 minecraft:redstone_block
+close b+bw+dx+2 clear 1 4 2
+close p2 clear 2 4 -1
+close a2 set 1 4 -1 minecraft:redstone_block
+close m2 set 2 -2 0 minecraft:redstone_block
+close m2+2 clear 2 -2 0

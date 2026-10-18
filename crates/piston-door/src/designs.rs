@@ -79,7 +79,19 @@ pub fn build(name: &str) -> Option<Design> {
         "v2-133" => Some(crate::designs_history::v2_133()),
         "v2-135" => Some(crate::designs_history::v2_135()),
         "v2-143" => Some(crate::designs_history::v2_143()),
-        other => crate::observer_seq::build(other),
+        "sf1" => Some(crate::designs_fresh_b::sf1()),
+        "pd3" => Some(crate::designs_fresh_b::pd3()),
+        "mp-mech" => Some(crate::designs_fresh_b::mp_mech()),
+        "mp1-top" => Some(crate::designs_fresh_b::mp1_top()),
+        "mp2" => Some(crate::designs_fresh_b::mp2()),
+        "mp5-mech" => Some(crate::designs_fresh_b::mp5_mech()),
+        "mp6" => Some(crate::designs_fresh_b::mp6()),
+        "g1" => Some(crate::designs_gravity::g1()),
+        "g3" => Some(crate::designs_gravity::g3()),
+        "g4" => Some(crate::designs_gravity::g4()),
+        other => crate::lm::build(other)
+            .or_else(|| crate::designs_top::build(other))
+            .or_else(|| crate::observer_seq::build(other)),
     }
 }
 

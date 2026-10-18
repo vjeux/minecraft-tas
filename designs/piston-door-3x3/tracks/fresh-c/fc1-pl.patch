@@ -1,0 +1,4 @@
+# P_L (0,-1,0) pulse-fired by an observer chain off the BM observer
+set 2 -1 -1 minecraft:observer[facing=south,powered=false]
+set 1 -1 -1 minecraft:observer[facing=east,powered=false]
+set 0 -1 -1 minecraft:stone
