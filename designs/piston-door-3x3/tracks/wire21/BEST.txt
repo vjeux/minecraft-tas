@@ -4,46 +4,45 @@ port lever: -2 4 0
 origin: -3 0 0
 palette:
   A minecraft:observer[facing=north,powered=false]
-  B minecraft:observer[facing=south,powered=false]
-  C minecraft:observer[facing=up,powered=false]
-  D minecraft:observer[facing=west,powered=false]
-  E minecraft:sticky_piston[extended=false,facing=down]
-  F minecraft:sticky_piston[extended=false,facing=east]
-  G minecraft:sticky_piston[extended=false,facing=north]
-  H minecraft:sticky_piston[extended=false,facing=up]
-  I minecraft:sticky_piston[extended=false,facing=west]
-  J minecraft:stone
-  L minecraft:lever[face=wall,facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=north]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=false]
   O minecraft:observer[facing=down,powered=false]
-  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  R minecraft:redstone_lamp[lit=false]
   S minecraft:slime_block
   o minecraft:observer[facing=east,powered=false]
   r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
   s minecraft:smooth_stone
 layer -2:
-  ....Hs
+  ....Gs
   .
 layer -1:
-  .....C
+  .....B
   .
 layer 0:
-  ..SJJJS
+  ..SIIIS
   .
 layer 1:
-  F.SJJJS
+  E.SIIIS
   .
 layer 2:
-  ..SJJJS.I
+  ..SIIIS.H
   .
 layer 3:
-  C..J....C
-  ....G
+  B.......B
+  ....F
 layer 4:
-  oLDRE...B
-  .JADDDDDD
+  oLCsDBCsR
+  ..AC
 layer 5:
-  ..OCE
+  ..OBDC
   .
 layer 6:
-  ..Jr
+  ..Ir
   .
