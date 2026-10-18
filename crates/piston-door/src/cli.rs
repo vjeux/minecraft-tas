@@ -2292,7 +2292,19 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels } => {
             if let Some(p) = check {
-                return crate::families::check(&p, check_margin, cap, sym_cap);
+                return crate::families::check(
+                    &p,
+                    check_margin,
+                    cap,
+                    sym_cap,
+                    verify.then(|| crate::families::CheckVerify {
+                        version: version.to_string(),
+                        out_dir: out_dir.clone(),
+                        gap,
+                        extra: extra_offsets as u32,
+                        name: p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "check".into()),
+                    }),
+                );
             }
             let o = crate::families::Opts {
                 boxes: crate::families::parse_boxes(&boxes)?,

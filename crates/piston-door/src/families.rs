@@ -1276,7 +1276,48 @@ pub struct Opts {
 
 /// `--check <design>`: the mechanism of a design (wiring dropped) solved in its own bounding
 /// box grown by `margin`: open/close schedules, symmetric train, extent.
-pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize) -> Result<()> {
+/// `--check <design> --verify`: write the checked mechanism's ideal-input plans (separate open/close
+/// schedules, and the symmetric train when there is one) to `out_dir/ideal/` and replay each in the
+/// simulator (`door ideal` format: the files can be edited and re-run by hand).
+pub struct CheckVerify {
+    pub version: String,
+    pub out_dir: std::path::PathBuf,
+    pub gap: u32,
+    pub extra: u32,
+    pub name: String,
+}
+
+fn verify_one(v: &CheckVerify, m: &Mech, sol: &Sol, sym: Option<&Vec<E>>) -> Result<()> {
+    let cfg = mctas::sim::WorkerConfig { version: v.version.clone(), heap_mb: 768, ..Default::default() };
+    let pool = mctas::sim::Pool::spawn(1, &cfg)?;
+    let mut wk = pool.worker(0);
+    let (w, map) = to_world(m);
+    let msol = mechsynth::Solution { open: ms_seq(&map, &sol.open), close: ms_seq(&map, &sol.close), sym: sym.map(|s| ms_seq(&map, s)), states: 0 };
+    let dir = v.out_dir.join("ideal");
+    std::fs::create_dir_all(&dir)?;
+    for use_sym in [false, true] {
+        if use_sym && sym.is_none() {
+            continue;
+        }
+        let tag = if use_sym { "sym" } else { "oc" };
+        let name = format!("{}-{tag}", v.name);
+        let plan = mechsynth::ideal_plan(&w, &msol, use_sym, v.gap, &name)?;
+        let mut dd = plan.design.clone();
+        dd.name = name.clone();
+        let dpath = dir.join(format!("{name}.txt"));
+        dd.save(&dpath)?;
+        let text = plan.text.replace(&format!("design {name}.txt"), &format!("design {}", dpath.display()));
+        let ipath = dir.join(format!("{name}.ideal"));
+        std::fs::write(&ipath, text)?;
+        match mechsynth::verify_plan(&mut wk, &plan, v.extra) {
+            Ok(()) => println!("  {tag}: WORKS with ideal inputs ({} + {})", dpath.display(), ipath.display()),
+            Err(e) => println!("  {tag}: BROKEN with ideal inputs: {e:#} ({})", ipath.display()),
+        }
+    }
+    Ok(())
+}
+
+pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize, verify: Option<CheckVerify>) -> Result<()> {
     let d = crate::cli::load_design(path)?;
     let w = mechsynth::world_of_design(&d)?;
     let mut pieces = Vec::new();
@@ -1321,8 +1362,18 @@ pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize) -> 
                 }
             }
             match best_sym(&m, &rest, &sol, sym_cap, 6) {
-                Some((s, lv)) => println!("  sym {}{}: {}", s.len(), if lv { " (levels)" } else { " (pulses only)" }, m.fmt_seq(&s)),
-                None => println!("  no symmetric train"),
+                Some((s, lv)) => {
+                    println!("  sym {}{}: {}", s.len(), if lv { " (levels)" } else { " (pulses only)" }, m.fmt_seq(&s));
+                    if let Some(v) = &verify {
+                        verify_one(v, &m, &sol, Some(&s))?;
+                    }
+                }
+                None => {
+                    println!("  no symmetric train");
+                    if let Some(v) = &verify {
+                        verify_one(v, &m, &sol, None)?;
+                    }
+                }
             }
         }
         Ok(None) => println!("does not open (FULL seamless) and close in the macro model"),
