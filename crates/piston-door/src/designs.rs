@@ -66,6 +66,9 @@ pub fn build(name: &str) -> Option<Design> {
         "v2" => Some(v2()),
         "rb1" => Some(rb1()),
         "rb2" => Some(rb2()),
+        "rb3" => Some(rb3()),
+        "rb5" => Some(rb5()),
+        "rb4-bench" => Some(rb4_bench()),
         "rb1-base" => Some(rb1_route_base()),
         "v2-133" => Some(crate::designs_history::v2_133()),
         "v2-135" => Some(crate::designs_history::v2_135()),
@@ -413,5 +416,52 @@ pub fn rb2() -> Design {
     b.dust([0, 6, -3]);
     b.dust([0, 6, -4]);
     b.dust([0, 5, -5]);
+    b.d
+}
+
+/// rb3: rb2 with BM quasi-powered by RB_BM at (0,-1,0) (next to BM's head; the head forwards
+/// neighbor updates to BM), so the left backbone stops at y=-1.
+pub fn rb3() -> Design {
+    let mut d = rb2();
+    d.name = "piston-door-3x3-rb3".into();
+    d.blocks.remove(&[-1, -2, 0]);
+    d.blocks.remove(&[0, -2, 0]);
+    d.blocks.insert([0, -1, 0], "minecraft:redstone_block".into());
+    d
+}
+
+/// rb4 test bench: rb2 without the late chain; Q's hold is a silent quasi source H (a repeater
+/// into (-1,5,-1), next to Q's quasi cell (0,5,-1)). Driven by `rb4-drive.txt`.
+pub fn rb4_bench() -> Design {
+    let mut d = rb2();
+    d.name = "piston-door-3x3-rb4-bench".into();
+    for z in [-2, -3, -4] {
+        d.blocks.remove(&[0, 3, z]);
+        d.blocks.remove(&[0, 4, z]);
+        d.blocks.remove(&[0, 6, z]);
+        d.blocks.remove(&[0, 5, z]);
+    }
+    d.blocks.remove(&[0, 5, -5]);
+    d.blocks.remove(&[0, 4, -5]);
+    let mut b = Builder { d };
+    b.set([-1, 5, -1], FLOOR); // H block
+    b.repeater([-1, 5, -2], "south", 1); // H repeater: input from (-1,5,-3)
+    b.d
+}
+
+/// rb5: rb2 with a silent hold instead of the 24gt late chain. Q keeps extended after the lever
+/// goes off because H (-1,5,-1), next to Q's quasi cell, is powered by L delayed 14gt; H turns off
+/// without updating Q, so Q stays extended (BUD) until A, lifted back by B at the end of the
+/// closing dance, lands next to Q's head (the head forwards the update to Q).
+pub fn rb5() -> Design {
+    let mut d = rb4_bench();
+    d.name = "piston-door-3x3-rb5".into();
+    d.blocks.remove(&[-1, 4, -2]);
+    d.blocks.remove(&[-1, 5, -2]);
+    let mut b = Builder { d };
+    b.repeater([0, 6, -2], "north", 4); // rep1: input from the lever
+    b.dust([0, 6, -3]);
+    b.dust([-1, 5, -3]);
+    b.repeater([-1, 5, -2], "south", 4); // rep2 into H
     b.d
 }
