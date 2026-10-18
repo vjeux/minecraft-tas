@@ -306,6 +306,359 @@ final class Sandbox {
         return result.toString();
     }
 
+    // ---- survival building (op "build") -------------------------------------------------------
+
+    private static final java.lang.reflect.Method GET_PLACEMENT_STATE = method(
+            net.minecraft.world.item.BlockItem.class, "getPlacementState", net.minecraft.world.item.context.BlockPlaceContext.class);
+    private static final float[] PITCHES = {0F, 90F, -90F, 30F, -30F, 60F, -60F};
+    /** Cardinal look directions first, then 20 degrees off each (a face seen at an angle). */
+    private static final float[] YAWS = {0F, 90F, 180F, 270F, 20F, 340F, 70F, 110F, 160F, 200F, 250F, 290F};
+
+    /**
+     * Properties the world computes (power, connections, piston extension...): a player placing the
+     * block cannot pick them, they follow from the neighbours.
+     */
+    static boolean dynamicProperty(BlockState state, String name) {
+        Block b = state.getBlock();
+        return switch (name) {
+            case "power", "extended", "lit", "locked", "triggered", "enabled", "sculk_sensor_phase", "instrument", "short",
+                    "attached", "disarmed", "in_wall", "has_book", "occupied", "unstable", "bottom", "distance" -> true;
+            case "powered" -> !(b instanceof LeverBlock);
+            case "north", "south", "east", "west", "up" -> b instanceof net.minecraft.world.level.block.RedstoneWireBlock
+                    || b instanceof net.minecraft.world.level.block.CrossCollisionBlock
+                    || b instanceof net.minecraft.world.level.block.WallBlock;
+            default -> false;
+        };
+    }
+
+    /** Properties a player sets by right-clicking the placed block (repeater delay, lever...). */
+    static boolean usableProperty(BlockState state, String name) {
+        Block b = state.getBlock();
+        return (name.equals("delay") && b instanceof net.minecraft.world.level.block.RepeaterBlock)
+                || (name.equals("mode") && b instanceof net.minecraft.world.level.block.ComparatorBlock)
+                || (name.equals("powered") && b instanceof LeverBlock)
+                || (name.equals("note") && b instanceof net.minecraft.world.level.block.NoteBlock)
+                || (name.equals("inverted") && b instanceof net.minecraft.world.level.block.DaylightDetectorBlock)
+                || name.equals("open");
+    }
+
+    /**
+     * Can a player looking along (yaw, pitch) click `face` (the face of the support block toward
+     * `pos`) at `hit`? The view ray must travel into the face, and it reaches it through the
+     * target cell: the cell it comes from (where the ray enters `pos`, walking back from the hit)
+     * must be open, or the face is out of sight.
+     */
+    private boolean visible(BlockPos pos, Direction face, Vec3 hit, float yaw, float pitch) {
+        double yr = Math.toRadians(yaw);
+        double pr = Math.toRadians(pitch);
+        double[] v = {-Math.sin(yr) * Math.cos(pr), -Math.sin(pr), Math.cos(yr) * Math.cos(pr)};
+        if (v[0] * face.getStepX() + v[1] * face.getStepY() + v[2] * face.getStepZ() >= -1e-6) {
+            return false;
+        }
+        double[] h = {hit.x, hit.y, hit.z};
+        int[] lo = {pos.getX(), pos.getY(), pos.getZ()};
+        double best = Double.MAX_VALUE;
+        int axis = -1;
+        int sign = 0;
+        for (int a = 0; a < 3; a++) {
+            double d = -v[a];
+            if (Math.abs(d) < 1e-9) {
+                continue;
+            }
+            double t = ((d > 0 ? lo[a] + 1 : lo[a]) - h[a]) / d;
+            if (t > 1e-9 && t < best) {
+                best = t;
+                axis = a;
+                sign = d > 0 ? 1 : -1;
+            }
+        }
+        if (axis < 0) {
+            return false;
+        }
+        BlockPos entry = pos.offset(axis == 0 ? sign : 0, axis == 1 ? sign : 0, axis == 2 ? sign : 0);
+        BlockState s = this.level.getBlockState(entry);
+        return s.isAir() || s.getCollisionShape(this.level, entry).isEmpty();
+    }
+
+    /** Blocks whose right-click does something (a player sneaks to place against them). */
+    static boolean interactive(BlockState s) {
+        Block b = s.getBlock();
+        return b instanceof LeverBlock || b instanceof ButtonBlock || b instanceof net.minecraft.world.level.block.DiodeBlock
+                || b instanceof net.minecraft.world.level.block.NoteBlock || b instanceof net.minecraft.world.level.block.DoorBlock
+                || b instanceof net.minecraft.world.level.block.TrapDoorBlock || b instanceof net.minecraft.world.level.block.FenceGateBlock
+                || b instanceof net.minecraft.world.level.block.DaylightDetectorBlock || b instanceof net.minecraft.world.level.block.RedstoneWireBlock
+                || b instanceof net.minecraft.world.level.block.BaseEntityBlock && !(b instanceof net.minecraft.world.level.block.piston.MovingPistonBlock)
+                        && !(b instanceof net.minecraft.world.level.block.SculkSensorBlock);
+    }
+
+    /** How many of `target`'s player-chosen properties (facing, face, half...) `got` has; -1 if another block. */
+    private static int placementScore(BlockState got, BlockState target) {
+        if (got == null || got.getBlock() != target.getBlock()) {
+            return -1;
+        }
+        int score = 0;
+        for (net.minecraft.world.level.block.state.properties.Property<?> prop : target.getProperties()) {
+            String name = prop.getName();
+            if (!dynamicProperty(target, name) && !usableProperty(target, name) && got.getValue(prop).equals(target.getValue(prop))) {
+                score++;
+            }
+        }
+        return score;
+    }
+
+    private static int placementWanted(BlockState target) {
+        int n = 0;
+        for (net.minecraft.world.level.block.state.properties.Property<?> prop : target.getProperties()) {
+            if (!dynamicProperty(target, prop.getName()) && !usableProperty(target, prop.getName())) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** What the item would place for this click (null when the click cannot place at `pos`). */
+    private BlockState trialPlacement(net.minecraft.world.item.BlockItem item, net.minecraft.world.item.ItemStack stack, BlockPos pos, BlockHitResult hit) {
+        net.minecraft.world.item.context.BlockPlaceContext ctx = new net.minecraft.world.item.context.BlockPlaceContext(
+                mockPlayer(), net.minecraft.world.InteractionHand.MAIN_HAND, stack, hit);
+        if (!ctx.canPlace() || !ctx.getClickedPos().equals(pos)) {
+            return null;
+        }
+        net.minecraft.world.item.context.BlockPlaceContext updated = item.updatePlacementContext(ctx);
+        if (updated == null || !updated.getClickedPos().equals(pos)) {
+            return null;
+        }
+        try {
+            return (BlockState) GET_PLACEMENT_STATE.invoke(item, updated);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /** One way to click: the hit, the look direction and sneaking. */
+    private record Click(BlockHitResult hit, float yaw, float pitch, boolean sneak, boolean supported) {
+        String describe() {
+            String compass = Direction.fromYRot(yaw).getSerializedName();
+            float off = net.minecraft.util.Mth.wrapDegrees(yaw - Direction.fromYRot(yaw).toYRot());
+            if (Math.abs(off) > 1F) {
+                compass += " (" + (int) Math.abs(off) + " degrees toward " + Direction.fromYRot(Direction.fromYRot(yaw).toYRot() + Math.signum(off) * 90F).getSerializedName() + ")";
+            }
+            String look = pitch >= 89F ? "looking down" : pitch <= -89F ? "looking up" : "facing " + compass
+                    + (pitch > 0F ? " looking down " + (int) pitch : pitch < 0F ? " looking up " + (int) -pitch : "");
+            BlockPos s = hit.getBlockPos();
+            if (!supported) {
+                return "put a temporary dirt block at " + s.getX() + " " + s.getY() + " " + s.getZ() + ", click its "
+                        + hit.getDirection().getSerializedName() + " face, " + look + ", then break the dirt";
+            }
+            return "click the " + hit.getDirection().getSerializedName() + " face of " + s.getX() + " " + s.getY() + " " + s.getZ() + ", " + look
+                    + (sneak ? ", sneaking" : "");
+        }
+    }
+
+    private void aim(Click c) {
+        Player p = mockPlayer();
+        p.setShiftKeyDown(c.sneak());
+        p.setYRot(c.yaw());
+        p.setYHeadRot(c.yaw());
+        p.setXRot(c.pitch());
+    }
+
+    /**
+     * Place `target`'s block at `pos` like a survival player: try every click on a neighbouring
+     * block's face (look direction, sneak; mid-air only when no click fits), keep the one whose
+     * placement state has `target`'s player-chosen properties, run the real BlockItem.place
+     * (getStateForPlacement, setBlock flags 11, setPlacedBy, the place game event), then right-click
+     * the block until its click-set properties (repeater delay, lever...) match, settling between
+     * clicks. "ok" is false when the block cannot be placed that way here.
+     */
+    com.google.gson.JsonObject placeLikePlayer(SimServer server, BlockPos pos, BlockState target, java.util.function.Function<BlockState, String> ser, int settle) {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        net.minecraft.world.item.Item it = target.getBlock().asItem();
+        if (!(it instanceof net.minecraft.world.item.BlockItem item)) {
+            o.addProperty("ok", false);
+            o.addProperty("error", "no item places " + ser.apply(target));
+            return o;
+        }
+        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
+        Player player = mockPlayer();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+        boolean halves = target.getProperties().stream().anyMatch(p -> p.getName().equals("half") || p.getName().equals("type"));
+        double[] hitYs = halves ? new double[] {0.25, 0.75} : new double[] {0.5};
+        int wanted = placementWanted(target);
+        int bestScore = -1;
+        boolean scaffolded = false;
+        Click best = null;
+        search:
+        for (int pass = 0; pass < 1; pass++) {
+            for (Direction face : Direction.values()) {
+                BlockPos support = pos.relative(face.getOpposite());
+                BlockState supportState = this.level.getBlockState(support);
+                if (supportState.isAir()) {
+                    continue;
+                }
+                // Right-clicking a lever, repeater, dust... would use it instead of placing: sneak.
+                boolean sneak = interactive(supportState);
+                for (double hy : hitYs) {
+                    Vec3 loc = Vec3.atCenterOf(support).add(face.getStepX() * 0.5,
+                            face.getAxis() == Direction.Axis.Y ? face.getStepY() * 0.5 : hy - 0.5, face.getStepZ() * 0.5);
+                    BlockHitResult hit = new BlockHitResult(loc, face, support, false);
+                    for (float pitch : PITCHES) {
+                        for (float yaw : YAWS) {
+                            if (!visible(pos, face, loc, yaw, pitch)) {
+                                continue;
+                            }
+                            Click c = new Click(hit, yaw, pitch, sneak, true);
+                            aim(c);
+                            int s = placementScore(trialPlacement(item, stack, pos, hit), target);
+                            if (s > bestScore) {
+                                bestScore = s;
+                                best = c;
+                                if (s == wanted) {
+                                    break search;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (bestScore < wanted && this.level.getBlockState(pos).isAir()) {
+            // No neighbouring block to click that gives this orientation (in the void the
+            // sandbox is): put a temporary block next to it like a player would, click that,
+            // break it afterwards. The temporary block's placement and removal update the
+            // world like any other block.
+            java.util.List<BlockPos> around = new java.util.ArrayList<>();
+            for (BlockPos q : new BlockPos[] {pos.below(), pos.north(), pos.south(), pos.west(), pos.east(), pos.above()}) {
+                if (this.level.getBlockState(q).isAir() && q.getY() > this.level.getMinY()) {
+                    around.add(q);
+                }
+            }
+            for (BlockPos q : around) {
+                BlockState dirt = Blocks.DIRT.defaultBlockState();
+                this.level.setBlock(q, dirt, 11);
+                this.level.gameEvent(net.minecraft.world.level.gameevent.GameEvent.BLOCK_PLACE, q,
+                        net.minecraft.world.level.gameevent.GameEvent.Context.of(player, dirt));
+                for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
+                    tick(server);
+                }
+                Direction face = Direction.getApproximateNearest((double) (pos.getX() - q.getX()), (double) (pos.getY() - q.getY()), (double) (pos.getZ() - q.getZ()));
+                int sBest = -1;
+                Click sClick = null;
+                scaffoldSearch:
+                for (double hy : hitYs) {
+                    Vec3 loc = Vec3.atCenterOf(q).add(face.getStepX() * 0.5,
+                            face.getAxis() == Direction.Axis.Y ? face.getStepY() * 0.5 : hy - 0.5, face.getStepZ() * 0.5);
+                    BlockHitResult hit = new BlockHitResult(loc, face, q, false);
+                    for (float pitch : PITCHES) {
+                        for (float yaw : YAWS) {
+                            if (!visible(pos, face, loc, yaw, pitch)) {
+                                continue;
+                            }
+                            Click c = new Click(hit, yaw, pitch, false, false);
+                            aim(c);
+                            int s = placementScore(trialPlacement(item, stack, pos, hit), target);
+                            if (s > sBest) {
+                                sBest = s;
+                                sClick = c;
+                                if (s == wanted) {
+                                    break scaffoldSearch;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (sBest == wanted || q == around.get(around.size() - 1)) {
+                    if (sBest > bestScore) {
+                        bestScore = sBest;
+                        best = sClick;
+                    }
+                    if (best != null) {
+                        aim(best);
+                        item.place(new net.minecraft.world.item.context.BlockPlaceContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, stack, best.hit()));
+                        for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
+                            tick(server);
+                        }
+                    }
+                    breakLikePlayer(q);
+                    o.addProperty("scaffold", q.getX() + " " + q.getY() + " " + q.getZ());
+                    scaffolded = true;
+                    break;
+                }
+                breakLikePlayer(q);
+                for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
+                    tick(server);
+                }
+            }
+        }
+        if (best == null) {
+            player.setShiftKeyDown(false);
+            o.addProperty("ok", false);
+            o.addProperty("error", "nothing can be placed at " + pos.toShortString() + " (occupied or no support)");
+            return o;
+        }
+        if (!scaffolded) {
+            aim(best);
+            item.place(new net.minecraft.world.item.context.BlockPlaceContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, stack, best.hit()));
+        }
+        player.setShiftKeyDown(false);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+        int clicks = 0;
+        for (net.minecraft.world.level.block.state.properties.Property<?> prop : target.getProperties()) {
+            if (!usableProperty(target, prop.getName())) {
+                continue;
+            }
+            for (int i = 0; i < 25; i++) {
+                BlockState now = this.level.getBlockState(pos);
+                if (now.getBlock() != target.getBlock() || now.getValue(prop).equals(target.getValue(prop))) {
+                    break;
+                }
+                // let the previous placement or click settle, then click again
+                for (int t = 0; t < settle && !idle(); t++) {
+                    tick(server);
+                }
+                use(pos, Direction.UP);
+                clicks++;
+            }
+        }
+        BlockState placed = this.level.getBlockState(pos);
+        boolean ok = bestScore == wanted && placed.getBlock() == target.getBlock();
+        for (net.minecraft.world.level.block.state.properties.Property<?> prop : target.getProperties()) {
+            if (usableProperty(target, prop.getName()) && placed.getBlock() == target.getBlock() && !placed.getValue(prop).equals(target.getValue(prop))) {
+                ok = false;
+            }
+        }
+        o.addProperty("ok", ok);
+        o.addProperty("placed", ser.apply(placed));
+        o.addProperty("supported", best.supported());
+        o.addProperty("click", best.describe());
+        o.addProperty("clicks", clicks);
+        if (!ok) {
+            o.addProperty("error", "placed " + ser.apply(placed) + ", wanted " + ser.apply(target));
+        }
+        return o;
+    }
+
+    /** Break a block like a survival player (no drops: the player picks them up). */
+    void breakLikePlayer(BlockPos pos) {
+        BlockState state = this.level.getBlockState(pos);
+        if (state.isAir()) {
+            return;
+        }
+        BlockState adjusted = state.getBlock().playerWillDestroy(this.level, pos, state, mockPlayer());
+        if (this.level.removeBlock(pos, false)) {
+            state.getBlock().destroy(this.level, pos, adjusted);
+        }
+    }
+
+    private static java.lang.reflect.Method method(Class<?> owner, String name, Class<?>... params) {
+        try {
+            java.lang.reflect.Method m = owner.getDeclaredMethod(name, params);
+            m.setAccessible(true);
+            return m;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Missing method " + owner.getName() + "." + name, e);
+        }
+    }
+
     private Player mockPlayer() {
         if (this.mockPlayer == null) {
             this.mockPlayer = new Player(this.level, new GameProfile(UUID.nameUUIDFromBytes(("mctas" + this.id).getBytes()), "mctas")) {
