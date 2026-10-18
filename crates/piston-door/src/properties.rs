@@ -478,6 +478,42 @@ pub fn require_seamless(w: &mut Worker, sb: u32, d: &Design, min: Tier) -> Resul
     Ok(())
 }
 
+/// A search requirement: `--seamless <tier>[+hall]` (`+hall`: the ring-aware hallway must
+/// build too, [`with_hallway_ring`]).
+#[derive(Clone, Copy, Debug)]
+pub struct SeamReq {
+    pub tier: Tier,
+    pub hallway: bool,
+    /// Repair progress: below the tier, still accept a design with fewer offending cells
+    /// ([`seamless_offenders`]) than this.
+    pub below: Option<usize>,
+}
+
+impl SeamReq {
+    pub fn parse(s: &str) -> Result<SeamReq> {
+        let (t, hallway) = match s.strip_suffix("+hall") {
+            Some(t) => (t, true),
+            None => (s, false),
+        };
+        Ok(SeamReq { tier: Tier::parse(t)?, hallway, below: None })
+    }
+    pub fn check(&self, w: &mut Worker, sb: u32, d: &Design) -> Result<()> {
+        let rec = record(w, sb, d)?;
+        let s = seamless(&rec);
+        if s.tier < self.tier {
+            let n = seamless_offenders(&rec, self.tier).len();
+            if !self.below.is_some_and(|b| n < b) {
+                bail!("seamless {} below {} ({n} offending cells): {}", s.label, self.tier.name(), s.why.unwrap_or_default());
+            }
+        }
+        if self.hallway {
+            let hall = with_hallway_ring(d, &rec);
+            judge(w, sb, &hall, 1).map_err(|e| anyhow::anyhow!("the ring-aware hallway breaks it: {}", brief(&e)))?;
+        }
+        Ok(())
+    }
+}
+
 /// The cells whose blocks stop a design from reaching `min`: visible circuitry in the open state
 /// (SEMI and up), in the closed state on the sides `min` needs (the cleaner side for SEMI, both
 /// for FULL), and in every frame of the animation (SUPER). Repair searches cut groups through
@@ -536,6 +572,9 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
         p.insert("seamless_why".into(), w);
     }
     // Every blocker, per check: closed side z-/z+ and the open state.
+    let vis = |c: &(Pos, String)| geo.in_t(c.0) || geo.in_s(c.0);
+    let quart = |s: i32| circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).collect::<Vec<_>>();
+    let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).collect();
     let list = |v: &[&(Pos, String)]| -> String {
         if v.is_empty() {
             return "-".into();
@@ -897,6 +936,42 @@ fn brief(e: &str) -> String {
     if e.len() > 110 { format!("{}...", &e[..e.char_indices().take_while(|(i, _)| *i < 107).last().map(|(i, c)| i + c.len_utf8()).unwrap_or(0)]) } else { e }
 }
 
+/// The ring-aware hallway: like [`with_hallway`], but the door plane's S ring cells that hold a
+/// block in the OPEN state are left empty (door blocks retract there and become the wall when
+/// open; closed, those cells touch T only through the door blocks, so nothing is seen there).
+/// Every other S cell empty at rest is filled: depth != 0 cells are seen at rest, and a door
+/// plane cell empty in the open state would be a hole in the open hallway.
+pub fn with_hallway_ring(d: &Design, rec: &Recording) -> Design {
+    let geo = rec.geo;
+    let open = rec.open_state();
+    let (lo, hi) = d.bounds().unwrap();
+    let (a, b) = (geo.depth(lo).min(geo.depth(hi)), geo.depth(lo).max(geo.depth(hi)));
+    let mut out = d.clone();
+    for dd in (a.min(-3) - 3)..=(b.max(3) + 3) {
+        for u in -1..=3 {
+            for v in -1..=3 {
+                let q = geo.cell(u, v, dd);
+                if !geo.in_s(q) || !rec.rest.get(q).is_none_or(is_air) || d.blocks.contains_key(&q) {
+                    continue;
+                }
+                if dd == 0 && open.get(q).is_some_and(|s| !is_air(s)) {
+                    continue;
+                }
+                out.blocks.insert(q, "minecraft:smooth_stone".into());
+            }
+        }
+    }
+    out
+}
+
+/// Search acceptance filter (`--hallway`): the door still passes one judge cycle at its own
+/// position with the ring-aware hallway ([`with_hallway_ring`]) built around it.
+pub fn require_hallway(w: &mut Worker, sb: u32, d: &Design) -> Result<()> {
+    let rec = record(w, sb, d)?;
+    let hall = with_hallway_ring(d, &rec);
+    judge(w, sb, &hall, 1).map_err(|e| anyhow::anyhow!("hallway (ring-aware) breaks it: {}", brief(&e)))
+}
+
 /// Every empty S cell along the build's depth extent + 3 filled with smooth stone.
 pub fn with_hallway(d: &Design, rec: &Recording) -> Design {
     let geo = rec.geo;
@@ -1227,6 +1302,11 @@ pub fn dynamic(w: &mut Worker, sb: u32, d: &Design, rec: &Recording, p: &mut Pro
         Ok(()) => "yes".into(),
         Err(e) => format!("no ({})", brief(&e)),
     });
+    let hall = with_hallway_ring(d, rec);
+    p.insert("hallway_ring".into(), match judge(w, sb, &hall, 1) {
+        Ok(()) => "yes".into(),
+        Err(e) => format!("no ({})", brief(&e)),
+    });
     p.insert("contained".into(), contained(w, sb, d, rec));
     p.insert("weatherproof".into(), weatherproof(w, sb, d, rec)?);
     let (rv, rt) = repeater_input(w, sb, d, rec)?;
@@ -1345,6 +1425,7 @@ pub fn display_name(source: &str) -> String {
 pub const COLUMNS: &[(&str, &str)] = &[
     ("seamless", "seamless"),
     ("hallway", "hall"),
+    ("hallway_ring", "hall (ring-aware)"),
     ("dents", "dents"),
     ("flush_full", "full trap/flush/deluxe"),
     ("flush_semi", "semi"),

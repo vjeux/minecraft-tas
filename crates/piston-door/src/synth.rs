@@ -1154,7 +1154,7 @@ pub enum Target {
     /// The door: screen at a few positions, then the full judge. `max_open` / `max_close`
     /// (speed boards) reject a door that opens (closes) later than that many ticks in any
     /// cycle at the first position, as the leaderboard measures it.
-    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, seamless: Option<crate::properties::Tier> },
+    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, seamless: Option<crate::properties::SeamReq> },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
 }
@@ -1182,7 +1182,7 @@ fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String>
     match target {
         Target::Door { judge, max_open, max_close, seamless, .. } => {
             if let Some(t) = seamless {
-                crate::properties::require_seamless(w, sb, d, *t)?;
+                t.check(w, sb, d)?;
             }
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
             let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
@@ -1430,7 +1430,7 @@ pub struct ResynthOptions {
     /// run on one region.
     pub only: Option<(Pos, Pos)>,
     /// Accept only replacements at least this seamless (see [`crate::properties::seamless`]).
-    pub seamless: Option<crate::properties::Tier>,
+    pub seamless: Option<crate::properties::SeamReq>,
     /// Repair mode: while the design is below `seamless`, cut only groups through an offending
     /// cell (single blocks too) and let them grow back with up to this many more blocks.
     pub extra: usize,
@@ -1523,7 +1523,8 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
         // through an offending cell are cut, and they may grow back with up to --extra more
         // blocks than they had.
         let offenders: Option<Vec<Pos>> = match o.seamless {
-            Some(t) if o.extra > 0 => {
+            Some(req) if o.extra > 0 => {
+                let t = req.tier;
                 let mut w = pool.worker(0);
                 let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
                 let rec = crate::properties::record(&mut w, sb, &cur);
@@ -1541,6 +1542,8 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
             _ => None,
         };
         let extra = if offenders.is_some() { o.extra } else { 0 };
+        // While repairing, a replacement that removes some offending cells is progress too.
+        let seam_req = o.seamless.map(|r| crate::properties::SeamReq { below: offenders.as_ref().map(|v| v.len()), ..r });
         let rem = removable(&cur, &changing);
         let mut gs = groups(&rem, if offenders.is_some() { 1 } else { o.min_size.max(1) }, o.max_size);
         if let Some(off) = &offenders {
@@ -1628,7 +1631,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 }
             };
             let n: usize = buckets.iter().map(|b| b.len()).sum();
-            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, seamless: o.seamless };
+            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, seamless: seam_req };
             let t = Instant::now();
             let inner = |m: &str| {
                 if m.contains("VERIFIED") || (m.contains("passed the screen") && !m.ends_with(" 0 passed the screen")) {

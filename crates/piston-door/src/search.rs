@@ -125,7 +125,7 @@ pub struct SearchOptions {
     /// Accept only designs at least this seamless (`--seamless semi|full|super`): one recorded
     /// cycle at the design's own position, judged by `door properties`' definition
     /// ([`crate::properties::seamless`]); checked before the judge (it is one cycle).
-    pub seamless: Option<crate::properties::Tier>,
+    pub seamless: Option<crate::properties::SeamReq>,
 }
 
 /// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk; and within
@@ -148,7 +148,7 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
 /// [`verify_in`] plus the search's speed constraints.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
     if let Some(t) = opts.seamless {
-        crate::properties::require_seamless(w, sb, d, t)?;
+        t.check(w, sb, d)?;
     }
     let r = speed_check(verify_in(w, sb, d, v)?, opts)?;
     // Shape boards measure the space a door needs while it moves too: check the swept shape.

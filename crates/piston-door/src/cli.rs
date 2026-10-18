@@ -113,7 +113,7 @@ impl SearchArgs {
             to_sculk: self.to_sculk,
             shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
             rotation_safe: self.rotation_safe,
-            seamless: self.seamless.as_deref().map(crate::properties::Tier::parse).transpose()?,
+            seamless: self.seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?,
         })
     }
 
@@ -2549,7 +2549,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, seamless, extra } => {
             use crate::synth::*;
-            let seamless = seamless.as_deref().map(crate::properties::Tier::parse).transpose()?;
+            let seamless = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let d = load_design(&design)?;
             let only = match only {
