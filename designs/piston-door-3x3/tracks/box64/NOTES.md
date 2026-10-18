@@ -127,3 +127,11 @@ Simulator findings (not yet a working ideal replay):
   * L0 (own toggle) and M's puller (1,-2) from the bottom-left (K0), PB (2,-2) from the bottom-right
     (K2): both regions only see E3 / L0 / R1 moving, which double-fires, so each needs a merger
     (delay-2 repeater + observer) or bulb, and K2 has 5 cells.
+- Tried (f102/f102-left.txt + .ideal, real left-core components, ideal toggles): s1, PD release,
+  E3 (s3, s5 from the lamp pair) and the lifted L1 at s4 all fire as planned, but (a) the wall torch
+  (-1,5) quasi-powers (0,4) (a wall torch emits toward every side but its wall), so (0,4) fires when
+  the torch turns off and TL goes up early, then down again with the toggle; (b) the second pulse of
+  the lifted-L1 driver (s5+2, it watches E3's driver) fires L1 while E3 is pulling it back: L1
+  pushes C back and E3 cannot pull an extended piston. The lifted-L1 driver must pulse once (s4)
+  while E3 pulses twice: they cannot share the trigger (-3,2), and every other input of the lifted
+  L1 is a ring or door cell. Open problem for 8x8-102.

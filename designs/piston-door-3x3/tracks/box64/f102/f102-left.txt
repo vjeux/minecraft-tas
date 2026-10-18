@@ -1,0 +1,33 @@
+name: box64-f102-left
+# families 8x8-102 with the planned LEFT CORE wired: resting L1 from observer (-2,3) facing up (watches (-2,4)),
+# lifted L1 from observer (-2,2) facing west (watches (-3,2)), E3 from observer (-3,2) facing up watching the
+# lamp (-3,3) (one 2 gt power -> two changes 6 gt apart), PD held by the wall torch (-1,5) on (-2,5).
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  J minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  X minecraft:sticky_piston[extended=true,facing=down]
+  h minecraft:piston_head[facing=down,short=false,type=sticky]
+  S minecraft:smooth_stone
+  l minecraft:redstone_lamp[lit=false]
+  u minecraft:observer[facing=up,powered=false]
+  w minecraft:observer[facing=west,powered=false]
+  t minecraft:redstone_wall_torch[facing=east,lit=true]
+layer -2:
+  ....UU
+layer 0:
+  .E.JJJ
+layer 1:
+  EE.JJJ.W
+layer 2:
+  uwhJJJ
+layer 3:
+  luX
+layer 4:
+  ...DDD
+layer 5:
+  .St
