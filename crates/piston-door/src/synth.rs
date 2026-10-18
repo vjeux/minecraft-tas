@@ -639,6 +639,10 @@ impl Gen {
         let t = Instant::now();
         let shards: Vec<Mutex<HashSet<u64>>> = (0..256).map(|_| Mutex::new(HashSet::new())).collect();
         let total = AtomicUsize::new(0);
+        // Sets visited by all threads: capped at 200 x max_cands, so a box/palette/k whose
+        // search tree explodes (while few of its sets are finished circuits, e.g. with
+        // --require-any) is skipped instead of enumerating for hours.
+        let visits = AtomicUsize::new(0);
         let (fa, fr) = self.fed(&[]);
         let roots = self.expansions(&[], &fa, &fr);
         let next = AtomicUsize::new(0);
@@ -658,7 +662,7 @@ impl Gen {
                         if set.len() > self.k {
                             continue;
                         }
-                        if let Err(e) = self.visit(&mut set, &shards, &mut out, &total) {
+                        if let Err(e) = self.visit(&mut set, &shards, &mut out, &total, &visits) {
                             *failure.lock().unwrap() = Some(e);
                             break;
                         }
@@ -740,10 +744,14 @@ impl Gen {
     }
 
     /// `set` was just grown: record it if it is a finished circuit, then grow it further.
-    fn visit(&self, set: &mut Vec<u32>, shards: &[Mutex<HashSet<u64>>], out: &mut Vec<Vec<Vec<u32>>>, total: &AtomicUsize) -> Result<()> {
+    fn visit(&self, set: &mut Vec<u32>, shards: &[Mutex<HashSet<u64>>], out: &mut Vec<Vec<Vec<u32>>>, total: &AtomicUsize, visits: &AtomicUsize) -> Result<()> {
         let key = Self::key(set);
         if !shards[(key % shards.len() as u64) as usize].lock().unwrap().insert(key) {
             return Ok(());
+        }
+        let cap = self.max_cands.saturating_mul(200);
+        if visits.fetch_add(1, Ordering::Relaxed) >= cap {
+            bail!("more than {cap} sets visited (200 x --max-cands): shrink the box, palette or k");
         }
         let count = |k: Kind| set.iter().filter(|&&x| self.atoms[x as usize].kind == k).count();
         if !self.limit.iter().all(|(k, n)| count(*k) <= *n) {
@@ -771,7 +779,7 @@ impl Gen {
             }
             let before = set.len();
             set.extend(&add_ids);
-            self.visit(set, shards, out, total)?;
+            self.visit(set, shards, out, total, visits)?;
             set.truncate(before);
         }
         Ok(())
