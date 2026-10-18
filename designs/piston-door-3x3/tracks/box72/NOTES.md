@@ -33,3 +33,20 @@ the piston's QC cell (my first rig re-powered it through a lamp).
 ## Status
 Looking for a 7x9 layout with one extra link type (torch link, BUD release, or a lever outside
 the box on a region boundary).
+
+## 7x10 = 70 (flat43 center + left torch link): mechanism OK, top wiring open (22:00-22:50Z)
+* [wip/m710.txt](wip/m710.txt) + [wip/m710c.ideal](wip/m710c.ideal) / [wip/m710s.ideal](wip/m710s.ideal):
+  x -2..4, y -3..6. Left: TL up (puller (0,4)), ML torch-held (-2,1) (torch (-2,0) on the
+  lever's block (-2,-1)), BL down (puller (0,-2)); center flat43 (A (1,4), B (1,5), P_T (3,3),
+  P_M (1,-2) fed from row -3); right 3-stack. WORKS with ideal inputs, A fired only through an
+  observer (2,4) facing east (a2 by QC through B's head). One symmetric train exists: a1 0..7,
+  pt 7..12, b1 14..15, a2 b1+1..2, b2 22..24, a3 = b2+1.., P_M on close after a3, TL / BL /
+  right side any time.
+* The catch: the link side's top corner leaves UP, so its puller (0,4) sits next to A; A's feeder
+  and P_T are then on the far side (x >= 2), while the top's only trigger (the link watcher
+  (-2,2)) is on the near side. The only top crossing is row 6 at (1,6) = B's QC cell: anything
+  crossing there arms B. B's window + A's a2/a3 cross fine (f43 style: B window repeater into
+  (1,6), an observer at (1,6) watching it, its output lights a dust dot on a stone at (2,4) ->
+  A on each window edge by onPlace when A lands; checked in the simulator, wip/v1.txt), but a1
+  and pt need an EARLY far-side event and every early crossing either fires B or collides with
+  A's window pulses. Not solved yet.
