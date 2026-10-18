@@ -61,12 +61,16 @@ one exotic block (the old palettes were already exhausted on these designs).
 | fast-clean-a1c (107, 10 / 7) | resynth --max-size 4, exotic + shelf, --require-any, --max-open 10 --max-close 7 | | nothing in 100 min (timed out) |
 | snow-door b38 | regrow --size 3, obs,block,dust,rep,torch,note + podzol, --require-any podzol | 531k | nothing |
 | **pareto-mid mp7-repU-pgF (50, 14 / 12)**, mp7-leafC-pgF (50, 15 / 11), mp7-leafC (46), mp8-lampU (44) (new on main) | resynth sweep, exotic + shelf, --require-any ...,note | | **mp7-repU-pgF -> 49** (pm49-trap, same pattern as pm45); the others nothing |
+| **pareto-mid mp7-dustU (47, 14 / 13), mp7-dustU-pgF (51, 14 / 11)** (its branch, newest) | resynth sweep (as above) | | **-> 46 at 14 / 13 (pm46-trap) and 50 at 14 / 11 (pm50-trap)**: trapdoor beside the U dust's floor + observer instead of dust + stone + observer |
+| fast-clean s4c-91 (12 / 7), c1r-107 (9 / 7) (new on main) | resynth --max-size 3, exotic + shelf + note, --require-any, their speed bounds | | nothing |
 
 ## Report (exotic track)
 
 **Best:** `pm45-trap.txt` (= BEST.txt): **45 blocks, solid, open 14 / close 14, rotation-safe**, a
-new point on the Pareto frontier (pareto-mid's 46 at the same 14 / 14), and `pm49-trap.txt`:
-**49 blocks, open 14 / close 12, rotation-safe** (pareto-mid's 50 at the same 14 / 12). Variants:
+new point on the Pareto frontier (pareto-mid's 46 at the same 14 / 14), and three more frontier
+doors, each one block under pareto-mid's door at the same speed: `pm46-trap.txt` **46 at 14 / 13**
+(its mp7-dustU 47), `pm49-trap.txt` **49 at 14 / 12** (mp7-repU-pgF 50), `pm50-trap.txt` **50 at
+14 / 11** (mp7-dustU-pgF 51); all rotation-safe. Variants:
 `fc2f-40-trap.txt` (40, = fc2's count and timing), `w45-44-trap.txt` (44, slime-free, 26 / 24).
 No new record on the main boards: b38 (38), fc2 (40), flat43 (43, flat/wall), flat-b-v7 (44,
 smallest box), g33 (33, gravity) resist every exotic sweep (table above).
@@ -75,13 +79,15 @@ smallest box), g33 (33, gravity) resist every exotic sweep (table above).
 * **Iron trapdoor (also fence gate, skull): yes, as a zero-delay, non-conducting watchable
   relay.** It turns a power edge (the lever, an observer's output, a powered block) into a state
   change in its own cell, so an observer can read it from a cell whose output lands straight on
-  the target. All four finds are this pattern: pm46 -> 45 and mp7-repU-pgF 50 -> 49 (stone +
-  repeater + floor -> trapdoor + observer), fc2f -> 40 (the observer watching the lever for P_L ->
-  a trapdoor beside the lever: P_L fires at t2 instead of t4), w45 -> 44 (three observers of a
-  lever chain -> trapdoor + observer). sf-holdA had found the same relay with a note block (b38);
-  a note block also works in pm45 and pm49. The trapdoor adds non-conduction (a note block next to
-  a strongly powered source powers the pistons beside it: `designs/gadgets/synth/indicator.spec`
-  is exactly that case) and no neighbor updates (flag 2): it never BUDs a quasi-armed piston.
+  the target. All six finds are this pattern: pm46 -> 45 and mp7-repU-pgF 50 -> 49 (stone +
+  repeater + floor -> trapdoor + observer), mp7-dustU 47 -> 46 and mp7-dustU-pgF 51 -> 50 (dust +
+  stone + observer -> a trapdoor beside the powered dust floor + observer), fc2f -> 40 (the
+  observer watching the lever for P_L -> a trapdoor beside the lever: P_L fires at t2 instead of
+  t4), w45 -> 44 (three observers of a lever chain -> trapdoor + observer). sf-holdA had found the
+  same relay with a note block (b38); a note block also works in pm45 and pm49. The trapdoor adds
+  non-conduction (a note block next to a strongly powered source powers the pistons beside it:
+  `designs/gadgets/synth/indicator.spec` is exactly that case) and no neighbor updates (flag 2):
+  it never BUDs a quasi-armed piston.
 * **Powered / activator rails: no.** A rail line costs a floor per cell like dust, powers nothing,
   and only an observer reads it (2 gt). The records have no long transport, and no spot where
   "passes next to a piston without powering it" saves a block; for one-cell hops a trapdoor or a
