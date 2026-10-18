@@ -44,3 +44,14 @@ inputs: `ground20.ideal` per edge, `ground-sym.ideal` one 24-pulse train for bot
   Open problem for the 3x3: the BOTTOM row's shifted puller (in the ring at x=-1 or 3, y=0) has
   no seamless power cell: its z neighbours are S, below is the floor, above is the row-1 ring cell
   (quasi-power needs a source next to (x,1,0): S, the door, row 1's piston home or row 2's ring).
+- 20:41Z `--no-ring-fire` (a piston in S cannot fire): NO seamless bottom-row mechanism with <= 4
+  added sticky/normal pistons or stone blocks (x -5..5, z -2..2, 263k combinations). Hand
+  argument: with no firing in the ring, a bottom-row block moves only by pulls from x<=-2 / x>=4
+  (faces reach x=0 / 2) or push lines starting in the ring, so the middle block can only reach
+  x=0 by a push from the right through a spacer at x=3, which the right side block needs as its
+  exit. So the bottom row's middle block must go UP (elevator) for a seamless ground door, or a
+  power trick must reach a bottom-ring piston (its only non-S neighbours: the floor, the row-1
+  ring cell, its home cell).
+- 20:44Z mech-wire on ground20.ideal (uniform gap 5, 128-tick waves, motion triggers): 0 lever
+  spots reach every receiver. A self-timed sequencer needs its own search (couplings: observer
+  watching a cell piston X changes -> piston Y), not route2.
