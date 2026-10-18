@@ -76,6 +76,15 @@ fn eval(expr: &str, vars: &BTreeMap<String, i64>) -> Result<i64> {
 }
 
 impl Schedule {
+    /// A schedule built in code: (open?, tick, pos, Some(state) = set / None = clear).
+    pub fn from_events(design: Design, events: &[(bool, u32, Pos, Option<String>)]) -> Schedule {
+        let events = events
+            .iter()
+            .map(|(open, t, p, s)| Event { open: *open, tick: t.to_string(), pos: *p, state: s.clone() })
+            .collect();
+        Schedule { design, vars: BTreeMap::new(), events }
+    }
+
     pub fn parse(text: &str) -> Result<Schedule> {
         let mut design = None;
         let mut vars = BTreeMap::new();

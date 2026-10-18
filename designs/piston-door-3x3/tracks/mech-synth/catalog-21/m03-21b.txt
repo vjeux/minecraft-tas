@@ -1,0 +1,45 @@
+name: m03-21b
+port door: 0 0 0
+origin: -3 0 -2
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=south]
+  E minecraft:stone
+  P minecraft:piston_head[facing=south,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  ....B
+layer -1:
+  .
+  .
+  .
+layer 0:
+  .
+  .
+  ..SEEES
+layer 1:
+  .
+  .
+  A.SEEES.C
+layer 2:
+  .
+  .
+  ..SEEES
+layer 3:
+  ....DR
+  ....P
+  .
+layer 4:
+  .
+  .
+  ....s
+layer 5:
+  .
+  .
+  ....s

@@ -1,0 +1,4 @@
+21 blocks | open 9 + close 6 events | SYM 9 events: PSeast@(-3,1,0) PSdown@(1,4,0) PSeast@(0,3,0) PSdown@(1,5,0) PSdown@(1,4,0) PSdown@(1,5,0) PSdown@(1,4,0) PSup@(1,-2,0) PSwest@(5,1,0)
+    added: Seast@(0,3,0) Sdown@(1,4,0) Sdown@(1,5,0)
+    open:  PSeast@(-3,1,0) PSup@(1,-2,0) PSdown@(1,4,0) PSeast@(0,3,0) PSdown@(1,5,0) PSdown@(1,4,0) PSdown@(1,5,0) PSdown@(1,4,0) PSwest@(5,1,0)
+    close: PSeast@(-3,1,0) PSup@(1,-2,0) PSdown@(1,4,0) PSeast@(0,3,0) PSdown@(1,4,0) PSwest@(5,1,0)
