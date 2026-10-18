@@ -1,8 +1,8 @@
-# b38 period-8 tile module, 46 blocks per opening (tile-aware door minimize from b38h-bus8):
-# the bus is an observer chain: observer (2,4,-3) watches the hopper under the lever and
-# strongly powers smooth stone (3,4,-3) under dust (3,5,-3); observers (4..8,5,-3) carry the
-# pulse east into the next copy's relay dust (b38 reacts to edges, so one pulse per edge works).
-name: b38h-obs8
+# b38 period-8 tile module, 45 blocks per opening: 7 observers (2..8,5,-3) watch the lever's
+# cell (the lever, or in the other copies the relay dust) and carry each edge east into the
+# next copy's relay dust, which stands on the hopper (b38's note block: a hopper is not a
+# conductor, so the strongly powered relay does not quasi-power piston E).
+name: b38h-obs8b
 relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
 port door: 0 0 0
 port lever: 1 5 -3
@@ -55,12 +55,12 @@ layer 3:
   ..S.S
   .
 layer 4:
-  ...HCS
+  ...H
   ...A
   ..RSR
   ..sss
 layer 5:
-  ...L.RCCCCC
+  ...LCCCCCCC
   ...B
   ...B
   ...s
