@@ -1,0 +1,13 @@
+# Lever on: M pushes S2 (lands at (2,1,0) at t3), P is powered at t2 (R on) but stays retracted;
+# a block placed next to P at t8 makes it extend.
+design designs/gadgets/no-retry.txt
+probe P 0 1 0
+probe S2 2 1 0
+probe R 0 1 -1
+use 1 1 -2
+quiet 8
+expect S2 #
+expect R 1
+expect P r
+set -1 1 0 minecraft:stone
+expect_trace P EEE
