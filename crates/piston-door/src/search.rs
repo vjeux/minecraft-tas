@@ -1010,3 +1010,96 @@ pub fn search(
     }
     Ok(cur)
 }
+
+/// `door grow`: which blocks to try, in which cells.
+pub struct GrowOptions {
+    /// Inclusive box of cells to fill (cells already used, door cells and the walkway skipped).
+    pub lo: Pos,
+    pub hi: Pos,
+    /// Block states to try in each cell.
+    pub states: Vec<String>,
+    /// Blocks added together: 1 or 2 (2 also tries every single).
+    pub k: usize,
+    /// Stop judging after this many verified designs (0 = judge every survivor).
+    pub want: usize,
+}
+
+/// Expand `door grow --states` shorthands: `obs` (observer, 6 facings), `block`
+/// (smooth_stone), `dust` (cross wire), `rep`/`rep2`/`rep3`/`rep4` (repeater, 4 facings, that
+/// delay), `torch` (standing + 4 wall torches), `glass`, `obsidian`, `rblock` (redstone block),
+/// `lamp`, or a full `minecraft:...` state.
+pub fn grow_states(spec: &str) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+        match tok {
+            "obs" => out.extend(ALL_DIRS.iter().map(|f| format!("minecraft:observer[facing={f},powered=false]"))),
+            "block" => out.push("minecraft:smooth_stone".into()),
+            "dust" => out.push("minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into()),
+            "rep" | "rep1" | "rep2" | "rep3" | "rep4" => {
+                let delay = tok.strip_prefix("rep").and_then(|d| d.parse::<u32>().ok()).unwrap_or(1);
+                out.extend(HORIZONTAL.iter().map(|f| format!("minecraft:repeater[delay={delay},facing={f},locked=false,powered=false]")));
+            }
+            "torch" => {
+                out.push("minecraft:redstone_torch[lit=true]".into());
+                out.extend(HORIZONTAL.iter().map(|f| format!("minecraft:redstone_wall_torch[facing={f},lit=true]")));
+            }
+            "glass" => out.push("minecraft:glass".into()),
+            "obsidian" => out.push("minecraft:obsidian".into()),
+            "rblock" => out.push("minecraft:redstone_block".into()),
+            "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
+            s if s.starts_with("minecraft:") => out.push(s.to_string()),
+            s => return Err(anyhow!("unknown grow state {s:?}")),
+        }
+    }
+    Ok(out)
+}
+
+/// Add up to `g.k` blocks to `base` (which may be broken, e.g. a piston whose wiring was
+/// removed) from `g.states` in the free cells of the box; every combination is screened and the
+/// survivors judged. Returns the verified designs, fewest blocks first.
+pub fn grow(pool: &Pool, base: &Design, g: &GrowOptions, opts: &SearchOptions, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+    let sandboxes = Sandboxes::new(pool);
+    let ctx = Ctx::new(base)?;
+    let mut singles: Vec<(Pos, String)> = Vec::new();
+    for x in g.lo[0]..=g.hi[0] {
+        for y in g.lo[1]..=g.hi[1] {
+            for z in g.lo[2]..=g.hi[2] {
+                let p = [x, y, z];
+                if base.blocks.contains_key(&p) || ctx.forbidden.contains(&p) {
+                    continue;
+                }
+                singles.extend(g.states.iter().map(|s| (p, s.clone())));
+            }
+        }
+    }
+    let one = |p: Pos, s: &String| format!("+{} {}", fmt_pos(p), short(s));
+    let mut cands: Vec<Cand> = Vec::new();
+    for (i, (p, s)) in singles.iter().enumerate() {
+        if support_ok(base, *p, s) {
+            cands.push(Cand { base: 0, edit: Edit { remove: Vec::new(), set: vec![(*p, s.clone())], desc: one(*p, s) } });
+        }
+        if g.k < 2 {
+            continue;
+        }
+        for (q, t) in singles.iter().skip(i + 1) {
+            if q == p {
+                continue;
+            }
+            // Each block stands on the base or on the other one.
+            let stands = |a: Pos, sa: &String, b: Pos, sb: &String| match attachment(a, sa) {
+                Some(at) if at == b => is_support(sb),
+                Some(at) => base.blocks.get(&at).is_some_and(|x| is_support(x)),
+                None => true,
+            };
+            if !stands(*p, s, *q, t) || !stands(*q, t, *p, s) {
+                continue;
+            }
+            let desc = format!("{} {}", one(*p, s), one(*q, t));
+            cands.push(Cand { base: 0, edit: Edit { remove: Vec::new(), set: vec![(*p, s.clone()), (*q, t.clone())], desc } });
+        }
+    }
+    log(&format!("{} cells x states = {} singles; {} candidates", singles.len() / g.states.len().max(1), singles.len(), cands.len()));
+    let failed: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
+    let verified = evaluate(pool, &sandboxes, &[base.clone()], cands, opts, &failed, g.want, log);
+    Ok(verified.into_iter().map(|(_, d, desc)| (d, desc)).collect())
+}

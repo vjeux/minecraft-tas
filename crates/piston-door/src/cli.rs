@@ -101,6 +101,40 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// Add 1 or 2 blocks (from --states, in the free cells of --lo..--hi) to a design, usually
+    /// one whose old wiring was removed, screening every combination and judging the survivors
+    /// (see search.rs `grow`). The best verified design is written to --out.
+    Grow {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Box corner "x,y,z" (inclusive).
+        #[arg(long)]
+        lo: String,
+        /// Opposite box corner "x,y,z" (inclusive).
+        #[arg(long)]
+        hi: String,
+        /// Comma list: obs, block, dust, rep[1-4], torch, glass, obsidian, rblock, lamp, or full states.
+        #[arg(long, default_value = "obs,block,dust")]
+        states: String,
+        /// Blocks added together (1 or 2; 2 also tries singles).
+        #[arg(long, default_value_t = 2)]
+        k: usize,
+        /// Stop after this many verified designs (0 = all).
+        #[arg(long, default_value_t = 1)]
+        want: usize,
+        /// Worker JVMs (capped by MCTAS_MAX_WORKERS).
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        screen_offsets: usize,
+        #[arg(long, default_value_t = 1)]
+        screen_cycles: u32,
+        #[arg(long, default_value_t = 200)]
+        screen_ticks: u32,
+    },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
     /// only if the full judge passes; every improvement is written to --out.
@@ -374,6 +408,55 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let best = crate::search::search(&pool, &d, &opts, &log, &mut on_improve)?;
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
+        }
+        DoorCmd::Grow { design, out, lo, hi, states, k, want, workers, extra_offsets, screen_offsets, screen_cycles, screen_ticks } => {
+            let d = load_design(&design)?;
+            let pos = |s: &str| -> Result<mctas::sim::Pos> {
+                let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                anyhow::ensure!(v.len() == 3, "expected x,y,z, got {s:?}");
+                Ok([v[0], v[1], v[2]])
+            };
+            let (a, b) = (pos(&lo)?, pos(&hi)?);
+            let g = crate::search::GrowOptions {
+                lo: [a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])],
+                hi: [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])],
+                states: crate::search::grow_states(&states)?,
+                k,
+                want,
+            };
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let t = std::time::Instant::now();
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let opts = crate::search::SearchOptions {
+                families: Vec::new(),
+                screen: VerifyOptions {
+                    cycles: screen_cycles,
+                    max_ticks: screen_ticks,
+                    offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
+                    keep_frames: false,
+                },
+                judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
+                radius: 2,
+                plateau: false,
+                plateau_pairs: false,
+                walk: 0,
+                deadline: None,
+                seed: 1,
+            };
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let found = crate::search::grow(&pool, &d, &g, &opts, &log)?;
+            for (fd, desc) in &found {
+                println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
+            }
+            match found.first() {
+                Some((best, _)) => {
+                    let mut w = pool.worker(0);
+                    let canon = crate::canonicalize(&mut w, best)?;
+                    canon.save(&out)?;
+                    println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
+                }
+                None => println!("nothing found"),
+            }
         }
         DoorCmd::Video { design, out, tps, upload } => {
             let d = load_design(&design)?;
