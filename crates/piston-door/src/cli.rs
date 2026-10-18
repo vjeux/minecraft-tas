@@ -199,6 +199,33 @@ pub enum DoorCmd {
         #[arg(long, default_value = "solid")]
         board: String,
     },
+    /// The Pareto frontier over (open ticks, close ticks, blocks): every working design on HEAD
+    /// and the explore/* branches (verdicts from the leaderboard cache, uncached ones verified),
+    /// then each --check design verified with the judge and placed against it: on the frontier,
+    /// or the doors that dominate it (see leaderboard.rs `frontier_report`).
+    Frontier {
+        /// Candidate designs to place against the frontier.
+        #[arg(long, num_args = 1..)]
+        check: Vec<PathBuf>,
+        /// Ref prefix to scan besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 4)]
+        workers: usize,
+        /// Verdict cache folder (read; new verdicts are written back).
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        cache_dir: PathBuf,
+        /// All categories (default: solid only, the main Pareto board).
+        #[arg(long)]
+        any_category: bool,
+        /// Also list every working design with its ticks, not just the frontier.
+        #[arg(long)]
+        all: bool,
+    },
     /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
     Leaderboard {
         /// Ref prefix to scan besides HEAD.
@@ -996,6 +1023,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo, board } => {
             let o = crate::showcase::MontageOptions { archive, videos, out, upload, jobs, workers, speed, redo, board };
             crate::showcase::montage(version, &o)?;
+        }
+        DoorCmd::Frontier { check, refs, extra_offsets, max_blocks, workers, cache_dir, any_category, all } => {
+            let repo = std::path::Path::new(".");
+            let mut cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
+            let n_board = cands.len();
+            for p in &check {
+                cands.push((format!("check:{}", p.display()), load_design(p)?));
+            }
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, Some(&cache_dir))?;
+            let (board, checks): (Vec<_>, Vec<_>) = entries.into_iter().partition(|e| !e.source.starts_with("check:"));
+            let _ = n_board;
+            print!("{}", crate::leaderboard::frontier_report(&board, &checks, !any_category, all));
         }
         DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
             let repo = std::path::Path::new(".");
