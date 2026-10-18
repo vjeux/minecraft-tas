@@ -61,9 +61,10 @@ pub enum Family {
     Moves,
     Subs,
     Reroute,
+    Renet,
 }
 
-const FAMILIES: [(Family, &str); 7] = [
+const FAMILIES: [(Family, &str); 8] = [
     (Family::Singles, "singles"),
     (Family::Pairs, "pairs"),
     (Family::Triples, "triples"),
@@ -71,6 +72,7 @@ const FAMILIES: [(Family, &str); 7] = [
     (Family::Moves, "moves"),
     (Family::Subs, "subs"),
     (Family::Reroute, "reroute"),
+    (Family::Renet, "renet"),
 ];
 
 /// `all` or a comma list of family names.
@@ -99,6 +101,8 @@ pub struct SearchOptions {
     pub radius: i32,
     /// When nothing improves, explore verified neutral edits one level deep.
     pub plateau: bool,
+    /// ... followed by pair removals too (singles only otherwise).
+    pub plateau_pairs: bool,
     /// Random-walk steps over verified neutral designs allowed without improving.
     pub walk: usize,
     pub deadline: Option<Instant>,
@@ -451,11 +455,33 @@ fn dust_graph(d: &Design) -> HashMap<Pos, Vec<Pos>> {
     g
 }
 
-/// Dust segments: (anchor, inner cells in order, anchor). Inner cells have two connections,
-/// touch no component, and stand on a plain floor that touches no component.
+/// A block that does something (not plain, not dust).
+fn is_component(d: &Design, p: Pos) -> bool {
+    d.blocks.get(&p).is_some_and(|s| !is_plain(s) && kind(s) != "redstone_wire")
+}
+
+/// Dust that interacts with something besides dust: its floor is not plain, it touches a
+/// component, or a plain block it touches (its floor included) touches a component (dust powers
+/// the block below it and the blocks it points into).
+fn is_terminal(d: &Design, c: Pos) -> bool {
+    let floor = add(c, [0, -1, 0]);
+    if !d.blocks.get(&floor).is_some_and(|s| is_plain(s)) {
+        return true;
+    }
+    FACES.iter().any(|f| {
+        let n = add(c, *f);
+        if is_component(d, n) {
+            return true;
+        }
+        d.blocks.get(&n).is_some_and(|s| is_plain(s)) && FACES.iter().any(|g| add(n, *g) != c && is_component(d, add(n, *g)))
+    })
+}
+
+/// Dust segments: (anchor, inner cells in order, anchor). Inner cells have two connections and
+/// are plain wiring by one of two rules: loose (no component next to the dust, a plain floor
+/// touching no component) or strict (not a terminal).
 fn dust_segments(d: &Design, g: &HashMap<Pos, Vec<Pos>>) -> Vec<(Pos, Vec<Pos>, Pos)> {
-    let component = |p: Pos| d.blocks.get(&p).is_some_and(|s| !is_plain(s) && kind(s) != "redstone_wire");
-    let inner = |c: Pos| -> bool {
+    let loose = |c: Pos| -> bool {
         if g[&c].len() != 2 {
             return false;
         }
@@ -463,61 +489,212 @@ fn dust_segments(d: &Design, g: &HashMap<Pos, Vec<Pos>>) -> Vec<(Pos, Vec<Pos>, 
         if !d.blocks.get(&floor).is_some_and(|s| is_plain(s)) {
             return false;
         }
-        if FACES.iter().any(|f| *f != [0, -1, 0] && component(add(c, *f))) {
+        if FACES.iter().any(|f| *f != [0, -1, 0] && is_component(d, add(c, *f))) {
             return false;
         }
-        // The floor touches nothing but plain blocks and air (and its own dust).
-        !FACES.iter().any(|f| {
-            let n = add(floor, *f);
-            n != c && d.blocks.get(&n).is_some_and(|s| !is_plain(s))
-        })
+        !FACES.iter().any(|f| add(floor, *f) != c && is_component(d, add(floor, *f)))
     };
+    let strict = |c: Pos| -> bool { g[&c].len() == 2 && !is_terminal(d, c) };
     let mut seen: HashSet<Vec<Pos>> = HashSet::new();
     let mut out = Vec::new();
-    for (&a, ns) in g {
-        if inner(a) {
-            continue;
-        }
-        for &n in ns {
-            if !inner(n) {
+    let rules: [&dyn Fn(Pos) -> bool; 2] = [&loose, &strict];
+    let mut anchors: Vec<Pos> = g.keys().copied().collect();
+    anchors.sort();
+    for inner in rules {
+        for &a in &anchors {
+            if inner(a) {
                 continue;
             }
-            let mut path = vec![n];
-            let (mut prev, mut cur) = (a, n);
-            let end = loop {
-                let next = g[&cur].iter().copied().find(|x| *x != prev);
-                let Some(next) = next else { break None };
-                if !inner(next) {
-                    break Some(next);
+            for &n in &g[&a] {
+                if !inner(n) {
+                    continue;
                 }
-                if path.contains(&next) {
-                    break None;
+                let mut path = vec![n];
+                let (mut prev, mut cur) = (a, n);
+                let end = loop {
+                    let next = g[&cur].iter().copied().find(|x| *x != prev);
+                    let Some(next) = next else { break None };
+                    if !inner(next) {
+                        break Some(next);
+                    }
+                    if path.contains(&next) {
+                        break None;
+                    }
+                    path.push(next);
+                    prev = cur;
+                    cur = next;
+                };
+                let Some(b) = end else { continue };
+                let mut key = path.clone();
+                key.sort();
+                if seen.insert(key) {
+                    out.push((a, path, b));
                 }
-                path.push(next);
-                prev = cur;
-                cur = next;
-            };
-            let Some(b) = end else { continue };
-            let mut key = path.clone();
-            key.sort();
-            if seen.insert(key) {
-                out.push((a, path, b));
             }
         }
     }
-    out.sort();
     out
+}
+
+fn router_box(d: &Design) -> (Pos, Pos) {
+    let (lo, hi) = d.bounds().unwrap();
+    ([lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3])
+}
+
+/// Cells new wiring may not use: what the machine sweeps while it runs, the door and walkway.
+fn reserved_cells(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> HashSet<Pos> {
+    let mut reserved: HashSet<Pos> = swept.iter().filter(|p| !d.blocks.contains_key(*p)).copied().collect();
+    reserved.extend(ctx.forbidden.iter().copied());
+    reserved
+}
+
+/// Sort an edit into improving / neutral by its block-count change; drops no-ops and repeats.
+fn classify(d: &Design, e: Edit, seen: &mut HashSet<u64>, better: &mut Vec<Edit>, neutral: &mut Vec<Edit>) {
+    let new = e.apply(d);
+    if new.blocks == d.blocks || !seen.insert(design_hash(&new)) {
+        return;
+    }
+    match block_count(&new) as i64 - block_count(d) as i64 {
+        x if x < 0 => better.push(e),
+        0 => neutral.push(e),
+        _ => {}
+    }
+}
+
+/// Net re-synthesis: for each dust net with 2+ terminals, rip every non-terminal dust cell with
+/// its floor and reconnect the terminals with the router (greedy Steiner tree: from each
+/// terminal as the root, repeatedly route the tree to the cheapest remaining terminal).
+fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>) {
+    let g = dust_graph(d);
+    let (lo, hi) = router_box(d);
+    let reserved = reserved_cells(ctx, d, swept);
+    let (mut better, mut neutral) = (Vec::new(), Vec::new());
+    let mut seen: HashSet<u64> = HashSet::new();
+    let mut done: HashSet<Pos> = HashSet::new();
+    let mut cells: Vec<Pos> = g.keys().copied().collect();
+    cells.sort();
+    for &c0 in &cells {
+        if done.contains(&c0) {
+            continue;
+        }
+        let mut net = vec![c0];
+        let mut q = VecDeque::from([c0]);
+        done.insert(c0);
+        while let Some(c) = q.pop_front() {
+            for n in &g[&c] {
+                if done.insert(*n) {
+                    net.push(*n);
+                    q.push_back(*n);
+                }
+            }
+        }
+        let terminals: Vec<Pos> = net.iter().copied().filter(|c| is_terminal(d, *c)).collect();
+        let wiring: Vec<Pos> = net.iter().copied().filter(|c| !is_terminal(d, *c)).collect();
+        if terminals.len() < 2 || wiring.is_empty() {
+            continue;
+        }
+        let mut rip = Vec::new();
+        for c in &wiring {
+            rip.push(*c);
+            rip.push(add(*c, [0, -1, 0]));
+        }
+        let mut after = d.clone();
+        for p in &rip {
+            after.blocks.remove(p);
+        }
+        let mut base_allow: HashSet<Pos> = HashSet::new();
+        for c in &net {
+            for f in FACES {
+                base_allow.insert(add(*c, f));
+                base_allow.insert(add(add(*c, [0, -1, 0]), f));
+            }
+        }
+        for p in &rip {
+            base_allow.remove(p);
+        }
+        let tset: HashSet<Pos> = terminals.iter().copied().collect();
+        // Terminals still connected to `t` through terminals.
+        let group = |t: Pos| -> Vec<Pos> {
+            let mut out = vec![t];
+            let mut q = VecDeque::from([t]);
+            let mut seen: HashSet<Pos> = [t].into_iter().collect();
+            while let Some(c) = q.pop_front() {
+                for n in &g[&c] {
+                    if tset.contains(n) && seen.insert(*n) {
+                        out.push(*n);
+                        q.push_back(*n);
+                    }
+                }
+            }
+            out
+        };
+        for &root in &terminals {
+            let mut blocks = after.blocks.clone();
+            let mut tree = group(root);
+            let mut remaining: Vec<Pos> = terminals.iter().copied().filter(|t| !tree.contains(t)).collect();
+            let mut added: Vec<(Pos, String)> = Vec::new();
+            let mut ok = true;
+            while !remaining.is_empty() {
+                let mut best: Option<(usize, Vec<(Pos, String)>, usize)> = None;
+                for (i, &t) in remaining.iter().enumerate() {
+                    let mut bl = blocks.clone();
+                    bl.remove(&t);
+                    let mut allow = base_allow.clone();
+                    allow.extend(tree.iter().copied());
+                    let r = Router { blocks: &bl, reserved: reserved.clone(), allow, lo, hi };
+                    if let Some(path) = r.route(&tree, t) {
+                        let cost = path.iter().filter(|(p, _)| *p != t).count();
+                        if best.as_ref().is_none_or(|b| cost < b.2) {
+                            best = Some((i, path, cost));
+                        }
+                    }
+                }
+                let Some((i, path, _)) = best else {
+                    ok = false;
+                    break;
+                };
+                let t = remaining.swap_remove(i);
+                for (p, s) in path {
+                    if p == t {
+                        continue;
+                    }
+                    let s = if kind(&s) == "redstone_wire" {
+                        tree.push(p);
+                        WIRE.to_string()
+                    } else {
+                        s
+                    };
+                    blocks.insert(p, s.clone());
+                    added.push((p, s));
+                }
+                for x in group(t) {
+                    if !tree.contains(&x) {
+                        tree.push(x);
+                    }
+                }
+                remaining.retain(|x| !tree.contains(x));
+            }
+            if !ok {
+                continue;
+            }
+            let delta = added.len() as i64 - rip.len() as i64;
+            let e = Edit {
+                remove: rip.clone(),
+                set: added,
+                desc: format!("renet from {} ({} terminals, {} wiring dust ripped, {delta:+})", fmt_pos(root), terminals.len(), wiring.len()),
+            };
+            classify(d, e, &mut seen, &mut better, &mut neutral);
+        }
+    }
+    (better, neutral)
 }
 
 /// Rip-up-and-reroute candidates: (improving, neutral).
 fn reroutes(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>) {
     let g = dust_graph(d);
     let segs = dust_segments(d, &g);
-    let (lo, hi) = d.bounds().unwrap();
-    let lo = [lo[0] - 3, lo[1] - 3, lo[2] - 3];
-    let hi = [hi[0] + 3, hi[1] + 3, hi[2] + 3];
-    let mut reserved: HashSet<Pos> = swept.iter().filter(|p| !d.blocks.contains_key(*p)).copied().collect();
-    reserved.extend(ctx.forbidden.iter().copied());
+    let (lo, hi) = router_box(d);
+    let reserved = reserved_cells(ctx, d, swept);
     let (mut better, mut neutral) = (Vec::new(), Vec::new());
     let mut seen: HashSet<u64> = HashSet::new();
     for (a, inner, b) in &segs {
@@ -565,17 +742,9 @@ fn reroutes(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit
                 let s = if kind(s) == "redstone_wire" { WIRE.to_string() } else { s.clone() };
                 e.set.push((*p, s));
             }
-            let new = e.apply(d);
-            if new.blocks == d.blocks || !seen.insert(design_hash(&new)) {
-                continue;
-            }
-            let delta = block_count(&new) as i64 - block_count(d) as i64;
+            let delta = path.len() as i64 - rip.len() as i64;
             e.desc = format!("reroute {} -> {} ({} inner dust, {} new blocks, {delta:+})", fmt_pos(keep), fmt_pos(goal), inner.len(), path.len());
-            match delta {
-                x if x < 0 => better.push(e),
-                0 => neutral.push(e),
-                _ => {}
-            }
+            classify(d, e, &mut seen, &mut better, &mut neutral);
         }
     }
     (better, neutral)
@@ -745,15 +914,24 @@ pub fn search(
         let n_removals = improving.len();
         let mut neutral_all = neutral.clone();
         let mut n_reroute = (0, 0);
-        if opts.has(Family::Reroute) {
+        if opts.has(Family::Reroute) || opts.has(Family::Renet) {
             let swept = {
                 let mut w = pool.worker(0);
                 crate::route::swept_cells(&mut w, &cur, &ctx.spec)?
             };
-            let (b, n) = reroutes(&ctx, &cur, &swept);
-            n_reroute = (b.len(), n.len());
-            improving.extend(b);
-            neutral_all.extend(n);
+            let tr = Instant::now();
+            for (fam, generate) in [(Family::Reroute, reroutes as fn(&Ctx, &Design, &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)), (Family::Renet, renets)] {
+                if opts.has(fam) {
+                    let (b, n) = generate(&ctx, &cur, &swept);
+                    n_reroute.0 += b.len();
+                    n_reroute.1 += n.len();
+                    improving.extend(b);
+                    neutral_all.extend(n);
+                }
+            }
+            if tr.elapsed().as_secs_f64() > 5.0 {
+                log(&format!("  routing took {:.1}s", tr.elapsed().as_secs_f64()));
+            }
         }
         let comp = compounds(&ctx, &cur, &neutral, opts.radius);
         let n_comp = comp.len();
@@ -815,7 +993,7 @@ pub fn search(
         let mut cands = Vec::new();
         for (i, b) in pbases.iter().enumerate() {
             let c = Ctx::new(b)?;
-            for edit in removals(&c, b, true, opts.has(Family::Pairs), false, opts.radius) {
+            for edit in removals(&c, b, true, opts.plateau_pairs, false, opts.radius) {
                 cands.push(Cand { base: i, edit });
             }
         }

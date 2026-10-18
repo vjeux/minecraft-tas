@@ -52,9 +52,12 @@ pub enum DoorCmd {
         /// Neighborhood radius of compounds (neutral edit + one removal) and triples.
         #[arg(long, default_value_t = 2)]
         radius: i32,
-        /// When nothing improves, try every verified neutral edit followed by removals.
+        /// When nothing improves, try every verified neutral edit followed by single removals.
         #[arg(long)]
         plateau: bool,
+        /// With --plateau, also try pair removals after each verified neutral edit.
+        #[arg(long)]
+        plateau_pairs: bool,
         /// Random-walk steps over verified neutral designs without improving (implies --plateau).
         #[arg(long, default_value_t = 0)]
         walk: usize,
@@ -162,6 +165,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             screen_ticks,
             radius,
             plateau,
+            plateau_pairs,
             walk,
             minutes,
             archive,
@@ -185,7 +189,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 },
                 judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
                 radius,
-                plateau: plateau || walk > 0,
+                plateau: plateau || plateau_pairs || walk > 0,
+                plateau_pairs,
                 walk,
                 deadline: minutes.map(|m| t + std::time::Duration::from_secs_f64(m * 60.0)),
                 seed,
