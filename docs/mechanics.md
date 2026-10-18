@@ -122,6 +122,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `sculk-hold` | sculk sensor | (category sculk) a lever click or piston move within 8 blocks wakes it floor(distance) gt later; active 30 gt, then 10 gt deaf |
 | `flag-observer` | stone + observer | motion trigger (fresh-b mp6..mp8): a plain block glued to a moving slime structure, watched by an observer that touches no slime (so it is never dragged), gives one 2 gt pulse after each move, out and back; watching the cell the flag moves INTO works as well as the one it leaves |
 | `slime-rider` | retracted sticky piston | a retracted sticky piston right under a slime row rides it: pushed down when another piston pulls the row down, dragged back up when the row is pushed back, so it can pump the row from either spot (fresh-b mp6..mp8) |
+| `pump` | observer + repeater + sticky piston | a 3+ gt pulse (repeater delay 2 = 4 gt) makes a sticky piston push a 2-block line one cell and pull back only the first block: the far block advances one cell with no piston touching it (a 2 gt pulse spits the whole line instead; fresh-b mp6..mp8 move C this way) |
 * **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
   piston holds it 30 gt after a lever click (weak power on every side, strong power into the
   block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a
