@@ -69,7 +69,7 @@ pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &Search
                 "verified WORKS: {} blocks (judge: {judge_n} positions x 3 cycles); door harvest (minimize --moves {moves}) from {source}",
                 block_count(best)
             );
-            if let Some(p) = crate::archive::save(&out, best, block_count(best), &note)? {
+            if let Some(p) = crate::archive::save(&out, best, block_count(best), &note, None)? {
                 log(&format!("archived {}", p.display()));
             }
             Ok(())
