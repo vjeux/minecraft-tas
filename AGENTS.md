@@ -25,7 +25,9 @@
   bedrock, headless pistons...). Any other block or mechanic in the game is allowed. Every block must be
   able to stand where it is (no floating levers, torches, dust or repeaters: the judge checks
   `canSurvive`). No blocks that change by themselves over time (random ticks: unwaxed copper
-  oxidizes, leaves decay...; use waxed copper).
+  oxidizes, leaves decay...; use waxed copper). Nothing may stand in front of or behind the door: at rest the 3x3 columns in
+  front of and behind the opening, at any distance, must be air (no machine parts, dust, torches, rails,
+  levers). Rule since 2026-10-18 16:40Z (vjeux); designs judged before keep their verdicts for now.
 - Rotations: `door verify` also runs the door turned 90, 180 and 270 degrees (same positions) and prints
   `rotation-safe` or `NOT rotation-safe` (`--no-rotations` skips it). Not part of the judge: the boards
   rank rotation-safe designs and list the others on their own board, "Not rotation-safe".

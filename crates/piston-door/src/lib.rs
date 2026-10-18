@@ -99,9 +99,14 @@ impl DoorSpec {
     /// The walkway: the 3x3 opening extended 3 blocks in front of and behind the door, so you
     /// can actually walk up to and through it.
     pub fn corridor_cells(&self) -> Vec<Pos> {
+        self.in_front_and_behind(3)
+    }
+
+    /// The 3x3 columns in front of and behind the door, `depth` blocks each way.
+    pub fn in_front_and_behind(&self, depth: i32) -> Vec<Pos> {
         let [x, y, z] = self.door;
         let mut out = Vec::new();
-        for dd in [-3, -2, -1, 1, 2, 3] {
+        for dd in (-depth..=depth).filter(|d| *d != 0) {
             let d = self.depth_step(dd);
             for dy in 0..3 {
                 for dw in 0..3 {
@@ -181,6 +186,11 @@ pub struct VerifyOptions {
     pub offsets: Vec<Pos>,
     /// Keep the per-tick frames of the first cycle (for timelines and videos).
     pub keep_frames: bool,
+    /// Nothing at all may stand in front of or behind the door: at rest the 3x3 columns in front
+    /// of and behind the door, at any distance, are air (no machine parts, dust, torches, rails,
+    /// levers...). vjeux's rule since 2026-10-18 16:40Z; designs judged before keep their cached
+    /// verdicts for now.
+    pub empty_walkway: bool,
 }
 
 impl Default for VerifyOptions {
@@ -190,6 +200,7 @@ impl Default for VerifyOptions {
             max_ticks: 400,
             offsets: vec![[0, 0, 0], [-7, 3, 5], [5, -11, -6], [-3, 40, 2]],
             keep_frames: false,
+            empty_walkway: true,
         }
     }
 }
@@ -496,6 +507,21 @@ fn verify_at(
     let problems = closed_problems(&rest, spec);
     if !problems.is_empty() {
         bail!("not closed at rest: {}", problems.join("; "));
+    }
+    if opts.empty_walkway {
+        // The 3x3 columns in front of and behind the door, out to the edge of the watch box.
+        let reach = (whi[0] - wlo[0]).max(whi[2] - wlo[2]) + 1;
+        let clutter: Vec<String> = spec
+            .in_front_and_behind(reach)
+            .iter()
+            .filter_map(|p| rest.get(*p).filter(|s| !mctas::blockstate::is_air(s)).map(|s| format!("{p:?} {s}")))
+            .collect();
+        if !clutter.is_empty() {
+            bail!(
+                "blocks in front of or behind the door (nothing may stand in the 3x3 columns in front of and behind the door, at any distance, at rest: not even dust, torches, rails or levers): {}",
+                clutter.join("; ")
+            );
+        }
     }
     let lever = rest.get(spec.lever).unwrap_or("?");
     if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {

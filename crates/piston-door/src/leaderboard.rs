@@ -330,6 +330,70 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
     s
 }
 
+/// The Pareto frontier of the working `board` designs over (open ticks, close ticks, blocks), as
+/// the leaderboard's frontier boards compute it (worst cycle, every rotation verdict), then each
+/// working `check` design placed against it: "ON THE FRONTIER" (no board door is as good on all
+/// three and better on one), or the board doors that dominate it. `all` also lists every working
+/// board design with its ticks.
+pub fn frontier_report(board: &[Entry], checks: &[Entry], solid_only: bool, all: bool) -> String {
+    let keep = |e: &&Entry| e.verdict.is_ok() && e.open_ticks.is_some() && e.close_ticks.is_some() && (!solid_only || e.category == "solid");
+    let key = |e: &Entry| (e.open_ticks.unwrap(), e.close_ticks.unwrap(), e.blocks);
+    let beats = |b: (u32, u32, usize), a: (u32, u32, usize)| b.0 <= a.0 && b.1 <= a.1 && b.2 <= a.2 && b != a;
+    let cands: Vec<&Entry> = board.iter().filter(keep).collect();
+    let mut s = String::new();
+    let row = |e: &Entry| {
+        let (o, c, b) = key(e);
+        let rot = match &e.rotation {
+            Some(Ok(())) => "safe".to_string(),
+            Some(Err((deg, _))) => format!("breaks at {deg}"),
+            None => "-".to_string(),
+        };
+        format!("{b:>4} blocks  open {o:>3}  close {c:>3}  {:<7} {rot:<13} {}\n", e.category, e.source)
+    };
+    let mut front: Vec<&Entry> = cands.iter().copied().filter(|a| !cands.iter().any(|b| beats(key(b), key(a)))).collect();
+    front.sort_by_key(|e| (e.blocks, e.open_ticks, e.close_ticks, e.source.clone()));
+    front.dedup_by_key(|e| key(e));
+    s.push_str(&format!("Pareto frontier ({}), {} working designs:\n", if solid_only { "solid only" } else { "any category" }, cands.len()));
+    for e in &front {
+        s.push_str(&row(e));
+    }
+    if all {
+        let mut rest = cands.clone();
+        rest.sort_by_key(|e| (e.blocks, e.open_ticks, e.close_ticks, e.source.clone()));
+        s.push_str("\nEvery working design:\n");
+        for e in rest {
+            s.push_str(&row(e));
+        }
+    }
+    for e in checks {
+        s.push('\n');
+        match (&e.verdict, e.open_ticks, e.close_ticks) {
+            (Ok(()), Some(_), Some(_)) => {
+                s.push_str(&row(e));
+                if solid_only && e.category != "solid" {
+                    s.push_str("  not solid: off this board\n");
+                    continue;
+                }
+                let doms: Vec<&&Entry> = cands.iter().filter(|b| beats(key(b), key(e))).collect();
+                if doms.is_empty() {
+                    let ties: Vec<&&Entry> = cands.iter().filter(|b| key(b) == key(e)).collect();
+                    s.push_str(&format!("  ON THE FRONTIER{}\n", if ties.is_empty() { String::new() } else { format!(" (ties {})", ties[0].source) }));
+                    for b in cands.iter().filter(|b| beats(key(e), key(b))).filter(|b| front.iter().any(|f| f.source == b.source)) {
+                        s.push_str(&format!("  pushes off the frontier: {}", row(b)));
+                    }
+                } else {
+                    for b in doms.iter().take(5) {
+                        s.push_str(&format!("  dominated by {}", row(b)));
+                    }
+                }
+            }
+            (Err(m), _, _) => s.push_str(&format!("{}: BROKEN {}\n", e.source, m.chars().take(200).collect::<String>())),
+            _ => s.push_str(&format!("{}: no timings\n", e.source)),
+        }
+    }
+    s
+}
+
 /// Copy every `explore/<track>` branch's `designs/piston-door-3x3/tracks/<track>` folder into
 /// the working tree (so main carries every agent's variants). Returns the tracks synced.
 pub fn sync_tracks(repo: &Path, refs_prefix: &str) -> Result<Vec<String>> {

@@ -103,11 +103,22 @@ pub struct VanillaOptions {
     pub world: Option<PathBuf>,
     /// view-distance (chunks sent to players).
     pub view_distance: u32,
+    /// `level-name`: the world folder's name, and the name the game lists for a new world.
+    pub level_name: String,
 }
 
 impl Default for VanillaOptions {
     fn default() -> Self {
-        VanillaOptions { version: crate::DEFAULT_VERSION.to_string(), heap_mb: 1536, keep_dir: false, bot_name: "mctas_bot".into(), tick_rate: 20, world: None, view_distance: 3 }
+        VanillaOptions {
+            version: crate::DEFAULT_VERSION.to_string(),
+            heap_mb: 1536,
+            keep_dir: false,
+            bot_name: "mctas_bot".into(),
+            tick_rate: 20,
+            world: None,
+            view_distance: 3,
+            level_name: "world".into(),
+        }
     }
 }
 
@@ -155,6 +166,8 @@ pub struct VanillaServer {
     /// Marker block state per chunk (see `snapshot`).
     markers: HashMap<(i32, i32), bool>,
     markers_seen: u64,
+    /// The world folder's name under `dir` (`level-name`).
+    pub level_name: String,
     /// The server's console log.
     pub log: PathBuf,
 }
@@ -181,10 +194,10 @@ impl VanillaServer {
         let password = format!("p{:x}", rand_u64());
         std::fs::write(dir.join("eula.txt"), "eula=true\n")?;
         if let Some(src) = &opts.world {
-            copy_tree(src, &dir.join("world"))?;
+            copy_tree(src, &dir.join(&opts.level_name))?;
         }
         let props = [
-            ("level-name", "world".to_string()),
+            ("level-name", opts.level_name.clone()),
             ("level-type", "minecraft\\:flat".to_string()),
             ("generator-settings", r#"{"layers":[{"block":"minecraft:air","height":1}],"biome":"minecraft:the_void","features":false,"lakes":false}"#.to_string()),
             ("generate-structures", "false".to_string()),
@@ -266,7 +279,7 @@ impl VanillaServer {
             }
             std::thread::sleep(Duration::from_millis(200));
         };
-        let mut server = VanillaServer { child, dir, rcon, bot: None, game_port, keep_dir: opts.keep_dir, log, stats: Stats::default(), tick_rate: opts.tick_rate, dirty: None, markers: HashMap::new(), markers_seen: 0 };
+        let mut server = VanillaServer { child, dir, rcon, bot: None, game_port, keep_dir: opts.keep_dir, log, stats: Stats::default(), tick_rate: opts.tick_rate, dirty: None, markers: HashMap::new(), markers_seen: 0, level_name: opts.level_name.clone() };
         for c in [
             "tick freeze",
             "save-off",
@@ -444,8 +457,8 @@ impl VanillaServer {
             bail!("save-all flush: {out}");
         }
         // 26.x keeps each dimension under world/dimensions/<namespace>/<name>/.
-        let modern = self.dir.join("world").join("dimensions").join("minecraft").join("overworld");
-        let dim = if modern.exists() { modern } else { self.dir.join("world") };
+        let modern = self.dir.join(&self.level_name).join("dimensions").join("minecraft").join("overworld");
+        let dim = if modern.exists() { modern } else { self.dir.join(&self.level_name) };
         read_box(&dim, lo, hi)
     }
 }

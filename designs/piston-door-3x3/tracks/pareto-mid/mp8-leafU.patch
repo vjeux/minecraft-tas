@@ -1,0 +1,3 @@
+# mp8 U chain one tick later on the odd side: the bottom-right flag is a log, the first chain observer becomes persistent leaves (distance re-computed 1 gt after the log leaves)
+set 3 -1 0 minecraft:oak_log[axis=y]
+set 3 -2 0 minecraft:oak_leaves[distance=1,persistent=true,waterlogged=false]
