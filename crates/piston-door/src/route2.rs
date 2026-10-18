@@ -778,6 +778,19 @@ impl Model {
     pub fn wave_at(&self, p: Pos) -> Option<Wave> {
         self.at.get(&p).map(|&i| self.any[i])
     }
+
+    /// The OR of what feeds the node at `p` (for a measured node: what the model would feed it).
+    pub fn input_of(&self, p: Pos) -> Option<Wave> {
+        let &v = self.at.get(&p)?;
+        let mut a = Wave::OFF;
+        for &(u, f) in &self.inputs[v] {
+            a = a.or(match f {
+                Feed::StrongOf => self.strong[u],
+                _ => self.any[u],
+            });
+        }
+        Some(a)
+    }
 }
 
 // ---- measurement --------------------------------------------------------------------------
@@ -789,6 +802,12 @@ pub struct Measured {
     pub pistons: Vec<(Pos, Pos)>,
     /// Per piston cell: the ticks it holds a piston, and the tick before each arrival.
     pub occ: HashMap<Pos, Wave>,
+    /// Per piston cell: ticks at which a retracted piston there stays retracted through the next
+    /// tick (if the original powers it then, it was blocked: power there changes nothing).
+    pub still: HashMap<Pos, Wave>,
+    /// Control components that move with the machine (their waves are measured): a re-route must
+    /// leave what feeds them unchanged.
+    pub movers: Vec<Pos>,
     /// Waves of sources the machine drives (observers watching non-control cells, sculk
     /// sensors), by cell.
     pub fixed: HashMap<Pos, Wave>,
@@ -898,6 +917,16 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
             }
             if !occ.is_off() {
                 m.occ.insert(p, occ.or(occ.shift(-1)));
+                let mut still = Wave::OFF;
+                for ph in 0..2 {
+                    for t in 0..T - 1 {
+                        let (a, b) = (state(ph, t, p), state(ph, t + 1, p));
+                        if is_piston(a) && a.contains("extended=false") && a == b {
+                            still.0[ph] |= 1 << t;
+                        }
+                    }
+                }
+                m.still.insert(p, still);
             }
             if moved {
                 m.moving.insert(p);
@@ -935,11 +964,15 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
             let watched_control = |q: Pos| {
                 d.blocks.get(&q).is_some_and(|x| matches!(Node::new(q, x).kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp | Kind::Lever))
             };
+            let mover = m.moving.contains(p) && on_value(s).is_some();
             let src = match bname(s) {
                 "observer" => facing_of(s).is_some_and(|f| !watched_control(add(*p, f))),
                 "sculk_sensor" | "calibrated_sculk_sensor" | "daylight_detector" | "target" => true,
                 _ => false,
-            } || (m.moving.contains(p) && on_value(s).is_some());
+            } || mover;
+            if mover {
+                m.movers.push(*p);
+            }
             if src {
                 if let Some(wv) = m.measured.get(p) {
                     m.fixed.insert(*p, *wv);
@@ -1587,7 +1620,9 @@ pub fn route_new(
             new.blocks.insert(*p, x.clone());
         }
         let nm = pb.model(&new.blocks);
-        let ok = o.no_check || want.iter().all(|&(p, f, w)| same_masked(nm.piston_wave(p, f), w, meas.mask(p), o.route.tolerance));
+        let ok = o.no_check
+            || (want.iter().all(|&(p, f, w)| same_masked(nm.piston_wave(p, f), w, meas.mask(p), o.route.tolerance))
+                && meas.movers.iter().all(|&p| nm.input_of(p) == m.input_of(p)));
         if ok {
             let desc = c.iter().map(|(p, x)| format!("{} {}", fmt_pos(*p), short(x))).collect::<Vec<_>>().join(" ");
             designs.push((new, format!("+{} blocks: {desc}", c.len())));
@@ -1620,8 +1655,25 @@ pub struct RipOptions {
 
 /// One rip-up-and-re-route pass over `d`: every candidate (fewer blocks) that the static model
 /// accepts, as edits of `d`.
-pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn(&str) + Sync)) -> Result<Vec<Edit>> {
+pub fn rip_candidates(d: &Design, meas_raw: &Measured, o: &RipOptions, log: &(dyn Fn(&str) + Sync)) -> Result<Vec<Edit>> {
     let lever = lever_port(d)?;
+    // Power a retracted piston gets while it stays retracted (it is blocked) changes nothing:
+    // those ticks are don't-care.
+    let raw = Model::new(&d.blocks, Some(lever), &meas_raw.fixed, &meas_raw.extra);
+    let mut refined = meas_raw.clone();
+    let mut freed = 0;
+    for &(p, f) in &meas_raw.pistons {
+        let w = raw.piston_wave(p, f);
+        if let (Some(occ), Some(still)) = (refined.occ.get_mut(&p), meas_raw.still.get(&p)) {
+            let blocked = Wave([still.0[0] & w.0[0], still.0[1] & w.0[1]]);
+            freed += (blocked.0[0].count_ones() + blocked.0[1].count_ones()) as usize;
+            *occ = occ.minus(blocked);
+        }
+    }
+    if o.verbose {
+        log(&format!("  {freed} piston-ticks of blocked power are don't-care"));
+    }
+    let meas = &refined;
     let (lo, hi) = d.bounds().context("empty design")?;
     let mg = o.route.margin;
     let mut pb0 = Problem {
@@ -1635,6 +1687,8 @@ pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn
     };
     let orig_model = pb0.model(&d.blocks);
     let orig = pb0.receiver_waves(&orig_model);
+    // What feeds each moving component (measured waves are only valid if that stays).
+    let orig_movers: Vec<(Pos, Option<Wave>)> = meas.movers.iter().map(|&p| (p, orig_model.input_of(p))).collect();
     pb0.wants = orig.clone();
     if o.verbose {
         model_report(d, meas, log);
@@ -1697,10 +1751,12 @@ pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn
                         for (p, x) in &c {
                             new.blocks.insert(*p, x.clone());
                         }
-                        // The static model must find every receiver cell unchanged.
+                        // The static model must find every receiver cell unchanged, and what
+                        // feeds every moving component.
                         let ok = o.no_check || {
                             let m = pb.model(&new.blocks);
                             orig.iter().all(|&(p, f, w)| same_masked(m.piston_wave(p, f), w, meas.mask(p), o.route.tolerance))
+                                && orig_movers.iter().all(|&(p, w)| m.input_of(p) == w)
                         };
                         if !ok {
                             if o.verbose {
@@ -1758,6 +1814,19 @@ pub fn rip_and_reroute(
         if edits.is_empty() {
             log("no candidate");
             return Ok(cur);
+        }
+        if o.verbose {
+            // Why the first few fail, if they do (model debugging).
+            let mut w = pool.worker(0);
+            let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+            for e in edits.iter().take(5) {
+                let r = crate::search::screen_in(&mut w, sb, &e.apply(&cur), &sopts.screen);
+                log(&format!("  screen {}: {}", e.desc, match r {
+                    Ok(()) => "passes".to_string(),
+                    Err(x) => format!("{x:#}"),
+                }));
+            }
+            let _ = w.drop_sandbox(sb);
         }
         let found = crate::search::try_edits(pool, &cur, edits, sopts, &|m: &str| log(m));
         let Some((best, desc)) = found.into_iter().next() else {
