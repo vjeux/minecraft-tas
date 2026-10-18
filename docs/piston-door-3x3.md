@@ -295,6 +295,28 @@ Proven circuits go in the gadget library (`designs/gadgets/`, run them all with
 `mctas door drive --quiet designs/gadgets/*.drive`). Mechanics read from the source are in
 [mechanics.md](mechanics.md).
 
+## Tileable doors
+
+`door verify <module> --tile <spec>` judges copies of one module door run by ONE lever (the other
+copies hold the module's `relay:` block in the lever's cell, so the module carries its own bus),
+with every rule checked on every opening:
+
+* `period:P:N`: an opening every P blocks along a wall. Best: **45 blocks per opening at P = 8**
+  ([b38h-obs8b](../designs/piston-door-3x3/tracks/tile/b38h-obs8b.txt)): b38 with its note block
+  turned into a hopper, plus 7 observers that watch the lever's cell and carry each lever edge to
+  the next copy (b38 reacts to edges). Copy k opens 14k ticks after copy 0.
+* `vperiod:Q:N`: a door every Q blocks up. Best: **49 per opening at Q = 9**
+  ([b38h-vobs9m](../designs/piston-door-3x3/tracks/tile/b38h-vobs9m.txt)), an observer tower beside
+  the openings.
+* `wide:N` (openings side by side, one 3 x 3N opening) and `stack:N` (a tall door): none yet. In a
+  periodic wide row, the space above and the space below the openings share no cell (nothing may
+  stand in front of or behind any opening), so the bottom row's pistons can only be reached
+  through the door blocks or a shared end piece (`--tile-extra`). The mechanism (each column =
+  b38's center column) works with ideal inputs.
+
+Both bests' 3-copy arrangements pass `door vanilla-check`. Rankings: `door tile-board`
+(designs with a `tiling:` header). Details: [tracks/tile/NOTES.md](../designs/piston-door-3x3/tracks/tile/NOTES.md).
+
 ## Solid record history
 
 | blocks | design (archive) | how |
