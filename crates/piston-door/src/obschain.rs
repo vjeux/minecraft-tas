@@ -291,6 +291,10 @@ impl Ctx {
                         if let Some((n, v)) = need.get(&g.opts) {
                             if v < n {
                                 eprintln!("[fc] at group {gi}: {} needs {n} viable options, has {v}", g.name);
+                                for (c, fa) in &g.opts {
+                                    let w = add(*c, *fa);
+                                    eprintln!("[fc]    opt {:?}: cell obs {:?} extra {} blocked {} inbox {}; watched {:?} obs {:?} free {}", c, t.obs.get(c), t.extra.contains_key(c), self.blocked.contains(c), self.in_box(*c), w, t.obs.get(&w), self.free(t, w));
+                                }
                             }
                         }
                     }
@@ -345,9 +349,28 @@ impl Ctx {
                 Some(_) => {}
                 None => {
                     if self.free(&base, watched) {
-                        // Soft reservation: later groups' option cells and their watched cells.
+                        // Soft reservation: the option cells and watched cells of later groups that
+                        // have no spare option (as many viable options as groups sharing them).
+                        let mut classes: HashMap<Vec<(Pos, Pos)>, (usize, usize)> = HashMap::new();
+                        for h in &self.groups[gi + 1..] {
+                            let viable = h
+                                .opts
+                                .iter()
+                                .filter(|(c, f)| {
+                                    let w = add(*c, *f);
+                                    !base.obs.contains_key(c) && !base.extra.contains_key(c) && !self.blocked.contains(c) && self.in_box(*c)
+                                        && match base.obs.get(&w) {
+                                            Some((ti, _)) => *ti == h.time - 1,
+                                            None => self.free(&base, w),
+                                        }
+                                })
+                                .count();
+                            let e = classes.entry(h.opts.clone()).or_insert((0, viable));
+                            e.0 += 1;
+                        }
                         let reserved: HashSet<Pos> = self.groups[gi + 1..]
                             .iter()
+                            .filter(|h| classes.get(&h.opts).is_some_and(|(n, v)| v <= n))
                             .flat_map(|h| h.opts.iter().flat_map(|(c, f)| [*c, add(*c, *f)]))
                             .filter(|p| *p != watched)
                             .collect();
