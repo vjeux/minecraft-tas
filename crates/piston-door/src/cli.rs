@@ -1090,7 +1090,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             opts.offsets.extend(crate::extra_offsets(extra_offsets));
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
-                    println!("WORKS: {} ({} blocks, {}x{}x{}, category {}{})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d), if crate::slime_free(&d) { ", slime-free" } else { "" });
+                    println!(
+                        "WORKS: {} ({} blocks, {}x{}x{}, category {}{}{})",
+                        d.name,
+                        r.blocks,
+                        r.size[0],
+                        r.size[1],
+                        r.size[2],
+                        crate::category(&d),
+                        if crate::slime_free(&d) { ", slime-free" } else { "" },
+                        if crate::single_layer(&d) { ", flat" } else { "" }
+                    );
                     if archive {
                         let note = format!("verified WORKS: {} blocks, open after {} ticks, closed after {} ticks", r.blocks, r.cycles[0].open_ticks, r.cycles[0].close_ticks);
                         match crate::archive::save(&design, &d, r.blocks, &note, archive_dir.as_deref())? {

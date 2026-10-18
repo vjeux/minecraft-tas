@@ -38,6 +38,14 @@ same, and not a single slime or honey block anywhere.
 | 9 | 50 | clean | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-50b.txt` |
 | 10 | 51 | clean | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-51b.txt` |
 
+## Solid, flat (one z layer), no slime or honey
+
+slime-free, and every block (door, pistons, wiring, lever) in the door's plane: the whole machine is one block thick.
+
+| # | blocks | walkway | source |
+|---|---|---|---|
+| - | - | no entry yet |
+
 ## Sculk
 
 uses sculk sensors (footsteps or mobs nearby can trigger them).

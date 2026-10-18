@@ -25,6 +25,8 @@
   bedrock, headless pistons...). Any other block or mechanic in the game is allowed. Every block must be
   able to stand where it is (no floating levers, torches, dust or repeaters: the judge checks
   `canSurvive`).
+- Boards besides the main one: "Solid, no slime or honey" (verify prints `, slime-free`) and "Solid, flat
+  (one z layer), no slime or honey" (every block in the door's plane z = door.z, verify prints `, flat`).
 - Category: doors whose 9 blocks are gravity blocks (sand, gravel, concrete powder) are ranked
   separately (`category gravity` in the verify output), and so are doors using sculk sensors
   (`category sculk`: a player's footsteps or a mob nearby can trigger them); everything else is

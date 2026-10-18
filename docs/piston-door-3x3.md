@@ -42,7 +42,7 @@ lies in the plane `z = door.z` and spans x and y from that corner to +2. The che
 
 ## Categories and boards
 
-`door verify` prints `category solid|gravity|sculk` and `, slime-free` when it applies.
+`door verify` prints `category solid|gravity|sculk`, plus `, slime-free` and `, flat` when they apply.
 `mctas door leaderboard` verifies every design on main and on the agents' `explore/*` branches with
 main's verifier and writes the boards.
 
@@ -53,6 +53,9 @@ main's verifier and writes the boards.
   ranks separately. Gravity wins if both apply.
 * **Solid, no slime or honey**: a board, not a category. It lists solid designs with no slime or
   honey block anywhere.
+* **Solid, flat (one z layer), no slime or honey**: a board. Slime-free solid designs whose every
+  block (door, pistons, wiring, lever) lies in the door's plane `z = door.z`, so the whole machine is
+  one block thick. `door verify` prints `, flat` when every block is in that plane.
 * **Walkway clutter**: blocks without collision (dust, torches, levers, rails...) may stand in the
   walkway. The boards show how many do at rest; "clean" means none.
 * **Speed boards**: fastest open, fastest close and fastest open + close, for any category and for

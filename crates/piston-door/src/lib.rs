@@ -180,6 +180,13 @@ pub fn slime_free(d: &Design) -> bool {
     !d.blocks.values().any(|s| s.contains("slime_block") || s.contains("honey_block"))
 }
 
+/// True when every block of the design lies in the door's plane (z = door.z): the whole machine
+/// is one block thick ("flat"; its own leaderboard together with slime-free).
+pub fn single_layer(d: &Design) -> bool {
+    let Some(door) = d.ports.get("door") else { return false };
+    d.blocks.keys().all(|p| p[2] == door[2])
+}
+
 /// Blocks standing in the walkway at rest. The rules allow non-colliding blocks there (dust,
 /// torches, levers), but a clean doorway has none, so the leaderboards show the count.
 pub fn walkway_clutter(d: &Design) -> usize {
