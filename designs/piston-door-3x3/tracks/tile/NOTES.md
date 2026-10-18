@@ -97,7 +97,9 @@ wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile` on `minimize`/`harv
   Replacing the hopper by an observer watching the lever cell (so the relay could be an observer)
   breaks b38: its top-row pull then comes 2 ticks late against the B window.
 * Tile-aware minimize from 45 (`--moves all --plateau`, 11 min, 12 workers): no improvement;
-  resynth runs on both bests (see the end).
+  `door resynth --tile` on both bests (every 2-4 block wiring group re-synthesized): no
+  improvement; `--depth 2 --walk 40` neutral walks (35 min each): none. 45 (period 8) and 49
+  (vperiod 9) are local minima of every search move.
 * P = 7 stays broken with any delayed bus (the side smooth stones of neighbor copies quasi-power
   each other's side pistons; with every copy fired in the same tick it works, see the scan). A
   pure-dust bus (no delay) would make the copies run together, but dust reaches 15 blocks: 3
