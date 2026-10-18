@@ -1,0 +1,50 @@
+name: m2-mechanism-only
+port door: 0 0 0
+port lever: 9 9 9
+origin: -5 0 -1
+palette:
+  S minecraft:stone
+  s minecraft:slime_block
+  E minecraft:sticky_piston[facing=east,extended=true]
+  e minecraft:piston_head[facing=east,type=sticky,short=false]
+  W minecraft:sticky_piston[facing=west,extended=true]
+  w minecraft:piston_head[facing=west,type=sticky,short=false]
+  U minecraft:sticky_piston[facing=up,extended=true]
+  u minecraft:piston_head[facing=up,type=sticky,short=false]
+  D minecraft:sticky_piston[facing=down,extended=true]
+  d minecraft:piston_head[facing=down,type=sticky,short=false]
+  B minecraft:sticky_piston[facing=down,extended=false]
+  O minecraft:observer[facing=up,powered=false]
+  r minecraft:repeater[facing=west,delay=1]
+  x minecraft:redstone_wire[north=side,east=side,south=side,west=side]
+  R minecraft:redstone_block
+layer -3:
+  .
+  ......R
+layer -2:
+  .
+  ......U
+layer -1:
+  .
+  ......u
+layer 0:
+  .
+  .REesSSSswWR
+layer 1:
+  .
+  ....sSSSs
+layer 2:
+  .
+  ....sSSSs
+layer 3:
+  .
+  .....Sdss
+layer 4:
+  ......R
+  .....xD
+layer 5:
+  .
+  .....OB
+layer 6:
+  .
+  .....r

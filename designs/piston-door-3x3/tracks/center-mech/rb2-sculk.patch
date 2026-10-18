@@ -1,0 +1,13 @@
+# rb2 with its 24gt late hold replaced by a sculk sensor next to Q (30gt active on each lever
+# flip) plus a 1-repeater bridge that covers the sensor's latency.
+clear 0 6 -4
+clear 0 6 -3
+clear 0 5 -4
+clear 0 5 -5
+clear 0 4 -5
+clear 0 4 -4
+clear 0 3 -4
+clear 0 3 -3
+set 0 4 -3 minecraft:smooth_stone
+set 0 5 -3 minecraft:redstone_wire
+set -1 4 -1 minecraft:sculk_sensor

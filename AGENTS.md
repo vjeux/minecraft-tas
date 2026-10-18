@@ -24,7 +24,9 @@
   blocks, piston heads excluded. Survival-placeable blocks only (no command blocks, barriers,
   bedrock, headless pistons...). Any other block or mechanic in the game is allowed.
 - Category: doors whose 9 blocks are gravity blocks (sand, gravel, concrete powder) are ranked
-  separately (`category gravity` in the verify output); everything else is `category solid`.
+  separately (`category gravity` in the verify output), and so are doors using sculk sensors
+  (`category sculk`: a player's footsteps or a mob nearby can trigger them); everything else is
+  `category solid`, the main ranking.
 
 ## Tools (all `./target/release/mctas door ...`)
 - `verify <design> [--extra-offsets N] [--timeline] [--archive]`: the judge. `--archive` keeps a

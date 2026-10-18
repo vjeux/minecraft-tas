@@ -1,25 +1,37 @@
 # Archive of 3x3 door designs
 
 Every design that verified, one file each, named `<name>-<blocks>b.txt`. Each file starts with
-its verify result and where it came from. `mctas door verify <design> --archive` adds new ones
-automatically (and skips a design that is already here).
+its verify result and where it came from. The ranked list of everything (including the agents'
+branches) is [../LEADERBOARD.md](../LEADERBOARD.md). New records are archived here with
+`mctas door verify <design> --extra-offsets 28 --archive --archive-dir designs/piston-door-3x3/archive`.
 
-| file | blocks | notes |
+## Record progression (category solid: 9 identical plain door blocks)
+
+| blocks | file | how |
 |---|---|---|
-| piston-door-3x3-v1-invalid.txt | 125 | slime block as the top-middle door block (fails the 9-identical-blocks rule) |
-| piston-door-3x3-v1-min-invalid.txt | 121 | same, after greedy removal |
-| piston-door-3x3-v2-151b.txt | 151 | first valid design: all-stone door, "UP dance" |
-| piston-door-3x3-v2-147b.txt | 147 | greedy removal of 151 |
-| piston-door-3x3-v2-143b.txt | 143 | A early through a 21-block route across the front, unified late chain |
-| piston-door-3x3-v2-135b.txt | 135 | A early from a branch of the sides line |
-| piston-door-3x3-v2-133b.txt | 133 | unified late chain, A torch fed off the sides line |
-| piston-door-3x3-v2-128b.txt | 128 | P_T nets hang off the lever line, A torch fed by repeaters |
-| piston-door-3x3-v2-126b.txt | 126 | greedy removal of 128 |
-| piston-door-3x3-v2-118b.txt | 118 | R_B stretches the B pulse, straight late line, A late off the P_T net |
-| piston-door-3x3-v2-117b.txt | 117 | greedy removal of 118 |
-| piston-door-3x3-v2-116b.txt | 116 | router re-laid the drop to the sides line |
-| piston-door-3x3-v2-115b.txt | 115 | greedy removal of 116 |
+| 151 | piston-door-3x3-v2-151b.txt | first valid design: all-stone door, "UP dance" |
+| 147 | piston-door-3x3-v2-147b.txt | greedy removal of 151 |
+| 143 | piston-door-3x3-v2-143b.txt | A early through a 21-block route across the front, unified late chain |
+| 135 | piston-door-3x3-v2-135b.txt | A early from a branch of the sides line |
+| 133 | piston-door-3x3-v2-133b.txt | unified late chain, A torch fed off the sides line |
+| 128 | piston-door-3x3-v2-128b.txt | P_T nets hang off the lever line, A torch fed by repeaters |
+| 126 | piston-door-3x3-v2-126b.txt | greedy removal of 128 |
+| 118 | piston-door-3x3-v2-118b.txt | R_B stretches the B pulse, straight late line, A late off the P_T net |
+| 117 | piston-door-3x3-v2-117b.txt | greedy removal of 118 |
+| 116 | piston-door-3x3-v2-116b.txt | router re-laid the drop to the sides line |
+| 115 | piston-door-3x3-v2-115b.txt | greedy removal of 116 |
+| 109 | search-tool-v2-min-109b.txt | overnight agent search-tool: local search + net re-synthesis of v2 |
+| 96 | piston-door-3x3-v2u2-96b.txt | agent center-mech: side groups pushed out by 2 pistons sharing an obsidian block, honey carrier for the bottom-middle, redstone blocks riding the side groups |
+| 91 | mechanics-ta-91b.txt | agent mechanics: A torch next to the observer column, lever on its attachment |
+| 90 | mechanics-ta-90b.txt | agent mechanics: minimizer removed a stray floor |
+| 88 | search-tool-center-mech-88b.txt | agent search-tool: local search on center-mech's 96 |
+| 87 | piston-door-3x3-v3c-87b.txt | agent top-control: side pistons high, redstone blocks riding the backbones power A, P_BM, P_T |
+| 73 | piston-door-3x3-rb1-73b.txt | agent redstone-block: sides pushed open, one redstone block shuttled by one piston powers A then P_R, the right structure drags T out (no P_T) |
+| 57 | piston-door-3x3-rb2-57b.txt | agent redstone-block: rb1 with short nets (dual-edge observer next to the lever feeds R_B by 3 dust, the 24gt late hold fed straight from the lever) |
+| 53 | mechanics-rb2-hold-53b.txt | agent mechanics: rb2 with the 24gt late hold re-laid as a short U west of the lever, glazed terracotta floors beside the slime backbone |
+| 51 | mechanics-rb2-hold-51b.txt | agent mechanics: the 53 plus O2's pulse to R_B through a strongly powered block and an isolated cross dust |
+| 50 | mechanics-rb5-bchain-50b.txt | agent mechanics: redstone-block's rb5 (BUD hold for Q, 52) + the O2 to R_B pulse bridge |
+| 52 | piston-door-3x3-rb5-52b.txt | agent redstone-block: rb2 with a silent BUD hold for Q instead of the 24gt chain |
 
-The 143- and 135-block steps were rebuilt by replaying the session's edits on top of the 133
-commit (`crates/piston-door/src/designs_history.rs`, `mctas door gen v2-143`); the replayed 133
-matches the archived one exactly.
+Invalid (kept for history): piston-door-3x3-v1-invalid.txt (125) and -v1-min-invalid.txt (121)
+use a slime block as the top-middle door block.

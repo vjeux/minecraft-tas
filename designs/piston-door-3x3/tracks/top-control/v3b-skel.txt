@@ -1,0 +1,80 @@
+name: piston-door-3x3-v3b
+port door: 0 0 0
+port lever: 5 6 0
+origin: -3 0 -1
+palette:
+  A minecraft:air
+  B minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=side]
+  C minecraft:redstone_wire[east=none,north=side,power=11,south=side,west=none]
+  D minecraft:redstone_wire[east=side,north=none,power=12,south=side,west=none]
+  E minecraft:redstone_wire[east=side,north=none,power=13,south=none,west=side]
+  F minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=side]
+  G minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  H minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=up]
+  I minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  J minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  K minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  M minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  N minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  Q minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  R minecraft:redstone_block
+  S minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  T minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  U minecraft:smooth_stone
+  V minecraft:sticky_piston[extended=false,facing=down]
+  W minecraft:sticky_piston[extended=false,facing=east]
+  X minecraft:sticky_piston[extended=false,facing=north]
+  Y minecraft:sticky_piston[extended=false,facing=up]
+  Z minecraft:sticky_piston[extended=false,facing=west]
+  a minecraft:stone
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:redstone_wall_torch[facing=north,lit=true]
+  s minecraft:slime_block
+layer -2:
+  .
+  ..RAY
+  .
+  .
+layer -1:
+  .
+  ..A.a
+  .
+  .
+layer 0:
+  .
+  ..aAAAa
+  .
+  .
+layer 1:
+  .
+  ..aAaAa..U
+  .
+  .
+layer 2:
+  .
+  ..aAAAasZN
+  ......A
+  ......A
+layer 3:
+  .
+  ..A.aa
+  ....A
+  ....XAR
+layer 4:
+  .......U
+  WsRAVI...U
+  .
+  .
+layer 5:
+  UUUUUUUHr
+  U...Vo.UUJU
+  ........U.U
+  .........U
+layer 6:
+  DEFGKEF
+  C....POML.B
+  ........Q.S
+  ........UTU
