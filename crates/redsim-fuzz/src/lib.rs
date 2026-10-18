@@ -559,11 +559,22 @@ pub fn random_case(r: &mut Rng, pal: &[(String, u32)], size: [i32; 3], density: 
         }
     };
     let edits = r.chance(0.4);
+    let usable: Vec<Pos> = order
+        .iter()
+        .filter(|p| {
+            let s = &grid[*p];
+            ["note_block", "repeater", "comparator", "redstone_wire", "oak_trapdoor", "oak_door"].iter().any(|n| s.contains(n))
+        })
+        .copied()
+        .collect();
     let mut steps = vec![Step::Run(r.range(10, 30) as u32)];
     let flips = r.range(2, 5);
     for _ in 0..flips {
         if !inputs.is_empty() {
             steps.push(Step::Use(*r.pick(&inputs)));
+        }
+        if !usable.is_empty() && r.chance(0.3) {
+            steps.push(Step::Use(*r.pick(&usable)));
         }
         if edits {
             for _ in 0..r.range(0, 2) {

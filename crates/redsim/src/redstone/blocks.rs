@@ -145,12 +145,27 @@ pub mod note {
         if let Block::Note { instrument, note, powered } = s {
             let signal = w.has_neighbor_signal(pos);
             if signal != powered {
-                if signal && (instrument.works_above_note_block() || w.get(pos.above()).is_air()) {
-                    w.block_event(pos, Kind::Note, 0, 0);
-                    w.game_event("note_block_play", pos);
+                if signal {
+                    play_note(w, instrument, pos);
                 }
                 w.set_block_and_update(pos, Block::Note { instrument, note, powered: signal });
             }
+        }
+    }
+
+    fn play_note(w: &mut World, instrument: Instrument, pos: BlockPos) {
+        if instrument.works_above_note_block() || w.get(pos.above()).is_air() {
+            w.block_event(pos, Kind::Note, 0, 0);
+            w.game_event("note_block_play", pos);
+        }
+    }
+
+    /// `useWithoutItem`: tune (note + 1, wrapping at 25), then play.
+    pub fn use_block(w: &mut World, s: Block, pos: BlockPos) {
+        if let Block::Note { instrument, note, powered } = s {
+            let ns = Block::Note { instrument, note: (note + 1) % 25, powered };
+            w.set_block_and_update(pos, ns);
+            play_note(w, instrument, pos);
         }
     }
 }

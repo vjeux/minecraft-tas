@@ -232,6 +232,17 @@ pub fn tick(w: &mut World, s: Block, pos: BlockPos) {
     }
 }
 
+/// `ComparatorBlock.useWithoutItem`: cycle the mode, then refresh the output.
+pub fn use_comparator(w: &mut World, s: Block, pos: BlockPos) {
+    if let Block::Comparator { facing, subtract, powered } = s {
+        let ns = Block::Comparator { facing, subtract: !subtract, powered };
+        w.set_block(pos, ns, flags::CLIENTS);
+        if w.get(pos).kind() == Kind::Comparator {
+            refresh_output_state(w, pos, ns);
+        }
+    }
+}
+
 fn refresh_output_state(w: &mut World, pos: BlockPos, s: Block) {
     let out = calculate_output(w, pos, &s);
     let old = match w.comparator_out.get_mut(&pos) {
