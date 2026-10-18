@@ -1534,3 +1534,47 @@ pub fn search(
     }
     Ok(cur)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn v2_min() -> Design {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../designs/piston-door-3x3/v2-min.txt");
+        Design::load(&path).unwrap()
+    }
+
+    #[test]
+    fn swaps_take_out_pairs_and_connected_triples() {
+        let d = v2_min();
+        let ctx = Ctx::new(&d).unwrap();
+        let s = swaps(&ctx, &d, 2);
+        assert!(s.iter().any(|e| e.remove.len() == 2));
+        let triples: Vec<&Edit> = s.iter().filter(|e| e.remove.len() == 3).collect();
+        assert!(!triples.is_empty());
+        for e in triples {
+            // Face-connected: some block touches both others, or forms a chain.
+            let adj = |a: Pos, b: Pos| (0..3).map(|i| (a[i] - b[i]).abs()).sum::<i32>() == 1;
+            let [a, b, c] = [e.remove[0], e.remove[1], e.remove[2]];
+            let links = adj(a, b) as u8 + adj(a, c) as u8 + adj(b, c) as u8;
+            assert!(links >= 2, "{:?}", e.remove);
+            assert_eq!(e.set.len(), 1);
+            assert!(!ctx.keep.contains(&a) && !ctx.keep.contains(&b) && !ctx.keep.contains(&c));
+        }
+        // Every swap removes more blocks than it adds.
+        for e in s.iter().take(2000) {
+            assert!(block_count(&e.apply(&d)) < block_count(&d));
+        }
+    }
+
+    #[test]
+    fn edits_keep_the_league() {
+        let d = v2_min();
+        let mut no_slime = d.clone();
+        no_slime.blocks.retain(|_, s| kind(s) != "slime_block");
+        let mut with_slime = no_slime.clone();
+        with_slime.blocks.insert([20, 20, 20], "minecraft:slime_block".to_string());
+        assert!(!same_league(&no_slime, &with_slime));
+        assert!(same_league(&d, &d));
+    }
+}
