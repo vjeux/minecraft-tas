@@ -74,6 +74,20 @@ A (1,4,0)); with delay 2 its close goes like s4r's.
   identical tick for tick).
 * `door minimize --moves all --plateau --rotation-safe` on s4r (new flag, see below): local minimum
   at 36 (272k candidates, 17 verified neutral designs, 442 removals after them, none passes).
+* `door regrow --rotation-safe` on s4r with observers, blocks, dust, repeaters 1-2, redstone blocks,
+  sculk and calibrated sensors (4 facings): `--size 2 --any` (any 2 control blocks out, 1 in;
+  94k candidates) and `--size 3` (1.05M): nothing smaller in these neighborhoods (sculk-2's
+  searches on s4 found none either).
+
+## What did not work / was not needed
+* The plain `door turn` of s4 (`s4-ew0.txt`): broken at 90/270 (the race above). No mirror helps.
+* Extra blocks: none needed; the timing change alone fixes every orientation.
+
+## Next ideas
+* The east/west spit is a free 0-tick move of C (A pushes it one cell at t4 of the close). A door
+  that needs it would be east/west-only (not rotation-safe), so it is not worth a board slot.
+* Below 36 needs a new mechanism (sculk-2's NOTES list the blocked leads: Q-less center, shared
+  P_M trigger, one sensor for hold + window).
 
 ## Tools and gadgets (own commits)
 * `door minimize/harvest/regrow/grow --rotation-safe`: accept only candidates that also pass the
