@@ -172,3 +172,18 @@ before F) is what lets F's own motion fire A2 with one observer.
 * Next ideas: a U trigger closer than 3 observers (U is 3 cells from the nearest late mover); flags
   for fc2-style designs (any piston that only needs to fire after a structure has moved costs one
   flag + one observer).
+
+## 08:55Z flags on fc2 (fresh-c, 40) and fc2-style control on the mirrored pump: no gain found
+* fc2's P_M already fires off a moving door block (observer + block = 2); a 1-observer version needs
+  an extra slime + flag (3). Its B window (observer, block, d4 repeater, dance observer = 4) off a
+  right-structure flag costs flag + observer + d4 repeater (+ floor) + dance observer = 4-5. P_L's two
+  observers can't be replaced: nothing moves before it, and a steady lever-driven push piston must
+  sit at x=0, where X's dust support is.
+* RB shuttle on the mirrored pump (A extended at rest, Q moves the RB to F): Q + RB + d2 repeater +
+  floor (4) replace F's 3-block line: +1.
+* mp8's U chain: an observer at (2,-2,0) firing U through its quasi cell (1,-2,0) works electrically,
+  but the lowered row's slime lands in (1,-2,0) and drags that observer up on close. Every other cell
+  next to U is 2+ cells from the nearest late mover, so 3 observers stay.
+* mp8's pump path: the pump needs >= 3 gt (2 gt spits the row up), so a repeater is required, and the
+  only observer cell that sees a left-structure flag without touching slime is under the flag's
+  destination, whose output cell is not a repeater input: 5 blocks stay.

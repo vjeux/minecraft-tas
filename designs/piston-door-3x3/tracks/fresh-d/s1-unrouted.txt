@@ -1,0 +1,47 @@
+name: fd-s1
+# slime-free symmetric door (fresh-d): fc2's core (Q shuttle holds A, p0, B window) + pulse pullers, P_T pulls T east
+port door: 0 0 0
+port lever: -2 4 0
+origin: -3 0 0
+palette:
+  G minecraft:sticky_piston[extended=false,facing=up]
+  s minecraft:smooth_stone
+  A minecraft:observer[facing=up,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  I minecraft:stone
+  W minecraft:sticky_piston[extended=false,facing=west]
+  x minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  o minecraft:observer[facing=east,powered=false]
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  H minecraft:sticky_piston[extended=true,facing=down]
+  d minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  C minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  Q minecraft:sticky_piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  w minecraft:observer[facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  D minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+layer -2:
+  ....Gs
+layer -1:
+  .....A
+layer 0:
+  .F.III.W
+layer 1:
+  IF.III.WI
+layer 2:
+  xF.III.Wx
+layer 3:
+  A..IP.WI
+  ..I
+layer 4:
+  oLBrH..d
+  .ICQR.wI
+layer 5:
+  ..OAE
+layer 6:
+  ..ID
