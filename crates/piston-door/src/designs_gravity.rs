@@ -274,3 +274,64 @@ pub fn sf1() -> Design {
     b.set([1, -7, -1], FLOOR);
     b.d
 }
+
+/// sf4 base (slime-free): sf3's mechanism; each side's two pullers are powered by one torch
+/// T_L/T_R (beside the middle puller, the block above it powers the top puller) hanging on a
+/// block fed by an L dust that runs on the walkway floor from the lever; VL/VR are QC-powered by
+/// torches T_AL/T_AR on those dusts' floors; T_A2 (on the lever block) QC-powers R3. The tower
+/// control (B2/O/RS1/RS2/S1 fast) is sf3's; the A net feeding it is routed separately.
+pub fn sf4_base() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "gravity-sf4".into();
+    let sand = "minecraft:sand";
+    for y in 0..3 {
+        for x in 0..3 {
+            b.set([x, y, 0], sand);
+        }
+    }
+    for y in 1..3 {
+        b.set([-2, y, 0], "sticky_piston[facing=east,extended=true]");
+        b.set([-1, y, 0], "piston_head[facing=east,type=sticky,short=false]");
+        b.set([4, y, 0], "sticky_piston[facing=west,extended=true]");
+        b.set([3, y, 0], "piston_head[facing=west,type=sticky,short=false]");
+    }
+    b.set([-1, 0, 0], FLOOR);
+    b.set([3, 0, 0], FLOOR);
+    b.set([0, -2, 0], "piston[facing=up,extended=true]"); // VL
+    b.set([0, -1, 0], "piston_head[facing=up,type=normal,short=false]");
+    b.set([2, -2, 0], "piston[facing=up,extended=true]"); // VR
+    b.set([2, -1, 0], "piston_head[facing=up,type=normal,short=false]");
+    b.set([1, -2, 0], "piston[facing=up,extended=true]"); // R3
+    b.set([1, -1, 0], "piston_head[facing=up,type=normal,short=false]");
+    b.set([1, -4, 0], "sticky_piston[facing=up,extended=true]"); // S2
+    b.set([1, -3, 0], "piston_head[facing=up,type=sticky,short=false]");
+    b.set([1, -6, 0], "sticky_piston[facing=up,extended=true]"); // S1
+    b.set([1, -5, 0], "piston_head[facing=up,type=sticky,short=false]");
+    b.port("door", [0, 0, 0]);
+    b.set([1, -1, -2], FLOOR); // LB
+    b.set([1, 0, -2], "lever[face=floor,facing=north,powered=false]");
+    b.port("lever", [1, 0, -2]);
+    b.set([1, -1, -1], "redstone_wall_torch[facing=south,lit=true]"); // T_A2: R3 by QC
+    for s in [-1, 1] {
+        let x = |dx: i32| 1 + s * dx;
+        b.set([x(1), 0, -2], "redstone_wire"); // walkway L dust
+        b.set([x(1), -1, -2], FLOOR);
+        b.set([x(1), -1, -1], "redstone_wall_torch[facing=south,lit=true]"); // T_AL / T_AR
+        b.set([x(2), 1, -2], "redstone_wire");
+        b.set([x(2), 0, -2], FLOOR);
+        b.set([x(3), 1, -2], FLOOR);
+        b.set([x(3), 1, -1], "redstone_wall_torch[facing=south,lit=true]"); // T_L / T_R
+        b.set([x(3), 2, -1], FLOOR);
+    }
+    // Tower control (sf3).
+    b.set([1, -4, -1], FLOOR); // B2
+    b.set([1, -4, -2], "repeater[facing=north,delay=2]"); // RS2
+    b.set([1, -5, -2], FLOOR);
+    b.set([1, -5, -1], "observer[facing=down]"); // O watches RS1
+    b.set([1, -6, -1], "repeater[facing=north,delay=4]"); // RS1
+    b.set([1, -7, -1], FLOOR);
+    b.set([2, -6, 0], FLOOR); // S1 fast block
+    // A net start: under T_AL.
+    b.dust([0, -2, -1]);
+    b.d
+}

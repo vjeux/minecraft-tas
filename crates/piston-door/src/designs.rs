@@ -81,6 +81,7 @@ pub fn build(name: &str) -> Option<Design> {
         "g3" => Some(crate::designs_gravity::g3()),
         "g4" => Some(crate::designs_gravity::g4()),
         "sf1" => Some(crate::designs_gravity::sf1()),
+        "sf4-base" => Some(crate::designs_gravity::sf4_base()),
         other => crate::observer_seq::build(other),
     }
 }
