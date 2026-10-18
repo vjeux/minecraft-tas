@@ -55,3 +55,62 @@ inputs: `ground20.ideal` per edge, `ground-sym.ideal` one 24-pulse train for bot
 - 20:44Z mech-wire on ground20.ideal (uniform gap 5, 128-tick waves, motion triggers): 0 lever
   spots reach every receiver. A self-timed sequencer needs its own search (couplings: observer
   watching a cell piston X changes -> piston Y), not route2.
+
+## FIRST GROUND DOOR: g99 (2026-10-18 21:32Z)
+`g99.txt` (= BEST.txt, archive/ground-g99-99b.txt): **99 blocks, volume 462 (11x6x7)**, open/close
+54/54, slime-free, rotation-safe, `door verify --extra-offsets 28 --ground`: WORKS at 32 positions,
+on the ground (nothing below the door at any tick, works on a stone floor at 32 positions). Not
+seamless (the ground board does not need it: vjeux via the coordinator, 20:48Z).
+* Mechanism: shift2 (21 blocks). Control: 76 observers + lever + its block, NOTHING else: a tree
+  of observers rooted at an observer watching the lever (one 2 gt pulse on BOTH edges), one
+  driver observer per (piston group, step) firing into its piston (stacked rows: the driver
+  above the top piston facing up powers it and quasi-powers the one below; P0-shifted by
+  quasi-connectivity through (3,1,0) from an observer at (3,1,-1); the QC'd piston gets its
+  update from the observer's output updating (3,1,0)'s neighbours).
+* Timing (2 gt units after the first step): rows 1-2 (left) 0,2,5,7,9,12 + far puller (right)
+  14; row 0 (right) 0,2,5,8,11,14 + far puller (left) 14. Observers on a cubic grid have a
+  fixed parity per time (cell parity = root parity + time), so gaps had to be chosen per side
+  to match the drivers' cell parities (`wire/shift2-obs-lr.ideal` validates them with ideal
+  marker blocks: works at 16 positions x 3 cycles).
+* Tool: `mctas door obs-chain <spec>` (obschain.rs): driver options per group + times; DFS over
+  driver choices with exact-length observer paths (BFS-distance pruned), branch and bound on
+  the observer count. Spec: `wire/shift2.chain` (`--shift 11`). Chain observers may output
+  into the ground check's floor (harmless: only the observer stands on that floor block).
+* `door verify --ground` (new): swept shape below + ground check at the judge's positions.
+- 21:45Z **v225** (`v225.txt` = BEST, archive/ground-v225-108b.txt): **volume 225 (9x5x5)**, 108
+  blocks, 54/54, rotation-safe, ground check at 32 positions. Same mechanism, obs-chain inside
+  box x -3..5, y 0..4, z -2..2, lever (1,3,-1) on the side of (1,3,0), root (1,3,-2).
+  Boxes that fail: y <= 3 (PS4's only driver (-1,3,0) faces up: its watched cell is y = 4),
+  z -1..1 (P0-home's drivers (4,0,+-1) watch z = +-2), z -2..1 (R1H and R6H both need
+  (4,0,-1)). Next: conductor options (an observer powering a solid block next to the piston).
+- 22:15Z **v225b** (`v225b.txt` = BEST, archive/ground-v225b-98b.txt): volume 225 (9x5x5), **98
+  blocks**, 54/54, rotation-safe, ground check at 32 positions (same box, randomized restarts:
+  75 observers instead of 85).
+
+## Why not smaller than 9x5x5 (with this mechanism)
+* Width 9 = the mechanism (left shifter Q at x -3, right Q0 at x 5).
+* Height 5: the left P-shifted driver must output down into (-1,2,0) (the only free side of the
+  shifted piston), so it faces up and watches y = 4. A conductor at (-1,3,0) (an observer
+  powering a stone there) works with ideal inputs, but in a y <= 3 box the left corner runs
+  out of cells: Q needs two drivers at (-3,2,+-1) (watching (-3,2,+-2)), P-home two among
+  (-2,2,+-1)/(-2,3,0)-conductor, Z one more; the forward check proves every choice infeasible.
+* Depth 5: P0-home needs two drivers; its only free sides are (4,0,+-1) (observers there watch
+  z = +-2) or a conductor there, which is next to Z0 or Z0's parked block. Mirroring Z0
+  (`bases/shift2m.txt`, `ideal/shift2m(-lr).ideal`: works) moves the conflict: the cells around
+  (3,1,-1) are then needed by Z0's driver, P0-shifted's driver (it must output INTO (3,1,0):
+  a conductor beside it does not update (3,0,0), the quasi-powered piston never fires) and
+  P0-home's. Every z -2..1 / z -1..2 variant fails the forward check.
+* Smaller needs a different mechanism (fewer distinct pulses on the bottom row's right side, or
+  pistons whose drivers share cells), or an elevator design (ground20) wired the same way.
+
+## Tools (all on explore/ground)
+* `door obs-chain <spec> --out f [--shift N] [--secs S] [--restarts R] [--max-paths P]`
+  (obschain.rs): observer-tree wiring. Spec: the ideal schedule (mechanism + the cells it uses),
+  lever + support + root observer, a box, per group a time (2 gt units) and driver options
+  (`opt x y z facing`, or `optb x y z facing bx by bz state`: the observer powers a conductor
+  block). DFS over driver choices, exact-length observer paths (BFS-distance pruned), forward
+  check of later groups' viable options, soft reservation of tight groups' cells, randomized
+  restarts, branch and bound on the block count. Observer cells have a fixed parity per time.
+* `door verify --ground`: the swept shape (below = 0) and the ground check at the judge's
+  positions.
+* `mech-synth --seamless`, `--no-ring-fire`: hallway-ring constraints in the macro model.

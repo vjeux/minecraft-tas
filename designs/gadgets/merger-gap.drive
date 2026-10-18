@@ -1,0 +1,13 @@
+# Pulse merger: two 2 gt pulses 4 gt apart come out of W as ONE pulse (t8-9); two pulses 8 gt
+# apart (B's window edges b1, b2 are at least 7 gt apart) come out as TWO (t48-49 and t56-57).
+design designs/gadgets/merger-gap.txt
+probe d 4 1 0
+use 0 1 0
+quiet 4
+use 0 1 0
+expect_trace d 000++00000000000
+quiet 20
+use 0 1 0
+expect_trace d 0000000+
+use 0 1 0
+expect_trace d +000000++000
