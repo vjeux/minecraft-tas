@@ -98,3 +98,18 @@ observer on RB's landing cell, which can only output east (4,4,1).
   has nothing to read.
 * An observer watching A to fire P_T: the B dance moves A again (extra pulses push T back into
   A's path).
+* `door minimize --depth 2 --plateau-pairs` and a neutral random walk (`--walk`) on s4: nothing yet.
+  The walk shows X's floor (0,3,0) may be ANY sturdy block (even an observer): A in its lower
+  position is quasi-powered through B's head cell (1,4,0), which X points into, and updated by
+  X's second-order updates.
+
+## Next ideas
+* A cell next to A is the bottleneck (X, RB, B, and P_T's gap all crowd it). A design whose T
+  aside piston needs no cell next to (1,3,0)'s east/west (e.g. T aside in z with the shuttle on the
+  other z side and X fed from above only) could free (0,4,0) for the TL-up trick (left = 2 blocks
+  per pair).
+* Copper bulbs as edge filters: a pulse train (or a level with two edges) through a bulb gives one
+  observer pulse per rising edge; might replace pulse-stretch repeaters elsewhere.
+* Mirrored pump with the shuttle: holding A on close blocks the pump's late pushes (a pump piston
+  P under M can double as M's puller after a U lowers it; the close-time push is blocked by A's
+  extended head at the top of the column).
