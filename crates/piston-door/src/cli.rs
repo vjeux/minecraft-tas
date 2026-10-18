@@ -147,6 +147,13 @@ pub enum DoorCmd {
         /// Rename the design (used for archive file names).
         #[arg(long)]
         name: Option<String>,
+        /// Only accept designs that open within this many ticks (worst cycle, as verify reports):
+        /// smaller at equal speed for the speed boards.
+        #[arg(long)]
+        max_open: Option<u32>,
+        /// Only accept designs that close within this many ticks.
+        #[arg(long)]
+        max_close: Option<u32>,
         #[arg(long, default_value_t = 1)]
         seed: u64,
     },
@@ -328,6 +335,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             minutes,
             archive,
             name,
+            max_open,
+            max_close,
             seed,
         } => {
             let mut d = load_design(&design)?;
@@ -352,6 +361,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 walk,
                 deadline: minutes.map(|m| t + std::time::Duration::from_secs_f64(m * 60.0)),
                 seed,
+                max_open,
+                max_close,
             };
             println!("{} workers; moves {moves}; judge {} positions", pool.len(), offsets.len());
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());

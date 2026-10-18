@@ -97,6 +97,23 @@ pub struct SearchOptions {
     pub walk: usize,
     pub deadline: Option<Instant>,
     pub seed: u64,
+    /// Reject designs slower than this to open / close (worst recorded cycle, in ticks).
+    pub max_open: Option<u32>,
+    pub max_close: Option<u32>,
+}
+
+/// [`verify_in`] plus the search's timing caps (`--max-open`, `--max-close`).
+fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
+    let r = verify_in(w, sb, d, v)?;
+    let worst_open = r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0);
+    let worst_close = r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0);
+    if let Some(m) = opts.max_open.filter(|m| worst_open > *m) {
+        return Err(anyhow!("opens after {worst_open} ticks, over --max-open {m}"));
+    }
+    if let Some(m) = opts.max_close.filter(|m| worst_close > *m) {
+        return Err(anyhow!("closes after {worst_close} ticks, over --max-close {m}"));
+    }
+    Ok(r)
 }
 
 impl SearchOptions {
@@ -776,7 +793,7 @@ fn evaluate(
             return Ok(Screen::Skip);
         }
         let sb = sandboxes.get(w, wi)?;
-        match verify_in(w, sb, &d, &opts.screen) {
+        match judge_in(w, sb, &d, &opts.screen, opts) {
             Ok(_) => Ok(Screen::Pass),
             Err(e) => {
                 let msg = format!("{e:#}");
@@ -823,7 +840,7 @@ fn evaluate(
             let c = &cands[i];
             let d = c.edit.apply(&bases[c.base]);
             let sb = sandboxes.get(w, wi)?;
-            Ok(verify_in(w, sb, &d, &opts.judge).map(|_| d).map_err(|e| format!("{e:#}")))
+            Ok(judge_in(w, sb, &d, &opts.judge, opts).map(|_| d).map_err(|e| format!("{e:#}")))
         });
         judged += part.len();
         for (&i, r) in part.iter().zip(res) {
@@ -867,7 +884,7 @@ fn finalize(pool: &Pool, sandboxes: &Sandboxes, d: Design, opts: &SearchOptions,
     let mut w = pool.worker(0);
     let canon = crate::canonicalize(&mut w, &d)?;
     let sb = sandboxes.get(&mut w, 0)?;
-    match verify_in(&mut w, sb, &canon, &opts.judge) {
+    match judge_in(&mut w, sb, &canon, &opts.judge, opts) {
         Ok(_) => Ok(canon),
         Err(e) => {
             log(&format!("  canonical form fails the judge ({e:#}); keeping the design as edited"));
@@ -890,7 +907,7 @@ pub fn search(
     {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;
-        verify_in(&mut w, sb, &cur, &opts.judge).context("the start design fails the judge")?;
+        judge_in(&mut w, sb, &cur, &opts.judge, opts).context("the start design fails the judge (or its timing caps)")?;
     }
     log(&format!("start: {} blocks, passes the judge ({} positions x {} cycles)", block_count(&cur), opts.judge.offsets.len(), opts.judge.cycles));
     let failed: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
@@ -954,7 +971,7 @@ pub fn search(
                 }
                 let mut w = pool.worker(0);
                 let sb = sandboxes.get(&mut w, 0)?;
-                if verify_in(&mut w, sb, &cand, &opts.judge).is_ok() {
+                if judge_in(&mut w, sb, &cand, &opts.judge, opts).is_ok() {
                     log(&format!("  also: {d2} -> {} blocks", block_count(&cand)));
                     next = cand;
                 }
