@@ -66,10 +66,10 @@ pub fn g1() -> Design {
     b.dust([4, 0, -1]);
     b.set([5, 0, -1], FLOOR);
     // S2 driver: A + 3 into S2's top position.
-    b.repeater([1, -4, -1], "south", 3);
+    b.repeater([1, -4, -1], "south", 2);
     // S1 drivers: slow (A + 6) from the north.
-    b.repeater([1, -6, 0], "south", 4);
-    b.repeater([1, -6, -1], "south", 2);
+    b.repeater([1, -6, 0], "south", 3);
+    b.repeater([1, -6, -1], "south", 1);
     for (p, s) in g1_routes() {
         b.set(p, s);
     }

@@ -23,9 +23,9 @@ palette:
   R minecraft:redstone_wall_torch[facing=south,lit=true]
   S minecraft:redstone_wire[east=up,north=side,power=13,south=none,west=none]
   T minecraft:redstone_wire[east=up,north=side,power=15,south=none,west=side]
-  U minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
-  V minecraft:repeater[delay=3,facing=north,locked=false,powered=true]
-  W minecraft:repeater[delay=4,facing=north,locked=false,powered=true]
+  U minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  V minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
+  W minecraft:repeater[delay=3,facing=north,locked=false,powered=true]
   X minecraft:slime_block
   Y minecraft:smooth_stone
   Z minecraft:sticky_piston[extended=true,facing=east]
