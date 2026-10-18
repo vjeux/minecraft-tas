@@ -305,6 +305,9 @@ pub struct Facts {
     pub slime_free: bool,
     /// Every block in the door's plane (one block thick).
     pub flat: bool,
+    /// Also works turned 90, 180 and 270 degrees (from the leaderboard's cache; true when
+    /// unknown, e.g. a title card made outside the boards).
+    pub rotation_safe: bool,
     /// Ticks after the lever flip until open / closed (first cycle), when the door works.
     pub open_ticks: Option<u32>,
     pub close_ticks: Option<u32>,
@@ -318,6 +321,7 @@ impl Facts {
             category: crate::category(d).to_string(),
             slime_free: crate::slime_free(d),
             flat: crate::single_layer(d),
+            rotation_safe: true,
             open_ticks: None,
             close_ticks: None,
         }

@@ -8,6 +8,8 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 36 | sculk | [sculk2-s4b-36b](sculk2-s4b-36b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.mp4) |
 | 36 | sculk | [sculk2-s4c-36b](sculk2-s4c-36b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4c-36b.mp4) |
 | 38 | sculk | [sculk2-s1-38b](sculk2-s1-38b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s1-38b.mp4) |
+| 38 | solid | [sf-holdA-b38-38b](sf-holdA-b38-38b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sf-holdA-b38-38b.mp4) |
+| 39 | solid | [sf-holdA-b39-39b](sf-holdA-b39-39b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sf-holdA-b39-39b.mp4) |
 | 40 | solid | [fc2-40b](fc2-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4) |
 | 40 | solid | [fc2-40b-2](fc2-40b-2.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b-2.mp4) |
 | 40 | solid | [fc2-40b-3](fc2-40b-3.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b-3.mp4) |
@@ -159,6 +161,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 96 | solid | [piston-door-3x3-v2u2-96b](piston-door-3x3-v2u2-96b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2u2-96b.mp4) |
 | 99 | solid | [mechanics-slime-free-99b](mechanics-slime-free-99b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-slime-free-99b.mp4) |
 | 104 | solid | [mechanics-slime-free-104b](mechanics-slime-free-104b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-slime-free-104b.mp4) |
+| 107 | solid | [lamp-sweep-a1-107-107b](lamp-sweep-a1-107-107b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-a1-107-107b.mp4) |
 | 107 | solid | [lamp-sweep-o6-107-107b](lamp-sweep-o6-107-107b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-o6-107-107b.mp4) |
 | 108 | solid | [speed-wire-s4-108b](speed-wire-s4-108b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-s4-108b.mp4) |
 | 109 | solid | [search-tool-v2-min-109b](search-tool-v2-min-109b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-v2-min-109b.mp4) |

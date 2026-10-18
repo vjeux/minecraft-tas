@@ -1,0 +1,10 @@
+# b39 -> b38: the lever moves to (1,5,-3), hung on O (1,5,-2). It weakly powers a NOTE BLOCK at
+# (1,4,-3) (no delay, both edges; weak power is not passed on, so nothing reaches P_T's quasi cell
+# (1,4,-2)), which O_a watches: p0 at t2. The Y chain starts at (1,6,-3), which now watches the
+# lever itself: Y t4 (B window t12-20), O t6 -> P_T (= p0 + 4). Observer (1,5,-3) gone.
+clear 2 4 -3
+clear 1 5 -3
+clear 1 4 -3
+set 1 4 -3 minecraft:note_block[instrument=harp,note=0,powered=false]
+set 1 5 -3 minecraft:lever[face=wall,facing=north,powered=false]
+port lever 1 5 -3

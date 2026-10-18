@@ -221,6 +221,7 @@ pub fn archived(version: &str, dir: &Path, workers: usize) -> Result<Vec<Archive
             let mut facts = Facts::of(&e.design);
             facts.open_ticks = e.open_ticks;
             facts.close_ticks = e.close_ticks;
+            facts.rotation_safe = e.rotation_safe();
             Archived { stem: path.file_stem().unwrap().to_string_lossy().to_string(), path, design: e.design, facts }
         })
         .collect())

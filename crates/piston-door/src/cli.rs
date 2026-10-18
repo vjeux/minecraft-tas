@@ -807,6 +807,10 @@ pub enum DoorCmd {
         /// Archive into this folder instead (e.g. the main designs/piston-door-3x3/archive).
         #[arg(long)]
         archive_dir: Option<PathBuf>,
+        /// Skip the rotation check (the door turned 90, 180 and 270 degrees, same positions).
+        /// It is not part of the judge: it decides which board a working door goes on.
+        #[arg(long)]
+        no_rotations: bool,
     },
     /// Circuit synthesis by exhaustive simulation (see synth.rs): every circuit of up to --k
     /// blocks from --palette in the free cells of --lo..--hi that carries a signal from the
@@ -1482,7 +1486,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations } => {
             let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
@@ -1516,6 +1520,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     }
                     for warning in &r.warnings {
                         println!("  warning: {warning}");
+                    }
+                    if !no_rotations {
+                        let ropts = VerifyOptions { keep_frames: false, ..opts.clone() };
+                        match crate::rotation_check(&mut w, &d, &ropts)? {
+                            None => println!("rotation-safe: also works turned 90, 180 and 270 degrees ({} positions each)", ropts.offsets.len()),
+                            Some((turns, why)) => println!("NOT rotation-safe (listed on the separate board): turned {} degrees: {why}", turns as u32 * 90),
+                        }
                     }
                     if show {
                         println!("opening (top row, middle row, bottom row; # block, ~ moving, h piston head, . air):");
