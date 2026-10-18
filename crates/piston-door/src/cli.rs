@@ -787,6 +787,17 @@ pub enum DoorCmd {
     /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
     /// schedules), rank by (blocks, control events), write ideal-input designs + schedules and
     /// replay the best in the simulator (`--verify N`).
+    /// Wiring topology (topology.rs) of every mechanism in agent families' catalog TSV, each in its
+    /// own box: wiring components, piston links, pulse parity; WIRABLE or not (strict / permissive)
+    Topology {
+        tsv: PathBuf,
+        /// Only ids starting with one of these (e.g. `7x8,8x7`)
+        #[arg(long, value_delimiter = ',')]
+        only: Vec<String>,
+        /// Print each mechanism's full report
+        #[arg(long)]
+        verbose: bool,
+    },
     MechSynth {
         /// Base design (its mechanism blocks; wiring is dropped). Door port = min corner.
         base: PathBuf,
@@ -862,6 +873,12 @@ pub enum DoorCmd {
         /// With --sym-bfs: also allow level toggles (default: 2 gt pulses only).
         #[arg(long)]
         sym_levels: bool,
+        /// Wiring topology in a volume box of the door plane, "x0,y0:x1,y1" (relative to the door
+        /// port): can each mechanism be wired inside it with FULL seamless (topology.rs: wiring
+        /// components, piston links, pulse parity)? With --just-base prints the full report; in an
+        /// enumeration keeps only the wirable mechanisms.
+        #[arg(long)]
+        topology: Option<String>,
     },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
@@ -1575,6 +1592,10 @@ pub enum DoorCmd {
         /// --repeater-input plus the hallway check, footsteps (sculk) and QUART SEAMLESS or better.
         #[arg(long)]
         eligible: bool,
+        /// Shape limits on every accepted replacement, measured on the swept shape (a preset or
+        /// key<=n terms, e.g. `thick<=1,volume<=81`; see `door shapes`).
+        #[arg(long)]
+        shape: Option<String>,
         /// Compaction (the volume boards): keep every replacement circuit inside this box,
         /// "x0,y0,z0:x1,y1,z1" (inclusive); while removable blocks lie outside it, cut only
         /// groups through them and let each grow back inside the box with up to --extra more
@@ -2308,7 +2329,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             crate::families::run(version, &o)?;
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels } => {
+        DoorCmd::Topology { tsv, only, verbose } => {
+            crate::topology::catalog_cli(&tsv, &only, verbose)?;
+        }
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels, topology } => {
             crate::mechsynth::SEAMLESS.store(seamless, std::sync::atomic::Ordering::Relaxed);
             crate::mechsynth::NO_RING_FIRE.store(no_ring_fire, std::sync::atomic::Ordering::Relaxed);
             if let Some(seq) = &sym_bfs {
@@ -2335,6 +2359,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 max_blocks,
                 sym_len,
                 sym_tries,
+                topology: match topology.as_deref() {
+                    None => None,
+                    Some(s) => {
+                        let v: Vec<i8> = s.split([',', ':']).map(|t| t.trim().parse::<i8>()).collect::<std::result::Result<_, _>>().map_err(|e| anyhow::anyhow!("--topology x0,y0:x1,y1: {e}"))?;
+                        anyhow::ensure!(v.len() == 4, "--topology x0,y0:x1,y1, got {s:?}");
+                        Some(([v[0].min(v[2]), v[1].min(v[3])], [v[0].max(v[2]), v[1].max(v[3])]))
+                    }
+                },
             };
             crate::mechsynth::cli(version, &base, &o, out_dir.as_deref(), top, verify, extra_offsets, gap, workers, just_base)?;
         }
@@ -3127,6 +3159,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     seamless: None,
                     repeater_input: false,
                     eligible: false,
+                    shape: None,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -3150,7 +3183,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, repeater_input, eligible, fit } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, repeater_input, eligible, shape, fit } => {
+            let shape = shape.as_deref().map(crate::ShapeLimits::parse).transpose()?;
             use crate::synth::*;
             let seamless = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
@@ -3198,6 +3232,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     extra,
                     repeater_input: repeater_input || eligible,
                     eligible,
+                    shape,
                     fit,
                 };
                 let start = {
