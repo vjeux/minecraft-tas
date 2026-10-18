@@ -378,25 +378,84 @@ fn timings(rec: &Recording, t0: u32) -> [i64; 4] {
     [o - t0, ov - t0, c - t0, cv - t0]
 }
 
-/// The cheap properties: everything read from the recording and the design file.
-pub fn cheap(rec: &Recording, d: &Design) -> Props {
-    let mut p = Props::new();
+/// The SEAMLESS tiers (2.1.4.1), weakest first. `SuperCovered` = FULL + every tick of the
+/// animation clean when an S cell counts as seen only while its face toward T is open (its one T
+/// neighbor holds no door block, resting or moving: a piston head in the door plane's ring behind
+/// a door block is not seen). SUPER (every S cell counts) implies it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Tier {
+    None,
+    Quart,
+    Semi,
+    Full,
+    SuperCovered,
+    Super,
+}
+
+impl Tier {
+    pub fn parse(s: &str) -> Result<Tier> {
+        Ok(match s.to_ascii_lowercase().as_str() {
+            "quart" => Tier::Quart,
+            "semi" => Tier::Semi,
+            "full" => Tier::Full,
+            "supercov" | "super-covered" => Tier::SuperCovered,
+            "super" => Tier::Super,
+            _ => bail!("unknown seamless tier {s:?} (quart, semi, full, supercov, super)"),
+        })
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Tier::None => "-",
+            Tier::Quart => "QUART",
+            Tier::Semi => "SEMI",
+            Tier::Full => "FULL",
+            Tier::SuperCovered => "SUPER (covered)",
+            Tier::Super => "SUPER",
+        }
+    }
+}
+
+/// The T cell an S cell faces (every S cell touches T through exactly one face).
+fn t_neighbor(geo: &Geo, p: Pos) -> Pos {
+    let (u, v, d) = (geo.u(p), geo.v(p), geo.depth(p));
+    let (u, v) = match (u, v) {
+        (-1, v) => (0, v),
+        (3, v) => (2, v),
+        (u, -1) => (u, 0),
+        (u, _) => (u, 2),
+    };
+    geo.cell(u, v, d)
+}
+
+/// The seamless verdict of one recorded cycle: the tier, its table label (with the viewer
+/// sides for QUART and SEMI), the first cell that stops the next tier, and every blocker of the
+/// stable states (closed z-/x- side, closed z+/x+ side, open) and the hallway holes.
+#[derive(Clone, Debug)]
+pub struct Seamless {
+    pub tier: Tier,
+    pub label: String,
+    pub why: Option<String>,
+    pub closed: [Vec<(Pos, String)>; 2],
+    pub open: Vec<(Pos, String)>,
+    pub holes_r: Vec<Pos>,
+    pub holes_o: Vec<Pos>,
+}
+
+/// SEAMLESS (2.1.4.1) of a recorded cycle. QUART <side> = closed, no circuitry in T or S strictly
+/// on that side; SEMI = QUART + open state clean (T and S at every depth, door plane included);
+/// FULL = QUART on both sides + open clean; SUPER = FULL + every tick of opening and closing clean.
+/// Hallway holes count too (props-dyn): ring cells some block passes through during a cycle can
+/// never hold a hallway block, so where they are air in a stable state they are holes, and
+/// circuitry right behind a hole (the next cell outward) is visible. Closed, the door plane's ring
+/// is hidden behind the door blocks.
+pub fn seamless(rec: &Recording) -> Seamless {
     let geo = rec.geo;
     let lever = rec.lever;
     let rest_doors: HashSet<Pos> = geo.spec.door_cells().into_iter().collect();
     let open_doors = rec.open_doors();
     let circ_r = circuitry(&geo, &rec.rest, &rest_doors, lever);
     let circ_o = circuitry(&geo, rec.open_state(), &open_doors, lever);
-    if rec.track_open.lost + rec.track_close.lost > 0 {
-        p.insert("track".into(), format!("lost {} door blocks", rec.track_open.lost + rec.track_close.lost));
-    }
-
-    // SEAMLESS (2.1.4.1).
     let vis = |c: &(Pos, String)| geo.in_t(c.0) || geo.in_s(c.0);
-    // Hallway holes: ring cells some block passes through during a cycle can never hold a hallway
-    // block (props-dyn fills only ring cells that are air at every tick), so where they are air
-    // they are holes, and circuitry right behind a hole (the next cell outward) is visible.
-    // Closed, the door plane's ring is hidden behind the door blocks.
     let mut swept_s: BTreeSet<Pos> = BTreeSet::new();
     for (f, _) in rec.open.iter().chain(rec.close.iter()) {
         for (q, s) in f.iter() {
@@ -422,52 +481,173 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     let by_pos_o: HashMap<Pos, &(Pos, String)> = circ_o.iter().map(|c| (c.0, c)).collect();
     let through_r: Vec<&(Pos, String)> = holes_r.iter().filter_map(|h| by_pos_r.get(&outward(*h)).copied()).collect();
     let through_o: Vec<&(Pos, String)> = holes_o.iter().filter_map(|h| by_pos_o.get(&outward(*h)).copied()).collect();
-    if !holes_r.is_empty() || !holes_o.is_empty() {
-        let l = |v: &[Pos]| v.iter().map(|q| format!("{q:?}")).collect::<Vec<_>>().join(" ");
-        p.insert("holes".into(), format!("closed: {} | open: {}", l(&holes_r), l(&holes_o)));
-    }
-    let quart = |s: i32| {
-        circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).chain(through_r.iter().copied().filter(|c| geo.depth(c.0) * s > 0)).collect::<Vec<_>>()
+    let quart = |s: i32| -> Vec<&(Pos, String)> {
+        circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).chain(through_r.iter().copied().filter(|c| geo.depth(c.0) * s > 0)).collect()
     };
     let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).chain(through_o.iter().copied()).collect();
     let mut anim_vis: Option<String> = None;
+    let mut anim_cov: Option<String> = None;
     for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
         for (i, (f, _)) in frames.iter().enumerate() {
             let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
             let c = circuitry(&geo, f, &doors, lever);
+            let when = || format!("{} t{}", if std::ptr::eq(frames, &rec.open) { "opening" } else { "closing" }, i + 1);
             if let Some(x) = first(c.iter().filter(|c| vis(c))) {
-                anim_vis.get_or_insert(x);
+                anim_vis.get_or_insert(format!("{}: {x}", when()));
+            }
+            if let Some(x) = first(c.iter().filter(|c| geo.in_t(c.0) || (geo.in_s(c.0) && !doors.contains(&t_neighbor(&geo, c.0))))) {
+                anim_cov.get_or_insert(format!("{}: {x}", when()));
             }
         }
     }
     let qs: Vec<i32> = [-1, 1].into_iter().filter(|s| quart(*s).is_empty()).collect();
     let full = qs.len() == 2 && open_vis.is_empty();
-    let tier = if full && anim_vis.is_none() {
-        "SUPER".to_string()
+    let sides = || qs.iter().map(|s| geo.side(*s)).collect::<Vec<_>>().join(",");
+    let (tier, label) = if full && anim_vis.is_none() {
+        (Tier::Super, "SUPER".to_string())
+    } else if full && anim_cov.is_none() {
+        (Tier::SuperCovered, "FULL, SUPER (covered)".to_string())
     } else if full {
-        "FULL".to_string()
+        (Tier::Full, "FULL".to_string())
     } else if !qs.is_empty() && open_vis.is_empty() {
-        format!("SEMI {}", qs.iter().map(|s| geo.side(*s)).collect::<Vec<_>>().join(","))
+        (Tier::Semi, format!("SEMI {}", sides()))
     } else if !qs.is_empty() {
-        format!("QUART {}", qs.iter().map(|s| geo.side(*s)).collect::<Vec<_>>().join(","))
+        (Tier::Quart, format!("QUART {}", sides()))
     } else {
-        "-".to_string()
+        (Tier::None, "-".to_string())
     };
-    p.insert("seamless".into(), tier);
     let why = if qs.is_empty() {
         first(quart(-1)).map(|x| format!("closed: {x}"))
     } else if !open_vis.is_empty() {
         first(open_vis.iter().copied()).map(|x| format!("open: {x}"))
     } else if qs.len() < 2 {
         first(quart(-qs[0])).map(|x| format!("closed other side: {x}"))
+    } else if anim_cov.is_some() {
+        anim_cov.clone().map(|x| format!("moving (covered): {x}"))
     } else {
         anim_vis.clone().map(|x| format!("moving: {x}"))
     };
-    if let Some(w) = why {
+    let owned = |v: Vec<&(Pos, String)>| -> Vec<(Pos, String)> { v.into_iter().cloned().collect() };
+    Seamless { tier, label, why, closed: [owned(quart(-1)), owned(quart(1))], open: owned(open_vis), holes_r, holes_o }
+}
+
+/// Search acceptance filter (`--seamless <tier>`): one recorded cycle at the design's own
+/// position must reach `min`.
+pub fn require_seamless(w: &mut Worker, sb: u32, d: &Design, min: Tier) -> Result<()> {
+    let rec = record(w, sb, d)?;
+    let s = seamless(&rec);
+    if s.tier < min {
+        bail!("seamless {} below {}: {}", s.label, min.name(), s.why.unwrap_or_default());
+    }
+    Ok(())
+}
+
+/// A search requirement: `--seamless <tier>[+hall]` (`+hall`: the ring-aware hallway must
+/// build too: the coordinator's hallway, `properties_dyn::hallway_env`).
+#[derive(Clone, Copy, Debug)]
+pub struct SeamReq {
+    pub tier: Tier,
+    pub hallway: bool,
+    /// Repair progress: below the tier, still accept a design with fewer offending cells
+    /// ([`seamless_offenders`]) than this.
+    pub below: Option<usize>,
+}
+
+impl SeamReq {
+    pub fn parse(s: &str) -> Result<SeamReq> {
+        let (t, hallway) = match s.strip_suffix("+hall") {
+            Some(t) => (t, true),
+            None => (s, false),
+        };
+        Ok(SeamReq { tier: Tier::parse(t)?, hallway, below: None })
+    }
+    pub fn check(&self, w: &mut Worker, sb: u32, d: &Design) -> Result<()> {
+        let rec = record(w, sb, d)?;
+        let s = seamless(&rec);
+        if s.tier < self.tier {
+            let n = seamless_offenders(&rec, self.tier).len();
+            if !self.below.is_some_and(|b| n < b) {
+                bail!("seamless {} below {} ({n} offending cells): {}", s.label, self.tier.name(), s.why.unwrap_or_default());
+            }
+        }
+        if self.hallway {
+            // The coordinator's hallway (props-dyn, `properties_dyn::hallway_env`): smooth stone in
+            // every ring cell over the build's depth extent + 3 that is air at every tick of a
+            // full cycle; the judge's cycle checks must still pass.
+            let spec = DoorSpec::from_design(d)?;
+            let (swept, _) = crate::properties_dyn::swept_cells(w, sb, d, &spec)?;
+            let hall = crate::properties_dyn::hallway_env(d, &spec, &swept);
+            let opts = crate::properties_dyn::RunOpts { cycles: 1, input: crate::properties_dyn::Input::Lever, snow: false, steps: false };
+            crate::properties_dyn::env_run(w, sb, d, &spec, &hall, &opts).map_err(|e| anyhow::anyhow!("the hallway breaks it: {}", brief(&format!("{e:#}"))))?;
+        }
+        Ok(())
+    }
+}
+
+/// The cells whose blocks stop a design from reaching `min`: visible circuitry in the open state
+/// (SEMI and up), in the closed state on the sides `min` needs (the cleaner side for SEMI, both
+/// for FULL), and in every frame of the animation (SUPER). Repair searches cut groups through
+/// these.
+pub fn seamless_offenders(rec: &Recording, min: Tier) -> Vec<Pos> {
+    let geo = rec.geo;
+    let lever = rec.lever;
+    let s = seamless(rec);
+    let mut out: BTreeSet<Pos> = BTreeSet::new();
+    let neg: Vec<Pos> = s.closed[0].iter().map(|c| c.0).collect();
+    let pos: Vec<Pos> = s.closed[1].iter().map(|c| c.0).collect();
+    match min {
+        Tier::None => {}
+        Tier::Quart | Tier::Semi => {
+            if !neg.is_empty() && !pos.is_empty() {
+                out.extend(if neg.len() <= pos.len() { neg } else { pos });
+            }
+        }
+        Tier::Full | Tier::SuperCovered | Tier::Super => {
+            out.extend(neg);
+            out.extend(pos);
+        }
+    }
+    if min >= Tier::Semi {
+        out.extend(s.open.iter().map(|c| c.0));
+    }
+    if min >= Tier::SuperCovered {
+        for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
+            for (i, (f, _)) in frames.iter().enumerate() {
+                let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
+                let seen = |p: &Pos| geo.in_t(*p) || (geo.in_s(*p) && (min == Tier::Super || !doors.contains(&t_neighbor(&geo, *p))));
+                out.extend(circuitry(&geo, f, &doors, lever).into_iter().map(|c| c.0).filter(|p| seen(p)));
+            }
+        }
+    }
+    out.into_iter().collect()
+}
+
+/// The cheap properties: everything read from the recording and the design file.
+pub fn cheap(rec: &Recording, d: &Design) -> Props {
+    let mut p = Props::new();
+    let geo = rec.geo;
+    let lever = rec.lever;
+    let rest_doors: HashSet<Pos> = geo.spec.door_cells().into_iter().collect();
+    let open_doors = rec.open_doors();
+    let circ_r = circuitry(&geo, &rec.rest, &rest_doors, lever);
+    let circ_o = circuitry(&geo, rec.open_state(), &open_doors, lever);
+    if rec.track_open.lost + rec.track_close.lost > 0 {
+        p.insert("track".into(), format!("lost {} door blocks", rec.track_open.lost + rec.track_close.lost));
+    }
+
+    // SEAMLESS (2.1.4.1).
+    let s = seamless(rec);
+    p.insert("seamless".into(), s.label.clone());
+    if let Some(w) = s.why.clone() {
         p.insert("seamless_why".into(), w);
     }
+    let (holes_r, holes_o) = (s.holes_r.clone(), s.holes_o.clone());
+    if !holes_r.is_empty() || !holes_o.is_empty() {
+        let l = |v: &[Pos]| v.iter().map(|q| format!("{q:?}")).collect::<Vec<_>>().join(" ");
+        p.insert("holes".into(), format!("closed: {} | open: {}", l(&holes_r), l(&holes_o)));
+    }
     // Every blocker, per check: closed side z-/z+ and the open state.
-    let list = |v: &[&(Pos, String)]| -> String {
+    let list = |v: &[(Pos, String)]| -> String {
         if v.is_empty() {
             return "-".into();
         }
@@ -477,9 +657,9 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
         }
         s.join(" ")
     };
-    p.insert(format!("vis_closed_{}", geo.side(-1)), list(&quart(-1)));
-    p.insert(format!("vis_closed_{}", geo.side(1)), list(&quart(1)));
-    p.insert("vis_open".into(), list(&open_vis));
+    p.insert(format!("vis_closed_{}", geo.side(-1)), list(&s.closed[0]));
+    p.insert(format!("vis_closed_{}", geo.side(1)), list(&s.closed[1]));
+    p.insert("vis_open".into(), list(&s.open));
 
     // DENTLESS / MINOR DENTS ONLY (2.1.4.2-3), stable states.
     let mut dent = 0u8; // 0 dentless, 1 minor dents only, 2 dents, 3 ineligible
@@ -840,6 +1020,42 @@ fn brief(e: &str) -> String {
     if e.len() > 110 { format!("{}...", &e[..e.char_indices().take_while(|(i, _)| *i < 107).last().map(|(i, c)| i + c.len_utf8()).unwrap_or(0)]) } else { e }
 }
 
+/// The ring-aware hallway: like [`with_hallway`], but the door plane's S ring cells that hold a
+/// block in the OPEN state are left empty (door blocks retract there and become the wall when
+/// open; closed, those cells touch T only through the door blocks, so nothing is seen there).
+/// Every other S cell empty at rest is filled: depth != 0 cells are seen at rest, and a door
+/// plane cell empty in the open state would be a hole in the open hallway.
+pub fn with_hallway_ring(d: &Design, rec: &Recording) -> Design {
+    let geo = rec.geo;
+    let open = rec.open_state();
+    let (lo, hi) = d.bounds().unwrap();
+    let (a, b) = (geo.depth(lo).min(geo.depth(hi)), geo.depth(lo).max(geo.depth(hi)));
+    let mut out = d.clone();
+    for dd in (a.min(-3) - 3)..=(b.max(3) + 3) {
+        for u in -1..=3 {
+            for v in -1..=3 {
+                let q = geo.cell(u, v, dd);
+                if !geo.in_s(q) || !rec.rest.get(q).is_none_or(is_air) || d.blocks.contains_key(&q) {
+                    continue;
+                }
+                if dd == 0 && open.get(q).is_some_and(|s| !is_air(s)) {
+                    continue;
+                }
+                out.blocks.insert(q, "minecraft:smooth_stone".into());
+            }
+        }
+    }
+    out
+}
+
+/// Search acceptance filter (`--hallway`): the door still passes one judge cycle at its own
+/// position with the ring-aware hallway ([`with_hallway_ring`]) built around it.
+pub fn require_hallway(w: &mut Worker, sb: u32, d: &Design) -> Result<()> {
+    let rec = record(w, sb, d)?;
+    let hall = with_hallway_ring(d, &rec);
+    judge(w, sb, &hall, 1).map_err(|e| anyhow::anyhow!("hallway (ring-aware) breaks it: {}", brief(&e)))
+}
+
 /// Every empty S cell along the build's depth extent + 3 filled with smooth stone.
 pub fn with_hallway(d: &Design, rec: &Recording) -> Design {
     let geo = rec.geo;
@@ -1170,6 +1386,11 @@ pub fn dynamic(w: &mut Worker, sb: u32, d: &Design, rec: &Recording, p: &mut Pro
         Ok(()) => "yes".into(),
         Err(e) => format!("no ({})", brief(&e)),
     });
+    let hall = with_hallway_ring(d, rec);
+    p.insert("hallway_ring".into(), match judge(w, sb, &hall, 1) {
+        Ok(()) => "yes".into(),
+        Err(e) => format!("no ({})", brief(&e)),
+    });
     p.insert("contained".into(), contained(w, sb, d, rec));
     p.insert("weatherproof".into(), weatherproof(w, sb, d, rec)?);
     let (rv, rt) = repeater_input(w, sb, d, rec)?;
@@ -1371,6 +1592,7 @@ pub fn display_name(source: &str) -> String {
 pub const COLUMNS: &[(&str, &str)] = &[
     ("seamless", "seamless"),
     ("hallway", "hall"),
+    ("hallway_ring", "hall (ring-aware)"),
     ("dents", "dents"),
     ("flush_full", "full trap/flush/deluxe"),
     ("flush_semi", "semi"),

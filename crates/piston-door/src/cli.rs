@@ -77,6 +77,11 @@ pub struct SearchArgs {
     /// the boards rank rotation-safe designs). The start design must be rotation-safe too.
     #[arg(long)]
     pub rotation_safe: bool,
+    /// Accept only designs at least this seamless (quart, semi, full, supercov, super, optionally
+    /// `+hall`: the coordinator's hallway must build too; `door properties`' definition, one
+    /// recorded cycle at the design's own position).
+    #[arg(long)]
+    pub seamless: Option<String>,
     /// Also accept candidates that add entities to a solid design (category entity, the "Entities
     /// allowed" board): put `cart`, `chestcart` or `stand` in `door grow --states`.
     #[arg(long)]
@@ -123,6 +128,7 @@ impl SearchArgs {
             to_sculk: self.to_sculk,
             shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
             rotation_safe: self.rotation_safe,
+            seamless: self.seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?,
             to_entity: self.to_entity,
             keep_rotations: !self.any_rotation,
         })
@@ -1406,6 +1412,16 @@ pub enum DoorCmd {
         /// Judge every candidate as a tile module (tile.rs; see `door verify --tile`).
         #[arg(long)]
         tile: Option<String>,
+        /// Accept only replacements at least this seamless (quart, semi, full, supercov, super,
+        /// optionally `+hall`; `door properties`' definition, one recorded cycle at the design's
+        /// own position).
+        #[arg(long)]
+        seamless: Option<String>,
+        /// With --seamless, repair mode: while the design is below the tier, cut only groups
+        /// through an offending cell (single blocks too) and let each grow back with up to this
+        /// many MORE blocks than it had; once it reaches the tier, the usual shrinking search.
+        #[arg(long, default_value_t = 0)]
+        extra: usize,
         /// Accept replacements that are not rotation-safe. By default a rotation-safe start
         /// design only accepts rotation-safe replacements (the boards rank rotation-safe doors).
         #[arg(long)]
@@ -2813,6 +2829,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     max_open,
                     max_close,
                     rotations: false,
+                    seamless: None,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -2836,8 +2853,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra } => {
             use crate::synth::*;
+            let seamless = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let only = match only {
                 Some(s) => {
@@ -2880,6 +2898,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     require_any: require_any_names(&require_any),
                     only,
                     keep_rotations: false,
+                    seamless,
+                    extra,
                 };
                 let start = {
                     let mut w = pool.worker(0);

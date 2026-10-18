@@ -1,0 +1,6 @@
+[    7.0s] start: 45 blocks, open 26 / close 14
+[   18.8s] seamless QUART z-,z+ below FULL: repairing groups through (2,-1,0)
+[   18.8s] 45 blocks: 22 removable, 2 groups of 2..4
+[   20.4s]   group [(2,-1,0)obse] -> <= 3 blocks: 62 circuits in 1.6s
+[   20.9s]   group [(2,-2,0)smoo (2,-1,0)obse] -> <= 4 blocks: 263 circuits in 0.5s
+45 -> 45 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/s4-full.txt

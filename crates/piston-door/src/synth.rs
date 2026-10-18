@@ -1156,7 +1156,7 @@ pub enum Target {
     /// The door: screen at a few positions, then the full judge. `max_open` / `max_close`
     /// (speed boards) reject a door that opens (closes) later than that many ticks in any
     /// cycle at the first position, as the leaderboard measures it.
-    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, rotations: bool },
+    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, rotations: bool, seamless: Option<crate::properties::SeamReq> },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
 }
@@ -1182,7 +1182,10 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, rotations, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, seamless, .. } => {
+            if let Some(t) = seamless {
+                t.check(w, sb, d)?;
+            }
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
             let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
             screen_in(w, sb, d, &quick)?;
@@ -1433,6 +1436,11 @@ pub struct ResynthOptions {
     /// Only groups whose blocks all lie in this box (inclusive corners): focus a large-group
     /// run on one region.
     pub only: Option<(Pos, Pos)>,
+    /// Accept only replacements at least this seamless (see [`crate::properties::seamless`]).
+    pub seamless: Option<crate::properties::SeamReq>,
+    /// Repair mode: while the design is below `seamless`, cut only groups through an offending
+    /// cell (single blocks too) and let them grow back with up to this many more blocks.
+    pub extra: usize,
     /// Accept only rotation-safe replacements (set when the start design is rotation-safe).
     pub keep_rotations: bool,
 }
@@ -1520,15 +1528,43 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
             let mut w = pool.worker(0);
             door_motion(&mut w, &cur)?
         };
+        // Repair mode (--seamless with --extra): while the design is below the tier, only groups
+        // through an offending cell are cut, and they may grow back with up to --extra more
+        // blocks than they had.
+        let offenders: Option<Vec<Pos>> = match o.seamless {
+            Some(req) if o.extra > 0 => {
+                let t = req.tier;
+                let mut w = pool.worker(0);
+                let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+                let rec = crate::properties::record(&mut w, sb, &cur);
+                let _ = w.drop_sandbox(sb);
+                let rec = rec?;
+                let s = crate::properties::seamless(&rec);
+                if s.tier >= t {
+                    None
+                } else {
+                    let off = crate::properties::seamless_offenders(&rec, t);
+                    log(&format!("seamless {} below {}: repairing groups through {}", s.label, t.name(), off.iter().map(|p| fmt_pos(*p)).collect::<Vec<_>>().join(" ")));
+                    Some(off)
+                }
+            }
+            _ => None,
+        };
+        let extra = if offenders.is_some() { o.extra } else { 0 };
+        // While repairing, a replacement that removes some offending cells is progress too.
+        let seam_req = o.seamless.map(|r| crate::properties::SeamReq { below: offenders.as_ref().map(|v| v.len()), ..r });
         let rem = removable(&cur, &changing);
-        let mut gs = groups(&rem, o.min_size.max(1), o.max_size);
+        let mut gs = groups(&rem, if offenders.is_some() { 1 } else { o.min_size.max(1) }, o.max_size);
+        if let Some(off) = &offenders {
+            gs.retain(|g| g.iter().any(|p| off.contains(p)));
+        }
         if let Some((lo, hi)) = o.only {
             gs.retain(|g| g.iter().all(|p| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i])));
         }
         let h = crate::search::design_hash(&cur);
         log(&format!("{} blocks: {} removable, {} groups of {}..{}", crate::block_count(&cur), rem.len(), gs.len(), o.min_size, o.max_size));
         for g in gs {
-            let key = if o.global_retry { h } else { local_key(&cur, &g) };
+            let key = if o.global_retry { h } else { local_key(&cur, &g) } ^ (extra as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15);
             if !tried.insert((key, g.clone())) {
                 continue;
             }
@@ -1573,7 +1609,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 hi,
                 palette: o.palette.clone(),
                 floors: o.floors.clone(),
-                k: g.len() - 1,
+                k: g.len() - 1 + extra,
                 min_k: 1,
                 sources: ctx_cells.clone(),
                 watch,
@@ -1604,7 +1640,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 }
             };
             let n: usize = buckets.iter().map(|b| b.len()).sum();
-            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, rotations: o.keep_rotations };
+            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, rotations: o.keep_rotations, seamless: seam_req };
             let t = Instant::now();
             let inner = |m: &str| {
                 if m.contains("VERIFIED") || (m.contains("passed the screen") && !m.ends_with(" 0 passed the screen")) {
@@ -1612,9 +1648,9 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 }
             };
             let found = synth_in(pool, &sandboxes, &base, &en, &buckets, &target, 1, false, 1, &inner)?;
-            log(&format!("  group [{desc}] -> <= {} blocks: {n} circuits in {:.1}s{}", g.len() - 1, t.elapsed().as_secs_f64(), if found.is_empty() { String::new() } else { " FOUND".into() }));
+            log(&format!("  group [{desc}] -> <= {} blocks: {n} circuits in {:.1}s{}", g.len() - 1 + extra, t.elapsed().as_secs_f64(), if found.is_empty() { String::new() } else { " FOUND".into() }));
             if let Some((set, d, msg)) = found.into_iter().next() {
-                log(&format!("IMPROVED {} -> {} blocks: [{desc}] replaced by {} -- {msg}", crate::block_count(&cur), crate::block_count(&d), en.describe(&set)));
+                log(&format!("{} {} -> {} blocks: [{desc}] replaced by {} -- {msg}", if extra > 0 { "REPAIRED" } else { "IMPROVED" }, crate::block_count(&cur), crate::block_count(&d), en.describe(&set)));
                 if let Some(path) = &o.save_to {
                     match d.save(path) {
                         Ok(()) => log(&format!("  saved to {}", path.display())),

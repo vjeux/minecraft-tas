@@ -122,6 +122,10 @@ pub struct SearchOptions {
     /// 90, 180 and 270 degrees ([`crate::rotation_check`], at the judge's positions). The boards
     /// rank rotation-safe designs, so a search from one should not trade that away for a block.
     pub rotation_safe: bool,
+    /// Accept only designs at least this seamless (`--seamless semi|full|super`): one recorded
+    /// cycle at the design's own position, judged by `door properties`' definition
+    /// ([`crate::properties::seamless`]); checked before the judge (it is one cycle).
+    pub seamless: Option<crate::properties::SeamReq>,
     /// Also accept candidates that turn a solid design into an entity one (they add entities;
     /// the door stays otherwise solid): searches for the "Entities allowed" board.
     pub to_entity: bool,
@@ -154,6 +158,9 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
 /// [`verify_in`] plus the search's speed constraints, and (full judge only, with
 /// `keep_rotations`) the rotation check.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
+    if let Some(t) = opts.seamless {
+        t.check(w, sb, d)?;
+    }
     let r = speed_check(verify_in(w, sb, d, v)?, opts)?;
     // Shape boards measure the space a door needs while it moves too: check the swept shape.
     if let Some(l) = &opts.shape {

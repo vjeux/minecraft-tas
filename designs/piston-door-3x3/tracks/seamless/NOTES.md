@@ -46,6 +46,43 @@ So a FULL door that keeps its hallway must not have slime next to S cells: slime
 | design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
 |---|---|---|---|---|---|
 | [semi-fc2L.txt](semi-fc2L.txt) (archive/fc2-seamL-41b) | 41 | FULL geometry | no | 24/9 | fc2 + O_m moved out of the floor ring: P_M fired by an observer (0,-2,0) watching a stone carried by a slime (-1,-1,0) glued under the left structure. SEMI claim (hallway optional for SEMI) |
+| [full-e41.txt](full-e41.txt) (archive/e41-full-44b) | 44 | FULL | yes | 36/28 | sf-holdA-e41 (41, slime-free) repaired: `resynth --seamless full+hall --extra 3/5 --margin 2` moved the floor-ring observer (P_M's trigger) and the wall-ring observer (left pistons' trigger) out of S (+5), then shrank to 44 under the filter. Contained, dentless, weatherproof, repeater input OK |
+
+## SUPER is impossible under props' definition (proof)
+
+SUPER needs every frame of opening and closing free of circuitry in T and S, where circuitry
+includes moving blocks (moving_piston cells) and piston heads, and every S cell counts, the door
+plane's ring included. Take the first tick at which any door block moves. In vanilla a block moves
+only by a piston (or by falling): pushed as part of a push line, or pulled by a sticky piston head
+directly in front of it or by a slime/honey block of the moving structure next to it. Door blocks
+are not sticky. Every face neighbour of a frame cell is in T or S. So:
+* a pull needs a sticky head or a slime/honey block face-adjacent to the door block: in T or S,
+  and it was there in the frame before (or at rest, which is the last closing frame): seen;
+* a push along the door axis has its piston in T; across it, the push line runs from the piston
+  through the S ring cell of that row/column into the frame, and that S cell holds a block that
+  moves (a moving_piston cell); it is not a door block, since all door blocks still sit in the
+  frame: seen.
+Gravity doors are no exception (a sand door block's support is its floor cell, in S). Hence no
+door can be SUPER as props measures it.
+
+## SUPER (covered): the refined reading, and why the center blocks it
+
+A piston head in the door plane's ring right behind a door block is not visible: the ring cell
+touches T only through the face the door block covers. `door properties` now also reports
+`FULL, SUPER (covered)` (Tier::SuperCovered, `--seamless supercov`): an S cell counts as seen only
+while its one T neighbour holds no door block (resting or moving). Under this reading the side
+columns are fine (a sticky head in the ring pulls its door block into the ring; on the way back the
+head follows the block; slime columns too), but every FULL design we have fails it at the CENTER:
+the piston that lifts or drops the center (fc2's A riding B, rb's A, flat-v2's) enters the ceiling
+ring cell above an EMPTY frame cell (e.g. moving_piston at (1,3,0) after T left (1,2,0)).
+
+The center has no S neighbour. Pulling it needs a sticky face in T (seen). Pushing it needs a push
+line entering the frame from a ring cell whose block is a door block and that is contiguous up to
+the center; a door block can only be in the ring after it was pulled there, which leaves a gap
+next to the center. A single piston cannot close that gap and push again (its head now fills the
+ring cell; an extended piston cannot be pushed). A SUPER (covered) 3x3 needs a multi-step shuffle
+(door blocks sliding along the ring with pistons in the ring's CORNER cells, which are not in S,
+and two-stage pushers): left as the next idea; no design here.
 
 ## Log
 
