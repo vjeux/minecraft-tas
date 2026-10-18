@@ -108,6 +108,28 @@ pub struct SearchOptions {
     pub slack: usize,
     /// Screen with the judge's own code (per-tick frames) instead of the frame-less copy.
     pub screen_frames: bool,
+    /// Speed constraints (speed boards): reject candidates that open (close) later than this
+    /// many ticks in any recorded cycle, as the leaderboard measures them.
+    pub max_open: Option<u32>,
+    pub max_close: Option<u32>,
+}
+
+/// [`verify_in`] plus the search's speed constraints.
+fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
+    speed_check(verify_in(w, sb, d, v)?, opts)
+}
+
+/// The speed constraints (`max_open`, `max_close`) on a judge report.
+fn speed_check(r: crate::Report, opts: &SearchOptions) -> Result<crate::Report> {
+    let open = r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0);
+    let close = r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0);
+    if let Some(m) = opts.max_open.filter(|m| open > *m) {
+        anyhow::bail!("too slow: opens after {open} ticks (max {m})");
+    }
+    if let Some(m) = opts.max_close.filter(|m| close > *m) {
+        anyhow::bail!("too slow: closes after {close} ticks (max {m})");
+    }
+    Ok(r)
 }
 
 impl SearchOptions {
@@ -1322,12 +1344,10 @@ fn evaluate_with(
             return Ok(Screen::Skip);
         }
         let sb = sandboxes.get(w, wi)?;
-        // Blocks objective: the frame-less screen (same verdict, no per-tick regions).
-        let verdict = if bar.is_none() && !opts.screen_frames {
-            screen_in(w, sb, &d, &opts.screen).map(|_| None)
-        } else {
-            verify_in(w, sb, &d, &opts.screen).map(Some)
-        };
+        // Blocks objective without speed constraints: the frame-less screen (same verdict, no
+        // per-tick regions). Timings (objective or --max-open/--max-close) need the frames.
+        let frames = opts.screen_frames || bar.is_some() || opts.max_open.is_some() || opts.max_close.is_some();
+        let verdict = if frames { judge_in(w, sb, &d, &opts.screen, opts).map(Some) } else { screen_in(w, sb, &d, &opts.screen).map(|_| None) };
         match verdict {
             Ok(r) => {
                 let k = match &r {
@@ -1384,7 +1404,7 @@ fn evaluate_with(
             let c = &cands[i];
             let d = c.edit.apply(&bases[c.base]);
             let sb = sandboxes.get(w, wi)?;
-            Ok(verify_in(w, sb, &d, &opts.judge).map(|r| (rank(&d, &r), d)).map_err(|e| format!("{e:#}")))
+            Ok(judge_in(w, sb, &d, &opts.judge, opts).map(|r| (rank(&d, &r), d)).map_err(|e| format!("{e:#}")))
         });
         judged += part.len();
         for (&i, r) in part.iter().zip(res) {
@@ -1439,14 +1459,18 @@ fn finalize_report(pool: &Pool, _sandboxes: &Sandboxes, d: Design, opts: &Search
     // turn into an air entry: keep the design as edited then.
     if canon.blocks.values().any(|s| mctas::blockstate::is_air(s)) {
         log("  the canonical form has air entries (something moves at rest); keeping the design as edited");
-        let r = crate::verify(&mut w, &d, &opts.judge).context("the accepted design fails the judge in a fresh sandbox")?;
+        let r = crate::verify(&mut w, &d, &opts.judge)
+            .and_then(|r| speed_check(r, opts))
+            .context("the accepted design fails the judge in a fresh sandbox")?;
         return Ok((d, r));
     }
-    match crate::verify(&mut w, &canon, &opts.judge) {
+    match crate::verify(&mut w, &canon, &opts.judge).and_then(|r| speed_check(r, opts)) {
         Ok(r) => Ok((canon, r)),
         Err(e) => {
             log(&format!("  canonical form fails the judge ({e:#}); keeping the design as edited"));
-            let r = crate::verify(&mut w, &d, &opts.judge).context("the accepted design fails the judge in a fresh sandbox")?;
+            let r = crate::verify(&mut w, &d, &opts.judge)
+                .and_then(|r| speed_check(r, opts))
+                .context("the accepted design fails the judge in a fresh sandbox")?;
             Ok((d, r))
         }
     }
@@ -1466,7 +1490,7 @@ pub fn search(
     let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;
-        verify_in(&mut w, sb, &cur, &opts.judge).context("the start design fails the judge")?
+        judge_in(&mut w, sb, &cur, &opts.judge, opts).context("the start design fails the judge")?
     };
     let mut cur_key = objective_key(opts.objective, &cur, &start_report);
     let (o, c) = worst_ticks(&start_report);
@@ -1559,7 +1583,7 @@ pub fn search(
                 }
                 let mut w = pool.worker(0);
                 let sb = sandboxes.get(&mut w, 0)?;
-                if verify_in(&mut w, sb, &cand, &opts.judge).is_ok() {
+                if judge_in(&mut w, sb, &cand, &opts.judge, opts).is_ok() {
                     log(&format!("  also: {d2} -> {} blocks", block_count(&cand)));
                     next = cand;
                 }

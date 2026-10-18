@@ -1,0 +1,11 @@
+# left column: TL goes UP via a puller sharing A's pulse train; L1/BL pistons fired by an observer watching TL's cell
+clear -2 2 0
+clear 0 3 2
+clear -1 3 2
+clear -2 3 2
+clear -2 3 1
+clear -2 2 1
+clear -2 1 1
+set 0 4 0 minecraft:sticky_piston[extended=false,facing=down]
+set -1 2 0 minecraft:observer[facing=east,powered=false]
+set -2 2 0 minecraft:smooth_stone

@@ -1,0 +1,33 @@
+design designs/piston-door-3x3/tracks/gravity/sf-ideal.txt
+plane 0 -4 -7 6 3
+print
+# open: sides + R3 off
+clear -3 0 0
+clear -3 1 0
+clear -3 2 0
+clear 5 0 0
+clear 5 1 0
+clear 5 2 0
+clear 0 -2 0
+step 4
+clear 2 -4 0
+step 4
+clear 0 -6 0
+step 3
+set 2 -5 0 minecraft:redstone_block
+step 2
+clear 2 -5 0
+step 30
+# close
+set 0 -6 0 minecraft:redstone_block
+set -3 0 0 minecraft:redstone_block
+set -3 1 0 minecraft:redstone_block
+set -3 2 0 minecraft:redstone_block
+set 5 0 0 minecraft:redstone_block
+set 5 1 0 minecraft:redstone_block
+set 5 2 0 minecraft:redstone_block
+step 4
+set 2 -4 0 minecraft:redstone_block
+step 4
+set 0 -2 0 minecraft:redstone_block
+step 20

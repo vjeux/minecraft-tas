@@ -1,0 +1,65 @@
+design designs/piston-door-3x3/tracks/fresh-b/sf1-mech.txt
+plane 0 -4 -3 6 7
+probe TM 1 2 0
+probe C 1 1 0
+probe BM 1 0 0
+probe m1 1 -1 0
+probe T3 1 3 0
+probe T4 1 4 0
+probe A 1 -2 0
+quiet 2
+print
+# OPEN t=0
+clear -3 0 0
+clear -3 1 0
+clear -3 2 0
+clear 5 0 0
+clear 5 1 0
+clear 5 2 0
+set 1 -3 0 minecraft:redstone_block
+quiet 2
+clear 1 -3 0
+quiet 2
+set 1 3 1 minecraft:redstone_block
+quiet 2
+clear 4 -1 0
+quiet 2
+clear 1 3 1
+quiet 4
+clear 1 6 0
+set 1 -3 0 minecraft:redstone_block
+quiet 2
+clear 1 -3 0
+quiet 2
+set 1 4 1 minecraft:redstone_block
+quiet 2
+clear 1 4 1
+quiet 8
+print
+# CLOSE t=0
+set -3 0 0 minecraft:redstone_block
+set -3 1 0 minecraft:redstone_block
+set -3 2 0 minecraft:redstone_block
+set 5 0 0 minecraft:redstone_block
+set 5 1 0 minecraft:redstone_block
+set 5 2 0 minecraft:redstone_block
+set 1 -3 0 minecraft:redstone_block
+quiet 2
+clear 1 -3 0
+quiet 2
+set 1 3 1 minecraft:redstone_block
+quiet 2
+set 4 -1 0 minecraft:redstone_block
+quiet 2
+clear 1 3 1
+quiet 4
+set 1 6 0 minecraft:redstone_block
+set 1 -3 0 minecraft:redstone_block
+quiet 2
+clear 1 -3 0
+quiet 2
+set 1 4 1 minecraft:redstone_block
+quiet 2
+clear 1 4 1
+quiet 8
+print

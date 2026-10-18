@@ -1,0 +1,42 @@
+name: gadget-sand-drop-tower
+# Sand drop tower (track gravity, door g4): a column of 3 sand stands on a 3-piston tower and is
+# lowered 3 cells / lifted 3 cells. Top-down collapse: R3 (regular) retracts, S2 (sticky) pulls
+# R3 down, S1 (sticky, under a 2-slime chain beside the tower that touches S2 and R3) pulls the
+# chain, which drags S2 and R3 down; the sand falls after them. Bottom-up lift: S1, S2, R3.
+# Without the chain S1 could only pull S2 and R3 would stay one cell too high.
+# Redstone blocks stand in for the control (the drive clears/sets them 4 gt apart; slower than
+# ~4 gt the falling sand lands on a moving piston and breaks).
+origin: 0 0 0
+palette:
+  R minecraft:redstone_block
+  U minecraft:sticky_piston[extended=true,facing=up]
+  u minecraft:piston_head[facing=up,short=false,type=sticky]
+  P minecraft:piston[extended=true,facing=up]
+  p minecraft:piston_head[facing=up,short=false,type=normal]
+  s minecraft:slime_block
+  S minecraft:sand
+layer 0:
+  RU
+layer 1:
+  .u
+layer 2:
+  .s
+  .UR
+layer 3:
+  .s
+  .u
+layer 4:
+  .
+  .PR
+layer 5:
+  .
+  .p
+layer 6:
+  .
+  .S
+layer 7:
+  .
+  .S
+layer 8:
+  .
+  .S

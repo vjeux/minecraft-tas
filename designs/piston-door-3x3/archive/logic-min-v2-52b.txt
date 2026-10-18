@@ -1,0 +1,63 @@
+# verified WORKS by door leaderboard: 52 blocks, category solid
+# archived 2026-10-18 06:39Z from origin/explore/logic-min:designs/piston-door-3x3/tracks/logic-min/BEST.txt (repo at d070bbb)
+name: logic-min-v2
+port door: 0 0 0
+port lever: 5 4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:obsidian
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  F minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+  H minecraft:sticky_piston[extended=false,facing=east]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=true,facing=north]
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  M minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=north,short=false,type=sticky]
+  R minecraft:redstone_wall_torch[facing=west,lit=true]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:smooth_stone
+layer -2:
+  ....Is
+  .
+  .
+layer -1:
+  .....B
+  .
+  .
+layer 0:
+  ..SMMMS
+  .
+  .
+layer 1:
+  ..SMMMS.J
+  ........s
+  .
+layer 2:
+  H.SMMMS.C
+  ........F
+  .......ss
+layer 3:
+  .....M..B
+  A...P...s
+  ooooKRsrr
+layer 4:
+  ....GDMoL
+  ........F
+  ........s
+layer 5:
+  ....GBsO
+  .
+  .
+layer 6:
+  .....Ers
+  .
+  .

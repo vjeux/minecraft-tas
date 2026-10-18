@@ -1,0 +1,29 @@
+name: gadget-pulse-bridge
+# Moving an observer pulse one cell sideways in 4 blocks, no dust line: observer O (watching the
+# lever) strongly powers block A behind it; A lights an isolated cross dust D; D points into
+# block B; repeater R reads B (and stretches the pulse to 8gt). Used in mech-50/48 between the
+# observer watching the lever and R_B.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=north,powered=false]
+  A minecraft:smooth_stone
+  D minecraft:redstone_wire[east=side,north=side,south=side,west=side,power=0]
+  B minecraft:smooth_stone
+  R minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  W minecraft:redstone_wire[east=none,north=side,south=side,west=none,power=0]
+layer 0:
+  S
+  .
+  .S
+  S.
+  .S
+layer 1:
+  L
+  O
+  AR
+  DB
+  .
+layer 2:
+  .

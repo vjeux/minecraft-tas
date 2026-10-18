@@ -1,0 +1,12 @@
+# The lever lights both (K is its attachment; T reads it); powering K alone lights D, not E.
+design designs/gadgets/lever-tap.txt
+probe D 0 1 0
+probe E 3 2 0
+use 1 2 0
+expect_trace E 0+++
+expect D 15
+use 1 2 0
+expect_trace E ?00
+set 1 1 2 minecraft:redstone_block
+expect_trace D 0+++
+expect E 0

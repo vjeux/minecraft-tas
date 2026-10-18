@@ -1,0 +1,16 @@
+# from lm3-52: R_P now reads J_X (3,4,0) (O_a's output, also X's input) and points straight
+# into the P_T torch's attachment K (3,4,2); R1's output block (5,4,2) lights dust (4,4,2)
+# which points into K too. Torch (2,4,2) powers P_T through its QC cell (1,4,2).
+clear 5 2 1
+clear 5 1 1
+clear 5 2 2
+clear 5 3 2
+clear 4 2 2
+clear 3 3 2
+clear 2 3 2
+set 4 3 2 minecraft:smooth_stone
+set 4 4 2 minecraft:redstone_wire[north=side,east=side,south=side,west=side]
+set 3 4 2 minecraft:smooth_stone
+set 2 4 2 minecraft:redstone_wall_torch[facing=west,lit=true]
+set 3 4 1 minecraft:repeater[facing=north,delay=4]
+set 3 3 1 minecraft:smooth_stone

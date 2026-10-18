@@ -1,0 +1,17 @@
+name: gadget-silent-hold
+# Silent hold (BUD hold, found by the redstone-block track for rb5): piston P is powered only
+# through its quasi cell (0,2,0) by block H, which repeater R switches. A repeater switching a
+# solid block updates only that block's neighbors, and P is not one of them: H turning on does
+# not extend P, H turning off does not retract it; P only re-checks when something next to it
+# changes. Lever L drives R.
+origin: 0 0 0
+palette:
+  P minecraft:sticky_piston[extended=false,facing=north]
+  H minecraft:stone
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  S minecraft:smooth_stone
+layer 1:
+  P.SS
+layer 2:
+  .HRL
