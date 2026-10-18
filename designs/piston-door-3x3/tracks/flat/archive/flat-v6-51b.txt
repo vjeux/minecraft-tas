@@ -1,0 +1,42 @@
+# verified WORKS: 51 blocks, open after 34 ticks, closed after 32 ticks
+# archived 2026-10-18 12:52Z from designs/piston-door-3x3/tracks/flat/v6.txt (repo at 4a56899)
+name: flat-v6
+port door: 0 0 0
+port lever: 4 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  D minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...HF
+layer -1:
+  ...A
+layer 0:
+  .E.HHH.G
+layer 1:
+  SE.HHH.GS
+layer 2:
+  AE.HHH.GA
+layer 3:
+  CoOH..G.A
+layer 4:
+  .A.rsooAB
+layer 5:
+  .oAAs.AL
+layer 6:
+  ..RD..AO
+layer 7:
+  ..HooooO
