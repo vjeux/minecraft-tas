@@ -66,6 +66,7 @@ pub fn build(name: &str) -> Option<Design> {
         "v2" => Some(v2()),
         "v2u" => Some(v2u()),
         "v2u2" => Some(v2u2()),
+        "v2nf" => Some(v2nf()),
         "v2-133" => Some(crate::designs_history::v2_133()),
         "v2-135" => Some(crate::designs_history::v2_135()),
         "v2-143" => Some(crate::designs_history::v2_143()),
@@ -333,6 +334,39 @@ pub fn v2u2() -> Design {
     ] {
         b.set(p, s); // router: L net into the X line
     }
+    b.d
+}
+
+/// v2nf: slime-free (no slime or honey anywhere). v2u2's top (A, B, P_T, B window, late chain,
+/// X line = L OR L_24) but every side block has its own sticky puller: two stacks of three at
+/// x=-2 / x=4, each stack held by ONE torch (direct to the middle puller, strongly through the
+/// block above it to the top puller, quasi-connected to the bottom one). The torches, A's torch
+/// and M's torch hang off the X line, so they are NOR(L, L_24).
+pub fn v2nf() -> Design {
+    let mut d = v2u2();
+    d.name = "piston-door-3x3-v2nf".into();
+    d.blocks.retain(|_, s| !s.contains("slime_block") && !s.contains("honey_block"));
+    for p in [[0, -1, 1], [2, -1, 1], [1, -1, 1], [2, -3, 0], [0, 4, 0], [1, -3, 0], [1, -2, 0]] {
+        d.blocks.remove(&p);
+    }
+    let mut b = Builder { d };
+    for y in 0..3 {
+        b.set([-2, y, 0], "sticky_piston[facing=east,extended=true]");
+        b.set([-1, y, 0], "piston_head[facing=east,type=sticky,short=false]");
+        b.set([4, y, 0], "sticky_piston[facing=west,extended=true]");
+        b.set([3, y, 0], "piston_head[facing=west,type=sticky,short=false]");
+    }
+    b.set([-3, 1, 0], "redstone_wall_torch[facing=east,lit=true]");
+    b.set([-4, 1, 0], FLOOR);
+    b.set([-3, 2, 0], FLOOR);
+    b.set([5, 1, 0], "redstone_wall_torch[facing=west,lit=true]");
+    b.set([6, 1, 0], FLOOR);
+    b.set([5, 2, 0], FLOOR);
+    b.set([1, -2, 0], "sticky_piston[facing=up,extended=true]"); // P_M
+    b.set([1, -1, 0], "piston_head[facing=up,type=sticky,short=false]");
+    b.set([1, -2, 1], "redstone_wall_torch[facing=north,lit=true]"); // on (1,-2,2), under the X line's end
+    b.set([0, 4, 0], "redstone_wall_torch[facing=east,lit=true]"); // A torch on (-1,4,0)
+    b.set([-1, 4, 0], FLOOR);
     b.d
 }
 
