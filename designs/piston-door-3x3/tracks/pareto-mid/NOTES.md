@@ -115,8 +115,13 @@ layout. A cheap t0 pulse (a cut of a lever-fed line at t1..t8 on open) would giv
   BEST.txt) at relaxed speeds, where any smaller door would be a frontier point: `door minimize
   --moves all` at `--max-open 13 --max-close 20` and at `--max-open 21 --max-close 12` (1.7M
   candidates each, none even passes the 2-position screen) and `door resynth --max-open 13
-  --max-close 12 --max-size 3` (full palette): nothing. Its wiring has no slack even 1 tick slower
-  on open or 5 slower on close.
+  --max-close 12 --max-size 3` (full palette): nothing; `--plateau` at both relaxations (180
+  verified neutral designs, 14940 removals and 2976 reroutes after them): nothing. Its wiring has no
+  slack even 1 tick slower on open or 5 slower on close.
+* fc2f (41, 22/9): `door grow --k 1 --max-open 21` (any close; obs, block, dust, rep1..4, torch,
+  leaves, log, redstone block, lamp; box -5..5 x -3..8 x -2..2, 7839 candidates) and `--k 2` around
+  its B chain (obs, block, dust, rep1..3; box -4..2 x 3..8 x -1..1, 366750 candidates): nothing
+  passes even the screen. One or two blocks cannot move fc2's B window (see the fc2 section).
 
 ## Next ideas
 * fc2 family, open 18..20 with close 9 (see the fc2 section): build B's window [8,16) as the OR of
@@ -126,7 +131,7 @@ layout. A cheap t0 pulse (a cut of a lever-fed line at t1..t8 on open) would giv
   an ideal input (`mp7-F.sched` on `mp7-repU-idealF.txt` / `mp7-leafC-F.sched`: R_F and its stone
   replaced by a scheduled redstone block): F off at t6 on close gives repU 14 / 12 and leafC 15 / 11,
   off at t7 gives 14 / 13 and 15 / 12; F cannot move before t8 on open, nor go off before t6 on
-  close. All of these are frontier points up to 106 blocks (14 / 13 even pushes both 46s off).
+  close. All of these are frontier points up to 106 blocks.
   t6 is a delta of -2 against the open edge, so it is in reach of the toolbox: a redstone block
   carried by a structure that moves at tick m powers F at m+3 when it lands and stops at m+1 when
   it leaves (m = 5: nothing moves then), or a comparator in subtract mode in front of F (back =
