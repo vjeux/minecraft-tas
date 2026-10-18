@@ -1,0 +1,25 @@
+name: fam-7x8-000
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+layer -2:
+  ...U
+layer -1:
+  .
+layer 0:
+  E.CCC.W
+layer 1:
+  E.CCC
+layer 2:
+  ..CCC.W
+layer 3:
+  .....W
+layer 4:
+  ..DD
+layer 5:
+  ...D

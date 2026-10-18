@@ -49,6 +49,7 @@ pub mod showcase;
 pub mod synth;
 pub mod tickvideo;
 pub mod tile;
+pub mod topology;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
