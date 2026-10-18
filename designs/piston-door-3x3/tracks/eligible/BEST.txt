@@ -1,4 +1,4 @@
-name: eligible-fl81n
+name: eligible-fl81m
 port door: 0 0 0
 port lever: 6 4 0
 origin: -3 0 0
@@ -33,7 +33,7 @@ layer 2:
 layer 3:
   DoRS..H.A
 layer 4:
-  ..rrsoooNL
+  ...CsoooNL
 layer 5:
   ...AsOA
 layer 6:
