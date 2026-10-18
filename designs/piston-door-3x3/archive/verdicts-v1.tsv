@@ -13,12 +13,14 @@
 1f733a3ead188be1	broken	-	-	at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected an unpowered lever
 220c9bbbb12ec626	ok	26	36	
 256c42af5a141915	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
+27d1a0f1de3936d0	ok	24	52	
 29a8b684665763ae	ok	24	36	
 29ee72a0ff2d05b9	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:stone
 2bdfa70d9468ad69	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:sand; [1, 0, 0] is minecraft:sand
 2e5b4743e2d2e758	ok	22	34	
 2f519a2a71fd240d	ok	22	29	
 33baa1191adad367	ok	24	36	
+33fe1c8bbe0fd807	ok	22	22	
 35cca93927253391	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 3bfc193d3dc668ca	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 402a1c5ba6948f61	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone
@@ -72,8 +74,10 @@ a3150a2d7845908f	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lev
 a3fdaf5da9854144	ok	22	25	
 a50e01f5bcc8e73d	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 a64f343b2533a0e8	ok	24	32	
+a6c999eb83e98fdf	ok	22	34	
 a79e81222bc72c7d	ok	22	34	
 a7f0d93683cedcc9	ok	22	25	
+a870bf95b538a260	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 aa6bba1eeec654c4	broken	-	-	at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft:stone
 ae6fd14a328a8b53	ok	5	11	
 b05d8ee8136b5b2a	broken	-	-	at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft:stone; [2, 2, 0] is minecraft:air, was minecraft:stone; [2, 1, 0] is minecraft:air, was minecraft:stone; [2, 0, 0] is minecraft:air, was minecraft:stone
