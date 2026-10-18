@@ -85,12 +85,18 @@ pub struct SearchArgs {
     /// only accepts rotation-safe candidates (the boards rank rotation-safe doors).
     #[arg(long)]
     pub any_rotation: bool,
+    /// With --tile: a shared end piece (see `door verify --tile-extra`).
+    #[arg(long)]
+    pub tile_extra: Option<PathBuf>,
 }
 
 impl SearchArgs {
     pub fn options(&self) -> Result<crate::search::SearchOptions> {
         let offsets = crate::search::judge_offsets(self.extra_offsets);
-        let tile = self.tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
+        let mut tile = self.tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
+        if let (Some(t), Some(p)) = (tile.as_mut(), &self.tile_extra) {
+            t.extra = Some(load_design(p)?);
+        }
         Ok(crate::search::SearchOptions {
             families: crate::search::parse_families(&self.moves)?,
             screen: VerifyOptions {
@@ -1152,6 +1158,28 @@ pub enum DoorCmd {
         /// With --tile: write the whole arrangement here (a plain design file).
         #[arg(long)]
         tile_out: Option<PathBuf>,
+        /// With --tile: a shared end piece placed once in copy 0's frame (its `port lever`, if
+        /// any, is the one lever; every copy then holds the relay).
+        #[arg(long)]
+        tile_extra: Option<PathBuf>,
+    },
+    /// Tile board (tile.rs): every design with a `tiling:` header (e.g. `tiling: period:8:3`) on
+    /// HEAD and the explore/* branches, judged as a tile module; ranked per tiling kind by blocks
+    /// per opening in a long row (TILEBOARD.md).
+    TileBoard {
+        /// Ref prefix to scan besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Skip designs with more blocks than this.
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        /// Write the markdown here (also printed), e.g. designs/piston-door-3x3/TILEBOARD.md.
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Tileability scan (tile.rs): every design under every tiling of --tiles, in parallel; prints
     /// per design which tilings work and the smallest working period.
@@ -1328,6 +1356,17 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::TileBoard { refs, extra_offsets, workers, max_blocks, out } => {
+            let cands = crate::leaderboard::collect(std::path::Path::new("."), &refs, max_blocks)?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let mut opts = VerifyOptions::default();
+            opts.offsets.extend(crate::extra_offsets(extra_offsets));
+            let (_, md) = crate::tile::board(&pool, cands, &opts);
+            print!("{md}");
+            if let Some(p) = out {
+                std::fs::write(p, &md)?;
+            }
+        }
         DoorCmd::TileScan { designs, tiles, levers, extra_offsets, workers, verbose } => {
             let mut ts = crate::tile::parse_tile_list(&tiles)?;
             let mode = match levers.as_str() {
@@ -2305,10 +2344,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out, tile_extra } => {
             let d = load_design(&design)?;
             if let Some(spec) = tile {
                 let mut t = crate::tile::Tile::parse(&spec)?;
+                if let Some(p) = &tile_extra {
+                    t.extra = Some(load_design(p)?);
+                }
                 t.levers = match tile_levers.as_str() {
                     "one" => crate::tile::LeverMode::One,
                     "each" => crate::tile::LeverMode::Each,

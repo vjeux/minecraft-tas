@@ -38,7 +38,7 @@ wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile` on `minimize`/`harv
 
 ## Summary
 
-* PERIODIC: **46 blocks per opening at period 8** (`b38h-obs8.txt`), one lever, slime-free,
+* PERIODIC: **45 blocks per opening at period 8** (`b38h-obs8b.txt` = BEST.txt), one lever, slime-free,
   rotation-safe, checked with 2, 3, 4 and 6 copies. b38 + an 8-block observer bus.
 * VPERIOD: **49 blocks per opening every 9 blocks up** (`b38h-vobs9m.txt`), same family.
 * WIDE and STACK: no periodic design yet, and none can exist without a shared end piece or a
@@ -50,7 +50,8 @@ wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile` on `minimize`/`harv
 
 | tiling | blocks per opening (long row) | open / close (N=3) | module | notes |
 |---|---|---|---|---|
-| period:8 | **46** | 60 / 56 (copy k: 36+12k / 32+12k) | `b38h-obs8.txt` (BEST-period) | b38 + hopper + an 8-block observer bus (found by `door minimize --tile period:8:3` from b38h-bus8); slime-free, rotation-safe, N=3 and N=4 at 32 positions |
+| period:8 | **45** | 64 / 60 (copy k: 36+14k / 32+14k) | `b38h-obs8b.txt` (BEST, BEST-period) | b38 (note block -> hopper) + 7 observers (2..8,5,-3) watching the lever's cell and carrying each edge to the next copy's relay dust; slime-free, rotation-safe, N=2, 3, 4 and 6 at 32 positions; a local minimum of `door minimize --tile period:8:3 --moves all --plateau` |
+| period:8 | 46 | 60 / 56 (copy k: 36+12k / 32+12k) | `b38h-obs8.txt` | b38 + hopper + an 8-block observer bus (found by `door minimize --tile period:8:3` from b38h-bus8) |
 | period:8 | 52 | 40 / 36 (copy k: 36+2k / 32+2k) | `b38h-bus8.txt` | b38 + 14-block dust bus, note block -> hopper |
 | vperiod:9 | **49** | 64 / 60 (copy k: 36+14k / 32+14k) | `b38h-vobs9m.txt` (BEST-vperiod) | tile-aware minimize of b38h-vobs9: one dust dot on the tower's stone replaces the 2 observers on O; N=4 at 32 positions, rotation-safe |
 | vperiod:9 | 50 | 76 / 72 (copy k: 36+20k / 32+20k) | `b38h-vobs9.txt` | b38 + hopper + 2 observers on O + a 7-observer tower beside the openings + stone + dust |
@@ -84,7 +85,18 @@ wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile` on `minimize`/`harv
   previous one.
 * VPERIOD: the observer tower must stand beside the openings (x = -1): a tower above the lever
   (x = 1) stands in front of the next door. The tower ends in the next copy's smooth stone
-  (-1,5,-3), which powers dust (0,5,-3), which feeds the relay dust.
+  (-1,5,-3), which powers dust (0,5,-3), which feeds the relay dust. Tile-aware minimize: 50 -> 49
+  (the dust (0,5,-3) climbs onto the stone, so each copy's tower starts as the pulse arrives).
+* 46 -> 45 by hand: the bus can watch the lever's cell itself (the lever in copy 0, the relay dust
+  in the others): 7 observers (2..8,5,-3) replace observer-on-hopper + stone + dust + 5 observers.
+  Replacing the hopper by an observer watching the lever cell (so the relay could be an observer)
+  breaks b38: its top-row pull then comes 2 ticks late against the B window.
+* Tile-aware minimize from 45 (`--moves all --plateau`, 11 min, 12 workers): no improvement;
+  resynth runs on both bests (see the end).
+* P = 7 stays broken with any delayed bus (the side smooth stones of neighbor copies quasi-power
+  each other's side pistons; with every copy fired in the same tick it works, see the scan). A
+  pure-dust bus (no delay) would make the copies run together, but dust reaches 15 blocks: 3
+  copies at most.
 
 ## WIDE and STACK: why no archived door tiles, and why wiring is hard
 
