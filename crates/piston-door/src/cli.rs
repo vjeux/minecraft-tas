@@ -287,9 +287,6 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 0)]
         extra_offsets: u32,
     },
-    /// Cut every face-connected group of --size control blocks (pistons excluded) and re-grow it
-    /// with size-1 blocks from --states inside the group's box grown by --margin (see search.rs
-    /// `regrow`). The best verified design is written to --out.
     /// Port-aware, timing-aware net router (route2.rs). Rips every connected group of up to
     /// --max-rip control blocks (or the --rip groups) and re-routes the receivers whose signal
     /// changed (taps anywhere, enters each piston any way, places dust, repeaters, observers and
@@ -362,6 +359,9 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
+    /// Cut every face-connected group of --size control blocks (pistons excluded) and re-grow it
+    /// with size-1 blocks from --states inside the group's box grown by --margin (see search.rs
+    /// `regrow`). The best verified design is written to --out.
     Regrow {
         design: PathBuf,
         #[arg(long)]
