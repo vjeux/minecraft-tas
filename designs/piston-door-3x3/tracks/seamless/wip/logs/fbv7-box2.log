@@ -1,0 +1,15 @@
+[    7.2s] start: 44 blocks, open 30 / close 26
+[   15.6s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   22.9s] seamless QUART z-,z+ below FULL: repairing groups through (0,3,0) (2,-1,0) (3,2,0)
+[   22.9s] 44 blocks: 23 removable, 6 groups of 2..2
+[   27.4s]   group [(0,3,0)obse] -> <= 6 blocks: 3821 circuits in 4.5s
+[   27.4s]     size 1: 4 candidates screened in 0.0s, 1 passed the screen
+[   27.5s]     size 2: 6 candidates screened in 0.0s, 1 passed the screen
+[   27.5s]     size 3: 33 candidates screened in 0.0s, 8 passed the screen
+[   27.6s]     size 4: 86 candidates screened in 0.1s, 2 passed the screen
+[   27.9s]     size 5: 433 candidates screened in 0.3s, 33 passed the screen
+[   28.3s]     size 6: 352 candidates screened in 0.2s, 5 passed the screen
+[   28.3s]   group [(2,-1,0)wire] -> <= 6 blocks: 914 circuits in 0.9s
+[   29.3s]     size 5: 1721 candidates screened in 0.6s, 1 passed the screen
+[   31.4s]     size 6: 6844 candidates screened in 2.1s, 4 passed the screen
+[   31.5s]   group [(3,2,0)obse] -> <= 6 blocks: 9136 circuits in 3.1s

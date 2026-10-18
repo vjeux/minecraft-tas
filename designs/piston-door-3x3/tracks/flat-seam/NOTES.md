@@ -12,7 +12,27 @@ door), blocks as the tie-break. flat-v2-57b (the only FULL + hallway flat door a
 
 | file | volume | blocks | seamless | hallway | open/close | how |
 |---|---|---|---|---|---|---|
-| [s55.txt](s55.txt) (archive/flat-seam-s55-55b.txt) | **9x10 = 90** | 55 | FULL | yes | 40 / 40 | flat-v2-57b compacted by `resynth --fit` (x >= -3): the M chain's 4 blocks in column x = -4 regrown inside, then one block less |
+| [h44.txt](h44.txt) (archive/flat-seam-h44-44b.txt) = BEST | **9x9 = 81** | 44 | FULL | yes | 52 / 48 | h45 + `door minimize --shape thick<=1,volume<=81 --seamless full+hall`: the delay-2 repeater (-3,3) -> dust, the dust (-1,4) gone |
+| [h45.txt](h45.txt) (archive/flat-seam-h45-45b.txt) | 9x9 = 81 | 45 | FULL | yes | 56 / 54 | lamp-sweep-flat43 made FULL in its own box: BL flag -> corner watcher, X floor obsidian -> stone (early P_T pulse removed with s55's right cluster) |
+| [s55.txt](s55.txt) (archive/flat-seam-s55-55b.txt) | 9x10 = 90 | 55 | FULL | yes | 40 / 40 | flat-v2-57b compacted by `resynth --fit` (x >= -3): the M chain's 4 blocks in column x = -4 regrown inside, then one block less |
+
+## h45: flat43 made FULL (9 x 9) in three edits
+flat43 (lamp-sweep, 43, QUART) had two open-state blockers: the BL flag observer (0,-1) (fires P_M
+after the left column moves) and the X floor (0,3) = obsidian (immovable on purpose: an early
+P_T pulse on close, from the a1 chain's first observer (4,4)E watching the lever and emitting into
+P_T's quasi cell (3,4), pushes T, C and the floor west; obsidian blocks that push).
+1. `resynth --seamless full+hall --extra 2 --fit <flat43's box>` replaced the BL flag + its stone
+   by a corner watcher: observer (-1,-1) facing up watches BL's park cell (-1,0) (corners are not
+   hallway cells), lamp (-1,-2) under it, observer (0,-2) facing west watching the lamp fires P_M.
+   44 blocks (the run could not fix the obsidian with groups of <= 4).
+2. By hand: s55's right cluster (lever (4,5) on observer (4,4) facing up, which fires the right top
+   piston by QC through (4,3); (3,4)E watches (4,4), not the lever, so nothing emits into (3,4)
+   early; (5,4)W, (5,3)U, (5,2)U -> stone (5,1) for the right middle + bottom), so P_T fires once,
+   at pt, and the X floor can be plain stone (quartz-like: hallway wall when open). 45 blocks.
+   The trick that keeps flat43 at 9 rows (no crossing over the top as in 57b/s55): R_B is the
+   repeater ON TOP of B (1,6) facing east, fed from the right ((2,5) facing down watches the a1
+   observer (2,4) -> dust (2,6)); it outputs west into the dust (0,6), which quasi-powers B and is
+   watched by O (0,5) -> X dust (0,4) (a2, a3).
 
 ## Tool: `door resynth --fit x0,y0,z0:x1,y1,z1` (compaction)
 

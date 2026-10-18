@@ -1,0 +1,87 @@
+# shift2: rows 1-2 exit left (P shifted by Q, L parked in z by Z), row 0 exits right (mirror),
+# the other side of each row pulled by a simple puller. One 7-step train for both edges:
+# P Z Q P Q P side (found by mech-synth --sym-bfs on bases/row-shift.txt, one row).
+# Power cells chosen so that no row-0 piston is quasi-powered by a row-1 piston's power:
+# stacked pistons are powered from above the top one (the lower one by quasi-connectivity).
+design designs/piston-door-3x3/tracks/ground/bases/shift2.txt
+let s = 6
+let w = 2
+let t2 = s
+let t3 = t2+s
+let t4 = t3+s
+let t5 = t4+s
+let t6 = t5+s
+let t7 = t6+s
+# 1: P home (left rows 1-2 from above, right row 0)
+open 0 set -2 3 0 minecraft:redstone_block
+open 0 set 4 0 -1 minecraft:redstone_block
+open w clear -2 3 0
+open w clear 4 0 -1
+close 0 set -2 3 0 minecraft:redstone_block
+close 0 set 4 0 -1 minecraft:redstone_block
+close w clear -2 3 0
+close w clear 4 0 -1
+# 2: Z
+open t2 set -1 3 -1 minecraft:redstone_block
+open t2 set 3 0 2 minecraft:redstone_block
+open t2+w clear -1 3 -1
+open t2+w clear 3 0 2
+close t2 set -1 3 -1 minecraft:redstone_block
+close t2 set 3 0 2 minecraft:redstone_block
+close t2+w clear -1 3 -1
+close t2+w clear 3 0 2
+# 3: Q
+open t3 set -3 3 0 minecraft:redstone_block
+open t3 set 6 0 0 minecraft:redstone_block
+open t3+w clear -3 3 0
+open t3+w clear 6 0 0
+close t3 set -3 3 0 minecraft:redstone_block
+close t3 set 6 0 0 minecraft:redstone_block
+close t3+w clear -3 3 0
+close t3+w clear 6 0 0
+# 4: P shifted
+# (right: quasi-power through (3,1,0) from (3,1,-1), plus a block set in P's home cell for
+# the update an observer's output would give)
+open t4 set -1 3 0 minecraft:redstone_block
+open t4 set 3 1 -1 minecraft:redstone_block
+open t4 set 4 0 0 minecraft:smooth_stone
+open t4+w clear -1 3 0
+open t4+w clear 3 1 -1
+open t4+1 clear 4 0 0
+open t4+w set 4 0 0 minecraft:smooth_stone
+open t4+w+1 clear 4 0 0
+close t4 set -1 3 0 minecraft:redstone_block
+close t4 set 3 1 -1 minecraft:redstone_block
+close t4 set 4 0 0 minecraft:smooth_stone
+close t4+w clear -1 3 0
+close t4+w clear 3 1 -1
+close t4+1 clear 4 0 0
+close t4+w set 4 0 0 minecraft:smooth_stone
+close t4+w+1 clear 4 0 0
+# 5: Q
+open t5 set -3 3 0 minecraft:redstone_block
+open t5 set 6 0 0 minecraft:redstone_block
+open t5+w clear -3 3 0
+open t5+w clear 6 0 0
+close t5 set -3 3 0 minecraft:redstone_block
+close t5 set 6 0 0 minecraft:redstone_block
+close t5+w clear -3 3 0
+close t5+w clear 6 0 0
+# 6: P home
+open t6 set -2 3 0 minecraft:redstone_block
+open t6 set 4 0 -1 minecraft:redstone_block
+open t6+w clear -2 3 0
+open t6+w clear 4 0 -1
+close t6 set -2 3 0 minecraft:redstone_block
+close t6 set 4 0 -1 minecraft:redstone_block
+close t6+w clear -2 3 0
+close t6+w clear 4 0 -1
+# 7: simple pullers (row 0 left, rows 1-2 right)
+open t7 set -2 0 1 minecraft:redstone_block
+open t7 set 4 3 0 minecraft:redstone_block
+open t7+w clear -2 0 1
+open t7+w clear 4 3 0
+close t7 set -2 0 1 minecraft:redstone_block
+close t7 set 4 3 0 minecraft:redstone_block
+close t7+w clear -2 0 1
+close t7+w clear 4 3 0

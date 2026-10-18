@@ -1,39 +1,38 @@
-name: flat-seam-s55
+name: flat-seam-h44
 port door: 0 0 0
 port lever: 4 5 0
 origin: -3 0 0
 palette:
   A minecraft:observer[facing=up,powered=false]
   B minecraft:observer[facing=west,powered=false]
-  C minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
-  D minecraft:sticky_piston[extended=false,facing=east]
-  E minecraft:sticky_piston[extended=false,facing=up]
-  F minecraft:sticky_piston[extended=false,facing=west]
-  G minecraft:stone
+  C minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  D minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
   L minecraft:lever[face=floor,facing=west,powered=false]
   O minecraft:observer[facing=down,powered=false]
-  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  R minecraft:redstone_lamp[lit=false]
   S minecraft:smooth_stone
   o minecraft:observer[facing=east,powered=false]
-  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   s minecraft:sticky_piston[extended=false,facing=down]
 layer -2:
-  ABBBE
+  ..RBF
 layer -1:
-  A
+  ..A
 layer 0:
-  rD.GGG.F
+  .E.HHH.G
 layer 1:
-  AD.GGG.FS
+  SE.HHH.GS
 layer 2:
-  rD.GGG.FA
+  AE.HHH.GA
 layer 3:
-  A..G..F.A
+  roRH..G.A
 layer 4:
-  A..rsooAB
+  ...CsooAB
 layer 5:
-  A..As.AL
+  ...AsOAL
 layer 6:
-  oABC..AO
-layer 7:
-  .ooooooO
+  ...rDrB

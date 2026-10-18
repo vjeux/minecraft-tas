@@ -1,0 +1,5 @@
+10 workers; moves all; judge 32 positions
+[   12.2s] the start design is rotation-safe: candidates must stay rotation-safe (--any-rotation to allow others)
+[   24.3s] start: 44 blocks, open 52 close 48 ticks, passes the judge (32 positions x 3 cycles)
+[   30.7s]   366970 swaps (two blocks out, one block in nearby)
+[   30.8s] 44 blocks: 1446 removals, 2 reroutes (+0 neutral), 2210 compounds, 232 neutral edits
