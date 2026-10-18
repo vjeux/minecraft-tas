@@ -1,6 +1,6 @@
 # Videos of every archived design
 
-Rendered by the real Minecraft client (`mctas door video-all`).
+Rendered by the real Minecraft client (`mctas door video-all`). The best of each board, as looping GIFs: [../GALLERY.md](../GALLERY.md).
 
 | blocks | category | design | video |
 |---|---|---|---|
