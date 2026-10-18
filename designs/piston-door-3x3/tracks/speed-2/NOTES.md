@@ -120,3 +120,24 @@ pulls A' at k9, F 0-ticks at k9. R_X (k6 BE) and R_Z (k8 BE) are already early e
 * **`n3-112b.txt` = BEST: 112 blocks, open 9 / close 7.** `door regrow --size 2` on n2: the
   repeater + floor feeding the note block become one observer (2,4,-3) facing east watching the
   lever dust (3,4,-3) (k2..k4 into stone (1,4,-3); the note block changes at k2, X k4..k6).
+
+## Open 8: VALIDATED with scripted inputs (e1.drive), not wired
+`e1.txt` = n3 + `e1.patch`. Idea: Q 0-ticks at k4 instead of spitting at k5, so A' is placed
+in E at k4, pulls C at k5 (lands k7 BE), Q's base lands k6 BE, Q re-extends k7 and pulls A' at k8,
+F 0-ticks at k8 (R_X lands k4 BE, R_Z k6 BE in the 107 family: already early enough).
+* Q's power from rest: redstone block R_Q (-1,5,0) QC-powers Q (its push is blocked by F's head
+  until T is in E). Partner P: sticky piston (-1,4,0) facing up (in Q's QC cell, a piston there
+  does not block QC; R_Q in front of P does not power P). S_a's fall at k4 updates Q, Q extends;
+  P (armed silently by then) is updated, shoves R_Q up, P's setBlock updates Q: Q unpowered,
+  retracts in the same phase and finalTicks A' into E (k4). Works (`door drive e1.drive`: N1
+  clears at k8).
+* Real P arming also works (e2): cross dust (-2,5,-1) on O_S's output stone (k3..k5) + stone
+  (-1,5,-1) next to P's quasi cell; no dust within 2 of P, so silent.
+* Missing for a real door: (1) A' power ON at k4, OFF at k5 (odd fall): needs an observer pointing
+  into X (1,3,-1) that watches a cell changed at k1. A lever-fired piston at (3,3,-1) watched by
+  an observer at (2,3,-1) (e2) gives the pulse but disturbs TR (3,3,0): TR, quasi-powered k2..k4,
+  gets updated, extends into (2,3,0) and blocks Q's push. A torch at (1,3,-1) (on until 2 gt
+  after its attachment rises at k3) would do it if (1,3,-2) could be powered at k3; comparator
+  subtraction off R_F (tick-study `comparator-odd`: output back at k3) is the other lead.
+  (2) Q's second pulse k6..k8 (even) through Q's back or south side only: every QC route now
+  ends in P. (3) Recheck the close with P, R_Q and the new pulses.
