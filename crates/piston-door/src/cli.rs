@@ -182,6 +182,12 @@ pub enum DoorCmd {
         /// Search time per design.
         #[arg(long, default_value_t = 15.0)]
         minutes: f64,
+        /// Keep going: fetch and harvest again every this many minutes (0 = one pass).
+        #[arg(long, default_value_t = 0.0)]
+        every: f64,
+        /// With --every, stop after this many hours.
+        #[arg(long, default_value_t = 4.0)]
+        hours: f64,
         /// Results (from-<label>.txt), archive/ and harvested.txt go here.
         #[arg(long)]
         out_dir: PathBuf,
@@ -366,16 +372,27 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
         }
-        DoorCmd::Harvest { refs, fetch, max_blocks, top, within, minutes, out_dir, search } => {
-            if fetch {
-                let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
-                anyhow::ensure!(st.success(), "git fetch failed");
-            }
+        DoorCmd::Harvest { refs, fetch, max_blocks, top, within, minutes, every, hours, out_dir, search } => {
             let pool = search.pool(version)?;
             let t = std::time::Instant::now();
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
             let hopts = crate::harvest::HarvestOptions { refs, max_blocks, top, minutes, out_dir, moves: search.moves.clone(), within };
-            crate::harvest::run(&pool, std::path::Path::new("."), &hopts, &search.options()?, &log)?;
+            loop {
+                let pass = std::time::Instant::now();
+                if fetch || every > 0.0 {
+                    let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
+                    if !st.success() {
+                        log("git fetch failed; harvesting what we have");
+                    }
+                }
+                crate::harvest::run(&pool, std::path::Path::new("."), &hopts, &search.options()?, &log)?;
+                if every <= 0.0 || t.elapsed().as_secs_f64() > hours * 3600.0 {
+                    break;
+                }
+                let wait = (every * 60.0 - pass.elapsed().as_secs_f64()).max(0.0);
+                log(&format!("pass done; next in {:.1} min", wait / 60.0));
+                std::thread::sleep(std::time::Duration::from_secs_f64(wait));
+            }
         }
         DoorCmd::Video { design, out, tps, upload } => {
             let d = load_design(&design)?;
