@@ -1148,6 +1148,22 @@ pub enum DoorCmd {
         #[arg(long, default_value = "")]
         note: String,
     },
+    /// Judge designs in redsim (crates/redsim) instead of the game: the judge's checks at the
+    /// default positions (+ --extra-offsets), microseconds per tick. With --judge, also run the
+    /// real judge and report any verdict disagreement (redsim as a search pre-screen must never
+    /// reject a working door).
+    RedsimVerify {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 3)]
+        cycles: usize,
+        /// Also run the real judge (same offsets) and compare.
+        #[arg(long)]
+        judge: bool,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
     /// Apply an edit script to a design and write the (canonicalized) result. Script lines:
     /// `set x y z <state>` (an extended piston gets its head too), `clear x y z` (a piston
     /// takes its head along), `port <name> x y z`; `#` starts a comment line.
@@ -2850,6 +2866,77 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(&path, text)?;
                 eprintln!("fixture written to {}", path.display());
             }
+        }
+        DoorCmd::RedsimVerify { designs, extra_offsets, cycles, judge, workers } => {
+            let mut offsets = VerifyOptions::default().offsets;
+            offsets.extend(crate::extra_offsets(extra_offsets));
+            let loaded: Vec<(PathBuf, Design)> = designs.iter().map(|p| Ok((p.clone(), load_design(p)?))).collect::<Result<_>>()?;
+            let t0 = std::time::Instant::now();
+            let screens: Vec<crate::redsim_screen::Screen> = std::thread::scope(|s| {
+                let hs: Vec<_> = loaded
+                    .chunks(loaded.len().div_ceil(16).max(1))
+                    .map(|part| s.spawn(|| part.iter().map(|(_, d)| crate::redsim_screen::screen(d, &offsets, cycles, 400, true)).collect::<Vec<_>>()))
+                    .collect();
+                hs.into_iter().flat_map(|h| h.join().unwrap()).collect()
+            });
+            eprintln!("redsim judged {} designs in {:.2}s", loaded.len(), t0.elapsed().as_secs_f64());
+            let verdicts: Vec<Option<std::result::Result<(u32, u32), String>>> = if judge {
+                let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+                let opts = VerifyOptions { offsets: offsets.clone(), cycles: cycles as u32, ..Default::default() };
+                let sbs: Vec<std::sync::Mutex<Option<u32>>> = (0..pool.len()).map(|_| std::sync::Mutex::new(None)).collect();
+                pool.map(loaded.iter().map(|(_, d)| d.clone()).collect(), |w, wi, d| {
+                    let mut s = sbs[wi].lock().unwrap();
+                    let sb = match *s {
+                        Some(sb) => sb,
+                        None => {
+                            let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-4, -4, 3, 3], seed: 0 })?;
+                            *s = Some(sb);
+                            sb
+                        }
+                    };
+                    Ok(match crate::verify_in(w, sb, &d, &opts) {
+                        Ok(r) => Ok((r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0), r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0))),
+                        Err(e) => Err(format!("{e:#}")),
+                    })
+                })
+                .into_iter()
+                .map(|r| Some(r.unwrap_or_else(|e| Err(format!("error: {e:#}")))))
+                .collect()
+            } else {
+                vec![None; loaded.len()]
+            };
+            let (mut pass, mut fail, mut unsup, mut disagree) = (0, 0, 0, 0);
+            for (((p, _), s), v) in loaded.iter().zip(screens.iter()).zip(verdicts.iter()) {
+                let line = match s {
+                    crate::redsim_screen::Screen::Pass { open, close } => {
+                        pass += 1;
+                        format!("PASS open {open} close {close}")
+                    }
+                    crate::redsim_screen::Screen::Fail(m) => {
+                        fail += 1;
+                        format!("FAIL {m}")
+                    }
+                    crate::redsim_screen::Screen::Unsupported(m) => {
+                        unsup += 1;
+                        format!("UNSUPPORTED {m}")
+                    }
+                };
+                let judge_note = match (s, v) {
+                    (_, None) => String::new(),
+                    (crate::redsim_screen::Screen::Unsupported(_), Some(_)) => String::new(),
+                    (crate::redsim_screen::Screen::Pass { .. }, Some(Ok(_))) | (crate::redsim_screen::Screen::Fail(_), Some(Err(_))) => " [judge agrees]".into(),
+                    (_, Some(Ok((o, c)))) => {
+                        disagree += 1;
+                        format!(" [DISAGREE: judge passes, open {o} close {c}]")
+                    }
+                    (_, Some(Err(e))) => {
+                        disagree += 1;
+                        format!(" [DISAGREE: judge fails: {}]", e.chars().take(160).collect::<String>())
+                    }
+                };
+                println!("{}: {}{judge_note}", p.display(), line.chars().take(220).collect::<String>());
+            }
+            eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;

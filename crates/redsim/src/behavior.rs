@@ -19,6 +19,45 @@ pub enum Support {
 
 // ---------------------------------------------------------------------- static properties
 
+/// Has any collision shape (blocks a walking player; the judge's `collides` flag).
+pub fn collides(s: &Block) -> bool {
+    match *s {
+        Block::Air
+        | Block::Wire { .. }
+        | Block::Torch { .. }
+        | Block::WallTorch { .. }
+        | Block::Lever { .. }
+        | Block::Button { .. }
+        | Block::Rail { .. } => false,
+        // an open fence gate has no collision box
+        Block::FenceGate { open, .. } => !open,
+        _ => true,
+    }
+}
+
+/// `isCollisionShapeFullBlock` (the judge's `full` flag: a door cell must be a full cube).
+pub fn full_cube(s: &Block) -> bool {
+    match *s {
+        Block::Simple(x) => x.full() && !matches!(x, Simple::SoulSand | Simple::HoneyBlock),
+        Block::Glazed { .. }
+        | Block::RedstoneBlock
+        | Block::Observer { .. }
+        | Block::Lamp { .. }
+        | Block::Bulb { .. }
+        | Block::Note { .. }
+        | Block::Target { .. }
+        | Block::Dispenser { .. }
+        | Block::Crafter { .. }
+        | Block::RespawnAnchor { .. }
+        | Block::Log { .. }
+        | Block::Leaves { .. }
+        | Block::Falling { .. } => true,
+        Block::Slab { kind } => kind == 2,
+        Block::Piston { extended, .. } => !extended,
+        _ => false,
+    }
+}
+
 /// `BlockState.isSolid()` (`calculateSolid`): forced on, or a collision box whose mean size is
 /// at least 0.7291666 (a 3 px slab is exactly that) or a full block tall.
 pub fn is_solid(s: &Block) -> bool {
