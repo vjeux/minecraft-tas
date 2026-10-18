@@ -1,0 +1,3 @@
+vanilla server up in 9.5s (/dev/shm/mctas-vanilla-1720303-457bd23a731b1107)
+vanilla-gadget: designs/gadgets/open-4.drive PASS: identical in vanilla at 4 positions (64 ticks compared); drive PASS (33 checks) [37s]
+vanilla-gadget: designs/gadgets/open-4-cycle.drive PASS: identical in vanilla at 4 positions (104 ticks compared); drive PASS (37 checks) [40s]

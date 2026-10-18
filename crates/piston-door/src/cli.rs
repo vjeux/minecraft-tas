@@ -798,6 +798,24 @@ pub enum DoorCmd {
     },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
+    /// Replay gadget drive scripts (designs/gadgets/*.drive) in the UNMODIFIED official server
+    /// and compare every tick with the simulator (see vanilla_gadget.rs): the design in its rest
+    /// state, `use` by a bot player, `setblock` as the game's command in both worlds, every tick
+    /// of every step compared cell by cell, at the judge's 4 positions + N.
+    VanillaGadget {
+        scripts: Vec<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        /// Only the first N positions.
+        #[arg(long)]
+        positions: Option<usize>,
+        #[arg(long)]
+        verbose: bool,
+        #[arg(long)]
+        keep_world: bool,
+        #[arg(long, default_value_t = 100)]
+        tick_rate: u32,
+    },
     VanillaFuzz {
         #[arg(long, default_value_t = 50)]
         count: u64,
@@ -1543,6 +1561,26 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::VanillaBuild { scripts, design, cycles, extra_offsets, positions, offset, max_ticks, until_step, verbose, keep_world, tick_rate, real_time, slow, stay } => {
             vanilla_build_cmd(version, &cfg, &scripts, design, cycles, extra_offsets, positions, offset, max_ticks, until_step, verbose, keep_world, tick_rate, real_time, slow, stay)?;
+        }
+        DoorCmd::VanillaGadget { scripts, extra_offsets, positions, verbose, keep_world, tick_rate } => {
+            let mut offsets = VerifyOptions::default().offsets;
+            offsets.extend(crate::extra_offsets(extra_offsets));
+            if let Some(n) = positions {
+                offsets.truncate(n.max(1));
+            }
+            let mut w = Worker::spawn(&cfg)?;
+            let vopts = mctas::vanilla::VanillaOptions { version: version.to_string(), keep_dir: keep_world, tick_rate, ..Default::default() };
+            let t0 = std::time::Instant::now();
+            let mut v = mctas::vanilla::VanillaServer::start(&vopts)?;
+            eprintln!("vanilla server up in {:.1}s ({})", t0.elapsed().as_secs_f64(), v.dir.display());
+            let ok = crate::vanilla_gadget::run_cli(&mut w, &mut v, &scripts, &offsets, verbose)?;
+            if keep_world {
+                println!("world kept in {}", v.dir.display());
+            }
+            drop(v);
+            if !ok {
+                std::process::exit(1);
+            }
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;

@@ -43,7 +43,11 @@ pub mod tickvideo;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
+<<<<<<< HEAD
 pub mod world;
+=======
+pub mod vanilla_gadget;
+>>>>>>> origin/explore/tick-study
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;

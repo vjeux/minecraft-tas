@@ -1,0 +1,13 @@
+name: gadget-zero-tick-normal
+# 0-tick NORMAL piston (zero-tick with T non-sticky): T extends and retracts in tick 1 like the
+# sticky one, but only a sticky piston finalTicks the block two cells ahead
+# (PistonBaseBlock.triggerEvent: `if (this.isSticky)` branch); a normal piston just removes its
+# head, so K keeps moving and lands at tick 3 like a plain push.
+origin: -1 0 -1
+palette:
+  T minecraft:piston[extended=false,facing=north]
+  X minecraft:piston[extended=false,facing=south]
+  K minecraft:stone
+layer 1:
+  KX
+  T.

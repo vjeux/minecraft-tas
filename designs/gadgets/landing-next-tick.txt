@@ -1,0 +1,26 @@
+name: gadget-landing-next-tick
+# A block that LANDS acts on pistons one tick later: lever L fires piston P in tick 1; redstone
+# block R is a moving piston until the block-entity phase of tick 3 (PistonMovingBlockEntity.tick:
+# progress 0 -> 0.5 -> 1, placed on the third block-entity tick). The block-entity phase comes
+# after the block-event phase (ServerLevel.tick), so piston U next to R's landing cell queues its
+# event at tick 3 and extends in tick 4; repeater Q reading the same cell schedules 2 gt from the
+# landing: on in tick 5. A k1 piston thus seeds odd scheduled ticks (k3 + 2d) but makes pistons
+# act at k4 (even). Spitting R (sticky pusher retracting while R moves) places it in the
+# block-event phase instead and saves that tick (gadget spit-saves-tick).
+origin: -2 0 -1
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  U minecraft:piston[extended=false,facing=south]
+  Q minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  K minecraft:stone
+layer 0:
+  ...S
+  S
+layer 1:
+  ...Q
+  LPR.
+  ...U
+  ...K

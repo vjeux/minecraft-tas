@@ -1,0 +1,12 @@
+# R lands in tick 3 (block-entity phase): U extends in tick 4, the repeater turns on in tick 5.
+design designs/gadgets/landing-next-tick.txt
+probe R 1 1 0
+probe U 1 1 1
+probe Q 1 1 -1
+use -2 1 0
+expect_trace R ~~R
+expect U r
+expect Q 0
+expect_trace U E
+expect Q 0
+expect_trace Q 1

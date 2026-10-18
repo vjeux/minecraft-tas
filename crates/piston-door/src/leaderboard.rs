@@ -177,7 +177,8 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
 /// Markdown table of the entries.
 pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
     let mut s = format!(
-        "# 3x3 piston door leaderboards\n\nWalkway: the rules allow non-colliding blocks (dust, torches, levers) in the walkway; \"clean\" means none at rest.\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
+        "# 3x3 piston door leaderboards\n\nEach board shows its leader; click \"more\" for the rest. Walkway: since 2026-10-18 16:40Z nothing may stand in front of or behind the door \
+         (designs judged before keep their verdicts); \"clean\" means nothing in the 3-deep walkway at rest.\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
          (3 cycles at {} positions). Videos of every archived design: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n\
          Rotations: every working design is also run turned 90, 180 and 270 degrees (same positions; redstone updates its neighbors \
          in a fixed direction order, so a door can work facing one way only). The boards below list rotation-safe designs; the \
@@ -196,51 +197,53 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
     ];
     for (title, rule, keep) in &boards {
-        s.push_str(&format!("## {title}\n\n{rule}; rotation-safe.\n\n| # | blocks | walkway | source |\n|---|---|---|---|\n"));
-        let mut n = 0;
-        for e in entries.iter().filter(|e| e.verdict.is_ok() && e.rotation_safe() && keep(e)) {
-            n += 1;
-            if n > 10 {
-                break;
-            }
-            let clutter = crate::walkway_clutter(&e.design);
-            let walkway = if clutter == 0 { "clean".to_string() } else { format!("{clutter} blocks in it") };
-            s.push_str(&format!("| {n} | {} | {walkway} | `{}` |\n", e.blocks, e.source));
-        }
-        if n == 0 {
-            s.push_str("| - | - | no entry yet |\n");
-        }
-        s.push('\n');
+        s.push_str(&format!("## {title}\n\n{rule}; rotation-safe.\n\n"));
+        let rows: Vec<String> = entries
+            .iter()
+            .filter(|e| e.verdict.is_ok() && e.rotation_safe() && keep(e))
+            .take(10)
+            .enumerate()
+            .map(|(i, e)| {
+                let clutter = crate::walkway_clutter(&e.design);
+                let walkway = if clutter == 0 { "clean".to_string() } else { format!("{clutter} blocks in it") };
+                format!("| {} | {} | {walkway} | `{}` |\n", i + 1, e.blocks, e.source)
+            })
+            .collect();
+        push_collapsed(&mut s, "| # | blocks | walkway | source |\n|---|---|---|---|\n", &rows, "| - | - | no entry yet |\n");
     }
     // Working designs that break when turned: their own board, every category.
     s.push_str(
         "## Not rotation-safe\n\nWorking designs (they pass the judge as built) that break when turned 90, 180 or 270 degrees; the first \
-         failing turn and the judge's reason.\n\n| # | blocks | category | slime-free | flat | breaks turned | why | source |\n|---|---|---|---|---|---|---|---|\n",
+         failing turn and the judge's reason.\n\n",
     );
-    let mut n = 0;
-    for e in entries.iter().filter(|e| e.verdict.is_ok() && !e.rotation_safe()) {
-        n += 1;
-        if n > 30 {
-            break;
-        }
-        let (deg, why) = match &e.rotation {
-            Some(Err((deg, why))) => (format!("{deg} degrees"), why.chars().take(110).collect::<String>().replace('|', "/")),
-            _ => ("not checked".to_string(), String::new()),
-        };
-        let yes = |b: bool| if b { "yes" } else { "" };
-        s.push_str(&format!(
-            "| {n} | {} | {} | {} | {} | {deg} | {why} | `{}` |\n",
-            e.blocks,
-            e.category,
-            yes(crate::slime_free(&e.design)),
-            yes(crate::single_layer(&e.design)),
-            e.source
-        ));
-    }
-    if n == 0 {
-        s.push_str("| - | - | none |\n");
-    }
-    s.push('\n');
+    let rows: Vec<String> = entries
+        .iter()
+        .filter(|e| e.verdict.is_ok() && !e.rotation_safe())
+        .take(30)
+        .enumerate()
+        .map(|(i, e)| {
+            let (deg, why) = match &e.rotation {
+                Some(Err((deg, why))) => (format!("{deg} degrees"), why.chars().take(110).collect::<String>().replace('|', "/")),
+                _ => ("not checked".to_string(), String::new()),
+            };
+            let yes = |b: bool| if b { "yes" } else { "" };
+            format!(
+                "| {} | {} | {} | {} | {} | {deg} | {why} | `{}` |\n",
+                i + 1,
+                e.blocks,
+                e.category,
+                yes(crate::slime_free(&e.design)),
+                yes(crate::single_layer(&e.design)),
+                e.source
+            )
+        })
+        .collect();
+    push_collapsed(
+        &mut s,
+        "| # | blocks | category | slime-free | flat | breaks turned | why | source |\n|---|---|---|---|---|---|---|---|\n",
+        &rows,
+        "| - | - | none |\n",
+    );
     // Pareto frontier over (open ticks, close ticks, blocks): the doors no other door beats on
     // all three at once (as good on each, better on one).
     for (scope, solid_only) in [("any category", false), ("solid only", true)] {
@@ -289,31 +292,36 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
     ];
     for (title, ticks) in &speed {
         for (scope, solid_only) in [("any category", false), ("solid only", true)] {
-            s.push_str(&format!(
-                "## {title} ({scope})\n\nGame ticks after the lever flip (worst of the cycles); ties by block count.\n\n\
-                 | # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n"
-            ));
-            let mut rows: Vec<&Entry> = entries
+            s.push_str(&format!("## {title} ({scope})\n\nGame ticks after the lever flip (worst of the cycles); ties by block count.\n\n"));
+            let mut sorted: Vec<&Entry> = entries
                 .iter()
                 .filter(|e| e.verdict.is_ok() && e.rotation_safe() && ticks(e).is_some() && (!solid_only || e.category == "solid"))
                 .collect();
-            rows.sort_by_key(|e| (ticks(e), e.blocks));
-            for (i, e) in rows.iter().take(if solid_only { 10 } else { 5 }).enumerate() {
-                s.push_str(&format!(
-                    "| {} | {} | {} | {} | {} | {} | `{}` |\n",
-                    i + 1,
-                    ticks(e).unwrap(),
-                    e.open_ticks.unwrap_or(0),
-                    e.close_ticks.unwrap_or(0),
-                    e.blocks,
-                    e.category,
-                    e.source
-                ));
-            }
-            s.push('\n');
+            sorted.sort_by_key(|e| (ticks(e), e.blocks));
+            let rows: Vec<String> = sorted
+                .iter()
+                .take(if solid_only { 10 } else { 5 })
+                .enumerate()
+                .map(|(i, e)| {
+                    format!(
+                        "| {} | {} | {} | {} | {} | {} | `{}` |\n",
+                        i + 1,
+                        ticks(e).unwrap(),
+                        e.open_ticks.unwrap_or(0),
+                        e.close_ticks.unwrap_or(0),
+                        e.blocks,
+                        e.category,
+                        e.source
+                    )
+                })
+                .collect();
+            push_collapsed(&mut s, "| # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n", &rows, "| - | - | no entry yet |\n");
         }
     }
-    s.push_str("## Everything\n\n| # | blocks | category | slime-free | rotations | verdict | source |\n|---|---|---|---|---|---|---|\n");
+    s.push_str(&format!(
+        "## Everything\n\n<details><summary>All {} designs (working and broken) with their verdicts</summary>\n\n| # | blocks | category | slime-free | rotations | verdict | source |\n|---|---|---|---|---|---|---|\n",
+        entries.len()
+    ));
     for (i, e) in entries.iter().enumerate() {
         let verdict = match &e.verdict {
             Ok(()) => "WORKS".to_string(),
@@ -327,7 +335,27 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         };
         s.push_str(&format!("| {} | {} | {} | {sf} | {rot} | {} | `{}` |\n", i + 1, e.blocks, e.category, verdict, e.source));
     }
+    s.push_str("\n</details>\n");
     s
+}
+
+/// A markdown table showing only its first row; the other rows are in a collapsed `<details>`
+/// block (GitHub renders it closed until clicked). `empty` is the row printed when there is none.
+fn push_collapsed(s: &mut String, header: &str, rows: &[String], empty: &str) {
+    s.push_str(header);
+    match rows.first() {
+        None => s.push_str(empty),
+        Some(first) => s.push_str(first),
+    }
+    s.push('\n');
+    if rows.len() > 1 {
+        s.push_str(&format!("<details><summary>{} more</summary>\n\n", rows.len() - 1));
+        s.push_str(header);
+        for r in &rows[1..] {
+            s.push_str(r);
+        }
+        s.push_str("\n</details>\n\n");
+    }
 }
 
 /// The Pareto frontier of the working `board` designs over (open ticks, close ticks, blocks), as

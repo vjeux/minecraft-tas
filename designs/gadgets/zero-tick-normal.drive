@@ -1,0 +1,10 @@
+# 0-tick normal piston: T retracts in tick 1 too, but K is NOT finalTick'd: it lands at tick 3.
+design designs/gadgets/zero-tick-normal.txt
+probe T -1 1 0
+probe K -1 1 -2
+probe head -1 1 -1
+setblock 0 3 -1 minecraft:redstone_block
+setblock 0 1 0 minecraft:redstone_block
+expect_trace K ~~#
+expect T r
+expect head .

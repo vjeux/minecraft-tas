@@ -1,0 +1,11 @@
+# A (west of S) moves first: K goes north; B (north of S) is blocked and stays retracted.
+design designs/gadgets/event-order.txt
+probe A -1 1 0
+probe B 0 1 -1
+probe north -1 1 -2
+probe west -2 1 -1
+setblock 0 1 0 minecraft:redstone_block
+expect_trace north ~~#
+expect west .
+expect A E
+expect B r
