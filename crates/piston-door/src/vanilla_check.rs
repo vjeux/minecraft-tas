@@ -579,6 +579,19 @@ pub fn check(w: &mut Worker, v: &mut VanillaServer, oracle: &mut Oracle, design:
     if !illegal.is_empty() {
         bail!("illegal design: {}", illegal.join("; "));
     }
+    // A file that is not its own rest state relies on the judge's `self` update (wire powers
+    // recomputed, pistons re-checked) which vanilla has no command for: check its rest state.
+    let rested;
+    let design = match rest_state(w, design)? {
+        Some(r) if r.blocks != design.blocks => {
+            let n = r.blocks.iter().filter(|(p, s)| design.blocks.get(*p) != Some(*s)).count()
+                + design.blocks.keys().filter(|p| !r.blocks.contains_key(*p)).count();
+            println!("  note: {} is not at rest as written ({n} cells change when the judge settles it); checking its rest state", design.name);
+            rested = r;
+            &rested
+        }
+        _ => design,
+    };
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let mut out = Vec::new();
     for off in &opts.offsets {
