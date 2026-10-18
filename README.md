@@ -42,6 +42,12 @@ See [docs/architecture.md](docs/architecture.md) and [docs/protocol.md](docs/pro
 
 ## 3x3 piston door
 
+Every solid record from 151 blocks down, filmed by one camera (2:46):
+
+[![every solid record](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4)
+
+Best door of each leaderboard as a GIF: [designs/piston-door-3x3/GALLERY.md](designs/piston-door-3x3/GALLERY.md).
+
 Current best (40 blocks), rendered by the real Minecraft client with `mctas door video`:
 https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4
 
