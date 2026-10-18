@@ -45,7 +45,9 @@ Minecraft client (`door video` pipeline) and cut with the static ffmpeg build, i
 * Gallery GIFs use a still camera: with the orbit every pixel changes every frame and a 640x480
   GIF of a clip was 12-15 MB; still, 0.65-1 MB.
 * Floor: grass out to the client's render distance (sandbox of 14x14 chunks, floor 220x220),
-  so the horizon is fog instead of the edge of a small floor.
+  so the horizon is fog instead of the edge of a small floor. The level only sent viewers 2
+  chunks around them (its view distance comes from the PlayerList: 0, clamped to 2); the
+  bridge's new `view` op (`Worker::view_distance`) raises it to 8 for videos.
 
 ## Minecraft font (mctas/src/mcfont.rs)
 The client jar's bitmap providers (`assets/minecraft/font/include/default.json`: ascii.png,
