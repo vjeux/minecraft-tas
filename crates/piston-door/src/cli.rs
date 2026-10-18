@@ -228,6 +228,18 @@ pub enum DoorCmd {
         /// Stop after this many verified designs (0 = all).
         #[arg(long, default_value_t = 1)]
         want: usize,
+        /// Seed-and-exploit: run the local search (--moves, --plateau...) from EVERY verified
+        /// grown design and keep the best result below the start design's block count (a block
+        /// that changes the machine, e.g. an observer riding a slime structure, can make others
+        /// redundant). Use with --want 0.
+        #[arg(long)]
+        then_search: bool,
+        /// With --then-search: minutes of local search per seed (0 = until it stops improving).
+        #[arg(long, default_value_t = 0.0)]
+        seed_minutes: f64,
+        /// With --then-search: start at this seed (1-based; skip the ones before).
+        #[arg(long, default_value_t = 1)]
+        seed_from: usize,
         #[command(flatten)]
         search: SearchArgs,
     },
@@ -509,7 +521,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Grow { design, out, lo, hi, states, k, want, search } => {
+        DoorCmd::Grow { design, out, lo, hi, states, k, want, then_search, seed_minutes, seed_from, search } => {
             let d = load_design(&design)?;
             let pos = |s: &str| -> Result<mctas::sim::Pos> {
                 let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
@@ -531,6 +543,44 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let found = crate::search::grow(&pool, &d, &g, &opts, &log)?;
             for (fd, desc) in &found {
                 println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
+            }
+            if then_search {
+                let base_n = crate::block_count(&d);
+                let mut best: Option<(Design, String)> = None;
+                for (i, (fd, desc)) in found.iter().enumerate() {
+                    if i + 1 < seed_from {
+                        continue;
+                    }
+                    log(&format!("seed {}/{}: {desc}", i + 1, found.len()));
+                    let mut sopts = search.options()?;
+                    if seed_minutes > 0.0 {
+                        sopts.deadline = Some(std::time::Instant::now() + std::time::Duration::from_secs_f64(seed_minutes * 60.0));
+                    }
+                    let quiet = |_: &str| {};
+                    let mut on_improve = |nd: &Design, m: &str| -> Result<()> {
+                        log(&format!("    {} blocks: {m}", crate::block_count(nd)));
+                        Ok(())
+                    };
+                    let res = match crate::search::search(&pool, fd, &sopts, &quiet, &mut on_improve) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            log(&format!("    search failed: {e:#}"));
+                            continue;
+                        }
+                    };
+                    let n = crate::block_count(&res);
+                    if n < base_n && best.as_ref().is_none_or(|(b, _)| n < crate::block_count(b)) {
+                        let mut w = pool.worker(0);
+                        let canon = crate::canonicalize(&mut w, &res)?;
+                        canon.save(&out)?;
+                        log(&format!("  BELOW START: {n} blocks from seed {desc}, written to {}", out.display()));
+                        best = Some((res, desc.clone()));
+                    }
+                }
+                if best.is_none() {
+                    println!("no seed searched below {base_n} blocks");
+                }
+                return Ok(());
             }
             match found.first() {
                 Some((best, _)) => {
