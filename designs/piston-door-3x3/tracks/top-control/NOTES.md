@@ -7,10 +7,23 @@ the wiring with the router and the minimizer.
 ## Results (all verified with `door verify <file> --extra-offsets 28`, 32 positions x 3 cycles)
 | design | blocks | category | file | idea |
 |---|---|---|---|---|
+| **rb6o** | **47** | **solid (record)** | `rb6o.txt` = `BEST.txt` = `BEST-solid.txt` | redstone-block's rb6 (48) with the bottom-middle piston fired by an observer watching the bottom-right door block |
+| m48o | 47 | solid | `m48o.txt` | the same trick on mechanics' rb5-hold (48) |
 | v3c | 87 | solid | `v3c.txt` | side pistons high; redstone blocks riding the backbones power A, P_T and P_BM; only the side pistons are wired |
 | rb2s2 | 50 | sculk | `rb2s2.txt` | redstone-block's rb2 (57) with its 14-block late hold replaced by a sculk sensor + one repeater |
-| m51s | 48 | sculk | `m51s.txt` = `BEST.txt` | mechanics' 51 with its 10-block hold replaced the same way |
+| m51s | 48 | sculk | `m51s.txt` | mechanics' 51 with its 10-block hold replaced the same way |
 | sf1 / sf1-min | 128 / 126 | solid, slime-free | `sf1.txt`, `sf1-min.txt` | first slime-free door: v2-min with each backbone replaced by a stack of 3 sticky pistons on one torch |
+
+## rb6o (47, solid record): observer-fired bottom-middle piston
+* rb6 powers P_BM (extended at rest) with a redstone block riding the left structure, which
+  needs the left backbone extended 2 cells down (2 slimes + the redstone block).
+* Instead: P_BM retracted at rest (face at (1,-1,0), M two cells away), an observer at (2,-1,0)
+  facing up watching the bottom-right door block (2,0,0), its back strongly powering a block at
+  (2,-2,0) next to P_BM. When the right structure opens, BR leaves -> 2gt pulse -> the sticky
+  piston extends to M and pulls it down (a 2gt pulse pulls a block from 2 away). When the right
+  structure comes back, BR returns -> 2gt pulse -> P_BM pushes M up and the pulse ends while M
+  is moving, so it spits M in place. -3 blocks +2 = 47. Same on mechanics' rb5-hold: m48o 47.
+* `door minimize --moves all --plateau` finds nothing more on rb6o.
 
 When v3c was found (87) the record was 109; rb2s2 was the first sculk door. All three were
 overtaken during the night (solid 48, sculk 46, slime-free 55 by other tracks).
