@@ -223,7 +223,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let trusted = archive_dir.as_deref().map(crate::leaderboard::archived_keys).unwrap_or_default();
             let cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
             eprintln!("verifying {} designs ({} archived designs trusted)", cands.len(), trusted.len());
-            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, &trusted)?;
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, archive_dir.as_deref())?;
             if let Some(dir) = &archive_dir {
                 for e in entries.iter().filter(|e| e.verdict.is_ok()) {
                     let note = format!("verified WORKS by door leaderboard: {} blocks, category {}", e.blocks, e.category);
