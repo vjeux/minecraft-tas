@@ -150,7 +150,15 @@ gates, skulls, shelves, dispensers, scaffolding; gadgets `trapdoor-watch`, `indi
 * Volume note: `door properties`' volume excludes the lever, so a row or column holding only the
   lever is free. flat-b-v7's bottom row y = -4 holds the lever plus 3 blocks (an observer pair
   and a stone delaying the lever's edge into its repeater): `flatb7-cut-row.patch` cuts them, a
-  starting point for a 72 (8x9) flat door if the delay can be rebuilt inside y >= -3 (not done).
+  starting point for a 72 (8x9) flat door if the delay can be rebuilt inside y >= -3 (not done;
+  flat-b-v7 is QUART, which no longer counts).
+* flat-v7-full (FULL+hall, 54 blocks, 99 = 9x11x1), one edge line at a time cut and re-grown
+  inside the smaller box with `door grow --k 2 --seamless full+hall` (states obs, block, dust,
+  rep, rep2, rep4, torch, trapdoor, note): bottom row y = -3 (wall torch + its block,
+  `fv7full-cut-row.patch`, 132k candidates), top row y = 7 (stone, observer, dust,
+  `fv7full-cut-top.patch`, 153k), left column x = -3 (smooth stone, observer, repeater,
+  `fv7full-cut-left.patch`, 148k): none passes even the screen. A 90 (9x10) or 88 (8x11)
+  FULL door needs more than a 2-block rebuild of an edge line.
 
 ## The variants
 
