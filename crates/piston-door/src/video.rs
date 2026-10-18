@@ -90,9 +90,6 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     let view: Vec<f64> = std::env::var("MCTAS_VIEW").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).filter(|v: &Vec<f64>| v.len() == 3).unwrap_or(vec![-0.45, 0.2, 1.0]);
     let (eye, yaw, pitch) = video::frame_points(&corners, [view[0], view[1], view[2]], 70.0, opts.width as f64 / opts.height as f64, 0.92);
     w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
-    eprintln!("camera requested eye={eye:?} yaw={yaw} pitch={pitch}");
-    w.hold(3000)?;
-    eprintln!("viewers: {}", w.call(serde_json::json!({"op": "viewers"}))?);
     // Let chunks arrive and the renderer warm up.
     w.hold(12_000)?;
     video::screenshot(&display, opts.width, opts.height, &out.with_extension("png"))?;
