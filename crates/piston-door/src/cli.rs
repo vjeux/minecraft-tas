@@ -983,6 +983,14 @@ pub enum DoorCmd {
         /// Also print why each failing variant fails.
         #[arg(long)]
         why: bool,
+        /// Also every design on HEAD and on the origin/explore/* branches (as the leaderboard
+        /// collects them, at most --max-blocks).
+        #[arg(long)]
+        branches: bool,
+        /// Only designs at least this seamless as they are (`full`, `semi`, ...: screened first),
+        /// and every eligible variant must meet `<tier>[+hall]` too.
+        #[arg(long)]
+        seamless: Option<String>,
     },
     /// Record eligibility of designs, one line each (what `--eligible` searches keep): the judge
     /// (the lever, every judge position) and the rotation check, repeater input at every judge
@@ -2442,27 +2450,45 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::Relever { designs, subs, out_dir, extra_offsets, workers, verdicts, max_blocks, any_rotation, table, why } => {
+        DoorCmd::Relever { designs, subs, out_dir, extra_offsets, workers, verdicts, max_blocks, any_rotation, table, why, branches, seamless } => {
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
             let screen = VerifyOptions { cycles: 1, max_ticks: 200, offsets: offsets.iter().take(2).copied().collect(), keep_frames: false, empty_walkway: true, tile: None };
             let known = verdicts.as_deref().map(crate::properties_dyn::load_verdicts).unwrap_or_default();
+            let seam = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let subs: Vec<String> = subs.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             let mut seen = std::collections::HashSet::new();
             let mut loaded: Vec<(String, Design)> = Vec::new();
+            let mut sources: Vec<(String, Design)> = Vec::new();
             for p in &designs {
-                let d = match load_design(p) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        eprintln!("{}: {e:#}", p.display());
-                        continue;
-                    }
-                };
+                match load_design(p) {
+                    Ok(d) => sources.push((p.display().to_string(), d)),
+                    Err(e) => eprintln!("{}: {e:#}", p.display()),
+                }
+            }
+            if branches {
+                sources.extend(crate::properties_dyn::collect_refs(std::path::Path::new("."), "refs/remotes/origin/explore/", max_blocks)?);
+            }
+            for (src, d) in sources {
                 let h = format!("{:016x}", crate::leaderboard::design_hash(&d));
                 if crate::block_count(&d) > max_blocks || known.get(&h) == Some(&false) || !seen.insert(d.content_key()) {
                     continue;
                 }
-                loaded.push((p.display().to_string(), d));
+                loaded.push((src, d));
+            }
+            // Seamless pre-screen (the tier only, as the design is).
+            if let Some(req) = seam {
+                let tier_only = crate::properties::SeamReq { hallway: false, ..req };
+                let pool = mctas::sim::Pool::spawn(workers.min(loaded.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+                let keep = pool.map(loaded.clone(), |w, _, (_, d)| {
+                    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+                    let ok = tier_only.check(w, sb, &d).is_ok();
+                    let _ = w.drop_sandbox(sb);
+                    Ok(ok)
+                });
+                let before = loaded.len();
+                loaded = loaded.into_iter().zip(keep).filter(|(_, k)| matches!(k, Ok(true))).map(|(x, _)| x).collect();
+                eprintln!("seamless pre-screen: {} of {before} designs reach the tier", loaded.len());
             }
             let mut jobs: Vec<(usize, crate::relever::Variant)> = Vec::new();
             for (i, (_, d)) in loaded.iter().enumerate() {
@@ -2473,7 +2499,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{} designs, {} variants (as-is included), {} positions", loaded.len(), jobs.len(), offsets.len());
             let pool = mctas::sim::Pool::spawn(workers.min(jobs.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
-            let results = pool.map(jobs, |w, _, (i, v)| Ok((i, crate::relever::judge_variant(w, v, &judge, &screen, !any_rotation)?)));
+            let results = pool.map(jobs, |w, _, (i, v)| Ok((i, crate::relever::judge_variant(w, v, &judge, &screen, !any_rotation, seam)?)));
             let mut per: Vec<Vec<crate::relever::Outcome>> = vec![Vec::new(); loaded.len()];
             for r in results {
                 match r {

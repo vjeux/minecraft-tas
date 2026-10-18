@@ -139,7 +139,7 @@ pub struct Outcome {
 
 /// Judge one variant: screen, eligibility at the first position, the full judge, the rotation
 /// check, eligibility at every judge position, the SEAMLESS tier.
-pub fn judge_variant(w: &mut Worker, v: Variant, judge: &VerifyOptions, screen: &VerifyOptions, need_rotation: bool) -> Result<Outcome> {
+pub fn judge_variant(w: &mut Worker, v: Variant, judge: &VerifyOptions, screen: &VerifyOptions, need_rotation: bool, seam: Option<crate::properties::SeamReq>) -> Result<Outcome> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let r = (|| -> Result<Outcome> {
         let d = match v.fix {
@@ -159,6 +159,9 @@ pub fn judge_variant(w: &mut Worker, v: Variant, judge: &VerifyOptions, screen: 
                 }
             }
             crate::search::eligibility(w, sb, &d, true, true, &judge.offsets).map_err(e)?;
+            if let Some(req) = seam {
+                req.check(w, sb, &d).map_err(e)?;
+            }
             let (ro, rc) = crate::properties_dyn::eligibility_in(w, sb, &d, &first, 1, false, false).map_err(e)?;
             let p = crate::properties::input_props(w, sb, &d).map_err(e)?;
             let tier = p.get("seamless").cloned().unwrap_or_else(|| "-".into());
