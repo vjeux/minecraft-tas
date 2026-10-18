@@ -118,3 +118,22 @@ floors 4, (1,6,-3), Y, O, R_B, O' 5, followers 4, M 2 = 38. Open 36 / close 32, 
 **Trick worth reusing: a note block (or any block whose state flips on weak power) next to a
 lever is a zero-delay, non-conducting watch target, so an observer can read the lever without
 the lever touching the observer's neighbourhood.**
+* b38r.txt (38): b38 with M fired from the right pair (observer (3,-1,0) watching RP0's gap ->
+  (2,-1,0) -> M's quasi cell), 32 positions.
+
+## Searches on b38 that found nothing smaller
+minimize --moves all --plateau (30k neutral edits); resynth max-size 4 (block, dust, dot, rep,
+rep4, obs, torch, lamp, bulb) and max-size 5 with `note`; regrow --size 3 (1.42M, with note);
+regrow --size 2 --any --margin 2 (254k, with note).
+
+## Where b38's 38 blocks go (and why each part is hard to cut)
+* 19 mechanism (door 9, TL/TR pullers, two side pairs, M, A, B, P_T).
+* The x=1 control cube (x=1, y 4..6, z -3..-1, all 9 cells used): lever, note block, O_a, X block,
+  (1,6,-3), Y, O, R_B, O'. Timing is exact: p0 t2 is the earliest (one observer after the lever),
+  P_T must be >= p0 + 4, and every other cell around P_T's quasi cell is either a lever
+  neighbour or too far.
+* TL/TR feeds: dust + floor each (the only non-inverting relay from the X block to a puller
+  diagonal to it; a wall torch on X inverts every pulse into a retract + extend pair).
+* Side pairs: observer watching TL/TR + block above the pair (an observer firing into air
+  quasi-powers only the upper piston).
+* M: 2 observers (no cell next to M's piston or quasi cell changes, so >= 2).
