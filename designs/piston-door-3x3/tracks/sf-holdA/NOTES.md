@@ -137,3 +137,14 @@ regrow --size 2 --any --margin 2 (254k, with note).
 * Side pairs: observer watching TL/TR + block above the pair (an observer firing into air
   quasi-powers only the upper piston).
 * M: 2 observers (no cell next to M's piston or quasi cell changes, so >= 2).
+
+## Next ideas
+* A cheaper side handler: each side costs puller feed 2 (dust + floor) + follower 2. A relay
+  that turns X's strong power 90 degrees without a floor, or a follower whose one block powers
+  both pistons of the pair from a cell that already changes, would give 37.
+* The note-block relay generalises: any observer that must read a lever (or other weak power)
+  without the lever touching its neighbourhood. Worth trying on the other boards' lever clusters
+  (fc2's, the flat board's).
+* `door synth --palette ...,note` now knows the relay; resynth/regrow accept `note` too.
+* Hold variants (h1/h3 ideal schedules) give a 13-14 gt close; a fast-close slime-free door
+  could start from hA (43, close 14) if a speed board for slime-free doors appears.
