@@ -47,9 +47,6 @@ honey_block anywhere.
   (it watches TR landing instead); replacing X by an observer facing A (no floor) loses p0 and the
   dance pulses (one observer watches one cell).
 
-## Next ideas (after 44)
-(see the end of this file)
-
 ## RB south of A (coordinator idea 2): studied, does not beat 44 (by count)
 - Ideal inputs (`sf2.sched` on `sf2-ideal.txt`: RB (1,4,1), Q (1,4,3) facing north, T parks NORTH
   (1,3,-1) via P_T (1,3,-2), TL + TR up, side pairs, A's pulses from an observer (1,4,-1) facing
@@ -67,11 +64,14 @@ honey_block anywhere.
   observer sit NORTH: a lever on one side and a path over A/B to the other (+3 or more).
 - Count: TL-up saves 1 (left pair 2 + TL feed 2 vs left column 5), A's pulses cost +2, the
   split lever costs more: >= 46. Not built further.
+
+## Next ideas (after 44)
 - A cheaper left column: it costs 5 control blocks for 3 pistons (3 observers + dust + floor); a
   pair + TL-up costs 4 but needs the cell west of A, which holds RB.
-- (studied above, see "RB south of A") Hold A with RB south of A (1,4,1) pulled by a pulse-driven Q at (1,4,3) (so both TL and TR go
-  up), with P_T's park on the north (1,3,-1): needs X without a floor at (1,3,-1) (an observer at
-  (1,4,-1) facing north powers A in both positions with updates) and p0 from elsewhere.
+- The lamp (rise 0, fall 4 gt) is a free 4 gt "late on close" delay: any pulse-driven piston whose
+  close action must come later than its open action can watch a lamp hung on the lever.
+- The south observer trick (an observer outputting into A's lowered cell gives a dance pulse
+  without updating anything else) may let X lose its floor in other layouts.
 
 ## Tools (this track)
 - `door grow <design> --lo x,y,z --hi x,y,z --states obs,block,dust,... --k 2`: add 1-2 blocks
