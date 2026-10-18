@@ -1,0 +1,17 @@
+# Sculk sensor (category sculk): a lever click 3 blocks away reaches it 3gt later; it is then
+# active for 30gt (power on every side, strong power into the block below), then 10gt of
+# cooldown. The torch on the block below goes dark 2gt after the sensor wakes and relights 2gt
+# after it sleeps: both lever edges give the same 30gt window. A piston moving 3 blocks away
+# wakes it just the same (it hears pistons within 8 blocks).
+design designs/gadgets/sculk-hold.txt
+probe T 4 0 0
+probe P 6 0 0
+quiet 5
+use 0 1 0
+expect_trace T 11110000000000000000000000000000001
+quiet 15
+use 0 1 0
+expect_trace T 11110000000000000000000000000000001
+quiet 15
+set 6 0 1 minecraft:redstone_block
+expect_trace T 111110000000000000000000000000000001

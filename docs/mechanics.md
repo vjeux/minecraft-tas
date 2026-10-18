@@ -107,6 +107,14 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `silent-hold` | block + repeater | a quasi-powered piston ignores its source switching on and off until a neighbor update |
 | `pulse-bridge` | block, cross dust, block | an observer pulse moved one cell sideways into a repeater's back with 4 blocks (mech-50) |
 | `lever-tap` | repeater | a repeater reading the lever feeds a net that the lever's block cannot back-feed (mech-89) |
+| `sculk-hold` | sculk sensor | (category sculk) a lever click or piston move within 8 blocks wakes it floor(distance) gt later; active 30 gt, then 10 gt deaf |
+* **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
+  piston holds it 30 gt after a lever click (weak power on every side, strong power into the
+  block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a
+  piston whose source is the lever directly retracts at tick 1 before the sensor can hold it:
+  cover the first ticks with a 4 gt repeater from the lever. The door's own late pistons move
+  inside the 10 gt cooldown, so they do not re-trigger it (rb2s2 50, m51s 48). Doors using it
+  rank in the `sculk` category.
 * **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
   source that later turns off WITHOUT updating it stays extended, unpowered, until any later
   neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
