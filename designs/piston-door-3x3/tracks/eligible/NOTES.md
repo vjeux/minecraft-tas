@@ -87,6 +87,11 @@ the wrong one the judge fails "not back to its rest state").
 
 ## Searches that found nothing
 
+- fl80m (80, 48 blocks): `minimize --moves all --plateau --walk 12 --eligible --seamless full+hall`
+  (48 is a local minimum), `--objective total` with delays/subs/moves/singles and with swaps (no
+  faster variant), `resynth --fit` without the top row y=5 (its 4 blocks, re-grown with up to 3
+  more inside the box: nothing). The bottom row holds the note block (the lever's support, never
+  moved) and the right column the right pistons.
 - b39n: `minimize --moves all --plateau --eligible` (39 is a local minimum), `resynth --eligible
   --max-size 4` (nothing), `regrow --size 3 --eligible` (stopped: volume became the target).
 - f45n: `minimize --moves all --plateau --eligible --seamless full+hall`: 45 is a local minimum.
@@ -96,6 +101,26 @@ the wrong one the judge fails "not back to its rest state").
   piston F(-2,1): its only in-plane neighbors are that column, the pistons above and below and
   the ring cell) nothing; without the top row y=6 (the delay-4 repeater chain) nothing. The right
   column holds the note block (lever support, not removable) and the bottom row the bottom piston.
+
+## Next ideas
+
+- Every FULL + hallway flat door converts with `relever` at +1 block and the same volume (the note
+  block takes the lever's cell, which was already inside the box): run `door relever --branches
+  --seamless full+hall` on each new flat record, then `minimize --eligible --seamless full+hall`
+  (`--objective volume`, then `--objective total`): fl81n lost a block that way, fl81m/fl80n/s4-full
+  got 2-6 ticks faster (an observer of a chain turned into an iron trapdoor or a note block: those
+  toggle in the same tick, an observer stage costs 2).
+- The +1 block is avoidable only by designing doors that read the lever's support from the start
+  (a note block, a piston or a plain block read by dust as the support); a `--support-only`
+  constraint on the routers (route, route2, mech-wire) would build them that way.
+- The fc2 / rb / fast-clean families do not convert: their lever cell feeds readers through both
+  the support's strong power and the lever's own weak power with different timings; they are QUART
+  anyway and would need a FULL redesign first.
+- Sculk doors could become eligible with wool between the sensors and the hallway (3.9: isolated);
+  not tried (sculk ranks apart and none is FULL).
+- Volume below 80 needs a new mechanism: the flat side-piston family needs the side pistons two
+  cells from the opening plus a wiring column outside them (8-9 wide), and the top/bottom pistons
+  plus their wiring rows (9-10 high).
 
 ## Log
 - 19:30Z merged explore/props + explore/props-dyn on top of the coordinator's local main.
