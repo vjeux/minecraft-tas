@@ -19,7 +19,13 @@ v2-min and on the other tracks' bests, archive every improvement here with its s
   - `renet`: net re-synthesis: rip every non-terminal dust cell of a net (terminals = dust that
     touches a component, directly or through a plain block) and reconnect the terminals as a
     greedy Steiner tree (each terminal as the root), also with one terminal dropped, also with
-    each repeater turned into dust (merging its two nets), strict and relaxed adjacency.
+    each repeater turned into dust (merging its two nets), strict and relaxed adjacency;
+  - `swap`: a local pair or a face-connected triple of blocks out, one block of a vocabulary
+    (floors, glazed terracotta, obsidian, redstone block, dust, repeaters, torches, observers)
+    in, in any free cell within `--radius` (supported placements only). This is what finds
+    "dust + floor -> one powered block" hops.
+- `--objective open|close|total`: minimize worst-cycle ticks (then blocks) instead of blocks,
+  within `--slack` extra blocks; feeds the speed leaderboards.
 - Neutral edits are also tried with one removal within `--radius` (compounds).
 - `--plateau`: when nothing improves, every neutral edit that passes the judge is followed by
   every single removal (`--plateau-pairs`: pairs too) and its own reroutes/renets.
@@ -54,6 +60,11 @@ improvement in `<dir>/archive/`.
 | 59 | solid | logic-min BEST (60) | observer (1,-1,1) turned east->north, observer (2,-1,1) removed |
 | 58 | gravity | gravity g3 (60) | smooth stone -> glass then renet without a terminal (-1), then a floor removed (-1) |
 | 67 | gravity | gravity g1 (69) | reroute (-2) |
+| 46 | sculk | main archive rb2-sculk-48 | swap twice: a dust + its floor became one smooth stone (observer/repeater fed through a powered block), -1 each |
+| **43** | sculk | top-control sculk BEST (48) | swap (-1), then a hold repeater with both its floors removed, plus a merge (-4) |
+
+Speed (`--objective total`): the 88 gets (4,4,3) delay 4->1: close 31 -> 25 ticks at 88 blocks.
+The speed leaders (gravity g4: open 5, close 11) are local minima for speed too.
 
 Local minima for every family (plateau depth 1-2): rb2 57, mechanics 53/51/50, rb5 52,
 center-mech 88, sculk 50s, gravity g4 51. The current records are hand-tight: their remaining

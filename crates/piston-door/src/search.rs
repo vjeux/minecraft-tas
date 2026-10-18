@@ -517,42 +517,69 @@ fn swap_vocabulary() -> Vec<String> {
 /// support). A move to any nearby cell plus a removal, a 2-for-1 replacement, and so on.
 fn swaps(ctx: &Ctx, d: &Design, radius: i32) -> Vec<Edit> {
     let r = ctx.removable(d);
+    let rset: HashSet<Pos> = r.iter().copied().collect();
     let vocab = swap_vocabulary();
-    let mut out = Vec::new();
+    // Groups going out: local pairs, and face-connected triples (a dust with its floor and a
+    // neighbor, short chains...).
+    let mut groups: Vec<Vec<Pos>> = Vec::new();
     for i in 0..r.len() {
         for j in i + 1..r.len() {
-            let (a, b) = (r[i], r[j]);
-            if cheb(a, b) > radius {
+            if cheb(r[i], r[j]) <= radius {
+                groups.push(vec![r[i], r[j]]);
+            }
+        }
+    }
+    let mut seen3: HashSet<Vec<Pos>> = HashSet::new();
+    for &a in &r {
+        for f in FACES {
+            let b = add(a, f);
+            if !rset.contains(&b) {
                 continue;
             }
-            let base = Edit::removal(&[a, b], d);
-            let after = base.apply(d);
-            let mut cells: Vec<Pos> = Vec::new();
-            for c in [a, b] {
-                for dx in -radius..=radius {
-                    for dy in -radius..=radius {
-                        for dz in -radius..=radius {
-                            let q = add(c, [dx, dy, dz]);
-                            if !after.blocks.contains_key(&q) && !ctx.forbidden.contains(&q) && !cells.contains(&q) {
-                                cells.push(q);
-                            }
+            for c0 in [a, b] {
+                for g in FACES {
+                    let c = add(c0, g);
+                    if c == a || c == b || !rset.contains(&c) {
+                        continue;
+                    }
+                    let mut t = vec![a, b, c];
+                    t.sort();
+                    if seen3.insert(t.clone()) {
+                        groups.push(t);
+                    }
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for group in groups {
+        let base = Edit::removal(&group, d);
+        let after = base.apply(d);
+        let mut cells: Vec<Pos> = Vec::new();
+        for &c in &group {
+            for dx in -radius..=radius {
+                for dy in -radius..=radius {
+                    for dz in -radius..=radius {
+                        let q = add(c, [dx, dy, dz]);
+                        if !after.blocks.contains_key(&q) && !ctx.forbidden.contains(&q) && !cells.contains(&q) {
+                            cells.push(q);
                         }
                     }
                 }
             }
-            for q in cells {
-                for s in &vocab {
-                    if (q == a && d.blocks[&a] == *s) || (q == b && d.blocks[&b] == *s) {
-                        continue;
-                    }
-                    if !support_ok(&after, q, s) {
-                        continue;
-                    }
-                    let mut e = base.clone();
-                    e.set.push((q, s.clone()));
-                    e.desc = format!("{} +{} {}", base.desc, fmt_pos(q), short(s));
-                    out.push(e);
+        }
+        for q in cells {
+            for s in &vocab {
+                if group.contains(&q) && d.blocks[&q] == *s {
+                    continue;
                 }
+                if !support_ok(&after, q, s) {
+                    continue;
+                }
+                let mut e = base.clone();
+                e.set.push((q, s.clone()));
+                e.desc = format!("{} +{} {}", base.desc, fmt_pos(q), short(s));
+                out.push(e);
             }
         }
     }
