@@ -12,7 +12,8 @@ door), blocks as the tie-break. flat-v2-57b (the only FULL + hallway flat door a
 
 | file | volume | blocks | seamless | hallway | open/close | how |
 |---|---|---|---|---|---|---|
-| [e89.txt](e89.txt) (archive/flat-seam-e89-51b.txt) = BEST | **8x9 = 72** | 51 | FULL | yes (dentless) | 36 / 36 | cd19 (flat-b, center down) without row 5: seamless's hand variant fbv7-89m completed with two pulse mergers and a bottom feed for the right bottom piston ([e89.patch](e89.patch)) |
+| [e89b.txt](e89b.txt) (archive/flat-seam-e89b-49b.txt) = BEST | **8x9 = 72** | 49 | FULL | yes (dentless) | 34 / 34 | e89 shrunk by `resynth --fit=-3,-4,0:4,4,0 --seamless full+hall`: the T feed needs no merger (3 observers), the relay merger became stone (3,4) + repeater (4,4) watched by (4,3) |
+| [e89.txt](e89.txt) (archive/flat-seam-e89-51b.txt) | 8x9 = 72 | 51 | FULL | yes (dentless) | 36 / 36 | cd19 (flat-b, center down) without row 5: seamless's hand variant fbv7-89m completed with two pulse mergers and a bottom feed for the right bottom piston ([e89.patch](e89.patch)) |
 | [h44.txt](h44.txt) (archive/flat-seam-h44-44b.txt) | 9x9 = 81 | 44 | FULL | yes | 52 / 48 | h45 + `door minimize --shape thick<=1,volume<=81 --seamless full+hall`: the delay-2 repeater (-3,3) -> dust, the dust (-1,4) gone |
 | [h45.txt](h45.txt) (archive/flat-seam-h45-45b.txt) | 9x9 = 81 | 45 | FULL | yes | 56 / 54 | lamp-sweep-flat43 made FULL in its own box: BL flag -> corner watcher, X floor obsidian -> stone (early P_T pulse removed with s55's right cluster) |
 | [s55.txt](s55.txt) (archive/flat-seam-s55-55b.txt) | 9x10 = 90 | 55 | FULL | yes | 40 / 40 | flat-v2-57b compacted by `resynth --fit` (x >= -3): the M chain's 4 blocks in column x = -4 regrown inside, then one block less |
