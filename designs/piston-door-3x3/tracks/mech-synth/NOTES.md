@@ -73,6 +73,46 @@ P_T pulses around A's level change, B's window, A pulses on B's edges (fc2/v2: a
 line). fc2 needs the same signals except that its shuttle also drives P_R (the right structure
 drags T), which is why fc2 pays 4 more mechanism blocks (Q, R, 3 slimes) but no P_T pulses.
 
+### Pulse-only symmetric control (`--pulses-only`): 12 mechanisms of 21 blocks
+Every piston retracted at rest and driven by 2 gt pulses only, the SAME pulse train on both lever
+edges (no level signal, no shuttle, no hold, no torch). Enumeration `sidesM + 3` in 3D
+(x -2..4, y 3..6, z -2..2, 125k combinations): 74 mechanisms of 21 blocks open+close, **12 of
+them have a pulse-only symmetric sequence (9-10 pulses)**, all verified in the simulator with
+ideal inputs (open/close and symmetric, 16 positions x 2 cycles): `catalog-21/m00..m11`
+(`.info` = sequences; `-sym.ideal` replays with `mctas door ideal`). They differ by the T-mover:
+(0,3) east pusher (= `abpt21r`), (-1,3) east (extended or pull-type), (2,3) west, (3,3) west,
+or along z: (1,3,-2)/(1,3,-1) south, (1,3,1)/(1,3,2) north (T leaves into z = +-1 above the
+walkway, as in slime-free-combo).
+
+`abpt21r` (`ideal/abpt21r/base-sym.ideal`, 32 positions x 3 cycles):
+`S = [P_L] [A] [P_T] [B] [A] [B] [A] [M] [P_R]`
+* open: A pulls T up, P_T pushes T to (2,3), B pushes A down, A pulls C to (1,2), B pulls A back
+  up, A pulls C to (1,3), M is pulled down;
+* close: A spits C down to (1,2), P_T pulls T back to (1,3), B pushes A, T and C down (T, C home),
+  A spits T and C one further down (M is still out), B pulls A up, A's pulse pulls air, and M's
+  piston pushes M, C and T back up together.
+* B may be one window (level on at the first B, off at the second): `wire/abpt21r-window.ideal`.
+
+Timing windows (`door ideal --independent --sweep`, each pulse moved alone, others at their
+default; ticks after the first A pulse): A1 0..2, P_T 4..7, B on 11..16 (>= P_T + 5), A2 14..19
+(>= B on + 2), B off 23..28 (>= A2 + 5), A3 26..36 (>= B off + 2), **M >= A3** (any earlier and
+A3 lifts T on close), P_L and P_R anywhere (0..50). fc2's control produces A1 (lever observer ->
+dust -> A), the B window (8 gt repeater) and A2/A3 (observer on the window repeater) exactly.
+
+### Why none of these was wired below 40
+* All 12 pulse-only schedules need either **M's pulse last** (after A3, >= ~22 gt after the flip,
+  at the bottom of the door, far from the elevator's control) or a T-mover that rides a side
+  structure (two positions to power). Every late cheap signal near the top fires twice per edge
+  (observers on the window repeater, on B), and a once-per-edge late pulse needs the lever level
+  through ~3 repeaters + an observer.
+* Estimate on fc2's control layout: 15 - 2 (Q's repeater + floor) - 2 (P_L observer chain, now
+  driven late) + ~7 (late delay line for P_L, M via a BL motion trigger) + ~2 (P_T at 6..7) + ~2
+  (P_R) = ~22 control + 21 mechanism = ~43. fc2's shuttle couples A's level with P_R's level and
+  reverses their order on close for 2 mechanism blocks; that coupling is worth more than the 4
+  mechanism blocks these designs save.
+* `--edges start` (side/M pulses forced first): no pulse-only symmetric sequence <= 10 core pulses
+  for abpt21r; m10/m11 put M early but their T-mover rides a side structure.
+
 ### What failed / caveats
 * `fc2like22` (pulse-driven P_R dragging T) has no symmetric sequence: dragging T needs the
   order "A then P_R" on open and "P_R then A" on close: an order reversal, which is what fc2's

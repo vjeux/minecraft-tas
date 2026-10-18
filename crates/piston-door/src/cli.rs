@@ -393,6 +393,12 @@ pub enum DoorCmd {
         /// Pulse-driven pistons only (no level signals) for pistons retracted at rest.
         #[arg(long)]
         pulses_only: bool,
+        /// Split symmetric search: put the edge pistons' pulses at the start, end or both.
+        #[arg(long, default_value = "both")]
+        edges: String,
+        /// Only the split symmetric search (edges block + searched core), not the graph one.
+        #[arg(long)]
+        split_only: bool,
     },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
@@ -875,8 +881,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only } => {
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only } => {
             crate::mechsynth::PULSES_ONLY.store(pulses_only, std::sync::atomic::Ordering::Relaxed);
+            crate::mechsynth::SPLIT_ONLY.store(split_only, std::sync::atomic::Ordering::Relaxed);
+            let e = match edges.as_str() {
+                "both" => 0,
+                "start" => 1,
+                "end" => 2,
+                other => anyhow::bail!("--edges start|end|both, got {other}"),
+            };
+            crate::mechsynth::EDGES.store(e, std::sync::atomic::Ordering::Relaxed);
             let o = crate::mechsynth::EnumOptions {
                 require: require.iter().map(|r| crate::mechsynth::Require::parse(r)).collect::<Result<_>>()?,
                 add,

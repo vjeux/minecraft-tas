@@ -408,6 +408,10 @@ pub struct Graph {
 /// When set, pistons are pulse-driven only (no level events): the cheapest control, one observer
 /// chain from the lever (`--pulses-only`).
 pub static PULSES_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Where the split symmetric search puts the "edge" pulses: 0 both, 1 start, 2 end (`--edges`).
+pub static EDGES: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+/// `--split-only`: skip the graph symmetric search (use the edge/core split search).
+pub static SPLIT_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn events(w: &World) -> Vec<Ev> {
     let po = PULSES_ONLY.load(Ordering::Relaxed);
@@ -645,7 +649,12 @@ pub fn symmetric_split(rest: &World, sol: &Solution, max_core: usize, cap: usize
         c
     };
     for o in &opens {
-        for at_start in [true, false] {
+        let places: Vec<bool> = match EDGES.load(Ordering::Relaxed) {
+            1 => vec![true],
+            2 => vec![false],
+            _ => vec![true, false],
+        };
+        for at_start in places {
             let (x0, y0) = if at_start { (run(rest, &edge), run(o, &edge)) } else { (rest.clone(), o.clone()) };
             for len in 1..=max_core {
                 let mut seq = Vec::new();
@@ -1442,7 +1451,8 @@ pub fn cli(version: &str, base: &std::path::Path, o: &EnumOptions, out_dir: Opti
             None => println!("A*: none ({:.1} ms)", t0.elapsed().as_secs_f64() * 1e3),
         }
         let t0 = std::time::Instant::now();
-        let full = solve(&w, o.cap * 8, o.sym_len, o.sym_tries);
+        let split_only = SPLIT_ONLY.load(Ordering::Relaxed);
+        let full = solve(&w, o.cap * 8, if split_only { 0 } else { o.sym_len }, o.sym_tries);
         let sol = full.or_else(|| solve_astar(&w, o.cap)).map(|mut s| {
             if s.sym.is_none() && o.sym_len > 0 {
                 s.sym = symmetric_split(&w, &s, o.sym_len, o.cap);
