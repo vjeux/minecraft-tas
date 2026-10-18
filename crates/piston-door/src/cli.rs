@@ -597,6 +597,29 @@ pub enum DoorCmd {
         #[arg(long, default_value = "1280x720")]
         size: String,
     },
+    /// One Minecraft world (a save folder for the real game) with every working archived design
+    /// in rows by board, smallest first, the block count above each in red concrete and its name
+    /// on a floating label; built by the official server (see world.rs).
+    World {
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        archive: PathBuf,
+        /// Folder for the save (`<out>/<name>`) and its `.tar.gz`.
+        #[arg(long)]
+        out: PathBuf,
+        /// The save's folder name, as the game lists it.
+        #[arg(long, default_value = "minecraft-tas doors")]
+        name: String,
+        #[arg(long, default_value_t = 12)]
+        workers: usize,
+        /// Then screenshot the spawn and the first N designs of each row with the real client
+        /// joined to the saved world (0 = none).
+        #[arg(long, default_value_t = 0)]
+        shots: usize,
+        /// Take verdicts from this verdict-cache file instead of judging (e.g.
+        /// designs/piston-door-3x3/archive/verdicts-v4.tsv).
+        #[arg(long)]
+        verdicts: Option<PathBuf>,
+    },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
         name: String,
@@ -1443,6 +1466,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
                 println!("uploaded {url}");
             }
+        }
+        DoorCmd::World { archive, out, name, workers, shots, verdicts } => {
+            let o = crate::world::WorldOptions { archive, out, name, workers, shots, verdicts };
+            let tar = crate::world::build(version, &o)?;
+            println!("world packed: {}", tar.display());
         }
         DoorCmd::Patch { design, script, out } => {
             let d0 = load_design(&design)?;

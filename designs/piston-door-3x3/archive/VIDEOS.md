@@ -4,6 +4,11 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 
 | blocks | category | design | video |
 |---|---|---|---|
+| 33 | gravity | [gravity2-g33-33b](gravity2-g33-33b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-g33-33b.mp4) |
+| 33 | gravity | [gravity2-t5-33b](gravity2-t5-33b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-t5-33b.mp4) |
+| 35 | gravity | [gravity2-g35-35b](gravity2-g35-35b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-g35-35b.mp4) |
+| 36 | gravity | [gravity2-g36-36b](gravity2-g36-36b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-g36-36b.mp4) |
+| 36 | gravity | [gravity2-t3-36b](gravity2-t3-36b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-t3-36b.mp4) |
 | 36 | sculk | [sculk2-s4-36b](sculk2-s4-36b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4-36b.mp4) |
 | 36 | sculk | [sculk2-s4b-36b](sculk2-s4b-36b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.mp4) |
 | 36 | sculk | [sculk2-s4c-36b](sculk2-s4c-36b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4c-36b.mp4) |

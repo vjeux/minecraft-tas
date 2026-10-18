@@ -43,6 +43,7 @@ pub mod tickvideo;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
+pub mod world;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;

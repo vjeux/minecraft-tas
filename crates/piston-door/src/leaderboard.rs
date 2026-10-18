@@ -241,6 +241,46 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         s.push_str("| - | - | none |\n");
     }
     s.push('\n');
+    // Pareto frontier over (open ticks, close ticks, blocks): the doors no other door beats on
+    // all three at once (as good on each, better on one).
+    for (scope, solid_only) in [("any category", false), ("solid only", true)] {
+        let cands: Vec<&Entry> = entries
+            .iter()
+            .filter(|e| e.verdict.is_ok() && e.open_ticks.is_some() && e.close_ticks.is_some() && (!solid_only || e.category == "solid"))
+            .collect();
+        let key = |e: &Entry| (e.open_ticks.unwrap(), e.close_ticks.unwrap(), e.blocks);
+        let dominated = |a: &Entry| {
+            let (ao, ac, ab) = key(a);
+            cands.iter().any(|b| {
+                let (bo, bc, bb) = key(b);
+                bo <= ao && bc <= ac && bb <= ab && (bo < ao || bc < ac || bb < ab)
+            })
+        };
+        let mut front: Vec<&Entry> = cands.iter().copied().filter(|a| !dominated(a)).collect();
+        front.sort_by_key(|e| (e.blocks, e.open_ticks, e.close_ticks, e.source.clone()));
+        front.dedup_by_key(|e| key(e));
+        s.push_str(&format!(
+            "## Pareto frontier: open, close, blocks ({scope})\n\nEvery door that no other door beats on open ticks, close ticks and blocks at once \
+             (worst cycle; one door per identical triple).\n\n| blocks | open | close | category | slime-free | rotations | source |\n|---|---|---|---|---|---|---|\n"
+        ));
+        for e in &front {
+            let rot = match &e.rotation {
+                Some(Ok(())) => "safe".to_string(),
+                Some(Err((deg, _))) => format!("breaks at {deg}"),
+                None => String::new(),
+            };
+            let sf = if crate::slime_free(&e.design) { "yes" } else { "" };
+            s.push_str(&format!(
+                "| {} | {} | {} | {} | {sf} | {rot} | `{}` |\n",
+                e.blocks,
+                e.open_ticks.unwrap(),
+                e.close_ticks.unwrap(),
+                e.category,
+                e.source
+            ));
+        }
+        s.push('\n');
+    }
     // Speed boards: ticks after the lever flip (worst cycle), ties broken by block count.
     let speed: [(&str, Box<dyn Fn(&Entry) -> Option<u32>>); 3] = [
         ("Fastest open", Box::new(|e: &Entry| e.open_ticks)),

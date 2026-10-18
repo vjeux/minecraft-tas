@@ -40,3 +40,12 @@ Door cells x 0..2, y 0..2, z 0. T=(1,2) C=(1,1), TR=(2,2). k = game ticks after 
   Killers K_V, K_F armed silently at k4 (quiet repeater power into their QC cells). Blockers kept
   until k4: TL (V's line), M (F's line), R/BR (none needed in this variant). Not wired yet; close
   not designed yet.
+* `o4c.txt/.sched` (`door ideal`): **full cycle WORKS with ideal inputs, open 4 / close 10**
+  (32 positions x 3 cycles). Killers moved so they do not self-latch: an up-facing sticky killer
+  keeps the block it pushed next to its own quasi cell and can never retract; K_W now sits in W's
+  quasi cell (3,3,0) facing south, K_V in V's quasi cell (4,3,0) facing east. K_W's blocker is
+  released by a second lever shuttle queued after P_TR's: TR's arrival at (2,3,0) updates K_W while
+  it is still blocked, the blocker leaves before W extends. Close (scripted): F and V spit C/T one
+  cell (c1-2), P_WN and Q put W and A' back (c3-4), A' pushes C home (c4-5), W pushes T into N1
+  (c6-7, must wait for A's head to leave N1: no-retry), R_TR pulled back so P_TR pushes TR (lands
+  c10).
