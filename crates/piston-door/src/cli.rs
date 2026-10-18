@@ -435,7 +435,8 @@ pub enum DoorCmd {
         /// Opposite box corner "x,y,z" (inclusive).
         #[arg(long)]
         hi: String,
-        /// Comma list: obs, block, dust, rep[1-4], torch, glass, obsidian, rblock, lamp, or full states.
+        /// Comma list: obs, block, dust, rep[1-4], torch, glass, obsidian, rblock, lamp, note, leaves
+        /// (persistent), log (3 axes), or full states without commas.
         #[arg(long, default_value = "obs,block,dust")]
         states: String,
         /// Blocks added together (1 or 2; 2 also tries singles).

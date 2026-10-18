@@ -1963,6 +1963,10 @@ pub fn grow_states(spec: &str) -> Result<Vec<String>> {
             "rblock" => out.push("minecraft:redstone_block".into()),
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
             "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
+            // Persistent leaves (never random-tick): re-read their distance 1 gt after a neighbor
+            // changes, so next to a moving log they are an asymmetric 1 gt delay (pareto-mid).
+            "leaves" => out.push("minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]".into()),
+            "log" => out.extend(["x", "y", "z"].iter().map(|a| format!("minecraft:oak_log[axis={a}]"))),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => return Err(anyhow!("unknown grow state {s:?}")),
         }
