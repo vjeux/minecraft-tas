@@ -132,6 +132,26 @@ gates, skulls, shelves, dispensers, scaffolding; gadgets `trapdoor-watch`, `indi
 * Asymmetric relays (podzol: arrival read 2 gt after a departure; scaffolding / leaves: 1 gt) for
   the open/close balance of the Pareto doors.
 
+## Volume and seamless (vjeux's 20:20Z / 20:25Z rules), exotic palette
+
+* `resynth --seamless full+hall --extra 3` with the exotic palette on seamless's two "almost FULL"
+  flat doors:
+  * fbv7-full (48 blocks, QUART, 90 = 9x10x1): one offender fixed by an iron trapdoor. The
+    observer watching the lever (1,-4,0) became a trapdoor beside it (zero delay), which let the
+    floor-ring dust (2,-1,0) become smooth stone (plain blocks resting in S are not circuitry):
+    `wip/fbv7-full-trap.txt` (48, QUART, 90, open 36 / close 34). The one offender left is the
+    top-ring observer (0,3,0) that watches TL leave: every cell next to TL's rest cell is T or S,
+    and the cell TL lands in (-1,2,0) first sees the pull piston's head, 2 gt too early, so no
+    observer outside S can give that chain its tick (no 4-block group with up to 3 extra blocks
+    fixes it, even with a 3M-candidate cap).
+  * f43-b1 (44, QUART, 81 = 9x9x1): the offender is the obsidian stopper (0,3,0) in the top ring.
+    No immovable block is plain ("quartz-like"), so a stopper there always counts; the groups
+    through it are too large for resynth (skipped at 300k candidates / 60M visited sets).
+* Volume note: `door properties`' volume excludes the lever, so a row or column holding only the
+  lever is free. flat-b-v7's bottom row y = -4 holds the lever plus 3 blocks (an observer pair
+  and a stone delaying the lever's edge into its repeater): `flatb7-cut-row.patch` cuts them, a
+  starting point for a 72 (8x9) flat door if the delay can be rebuilt inside y >= -3 (not done).
+
 ## The variants
 
 * `fc2f-40-trap.txt` (exotic-fc2-trapL, 40, open 24 / close 9, rotation-safe): fc2 with P_L fed by
