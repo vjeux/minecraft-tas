@@ -170,3 +170,11 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 * **OR of two repeaters in one dust:** a dust sandwiched between the output block of one
   repeater (above it) and of another (below it, its floor) is lit by either, and a cross dust
   powers the block it points into: a 2-input OR feeding a torch with 1 dust (logic-min P_T).
+* **A moved observer fires on arrival** (seen in door g9/g10): an observer dragged by a slime chain
+  pulses 2 gt after it lands, whatever it watches. An observer that rides a moving structure therefore
+  fires exactly when that structure arrives, which can sequence the next piston for free (g10: the
+  observer riding the tower's slime chain fires S2's pulse right after S1 lifted the chain).
+* **Pulse-driven sticky piston under a floating block** (door g8+): a retracted sticky piston with an
+  empty cell and then a piston above it; a 2 gt pulse on the way down pulls the upper piston down one
+  cell (it is 2 ahead and still), and on the way up pushes it and spits it (the pulse ends while it is
+  still moving), so the piston is back to retracted with the gap restored.
