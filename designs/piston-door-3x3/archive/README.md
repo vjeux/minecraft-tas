@@ -27,6 +27,7 @@ branches) is [../LEADERBOARD.md](../LEADERBOARD.md). New records are archived he
 | 88 | search-tool-center-mech-88b.txt | agent search-tool: local search on center-mech's 96 |
 | 87 | piston-door-3x3-v3c-87b.txt | agent top-control: side pistons high, redstone blocks riding the backbones power A, P_BM, P_T |
 | 73 | piston-door-3x3-rb1-73b.txt | agent redstone-block: sides pushed open, one redstone block shuttled by one piston powers A then P_R, the right structure drags T out (no P_T) |
+| 57 | piston-door-3x3-rb2-57b.txt | agent redstone-block: rb1 with short nets (dual-edge observer next to the lever feeds R_B by 3 dust, the 24gt late hold fed straight from the lever) |
 
 Invalid (kept for history): piston-door-3x3-v1-invalid.txt (125) and -v1-min-invalid.txt (121)
 use a slime block as the top-middle door block.

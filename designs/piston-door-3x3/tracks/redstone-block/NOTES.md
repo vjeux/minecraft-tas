@@ -38,3 +38,12 @@ router (two routes: lever net -> late chain input, lever net -> O2's watched dus
   until its head lands, 2 ticks too late for B. Use dust (2nd-order updates) or a direct source.
 * Levers/dust/repeaters cannot sit on a piston that extends sideways (its top face is no
   longer sturdy): they pop.
+
+## rb2: 57 blocks, category solid (BEST.txt)
+`mctas door gen rb2`. Same mechanism as rb1, short nets:
+* O2 sits at (0,6,0) right next to the lever, watching it; its back lights dust
+  (0,6,1) -> (0,6,2) -> (1,6,2), which feeds R_B (the router's 14-block detour is gone).
+* Q's late hold: 3 x 4-tick repeaters at (0,4,-2..-4) pointing into Q, fed by 4 dust from the
+  lever ((0,6,-2..-4) then a step down to (0,5,-5), whose floor powers the last repeater).
+`door minimize --moves all` finds nothing more (57 is a local minimum for it). rb1 minimized to
+67 by a renet (rb1-min.txt).
