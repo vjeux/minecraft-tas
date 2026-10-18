@@ -173,7 +173,7 @@ pub enum DoorCmd {
         videos: PathBuf,
         #[arg(long)]
         out: PathBuf,
-        /// GitHub release tag to upload the video to (as solid-progression.mp4).
+        /// GitHub release tag to upload the video and its poster to (as <board>-progression.mp4/.jpg).
         #[arg(long)]
         upload: Option<String>,
         #[arg(long, default_value_t = 2)]
@@ -185,6 +185,10 @@ pub enum DoorCmd {
         speed: f64,
         #[arg(long)]
         redo: bool,
+        /// solid (the archive README's progression table), slime-free, sculk or gravity (records
+        /// in archive order).
+        #[arg(long, default_value = "solid")]
+        board: String,
     },
     /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
     Leaderboard {
@@ -499,8 +503,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::showcase::GalleryOptions { archive, videos, out, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
             crate::showcase::gallery(version, &o)?;
         }
-        DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo } => {
-            let o = crate::showcase::MontageOptions { archive, videos, out, upload, jobs, workers, speed, redo };
+        DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo, board } => {
+            let o = crate::showcase::MontageOptions { archive, videos, out, upload, jobs, workers, speed, redo, board };
             crate::showcase::montage(version, &o)?;
         }
         DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {

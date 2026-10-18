@@ -22,6 +22,9 @@ Minecraft client (`door video` pipeline) and cut with the static ffmpeg build, i
   (`solid-progression.jpg`: every record's frame with the door open, in a grid with its block
   count), embedded at the top of GALLERY.md and linking to the video. Clips are cached per
   camera in `<videos>/clips-<hash>/` (only new records get rendered next time).
+  `--board slime-free|sculk|gravity` does the same for another board, its records taken from the
+  archive in archive order (each design with fewer blocks than every one archived before it);
+  assets `<board>-progression.mp4/.jpg`, linked from that board's section of GALLERY.md.
 * `mctas door video` (and `door video-all`) default style `card`: a 2 s title card (block
   count, category, timings from one verify cycle, design name) drawn in the game's font on the
   darkened dirt background, fading into the clip; the door camera; a corner label.
