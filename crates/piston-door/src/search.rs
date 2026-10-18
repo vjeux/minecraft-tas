@@ -115,6 +115,10 @@ pub struct SearchOptions {
     /// Also accept candidates that turn a solid design into a sculk one (they add a sculk
     /// sensor): searches for the sculk board starting from solid designs.
     pub to_sculk: bool,
+    /// Accept only rotation-safe candidates ([`crate::rotation_check`] at the judge's positions)
+    /// when the start design is rotation-safe: the boards rank rotation-safe doors, so an
+    /// improvement that breaks a turn lands on the other board. Checked after the full judge.
+    pub keep_rotations: bool,
 }
 
 /// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk.
@@ -130,9 +134,16 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
         && (!crate::single_layer(base) || crate::single_layer(d))
 }
 
-/// [`verify_in`] plus the search's speed constraints.
+/// [`verify_in`] plus the search's speed constraints, and (full judge only, with
+/// `keep_rotations`) the rotation check.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
-    speed_check(verify_in(w, sb, d, v)?, opts)
+    let r = speed_check(verify_in(w, sb, d, v)?, opts)?;
+    if opts.keep_rotations && std::ptr::eq(v, &opts.judge) {
+        if let Some((turns, why)) = crate::rotation_check(w, d, v)? {
+            anyhow::bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
+        }
+    }
+    Ok(r)
 }
 
 /// The speed constraints (`max_open`, `max_close`) on a judge report.
@@ -1561,6 +1572,25 @@ pub fn search(
     if cur.blocks.len() != airs {
         log(&format!("dropped {} air entries from the start design", airs - cur.blocks.len()));
     }
+    // Keep rotation safety only if the start design has it.
+    let relaxed;
+    let opts = if opts.keep_rotations {
+        let mut w = pool.worker(0);
+        let start_rot = crate::rotation_check(&mut w, &cur, &opts.judge)?;
+        match start_rot {
+            None => {
+                log("the start design is rotation-safe: candidates must stay rotation-safe (--any-rotation to allow others)");
+                opts
+            }
+            Some((turns, _)) => {
+                log(&format!("the start design is NOT rotation-safe (turned {} degrees): rotations not checked", turns as u32 * 90));
+                relaxed = SearchOptions { keep_rotations: false, ..opts.clone() };
+                &relaxed
+            }
+        }
+    } else {
+        opts
+    };
     let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;

@@ -64,6 +64,10 @@ pub struct SearchArgs {
     /// `minecraft:sculk_sensor` (or `calibrated_sculk_sensor[facing=..]`) in the states.
     #[arg(long)]
     pub to_sculk: bool,
+    /// Accept candidates that are not rotation-safe. By default a rotation-safe start design
+    /// only accepts rotation-safe candidates (the boards rank rotation-safe doors).
+    #[arg(long)]
+    pub any_rotation: bool,
 }
 
 impl SearchArgs {
@@ -92,6 +96,7 @@ impl SearchArgs {
             max_open: self.max_open,
             max_close: self.max_close,
             to_sculk: self.to_sculk,
+            keep_rotations: !self.any_rotation,
         })
     }
 
@@ -1008,6 +1013,10 @@ pub enum DoorCmd {
         /// neighborhood, the blocks within margin + 3, changed).
         #[arg(long)]
         global_retry: bool,
+        /// Accept replacements that are not rotation-safe. By default a rotation-safe start
+        /// design only accepts rotation-safe replacements (the boards rank rotation-safe doors).
+        #[arg(long)]
+        any_rotation: bool,
     },
 }
 
@@ -1734,6 +1743,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
                     max_open,
                     max_close,
+                    rotations: false,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -1757,7 +1767,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, any_rotation } => {
             use crate::synth::*;
             let d = load_design(&design)?;
             let only = match only {
@@ -1769,7 +1779,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 None => None,
             };
-            let o = ResynthOptions {
+            let mut o = ResynthOptions {
                 min_size,
                 max_size,
                 palette: palette_states(&palette)?,
@@ -1782,6 +1792,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 save_to: Some(out.clone()),
                 global_retry,
                 only,
+                keep_rotations: false,
             };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
@@ -1795,6 +1806,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 let (o, c) = crate::search::worst_ticks(&r);
                 log(&format!("start: {} blocks, open {o} / close {c}", crate::block_count(&d)));
                 anyhow::ensure!(max_open.is_none_or(|m| o <= m) && max_close.is_none_or(|m| c <= m), "the start design misses the speed bounds (open {o} / close {c})");
+            }
+            if !any_rotation {
+                let mut w = pool.worker(0);
+                match crate::rotation_check(&mut w, &d, &judge)? {
+                    None => {
+                        o.keep_rotations = true;
+                        log("the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)");
+                    }
+                    Some((turns, _)) => log(&format!("the start design is NOT rotation-safe (turned {} degrees): rotations not checked", turns as u32 * 90)),
+                }
             }
             let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
             // Keep the canonical rest state only if it still passes the judge (a design written
