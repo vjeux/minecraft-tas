@@ -64,6 +64,8 @@ pub fn build(name: &str) -> Option<Design> {
     match name {
         "v1" => Some(v1()),
         "v2" => Some(v2()),
+        "rb1" => Some(rb1()),
+        "rb1-base" => Some(rb1_route_base()),
         "v2-133" => Some(crate::designs_history::v2_133()),
         "v2-135" => Some(crate::designs_history::v2_135()),
         "v2-143" => Some(crate::designs_history::v2_143()),
@@ -289,5 +291,99 @@ pub fn v2() -> Design {
         b.set(p, s);
     }
     b.repeater([-1, 4, 1], "north", 2);
+    b.d
+}
+
+/// rb1 ("movable power", track redstone-block): v2's UP dance with power carried by moving
+/// blocks. Both side structures are PUSHED open (pistons off at rest, no torches). One redstone
+/// block RB_A, shuttled by the lever-driven sticky piston Q, powers A at rest and, moved, powers
+/// P_R: A lifts T first, then P_R's structure drags T out of the column (its top slime touches T),
+/// so P_T is gone. On close Q pulls RB_A back: P_R retracts (pushes T back) and A's extension
+/// waits for T to land. BM is powered by a redstone block riding the left structure.
+pub fn rb1_mech(b: &mut Builder) {
+    let stone = "minecraft:stone";
+    for y in 0..3 {
+        for x in 0..3 {
+            b.set([x, y, 0], stone);
+        }
+    }
+    // Left structure S1, pushed west by P_L (top), carries RB_BM.
+    for y in -2..=4 {
+        b.set([-1, y, 0], "slime_block");
+    }
+    b.set([0, -2, 0], "redstone_block"); // RB_BM: powers BM at rest
+    b.set([0, 4, 0], "sticky_piston[facing=west,extended=false]"); // P_L
+    // Right structure S2, pushed east by P_R; (2,3,0) drags T.
+    for y in 0..=4 {
+        b.set([3, y, 0], "slime_block");
+    }
+    b.set([2, 3, 0], "slime_block");
+    b.set([2, 4, 0], "sticky_piston[facing=east,extended=false]"); // P_R
+    b.set([1, -2, 0], "sticky_piston[facing=up,extended=true]"); // BM
+    b.set([1, -1, 0], "piston_head[facing=up,type=sticky,short=false]");
+    b.set([1, 4, 0], "sticky_piston[facing=down,extended=true]"); // A
+    b.set([1, 3, 0], "piston_head[facing=down,type=sticky,short=false]");
+    b.set([1, 5, 0], "sticky_piston[facing=down,extended=false]"); // B
+    b.set([0, 4, -1], "sticky_piston[facing=east,extended=false]"); // Q
+    b.set([1, 4, -1], "redstone_block"); // RB_A
+    b.port("door", [0, 0, 0]);
+    // A pulses: R_B QC-powers B through (1,6,0); O watches R_B and lights X (both A heights).
+    b.set([1, 3, 1], FLOOR);
+    b.set([1, 4, 1], "redstone_wire[north=side,east=side,south=side,west=side]"); // X
+    b.set([1, 5, 1], "observer[facing=up]"); // O
+    b.set([1, 6, 1], "repeater[facing=south,delay=4]"); // R_B (input from (1,6,2))
+    b.set([1, 6, 2], "observer[facing=south]"); // O2 watches (1,6,3)
+}
+
+
+/// rb1 skeleton plus the first lever dust, for routing.
+pub fn rb1_route_base() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-rb1".into();
+    rb1_mech(&mut b);
+    b.set([0, 5, -1], FLOOR);
+    b.set([0, 6, -1], "lever[face=floor,facing=west,powered=false]");
+    b.port("lever", [0, 6, -1]);
+    for z in [-2, -3, -4] {
+        b.set([0, 4, z], FLOOR);
+        b.set([0, 5, z], "repeater[facing=north,delay=4]");
+    }
+    b.dust([-1, 6, -1]);
+    b.d
+}
+pub fn rb1() -> Design {
+    let mut d = rb1_route_base();
+    let mut b = Builder { d: std::mem::take(&mut d) };
+    // router: lever net -> late chain input
+    b.set([-2, 5, -1], "minecraft:smooth_stone");
+    b.set([-2, 6, -1], "minecraft:redstone_wire");
+    b.set([-2, 6, 0], "minecraft:smooth_stone");
+    b.set([-2, 7, 0], "minecraft:redstone_wire");
+    b.set([-2, 5, 1], "minecraft:smooth_stone");
+    b.set([-2, 6, 1], "minecraft:redstone_wire");
+    b.set([-2, 4, 2], "minecraft:smooth_stone");
+    b.set([-2, 5, 2], "minecraft:redstone_wire");
+    b.set([-2, 3, 3], "minecraft:smooth_stone");
+    b.set([-2, 4, 3], "minecraft:redstone_wire");
+    b.set([-1, 3, 3], "minecraft:smooth_stone");
+    b.set([-1, 4, 3], "minecraft:redstone_wire");
+    b.set([0, 4, 3], "minecraft:smooth_stone");
+    b.set([0, 5, 3], "minecraft:redstone_wire");
+    b.set([1, 5, 3], "minecraft:smooth_stone");
+    b.set([1, 6, 3], "minecraft:redstone_wire");
+    b.set([-2, 5, -1], "minecraft:smooth_stone");
+    b.set([-2, 6, -1], "minecraft:redstone_wire");
+    b.set([-2, 4, -2], "minecraft:smooth_stone");
+    b.set([-2, 5, -2], "minecraft:redstone_wire");
+    b.set([-2, 3, -3], "minecraft:smooth_stone");
+    b.set([-2, 4, -3], "minecraft:redstone_wire");
+    b.set([-2, 2, -4], "minecraft:smooth_stone");
+    b.set([-2, 3, -4], "minecraft:redstone_wire");
+    b.set([-2, 2, -5], "minecraft:smooth_stone");
+    b.set([-2, 3, -5], "minecraft:redstone_wire");
+    b.set([-1, 3, -5], "minecraft:smooth_stone");
+    b.set([-1, 4, -5], "minecraft:redstone_wire");
+    b.set([0, 4, -5], "minecraft:smooth_stone");
+    b.set([0, 5, -5], "minecraft:redstone_wire");
     b.d
 }

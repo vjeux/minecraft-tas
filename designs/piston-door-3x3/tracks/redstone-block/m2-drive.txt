@@ -1,0 +1,36 @@
+design designs/piston-door-3x3/tracks/redstone-block/m2-mech.txt
+plane 0 -5 -3 6 7
+quiet 2
+print
+# open: A off (lifts T)
+clear 1 4 -1
+quiet 3
+print
+# sides + M off: the right backbone drags T out of the column
+clear -4 0 0
+clear 6 0 0
+clear 1 -3 0
+quiet 4
+print
+# B window (observer pulses A on both edges)
+set -1 6 0 minecraft:redstone_block
+quiet 9
+print
+clear -1 6 0
+quiet 9
+print
+# ---- close ----
+set -4 0 0 minecraft:redstone_block
+set 1 -3 0 minecraft:redstone_block
+set -1 6 0 minecraft:redstone_block
+quiet 9
+print
+clear -1 6 0
+quiet 9
+print
+set 6 0 0 minecraft:redstone_block
+quiet 4
+print
+set 1 4 -1 minecraft:redstone_block
+quiet 4
+print
