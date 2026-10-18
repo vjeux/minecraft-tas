@@ -21,3 +21,6 @@ vanilla-gadget: designs/gadgets/pump.drive PASS: identical in vanilla at 4 posit
 vanilla-gadget: designs/gadgets/repeater-lock.drive PASS: identical in vanilla at 4 positions (80 ticks compared); drive PASS (4 checks) [29s]
 vanilla-gadget: designs/gadgets/sculk-delay-line.drive PASS: identical in vanilla at 4 positions (380 ticks compared); drive PASS (3 checks) [34s]
 vanilla-gadget: designs/gadgets/sculk-hold-cm.drive PASS: identical in vanilla at 4 positions (348 ticks compared); drive PASS (2 checks) [41s]
+vanilla-gadget: designs/gadgets/slime-rider.drive PASS: identical in vanilla at 4 positions (80 ticks compared); drive PASS (6 checks) [29s]
+vanilla-gadget: designs/gadgets/spit.drive PASS: identical in vanilla at 4 positions (28 ticks compared); drive PASS (3 checks) [26s]
+vanilla-gadget: designs/gadgets/target-tap.drive PASS: identical in vanilla at 4 positions (40 ticks compared); drive PASS (9 checks) [27s]

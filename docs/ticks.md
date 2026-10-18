@@ -96,7 +96,7 @@ keep the fixed W,E,D,U,N,S order and the position-dependent dust order.
 | an observer SEES a 0-tick (the cell changed twice inside the phase): one pulse 2 gt later | `ObserverBlock.updateShape` 67-68 | `zero-tick-observer` | PASS |
 | a 0-tick POWER pulse (source placed and removed inside one phase): lamp lit 0..4 gt, repeater stretches it to its delay (on 2 gt later), comparator swallows it; a piston next to the source moves only if its event is queued before the one that removes the source (it is then 0-ticked itself) | `DiodeBlock.tick` 50-63, `ComparatorBlock` 145-146, `RedstoneLampBlock` 36 | `zero-tick-pulse` | PASS |
 | event order = update order (W,E,D,U,N,S), FIFO; a piston whose front became a moving block meanwhile does nothing | `runBlockEvents` 1270-1271, `moveBlocks` returns false | `event-order` | PASS |
-| a powered piston carried onto a powered spot by a LANDING fires next tick (landing is in the block-entity phase) | `onPlace` | `landing-fire` (existing) | (vanilla-check of doors) |
+| a powered piston carried onto a powered spot by a LANDING fires next tick (landing is in the block-entity phase) | `onPlace` | `landing-fire` (existing) | PASS |
 | a quasi-powered piston ignores its source until any neighbor update (BUD); arming one silently is how 0-tick partners wait | `getNeighborSignal` 116-136 | `qc-bud`, `silent-hold` (existing), every 0-tick gadget | PASS |
 
 **Constraint for doors:** a BUD-armed (powered, not yet updated) piston cannot exist in the REST
@@ -115,10 +115,10 @@ next to the quasi cell (its updates reach only its own neighbors).
 | a spit block is placed in the block-event phase of the retract tick: pistons it powers act THAT tick (one tick earlier than a landing) | `checkIfExtend` 108 (`isHandlingTick`) | `spit-saves-tick`, `spit` (existing) | PASS |
 | so a PUSHED block arrives after 0 gt (0-tick), 1 gt (its sticky pusher unpowered in the next tick's scheduled or block-event phase: spit at t+1), or 2 gt (spit at t+2 in the block-event phase, or landing in the block-entity phase); a PULLED or dragged block always after 2 gt (landing) | 101-110, 180-190 | `zero-tick`, `spit-saves-tick`, `landing-next-tick` | PASS |
 | an observer watching a cell a k1 piston changes fires k3..k5; chains stay odd (k5, k7...) | observer 2 gt from the block-event phase | `odd-observer` | PASS |
-| a repeater reading a redstone block a k1 piston moves falls at k1+2d; a note block turns that edge into a state change an observer sees | `DiodeBlock` 84-99 | `odd-pulse` (existing, speed-2) | (door vanilla-check) |
+| a repeater reading a redstone block a k1 piston moves falls at k1+2d; a note block turns that edge into a state change an observer sees | `DiodeBlock` 84-99 | `odd-pulse` (existing, speed-2) | PASS |
 | **1 gt scheduled ticks**: persistent leaves recompute `distance` 1 gt after a neighbor change (also scaffolding, and 26.3's survival checks of sugar cane/cactus/bamboo/kelp/chorus, which break blocks); a piston at k1 -> leaves at k2 -> observer k4; a piston at k2 (even) -> leaves k3 (odd) | `LeavesBlock` 102, `ScaffoldingBlock` 83/103 | `leaves-delay` | PASS |
 | water spreads every 5 gt, lava 30 (fluid ticks) | `fluidTicks.tick` 396 | - | - |
-| sculk sensors wake floor(distance) gt after a vibration, in the block-entity phase (any parity, category sculk) | `SculkSensorBlock` 190/208 | `sculk-delay-line`, `sculk-hold` (existing) | (door vanilla-check) |
+| sculk sensors wake floor(distance) gt after a vibration, in the block-entity phase (any parity, category sculk) | `SculkSensorBlock` 190/208 | `sculk-delay-line`, `sculk-hold` (existing) | PASS (sculk-delay-line, sculk-hold-cm) |
 
 ## 5. Components: timing table (all from the 26.3 source)
 
@@ -202,8 +202,8 @@ out), in parallel with C.
 k0 and an observer chain at k4): 9 stone door blocks, 7 plain pullers, the 4 reach-through
 pullers with their partners and the 2 aside pullers. The opening is full at k3 (T and C sit in
 the top edge cells) and clear from k4 on; vanilla: section 8. What remains for a real door: wire
-the inputs (lever, instant-off line, arming paths after the flip, the k4 observer chain) and
-build the close (next section).
+the inputs (lever, instant-off line, arming paths after the flip, the k4 observer chain); the
+close of the same machine is built with ideal inputs too (`open-4-cycle`, next section).
 
 The speed track's topology (T pulled into E at k1, lands k3; a pusher shoves [A', T] at k4 so a
 puller takes E; C into T's cell at k4, out at k7) has floor 7; the best wired door opens at 10.
@@ -265,6 +265,9 @@ observer chain for k4 and for each close tick) is the next step (tick-door track
   it can shove away.
 * Use one update to order several pistons (W,E,D,U,N,S), or chain them through their own moves:
   every piston action updates its base's and front cell's neighbors.
+* Two chains of events started together interleave in the FIFO queue (each event appends its
+  follow-ups at the end): if chain B needs chain A's result, start B from A's last action (a
+  relay) or one tick later. A piston whose push fails when its event runs never retries.
 
 ## 8. Vanilla confirmation
 
@@ -282,3 +285,11 @@ positions. Logs: `designs/piston-door-3x3/tracks/tick-study/logs/`.
 | center-exit, double-move | PASS, identical at 4 positions |
 | open-4, open-4-cycle, center-return, corner-return | PASS, identical at 4 positions |
 | event-order, button-pulse | PASS, identical at 4 positions |
+
+The rest of the library was run through the same tool (logs/vanilla-gadget-library.log): the 25
+older gadgets whose scripts only `use` levers (bulb-pulse, bulb-toggle, dual-edge, dust-below,
+early-window, flag-observer, head-qc, hold-2rep, lamp-fall-delay, landing-fire, lever-observer,
+note-watch, observer-delay, odd-pulse, order-flip, pulse-bridge, pulse-stretch, pulse-toggle,
+pump, repeater-lock, sculk-delay-line, sculk-hold-cm, slime-rider, spit, target-tap) are all PASS,
+identical at 4 positions. The other 15 use the simulator's own `set`/`clear` placement (no vanilla
+twin); rewriting their inputs with `setblock` would let the tool check them too.
