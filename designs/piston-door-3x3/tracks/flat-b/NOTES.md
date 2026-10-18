@@ -4,7 +4,8 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 
 | file | blocks | open/close | note |
 |---|---|---|---|
-| v3.txt = BEST.txt (archive/flat-b-v3-47b.txt) | 47 | 32 / 30 | v2 with the lever hanging under the observer that watches it (no floor) |
+| v5.txt = BEST.txt (archive/flat-b-v5-46b.txt) | 46 | 32 / 28 | the top pair fired from TL's rest-cell watcher (0,3) (5 observers + stone) instead of the long chain over the left stack |
+| v3.txt (archive/flat-b-min-47b.txt) | 47 | 32 / 30 | v2 with the lever hanging under the observer that watches it (no floor) |
 | v2.txt (archive/flat-b-v2-48b.txt) | 48 | 32 / 30 | center goes DOWN (elevator below the door), top pair up, one observer chain |
 
 ## Mechanism `cd19` (19 blocks): the center goes DOWN, the elevator sits below the door
@@ -19,6 +20,16 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
   pist19r's late M), left/right columns anytime.
 - Why down: the late piston is now at the TOP, where QC lets ONE powered block at (1,5) fire every
   puller facing down at y=4 ((1,4) directly, (0,4)/(2,4) through their quasi cells (0,5)/(2,5)).
+
+## Control of v5 (27 blocks)
+- Bottom cluster (12): as v2 below, but the lever hangs under the observer (2,-3) (face=ceiling).
+- Left feed (7): (-2,-3) east watches the R_B-input dust (t6), (-3,-3) east, (-3,-2..0) down,
+  stone (-3,1) + dust (-3,2) on it: the left 3-stack at t14.
+- Top (6): TL's rest-cell watcher (0,3) facing down (TL leaves (0,2) at t16 on open / is pushed
+  back at t14 on close: one pulse per edge), (0,4) down, (-1,4) east, (-1,5) down, (0,5) west ->
+  stone (1,5): T's and TR's pullers at t26 (open) / t24 (close), after a3 (t22). The observers next
+  to the pullers all emit away from them and from their quasi cells.
+- Right pair (2): as v2.
 
 ## Control of v2 (29 blocks)
 Bottom cluster (13, lever included):

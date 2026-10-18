@@ -1,4 +1,4 @@
-name: flat-b-v3
+name: flat-b-v5
 port door: 0 0 0
 port lever: 2 -4 0
 origin: -4 0 0
@@ -30,8 +30,8 @@ layer 1:
 layer 2:
   .XE.CCCwC
 layer 3:
-  .d
+  ....d
 layer 4:
-  .d...DD
+  ...edDD
 layer 5:
-  .dwwwC
+  ...dwC

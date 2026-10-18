@@ -1,4 +1,6 @@
-name: flat-b-min
+# verified WORKS: 46 blocks, open after 32 ticks, closed after 28 ticks
+# archived 2026-10-18 13:13Z from designs/piston-door-3x3/tracks/flat-b/v5.txt (repo at a53baf8)
+name: flat-b-v5
 port door: 0 0 0
 port lever: 2 -4 0
 origin: -3 0 0
@@ -30,8 +32,8 @@ layer 1:
 layer 2:
   rs.EEEAE
 layer 3:
-  O
+  ...O
 layer 4:
-  O...SS
+  ..oOSS
 layer 5:
-  OAAAE
+  ..OAE
