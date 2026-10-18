@@ -45,6 +45,12 @@ pub struct SearchArgs {
     pub walk: usize,
     #[arg(long, default_value_t = 1)]
     pub seed: u64,
+    /// What to minimize: blocks, or worst-cycle ticks then blocks: open, close, total (open+close).
+    #[arg(long, default_value = "blocks")]
+    pub objective: String,
+    /// Speed objectives: allow up to this many blocks more than the start design.
+    #[arg(long, default_value_t = 0)]
+    pub slack: usize,
 }
 
 impl SearchArgs {
@@ -66,6 +72,8 @@ impl SearchArgs {
             walk: self.walk,
             deadline: None,
             seed: self.seed,
+            objective: crate::search::parse_objective(&self.objective)?,
+            slack: self.slack,
         })
     }
 

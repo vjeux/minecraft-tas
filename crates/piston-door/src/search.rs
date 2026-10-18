@@ -102,6 +102,10 @@ pub struct SearchOptions {
     pub walk: usize,
     pub deadline: Option<Instant>,
     pub seed: u64,
+    /// What to minimize (blocks by default).
+    pub objective: Objective,
+    /// Speed objectives: allow up to this many blocks more than the start design.
+    pub slack: usize,
 }
 
 impl SearchOptions {
@@ -1082,10 +1086,48 @@ fn routed(opts: &SearchOptions, designs: &[Design], swept: &[Space]) -> Vec<(Vec
 }
 
 enum Screen {
-    Pass,
+    Pass((u32, u32)),
     Fail,
     Skip,
     Error(String),
+}
+
+/// What the search minimizes, lexicographically: blocks, or worst-cycle ticks (open, close,
+/// open + close) then blocks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Objective {
+    Blocks,
+    Open,
+    Close,
+    Total,
+}
+
+pub fn parse_objective(s: &str) -> Result<Objective> {
+    Ok(match s {
+        "blocks" => Objective::Blocks,
+        "open" => Objective::Open,
+        "close" => Objective::Close,
+        "total" | "open+close" => Objective::Total,
+        _ => anyhow::bail!("unknown objective {s:?}; have blocks, open, close, total"),
+    })
+}
+
+/// Worst-cycle ticks (open, close) of a judge report, as the speed leaderboards count them.
+pub fn worst_ticks(r: &crate::Report) -> (u32, u32) {
+    let open = r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(9999);
+    let close = r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(9999);
+    (open, close)
+}
+
+fn objective_key(obj: Objective, d: &Design, r: &crate::Report) -> (u32, u32) {
+    let b = block_count(d) as u32;
+    let (open, close) = worst_ticks(r);
+    match obj {
+        Objective::Blocks => (b, 0),
+        Objective::Open => (open, b),
+        Objective::Close => (close, b),
+        Objective::Total => (open + close, b),
+    }
 }
 
 /// Screen then judge `cands`; returns the judge-passing designs, best (fewest blocks) first,
@@ -1100,9 +1142,32 @@ fn evaluate(
     want: usize,
     log: &dyn Fn(&str),
 ) -> Vec<(usize, Design, String)> {
+    evaluate_with(pool, sandboxes, bases, cands, opts, failed, want, None, log)
+}
+
+/// [`evaluate`], or with `bar` (speed objectives): keep only candidates whose objective key
+/// beats `bar`, at the screen (estimated from its first cycle) and at the judge; results by key.
+#[allow(clippy::too_many_arguments)]
+fn evaluate_with(
+    pool: &Pool,
+    sandboxes: &Sandboxes,
+    bases: &[Design],
+    cands: Vec<Cand>,
+    opts: &SearchOptions,
+    failed: &Mutex<HashSet<u64>>,
+    want: usize,
+    bar: Option<(u32, u32)>,
+    log: &dyn Fn(&str),
+) -> Vec<(usize, Design, String)> {
     let t = Instant::now();
     let n = cands.len();
     let batch_seen: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
+    let rank = |d: &Design, r: &crate::Report| -> (u32, u32) {
+        match bar {
+            Some(_) => objective_key(opts.objective, d, r),
+            None => (block_count(d) as u32, 0),
+        }
+    };
     let results = pool.map((0..n).collect(), |w, wi, i| {
         let c = &cands[i];
         let d = c.edit.apply(&bases[c.base]);
@@ -1112,7 +1177,13 @@ fn evaluate(
         }
         let sb = sandboxes.get(w, wi)?;
         match verify_in(w, sb, &d, &opts.screen) {
-            Ok(_) => Ok(Screen::Pass),
+            Ok(r) => {
+                let k = rank(&d, &r);
+                if bar.is_some_and(|b| k >= b) {
+                    return Ok(Screen::Fail);
+                }
+                Ok(Screen::Pass(k))
+            }
             Err(e) => {
                 let msg = format!("{e:#}");
                 if msg.contains("bridge exited") || msg.contains("Broken pipe") {
@@ -1123,12 +1194,12 @@ fn evaluate(
             }
         }
     });
-    let mut pass: Vec<usize> = Vec::new();
+    let mut pass: Vec<(usize, (u32, u32))> = Vec::new();
     let (mut skipped, mut errors) = (0, 0);
     for (i, r) in results.into_iter().enumerate() {
         let err = match r {
-            Ok(Screen::Pass) => {
-                pass.push(i);
+            Ok(Screen::Pass(k)) => {
+                pass.push((i, k));
                 None
             }
             Ok(Screen::Skip) => {
@@ -1147,9 +1218,9 @@ fn evaluate(
         }
     }
     let screen_time = t.elapsed().as_secs_f64();
-    // Judge the survivors, fewest blocks first, a pool-sized chunk at a time.
-    let count = |i: usize| block_count(&cands[i].edit.apply(&bases[cands[i].base]));
-    pass.sort_by_key(|&i| count(i));
+    // Judge the survivors, best key first, a pool-sized chunk at a time.
+    pass.sort_by_key(|&(i, k)| (k, i));
+    let pass: Vec<usize> = pass.into_iter().map(|(i, _)| i).collect();
     let mut verified = Vec::new();
     let chunk = pool.len().max(1);
     let mut judged = 0;
@@ -1158,12 +1229,13 @@ fn evaluate(
             let c = &cands[i];
             let d = c.edit.apply(&bases[c.base]);
             let sb = sandboxes.get(w, wi)?;
-            Ok(verify_in(w, sb, &d, &opts.judge).map(|_| d).map_err(|e| format!("{e:#}")))
+            Ok(verify_in(w, sb, &d, &opts.judge).map(|r| (rank(&d, &r), d)).map_err(|e| format!("{e:#}")))
         });
         judged += part.len();
         for (&i, r) in part.iter().zip(res) {
             match r {
-                Ok(Ok(d)) => verified.push((cands[i].base, d, cands[i].edit.desc.clone())),
+                Ok(Ok((k, d))) if bar.is_none_or(|b| k < b) => verified.push((k, cands[i].base, d, cands[i].edit.desc.clone())),
+                Ok(Ok(_)) => {}
                 Ok(Err(_)) => {
                     let d = cands[i].edit.apply(&bases[cands[i].base]);
                     failed.lock().unwrap().insert(design_hash(&d));
@@ -1178,7 +1250,7 @@ fn evaluate(
             break;
         }
     }
-    verified.sort_by_key(|(_, d, _)| block_count(d));
+    verified.sort_by_key(|(k, _, _, _)| *k);
     log(&format!(
         "  {n} candidates: {skipped} seen, {} screened in {screen_time:.1}s, {} passed the screen, {judged} judged, {} passed the judge ({:.1}s){}",
         n - skipped - errors,
@@ -1187,7 +1259,7 @@ fn evaluate(
         t.elapsed().as_secs_f64(),
         if errors > 0 { format!(", {errors} worker errors") } else { String::new() }
     ));
-    verified
+    verified.into_iter().map(|(_, b, d, s)| (b, d, s)).collect()
 }
 
 fn rand_next(state: &mut u64) -> u64 {
@@ -1199,14 +1271,20 @@ fn rand_next(state: &mut u64) -> u64 {
 
 /// Canonicalize a verified design (true rest states) and keep it if it still passes the judge.
 fn finalize(pool: &Pool, sandboxes: &Sandboxes, d: Design, opts: &SearchOptions, log: &dyn Fn(&str)) -> Result<Design> {
+    Ok(finalize_report(pool, sandboxes, d, opts, log)?.0)
+}
+
+/// [`finalize`], with the judge report of the kept design.
+fn finalize_report(pool: &Pool, sandboxes: &Sandboxes, d: Design, opts: &SearchOptions, log: &dyn Fn(&str)) -> Result<(Design, crate::Report)> {
     let mut w = pool.worker(0);
     let canon = crate::canonicalize(&mut w, &d)?;
     let sb = sandboxes.get(&mut w, 0)?;
     match verify_in(&mut w, sb, &canon, &opts.judge) {
-        Ok(_) => Ok(canon),
+        Ok(r) => Ok((canon, r)),
         Err(e) => {
             log(&format!("  canonical form fails the judge ({e:#}); keeping the design as edited"));
-            Ok(d)
+            let r = verify_in(&mut w, sb, &d, &opts.judge)?;
+            Ok((d, r))
         }
     }
 }
@@ -1222,12 +1300,19 @@ pub fn search(
     let sandboxes = Sandboxes::new(pool);
     let mut rng = opts.seed.max(1);
     let mut cur = start.clone();
-    {
+    let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;
-        verify_in(&mut w, sb, &cur, &opts.judge).context("the start design fails the judge")?;
-    }
-    log(&format!("start: {} blocks, passes the judge ({} positions x {} cycles)", block_count(&cur), opts.judge.offsets.len(), opts.judge.cycles));
+        verify_in(&mut w, sb, &cur, &opts.judge).context("the start design fails the judge")?
+    };
+    let mut cur_key = objective_key(opts.objective, &cur, &start_report);
+    let (o, c) = worst_ticks(&start_report);
+    log(&format!(
+        "start: {} blocks, open {o} close {c} ticks, passes the judge ({} positions x {} cycles)",
+        block_count(&cur),
+        opts.judge.offsets.len(),
+        opts.judge.cycles
+    ));
     let failed: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
     let mut visited: HashSet<u64> = [design_hash(&cur)].into_iter().collect();
     let mut walk_left = opts.walk;
@@ -1270,6 +1355,28 @@ pub fn search(
             n_comp,
             neutral.len()
         ));
+        if opts.objective != Objective::Blocks {
+            // Speed: every edit within the block budget; keep the best key that beats the current.
+            let limit = block_count(start) + opts.slack;
+            let mut all = improving;
+            all.extend(neutral_all);
+            let cands: Vec<Cand> = all.into_iter().filter(|e| block_count(&e.apply(&cur)) <= limit).map(|edit| Cand { base: 0, edit }).collect();
+            let bases = vec![cur.clone()];
+            let verified = evaluate_with(pool, &sandboxes, &bases, cands, opts, &failed, 1, Some(cur_key), log);
+            let Some((_, best, desc)) = verified.into_iter().next() else { break };
+            let (d, r) = finalize_report(pool, &sandboxes, best, opts, log)?;
+            let k = objective_key(opts.objective, &d, &r);
+            if k >= cur_key {
+                log("  the canonical form is not better; stopping");
+                break;
+            }
+            let (o, c) = worst_ticks(&r);
+            log(&format!("  accepted: {desc} -> open {o}, close {c}, {} blocks", block_count(&d)));
+            cur = d;
+            cur_key = k;
+            on_improve(&cur, &format!("{desc}; open {o} close {c} ticks"))?;
+            continue;
+        }
         let bases = vec![cur.clone()];
         let cands: Vec<Cand> = improving.into_iter().map(|edit| Cand { base: 0, edit }).collect();
         let edits: Vec<Edit> = cands.iter().map(|c| c.edit.clone()).collect();
