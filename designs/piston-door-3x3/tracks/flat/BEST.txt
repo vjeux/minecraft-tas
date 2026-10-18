@@ -1,39 +1,38 @@
-name: flat-v2
+name: flat-v5
 port door: 0 0 0
 port lever: 4 5 0
-origin: -5 0 0
+origin: -3 0 0
 palette:
   A minecraft:observer[facing=up,powered=false]
   B minecraft:observer[facing=west,powered=false]
-  C minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
-  D minecraft:sticky_piston[extended=false,facing=east]
-  E minecraft:sticky_piston[extended=false,facing=up]
-  F minecraft:sticky_piston[extended=false,facing=west]
-  G minecraft:stone
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:stone
   L minecraft:lever[face=floor,facing=west,powered=false]
   O minecraft:observer[facing=down,powered=false]
   R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   S minecraft:smooth_stone
   o minecraft:observer[facing=east,powered=false]
-  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
   s minecraft:sticky_piston[extended=false,facing=down]
 layer -2:
-  .....GE
+  ...FD
 layer -1:
-  .....A
+  ...A
 layer 0:
-  ...D.GGG.F
+  .C.FFF.E
 layer 1:
-  ..GD.GGG.FS
+  SC.FFF.ES
 layer 2:
-  ..rD.GGG.FA
+  AC.FFF.EA
 layer 3:
-  ..A..G..F.A
+  ooAF..E.A
 layer 4:
-  ABB..rsooAB
+  .ABRsooAB
 layer 5:
-  ooooAAs.AL
+  .oAAs.AL
 layer 6:
-  ....RC..AO
+  ..Rr..AO
 layer 7:
-  ....GooooO
+  ..FooooO
