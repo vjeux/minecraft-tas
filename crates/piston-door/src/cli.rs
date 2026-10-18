@@ -103,6 +103,9 @@ pub enum DoorCmd {
         /// With --plateau, also try pair removals after each verified neutral edit.
         #[arg(long)]
         plateau_pairs: bool,
+        /// Plateau depth (implies --plateau when 2): also a second neutral edit after each first.
+        #[arg(long, default_value_t = 1)]
+        depth: usize,
         /// Random-walk steps over verified neutral designs without improving (implies --plateau).
         #[arg(long, default_value_t = 0)]
         walk: usize,
@@ -276,6 +279,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             radius,
             plateau,
             plateau_pairs,
+            depth,
             walk,
             minutes,
             archive,
@@ -299,8 +303,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 },
                 judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
                 radius,
-                plateau: plateau || plateau_pairs || walk > 0,
+                plateau: plateau || plateau_pairs || walk > 0 || depth > 1,
                 plateau_pairs,
+                depth,
                 walk,
                 deadline: minutes.map(|m| t + std::time::Duration::from_secs_f64(m * 60.0)),
                 seed,

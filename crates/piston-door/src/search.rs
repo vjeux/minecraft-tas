@@ -29,7 +29,7 @@ use anyhow::{Context, Result, anyhow};
 use mctas::blockstate::BlockState;
 use mctas::design::Design;
 use mctas::sim::{Pool, Pos};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -93,6 +93,8 @@ pub struct SearchOptions {
     pub plateau: bool,
     /// ... followed by pair removals too (singles only otherwise).
     pub plateau_pairs: bool,
+    /// Plateau depth: 2 also tries a second neutral edit after each verified first one.
+    pub depth: usize,
     /// Random-walk steps over verified neutral designs allowed without improving.
     pub walk: usize,
     pub deadline: Option<Instant>,
@@ -191,9 +193,20 @@ fn is_support(s: &str) -> bool {
         "redstone_wire" | "repeater" | "comparator" | "redstone_torch" | "redstone_wall_torch" | "lever" | "piston_head" | "moving_piston"
     )
 }
-/// Plain building blocks: no behavior of their own besides holding things up and conducting.
+/// Plain building blocks: full blocks with no behavior of their own besides holding things up
+/// and conducting (a name-based denylist of mechanism, partial and gravity blocks).
 fn is_plain(s: &str) -> bool {
-    matches!(kind(s), "smooth_stone" | "stone" | "glass" | "cobblestone" | "stone_bricks" | "dirt")
+    const MECH: [&str; 22] = [
+        "air", "redstone_wire", "repeater", "comparator", "redstone_torch", "redstone_wall_torch", "lever", "piston", "sticky_piston",
+        "piston_head", "moving_piston", "slime_block", "honey_block", "observer", "redstone_block", "redstone_lamp", "target",
+        "dispenser", "dropper", "hopper", "note_block", "tnt",
+    ];
+    const PARTIAL: [&str; 26] = [
+        "slab", "stairs", "wall", "fence", "door", "button", "plate", "rail", "torch", "sign", "carpet", "pane", "bars", "chain",
+        "lantern", "ladder", "leaves", "sand", "gravel", "powder", "bulb", "sculk", "daylight", "lectern", "chest", "rod",
+    ];
+    let k = kind(s);
+    !MECH.contains(&k) && !PARTIAL.iter().any(|x| k.contains(x))
 }
 /// Approximation of `isRedstoneConductor` (cuts dust steps).
 fn is_conductor(s: &str) -> bool {
@@ -531,6 +544,19 @@ fn router_box(d: &Design) -> (Pos, Pos) {
     ([lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3])
 }
 
+/// The router stands dust only on smooth stone: show it every plain block outside the door as
+/// smooth stone (edits keep the real blocks).
+fn router_view(d: &Design, blocks: &BTreeMap<Pos, String>) -> BTreeMap<Pos, String> {
+    let door: HashSet<Pos> = DoorSpec::from_design(d).map(|s| s.door_cells().into_iter().collect()).unwrap_or_default();
+    blocks
+        .iter()
+        .map(|(p, s)| {
+            let plain = is_plain(s) && !door.contains(p) && kind(s) != "smooth_stone";
+            (*p, if plain { crate::route::FLOOR.to_string() } else { s.clone() })
+        })
+        .collect()
+}
+
 /// Cells new wiring may not use: what the machine sweeps while it runs, the door and walkway.
 fn reserved_cells(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> HashSet<Pos> {
     let mut reserved: HashSet<Pos> = swept.iter().filter(|p| !d.blocks.contains_key(*p)).copied().collect();
@@ -690,7 +716,7 @@ fn resynth(d: &Design, g: &HashMap<Pos, Vec<Pos>>, net: &[Pos], terminals: &[Pos
             out
         };
         for &root in terminals {
-            let mut blocks = after.blocks.clone();
+            let mut blocks = router_view(d, &after.blocks);
             let mut tree = group(root);
             let mut remaining: Vec<Pos> = terminals.iter().copied().filter(|t| !tree.contains(t)).collect();
             let mut added: Vec<(Pos, String)> = Vec::new();
@@ -794,7 +820,8 @@ fn reroutes(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit
             for p in &rip {
                 allow.remove(p);
             }
-            let router = Router { blocks: &after.blocks, reserved: reserved.clone(), allow, lo, hi };
+            let view = router_view(d, &after.blocks);
+            let router = Router { blocks: &view, reserved: reserved.clone(), allow, lo, hi };
             let Some(path) = router.route(&start, goal) else { continue };
             let mut e = Edit { remove: rip.clone(), set: Vec::new(), desc: String::new() };
             for (p, s) in &path {
@@ -1115,6 +1142,41 @@ pub fn search(
             on_improve(&cur, &desc)?;
             walk_left = opts.walk;
             continue;
+        }
+        if opts.depth >= 2 && !opts.timed_out() {
+            // Level 2: neutral edits of every level-1 design, then single removals after those.
+            let mut cands = Vec::new();
+            for (i, b) in pbases.iter().enumerate() {
+                let c = Ctx::new(b)?;
+                for edit in neutral_edits(&c, b, opts) {
+                    cands.push(Cand { base: i, edit });
+                }
+            }
+            log(&format!("  plateau level 2: judging {} neutral edits of the level-1 designs", cands.len()));
+            let level2: Vec<(usize, Design, String)> = evaluate(pool, &sandboxes, &pbases, cands, opts, &failed, 0, log)
+                .into_iter()
+                .filter(|(_, d, _)| block_count(d) == block_count(&cur) && visited.insert(design_hash(d)))
+                .collect();
+            let l2bases: Vec<Design> = level2.iter().map(|(_, d, _)| d.clone()).collect();
+            let mut cands = Vec::new();
+            for (i, b) in l2bases.iter().enumerate() {
+                let c = Ctx::new(b)?;
+                for edit in removals(&c, b, true, false, false, opts.radius) {
+                    cands.push(Cand { base: i, edit });
+                }
+            }
+            log(&format!("  plateau level 2: {} verified designs, {} removals after them", l2bases.len(), cands.len()));
+            let found = evaluate(pool, &sandboxes, &l2bases, cands, opts, &failed, 1, log);
+            if let Some((bi, best, desc)) = found.into_iter().next() {
+                let (b1, _, d2) = &level2[bi];
+                let desc = format!("{} then {d2} then {desc}", plateau[*b1].2);
+                log(&format!("  accepted: {desc} -> {} blocks", block_count(&best)));
+                cur = finalize(pool, &sandboxes, best, opts, log)?;
+                visited.insert(design_hash(&cur));
+                on_improve(&cur, &desc)?;
+                walk_left = opts.walk;
+                continue;
+            }
         }
         if walk_left == 0 {
             break;
