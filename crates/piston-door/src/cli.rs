@@ -107,6 +107,84 @@ pub enum DoorCmd {
         /// GitHub release tag to upload each new video to.
         #[arg(long)]
         upload: Option<String>,
+        /// Look of the videos: `card` (title card, door camera swinging around the door,
+        /// block-count label), `clean` (the same camera, no card or label) or `classic` (the
+        /// original still camera framing the whole build).
+        #[arg(long, default_value = "card")]
+        style: String,
+        /// Orbit amplitude of the door camera in degrees each way (0 = still).
+        #[arg(long, default_value_t = 20.0)]
+        orbit: f64,
+        /// Re-record videos that already exist.
+        #[arg(long)]
+        redo: bool,
+    },
+    /// Draw the title card (and the corner label, as a transparent PNG) of a design's video,
+    /// without recording anything.
+    Card {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Also write the label overlay here.
+        #[arg(long)]
+        label: Option<PathBuf>,
+    },
+    /// The best design of each board (solid, slime-free, sculk, gravity, fastest solid) as a
+    /// looping GIF (door camera, real client) plus a markdown page linking them with one line
+    /// per design (blocks, category, ticks, how it works from CAPTIONS.md / the archive README).
+    Gallery {
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        archive: PathBuf,
+        /// Folder for the clips and GIFs (rendered when missing).
+        #[arg(long)]
+        videos: PathBuf,
+        #[arg(long, default_value = "designs/piston-door-3x3/GALLERY.md")]
+        out: PathBuf,
+        /// GitHub release tag to upload the GIFs and clips to.
+        #[arg(long)]
+        upload: Option<String>,
+        /// Client renders at once.
+        #[arg(long, default_value_t = 2)]
+        jobs: usize,
+        /// Worker JVMs to verify archived designs missing from the verdict cache.
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Camera orbit in degrees each way (0 = still: an orbiting GIF is ~10x larger).
+        #[arg(long, default_value_t = 0.0)]
+        orbit: f64,
+        #[arg(long, default_value_t = 640)]
+        gif_width: u32,
+        #[arg(long, default_value_t = 15)]
+        gif_fps: u32,
+        /// GIF playback speed (clips are recorded at 10 ticks/s: 2 = game speed).
+        #[arg(long, default_value_t = 1.5)]
+        speed: f64,
+        /// Re-render clips and GIFs that exist.
+        #[arg(long)]
+        redo: bool,
+    },
+    /// The solid record progression (archive README's table, plus a newer record) as one video:
+    /// every design filmed by the same camera, labeled with its block count and how it got there.
+    Montage {
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        archive: PathBuf,
+        /// Folder for the clips and segments.
+        #[arg(long)]
+        videos: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// GitHub release tag to upload the video to (as solid-progression.mp4).
+        #[arg(long)]
+        upload: Option<String>,
+        #[arg(long, default_value_t = 2)]
+        jobs: usize,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Playback speed of the clips (2 = game speed).
+        #[arg(long, default_value_t = 2.0)]
+        speed: f64,
+        #[arg(long)]
+        redo: bool,
     },
     /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
     Leaderboard {
@@ -293,6 +371,16 @@ pub enum DoorCmd {
         /// Upload to this GitHub release tag of vjeux/minecraft-tas.
         #[arg(long)]
         upload: Option<String>,
+        /// `card` (title card, door camera swinging around the door, block-count label),
+        /// `clean` (same camera, no card or label) or `classic` (still camera, whole build).
+        #[arg(long, default_value = "card")]
+        style: String,
+        /// Orbit amplitude of the door camera in degrees each way (0 = still).
+        #[arg(long, default_value_t = 20.0)]
+        orbit: f64,
+        /// Frame size, WIDTHxHEIGHT.
+        #[arg(long, default_value = "1280x720")]
+        size: String,
     },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
@@ -356,8 +444,32 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
-        DoorCmd::VideoAll { dir, out, jobs, upload } => {
-            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref())?;
+        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo } => {
+            let opts = video_style(&style, orbit)?;
+            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo)?;
+        }
+        DoorCmd::Card { design, out, label } => {
+            let d = load_design(&design)?;
+            let mut facts = crate::video::Facts::of(&d);
+            let mut w = Worker::spawn(&cfg)?;
+            if let Ok(r) = verify(&mut w, &d, &VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], ..Default::default() }) {
+                facts.open_ticks = r.cycles.first().map(|c| c.open_ticks);
+                facts.close_ticks = r.cycles.first().map(|c| c.close_ticks);
+            }
+            let look = crate::showcase::Look::load(version)?;
+            look.card(1280, 720, &crate::showcase::title_lines(&facts)).save_png(&out)?;
+            if let Some(p) = label {
+                look.label(1280, 720, &crate::showcase::label_lines(&facts), true, 0.6).save_png(&p)?;
+            }
+            println!("wrote {}", out.display());
+        }
+        DoorCmd::Gallery { archive, videos, out, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo } => {
+            let o = crate::showcase::GalleryOptions { archive, videos, out, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
+            crate::showcase::gallery(version, &o)?;
+        }
+        DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo } => {
+            let o = crate::showcase::MontageOptions { archive, videos, out, upload, jobs, workers, speed, redo };
+            crate::showcase::montage(version, &o)?;
         }
         DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
             let repo = std::path::Path::new(".");
@@ -584,9 +696,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("{line}\n{passes}/{times} passed in {} sandbox(es)", if fresh { "fresh" } else { "one reused" });
         }
-        DoorCmd::Video { design, out, tps, upload } => {
+        DoorCmd::Video { design, out, tps, upload, style, orbit, size } => {
             let d = load_design(&design)?;
-            let opts = crate::video::VideoOptions { tps, ..Default::default() };
+            let (width, height) = size.split_once('x').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))).ok_or_else(|| anyhow::anyhow!("--size wants WIDTHxHEIGHT"))?;
+            let opts = crate::video::VideoOptions { tps, width, height, ..video_style(&style, orbit)? };
             crate::video::record(version, &d, &out, &opts)?;
             println!("recorded {}", out.display());
             if let Some(tag) = upload {
@@ -657,6 +770,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Video options of a `--style` name.
+fn video_style(style: &str, orbit: f64) -> Result<crate::video::VideoOptions> {
+    use crate::video::{Camera, VideoOptions};
+    Ok(match style {
+        "card" => VideoOptions { camera: Camera::Door { orbit }, ..Default::default() },
+        "clean" => VideoOptions::clean(orbit),
+        "classic" => VideoOptions::classic(),
+        _ => anyhow::bail!("unknown --style {style} (card, clean or classic)"),
+    })
 }
 
 /// Load a design path, or a built-in design name prefixed with `@` (e.g. `@v1`).
