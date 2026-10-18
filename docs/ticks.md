@@ -14,8 +14,10 @@ flip (the flip happens between ticks, so the first tick after it is k1).
   through the center's exit cell); routing that edge block out through its corner instead lets the
   center start moving in tick 1, which is what makes 4 possible. On the close side, pistons
   carried into place by a 0-tick fire in the same tick: the center and the edge block come home
-  with every move placed (`center-return`, `corner-return`): **close 3** with the moves ordered by
-  tick boundaries, close 1 with same-tick relays.
+  with every move placed (`center-return`, `corner-return`). **The same machine opens in 4 and
+  closes in 4 (`open-4-cycle`, ideal inputs, vanilla-identical)**: one carried-piston chain per
+  tick (two chains started at one tick boundary interleave in the FIFO queue); same-tick relays
+  would bring the close to 1-3.
 * **The open floor is exactly the center**: it needs two moves; a pull (or drag, or plain push)
   lands 2 gt after it starts and can move again 1 gt later, so the second move is >= 3 gt after
   the first; a push can be finalized at once (0-tick), but its pusher then sits inside the
@@ -110,6 +112,7 @@ next to the quasi cell (its updates reach only its own neighbors).
 | pistons the lever powers directly move at k1 | lever between ticks, events in tick 1 | every lever gadget | PASS |
 | a block pushed at t lands at t+2 in the block-entity phase, after that tick's block events: pistons it powers act at t+3 (k1 push -> k4), components it feeds schedule from t+2 (repeater delay 1: k5) | `ServerLevel.tick` 409 vs 459 | `landing-next-tick` | PASS |
 | a spit block is placed in the block-event phase of the retract tick: pistons it powers act THAT tick (one tick earlier than a landing) | `checkIfExtend` 108 (`isHandlingTick`) | `spit-saves-tick`, `spit` (existing) | PASS |
+| so a PUSHED block arrives after 0 gt (0-tick), 1 gt (its sticky pusher unpowered in the next tick's scheduled or block-event phase: spit at t+1), or 2 gt (spit at t+2 in the block-event phase, or landing in the block-entity phase); a PULLED or dragged block always after 2 gt (landing) | 101-110, 180-190 | `zero-tick`, `spit-saves-tick`, `landing-next-tick` | PASS |
 | an observer watching a cell a k1 piston changes fires k3..k5; chains stay odd (k5, k7...) | observer 2 gt from the block-event phase | `odd-observer` | PASS |
 | a repeater reading a redstone block a k1 piston moves falls at k1+2d; a note block turns that edge into a state change an observer sees | `DiodeBlock` 84-99 | `odd-pulse` (existing, speed-2) | (door vanilla-check) |
 | **1 gt scheduled ticks**: persistent leaves recompute `distance` 1 gt after a neighbor change (also scaffolding, and 26.3's survival checks of sugar cane/cactus/bamboo/kelp/chorus, which break blocks); a piston at k1 -> leaves at k2 -> observer k4; a piston at k2 (even) -> leaves k3 (odd) | `LeavesBlock` 102, `ScaffoldingBlock` 83/103 | `leaves-delay` | PASS |
@@ -136,7 +139,7 @@ next to the quasi cell (its updates reach only its own neighbors).
 | daylight detector | time of day | updated every 20 gt (game time % 20 == 0) | block-entity phase | locked to absolute time; constant with `advance_time` off | - |
 | bell | rising edge | rings at once, no redstone output | in the update | vibration | - |
 | sculk sensor | vibration | active after floor(distance), 30 gt (calibrated 10), cooldown 10 | block-entity phase | category sculk | `sculk-hold`, `sculk-delay-line` |
-| piston | power | see section 2: event this tick if powered by the lever or by anything in phases 3-5, next tick if powered in phase 8 or between... (lever: tick 1) | block-event phase | | all |
+| piston | power | powered between ticks (lever) or in the scheduled or block-event phase: acts in that tick's block-event phase (lever: tick 1); powered in the block-entity phase (a landing): next tick | block-event phase | moved blocks: section 2 | all |
 | persistent leaves | neighbor change | 1 | scheduled | the only clean 1 gt element without a block that breaks | `leaves-delay` |
 
 "1-tick" in the redstone community usually means one REDSTONE tick (2 gt, an observer pulse);
@@ -209,37 +212,45 @@ Close is measured on placed blocks, so a 0-tick placement counts in the tick it 
 close >= 1 (nothing moves before tick 1). C needs 2 moves in (E -> T's cell -> center) and T must
 enter its cell after C went through:
 
-* **close 1-2 (in principle)**: C pushed E -> T's cell by a 0-ticked piston above E (C placed:
-  `zero-tick`), a piston carried into E by a 0-tick fires in the same phase (`zero-tick-onplace`)
-  and 0-ticks C into the center; **gadget `center-return` does this for the center: C placed in
-  the edge cell at k1 and in the center at k2** (the carried piston is ordered after E emptied by
-  the tick boundary; a relay would put it in k1, `double-move` shows two placed moves of one
-  block inside one tick). T comes back through its corner: pushed into the corner from the side
-  cell R by a 0-tick, a piston carried into R fires and 0-ticks T into its cell, the corner block
-  enters from the other side cell U. The carried pistons must be ordered AFTER the cell they
-  enter is emptied, which a 2-cell-away pusher cannot see directly: a relay (a piston next to the
-  cell that pushes a conductor off a dust step feeding the pusher: `instant-on`) does it in the
-  same tick, the tick boundary in the next. **Gadget `corner-return` does T's part: T placed in
-  the corner at k1 and in its own cell at k2 (pushed by a piston carried into R at k2), the corner
-  block placed at k3.** With tick-boundary ordering the top row is therefore home at k3 (C k2,
-  T k2, corner k3) while every other block is 0-ticked home at k1: **close 3 is built piecewise**
-  (`center-return` + `corner-return`, both vanilla-identical); relays instead of tick boundaries
-  would give close 1.
-* **close 4 (no instantly carried pistons)**: the same with the pistons for E and R carried there
-  at k1 by plain pushes (relay-ordered): they land at k3 and fire at k4 (onPlace): C placed at k4
-  by a 0-tick, then T, then the corner block, all at k4. Without relays (carried at k2 by an
-  observer pulse instead): close 5.
+* **close 1-3 (with same-tick relays)**: C pushed E -> T's cell by a 0-ticked
+  piston above E (C placed: `zero-tick`), a piston carried into E by a 0-tick fires in the same
+  phase (`zero-tick-onplace`) and 0-ticks C into the center; **gadget `center-return` does this
+  for the center: C placed in the edge cell at k1 and in the center at k2** (the carried piston is
+  ordered after E emptied by the tick boundary; a relay would put it in k1, `double-move` shows
+  two placed moves of one block inside one tick). T comes back through its corner: pushed into
+  the corner from the side cell R by a 0-tick, a piston carried into R fires and 0-ticks T into
+  its cell, the corner block enters from the other side cell U. The carried pistons must be
+  ordered AFTER the cell they enter is emptied, which a 2-cell-away pusher cannot see directly: a
+  relay (a piston next to the cell that pushes a conductor off a dust step feeding the pusher:
+  `instant-on`) does it in the same tick, the tick boundary in the next. **Gadget
+  `corner-return` does T's part: T placed in the corner at k1 and in its own cell at k2 (pushed by
+  a piston carried into R at k2), the corner block placed at k3.** Each piece works with
+  tick-boundary ordering on its own; together, C's and T's chains must not share a tick boundary
+  (see the caveat), so tick boundaries alone give C k2, T k3, corner k4 (close 4, built below), and
+  a same-tick relay from the end of C's chain to the start of T's gives close 3 (2 if the corner
+  follows by relay too, 1 with relays everywhere and 0-ticks for the plain pushes). The 6 other
+  blocks only need plain pushes at k1 (landing k3).
+  **Caveat found when assembling (next bullet): two carried-piston chains started by the same tick
+  boundary interleave in the FIFO block-event queue, so C's and T's chains need a same-tick
+  relay to share k2; with tick boundaries only, the assembled machine closes in 4.**
 * **close 6**: the speed track's: C pushed into T's cell at k1 (spit), T pushed into E, F
   re-extends at k4 pushing [T, C] together; C is the second block, not finalized: lands k6 (the
   boards: 7).
-* **close of the open-4 geometry** (T parked left of TL's cell, C in E, TL above its cell): the
-  return is serialized C -> T -> TL through T's and TL's cells: F 0-ticks C into T's cell and G_T
-  0-ticks T into TL's cell at k1; Y_A / Y_P push A' and P_T back next to them (k2, landing k4,
-  firing k5: A' 0-ticks C into the center, then P_T 0-ticks T into its cell); TL's puller pushes
-  TL home at k6 (lands k8). About 8 with tick-boundary ordering, ~5 with relays; the fast-open
-  topology costs close time, the fast-close one (corner route with carried pistons) costs open.
+* **close of the open-4 machine: built, close 4** (`open-4-cycle.drive`: the same machine opens
+  in 4 and closes in 4, ideal inputs). Its open state IS the close layout: C in E under F, A'
+  parked beside E on Y_A, T in the side cell (-1,2) in front of G_T, P_T parked beside it on Y_P,
+  TL above its cell under TL's puller. F, Y_A + A', G_T, Y_P + P_T and TL's puller play
+  `center-return`'s G, Q2 + P2 and `corner-return`'s A, Q3 + P3, B: k1 F 0-ticks C into T's cell
+  and G_T 0-ticks T into TL's cell, the 6 plain pullers push their blocks home (land k3); k2 Y_A
+  0-ticks A' back into E, A' fires as it is placed and 0-ticks C into the center; k3 Y_P 0-ticks
+  P_T back, P_T fires and 0-ticks T into its cell; k4 TL's puller 0-ticks TL home. Started in the
+  same tick, the A' and P_T chains interleave (FIFO: P_T fired while A''s head was still in T's
+  cell, and a failed push never retries), hence one chain per tick; a relay from the end of one
+  chain to the start of the next would give close 2 (k2: C then T, TL at k3 or k2).
 
-Open + close >= 5.
+Open + close >= 5; **the open-4 machine does open 4 + close 4 = 8 (built, `open-4-cycle`)**
+against the boards' 10 + 7; wiring it to a lever (instant-off line, arming after the flip, an
+observer chain for k4 and for each close tick) is the next step (tick-door track).
 
 ## 7. Notes for door builders
 
@@ -267,6 +278,5 @@ positions. Logs: `designs/piston-door-3x3/tracks/tick-study/logs/`.
 | instant-off, instant-on | PASS, identical at 4 positions |
 | landing-next-tick, spit-saves-tick, leaves-delay, odd-observer | PASS, identical at 4 positions |
 | center-exit, double-move | PASS, identical at 4 positions |
-| open-4, center-return | PASS, identical at 4 positions |
-| corner-return | see logs/vanilla-gadget-corner-return.log |
+| open-4, open-4-cycle, center-return, corner-return | PASS, identical at 4 positions |
 | event-order, button-pulse | PASS, identical at 4 positions |

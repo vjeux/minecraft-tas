@@ -1,0 +1,111 @@
+# open-4's machine, open AND close: open at tick 4 (as open-4.drive), then, door open and idle,
+# the partners are disarmed, and the lever-off inputs close it: every door cell holds its stone at
+# tick 3 of the close (C and T placed at k2 by pistons carried in by 0-ticks, TL at k3, the 6
+# plain pushes land at k3).
+design designs/gadgets/open-4.txt
+probe TL 0 2 0
+probe T 1 2 0
+probe TR 2 2 0
+probe ML 0 1 0
+probe C 1 1 0
+probe MR 2 1 0
+probe BL 0 0 0
+probe B 1 0 0
+probe BR 2 0 0
+probe E 1 3 0
+# --- open (as open-4.drive)
+setblock -1 3 1 minecraft:redstone_block
+setblock -1 4 1 minecraft:redstone_block
+setblock 2 4 1 minecraft:redstone_block
+setblock 0 4 -1 minecraft:air
+setblock 5 2 0 minecraft:air
+setblock 5 1 0 minecraft:air
+setblock 5 0 0 minecraft:air
+setblock -3 1 0 minecraft:air
+setblock -3 0 0 minecraft:air
+setblock 1 -3 0 minecraft:air
+quiet 3
+setblock -2 3 1 minecraft:redstone_block
+setblock -2 5 0 minecraft:redstone_block
+setblock 1 7 0 minecraft:redstone_block
+setblock 1 3 -3 minecraft:air
+setblock -1 2 -3 minecraft:air
+expect_trace T .
+expect C .
+quiet 6
+# --- while open: disarm the four partners (their arming blocks and the redstone blocks they
+# shoved go away; each removal updates the partner's head: it retracts)
+setblock 2 4 1 minecraft:air
+setblock 1 7 0 minecraft:air
+setblock -1 4 1 minecraft:air
+setblock -2 5 0 minecraft:air
+setblock -1 3 2 minecraft:air
+setblock 1 5 2 minecraft:air
+setblock -2 3 2 minecraft:air
+quiet 6
+expect C .
+expect T .
+expect E #
+# --- close, k0 (lever off): the 6 plain pullers get their redstone blocks back; F and G_T get a
+# 0-tick each (redstone block reaching the piston before its partner, partners armed first).
+setblock 5 2 0 minecraft:redstone_block
+setblock 5 1 0 minecraft:redstone_block
+setblock 5 0 0 minecraft:redstone_block
+setblock -3 1 0 minecraft:redstone_block
+setblock -3 0 0 minecraft:redstone_block
+setblock 1 -3 0 minecraft:redstone_block
+setblock 2 6 -1 minecraft:redstone_block
+setblock -3 4 -1 minecraft:redstone_block
+setblock 2 4 0 minecraft:redstone_block
+setblock -3 2 0 minecraft:redstone_block
+expect_trace T #
+expect TL #
+expect E .
+# k1 -> k2: Y_A carries A' back into E by a 0-tick; A' fires as it is placed (quasi-powered
+# through F's cell by R_A3) and 0-ticks C into the center (partner X_A).
+setblock 1 4 1 minecraft:redstone_block
+setblock 1 4 2 minecraft:redstone_block
+setblock 3 4 -1 minecraft:redstone_block
+setblock 2 3 -2 minecraft:redstone_block
+expect_trace C #
+expect T .
+expect TL #
+# k2 -> k3: Y_P carries P_T back into (-1,2,0) by a 0-tick; P_T fires as it is placed and
+# 0-ticks T from TL's cell into its own (partner X_T). (Started in k2 its events would interleave
+# with A''s and find A''s head in T's cell: one chain per tick without a relay.)
+setblock -1 3 1 minecraft:redstone_block
+setblock -1 4 1 minecraft:redstone_block
+setblock -2 5 -2 minecraft:redstone_block
+setblock -2 2 -2 minecraft:redstone_block
+expect_trace T #
+expect TL .
+expect TR #
+expect ML #
+expect MR #
+expect BL #
+expect B #
+expect BR #
+# k3 -> k4: TL's puller, quasi-armed through X_TL's cell, poked by a block placed next to it,
+# 0-ticks TL home (partner X_TL): every door cell holds its stone at k4.
+setblock 0 5 -1 minecraft:redstone_block
+setblock 0 7 0 minecraft:redstone_block
+setblock 0 4 -1 minecraft:stone
+expect_trace TL #
+expect T #
+expect TR #
+expect ML #
+expect C #
+expect MR #
+expect BL #
+expect B #
+expect BR #
+quiet 6
+expect TL #
+expect T #
+expect TR #
+expect ML #
+expect C #
+expect MR #
+expect BL #
+expect B #
+expect BR #

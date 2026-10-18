@@ -8,10 +8,11 @@ and identical in the official server at 4 positions (`door vanilla-gadget`, logs
 * Floors (solid): **open >= 4**, **close >= 1** (open + close >= 5). Boards: 10 / 7.
 * **`open-4`**: a whole 3x3 opening clear at tick 4 (ideal inputs), the open floor. Critical path
   alone: `center-exit`.
-* **Close 3 piecewise** (tick-boundary ordering): `center-return` (C placed at k2 after two
-  placed moves, a piston carried into E fires the tick it lands) + `corner-return` (T placed at
-  k2 through its corner, the corner block at k3); every other block is a 0-tick at k1. Relays
-  (instant-on) instead of tick boundaries would give close 1.
+* **Close 4 on the same machine** (`open-4-cycle.drive`): k1 C and T into the top-row cells,
+  k2 C home (A' carried back into E fires as it lands), k3 T home (P_T carried back), k4 TL.
+  Pieces: `center-return`, `corner-return`. Two carried-piston chains started at one tick boundary
+  interleave in the FIFO block-event queue (a failed push never retries), so without same-tick
+  relays it is one chain per tick; relays would give close 1-3.
 * New tool: `mctas door vanilla-gadget <drive>...` (crates/piston-door/src/vanilla_gadget.rs) and
   the drive command `setblock` (the game's /setblock, identical in both worlds).
 
