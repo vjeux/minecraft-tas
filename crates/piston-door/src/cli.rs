@@ -872,6 +872,35 @@ pub enum DoorCmd {
         #[arg(long)]
         close: bool,
     },
+    /// Dynamic properties of working designs (properties_dyn.rs): hallway-compatible, contained
+    /// (shells of air, smooth stone, slime, honey, obsidian, a mix), snow-proof (+ flammable
+    /// blocks on top), repeater input (open/close ticks), footsteps, 20 cycles. One position,
+    /// one orientation. Writes a TSV (joins properties.rs on the design hash) and prints a table.
+    PropertiesDyn {
+        /// Design files (always run, cached verdict or not).
+        designs: Vec<PathBuf>,
+        /// Folder of designs to add (the working ones per the verdict cache).
+        #[arg(long)]
+        archive_dir: Option<PathBuf>,
+        /// Also every design on HEAD and on the explore/* branches (as the leaderboard collects
+        /// them), the working ones per the verdict cache.
+        #[arg(long)]
+        branches: bool,
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        /// The leaderboard's verdict cache.
+        #[arg(long, default_value = "designs/piston-door-3x3/archive/verdicts-v5.tsv")]
+        verdicts: PathBuf,
+        /// Also run designs the cache does not know (verdict "uncached").
+        #[arg(long)]
+        uncached: bool,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long, default_value = "designs/piston-door-3x3/archive/properties-dyn-v1.tsv")]
+        out_tsv: PathBuf,
+    },
     /// Learn edits from pairs of designs (a -> b, b a smaller variant of a) and try each on the
     /// best designs of every league (see harvest.rs); improvements are archived and polished.
     Transplant {
@@ -2195,6 +2224,70 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let d = load_design(&design)?;
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
+        }
+        DoorCmd::PropertiesDyn { designs, archive_dir, branches, refs, verdicts, uncached, max_blocks, workers, out_tsv } => {
+            use crate::properties_dyn as pd;
+            let cache = pd::load_verdicts(&verdicts);
+            let mut cands: Vec<(String, Design, bool)> = Vec::new();
+            for p in &designs {
+                cands.push((p.display().to_string(), load_design(p)?, true));
+            }
+            if let Some(dir) = &archive_dir {
+                cands.extend(crate::shapes::collect_dir(dir, max_blocks)?.into_iter().map(|(s, d)| (s, d, false)));
+            }
+            if branches {
+                cands.extend(pd::collect_refs(std::path::Path::new("."), &refs, max_blocks)?.into_iter().map(|(s, d)| (s, d, false)));
+            }
+            let mut seen = std::collections::HashSet::new();
+            let mut jobs: Vec<(String, Design, String)> = Vec::new();
+            for (src, d, explicit) in cands {
+                let h = format!("{:016x}", crate::leaderboard::design_hash(&d));
+                if !seen.insert(h.clone()) {
+                    continue;
+                }
+                let verdict = match cache.get(&h) {
+                    Some(true) => "ok",
+                    Some(false) => "broken",
+                    None => "uncached",
+                };
+                if explicit || verdict == "ok" || (uncached && verdict == "uncached") {
+                    jobs.push((src, d, verdict.to_string()));
+                }
+            }
+            jobs.sort_by_key(|(s, d, _)| (crate::block_count(d), s.clone()));
+            eprintln!("properties-dyn: {} designs", jobs.len());
+            let pool = mctas::sim::Pool::spawn(workers.min(jobs.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let t0 = std::time::Instant::now();
+            let done = std::sync::atomic::AtomicUsize::new(0);
+            let n = jobs.len();
+            let results = pool.map(jobs, |w, _, (src, d, verdict)| {
+                let r = pd::check_design(w, &src, &d, &verdict).map_err(|e| e.context(src.clone()));
+                let k = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                eprintln!("[{k}/{n} {:.0}s] {src}", t0.elapsed().as_secs_f64());
+                r
+            });
+            let mut rows = Vec::new();
+            for r in results {
+                match r {
+                    Ok(row) => rows.push(row),
+                    Err(e) => eprintln!("error: {e:#}"),
+                }
+            }
+            rows.sort_by_key(|r| (r.blocks, r.source.clone()));
+            let mut tsv = String::from(pd::TSV_HEADER);
+            tsv.push('\n');
+            for r in &rows {
+                tsv.push_str(&pd::tsv_line(r));
+                tsv.push('\n');
+            }
+            if let Some(dir) = out_tsv.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            std::fs::write(&out_tsv, tsv)?;
+            let table = pd::table(&rows);
+            std::fs::write(out_tsv.with_extension("md"), &table)?;
+            print!("{table}");
+            eprintln!("wrote {} and {} ({} rows)", out_tsv.display(), out_tsv.with_extension("md").display(), rows.len());
         }
         DoorCmd::VanillaCheck { designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace } => {
             vanilla_check_cmd(version, &cfg, &designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace)?;

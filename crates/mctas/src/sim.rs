@@ -585,6 +585,13 @@ impl Worker {
         Ok(())
     }
 
+    /// Emit a game event (`step`: a player's footstep) at each position's bottom center, no
+    /// source entity (sculk sensors in range hear it). Returns how many were emitted.
+    pub fn game_event(&mut self, sandbox: u32, event: &str, positions: &[Pos]) -> Result<u32> {
+        let v = self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions}))?;
+        Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
+    }
+
     /// Number of connected game clients.
     pub fn viewers(&mut self) -> Result<u32> {
         Ok(self.call(json!({"op": "viewers"}))?["count"].as_u64().unwrap_or(0) as u32)

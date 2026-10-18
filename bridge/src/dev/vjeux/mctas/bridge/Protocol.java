@@ -159,6 +159,7 @@ public final class Protocol {
             case "build" -> build(r);
             case "signals" -> signals(r);
             case "exec" -> exec(r);
+            case "gameevent" -> gameEvent(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
             case "view" -> view(r);
@@ -671,6 +672,30 @@ public final class Protocol {
                 .withSuppressedOutput();
         this.server.getCommands().performPrefixedCommand(source, r.get("command").getAsString());
         return new JsonObject();
+    }
+
+    /**
+     * Emit a game event at block positions, at each cell's bottom center (where a player's feet
+     * are): {@code event} is {@code step} (a player's footstep, GameEvent.STEP; the default). No
+     * source entity, no affected state, as {@code level.gameEvent} gets from a walking player
+     * minus the entity (sculk sensors hear it the same way).
+     */
+    private JsonObject gameEvent(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        String name = r.has("event") ? r.get("event").getAsString() : "step";
+        net.minecraft.core.Holder<net.minecraft.world.level.gameevent.GameEvent> ev = switch (name) {
+            case "step", "minecraft:step" -> net.minecraft.world.level.gameevent.GameEvent.STEP;
+            default -> throw new IllegalArgumentException("unsupported game event " + name);
+        };
+        int n = 0;
+        for (JsonElement e : r.getAsJsonArray("positions")) {
+            int[] p = ints(e.getAsJsonArray());
+            sb.level.gameEvent(ev, new Vec3(p[0] + 0.5, p[1], p[2] + 0.5), net.minecraft.world.level.gameevent.GameEvent.Context.of((Entity) null, (BlockState) null));
+            n++;
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("emitted", n);
+        return o;
     }
 
     private JsonObject viewers() {

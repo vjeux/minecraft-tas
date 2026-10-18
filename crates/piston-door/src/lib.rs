@@ -29,6 +29,7 @@ pub mod observer_seq;
 pub mod leaderboard;
 pub mod designs_gravity;
 pub mod lm;
+pub mod properties_dyn;
 pub mod drive;
 pub mod harvest;
 pub mod ideal;
