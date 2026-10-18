@@ -43,14 +43,54 @@ pub enum DoorCmd {
     },
     /// Drive a design by hand from a script (see drive.rs) and print the z=0 plane per tick.
     Drive { script: PathBuf },
-    /// Greedily remove blocks while the door keeps working; writes the result.
+    /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
+    /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
+    /// only if the full judge passes; every improvement is written to --out.
     Minimize {
         design: PathBuf,
         #[arg(long)]
         out: PathBuf,
-        /// Worker JVMs.
+        /// Worker JVMs (capped by MCTAS_MAX_WORKERS).
         #[arg(long, default_value_t = 32)]
         workers: usize,
+        /// Move families: a comma list of singles,pairs,triples,delays,moves,subs,reroute, or all.
+        #[arg(long, default_value = "singles")]
+        moves: String,
+        /// Acceptance: the judge's four positions plus this many (as `door verify --extra-offsets`).
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        /// Screen candidates at the first N judge positions before judging them.
+        #[arg(long, default_value_t = 2)]
+        screen_offsets: usize,
+        /// Open/close cycles per screening position.
+        #[arg(long, default_value_t = 1)]
+        screen_cycles: u32,
+        /// Settle cap (ticks) while screening.
+        #[arg(long, default_value_t = 200)]
+        screen_ticks: u32,
+        /// Neighborhood radius of compounds (neutral edit + one removal) and triples.
+        #[arg(long, default_value_t = 2)]
+        radius: i32,
+        /// When nothing improves, try every verified neutral edit followed by single removals.
+        #[arg(long)]
+        plateau: bool,
+        /// With --plateau, also try pair removals after each verified neutral edit.
+        #[arg(long)]
+        plateau_pairs: bool,
+        /// Random-walk steps over verified neutral designs without improving (implies --plateau).
+        #[arg(long, default_value_t = 0)]
+        walk: usize,
+        /// Stop after this many minutes.
+        #[arg(long)]
+        minutes: Option<f64>,
+        /// Archive every improvement (archive/ next to --out).
+        #[arg(long)]
+        archive: bool,
+        /// Rename the design (used for archive file names).
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
     },
     /// Record the door opening and closing with the real Minecraft client (needs Xvfb).
     Video {
@@ -148,14 +188,66 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             crate::drive::run(&mut w, &text)?;
         }
-        DoorCmd::Minimize { design, out, workers } => {
-            let d = load_design(&design)?;
+        DoorCmd::Minimize {
+            design,
+            out,
+            workers,
+            moves,
+            extra_offsets,
+            screen_offsets,
+            screen_cycles,
+            screen_ticks,
+            radius,
+            plateau,
+            plateau_pairs,
+            walk,
+            minutes,
+            archive,
+            name,
+            seed,
+        } => {
+            let mut d = load_design(&design)?;
+            if let Some(n) = name {
+                d.name = n;
+            }
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
             let t = std::time::Instant::now();
-            let opts = VerifyOptions::default();
-            let best = crate::minimize::minimize(&pool, &d, &opts, &|m| println!("[{:6.1}s] {m}", t.elapsed().as_secs_f64()))?;
-            let mut w = pool.worker(0);
-            let best = crate::canonicalize(&mut w, &best)?;
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let opts = crate::search::SearchOptions {
+                families: crate::search::parse_families(&moves)?,
+                screen: VerifyOptions {
+                    cycles: screen_cycles,
+                    max_ticks: screen_ticks,
+                    offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
+                    keep_frames: false,
+                },
+                judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
+                radius,
+                plateau: plateau || plateau_pairs || walk > 0,
+                plateau_pairs,
+                walk,
+                deadline: minutes.map(|m| t + std::time::Duration::from_secs_f64(m * 60.0)),
+                seed,
+            };
+            println!("{} workers; moves {moves}; judge {} positions", pool.len(), offsets.len());
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let source = design.display().to_string();
+            let mut on_improve = |best: &mctas::design::Design, desc: &str| -> Result<()> {
+                best.save(&out)?;
+                log(&format!("improved: {} blocks ({desc}), written to {}", crate::block_count(best), out.display()));
+                if archive {
+                    let note = format!(
+                        "verified WORKS: {} blocks (judge: {} positions x 3 cycles); door minimize --moves {moves} from {source}",
+                        crate::block_count(best),
+                        offsets.len()
+                    );
+                    if let Some(p) = crate::archive::save(&out, best, crate::block_count(best), &note)? {
+                        log(&format!("archived {}", p.display()));
+                    }
+                }
+                Ok(())
+            };
+            let best = crate::search::search(&pool, &d, &opts, &log, &mut on_improve)?;
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
         }

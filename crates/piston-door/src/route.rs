@@ -11,7 +11,6 @@
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
 use std::cmp::Reverse;
 
-use mctas::blockstate::BlockState;
 use anyhow::Context;
 use mctas::sim::Pos;
 
@@ -33,7 +32,10 @@ pub struct Router<'a> {
 
 impl Router<'_> {
     fn name(&self, p: Pos) -> Option<String> {
-        self.blocks.get(&p).map(|s| BlockState::parse(s).map(|b| b.short_name().to_string()).unwrap_or_default())
+        self.blocks.get(&p).map(|s| {
+            let n = mctas::blockstate::block_name(s);
+            n.strip_prefix("minecraft:").unwrap_or(n).to_string()
+        })
     }
     fn is_plain(&self, p: Pos) -> bool {
         matches!(self.name(p).as_deref(), Some("smooth_stone"))
@@ -96,10 +98,13 @@ impl Router<'_> {
 
     fn route_once(&self, start: &[Pos], goal: Pos, banned: &HashSet<Pos>) -> Option<Vec<(Pos, String)>> {
         let none = HashSet::new();
-        // Cost to stand dust at cell c: 1 (dust, 0 if already dust) + 1 if its floor is new.
+        // Cost to stand dust at cell c: 1 (dust, 0 if already dust) + 1 if its floor is new. The
+        // goal may keep whatever block it already stands on (re-routing to an existing end).
         let floor_cost = |c: Pos| -> Option<u32> {
             let f = add(c, [0, -1, 0]);
-            if self.is_plain(f) && (self.clean(f, &none) || self.allow.contains(&f)) {
+            if c == goal && self.blocks.contains_key(&f) {
+                Some(0)
+            } else if self.is_plain(f) && (self.clean(f, &none) || self.allow.contains(&f)) {
                 Some(0)
             } else if self.free(f, &none) && self.clean(f, &none) {
                 Some(1)
@@ -152,7 +157,7 @@ impl Router<'_> {
         while !start.contains(&c) {
             out.push((c, "minecraft:redstone_wire".to_string()));
             let f = add(c, [0, -1, 0]);
-            if !self.is_plain(f) {
+            if !self.blocks.contains_key(&f) {
                 out.push((f, FLOOR.to_string()));
             }
             c = prev[&c];
