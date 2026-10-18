@@ -21,7 +21,8 @@ patch file in this folder applied to its parent.
 | 53 | solid | mech-53.txt | rb2 57 + rb2-hold.patch | late hold as a short U, glazed terracotta floors beside the slime |
 | 51 | solid | mech-51.txt | 53 + rb2-bchain.patch | pulse bridge (block, cross dust, block) from O2 to R_B |
 | 50 | solid | mech-50.txt | rb5 52 + rb2-bchain.patch | same bridge on rb5's silent hold |
-| **48** | solid | mech-48.txt = BEST.txt | 50 + rb5-hold.patch | silent-hold block on the floor of the lever's repeater |
+| **48** | solid | mech-48.txt | 50 + rb5-hold.patch | silent-hold block on the floor of the lever's repeater |
+| **47** | solid | mech-47.txt = BEST.txt | 48 + bm-obs.patch | top-control's trick: P_BM pulse-driven by an observer on the bottom-right door block (no redstone block, backbone 2 shorter) |
 | 104 | solid, slime-free | sf-104.txt = BEST-slime-free.txt | mech-90 + sf2.patch | side columns on individual pullers |
 
 ### 91 / 89: the A torch (v2 family)
@@ -52,6 +53,11 @@ the right. The right top puller's quasi cell (4,3,0) must not touch a powered bl
 
 ## What did not work
 
+* rb with pulse-driven A (logic-min style, no Q / RB_A / hold) keeps the T-drag working with
+  ideal inputs (`door ideal tracks/mechanics/rb-pulsed-ideal.sched`), but only if P_R turns off
+  EXACTLY when B's window ends (pr_off = b+bw; 17 and 19 fail, like logic-min's P_T), so P_R
+  must share R_B's output with B while also getting a lever-delayed hold that B must not see.
+  Counted wiring (p0 path into A, L_8 into P_R, R_B window into P_R) lands at 47: no gain.
 * rb1 with an observer chain instead of the lever->O2 dust route (5 observers): +10gt on the B
   window, the close dance then collides with P_R's return (needs a longer hold).
 * Removing the B pulse stretch or shortening the 16gt silent hold: the hold must outlast the
