@@ -152,7 +152,7 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
 /// Markdown table of the entries.
 pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
     let mut s = format!(
-        "# 3x3 piston door leaderboards\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
+        "# 3x3 piston door leaderboards\n\nWalkway: the rules allow non-colliding blocks (dust, torches, levers) in the walkway; \"clean\" means none at rest.\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
          (3 cycles at {} positions). Videos of every archived design: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n",
         4 + extra_offsets
     );
@@ -163,14 +163,16 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
     ];
     for (title, rule, keep) in &boards {
-        s.push_str(&format!("## {title}\n\n{rule}.\n\n| # | blocks | source |\n|---|---|---|\n"));
+        s.push_str(&format!("## {title}\n\n{rule}.\n\n| # | blocks | walkway | source |\n|---|---|---|---|\n"));
         let mut n = 0;
         for e in entries.iter().filter(|e| e.verdict.is_ok() && keep(e)) {
             n += 1;
             if n > 10 {
                 break;
             }
-            s.push_str(&format!("| {n} | {} | `{}` |\n", e.blocks, e.source));
+            let clutter = crate::walkway_clutter(&e.design);
+            let walkway = if clutter == 0 { "clean".to_string() } else { format!("{clutter} blocks in it") };
+            s.push_str(&format!("| {n} | {} | {walkway} | `{}` |\n", e.blocks, e.source));
         }
         if n == 0 {
             s.push_str("| - | - | no entry yet |\n");

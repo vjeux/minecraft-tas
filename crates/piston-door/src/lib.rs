@@ -173,6 +173,13 @@ pub fn slime_free(d: &Design) -> bool {
     !d.blocks.values().any(|s| s.contains("slime_block") || s.contains("honey_block"))
 }
 
+/// Blocks standing in the walkway at rest. The rules allow non-colliding blocks there (dust,
+/// torches, levers), but a clean doorway has none, so the leaderboards show the count.
+pub fn walkway_clutter(d: &Design) -> usize {
+    let Ok(spec) = DoorSpec::from_design(d) else { return 0 };
+    spec.corridor_cells().iter().filter(|p| d.blocks.get(*p).is_some_and(|s| !mctas::blockstate::is_air(s))).count()
+}
+
 /// The door category of a design: "solid" (normal blocks), "gravity" (sand-like door blocks),
 /// or "sculk" (uses sculk sensors: vibrations from players or mobs nearby can trigger them, so
 /// those doors are ranked separately).
