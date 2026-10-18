@@ -647,7 +647,9 @@ pub enum DoorCmd {
         size: usize,
         #[arg(long, default_value_t = 1)]
         margin: i32,
-        #[arg(long, default_value = "obs,block,dust,rep,rep2,rep3,rep4,torch,glass")]
+        /// Block states to re-grow with (see search.rs `grow_states`; `trapdoor`: the watchable
+        /// relay that shortened six doors on the exotic track).
+        #[arg(long, default_value = "obs,block,dust,rep,rep2,rep3,rep4,torch,glass,trapdoor")]
         states: String,
         /// Only cut groups inside this box, "x0,y0,z0:x1,y1,z1".
         #[arg(long)]
@@ -1424,7 +1426,10 @@ pub enum DoorCmd {
         min_size: usize,
         #[arg(long, default_value_t = 4)]
         max_size: usize,
-        #[arg(long, default_value = "block,dust,dot,rep,obs,torch")]
+        /// Circuit blocks (see synth.rs `palette_states`); `trapdoor` (an iron trapdoor: a
+        /// non-conducting power indicator an observer can watch) shortened six doors on the
+        /// exotic track.
+        #[arg(long, default_value = "block,dust,dot,rep,obs,torch,trapdoor")]
         palette: String,
         #[arg(long, default_value = "block")]
         floors: String,
