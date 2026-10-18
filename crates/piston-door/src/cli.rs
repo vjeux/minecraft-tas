@@ -118,6 +118,15 @@ pub enum DoorCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Apply an edit script to a design and write the (canonicalized) result. Script lines:
+    /// `set x y z <state>` (an extended piston gets its head too), `clear x y z` (a piston
+    /// takes its head along), `port <name> x y z`; `#` starts a comment line.
+    Patch {
+        design: PathBuf,
+        script: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Place a design, settle, flip the lever and print every block change tick by tick.
     Trace {
         design: PathBuf,
@@ -290,6 +299,15 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
                 println!("uploaded {url}");
             }
+        }
+        DoorCmd::Patch { design, script, out } => {
+            let d0 = load_design(&design)?;
+            let text = std::fs::read_to_string(&script)?;
+            let d1 = crate::patch::apply(&d0, &text)?;
+            let mut w = Worker::spawn(&cfg)?;
+            let d = crate::canonicalize(&mut w, &d1)?;
+            d.save(&out)?;
+            println!("{} -> {} blocks, written to {}", crate::block_count(&d0), crate::block_count(&d), out.display());
         }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;
