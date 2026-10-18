@@ -7,8 +7,23 @@ Direction: beat the rb solid record (47) by giving P_R / Q their asymmetric timi
 ## Results (all `door verify --extra-offsets 28`, 32 positions x 3 cycles)
 | file | blocks | open/close | idea |
 |---|---|---|---|
-| r3.txt = BEST.txt | 43 | 22 / 33 | `door minimize --moves all --plateau` of r2: the redstone-block rider became an OBSERVER riding the left structure that re-fires Q on each landing |
+| fx1.txt = BEST.txt | 40 | 24 / 26 | fc2 (40) with P_L fired by X's THREE pulses per lever edge (odd count: the pulse-toggled left column ends right); no observer pair for P_L, a 2-slime arm instead |
+| r3.txt | 43 | 22 / 33 | `door minimize --moves all --plateau` of r2: the redstone-block rider became an OBSERVER riding the left structure that re-fires Q on each landing |
 | r2.txt | 46 | 22 / 23 | rb6-bmobs-47 without the hold: Q held by a redstone block riding the LEFT structure; P_L held by the B window |
+
+## fx1 (40): an odd number of pulses toggles a pulse-driven piston
+* fc2's X dust (0,4,0) pulses A three times per lever edge: p0 (O_a, t2) and the two dance
+  pulses (O watching R_B, t14 and t22; on close they are swallowed by the extended A but X
+  still pulses). Three toggles of a pulse-driven sticky piston = one net toggle.
+* P_L moves from (-3,2,0) to (0,3,-1) facing west, right next to X's floor (0,3,0) (weakly
+  powered by each X pulse), and pushes an arm (-1,3,-1) + (-1,2,-1) glued to the left backbone:
+  push+spit on the first pulse, pull back on the second, push+spit again on the third. The
+  left column opens at t2, comes back at t14, opens again at t22 (close: the mirror); the
+  center dance does not care (stone door blocks drag nothing).
+* -3 (o, A-obs, old P_L) +3 (P_L', 2 slimes) = 40, open 24 / close 26 (fc2: 24 / 9).
+  `door minimize --moves all --plateau`: nothing more. The arm can't be 1 slime: the only cells
+  next to X's floor that can push the left structure west are (0,3,+-1), two steps from the
+  backbone; (0,3,+1) would need R_q's floor (-1,3,1) as an arm slime (R_q would pop).
 
 ## r3 (43): a self-sequenced close (minimizer result from the r2 seed)
 Three minimizer steps: K (0,5,0) removed (R_B2 points into P_L's quasi cell directly: 45); the
