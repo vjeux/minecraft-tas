@@ -2038,7 +2038,7 @@ pub fn rip_candidates(d: &Design, meas_raw: &Measured, o: &RipOptions, log: &(dy
                             set.iter().map(|p| format!("{} {}", fmt_pos(*p), short(&d.blocks[p]))).collect::<Vec<_>>().join(" "),
                             if c.is_empty() { "nothing".to_string() } else { c.iter().map(|(p, x)| format!("{} {}", fmt_pos(*p), short(x))).collect::<Vec<_>>().join(" ") }
                         );
-                        out.lock().unwrap().push(Edit { remove: set.clone(), set: c, ports: Vec::new(), desc });
+                        out.lock().unwrap().push(Edit { remove: set.clone(), set: c, ports: Vec::new(), desc, ..Default::default() });
                     }
                 }
             });

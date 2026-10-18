@@ -1,0 +1,4 @@
+# U at t12 opening / t8 closing (with the F shuttle the right structure moves at t8 / t6): the bottom-right flag is a redstone block; dust (4,-2,0) on a floor under the cell it moves into lights when it lands (m+2) and goes dark the moment it leaves (m), the observer (3,-2,0) watching that dust fires at m+4 / m+2 into the dust (2,-2,0) beside U
+set 3 -1 0 minecraft:redstone_block
+set 4 -2 0 minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+set 4 -3 0 minecraft:smooth_stone

@@ -1,0 +1,15 @@
+# Podzol P turns snowy when the pushed snow block lands above it (tick 3) and loses it when the
+# block starts moving away (tick 1); the observer beside P pulses 2 gt after each change.
+design designs/gadgets/podzol-snow.txt
+probe O 2 0 0
+use -2 1 0
+expect_state 1 0 0 snowy=false
+expect_trace O 0
+expect_state 1 0 0 snowy=false
+expect_trace O 00
+expect_state 1 0 0 snowy=true
+expect_trace O 0110
+use -2 1 0
+expect_trace O 0
+expect_state 1 0 0 snowy=false
+expect_trace O 0110

@@ -1,0 +1,2 @@
+# pm49: the relay cell (3,-3,0) as an iron trapdoor instead of the note block resynth found
+set 3 -3 0 minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]

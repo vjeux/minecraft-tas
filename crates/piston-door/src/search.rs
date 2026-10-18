@@ -122,12 +122,64 @@ pub struct SearchOptions {
     /// 90, 180 and 270 degrees ([`crate::rotation_check`], at the judge's positions). The boards
     /// rank rotation-safe designs, so a search from one should not trade that away for a block.
     pub rotation_safe: bool,
+    /// Accept only designs at least this seamless (`--seamless semi|full|super`): one recorded
+    /// cycle at the design's own position, judged by `door properties`' definition
+    /// ([`crate::properties::seamless`]); checked before the judge (it is one cycle).
+    pub seamless: Option<crate::properties::SeamReq>,
+    /// Also accept candidates that turn a solid design into an entity one (they add entities;
+    /// the door stays otherwise solid): searches for the "Entities allowed" board.
+    pub to_entity: bool,
+    /// Accept only rotation-safe candidates ([`crate::rotation_check`] at the judge's positions)
+    /// when the start design is rotation-safe: the boards rank rotation-safe doors, so an
+    /// improvement that breaks a turn lands on the other board. Checked after the full judge.
+    pub keep_rotations: bool,
+    /// Record eligibility (Squid regulation 3.1.3, MC-172213): accept only designs that also work
+    /// with REPEATER input, the lever left off and its support block powered by a delay-1 repeater
+    /// (props-dyn's check, `properties_dyn::repeater_check`: both edges) at every judge position.
+    /// Screened at the first position, checked everywhere after the full judge.
+    pub repeater_input: bool,
+    /// `--eligible`: `repeater_input`, plus props-dyn's hallway check, footsteps for sculk designs
+    /// and props' QUART SEAMLESS or better (`properties::seamless_tier`).
+    pub eligible: bool,
 }
 
-/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk; and within
-/// the `--shape` limits when set. A shape limit replaces the "a flat base stays flat" rule (the
-/// shape decides which layers the machine may use: `--shape wall` lets a flat design grow into
-/// the layers next to the door plane).
+/// The `--repeater-input` / `--eligible` filter at `offsets` (see [`SearchOptions::repeater_input`]).
+pub fn eligibility_check(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptions, offsets: &[Pos]) -> Result<()> {
+    eligibility(w, sb, d, opts.repeater_input, opts.eligible, offsets)
+}
+
+/// The eligibility filter with explicit switches (resynth's `Target::Door` uses it too).
+pub fn eligibility(w: &mut mctas::sim::Worker, sb: u32, d: &Design, repeater_input: bool, eligible: bool, offsets: &[Pos]) -> Result<()> {
+    if !repeater_input && !eligible {
+        return Ok(());
+    }
+    crate::properties_dyn::eligibility_in(w, sb, d, offsets, 1, eligible, eligible && crate::category(d) == "sculk")?;
+    if eligible {
+        let p = crate::properties::input_props(w, sb, d)?;
+        if p.get("seamless").is_none_or(|t| t == "-") {
+            anyhow::bail!("not seamless (no SEAMLESS tier)");
+        }
+        if p.get("lever_surface").is_none_or(|v| v != "yes") {
+            anyhow::bail!("the lever is not on the surface of the build's volume (3.1.2)");
+        }
+        if p.get("lever_support").is_none_or(|v| v != "yes") {
+            anyhow::bail!("the lever's support block moves or changes (3.1.5)");
+        }
+    }
+    Ok(())
+}
+
+/// The first judge position only: the cheap screen of the eligibility filter.
+fn eligibility_screen(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptions) -> Result<()> {
+    let first: Vec<Pos> = opts.judge.offsets.iter().take(1).copied().collect();
+    eligibility_check(w, sb, d, opts, &first)
+}
+
+/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk, or (with
+/// `to_entity`) a solid base whose candidate added entities; and within the `--shape` limits
+/// when set. A shape limit replaces the "a flat base stays flat" rule (the shape decides which
+/// layers the machine may use: `--shape wall` lets a flat design grow into the layers next to the
+/// door plane).
 fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
     if let Some(l) = &opts.shape {
         let slimy = |x: &Design| x.blocks.values().any(|s| matches!(kind(s), "slime_block" | "honey_block"));
@@ -137,15 +189,18 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
         return true;
     }
     let slimy = |x: &Design| x.blocks.values().any(|s| matches!(kind(s), "slime_block" | "honey_block"));
-    opts.to_sculk
-        && crate::category(base) == "solid"
-        && crate::category(d) == "sculk"
-        && (slimy(base) || !slimy(d))
-        && (!crate::single_layer(base) || crate::single_layer(d))
+    let keeps = (slimy(base) || !slimy(d)) && (!crate::single_layer(base) || crate::single_layer(d));
+    let solid_base = crate::category(base) == "solid";
+    (opts.to_sculk && solid_base && crate::category(d) == "sculk" && keeps)
+        || (opts.to_entity && solid_base && crate::category(d) == "entity" && crate::entities_allowed_board(d) && keeps)
 }
 
-/// [`verify_in`] plus the search's speed constraints.
+/// [`verify_in`] plus the search's speed constraints, and (full judge only, with
+/// `keep_rotations`) the rotation check.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
+    if let Some(t) = opts.seamless {
+        t.check(w, sb, d)?;
+    }
     let r = speed_check(verify_in(w, sb, d, v)?, opts)?;
     // Shape boards measure the space a door needs while it moves too: check the swept shape.
     if let Some(l) = &opts.shape {
@@ -154,12 +209,20 @@ fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, 
             anyhow::bail!("outside the --shape limits while it moves: {s:?}");
         }
     }
+    // The full judge (not a screen): with `keep_rotations`, the rotation check too.
+    if opts.keep_rotations && !opts.rotation_safe && std::ptr::eq(v, &opts.judge) {
+        if let Some((turns, why)) = crate::rotation_check(w, d, v)? {
+            anyhow::bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
+        }
+    }
     Ok(r)
 }
 
 /// The acceptance test: [`judge_in`] with the judge's options, and with `rotation_safe` the
 /// door turned 90, 180 and 270 degrees too.
 fn accept_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptions) -> Result<crate::Report> {
+    // Fail fast on the eligibility filter (one position) before the full judge.
+    eligibility_screen(w, sb, d, opts)?;
     let r = judge_in(w, sb, d, &opts.judge, opts)?;
     if opts.rotation_safe {
         let v = VerifyOptions { keep_frames: false, ..opts.judge.clone() };
@@ -167,6 +230,7 @@ fn accept_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptio
             anyhow::bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
         }
     }
+    eligibility_check(w, sb, d, opts, &opts.judge.offsets)?;
     Ok(r)
 }
 
@@ -193,12 +257,13 @@ impl SearchOptions {
 }
 
 /// A design edit: blocks removed (an extended piston loses its head too), then blocks set, then
-/// ports moved.
+/// ports moved, then entities added.
 #[derive(Clone, Debug, Default)]
 pub struct Edit {
     pub remove: Vec<Pos>,
     pub set: Vec<(Pos, String)>,
     pub ports: Vec<(String, Pos)>,
+    pub entities: Vec<mctas::design::EntitySpec>,
     pub desc: String,
 }
 
@@ -219,6 +284,7 @@ impl Edit {
         for (name, p) in &self.ports {
             out.ports.insert(name.clone(), *p);
         }
+        out.entities.extend(self.entities.iter().cloned());
         out
     }
 
@@ -228,6 +294,8 @@ impl Edit {
 }
 
 const WIRE: &str = "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]";
+const TRAPDOOR: &str = "minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]";
+const NOTE: &str = "minecraft:note_block[instrument=harp,note=0,powered=false]";
 const FACES: [Pos; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const HORIZ: [Pos; 4] = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
 const HORIZONTAL: [&str; 4] = ["north", "east", "south", "west"];
@@ -317,6 +385,10 @@ fn remove_block(d: &mut Design, p: Pos) {
 pub fn design_hash(d: &Design) -> u64 {
     let mut h = DefaultHasher::new();
     d.blocks.hash(&mut h);
+    // Entities (category entity) as their text; designs without entities hash as before.
+    for e in &d.entities {
+        e.to_text().hash(&mut h);
+    }
     h.finish()
 }
 
@@ -431,6 +503,15 @@ fn substitutes(d: &Design, p: Pos, b: &BlockState) -> Vec<String> {
             out.push(format!("minecraft:observer[facing={f},powered=false]"));
         }
     };
+    // Watchable relays (exotic track): an iron trapdoor shows its power in its own state at
+    // once (an observer reads it 2 gt after the edge), conducts nothing, needs no support; a
+    // note block does the same but conducts. An observer whose only job is to make a power edge
+    // visible to the next observer can be a trapdoor (0 gt instead of 2), and a trapdoor or note
+    // block can stand where a plain block only relays power to an observer's neighbor.
+    let relays = |out: &mut Vec<String>| {
+        out.push(TRAPDOOR.to_string());
+        out.push(NOTE.to_string());
+    };
     match b.short_name() {
         "redstone_wire" => {
             for f in HORIZONTAL {
@@ -443,13 +524,27 @@ fn substitutes(d: &Design, p: Pos, b: &BlockState) -> Vec<String> {
                 out.push(b.with("facing", f).to_string());
             }
         }
-        "redstone_wall_torch" | "redstone_torch" | "observer" => {
+        "redstone_wall_torch" | "redstone_torch" => {
             observers(&mut out);
             torches(&mut out);
+        }
+        "observer" => {
+            observers(&mut out);
+            torches(&mut out);
+            relays(&mut out);
         }
         "smooth_stone" | "stone" => {
             out.push("minecraft:glass".to_string());
             out.push(crate::route::NONSTICK_FLOOR.to_string());
+            out.push(NOTE.to_string());
+        }
+        "note_block" => {
+            out.push(TRAPDOOR.to_string());
+            out.push("minecraft:smooth_stone".to_string());
+        }
+        k if k.ends_with("trapdoor") => {
+            out.push(NOTE.to_string());
+            observers(&mut out);
         }
         "glass" => out.push("minecraft:smooth_stone".to_string()),
         k if k.ends_with("glazed_terracotta") => out.push("minecraft:smooth_stone".to_string()),
@@ -567,6 +662,7 @@ fn lever_moves(ctx: &Ctx, d: &Design) -> Vec<Edit> {
                 set: vec![(q, st.clone())],
                 ports: vec![("lever".to_string(), q)],
                 desc: format!("lever {} -> {} {}", fmt_pos(lp), fmt_pos(q), short(&st)),
+                ..Default::default()
             });
         }
     }
@@ -993,7 +1089,7 @@ fn diff_edit(d: &Design, new: &Design, desc: String) -> Edit {
     let remove = d.blocks.keys().filter(|p| !new.blocks.contains_key(*p)).copied().collect();
     let set = new.blocks.iter().filter(|(p, s)| d.blocks.get(*p) != Some(*s)).map(|(p, s)| (*p, s.clone())).collect();
     let ports = new.ports.iter().filter(|(k, p)| d.ports.get(*k) != Some(*p)).map(|(k, p)| (k.clone(), *p)).collect();
-    Edit { remove, set, ports, desc }
+    Edit { remove, set, ports, desc, ..Default::default() }
 }
 
 /// Net re-synthesis candidates: (improving, neutral). For each dust net with 2+ terminals: the
@@ -1237,6 +1333,11 @@ pub(crate) fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, op
     if let Some(t) = &opts.tile {
         return crate::tile::verify_tiled_in(w, sb, design, t, opts).map(|_| ());
     }
+    // A design with entities is screened by the judge's own code (this frame-less copy knows
+    // nothing of entities).
+    if !design.entities.is_empty() {
+        return verify_in(w, sb, design, opts).map(|_| ());
+    }
     let illegal = crate::legality_problems(design);
     if !illegal.is_empty() {
         bail!("illegal design: {}", illegal.join("; "));
@@ -1461,6 +1562,8 @@ fn evaluate_with(
         // per-tick regions). Timings (objective or --max-open/--max-close) need the frames.
         let frames = opts.screen_frames || bar.is_some() || opts.max_open.is_some() || opts.max_close.is_some();
         let verdict = if frames { judge_in(w, sb, &d, &opts.screen, opts).map(Some) } else { screen_in(w, sb, &d, &opts.screen).map(|_| None) };
+        // The eligibility filter's first position, on screen survivors only.
+        let verdict = verdict.and_then(|r| eligibility_screen(w, sb, &d, opts).map(|_| r));
         match verdict {
             Ok(r) => {
                 let k = match &r {
@@ -1567,6 +1670,16 @@ fn finalize_report(pool: &Pool, _sandboxes: &Sandboxes, d: Design, opts: &Search
     // The exact `door verify` path (a fresh sandbox), so nothing a reused sandbox leaks can let
     // a design through.
     let mut w = pool.worker(0);
+    // The eligibility filter (--repeater-input / --eligible) in a fresh sandbox too.
+    let elig = |w: &mut mctas::sim::Worker, d: &Design| -> Result<()> {
+        if !opts.repeater_input && !opts.eligible {
+            return Ok(());
+        }
+        let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+        let r = eligibility_check(w, sb, d, opts, &opts.judge.offsets);
+        let _ = w.drop_sandbox(sb);
+        r
+    };
     let canon = crate::canonicalize(&mut w, &d)?;
     // A block that does not stay where it is written (it falls, pops or moves at rest) would
     // turn into an air entry: keep the design as edited then.
@@ -1574,15 +1687,17 @@ fn finalize_report(pool: &Pool, _sandboxes: &Sandboxes, d: Design, opts: &Search
         log("  the canonical form has air entries (something moves at rest); keeping the design as edited");
         let r = crate::verify(&mut w, &d, &opts.judge)
             .and_then(|r| speed_check(r, opts))
+            .and_then(|r| elig(&mut w, &d).map(|_| r))
             .context("the accepted design fails the judge in a fresh sandbox")?;
         return Ok((d, r));
     }
-    match crate::verify(&mut w, &canon, &opts.judge).and_then(|r| speed_check(r, opts)) {
+    match crate::verify(&mut w, &canon, &opts.judge).and_then(|r| speed_check(r, opts)).and_then(|r| elig(&mut w, &canon).map(|_| r)) {
         Ok(r) => Ok((canon, r)),
         Err(e) => {
             log(&format!("  canonical form fails the judge ({e:#}); keeping the design as edited"));
             let r = crate::verify(&mut w, &d, &opts.judge)
                 .and_then(|r| speed_check(r, opts))
+                .and_then(|r| elig(&mut w, &d).map(|_| r))
                 .context("the accepted design fails the judge in a fresh sandbox")?;
             Ok((d, r))
         }
@@ -1607,6 +1722,25 @@ pub fn search(
     if cur.blocks.len() != airs {
         log(&format!("dropped {} air entries from the start design", airs - cur.blocks.len()));
     }
+    // Keep rotation safety only if the start design has it.
+    let relaxed;
+    let opts = if opts.keep_rotations {
+        let mut w = pool.worker(0);
+        let start_rot = crate::rotation_check(&mut w, &cur, &opts.judge)?;
+        match start_rot {
+            None => {
+                log("the start design is rotation-safe: candidates must stay rotation-safe (--any-rotation to allow others)");
+                opts
+            }
+            Some((turns, _)) => {
+                log(&format!("the start design is NOT rotation-safe (turned {} degrees): rotations not checked", turns as u32 * 90));
+                relaxed = SearchOptions { keep_rotations: false, ..opts.clone() };
+                &relaxed
+            }
+        }
+    } else {
+        opts
+    };
     let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;
@@ -2017,6 +2151,17 @@ pub fn grow_states(spec: &str) -> Result<Vec<String>> {
             // changes, so next to a moving log they are an asymmetric 1 gt delay (pareto-mid).
             "leaves" => out.push("minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]".into()),
             "log" => out.extend(["x", "y", "z"].iter().map(|a| format!("minecraft:oak_log[axis={a}]"))),
+            // Entities (category entity, with --to-entity): a minecart, a chest minecart full of
+            // stone (a comparator reads 15 through a detector rail), an armor stand; and the
+            // blocks that sense them. (`rail` is the exotic palette's powered rail: the plain
+            // rail a cart rides is `plainrail`.)
+            "cart" => out.push("entity:minecraft:minecart".into()),
+            "chestcart" => out.push("entity:minecraft:chest_minecart {Items:[{Slot:0b,id:\"minecraft:stone\",count:64}]}".into()),
+            "stand" => out.push("entity:minecraft:armor_stand".into()),
+            "detector" => out.extend(["east_west", "north_south"].iter().map(|s| format!("minecraft:detector_rail[powered=false,shape={s}]"))),
+            "plainrail" => out.extend(["east_west", "north_south"].iter().map(|s| format!("minecraft:rail[shape={s}]"))),
+            "plate" => out.push("minecraft:stone_pressure_plate[powered=false]".into()),
+            "wplate" => out.push("minecraft:oak_pressure_plate[powered=false]".into()),
             s => match crate::synth::exotic_states(s) {
                 Some(v) => out.extend(v),
                 None if s.starts_with("minecraft:") => out.push(s.to_string()),
@@ -2033,18 +2178,47 @@ pub fn grow_states(spec: &str) -> Result<Vec<String>> {
 pub fn grow(pool: &Pool, base: &Design, g: &GrowOptions, opts: &SearchOptions, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
     let sandboxes = Sandboxes::new(pool);
     let ctx = Ctx::new(base)?;
+    // Entity tokens ("entity:<type> [snbt]") go in a free cell or one holding a rail or a plate
+    // (they share it), feet on the cell floor, or 1/16 up on a rail.
+    let is_entity = |s: &str| s.starts_with("entity:");
+    let shares = |s: &str| {
+        let k = kind(s);
+        k.ends_with("rail") || k.ends_with("pressure_plate")
+    };
     let mut singles: Vec<(Pos, String)> = Vec::new();
     for x in g.lo[0]..=g.hi[0] {
         for y in g.lo[1]..=g.hi[1] {
             for z in g.lo[2]..=g.hi[2] {
                 let p = [x, y, z];
-                if base.blocks.contains_key(&p) || ctx.forbidden.contains(&p) {
+                if ctx.forbidden.contains(&p) {
                     continue;
                 }
-                singles.extend(g.states.iter().map(|s| (p, s.clone())));
+                match base.blocks.get(&p) {
+                    None => singles.extend(g.states.iter().map(|s| (p, s.clone()))),
+                    Some(b) if shares(b) => singles.extend(g.states.iter().filter(|s| is_entity(s)).map(|s| (p, s.clone()))),
+                    Some(_) => {}
+                }
             }
         }
     }
+    let entity_at = |p: Pos, s: &str, rail: bool| -> mctas::design::EntitySpec {
+        let body = s.trim_start_matches("entity:");
+        let (kind_s, nbt) = match body.split_once(' ') {
+            Some((k, n)) => (k.to_string(), Some(n.trim().to_string())),
+            None => (body.to_string(), None),
+        };
+        let h = if rail { 0.0625 } else { 0.0 };
+        mctas::design::EntitySpec { kind: kind_s, pos: [p[0] as f64 + 0.5, p[1] as f64 + h, p[2] as f64 + 0.5], nbt }
+    };
+    let rail_in_base = |p: Pos| base.blocks.get(&p).is_some_and(|b| kind(b).ends_with("rail"));
+    // One added thing: a block, or an entity (on whatever the base has in its cell).
+    let edit1 = |p: Pos, s: &String, desc: String| -> Edit {
+        if is_entity(s) {
+            Edit { entities: vec![entity_at(p, s, rail_in_base(p))], desc, ..Default::default() }
+        } else {
+            Edit { set: vec![(p, s.clone())], desc, ..Default::default() }
+        }
+    };
     let one = |p: Pos, s: &String| format!("+{} {}", fmt_pos(p), short(s));
     let sticky = |s: &str| matches!(kind(s), "slime_block" | "honey_block");
     let adj = |a: Pos, b: Pos| (0..3).map(|i| (a[i] - b[i]).abs()).sum::<i32>() == 1;
@@ -2055,14 +2229,21 @@ pub fn grow(pool: &Pool, base: &Design, g: &GrowOptions, opts: &SearchOptions, l
     };
     let mut cands: Vec<Cand> = Vec::new();
     for (i, (p, s)) in singles.iter().enumerate() {
-        if support_ok(base, *p, s) && (!g.glue || glued_to_base(*p)) {
-            cands.push(Cand { base: 0, edit: Edit { set: vec![(*p, s.clone())], desc: one(*p, s), ..Default::default() } });
+        if (is_entity(s) || support_ok(base, *p, s)) && (!g.glue || glued_to_base(*p)) {
+            cands.push(Cand { base: 0, edit: edit1(*p, s, one(*p, s)) });
         }
         if g.k < 2 {
             continue;
         }
         for (q, t) in singles.iter().skip(i + 1) {
             if q == p {
+                // Only an entity and the rail or plate it stands on share a cell.
+                let (e, b) = if is_entity(s) { (s, t) } else { (t, s) };
+                if is_entity(e) && !is_entity(b) && shares(b) {
+                    let desc = format!("{} {}", one(*p, b), one(*p, e));
+                    let edit = Edit { set: vec![(*p, b.clone())], entities: vec![entity_at(*p, e, kind(b).ends_with("rail"))], desc, ..Default::default() };
+                    cands.push(Cand { base: 0, edit });
+                }
                 continue;
             }
             if g.glue {
@@ -2086,7 +2267,11 @@ pub fn grow(pool: &Pool, base: &Design, g: &GrowOptions, opts: &SearchOptions, l
                 continue;
             }
             let desc = format!("{} {}", one(*p, s), one(*q, t));
-            cands.push(Cand { base: 0, edit: Edit { set: vec![(*p, s.clone()), (*q, t.clone())], desc, ..Default::default() } });
+            let mut edit = edit1(*p, s, desc);
+            let other = edit1(*q, t, String::new());
+            edit.set.extend(other.set);
+            edit.entities.extend(other.entities);
+            cands.push(Cand { base: 0, edit });
         }
     }
     log(&format!("{} cells x states = {} singles; {} candidates", singles.len() / g.states.len().max(1), singles.len(), cands.len()));

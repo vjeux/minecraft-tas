@@ -1,0 +1,56 @@
+# exotic track: pareto-mid's mp7-dustU (47, open 14 / close 13, on its branch) through `door
+# resynth --palette ...,exotic,shelf --require-any ...`: U's relay [dust (2,-2,0) + stone (2,-3,0)
+# + observer (3,-2,0) watching the dust (4,-2,0) under the redstone-block flag's landing cell]
+# becomes an IRON TRAPDOOR (3,-3,0) beside that dust's floor (4,-3,0) (the floor is powered while
+# the dust is lit, so the trapdoor flips with the dust: lit at landing, dark at once on leaving)
+# and an observer (2,-3,0) watching it, firing the bottom puller (1,-3,0): 46 blocks, same 14 / 13.
+name: exotic-pm46-trap
+port door: 0 0 0
+port lever: 0 3 -1
+origin: -2 0 -1
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:obsidian
+  C minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  D minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  E minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=ceiling,facing=north,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:smooth_stone
+layer -3:
+  .
+  ...HOIs
+layer -2:
+  .sB
+  ..H...r
+layer -1:
+  KDC
+  ..SS.R
+layer 0:
+  o
+  ..KKKS
+layer 1:
+  .K
+  .SKKKS
+layer 2:
+  .
+  .SKKKS
+layer 3:
+  ..Ls
+  .SJ.SS
+layer 4:
+  ..KEK
+  .KAFGS
+layer 5:
+  .
+  ....OK

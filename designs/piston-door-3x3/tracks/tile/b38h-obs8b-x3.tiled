@@ -1,0 +1,72 @@
+name: b38h-obs8b x3
+relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+tile: period:8:3
+tiling: period:8:3
+port door: -8 0 0
+port door2: 0 0 0
+port door3: 8 0 0
+port lever: -7 5 -3
+origin: -10 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=south]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:stone
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  .
+  ...G.......G.......G
+layer -1:
+  .
+  .
+  .
+  .BC......BC......BC
+layer 0:
+  .
+  .
+  .
+  E.JJJ.I.E.JJJ.I.E.JJJ.I
+layer 1:
+  .
+  .
+  .
+  E.JJJ.I.E.JJJ.I.E.JJJ.I
+layer 2:
+  .
+  .
+  .
+  SoJJJCS.SoJJJCS.SoJJJCS
+layer 3:
+  .
+  ...F.......F.......F
+  ..S.S.....S.S.....S.S
+  .
+layer 4:
+  ...H.......H.......H
+  ...A.......A.......A
+  ..rSr.....rSr.....rSr
+  ..sss.....sss.....sss
+layer 5:
+  ...LCCCCCCCRCCCCCCCRCCCCCCC
+  ...B.......B.......B
+  ...B.......B.......B
+  ...s.......s.......s
+layer 6:
+  ...O.......O.......O
+  ...A.......A.......A
+  ...D.......D.......D
+  .

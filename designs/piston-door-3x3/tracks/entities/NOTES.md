@@ -73,3 +73,28 @@ judge, boards) and searched it.
 | file | blocks | note |
 |---|---|---|
 | test-static-armor.txt (= BEST.txt) | 39 | sf-holdA b38 + an armor stand standing on its smooth stone: the category's first verified entry (32 positions, rotation-safe); the entity does nothing |
+
+## Tools for the next searcher
+* `door grow --to-entity --states cart,chestcart,stand,detector,rail,plate,wplate,...`: entity tokens
+  go in free cells or share a cell with a rail or plate (with `--k 2` an entity and its sensor
+  together); candidates with entities are screened by the judge's own code. Smoke test: b38 + a
+  stand or a cart on its smooth stone, both verified at 39.
+* `door drive`: `summon`, `entities`, `etrace`, `expect_entity`, `expect_entities`.
+
+## Next ideas (none looked like a win)
+* A door built around slow-OFF signals (every close step waiting >= 20 gt) could use entity
+  sensors as level sources; it would be slow and is unlikely to be small.
+* The block-entity-phase trigger (piston -> cart -> detector rail -> next piston 1 tick later) is a
+  parity tool for the speed doors (an odd tick without the repeater + note block + observer trick),
+  if a use can live with the rail staying on 20 gt.
+* A rail riding a slime structure under a parked cart is a power source that is on only at rest
+  (instant on/off: the rail is re-checked when it lands): a redstone-block rider that does not
+  power anything at the moved position, for one block more.
+
+## Judge integration test with a moving entity
+`test-lift-stand.txt` (41, category entity): b38 + a sticky piston facing up next to the lever
+(1,5,-4) with a smooth stone on it and an armor stand on the stone. Lever on: the stand is lifted to
+y 8 (8.01 mid-push, then 8.0); lever off: the stone is pulled down and the stand falls back to
+exactly y 7 four ticks later (`door drive`: etrace). WORKS at 32 positions, rotation-safe: the
+judge's moving-entity path (escape and foreign checks per tick, return within 1e-6, a living
+entity at rest with -0.0784 vertical motion on the ground, flip waits) on a real door.

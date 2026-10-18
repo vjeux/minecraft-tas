@@ -1,6 +1,6 @@
 name: gadget-open-4
-# A 3x3 opening cleared at tick 4 (the open floor; boards: 10), with ideal inputs (docs/ticks.md
-# section 6). Door blocks: stone at x 0..2, y 0..2, z 0. Script inputs between ticks stand for the
+# A 3x3 opening cleared at tick 4 (the open floor; boards: 10), with ideal inputs (docs/mechanics.md
+# section 9). Door blocks: stone at x 0..2, y 0..2, z 0. Script inputs between ticks stand for the
 # lever flip (k0: the pullers' redstone blocks go away, the k1 0-tick partners get armed) and for
 # an observer chain at k4 (the aside pullers lose power, the k4 partners get armed).
 # * k1: 7 plain sticky pullers (heads touching at rest) retract: TL up into (0,3); TR, MR, BR,

@@ -3,6 +3,7 @@
 # next opening into smooth stone (-1,5,-3) of the copy above, which powers dust (0,5,-3) and the
 # relay dust in that copy's lever cell (on its hopper).
 name: b38h-vobs9
+tiling: vperiod:9:3
 relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
 port door: 0 0 0
 port lever: 1 5 -3

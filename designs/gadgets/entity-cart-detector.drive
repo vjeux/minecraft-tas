@@ -1,0 +1,17 @@
+# A minecart pushed onto a detector rail by a piston powers the rail during the block-entity phase
+# of the push tick (OldMinecartBehavior: move(PISTON) -> applyEffectsFromBlocks -> entityInside ->
+# checkPressed), so a piston next to the rail extends one tick after the pusher (an observer
+# watching the pushed cell would fire it two ticks after). Leaving it there, the rail stays on.
+design designs/gadgets/entity-cart-detector.txt
+probe p1 2 1 0
+probe d 4 1 0
+probe p2 4 1 1
+settle
+expect d 0
+setblock 1 1 0 minecraft:redstone_block
+etrace 6
+expect d 1
+expect p2 E
+expect_entity minecart 4.5 1.0625 0.5
+settle 100
+expect d 1

@@ -1,0 +1,29 @@
+[    7.7s] start: 41 blocks, open 28 / close 26
+[   17.1s] seamless QUART z-,z+ below FULL: repairing groups through (-1,2,0) (2,-1,0)
+[   17.1s] 41 blocks: 20 removable, 10 groups of 2..4
+[   18.6s]   group [(-1,2,0)obse] -> <= 3 blocks: 209 circuits in 1.6s
+[   18.7s]     size 1: 5 candidates screened in 0.0s, 1 passed the screen
+[   18.8s]   group [(2,-1,0)obse] -> <= 3 blocks: 49 circuits in 0.2s
+[   19.8s]   group [(-2,2,0)smoo (-1,2,0)obse] -> <= 4 blocks: 836 circuits in 1.0s
+[   19.9s]     size 2: 15 candidates screened in 0.0s, 1 passed the screen
+[   20.2s]   group [(2,-2,0)obse (2,-1,0)obse] -> <= 4 blocks: 415 circuits in 0.4s
+[   20.3s]     size 2: 22 candidates screened in 0.0s, 1 passed the screen
+[   20.9s]     size 4: 767 candidates screened in 0.5s, 1 passed the screen
+[   20.9s]   group [(2,-1,0)obse (3,-1,0)obse] -> <= 4 blocks: 913 circuits in 0.7s
+[   21.7s]   group [(2,-1,0)obse (3,-2,0)lamp] -> <= 4 blocks: 1137 circuits in 0.8s
+[   22.0s]     size 3: 122 candidates screened in 0.1s, 1 passed the screen
+[   25.1s]     size 5: 6158 candidates screened in 2.6s, 1 passed the screen
+[   25.1s]   group [(2,-2,0)obse (2,-1,0)obse (3,-1,0)obse] -> <= 5 blocks: 7189 circuits in 3.2s
+[   28.0s]   group [(2,-2,0)obse (2,-1,0)obse (3,-2,0)lamp] -> <= 5 blocks: 7996 circuits in 2.8s
+[   30.8s]     size 5: 7780 candidates screened in 2.2s, 4 passed the screen
+[   30.8s]   group [(2,-1,0)obse (3,-2,0)lamp (3,-1,0)obse] -> <= 5 blocks: 8999 circuits in 2.6s
+[   46.2s]     size 6: 41002 candidates screened in 11.4s, 7 passed the screen
+[   47.2s]     VERIFIED size 6: +(1,-3,0) smooth_stone +(2,-3,0) observer[facing=east,powered=false] +(3,-3,0) observer[facing=up,powered=false] +(3,-2,0) repeater[delay=2,facing=east,locked=false,powered=false] +(4,-2,0) smooth_stone +(4,-1,0) observer[facing=up,powered=false] [2 block, 3 observer, 1 repeater] -- door works at 32 positions, open 28 / close 26
+[   47.2s]   group [(2,-2,0)obse (2,-1,0)obse (3,-2,0)lamp (3,-1,0)obse] -> <= 6 blocks: 47035 circuits in 13.9s FOUND
+[   47.2s] REPAIRED 41 -> 43 blocks: [(2,-2,0)obse (2,-1,0)obse (3,-2,0)lamp (3,-1,0)obse] replaced by +(1,-3,0) smooth_stone +(2,-3,0) observer[facing=east,powered=false] +(3,-3,0) observer[facing=up,powered=false] +(3,-2,0) repeater[delay=2,facing=east,locked=false,powered=false] +(4,-2,0) smooth_stone +(4,-1,0) observer[facing=up,powered=false] -- door works at 32 positions, open 28 / close 26
+[   47.2s]   saved to designs/piston-door-3x3/tracks/seamless/wip/e41-full.txt
+[   56.5s] seamless QUART z-,z+ below FULL: repairing groups through (-1,2,0)
+[   56.5s] 43 blocks: 22 removable, 2 groups of 2..4
+[   56.6s]   group [(-1,2,0)obse] -> <= 3 blocks: 209 circuits in 0.1s
+[   56.9s]   group [(-2,2,0)smoo (-1,2,0)obse] -> <= 4 blocks: 836 circuits in 0.3s
+41 -> 43 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/e41-full.txt

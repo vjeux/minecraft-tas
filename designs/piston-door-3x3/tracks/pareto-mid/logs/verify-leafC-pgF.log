@@ -1,0 +1,6 @@
+WORKS: pareto-mid-mp7-leafC (50 blocks, 7x9x4, category solid)
+archived designs/piston-door-3x3/tracks/pareto-mid/archive/pareto-mid-mp7-leafC-50b.txt
+  cycle 0: open after 15 ticks (idle at 17), closed after 11 ticks (idle at 13)
+  cycle 1: open after 15 ticks (idle at 17), closed after 11 ticks (idle at 13)
+  cycle 2: open after 15 ticks (idle at 17), closed after 11 ticks (idle at 13)
+rotation-safe: also works turned 90, 180 and 270 degrees (32 positions each)
