@@ -1011,6 +1011,104 @@ pub fn search(
     Ok(cur)
 }
 
+/// `door regrow`: every face-connected group of `size` non-piston control blocks is cut and
+/// re-grown with `size - 1` blocks from `states` inside the group's bounding box grown by
+/// `margin` (a "cut n, add n-1" move the removal-only minimizer cannot make). Returns the
+/// verified designs, fewest blocks first.
+pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], opts: &SearchOptions, want: usize, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+    let sandboxes = Sandboxes::new(pool);
+    let ctx = Ctx::new(base)?;
+    let cuttable: Vec<Pos> = ctx
+        .removable(base)
+        .into_iter()
+        .filter(|p| {
+            let k = kind(&base.blocks[p]);
+            !k.contains("piston")
+        })
+        .collect();
+    let set: HashSet<Pos> = cuttable.iter().copied().collect();
+    // Connected groups of `size` (as sorted vectors, deduplicated).
+    let mut groups: HashSet<Vec<Pos>> = HashSet::new();
+    let mut frontier: Vec<Vec<Pos>> = cuttable.iter().map(|p| vec![*p]).collect();
+    for _ in 1..size {
+        let mut next = Vec::new();
+        for g in &frontier {
+            for p in g {
+                for f in FACES {
+                    let n = add(*p, f);
+                    if set.contains(&n) && !g.contains(&n) {
+                        let mut h = g.clone();
+                        h.push(n);
+                        h.sort();
+                        if groups.insert(h.clone()) {
+                            next.push(h);
+                        }
+                    }
+                }
+            }
+        }
+        frontier = next;
+    }
+    let groups: Vec<Vec<Pos>> = groups.into_iter().filter(|g| g.len() == size).collect();
+    let mut cands: Vec<Cand> = Vec::new();
+    for g in &groups {
+        let cut = Edit::removal(g, base);
+        let d = cut.apply(base);
+        let (mut lo, mut hi) = (g[0], g[0]);
+        for p in g {
+            for i in 0..3 {
+                lo[i] = lo[i].min(p[i] - margin);
+                hi[i] = hi[i].max(p[i] + margin);
+            }
+        }
+        let mut singles: Vec<(Pos, String)> = Vec::new();
+        for x in lo[0]..=hi[0] {
+            for y in lo[1]..=hi[1] {
+                for z in lo[2]..=hi[2] {
+                    let p = [x, y, z];
+                    if d.blocks.contains_key(&p) || ctx.forbidden.contains(&p) {
+                        continue;
+                    }
+                    singles.extend(states.iter().map(|s| (p, s.clone())));
+                }
+            }
+        }
+        let stands = |a: Pos, sa: &String, other: Option<(Pos, &String)>| match attachment(a, sa) {
+            Some(at) => match other {
+                Some((b, sb)) if b == at => is_support(sb),
+                _ => d.blocks.get(&at).is_some_and(|x| is_support(x)),
+            },
+            None => true,
+        };
+        let one = |p: Pos, s: &String| format!("+{} {}", fmt_pos(p), short(s));
+        for (i, (p, s)) in singles.iter().enumerate() {
+            if size == 2 {
+                if stands(*p, s, None) {
+                    let mut e = cut.clone();
+                    e.set.push((*p, s.clone()));
+                    e.desc = format!("{} {}", cut.desc, one(*p, s));
+                    cands.push(Cand { base: 0, edit: e });
+                }
+                continue;
+            }
+            for (q, t) in singles.iter().skip(i + 1) {
+                if q == p || !stands(*p, s, Some((*q, t))) || !stands(*q, t, Some((*p, s))) {
+                    continue;
+                }
+                let mut e = cut.clone();
+                e.set.push((*p, s.clone()));
+                e.set.push((*q, t.clone()));
+                e.desc = format!("{} {} {}", cut.desc, one(*p, s), one(*q, t));
+                cands.push(Cand { base: 0, edit: e });
+            }
+        }
+    }
+    log(&format!("{} groups of {size}; {} candidates", groups.len(), cands.len()));
+    let failed: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
+    let verified = evaluate(pool, &sandboxes, &[base.clone()], cands, opts, &failed, want, log);
+    Ok(verified.into_iter().map(|(_, d, desc)| (d, desc)).collect())
+}
+
 /// `door grow`: which blocks to try, in which cells.
 pub struct GrowOptions {
     /// Inclusive box of cells to fill (cells already used, door cells and the walkway skipped).

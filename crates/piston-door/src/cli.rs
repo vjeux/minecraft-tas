@@ -101,6 +101,27 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// Cut every face-connected group of --size control blocks (pistons excluded) and re-grow it
+    /// with size-1 blocks from --states inside the group's box grown by --margin (see search.rs
+    /// `regrow`). The best verified design is written to --out.
+    Regrow {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Group size: 2 (re-grown with 1 block) or 3 (with 2).
+        #[arg(long, default_value_t = 2)]
+        size: usize,
+        #[arg(long, default_value_t = 1)]
+        margin: i32,
+        #[arg(long, default_value = "obs,block,dust,rep,rep2,rep3,rep4,torch,glass")]
+        states: String,
+        #[arg(long, default_value_t = 1)]
+        want: usize,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+    },
     /// Add 1 or 2 blocks (from --states, in the free cells of --lo..--hi) to a design, usually
     /// one whose old wiring was removed, screening every combination and judging the survivors
     /// (see search.rs `grow`). The best verified design is written to --out.
@@ -408,6 +429,38 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let best = crate::search::search(&pool, &d, &opts, &log, &mut on_improve)?;
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
+        }
+        DoorCmd::Regrow { design, out, size, margin, states, want, workers, extra_offsets } => {
+            let d = load_design(&design)?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let t = std::time::Instant::now();
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let opts = crate::search::SearchOptions {
+                families: Vec::new(),
+                screen: VerifyOptions { cycles: 1, max_ticks: 200, offsets: offsets.iter().take(2).copied().collect(), keep_frames: false },
+                judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
+                radius: 2,
+                plateau: false,
+                plateau_pairs: false,
+                walk: 0,
+                deadline: None,
+                seed: 1,
+            };
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let st = crate::search::grow_states(&states)?;
+            let found = crate::search::regrow(&pool, &d, size, margin, &st, &opts, want, &log)?;
+            for (fd, desc) in &found {
+                println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
+            }
+            match found.first() {
+                Some((best, _)) => {
+                    let mut w = pool.worker(0);
+                    let canon = crate::canonicalize(&mut w, best)?;
+                    canon.save(&out)?;
+                    println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
+                }
+                None => println!("nothing found"),
+            }
         }
         DoorCmd::Grow { design, out, lo, hi, states, k, want, workers, extra_offsets, screen_offsets, screen_cycles, screen_ticks } => {
             let d = load_design(&design)?;
