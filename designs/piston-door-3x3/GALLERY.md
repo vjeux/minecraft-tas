@@ -48,11 +48,11 @@ The 9 door blocks are sand, gravel or concrete powder.
 
 Every record of this board in one video: [gravity-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.jpg)).
 
-## Fastest solid: 139 blocks
+## Fastest solid: 122 blocks
 
 Fewest game ticks to open plus close (worst cycle), ties by blocks.
 
-![speed-wire-w2-139b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w2-139b.gif)
+![speed-wire-w5-122b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w5-122b.gif)
 
-**139 blocks**, solid, slime-free, opens in 12 ticks, closes in 14 (worst cycle): [speed-wire-w2-139b](archive/speed-wire-w2-139b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w2-139b.mp4)). Agent speed, built for ticks instead of blocks: the top-middle block leaves into its exit cell first, a pusher shoves a sticky puller into that exit, the puller and a fixed piston above it pull the center out in two quick moves (1-tick pulses), and the close runs it backwards with spits; opens in 12 ticks, closes in 14.
+**122 blocks**, solid, slime-free, opens in 12 ticks, closes in 11 (worst cycle): [speed-wire-w5-122b](archive/speed-wire-w5-122b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w5-122b.mp4)). From agent speed; see [tracks/speed/NOTES.md](tracks/speed/NOTES.md).
 
