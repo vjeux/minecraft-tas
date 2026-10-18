@@ -6,14 +6,78 @@ use mctas::design::Design;
 use mctas::sim::Pos;
 
 pub fn names() -> Vec<&'static str> {
-    vec!["obs-d2"]
+    vec!["obs-d2", "obs-d3"]
 }
 
 pub fn build(name: &str) -> Option<Design> {
     match name {
         "obs-d2" => Some(d2()),
+        "obs-d3" => Some(d3()),
         _ => None,
     }
+}
+
+const WIRE: &str = "minecraft:redstone_wire";
+
+/// d3: like d2, but O watches B itself (2 pulses per B window, unaffected by R_B's lock), R_B
+/// sits north of B, the park observer (1,3,-2) feeds R_B (locked while the lever is off) and,
+/// through a 2gt repeater, the X net (late A: pushes T+C home in the closing, harmless in the
+/// opening). Lever-edge pulses for the sides/M and P_T are not wired yet (driven by script).
+pub fn d3() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-obs-d3".into();
+    mech_bottom_inner(&mut b);
+    // A on both lever edges: left column top observer.
+    put(&mut b, &[([0, 3, 0], &observer("down")), ([0, 4, 0], STONE)]);
+    // Window: R_B (1,5,-1) flows south into B; O (2,5,0) watches B -> D1 (3,5,0) -> X (2,4,0).
+    put(
+        &mut b,
+        &[
+            ([1, 5, -1], &repeater("south", 4)),
+            ([1, 4, -1], FLOOR),
+            ([2, 5, 0], &observer("west")),
+            ([3, 5, 0], WIRE),
+            ([3, 4, 0], FLOOR),
+            ([2, 4, 0], WIRE),
+            ([2, 3, 0], STONE),
+        ],
+    );
+    // Lock: lever on (-2,5,-1), torch (-1,5,-1), RL (0,5,-1) into R_B's west side.
+    put(
+        &mut b,
+        &[
+            ([-2, 5, -1], FLOOR),
+            ([-2, 6, -1], "minecraft:lever[face=floor,facing=west,powered=false]"),
+            ([-1, 5, -1], "minecraft:redstone_wall_torch[facing=east,lit=true]"),
+            ([0, 5, -1], &repeater("east", 1)),
+            ([0, 4, -1], FLOOR),
+        ],
+    );
+    b.port("lever", [-2, 6, -1]);
+    // Park observer (1,3,-2) -> (1,3,-3) -> dust up to R_B's input (1,5,-2).
+    put(
+        &mut b,
+        &[
+            ([1, 3, -2], &observer("south")),
+            ([1, 3, -3], FLOOR),
+            ([1, 4, -3], WIRE),
+            ([1, 4, -2], FLOOR),
+            ([1, 5, -2], WIRE),
+        ],
+    );
+    // Late A: (1,5,-2) -> (2,5,-2) -> (3,5,-2) -> repeater (3,5,-1) south into D1.
+    put(
+        &mut b,
+        &[
+            ([2, 5, -2], WIRE),
+            ([2, 4, -2], FLOOR),
+            ([3, 5, -2], WIRE),
+            ([3, 4, -2], FLOOR),
+            ([3, 5, -1], &repeater("south", 1)),
+            ([3, 4, -1], FLOOR),
+        ],
+    );
+    b.d
 }
 
 const STONE: &str = "minecraft:stone";
