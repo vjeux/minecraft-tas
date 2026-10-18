@@ -283,7 +283,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             reserved.retain(|p| !d.blocks.contains_key(p));
             for x in 0..=2 { for y in 0..=2 { for z in -4..=4 { reserved.insert([x, y, z]); } } }
             reserved.insert([1, 3, 1]);
-            let r = crate::route::Router { blocks: &d.blocks, reserved, allow: cells(&allow).into_iter().collect(), lo: [-12, -6, -8], hi: [12, 12, 10] };
+            let r = crate::route::Router { blocks: &d.blocks, reserved, allow: cells(&allow).into_iter().collect(), lo: [-12, -6, -8], hi: [12, 12, 10], floor_only: Default::default() };
             let goal = cells(&goal)[0];
             match r.route(&cells(&start), goal) {
                 Some(path) => {

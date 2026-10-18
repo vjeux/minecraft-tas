@@ -47,7 +47,9 @@ pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &Search
         fresh.into_iter().zip(verdicts).filter(|(_, v)| matches!(v, Ok(true))).map(|(c, _)| c).collect();
     working.sort_by_key(|(s, d)| (category(d), block_count(d), s.clone()));
     let mut picked = Vec::new();
-    for cat in ["solid", "gravity"] {
+    let mut cats: Vec<&'static str> = working.iter().map(|(_, d)| category(d)).collect();
+    cats.dedup();
+    for cat in cats {
         picked.extend(working.iter().filter(|(_, d)| category(d) == cat).take(opts.top).cloned());
     }
     for (source, d0) in picked {

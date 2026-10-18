@@ -111,18 +111,20 @@ impl SearchOptions {
     }
 }
 
-/// A design edit: blocks removed (an extended piston loses its head too), then blocks set.
-#[derive(Clone, Debug)]
+/// A design edit: blocks removed (an extended piston loses its head too), then blocks set, then
+/// ports moved.
+#[derive(Clone, Debug, Default)]
 pub struct Edit {
     pub remove: Vec<Pos>,
     pub set: Vec<(Pos, String)>,
+    pub ports: Vec<(String, Pos)>,
     pub desc: String,
 }
 
 impl Edit {
     fn removal(ps: &[Pos], d: &Design) -> Edit {
         let desc = ps.iter().map(|p| format!("-{} {}", fmt_pos(*p), short(&d.blocks[p]))).collect::<Vec<_>>().join(" ");
-        Edit { remove: ps.to_vec(), set: Vec::new(), desc }
+        Edit { remove: ps.to_vec(), desc, ..Default::default() }
     }
 
     pub fn apply(&self, d: &Design) -> Design {
@@ -132,6 +134,9 @@ impl Edit {
         }
         for (p, s) in &self.set {
             out.blocks.insert(*p, s.clone());
+        }
+        for (name, p) in &self.ports {
+            out.ports.insert(name.clone(), *p);
         }
         out
     }
@@ -170,16 +175,6 @@ fn dir(f: &str) -> Option<Pos> {
         _ => return None,
     })
 }
-fn opposite(f: &str) -> &'static str {
-    match f {
-        "north" => "south",
-        "south" => "north",
-        "east" => "west",
-        "west" => "east",
-        "up" => "down",
-        _ => "up",
-    }
-}
 fn short(s: &str) -> &str {
     s.strip_prefix("minecraft:").unwrap_or(s)
 }
@@ -214,7 +209,7 @@ fn is_conductor(s: &str) -> bool {
     is_support(s) && !matches!(kind(s), "glass" | "observer" | "piston" | "sticky_piston" | "slime_block" | "honey_block" | "redstone_block")
 }
 fn movable(k: &str) -> bool {
-    !matches!(k, "piston" | "sticky_piston" | "slime_block" | "honey_block" | "piston_head" | "moving_piston" | "lever")
+    !matches!(k, "piston_head" | "moving_piston" | "lever")
 }
 
 /// Remove the block at `p` in place; an extended piston loses its head.
@@ -355,16 +350,22 @@ fn substitutes(d: &Design, p: Pos, b: &BlockState) -> Vec<String> {
         }
         "repeater" => {
             out.push(WIRE.to_string());
-            if let Some(f) = b.get("facing") {
-                out.push(b.with("facing", opposite(f)).to_string());
+            for f in HORIZONTAL {
+                out.push(b.with("facing", f).to_string());
             }
         }
         "redstone_wall_torch" | "redstone_torch" | "observer" => {
             observers(&mut out);
             torches(&mut out);
         }
-        "smooth_stone" | "stone" => out.push("minecraft:glass".to_string()),
+        "smooth_stone" | "stone" => {
+            out.push("minecraft:glass".to_string());
+            out.push(crate::route::NONSTICK_FLOOR.to_string());
+        }
         "glass" => out.push("minecraft:smooth_stone".to_string()),
+        k if k.ends_with("glazed_terracotta") => out.push("minecraft:smooth_stone".to_string()),
+        "slime_block" => out.push("minecraft:honey_block".to_string()),
+        "honey_block" => out.push("minecraft:slime_block".to_string()),
         _ => {}
     }
     let me = b.to_string();
@@ -372,9 +373,11 @@ fn substitutes(d: &Design, p: Pos, b: &BlockState) -> Vec<String> {
     out
 }
 
-/// Count-neutral edits: repeater delays, substitutions, moves to a neighbor cell.
+/// Count-neutral edits: repeater delays, substitutions, moves to a neighbor cell (an extended
+/// piston moves with its head), and the lever moved or re-attached nearby (its port follows).
 fn neutral_edits(ctx: &Ctx, d: &Design, opts: &SearchOptions) -> Vec<Edit> {
     let mut out = Vec::new();
+    let set1 = |p: Pos, s: String, desc: String| Edit { set: vec![(p, s)], desc, ..Default::default() };
     for (&p, s) in &d.blocks {
         if ctx.keep.contains(&p) {
             continue;
@@ -385,30 +388,97 @@ fn neutral_edits(ctx: &Ctx, d: &Design, opts: &SearchOptions) -> Vec<Edit> {
             let cur = b.get("delay").unwrap_or("1").to_string();
             for dl in ["1", "2", "3", "4"] {
                 if dl != cur {
-                    out.push(Edit { remove: vec![], set: vec![(p, b.with("delay", dl).to_string())], desc: format!("{} delay {cur}->{dl}", fmt_pos(p)) });
+                    out.push(set1(p, b.with("delay", dl).to_string(), format!("{} delay {cur}->{dl}", fmt_pos(p))));
                 }
             }
         }
         if opts.has(Family::Subs) {
             for alt in substitutes(d, p, &b) {
-                out.push(Edit { remove: vec![], set: vec![(p, alt.clone())], desc: format!("{} {} => {}", fmt_pos(p), short(s), short(&alt)) });
+                out.push(set1(p, alt.clone(), format!("{} {} => {}", fmt_pos(p), short(s), short(&alt))));
+            }
+            // A piston of the other kind (the head follows).
+            if k == "piston" || k == "sticky_piston" {
+                let other = if k == "piston" { "sticky_piston" } else { "piston" };
+                let mut e = set1(p, s.replacen(&format!("minecraft:{k}["), &format!("minecraft:{other}["), 1), format!("{} {k} => {other}", fmt_pos(p)));
+                if b.get("extended") == Some("true") {
+                    if let Some(v) = b.get("facing").and_then(dir) {
+                        let h = add(p, v);
+                        if let Some(hs) = d.blocks.get(&h) {
+                            let ty = if other == "piston" { "type=normal" } else { "type=sticky" };
+                            e.set.push((h, hs.replace("type=sticky", ty).replace("type=normal", ty)));
+                        }
+                    }
+                }
+                out.push(e);
             }
         }
         if opts.has(Family::Moves) && movable(&k) && !supports_something(d, p) {
+            // An extended piston moves with its head.
+            let head = (b.get("extended") == Some("true"))
+                .then(|| b.get("facing").and_then(dir).map(|v| add(p, v)))
+                .flatten()
+                .filter(|h| d.blocks.get(h).is_some_and(|x| x.starts_with("minecraft:piston_head")));
             for f in FACES {
                 let q = add(p, f);
-                if d.blocks.contains_key(&q) || ctx.forbidden.contains(&q) {
+                let free = |c: Pos| (!d.blocks.contains_key(&c) || Some(c) == head || c == p) && !ctx.forbidden.contains(&c);
+                if !free(q) {
                     continue;
                 }
                 let state = if k == "redstone_wire" { WIRE.to_string() } else { s.clone() };
-                let mut after = d.clone();
-                after.blocks.remove(&p);
-                after.blocks.insert(q, state.clone());
+                let mut e = Edit { remove: vec![p], set: vec![(q, state.clone())], desc: format!("move {} {} -> {}", fmt_pos(p), short(s), fmt_pos(q)), ..Default::default() };
+                if let Some(h) = head {
+                    let qh = add(h, f);
+                    if !free(qh) {
+                        continue;
+                    }
+                    e.set.push((qh, d.blocks[&h].clone()));
+                }
+                let after = e.apply(d);
                 if !support_ok(&after, q, &state) {
                     continue;
                 }
-                out.push(Edit { remove: vec![p], set: vec![(q, state)], desc: format!("move {} {} -> {}", fmt_pos(p), short(s), fmt_pos(q)) });
+                out.push(e);
             }
+        }
+    }
+    if opts.has(Family::Moves) {
+        out.extend(lever_moves(ctx, d));
+    }
+    out
+}
+
+/// The lever moved to a free neighbor cell (or kept) and attached to any block next to it.
+fn lever_moves(ctx: &Ctx, d: &Design) -> Vec<Edit> {
+    let mut out = Vec::new();
+    let Some(&lp) = d.ports.get("lever") else { return out };
+    let Some(ls) = d.blocks.get(&lp) else { return out };
+    for q in std::iter::once(lp).chain(FACES.iter().map(|f| add(lp, *f))) {
+        if q != lp && (d.blocks.contains_key(&q) || ctx.forbidden.contains(&q)) {
+            continue;
+        }
+        let mut states = Vec::new();
+        let solid = |c: Pos| c != lp && d.blocks.get(&c).is_some_and(|s| is_support(s));
+        if solid(add(q, [0, -1, 0])) {
+            states.push("minecraft:lever[face=floor,facing=west,powered=false]".to_string());
+        }
+        if solid(add(q, [0, 1, 0])) {
+            states.push("minecraft:lever[face=ceiling,facing=west,powered=false]".to_string());
+        }
+        for f in HORIZONTAL {
+            if solid(sub(q, dir(f).unwrap())) {
+                states.push(format!("minecraft:lever[face=wall,facing={f},powered=false]"));
+            }
+        }
+        for st in states {
+            if q == lp && attachment(lp, &st) == attachment(lp, ls) {
+                continue;
+            }
+            out.push(Edit {
+                remove: vec![lp],
+                set: vec![(q, st.clone())],
+                ports: vec![("lever".to_string(), q)],
+                desc: format!("lever {} -> {} {}", fmt_pos(lp), fmt_pos(q), short(&st)),
+            });
         }
     }
     out
@@ -558,11 +628,57 @@ fn router_view(d: &Design, blocks: &BTreeMap<Pos, String>) -> BTreeMap<Pos, Stri
         .collect()
 }
 
-/// Cells new wiring may not use: what the machine sweeps while it runs, the door and walkway.
-fn reserved_cells(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> HashSet<Pos> {
-    let mut reserved: HashSet<Pos> = swept.iter().filter(|p| !d.blocks.contains_key(*p)).copied().collect();
+/// Where a design's machine goes during one open/close cycle: cells non-air at some tick
+/// (`occupied`), and cells next to a slime/honey or moving block at some tick but never occupied
+/// (`drag`: a block there would be dragged, unless it is non-sticky like glazed terracotta).
+#[derive(Clone, Default)]
+pub struct Space {
+    pub occupied: HashSet<Pos>,
+    pub drag: HashSet<Pos>,
+}
+
+pub fn sweep(w: &mut mctas::sim::Worker, d: &Design, spec: &DoorSpec) -> Result<Space> {
+    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let r = (|| -> Result<Space> {
+        crate::video::place(w, sb, d)?;
+        let (lo, hi) = d.bounds().context("empty design")?;
+        let (lo, hi) = ([lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3]);
+        let (mut occupied, mut near) = (HashSet::new(), HashSet::new());
+        for _ in 0..2 {
+            w.use_block(sb, spec.lever)?;
+            for _ in 0..70 {
+                w.step(sb, 1)?;
+                let region = w.get_region(sb, lo, hi)?;
+                for (p, s) in region.iter() {
+                    if mctas::blockstate::is_air(s) {
+                        continue;
+                    }
+                    occupied.insert(p);
+                    if s.starts_with("minecraft:slime_block") || s.starts_with("minecraft:honey_block") || s.contains("moving_piston") {
+                        for f in FACES {
+                            near.insert(add(p, f));
+                        }
+                    }
+                }
+            }
+        }
+        let drag = near.difference(&occupied).copied().collect();
+        Ok(Space { occupied, drag })
+    })();
+    let _ = w.drop_sandbox(sb);
+    r
+}
+
+/// Cells new wiring may not use: what the machine occupies while it runs, the door and walkway.
+fn reserved_cells(ctx: &Ctx, d: &Design, space: &Space) -> HashSet<Pos> {
+    let mut reserved: HashSet<Pos> = space.occupied.iter().filter(|p| !d.blocks.contains_key(*p)).copied().collect();
     reserved.extend(ctx.forbidden.iter().copied());
     reserved
+}
+
+/// Free cells where only a non-sticky floor may go (next to moving slime).
+fn floor_only_cells(ctx: &Ctx, d: &Design, space: &Space) -> HashSet<Pos> {
+    space.drag.iter().filter(|p| !d.blocks.contains_key(*p) && !ctx.forbidden.contains(*p)).copied().collect()
 }
 
 /// Sort an edit into improving / neutral by its block-count change; drops no-ops and repeats.
@@ -609,14 +725,16 @@ fn nets(g: &HashMap<Pos, Vec<Pos>>) -> Vec<Vec<Pos>> {
 fn diff_edit(d: &Design, new: &Design, desc: String) -> Edit {
     let remove = d.blocks.keys().filter(|p| !new.blocks.contains_key(*p)).copied().collect();
     let set = new.blocks.iter().filter(|(p, s)| d.blocks.get(*p) != Some(*s)).map(|(p, s)| (*p, s.clone())).collect();
-    Edit { remove, set, desc }
+    let ports = new.ports.iter().filter(|(k, p)| d.ports.get(*k) != Some(*p)).map(|(k, p)| (k.clone(), *p)).collect();
+    Edit { remove, set, ports, desc }
 }
 
 /// Net re-synthesis candidates: (improving, neutral). For each dust net with 2+ terminals: the
 /// terminals reconnected from scratch ([`resynth`]), the same with one terminal dropped, and for
 /// each repeater, the repeater turned into dust and its merged net re-synthesized.
-fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>) {
-    let reserved = reserved_cells(ctx, d, swept);
+fn renets(ctx: &Ctx, d: &Design, space: &Space) -> (Vec<Edit>, Vec<Edit>) {
+    let reserved = reserved_cells(ctx, d, space);
+    let fo = floor_only_cells(ctx, d, space);
     let (mut better, mut neutral) = (Vec::new(), Vec::new());
     let mut seen: HashSet<u64> = HashSet::new();
     let g = dust_graph(d);
@@ -630,7 +748,7 @@ fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)
             sets.push((terminals.iter().copied().filter(|x| x != t).collect(), format!(" without {}", fmt_pos(*t))));
         }
         for (ts, note) in sets {
-            for (new, desc) in resynth(d, &g, &net, &ts, &reserved) {
+            for (new, desc) in resynth(d, &g, &net, &ts, &reserved, &fo) {
                 classify(d, diff_edit(d, &new, format!("{desc}{note}")), &mut seen, &mut better, &mut neutral);
             }
         }
@@ -647,7 +765,7 @@ fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)
         if terminals.len() < 2 {
             continue;
         }
-        for (new, desc) in resynth(&d2, &g2, &net, &terminals, &reserved) {
+        for (new, desc) in resynth(&d2, &g2, &net, &terminals, &reserved, &fo) {
             classify(d, diff_edit(d, &new, format!("repeater {} to dust, {desc}", fmt_pos(p))), &mut seen, &mut better, &mut neutral);
         }
     }
@@ -657,7 +775,14 @@ fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)
 /// Rip every cell of `net` but `terminals` (with the floors of plain wiring) and reconnect the
 /// terminals with the router as a greedy Steiner tree, once from each terminal as the root
 /// (each step routes the tree to the cheapest remaining terminal).
-fn resynth(d: &Design, g: &HashMap<Pos, Vec<Pos>>, net: &[Pos], terminals: &[Pos], reserved: &HashSet<Pos>) -> Vec<(Design, String)> {
+fn resynth(
+    d: &Design,
+    g: &HashMap<Pos, Vec<Pos>>,
+    net: &[Pos],
+    terminals: &[Pos],
+    reserved: &HashSet<Pos>,
+    floor_only: &HashSet<Pos>,
+) -> Vec<(Design, String)> {
     let (lo, hi) = router_box(d);
     let tset: HashSet<Pos> = terminals.iter().copied().collect();
     let mut rip = Vec::new();
@@ -729,7 +854,7 @@ fn resynth(d: &Design, g: &HashMap<Pos, Vec<Pos>>, net: &[Pos], terminals: &[Pos
                     bl.remove(&t);
                     let mut allow = base_allow.clone();
                     allow.extend(tree.iter().copied());
-                    let r = Router { blocks: &bl, reserved: reserved.clone(), allow, lo, hi };
+                    let r = Router { blocks: &bl, reserved: reserved.clone(), allow, lo, hi, floor_only: floor_only.clone() };
                     if let Some(path) = r.route(&tree, t) {
                         let cost = path.iter().filter(|(p, _)| *p != t).count();
                         if best.as_ref().is_none_or(|b| cost < b.2) {
@@ -776,11 +901,12 @@ fn resynth(d: &Design, g: &HashMap<Pos, Vec<Pos>>, net: &[Pos], terminals: &[Pos
 }
 
 /// Rip-up-and-reroute candidates: (improving, neutral).
-fn reroutes(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>) {
+fn reroutes(ctx: &Ctx, d: &Design, space: &Space) -> (Vec<Edit>, Vec<Edit>) {
     let g = dust_graph(d);
     let segs = dust_segments(d, &g);
     let (lo, hi) = router_box(d);
-    let reserved = reserved_cells(ctx, d, swept);
+    let reserved = reserved_cells(ctx, d, space);
+    let fo = floor_only_cells(ctx, d, space);
     let (mut better, mut neutral) = (Vec::new(), Vec::new());
     let mut seen: HashSet<u64> = HashSet::new();
     for (a, inner, b) in &segs {
@@ -822,9 +948,9 @@ fn reroutes(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit
                 allow.remove(p);
             }
             let view = router_view(d, &after.blocks);
-            let router = Router { blocks: &view, reserved: reserved.clone(), allow, lo, hi };
+            let router = Router { blocks: &view, reserved: reserved.clone(), allow, lo, hi, floor_only: fo.clone() };
             let Some(path) = router.route(&start, goal) else { continue };
-            let mut e = Edit { remove: rip.clone(), set: Vec::new(), desc: String::new() };
+            let mut e = Edit { remove: rip.clone(), ..Default::default() };
             for (p, s) in &path {
                 let s = if kind(s) == "redstone_wire" { WIRE.to_string() } else { s.clone() };
                 e.set.push((*p, s));
@@ -843,7 +969,7 @@ struct Cand {
 }
 
 /// Router-based candidates (reroute, renet) of each design, (improving, neutral), on threads.
-fn routed(opts: &SearchOptions, designs: &[Design], swept: &[HashSet<Pos>]) -> Vec<(Vec<Edit>, Vec<Edit>)> {
+fn routed(opts: &SearchOptions, designs: &[Design], swept: &[Space]) -> Vec<(Vec<Edit>, Vec<Edit>)> {
     let n = designs.len();
     let results: Mutex<Vec<Option<(Vec<Edit>, Vec<Edit>)>>> = Mutex::new((0..n).map(|_| None).collect());
     let next = std::sync::atomic::AtomicUsize::new(0);
@@ -1038,7 +1164,7 @@ pub fn search(
         if opts.has(Family::Reroute) || opts.has(Family::Renet) {
             let swept = {
                 let mut w = pool.worker(0);
-                crate::route::swept_cells(&mut w, &cur, &ctx.spec)?
+                sweep(&mut w, &cur, &ctx.spec)?
             };
             let tr = Instant::now();
             let (b, n) = routed(opts, std::slice::from_ref(&cur), std::slice::from_ref(&swept)).remove(0);
@@ -1117,8 +1243,8 @@ pub fn search(
         if opts.has(Family::Reroute) || opts.has(Family::Renet) {
             let tr = Instant::now();
             let spec = ctx.spec;
-            let swept: Vec<HashSet<Pos>> = pool
-                .map((0..pbases.len()).collect(), |w, _, i| crate::route::swept_cells(w, &pbases[i], &spec))
+            let swept: Vec<Space> = pool
+                .map((0..pbases.len()).collect(), |w, _, i| sweep(w, &pbases[i], &spec))
                 .into_iter()
                 .map(|r| r.unwrap_or_default())
                 .collect();
