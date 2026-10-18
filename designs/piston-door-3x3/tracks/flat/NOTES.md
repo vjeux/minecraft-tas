@@ -47,6 +47,13 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
   ~10 blocks of dust/floors (net 0).
 - An extra P_T pulse at t2 is harmless if X's floor (0,3) is obsidian (on close the push line
   T, C, floor is blocked).
+- **M must be late in every flat slime-free pulse-only scheme found**: `door mech-synth
+  bases/sidesM.txt --add 4 --lo=-2,3,0 --hi=4,6,0 --kinds sticky --ext --pulses-only --edges
+  start --split-only` (66k combinations, 587 mechanisms, 103 symmetric): every symmetric
+  sequence with M's pulse early uses a rider (a piston riding a slime column), which a
+  slime-free door does not have. So M needs a pulse after A's last pull (or the 3-toggle trick).
+- The late left chain is geometrically minimal: 9 observers from S1 (t14) to the stack feed
+  (8 would put the stack at t28 = a3 - 2 but no 8-cell path fits around the stack).
 - Searches on these designs that found nothing: minimize --moves all --plateau (v2 -> 57, then
   nothing on v3), regrow size 2 (11.8k) and 3 (3.9M candidates, 476k screened), resynth.
 
