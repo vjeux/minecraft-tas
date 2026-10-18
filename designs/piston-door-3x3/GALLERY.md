@@ -28,13 +28,13 @@ Not a single slime or honey block anywhere.
 
 Every record of this board in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
-## Solid, flat (one z layer), no slime or honey: 60 blocks
+## Solid, flat (one z layer), no slime or honey: 57 blocks
 
 Slime-free, and every block in the door's plane: the whole machine is one block thick.
 
-![flat-v2-60b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-60b.gif)
+![flat-v2-57b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-57b.gif)
 
-**60 blocks**, solid, slime-free, flat, opens in 48 ticks, closes in 48 (worst cycle): [flat-v2-60b](archive/flat-v2-60b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-60b.mp4)). From agent flat; see [tracks/flat/NOTES.md](tracks/flat/NOTES.md).
+**57 blocks**, solid, slime-free, flat, opens in 42 ticks, closes in 42 (worst cycle): [flat-v2-57b](archive/flat-v2-57b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-57b.mp4)). From agent flat; see [tracks/flat/NOTES.md](tracks/flat/NOTES.md).
 
 ## Sculk: 42 blocks
 

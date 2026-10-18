@@ -1304,6 +1304,13 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                     hi[i] = hi[i].max(p[i] + o.margin);
                 }
             }
+            // A flat design (every block in the door plane) stays flat: no circuit block off it.
+            if crate::single_layer(&base) {
+                if let Some(door) = base.ports.get("door") {
+                    lo[2] = door[2];
+                    hi[2] = door[2];
+                }
+            }
             let so = SynthOptions {
                 lo,
                 hi,

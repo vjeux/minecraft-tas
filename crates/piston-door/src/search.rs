@@ -1256,11 +1256,11 @@ fn is_mechanism_door_block(state: &str) -> bool {
     .any(|n| name.strip_prefix("minecraft:") == Some(*n))
 }
 
-/// A candidate stays in its base's leaderboard: same category, and no slime/honey added to a
-/// slime-free design.
-fn same_league(base: &Design, d: &Design) -> bool {
+/// A candidate stays in its base's leaderboard: same category, no slime/honey added to a
+/// slime-free design, and no block outside the door plane added to a flat design.
+pub(crate) fn same_league(base: &Design, d: &Design) -> bool {
     let slimy = |x: &Design| x.blocks.values().any(|s| matches!(kind(s), "slime_block" | "honey_block"));
-    crate::category(base) == crate::category(d) && (slimy(base) || !slimy(d))
+    crate::category(base) == crate::category(d) && (slimy(base) || !slimy(d)) && (!crate::single_layer(base) || crate::single_layer(d))
 }
 
 /// A candidate: an edit of `bases[base]`.
@@ -2013,5 +2013,13 @@ mod tests {
         with_slime.blocks.insert([20, 20, 20], "minecraft:slime_block".to_string());
         assert!(!same_league(&no_slime, &with_slime));
         assert!(same_league(&d, &d));
+        // A flat design (every block in the door plane) stays flat.
+        let mut flat = Design::default();
+        flat.ports.insert("door".to_string(), [0, 0, 0]);
+        flat.blocks.insert([0, 0, 0], "minecraft:stone".to_string());
+        let mut thick = flat.clone();
+        thick.blocks.insert([0, 0, 1], "minecraft:stone".to_string());
+        assert!(!same_league(&flat, &thick));
+        assert!(same_league(&thick, &flat));
     }
 }
