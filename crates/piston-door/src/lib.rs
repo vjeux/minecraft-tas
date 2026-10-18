@@ -20,6 +20,7 @@ pub mod archive;
 pub mod designs;
 pub mod designs_history;
 pub mod leaderboard;
+pub mod lm;
 pub mod drive;
 pub mod ideal;
 pub mod route;
