@@ -870,17 +870,24 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 } else {
                     None
                 };
-                for (i, (fd, desc)) in found.iter().enumerate() {
-                    if i + 1 < seed_from {
-                        continue;
+                // Seeds whose screen timings differ from the start's (all seeds without --changed).
+                let keep: Vec<bool> = match base_ticks {
+                    Some(bt) => {
+                        let items: Vec<Design> = found.iter().map(|(fd, _)| fd.clone()).collect();
+                        let screen = &screen;
+                        pool.map(items, |w, _, fd| {
+                            Ok(crate::verify(w, &fd, screen).map(|r| crate::search::worst_ticks(&r) != bt).unwrap_or(true))
+                        })
+                        .into_iter()
+                        .map(|r| r.unwrap_or(true))
+                        .collect()
                     }
-                    if let Some(bt) = base_ticks {
-                        let mut w = pool.worker(0);
-                        if let Ok(r) = crate::verify(&mut w, fd, &screen)
-                            && crate::search::worst_ticks(&r) == bt
-                        {
-                            continue;
-                        }
+                    None => vec![true; found.len()],
+                };
+                log(&format!("{} of {} seeds kept", keep.iter().filter(|k| **k).count(), found.len()));
+                for (i, (fd, desc)) in found.iter().enumerate() {
+                    if i + 1 < seed_from || !keep[i] {
+                        continue;
                     }
                     log(&format!("seed {}/{}: {desc}", i + 1, found.len()));
                     let mut sopts = search.options()?;
