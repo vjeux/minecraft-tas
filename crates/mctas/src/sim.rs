@@ -165,6 +165,9 @@ pub struct StepResult {
     pub idle: Option<bool>,
     /// With `record`: the recorded region after every tick.
     pub frames: Vec<Region>,
+    /// With `signals`: after every tick, `[best, direct]` per probed position (flattened): the
+    /// best signal the position's neighbors give into it and the strong signal into it.
+    pub signals: Vec<Vec<u8>>,
 }
 
 /// What is still pending in a sandbox.
@@ -388,6 +391,17 @@ impl Worker {
         parse_steps(&v)
     }
 
+    /// Advance `ticks` (or until idle, capped) recording, after every tick, the signal into each
+    /// of `probes` (see [`StepResult::signals`]) and optionally a region.
+    pub fn step_probe(&mut self, sandbox: u32, ticks: u32, until_idle: bool, probes: &[Pos], record: Option<(Pos, Pos)>) -> Result<StepResult> {
+        let mut req = json!({"op": "step", "sandbox": sandbox, "ticks": ticks, "until_idle": until_idle, "signals": probes});
+        if let Some((from, to)) = record {
+            req["record"] = json!({"from": from, "to": to});
+        }
+        let v = self.call(req)?;
+        Ok(parse_steps(&v)?.remove(0))
+    }
+
     pub fn status(&mut self, sandbox: u32) -> Result<Status> {
         let v = self.call(json!({"op": "status", "sandbox": sandbox}))?;
         Ok(serde_json::from_value(v)?)
@@ -434,6 +448,21 @@ impl Worker {
         Ok(())
     }
 
+    /// Signal probes now: `(best, direct)` per position: the best signal the position's neighbors
+    /// give into it (what a piston or lamp there would see) and the strong signal into it.
+    pub fn signals(&mut self, sandbox: u32, positions: &[Pos]) -> Result<Vec<(u8, u8)>> {
+        let v = self.call(json!({"op": "signals", "sandbox": sandbox, "positions": positions}))?;
+        let rows = v["signals"].as_array().ok_or_else(|| anyhow!("no signals"))?;
+        Ok(rows
+            .iter()
+            .map(|r| {
+                let a = r.as_array().cloned().unwrap_or_default();
+                let n = |i: usize| a.get(i).and_then(|x| x.as_u64()).unwrap_or(0) as u8;
+                (n(0), n(1))
+            })
+            .collect())
+    }
+
     /// Manual block updates at `positions`: `neighbors` (notify the 6 neighbors), `self` (the
     /// block re-checks its inputs, e.g. a piston checks power) or `shape` (recompute
     /// connection-style properties without notifying anyone).
@@ -471,12 +500,19 @@ fn parse_steps(v: &Value) -> Result<Vec<StepResult>> {
                 frames.push(parse_region(r, f)?);
             }
         }
+        let mut signals = Vec::new();
+        if let Some(rows) = r["signals"].as_array() {
+            for row in rows {
+                signals.push(row.as_array().map(|a| a.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect()).unwrap_or_default());
+            }
+        }
         out.push(StepResult {
             sandbox: r["sandbox"].as_u64().unwrap_or(0) as u32,
             ticked: r["ticked"].as_u64().unwrap_or(0) as u32,
             time: r["time"].as_i64().unwrap_or(0),
             idle: r["idle"].as_bool(),
             frames,
+            signals,
         });
     }
     Ok(out)

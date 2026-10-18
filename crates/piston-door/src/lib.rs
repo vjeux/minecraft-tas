@@ -35,6 +35,7 @@ pub mod patch;
 pub mod place;
 pub mod search;
 pub mod showcase;
+pub mod synth;
 pub mod video;
 pub mod vanilla_check;
 

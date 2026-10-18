@@ -1,0 +1,1054 @@
+//! `mctas door synth`: circuit synthesis by exhaustive simulation.
+//!
+//! Given a context (a door design, or a gadget harness with a lever and probe cells), a box of
+//! free cells, a palette of block states and a target behavior, enumerate every circuit of 1..k
+//! blocks that could carry a signal from the source cells to the sink cells, simulate each one in
+//! reusable sandboxes on many workers, and report the smallest that meet the target.
+//!
+//! **Enumeration** (a static signal model, see [`Node`] / [`drives`]): a circuit grows from the
+//! sources. Every new block must be driven by a source, by a block already in the circuit, or by a
+//! context block the circuit powers (a repeater reading it, dust next to it, a torch on it, an
+//! observer watching it...); a block that needs support gets one (a context block, a circuit
+//! block, or a floor from `--floors`, which counts). A circuit is kept when some block of it
+//! drives a sink cell and (unless `--loose`) every block lies on a source-to-sink path or holds
+//! one up. Sets are deduplicated; a distance bound prunes circuits that cannot reach a sink in
+//! the remaining budget; `--require kind:n` / `--limit kind:n` constrain the parts list.
+//!
+//! **Targets**: by default the door judge (the frame-less screen at `--screen-offsets` positions,
+//! then the full judge at 32 positions); with `--spec FILE`, a behavior script run on the context
+//! (see [`Spec`]): `probe name x y z` (the best signal the cell's neighbors give into it: what a
+//! piston or lamp there would see), `probe_state name x y z` (block-state probe value as in
+//! `door drive`), `use x y z`, `run n` (step n ticks recording every probe), `settle [max]`,
+//! `expect name lo..hi on|off|<n>|<state>` (ticks of the last `run`, 1-based), `idle`.
+
+use crate::search::screen_in;
+use crate::{DoorSpec, VerifyOptions, verify_in};
+use anyhow::{Context, Result, anyhow, bail};
+use mctas::blockstate::BlockState;
+use mctas::design::Design;
+use mctas::sim::{PlaceMode, Pool, Pos, Worker};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Instant;
+
+const FACES: [Pos; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+const HORIZ: [Pos; 4] = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
+const HORIZONTAL: [&str; 4] = ["north", "east", "south", "west"];
+const ALL_DIRS: [&str; 6] = ["north", "east", "south", "west", "up", "down"];
+
+fn add(a: Pos, b: Pos) -> Pos {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+fn neg(a: Pos) -> Pos {
+    [-a[0], -a[1], -a[2]]
+}
+fn dir(f: &str) -> Option<Pos> {
+    Some(match f {
+        "north" => [0, 0, -1],
+        "south" => [0, 0, 1],
+        "east" => [1, 0, 0],
+        "west" => [-1, 0, 0],
+        "up" => [0, 1, 0],
+        "down" => [0, -1, 0],
+        _ => return None,
+    })
+}
+pub fn fmt_pos(p: Pos) -> String {
+    format!("({},{},{})", p[0], p[1], p[2])
+}
+fn short(s: &str) -> &str {
+    s.strip_prefix("minecraft:").unwrap_or(s)
+}
+
+/// Parse "x,y,z;x,y,z" (empty = none).
+pub fn parse_cells(s: &str) -> Result<Vec<Pos>> {
+    s.split(';')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "expected x,y,z, got {t:?}");
+            Ok([v[0], v[1], v[2]])
+        })
+        .collect()
+}
+
+/// Expand palette shorthands: `block` (smooth_stone), `gt` (glazed terracotta: a floor slime
+/// never drags), `glass`, `obsidian`, `dust` (cross wire), `dot` (dot wire), `rep` (every delay)
+/// or `rep1`..`rep4` (4 facings each), `cmp` (comparator, both modes, 4 facings), `obs`
+/// (observer, 6 facings), `torch` (standing + 4 wall torches), `rblock`, `lamp`, `target`, or a
+/// full `minecraft:...` state.
+pub fn palette_states(spec: &str) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+        match tok {
+            "block" => out.push("minecraft:smooth_stone".into()),
+            "gt" => out.push("minecraft:white_glazed_terracotta[facing=north]".into()),
+            "glass" => out.push("minecraft:glass".into()),
+            "obsidian" => out.push("minecraft:obsidian".into()),
+            "dust" => out.push("minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into()),
+            "dot" => out.push("minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]".into()),
+            "rep" | "rep1" | "rep2" | "rep3" | "rep4" => {
+                let delays: Vec<u32> = match tok.strip_prefix("rep").and_then(|d| d.parse::<u32>().ok()) {
+                    Some(d) => vec![d],
+                    None => vec![1, 2, 3, 4],
+                };
+                for d in delays {
+                    out.extend(HORIZONTAL.iter().map(|f| format!("minecraft:repeater[delay={d},facing={f},locked=false,powered=false]")));
+                }
+            }
+            "cmp" => {
+                for m in ["compare", "subtract"] {
+                    out.extend(HORIZONTAL.iter().map(|f| format!("minecraft:comparator[facing={f},mode={m},powered=false]")));
+                }
+            }
+            "obs" => out.extend(ALL_DIRS.iter().map(|f| format!("minecraft:observer[facing={f},powered=false]"))),
+            "torch" => {
+                out.push("minecraft:redstone_torch[lit=true]".into());
+                out.extend(HORIZONTAL.iter().map(|f| format!("minecraft:redstone_wall_torch[facing={f},lit=true]")));
+            }
+            "rblock" => out.push("minecraft:redstone_block".into()),
+            "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
+            "target" => out.push("minecraft:target[power=0]".into()),
+            s if s.starts_with("minecraft:") => out.push(s.to_string()),
+            s => bail!("unknown palette entry {s:?}"),
+        }
+    }
+    Ok(out)
+}
+
+/// What a block does in the static signal model.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Kind {
+    /// Full conductor: relays the strong power it gets to dust and components next to it.
+    Block,
+    /// Full block that conducts nothing (glass, slime, pistons...).
+    Inert,
+    Dust,
+    Repeater,
+    Comparator,
+    Observer,
+    Torch,
+    Lamp,
+    RBlock,
+    Lever,
+    /// Not sturdy, not a conductor (piston heads, moving blocks...).
+    Other,
+}
+
+#[derive(Clone, Debug)]
+pub struct Node {
+    pub pos: Pos,
+    pub state: String,
+    pub kind: Kind,
+    /// Repeater/comparator: toward the input (back) cell; observer: toward the watched cell.
+    pub facing: Pos,
+    /// Cell that must hold a sturdy block (floor or wall).
+    pub support: Option<Pos>,
+    /// Can hold dust, repeaters and torches.
+    pub sturdy: bool,
+    /// Its block state changes with its input (observers can watch it).
+    pub changes: bool,
+    /// Cached [`Node::emits`] and [`Node::reads`].
+    pub em: Vec<Pos>,
+    pub rd: Vec<Pos>,
+}
+
+impl Node {
+    pub fn new(pos: Pos, state: &str) -> Node {
+        let b = BlockState::parse(state).ok();
+        let get = |k: &str| b.as_ref().and_then(|b| b.get(k)).map(str::to_string);
+        let name = short(mctas::blockstate::block_name(state)).to_string();
+        let below = Some(add(pos, [0, -1, 0]));
+        let facing = get("facing").and_then(|f| dir(&f)).unwrap_or([0, 0, 0]);
+        let (kind, support, sturdy, changes) = match name.as_str() {
+            "redstone_wire" => (Kind::Dust, below, false, true),
+            "repeater" => (Kind::Repeater, below, false, true),
+            "comparator" => (Kind::Comparator, below, false, true),
+            "observer" => (Kind::Observer, None, true, true),
+            "redstone_torch" => (Kind::Torch, below, false, true),
+            "redstone_wall_torch" => (Kind::Torch, Some(add(pos, neg(facing))), false, true),
+            "redstone_lamp" => (Kind::Lamp, None, true, true),
+            "redstone_block" => (Kind::RBlock, None, true, false),
+            "lever" => {
+                let s = match get("face").as_deref() {
+                    Some("floor") => below,
+                    Some("ceiling") => Some(add(pos, [0, 1, 0])),
+                    _ => Some(add(pos, neg(facing))),
+                };
+                (Kind::Lever, s, false, true)
+            }
+            "piston" | "sticky_piston" => (Kind::Inert, None, get("extended").as_deref() != Some("true"), true),
+            "piston_head" | "moving_piston" | "air" => (Kind::Other, None, false, false),
+            n if n.contains("glass") || n == "slime_block" || n == "honey_block" => (Kind::Inert, None, true, false),
+            n if n.contains("slab") || n.contains("stairs") || n.contains("torch") || n.contains("button") || n.contains("rail") => {
+                (Kind::Other, None, false, false)
+            }
+            _ => (Kind::Block, None, true, false),
+        };
+        Node { pos, state: state.to_string(), kind, facing, support, sturdy, changes, em: Vec::new(), rd: Vec::new() }.cached()
+    }
+
+    /// Fill the emits/reads caches (call again after changing `kind`).
+    pub fn cached(mut self) -> Node {
+        self.em = self.emits();
+        self.rd = self.reads();
+        self
+    }
+
+    /// Cells whose emitters can drive this block.
+    pub fn reads(&self) -> Vec<Pos> {
+        let p = self.pos;
+        match self.kind {
+            Kind::Block | Kind::Lamp => FACES.iter().map(|f| add(p, *f)).collect(),
+            Kind::Dust => {
+                let mut v: Vec<Pos> = FACES.iter().map(|f| add(p, *f)).collect();
+                for h in HORIZ {
+                    v.push(add(add(p, h), [0, 1, 0]));
+                    v.push(add(add(p, h), [0, -1, 0]));
+                }
+                v
+            }
+            Kind::Repeater | Kind::Observer => vec![add(p, self.facing)],
+            Kind::Comparator => {
+                let side = [self.facing[2], 0, self.facing[0]];
+                vec![add(p, self.facing), add(p, side), add(p, neg(side))]
+            }
+            Kind::Torch => self.support.into_iter().collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Cells this block drives when it is on.
+    pub fn emits(&self) -> Vec<Pos> {
+        let p = self.pos;
+        match self.kind {
+            Kind::Block | Kind::RBlock | Kind::Lever => FACES.iter().map(|f| add(p, *f)).collect(),
+            Kind::Dust => {
+                let mut v: Vec<Pos> = vec![add(p, [0, -1, 0])];
+                for h in HORIZ {
+                    v.push(add(p, h));
+                    v.push(add(add(p, h), [0, 1, 0]));
+                    v.push(add(add(p, h), [0, -1, 0]));
+                }
+                v
+            }
+            Kind::Repeater | Kind::Comparator | Kind::Observer => vec![add(p, neg(self.facing))],
+            Kind::Torch => FACES.iter().map(|f| add(p, *f)).filter(|c| Some(*c) != self.support).collect(),
+            _ => Vec::new(),
+        }
+    }
+}
+
+/// `u` (when on) drives `v` in the static model.
+pub fn drives(u: &Node, v: &Node) -> bool {
+    if v.kind == Kind::Observer {
+        return u.changes && add(v.pos, v.facing) == u.pos;
+    }
+    if !u.em.contains(&v.pos) || !v.rd.contains(&u.pos) {
+        return false;
+    }
+    let dy = v.pos[1] - u.pos[1];
+    let diag = (v.pos[0] - u.pos[0]).abs() + (v.pos[2] - u.pos[2]).abs() + dy.abs() > 1;
+    match (u.kind, v.kind) {
+        (_, Kind::Inert | Kind::Other | Kind::RBlock | Kind::Lever) => false,
+        (Kind::Lamp | Kind::Inert | Kind::Other, _) => false,
+        // A torch reads the strong power of the block it hangs on.
+        (Kind::Block, Kind::Torch) => v.support == Some(u.pos),
+        (_, Kind::Torch) => false,
+        // Blocks do not power blocks; a torch strongly powers only the block above it; a lever
+        // only its attachment; a redstone block none.
+        (Kind::Block, Kind::Block) => false,
+        (Kind::Torch, Kind::Block) => dy == 1,
+        (Kind::Lever, Kind::Block) => u.support == Some(v.pos),
+        (Kind::RBlock, Kind::Block) => false,
+        // Dust powers the block below it and the blocks it points into (never diagonally).
+        (Kind::Dust, Kind::Block | Kind::Lamp) => !diag && dy <= 0,
+        (Kind::Dust, Kind::Dust) => true,
+        (_, Kind::Dust) => !diag,
+        _ => !diag,
+    }
+}
+
+/// Synthesis knobs (see the module docs).
+pub struct SynthOptions {
+    pub lo: Pos,
+    pub hi: Pos,
+    pub palette: Vec<String>,
+    pub floors: Vec<String>,
+    pub k: usize,
+    pub min_k: usize,
+    pub sources: Vec<Pos>,
+    /// Cells that change while the machine runs (observers may watch them).
+    pub watch: Vec<Pos>,
+    pub sinks: Vec<Pos>,
+    pub forbid: HashSet<Pos>,
+    pub require: Vec<(String, usize)>,
+    pub limit: Vec<(String, usize)>,
+    pub loose: bool,
+    pub max_cands: usize,
+}
+
+fn kind_name(k: Kind) -> &'static str {
+    match k {
+        Kind::Block => "block",
+        Kind::Inert => "inert",
+        Kind::Dust => "dust",
+        Kind::Repeater => "repeater",
+        Kind::Comparator => "comparator",
+        Kind::Observer => "observer",
+        Kind::Torch => "torch",
+        Kind::Lamp => "lamp",
+        Kind::RBlock => "rblock",
+        Kind::Lever => "lever",
+        Kind::Other => "other",
+    }
+}
+
+/// The enumerator: every candidate atom (state at a free cell), the context's sources and relays.
+pub struct Gen {
+    pub atoms: Vec<Node>,
+    in_palette: Vec<bool>,
+    by_cell: HashMap<Pos, Vec<u32>>,
+    floors_at: HashMap<Pos, Vec<u32>>,
+    sources: Vec<Node>,
+    relays: Vec<Node>,
+    context: BTreeMap<Pos, String>,
+    sinks: Vec<Pos>,
+    free: HashSet<Pos>,
+    k: usize,
+    require: Vec<(Kind, usize)>,
+    limit: Vec<(Kind, usize)>,
+    loose: bool,
+    max_cands: usize,
+}
+
+fn parse_kind(s: &str) -> Result<Kind> {
+    Ok(match s {
+        "block" => Kind::Block,
+        "inert" | "glass" => Kind::Inert,
+        "dust" => Kind::Dust,
+        "repeater" | "rep" => Kind::Repeater,
+        "comparator" | "cmp" => Kind::Comparator,
+        "observer" | "obs" => Kind::Observer,
+        "torch" => Kind::Torch,
+        "lamp" => Kind::Lamp,
+        "rblock" => Kind::RBlock,
+        _ => bail!("unknown kind {s:?}"),
+    })
+}
+
+/// "kind:n,kind:n".
+pub fn parse_counts(s: &str) -> Result<Vec<(String, usize)>> {
+    s.split(',')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            let (k, n) = t.split_once(':').ok_or_else(|| anyhow!("expected kind:n, got {t:?}"))?;
+            Ok((k.trim().to_string(), n.trim().parse::<usize>()?))
+        })
+        .collect()
+}
+
+impl Gen {
+    pub fn new(context: &Design, o: &SynthOptions) -> Result<Gen> {
+        let mut forbid = o.forbid.clone();
+        if let Ok(spec) = DoorSpec::from_design(context) {
+            forbid.extend(spec.door_cells());
+            forbid.extend(spec.corridor_cells());
+            forbid.insert(spec.lever);
+        }
+        let mut free = HashSet::new();
+        for x in o.lo[0]..=o.hi[0] {
+            for y in o.lo[1]..=o.hi[1] {
+                for z in o.lo[2]..=o.hi[2] {
+                    let p = [x, y, z];
+                    if !context.blocks.contains_key(&p) && !forbid.contains(&p) {
+                        free.insert(p);
+                    }
+                }
+            }
+        }
+        let mut atoms = Vec::new();
+        let mut in_palette = Vec::new();
+        let mut by_cell: HashMap<Pos, Vec<u32>> = HashMap::new();
+        let mut floors_at: HashMap<Pos, Vec<u32>> = HashMap::new();
+        let mut cells: Vec<Pos> = free.iter().copied().collect();
+        cells.sort();
+        for p in &cells {
+            for s in &o.palette {
+                let id = atoms.len() as u32;
+                atoms.push(Node::new(*p, s));
+                in_palette.push(true);
+                by_cell.entry(*p).or_default().push(id);
+                if o.floors.contains(s) {
+                    floors_at.entry(*p).or_default().push(id);
+                }
+            }
+            for s in &o.floors {
+                if o.palette.contains(s) {
+                    continue;
+                }
+                let id = atoms.len() as u32;
+                atoms.push(Node::new(*p, s));
+                in_palette.push(false);
+                floors_at.entry(*p).or_default().push(id);
+            }
+        }
+        let mut sources = Vec::new();
+        for p in &o.sources {
+            let s = context.blocks.get(p).with_context(|| format!("source {} is air in the context", fmt_pos(*p)))?;
+            sources.push(Node::new(*p, s));
+        }
+        // Watched cells: they change while the machine runs (a moving block, a piston), so an
+        // observer may watch them; they drive nothing else.
+        for p in &o.watch {
+            let s = context.blocks.get(p).cloned().unwrap_or_else(|| "minecraft:air".into());
+            let mut n = Node::new(*p, &s);
+            n.kind = Kind::Other;
+            n.changes = true;
+            sources.push(n.cached());
+        }
+        // Context conductors next to the box can relay power the circuit gives them.
+        let mut relays = Vec::new();
+        for (p, s) in &context.blocks {
+            let near = (0..3).all(|i| p[i] >= o.lo[i] - 1 && p[i] <= o.hi[i] + 1);
+            if near && !o.sources.contains(p) {
+                let n = Node::new(*p, s);
+                if n.kind == Kind::Block {
+                    relays.push(n);
+                }
+            }
+        }
+        let require = o.require.iter().map(|(k, n)| Ok((parse_kind(k)?, *n))).collect::<Result<Vec<_>>>()?;
+        let limit = o.limit.iter().map(|(k, n)| Ok((parse_kind(k)?, *n))).collect::<Result<Vec<_>>>()?;
+        Ok(Gen {
+            atoms,
+            in_palette,
+            by_cell,
+            floors_at,
+            sources,
+            relays,
+            context: context.blocks.clone(),
+            sinks: o.sinks.clone(),
+            free,
+            k: o.k,
+            require,
+            limit,
+            loose: o.loose,
+            max_cands: o.max_cands,
+        })
+    }
+
+    fn sturdy_at(&self, set: &[u32], p: Pos) -> bool {
+        if let Some(s) = self.context.get(&p) {
+            return Node::new(p, s).sturdy;
+        }
+        set.iter().any(|&i| self.atoms[i as usize].pos == p && self.atoms[i as usize].sturdy)
+    }
+
+    fn occupied(&self, set: &[u32], p: Pos) -> bool {
+        self.context.contains_key(&p) || set.iter().any(|&i| self.atoms[i as usize].pos == p)
+    }
+
+    /// Which atoms of `set` and which relays are driven (transitively) from the sources.
+    fn fed(&self, set: &[u32]) -> (Vec<bool>, Vec<bool>) {
+        let mut fa = vec![false; set.len()];
+        let mut fr = vec![false; self.relays.len()];
+        loop {
+            let mut changed = false;
+            for (i, &a) in set.iter().enumerate() {
+                if fa[i] {
+                    continue;
+                }
+                let v = &self.atoms[a as usize];
+                let by = self.sources.iter().any(|s| drives(s, v))
+                    || set.iter().enumerate().any(|(j, &b)| fa[j] && drives(&self.atoms[b as usize], v))
+                    || self.relays.iter().enumerate().any(|(j, r)| fr[j] && drives(r, v));
+                if by {
+                    fa[i] = true;
+                    changed = true;
+                }
+            }
+            for (j, r) in self.relays.iter().enumerate() {
+                if fr[j] {
+                    continue;
+                }
+                if set.iter().enumerate().any(|(i, &a)| fa[i] && drives(&self.atoms[a as usize], r)) {
+                    fr[j] = true;
+                    changed = true;
+                }
+            }
+            if !changed {
+                return (fa, fr);
+            }
+        }
+    }
+
+    fn reaches_sink(&self, n: &Node) -> bool {
+        self.sinks.iter().any(|s| n.em.contains(s))
+    }
+
+    /// A finished circuit: some driven block drives a sink, every block is on a source-to-sink
+    /// path or holds one up (unless loose), and the parts constraints hold.
+    fn complete(&self, set: &[u32], fa: &[bool], fr: &[bool]) -> bool {
+        let reached = set.iter().enumerate().any(|(i, &a)| fa[i] && self.reaches_sink(&self.atoms[a as usize]))
+            || self.relays.iter().enumerate().any(|(j, r)| fr[j] && self.reaches_sink(r));
+        if !reached {
+            return false;
+        }
+        for (k, n) in &self.require {
+            if set.iter().filter(|&&a| self.atoms[a as usize].kind == *k).count() < *n {
+                return false;
+            }
+        }
+        if self.loose {
+            return true;
+        }
+        // Backward: useful = driven and (drives a sink or drives a useful block).
+        let n = set.len();
+        let mut useful = vec![false; n];
+        let mut useful_relay = vec![false; self.relays.len()];
+        loop {
+            let mut changed = false;
+            for i in 0..n {
+                if useful[i] || !fa[i] {
+                    continue;
+                }
+                let u = &self.atoms[set[i] as usize];
+                let ok = self.reaches_sink(u)
+                    || (0..n).any(|j| useful[j] && drives(u, &self.atoms[set[j] as usize]))
+                    || self.relays.iter().enumerate().any(|(j, r)| useful_relay[j] && drives(u, r));
+                if ok {
+                    useful[i] = true;
+                    changed = true;
+                }
+            }
+            for (j, r) in self.relays.iter().enumerate() {
+                if useful_relay[j] || !fr[j] {
+                    continue;
+                }
+                if self.reaches_sink(r) || (0..n).any(|i| useful[i] && drives(r, &self.atoms[set[i] as usize])) {
+                    useful_relay[j] = true;
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        (0..n).all(|i| {
+            useful[i] || {
+                let p = self.atoms[set[i] as usize].pos;
+                (0..n).any(|j| useful[j] && self.atoms[set[j] as usize].support == Some(p))
+            }
+        })
+    }
+
+    /// Lower bound on blocks still needed to drive a sink from the current drivers.
+    fn need(&self, set: &[u32], fa: &[bool], fr: &[bool]) -> usize {
+        let dist = |p: Pos| -> i32 {
+            self.sinks
+                .iter()
+                .map(|s| {
+                    let h = (p[0] - s[0]).abs() + (p[2] - s[2]).abs();
+                    let v = (p[1] - s[1]).abs();
+                    h.max(v)
+                })
+                .min()
+                .unwrap_or(0)
+        };
+        let mut best = i32::MAX;
+        for s in &self.sources {
+            best = best.min(dist(s.pos));
+        }
+        for (i, &a) in set.iter().enumerate() {
+            if fa[i] {
+                if self.reaches_sink(&self.atoms[a as usize]) {
+                    return 0;
+                }
+                best = best.min(dist(self.atoms[a as usize].pos));
+            }
+        }
+        for (j, r) in self.relays.iter().enumerate() {
+            if fr[j] {
+                if self.reaches_sink(r) {
+                    return 0;
+                }
+                best = best.min(dist(r.pos));
+            }
+        }
+        (best - 1).max(0) as usize
+    }
+
+    /// Every candidate circuit, bucketed by size (index = number of blocks). The search tree is
+    /// split over `threads` threads sharing one (sharded) table of visited sets.
+    pub fn enumerate(&self, log: &dyn Fn(&str)) -> Result<Vec<Vec<Vec<u32>>>> {
+        let t = Instant::now();
+        let shards: Vec<Mutex<HashSet<u64>>> = (0..256).map(|_| Mutex::new(HashSet::new())).collect();
+        let total = AtomicUsize::new(0);
+        let (fa, fr) = self.fed(&[]);
+        let roots = self.expansions(&[], &fa, &fr);
+        let next = AtomicUsize::new(0);
+        let merged: Mutex<Vec<Vec<Vec<u32>>>> = Mutex::new(vec![Vec::new(); self.k + 1]);
+        let failure: Mutex<Option<anyhow::Error>> = Mutex::new(None);
+        let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(32);
+        std::thread::scope(|s| {
+            for _ in 0..threads {
+                s.spawn(|| {
+                    let mut out: Vec<Vec<Vec<u32>>> = vec![Vec::new(); self.k + 1];
+                    loop {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        if i >= roots.len() || failure.lock().unwrap().is_some() {
+                            break;
+                        }
+                        let mut set = roots[i].clone();
+                        if set.len() > self.k {
+                            continue;
+                        }
+                        if let Err(e) = self.visit(&mut set, &shards, &mut out, &total) {
+                            *failure.lock().unwrap() = Some(e);
+                            break;
+                        }
+                    }
+                    let mut m = merged.lock().unwrap();
+                    for (k, v) in out.into_iter().enumerate() {
+                        m[k].extend(v);
+                    }
+                });
+            }
+        });
+        if let Some(e) = failure.into_inner().unwrap() {
+            return Err(e);
+        }
+        let mut out = merged.into_inner().unwrap();
+        for v in out.iter_mut() {
+            v.sort();
+        }
+        let visited: usize = shards.iter().map(|s| s.lock().unwrap().len()).sum();
+        log(&format!(
+            "enumerated {} sets ({} visited) in {:.1}s on {threads} threads: {}",
+            total.load(Ordering::Relaxed),
+            visited,
+            t.elapsed().as_secs_f64(),
+            out.iter().enumerate().filter(|(_, v)| !v.is_empty()).map(|(k, v)| format!("{k}:{}", v.len())).collect::<Vec<_>>().join(" ")
+        ));
+        Ok(out)
+    }
+
+    fn key(set: &[u32]) -> u64 {
+        let mut s = set.to_vec();
+        s.sort_unstable();
+        let mut h = DefaultHasher::new();
+        s.hash(&mut h);
+        h.finish()
+    }
+
+    /// The ways to grow `set` by one driven block (plus its floor when it needs one).
+    fn expansions(&self, set: &[u32], fa: &[bool], fr: &[bool]) -> Vec<Vec<u32>> {
+        let mut drivers: Vec<&Node> = self.sources.iter().collect();
+        drivers.extend(set.iter().enumerate().filter(|(i, _)| fa[*i]).map(|(_, &a)| &self.atoms[a as usize]));
+        drivers.extend(self.relays.iter().enumerate().filter(|(j, _)| fr[*j]).map(|(_, r)| r));
+        let mut cands: Vec<u32> = Vec::new();
+        for d in &drivers {
+            let mut cells = d.em.clone();
+            if d.changes {
+                cells.extend(FACES.iter().map(|f| add(d.pos, *f)));
+            }
+            for c in cells {
+                let Some(ids) = self.by_cell.get(&c) else { continue };
+                if self.occupied(set, c) {
+                    continue;
+                }
+                for &id in ids {
+                    if self.in_palette[id as usize] && drives(d, &self.atoms[id as usize]) {
+                        cands.push(id);
+                    }
+                }
+            }
+        }
+        cands.sort_unstable();
+        cands.dedup();
+        let mut out = Vec::new();
+        for id in cands {
+            let a = &self.atoms[id as usize];
+            match a.support {
+                Some(sc) if !self.sturdy_at(set, sc) => {
+                    if self.occupied(set, sc) || !self.free.contains(&sc) {
+                        continue;
+                    }
+                    for &f in self.floors_at.get(&sc).map(|v| v.as_slice()).unwrap_or(&[]) {
+                        out.push(vec![id, f]);
+                    }
+                }
+                _ => out.push(vec![id]),
+            }
+        }
+        out
+    }
+
+    /// `set` was just grown: record it if it is a finished circuit, then grow it further.
+    fn visit(&self, set: &mut Vec<u32>, shards: &[Mutex<HashSet<u64>>], out: &mut Vec<Vec<Vec<u32>>>, total: &AtomicUsize) -> Result<()> {
+        let key = Self::key(set);
+        if !shards[(key % shards.len() as u64) as usize].lock().unwrap().insert(key) {
+            return Ok(());
+        }
+        let count = |k: Kind| set.iter().filter(|&&x| self.atoms[x as usize].kind == k).count();
+        if !self.limit.iter().all(|(k, n)| count(*k) <= *n) {
+            return Ok(());
+        }
+        let need_req: usize = self.require.iter().map(|(k, n)| n.saturating_sub(count(*k))).sum();
+        if need_req > self.k - set.len() {
+            return Ok(());
+        }
+        let (fa, fr) = self.fed(set);
+        if self.complete(set, &fa, &fr) {
+            let mut s = set.clone();
+            s.sort_unstable();
+            out[s.len()].push(s);
+            if total.fetch_add(1, Ordering::Relaxed) + 1 > self.max_cands {
+                bail!("more than {} candidates: shrink the box, palette or k", self.max_cands);
+            }
+        }
+        if set.len() >= self.k || self.need(set, &fa, &fr) > self.k - set.len() {
+            return Ok(());
+        }
+        for add_ids in self.expansions(set, &fa, &fr) {
+            if set.len() + add_ids.len() > self.k {
+                continue;
+            }
+            let before = set.len();
+            set.extend(&add_ids);
+            self.visit(set, shards, out, total)?;
+            set.truncate(before);
+        }
+        Ok(())
+    }
+
+    pub fn describe(&self, set: &[u32]) -> String {
+        set.iter()
+            .map(|&i| {
+                let a = &self.atoms[i as usize];
+                format!("+{} {}", fmt_pos(a.pos), short(&a.state))
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    pub fn design(&self, base: &Design, set: &[u32]) -> Design {
+        let mut d = base.clone();
+        for &i in set {
+            let a = &self.atoms[i as usize];
+            d.blocks.insert(a.pos, a.state.clone());
+        }
+        d
+    }
+
+    pub fn kinds(&self, set: &[u32]) -> String {
+        let mut m: BTreeMap<&str, usize> = BTreeMap::new();
+        for &i in set {
+            *m.entry(kind_name(self.atoms[i as usize].kind)).or_default() += 1;
+        }
+        m.iter().map(|(k, n)| format!("{n} {k}")).collect::<Vec<_>>().join(", ")
+    }
+}
+
+// ---- behavior specs -----------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+pub enum Want {
+    On,
+    Off,
+    Level(u8),
+    State(String),
+}
+
+#[derive(Clone, Debug)]
+pub enum SpecOp {
+    Use(Pos),
+    Run(u32),
+    Settle(u32),
+    Expect { probe: usize, lo: u32, hi: u32, want: Want },
+    Idle,
+}
+
+/// A behavior script (see the module docs).
+#[derive(Clone, Debug, Default)]
+pub struct Spec {
+    /// (name, cell, state probe?)
+    pub probes: Vec<(String, Pos, bool)>,
+    pub ops: Vec<SpecOp>,
+}
+
+impl Spec {
+    pub fn parse(text: &str) -> Result<Spec> {
+        let mut s = Spec::default();
+        for (lineno, raw) in text.lines().enumerate() {
+            let line = raw.split('#').next().unwrap().trim();
+            if line.is_empty() {
+                continue;
+            }
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            let err = || anyhow!("spec line {}: {raw:?}", lineno + 1);
+            let int = |i: usize| -> Result<i32> { parts.get(i).ok_or_else(err)?.parse::<i32>().map_err(|_| err()) };
+            let pos = |i: usize| -> Result<Pos> { Ok([int(i)?, int(i + 1)?, int(i + 2)?]) };
+            match parts[0] {
+                "probe" | "probe_state" => s.probes.push((parts.get(1).ok_or_else(err)?.to_string(), pos(2)?, parts[0] == "probe_state")),
+                "use" => s.ops.push(SpecOp::Use(pos(1)?)),
+                "run" => s.ops.push(SpecOp::Run(int(1)? as u32)),
+                "settle" => s.ops.push(SpecOp::Settle(if parts.len() > 1 { int(1)? as u32 } else { 400 })),
+                "idle" => s.ops.push(SpecOp::Idle),
+                "expect" => {
+                    let name = parts.get(1).ok_or_else(err)?;
+                    let probe = s.probes.iter().position(|(n, _, _)| n == name).ok_or_else(|| anyhow!("no probe {name}"))?;
+                    let range = parts.get(2).ok_or_else(err)?;
+                    let (lo, hi) = match range.split_once("..") {
+                        Some((a, b)) => (a.parse::<u32>()?, b.parse::<u32>()?),
+                        None => (range.parse::<u32>()?, range.parse::<u32>()?),
+                    };
+                    let w = parts.get(3).ok_or_else(err)?;
+                    let want = match *w {
+                        "on" => Want::On,
+                        "off" => Want::Off,
+                        _ if s.probes[probe].2 => Want::State(w.to_string()),
+                        _ => Want::Level(w.parse::<u8>()?),
+                    };
+                    s.ops.push(SpecOp::Expect { probe, lo, hi, want });
+                }
+                other => bail!("spec line {}: unknown command {other}", lineno + 1),
+            }
+        }
+        Ok(s)
+    }
+
+    fn translated(&self, off: Pos) -> Spec {
+        let mut s = self.clone();
+        for p in s.probes.iter_mut() {
+            p.1 = add(p.1, off);
+        }
+        for op in s.ops.iter_mut() {
+            if let SpecOp::Use(p) = op {
+                *p = add(*p, off);
+            }
+        }
+        s
+    }
+}
+
+/// Place a design like the judge does (raw, wire shapes, every block re-checks, settle).
+fn place_settled(w: &mut Worker, sb: u32, d: &Design, max_ticks: u32) -> Result<()> {
+    w.clear(sb)?;
+    let blocks = d.block_list();
+    w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+    let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+    w.update(sb, &wires, "shape")?;
+    let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
+    w.update(sb, &positions, "self")?;
+    if w.step_until_idle(sb, max_ticks)?.idle != Some(true) {
+        bail!("never settles");
+    }
+    Ok(())
+}
+
+/// Run a spec on a placed design; Err(reason) on the first failed expectation.
+pub fn run_spec(w: &mut Worker, sb: u32, d: &Design, spec: &Spec, verbose: bool) -> Result<()> {
+    place_settled(w, sb, d, 400)?;
+    let sig: Vec<(usize, Pos)> = spec.probes.iter().enumerate().filter(|(_, p)| !p.2).map(|(i, p)| (i, p.1)).collect();
+    let st: Vec<(usize, Pos)> = spec.probes.iter().enumerate().filter(|(_, p)| p.2).map(|(i, p)| (i, p.1)).collect();
+    let sig_pos: Vec<Pos> = sig.iter().map(|(_, p)| *p).collect();
+    let rec = if st.is_empty() {
+        None
+    } else {
+        let mut lo = st[0].1;
+        let mut hi = st[0].1;
+        for (_, p) in &st {
+            for i in 0..3 {
+                lo[i] = lo[i].min(p[i]);
+                hi[i] = hi[i].max(p[i]);
+            }
+        }
+        Some((lo, hi))
+    };
+    // values[t][probe] for the last run.
+    let mut values: Vec<Vec<String>> = Vec::new();
+    for op in &spec.ops {
+        match op {
+            SpecOp::Use(p) => {
+                w.use_block(sb, *p)?;
+            }
+            SpecOp::Settle(max) => {
+                if w.step_until_idle(sb, *max)?.idle != Some(true) {
+                    bail!("never settles");
+                }
+            }
+            SpecOp::Idle => {
+                if !w.status(sb)?.idle {
+                    bail!("not idle");
+                }
+            }
+            SpecOp::Run(n) => {
+                let r = w.step_probe(sb, *n, false, &sig_pos, rec)?;
+                values = (0..*n as usize)
+                    .map(|t| {
+                        let mut row = vec![String::new(); spec.probes.len()];
+                        for (k, (i, _)) in sig.iter().enumerate() {
+                            row[*i] = r.signals.get(t).and_then(|v| v.get(2 * k)).copied().unwrap_or(0).to_string();
+                        }
+                        for (i, p) in &st {
+                            row[*i] = r.frames.get(t).and_then(|f| f.get(*p)).map(crate::drive::probe_value).unwrap_or_else(|| "?".into());
+                        }
+                        row
+                    })
+                    .collect();
+                if verbose {
+                    for (t, row) in values.iter().enumerate() {
+                        let cols: Vec<String> = spec.probes.iter().zip(row).map(|(p, v)| format!("{}={v}", p.0)).collect();
+                        println!("  t={:<3} {}", t + 1, cols.join(" "));
+                    }
+                }
+            }
+            SpecOp::Expect { probe, lo, hi, want } => {
+                for t in *lo..=*hi {
+                    let v = values.get(t as usize - 1).map(|r| r[*probe].as_str()).unwrap_or("?");
+                    let ok = match want {
+                        Want::On => v.parse::<u8>().is_ok_and(|x| x > 0),
+                        Want::Off => v.parse::<u8>().is_ok_and(|x| x == 0),
+                        Want::Level(l) => v.parse::<u8>().is_ok_and(|x| x == *l),
+                        Want::State(s) => v == s,
+                    };
+                    if !ok {
+                        bail!("{} at t={t} is {v}, want {want:?}", spec.probes[*probe].0);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// ---- evaluation ---------------------------------------------------------------------------
+
+/// How candidates are judged.
+pub enum Target {
+    /// The door: screen at a few positions, then the full judge.
+    Door { screen: VerifyOptions, judge: VerifyOptions },
+    /// A behavior spec at a few world offsets.
+    Spec { spec: Spec, offsets: Vec<Pos> },
+}
+
+fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> bool {
+    match target {
+        Target::Door { screen, .. } => screen_in(w, sb, d, screen).is_ok(),
+        Target::Spec { spec, offsets } => offsets.iter().all(|off| run_spec(w, sb, &d.translated(*off), &spec.translated(*off), false).is_ok()),
+    }
+}
+
+fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
+    match target {
+        Target::Door { judge, .. } => {
+            let r = verify_in(w, sb, d, judge)?;
+            let (o, c) = crate::search::worst_ticks(&r);
+            Ok(format!("door works at {} positions, open {o} / close {c}", judge.offsets.len()))
+        }
+        Target::Spec { spec, offsets } => {
+            for off in offsets {
+                run_spec(w, sb, &d.translated(*off), &spec.translated(*off), false)?;
+            }
+            Ok(format!("spec holds at {} positions", offsets.len()))
+        }
+    }
+}
+
+/// Run the whole synthesis on enumerated `buckets` (see [`Gen::enumerate`]): screen size by
+/// size, judge the survivors. Returns the verified circuits of the smallest size that has any (or
+/// of every size with `all_sizes`).
+#[allow(clippy::too_many_arguments)]
+pub fn synth(
+    pool: &Pool,
+    base: &Design,
+    en: &Gen,
+    buckets: &[Vec<Vec<u32>>],
+    target: &Target,
+    min_k: usize,
+    all_sizes: bool,
+    want: usize,
+    log: &(dyn Fn(&str) + Sync),
+) -> Result<Vec<(Vec<u32>, Design, String)>> {
+    let sandboxes = crate::minimize::Sandboxes::new(pool);
+    let mut found = Vec::new();
+    for (size, cands) in buckets.iter().enumerate() {
+        if cands.is_empty() || size < min_k {
+            continue;
+        }
+        let t = Instant::now();
+        let done = AtomicUsize::new(0);
+        let passed: Mutex<Vec<usize>> = Mutex::new(Vec::new());
+        let last = Mutex::new(Instant::now());
+        let chunk = 256usize;
+        let chunks: Vec<usize> = (0..cands.len().div_ceil(chunk)).collect();
+        let errors = AtomicUsize::new(0);
+        let _ = pool.map(chunks, |w, wi, c| {
+            let sb = sandboxes.get(w, wi)?;
+            for i in c * chunk..((c + 1) * chunk).min(cands.len()) {
+                let d = en.design(base, &cands[i]);
+                if screen(w, sb, &d, target) {
+                    passed.lock().unwrap().push(i);
+                }
+            }
+            let n = done.fetch_add(chunk.min(cands.len() - c * chunk), Ordering::Relaxed) + chunk;
+            let mut l = last.lock().unwrap();
+            if l.elapsed().as_secs_f64() > 20.0 {
+                *l = Instant::now();
+                let rate = n as f64 / t.elapsed().as_secs_f64();
+                log(&format!(
+                    "  size {size}: {n}/{} screened ({rate:.0}/s, eta {:.0}s), {} passed",
+                    cands.len(),
+                    (cands.len().saturating_sub(n)) as f64 / rate.max(1.0),
+                    passed.lock().unwrap().len()
+                ));
+            }
+            Ok(())
+        })
+        .into_iter()
+        .filter(|r| r.is_err())
+        .map(|r| {
+            if errors.fetch_add(1, Ordering::Relaxed) == 0 {
+                log(&format!("  worker error: {:#}", r.err().unwrap()));
+            }
+        })
+        .count();
+        let mut pass = passed.into_inner().unwrap();
+        pass.sort_unstable();
+        log(&format!("size {size}: {} candidates screened in {:.1}s, {} passed the screen", cands.len(), t.elapsed().as_secs_f64(), pass.len()));
+        // Judge survivors (a pool-sized chunk at a time).
+        let mut verified = Vec::new();
+        for part in pass.chunks(pool.len().max(1)) {
+            let res = pool.map(part.to_vec(), |w, wi, i| {
+                let d = en.design(base, &cands[i]);
+                let sb = sandboxes.get(w, wi)?;
+                Ok(judge(w, sb, &d, target).map(|m| (i, d, m)).map_err(|e| format!("{e:#}")))
+            });
+            for r in res {
+                match r {
+                    Ok(Ok((i, d, m))) => {
+                        log(&format!("  VERIFIED size {size}: {} [{}] -- {m}", en.describe(&cands[i]), en.kinds(&cands[i])));
+                        verified.push((cands[i].clone(), d, m));
+                    }
+                    Ok(Err(e)) => log(&format!("  judge rejected: {e}")),
+                    Err(e) => log(&format!("  judge worker error: {e:#}")),
+                }
+            }
+            if want > 0 && verified.len() + found.len() >= want {
+                break;
+            }
+        }
+        let any = !verified.is_empty();
+        found.extend(verified);
+        if (any && !all_sizes) || (want > 0 && found.len() >= want) {
+            break;
+        }
+    }
+    Ok(found)
+}
