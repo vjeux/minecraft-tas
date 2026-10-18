@@ -1,0 +1,16 @@
+name: gadget-merger-gap
+# Pulse merger (flat-seam e89): observer W watching a delay-2 repeater R merges two 2 gt pulses
+# that arrive 4 gt apart into ONE pulse, but not two pulses 8 gt apart (B's window edges).
+# lever L -> observer O (2 gt pulse per flip) -> repeater R (delay 2) -> observer W -> dust D.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  W minecraft:observer[facing=west,powered=false]
+  D minecraft:redstone_wire[east=side,north=none,south=none,west=side,power=0]
+layer 0:
+  S.S.S
+layer 1:
+  LORWD

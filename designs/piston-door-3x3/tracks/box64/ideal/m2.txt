@@ -1,0 +1,23 @@
+name: box64-m2
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  U minecraft:sticky_piston[extended=false,facing=up]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  J minecraft:stone
+layer -2:
+  ....U
+layer 0:
+  .E.JJJ.W
+layer 1:
+  .E.JJJ.W
+layer 2:
+  .E.JJJ
+layer 3:
+  ..E
+layer 4:
+  ....DD
+layer 5:
+  ....D

@@ -1,0 +1,35 @@
+name: box64-m8-lr
+# cd19 (center down) in 8x8 (x=-2..5, y=-3..4): left/right 3-stacks, T puller (1,4), A'/B' elevator,
+# P_M (3,-1) (M parks at (2,-1)). Left side wired (TL: P_T watcher -> d2 merger -> bulb -> L2/L1;
+# BL: A' watcher -> d2 merger -> bulb -> L0 and X' (0,-1) = a2). Right inputs come from the ideal schedule.
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  J minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  S minecraft:smooth_stone
+  b minecraft:waxed_copper_bulb[lit=false,powered=false]
+  r minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  e minecraft:observer[facing=east,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  d minecraft:observer[facing=down,powered=false]
+  w minecraft:observer[facing=west,powered=false]
+layer -3:
+  .S.U
+layer -2:
+  breU
+layer -1:
+  dwS..W
+layer 0:
+  E.JJJ.W
+layer 1:
+  E.JJJ.W
+layer 2:
+  E.JJJ.W
+layer 3:
+  uS
+layer 4:
+  breD
