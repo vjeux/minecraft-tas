@@ -58,3 +58,13 @@ pulls A' at k9, F 0-ticks at k9. R_X (k6 BE) and R_Z (k8 BE) are already early e
   between them is geometrically blocked (traced cell by cell). An observer watching E fires
   exactly k3..k5 and k7..k9 (the k5 spit re-triggers it) but sits at (1,3,+-1) with its output
   pointing away from Q; the dust relay over (1,4,2) is lit by R_X's rest block above it.
+* Built anyway as `a9.txt` (a9.patch on a1: S_a + E-watcher dust net to Q's QC cell, the dust
+  also lit by R_X at R2 so Q is powered from rest (blocked by F's head) until k5; A' power via the
+  note-block chain retimed to k4..k6; obsidian (4,3,0) against Q's row push). `door drive` shows it
+  runs exactly as planned up to k8: Q extends k4, spits A' at k5, A' extends k5 and pulls C at k6,
+  Q's base lands k7 BE, Q re-extends k8, A' lands k8 BE. It breaks at k9: the E-watcher's fall
+  reaches F through dust (1,4,2) -> (1,4,1) (dust updates its neighbors' neighbors), F (armed by
+  R_X since k6 BE) queues its push of [A', C] before Q's pull is queued (HashSet order), and pushes
+  them down. Fix ideas: arm F later (spit R_X into R1 in k9's block events by a sticky P_D whose
+  fall is a repeater, HIGH priority, so it beats Q's observer fall), or a k7..k9 source on the
+  west side that never touches F's neighbors.
