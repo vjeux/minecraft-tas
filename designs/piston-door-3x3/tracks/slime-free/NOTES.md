@@ -35,3 +35,40 @@ honey_block anywhere.
 - Trick worth reusing: **an observer watching a door cell + one block above a vertical pair of
   side pistons = 2 blocks per pair**, fired when the block above the pair leaves.
 - Patches: tl-up.patch (53 -> 49, TL puller unpowered) + tl-up-b.patch (+3 observers).
+
+## 48 (BEST.txt): block budget, 19 mechanism + 29 control
+Mechanism: 9 door stones; TL puller (0,4,0), A (1,4,0), B (1,5,0), P_T (1,3,2) (extended, head
+(1,3,1)); left pair (-2,0..1,0); right column (4,0..2,0); P_BM (1,-2,0) = 10 pistons.
+Control: lever (5,4,0) 1; right column O_R (5,3,0) + cross dust (5,2,0) + floor (5,1,0) 3;
+left = TL chain 3 + observer (-1,2,0) + block (-2,2,0) 2; P_BM = O_m (2,-1,0) + block 2;
+A feed = O_a (4,4,0) + stone (3,4,0) + X (2,4,0) + floor (2,3,0) 4; B chain = O_b (4,5,0) +
+dust on O_b (4,6,0) + block (3,6,0) + R_B (2,6,0) + O (2,5,0) 5; P_T = R1 (5,4,1) + floor +
+block (5,4,2) + OR dust (4,4,2) + floor + R_P (3,4,1) + floor + block (3,4,2) + torch (2,4,2) 9.
+Verified at 32 and at 104 positions. Open 24 gt, close 50 gt.
+
+## Searches that found nothing on the 48
+- `door minimize --moves all --plateau` (incl. main's swaps: 517k "two out, one in").
+- regrow size 2 (7k), size 3 with obs/block/dust/rep4 (1M, 4 min), size 3 restricted to the
+  P_T cluster with every state (repeaters 1-4, torches, glass: 622k).
+- grow 2 blocks for the TL puller with obs/block/dust/rep/rep4/torch/glass (box x -1..2,
+  y 3..6, z -1..3: 206k pairs).
+
+## Ideas examined and why they do not pay (yet)
+- TR up as well (mirror of TL): the TR puller would sit on X's cell (2,4,0); A then needs a new
+  feed (dust at (1,4,-1) on (1,3,-1) + a path for both O_a's and O's pulses) that costs more
+  than the 2 blocks it saves. A redstone-block shuttle for A (fresh-c's trick) has the same
+  problem: every cell next to A is taken by X, the TL puller or B, and a redstone block cannot
+  turn a torch off through a block (it only powers components and dust).
+- Pulse-driven P_T (no torch/OR): its open pull must come at 5..10 gt and its close push at
+  exactly B-off (20); one pulse source cannot do both. observer-seq's close (B locked on close,
+  a late A pushes T and C home) removes that, but the lock (torch + repeater) and the late-A
+  path cost about what the 9-block level cluster costs.
+- "Center down" (mirror dance under the door, top row of 3 pullers on one wall torch): B' faces
+  up, so every cell that powers A' is also a quasi-power cell of B'; and the P_M timing needs a
+  level signal from the lever, which then sits far from the top torch.
+
+## Next ideas
+- A cheaper TL feed: the TL puller needs 1 (or 3) pulses; with the P_T torch moved to (0,4,2)
+  one observer at (0,4,1) would do (-2), if the OR net can reach a torch attachment on the west.
+- B blocked on close by an extended A (fresh-c) in a slime-free door: A held extended on close
+  needs an asymmetric source next to A; worth an ideal-input study with `door ideal`.
