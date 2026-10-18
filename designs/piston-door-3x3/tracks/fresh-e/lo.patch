@@ -1,0 +1,5 @@
+# fc2 with the lever hung on O_a's face (no wall block); R_q and its floor removed (to regrow)
+set -2 4 0 minecraft:lever[face=wall,facing=west,powered=false]
+clear -2 4 1
+clear -1 4 1
+clear -1 3 1

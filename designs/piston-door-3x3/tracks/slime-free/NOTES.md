@@ -38,6 +38,40 @@ honey_block anywhere.
 - Why the layout: RB's rest/open cells must touch nothing that a level would break (X dust, the
   top pullers, B, A's lower position), and P_T's park cell must not be quasi-powered by RB at rest
   (so RB rests WEST of A, and TL cannot go up: the left column needs 3 pistons).
+- Searches on the 44 that found nothing: minimize --moves all --plateau (incl. swaps), regrow
+  size 2 (margin 2, every state), size 3 (2M candidates, 8 min), size 2 --any, size 3 restricted
+  to the left side; grow 2 blocks for the left column after cutting its 3-observer chain (267k).
+- Dead ends examined on paper: TL up needs RB elsewhere, but every other cell next to A is taken
+  (X north, TR puller east) or quasi-powers P_T's park (south); an observer watching RB/Q always
+  outputs AWAY from the shuttle, so P_T (south) cannot be fed by one observer off the shuttle
+  (it watches TR landing instead); replacing X by an observer facing A (no floor) loses p0 and the
+  dance pulses (one observer watches one cell).
+
+## RB south of A (coordinator idea 2): studied, does not beat 44 (by count)
+- Ideal inputs (`sf2.sched` on `sf2-ideal.txt`: RB (1,4,1), Q (1,4,3) facing north, T parks NORTH
+  (1,3,-1) via P_T (1,3,-2), TL + TR up, side pairs, A's pulses from an observer (1,4,-1) facing
+  north): WORKS, but only if Q's close pulse comes >= 2 gt later than its open pulse (q 0..3 with
+  qc 4..12; pt 5..10, ptc 4..8, p0 0..2, dance pulses B-edge+1..2). Reason: Q now PULLS on open
+  (A off late) and PUSHES on close (A on early), the opposite of s7's shuttle. A redstone lamp
+  gives exactly that (lit at once, dark 4 gt later): lever on a lamp + an observer on the lamp
+  into Q's back = q 2, qc 6, the measured sweet spot.
+- `sf3.sched`: an observer under RB, (1,3,1) facing south (output north into (1,3,0)), gives the
+  first dance pulse (A down) but NOT p0: on close it powers C, which is A's FRONT face (pistons
+  ignore their front). So the north observer must fire at p0 and at both B edges, i.e. it must
+  watch a cell that changes at all three times: a dust there needs a floor at (1,3,-2), which is
+  P_T (dust on a piston powers it), so it costs an extra observer + dust + floor (+2 over s7's
+  X dust + floor). Q's feed (lamp + observer + lever) sits SOUTH while O_a, the B chain and A's
+  observer sit NORTH: a lever on one side and a path over A/B to the other (+3 or more).
+- Count: TL-up saves 1 (left pair 2 + TL feed 2 vs left column 5), A's pulses cost +2, the
+  split lever costs more: >= 46. Not built further.
+
+## Next ideas (after 44)
+- A cheaper left column: it costs 5 control blocks for 3 pistons (3 observers + dust + floor); a
+  pair + TL-up costs 4 but needs the cell west of A, which holds RB.
+- The lamp (rise 0, fall 4 gt) is a free 4 gt "late on close" delay: any pulse-driven piston whose
+  close action must come later than its open action can watch a lamp hung on the lever.
+- The south observer trick (an observer outputting into A's lowered cell gives a dance pulse
+  without updating anything else) may let X lose its floor in other layouts.
 
 ## Tools (this track)
 - `door grow <design> --lo x,y,z --hi x,y,z --states obs,block,dust,... --k 2`: add 1-2 blocks

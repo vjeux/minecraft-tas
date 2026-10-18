@@ -1,0 +1,14 @@
+name: route2-lamp-test
+# Generic net test for door route2 --need: a lever on a stone block and a lamp 4 blocks away
+# on the floor. `door route2 designs/gadgets/route2-lamp.txt --out /tmp/l.txt
+# --need='4,1,0=level+4'` asks for the lamp to follow the lever 4 gt later.
+port lever: 0 1 0
+origin: 0 0 0
+palette:
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  M minecraft:redstone_lamp[lit=false]
+  S minecraft:stone
+layer 0:
+  S.....
+layer 1:
+  L...M

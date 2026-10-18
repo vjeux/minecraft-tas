@@ -1,0 +1,4 @@
+# o3 = o2 without the old reach-through chain observers (1,4,-3) and (1,5,-3): their k4/k6 pulses
+# fed O5, which o0 replaced by stone.
+clear 1 4 -3
+clear 1 5 -3
