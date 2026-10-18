@@ -17,6 +17,7 @@ pub fn build(name: &str) -> Option<Design> {
         "obs-s1" => Some(s1()),
         "obs-s3" => Some(s3()),
         "obs-s4" => Some(s4()),
+        "obs-s5" => Some(s5()),
         _ => None,
     }
 }
@@ -286,6 +287,34 @@ pub fn s4() -> Design {
     );
     d.ports.insert("lever".into(), [-2, 5, 0]);
     d
+}
+
+/// s5: s4 with P_T fed by the left lever chain continued ((-3,3,1) -> (-2,3,1) -> (-1,3,1) ->
+/// (0,3,1) into P_T) instead of Otl's chain, and the right stack fed by a chain watching the
+/// late-A repeater (3,5,-1), which switches once per direction ((4,5,-1) -> (5,5,-1) -> (5,4,-1)
+/// -> (5,4,0) -> (5,3,0) facing up into the right feed dust).
+pub fn s5() -> Design {
+    let base = s4();
+    let remove: Vec<Pos> = vec![
+        [0, 3, 1], [0, 3, 2], [0, 3, 3], [1, 3, 3], [1, 3, 2],
+        [2, 3, 3], [3, 3, 3], [4, 3, 3], [5, 3, 3], [5, 3, 2], [5, 3, 1], [5, 3, 0],
+    ];
+    variant(
+        base,
+        "obs-s5",
+        &remove,
+        &[
+            ([-3, 3, 1], &observer("north")),
+            ([-2, 3, 1], &observer("west")),
+            ([-1, 3, 1], &observer("west")),
+            ([0, 3, 1], &observer("west")),
+            ([4, 5, -1], &observer("west")),
+            ([5, 5, -1], &observer("west")),
+            ([5, 4, -1], &observer("up")),
+            ([5, 4, 0], &observer("north")),
+            ([5, 3, 0], &observer("up")),
+        ],
+    )
 }
 
 /// The toggle mechanism with inner side pistons under the door (bottom row y=-1).
