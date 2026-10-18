@@ -77,3 +77,16 @@ reaches through k11-12). Below needs 0-ticks.
   it: F pushes C from E into N1, an observer pulse updates it unpowered at t2 so it spits C; the
   T-returner pushes T into E at t2 (its update comes from a side piston's head); F's redstone
   block is pushed back by a second piston (lands t4) and F pushes [T, C] home at t5: close 7.
+| o2-137b.txt | 137 | 11 / 7 | F 0-ticks at t11: redstone block R_X armed (t6, lands t8) in F's quasi spot (1,5,1); P_X (normal piston in F's quasi cell (1,5,0), silently powered by a second redstone block R_Z landing at t10) is updated by F's extension and shoves R_X away in the same block-event phase, so F retracts at once and pulls C |
+| o2-135b.txt | 135 | 11 / 7 | minimized |
+| o5-122b.txt | 122 | 11 / 7 | tick-6 pulse from 3 stacked observers |
+| **o6-120b.txt = BEST** | **120** | **11 / 7** | pulse chain moved next to its targets |
+
+## Next ideas
+* Open 10: move the whole post-push sequence a tick earlier with one more same-tick
+  extend+retract (e.g. Q pushes and spits A' at t4 so A' is placed at once and can pull C at t6;
+  A' then lands at t8 and the rest follows 2 ticks earlier). Theory bound with 0-ticks: open 7.
+* Size: the east dust line to the side torch (~13 blocks), the 4-observer chain for F's
+  reach-through, the lock chain delaying F's silent power (6 blocks), individual side pistons.
+* Tools added on this branch: `door ideal` prints worst open/close ticks; `door drive planex`
+  (side view of an x plane). (`door minimize --max-open/--max-close` is main's.)
