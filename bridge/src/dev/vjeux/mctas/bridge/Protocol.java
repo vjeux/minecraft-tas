@@ -159,7 +159,6 @@ public final class Protocol {
             case "build" -> build(r);
             case "signals" -> signals(r);
             case "exec" -> exec(r);
-            case "gameevent" -> gameEvent(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
             case "view" -> view(r);
@@ -671,25 +670,6 @@ public final class Protocol {
                 .withPosition(Vec3.ZERO)
                 .withSuppressedOutput();
         this.server.getCommands().performPrefixedCommand(source, r.get("command").getAsString());
-        return new JsonObject();
-    }
-
-    /**
-     * Emit a game event ({@code event}: a GameEvent registry name such as {@code step} or
-     * {@code hit_ground}) at the bottom center of each position, from no entity: what a player's
-     * footsteps or landing there make vibration listeners (sculk sensors) hear.
-     */
-    private JsonObject gameEvent(JsonObject r) {
-        Sandbox sb = sandbox(r);
-        String name = r.get("event").getAsString();
-        net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.withDefaultNamespace(name);
-        var holder = BuiltInRegistries.GAME_EVENT.get(id).orElseThrow(() -> new IllegalArgumentException("no game event " + name));
-        for (JsonElement e : r.getAsJsonArray("positions")) {
-            int[] p = ints(e.getAsJsonArray());
-            BlockPos pos = new BlockPos(p[0], p[1], p[2]);
-            checkInside(sb, pos);
-            sb.level.gameEvent(holder, Vec3.atBottomCenterOf(pos), net.minecraft.world.level.gameevent.GameEvent.Context.of((Entity) null));
-        }
         return new JsonObject();
     }
 

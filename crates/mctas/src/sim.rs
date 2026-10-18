@@ -452,14 +452,6 @@ impl Worker {
         Ok((region, moving))
     }
 
-    /// Emit a vanilla game event (`step`, `hit_ground`, ...: anything in the game's GameEvent
-    /// registry) at each position (the bottom center of the cell), as a player standing there
-    /// would: sculk sensors and other vibration listeners hear it.
-    pub fn game_event(&mut self, sandbox: u32, event: &str, positions: &[Pos]) -> Result<()> {
-        self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions}))?;
-        Ok(())
-    }
-
     /// Positions in the box whose block cannot survive where it stands (`canSurvive` false):
     /// floating levers, torches, dust, repeaters... (raw placement keeps them).
     pub fn unsupported(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<Vec<Pos>> {

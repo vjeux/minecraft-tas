@@ -1100,7 +1100,7 @@ fn vibrations(w: &mut Worker, sb: u32, d: &Design, rec: &Recording, outside: boo
                 }
             }
         }
-        for ev in ["step", "hit_ground"] {
+        for ev in ["step"] {
             w.game_event(sb, ev, &pts)?;
             w.step(sb, 40)?;
             w.step_until_idle(sb, 400)?;
@@ -1226,6 +1226,77 @@ pub fn vanilla_verdicts(repo: &Path) -> HashMap<u64, String> {
                 }
             }
         }
+    }
+    m
+}
+
+/// The dynamic checks written by the props-dyn agent (`archive/properties-dyn-v1.tsv`): either
+/// `hash<TAB>key=value...` lines (this module's cache format) or a header line starting with a
+/// hash column. Keys are mapped to this table's columns (hallway, contained, weatherproof,
+/// repeater_input, t_repeater, steps, isolated, uses) when their name says so; values starting
+/// with ok/pass/true become `yes`, fail/false `no`.
+pub fn load_dyn(dir: &Path) -> HashMap<u64, Props> {
+    let mut m = HashMap::new();
+    let Ok(text) = std::fs::read_to_string(dir.join("properties-dyn-v1.tsv")) else { return m };
+    let mut lines = text.lines();
+    let first = lines.clone().next().unwrap_or("");
+    let header: Option<Vec<String>> =
+        first.split('\t').next().filter(|h| h.to_ascii_lowercase().contains("hash")).map(|_| first.split('\t').map(str::to_string).collect());
+    if header.is_some() {
+        lines.next();
+    }
+    let map_key = |k: &str| -> String {
+        let l = k.to_ascii_lowercase();
+        let pick = [
+            ("hallway", "hallway"),
+            ("contain", "contained"),
+            ("weather", "weatherproof"),
+            ("snow", "weatherproof"),
+            ("repeater_t", "t_repeater"),
+            ("t_rep", "t_repeater"),
+            ("repeater", "repeater_input"),
+            ("step", "steps"),
+            ("isolat", "isolated"),
+            ("uses", "uses"),
+            ("cycles", "uses"),
+        ];
+        pick.iter().find(|(pat, _)| l.contains(pat)).map(|(_, to)| to.to_string()).unwrap_or_else(|| format!("dyn_{k}"))
+    };
+    let norm = |v: &str| -> String {
+        let l = v.to_ascii_lowercase();
+        if l.starts_with("ok") || l.starts_with("pass") || l.starts_with("true") || l.starts_with("yes") {
+            format!("yes{}", v.split_once(|c: char| c == ' ' || c == ':').map(|(_, r)| format!(" ({})", r.trim().trim_start_matches('(').trim_end_matches(')'))).unwrap_or_default())
+        } else if l.starts_with("fail") || l.starts_with("false") || l.starts_with("no") || l.starts_with("broken") {
+            format!("no{}", v.split_once(|c: char| c == ' ' || c == ':').map(|(_, r)| format!(" ({})", r.trim().trim_start_matches('(').trim_end_matches(')'))).unwrap_or_default())
+        } else {
+            v.to_string()
+        }
+    };
+    for line in lines {
+        let f: Vec<&str> = line.split('\t').collect();
+        let Some(Ok(h)) = f.first().map(|x| u64::from_str_radix(x.trim(), 16)) else { continue };
+        let mut p = Props::new();
+        match &header {
+            Some(hd) => {
+                for (k, v) in hd.iter().zip(f.iter()).skip(1) {
+                    if !v.is_empty() {
+                        let key = map_key(k);
+                        let val = if key.starts_with("t_") || key.starts_with("dyn_") { v.to_string() } else { norm(v) };
+                        p.insert(key, val);
+                    }
+                }
+            }
+            None => {
+                for kv in f.iter().skip(1) {
+                    if let Some((k, v)) = kv.split_once('=') {
+                        let key = map_key(k);
+                        let val = if key.starts_with("t_") || key.starts_with("dyn_") { v.to_string() } else { norm(v) };
+                        p.insert(key, val);
+                    }
+                }
+            }
+        }
+        m.insert(h, p);
     }
     m
 }

@@ -2297,10 +2297,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 pr::save_cache(&archive_dir, &cache)?;
             }
+            let dynp = pr::load_dyn(&archive_dir);
+            if !dynp.is_empty() {
+                eprintln!("joined {} designs' dynamic checks from properties-dyn-v1.tsv", dynp.len());
+            }
             let mut rows = Vec::new();
             for (s, d) in &cands {
                 let h = crate::leaderboard::design_hash(d);
                 let Some(mut p) = cache.get(&h).cloned() else { continue };
+                if let Some(x) = dynp.get(&h) {
+                    p.extend(x.clone());
+                }
                 if p.get("screen").is_some_and(|s| s.starts_with("broken")) {
                     continue;
                 }
