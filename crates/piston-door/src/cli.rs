@@ -240,6 +240,10 @@ pub enum DoorCmd {
         /// With --then-search: start at this seed (1-based; skip the ones before).
         #[arg(long, default_value_t = 1)]
         seed_from: usize,
+        /// Riders only: every added block must stick to a slime/honey structure (directly, or with
+        /// --k 2 through an added slime/honey stuck to one).
+        #[arg(long)]
+        glue: bool,
         #[command(flatten)]
         search: SearchArgs,
     },
@@ -521,7 +525,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Grow { design, out, lo, hi, states, k, want, then_search, seed_minutes, seed_from, search } => {
+        DoorCmd::Grow { design, out, lo, hi, states, k, want, then_search, seed_minutes, seed_from, glue, search } => {
             let d = load_design(&design)?;
             let pos = |s: &str| -> Result<mctas::sim::Pos> {
                 let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
@@ -535,6 +539,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 states: crate::search::grow_states(&states)?,
                 k,
                 want,
+                glue,
             };
             let pool = search.pool(version)?;
             let t = std::time::Instant::now();

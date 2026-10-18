@@ -116,6 +116,8 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `observer-delay` | 3 observers | a chain of observers watching each other delays a pulse 2 gt per observer, with no floors and around corners |
 | `repeater-lock` | 2 repeaters | a latch: a repeater locked by another repeater pointing into its side keeps its output whatever its input does, and follows the input again once unlocked |
 | `honey-slime` | slime + honey | slime and honey never stick to each other: two touching structures move independently |
+| `rider-observer` | observer on a slime structure | an observer carried by a structure fires 2 gt after EVERY landing, out of its back wherever it landed: a structure's landings become pulses (riders r3: the left structure re-fires the shuttle piston) |
+| `rider-hold` | redstone block on a slime structure | a redstone block carried by a structure powers a piston only in one position: the piston ignores every update (its own source going away included) until the structure comes back (riders r2: the left structure holds Q) |
 
 * **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
   piston holds it 30 gt after a lever click (weak power on every side, strong power into the

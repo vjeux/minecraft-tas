@@ -1807,6 +1807,9 @@ pub struct GrowOptions {
     pub k: usize,
     /// Stop judging after this many verified designs (0 = judge every survivor).
     pub want: usize,
+    /// Riders only: every added block must touch a slime/honey block (an existing one or, with
+    /// k=2, an added slime/honey that itself touches an existing one), so it moves with a structure.
+    pub glue: bool,
 }
 
 /// Expand `door grow --states` shorthands: `obs` (observer, 6 facings), `block`
@@ -1858,9 +1861,16 @@ pub fn grow(pool: &Pool, base: &Design, g: &GrowOptions, opts: &SearchOptions, l
         }
     }
     let one = |p: Pos, s: &String| format!("+{} {}", fmt_pos(p), short(s));
+    let sticky = |s: &str| matches!(kind(s), "slime_block" | "honey_block");
+    let adj = |a: Pos, b: Pos| (0..3).map(|i| (a[i] - b[i]).abs()).sum::<i32>() == 1;
+    let glued_to_base = |p: Pos| {
+        [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+            .iter()
+            .any(|d| base.blocks.get(&add(p, *d)).is_some_and(|s| sticky(s)))
+    };
     let mut cands: Vec<Cand> = Vec::new();
     for (i, (p, s)) in singles.iter().enumerate() {
-        if support_ok(base, *p, s) {
+        if support_ok(base, *p, s) && (!g.glue || glued_to_base(*p)) {
             cands.push(Cand { base: 0, edit: Edit { set: vec![(*p, s.clone())], desc: one(*p, s), ..Default::default() } });
         }
         if g.k < 2 {
@@ -1869,6 +1879,17 @@ pub fn grow(pool: &Pool, base: &Design, g: &GrowOptions, opts: &SearchOptions, l
         for (q, t) in singles.iter().skip(i + 1) {
             if q == p {
                 continue;
+            }
+            if g.glue {
+                // One added slime/honey stuck to a structure, the other block stuck to it (or both
+                // stuck to the structure directly).
+                let rides = |a: Pos, sa: &String, b: Pos| glued_to_base(a) || (sticky(sa) && adj(a, b));
+                let ok = (sticky(s) && glued_to_base(*p) && rides(*q, t, *p))
+                    || (sticky(t) && glued_to_base(*q) && rides(*p, s, *q))
+                    || (glued_to_base(*p) && glued_to_base(*q));
+                if !ok {
+                    continue;
+                }
             }
             // Each block stands on the base or on the other one.
             let stands = |a: Pos, sa: &String, b: Pos, sb: &String| match attachment(a, sa) {
