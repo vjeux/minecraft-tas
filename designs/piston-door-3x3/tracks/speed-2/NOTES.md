@@ -117,3 +117,6 @@ pulls A' at k9, F 0-ticks at k9. R_X (k6 BE) and R_Z (k8 BE) are already early e
   * O1 fires again k11..k13 after F's 0-tick: obsidian (4,3,0) makes Q's row push fail then.
   * Validated first with a scripted Q pulse (`n1.drive`). Close unchanged (7): every Q pulse on
     the close edge meets a moving block or F's head in E (blocked push).
+* **`n3-112b.txt` = BEST: 112 blocks, open 9 / close 7.** `door regrow --size 2` on n2: the
+  repeater + floor feeding the note block become one observer (2,4,-3) facing east watching the
+  lever dust (3,4,-3) (k2..k4 into stone (1,4,-3); the note block changes at k2, X k4..k6).
