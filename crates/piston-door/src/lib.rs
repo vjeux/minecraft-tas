@@ -46,6 +46,8 @@ pub mod properties;
 pub mod relever;
 pub mod rowsfire;
 pub mod satwire;
+pub mod cosearch;
+pub mod cosearch_search;
 pub mod search;
 pub mod shapes;
 pub mod showcase;

@@ -1142,6 +1142,13 @@ pub enum DoorCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Pure-Rust door judge on redsim (no JVM: the judge's checks, FULL seamless, the hallway
+    /// check, the volume), its agreement with the real judge, and the joint mechanism + wiring
+    /// search on top of it (track cosearch, cosearch.rs / cosearch_search.rs).
+    Cosearch {
+        #[command(subcommand)]
+        cmd: crate::cosearch::CosearchCmd,
+    },
     /// Differential fuzzing of the redsim model (crates/redsim) against the real game: random
     /// circuits run in both, every block state compared after placement and every tick and flip;
     /// mismatches are shrunk and saved as case files (`door redsim-case` replays one).
@@ -2943,6 +2950,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("{} {} {} {}", p[0], p[1], p[2], s.strip_prefix("minecraft:").unwrap_or(s));
             }
         }
+        DoorCmd::Cosearch { cmd } => crate::cosearch::run(version, cmd)?,
         DoorCmd::RedsimFuzz { n, seed, size, density, palette, out, no_shrink, max_report, workers } => {
             let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
             anyhow::ensure!(sz.len() == 3, "--size x,y,z");
