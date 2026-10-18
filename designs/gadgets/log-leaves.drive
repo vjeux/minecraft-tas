@@ -1,0 +1,15 @@
+# Leaves next to a moving log (pareto-mid): DA (leaves at the log's rest cell) pulses k4..k6 on the
+# on flip and k6..k8 on the off flip; DB (leaves at the cell it moves into) the other way round.
+# An observer on the moved cell itself would pulse k3..k5 on both flips: the leaves shift it by
+# -1 / +1 depending on which side they touch and which flip it is (used by mp8-leafU, mp7-leafC).
+design designs/gadgets/log-leaves.txt
+probe DA 2 1 -3
+probe DB 3 1 3
+use 0 1 0
+expect_trace DA 000++00000
+use 0 1 0
+expect_trace DA 00000++000
+use 0 1 0
+expect_trace DB 00000++000
+use 0 1 0
+expect_trace DB 000++00000
