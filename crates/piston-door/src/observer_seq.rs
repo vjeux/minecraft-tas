@@ -14,6 +14,7 @@ pub fn build(name: &str) -> Option<Design> {
         "obs-d2" => Some(d2()),
         "obs-d3" => Some(d3()),
         "obs-e1m" => Some(e1_mech()),
+        "obs-e1w" => Some(e1w()),
         "obs-s1" => Some(s1()),
         "obs-s3" => Some(s3()),
         "obs-s4" => Some(s4()),
@@ -351,6 +352,28 @@ pub fn s6() -> Design {
     );
     d.ports.insert("lever".into(), [-2, 4, -1]);
     d
+}
+
+/// e1 wiring, step 1: lever observer O1 (0,4,-1) -> (0,4,0) (P_L + A on both edges), observer
+/// chain O2..O5 -> P_R (+8gt). Window and late A are still driven by script.
+pub fn e1w() -> Design {
+    let mut d = e1_mech();
+    d.name = "piston-door-3x3-obs-e1w".into();
+    let mut b = Builder { d };
+    put(
+        &mut b,
+        &[
+            ([0, 4, 0], STONE),
+            ([0, 4, -1], &observer("north")),
+            ([0, 4, -2], "minecraft:lever[face=wall,facing=north,powered=false]"),
+            ([1, 4, -1], &observer("west")),
+            ([1, 4, -2], &observer("south")),
+            ([2, 4, -2], &observer("west")),
+            ([2, 4, -1], &observer("north")),
+        ],
+    );
+    b.port("lever", [0, 4, -2]);
+    b.d
 }
 
 /// The toggle mechanism with inner side pistons under the door (bottom row y=-1).
