@@ -1,4 +1,4 @@
-name: ground-v225
+name: ground-v225b
 port door: 0 0 0
 port lever: 1 3 -1
 origin: -3 0 -2
@@ -16,32 +16,32 @@ palette:
   o minecraft:observer[facing=east,powered=false]
   s minecraft:sticky_piston[extended=false,facing=north]
 layer 0:
-  .......CC
-  .......AA
+  .......C
+  .......A
   .S.GGG.FF
   .B....sBB
-  .C....CDC
+  .oC....CC
 layer 1:
-  ......CCB
-  ..E...AOD
-  SS.GGG.F
-  ......C
-  .C....ooC
+  ......CoB
+  ..E...A.C
+  SS.GGG.FC
+  ......COD
+  CDD....CA
 layer 2:
-  C.....BCC
-  A.E...COA
+  .C....BDD
+  .AE...C.A
   SS.GGG.FA
-  .B....ooA
-  .C.....oC
+  BB....ooB
+  CO.....CD
 layer 3:
-  B.CDBDDoC
-  B.CAL.oOD
-  CCC.G..CA
-  oAA.....A
-  .oA....OA
+  .ooCBD
+  ..C.LAB
+  C.C.GABCO
+  A....AO
+  A....ADD
 layer 4:
-  .oooooODD
-  .AoO
-  BAB....B
-  ODD....B
-  .......O
+  .ODoB
+  ooA.oO
+  ADD....oO
+  .
+  .

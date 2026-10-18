@@ -957,6 +957,10 @@ pub enum DoorCmd {
         /// Added to every group's time (the root's distance budget).
         #[arg(long, default_value_t = 0)]
         shift: i32,
+        /// Randomized restarts (option and direction orders shuffled), --secs split between them;
+        /// the best wiring over all restarts is kept.
+        #[arg(long, default_value_t = 1)]
+        restarts: usize,
     },
     Patch {
         design: PathBuf,
@@ -2454,9 +2458,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             rd.save(&out)?;
             println!("{} turned {} degrees{} ({}-facing door) written to {}", d.name, turns as u32 % 4 * 90, if mirror { ", mirrored" } else { "" }, if spec.along_z { "east/west" } else { "north/south" }, out.display());
         }
-        DoorCmd::ObsChain { spec, out, max_paths, secs, shift } => {
+        DoorCmd::ObsChain { spec, out, max_paths, secs, shift, restarts } => {
             let mut w = Worker::spawn(&cfg)?;
-            crate::obschain::run(&mut w, &spec, &out, max_paths, secs, shift)?;
+            crate::obschain::run(&mut w, &spec, &out, max_paths, secs, shift, restarts)?;
         }
         DoorCmd::Patch { design, script, out } => {
             let d0 = load_design(&design)?;

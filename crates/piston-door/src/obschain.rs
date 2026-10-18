@@ -59,6 +59,8 @@ pub struct Group {
     pub name: String,
     pub time: i32,
     pub opts: Vec<(Pos, Pos)>,
+    /// Per option: a conductor block the driver powers (`optb`), or none.
+    pub conductors: Vec<Option<(Pos, String)>>,
 }
 
 pub struct Spec {
@@ -100,10 +102,16 @@ pub fn parse_spec(text: &str) -> Result<Spec> {
                 lo = p3(&v[1..4]).with_context(ctx)?;
                 hi = p3(&v[4..7]).with_context(ctx)?;
             }
-            "group" => groups.push(Group { name: v[1].to_string(), time: v[2].parse().with_context(ctx)?, opts: Vec::new() }),
+            "group" => groups.push(Group { name: v[1].to_string(), time: v[2].parse().with_context(ctx)?, opts: Vec::new(), conductors: Vec::new() }),
             "opt" => {
                 let g = groups.last_mut().with_context(ctx)?;
                 g.opts.push((p3(&v[1..4]).with_context(ctx)?, dir_of(v[4])?));
+                g.conductors.push(None);
+            }
+            "optb" => {
+                let g = groups.last_mut().with_context(ctx)?;
+                g.opts.push((p3(&v[1..4]).with_context(ctx)?, dir_of(v[4])?));
+                g.conductors.push(Some((p3(&v[5..8]).with_context(ctx)?, v[8].to_string())));
             }
             "forbid" => forbid.push(p3(&v[1..4]).with_context(ctx)?),
             x => bail!("spec line {}: unknown keyword {x:?}", i + 1),
@@ -125,6 +133,8 @@ pub fn parse_spec(text: &str) -> Result<Spec> {
 #[derive(Clone)]
 struct Tree {
     obs: BTreeMap<Pos, (i32, Pos)>,
+    /// Conductor blocks placed by `optb` drivers.
+    extra: BTreeMap<Pos, String>,
 }
 
 struct Ctx {
@@ -138,6 +148,7 @@ struct Ctx {
     nodes: usize,
     deepest: usize,
     deadline: std::time::Instant,
+    seed: u64,
 }
 
 impl Ctx {
@@ -145,7 +156,7 @@ impl Ctx {
         (0..3).all(|i| p[i] >= self.lo[i] && p[i] <= self.hi[i])
     }
     fn free(&self, t: &Tree, p: Pos) -> bool {
-        self.in_box(p) && !self.blocked.contains(&p) && !t.obs.contains_key(&p)
+        self.in_box(p) && !self.blocked.contains(&p) && !t.obs.contains_key(&p) && !t.extra.contains_key(&p)
     }
     /// Exact-length paths of new observers from a tree node (time i) to `target` (time `tt`).
     fn paths(&self, t: &Tree, target: Pos, tt: i32, reserved: &HashSet<Pos>) -> Vec<Vec<(Pos, Pos)>> {
@@ -214,7 +225,9 @@ impl Ctx {
             }
             return;
         }
-        for (d, _) in DIRS {
+        let h = mix(self.seed ^ ((cur[0] as u64) << 40) ^ ((cur[1] as u64 & 0xff) << 32) ^ ((cur[2] as u64 & 0xffff) << 16) ^ left as u64);
+        for di in shuffled(6, if self.seed == 0 { 0 } else { h }) {
+            let d = DIRS[di].0;
             let n = add(cur, d);
             if dt.get(&n).is_none_or(|x| *x > left - 1) {
                 continue;
@@ -227,7 +240,7 @@ impl Ctx {
             let outc = sub(n, facing);
             // An output into the floor (y = -1, the ground check's stone) is harmless: the only
             // cell above that floor block is this observer.
-            if self.no_out.contains(&outc) {
+            if self.no_out.contains(&outc) || t.extra.contains_key(&outc) {
                 continue;
             }
             path.push((n, facing));
@@ -241,7 +254,7 @@ impl Ctx {
         if std::time::Instant::now() > self.deadline {
             return;
         }
-        let count = t.obs.len();
+        let count = t.obs.len() + t.extra.len();
         if let Some((b, _, _)) = &self.best {
             if count + (self.groups.len() - gi) >= *b {
                 return;
@@ -252,9 +265,49 @@ impl Ctx {
             eprintln!("[obs-chain] {} observers", count);
             return;
         }
+        // Forward check: every later group keeps enough viable options (groups sharing one option
+        // list need that many distinct viable cells).
+        {
+            let mut need: HashMap<Vec<(Pos, Pos)>, (usize, usize)> = HashMap::new();
+            for g in &self.groups[gi..] {
+                let viable = g
+                    .opts
+                    .iter()
+                    .filter(|(c, f)| {
+                        let w = add(*c, *f);
+                        !t.obs.contains_key(c) && !t.extra.contains_key(c) && !self.blocked.contains(c) && self.in_box(*c)
+                            && match t.obs.get(&w) {
+                                Some((ti, _)) => *ti == g.time - 1,
+                                None => self.free(t, w),
+                            }
+                    })
+                    .count();
+                let e = need.entry(g.opts.clone()).or_insert((0, viable));
+                e.0 += 1;
+            }
+            if need.values().any(|(n, v)| v < n) {
+                if std::env::var("OBS_DEBUG2").is_ok() {
+                    for g in &self.groups[gi..] {
+                        if let Some((n, v)) = need.get(&g.opts) {
+                            if v < n {
+                                eprintln!("[fc] at group {gi}: {} needs {n} viable options, has {v}", g.name);
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+        }
+        if false {
+            self.best = Some((count, t.clone(), choice.clone()));
+            eprintln!("[obs-chain] {} observers", count);
+            return;
+        }
         let g = self.groups[gi].clone();
         // Cells of later drivers' options stay free as long as possible (soft: tried later).
-        for (oi, (cell, facing)) in g.opts.iter().enumerate() {
+        let order = shuffled(g.opts.len(), if self.seed == 0 { 0 } else { mix(self.seed ^ (gi as u64) ^ ((count as u64) << 20)) });
+        for oi in order {
+            let (cell, facing) = (&g.opts[oi].0, &g.opts[oi].1);
             let watched = add(*cell, *facing);
             if let Some((ti, _)) = t.obs.get(cell) {
                 // Already an observer there: usable only if it is exactly this driver.
@@ -277,6 +330,13 @@ impl Ctx {
             }
             let mut base = t.clone();
             base.obs.insert(*cell, (g.time, *facing));
+            if let Some((cp, cs)) = &g.conductors[oi] {
+                // The conductor: a free cell no placed observer outputs into.
+                if !self.free(t, *cp) || *cp == *cell || *cp == watched || t.obs.iter().any(|(p, (_, f))| sub(*p, *f) == *cp) {
+                    continue;
+                }
+                base.extra.insert(*cp, cs.clone());
+            }
             choice.push(oi);
             match t.obs.get(&watched) {
                 Some((ti, _)) if *ti == g.time - 1 => {
@@ -285,9 +345,17 @@ impl Ctx {
                 Some(_) => {}
                 None => {
                     if self.free(&base, watched) {
-                        let reserved: HashSet<Pos> = HashSet::new();
+                        // Soft reservation: later groups' option cells and their watched cells.
+                        let reserved: HashSet<Pos> = self.groups[gi + 1..]
+                            .iter()
+                            .flat_map(|h| h.opts.iter().flat_map(|(c, f)| [*c, add(*c, *f)]))
+                            .filter(|p| *p != watched)
+                            .collect();
                         // Paths end at `watched` (time T-1); they may not pass through the driver.
-                        let paths = self.paths(&base, watched, g.time - 1, &reserved);
+                        let mut paths = self.paths(&base, watched, g.time - 1, &reserved);
+                        if paths.is_empty() {
+                            paths = self.paths(&base, watched, g.time - 1, &HashSet::new());
+                        }
                         for p in paths {
                             let mut nt = base.clone();
                             let mut ok = true;
@@ -310,7 +378,7 @@ impl Ctx {
     }
 }
 
-pub fn run(w: &mut Worker, spec_path: &std::path::Path, out: &std::path::Path, max_paths: usize, secs: u64, shift: i32) -> Result<()> {
+pub fn run(w: &mut Worker, spec_path: &std::path::Path, out: &std::path::Path, max_paths: usize, secs: u64, shift: i32, restarts: usize) -> Result<()> {
     let spec = parse_spec(&std::fs::read_to_string(spec_path)?)?;
     let sched = Schedule::parse_with(&std::fs::read_to_string(&spec.schedule)?, &BTreeMap::new())?;
     let vars = sched.vars().clone();
@@ -364,7 +432,7 @@ pub fn run(w: &mut Worker, spec_path: &std::path::Path, out: &std::path::Path, m
         g.time += shift;
     }
     groups.sort_by_key(|g| g.time);
-    let mut t = Tree { obs: BTreeMap::new() };
+    let mut t = Tree { obs: BTreeMap::new(), extra: BTreeMap::new() };
     let (rc, rf) = spec.root;
     anyhow::ensure!(add(rc, rf) == spec.lever.0, "the root must face the lever");
     t.obs.insert(rc, (0, rf));
@@ -379,6 +447,7 @@ pub fn run(w: &mut Worker, spec_path: &std::path::Path, out: &std::path::Path, m
         nodes: 0,
         deepest: 0,
         deadline: std::time::Instant::now() + std::time::Duration::from_secs(secs),
+        seed: 0,
     };
     let mut choice = Vec::new();
     if std::env::var("OBS_DEBUG").is_ok() {
@@ -401,7 +470,13 @@ pub fn run(w: &mut Worker, spec_path: &std::path::Path, out: &std::path::Path, m
             }
         }
     }
-    ctx.search(&t, 0, &mut choice);
+    let restarts = restarts.max(1);
+    for r in 0..restarts {
+        ctx.seed = if r == 0 { 0 } else { mix(r as u64 * 0x9e37_79b9_7f4a_7c15) | 1 };
+        ctx.deadline = std::time::Instant::now() + std::time::Duration::from_secs((secs / restarts as u64).max(1));
+        choice.clear();
+        ctx.search(&t, 0, &mut choice);
+    }
     eprintln!("[obs-chain] {} search nodes, deepest group reached: {} ({})", ctx.nodes, ctx.deepest, groups.get(ctx.deepest).map(|g| g.name.as_str()).unwrap_or("all"));
     let Some((n, tree, ch)) = ctx.best else {
         bail!("no wiring found");
@@ -413,6 +488,9 @@ pub fn run(w: &mut Worker, spec_path: &std::path::Path, out: &std::path::Path, m
     for (p, (_, f)) in &tree.obs {
         d.blocks.insert(*p, observer(*f));
     }
+    for (p, s) in &tree.extra {
+        d.blocks.insert(*p, s.clone());
+    }
     d.name = out.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
     let d = crate::canonicalize(w, &d)?;
     d.save(out)?;
@@ -423,4 +501,28 @@ pub fn run(w: &mut Worker, spec_path: &std::path::Path, out: &std::path::Path, m
     }
     let _ = HashMap::<i32, i32>::new();
     Ok(())
+}
+
+/// A 64-bit mix (splitmix64's finalizer).
+fn mix(mut x: u64) -> u64 {
+    x ^= x >> 30;
+    x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    x ^= x >> 27;
+    x = x.wrapping_mul(0x94d0_49bb_1331_11eb);
+    x ^ (x >> 31)
+}
+
+/// 0..n in an order drawn from `h` (0: the natural order).
+fn shuffled(n: usize, h: u64) -> Vec<usize> {
+    let mut v: Vec<usize> = (0..n).collect();
+    if h == 0 {
+        return v;
+    }
+    let mut s = h;
+    for i in (1..n).rev() {
+        s = mix(s.wrapping_add(0x9e37_79b9_7f4a_7c15));
+        let j = (s % (i as u64 + 1)) as usize;
+        v.swap(i, j);
+    }
+    v
 }
