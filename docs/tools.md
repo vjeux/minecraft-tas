@@ -55,6 +55,7 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 | `door place <design> --groups <file> --out <file>` | try every combination of alternative patch groups: wiring a mechanism whose part placements are a 3D puzzle |
 | `door mech-synth <base> [--add k] [--pulses-only] [--verify N --out-dir DIR]` | mechanism synthesis in a macro piston model (a port of `PistonStructureResolver`): pistons, slime and blocks around the door, cheapest open and close paths, one symmetric event sequence for both lever edges; writes ideal-input designs and `door ideal` schedules and replays the best. Catalogs: `tracks/mech-synth/NOTES.md` |
 | `door mech-wire <schedule>...` | wire a mechanism from its ideal-input schedule: route every piston cell's wave from a lever at each lever spot, rank by total blocks, judge the best (an upper bound: ~12 blocks worse than hand wiring) |
+| `door topology <families CATALOG.tsv> [--only 7x8,8x7] [--verbose]`, `door mech-synth <base> --just-base --topology x0,y0:x1,y1` | can a mechanism be wired inside a volume box with FULL seamless at all? (topology.rs, track box56): the free cells split into wiring components; a piston links two components when one feeds it and the other watches it, carrying one pulse per change of the watched cell (pulse mergers); reports WIRABLE / NOT per mechanism under strict and permissive parity (accepts e89, h44, flat-b-v7; rejects all 99 7x8/8x7 catalog entries under strict parity) |
 
 ## Searching for fewer blocks or ticks
 

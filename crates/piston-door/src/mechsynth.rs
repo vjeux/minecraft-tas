@@ -1040,6 +1040,9 @@ pub struct EnumOptions {
     pub max_blocks: usize,
     pub sym_len: usize,
     pub sym_tries: usize,
+    /// `--topology x0,y0:x1,y1`: report whether each mechanism can be wired inside that box of the
+    /// door plane with FULL seamless (topology.rs: wiring components, links, parity).
+    pub topology: Option<([i8; 2], [i8; 2])>,
 }
 
 fn ring16() -> Vec<P> {
@@ -1704,7 +1707,12 @@ pub fn sym_cli(version: &str, base: &std::path::Path, open_seq: &str, levels: bo
 
 pub fn cli(version: &str, base: &std::path::Path, o: &EnumOptions, out_dir: Option<&std::path::Path>, top: usize, verify: usize, extra: u32, gap: u32, workers: usize, just_base: bool) -> Result<()> {
     let d = crate::cli::load_design(base)?;
-    let w = world_of_design(&d)?;
+    let mut w = world_of_design(&d)?;
+    if o.topology.is_some() {
+        // A full door design: its plain blocks are wiring (stack feeds, floors), not mechanism.
+        w.b.retain(|(_, k)| !matches!(k, Kind::Stone));
+        w.pow = World::rest_pow(&w.b);
+    }
     let log = |s: &str| eprintln!("[mech-synth] {s}");
     if just_base {
         let t0 = std::time::Instant::now();
@@ -1727,6 +1735,10 @@ pub fn cli(version: &str, base: &std::path::Path, o: &EnumOptions, out_dir: Opti
             Some(sol) => {
                 let f = Found { world: w.clone(), added: Vec::new(), sol };
                 println!("{}  ({} states, {:.1} ms)", describe(&f), f.sol.states, t0.elapsed().as_secs_f64() * 1e3);
+                if let Some((lo, hi)) = o.topology {
+                    let t = crate::topology::analyze(&f.world, &f.sol, lo, hi);
+                    print!("topology in x {}..{}, y {}..{}:\n{}", lo[0], hi[0], lo[1], hi[1], t.report);
+                }
                 if let Some(dir) = out_dir {
                     write_found(dir, "base", &f, gap)?;
                 }
@@ -1761,6 +1773,23 @@ pub fn cli(version: &str, base: &std::path::Path, o: &EnumOptions, out_dir: Opti
     for ((b, s), n) in &hist {
         println!("  {b} blocks{}: {n}", if *s { " (symmetric)" } else { "" });
     }
+    let found: Vec<Found> = match o.topology {
+        None => found,
+        Some((lo, hi)) => {
+            let mut keep = Vec::new();
+            let (mut strict, mut permissive) = (0, 0);
+            for f in found {
+                let t = crate::topology::analyze(&f.world, &f.sol, lo, hi);
+                strict += t.strict as usize;
+                permissive += t.permissive as usize;
+                if t.permissive {
+                    keep.push(f);
+                }
+            }
+            println!("topology in x {}..{}, y {}..{}: {strict} wirable (strict parity), {permissive} (permissive); listing the permissive ones", lo[0], hi[0], lo[1], hi[1]);
+            keep
+        }
+    };
     for (i, f) in found.iter().take(top).enumerate() {
         println!("#{i} {}", describe(f));
     }
