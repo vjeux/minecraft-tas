@@ -140,6 +140,9 @@ pub enum Kind {
     Lamp,
     RBlock,
     Lever,
+    /// Sculk sensor (category sculk): driven wirelessly by the lever's vibration (always fed),
+    /// weak power on every side (a calibrated one: all but its back), strong into the block below.
+    Sensor,
     /// Not sturdy, not a conductor (piston heads, moving blocks...).
     Other,
 }
@@ -181,9 +184,13 @@ impl Node {
             // comparators): it toggles `lit` on each rising edge.
             n if n.ends_with("copper_bulb") => (Kind::Lamp, None, true, true),
             "redstone_block" => (Kind::RBlock, None, true, false),
+<<<<<<< HEAD
             // A note block conducts like any full block, and its `powered` state follows its
             // power in the same tick (observers can watch it).
             "note_block" => (Kind::Block, None, true, true),
+=======
+            "sculk_sensor" | "calibrated_sculk_sensor" => (Kind::Sensor, None, false, true),
+>>>>>>> origin/explore/sculk-2
             "lever" => {
                 let s = match get("face").as_deref() {
                     Some("floor") => below,
@@ -238,6 +245,8 @@ impl Node {
         let p = self.pos;
         match self.kind {
             Kind::Block | Kind::RBlock | Kind::Lever => FACES.iter().map(|f| add(p, *f)).collect(),
+            // A calibrated sensor's `facing` points away from its back (its frequency input).
+            Kind::Sensor => FACES.iter().map(|f| add(p, *f)).filter(|c| self.facing == [0, 0, 0] || *c != add(p, neg(self.facing))).collect(),
             Kind::Dust => {
                 let mut v: Vec<Pos> = vec![add(p, [0, -1, 0])];
                 for h in HORIZ {
@@ -270,8 +279,10 @@ pub fn drives(u: &Node, v: &Node) -> bool {
     let dy = v.pos[1] - u.pos[1];
     let diag = (v.pos[0] - u.pos[0]).abs() + (v.pos[2] - u.pos[2]).abs() + dy.abs() > 1;
     match (u.kind, v.kind) {
-        (_, Kind::Inert | Kind::Other | Kind::RBlock | Kind::Lever) => false,
+        (_, Kind::Inert | Kind::Other | Kind::RBlock | Kind::Lever | Kind::Sensor) => false,
         (Kind::Lamp | Kind::Inert | Kind::Other, _) => false,
+        // A sensor strongly powers only the block right below it.
+        (Kind::Sensor, Kind::Block) => dy == -1 && !diag,
         // A torch reads the strong power of the block it hangs on.
         (Kind::Block, Kind::Torch) => v.support == Some(u.pos),
         (_, Kind::Torch) => false,
@@ -339,6 +350,7 @@ fn kind_name(k: Kind) -> &'static str {
         Kind::Lamp => "lamp",
         Kind::RBlock => "rblock",
         Kind::Lever => "lever",
+        Kind::Sensor => "sensor",
         Kind::Other => "other",
     }
 }
@@ -375,6 +387,7 @@ fn parse_kind(s: &str) -> Result<Kind> {
         "torch" => Kind::Torch,
         "lamp" => Kind::Lamp,
         "rblock" => Kind::RBlock,
+        "sensor" => Kind::Sensor,
         _ => bail!("unknown kind {s:?}"),
     })
 }
@@ -511,7 +524,8 @@ impl Gen {
                     continue;
                 }
                 let v = &self.atoms[a as usize];
-                let by = self.sources.iter().any(|s| drives(s, v))
+                let by = v.kind == Kind::Sensor
+                    || self.sources.iter().any(|s| drives(s, v))
                     || set.iter().enumerate().any(|(j, &b)| fa[j] && drives(&self.atoms[b as usize], v))
                     || self.relays.iter().enumerate().any(|(j, r)| fr[j] && drives(r, v));
                 if by {
@@ -724,6 +738,15 @@ impl Gen {
             }
         }
         cands.sort_unstable();
+        // Sensors need no wire: any free cell of the box may hold one (once per set).
+        if !set.iter().any(|&i| self.atoms[i as usize].kind == Kind::Sensor) {
+            for (id, a) in self.atoms.iter().enumerate() {
+                if a.kind == Kind::Sensor && self.in_palette[id] && !self.occupied(set, a.pos) {
+                    cands.push(id as u32);
+                }
+            }
+            cands.sort_unstable();
+        }
         cands.dedup();
         let mut out = Vec::new();
         for id in cands {
@@ -1279,9 +1302,13 @@ fn removable(d: &Design, changing: &HashSet<Pos>) -> Vec<Pos> {
         .iter()
         .filter(|(p, s)| {
             let n = Node::new(**p, s);
+<<<<<<< HEAD
             let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp)
                 || s.contains("note_block")
                 || s.contains("minecraft:target");
+=======
+            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp | Kind::Sensor);
+>>>>>>> origin/explore/sculk-2
             let still_block = matches!(n.kind, Kind::Block) && !changing.contains(*p);
             let glass = n.kind == Kind::Inert && s.contains("glass");
             (wiring || still_block || glass) && !door.contains(*p) && Some(**p) != lever && Some(**p) != lever_support
