@@ -76,7 +76,7 @@ pub fn sturdy(_w: &World, s: &Block, _p: BlockPos, face: Dir, support: Support) 
         Block::Cake { bites } => face == Dir::Down && support == Support::Center && bites <= 2,
         Block::EndPortalFrame { eye, .. } => face == Dir::Down || (eye && face == Dir::Up && support == Support::Center),
         Block::Composter { .. } => face != Dir::Up || support == Support::Rigid,
-        Block::Piston { .. } | Block::PistonHead { .. } => crate::piston::sturdy(s, face, support),
+        Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy_at(_w, s, _p, face, support),
         _ => false,
     }
 }

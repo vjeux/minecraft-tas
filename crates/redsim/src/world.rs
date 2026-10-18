@@ -240,7 +240,7 @@ impl World {
                 }
             }
             if fl & flags::KNOWN_SHAPE == 0 && limit > 0 {
-                let nf = fl & !(flags::CLIENTS | flags::SUPPRESS_DROPS);
+                let nf = fl & !(flags::NEIGHBORS | flags::SUPPRESS_DROPS);
                 bh::update_indirect_neighbour_shapes(self, old, pos, nf, limit - 1);
                 self.update_neighbour_shapes(state, pos, nf, limit - 1);
                 bh::update_indirect_neighbour_shapes(self, state, pos, nf, limit - 1);
