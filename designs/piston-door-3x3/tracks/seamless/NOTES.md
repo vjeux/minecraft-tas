@@ -80,9 +80,18 @@ The center has no S neighbour. Pulling it needs a sticky face in T (seen). Pushi
 line entering the frame from a ring cell whose block is a door block and that is contiguous up to
 the center; a door block can only be in the ring after it was pulled there, which leaves a gap
 next to the center. A single piston cannot close that gap and push again (its head now fills the
-ring cell; an extended piston cannot be pushed). A SUPER (covered) 3x3 needs a multi-step shuffle
-(door blocks sliding along the ring with pistons in the ring's CORNER cells, which are not in S,
-and two-stage pushers): left as the next idea; no design here.
+ring cell; an extended piston cannot be pushed).
+
+Stronger: for a SOLID door, SUPER (covered) is impossible too. The center cell must end up empty.
+The move that empties it is either a pull (the sticky face is in a T cell next to the center: seen)
+or a push; a push line through the center refills the center with whatever trails it in the line:
+the previous block (so the cell is not emptied) or the piston head (in the center, T: seen), and
+when that head later retracts the center empties with the head seen just before. So at some tick a
+non-door object sits in T next to or at the center. Only GRAVITY door blocks escape this: a sand
+center falls out of the frame when the cell below it is emptied, with no circuitry in T (the moves
+that empty the bottom-middle cell can be hidden behind door blocks). A SUPER (covered) gravity door
+would need slime-free sides (hallway) and a 3-cell lift for the center column on closing (a sand
+column falls back down when its support retracts): not built here.
 
 ## Log
 
