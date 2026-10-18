@@ -41,7 +41,7 @@ import net.minecraft.world.phys.Vec3;
  * Line-delimited JSON protocol. Requests are read on a background thread and executed in order on
  * the server thread; each request gets exactly one response line carrying the same {@code id}.
  *
- * <p>See docs/protocol.md for the full reference.
+ * <p>See docs/internals.md (bridge protocol) for the full reference.
  */
 public final class Protocol {
     private static final JsonObject EOF = new JsonObject();

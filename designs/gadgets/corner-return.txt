@@ -1,6 +1,6 @@
 name: gadget-corner-return
-# The edge block's return through its corner with every move placed (close side, docs/ticks.md
-# section 6). T's cell N1 = (1,2,0) (empty: the center already went through), corner K = (2,2,0),
+# The edge block's return through its corner with every move placed (close side, docs/mechanics.md
+# section 9). T's cell N1 = (1,2,0) (empty: the center already went through), corner K = (2,2,0),
 # side cells R = (3,2,0) (T parked) and U = (2,3,0) (the corner block TR parked).
 # * Tick 1: A (sticky, behind R) is 0-ticked by the R_A / X_A pair: T placed in K.
 # * Tick 2: Q3 0-ticks the parked sticky piston P3 (facing west) into R; P3 fires the moment it is

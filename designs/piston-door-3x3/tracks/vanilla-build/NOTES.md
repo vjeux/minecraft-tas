@@ -158,7 +158,8 @@ fails cycle 0, and the tool notes that the script's click differs from the simul
    and the bot's position). The same command without `--stay` (bot out of range) PASSES, as does
    `--real-time` without `--stay`; the 38-block sculk leader sculk2-s1 passes even with `--stay
    --slow 10`.
-2. **BUILDABILITY.md's flat row is mislabelled.** `flat-v2-60b.build.txt` was written at 04:56
+2. **BUILDABILITY.md's flat row is mislabelled** (BUILDABILITY.md is now the archive catalog's
+   buildable column, generated from the scripts). `flat-v2-60b.build.txt` was written at 04:56
    from `origin/explore/flat:.../BEST.txt`, which was by then the 55-block revision 07bdbd0 (04:53):
    55 actions = 55 blocks. Against `archive/flat-v2-60b.txt` the build ends without that design's
    bottom observer row in BOTH worlds (logs/B-flat-4pos.log: every action identical, built !=

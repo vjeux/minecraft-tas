@@ -44,7 +44,9 @@ open/close cycles with the judge's rules from the built state.
 
 ## Results
 
-See [BUILDABILITY.md](../../BUILDABILITY.md) (the table) and `scripts/<design file>.build.txt` (the
+See the buildable column of the archive catalog ([archive/README.md](../../archive/README.md),
+generated from these scripts; this track's results table used to be BUILDABILITY.md, now folded into
+the catalog and [docs/history.md](../../../../docs/history.md#correctness)) and `scripts/<design file>.build.txt` (the
 build scripts, one line per action, design coordinates; the `# note:` lines say where the plain
 order first goes wrong, with a tick trace of that step).
 
