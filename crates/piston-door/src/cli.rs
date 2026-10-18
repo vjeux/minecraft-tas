@@ -64,6 +64,10 @@ pub struct SearchArgs {
     /// `minecraft:sculk_sensor` (or `calibrated_sculk_sensor[facing=..]`) in the states.
     #[arg(long)]
     pub to_sculk: bool,
+    /// Accept only rotation-safe designs (the judge also passes turned 90, 180 and 270 degrees;
+    /// the boards rank rotation-safe designs). The start design must be rotation-safe too.
+    #[arg(long)]
+    pub rotation_safe: bool,
 }
 
 impl SearchArgs {
@@ -92,6 +96,7 @@ impl SearchArgs {
             max_open: self.max_open,
             max_close: self.max_close,
             to_sculk: self.to_sculk,
+            rotation_safe: self.rotation_safe,
         })
     }
 

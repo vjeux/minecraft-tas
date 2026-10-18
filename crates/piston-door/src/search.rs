@@ -115,6 +115,10 @@ pub struct SearchOptions {
     /// Also accept candidates that turn a solid design into a sculk one (they add a sculk
     /// sensor): searches for the sculk board starting from solid designs.
     pub to_sculk: bool,
+    /// Accept only rotation-safe designs: an accepted candidate must also pass the judge turned
+    /// 90, 180 and 270 degrees ([`crate::rotation_check`], at the judge's positions). The boards
+    /// rank rotation-safe designs, so a search from one should not trade that away for a block.
+    pub rotation_safe: bool,
 }
 
 /// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk.
@@ -133,6 +137,19 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
 /// [`verify_in`] plus the search's speed constraints.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
     speed_check(verify_in(w, sb, d, v)?, opts)
+}
+
+/// The acceptance test: [`judge_in`] with the judge's options, and with `rotation_safe` the
+/// door turned 90, 180 and 270 degrees too.
+fn accept_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptions) -> Result<crate::Report> {
+    let r = judge_in(w, sb, d, &opts.judge, opts)?;
+    if opts.rotation_safe {
+        let v = VerifyOptions { keep_frames: false, ..opts.judge.clone() };
+        if let Some((turns, why)) = crate::rotation_check(w, d, &v)? {
+            anyhow::bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
+        }
+    }
+    Ok(r)
 }
 
 /// The speed constraints (`max_open`, `max_close`) on a judge report.
@@ -1471,7 +1488,7 @@ fn evaluate_with(
             let c = &cands[i];
             let d = c.edit.apply(&bases[c.base]);
             let sb = sandboxes.get(w, wi)?;
-            Ok(judge_in(w, sb, &d, &opts.judge, opts).map(|r| (rank(&d, &r), d)).map_err(|e| format!("{e:#}")))
+            Ok(accept_in(w, sb, &d, opts).map(|r| (rank(&d, &r), d)).map_err(|e| format!("{e:#}")))
         });
         judged += part.len();
         for (&i, r) in part.iter().zip(res) {
@@ -1564,7 +1581,7 @@ pub fn search(
     let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;
-        judge_in(&mut w, sb, &cur, &opts.judge, opts).context("the start design fails the judge")?
+        accept_in(&mut w, sb, &cur, opts).context("the start design fails the judge")?
     };
     let mut cur_key = objective_key(opts.objective, &cur, &start_report);
     let (o, c) = worst_ticks(&start_report);
@@ -1657,7 +1674,7 @@ pub fn search(
                 }
                 let mut w = pool.worker(0);
                 let sb = sandboxes.get(&mut w, 0)?;
-                if judge_in(&mut w, sb, &cand, &opts.judge, opts).is_ok() {
+                if accept_in(&mut w, sb, &cand, opts).is_ok() {
                     log(&format!("  also: {d2} -> {} blocks", block_count(&cand)));
                     next = cand;
                 }
