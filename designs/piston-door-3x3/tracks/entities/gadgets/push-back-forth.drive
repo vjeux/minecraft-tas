@@ -1,0 +1,45 @@
+design designs/piston-door-3x3/tracks/entities/gadgets/push-back-forth.txt
+settle
+entities
+setblock 1 1 0 minecraft:redstone_block
+setblock 1 1 2 minecraft:redstone_block
+settle
+clear 1 1 0
+clear 1 1 2
+settle
+entities
+setblock 6 1 0 minecraft:redstone_block
+setblock 6 1 2 minecraft:redstone_block
+settle
+clear 6 1 0
+clear 6 1 2
+settle
+entities
+setblock 1 1 0 minecraft:redstone_block
+setblock 1 1 2 minecraft:redstone_block
+settle
+clear 1 1 0
+clear 1 1 2
+settle
+entities
+setblock 6 1 0 minecraft:redstone_block
+setblock 6 1 2 minecraft:redstone_block
+settle
+clear 6 1 0
+clear 6 1 2
+settle
+entities
+setblock 1 1 0 minecraft:redstone_block
+setblock 1 1 2 minecraft:redstone_block
+settle
+clear 1 1 0
+clear 1 1 2
+settle
+entities
+setblock 6 1 0 minecraft:redstone_block
+setblock 6 1 2 minecraft:redstone_block
+settle
+clear 6 1 0
+clear 6 1 2
+settle
+entities

@@ -1,0 +1,24 @@
+name: gadget-entity-plate-stand
+# An armor stand on a stone pressure plate P (4,1,0). Pistons at the height of its upper half
+# shove it off the plate (E (3,2,0) facing east, onto the floor at (5,0,0)) and back (W (6,2,0)
+# facing west) without touching the plate. Q (4,1,1) facing south, next to the plate, shows its
+# power.
+entity: minecraft:armor_stand 4.5 1 0.5
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  P minecraft:stone_pressure_plate[powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  Q minecraft:piston[extended=false,facing=south]
+  K minecraft:stone
+layer 0:
+  ..SSSSS
+  ....S
+  ....S
+layer 1:
+  ....P
+  ....Q
+  ....K
+layer 2:
+  ...E..W

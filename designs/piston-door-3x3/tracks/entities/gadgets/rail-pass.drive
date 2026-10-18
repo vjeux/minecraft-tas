@@ -1,0 +1,7 @@
+design designs/piston-door-3x3/tracks/entities/gadgets/rail-pass.txt
+probe d 4 1 0
+settle
+use 1 1 1
+etrace 45
+settle 200
+entities

@@ -325,7 +325,7 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                 let want = [f(2)?, f(3)?, f(4)?];
                 let ents = w.entities(sb)?;
                 out.checks += 1;
-                if !ents.iter().any(|e| e.kind == kind && e.pos == want) {
+                if !ents.iter().any(|e| e.kind == kind && (0..3).all(|i| (e.pos[i] - want[i]).abs() <= crate::ENTITY_POS_TOLERANCE)) {
                     let seen: Vec<String> = ents.iter().map(|e| format!("{} {:?}", e.kind, e.pos)).collect();
                     out.failures.push(format!("line {}: t={tick} expect {kind} at {want:?}, have {}", lineno + 1, seen.join("; ")));
                 }

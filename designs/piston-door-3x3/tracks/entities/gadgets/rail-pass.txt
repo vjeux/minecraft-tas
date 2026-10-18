@@ -1,0 +1,18 @@
+name: rail-pass
+# A lever kicks a minecart off a powered rail (1,1,0); it rolls east over a detector rail D
+# (4,1,0) and stops against the stone wall (9,1,0).
+port lever: 1 1 1
+entity: minecraft:minecart 1.5 1.0625 0.5
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  W minecraft:powered_rail[shape=east_west,powered=false]
+  R minecraft:rail[shape=east_west]
+  D minecraft:detector_rail[shape=east_west,powered=false]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer 0:
+  SSSSSSSSSS
+  SS
+layer 1:
+  SWRRDRRRRS
+  .L

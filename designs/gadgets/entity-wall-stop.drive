@@ -1,0 +1,11 @@
+# (category entity) Minecarts sent at different speeds into the same wall stop at exactly the
+# same spot (Entity.move clips the move at the block face and zeroes that motion component); one
+# too slow to reach it is still creeping after 300 ticks (rails only slow a cart by 0.96 per tick).
+design designs/gadgets/entity-wall-stop.txt
+summon minecraft:minecart 1.5 1.0625 0.5 {Motion:[0.4d,0d,0d]}
+summon minecraft:minecart 2.25 1.0625 1.5 {Motion:[0.17d,0d,0d]}
+summon minecraft:minecart 3.125 1.0625 2.5 {Motion:[0.333d,0d,0d]}
+settle 300
+expect_entity minecart 7.51 1.0625 0.5
+expect_entity minecart 7.51 1.0625 2.5
+expect_entities 3

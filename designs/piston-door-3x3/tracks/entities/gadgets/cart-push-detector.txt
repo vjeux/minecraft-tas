@@ -1,0 +1,19 @@
+name: cart-push-detector
+# A piston P1 (2,1,0) facing east pushes a minecart standing on the floor at (3,1,0) onto a
+# detector rail D (4,1,0). P2 (4,1,1) facing south, right next to D, pushes stone K (4,1,2).
+entity: minecraft:minecart 3.5 1 0.5
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  P minecraft:piston[extended=false,facing=east]
+  D minecraft:detector_rail[shape=east_west,powered=false]
+  Q minecraft:piston[extended=false,facing=south]
+  K minecraft:stone
+layer 0:
+  SSSSSS
+  ....S
+  ....S
+layer 1:
+  ..P.D
+  ....Q
+  ....K

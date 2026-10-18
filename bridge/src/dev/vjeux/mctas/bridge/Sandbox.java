@@ -227,12 +227,58 @@ final class Sandbox {
      * entities has none, so this is the plain block condition for it.
      */
     boolean idle() {
-        return this.level.getBlockTicks().count() == 0
+        return this.level.getBlockTicks().count() == steadySensorTicks()
                 && this.level.getFluidTicks().count() == 0
                 && blockEventCount() == 0
                 && movingPistonCount() == 0
                 && fallingBlockCount() == 0
                 && designEntitiesStill();
+    }
+
+    private static final Method PLATE_SIGNAL_STRENGTH = method(net.minecraft.world.level.block.BasePressurePlateBlock.class, "getSignalStrength", Level.class, BlockPos.class);
+    private static final Method PLATE_SIGNAL_FOR_STATE = method(net.minecraft.world.level.block.BasePressurePlateBlock.class, "getSignalForState", BlockState.class);
+
+    /**
+     * Scheduled ticks that are steady re-checks of a sensor held by a design entity at rest: a
+     * powered detector rail with a minecart on it re-checks every 20 gt and only reschedules while
+     * the cart stays (DetectorRailBlock.tick -> checkPressed: shouldBePressed == wasPressed, then
+     * scheduleTick), and a pressed pressure plate does the same while its entities stay
+     * (BasePressurePlateBlock.tick -> checkPressed with an unchanged signal). Nothing changes until
+     * the entity moves, so these do not keep a sandbox busy. Only sensors pressed by the design's
+     * own entities count: a sandbox without design entities has none (the plain idle rule).
+     */
+    int steadySensorTicks() {
+        List<Entity> ents = designEntities();
+        if (ents.isEmpty()) {
+            return 0;
+        }
+        java.util.Set<BlockPos> steady = new java.util.HashSet<>();
+        for (Entity e : ents) {
+            net.minecraft.world.phys.AABB bb = e.getBoundingBox();
+            BlockPos lo = BlockPos.containing(bb.minX, bb.minY - 1.0, bb.minZ);
+            BlockPos hi = BlockPos.containing(bb.maxX, bb.maxY, bb.maxZ);
+            for (BlockPos p : BlockPos.betweenClosed(lo, hi)) {
+                BlockState s = this.level.getBlockState(p);
+                Block b = s.getBlock();
+                boolean held = false;
+                if (b instanceof net.minecraft.world.level.block.DetectorRailBlock && s.getValue(net.minecraft.world.level.block.DetectorRailBlock.POWERED)) {
+                    net.minecraft.world.phys.AABB search = new net.minecraft.world.phys.AABB(p.getX() + 0.2, p.getY(), p.getZ() + 0.2, p.getX() + 0.8, p.getY() + 0.8, p.getZ() + 0.8);
+                    held = !this.level.getEntitiesOfClass(net.minecraft.world.entity.vehicle.minecart.AbstractMinecart.class, search, x -> x.entityTags().contains(DESIGN_TAG)).isEmpty();
+                } else if (b instanceof net.minecraft.world.level.block.BasePressurePlateBlock) {
+                    try {
+                        int now = (int) PLATE_SIGNAL_FOR_STATE.invoke(b, s);
+                        int would = (int) PLATE_SIGNAL_STRENGTH.invoke(b, this.level, p);
+                        held = now > 0 && now == would;
+                    } catch (ReflectiveOperationException ex) {
+                        throw new IllegalStateException(ex);
+                    }
+                }
+                if (held && this.level.getBlockTicks().hasScheduledTick(p, b)) {
+                    steady.add(p.immutable());
+                }
+            }
+        }
+        return steady.size();
     }
 
     // ---- design entities (minecarts, armor stands, boats... declared by the design) --------------

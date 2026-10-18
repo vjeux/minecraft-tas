@@ -78,11 +78,16 @@ main's verifier and writes the boards.
     walkway;
   * open: no entity with collision in the opening or the walkway (the open tick counts it), the same
     entity set (nothing dropped, nothing broke);
-  * close: every entity back EXACTLY at its rest position (rails put a cart back on the rail's center
-    line at the rail's height + 1/16 and pistons move entities by exact half-block steps: nothing in
-    the source jitters a resting entity, so no tolerance), at rest, with the same state (its saved data
-    without position and motion: rail, contents, pose...); no other entity at any tick, and no entity
-    ever outside the watch box.
+  * close: every entity back at its rest position (to 1e-6 block: a piston push leaves an entity at
+    the moving face + 0.01 + its float half-width, so a cart stated at x.5 comes back 1e-8 off it,
+    then the same every cycle; any real displacement is at least 0.01; a rolling cart stops at a
+    speed-dependent spot on an unpowered powered rail but exactly against a block), at rest, with
+    the same state (its saved data without position and motion: rail, contents, pose...); no other
+    entity at any tick, and no entity ever outside the watch box;
+  * every lever flip comes 0-20 ticks after the build went idle (a different wait per position,
+    cycle and edge): a detector rail or pressure plate held by an entity re-checks every 10 or 20
+    ticks on its own clock, so a door must not depend on when the player flips the lever. A sensor
+    held by a design entity re-checking (it only reschedules) does not count as pending.
   Designs without entities are judged exactly as before.
 * **Nothing in front of or behind the door** (since 2026-10-18 16:40Z): at rest, the 3x3 columns in front
   of and behind the opening, at any distance, hold no block at all (no machine parts, dust, torches,
