@@ -80,7 +80,12 @@ reaches through k11-12). Below needs 0-ticks.
 | o2-137b.txt | 137 | 11 / 7 | F 0-ticks at t11: redstone block R_X armed (t6, lands t8) in F's quasi spot (1,5,1); P_X (normal piston in F's quasi cell (1,5,0), silently powered by a second redstone block R_Z landing at t10) is updated by F's extension and shoves R_X away in the same block-event phase, so F retracts at once and pulls C |
 | o2-135b.txt | 135 | 11 / 7 | minimized |
 | o5-122b.txt | 122 | 11 / 7 | tick-6 pulse from 3 stacked observers |
-| **o6-120b.txt = BEST** | **120** | **11 / 7** | pulse chain moved next to its targets |
+| **o6-120b.txt** | **120** | **11 / 7** | pulse chain moved next to its targets |
+| **o7-119b.txt = BEST** | **119** | **11 / 7** | T-returner a normal piston, its second-hold observer gone (found by the deep minimize on s4: s4-108b.txt = 108 blocks at 12 / 7) |
+
+Open 10 was reached with hand-placed inputs only (wire/p0.drive: Q spits A' at t6, A' extends
+the same tick and pulls C at t7, Q reaches A' back at t10 while F 0-ticks): it needs A' power
+on at t6 / off at t7 and other odd-tick signals; no placement for them was found (wire/NOTES.md).
 
 ## Next ideas
 * Open 10: move the whole post-push sequence a tick earlier with one more same-tick
