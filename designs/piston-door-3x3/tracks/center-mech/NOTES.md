@@ -57,3 +57,50 @@ meanwhile), and it powers adjacent components while active. The sensor reacts 1-
 vibration travels, then the block entity ticks after the block-event phase), so Q would retract
 at once when the lever's block goes dark: one repeater (0,4,-2) keeps Q powered across that gap.
 Patch: `rb2-sculk.patch` (57 -> 50).
+Then `rb2-sculk2.patch` (50 -> 48): the lever moves onto its own block (0,5,-3) and one repeater
+(0,5,-2) lights X_L (Q below it, P_L by QC as before); O2 watches a dust on X_L instead of the
+lever. The coordinator made sculk doors a separate category because of this (footsteps/mobs can
+trigger a sensor). search-tool derived 46/47 from it; its 43 (from top-control) has the sensor
+right under Q.
+
+## Slime-free (vjeux's "no slime or honey" board)
+- `wip/nf-mech.txt` + `nf-drive.txt` (C up, ideal inputs) and `wip/nfd-mech.txt` +
+  `nfd-drive.txt` (C DOWN, ideal inputs) both work: every outer block gets its own sticky puller
+  (8), plus the elevator pair and the T (or M) side-puller: 10 pistons.
+- Power sharing that works without slime: a row of pullers facing DOWN shares one source above
+  the middle one (direct to it, quasi-connected to both neighbours); a vertical stack of two
+  pullers shares one source above the top one (direct + QC for the lower one), and the lower one
+  is updated by the upper one's own motion. A vertical stack of three needs a second source.
+- With C going down, the top row (TL, T, TR) needs no late timing at all (T can come back any
+  time), so it is one torch on the lever's own block. This is the most compact layout I found
+  for slime-free, but the bottom elevator then needs v2's whole control far from the lever.
+- `wip/nf2-5.txt`: v2-min made slime-free (stacks of three per side, one torch + one strongly
+  powered block per stack, fed from v2's sides line): 133 blocks, works at 32 positions, but
+  logic-min's pulse-driven 55 is far ahead (retracted sticky pullers fired by 2gt pulses need no
+  steady power at all), so it was not submitted.
+- Wiring pitfalls hit: a dust that ends next to its target does not point into it when it also
+  connects diagonally (a step) to another dust; a block strongly powered by a torch (to reach a
+  second puller) lights any dust next to it and back-feeds the L line; a dust floor next to a
+  puller (or in its QC zone) powers it when L is on.
+
+## What failed and why
+- Rows (top row up on a slime row, bottom row down): C still needs an elevator and the rows
+  cost 6 slime + 2 pistons for the same 8 blocks; no gain.
+- T up two cells: A would have to ride above T, so it can never reach C.
+- Double piston extender on the center: that is exactly A riding B; pushing C from below would
+  push M (or T) back into the door, and from either side C can only move to another door cell.
+- One piston pulling C twice: the second extension pushes C back.
+- C dragged by a side structure: the only cells next to C are door cells (or walkway), so a
+  slime can only reach C after an edge block left through it, i.e. 2 cells away.
+- Killing the 24gt hold mechanically: T's return is a sticky RETRACTION in every design, and a
+  failed pull does not retry (the piston retracts without pulling). A retry-able push (an
+  extension blocked by an obsidian stop until (1,3,0) clears) needs the pusher adjacent to a cell
+  that changes when the dance ends; the only such cells are A's neighbours, and no pusher of the
+  right structure can sit there.
+- C going down (M3) is the exact mirror of the C-up designs (same pistons, same timing problem
+  at the bottom); with rb6's tricks it costs the same.
+- Shortening the hold to 16gt on mechanics' 51 (one repeater less + faster R_B): the closing
+  dance no longer finishes in time (wip/m51-hold16*.txt).
+
+## Tool
+- `door route --patch FILE`: appends the routed path as `door patch` lines.

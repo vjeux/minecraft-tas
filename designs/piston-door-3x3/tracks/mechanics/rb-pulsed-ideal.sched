@@ -1,0 +1,39 @@
+# rb mechanics (slime structures, T-drag) with A retracted at rest and pulse-driven,
+# P_BM pulse-driven, P_L steady (lever), P_R steady from pr_on (open) until pr_off (close).
+design designs/piston-door-3x3/tracks/mechanics/rb-pulsed-ideal-mech.txt
+let s = 1
+let p0 = 1
+let pr_on = 7
+let b = 10
+let bw = 8
+let dx = 2
+let pr_off = 18
+# P_L steady
+open 0 set 0 4 -1 minecraft:redstone_block
+close 0 clear 0 4 -1
+# P_BM pulses
+open s set 1 -3 0 minecraft:redstone_block
+open s+2 clear 1 -3 0
+close s set 1 -3 0 minecraft:redstone_block
+close s+2 clear 1 -3 0
+# A pulses through X (block behind X at (1,4,2))
+open p0 set 1 4 2 minecraft:redstone_block
+open p0+2 clear 1 4 2
+open b+dx set 1 4 2 minecraft:redstone_block
+open b+dx+2 clear 1 4 2
+open b+bw+dx set 1 4 2 minecraft:redstone_block
+open b+bw+dx+2 clear 1 4 2
+close p0 set 1 4 2 minecraft:redstone_block
+close p0+2 clear 1 4 2
+close b+dx set 1 4 2 minecraft:redstone_block
+close b+dx+2 clear 1 4 2
+close b+bw+dx set 1 4 2 minecraft:redstone_block
+close b+bw+dx+2 clear 1 4 2
+# B window
+open b set 1 6 0 minecraft:redstone_block
+open b+bw clear 1 6 0
+close b set 1 6 0 minecraft:redstone_block
+close b+bw clear 1 6 0
+# P_R steady
+open pr_on set 2 4 -1 minecraft:redstone_block
+close pr_off clear 2 4 -1
