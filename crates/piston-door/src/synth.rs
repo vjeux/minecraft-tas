@@ -165,6 +165,8 @@ pub fn exotic_states(tok: &str) -> Option<Vec<String>> {
         "shelf" => vec!["minecraft:oak_shelf[facing=north,powered=false,side_chain=unconnected,waterlogged=false]".into()],
         "rail" => rail("powered_rail"),
         "arail" => rail("activator_rail"),
+        // Flat powered rails only (both axes): the sweeps' cheap rail palette.
+        "railf" => ["north_south", "east_west"].iter().map(|s| format!("minecraft:powered_rail[powered=false,shape={s},waterlogged=false]")).collect(),
         "disp" => vec!["minecraft:dispenser[facing=up,triggered=false]".into()],
         "dropper" => vec!["minecraft:dropper[facing=up,triggered=false]".into()],
         "crafter" => vec!["minecraft:crafter[crafting=false,orientation=north_up,triggered=false]".into()],

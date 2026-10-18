@@ -244,6 +244,8 @@ impl Edit {
 }
 
 const WIRE: &str = "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]";
+const TRAPDOOR: &str = "minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]";
+const NOTE: &str = "minecraft:note_block[instrument=harp,note=0,powered=false]";
 const FACES: [Pos; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const HORIZ: [Pos; 4] = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
 const HORIZONTAL: [&str; 4] = ["north", "east", "south", "west"];
@@ -451,6 +453,15 @@ fn substitutes(d: &Design, p: Pos, b: &BlockState) -> Vec<String> {
             out.push(format!("minecraft:observer[facing={f},powered=false]"));
         }
     };
+    // Watchable relays (exotic track): an iron trapdoor shows its power in its own state at
+    // once (an observer reads it 2 gt after the edge), conducts nothing, needs no support; a
+    // note block does the same but conducts. An observer whose only job is to make a power edge
+    // visible to the next observer can be a trapdoor (0 gt instead of 2), and a trapdoor or note
+    // block can stand where a plain block only relays power to an observer's neighbor.
+    let relays = |out: &mut Vec<String>| {
+        out.push(TRAPDOOR.to_string());
+        out.push(NOTE.to_string());
+    };
     match b.short_name() {
         "redstone_wire" => {
             for f in HORIZONTAL {
@@ -463,13 +474,27 @@ fn substitutes(d: &Design, p: Pos, b: &BlockState) -> Vec<String> {
                 out.push(b.with("facing", f).to_string());
             }
         }
-        "redstone_wall_torch" | "redstone_torch" | "observer" => {
+        "redstone_wall_torch" | "redstone_torch" => {
             observers(&mut out);
             torches(&mut out);
+        }
+        "observer" => {
+            observers(&mut out);
+            torches(&mut out);
+            relays(&mut out);
         }
         "smooth_stone" | "stone" => {
             out.push("minecraft:glass".to_string());
             out.push(crate::route::NONSTICK_FLOOR.to_string());
+            out.push(NOTE.to_string());
+        }
+        "note_block" => {
+            out.push(TRAPDOOR.to_string());
+            out.push("minecraft:smooth_stone".to_string());
+        }
+        k if k.ends_with("trapdoor") => {
+            out.push(NOTE.to_string());
+            observers(&mut out);
         }
         "glass" => out.push("minecraft:smooth_stone".to_string()),
         k if k.ends_with("glazed_terracotta") => out.push("minecraft:smooth_stone".to_string()),

@@ -1352,8 +1352,12 @@ pub enum DoorCmd {
     /// group of 2..--max-size removable blocks (wiring, still plain blocks) is cleared and every
     /// circuit of fewer blocks that could reconnect its surroundings is screened and judged; an
     /// accepted replacement is applied and the search restarts. Writes the best design to --out.
+    /// Several designs: a sweep (one worker pool), --out is a folder, each improved design is
+    /// written there as `<name>-rs.txt`, and a design that fails the judge or its speed bounds
+    /// at the start is skipped.
     Resynth {
-        design: PathBuf,
+        #[arg(required = true, num_args = 1..)]
+        designs: Vec<PathBuf>,
         #[arg(long)]
         out: PathBuf,
         #[arg(long, default_value_t = 2)]
@@ -2832,10 +2836,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation } => {
             use crate::synth::*;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
-            let d = load_design(&design)?;
             let only = match only {
                 Some(s) => {
                     let (a, b) = s.split_once(':').ok_or_else(|| anyhow::anyhow!("--only wants x0,y0,z0:x1,y1,z1"))?;
@@ -2845,66 +2848,103 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 None => None,
             };
-            let mut o = ResynthOptions {
-                min_size,
-                max_size,
-                palette: palette_states(&palette)?,
-                floors: palette_states(&floors)?,
-                margin,
-                max_cands,
-                loose,
-                max_open,
-                max_close,
-                save_to: Some(out.clone()),
-                global_retry,
-                require_any: require_any_names(&require_any),
-                only,
-                keep_rotations: false,
-            };
+            let sweep = designs.len() > 1;
+            if sweep {
+                std::fs::create_dir_all(&out)?;
+            }
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() };
             let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false, empty_walkway: true, tile };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
             let t = std::time::Instant::now();
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
-            {
-                let mut w = pool.worker(0);
-                let r = crate::verify(&mut w, &d, &judge).map_err(|e| anyhow::anyhow!("the start design does not pass the judge: {e:#}"))?;
-                let (o, c) = crate::search::worst_ticks(&r);
-                log(&format!("start: {} blocks, open {o} / close {c}", crate::block_count(&d)));
-                anyhow::ensure!(max_open.is_none_or(|m| o <= m) && max_close.is_none_or(|m| c <= m), "the start design misses the speed bounds (open {o} / close {c})");
-            }
-            if !any_rotation {
-                let mut w = pool.worker(0);
-                match crate::rotation_check(&mut w, &d, &judge)? {
-                    None => {
-                        o.keep_rotations = true;
-                        log("the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)");
+            let mut summary: Vec<String> = Vec::new();
+            for design in &designs {
+                let d = load_design(design)?;
+                let target = if sweep { out.join(format!("{}-rs.txt", design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "design".into()))) } else { out.clone() };
+                if sweep {
+                    log(&format!("=== {} ({} blocks)", design.display(), crate::block_count(&d)));
+                }
+                let mut o = ResynthOptions {
+                    min_size,
+                    max_size,
+                    palette: palette_states(&palette)?,
+                    floors: palette_states(&floors)?,
+                    margin,
+                    max_cands,
+                    loose,
+                    max_open,
+                    max_close,
+                    save_to: Some(target.clone()),
+                    global_retry,
+                    require_any: require_any_names(&require_any),
+                    only,
+                    keep_rotations: false,
+                };
+                let start = {
+                    let mut w = pool.worker(0);
+                    match crate::verify(&mut w, &d, &judge) {
+                        Ok(r) => {
+                            let (o, c) = crate::search::worst_ticks(&r);
+                            log(&format!("start: {} blocks, open {o} / close {c}", crate::block_count(&d)));
+                            if max_open.is_none_or(|m| o <= m) && max_close.is_none_or(|m| c <= m) {
+                                Ok(())
+                            } else {
+                                Err(format!("the start design misses the speed bounds (open {o} / close {c})"))
+                            }
+                        }
+                        Err(e) => Err(format!("the start design does not pass the judge: {e:#}")),
                     }
-                    Some((turns, _)) => log(&format!("the start design is NOT rotation-safe (turned {} degrees): rotations not checked", turns as u32 * 90)),
+                };
+                if let Err(e) = start {
+                    anyhow::ensure!(sweep, "{e}");
+                    log(&format!("skipped: {e}"));
+                    summary.push(format!("{}: skipped ({e})", design.display()));
+                    continue;
+                }
+                if !any_rotation {
+                    let mut w = pool.worker(0);
+                    match crate::rotation_check(&mut w, &d, &judge)? {
+                        None => {
+                            o.keep_rotations = true;
+                            log("the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)");
+                        }
+                        Some((turns, _)) => log(&format!("the start design is NOT rotation-safe (turned {} degrees): rotations not checked", turns as u32 * 90)),
+                    }
+                }
+                let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
+                if sweep && crate::block_count(&best) >= crate::block_count(&d) {
+                    summary.push(format!("{}: {} blocks, nothing smaller", design.display(), crate::block_count(&d)));
+                    continue;
+                }
+                // Keep the canonical rest state only if it still passes the judge (a design written
+                // with stale redstone states can settle into another machine).
+                let canon = {
+                    let mut w = pool.worker(0);
+                    match crate::canonicalize(&mut w, &best) {
+                        Ok(c) if crate::verify(&mut w, &c, &judge).is_ok() => c,
+                        _ => match settled_design(&mut w, &best) {
+                            Ok(s) if crate::verify(&mut w, &s, &judge).is_ok() => {
+                                println!("the design moves while it settles: writing its settled state");
+                                s
+                            }
+                            _ => {
+                                println!("canonical and settled forms fail the judge: writing the design as found");
+                                best.clone()
+                            }
+                        },
+                    }
+                };
+                canon.save(&target)?;
+                println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), target.display());
+                summary.push(format!("{}: {} -> {} blocks, {}", design.display(), crate::block_count(&d), crate::block_count(&canon), target.display()));
+            }
+            if sweep {
+                println!("sweep summary:");
+                for s in &summary {
+                    println!("  {s}");
                 }
             }
-            let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
-            // Keep the canonical rest state only if it still passes the judge (a design written
-            // with stale redstone states can settle into another machine).
-            let canon = {
-                let mut w = pool.worker(0);
-                match crate::canonicalize(&mut w, &best) {
-                    Ok(c) if crate::verify(&mut w, &c, &judge).is_ok() => c,
-                    _ => match settled_design(&mut w, &best) {
-                        Ok(s) if crate::verify(&mut w, &s, &judge).is_ok() => {
-                            println!("the design moves while it settles: writing its settled state");
-                            s
-                        }
-                        _ => {
-                            println!("canonical and settled forms fail the judge: writing the design as found");
-                            best.clone()
-                        }
-                    },
-                }
-            };
-            canon.save(&out)?;
-            println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
         }
     }
     Ok(())
