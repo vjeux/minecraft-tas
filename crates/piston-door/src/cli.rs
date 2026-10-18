@@ -1290,6 +1290,47 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 100)]
         tick_rate: u32,
     },
+    /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
+    /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
+    /// queue size compared after every tick against the bridge; failures shrunk and saved.
+    Pistfuzz {
+        #[arg(long, default_value_t = 100)]
+        count: u64,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// flat, box or mix.
+        #[arg(long, default_value = "mix")]
+        mode: String,
+        /// Slime and honey in the palette.
+        #[arg(long)]
+        slime: bool,
+        /// Sand, gravel, red sand in the palette.
+        #[arg(long)]
+        gravity: bool,
+        /// Observers in the palette.
+        #[arg(long)]
+        observers: bool,
+        /// What the bridge is compared with: `model` (redsim) or `bridge` (a second run: the
+        /// harness's own determinism).
+        #[arg(long, default_value = "model")]
+        against: String,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Shrink every failure to a minimal scenario.
+        #[arg(long)]
+        shrink: bool,
+        /// Replay scenario files instead of generating.
+        #[arg(long, num_args = 1..)]
+        replay: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/pistmodel/fuzz")]
+        out_dir: PathBuf,
+        /// Stop after this many failures.
+        #[arg(long, default_value_t = 20)]
+        max_fail: usize,
+        /// Print every tick's block changes of the bridge run (for single replays).
+        #[arg(long)]
+        trace: bool,
+    },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
     VanillaFuzz {
@@ -2862,6 +2903,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
+        }
+        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, against, workers, shrink, replay, out_dir, max_fail, trace } => {
+            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, against, workers, shrink, replay, out_dir, max_fail, trace };
+            crate::pistfuzz::cli(version, &o)?;
         }
         DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
             let lever = match lever.as_str() {
