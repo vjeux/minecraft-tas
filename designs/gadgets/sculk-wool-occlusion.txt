@@ -1,0 +1,17 @@
+name: gadget-sculk-wool-occlusion
+# Wool between a vibration and a sculk sensor hides it (category sculk). Lever L on F; wool W
+# on the straight line from L to the sensor S (4 blocks away); sticky piston P 2 blocks from S,
+# off to the side (its line to S does not cross the wool).
+origin: 0 0 0
+palette:
+  F minecraft:smooth_stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  W minecraft:white_wool
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  P minecraft:sticky_piston[facing=up,extended=false]
+layer 0:
+  F...F
+  .
+  ....P
+layer 1:
+  L.W.S
