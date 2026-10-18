@@ -10,6 +10,7 @@ pub mod base;
 pub mod head;
 pub mod moving;
 pub mod resolver;
+pub mod shape;
 
 pub use moving::{MovingBe, State};
 
@@ -146,17 +147,24 @@ pub fn is_conductor(_state: &Block) -> bool {
     false
 }
 
-/// `isFaceSturdy` of the piston blocks (support shapes = collision shapes): a retracted base is a
-/// full cube; an extended base is a 12 px box (back face full, the 4 sides cover the center
-/// column a torch needs, the front is empty); a head is a 4 px plate (front face full) on a 4x4
-/// arm (too thin for the center column); a moving piston has no sturdy face here.
+/// `isFaceSturdy` of the piston blocks from their collision shapes (`shape.rs`): a retracted
+/// base is a full cube; an extended base is a 12 px box; a head is a 4 px plate on a 4x4 arm; a
+/// moving piston has its block entity's shape (the moved block offset by the progress; a
+/// retracting base keeps its extended box, so a lever on its back survives the retraction).
+pub fn sturdy_at(w: &World, state: &Block, pos: BlockPos, face: Dir, support: Support) -> bool {
+    match *state {
+        Block::Piston { extended: false, .. } => true,
+        Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => shape::face_supports(&shape::of(w, *state, pos), face, support),
+        _ => false,
+    }
+}
+
+/// `isFaceSturdy` of the static piston blocks (no world needed): see [`sturdy_at`].
 pub fn sturdy(state: &Block, face: Dir, support: Support) -> bool {
     match *state {
         Block::Piston { extended: false, .. } => true,
-        Block::Piston { facing, extended: true, .. } => {
-            face == facing.opposite() || (support == Support::Center && face != facing && face != facing.opposite())
-        }
-        Block::PistonHead { facing, .. } => face == facing,
+        Block::Piston { facing, extended: true, .. } => shape::face_supports(&shape::base_extended(facing), face, support),
+        Block::PistonHead { facing, short, .. } => shape::face_supports(&shape::head(facing, short), face, support),
         _ => false,
     }
 }

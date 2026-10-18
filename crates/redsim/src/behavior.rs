@@ -50,6 +50,7 @@ pub fn conductor_of(s: &Block) -> bool {
         Block::Simple(x) => x.conductor(),
         Block::Glazed { .. } | Block::Lamp { .. } | Block::Note { .. } | Block::Target { .. } | Block::Dispenser { .. } | Block::Crafter { .. } => true,
         Block::Log { .. } | Block::RespawnAnchor { .. } => true,
+        Block::Falling { .. } => true, // pistmodel
         Block::Slab { kind } => kind == 2,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::is_conductor(s),
         _ => false,
@@ -57,8 +58,12 @@ pub fn conductor_of(s: &Block) -> bool {
 }
 
 /// `isFaceSturdy(level, pos, face, support)`: the block's support shape covers that face.
-pub fn sturdy(_w: &World, s: &Block, _p: BlockPos, face: Dir, support: Support) -> bool {
-    sturdy_of(s, face, support)
+pub fn sturdy(w: &World, s: &Block, p: BlockPos, face: Dir, support: Support) -> bool {
+    match *s {
+        // pistons' collision boxes (a retracting base keeps its extended box): pistmodel
+        Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy_at(w, s, p, face, support),
+        _ => sturdy_of(s, face, support),
+    }
 }
 
 /// `isFaceSturdy` without a world (for static models; a moving piston's box needs its block
@@ -77,7 +82,8 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         | Block::Dispenser { .. }
         | Block::Crafter { .. }
         | Block::RespawnAnchor { .. }
-        | Block::Log { .. } => true,
+        | Block::Log { .. }
+        | Block::Falling { .. } => true,
         Block::Repeater { .. } | Block::Comparator { .. } => face == Dir::Down,
         Block::Trapdoor { facing, top, open, .. } => {
             let full = if open {
@@ -105,7 +111,7 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Cake { bites } => face == Dir::Down && support == Support::Center && bites <= 2,
         Block::EndPortalFrame { eye, .. } => face == Dir::Down || (eye && face == Dir::Up && support == Support::Center),
         Block::Composter { .. } => face != Dir::Up || support == Support::Rigid,
-        Block::Piston { .. } | Block::PistonHead { .. } => crate::piston::sturdy(s, face, support),
+        Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         _ => false,
     }
 }
@@ -210,6 +216,7 @@ pub fn instrument(s: &Block) -> Instrument {
             Instrument::Basedrum
         }
         Block::Note { .. } | Block::Log { .. } | Block::Composter { .. } => Instrument::Bass,
+        Block::Falling { .. } => Instrument::Snare, // pistmodel
         Block::Trapdoor { iron: false, .. } | Block::Door { iron: false, .. } | Block::FenceGate { .. } => Instrument::Bass,
         // (the wall variant has fresh properties: harp)
         Block::Skull { .. } => Instrument::Skeleton,
@@ -318,6 +325,7 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
                 s
             }
         }
+        Block::Falling { .. } => crate::gravity::update_shape(w, s, p, d, np, ns), // pistmodel
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::update_shape(w, s, p, d, np, ns),
         _ => s,
     }
@@ -346,6 +354,7 @@ pub fn on_place(w: &mut World, s: Block, p: BlockPos, old: Block, moved: bool) {
         Block::Rail { .. } => rail::on_place(w, s, p, old, moved),
         Block::Hopper { .. } => hopper::on_place(w, s, p, old),
         Block::Composter { .. } => composter::on_place(w, s, p),
+        Block::Falling { .. } => crate::gravity::on_place(w, s, p, old, moved), // pistmodel
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::on_place(w, s, p, old, moved),
         _ => {}
     }
@@ -384,6 +393,7 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Target { .. } => target::tick(w, s, p),
         Block::Leaves { .. } => leaves::tick(w, s, p),
         Block::Composter { .. } => composter::tick(w, s, p),
+        Block::Falling { .. } => crate::gravity::tick(w, s, p), // pistmodel
         // Dispensers, droppers, crafters: dispensing from an empty inventory changes no block.
         Block::Dispenser { .. } | Block::Crafter { .. } => {}
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::tick(w, s, p),
