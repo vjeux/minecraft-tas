@@ -1,0 +1,20 @@
+design designs/piston-door-3x3/tracks/speed-2/n1.txt
+probe F 1 4 0
+probe E 1 3 0
+probe N1 1 2 0
+probe C 1 1 0
+probe Ap 0 3 0
+probe Q -1 3 0
+probe X 1 3 -1
+probe O1 0 4 0
+probe R1 1 5 1
+probe RZ 1 6 1
+quiet 2
+use 0 4 -2
+trace 7
+set -2 3 0 minecraft:redstone_block
+trace 1
+clear -2 3 0
+trace 8
+use 0 4 -2
+trace 16

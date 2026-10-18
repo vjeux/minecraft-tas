@@ -1,0 +1,24 @@
+# e2 (open-8 attempt) = n3 with:
+# Q's partner: R_Q (-1,5,0) powers Q from rest (QC); P (-1,4,0) sticky facing up, silently armed
+# k3..k5 by cross dust (-2,5,-1) on O_S's output stone + block (-1,5,-1): Q's k4 extension (after
+# S_a's fall) fires P, P shoves R_Q up, Q retracts in the same phase (A' placed at E at k4).
+clear 0 4 0
+set -1 4 0 minecraft:sticky_piston[extended=false,facing=up]
+set -1 5 0 minecraft:redstone_block
+set -2 5 -1 minecraft:redstone_wire[east=side,north=side,south=side,west=side,power=0]
+set -1 5 -1 minecraft:stone
+# A' power k3..k5: lever dust (3,3,-2) fires P_k1 (3,3,-1) at k1; observer (2,3,-1) watching it -> X
+clear 0 3 -1
+clear 1 3 -2
+clear 1 3 -3
+clear 1 4 -3
+clear 2 4 -3
+set 3 2 -2 minecraft:stone
+set 3 3 -2 minecraft:redstone_wire
+set 3 3 -1 minecraft:piston[extended=false,facing=east]
+set 2 3 -1 minecraft:observer[facing=east,powered=false]
+# old k7..k9 re-pulse chain removed (Q's k6..k8 pulse scripted for now)
+clear -2 3 0
+clear -3 3 0
+clear -3 4 -1
+clear -3 3 -1

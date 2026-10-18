@@ -1,0 +1,10 @@
+# The lever's piston moves R in tick 1 and Q, two dust away, is already retracting in tick 1.
+design designs/gadgets/instant-off.txt
+probe Q 0 1 3
+probe D2 0 1 2
+probe K 2 1 3
+probe pulled 1 1 3
+use -2 1 0
+expect_trace Q ~~r
+expect K .
+expect pulled #

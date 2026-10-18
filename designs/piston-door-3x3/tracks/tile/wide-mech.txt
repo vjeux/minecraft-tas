@@ -1,0 +1,37 @@
+# WIDE module mechanism (no wiring): every column is b38's center column.
+# A_c (c,4,0) lifts T, then (lowered by B_c) lifts C twice; B_c (c,5,0) the elevator;
+# E_c (c,3,-2) pulls T aside to (c,3,-1); F_c (c,-2,0) pulls M down.
+name: wide-mech
+port door: 0 0 0
+origin: 0 0 -2
+palette:
+  A minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=south]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  S minecraft:stone
+layer -2:
+  .
+  .
+  FFF
+layer 0:
+  .
+  .
+  SSS
+layer 1:
+  .
+  .
+  SSS
+layer 2:
+  .
+  .
+  SSS
+layer 3:
+  EEE
+layer 4:
+  .
+  .
+  AAA
+layer 5:
+  .
+  .
+  AAA

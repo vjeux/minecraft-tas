@@ -1,0 +1,19 @@
+# (tick-door) Two BUD-triggered reach-through 0-ticks in ONE tick: when P_TR pulls TR up, W
+# (quasi-powered at rest by R_B, push blocked by the door row) extends into the emptied corner;
+# its base update fires killer K (armed by the scripted block, blocked by P_Y's head until k1),
+# K shoves R_B, K's move updates W, W retracts in the same phase and pulls T into the corner;
+# T leaving N1 fires A' the same way (killer K_A): C leaves the center at k1.
+design designs/gadgets/killer-chain.txt
+probe TR 2 2 0
+probe N1 1 2 0
+probe C 1 1 0
+quiet 2
+set 5 2 0 minecraft:redstone_block
+set 1 3 2 minecraft:redstone_block
+clear 4 6 0
+clear 1 7 1
+clear 2 5 0
+trace 1
+expect C .
+expect N1 ~
+expect TR ~

@@ -1,0 +1,71 @@
+# verified WORKS as a tile module: --tile period:8:3 (3 openings, 156 blocks total, +52 per extra copy), open 40 / close 36
+# archived 2026-10-18 17:21Z from designs/piston-door-3x3/tracks/tile/b38h-bus8.txt (repo at 617455d)
+name: b38h-bus8
+relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+port door: 0 0 0
+port lever: 1 5 -3
+origin: -2 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  E minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  .
+  ...I
+layer -1:
+  .
+  .
+  .
+  .BC
+layer 0:
+  .
+  .
+  .
+  F.KKK.J
+layer 1:
+  .
+  .
+  .
+  F.KKK.J
+layer 2:
+  .
+  .
+  .
+  SoKKKCS
+layer 3:
+  .
+  ...G
+  ..S.S
+  .
+layer 4:
+  ...HSSSSSSS
+  ...A
+  ..rSr
+  ..sss
+layer 5:
+  ...LDRRRRRR
+  ...B
+  ...B
+  ...s
+layer 6:
+  ...O
+  ...A
+  ...E
+  .

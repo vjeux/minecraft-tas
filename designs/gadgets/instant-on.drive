@@ -1,0 +1,10 @@
+# U extends in tick 1, the tick C is pushed off the dust step.
+design designs/gadgets/instant-on.txt
+probe U 3 2 0
+probe Dup 1 2 0
+probe K 5 2 0
+expect Dup 0
+use 0 2 -2
+expect_trace U E
+expect Dup 14
+expect_trace K ~#

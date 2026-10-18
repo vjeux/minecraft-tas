@@ -1,0 +1,39 @@
+name: gadget-center-exit
+# The center's two-move exit at the floor (3 gt between the moves; the door floor "open 4" is this
+# with the first move at tick 1). C = center block (0,0,0); N1 = the edge cell (0,1,0), already
+# empty; E = (0,2,0) the cell outside the opening, holding sticky piston A' (facing down).
+# * Tick 1: the script's redstone block R at (1,2,0) reaches A' first (update order W,E,D,U,N,S),
+#   then X_A (armed silently by (1,5,0)); A' extends into the empty N1, X_A shoves R away in the
+#   same phase, A' retracts with a plain block two ahead: type 1, reach-through: C is pulled into
+#   N1 (moving until tick 3; a pull is never finalized early, so C can move again at tick 4).
+# * Tick 4: sticky piston Y (extended, head beside E) loses its block between ticks 3 and 4 and
+#   pulls A' out of E; that update reaches F (sticky, facing down, silently quasi-powered by R_F
+#   at (0,4,1)), which extends into the freed E; its base update reaches X_F (in F's quasi cell,
+#   armed by (1,5,0)), which shoves R_F away and, setting itself extended, updates F unpowered:
+#   F retracts in the same phase with C (landed) two ahead: reach-through, C pulled into E.
+#   C leaves N1 in tick 4: the center is out of a 3x3 opening 3 gt after its first move.
+origin: -1 0 -1
+palette:
+  C minecraft:stone
+  A minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  X minecraft:piston[extended=false,facing=south]
+  Q minecraft:piston[extended=false,facing=down]
+  Y minecraft:sticky_piston[extended=true,facing=north]
+  H minecraft:piston_head[facing=north,short=false,type=sticky]
+  R minecraft:redstone_block
+layer 0:
+  .
+  .C
+layer 2:
+  .
+  .A
+  .H
+  .Y
+  .R
+layer 3:
+  .
+  .FQ
+layer 4:
+  .
+  .X

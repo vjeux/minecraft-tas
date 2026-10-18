@@ -1,0 +1,6 @@
+[    7.0s] start: 33 blocks, open 5 / close 16
+[   10.0s] 33 blocks: 5 removable, 3 groups of 2..5
+[   10.6s]   group [(0,-1,-1)obse (1,-1,-1)obse] -> <= 1 blocks: 2 circuits in 0.6s
+[   10.6s]   group [(1,-1,-1)obse (2,-1,-1)smoo] -> <= 1 blocks: 2 circuits in 0.0s
+[   10.6s]   group [(0,-1,-1)obse (1,-1,-1)obse (2,-1,-1)smoo] -> <= 2 blocks: 2 circuits in 0.0s
+33 -> 33 blocks, written to designs/piston-door-3x3/tracks/gravity-2/rs-g33.txt

@@ -1,0 +1,82 @@
+name: gadget-open-4
+# A 3x3 opening cleared at tick 4 (the open floor; boards: 10), with ideal inputs (docs/ticks.md
+# section 6). Door blocks: stone at x 0..2, y 0..2, z 0. Script inputs between ticks stand for the
+# lever flip (k0: the pullers' redstone blocks go away, the k1 0-tick partners get armed) and for
+# an observer chain at k4 (the aside pullers lose power, the k4 partners get armed).
+# * k1: 7 plain sticky pullers (heads touching at rest) retract: TL up into (0,3); TR, MR, BR,
+#   ML, BL, B out sideways/down. TL's departure updates P_T (-1,2,0): it extends into TL's empty
+#   cell, its partner X_T (in P_T's quasi cell) shoves R_T away and updates it: P_T retracts with
+#   T two ahead: reach-through, T into (0,2). T's departure updates A' (in E = (1,3,0), quasi-
+#   powered through F's cell by R_A): A' extends into T's cell, X_A shoves R_A up and updates A':
+#   reach-through, C into (1,2). R_A lands next to F's quasi cell at k3: F is armed silently.
+# * k4: Y_A pulls A' out of E and Y_P pulls P_T out of (-1,2,0); F extends into the freed E, X_F
+#   shoves R_A and updates it: reach-through, C into E. G_T (-2,2,0) extends into P_T's freed
+#   cell, X_G shoves R_G: reach-through, T into (-1,2). Opening and walkway clear at k4.
+origin: -3 0 -3
+palette:
+  S minecraft:stone
+  R minecraft:redstone_block
+  d minecraft:sticky_piston[extended=true,facing=down]
+  D minecraft:piston_head[facing=down,short=false,type=sticky]
+  w minecraft:sticky_piston[extended=true,facing=west]
+  W minecraft:piston_head[facing=west,short=false,type=sticky]
+  e minecraft:sticky_piston[extended=true,facing=east]
+  E minecraft:piston_head[facing=east,short=false,type=sticky]
+  u minecraft:sticky_piston[extended=true,facing=up]
+  U minecraft:piston_head[facing=up,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=true,facing=south]
+  Z minecraft:piston_head[facing=south,short=false,type=sticky]
+  p minecraft:sticky_piston[extended=false,facing=east]
+  a minecraft:sticky_piston[extended=false,facing=down]
+  x minecraft:piston[extended=false,facing=south]
+  q minecraft:piston[extended=false,facing=up]
+  v minecraft:piston[extended=false,facing=down]
+  n minecraft:piston[extended=false,facing=north]
+  g minecraft:piston[extended=false,facing=west]
+layer -3:
+  ...
+  ...
+  ...
+  ....R
+layer -2:
+  ...
+  ...
+  ...
+  ....u
+layer -1:
+  ...
+  ...
+  ...
+  ....U
+layer 0:
+  ...
+  ...
+  ...
+  ReESSSWwR
+layer 1:
+  ...
+  ...
+  ...
+  ReESSSWwR
+layer 2:
+  ..R
+  .gs
+  x.Z
+  .ppSSSWwR
+layer 3:
+  ....R
+  .vn.s
+  ....Zn
+  .xxDa
+  ....q
+layer 4:
+  ...
+  ...
+  ...R.x
+  ...da
+  ....R
+layer 5:
+  ...
+  ...
+  ...
+  ...nx

@@ -140,6 +140,9 @@ pub enum Kind {
     Lamp,
     RBlock,
     Lever,
+    /// Sculk sensor (category sculk): driven wirelessly by the lever's vibration (always fed),
+    /// weak power on every side (a calibrated one: all but its back), strong into the block below.
+    Sensor,
     /// Not sturdy, not a conductor (piston heads, moving blocks...).
     Other,
 }
@@ -184,6 +187,7 @@ impl Node {
             // A note block conducts like any full block, and its `powered` state follows its
             // power in the same tick (observers can watch it).
             "note_block" => (Kind::Block, None, true, true),
+            "sculk_sensor" | "calibrated_sculk_sensor" => (Kind::Sensor, None, false, true),
             "lever" => {
                 let s = match get("face").as_deref() {
                     Some("floor") => below,
@@ -238,6 +242,8 @@ impl Node {
         let p = self.pos;
         match self.kind {
             Kind::Block | Kind::RBlock | Kind::Lever => FACES.iter().map(|f| add(p, *f)).collect(),
+            // A calibrated sensor's `facing` points away from its back (its frequency input).
+            Kind::Sensor => FACES.iter().map(|f| add(p, *f)).filter(|c| self.facing == [0, 0, 0] || *c != add(p, neg(self.facing))).collect(),
             Kind::Dust => {
                 let mut v: Vec<Pos> = vec![add(p, [0, -1, 0])];
                 for h in HORIZ {
@@ -270,8 +276,10 @@ pub fn drives(u: &Node, v: &Node) -> bool {
     let dy = v.pos[1] - u.pos[1];
     let diag = (v.pos[0] - u.pos[0]).abs() + (v.pos[2] - u.pos[2]).abs() + dy.abs() > 1;
     match (u.kind, v.kind) {
-        (_, Kind::Inert | Kind::Other | Kind::RBlock | Kind::Lever) => false,
+        (_, Kind::Inert | Kind::Other | Kind::RBlock | Kind::Lever | Kind::Sensor) => false,
         (Kind::Lamp | Kind::Inert | Kind::Other, _) => false,
+        // A sensor strongly powers only the block right below it.
+        (Kind::Sensor, Kind::Block) => dy == -1 && !diag,
         // A torch reads the strong power of the block it hangs on.
         (Kind::Block, Kind::Torch) => v.support == Some(u.pos),
         (_, Kind::Torch) => false,
@@ -304,8 +312,27 @@ pub struct SynthOptions {
     pub forbid: HashSet<Pos>,
     pub require: Vec<(String, usize)>,
     pub limit: Vec<(String, usize)>,
+    /// Keep only circuits with at least one block whose state contains one of these
+    /// (see [`require_any_names`]): sweep new palette entries on designs the old palette
+    /// already exhausted.
+    pub require_any: Vec<String>,
     pub loose: bool,
     pub max_cands: usize,
+}
+
+/// Expand `--require-any` shorthands (lamp, bulb, note, target, or any state substring).
+pub fn require_any_names(spec: &str) -> Vec<String> {
+    spec.split(',')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| match t {
+            "lamp" => "redstone_lamp".to_string(),
+            "bulb" => "copper_bulb".to_string(),
+            "note" => "note_block".to_string(),
+            "target" => "minecraft:target".to_string(),
+            s => s.to_string(),
+        })
+        .collect()
 }
 
 fn kind_name(k: Kind) -> &'static str {
@@ -320,6 +347,7 @@ fn kind_name(k: Kind) -> &'static str {
         Kind::Lamp => "lamp",
         Kind::RBlock => "rblock",
         Kind::Lever => "lever",
+        Kind::Sensor => "sensor",
         Kind::Other => "other",
     }
 }
@@ -340,6 +368,7 @@ pub struct Gen {
     k: usize,
     require: Vec<(Kind, usize)>,
     limit: Vec<(Kind, usize)>,
+    require_any: Vec<String>,
     loose: bool,
     max_cands: usize,
 }
@@ -355,6 +384,7 @@ fn parse_kind(s: &str) -> Result<Kind> {
         "torch" => Kind::Torch,
         "lamp" => Kind::Lamp,
         "rblock" => Kind::RBlock,
+        "sensor" => Kind::Sensor,
         _ => bail!("unknown kind {s:?}"),
     })
 }
@@ -375,8 +405,7 @@ impl Gen {
     pub fn new(context: &Design, o: &SynthOptions) -> Result<Gen> {
         let mut forbid = o.forbid.clone();
         if let Ok(spec) = DoorSpec::from_design(context) {
-            forbid.extend(spec.door_cells());
-            forbid.extend(spec.corridor_cells());
+            forbid.extend(crate::route::keep_clear(&spec));
             forbid.insert(spec.lever);
         }
         let mut free = HashSet::new();
@@ -463,6 +492,7 @@ impl Gen {
             k: o.k,
             require,
             limit,
+            require_any: o.require_any.clone(),
             loose: o.loose,
             max_cands: o.max_cands,
         })
@@ -490,7 +520,8 @@ impl Gen {
                     continue;
                 }
                 let v = &self.atoms[a as usize];
-                let by = self.sources.iter().any(|s| drives(s, v))
+                let by = v.kind == Kind::Sensor
+                    || self.sources.iter().any(|s| drives(s, v))
                     || set.iter().enumerate().any(|(j, &b)| fa[j] && drives(&self.atoms[b as usize], v))
                     || self.relays.iter().enumerate().any(|(j, r)| fr[j] && drives(r, v));
                 if by {
@@ -523,6 +554,9 @@ impl Gen {
         let reached = set.iter().enumerate().any(|(i, &a)| fa[i] && self.reaches_sink(&self.atoms[a as usize]))
             || self.relays.iter().enumerate().any(|(j, r)| fr[j] && self.reaches_sink(r));
         if !reached {
+            return false;
+        }
+        if !self.require_any.is_empty() && !set.iter().any(|&a| self.require_any.iter().any(|s| self.atoms[a as usize].state.contains(s.as_str()))) {
             return false;
         }
         for (k, n) in &self.require {
@@ -615,6 +649,10 @@ impl Gen {
         let t = Instant::now();
         let shards: Vec<Mutex<HashSet<u64>>> = (0..256).map(|_| Mutex::new(HashSet::new())).collect();
         let total = AtomicUsize::new(0);
+        // Sets visited by all threads: capped at 200 x max_cands, so a box/palette/k whose
+        // search tree explodes (while few of its sets are finished circuits, e.g. with
+        // --require-any) is skipped instead of enumerating for hours.
+        let visits = AtomicUsize::new(0);
         let (fa, fr) = self.fed(&[]);
         let roots = self.expansions(&[], &fa, &fr);
         let next = AtomicUsize::new(0);
@@ -634,7 +672,7 @@ impl Gen {
                         if set.len() > self.k {
                             continue;
                         }
-                        if let Err(e) = self.visit(&mut set, &shards, &mut out, &total) {
+                        if let Err(e) = self.visit(&mut set, &shards, &mut out, &total, &visits) {
                             *failure.lock().unwrap() = Some(e);
                             break;
                         }
@@ -696,6 +734,15 @@ impl Gen {
             }
         }
         cands.sort_unstable();
+        // Sensors need no wire: any free cell of the box may hold one (once per set).
+        if !set.iter().any(|&i| self.atoms[i as usize].kind == Kind::Sensor) {
+            for (id, a) in self.atoms.iter().enumerate() {
+                if a.kind == Kind::Sensor && self.in_palette[id] && !self.occupied(set, a.pos) {
+                    cands.push(id as u32);
+                }
+            }
+            cands.sort_unstable();
+        }
         cands.dedup();
         let mut out = Vec::new();
         for id in cands {
@@ -716,10 +763,14 @@ impl Gen {
     }
 
     /// `set` was just grown: record it if it is a finished circuit, then grow it further.
-    fn visit(&self, set: &mut Vec<u32>, shards: &[Mutex<HashSet<u64>>], out: &mut Vec<Vec<Vec<u32>>>, total: &AtomicUsize) -> Result<()> {
+    fn visit(&self, set: &mut Vec<u32>, shards: &[Mutex<HashSet<u64>>], out: &mut Vec<Vec<Vec<u32>>>, total: &AtomicUsize, visits: &AtomicUsize) -> Result<()> {
         let key = Self::key(set);
         if !shards[(key % shards.len() as u64) as usize].lock().unwrap().insert(key) {
             return Ok(());
+        }
+        let cap = self.max_cands.saturating_mul(200);
+        if visits.fetch_add(1, Ordering::Relaxed) >= cap {
+            bail!("more than {cap} sets visited (200 x --max-cands): shrink the box, palette or k");
         }
         let count = |k: Kind| set.iter().filter(|&&x| self.atoms[x as usize].kind == k).count();
         if !self.limit.iter().all(|(k, n)| count(*k) <= *n) {
@@ -747,7 +798,7 @@ impl Gen {
             }
             let before = set.len();
             set.extend(&add_ids);
-            self.visit(set, shards, out, total)?;
+            self.visit(set, shards, out, total, visits)?;
             set.truncate(before);
         }
         Ok(())
@@ -989,7 +1040,7 @@ fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String>
     match target {
         Target::Door { judge, max_open, max_close, .. } => {
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
-            let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway };
+            let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
             screen_in(w, sb, d, &quick)?;
             let r = verify_in(w, sb, d, judge)?;
             let (o, c) = crate::search::worst_ticks(&r);
@@ -1228,6 +1279,8 @@ pub struct ResynthOptions {
     /// After an improvement, search every group again (default: only groups whose
     /// neighborhood changed).
     pub global_retry: bool,
+    /// See [`SynthOptions::require_any`].
+    pub require_any: Vec<String>,
     /// Only groups whose blocks all lie in this box (inclusive corners): focus a large-group
     /// run on one region.
     pub only: Option<(Pos, Pos)>,
@@ -1245,7 +1298,7 @@ fn removable(d: &Design, changing: &HashSet<Pos>) -> Vec<Pos> {
         .iter()
         .filter(|(p, s)| {
             let n = Node::new(**p, s);
-            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp)
+            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp | Kind::Sensor)
                 || s.contains("note_block")
                 || s.contains("minecraft:target");
             let still_block = matches!(n.kind, Kind::Block) && !changing.contains(*p);
@@ -1377,10 +1430,13 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 forbid: swept.clone(),
                 require: Vec::new(),
                 limit: Vec::new(),
+                require_any: o.require_any.clone(),
                 loose: o.loose,
                 max_cands: o.max_cands,
             };
-            let desc = g.iter().map(|p| format!("{}{}", fmt_pos(*p), short(mctas::blockstate::block_name(&cur.blocks[p])).chars().take(4).collect::<String>())).collect::<Vec<_>>().join(" ");
+            // 4-letter tags; "redstone_" stripped so wire / lamp / torch / block stay distinct.
+            let tag = |s: &str| short(mctas::blockstate::block_name(s)).trim_start_matches("redstone_").chars().take(4).collect::<String>();
+            let desc = g.iter().map(|p| format!("{}{}", fmt_pos(*p), tag(&cur.blocks[p]))).collect::<Vec<_>>().join(" ");
             let en = match Gen::new(&base, &so) {
                 Ok(e) => e,
                 Err(e) => {

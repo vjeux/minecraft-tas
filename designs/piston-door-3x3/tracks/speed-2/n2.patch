@@ -1,0 +1,9 @@
+# n2 = n1 + Q's second pulse k7..k9: O_S (-1,4,-1) watches S_F (k1) -> k3..k5 into stone (-2,4,-1)
+# -> dot dust (-3,4,-1) powers its floor (-3,3,-1) -> repeater (-3,3,0) delay 1 (k5..k7) -> observer
+# A (-2,3,0) watching it fires k7..k9 straight into Q's back.
+set -1 4 -1 minecraft:observer[facing=east,powered=false]
+set -2 4 -1 minecraft:stone
+set -3 3 -1 minecraft:stone
+set -3 4 -1 minecraft:redstone_wire
+set -3 3 0 minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+set -2 3 0 minecraft:observer[facing=west,powered=false]

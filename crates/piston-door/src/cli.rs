@@ -69,11 +69,20 @@ pub struct SearchArgs {
     /// of key<=n (front behind thick below above left right side volume).
     #[arg(long)]
     pub shape: Option<String>,
+    /// Judge every candidate as a tile module (tile.rs): wide:N, period:P:N, stack:N,
+    /// vperiod:Q:N or step:dx,dy,dz:N (copies of the design, one lever, every opening checked).
+    #[arg(long)]
+    pub tile: Option<String>,
+    /// Accept only rotation-safe designs (the judge also passes turned 90, 180 and 270 degrees;
+    /// the boards rank rotation-safe designs). The start design must be rotation-safe too.
+    #[arg(long)]
+    pub rotation_safe: bool,
 }
 
 impl SearchArgs {
     pub fn options(&self) -> Result<crate::search::SearchOptions> {
         let offsets = crate::search::judge_offsets(self.extra_offsets);
+        let tile = self.tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
         Ok(crate::search::SearchOptions {
             families: crate::search::parse_families(&self.moves)?,
             screen: VerifyOptions {
@@ -82,8 +91,9 @@ impl SearchArgs {
                 offsets: offsets.iter().take(self.screen_offsets.max(1)).copied().collect(),
                 keep_frames: false,
                 empty_walkway: true,
+                tile: tile.clone(),
             },
-            judge: VerifyOptions { offsets, ..Default::default() },
+            judge: VerifyOptions { offsets, tile, ..Default::default() },
             radius: self.radius,
             plateau: self.plateau || self.plateau_pairs || self.walk > 0 || self.depth > 1,
             plateau_pairs: self.plateau_pairs,
@@ -98,6 +108,7 @@ impl SearchArgs {
             max_close: self.max_close,
             to_sculk: self.to_sculk,
             shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
+            rotation_safe: self.rotation_safe,
         })
     }
 
@@ -312,6 +323,11 @@ pub enum DoorCmd {
         /// design's lever: for wiring a mechanism that does not run on its own yet.
         #[arg(long)]
         swept_script: Option<PathBuf>,
+        /// Take the swept cells from this working design instead (e.g. the design before a net
+        /// was cut out of it to be re-laid elsewhere): only the cells its moving parts visit, so
+        /// the cut net's own cells are free again.
+        #[arg(long)]
+        swept_design: Option<PathBuf>,
         /// Append the path to this file as `door patch` lines (`set x y z <state>`) instead of
         /// printing builder code.
         #[arg(long)]
@@ -440,6 +456,120 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
+    /// Wire a mechanism from its ideal-input schedule (mechwire.rs): replay it with ideal inputs,
+    /// route every piston cell's wave from a lever at each lever spot with route2's router, rank
+    /// mechanism + lever + wiring by blocks, judge the best. --retime re-times a mech-synth
+    /// schedule to chain ticks first (every working assignment is wired).
+    MechWire {
+        /// Ideal schedules (`door ideal` format), or one mech-synth catalog with --catalog-ids.
+        #[arg(required = true, num_args = 1..)]
+        schedules: Vec<PathBuf>,
+        /// Schedule variables "name=value".
+        #[arg(long)]
+        set: Vec<String>,
+        /// Lever spots "x,y,z@ax,ay,az;..." (lever cell @ the cell it hangs on). Default: every
+        /// spot within --lever-radius of the --lever-near receivers that need power first.
+        #[arg(long, default_value = "")]
+        levers: String,
+        #[arg(long, default_value_t = 2)]
+        lever_radius: i32,
+        #[arg(long, default_value_t = 1)]
+        lever_near: usize,
+        /// Most wiring blocks per candidate (lever and its block excluded).
+        #[arg(long, default_value_t = 24)]
+        budget: u32,
+        #[arg(long, default_value = "dust,rep,obs,block,gt")]
+        palette: String,
+        #[arg(long, default_value_t = 0)]
+        tolerance: i32,
+        #[arg(long, default_value_t = 6)]
+        beam: usize,
+        #[arg(long, default_value_t = 4)]
+        hits: usize,
+        #[arg(long, default_value_t = 60000)]
+        max_states: usize,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// Do not place observers watching cells the machine changes.
+        #[arg(long)]
+        no_watch: bool,
+        /// Connect receivers that need pulses from several sources in several steps.
+        #[arg(long)]
+        partial: bool,
+        /// Per partial solution, route only the first N receivers left (earliest power first;
+        /// 0: all, a beam over every order).
+        #[arg(long, default_value_t = 2)]
+        order_limit: usize,
+        /// Free receivers "x,y,z;...": accept a single 2 gt pulse at any tick of --free-range.
+        #[arg(long, default_value = "")]
+        free: String,
+        #[arg(long, default_value = "2..40")]
+        free_range: String,
+        /// Routing threads (lever spots in parallel).
+        #[arg(long, default_value_t = 24)]
+        threads: usize,
+        /// Re-time the schedule's steps (step 0 at one of --first, then gaps from --gaps).
+        #[arg(long)]
+        retime: bool,
+        #[arg(long, default_value = "1")]
+        first: String,
+        #[arg(long, default_value = "2,4,6")]
+        gaps: String,
+        #[arg(long, default_value_t = 50)]
+        max_tick: u32,
+        /// Wire at most this many working retimings (fastest open + close first).
+        #[arg(long, default_value_t = 12)]
+        retime_max: usize,
+        /// Judge the best N candidates (0: none).
+        #[arg(long, default_value_t = 12)]
+        verify: usize,
+        /// Screen every lever spot cheaply (each receiver routed alone) and fully route only the
+        /// best N (0: every spot fully).
+        #[arg(long, default_value_t = 6)]
+        screen_top: usize,
+        /// Print what the router finds for each receiver alone (per lever spot).
+        #[arg(long)]
+        debug: bool,
+        /// The positional file is a mech-synth catalog: wire these entries ("355,356").
+        #[arg(long, default_value = "")]
+        catalog_ids: String,
+        /// The catalog's base design.
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/mech-synth/bases/sidesM.txt")]
+        catalog_base: PathBuf,
+        /// Compress the schedule's steps: step 0 at --first, each gap shrunk to the smallest of
+        /// --gaps that still works with ideal inputs.
+        #[arg(long)]
+        compress: bool,
+        /// Single-pulse receivers whose pulse may move by at least this many ticks (ideal-input
+        /// sweep) become free: any 2 gt pulse in that window (0: off).
+        #[arg(long, default_value_t = 0)]
+        auto_free: i32,
+        /// Free receivers also accept 3 pulses per edge (a pulse-driven piston toggles per
+        /// pulse: one net move, timed by the last pulse).
+        #[arg(long)]
+        odd: bool,
+        /// With --auto-free: every receiver also accepts any combination of its events' timing
+        /// windows (ideal-input sweep, others fixed).
+        #[arg(long)]
+        timing: bool,
+        /// Pulse pairs on one cell become one level window (a repeater instead of two pulses).
+        #[arg(long)]
+        windows: bool,
+        /// Polish each schedule's verified design for this many seconds (route2 rip-up, then
+        /// the local search with every move family); 0: off.
+        #[arg(long, default_value_t = 0)]
+        polish_secs: u64,
+        /// Re-time every step to tick first + gap * k before anything else (0: keep).
+        #[arg(long, default_value_t = 0)]
+        uniform_gap: u32,
+        /// Write candidates and verified designs here.
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        #[arg(long)]
+        archive: bool,
+        #[command(flatten)]
+        search: SearchArgs,
+    },
     /// Cut every face-connected group of --size control blocks (pistons excluded) and re-grow it
     /// with size-1 blocks from --states inside the group's box grown by --margin (see search.rs
     /// `regrow`). The best verified design is written to --out.
@@ -479,7 +609,8 @@ pub enum DoorCmd {
         /// Opposite box corner "x,y,z" (inclusive).
         #[arg(long)]
         hi: String,
-        /// Comma list: obs, block, dust, rep[1-4], torch, glass, obsidian, rblock, lamp, or full states.
+        /// Comma list: obs, block, dust, rep[1-4], torch, glass, obsidian, rblock, lamp, note, leaves
+        /// (persistent), log (3 axes), or full states without commas.
         #[arg(long, default_value = "obs,block,dust")]
         states: String,
         /// Blocks added together (1 or 2; 2 also tries singles).
@@ -703,6 +834,20 @@ pub enum DoorCmd {
         #[arg(long)]
         check: bool,
     },
+    /// Write a design turned and/or mirrored (the game's own block-state rotate/mirror). A turn
+    /// of 90 or 270 degrees gives an east/west-facing door (`door-axis: z` in the file), which
+    /// every tool judges in that orientation: the way to build a variant for that direction.
+    Turn {
+        design: PathBuf,
+        /// Quarter turns clockwise seen from above.
+        #[arg(long, default_value_t = 1)]
+        turns: u8,
+        /// Mirror image (east-west) before turning.
+        #[arg(long)]
+        mirror: bool,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
         name: String,
@@ -850,6 +995,24 @@ pub enum DoorCmd {
     },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
+    /// Replay gadget drive scripts (designs/gadgets/*.drive) in the UNMODIFIED official server
+    /// and compare every tick with the simulator (see vanilla_gadget.rs): the design in its rest
+    /// state, `use` by a bot player, `setblock` as the game's command in both worlds, every tick
+    /// of every step compared cell by cell, at the judge's 4 positions + N.
+    VanillaGadget {
+        scripts: Vec<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        /// Only the first N positions.
+        #[arg(long)]
+        positions: Option<usize>,
+        #[arg(long)]
+        verbose: bool,
+        #[arg(long)]
+        keep_world: bool,
+        #[arg(long, default_value_t = 100)]
+        tick_rate: u32,
+    },
     VanillaFuzz {
         #[arg(long, default_value_t = 50)]
         count: u64,
@@ -917,6 +1080,43 @@ pub enum DoorCmd {
         /// It is not part of the judge: it decides which board a working door goes on.
         #[arg(long)]
         no_rotations: bool,
+        /// Also run all 8 orientations (4 turns, each as built and mirrored) and print which work.
+        #[arg(long)]
+        orientations: bool,
+        /// Judge the design as a tile module (tile.rs): `wide:N` (openings side by side, one
+        /// 3 x 3N opening), `period:P:N` (an opening every P blocks), `stack:N` (a 3N x 3
+        /// opening), `vperiod:Q:N` (an opening every Q blocks up) or `step:dx,dy,dz:N`. Copy 0
+        /// keeps the lever; the other copies get the module's `relay:` block in its cell.
+        #[arg(long)]
+        tile: Option<String>,
+        /// With --tile: `one` (the tiling: one lever) or `each` (diagnostic: every copy keeps
+        /// its lever, all flipped in the same tick).
+        #[arg(long, default_value = "one")]
+        tile_levers: String,
+        /// With --tile: write the whole arrangement here (a plain design file).
+        #[arg(long)]
+        tile_out: Option<PathBuf>,
+    },
+    /// Tileability scan (tile.rs): every design under every tiling of --tiles, in parallel; prints
+    /// per design which tilings work and the smallest working period.
+    TileScan {
+        /// Design files (or @builtins).
+        designs: Vec<PathBuf>,
+        /// Tilings, a comma list; period and vperiod take ranges: wide:3,stack:3,period:4..12:3.
+        #[arg(long, default_value = "wide:3,stack:3,period:4..12:3,vperiod:4..10:3")]
+        tiles: String,
+        /// `one` (copy 0 keeps the lever, the others get the module's relay) or `each`
+        /// (diagnostic: every copy flips its own lever in the same tick).
+        #[arg(long, default_value = "each")]
+        levers: String,
+        /// Judge positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 12)]
+        workers: usize,
+        /// Print the reason of every failure (default: the first 160 characters).
+        #[arg(long)]
+        verbose: bool,
     },
     /// Circuit synthesis by exhaustive simulation (see synth.rs): every circuit of up to --k
     /// blocks from --palette in the free cells of --lo..--hi that carries a signal from the
@@ -963,6 +1163,10 @@ pub enum DoorCmd {
         /// Parts constraints: at most n of a kind, "repeater:1".
         #[arg(long, default_value = "")]
         limit: String,
+        /// Keep only circuits using at least one of these (lamp, bulb, note, target or any
+        /// block-state substring), comma list.
+        #[arg(long, default_value = "")]
+        require_any: String,
         /// Behavior spec (see synth.rs); without it the target is the door judge.
         #[arg(long)]
         spec: Option<PathBuf>,
@@ -1000,6 +1204,9 @@ pub enum DoorCmd {
         /// Speed bounds: reject doors that close later than this many ticks.
         #[arg(long)]
         max_close: Option<u32>,
+        /// Judge every circuit as a tile module (tile.rs; see `door verify --tile`).
+        #[arg(long)]
+        tile: Option<String>,
     },
     /// Large-neighborhood search by exact synthesis (see synth.rs `resynth`): every connected
     /// group of 2..--max-size removable blocks (wiring, still plain blocks) is cleared and every
@@ -1047,12 +1254,57 @@ pub enum DoorCmd {
         /// neighborhood, the blocks within margin + 3, changed).
         #[arg(long)]
         global_retry: bool,
+        /// Keep only replacement circuits using at least one of these (lamp, bulb, note,
+        /// target or any block-state substring), comma list: sweeps new palette entries on a
+        /// design the old palette already exhausted.
+        #[arg(long, default_value = "")]
+        require_any: String,
+        /// Judge every candidate as a tile module (tile.rs; see `door verify --tile`).
+        #[arg(long)]
+        tile: Option<String>,
     },
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::TileScan { designs, tiles, levers, extra_offsets, workers, verbose } => {
+            let mut ts = crate::tile::parse_tile_list(&tiles)?;
+            let mode = match levers.as_str() {
+                "one" => crate::tile::LeverMode::One,
+                "each" => crate::tile::LeverMode::Each,
+                other => anyhow::bail!("--levers {other}: expected one or each"),
+            };
+            for t in ts.iter_mut() {
+                t.levers = mode;
+            }
+            let ds: Vec<(String, Design)> = designs.iter().map(|p| Ok((p.display().to_string(), load_design(p)?))).collect::<Result<_>>()?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let mut opts = VerifyOptions::default();
+            opts.offsets.extend(crate::extra_offsets(extra_offsets));
+            let rows = crate::tile::scan(&pool, &ds, &ts, &opts);
+            for (i, (name, d)) in ds.iter().enumerate() {
+                println!("== {name} ({} blocks, category {}{})", crate::block_count(d), crate::category(d), if crate::slime_free(d) { ", slime-free" } else { "" });
+                let mut best: std::collections::BTreeMap<String, String> = Default::default();
+                for (j, t, r) in rows.iter().filter(|(j, _, _)| *j == i) {
+                    let _ = j;
+                    let kind = t.label.split(':').next().unwrap_or("").to_string();
+                    match r {
+                        Ok((total, marginal, o, c)) => {
+                            println!("  {:<16} WORKS {total} blocks, +{marginal} per copy, open {o} / close {c}", t.label);
+                            best.entry(kind).or_insert_with(|| format!("{} (+{marginal} per copy)", t.label));
+                        }
+                        Err(e) => {
+                            let e = if verbose { e.clone() } else { e.chars().take(160).collect() };
+                            println!("  {:<16} fails: {e}", t.label);
+                        }
+                    }
+                }
+                for (k, v) in &best {
+                    println!("  smallest working {k}: {v}");
+                }
+            }
+        }
         DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut } => {
             let opts = video_style(&style, orbit)?;
             crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut)?;
@@ -1137,7 +1389,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(p, &table)?;
             }
         }
-        DoorCmd::Route { design, start, goal, allow, swept_script, patch } => {
+        DoorCmd::Route { design, start, goal, allow, swept_script, swept_design, patch } => {
             let d = load_design(&design)?;
             let cells = |s: &str| -> Vec<[i32; 3]> {
                 s.split(';').filter(|x| !x.trim().is_empty()).map(|c| {
@@ -1147,12 +1399,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let spec = crate::DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
-            let mut reserved = match &swept_script {
-                Some(s) => crate::drive::swept(&mut w, &std::fs::read_to_string(s)?)?,
-                None => crate::route::swept_cells(&mut w, &d, &spec)?,
+            let mut reserved = match (&swept_script, &swept_design) {
+                (Some(s), _) => crate::drive::swept(&mut w, &std::fs::read_to_string(s)?)?,
+                (None, Some(sd)) => {
+                    let sd = load_design(sd)?;
+                    let sspec = crate::DoorSpec::from_design(&sd)?;
+                    crate::route::swept_moving_cells(&mut w, &sd, &sspec)?
+                }
+                (None, None) => crate::route::swept_cells(&mut w, &d, &spec)?,
             };
             reserved.retain(|p| !d.blocks.contains_key(p));
-            for x in 0..=2 { for y in 0..=2 { for z in -4..=4 { reserved.insert([x, y, z]); } } }
+            reserved.extend(crate::route::keep_clear(&spec));
             reserved.insert([1, 3, 1]);
             let r = crate::route::Router { blocks: &d.blocks, reserved, allow: cells(&allow).into_iter().collect(), lo: [-12, -6, -8], hi: [12, 12, 10], floor_only: Default::default() };
             let goal = cells(&goal)[0];
@@ -1298,6 +1555,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     margin,
                     taps: crate::synth::parse_cells(&taps)?,
                     watch: !no_watch,
+                    partial: false,
+                    order_limit: 0,
+                    threads: 1,
+                    astar: false,
                 },
                 no_check,
                 rip: groups,
@@ -1347,6 +1608,299 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let best = route2::rip_and_reroute(&pool, &d, &o, &sopts, &log, &mut on_improve)?;
             println!("{} -> {} blocks", crate::block_count(&d), crate::block_count(&best));
+        }
+        DoorCmd::MechWire {
+            schedules,
+            set,
+            levers,
+            lever_radius,
+            lever_near,
+            budget,
+            palette,
+            tolerance,
+            beam,
+            hits,
+            max_states,
+            margin,
+            no_watch,
+            partial,
+            order_limit,
+            free,
+            free_range,
+            threads,
+            retime,
+            first,
+            gaps,
+            max_tick,
+            retime_max,
+            verify,
+            screen_top,
+            debug,
+            catalog_ids,
+            catalog_base,
+            compress,
+            auto_free,
+            odd,
+            timing,
+            windows,
+            polish_secs,
+            uniform_gap,
+            out_dir,
+            archive,
+            search,
+        } => {
+            use crate::mechwire;
+            use crate::route2;
+            use anyhow::Context;
+            let pool = search.pool(version)?;
+            let sopts = search.options()?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let nums = |s: &str| -> Result<Vec<u32>> { s.split(',').map(|x| x.trim().parse::<u32>().map_err(anyhow::Error::from)).collect() };
+            let (flo, fhi) = free_range.split_once("..").context("--free-range lo..hi")?;
+            let o = mechwire::WireOptions {
+                route: route2::RouteOptions {
+                    palette: route2::palette(&palette)?,
+                    tolerance,
+                    beam,
+                    hits,
+                    max_states,
+                    margin,
+                    taps: Vec::new(),
+                    watch: !no_watch,
+                    partial,
+                    order_limit,
+                    threads: 1,
+                    astar: true,
+                },
+                budget,
+                threads,
+                free: crate::synth::parse_cells(&free)?.into_iter().map(|c| (c, flo.parse().unwrap_or(2), fhi.parse().unwrap_or(40))).collect(),
+                alts: Vec::new(),
+                odd,
+                forbid: Vec::new(),
+                debug,
+                screen_top,
+            };
+            // The source schedules: the files themselves, or catalog entries of the first file.
+            let schedule = schedules.first().cloned().context("no schedule file")?;
+            let text = std::fs::read_to_string(&schedule).with_context(|| format!("reading {}", schedule.display()))?;
+            let mut sources: Vec<(String, crate::ideal::Schedule, std::collections::BTreeMap<String, i64>)> = Vec::new();
+            if catalog_ids.is_empty() {
+                for path in &schedules {
+                    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+                    let s = crate::ideal::Schedule::parse(&text)?;
+                    let mut vars = s.vars().clone();
+                    for kv in &set {
+                        let (k, v) = kv.split_once('=').context("--set name=value")?;
+                        vars.insert(k.to_string(), v.parse()?);
+                    }
+                    let name = path.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+                    sources.push((name, s, vars));
+                }
+            } else {
+                let base = load_design(&catalog_base)?;
+                for id in nums(&catalog_ids)? {
+                    match mechwire::catalog_schedule(&text, id as usize, &base, 6) {
+                        Ok(s) => sources.push((format!("#{id}"), s, Default::default())),
+                        Err(e) => log(&format!("#{id}: {e:#}")),
+                    }
+                }
+            }
+            // Each source: its schedules are built, then wired at once (results as they come).
+            let mut all: Vec<mechwire::Wired> = Vec::new();
+            let mut ranking: Vec<(usize, String, usize)> = Vec::new();
+            let steps_of = |s: &crate::ideal::Schedule, vars: &std::collections::BTreeMap<String, i64>| -> Result<mechwire::Steps> {
+                let st = mechwire::Steps::from_schedule(s, vars)?;
+                if !windows {
+                    return Ok(st);
+                }
+                // Each pulse pair alone as a window, kept if the door still works with ideal
+                // inputs at the schedule's own timing.
+                let mut ok_cells = Vec::new();
+                for c in st.pulse_pair_cells() {
+                    let w = st.with_windows(&[c]);
+                    if !mechwire::working_retimes(&pool, &w, vec![st.ticks.clone()], 0, 2).is_empty() {
+                        ok_cells.push(c);
+                    }
+                }
+                log(&format!("  windows: pulse pairs at {:?} become windows", ok_cells.iter().map(|c| route2::fmt_pos(*c)).collect::<Vec<_>>()));
+                Ok(st.with_windows(&ok_cells))
+            };
+            for (name, s, vars) in &sources {
+                let mut scheds: Vec<(String, crate::ideal::Schedule, std::collections::BTreeMap<String, i64>)> = Vec::new();
+                if retime {
+                    let steps = steps_of(s, vars)?;
+                    let assigns = steps.assignments(&nums(&first)?, &nums(&gaps)?, max_tick);
+                    log(&format!("{name}: {} steps (old ticks {:?}), {} retimings to replay", steps.ticks.len(), steps.ticks, assigns.len()));
+                    let mut ok = mechwire::working_retimes(&pool, &steps, assigns, 0, 2);
+                    ok.sort_by_key(|(a, (op, cl))| (op + cl, a.clone()));
+                    log(&format!("{name}: {} retimings work with ideal inputs", ok.len()));
+                    for (a, (op, cl)) in ok.iter().take(retime_max) {
+                        log(&format!("  steps at {a:?}: open {op} / close {cl}"));
+                        scheds.push((format!("{name} steps {a:?}"), steps.retimed(a), Default::default()));
+                    }
+                } else if compress {
+                    let steps = steps_of(s, vars)?;
+                    let f = nums(&first)?.first().copied().unwrap_or(1);
+                    match mechwire::compress(&pool, &steps, f, 6, &nums(&gaps)?, &log) {
+                        Some(a) => {
+                            log(&format!("{name}: {} steps compressed to {a:?}", steps.ticks.len()));
+                            scheds.push((format!("{name} steps {a:?}"), steps.retimed(&a), Default::default()));
+                        }
+                        None => log(&format!("{name}: no working retiming")),
+                    }
+                } else if uniform_gap > 0 {
+                    let steps = steps_of(s, vars)?;
+                    let f = nums(&first)?.first().copied().unwrap_or(1);
+                    let a: Vec<u32> = (0..steps.ticks.len()).map(|k| f + uniform_gap * k as u32).collect();
+                    log(&format!("{name}: {} steps re-timed to {a:?}", steps.ticks.len()));
+                    scheds.push((format!("{name} steps {a:?}"), steps.retimed(&a), Default::default()));
+                } else {
+                    scheds.push((name.clone(), s.clone(), vars.clone()));
+                }
+            for (label, sc, v) in &scheds {
+                let mech = match mechwire::measure_ideal(&mut pool.worker(0), sc, v) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        log(&format!("{label}: cannot measure: {e:#}"));
+                        continue;
+                    }
+                };
+                if !mech.meas.idle {
+                    log(&format!("{label}: warning: not idle within the recorded ticks"));
+                }
+                let spots = if levers.is_empty() {
+                    mechwire::lever_spots(&mech, &mechwire::early_receivers(&mech, lever_near), lever_radius)?
+                } else {
+                    levers.split(';').map(str::trim).filter(|x| !x.is_empty()).map(|x| mechwire::LeverSpot::parse(x, &mech)).collect::<Result<Vec<_>>>()?
+                };
+                log(&format!("{label}: {} mechanism blocks, {} lever spots; wanted waves:", crate::block_count(&mech.bare), spots.len()));
+                for l in mech.describe() {
+                    log(&format!("    {l}"));
+                }
+                let mut ow = o.clone();
+                let mut mech = mech;
+                if auto_free > 0 {
+                    let steps = mechwire::Steps::from_schedule(sc, v)?;
+                    let at: Vec<u32> = steps.ticks.clone();
+                    let shifts: Vec<i32> = (-12..=24).step_by(2).collect();
+                    let win = mechwire::event_windows(&pool, &steps, &at, &shifts);
+                    for ((c, s), ds) in &win {
+                        log(&format!("    event {} at step {s} (tick {}): works shifted by {:?}", route2::fmt_pos(*c), at[*s], ds));
+                    }
+                    let span = |ds: &Vec<i32>| ds.iter().max().zip(ds.iter().min()).map(|(a, b)| a - b).unwrap_or(-1);
+                    let wide: Vec<(mctas::sim::Pos, usize)> = win.iter().filter(|(_, ds)| span(ds) >= auto_free).map(|(e, _)| *e).collect();
+                    let noops = mechwire::noop_events(&pool, &steps, &at, &wide);
+                    if !noops.is_empty() {
+                        for (c, s) in &noops {
+                            log(&format!("    no-op event {} at step {s}: dropped, its ticks are don't-care", route2::fmt_pos(*c)));
+                        }
+                        let reduced = steps.retimed_without_all(&at, &noops);
+                        match mechwire::measure_ideal(&mut pool.worker(0), &reduced, &Default::default()) {
+                            Ok(m) => {
+                                mech = m;
+                                mechwire::dont_care(&mut mech, &steps, &at, &noops);
+                                log("    wanted waves without them:");
+                                for l in mech.describe() {
+                                    log(&format!("    {l}"));
+                                }
+                            }
+                            Err(e) => log(&format!("    cannot measure without the no-op events: {e:#}")),
+                        }
+                    }
+                    let win2: Vec<((mctas::sim::Pos, usize), Vec<i32>)> = win.into_iter().filter(|(e, _)| !noops.contains(e)).collect();
+                    let free = mechwire::free_receivers(&mech, &steps, &at, &win2, auto_free);
+                    for (c, a, b) in &free {
+                        log(&format!("    free: {} any 2 gt pulse starting {a}..{b}", route2::fmt_pos(*c)));
+                    }
+                    // What depends on each free receiver's action: its timing is the router's
+                    // choice, so no receiver may watch those motions (their measured times are
+                    // not the real ones).
+                    let mut all_dep: Vec<mctas::sim::Pos> = Vec::new();
+                    for (c, _, _) in &free {
+                        let dep = mechwire::own_motion(&mut pool.worker(0), &mech, &steps.clone_without(&noops), &at, *c).unwrap_or_default();
+                        log(&format!("    {} drives {} watched cells", route2::fmt_pos(*c), dep.len()));
+                        all_dep.extend(dep);
+                    }
+                    all_dep.sort();
+                    all_dep.dedup();
+                    ow.forbid = mech.wants.iter().map(|w| (w.0, all_dep.clone())).collect();
+                    if timing {
+                        // The other events keep their own (narrower) windows: every receiver
+                        // accepts each combination of its events' shifts.
+                        let narrow: Vec<((mctas::sim::Pos, usize), Vec<i32>)> = win2.iter().filter(|(_, ds)| span(ds) < auto_free).cloned().collect();
+                        let alts = mechwire::timing_alts(&mech, &steps, &at, &narrow, 400);
+                        for (c, a) in &alts {
+                            log(&format!("    timing: {} accepts {} waves", route2::fmt_pos(*c), a.len()));
+                        }
+                        ow.alts = alts;
+                    }
+                    ow.free.extend(free);
+                }
+                let r = mechwire::wire_all(&mech, &spots, &ow, &log);
+                log(&format!("{label}: {} candidates, best {}", r.len(), r.first().map(|w| w.blocks.to_string()).unwrap_or("-".into())));
+                // Judge this schedule's best candidates now (one lever spot's near-duplicates
+                // would crowd a global list).
+                if verify > 0 && !r.is_empty() {
+                    let n = verify.min(r.len());
+                    let ok = mechwire::judge(&pool, &r[..n], &sopts, &log);
+                    match ok.first() {
+                        Some((d0, desc)) => {
+                            log(&format!("{label}: VERIFIED {} blocks: {desc}", crate::block_count(d0)));
+                            let polished;
+                            let d = if polish_secs > 0 {
+                                polished = mechwire::polish(&pool, d0, &o.route, &sopts, polish_secs, &log)?;
+                                log(&format!("{label}: polished {} -> {} blocks", crate::block_count(d0), crate::block_count(&polished)));
+                                &polished
+                            } else {
+                                d0
+                            };
+                            ranking.push((crate::block_count(d), label.clone(), crate::block_count(&mech.bare)));
+                            if let Some(dir) = &out_dir {
+                                std::fs::create_dir_all(dir)?;
+                                let stem: String = label.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' }).collect();
+                                let mut dd = d.clone();
+                                dd.name = format!("{stem}-{}b", crate::block_count(d));
+                                let path = dir.join(format!("{}.txt", dd.name));
+                                dd.save(&path)?;
+                                if archive {
+                                    let note = format!("verified WORKS: {} blocks; door mech-wire from {label}: {desc}", crate::block_count(d));
+                                    if let Some(p) = crate::archive::save(&path, &dd, crate::block_count(d), &note, None)? {
+                                        log(&format!("archived {}", p.display()));
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            log(&format!("{label}: none of the best {n} candidates passes the judge"));
+                            ranking.push((usize::MAX, label.clone(), crate::block_count(&mech.bare)));
+                        }
+                    }
+                }
+                all.extend(r.into_iter().map(|w| mechwire::Wired { desc: format!("{label}: {}", w.desc), ..w }));
+            }
+            }
+            ranking.sort();
+            println!("== ranking (verified mechanism + wiring) ==");
+            for (b, label, mb) in &ranking {
+                println!("{:>6} total, {mb} mechanism: {label}", if *b == usize::MAX { "-".to_string() } else { b.to_string() });
+            }
+            all.sort_by(|a, b| a.blocks.cmp(&b.blocks).then_with(|| a.desc.cmp(&b.desc)));
+            let mut seen = std::collections::HashSet::new();
+            all.retain(|w| seen.insert(crate::search::design_hash(&w.design)));
+            for w in all.iter().take(20) {
+                println!("candidate {} blocks: {}", w.blocks, w.desc);
+            }
+            if let Some(dir) = &out_dir {
+                std::fs::create_dir_all(dir)?;
+                for (i, w) in all.iter().take(verify.max(5)).enumerate() {
+                    let mut d = w.design.clone();
+                    d.name = format!("cand{i:02}-{}b", w.blocks);
+                    d.save(&dir.join(format!("cand{i:02}-{}b.txt", w.blocks)))?;
+                }
+            }
+            let _ = &schedule;
         }
         DoorCmd::Regrow { design, out, size, margin, states, only, want, any, search } => {
             let d = load_design(&design)?;
@@ -1588,6 +2142,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let tar = crate::world::build(version, &o)?;
             println!("world packed: {}", tar.display());
         }
+        DoorCmd::Turn { design, turns, mirror, out } => {
+            let d = load_design(&design)?;
+            let mut w = Worker::spawn(&cfg)?;
+            let (mut rd, spec) = crate::transform_design(&mut w, &d, turns, mirror)?;
+            rd.name = format!("{}-{}{}", d.name, if spec.along_z { "ew" } else { "ns" }, if mirror { "-mirrored" } else { "" });
+            rd.save(&out)?;
+            println!("{} turned {} degrees{} ({}-facing door) written to {}", d.name, turns as u32 % 4 * 90, if mirror { ", mirrored" } else { "" }, if spec.along_z { "east/west" } else { "north/south" }, out.display());
+        }
         DoorCmd::Patch { design, script, out } => {
             let d0 = load_design(&design)?;
             let text = std::fs::read_to_string(&script)?;
@@ -1617,6 +2179,26 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::VanillaBuild { scripts, design, cycles, extra_offsets, positions, offset, max_ticks, until_step, verbose, keep_world, tick_rate, real_time, slow, stay } => {
             vanilla_build_cmd(version, &cfg, &scripts, design, cycles, extra_offsets, positions, offset, max_ticks, until_step, verbose, keep_world, tick_rate, real_time, slow, stay)?;
         }
+        DoorCmd::VanillaGadget { scripts, extra_offsets, positions, verbose, keep_world, tick_rate } => {
+            let mut offsets = VerifyOptions::default().offsets;
+            offsets.extend(crate::extra_offsets(extra_offsets));
+            if let Some(n) = positions {
+                offsets.truncate(n.max(1));
+            }
+            let mut w = Worker::spawn(&cfg)?;
+            let vopts = mctas::vanilla::VanillaOptions { version: version.to_string(), keep_dir: keep_world, tick_rate, ..Default::default() };
+            let t0 = std::time::Instant::now();
+            let mut v = mctas::vanilla::VanillaServer::start(&vopts)?;
+            eprintln!("vanilla server up in {:.1}s ({})", t0.elapsed().as_secs_f64(), v.dir.display());
+            let ok = crate::vanilla_gadget::run_cli(&mut w, &mut v, &scripts, &offsets, verbose)?;
+            if keep_world {
+                println!("world kept in {}", v.dir.display());
+            }
+            drop(v);
+            if !ok {
+                std::process::exit(1);
+            }
+        }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
         }
@@ -1630,8 +2212,20 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out } => {
             let d = load_design(&design)?;
+            if let Some(spec) = tile {
+                let mut t = crate::tile::Tile::parse(&spec)?;
+                t.levers = match tile_levers.as_str() {
+                    "one" => crate::tile::LeverMode::One,
+                    "each" => crate::tile::LeverMode::Each,
+                    other => anyhow::bail!("--tile-levers {other}: expected one or each"),
+                };
+                let mut w = Worker::spawn(&cfg)?;
+                let mut opts = VerifyOptions { cycles, keep_frames: show, ..Default::default() };
+                opts.offsets.extend(crate::extra_offsets(extra_offsets));
+                return tile_verify_cmd(&mut w, &design, &d, &t, &opts, no_rotations, archive, archive_dir.as_deref(), tile_out.as_deref());
+            }
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
             let mut opts = VerifyOptions { cycles, keep_frames: show, ..Default::default() };
@@ -1672,6 +2266,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                             Some((turns, why)) => println!("NOT rotation-safe (listed on the separate board): turned {} degrees: {why}", turns as u32 * 90),
                         }
                     }
+                    if orientations {
+                        let ropts = VerifyOptions { keep_frames: false, ..opts.clone() };
+                        println!("orientations ({} positions each; turns are clockwise seen from above, mirrored = east-west mirror image first):", ropts.offsets.len());
+                        for (turns, mirrored, r) in crate::orientation_report(&mut w, &d, &ropts)? {
+                            let name = format!("{:>3} degrees{}", turns as u32 * 90, if mirrored { ", mirrored" } else { "" });
+                            match r {
+                                Ok(()) => println!("  {name:<22} WORKS"),
+                                Err(e) => println!("  {name:<22} BROKEN: {}", e.chars().take(140).collect::<String>()),
+                            }
+                        }
+                    }
                     if show {
                         println!("opening (top row, middle row, bottom row; # block, ~ moving, h piston head, . air):");
                         print!("{}", timeline(&r.open_frames, &spec));
@@ -1700,6 +2305,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             forbid,
             require,
             limit,
+            require_any,
             spec,
             spec_offsets,
             loose,
@@ -1714,8 +2320,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             max_cands,
             max_open,
             max_close,
+            tile,
         } => {
             use crate::synth::*;
+            let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let mut base = load_design(&context)?;
             for p in parse_cells(&clear)? {
                 anyhow::ensure!(base.blocks.remove(&p).is_some(), "--clear {} is already air", fmt_pos(p));
@@ -1739,6 +2347,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 forbid: parse_cells(&forbid)?.into_iter().collect(),
                 require: parse_counts(&require)?,
                 limit: parse_counts(&limit)?,
+                require_any: require_any_names(&require_any),
                 loose,
                 max_cands,
             };
@@ -1764,8 +2373,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
                         keep_frames: false,
                         empty_walkway: true,
+                        tile: tile.clone(),
                     },
-                    judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
+                    judge: VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() },
                     max_open,
                     max_close,
                 },
@@ -1791,8 +2401,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile } => {
             use crate::synth::*;
+            let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let d = load_design(&design)?;
             let only = match only {
                 Some(s) => {
@@ -1815,11 +2426,12 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 max_close,
                 save_to: Some(out.clone()),
                 global_retry,
+                require_any: require_any_names(&require_any),
                 only,
             };
             let offsets = crate::search::judge_offsets(extra_offsets);
-            let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
-            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false, empty_walkway: true };
+            let judge = VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() };
+            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false, empty_walkway: true, tile };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
             let t = std::time::Instant::now();
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
@@ -1851,6 +2463,96 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             canon.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
+        }
+    }
+    Ok(())
+}
+
+/// `door verify --tile`: the judge on every opening of a tiled module, with per-opening and
+/// per-module block counts and timings.
+#[allow(clippy::too_many_arguments)]
+fn tile_verify_cmd(
+    w: &mut Worker,
+    path: &std::path::Path,
+    d: &Design,
+    t: &crate::tile::Tile,
+    opts: &VerifyOptions,
+    no_rotations: bool,
+    archive: bool,
+    archive_dir: Option<&std::path::Path>,
+    tile_out: Option<&std::path::Path>,
+) -> Result<()> {
+    use crate::tile::*;
+    let lever_mode = match t.levers {
+        LeverMode::One => "one lever",
+        LeverMode::Each => "DIAGNOSTIC: every copy flips its own lever",
+    };
+    let tiled = expand(d, t)?;
+    if let Some(out) = tile_out {
+        tiled.design.save(out)?;
+        println!("arrangement written to {}", out.display());
+    }
+    let openings = tiled.specs.len();
+    let total = tiled_blocks(&tiled);
+    let marginal = marginal_blocks(d, t)?;
+    let per_copy = openings / tiled.copies;
+    let relay = relay_state(d)?.unwrap_or_else(|| "none (the lever cell stays empty)".into());
+    match verify_tiled(w, d, t, opts) {
+        Ok((r, per, _)) => {
+            println!(
+                "WORKS (tile {}, {lever_mode}): {}: {} copies, {openings} openings, {} blocks total ({:.1} per opening); module {} blocks, +{marginal} per extra copy ({:.1} per opening in a long row); category {}{}{}",
+                t.label,
+                d.name,
+                tiled.copies,
+                total,
+                total as f64 / openings as f64,
+                crate::block_count(d),
+                marginal as f64 / per_copy as f64,
+                crate::category(d),
+                if crate::slime_free(d) { ", slime-free" } else { "" },
+                if crate::single_layer(d) { ", flat" } else { "" }
+            );
+            println!("  relay in the copies without the lever: {relay}; cells shared by copies: {}", tiled.shared);
+            let o = r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0);
+            let c = r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0);
+            println!("  all openings: open after {o} ticks, closed after {c} ticks (worst cycle, first position)");
+            let line: Vec<String> = per.iter().enumerate().map(|(i, (a, b))| format!("#{i} {a}/{b}")).collect();
+            println!("  per opening (open/close): {}", line.join(", "));
+            for (i, cy) in r.cycles.iter().enumerate() {
+                println!("  cycle {i}: open after {} ticks (idle at {}), closed after {} ticks (idle at {})", cy.open_ticks, cy.open_settle, cy.close_ticks, cy.close_settle);
+            }
+            for warning in &r.warnings {
+                println!("  warning: {warning}");
+            }
+            if archive && t.levers == LeverMode::One {
+                let note = format!(
+                    "verified WORKS as a tile module: --tile {} ({} openings, {} blocks total, +{marginal} per extra copy), open {o} / close {c}",
+                    t.label, openings, total
+                );
+                match crate::archive::save(path, d, marginal, &note, archive_dir)? {
+                    Some(p) => println!("archived {}", p.display()),
+                    None => println!("already archived"),
+                }
+            }
+            if !no_rotations {
+                let ropts = VerifyOptions { keep_frames: false, ..opts.clone() };
+                match tiled_rotation_check(w, &tiled, &ropts)? {
+                    None => println!("rotation-safe: the arrangement also works turned 90, 180 and 270 degrees ({} positions each)", ropts.offsets.len()),
+                    Some((turns, why)) => println!("NOT rotation-safe: turned {} degrees: {why}", turns as u32 * 90),
+                }
+            }
+            if opts.keep_frames {
+                for (i, spec) in tiled.specs.iter().enumerate() {
+                    println!("opening #{i} (top row, middle row, bottom row; # block, ~ moving, h piston head, . air):");
+                    print!("{}", timeline(&r.open_frames, spec));
+                    println!("closing #{i}:");
+                    print!("{}", timeline(&r.close_frames, spec));
+                }
+            }
+        }
+        Err(e) => {
+            println!("BROKEN (tile {}, {lever_mode}): {}: {e:#}", t.label, d.name);
+            std::process::exit(1);
         }
     }
     Ok(())

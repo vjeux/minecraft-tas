@@ -1,0 +1,14 @@
+# landing-race turned 90 degrees: A (west of R's landing cell) beats Q (north of it). At t4 A
+# extends first, Q's push then takes R away, and A retracts in the same block-event phase: X is
+# spat one cell down (the east/west failure of sculk-2's s4/s1, tracks/sculk-ew/NOTES.md).
+design designs/gadgets/landing-race-turned.txt
+probe Q 0 2 0
+probe A -1 2 1
+probe X -1 1 1
+probe Xlow -1 0 1
+quiet 50
+use 0 1 -1
+expect_trace A rrr~~r
+expect Q E
+expect X .
+expect Xlow #

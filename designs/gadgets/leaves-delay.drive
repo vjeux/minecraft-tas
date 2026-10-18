@@ -1,0 +1,9 @@
+# F changes in tick 2 (piston at tick 1 + 1 gt), O fires 4..6 (an observer on W's cell: 3..5).
+design designs/gadgets/leaves-delay.txt
+probe O 0 1 2
+use -2 1 0
+step 1
+expect_state 0 1 1 distance=1
+step 1
+expect_state 0 1 1 distance=7
+expect_trace O 0110

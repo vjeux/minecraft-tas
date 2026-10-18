@@ -1,0 +1,7 @@
+# b38 -> bld: BL pulled DOWN by (0,-2,0) facing up (L0 and the follower block gone: O_L fires L1 alone
+# through air); M's trigger removed. BL puller and M left to ideal inputs.
+clear -2 0 0
+clear -2 2 0
+clear -1 -1 0
+clear 0 -1 0
+set 0 -2 0 minecraft:sticky_piston[extended=false,facing=up]

@@ -1,0 +1,13 @@
+# C off at k5 after the on flip, back on at k3 after the off flip (both odd).
+design designs/gadgets/comparator-odd.txt
+probe C 2 1 1
+probe R 1 1 1
+expect C 1
+use -2 1 1
+expect_trace C 1111
+expect R R
+expect_trace C 0
+quiet 4
+use -2 1 1
+expect_trace C 001
+expect R .

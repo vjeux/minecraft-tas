@@ -1,0 +1,22 @@
+name: gadget-torch-delay
+# Redstone torch: 2 gt per change, scheduled (RedstoneTorchBlock 87). Wall lever L on block B
+# powers B; the wall torch T on B's other side turns off in the scheduled phase of tick 2 and the
+# sticky piston P above it (powered by the torch from below) retracts in that tick's block-event
+# phase. Lever off: the torch relights at tick 2 and P extends at tick 2. (Burnout: 8 toggles
+# within 60 gt switch it off for 160 gt, RedstoneTorchBlock 74.)
+origin: -1 0 0
+palette:
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  B minecraft:stone
+  T minecraft:redstone_wall_torch[facing=east,lit=true]
+  P minecraft:sticky_piston[extended=true,facing=up]
+  H minecraft:piston_head[facing=up,short=false,type=sticky]
+  K minecraft:stone
+layer 1:
+  LBT
+layer 2:
+  ..P
+layer 3:
+  ..H
+layer 4:
+  ..K
