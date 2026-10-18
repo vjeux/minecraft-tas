@@ -292,6 +292,10 @@ pub fn place(w: &mut Worker, sb: u32, d: &Design) -> Result<()> {
     w.update(sb, &wires, "shape")?;
     let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
     w.update(sb, &positions, "self")?;
+    // A design with entities (category entity): summoned like the judge does, once the blocks stand.
+    if !d.entities.is_empty() {
+        w.summon(sb, &d.entities)?;
+    }
     w.step_until_idle(sb, 400)?;
     Ok(())
 }

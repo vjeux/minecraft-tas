@@ -17,12 +17,81 @@
 //!
 //! Rows run north to south (z grows downward), columns west to east (x grows rightward).
 //! `.` and spaces are air. Every other character must be in the palette.
+//!
+//! Entities (minecarts, armor stands, boats...) are header lines, world coordinates as decimals
+//! (not shifted by `origin`), with optional SNBT for the entity's own data (rotation, contents):
+//!
+//! ```text
+//! entity: minecraft:minecart 0.5 1.0625 3.5
+//! entity: minecraft:armor_stand 2.5 1 0.5 {Rotation:[90f,0f]}
+//! ```
 
 use crate::blockstate::BlockState;
 use crate::sim::Pos;
 use anyhow::{Context, Result, anyhow, bail};
 use std::collections::BTreeMap;
 use std::path::Path;
+
+/// An entity of a design: its type (`minecraft:minecart`), its position (the entity's feet, world
+/// coordinates as decimals) and optional SNBT data (`{Rotation:[90f,0f]}`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct EntitySpec {
+    pub kind: String,
+    pub pos: [f64; 3],
+    pub nbt: Option<String>,
+}
+
+// Positions are finite decimals read from text (never NaN), so equality is total.
+impl Eq for EntitySpec {}
+
+impl EntitySpec {
+    /// `minecraft:minecart 0.5 1.0625 3.5 [{snbt}]` (the text after `entity:`).
+    pub fn parse(s: &str) -> Result<EntitySpec> {
+        fn next_word(s: &str) -> (&str, &str) {
+            let r = s.trim_start();
+            let end = r.find(char::is_whitespace).unwrap_or(r.len());
+            r.split_at(end)
+        }
+        let s = s.trim();
+        let usage = || anyhow!("expected 'entity: <type> <x> <y> <z> [snbt]', got {s:?}");
+        let (kind, mut rest) = next_word(s);
+        if kind.is_empty() {
+            return Err(usage());
+        }
+        let mut pos = [0.0f64; 3];
+        for p in pos.iter_mut() {
+            let (w, r) = next_word(rest);
+            rest = r;
+            if w.is_empty() {
+                return Err(usage());
+            }
+            *p = w.parse::<f64>().with_context(|| format!("bad entity coordinate {w:?} in {s:?}"))?;
+            if !p.is_finite() {
+                bail!("bad entity coordinate {w:?} in {s:?}");
+            }
+        }
+        let nbt = rest.trim();
+        if !nbt.is_empty() && !nbt.starts_with('{') {
+            bail!("entity data must be SNBT in braces, got {nbt:?}");
+        }
+        let kind = if kind.contains(':') { kind.to_string() } else { format!("minecraft:{kind}") };
+        Ok(EntitySpec { kind, pos, nbt: (!nbt.is_empty()).then(|| nbt.to_string()) })
+    }
+
+    /// The text after `entity: ` ([`EntitySpec::parse`] reads it back exactly).
+    pub fn to_text(&self) -> String {
+        let [x, y, z] = self.pos;
+        match &self.nbt {
+            Some(n) => format!("{} {x} {y} {z} {n}", self.kind),
+            None => format!("{} {x} {y} {z}", self.kind),
+        }
+    }
+
+    /// The block cell the entity's position is in.
+    pub fn cell(&self) -> Pos {
+        [self.pos[0].floor() as i32, self.pos[1].floor() as i32, self.pos[2].floor() as i32]
+    }
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Design {
@@ -32,6 +101,8 @@ pub struct Design {
     pub ports: BTreeMap<String, Pos>,
     /// Non-air blocks.
     pub blocks: BTreeMap<Pos, String>,
+    /// Entities (`entity:` lines), in file order. Most designs have none.
+    pub entities: Vec<EntitySpec>,
 }
 
 fn parse_pos(s: &str) -> Result<Pos> {
@@ -85,6 +156,9 @@ impl Design {
                 } else if let Some(rest) = l.strip_prefix("port ") {
                     let (name, pos) = rest.split_once(':').ok_or_else(|| anyhow!("{}", err()))?;
                     d.ports.insert(name.trim().to_string(), parse_pos(pos).with_context(err)?);
+                    section = Section::Header;
+                } else if let Some(rest) = l.strip_prefix("entity:") {
+                    d.entities.push(EntitySpec::parse(rest).with_context(err)?);
                     section = Section::Header;
                 } else if let Some((k, v)) = l.split_once(':') {
                     let (k, v) = (k.trim(), v.trim());
@@ -150,7 +224,7 @@ impl Design {
         self.blocks.len()
     }
 
-    /// The same design moved by `d` (ports included).
+    /// The same design moved by `d` (ports and entities included).
     pub fn translated(&self, d: Pos) -> Design {
         let mv = |p: &Pos| [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
         Design {
@@ -158,7 +232,26 @@ impl Design {
             meta: self.meta.clone(),
             ports: self.ports.iter().map(|(k, p)| (k.clone(), mv(p))).collect(),
             blocks: self.blocks.iter().map(|(p, s)| (mv(p), s.clone())).collect(),
+            entities: self
+                .entities
+                .iter()
+                .map(|e| EntitySpec {
+                    pos: [e.pos[0] + d[0] as f64, e.pos[1] + d[1] as f64, e.pos[2] + d[2] as f64],
+                    ..e.clone()
+                })
+                .collect(),
         }
+    }
+
+    /// A key identifying the design's content (blocks, ports, and entities when it has any), for
+    /// deduplication and verdict caches: a design without entities keeps its old key.
+    pub fn content_key(&self) -> String {
+        let mut key = format!("{:?}|{:?}", self.blocks, self.ports);
+        if !self.entities.is_empty() {
+            let ents: Vec<String> = self.entities.iter().map(|e| e.to_text()).collect();
+            key.push_str(&format!("|{ents:?}"));
+        }
+        key
     }
 
     /// Blocks as a list for [`crate::sim::Worker::set_blocks`].
@@ -177,6 +270,9 @@ impl Design {
         }
         for (k, p) in &self.ports {
             out.push_str(&format!("port {k}: {} {} {}\n", p[0], p[1], p[2]));
+        }
+        for e in &self.entities {
+            out.push_str(&format!("entity: {}\n", e.to_text()));
         }
         let Some((lo, hi)) = self.bounds() else { return out };
         out.push_str(&format!("origin: {} 0 {}\n", lo[0], lo[2]));
@@ -240,5 +336,24 @@ mod tests {
         let again = Design::parse(&d.to_text()).unwrap();
         assert_eq!(again.blocks, d.blocks);
         assert_eq!(again.ports, d.ports);
+        assert!(again.entities.is_empty());
+        assert_eq!(again.content_key(), format!("{:?}|{:?}", d.blocks, d.ports));
+    }
+
+    #[test]
+    fn entities_round_trip() {
+        let text = "name: e\nport door: 0 0 0\nentity: minecraft:minecart 0.5 1.0625 -3.25\nentity: armor_stand 2 1 0.5 {Rotation:[90f,0f]}\npalette:\n  S stone\nlayer 0:\n  S\n";
+        let d = Design::parse(text).unwrap();
+        assert_eq!(d.entities.len(), 2);
+        assert_eq!(d.entities[0], EntitySpec { kind: "minecraft:minecart".into(), pos: [0.5, 1.0625, -3.25], nbt: None });
+        assert_eq!(d.entities[1].kind, "minecraft:armor_stand");
+        assert_eq!(d.entities[1].nbt.as_deref(), Some("{Rotation:[90f,0f]}"));
+        assert_eq!(d.entities[0].cell(), [0, 1, -4]);
+        let again = Design::parse(&d.to_text()).unwrap();
+        assert_eq!(again, d);
+        let moved = d.translated([1, -2, 3]);
+        assert_eq!(moved.entities[0].pos, [1.5, -0.9375, -0.25]);
+        assert!(Design::parse("entity: minecraft:minecart 1 2\n").is_err());
+        assert!(Design::parse("entity: minecraft:minecart 1 2 3 Rotation\n").is_err());
     }
 }

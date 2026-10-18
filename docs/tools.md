@@ -130,4 +130,12 @@ layer 1:
 
 Rows run north to south (z grows downward), columns west to east (x grows rightward). `.` and
 spaces are air; every other character must be in the palette. A door design names the ports
-`door` and `lever` ([rules.md](rules.md#the-door)); `@name` loads a built-in.
+`door` and `lever` ([rules.md](rules.md#the-door)); `@name` loads a built-in. Entity doors add
+`entity: <type> x y z [snbt]` lines (category entity, [rules.md](rules.md#categories)); tile
+modules add a `relay:` block.
+
+The search palettes (`synth`, `resynth`, `grow`, `regrow`) take shorthands: `leaves`, `log`, and
+the exotic components (`trapdoor`, `ctrap`, `gate`, `skull`, `shelf`, `rail`, `arail`, `disp`,
+`dropper`, `crafter`, `scaffold`, `grate`, `tinted`, `slab`, `stairs`, or `exotic` for all of them;
+the exotic track's gadgets prove each). `regrow --require-any` keeps only candidates that use one
+of the given blocks.

@@ -1,0 +1,78 @@
+# verified WORKS by door leaderboard: 38 blocks, category sculk
+# archived 2026-10-18 18:01Z from HEAD:designs/piston-door-3x3/tracks/sculk-ew/archive/sculk-ew-s1r-ew-38b.txt (repo at aeb1281)
+name: sculk-ew-s1r-ew
+door-axis: z
+port door: 0 0 0
+port lever: 1 6 0
+origin: -2 0 -1
+palette:
+  A minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  B minecraft:smooth_stone
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=north]
+  F minecraft:sticky_piston[extended=false,facing=south]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=true,facing=down]
+  I minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  O minecraft:observer[facing=up,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:slime_block
+layer -2:
+  .
+  .
+  ..G
+  ..B
+  .
+layer -1:
+  .
+  .
+  .
+  ..O
+  .
+layer 0:
+  ..s
+  ..I
+  ..I
+  ..I
+  ..s
+layer 1:
+  ..s
+  ..I
+  ..I
+  ..I
+  ..s
+layer 2:
+  ..s
+  ..I
+  ..I
+  ..I
+  ..s
+layer 3:
+  ..s
+  ..BS
+  .BP
+  ..s
+  ..s
+layer 4:
+  ..s
+  ..EF
+  .rHR
+  ..F
+  ..s
+layer 5:
+  .
+  ...B
+  .OD
+  .
+  .
+layer 6:
+  .
+  ...L
+  CA
+  .
+  .

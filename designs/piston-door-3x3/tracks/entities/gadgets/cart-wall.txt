@@ -1,0 +1,17 @@
+name: cart-wall
+# A minecart between two walls on a rail line with a powered rail at each end, each powered by
+# its own lever: does a cart rolling into a wall come to rest at exactly the same position each
+# time?
+entity: minecraft:minecart 1.49 1.0625 0.5
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  W minecraft:powered_rail[shape=east_west,powered=false]
+  R minecraft:rail[shape=east_west]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer 0:
+  SSSSSSSS
+  .S....S
+layer 1:
+  SWRRRRWS
+  .L....L

@@ -118,11 +118,72 @@ pub fn palette_states(spec: &str) -> Result<Vec<String>> {
             // A conductor whose own state flips (powered) the tick its power changes: an
             // observer can watch any powered spot through it, on both edges, with no delay.
             "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
-            s if s.starts_with("minecraft:") => out.push(s.to_string()),
-            s => bail!("unknown palette entry {s:?}"),
+            s => match exotic_states(s) {
+                Some(v) => out.extend(v),
+                None if s.starts_with("minecraft:") => out.push(s.to_string()),
+                None => bail!("unknown palette entry {s:?}"),
+            },
         }
     }
     Ok(out)
+}
+
+/// The exotic track's palette shorthands, shared by `synth`/`resynth` palettes and `grow`/
+/// `regrow` states (None = not one of them). Every block below was read in the 26.3 source and
+/// proven by a gadget in `designs/gadgets/`:
+/// * power indicators that conduct nothing and need no support, whose state flips in the tick
+///   their power changes (`neighborChanged`, flag 2: observers see it on both edges):
+///   `trapdoor` (iron trapdoor, bottom and top half), `ctrap` (waxed copper trapdoor), `gate`
+///   (oak fence gate, 2 facings), `skull` (skeleton skull, `powered`; pistons pop it);
+///   `shelf` (oak shelf: `powered` with a neighbor update, immovable: a block entity);
+/// * `rail` / `arail` (powered / activator rail, flat both ways + the 4 slopes): powered by any
+///   neighbor signal or by a powered rail of its line up to 8 rails away, in the same tick; powers
+///   nothing; needs a rigid floor; observers see `powered`;
+/// * `disp` / `dropper` (dispenser / dropper facing up): a conductor whose `triggered` flips the
+///   tick its power changes, quasi-connected like a piston (power into the cell above counts),
+///   immovable (block entity); `crafter` the same without quasi-connectivity;
+/// * `scaffold`: scaffolding (distance from a sturdy floor, recomputed 1 gt after any shape
+///   update; popped by pistons);
+/// * `grate` (waxed copper grate), `tinted` (tinted glass): non-conducting full blocks like glass;
+///   `slab` (top smooth stone slab), `stairs` (upside-down stone stairs): non-conducting dust
+///   floors;
+/// * `exotic`: trapdoor, gate, rail, disp, crafter, skull (one state each where the facing does
+///   not matter).
+pub fn exotic_states(tok: &str) -> Option<Vec<String>> {
+    let trap = |b: &str| ["bottom", "top"].iter().map(|h| format!("minecraft:{b}[facing=north,half={h},open=false,powered=false,waterlogged=false]")).collect::<Vec<_>>();
+    let rail = |b: &str| {
+        ["north_south", "east_west", "ascending_east", "ascending_west", "ascending_north", "ascending_south"]
+            .iter()
+            .map(|s| format!("minecraft:{b}[powered=false,shape={s},waterlogged=false]"))
+            .collect::<Vec<_>>()
+    };
+    Some(match tok {
+        "trapdoor" => trap("iron_trapdoor"),
+        "ctrap" => trap("waxed_copper_trapdoor"),
+        "gate" => ["north", "east"].iter().map(|f| format!("minecraft:oak_fence_gate[facing={f},in_wall=false,open=false,powered=false]")).collect(),
+        "skull" => vec!["minecraft:skeleton_skull[powered=false,rotation=0]".into()],
+        "shelf" => vec!["minecraft:oak_shelf[facing=north,powered=false,side_chain=unconnected,waterlogged=false]".into()],
+        "rail" => rail("powered_rail"),
+        "arail" => rail("activator_rail"),
+        "disp" => vec!["minecraft:dispenser[facing=up,triggered=false]".into()],
+        "dropper" => vec!["minecraft:dropper[facing=up,triggered=false]".into()],
+        "crafter" => vec!["minecraft:crafter[crafting=false,orientation=north_up,triggered=false]".into()],
+        "scaffold" => vec!["minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]".into()],
+        "grate" => vec!["minecraft:waxed_copper_grate[waterlogged=false]".into()],
+        "tinted" => vec!["minecraft:tinted_glass".into()],
+        "slab" => vec!["minecraft:smooth_stone_slab[type=top,waterlogged=false]".into()],
+        "stairs" => vec!["minecraft:stone_stairs[facing=north,half=top,shape=straight,waterlogged=false]".into()],
+        "exotic" => vec![
+            "minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]".into(),
+            "minecraft:oak_fence_gate[facing=north,in_wall=false,open=false,powered=false]".into(),
+            "minecraft:powered_rail[powered=false,shape=north_south,waterlogged=false]".into(),
+            "minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]".into(),
+            "minecraft:dispenser[facing=up,triggered=false]".into(),
+            "minecraft:crafter[crafting=false,orientation=north_up,triggered=false]".into(),
+            "minecraft:skeleton_skull[powered=false,rotation=0]".into(),
+        ],
+        _ => return None,
+    })
 }
 
 /// What a block does in the static signal model.
@@ -143,6 +204,14 @@ pub enum Kind {
     /// Sculk sensor (category sculk): driven wirelessly by the lever's vibration (always fed),
     /// weak power on every side (a calibrated one: all but its back), strong into the block below.
     Sensor,
+    /// Power indicator (trapdoors, fence gates, skulls, shelves, dispensers, droppers, crafters):
+    /// reads any signal from its six neighbors (dispensers and droppers also the neighbors of the
+    /// cell above: `qc`), shows it in its own state at once (observers can watch it), powers
+    /// nothing.
+    Indicator,
+    /// Powered or activator rail: an indicator that also passes its power along its line (up to 8
+    /// rails, same tick); powers nothing else.
+    Rail,
     /// Not sturdy, not a conductor (piston heads, moving blocks...).
     Other,
 }
@@ -163,6 +232,8 @@ pub struct Node {
     /// Cached [`Node::emits`] and [`Node::reads`].
     pub em: Vec<Pos>,
     pub rd: Vec<Pos>,
+    /// Quasi-connected reader (dispenser, dropper): power into the cell above it counts.
+    pub qc: bool,
 }
 
 impl Node {
@@ -198,13 +269,26 @@ impl Node {
             }
             "piston" | "sticky_piston" => (Kind::Inert, None, get("extended").as_deref() != Some("true"), true),
             "piston_head" | "moving_piston" | "air" => (Kind::Other, None, false, false),
-            n if n.contains("glass") || n == "slime_block" || n == "honey_block" => (Kind::Inert, None, true, false),
-            n if n.contains("slab") || n.contains("stairs") || n.contains("torch") || n.contains("button") || n.contains("rail") => {
+            // Power indicators: no output, no support needed, observers see them flip.
+            n if n.ends_with("trapdoor") || n.ends_with("fence_gate") || n.ends_with("_skull") || n.ends_with("_head") || n.ends_with("_shelf") || n.ends_with("_door") => {
+                (Kind::Indicator, None, false, true)
+            }
+            // Full blocks with a `triggered` state (dispensers and droppers read power like a
+            // piston, quasi-connectivity included); they hold dust.
+            "dispenser" | "dropper" | "crafter" => (Kind::Indicator, None, true, true),
+            "powered_rail" | "activator_rail" => (Kind::Rail, below, false, true),
+            n if n.contains("glass") || n.ends_with("copper_grate") || n == "slime_block" || n == "honey_block" => (Kind::Inert, None, true, false),
+            // Top slabs and upside-down stairs: non-conducting dust floors, like glass.
+            n if (n.contains("slab") && get("type").as_deref() == Some("top")) || (n.contains("stairs") && get("half").as_deref() == Some("top")) => {
+                (Kind::Inert, None, true, false)
+            }
+            n if n.contains("slab") || n.contains("stairs") || n.contains("torch") || n.contains("button") || n.contains("rail") || n == "scaffolding" => {
                 (Kind::Other, None, false, false)
             }
             _ => (Kind::Block, None, true, false),
         };
-        Node { pos, state: state.to_string(), kind, facing, support, sturdy, changes, em: Vec::new(), rd: Vec::new() }.cached()
+        let qc = matches!(name.as_str(), "dispenser" | "dropper");
+        Node { pos, state: state.to_string(), kind, facing, support, sturdy, changes, em: Vec::new(), rd: Vec::new(), qc }.cached()
     }
 
     /// Fill the emits/reads caches (call again after changing `kind`).
@@ -214,11 +298,38 @@ impl Node {
         self
     }
 
+    /// The cells a rail's line continues into (both ways along its axis, same level, one up or one
+    /// down: slopes).
+    fn rail_line(&self) -> Vec<Pos> {
+        let shape = BlockState::parse(&self.state).ok().and_then(|b| b.get("shape").map(str::to_string)).unwrap_or_default();
+        let axis: Pos = if shape.contains("east") || shape.contains("west") { [1, 0, 0] } else { [0, 0, 1] };
+        let mut v = Vec::new();
+        for s in [axis, neg(axis)] {
+            for dy in [-1, 0, 1] {
+                v.push(add(add(self.pos, s), [0, dy, 0]));
+            }
+        }
+        v
+    }
+
     /// Cells whose emitters can drive this block.
     pub fn reads(&self) -> Vec<Pos> {
         let p = self.pos;
         match self.kind {
             Kind::Block | Kind::Lamp => FACES.iter().map(|f| add(p, *f)).collect(),
+            Kind::Indicator => {
+                let mut v: Vec<Pos> = FACES.iter().map(|f| add(p, *f)).collect();
+                if self.qc {
+                    let up = add(p, [0, 1, 0]);
+                    v.extend(FACES.iter().map(|f| add(up, *f)).filter(|c| *c != p));
+                }
+                v
+            }
+            Kind::Rail => {
+                let mut v: Vec<Pos> = FACES.iter().map(|f| add(p, *f)).collect();
+                v.extend(self.rail_line());
+                v
+            }
             Kind::Dust => {
                 let mut v: Vec<Pos> = FACES.iter().map(|f| add(p, *f)).collect();
                 for h in HORIZ {
@@ -255,6 +366,8 @@ impl Node {
             }
             Kind::Repeater | Kind::Comparator | Kind::Observer => vec![add(p, neg(self.facing))],
             Kind::Torch => FACES.iter().map(|f| add(p, *f)).filter(|c| Some(*c) != self.support).collect(),
+            // A rail passes its power to the rails of its line only (see `drives`).
+            Kind::Rail => self.rail_line(),
             _ => Vec::new(),
         }
     }
@@ -270,6 +383,19 @@ pub fn drives(u: &Node, v: &Node) -> bool {
     if v.kind == Kind::Comparator && u.kind == Kind::Lamp && u.state.contains("copper_bulb") {
         return add(v.pos, v.facing) == u.pos;
     }
+    // A rail passes its power to the rails of its line (same axis), and to nothing else.
+    if u.kind == Kind::Rail {
+        let axis = |n: &Node| n.state.contains("east") || n.state.contains("west");
+        return v.kind == Kind::Rail && axis(u) == axis(v) && u.em.contains(&v.pos) && v.rd.contains(&u.pos);
+    }
+    // A quasi-connected reader (dispenser, dropper) also takes the signal given into the cell
+    // above it.
+    if v.qc && !u.em.contains(&v.pos) {
+        let up = add(v.pos, [0, 1, 0]);
+        let adjacent = (0..3).map(|i| (u.pos[i] - up[i]).abs()).sum::<i32>() == 1;
+        let source = matches!(u.kind, Kind::Block | Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::RBlock | Kind::Lever | Kind::Sensor);
+        return u.pos != v.pos && adjacent && source && u.em.contains(&up) && (u.kind != Kind::Dust || up[1] <= u.pos[1]);
+    }
     if !u.em.contains(&v.pos) || !v.rd.contains(&u.pos) {
         return false;
     }
@@ -277,7 +403,7 @@ pub fn drives(u: &Node, v: &Node) -> bool {
     let diag = (v.pos[0] - u.pos[0]).abs() + (v.pos[2] - u.pos[2]).abs() + dy.abs() > 1;
     match (u.kind, v.kind) {
         (_, Kind::Inert | Kind::Other | Kind::RBlock | Kind::Lever | Kind::Sensor) => false,
-        (Kind::Lamp | Kind::Inert | Kind::Other, _) => false,
+        (Kind::Lamp | Kind::Inert | Kind::Other | Kind::Indicator | Kind::Rail, _) => false,
         // A sensor strongly powers only the block right below it.
         (Kind::Sensor, Kind::Block) => dy == -1 && !diag,
         // A torch reads the strong power of the block it hangs on.
@@ -290,7 +416,7 @@ pub fn drives(u: &Node, v: &Node) -> bool {
         (Kind::Lever, Kind::Block) => u.support == Some(v.pos),
         (Kind::RBlock, Kind::Block) => false,
         // Dust powers the block below it and the blocks it points into (never diagonally).
-        (Kind::Dust, Kind::Block | Kind::Lamp) => !diag && dy <= 0,
+        (Kind::Dust, Kind::Block | Kind::Lamp | Kind::Indicator | Kind::Rail) => !diag && dy <= 0,
         (Kind::Dust, Kind::Dust) => true,
         (_, Kind::Dust) => !diag,
         _ => !diag,
@@ -330,6 +456,17 @@ pub fn require_any_names(spec: &str) -> Vec<String> {
             "bulb" => "copper_bulb".to_string(),
             "note" => "note_block".to_string(),
             "target" => "minecraft:target".to_string(),
+            "trapdoor" | "ctrap" => "trapdoor".to_string(),
+            "gate" => "fence_gate".to_string(),
+            "rail" | "arail" => "_rail".to_string(),
+            "disp" => "dispenser".to_string(),
+            "skull" => "_skull".to_string(),
+            "shelf" => "_shelf".to_string(),
+            "scaffold" => "scaffolding".to_string(),
+            "grate" => "copper_grate".to_string(),
+            "tinted" => "tinted_glass".to_string(),
+            "slab" => "_slab".to_string(),
+            "stairs" => "_stairs".to_string(),
             s => s.to_string(),
         })
         .collect()
@@ -348,6 +485,8 @@ fn kind_name(k: Kind) -> &'static str {
         Kind::RBlock => "rblock",
         Kind::Lever => "lever",
         Kind::Sensor => "sensor",
+        Kind::Indicator => "indicator",
+        Kind::Rail => "rail",
         Kind::Other => "other",
     }
 }
@@ -385,6 +524,8 @@ fn parse_kind(s: &str) -> Result<Kind> {
         "lamp" => Kind::Lamp,
         "rblock" => Kind::RBlock,
         "sensor" => Kind::Sensor,
+        "indicator" => Kind::Indicator,
+        "rail" => Kind::Rail,
         _ => bail!("unknown kind {s:?}"),
     })
 }
@@ -545,7 +686,8 @@ impl Gen {
     }
 
     fn reaches_sink(&self, n: &Node) -> bool {
-        self.sinks.iter().any(|s| n.em.contains(s)) || (n.changes && self.watched.contains(&n.pos))
+        // A rail's line cells are not powered by it.
+        (n.kind != Kind::Rail && self.sinks.iter().any(|s| n.em.contains(s))) || (n.changes && self.watched.contains(&n.pos))
     }
 
     /// A finished circuit: some driven block drives a sink, every block is on a source-to-sink
@@ -1298,7 +1440,7 @@ fn removable(d: &Design, changing: &HashSet<Pos>) -> Vec<Pos> {
         .iter()
         .filter(|(p, s)| {
             let n = Node::new(**p, s);
-            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp | Kind::Sensor)
+            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp | Kind::Sensor | Kind::Indicator | Kind::Rail)
                 || s.contains("note_block")
                 || s.contains("minecraft:target");
             let still_block = matches!(n.kind, Kind::Block) && !changing.contains(*p);

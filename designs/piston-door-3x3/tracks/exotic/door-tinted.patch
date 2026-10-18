@@ -1,0 +1,10 @@
+# The 9 door cells (door port 0 0 0, plane z = 0) as tinted glass: a non-conducting full block.
+set 0 0 0 minecraft:tinted_glass
+set 1 0 0 minecraft:tinted_glass
+set 2 0 0 minecraft:tinted_glass
+set 0 1 0 minecraft:tinted_glass
+set 1 1 0 minecraft:tinted_glass
+set 2 1 0 minecraft:tinted_glass
+set 0 2 0 minecraft:tinted_glass
+set 1 2 0 minecraft:tinted_glass
+set 2 2 0 minecraft:tinted_glass

@@ -119,7 +119,11 @@ The full solid progression from 151 (with the v2 steps) is
   made sculk-2's doors work in all 8 orientations with one repeater delay change (s4r, 36).
   pareto-mid filled the solid frontier's middle with new delay elements (a log and persistent leaves,
   a redstone block and a lamp: gadgets `log-leaves`, `rb-lamp`): 43 at 15 / 17, 44 at 14 / 16, 46 at
-  15 / 13 and 14 / 14.
+  15 / 13 and 14 / 14; the exotic track then made it 45 at 14 / 14 with an observer watching an iron
+  trapdoor (trapdoors, fence gates, skulls, rails, dispensers, crafters and scaffolding are now in
+  the search palettes). A new category, **entity** (minecarts, armor stands, boats... declared in
+  the design and judged exactly back at rest after each close), got its own board, "Entities
+  allowed" (the entities track).
 
 ## The door families
 

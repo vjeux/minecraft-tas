@@ -1,0 +1,37 @@
+name: gadget-dispenser-qc
+# Dispensers and droppers read power like a piston (DispenserBlock.neighborChanged:
+# hasNeighborSignal(pos) || hasNeighborSignal(pos.above()): quasi-connectivity) and show it in
+# TRIGGERED at once, on both edges (flag 2: observers see it; the dispense tick 4 gt later finds
+# an empty inventory and changes nothing). They have a block entity, so pistons cannot move them.
+# Row z=0: lever L -> repeater R pointing into the AIR cell above dispenser D: D triggers at
+# tick 2 (the repeater updates the neighbors of the cell it points into), observer O watching D
+# pulses ticks 4..5; on lever off D untriggers at tick 2. Piston K (z=1) pushing at D, powered by
+# a redstone block placed under it, cannot extend. Row z=2: the same with a crafter C
+# (CrafterBlock.neighborChanged: hasNeighborSignal(pos) only): the repeater into the cell above it
+# triggers nothing, observer P never fires. Row z=4: a repeater pointing straight into crafter E
+# triggers it at tick 2; observer W pulses ticks 4..5.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  D minecraft:dispenser[facing=up,triggered=false]
+  C minecraft:crafter[crafting=false,orientation=north_up,triggered=false]
+  O minecraft:observer[facing=east,powered=false]
+  K minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  .
+  .
+  .
+  .
+  ..SS
+layer 1:
+  ODSS
+  .K
+  OCSS
+  .
+  OCRL
+layer 2:
+  ..RL
+  .
+  ..RL

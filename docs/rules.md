@@ -60,7 +60,7 @@ design that only passes with a modified verifier does not count.
 
 ## Categories
 
-`door verify` prints `category solid|gravity|sculk`, plus `, slime-free` and `, flat` when they
+`door verify` prints `category solid|gravity|sculk|entity`, plus `, slime-free` and `, flat` when they
 apply, and `rotation-safe` or `NOT rotation-safe`.
 
 * **solid**: the main ranking; everything that is neither gravity nor sculk.
@@ -69,6 +69,29 @@ apply, and `rotation-safe` or `NOT rotation-safe`.
 * **sculk**: the design contains a sculk sensor. Footsteps or mobs nearby can trigger one (in real
   play a player standing on a sensor breaks some sculk doors), so it ranks separately. Gravity wins
   if both apply.
+* **entity** (vjeux, 2026-10-18): the design declares entities as `entity:` lines in the file
+  (`entity: minecraft:minecart 0.5 1.0625 3.5 [{snbt}]`: type, world position as decimals, optional
+  data). Every other board bans entities; "Entities allowed" ranks these together with the solid
+  designs (a gravity or sculk door with entities ranks nowhere). The judge, only for such designs
+  (designs without entities are judged exactly as before):
+  * each entity counts as one block;
+  * allowed types: minecarts (not command block or spawner minecarts), boats and rafts, armor
+    stands, item frames, paintings: what a survival player places and what never acts on its own
+    (no mobs: their AI is random; no items or arrows: they despawn); allowed data keys: `Rotation`,
+    `Items`, `equipment`, `Item`, `ItemRotation`, `Facing`, `variant` (no `NoGravity`, `Tags`,
+    passengers, poses: only commands set those);
+  * the entities are summoned after the blocks (deterministic UUIDs and entity randoms); settling
+    waits until each is at rest (a rolling minecart only slows by 0.96 per tick, so it must stop on
+    an unpowered powered rail or against a block);
+  * at rest: exactly the declared entities, none in front of or behind the door (the same 3x3
+    columns at any distance as blocks), none with collision (boats, pushable minecarts) in the
+    walkway;
+  * open: no entity with collision in the opening or the walkway (the open tick counts it), the
+    same entity set (nothing dropped, nothing broke);
+  * close: every entity back EXACTLY at its rest position (rails put a cart back on the rail's
+    center line and pistons move entities by exact half-block steps, so no tolerance), at rest,
+    with the same state (its saved data without position and motion: rail, contents, pose...); no
+    other entity at any tick, and no entity ever outside the watch box.
 
 ## Rotations
 
@@ -120,9 +143,10 @@ collapsed.
 | Solid, smallest box | solid designs | cells in the bounding box of the swept shape (the door included), ties by blocks |
 | Sculk | category sculk, rotation-safe | blocks |
 | Gravity | category gravity, rotation-safe | blocks |
+| Entities allowed | category entity and solid designs (0 entities): solid doors that may also use entities | blocks (each entity counts as one) |
 | Not rotation-safe | working designs of any category that break when turned | blocks |
-| Pareto frontier: open, close, blocks (any category / solid only) | every door that no other door beats on open ticks, close ticks and blocks at once | - |
-| Fastest open / close / open + close (any category / solid only) | rotation-safe | ticks, ties by blocks |
+| Pareto frontier: open, close, blocks (any category / solid only / entities allowed) | every door that no other door beats on open ticks, close ticks and blocks at once ("any category" excludes entity doors) | - |
+| Fastest open / close / open + close (any category / solid only / entities allowed) | rotation-safe | ticks, ties by blocks |
 
 Every board except "Not rotation-safe" ranks rotation-safe designs only.
 
