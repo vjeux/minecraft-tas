@@ -864,9 +864,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 let base_n = crate::block_count(&d);
                 let mut best: Option<(Design, String)> = None;
                 let screen = opts.screen.clone();
+                // Timing signature: every cycle's open/close ticks AND settle ticks (a rider that
+                // fires extra often only shows in the settle time).
+                let sig = |r: &crate::Report| -> Vec<u32> {
+                    r.cycles.iter().flat_map(|c| [c.open_ticks, c.open_settle, c.close_ticks, c.close_settle]).collect()
+                };
                 let base_ticks = if changed {
                     let mut w = pool.worker(0);
-                    Some(crate::search::worst_ticks(&crate::verify(&mut w, &d, &screen)?))
+                    Some(sig(&crate::verify(&mut w, &d, &screen)?))
                 } else {
                     None
                 };
@@ -875,12 +880,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     Some(bt) => {
                         let items: Vec<Design> = found.iter().map(|(fd, _)| fd.clone()).collect();
                         let screen = &screen;
-                        pool.map(items, |w, _, fd| {
-                            Ok(crate::verify(w, &fd, screen).map(|r| crate::search::worst_ticks(&r) != bt).unwrap_or(true))
-                        })
-                        .into_iter()
-                        .map(|r| r.unwrap_or(true))
-                        .collect()
+                        let bt = &bt;
+                        pool.map(items, |w, _, fd| Ok(crate::verify(w, &fd, screen).map(|r| sig(&r) != *bt).unwrap_or(true)))
+                            .into_iter()
+                            .map(|r| r.unwrap_or(true))
+                            .collect()
                     }
                     None => vec![true; found.len()],
                 };
