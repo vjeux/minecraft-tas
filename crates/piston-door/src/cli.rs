@@ -672,6 +672,14 @@ pub enum DoorCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// List a design's blocks with their coordinates, one `x y z state` line each (the same
+    /// coordinates `door patch` and `door drive` use), optionally only those inside a box.
+    Blocks {
+        design: PathBuf,
+        /// Only blocks inside this box, "x0,y0,z0:x1,y1,z1" (inclusive).
+        #[arg(long)]
+        only: Option<String>,
+    },
     /// Place a design, settle, flip the lever and print every block change tick by tick.
     Trace {
         design: PathBuf,
@@ -1533,6 +1541,27 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let d = crate::canonicalize(&mut w, &d1)?;
             d.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d0), crate::block_count(&d), out.display());
+        }
+        DoorCmd::Blocks { design, only } => {
+            let d = load_design(&design)?;
+            let bx: Option<([i32; 3], [i32; 3])> = match &only {
+                None => None,
+                Some(s) => {
+                    let (a, b) = anyhow::Context::context(s.split_once(':'), "--only wants x0,y0,z0:x1,y1,z1")?;
+                    let p = |t: &str| -> Result<[i32; 3]> {
+                        let v: Vec<i32> = t.split(',').map(|n| n.trim().parse()).collect::<std::result::Result<_, _>>()?;
+                        anyhow::ensure!(v.len() == 3, "a corner needs 3 coordinates: {t}");
+                        Ok([v[0], v[1], v[2]])
+                    };
+                    let (a, b) = (p(a)?, p(b)?);
+                    Some(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
+                }
+            };
+            let mut ps: Vec<(&[i32; 3], &String)> = d.blocks.iter().filter(|(p, _)| bx.is_none_or(|(lo, hi)| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]))).collect();
+            ps.sort_by_key(|(p, _)| (p[1], p[2], p[0]));
+            for (p, s) in ps {
+                println!("{} {} {} {}", p[0], p[1], p[2], s.strip_prefix("minecraft:").unwrap_or(s));
+            }
         }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;
