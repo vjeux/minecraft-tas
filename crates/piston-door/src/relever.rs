@@ -31,6 +31,9 @@ pub fn substitute_state(name: &str) -> Option<&'static str> {
         "dispenser" => "minecraft:dispenser[facing=up,triggered=false]",
         "lamp" => "minecraft:redstone_lamp[lit=false]",
         "bulb" => "minecraft:waxed_copper_bulb[lit=false,powered=false]",
+        // Only with the lever kept on its support (dust cannot hold a lever): the dust reads the
+        // strongly powered support and powers the lever's old neighbors.
+        "dust" => "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]",
         _ => return None,
     })
 }
@@ -48,33 +51,63 @@ fn add(a: Pos, b: Pos) -> Pos {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
 
-/// One candidate: a label (`as-is` or `<substitute>-<face>`) and the design.
+/// One candidate: a label (`as-is`, `<substitute>-<face>` with the lever hung on the substitute,
+/// `<substitute>@support-<face>` with the lever moved to another face of its old support) and the
+/// design; `fix` = the substitute's cell, whose neighbor-derived state is recomputed once.
 #[derive(Clone)]
 pub struct Variant {
     pub label: String,
     pub design: Design,
+    pub fix: Option<Pos>,
 }
 
 /// The design as it is, then every relever variant: each substitute in the lever's cell with the
 /// lever hung on each of its free faces (not a design block, not the door, the walkway or the 3x3
-/// columns in front of and behind it).
+/// columns in front of and behind it); and each substitute in the lever's cell with the lever
+/// moved to another free face of its old support (the support stays strongly powered, the
+/// substitute next to it follows it: a note block toggles, dust also powers the lever's old
+/// neighbors).
 pub fn variants(d: &Design, subs: &[String]) -> Result<Vec<Variant>> {
     let spec = DoorSpec::from_design(d)?;
     let l = spec.lever;
     let clear: HashSet<Pos> = crate::route::keep_clear(&spec).into_iter().collect();
-    let mut out = vec![Variant { label: "as-is".into(), design: d.clone() }];
+    let support = d.blocks.get(&l).and_then(|s| crate::properties_dyn::lever_support(s, l));
+    let mut out = vec![Variant { label: "as-is".into(), design: d.clone(), fix: None }];
     for s in subs {
-        let state = substitute_state(s).with_context(|| format!("unknown substitute {s:?} (note, dropper, dispenser, lamp, bulb)"))?;
-        for (f, face, lever) in FACES {
-            let p = add(l, f);
-            if d.blocks.contains_key(&p) || clear.contains(&p) {
-                continue;
+        let state = substitute_state(s).with_context(|| format!("unknown substitute {s:?} (note, dropper, dispenser, lamp, bulb, dust)"))?;
+        // The lever on the substitute.
+        if s != "dust" {
+            for (f, face, lever) in FACES {
+                let p = add(l, f);
+                if d.blocks.contains_key(&p) || clear.contains(&p) {
+                    continue;
+                }
+                let mut v = d.clone();
+                v.blocks.insert(l, state.to_string());
+                v.blocks.insert(p, lever.to_string());
+                v.ports.insert("lever".into(), p);
+                out.push(Variant { label: format!("{s}-{face}"), design: v, fix: Some(l) });
             }
-            let mut v = d.clone();
-            v.blocks.insert(l, state.to_string());
-            v.blocks.insert(p, lever.to_string());
-            v.ports.insert("lever".into(), p);
-            out.push(Variant { label: format!("{s}-{face}"), design: v });
+        }
+        // The lever on another face of its old support.
+        if let Some(sp) = support {
+            // Dust needs a floor: a smooth stone under it when the cell below is free (+1 block).
+            let below = add(l, [0, -1, 0]);
+            let floor = s == "dust" && !d.blocks.contains_key(&below) && !clear.contains(&below);
+            for (f, face, lever) in FACES {
+                let p = add(sp, f);
+                if p == l || d.blocks.contains_key(&p) || clear.contains(&p) || (floor && p == below) {
+                    continue;
+                }
+                let mut v = d.clone();
+                v.blocks.insert(l, state.to_string());
+                if floor {
+                    v.blocks.insert(below, "minecraft:smooth_stone".to_string());
+                }
+                v.blocks.insert(p, lever.to_string());
+                v.ports.insert("lever".into(), p);
+                out.push(Variant { label: format!("{s}{}@support-{face}", if floor { "+floor" } else { "" }), design: v, fix: Some(l) });
+            }
         }
     }
     Ok(out)
@@ -109,14 +142,9 @@ pub struct Outcome {
 pub fn judge_variant(w: &mut Worker, v: Variant, judge: &VerifyOptions, screen: &VerifyOptions, need_rotation: bool) -> Result<Outcome> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let r = (|| -> Result<Outcome> {
-        let d = if v.label == "as-is" {
-            v.design.clone()
-        } else {
-            let lever_cell = DoorSpec::from_design(&v.design).map(|s| s.lever)?;
-            // The substitute is the block the new lever hangs on.
-            let sub = crate::properties_dyn::lever_support(v.design.blocks.get(&lever_cell).map(String::as_str).unwrap_or(""), lever_cell)
-                .context("the new lever has no support")?;
-            fix_shape(w, sb, &v.design, sub)?
+        let d = match v.fix {
+            None => v.design.clone(),
+            Some(cell) => fix_shape(w, sb, &v.design, cell)?,
         };
         let verdict = (|| -> std::result::Result<(u32, u32, u32, u32, String), String> {
             let e = |e: anyhow::Error| format!("{e:#}").replace(['\n', '\t'], " ");
@@ -132,8 +160,10 @@ pub fn judge_variant(w: &mut Worker, v: Variant, judge: &VerifyOptions, screen: 
             }
             crate::search::eligibility(w, sb, &d, true, true, &judge.offsets).map_err(e)?;
             let (ro, rc) = crate::properties_dyn::eligibility_in(w, sb, &d, &first, 1, false, false).map_err(e)?;
-            let tier = crate::properties::seamless_tier(w, sb, &d).map_err(e)?;
-            Ok((o, c, ro, rc, tier))
+            let p = crate::properties::input_props(w, sb, &d).map_err(e)?;
+            let tier = p.get("seamless").cloned().unwrap_or_else(|| "-".into());
+            let vol = format!("volume {} ({})", p.get("volume").map(String::as_str).unwrap_or("?"), p.get("volume_dims").map(String::as_str).unwrap_or("?"));
+            Ok((o, c, ro, rc, format!("{tier}, {vol}")))
         })();
         Ok(Outcome { label: v.label.clone(), design: d, verdict })
     })();
