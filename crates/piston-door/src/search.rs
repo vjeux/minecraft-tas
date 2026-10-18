@@ -588,6 +588,37 @@ fn swaps(ctx: &Ctx, d: &Design, radius: i32) -> Vec<Edit> {
     out
 }
 
+/// Relocations (neutral, for the plateau): one removable block out, one vocabulary block in a
+/// free cell within `radius` (or in its own cell as another state).
+fn relocations(ctx: &Ctx, d: &Design, radius: i32) -> Vec<Edit> {
+    let vocab = swap_vocabulary();
+    let mut out = Vec::new();
+    for p in ctx.removable(d) {
+        let base = Edit::removal(&[p], d);
+        let after = base.apply(d);
+        for dx in -radius..=radius {
+            for dy in -radius..=radius {
+                for dz in -radius..=radius {
+                    let q = add(p, [dx, dy, dz]);
+                    if after.blocks.contains_key(&q) || ctx.forbidden.contains(&q) {
+                        continue;
+                    }
+                    for s in &vocab {
+                        if (q == p && d.blocks[&p] == *s) || !support_ok(&after, q, s) {
+                            continue;
+                        }
+                        let mut e = base.clone();
+                        e.set.push((q, s.clone()));
+                        e.desc = format!("{} +{} {}", base.desc, fmt_pos(q), short(s));
+                        out.push(e);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Each neutral edit plus one removal within `radius` of the cells it touches.
 fn compounds(ctx: &Ctx, d: &Design, neutral: &[Edit], radius: i32) -> Vec<Edit> {
     let r = ctx.removable(d);
@@ -1535,6 +1566,9 @@ pub fn search(
             break;
         }
         // Plateau: neutral edits that pass the judge, each followed by single (and pair) removals.
+        if opts.has(Family::Swap) {
+            neutral_all.extend(relocations(&ctx, &cur, opts.radius));
+        }
         log(&format!("  no improving move; plateau: judging {} neutral edits", neutral_all.len()));
         let cands: Vec<Cand> = neutral_all.into_iter().map(|edit| Cand { base: 0, edit }).collect();
         let mut plateau: Vec<(usize, Design, String)> = evaluate(pool, &sandboxes, &bases, cands, opts, &failed, 0, log)

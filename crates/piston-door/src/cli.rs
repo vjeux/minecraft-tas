@@ -377,7 +377,6 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
         }
         DoorCmd::Harvest { refs, fetch, max_blocks, top, within, minutes, every, hours, out_dir, search } => {
-            let pool = search.pool(version)?;
             let t = std::time::Instant::now();
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
             let hopts = crate::harvest::HarvestOptions { refs, max_blocks, top, minutes, out_dir, moves: search.moves.clone(), within };
@@ -389,7 +388,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         log("git fetch failed; harvesting what we have");
                     }
                 }
+                // A fresh pool per pass: no idle JVMs held between passes.
+                let pool = search.pool(version)?;
                 crate::harvest::run(&pool, std::path::Path::new("."), &hopts, &search.options()?, &log)?;
+                drop(pool);
                 if every <= 0.0 || t.elapsed().as_secs_f64() > hours * 3600.0 {
                     break;
                 }
