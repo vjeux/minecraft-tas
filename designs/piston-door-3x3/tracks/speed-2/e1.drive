@@ -1,0 +1,26 @@
+design designs/piston-door-3x3/tracks/speed-2/e1.txt
+# k = t-2. Scripted: P armed (-1,5,-1) after k3; A' power (1,3,1) after k3, off after k4; Q power
+# (-2,3,0) after k5, off after k7; R_Z (1,6,1) after k6.
+probe F 1 4 0
+probe E 1 3 0
+probe N1 1 2 0
+probe C 1 1 0
+probe Ap 0 3 0
+probe Q -1 3 0
+probe P -1 4 0
+probe RQ -1 5 0
+probe R1 1 5 1
+quiet 2
+use 0 4 -2
+trace 3
+set -1 5 -1 minecraft:redstone_block
+set 1 3 1 minecraft:redstone_block
+trace 1
+clear 1 3 1
+trace 1
+set -1 3 1 minecraft:redstone_block
+trace 1
+set 1 6 1 minecraft:redstone_block
+trace 1
+clear -1 3 1
+trace 6

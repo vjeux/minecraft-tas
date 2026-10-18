@@ -165,6 +165,8 @@ pub fn exotic_states(tok: &str) -> Option<Vec<String>> {
         "shelf" => vec!["minecraft:oak_shelf[facing=north,powered=false,side_chain=unconnected,waterlogged=false]".into()],
         "rail" => rail("powered_rail"),
         "arail" => rail("activator_rail"),
+        // Flat powered rails only (both axes): the sweeps' cheap rail palette.
+        "railf" => ["north_south", "east_west"].iter().map(|s| format!("minecraft:powered_rail[powered=false,shape={s},waterlogged=false]")).collect(),
         "disp" => vec!["minecraft:dispenser[facing=up,triggered=false]".into()],
         "dropper" => vec!["minecraft:dropper[facing=up,triggered=false]".into()],
         "crafter" => vec!["minecraft:crafter[crafting=false,orientation=north_up,triggered=false]".into()],
@@ -546,8 +548,7 @@ impl Gen {
     pub fn new(context: &Design, o: &SynthOptions) -> Result<Gen> {
         let mut forbid = o.forbid.clone();
         if let Ok(spec) = DoorSpec::from_design(context) {
-            forbid.extend(spec.door_cells());
-            forbid.extend(spec.corridor_cells());
+            forbid.extend(crate::route::keep_clear(&spec));
             forbid.insert(spec.lever);
         }
         let mut free = HashSet::new();
@@ -1183,7 +1184,7 @@ fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String>
     match target {
         Target::Door { judge, max_open, max_close, .. } => {
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
-            let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway };
+            let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
             screen_in(w, sb, d, &quick)?;
             let r = verify_in(w, sb, d, judge)?;
             let (o, c) = crate::search::worst_ticks(&r);

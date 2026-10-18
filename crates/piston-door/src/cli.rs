@@ -64,11 +64,25 @@ pub struct SearchArgs {
     /// `minecraft:sculk_sensor` (or `calibrated_sculk_sensor[facing=..]`) in the states.
     #[arg(long)]
     pub to_sculk: bool,
+    /// Shape boards: only accept designs within these shape limits relative to the door: a
+    /// preset (wall, wall2, flat, ground, no-above, narrow1, narrow2, wall-ground) or a comma list
+    /// of key<=n (front behind thick below above left right side volume).
+    #[arg(long)]
+    pub shape: Option<String>,
+    /// Judge every candidate as a tile module (tile.rs): wide:N, period:P:N, stack:N,
+    /// vperiod:Q:N or step:dx,dy,dz:N (copies of the design, one lever, every opening checked).
+    #[arg(long)]
+    pub tile: Option<String>,
+    /// Accept only rotation-safe designs (the judge also passes turned 90, 180 and 270 degrees;
+    /// the boards rank rotation-safe designs). The start design must be rotation-safe too.
+    #[arg(long)]
+    pub rotation_safe: bool,
 }
 
 impl SearchArgs {
     pub fn options(&self) -> Result<crate::search::SearchOptions> {
         let offsets = crate::search::judge_offsets(self.extra_offsets);
+        let tile = self.tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
         Ok(crate::search::SearchOptions {
             families: crate::search::parse_families(&self.moves)?,
             screen: VerifyOptions {
@@ -77,8 +91,9 @@ impl SearchArgs {
                 offsets: offsets.iter().take(self.screen_offsets.max(1)).copied().collect(),
                 keep_frames: false,
                 empty_walkway: true,
+                tile: tile.clone(),
             },
-            judge: VerifyOptions { offsets, ..Default::default() },
+            judge: VerifyOptions { offsets, tile, ..Default::default() },
             radius: self.radius,
             plateau: self.plateau || self.plateau_pairs || self.walk > 0 || self.depth > 1,
             plateau_pairs: self.plateau_pairs,
@@ -92,6 +107,8 @@ impl SearchArgs {
             max_open: self.max_open,
             max_close: self.max_close,
             to_sculk: self.to_sculk,
+            shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
+            rotation_safe: self.rotation_safe,
         })
     }
 
@@ -227,6 +244,44 @@ pub enum DoorCmd {
         #[arg(long)]
         all: bool,
     },
+    /// The shape of every working design relative to its door: layers in front of and behind the
+    /// door plane (thickness), rows below and above the opening, columns left and right of it,
+    /// bounding box; then for each shape rule (wall, wall2, flat, ground, no-above, narrow1,
+    /// narrow2, wall-ground, plus --rule) the best rotation-safe design today per league, and the
+    /// (volume, blocks) frontier. Verdicts come from the leaderboard cache (uncached designs are
+    /// verified with the judge).
+    Shapes {
+        /// Design files to measure besides the folder.
+        designs: Vec<PathBuf>,
+        /// Folder of designs to measure (default: the archive).
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        dir: PathBuf,
+        /// Also measure every design on HEAD and the explore/* branches (as the leaderboard does).
+        #[arg(long)]
+        branches: bool,
+        /// Ref prefix scanned with --branches besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 4)]
+        workers: usize,
+        /// Verdict cache folder (read; new verdicts are written back).
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        cache_dir: PathBuf,
+        /// Extra shape rules: a preset or a comma list of key<=n (front behind thick below above
+        /// left right side volume).
+        #[arg(long)]
+        rule: Vec<String>,
+        /// The table lists designs of at most this many blocks (the rules still see all).
+        #[arg(long, default_value_t = 200)]
+        table_max: usize,
+        /// Skip the table (rules and frontier only).
+        #[arg(long)]
+        no_table: bool,
+    },
     /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
     Leaderboard {
         /// Ref prefix to scan besides HEAD.
@@ -268,6 +323,11 @@ pub enum DoorCmd {
         /// design's lever: for wiring a mechanism that does not run on its own yet.
         #[arg(long)]
         swept_script: Option<PathBuf>,
+        /// Take the swept cells from this working design instead (e.g. the design before a net
+        /// was cut out of it to be re-laid elsewhere): only the cells its moving parts visit, so
+        /// the cut net's own cells are free again.
+        #[arg(long)]
+        swept_design: Option<PathBuf>,
         /// Append the path to this file as `door patch` lines (`set x y z <state>`) instead of
         /// printing builder code.
         #[arg(long)]
@@ -555,7 +615,8 @@ pub enum DoorCmd {
         /// Opposite box corner "x,y,z" (inclusive).
         #[arg(long)]
         hi: String,
-        /// Comma list: obs, block, dust, rep[1-4], torch, glass, obsidian, rblock, lamp, or full states.
+        /// Comma list: obs, block, dust, rep[1-4], torch, glass, obsidian, rblock, lamp, note, leaves
+        /// (persistent), log (3 axes), or full states without commas.
         #[arg(long, default_value = "obs,block,dust")]
         states: String,
         /// Blocks added together (1 or 2; 2 also tries singles).
@@ -1020,6 +1081,40 @@ pub enum DoorCmd {
         /// Also run all 8 orientations (4 turns, each as built and mirrored) and print which work.
         #[arg(long)]
         orientations: bool,
+        /// Judge the design as a tile module (tile.rs): `wide:N` (openings side by side, one
+        /// 3 x 3N opening), `period:P:N` (an opening every P blocks), `stack:N` (a 3N x 3
+        /// opening), `vperiod:Q:N` (an opening every Q blocks up) or `step:dx,dy,dz:N`. Copy 0
+        /// keeps the lever; the other copies get the module's `relay:` block in its cell.
+        #[arg(long)]
+        tile: Option<String>,
+        /// With --tile: `one` (the tiling: one lever) or `each` (diagnostic: every copy keeps
+        /// its lever, all flipped in the same tick).
+        #[arg(long, default_value = "one")]
+        tile_levers: String,
+        /// With --tile: write the whole arrangement here (a plain design file).
+        #[arg(long)]
+        tile_out: Option<PathBuf>,
+    },
+    /// Tileability scan (tile.rs): every design under every tiling of --tiles, in parallel; prints
+    /// per design which tilings work and the smallest working period.
+    TileScan {
+        /// Design files (or @builtins).
+        designs: Vec<PathBuf>,
+        /// Tilings, a comma list; period and vperiod take ranges: wide:3,stack:3,period:4..12:3.
+        #[arg(long, default_value = "wide:3,stack:3,period:4..12:3,vperiod:4..10:3")]
+        tiles: String,
+        /// `one` (copy 0 keeps the lever, the others get the module's relay) or `each`
+        /// (diagnostic: every copy flips its own lever in the same tick).
+        #[arg(long, default_value = "each")]
+        levers: String,
+        /// Judge positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 12)]
+        workers: usize,
+        /// Print the reason of every failure (default: the first 160 characters).
+        #[arg(long)]
+        verbose: bool,
     },
     /// Circuit synthesis by exhaustive simulation (see synth.rs): every circuit of up to --k
     /// blocks from --palette in the free cells of --lo..--hi that carries a signal from the
@@ -1107,6 +1202,9 @@ pub enum DoorCmd {
         /// Speed bounds: reject doors that close later than this many ticks.
         #[arg(long)]
         max_close: Option<u32>,
+        /// Judge every circuit as a tile module (tile.rs; see `door verify --tile`).
+        #[arg(long)]
+        tile: Option<String>,
     },
     /// Large-neighborhood search by exact synthesis (see synth.rs `resynth`): every connected
     /// group of 2..--max-size removable blocks (wiring, still plain blocks) is cleared and every
@@ -1159,12 +1257,52 @@ pub enum DoorCmd {
         /// design the old palette already exhausted.
         #[arg(long, default_value = "")]
         require_any: String,
+        /// Judge every candidate as a tile module (tile.rs; see `door verify --tile`).
+        #[arg(long)]
+        tile: Option<String>,
     },
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::TileScan { designs, tiles, levers, extra_offsets, workers, verbose } => {
+            let mut ts = crate::tile::parse_tile_list(&tiles)?;
+            let mode = match levers.as_str() {
+                "one" => crate::tile::LeverMode::One,
+                "each" => crate::tile::LeverMode::Each,
+                other => anyhow::bail!("--levers {other}: expected one or each"),
+            };
+            for t in ts.iter_mut() {
+                t.levers = mode;
+            }
+            let ds: Vec<(String, Design)> = designs.iter().map(|p| Ok((p.display().to_string(), load_design(p)?))).collect::<Result<_>>()?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let mut opts = VerifyOptions::default();
+            opts.offsets.extend(crate::extra_offsets(extra_offsets));
+            let rows = crate::tile::scan(&pool, &ds, &ts, &opts);
+            for (i, (name, d)) in ds.iter().enumerate() {
+                println!("== {name} ({} blocks, category {}{})", crate::block_count(d), crate::category(d), if crate::slime_free(d) { ", slime-free" } else { "" });
+                let mut best: std::collections::BTreeMap<String, String> = Default::default();
+                for (j, t, r) in rows.iter().filter(|(j, _, _)| *j == i) {
+                    let _ = j;
+                    let kind = t.label.split(':').next().unwrap_or("").to_string();
+                    match r {
+                        Ok((total, marginal, o, c)) => {
+                            println!("  {:<16} WORKS {total} blocks, +{marginal} per copy, open {o} / close {c}", t.label);
+                            best.entry(kind).or_insert_with(|| format!("{} (+{marginal} per copy)", t.label));
+                        }
+                        Err(e) => {
+                            let e = if verbose { e.clone() } else { e.chars().take(160).collect() };
+                            println!("  {:<16} fails: {e}", t.label);
+                        }
+                    }
+                }
+                for (k, v) in &best {
+                    println!("  smallest working {k}: {v}");
+                }
+            }
+        }
         DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut } => {
             let opts = video_style(&style, orbit)?;
             crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut)?;
@@ -1204,6 +1342,24 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let _ = n_board;
             print!("{}", crate::leaderboard::frontier_report(&board, &checks, !any_category, all));
         }
+        DoorCmd::Shapes { designs, dir, branches, refs, extra_offsets, max_blocks, workers, cache_dir, rule, table_max, no_table } => {
+            let repo = std::path::Path::new(".");
+            let mut cands = crate::shapes::collect_dir(&dir, max_blocks)?;
+            if branches {
+                cands.extend(crate::leaderboard::collect(repo, &refs, max_blocks)?);
+            }
+            for p in &designs {
+                cands.push((p.display().to_string(), load_design(p)?));
+            }
+            let mut seen = std::collections::HashSet::new();
+            cands.retain(|(_, d)| seen.insert(crate::leaderboard::design_hash(d)));
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, Some(&cache_dir))?;
+            let rules = crate::shapes::rules(&rule)?;
+            if !no_table {
+                print!("{}", crate::shapes::table(&entries, &rules, table_max));
+            }
+            print!("{}", crate::shapes::best_report(&entries, &rules));
+        }
         DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
             let repo = std::path::Path::new(".");
             if fetch {
@@ -1231,7 +1387,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(p, &table)?;
             }
         }
-        DoorCmd::Route { design, start, goal, allow, swept_script, patch } => {
+        DoorCmd::Route { design, start, goal, allow, swept_script, swept_design, patch } => {
             let d = load_design(&design)?;
             let cells = |s: &str| -> Vec<[i32; 3]> {
                 s.split(';').filter(|x| !x.trim().is_empty()).map(|c| {
@@ -1241,12 +1397,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let spec = crate::DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
-            let mut reserved = match &swept_script {
-                Some(s) => crate::drive::swept(&mut w, &std::fs::read_to_string(s)?)?,
-                None => crate::route::swept_cells(&mut w, &d, &spec)?,
+            let mut reserved = match (&swept_script, &swept_design) {
+                (Some(s), _) => crate::drive::swept(&mut w, &std::fs::read_to_string(s)?)?,
+                (None, Some(sd)) => {
+                    let sd = load_design(sd)?;
+                    let sspec = crate::DoorSpec::from_design(&sd)?;
+                    crate::route::swept_moving_cells(&mut w, &sd, &sspec)?
+                }
+                (None, None) => crate::route::swept_cells(&mut w, &d, &spec)?,
             };
             reserved.retain(|p| !d.blocks.contains_key(p));
-            for x in 0..=2 { for y in 0..=2 { for z in -4..=4 { reserved.insert([x, y, z]); } } }
+            reserved.extend(crate::route::keep_clear(&spec));
             reserved.insert([1, 3, 1]);
             let r = crate::route::Router { blocks: &d.blocks, reserved, allow: cells(&allow).into_iter().collect(), lo: [-12, -6, -8], hi: [12, 12, 10], floor_only: Default::default() };
             let goal = cells(&goal)[0];
@@ -2047,8 +2208,20 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out } => {
             let d = load_design(&design)?;
+            if let Some(spec) = tile {
+                let mut t = crate::tile::Tile::parse(&spec)?;
+                t.levers = match tile_levers.as_str() {
+                    "one" => crate::tile::LeverMode::One,
+                    "each" => crate::tile::LeverMode::Each,
+                    other => anyhow::bail!("--tile-levers {other}: expected one or each"),
+                };
+                let mut w = Worker::spawn(&cfg)?;
+                let mut opts = VerifyOptions { cycles, keep_frames: show, ..Default::default() };
+                opts.offsets.extend(crate::extra_offsets(extra_offsets));
+                return tile_verify_cmd(&mut w, &design, &d, &t, &opts, no_rotations, archive, archive_dir.as_deref(), tile_out.as_deref());
+            }
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
             let mut opts = VerifyOptions { cycles, keep_frames: show, ..Default::default() };
@@ -2143,8 +2316,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             max_cands,
             max_open,
             max_close,
+            tile,
         } => {
             use crate::synth::*;
+            let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let mut base = load_design(&context)?;
             for p in parse_cells(&clear)? {
                 anyhow::ensure!(base.blocks.remove(&p).is_some(), "--clear {} is already air", fmt_pos(p));
@@ -2194,8 +2369,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
                         keep_frames: false,
                         empty_walkway: true,
+                        tile: tile.clone(),
                     },
-                    judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
+                    judge: VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() },
                     max_open,
                     max_close,
                 },
@@ -2221,8 +2397,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile } => {
             use crate::synth::*;
+            let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let d = load_design(&design)?;
             let only = match only {
                 Some(s) => {
@@ -2249,8 +2426,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 only,
             };
             let offsets = crate::search::judge_offsets(extra_offsets);
-            let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
-            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false, empty_walkway: true };
+            let judge = VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() };
+            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false, empty_walkway: true, tile };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
             let t = std::time::Instant::now();
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
@@ -2282,6 +2459,96 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             canon.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
+        }
+    }
+    Ok(())
+}
+
+/// `door verify --tile`: the judge on every opening of a tiled module, with per-opening and
+/// per-module block counts and timings.
+#[allow(clippy::too_many_arguments)]
+fn tile_verify_cmd(
+    w: &mut Worker,
+    path: &std::path::Path,
+    d: &Design,
+    t: &crate::tile::Tile,
+    opts: &VerifyOptions,
+    no_rotations: bool,
+    archive: bool,
+    archive_dir: Option<&std::path::Path>,
+    tile_out: Option<&std::path::Path>,
+) -> Result<()> {
+    use crate::tile::*;
+    let lever_mode = match t.levers {
+        LeverMode::One => "one lever",
+        LeverMode::Each => "DIAGNOSTIC: every copy flips its own lever",
+    };
+    let tiled = expand(d, t)?;
+    if let Some(out) = tile_out {
+        tiled.design.save(out)?;
+        println!("arrangement written to {}", out.display());
+    }
+    let openings = tiled.specs.len();
+    let total = tiled_blocks(&tiled);
+    let marginal = marginal_blocks(d, t)?;
+    let per_copy = openings / tiled.copies;
+    let relay = relay_state(d)?.unwrap_or_else(|| "none (the lever cell stays empty)".into());
+    match verify_tiled(w, d, t, opts) {
+        Ok((r, per, _)) => {
+            println!(
+                "WORKS (tile {}, {lever_mode}): {}: {} copies, {openings} openings, {} blocks total ({:.1} per opening); module {} blocks, +{marginal} per extra copy ({:.1} per opening in a long row); category {}{}{}",
+                t.label,
+                d.name,
+                tiled.copies,
+                total,
+                total as f64 / openings as f64,
+                crate::block_count(d),
+                marginal as f64 / per_copy as f64,
+                crate::category(d),
+                if crate::slime_free(d) { ", slime-free" } else { "" },
+                if crate::single_layer(d) { ", flat" } else { "" }
+            );
+            println!("  relay in the copies without the lever: {relay}; cells shared by copies: {}", tiled.shared);
+            let o = r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0);
+            let c = r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0);
+            println!("  all openings: open after {o} ticks, closed after {c} ticks (worst cycle, first position)");
+            let line: Vec<String> = per.iter().enumerate().map(|(i, (a, b))| format!("#{i} {a}/{b}")).collect();
+            println!("  per opening (open/close): {}", line.join(", "));
+            for (i, cy) in r.cycles.iter().enumerate() {
+                println!("  cycle {i}: open after {} ticks (idle at {}), closed after {} ticks (idle at {})", cy.open_ticks, cy.open_settle, cy.close_ticks, cy.close_settle);
+            }
+            for warning in &r.warnings {
+                println!("  warning: {warning}");
+            }
+            if archive && t.levers == LeverMode::One {
+                let note = format!(
+                    "verified WORKS as a tile module: --tile {} ({} openings, {} blocks total, +{marginal} per extra copy), open {o} / close {c}",
+                    t.label, openings, total
+                );
+                match crate::archive::save(path, d, marginal, &note, archive_dir)? {
+                    Some(p) => println!("archived {}", p.display()),
+                    None => println!("already archived"),
+                }
+            }
+            if !no_rotations {
+                let ropts = VerifyOptions { keep_frames: false, ..opts.clone() };
+                match tiled_rotation_check(w, &tiled, &ropts)? {
+                    None => println!("rotation-safe: the arrangement also works turned 90, 180 and 270 degrees ({} positions each)", ropts.offsets.len()),
+                    Some((turns, why)) => println!("NOT rotation-safe: turned {} degrees: {why}", turns as u32 * 90),
+                }
+            }
+            if opts.keep_frames {
+                for (i, spec) in tiled.specs.iter().enumerate() {
+                    println!("opening #{i} (top row, middle row, bottom row; # block, ~ moving, h piston head, . air):");
+                    print!("{}", timeline(&r.open_frames, spec));
+                    println!("closing #{i}:");
+                    print!("{}", timeline(&r.close_frames, spec));
+                }
+            }
+        }
+        Err(e) => {
+            println!("BROKEN (tile {}, {lever_mode}): {}: {e:#}", t.label, d.name);
+            std::process::exit(1);
         }
     }
     Ok(())

@@ -1,0 +1,33 @@
+# mp5-mech (fresh-b's mirrored pump, ideal inputs) with separate close-edge timings, to find the
+# fastest close of the mechanism. Open edge as mp5.sched's fastest (12/12).
+design designs/piston-door-3x3/tracks/fresh-b/mp5-mech.txt
+let h = 0
+let a1 = 0
+let t = 5
+let tl = 3
+let s = 5
+let a2 = 7
+let u = 9
+let hc = 0
+let a1c = 0
+let sc = 5
+let a2c = 7
+let uc = 9
+open h set 0 3 -1 minecraft:redstone_block
+open a1 set 1 4 -1 minecraft:redstone_block
+open a1+2 clear 1 4 -1
+open t set 1 -2 -1 minecraft:redstone_block
+open t+tl clear 1 -2 -1
+open s set 2 4 -1 minecraft:redstone_block
+open a2 set 1 4 -1 minecraft:redstone_block
+open a2+2 clear 1 4 -1
+open u set 0 -3 -1 minecraft:redstone_block
+open u+2 clear 0 -3 -1
+close hc clear 0 3 -1
+close a1c set 1 4 -1 minecraft:redstone_block
+close a1c+2 clear 1 4 -1
+close sc clear 2 4 -1
+close a2c set 1 4 -1 minecraft:redstone_block
+close a2c+2 clear 1 4 -1
+close uc set 0 -3 -1 minecraft:redstone_block
+close uc+2 clear 0 -3 -1

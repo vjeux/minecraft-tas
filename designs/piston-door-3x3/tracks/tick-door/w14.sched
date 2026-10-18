@@ -1,0 +1,5 @@
+design designs/piston-door-3x3/tracks/tick-door/w14.txt
+open 0 use 3 5 1
+close 0 use 3 5 1
+close 24 set -9 9 -9 minecraft:stone
+close 25 clear -9 9 -9

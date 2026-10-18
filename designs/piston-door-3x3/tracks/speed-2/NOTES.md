@@ -38,13 +38,37 @@ R_X). R_X/R_Z timing: P_D and P_V fired 2 ticks earlier (k4..k6) -> R_X lands k6
     BE powered -> extends k9 -> retracts k10 pulling A' out of E; F 0-ticks at k10: **open 10**.
 * `door route2 --need` (all four nets at once) found 0 routings in 12 min; the hand design did it.
 * Gadget `designs/gadgets/odd-pulse` (+ mechanics.md row): the odd-pulse trick on its own.
-* **`a3-123b.txt` = BEST: 123 blocks, open 10 / close 7.** `door minimize` on a1 removed the old
+* **`a3-123b.txt`: 123 blocks, open 10 / close 7.** `door minimize` on a1 removed the old
   hold repeater's floor (-2,3,-1) (124); `door regrow --size 3 --max-open 10 --max-close 7` then
   replaced the re-pulse's repeater + floor + observer by one observer (-2,4,-1) facing east that
   watches O_Q directly (k6..k8) and a smooth stone (-3,4,-1) next to the note block (123).
+* **`a4-122b.txt` = BEST: 122 blocks, open 10 / close 7.** regrow again: the k2 relay stone
+  (-2,4,-2) is unused now. Then a full `minimize --moves all --plateau` pass (2.4M swaps) and a
+  65-min `regrow --size 3` (4.7M candidates) found nothing more at 10/7.
 * `o7m-118b.txt` (118, 11/7): `door minimize --moves all --plateau --max-open 11 --max-close 7`
   on o7 (60 min): dust (1,6,-2) + its floor -> one smooth stone (R_s and the lock repeater read the
   block the lever dust points into). The same edit breaks a1 (the shift dust re-shapes (2,6,-2)).
+  A 35-min `regrow --size 3 --max-open 11 --max-close 7` on it (3M candidates) found nothing.
+
+## Final report (speed-2)
+* Best: **`a4-122b.txt` = BEST.txt, 122 blocks, solid, slime-free, open 10 / close 7** (the first
+  solid door under 11 ticks; open+close 17 < 18). Also `o7m-118b.txt` (118, 11/7).
+* Mechanism: the speed track's o7 (T up into E at k1, Q shoves [A', T] east at k4, A' pulls C
+  into N1, Q pulls A' back and F 0-ticks C up into E) with a tick taken out of the middle: Q's
+  hold is gone, so Q's own 2gt pulse makes it spit A' into E at k6 and A' (powered) extends in the
+  same block-event phase; A' needs power that ends at k7 (odd), made by a repeater reading the
+  cell the k1 piston S_F shoves R_F out of (falls k3) -> note block -> observer -> stone next to E
+  (k5..k7); Q gets a second pulse k8..k10 (observer watching O_Q -> stone -> note block ->
+  observer into Q's QC cell) to re-extend at k9 and pull A' at k10; R_X/R_Z are fired 2 ticks
+  earlier so F's 0-tick is armed by k9 BE.
+* Failed: `route2 --need` (0 routings for the 4 nets); open 9 (a9: perfect up to k8, then the
+  E-watcher's dust also updates F, which pushes [A', C] down before Q pulls A'); close 6 (needs
+  F 0-ticking at close k1 from a removable redstone block and TR pushing T into E in the same
+  phase: TR gets no update there).
+* Next: open 9 via a k7..k9 source on Q's side that never touches F's neighbors (or arm F by
+  spitting R_X into R1 in k9's block events with a repeater-timed sticky P_D); close 6 via a BUD
+  piston at (2,4,0) facing east whose head entering (3,4,0) updates TR right after F's spit (order
+  problem: F's extension updates it first).
 
 ## Open 9: what it needs (worked out, not built)
 Q spits A' one tick earlier (k5), so A' pulls C at k6, Q's base lands k7 BE, Q re-extends k8 and
@@ -72,3 +96,62 @@ pulls A' at k9, F 0-ticks at k9. R_X (k6 BE) and R_Z (k8 BE) are already early e
   them down. Fix ideas: arm F later (spit R_X into R1 in k9's block events by a sticky P_D whose
   fall is a repeater, HIGH priority, so it beats Q's observer fall), or a k7..k9 source on the
   west side that never touches F's neighbors.
+
+## Round 2 (after the coordinator's go): OPEN 9
+* **`n2.txt` = BEST: 113 blocks, solid, slime-free, open 9 / close 7 (open+close 16)**,
+  rotation-safe (`door verify --extra-offsets 28`: WORKS at 32 positions x 4 rotations).
+  Base: lamp-sweep's a1-107 (my a1 re-synthesized). `n1.patch` + `n2.patch`:
+  * Q's first pulse moved a tick earlier and made 1 gt shorter at the end: S_a (-1,3,-1), an
+    observer watching lever dust (-1,3,-2), fires k2..k4 straight into Q (its fall at k4 is the
+    update that finds T landed); O1 (0,4,0), an observer watching F (F retracts at k1), fires
+    k3..k5 into Q's QC cell (odd). Q extends at k4 and its power drops at k5: Q spits A' into E at
+    k5, A' extends in the same phase. (W + O_Q removed.)
+  * X (A' power) k4..k6: repeater (2,4,-3) (delay 1, floor (2,3,-3)) reads lever dust (3,4,-3)
+    into stone (1,4,-3) -> note block -> observer (1,3,-2) -> X; A' retracts at k6, C into N1
+    (lands k8 BE). (The repeater reading R_F's rest cell is gone.)
+  * Q's second pulse k7..k9, west side only (no dust near F or P_X, the a9 failure): O_S
+    (-1,4,-1) watches S_F (extends at k1) -> k3..k5 into stone (-2,4,-1) -> dot dust (-3,4,-1)
+    powers its floor (-3,3,-1) -> repeater (-3,3,0) delay 1 turns on at k5 -> observer A
+    (-2,3,0) watching that repeater fires k7..k9 into Q's back. Q's base lands k7 BE powered ->
+    extends k8; A's fall at k9 -> Q pulls A' out of E -> F 0-ticks C out of N1: **open 9**.
+  * O1 fires again k11..k13 after F's 0-tick: obsidian (4,3,0) makes Q's row push fail then.
+  * Validated first with a scripted Q pulse (`n1.drive`). Close unchanged (7): every Q pulse on
+    the close edge meets a moving block or F's head in E (blocked push).
+* **`n3-112b.txt` = BEST: 112 blocks, open 9 / close 7.** `door regrow --size 2` on n2: the
+  repeater + floor feeding the note block become one observer (2,4,-3) facing east watching the
+  lever dust (3,4,-3) (k2..k4 into stone (1,4,-3); the note block changes at k2, X k4..k6).
+
+## Open 8: VALIDATED with scripted inputs (e1.drive), not wired
+`e1.txt` = n3 + `e1.patch`. Idea: Q 0-ticks at k4 instead of spitting at k5, so A' is placed
+in E at k4, pulls C at k5 (lands k7 BE), Q's base lands k6 BE, Q re-extends k7 and pulls A' at k8,
+F 0-ticks at k8 (R_X lands k4 BE, R_Z k6 BE in the 107 family: already early enough).
+* Q's power from rest: redstone block R_Q (-1,5,0) QC-powers Q (its push is blocked by F's head
+  until T is in E). Partner P: sticky piston (-1,4,0) facing up (in Q's QC cell, a piston there
+  does not block QC; R_Q in front of P does not power P). S_a's fall at k4 updates Q, Q extends;
+  P (armed silently by then) is updated, shoves R_Q up, P's setBlock updates Q: Q unpowered,
+  retracts in the same phase and finalTicks A' into E (k4). Works (`door drive e1.drive`: N1
+  clears at k8).
+* Real P arming also works (e2): cross dust (-2,5,-1) on O_S's output stone (k3..k5) + stone
+  (-1,5,-1) next to P's quasi cell; no dust within 2 of P, so silent.
+* Missing for a real door: (1) A' power ON at k4, OFF at k5 (odd fall): needs an observer pointing
+  into X (1,3,-1) that watches a cell changed at k1. A lever-fired piston at (3,3,-1) watched by
+  an observer at (2,3,-1) (e2) gives the pulse but disturbs TR (3,3,0): TR, quasi-powered k2..k4,
+  gets updated, extends into (2,3,0) and blocks Q's push. A torch at (1,3,-1) (on until 2 gt
+  after its attachment rises at k3) would do it if (1,3,-2) could be powered at k3; comparator
+  subtraction off R_F (tick-study `comparator-odd`: output back at k3) is the other lead.
+  (2) Q's second pulse k6..k8 (even) through Q's back or south side only: every QC route now
+  ends in P. (3) Recheck the close with P, R_Q and the new pulses.
+
+## New rule (main f3c5884): the 3x3 columns in front of/behind the door must be empty
+* n3 broke it only through the lever-net staircase at z=-4 (6 blocks in x 0..2, y 0..2).
+* **`c1.txt` = BEST: 112 blocks, open 9 / close 7, compliant, solid, slime-free,
+  rotation-safe** (`door verify --extra-offsets 28` from merged main: WORKS). `c1.patch`: the line
+  is re-laid over the top at y=4/5 (S (-1,3,-3) -> (-1,4,-4) -> (0,4,-4) -> (1,5,-4), one step up
+  to stay off the repeater-powered stone (1,4,-3), whose back-feed would latch the lever net ->
+  (2,4,-4) -> M (3,3,-4)); same dust lengths, same block count.
+* Tool: `door route2` now treats the columns at any distance as forbidden (it routed into them
+  before and the judge threw every such candidate away). Its rip of the 6 cells still found no
+  route (the hand route needs a step up over a powered block).
+* **`c2-109b.txt` = BEST: 109 blocks, open 9 / close 7, compliant** (minimize on c1): X's pulse
+  (k4..k6) comes from the observer (0,3,-1) watching S_a, so the repeater + stones that fed the
+  old note-block chain are dead weight.
