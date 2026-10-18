@@ -139,7 +139,13 @@ pub struct Mech {
     pub pid: Vec<usize>,
     /// Extended (powered) at rest, by piston id.
     pub ext_rest: Vec<bool>,
+    /// Cells a piston may not act from (strip track's `--forbid-fire`: door-plane x columns
+    /// that no wiring can reach); empty = no restriction.
+    pub forbid: Vec<bool>,
 }
+
+/// `families --rows --forbid-fire`: x columns (door coordinates) no piston may fire from.
+pub static FORBID_X: std::sync::OnceLock<Vec<i8>> = std::sync::OnceLock::new();
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct E {
@@ -199,7 +205,11 @@ impl Mech {
             }
         }
         let ext_rest: Vec<bool> = (0..info.len()).map(|id| pow & (1 << id) != 0).collect();
-        Some((Mech { bx, pieces, info, pid, ext_rest }, St { g, pow, pp }))
+        let forbid = match FORBID_X.get() {
+            Some(xs) if !xs.is_empty() => (0..bx.n()).map(|i| xs.contains(&bx.xy(i).0)).collect(),
+            _ => Vec::new(),
+        };
+        Some((Mech { bx, pieces, info, pid, ext_rest, forbid }, St { g, pow, pp }))
     }
 
     fn step(&self, i: usize, f: u8) -> Option<usize> {
@@ -274,6 +284,9 @@ impl Mech {
         let bit = 1u16 << id;
         let powered = s.pow & bit != 0;
         let ext = self.ext(s, id);
+        if !self.forbid.is_empty() && self.forbid[p] {
+            return Out::Illegal;
+        }
         let mut n = s.clone();
         match e.act {
             Act::L => {
