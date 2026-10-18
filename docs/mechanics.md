@@ -119,6 +119,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `landing-fire` | piston moved onto a powered spot | a piston pushed onto a powered cell extends as it lands (onPlace), no neighbor update needed |
 | `no-retry` | piston, moving block | a powered piston whose push line holds a moving block queues nothing and never retries when that block lands two cells away: it sits powered and retracted until a neighbor update (speed track's gotcha) |
 | `blocked-push` | 2 sticky pistons | a piston whose push line starts with an extended piston does nothing; it pushes that piston once it has retracted (fresh-c: the B window fires on both edges and is a no-op on close) |
+| `odd-pulse` | piston + redstone block + repeater + note block + observer | an ODD-tick pulse with no odd source: a repeater reading a redstone block that a lever-fired piston moves at k1 changes at k1+2d; a note block next to its output turns that edge into a state change an observer sees: pulse k5..k7 on the on flip, k7..k9 on the off flip (speed-2 a1: the first solid door opening in 10) |
 
 | `sculk-hold` | sculk sensor | (category sculk) a lever click or piston move within 8 blocks wakes it floor(distance) gt later; active 30 gt, then 10 gt deaf |
 | `flag-observer` | stone + observer | motion trigger (fresh-b mp6..mp8): a plain block glued to a moving slime structure, watched by an observer that touches no slime (so it is never dragged), gives one 2 gt pulse after each move, out and back; watching the cell the flag moves INTO works as well as the one it leaves |
