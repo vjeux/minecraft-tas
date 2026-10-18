@@ -1,0 +1,28 @@
+design designs/piston-door-3x3/tracks/speed/wire/p0.txt
+# k = t-2. A' power R at (1,3,1) k5..k7 (set after k4, clear after k6); R_Z at (1,6,1) after k8;
+# Q power at (-1,4,0) after k8, off after k9.
+probe F 1 4 0
+probe E 1 3 0
+probe N1 1 2 0
+probe C 1 1 0
+probe Ap 0 3 0
+probe Q -1 3 0
+probe PX 1 5 0
+probe R1 1 5 1
+probe T2 2 3 0
+quiet 2
+use 0 4 -2
+trace 4
+set 1 3 1 minecraft:redstone_block
+trace 2
+clear 1 3 1
+trace 2
+set 1 6 1 minecraft:redstone_block
+set -1 4 0 minecraft:redstone_block
+trace 1
+clear -1 4 0
+trace 8
+use 0 4 -2
+trace 6
+clear 1 6 1
+trace 8

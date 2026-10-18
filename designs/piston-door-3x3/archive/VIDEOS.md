@@ -5,6 +5,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | blocks | category | design | video |
 |---|---|---|---|
 | 40 | solid | [fc2-40b](fc2-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4) |
+| 40 | solid | [fc2-40b-2](fc2-40b-2.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b-2.mp4) |
 | 40 | solid | [fc2-min-40b](fc2-min-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-min-40b.mp4) |
 | 40 | solid | [riders-fx1-40b](riders-fx1-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/riders-fx1-40b.mp4) |
 | 41 | solid | [fc2f-41b](fc2f-41b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2f-41b.mp4) |
@@ -111,6 +112,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 96 | solid | [piston-door-3x3-v2u2-96b](piston-door-3x3-v2u2-96b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2u2-96b.mp4) |
 | 99 | solid | [mechanics-slime-free-99b](mechanics-slime-free-99b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-slime-free-99b.mp4) |
 | 104 | solid | [mechanics-slime-free-104b](mechanics-slime-free-104b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-slime-free-104b.mp4) |
+| 108 | solid | [speed-wire-s4-108b](speed-wire-s4-108b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-s4-108b.mp4) |
 | 109 | solid | [search-tool-v2-min-109b](search-tool-v2-min-109b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-v2-min-109b.mp4) |
 | 109 | solid | [speed-wire-w6-109b](speed-wire-w6-109b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w6-109b.mp4) |
 | 113 | solid | [search-tool-v2-min-113b](search-tool-v2-min-113b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-v2-min-113b.mp4) |
@@ -120,9 +122,12 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 116 | solid | [speed-wire-w6-116b](speed-wire-w6-116b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w6-116b.mp4) |
 | 117 | solid | [piston-door-3x3-v2-117b](piston-door-3x3-v2-117b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-117b.mp4) |
 | 118 | solid | [piston-door-3x3-v2-118b](piston-door-3x3-v2-118b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-118b.mp4) |
+| 119 | solid | [speed-wire-o6-119b](speed-wire-o6-119b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o6-119b.mp4) |
+| 120 | solid | [speed-wire-o6-120b](speed-wire-o6-120b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o6-120b.mp4) |
 | 121 | solid | [piston-door-3x3-v1-min-invalid](piston-door-3x3-v1-min-invalid.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v1-min-invalid.mp4) |
 | 121 | solid | [speed-wire-w5-121b](speed-wire-w5-121b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w5-121b.mp4) |
 | 122 | solid | [fresh-a-sf1-w2-122b](fresh-a-sf1-w2-122b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fresh-a-sf1-w2-122b.mp4) |
+| 122 | solid | [speed-wire-o5-122b](speed-wire-o5-122b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o5-122b.mp4) |
 | 122 | solid | [speed-wire-w5-122b](speed-wire-w5-122b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w5-122b.mp4) |
 | 123 | solid | [speed-wire-w1-123b](speed-wire-w1-123b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w1-123b.mp4) |
 | 125 | solid | [piston-door-3x3-v1-invalid](piston-door-3x3-v1-invalid.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v1-invalid.mp4) |
