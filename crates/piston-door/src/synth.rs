@@ -1163,6 +1163,7 @@ pub enum Target {
         max_close: Option<u32>,
         rotations: bool,
         seamless: Option<crate::properties::SeamReq>,
+        shape: Option<crate::ShapeLimits>,
         repeater_input: bool,
         eligible: bool,
     },
@@ -1192,9 +1193,16 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, rotations, seamless, repeater_input, eligible, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, seamless, shape, repeater_input, eligible, .. } => {
             if let Some(t) = seamless {
                 t.check(w, sb, d)?;
+            }
+            // Shape boards (volume, flat...): the swept shape, at rest and while it moves.
+            if let Some(l) = shape {
+                let s = crate::swept_shape_in(w, sb, d)?;
+                if !l.allows(&s) {
+                    bail!("outside the --shape limits while it moves: {s:?}");
+                }
             }
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
             let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
@@ -1454,6 +1462,8 @@ pub struct ResynthOptions {
     pub extra: usize,
     /// Accept only rotation-safe replacements (set when the start design is rotation-safe).
     pub keep_rotations: bool,
+    /// Shape limits on the swept shape (`--shape`: volume, flat, side...).
+    pub shape: Option<crate::ShapeLimits>,
     /// Record eligibility: see [`crate::search::SearchOptions::repeater_input`] / `eligible`.
     pub repeater_input: bool,
     pub eligible: bool,
@@ -1700,6 +1710,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 max_close: o.max_close,
                 rotations: o.keep_rotations,
                 seamless: seam_req,
+                shape: o.shape,
                 repeater_input: o.repeater_input || o.eligible,
                 eligible: o.eligible,
             };

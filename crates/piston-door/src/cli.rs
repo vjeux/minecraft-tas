@@ -1248,6 +1248,13 @@ pub enum DoorCmd {
         #[arg(long)]
         verbose: bool,
     },
+    /// Every tick of one open/close cycle (design position) that breaks SUPER seamless: the
+    /// circuitry seen in the tunnel T or the hallway ring S (props' reading); `*` marks what is
+    /// still seen when a ring cell counts only while its T neighbour holds no door block (the
+    /// covered reading, tier `supercov`).
+    SeamlessWhy {
+        designs: Vec<PathBuf>,
+    },
     /// Redstone Squid catalogue properties (properties.rs) of the given designs, or of every
     /// working design on HEAD and the explore/* branches (the leaderboard's list, verdicts from
     /// the archive's verdicts-v5.tsv): seamless tiers, dents, trapdoor/flush/deluxe, hipster,
@@ -1522,6 +1529,10 @@ pub enum DoorCmd {
         /// design only accepts rotation-safe replacements (the boards rank rotation-safe doors).
         #[arg(long)]
         any_rotation: bool,
+        /// Shape limits on every accepted replacement, measured on the swept shape (a preset or
+        /// key<=n terms, e.g. `thick<=1,volume<=81`; see `door shapes`).
+        #[arg(long)]
+        shape: Option<String>,
         /// Record eligibility: accept only designs that also work with repeater input (see
         /// `door minimize --repeater-input`).
         #[arg(long)]
@@ -2740,6 +2751,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
+        DoorCmd::SeamlessWhy { designs } => {
+            let mut w = mctas::sim::Worker::spawn(&cfg)?;
+            for path in &designs {
+                let d = load_design(path)?;
+                let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+                let rec = crate::properties::record(&mut w, sb, &d);
+                let _ = w.drop_sandbox(sb);
+                let rec = rec?;
+                let s = crate::properties::seamless(&rec);
+                println!("== {} ({} blocks): {}{}", path.display(), crate::block_count(&d), s.label, s.why.map(|w| format!(" -- {w}")).unwrap_or_default());
+                for line in crate::properties::super_report(&rec) {
+                    println!("  {line}");
+                }
+            }
+        }
         DoorCmd::Properties { designs, archive_dir, refs, workers, out_tsv, out_md, dynamic, redo } => {
             use crate::properties as pr;
             let repo = std::path::Path::new(".");
@@ -3067,6 +3093,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     max_close,
                     rotations: false,
                     seamless: None,
+                    shape: None,
                     repeater_input: false,
                     eligible: false,
                 },
@@ -3092,7 +3119,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, repeater_input, eligible, fit } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, shape, repeater_input, eligible, fit } => {
+            let shape = shape.as_deref().map(crate::ShapeLimits::parse).transpose()?;
             use crate::synth::*;
             let seamless = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
@@ -3138,6 +3166,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     keep_rotations: false,
                     seamless,
                     extra,
+                    shape,
                     repeater_input: repeater_input || eligible,
                     eligible,
                     fit,
