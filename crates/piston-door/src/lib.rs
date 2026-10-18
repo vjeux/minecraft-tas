@@ -21,6 +21,7 @@ pub mod mechwire;
 pub mod archive;
 pub mod buildable;
 pub mod catalog;
+pub mod clips;
 pub mod designs;
 pub mod designs_history;
 pub mod designs_fresh_b;

@@ -151,35 +151,41 @@ impl SearchArgs {
 }
 #[derive(Subcommand)]
 pub enum DoorCmd {
-    /// Record a video of every design in a folder (several at once), upload each, then write the
-    /// folder's catalog (README.md, see `door catalog`).
+    /// Publish a video of every design in a folder (`<out>/<stem>.mp4`, uploaded), cut from each
+    /// design's one clip (recorded first when missing or stale, several at once), then write the
+    /// folder's catalog (README.md, see `door catalog`). A video is cut again only when its clip,
+    /// card or label changed (seconds, no Minecraft).
     VideoAll {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         dir: PathBuf,
-        /// Local folder for the videos (existing ones are skipped).
+        /// Local folder for the videos.
         #[arg(long)]
         out: PathBuf,
+        /// The clips folder (one recording per design, shared with `door video` and `door
+        /// gallery`; default ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// Client recordings (and cuts) at once.
         #[arg(long, default_value_t = 4)]
         jobs: usize,
         /// GitHub release tag to upload each new video to.
         #[arg(long)]
         upload: Option<String>,
-        /// Look of the videos: `card` (title card, door camera swinging around the door,
-        /// size label: the volume big, the blocks placed small), `clean` (the same camera, no card
-        /// or label) or `classic` (the original still camera framing the whole build).
+        /// `card` (title card, then the clip with the size label: the volume big, the blocks
+        /// placed small) or `clean` (the clip itself).
         #[arg(long, default_value = "card")]
         style: String,
-        /// Orbit amplitude of the door camera in degrees each way (0 = still).
-        #[arg(long, default_value_t = 20.0)]
+        /// Orbit amplitude of the door camera in degrees each way (0 = still; part of the clip's
+        /// settings: the gallery's GIFs need a still camera).
+        #[arg(long, default_value_t = 0.0)]
         orbit: f64,
-        /// Re-record videos that already exist.
-        #[arg(long)]
+        /// Record every clip again.
+        #[arg(long, conflicts_with = "relabel")]
         redo: bool,
-        /// Re-record existing videos of doors still moving when the clip used to stop (40 ticks
-        /// after each flip); videos now always play until the door has settled.
+        /// Record nothing: cut every video that has a clip again (new labels in seconds).
         #[arg(long)]
-        redo_cut: bool,
-        /// Only list the videos that would be recorded (records and writes nothing).
+        relabel: bool,
+        /// Only list the work (cuts and recordings); records and writes nothing.
         #[arg(long)]
         dry_run: bool,
     },
@@ -211,20 +217,24 @@ pub enum DoorCmd {
         #[arg(long)]
         label: Option<PathBuf>,
     },
-    /// The best design of each board (size boards, speed boards) as a looping GIF (door camera,
-    /// real client; labeled with its size, the volume, big and its blocks placed small), uploaded
-    /// to the release, plus the night's timeline chart. No page of its own: `door leaderboard`
-    /// shows each board leader's GIF.
+    /// The best design of each board (size boards, speed boards) as a looping GIF (labeled with
+    /// its size, the volume, big and its blocks placed small), cut from the design's one clip (the
+    /// clips of `door video-all`, recorded here only when missing), uploaded to the release, plus
+    /// the night's timeline chart. No page of its own: `door leaderboard` shows each board
+    /// leader's GIF.
     Gallery {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
-        /// Folder for the clips and GIFs (rendered when missing).
+        /// Folder for the GIFs.
         #[arg(long)]
         videos: PathBuf,
-        /// GitHub release tag to upload the GIFs and clips to.
+        /// The clips folder (shared with `door video` and `video-all`; default ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// GitHub release tag to upload the GIFs to.
         #[arg(long)]
         upload: Option<String>,
-        /// Client renders at once.
+        /// Client recordings at once (leaders without a clip).
         #[arg(long, default_value_t = 2)]
         jobs: usize,
         /// Worker JVMs to verify archived designs missing from the verdict cache.
@@ -240,9 +250,13 @@ pub enum DoorCmd {
         /// GIF playback speed (clips are recorded at 10 ticks/s: 2 = game speed).
         #[arg(long, default_value_t = 1.5)]
         speed: f64,
-        /// Re-render clips and GIFs that exist.
-        #[arg(long)]
+        /// Record the leaders' clips again (and rebuild their GIFs). Not needed for new labels:
+        /// a GIF is rebuilt whenever its clip or label changed.
+        #[arg(long, conflicts_with = "gif_only")]
         redo: bool,
+        /// Record nothing: rebuild every GIF from the clips there are.
+        #[arg(long)]
+        gif_only: bool,
     },
     /// A board's record progression by blocks placed (solid: archive/records.tsv, plus a newer
     /// record; the history before sizes were volumes) as one video: every design filmed by the
@@ -842,7 +856,8 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
-    /// Record the door opening and closing with the real Minecraft client (needs Xvfb).
+    /// Record the door opening and closing with the real Minecraft client (needs Xvfb) and publish
+    /// it: the design's one clip (recorded only when missing or stale) cut into the video.
     Video {
         design: PathBuf,
         #[arg(long)]
@@ -853,16 +868,27 @@ pub enum DoorCmd {
         /// Upload to this GitHub release tag of vjeux/minecraft-tas.
         #[arg(long)]
         upload: Option<String>,
-        /// `card` (title card, door camera swinging around the door, size label),
-        /// `clean` (same camera, no card or label) or `classic` (still camera, whole build).
+        /// `card` (title card, then the clip with the size label), `clean` (the clip itself) or
+        /// `classic` (still camera framing the whole build, recorded on its own, no clip).
         #[arg(long, default_value = "card")]
         style: String,
-        /// Orbit amplitude of the door camera in degrees each way (0 = still).
-        #[arg(long, default_value_t = 20.0)]
+        /// Orbit amplitude of the door camera in degrees each way (0 = still; part of the clip's
+        /// settings).
+        #[arg(long, default_value_t = 0.0)]
         orbit: f64,
         /// Frame size, WIDTHxHEIGHT.
         #[arg(long, default_value = "1280x720")]
         size: String,
+        /// The clips folder (shared with `door video-all` and `door gallery`; default
+        /// ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// Record the clip again even when it is there.
+        #[arg(long, conflicts_with = "relabel")]
+        redo: bool,
+        /// Never record: cut the video from the clip there is (fails without one).
+        #[arg(long)]
+        relabel: bool,
     },
     /// One open/close cycle tick by tick, still camera, with captions: the lever flips, every
     /// tick after each flip until nothing moves anymore (the state the judge checks), a 3x3 map
@@ -1564,9 +1590,19 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut, dry_run } => {
-            let opts = video_style(&style, orbit)?;
-            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut, dry_run)?;
+        DoorCmd::VideoAll { dir, out, clips, jobs, upload, style, orbit, redo, relabel, dry_run } => {
+            let card = video_card(&style)?;
+            let o = crate::clips::AllOptions {
+                clips: clips.unwrap_or_else(crate::clips::default_dir),
+                settings: crate::clips::ClipSettings { orbit, ..Default::default() },
+                card,
+                jobs,
+                upload,
+                redo,
+                relabel,
+                dry_run,
+            };
+            crate::clips::record_all(version, &dir, &out, &o)?;
         }
         DoorCmd::Catalog { archive, videos, release, workers } => {
             let o = crate::catalog::CatalogOptions { archive: &archive, workers, videos: videos.as_deref(), release: Some(release.as_str()) };
@@ -1589,8 +1625,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("wrote {}", out.display());
         }
-        DoorCmd::Gallery { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo } => {
-            let o = crate::showcase::GalleryOptions { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
+        DoorCmd::Gallery { archive, videos, clips, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo, gif_only } => {
+            let clips = clips.unwrap_or_else(crate::clips::default_dir);
+            let o = crate::showcase::GalleryOptions { archive, videos, clips, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo, gif_only };
             crate::showcase::gallery(version, &o)?;
         }
         DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo, board } => {
@@ -2388,11 +2425,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("{line}\n{passes}/{times} passed in {} sandbox(es)", if fresh { "fresh" } else { "one reused" });
         }
-        DoorCmd::Video { design, out, tps, upload, style, orbit, size } => {
+        DoorCmd::Video { design, out, tps, upload, style, orbit, size, clips, redo, relabel } => {
             let d = load_design(&design)?;
             let (width, height) = size.split_once('x').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))).ok_or_else(|| anyhow::anyhow!("--size wants WIDTHxHEIGHT"))?;
-            let opts = crate::video::VideoOptions { tps, width, height, ..video_style(&style, orbit)? };
-            crate::video::record(version, &d, &out, &opts)?;
+            if style == "classic" {
+                let opts = crate::video::VideoOptions { tps, width, height, ..crate::video::VideoOptions::classic() };
+                crate::video::record(version, &d, &out, &opts)?;
+            } else {
+                let s = crate::clips::ClipSettings { width, height, tps, orbit, ..Default::default() };
+                let dir = clips.unwrap_or_else(crate::clips::default_dir);
+                crate::clips::video_one(version, &dir, &d, &s, &out, video_card(&style)?, redo, relabel)?;
+            }
             println!("recorded {}", out.display());
             if let Some(tag) = upload {
                 let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
@@ -3272,15 +3315,14 @@ fn tile_verify_cmd(
     Ok(())
 }
 
-/// Video options of a `--style` name.
-fn video_style(style: &str, orbit: f64) -> Result<crate::video::VideoOptions> {
-    use crate::video::{Camera, VideoOptions};
-    Ok(match style {
-        "card" => VideoOptions { camera: Camera::Door { orbit }, ..Default::default() },
-        "clean" => VideoOptions::clean(orbit),
-        "classic" => VideoOptions::classic(),
-        _ => anyhow::bail!("unknown --style {style} (card, clean or classic)"),
-    })
+/// Whether a published video's `--style` has the title card and label (`card`) or is the clip
+/// itself (`clean`).
+fn video_card(style: &str) -> Result<bool> {
+    match style {
+        "card" => Ok(true),
+        "clean" => Ok(false),
+        _ => anyhow::bail!("unknown --style {style} (card or clean; door video also takes classic)"),
+    }
 }
 
 /// `door vanilla-check`: one vanilla server and one simulator worker for all the designs.

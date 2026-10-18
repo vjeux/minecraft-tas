@@ -280,13 +280,18 @@ impl Recorder {
 
 /// Encode a browser-playable H.264 MP4 (optionally sped up by `speed`).
 pub fn encode(raw: &Path, out: &Path, speed: f64) -> Result<()> {
+    encode_crf(raw, out, speed, 20)
+}
+
+/// [`encode`] at x264 quality `crf` (lower = better: 16 for clips that are cut again).
+pub fn encode_crf(raw: &Path, out: &Path, speed: f64, crf: u32) -> Result<()> {
     let mut cmd = Command::new(ffmpeg()?);
     cmd.args(["-loglevel", "error", "-y", "-i"]).arg(raw);
     if (speed - 1.0).abs() > 1e-6 {
         cmd.args(["-filter:v", &format!("setpts=PTS/{speed}")]);
     }
     let status = cmd
-        .args(["-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart"])
+        .args(["-c:v", "libx264", "-preset", "slow", "-crf", &crf.to_string(), "-pix_fmt", "yuv420p", "-movflags", "+faststart"])
         .arg(out)
         .status()?;
     if !status.success() {
