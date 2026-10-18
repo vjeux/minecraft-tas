@@ -1,0 +1,17 @@
+# Calibrated sculk sensor = wireless delay line + 10 gt window (category sculk; sculk-2's s1 door).
+# The lever click 4 blocks away wakes C 4 gt later; C is active 10 gt (weak power on every side
+# but its back), then 10 gt of cooldown. R (delay 1) turns that into a 10 gt window 2 gt later,
+# and the observer W watching R fires exactly twice (R's two edges): the A pulses of an elevator.
+# The observer V watching the sensor itself fires THREE times (wake, cooldown, inactive): a
+# third pulse 20 gt after waking moves things the sensor then hears again (echo).
+design designs/gadgets/sculk-delay-line.txt
+probe R 5 1 0
+probe W 5 2 0
+probe V 4 1 -1
+quiet 5
+use 0 1 0
+expect_trace W 000000011000000001100000000000
+use 0 1 0
+expect_trace V 000001100000000110000000011000
+use 0 1 0
+expect_trace R 000001111111111000000000000000

@@ -119,6 +119,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `landing-fire` | piston moved onto a powered spot | a piston pushed onto a powered cell extends as it lands (onPlace), no neighbor update needed |
 | `no-retry` | piston, moving block | a powered piston whose push line holds a moving block queues nothing and never retries when that block lands two cells away: it sits powered and retracted until a neighbor update (speed track's gotcha) |
 | `blocked-push` | 2 sticky pistons | a piston whose push line starts with an extended piston does nothing; it pushes that piston once it has retracted (fresh-c: the B window fires on both edges and is a no-op on close) |
+| `sculk-delay-line` | calibrated sculk sensor + repeater | (category sculk) a calibrated sensor d blocks from the lever wakes floor(d) gt after each flip, active 10 gt (radius 16, no output into its back): a one-block wireless delay line; a repeater after it gives a 10 gt window whose observer fires exactly twice, while an observer on the sensor fires three times (wake, cooldown, inactive) (sculk-2 s1) |
 
 | `sculk-hold` | sculk sensor | (category sculk) a lever click or piston move within 8 blocks wakes it floor(distance) gt later; active 30 gt, then 10 gt deaf |
 | `flag-observer` | stone + observer | motion trigger (fresh-b mp6..mp8): a plain block glued to a moving slime structure, watched by an observer that touches no slime (so it is never dragged), gives one 2 gt pulse after each move, out and back; watching the cell the flag moves INTO works as well as the one it leaves |
@@ -206,3 +207,10 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   on the first 2 gt pulse and pushes+spits it back on the second, so a side column can be
   pulled open from OUTSIDE its backbone (fc2's P_L at (-3,2,0): 3 backbone slimes, no pusher
   under the walkway).
+* **Calibrated sculk sensor (sculk-2, gadget `sculk-delay-line`):** `CalibratedSculkSensorBlock`
+  is active 10 gt (not 30), hears within 16 blocks, outputs on every side except its back, and a
+  non-zero signal into its back makes it hear only that frequency (lever on / piston extend =
+  10, lever off / piston retract = 9). With nothing behind it, it is a one-block wireless delay
+  line: activation floor(d) gt after each flip, d up to 16. Echo rule for every sensor: once it
+  is INACTIVE again (wake + 20 calibrated, + 40 normal) any piston move within its radius wakes
+  it, so whatever it drives must stop moving before then, or the re-run must be a no-op.
