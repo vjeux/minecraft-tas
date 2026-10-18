@@ -1492,6 +1492,10 @@ pub enum DoorCmd {
         /// --repeater-input plus the hallway check, footsteps (sculk) and QUART SEAMLESS or better.
         #[arg(long)]
         eligible: bool,
+        /// Shape limits on every accepted replacement, measured on the swept shape (a preset or
+        /// key<=n terms, e.g. `thick<=1,volume<=81`; see `door shapes`).
+        #[arg(long)]
+        shape: Option<String>,
     },
 }
 
@@ -2988,6 +2992,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     seamless: None,
                     repeater_input: false,
                     eligible: false,
+                    shape: None,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -3011,7 +3016,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, repeater_input, eligible } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, repeater_input, eligible, shape } => {
+            let shape = shape.as_deref().map(crate::ShapeLimits::parse).transpose()?;
             use crate::synth::*;
             let seamless = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
@@ -3060,6 +3066,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     extra,
                     repeater_input: repeater_input || eligible,
                     eligible,
+                    shape,
                 };
                 let start = {
                     let mut w = pool.worker(0);
