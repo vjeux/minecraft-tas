@@ -878,6 +878,57 @@ fn nets(g: &HashMap<Pos, Vec<Pos>>) -> Vec<Vec<Pos>> {
     out
 }
 
+/// Edits learnt from pairs of designs: for every (a, b) with the same door port where b has fewer
+/// blocks than a and differs from it in at most `max_cells` cells, the edit a -> b (with a, to
+/// check where it applies).
+pub fn library_patches(designs: &[Design], max_cells: usize) -> Vec<(Edit, Design)> {
+    let mut out: Vec<(Edit, Design)> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for a in designs {
+        for b in designs {
+            if block_count(b) >= block_count(a) || a.ports.get("door") != b.ports.get("door") {
+                continue;
+            }
+            let e = diff_edit(a, b, format!("patch {} -> {}", a.name, b.name));
+            let size = e.remove.len() + e.set.len() + e.ports.len();
+            if size == 0 || size > max_cells {
+                continue;
+            }
+            let key = format!("{:?}|{:?}|{:?}", e.remove, e.set, e.ports);
+            if seen.insert(key) {
+                out.push((e, a.clone()));
+            }
+        }
+    }
+    out
+}
+
+/// The patches that apply to `target`: every cell a patch removes or changes holds in `target`
+/// what it held in the patch's source design.
+pub fn transplants(target: &Design, patches: &[(Edit, Design)]) -> Vec<Edit> {
+    let mut out = Vec::new();
+    for (e, a) in patches {
+        let same = |p: &Pos| target.blocks.get(p) == a.blocks.get(p);
+        if e.remove.iter().all(same) && e.set.iter().all(|(p, _)| same(p)) && e.ports.iter().all(|(k, _)| target.ports.get(k) == a.ports.get(k)) {
+            let new = e.apply(target);
+            if new.blocks != target.blocks {
+                out.push(e.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Screen and judge `edits` of `base` (only those with fewer blocks); the verified designs, fewest
+/// blocks first.
+pub fn try_edits(pool: &Pool, base: &Design, edits: Vec<Edit>, opts: &SearchOptions, log: &dyn Fn(&str)) -> Vec<(Design, String)> {
+    let sandboxes = Sandboxes::new(pool);
+    let failed: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
+    let cands: Vec<Cand> =
+        edits.into_iter().filter(|e| block_count(&e.apply(base)) < block_count(base)).map(|edit| Cand { base: 0, edit }).collect();
+    evaluate(pool, &sandboxes, std::slice::from_ref(base), cands, opts, &failed, 0, log).into_iter().map(|(_, d, s)| (d, s)).collect()
+}
+
 /// The edit that turns `d` into `new`.
 fn diff_edit(d: &Design, new: &Design, desc: String) -> Edit {
     let remove = d.blocks.keys().filter(|p| !new.blocks.contains_key(*p)).copied().collect();
