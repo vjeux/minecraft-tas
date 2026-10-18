@@ -1,0 +1,7 @@
+# p0 (open-10 scripted test) = o6 minus Q's silent hold (Q spits A' at k6), minus O_A (A' power
+# scripted), minus P_V and R_Z (R_Z scripted at (1,6,1)).
+clear -2 4 -1
+clear -2 4 0
+clear 1 3 -1
+clear 2 6 1
+clear 0 6 1

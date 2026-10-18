@@ -72,6 +72,28 @@ slime-free, open 11 / close 7). Validated first with scripted parts (o0.drive, o
   (k4) -> O3 (5,5,-1) (k6) into stone (5,5,0) -> dust (5,6,0),(5,6,1), up to y=7, west along z=3
   to (0,7,2); floor (1,6,3) powers P_D below it, floor (0,6,2) powers P_V.
 
+## Open 10: VALIDATED with scripted inputs (p0.drive), NOT wired
+`p0.txt` = o6 minus Q's silent hold (repeater (-2,4,-1) + stone (-2,4,0)), O_A, P_V and R_Z.
+`door drive wire/p0.drive` (scripted: redstone block at (1,3,1) after k4..k6 = A' power k5..k7;
+R_Z at (1,6,1) after k8; Q power at (-1,4,0) after k8, removed after k9):
+* k4 Q pushes [A', T]; k6 O_Q's pulse ends in the scheduled phase -> Q's retract is type 2
+  (isHandlingTick) -> Q SPITS A': A' placed at E in k6's block-event phase and, powered, extends
+  in the same phase (onPlace -> checkIfExtend -> event runs in the same runBlockEvents loop).
+* k7 A' unpowered -> retracts, pulls C into N1 (lands k9 BE, A' base lands k9 BE).
+* Q's base lands k8 BE; powered then -> Q extends into (0,3,0) at k9; unpowered + updated
+  before k10 -> Q retracts at k10 and pulls A' out of E (reach-through).
+* k10 F 0-ticks (R_X armed since k8 BE, R_Z landed by k9 BE): C pulled from N1: OPEN 10.
+  Close unchanged (7).
+Missing to wire it: (1) A' power ON at k6 block events, OFF at k7: an ODD pulse (k5..k7). Parity
+only changes through piston events: the k1 moves (S_F, R_F A->B, F, T) are the roots; observers
+on A/B/S_F/F fire k3..5, a second observer k5..7. No rotation fits: the only cells whose output
+reaches A' at E are (1,3,-1) facing north and (1,3,1) facing south (or F's QC neighbors
+(1,4,1)/(0,4,0)/(2,4,0) with the back toward F), and none of them is next to a k3-changing
+observer (O_B's spot (1,3,-2) facing up/east lands its output in the lever floor; an observer
+watching E itself fires again k8..10 off A's k6 placement, which would power F at k10 and kill
+the 0-tick). (2) Q's second pulse k8..10 (one more observer after a k6 one into Q's QC cell).
+(3) P_V's pulse moved to k5..7 so R_Z lands k9 BE (also odd).
+
 ## Size at equal speed (11/7): o4..o6 (each = previous + oN.patch)
 * o5 122: the k6 pulse = O1 (1,7,-2) watching R_s's input dust (1,6,-2) (k2), O2 (1,7,-1)
   (k4), O3 (1,7,0) (k6) -> stone (1,7,1); P_V moved to (2,6,1) facing west (R_Z rests at

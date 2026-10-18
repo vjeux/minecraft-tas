@@ -102,7 +102,7 @@ layer 3:
   ...U...wM
   ...TwB
   ..s..A
-  ...mlF.n
+  ...mlF.E
   ......s
   .
   .
@@ -111,7 +111,7 @@ layer 4:
   .......d
   ..woLC.A
   ..iAPR.E
-  ..w..q.A
+  ..w..q
   ......fw
   .
   .
