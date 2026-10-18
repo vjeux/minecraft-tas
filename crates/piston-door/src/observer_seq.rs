@@ -18,6 +18,7 @@ pub fn build(name: &str) -> Option<Design> {
         "obs-s3" => Some(s3()),
         "obs-s4" => Some(s4()),
         "obs-s5" => Some(s5()),
+        "obs-s6" => Some(s6()),
         _ => None,
     }
 }
@@ -315,6 +316,41 @@ pub fn s5() -> Design {
             ([5, 3, 0], &observer("up")),
         ],
     )
+}
+
+/// s6: s5 with both stack feeds moved behind the stacks (z=-1): the lever hangs under K
+/// (-2,4,-1) and ONE observer below it feeds the left cross dust (-2,2,-1); the right cross dust
+/// (4,2,-1) gets the late-A repeater's pulse through (4,5,-1) -> (4,4,-1) -> block (4,3,-1).
+/// P_T's chain restarts from the left feed observer: (-2,3,0) -> (-2,3,1) -> (-1,3,1) -> (0,3,1).
+pub fn s6() -> Design {
+    let remove: Vec<Pos> = vec![
+        [-3, 5, 0], [-3, 4, 0], [-3, 3, 0], [-3, 2, 0], [-3, 1, 0], [-2, 5, 0],
+        [-3, 3, 1], [-2, 3, 1], [-1, 3, 1], [0, 3, 1],
+        [4, 5, -1], [5, 5, -1], [5, 4, -1], [5, 4, 0], [5, 3, 0], [5, 2, 0], [5, 1, 0],
+    ];
+    const CROSS: &str = "minecraft:redstone_wire[north=side,east=side,south=side,west=side]";
+    let mut d = variant(
+        s5(),
+        "obs-s6",
+        &remove,
+        &[
+            ([-2, 4, -1], "minecraft:lever[face=ceiling,facing=west,powered=false]"),
+            ([-2, 3, -1], &observer("up")),
+            ([-2, 2, -1], CROSS),
+            ([-2, 1, -1], FLOOR),
+            ([-2, 3, 0], &observer("north")),
+            ([-2, 3, 1], &observer("north")),
+            ([-1, 3, 1], &observer("west")),
+            ([0, 3, 1], &observer("west")),
+            ([4, 5, -1], &observer("west")),
+            ([4, 4, -1], &observer("up")),
+            ([4, 3, -1], STONE),
+            ([4, 2, -1], CROSS),
+            ([4, 1, -1], FLOOR),
+        ],
+    );
+    d.ports.insert("lever".into(), [-2, 4, -1]);
+    d
 }
 
 /// The toggle mechanism with inner side pistons under the door (bottom row y=-1).
