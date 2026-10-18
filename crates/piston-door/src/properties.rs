@@ -702,8 +702,9 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     let lever_state = rec.rest.get(lever).unwrap_or("?").to_string();
     let sup = support(&lever_state, lever);
     let support_ok = sup.is_some_and(|s| {
-        let st = rec.rest.get(s).map(str::to_string);
-        rec.open.iter().chain(rec.close.iter()).all(|(f, _)| f.get(s).map(str::to_string) == st)
+        // The same block (its state may change: a lamp lights, an observer fires), never moved.
+        let name = rec.rest.get(s).map(|x| block_name(x).to_string());
+        rec.open.iter().chain(rec.close.iter()).all(|(f, _)| f.get(s).map(|x| block_name(x).to_string()) == name)
     });
     let surface = match vbox {
         None => true,
@@ -1246,32 +1247,16 @@ pub fn load_dyn(dir: &Path) -> HashMap<u64, Props> {
         lines.next();
     }
     let map_key = |k: &str| -> String {
-        let l = k.to_ascii_lowercase();
-        let pick = [
-            ("hallway", "hallway"),
-            ("contain", "contained"),
-            ("weather", "weatherproof"),
-            ("snow", "weatherproof"),
-            ("repeater_t", "t_repeater"),
-            ("t_rep", "t_repeater"),
-            ("repeater", "repeater_input"),
-            ("step", "steps"),
-            ("isolat", "isolated"),
-            ("uses", "uses"),
-            ("cycles", "uses"),
-        ];
-        pick.iter().find(|(pat, _)| l.contains(pat)).map(|(_, to)| to.to_string()).unwrap_or_else(|| format!("dyn_{k}"))
-    };
-    let norm = |v: &str| -> String {
-        let l = v.to_ascii_lowercase();
-        if l.starts_with("ok") || l.starts_with("pass") || l.starts_with("true") || l.starts_with("yes") {
-            format!("yes{}", v.split_once(|c: char| c == ' ' || c == ':').map(|(_, r)| format!(" ({})", r.trim().trim_start_matches('(').trim_end_matches(')'))).unwrap_or_default())
-        } else if l.starts_with("fail") || l.starts_with("false") || l.starts_with("no") || l.starts_with("broken") {
-            format!("no{}", v.split_once(|c: char| c == ' ' || c == ':').map(|(_, r)| format!(" ({})", r.trim().trim_start_matches('(').trim_end_matches(')'))).unwrap_or_default())
-        } else {
-            v.to_string()
+        match k {
+            "repeater" => "repeater_input".into(),
+            "repeater_open_close" => "t_repeater".into(),
+            "cycles20" => "uses".into(),
+            "cycles20_why" => "uses_why".into(),
+            "verdict" | "source" | "blocks" | "category" => format!("dyn_{k}"),
+            other => other.into(),
         }
     };
+    let norm = |v: &str| -> String { v.to_string() };
     for line in lines {
         let f: Vec<&str> = line.split('\t').collect();
         let Some(Ok(h)) = f.first().map(|x| u64::from_str_radix(x.trim(), 16)) else { continue };
@@ -1294,6 +1279,34 @@ pub fn load_dyn(dir: &Path) -> HashMap<u64, Props> {
                         p.insert(key, val);
                     }
                 }
+            }
+        }
+        // WEATHERPROOF = snow in both stable states harmless and nothing burnable under the sky.
+        if let Some(snow) = p.get("snow").cloned() {
+            let fire = p.get("flammable_exposed").cloned().unwrap_or_default();
+            let w = if snow != "yes" {
+                format!("no (snow: {})", p.get("snow_why").map(|s| brief(s)).unwrap_or_default())
+            } else if !fire.is_empty() && fire != "-" {
+                format!("no (fire: {fire})")
+            } else {
+                "yes".into()
+            };
+            p.insert("weatherproof".into(), w);
+        }
+        if p.get("repeater_why").is_some_and(|w| w.starts_with("no free side")) {
+            p.insert("repeater_input".into(), "n/a (no site)".into());
+        }
+        for k in ["hallway", "contained", "steps", "uses"] {
+            let why = p.get(&format!("{k}_why")).cloned().filter(|w| !w.is_empty());
+            if let (Some(v), Some(w)) = (p.get(k).cloned(), why) {
+                if v == "no" {
+                    p.insert(k.into(), format!("no ({})", brief(&w)));
+                }
+            }
+        }
+        if let Some(c) = p.get("contained_failing").cloned().filter(|c| !c.is_empty()) {
+            if p.get("contained").is_some_and(|v| v.starts_with("no")) {
+                p.insert("contained".into(), format!("no ({c}; with a 1-block gap: {})", p.get("contained_gap").cloned().unwrap_or_default()));
             }
         }
         m.insert(h, p);
@@ -1330,6 +1343,7 @@ pub const COLUMNS: &[(&str, &str)] = &[
     ("weatherproof", "weatherproof"),
     ("contained", "contained"),
     ("uses", "uses"),
+    ("eligible", "record-eligible (3)"),
     ("volume", "volume"),
     ("t_player", "player o/ov/c/cv"),
     ("t_repeater", "repeater o/ov/c/cv"),
@@ -1350,6 +1364,10 @@ pub fn summary(rows: &[(String, usize, &'static str, Props)]) -> String {
         ("FULL SEAMLESS or better", seam(&["FULL", "SUPER"])),
         ("SUPER SEAMLESS", seam(&["SUPER"])),
         ("hallway-compatible", starts("hallway", "yes")),
+        ("QUART SEAMLESS + hallway-compatible", Box::new(|p: &Props| p.get("hallway").is_some_and(|h| h.starts_with("yes")) && p.get("seamless").is_some_and(|s| s != "-"))),
+        ("FULL SEAMLESS + hallway-compatible", Box::new(|p: &Props| p.get("hallway").is_some_and(|h| h.starts_with("yes")) && p.get("seamless").is_some_and(|s| s == "FULL" || s == "SUPER"))),
+        ("record-eligible (section 3)", starts("eligible", "yes")),
+        ("20 cycles (unlimited uses)", starts("uses", "yes")),
         ("DENTLESS", eq("dents", "dentless")),
         ("MINOR DENTS ONLY or better", Box::new(|p: &Props| p.get("dents").is_some_and(|v| v == "dentless" || v == "minor"))),
         ("FULL TRAPDOOR (wall)", has("flush_full", "trapdoor")),
@@ -1397,7 +1415,9 @@ pub fn summary(rows: &[(String, usize, &'static str, Props)]) -> String {
         if with.is_empty() {
             let known = rows.iter().any(|r| {
                 let key = match *name {
-                    "hallway-compatible" => "hallway",
+                    n if n.contains("hallway") => "hallway",
+                    n if n.contains("eligible") => "eligible",
+                    n if n.contains("cycles") => "uses",
                     "CONTAINED" => "contained",
                     "WEATHERPROOF" => "weatherproof",
                     "repeater input works" => "repeater_input",

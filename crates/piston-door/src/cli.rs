@@ -2401,6 +2401,43 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 if let Some(x) = dynp.get(&h) {
                     p.extend(x.clone());
                 }
+                if p.contains_key("steps") {
+                    let sculk = p.get("risky").is_some_and(|r| r.contains("sculk"));
+                    let steps_ok = p.get("steps").is_some_and(|s| s.starts_with("yes"));
+                    let risky = p.get("risky").is_some_and(|r| r != "-");
+                    p.insert(
+                        "isolated".into(),
+                        if sculk && !steps_ok {
+                            "no (hears footsteps)".into()
+                        } else if risky {
+                            "? (steps ok, outside untested)".into()
+                        } else {
+                            "yes".into()
+                        },
+                    );
+                    // Record eligibility (3): valid input (lever on the surface, steady support,
+                    // repeater input), unlimited uses, footsteps harmless, isolated, and a seamless
+                    // tier whose hallway can be built.
+                    let yes = |k: &str| p.get(k).is_some_and(|v| v.starts_with("yes"));
+                    let mut miss = Vec::new();
+                    for (k, what) in [
+                        ("lever_surface", "lever"),
+                        ("lever_support", "support"),
+                        ("repeater_input", "repeater input"),
+                        ("uses", "uses"),
+                        ("steps", "steps"),
+                        ("isolated", "isolated"),
+                        ("hallway", "hallway"),
+                    ] {
+                        if !yes(k) {
+                            miss.push(what);
+                        }
+                    }
+                    if p.get("seamless").is_none_or(|s| s == "-") {
+                        miss.push("seamless");
+                    }
+                    p.insert("eligible".into(), if miss.is_empty() { "yes".into() } else { format!("no ({})", miss.join(", ")) });
+                }
                 if p.get("screen").is_some_and(|s| s.starts_with("broken")) {
                     continue;
                 }

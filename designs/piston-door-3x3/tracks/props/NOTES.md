@@ -110,3 +110,36 @@ table reports `track=lost N` if a door block was lost (none so far is the goal).
 * Volume: quartz-like blocks resting in S are hallway, never circuitry (also when they are part of
   a moving structure at rest); a moving quartz-like block is circuitry while it moves.
 * EXPANDABLE / TILEABLE / M WIDE / N HIGH: not computed (tileable is skipped per the coordinator).
+
+## Joined columns from props-dyn
+
+`mctas door properties` reads `archive/properties-dyn-v1.tsv` (props-dyn's dynamic checks, same
+design hash) and shows hallway, contained (+ the shells that fail and the 1-block-gap variant),
+weatherproof (= props-dyn's snow check passes AND no flammable block under the open sky),
+repeater input (`n/a (no site)` = no free side of the lever's support for a repeater rig), steps,
+uses (20 cycles). Derived here:
+* isolated (3.9): `no` for sculk doors that hear footsteps; `?` when some other risky block
+  (pressure plate, tripwire, daylight detector, target, lightning rod) is present; else yes.
+* record-eligible (3): lever on the surface, steady support, repeater input works, 20 cycles,
+  footsteps harmless, isolated, hallway-compatible and a seamless tier. The column lists what is
+  missing.
+* lever support: the same BLOCK (its state may change: a lamp lights) in every frame, never moved.
+
+## Findings (2026-10-18 19:27Z, 248 working designs)
+
+* Seamless: SUPER 0, FULL 22, SEMI 0 (every door clean in the open state is also clean on both
+  closed sides), QUART 206, none 20. Only 4 designs are hallway-compatible (props-dyn); with a
+  seamless tier AND a buildable hallway: 4 (QUART+), 2 FULL (fresh-a-sf1-w2-122b/126b).
+* Record-eligible: 0. Closest: fresh-a-sf1-w2-122b/126b (FULL seamless, hallway-compatible,
+  contained, weatherproof, footsteps ok) miss only repeater input: the lever stands on the floor
+  and every side of its support block is taken, so no repeater can feed it (my own rig, the
+  lever replaced by a repeater at its cell, cannot face down either). gravity-sf4-62b misses only
+  repeater input; gravity-g1/g6/sf1/sf3 miss only the hallway.
+* Repeater input fails for doors that read the lever block itself (observers watching it: fc2,
+  b38's family) or its weak power into a non-support neighbor (props-dyn's finding).
+* Every leader is QUART seamless (except tick-door 218: none); fc2 and mp8 43/44 have exactly ONE
+  open-state blocker (fc2: O_m observer (2,-1,0) in the floor ring; mp8: the sticky piston (0,3,0)
+  in the ceiling ring) with both closed sides clean.
+* Open targets (no working door): SUPER SEAMLESS, any FLUSH or DELUXE (full or semi), every
+  HIPSTER tier, FULL SYMMETRICAL, FULL/SUPER SYNC, CLEAN, NO STICKY PISTONS, TORCH AND DUST ONLY,
+  REDSTONE BLOCK ONLY, ZOMBA-, ZOMBI-, record eligibility.
