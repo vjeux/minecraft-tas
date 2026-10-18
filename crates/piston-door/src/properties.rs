@@ -393,8 +393,43 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
 
     // SEAMLESS (2.1.4.1).
     let vis = |c: &(Pos, String)| geo.in_t(c.0) || geo.in_s(c.0);
-    let quart = |s: i32| circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).collect::<Vec<_>>();
-    let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).collect();
+    // Hallway holes: ring cells some block passes through during a cycle can never hold a hallway
+    // block (props-dyn fills only ring cells that are air at every tick), so where they are air
+    // they are holes, and circuitry right behind a hole (the next cell outward) is visible.
+    // Closed, the door plane's ring is hidden behind the door blocks.
+    let mut swept_s: BTreeSet<Pos> = BTreeSet::new();
+    for (f, _) in rec.open.iter().chain(rec.close.iter()) {
+        for (q, s) in f.iter() {
+            if geo.in_s(q) && !is_air(s) {
+                swept_s.insert(q);
+            }
+        }
+    }
+    let holes_in = |f: &Region, closed: bool| -> Vec<Pos> {
+        swept_s.iter().copied().filter(|q| f.get(*q).is_none_or(is_air) && !(closed && geo.depth(*q) == 0)).collect()
+    };
+    let holes_r = holes_in(&rec.rest, true);
+    let holes_o = holes_in(rec.open_state(), false);
+    let outward = |h: Pos| -> Pos {
+        for d in DIRS {
+            if geo.in_t(add(h, d)) {
+                return [h[0] - d[0], h[1] - d[1], h[2] - d[2]];
+            }
+        }
+        h
+    };
+    let by_pos_r: HashMap<Pos, &(Pos, String)> = circ_r.iter().map(|c| (c.0, c)).collect();
+    let by_pos_o: HashMap<Pos, &(Pos, String)> = circ_o.iter().map(|c| (c.0, c)).collect();
+    let through_r: Vec<&(Pos, String)> = holes_r.iter().filter_map(|h| by_pos_r.get(&outward(*h)).copied()).collect();
+    let through_o: Vec<&(Pos, String)> = holes_o.iter().filter_map(|h| by_pos_o.get(&outward(*h)).copied()).collect();
+    if !holes_r.is_empty() || !holes_o.is_empty() {
+        let l = |v: &[Pos]| v.iter().map(|q| format!("{q:?}")).collect::<Vec<_>>().join(" ");
+        p.insert("holes".into(), format!("closed: {} | open: {}", l(&holes_r), l(&holes_o)));
+    }
+    let quart = |s: i32| {
+        circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).chain(through_r.iter().copied().filter(|c| geo.depth(c.0) * s > 0)).collect::<Vec<_>>()
+    };
+    let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).chain(through_o.iter().copied()).collect();
     let mut anim_vis: Option<String> = None;
     for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
         for (i, (f, _)) in frames.iter().enumerate() {
@@ -504,6 +539,17 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
                         }
                     }
                 }
+            }
+        }
+    }
+    // Permanent hallway holes (swept ring cells): missing wall/ceiling blocks are minor, missing
+    // floor blocks are not eligible for MINOR DENTS ONLY.
+    for (name, hs) in [("closed", &holes_r), ("open", &holes_o)] {
+        for q in hs.iter() {
+            let level = if geo.v(*q) == -1 { 2 } else { 1 };
+            if level > dent {
+                dent = level;
+                dent_why = Some(format!("{name}: swept hallway cell {q:?} cannot hold a hallway block"));
             }
         }
     }
