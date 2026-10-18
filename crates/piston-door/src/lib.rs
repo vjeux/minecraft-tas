@@ -17,6 +17,7 @@
 
 pub mod cli;
 pub mod mechsynth;
+pub mod families;
 pub mod mechwire;
 pub mod archive;
 pub mod buildable;
@@ -42,6 +43,7 @@ pub mod patch;
 pub mod place;
 pub mod properties;
 pub mod relever;
+pub mod satwire;
 pub mod search;
 pub mod shapes;
 pub mod showcase;
