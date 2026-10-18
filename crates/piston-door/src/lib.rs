@@ -21,7 +21,9 @@ pub mod designs;
 pub mod designs_history;
 pub mod leaderboard;
 pub mod designs_gravity;
+pub mod lm;
 pub mod drive;
+pub mod ideal;
 pub mod route;
 pub mod minimize;
 pub mod patch;
@@ -257,7 +259,7 @@ pub fn verify_in(w: &mut Worker, sb: u32, design: &Design, opts: &VerifyOptions)
 }
 
 /// The box the verifier watches: the design plus a margin (blocks can move out of it).
-fn watch_box(d: &Design, spec: &DoorSpec) -> (Pos, Pos) {
+pub(crate) fn watch_box(d: &Design, spec: &DoorSpec) -> (Pos, Pos) {
     let (mut lo, mut hi) = d.bounds().unwrap();
     for p in spec.door_cells().iter().chain(spec.corridor_cells().iter()) {
         for i in 0..3 {
@@ -285,7 +287,7 @@ fn is_mechanism_block(state: &str) -> bool {
 }
 
 /// Door cells hold 9 identical full plain blocks; corridor is walkable.
-fn closed_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
+pub(crate) fn closed_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
     let mut out = Vec::new();
     let first = r.get(spec.door_cells()[0]).unwrap_or("?").to_string();
     for p in spec.door_cells() {
@@ -313,7 +315,7 @@ fn closed_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
 }
 
 /// Door and corridor cells are all walkable.
-fn open_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
+pub(crate) fn open_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
     let mut out = Vec::new();
     for p in spec.door_cells().into_iter().chain(spec.corridor_cells()) {
         let s = r.get(p).unwrap_or("?");
