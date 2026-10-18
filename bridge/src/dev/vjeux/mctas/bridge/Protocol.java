@@ -279,6 +279,7 @@ public final class Protocol {
         int[] a = ints(r.getAsJsonArray("from"));
         int[] b = ints(r.getAsJsonArray("to"));
         JsonArray out = new JsonArray();
+        JsonArray random = new JsonArray();
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int x = Math.min(a[0], b[0]); x <= Math.max(a[0], b[0]); x++) {
             for (int y = Math.min(a[1], b[1]); y <= Math.max(a[1], b[1]); y++) {
@@ -288,11 +289,17 @@ public final class Protocol {
                     if (!s.isAir() && !s.canSurvive(sb.level, p)) {
                         out.add(pos(x, y, z));
                     }
+                    // Blocks that change by themselves (random ticks): unwaxed copper oxidizes,
+                    // leaves decay, crops grow... A door must not depend on luck over time.
+                    if (!s.isAir() && s.isRandomlyTicking()) {
+                        random.add(pos(x, y, z));
+                    }
                 }
             }
         }
         JsonObject o = new JsonObject();
         o.add("positions", out);
+        o.add("random", random);
         return o;
     }
 

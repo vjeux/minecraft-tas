@@ -521,7 +521,10 @@ final class Sandbox {
                 }
             }
         }
-        if (bestScore < wanted && this.level.getBlockState(pos).isAir()) {
+        // A temporary block only helps blocks that stand on their own: a repeater, dust, lever or
+        // torch would pop off when the temporary block under it is broken.
+        boolean standsAlone = target.canSurvive(this.level, pos);
+        if (bestScore < wanted && this.level.getBlockState(pos).isAir() && standsAlone) {
             // No neighbouring block to click that gives this orientation (in the void the
             // sandbox is): put a temporary block next to it like a player would, click that,
             // break it afterwards. The temporary block's placement and removal update the
@@ -533,15 +536,11 @@ final class Sandbox {
                 }
             }
             for (BlockPos q : around) {
+                // Try the clicks against a dirt block pasted silently, so a dead end leaves no
+                // trace; only the chosen one is built for real.
                 BlockState dirt = Blocks.DIRT.defaultBlockState();
-                this.level.setBlock(q, dirt, 11);
-                this.level.gameEvent(net.minecraft.world.level.gameevent.GameEvent.BLOCK_PLACE, q,
-                        net.minecraft.world.level.gameevent.GameEvent.Context.of(player, dirt));
-                for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
-                    tick(server);
-                }
+                this.level.setBlock(q, dirt, RAW_FLAGS);
                 Direction face = Direction.getApproximateNearest((double) (pos.getX() - q.getX()), (double) (pos.getY() - q.getY()), (double) (pos.getZ() - q.getZ()));
-                int sBest = -1;
                 Click sClick = null;
                 scaffoldSearch:
                 for (double hy : hitYs) {
@@ -555,44 +554,44 @@ final class Sandbox {
                             }
                             Click c = new Click(hit, yaw, pitch, false, false);
                             aim(c);
-                            int s = placementScore(trialPlacement(item, stack, pos, hit), target);
-                            if (s > sBest) {
-                                sBest = s;
+                            if (placementScore(trialPlacement(item, stack, pos, hit), target) == wanted) {
                                 sClick = c;
-                                if (s == wanted) {
-                                    break scaffoldSearch;
-                                }
+                                break scaffoldSearch;
                             }
                         }
                     }
                 }
-                if (sBest == wanted || q == around.get(around.size() - 1)) {
-                    if (sBest > bestScore) {
-                        bestScore = sBest;
-                        best = sClick;
-                    }
-                    if (best != null) {
-                        aim(best);
-                        item.place(new net.minecraft.world.item.context.BlockPlaceContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, stack, best.hit()));
-                        for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
-                            tick(server);
-                        }
-                    }
-                    breakLikePlayer(q);
-                    o.addProperty("scaffold", q.getX() + " " + q.getY() + " " + q.getZ());
-                    scaffolded = true;
-                    break;
+                this.level.setBlock(q, Blocks.AIR.defaultBlockState(), RAW_FLAGS);
+                if (sClick == null) {
+                    continue;
                 }
-                breakLikePlayer(q);
+                this.level.setBlock(q, dirt, 11);
+                this.level.gameEvent(net.minecraft.world.level.gameevent.GameEvent.BLOCK_PLACE, q,
+                        net.minecraft.world.level.gameevent.GameEvent.Context.of(player, dirt));
                 for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
                     tick(server);
                 }
+                bestScore = wanted;
+                best = sClick;
+                aim(best);
+                item.place(new net.minecraft.world.item.context.BlockPlaceContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, stack, best.hit()));
+                for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
+                    tick(server);
+                }
+                breakLikePlayer(q);
+                o.addProperty("scaffold", q.getX() + " " + q.getY() + " " + q.getZ());
+                scaffolded = true;
+                break;
             }
         }
-        if (best == null) {
+        if (best == null || bestScore < wanted) {
+            // A player would not place it wrong: the step fails, nothing is placed.
             player.setShiftKeyDown(false);
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
             o.addProperty("ok", false);
-            o.addProperty("error", "nothing can be placed at " + pos.toShortString() + " (occupied or no support)");
+            o.addProperty("error", !this.level.getBlockState(pos).isAir() ? "cannot place at " + pos.toShortString() + ": occupied by " + ser.apply(this.level.getBlockState(pos))
+                    : !standsAlone ? "cannot place " + ser.apply(target) + " yet: nothing for it to stand on"
+                    : "cannot place " + ser.apply(target) + " now: no visible face gives that orientation");
             return o;
         }
         if (!scaffolded) {

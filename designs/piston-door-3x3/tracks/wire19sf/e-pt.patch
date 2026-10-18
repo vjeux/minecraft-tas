@@ -1,0 +1,4 @@
+# P_T (east pusher at (0,3,0)) fired at t6 by a 3-observer chain off the lever into its quasi cell
+set 0 4 -3 minecraft:observer[facing=east,powered=false]
+set 0 4 -2 minecraft:observer[facing=north,powered=false]
+set 0 4 -1 minecraft:observer[facing=north,powered=false]

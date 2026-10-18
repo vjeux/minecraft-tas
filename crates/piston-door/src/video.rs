@@ -302,6 +302,8 @@ pub struct Facts {
     pub blocks: usize,
     pub category: String,
     pub slime_free: bool,
+    /// Every block in the door's plane (one block thick).
+    pub flat: bool,
     /// Ticks after the lever flip until open / closed (first cycle), when the door works.
     pub open_ticks: Option<u32>,
     pub close_ticks: Option<u32>,
@@ -314,6 +316,7 @@ impl Facts {
             blocks: crate::block_count(d),
             category: crate::category(d).to_string(),
             slime_free: crate::slime_free(d),
+            flat: crate::single_layer(d),
             open_ticks: None,
             close_ticks: None,
         }
@@ -321,7 +324,14 @@ impl Facts {
 
     /// "solid, slime-free" etc.
     pub fn kind(&self) -> String {
-        if self.slime_free { format!("{}, slime-free", self.category) } else { self.category.clone() }
+        let mut s = self.category.clone();
+        if self.slime_free {
+            s.push_str(", slime-free");
+        }
+        if self.flat {
+            s.push_str(", flat");
+        }
+        s
     }
 
     pub fn timing(&self) -> Option<String> {

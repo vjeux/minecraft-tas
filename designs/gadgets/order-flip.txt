@@ -1,0 +1,26 @@
+name: gadget-order-flip
+# One 2gt pulse fires two sticky pistons that act in OPPOSITE orders on the two lever edges
+# (fresh-e's e1 door mechanism). Observer O (watching the lever on top of it) strongly powers K;
+# P1 is PUSH-type (stone S1 right in front of its face), P2 is PULL-type (a gap, then stone S2).
+# Opening: P1 pushes S1 at once (and spits it), P2 only pulls S2 when it retracts, 2gt later.
+# Closing: P2 pushes S2 back at once (spit), P1 only pulls S1 back when it retracts, 2gt later.
+# So a structure that must leave first on open and come back last on close rides a push-type
+# piston, and its partner rides a pull-type piston, with no extra wiring for the order.
+origin: 0 0 -1
+palette:
+  S minecraft:stone
+  K minecraft:stone
+  O minecraft:observer[facing=up,powered=false]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=false,facing=east]
+layer 1:
+  S.W
+  ..K
+  ..ES
+layer 2:
+  .
+  ..O
+layer 3:
+  .
+  ..L

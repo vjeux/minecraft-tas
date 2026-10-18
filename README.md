@@ -48,7 +48,10 @@ Every solid record from 151 blocks down, filmed by one camera (3:11):
 
 On the night of 2026-10-18, about 20 agents took the record from 115 to 40 blocks:
 [docs/overnight-2026-10-18.md](docs/overnight-2026-10-18.md). The best door of each leaderboard
-as a GIF: [designs/piston-door-3x3/GALLERY.md](designs/piston-door-3x3/GALLERY.md).
+as a GIF: [designs/piston-door-3x3/GALLERY.md](designs/piston-door-3x3/GALLERY.md). Every
+leader can be built by a survival player (with a specific placement order):
+[designs/piston-door-3x3/BUILDABILITY.md](designs/piston-door-3x3/BUILDABILITY.md), and every
+record behaves tick for tick the same on the unmodified official server (`mctas door vanilla-check`).
 
 Current best (40 blocks), rendered by the real Minecraft client with `mctas door video`:
 https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4
