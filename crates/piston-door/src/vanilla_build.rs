@@ -245,6 +245,9 @@ pub struct SimStep {
     pub click_ticks: Vec<u32>,
     /// Ticks after the action (at least 4, then until idle).
     pub ticks: u32,
+    /// With `--slow N`: the extra idle ticks, plus however long the world then took to be idle
+    /// again (more than N: the slower player saw the build wake up).
+    pub slow_ticks: u32,
     pub after: Region,
 }
 
@@ -293,6 +296,16 @@ fn sim_build(w: &mut Worker, d: &Design, spec: &DoorSpec, steps: &[Step], opts: 
         for s in steps {
             let v = w.call(json!({"op": "build", "sandbox": sb, "steps": [step_json(s)], "settle": 200, "min_ticks": 4, "stop_on_fail": false}))?;
             let r = &v["results"][0];
+            // A slower player: idle ticks after the action; if that wakes something up (a
+            // vibration still travelling when the build op called the world idle), until idle.
+            let mut slow_ticks = 0;
+            if opts.slow > 0 {
+                w.step(sb, opts.slow)?;
+                slow_ticks = opts.slow;
+                if !w.status(sb)?.idle {
+                    slow_ticks += w.step_until_idle(sb, 400)?.ticked;
+                }
+            }
             let ticks_pair = r["scaffold_ticks"].as_array().map(|a| (a[0].as_u64().unwrap_or(0) as u32, a[1].as_u64().unwrap_or(0) as u32));
             out.push(SimStep {
                 ok: r["ok"].as_bool().unwrap_or(false),
@@ -302,6 +315,7 @@ fn sim_build(w: &mut Worker, d: &Design, spec: &DoorSpec, steps: &[Step], opts: 
                 scaffold_ticks: ticks_pair,
                 click_ticks: r["click_ticks"].as_array().map(|a| a.iter().map(|t| t.as_u64().unwrap_or(0) as u32).collect()).unwrap_or_default(),
                 ticks: r["ticks"].as_u64().unwrap_or(0) as u32,
+                slow_ticks,
                 after: w.get_region(sb, wlo, whi)?,
             });
         }
@@ -542,6 +556,11 @@ struct Ctx<'a> {
     current_step: usize,
     /// The game runs unfrozen at 20 tps while the bot builds.
     real_time: bool,
+    /// Extra idle ticks after every action (`--slow`).
+    slow: u32,
+    /// Move the bot far away while the world ticks after each action (default; `--stay` keeps
+    /// it at its click spot like a real player standing by).
+    park: bool,
 }
 
 /// Extra game ticks a real-time build waits after each action, on top of the simulator's.
@@ -569,25 +588,51 @@ impl Ctx<'_> {
         self.v.teleport_bot_to(s.feet[0], s.feet[1], s.feet[2], Some((s.yaw, s.pitch)))
     }
 
+    /// The simulator has no player while it ticks: wait far above the build, out of every sculk
+    /// sensor's range (8 blocks), touching nothing (unless `--stay`).
+    fn park_bot(&mut self) -> Result<()> {
+        if !self.park {
+            return Ok(());
+        }
+        let (lo, hi) = (self.wlo, self.whi);
+        let x = (lo[0] + hi[0]) as f64 / 2.0 + 0.5;
+        let z = (lo[2] + hi[2]) as f64 / 2.0 + 0.5;
+        self.v.teleport_bot_to(x, hi[1] as f64 + 12.0, z, Some((0.0, 0.0)))
+    }
+
+    fn park_bot_if(&mut self, ticks: u32) -> Result<()> {
+        if ticks > 0 { self.park_bot() } else { Ok(()) }
+    }
+
     fn ack(&mut self, seq: i32) -> Result<()> {
         self.bot()?.wait_ack(seq, Duration::from_secs(20))
     }
 
     /// Read the watch box (full state names, simulator flags) and whether vanilla is quiet.
     fn read(&mut self) -> Result<(Region, bool)> {
+        let (r, quiet, _) = self.read_pending()?;
+        Ok((r, quiet))
+    }
+
+    /// Like `read`, plus what is still pending (scheduled ticks with their delay, moving pistons).
+    fn read_pending(&mut self) -> Result<(Region, bool, String)> {
         let snap = self.v.snapshot(self.wlo, self.whi)?;
         let busy = !snap.block_ticks.is_empty() || snap.fluid_ticks > 0 || snap.moving_pistons() > 0;
-        let quiet = !busy && self.v.count_entities("@e[type=minecraft:falling_block]")? == 0;
+        let falling = self.v.count_entities("@e[type=minecraft:falling_block]")?;
+        let quiet = !busy && falling == 0;
+        let ticks: Vec<String> = snap.block_ticks.iter().map(|(p, id, t)| format!("{p:?} {} in {t}", id.trim_start_matches("minecraft:"))).collect();
+        let pending = format!("block ticks [{}], moving pistons {}, falling blocks {falling}", ticks.join(", "), snap.moving_pistons());
         let mut r = snap.region;
         self.oracle.apply(self.w, &mut [&mut r])?;
-        Ok((r, quiet))
+        Ok((r, quiet, pending))
     }
 
     fn step(&mut self, n: u32) -> Result<()> {
         if self.real_time {
-            // The game runs on its own (20 tps): wait the simulator's ticks plus a margin.
+            // The game runs on its own (20 tps): wait the simulator's ticks plus a margin (none
+            // when the simulator acted at once: the bot then acts as fast as it can).
             self.stats.build_ticks += n as usize;
-            return wait_game_ticks(self.v, n as i64 + REAL_TIME_MARGIN);
+            return if n > 0 { wait_game_ticks(self.v, n as i64 + REAL_TIME_MARGIN) } else { Ok(()) };
         }
         if n > 0 {
             self.v.step(n)?;
@@ -730,12 +775,14 @@ fn vanilla_action(ctx: &mut Ctx, step: &Step, click: Option<(&Click, f32)>, sim:
             if let Some(q) = c.scaffold {
                 let (a, b) = sim.scaffold_ticks.context("the simulator used no temporary dirt here")?;
                 ctx.place_dirt(q, step.pos, world)?;
+                ctx.park_bot_if(a)?;
                 ctx.step(a)?;
                 let (now, quiet) = ctx.read()?;
                 if !quiet {
                     notes.push(format!("vanilla still busy {a} ticks after the temporary dirt (the simulator was idle)"));
                 }
                 ctx.place(state, step.pos, c, yaw, &now)?;
+                ctx.park_bot_if(b)?;
                 ctx.step(b)?;
                 let (now, quiet) = ctx.read()?;
                 if !quiet {
@@ -746,6 +793,7 @@ fn vanilla_action(ctx: &mut Ctx, step: &Step, click: Option<(&Click, f32)>, sim:
                 ctx.place(state, step.pos, c, yaw, world)?;
             }
             for &t in &sim.click_ticks {
+                ctx.park_bot_if(t)?;
                 ctx.step(t)?;
                 let (now, _) = ctx.read()?;
                 ctx.use_block(step.pos, &now)?;
@@ -754,7 +802,21 @@ fn vanilla_action(ctx: &mut Ctx, step: &Step, click: Option<(&Click, f32)>, sim:
         Action::Use => ctx.use_block(step.pos, world)?,
         Action::Break => ctx.break_block(step.pos, world)?,
     }
+    if ctx.park {
+        ctx.park_bot()?;
+    }
     ctx.step(sim.ticks)?;
+    if sim.slow_ticks > 0 {
+        ctx.step(sim.slow_ticks)?;
+        if sim.slow_ticks > ctx.slow {
+            // Not a divergence (vanilla follows the same schedule): a fact about the script.
+            let n = ctx.current_step;
+            ctx.stats.notes.push(format!(
+                "step {n}: slower player: the simulator itself woke up again during the {} idle ticks after this action and needed {} ticks in all",
+                ctx.slow, sim.slow_ticks
+            ));
+        }
+    }
     Ok(notes)
 }
 
@@ -793,6 +855,12 @@ pub struct BuildOptions {
     /// Build with the game running at 20 tps (unfrozen), waiting the simulator's ticks plus a
     /// margin after each action; the cycles still run frozen, tick for tick.
     pub real_time: bool,
+    /// A slower player: this many extra idle ticks after every action, in BOTH worlds (stepped).
+    pub slow: u32,
+    /// Keep the bot at its click spot while the world ticks (a player standing by: near a sculk
+    /// sensor it is a vibration source the simulator does not have). Default: it waits far above
+    /// the build, out of every sensor's range, as the simulator has no player at all.
+    pub stay: bool,
 }
 
 fn regions_cells(r: &Region, into: &mut BTreeSet<Pos>) {
@@ -858,7 +926,7 @@ fn check_at(w: &mut Worker, v: &mut VanillaServer, oracle: &mut Oracle, d: &Desi
     }
     regions_cells(&sim.judge_rest, &mut machine);
     v.set_bot_main_hand(None)?;
-    let mut ctx = Ctx { v, w, oracle, wlo, whi, blocked: BTreeSet::new(), stats: BuildStats::default(), current_step: 0, real_time: opts.real_time };
+    let mut ctx = Ctx { v, w, oracle, wlo, whi, blocked: BTreeSet::new(), stats: BuildStats::default(), current_step: 0, real_time: opts.real_time, slow: opts.slow, park: !opts.stay };
     ctx.stats.notes = notes;
     if opts.real_time {
         ctx.v.cmd_ok("tick rate 20")?;
@@ -884,7 +952,27 @@ fn check_at(w: &mut Worker, v: &mut VanillaServer, oracle: &mut Oracle, d: &Desi
         let click = clicks[k].as_ref().map(|(c, y)| (c, *y));
         let label = format!("step {} `{}`", script.steps[k].number, script.steps[k].text);
         let mut step_notes = vanilla_action(&mut ctx, step, click, ss, &world).with_context(|| format!("vanilla, {label}"))?;
-        let (mut now, mut quiet) = ctx.read()?;
+        let (mut now, mut quiet, first_pending) = ctx.read_pending()?;
+        if !quiet {
+            // Experiments: MCTAS_VB_PROBE="x,y,z;..." prints those blocks' NBT (a sculk sensor's
+            // listener: event, source, distance) when vanilla is busy where the simulator is not.
+            if let Ok(spec) = std::env::var("MCTAS_VB_PROBE") {
+                for p in spec.split(';').filter(|s| !s.is_empty()) {
+                    if p == "bot" {
+                        let name = ctx.v.bot.as_ref().map(|b| b.name.clone()).unwrap_or_default();
+                        for key in ["Pos", "Motion", "OnGround", "fall_distance", "abilities"] {
+                            println!("    probe after step {}: bot {key}: {}", script.steps[k].number, ctx.v.cmd(&format!("data get entity {name} {key}"))?);
+                        }
+                        continue;
+                    }
+                    let c: Vec<i32> = p.split(',').filter_map(|t| t.trim().parse().ok()).collect();
+                    if c.len() == 3 {
+                        let (x, y, z) = (c[0] + off[0], c[1] + off[1], c[2] + off[2]);
+                        println!("    probe after step {}: {}", script.steps[k].number, ctx.v.cmd(&format!("data get block {x} {y} {z}"))?);
+                    }
+                }
+            }
+        }
         let mut extra = 0;
         while !quiet && extra < 200 {
             ctx.step(1)?;
@@ -892,7 +980,7 @@ fn check_at(w: &mut Worker, v: &mut VanillaServer, oracle: &mut Oracle, d: &Desi
             (now, quiet) = ctx.read()?;
         }
         if extra > 0 {
-            step_notes.push(format!("vanilla needed {extra} more ticks to be quiet after the simulator's {}", ss.ticks));
+            step_notes.push(format!("vanilla needed {extra} more ticks to be quiet after the simulator's {} (pending then: {first_pending})", ss.ticks));
         }
         let diff = frame_diff(&ss.after, &now, 6);
         if !diff.is_empty() || !step_notes.is_empty() {

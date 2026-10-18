@@ -685,6 +685,13 @@ pub enum DoorCmd {
         /// simulator's ticks + 10 after each action); the cycles still run frozen, tick for tick.
         #[arg(long)]
         real_time: bool,
+        /// A slower player: N extra idle ticks after every action, in both worlds (stepped).
+        #[arg(long, default_value_t = 0)]
+        slow: u32,
+        /// Keep the bot at its click spot while the world ticks (a player standing by; by
+        /// default it waits out of every sculk sensor's range, as the simulator has no player).
+        #[arg(long)]
+        stay: bool,
     },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
@@ -1315,8 +1322,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::VanillaCheck { designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace } => {
             vanilla_check_cmd(version, &cfg, &designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace)?;
         }
-        DoorCmd::VanillaBuild { scripts, design, cycles, extra_offsets, positions, offset, max_ticks, until_step, verbose, keep_world, tick_rate, real_time } => {
-            vanilla_build_cmd(version, &cfg, &scripts, design, cycles, extra_offsets, positions, offset, max_ticks, until_step, verbose, keep_world, tick_rate, real_time)?;
+        DoorCmd::VanillaBuild { scripts, design, cycles, extra_offsets, positions, offset, max_ticks, until_step, verbose, keep_world, tick_rate, real_time, slow, stay } => {
+            vanilla_build_cmd(version, &cfg, &scripts, design, cycles, extra_offsets, positions, offset, max_ticks, until_step, verbose, keep_world, tick_rate, real_time, slow, stay)?;
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
@@ -1649,6 +1656,8 @@ fn vanilla_build_cmd(
     keep_world: bool,
     tick_rate: u32,
     real_time: bool,
+    slow: u32,
+    stay: bool,
 ) -> Result<()> {
     use crate::vanilla_build::{BuildOptions, check, parse_script};
     let mut offsets = VerifyOptions::default().offsets;
@@ -1661,7 +1670,7 @@ fn vanilla_build_cmd(
         anyhow::ensure!(v.len() == 3, "--offset wants x,y,z");
         offsets = vec![[v[0], v[1], v[2]]];
     }
-    let opts = BuildOptions { cycles, offsets, max_ticks, until_step, verbose, real_time };
+    let opts = BuildOptions { cycles, offsets, max_ticks, until_step, verbose, real_time, slow, stay };
     let mut w = Worker::spawn(cfg)?;
     let vopts = mctas::vanilla::VanillaOptions { version: version.to_string(), keep_dir: keep_world, tick_rate, ..Default::default() };
     let t0 = std::time::Instant::now();
