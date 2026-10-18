@@ -1,0 +1,6 @@
+clear -2 -1 0
+clear -2 -2 0
+set -1 -2 0 minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+clear 3 -2 0
+clear 3 -3 0
+clear 2 -3 0

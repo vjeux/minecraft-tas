@@ -66,11 +66,11 @@ The 9 door blocks are sand, gravel or concrete powder.
 
 Every record of this board in one video: [gravity-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.jpg)).
 
-## Fastest solid: 107 blocks
+## Fastest solid: 112 blocks
 
 Fewest game ticks to open plus close (worst cycle), ties by blocks.
 
-![lamp-sweep-a1-107-107b](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-a1-107-107b.gif)
+![speed-2-c1-112b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-2-c1-112b.gif)
 
-**107 blocks**, solid, slime-free, opens in 10 ticks, closes in 7 (worst cycle): [lamp-sweep-a1-107-107b](archive/lamp-sweep-a1-107-107b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-a1-107-107b.mp4)). From agent lamp-sweep; see [tracks/lamp-sweep/NOTES.md](tracks/lamp-sweep/NOTES.md).
+**112 blocks**, solid, slime-free, opens in 9 ticks, closes in 7 (worst cycle): [speed-2-c1-112b](archive/speed-2-c1-112b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-2-c1-112b.mp4)). From agent speed-2; see [tracks/speed-2/NOTES.md](tracks/speed-2/NOTES.md).
 

@@ -1,0 +1,19 @@
+design designs/piston-door-3x3/tracks/tick-door/w10.txt
+open 0 use 3 5 1
+close 0 use 3 5 1
+close 0 set 4 2 1 minecraft:redstone_block
+close 1 clear 4 2 1
+close 8 set 1 3 1 minecraft:redstone_block
+close 9 clear 1 3 1
+close 10 set 3 4 -1 minecraft:redstone_block
+close 10 set 3 2 1 minecraft:glass
+close 11 set 2 5 0 minecraft:glass
+close 12 clear 3 2 1
+close 12 clear 2 5 0
+close 13 clear 3 4 -1
+close 13 set 3 3 -1 minecraft:stone
+close 14 clear 3 3 -1
+close 15 set 4 4 0 minecraft:stone
+close 16 clear 4 4 0
+close 24 set -9 9 -9 minecraft:stone
+close 25 clear -9 9 -9
