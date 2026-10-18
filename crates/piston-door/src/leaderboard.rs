@@ -72,7 +72,8 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
     });
     let mut entries: Vec<Entry> = results.into_iter().collect::<Result<_>>()?;
     entries.sort_by(|a, b| {
-        (a.verdict.is_err(), a.category, a.blocks, a.source.as_str()).cmp(&(b.verdict.is_err(), b.category, b.blocks, b.source.as_str()))
+        let rank = |e: &Entry| (e.verdict.is_err(), e.category != "solid", e.blocks);
+        (rank(a), a.source.as_str()).cmp(&(rank(b), b.source.as_str()))
     });
     Ok(entries)
 }
@@ -117,6 +118,10 @@ pub fn archived_keys(dir: &Path) -> HashSet<String> {
     let mut keys = HashSet::new();
     if let Ok(rd) = std::fs::read_dir(dir) {
         for e in rd.flatten() {
+            // Files kept for history as invalid are not trusted.
+            if e.file_name().to_string_lossy().contains("invalid") {
+                continue;
+            }
             if let Ok(d) = Design::load(&e.path()) {
                 keys.insert(format!("{:?}|{:?}", d.blocks, d.ports));
             }
