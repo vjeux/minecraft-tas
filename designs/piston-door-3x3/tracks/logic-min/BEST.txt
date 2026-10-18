@@ -37,20 +37,20 @@ layer 0:
   .
 layer 1:
   ..SMMMS.J
-  ........s
+  .
   .
 layer 2:
   H.SMMMS.C
-  ........F
-  .......ss
+  .
+  .
 layer 3:
   .....M..B
-  A...P...s
-  ooooKRsrr
+  A...P.s.s
+  ooooK..s
 layer 4:
   ....GDMoL
-  ........F
-  ........s
+  ......F.F
+  .....RsDs
 layer 5:
   ....GBsO
   .
