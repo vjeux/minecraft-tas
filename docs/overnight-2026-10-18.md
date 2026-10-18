@@ -190,15 +190,18 @@ All `mctas door <command>`; reference list in the [README](../README.md#tools).
   world updating after each one) that ends exactly in the judge's rest state, then runs the judge's
   cycles from there. All 13 board leaders as of 11:56 (fc2, fx1, s7q, st43, g42, the speed doors,
   flat 60...) are buildable at 32 of 32 positions, none in the naive order: observers fire pistons
-  into the half-built door, sand falls, faces get covered. Not yet run on m05, w43, flat-b 47 and
-  sculk 38.
+  into the half-built door, sand falls, faces get covered. At 13:16 the coordinator ran it on the
+  newer leaders too: fx1, m05, w42, flat-b 47 and sculk 38 are all buildable at 32 of 32 positions
+  (the sculk door with the lever on while building).
 * **Same as the real game.** `door vanilla-check` runs the official 26.3 server jar unmodified; a
   Rust bot clicks the lever and the region files are read back every tick. At 09:30: the 16 bests
   (fc2: 4,832 ticks) identical at 32 positions x 3 cycles plus a real-time cycle, every archived
   design at 4 positions, every branch best at 8, plus 140 random contraptions (`vanilla-fuzz`). No
   simulator divergence; each apparent one was a harness bug. In real play a player standing on a
-  sculk sensor triggers it, which breaks rb2s2-50b and rb2-sculk-50b. Not yet run on the designs
-  found later (fx1, m05, s7q, w43, both flat doors, g42, sculk 38, the o-series and s4).
+  sculk sensor triggers it, which breaks rb2s2-50b and rb2-sculk-50b. At 13:29 the newer leaders
+  passed too, identical tick for tick at 32 positions x 3 cycles plus a real-time cycle: fx1
+  (5,024 ticks), m05 (7,904), w42 (5,408), flat-b 47 (6,368), g42 (3,758), sculk 38 (9,536) and the
+  fastest solid o7 (2,912).
 * **Simulator bugs fixed earlier**: torch burnout memory leaked across sandbox reuse (everything was
   re-judged), and the judge did not wait for falling sand.
 

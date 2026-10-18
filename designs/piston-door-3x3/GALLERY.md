@@ -28,23 +28,23 @@ Not a single slime or honey block anywhere.
 
 Every record of this board in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
-## Solid, flat (one z layer), no slime or honey: 47 blocks
+## Solid, flat (one z layer), no slime or honey: 44 blocks
 
 Slime-free, and every block in the door's plane: the whole machine is one block thick.
 
-![flat-b-v3-47b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v3-47b.gif)
+![flat-b-v7-44b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-44b.gif)
 
-**47 blocks**, solid, slime-free, flat, opens in 32 ticks, closes in 30 (worst cycle): [flat-b-v3-47b](archive/flat-b-v3-47b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v3-47b.mp4)). From agent flat-b; see [tracks/flat-b/NOTES.md](tracks/flat-b/NOTES.md).
+**44 blocks**, solid, slime-free, flat, opens in 30 ticks, closes in 26 (worst cycle): [flat-b-v7-44b](archive/flat-b-v7-44b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-44b.mp4)). From agent flat-b; see [tracks/flat-b/NOTES.md](tracks/flat-b/NOTES.md).
 
 Every record of this board in one video: [flat-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.jpg)).
 
-## Sculk: 38 blocks
+## Sculk: 36 blocks
 
 Uses sculk sensors (footsteps or mobs nearby can trigger them).
 
-![sculk2-s1-38b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s1-38b.gif)
+![sculk2-s4b-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.gif)
 
-**38 blocks**, sculk, opens in 19 ticks, closes in 38 (worst cycle): [sculk2-s1-38b](archive/sculk2-s1-38b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s1-38b.mp4)). From agent sculk-2; see [tracks/sculk-2/NOTES.md](tracks/sculk-2/NOTES.md).
+**36 blocks**, sculk, opens in 20 ticks, closes in 36 (worst cycle): [sculk2-s4b-36b](archive/sculk2-s4b-36b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.mp4)). From agent sculk-2; see [tracks/sculk-2/NOTES.md](tracks/sculk-2/NOTES.md).
 
 Every record of this board in one video: [sculk-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.jpg)).
 
@@ -58,11 +58,11 @@ The 9 door blocks are sand, gravel or concrete powder.
 
 Every record of this board in one video: [gravity-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.jpg)).
 
-## Fastest solid: 119 blocks
+## Fastest solid: 125 blocks
 
 Fewest game ticks to open plus close (worst cycle), ties by blocks.
 
-![speed-wire-o6-119b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o6-119b.gif)
+![speed-2-a1-125b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-2-a1-125b.gif)
 
-**119 blocks**, solid, slime-free, opens in 11 ticks, closes in 7 (worst cycle): [speed-wire-o6-119b](archive/speed-wire-o6-119b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o6-119b.mp4)). From agent speed; see [tracks/speed/NOTES.md](tracks/speed/NOTES.md).
+**125 blocks**, solid, slime-free, opens in 10 ticks, closes in 7 (worst cycle): [speed-2-a1-125b](archive/speed-2-a1-125b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-2-a1-125b.mp4)). From agent speed-2; see [tracks/speed-2/NOTES.md](tracks/speed-2/NOTES.md).
 

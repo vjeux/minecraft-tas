@@ -7,7 +7,37 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 | v2.txt (archive/flat-v2-60b.txt) | 60 | 48 / 48 | first flat door: pist19r mechanism + observer chains |
 | min-v2.txt (archive/flat-v2-57b.txt) | 57 | 42 / 42 | `door minimize`: a dust step replaces 3 chain observers; observer -> block feeds the right pair |
 | v3.txt (archive/flat-v2-55b.txt) | 55 | 36 / 34 | R_B's input = dust under a block powered by the top chain; M fired by an observer watching the bottom-left door block (BL flag), left stack fired late |
-| v4.txt = BEST.txt (archive/flat-v2-54b.txt) | **54** | 36 / 34 | the R_B-input dust stands on an observer that starts the late left chain |
+| v4.txt (archive/flat-v2-54b.txt) | 54 | 36 / 34 | the R_B-input dust stands on an observer that starts the late left chain |
+| v5.txt (archive/flat-v5-52b.txt) | 52 | 34 / 32 | `door synth` (k=9, obs/dust/block/rep1-4/torch, box x -6..-1, y -1..6) re-laid the late left chain + stack feed in 8 blocks instead of 10 |
+| v6.txt (archive/flat-v6-51b.txt) | 51 | 34 / 32 | `door resynth --min-size 5 --max-size 6` (palette with rep1-4): a delay-2 repeater replaces two chain observers |
+| v7.txt = BEST.txt (archive/flat-v7-50b.txt) | **50** | 32 / 30 | `door synth` k=9 on the cut crossing (a1 path + P_T chain + top chain, 10 blocks, box x -1..5, y 3..8): 9 blocks |
+
+## Control of v7 (31 blocks), t = ticks after the flip
+- Right (8): lever (4,5) on observer S (4,4) [QC-fires the right top piston through (4,3), t2];
+  O_Y (3,4)E, O_X (2,4)E -> A (a1, t6); (5,4)W, (5,3)U, (5,2)U -> smooth stone (5,1): right
+  middle (direct) + bottom (QC), t8.
+- Crossing (7): (2,5) observer facing down watches O_X and lights the dust (2,6) standing on it
+  (t8); that dust steps up-west to the dust (1,7), whose floor is an observer (1,6) in B's QC cell
+  (R_B still QC-powers B through that cell). (3,6)W watches the dust (2,6), (3,5)U -> P_T's QC
+  cell (3,4): P_T at t12. (0,7)E watches the dust (1,7) -> J' (-1,7) (t10).
+- Top-left (6): J' stone, dust D6 (-1,6) under it (gadget dust-below), R_B (0,6) d4 -> B's QC
+  cell (1,6): window t18..26; O (0,5) on R_B -> X dust (0,4) on floor (0,3): a2 t20, a3 t28.
+- Left (8): S1 (-1,5) observer facing up watches D6 (t12) -> (-2,5)E -> (-2,4)U QC-fires the
+  top-left piston through (-2,3) (t16); TL lands in (-1,2), watched by (-1,3) facing down (a
+  TL flag) -> (-2,3)E -> delay-2 repeater (-3,3) facing east -> (-3,2)U -> smooth stone (-3,1):
+  left middle + bottom late (t26).
+- Bottom (2): BL flag: (0,-1) facing up watches BL, powers stone (0,-2) next to P_M: M after a3.
+
+## Synthesis notes (what found the last 4 blocks)
+- Hand layouts stalled at 54; `door synth` on a CUT region with the door judge as the target
+  found 52 (left chain, k=9) and 50 (crossing, k=9) in minutes; `door resynth` (groups of 5-6)
+  found 51. Recipe: `door patch` to clear a connected region of n control blocks, then
+  `door synth <cut> --lo --hi (z = 0..0) --from <cells feeding it> --to <cells it must reach>
+  --palette block,dust,obs,rep1,rep2,rep3,rep4,torch --k n-1`. Enumerations: k=9 ~150-850k
+  circuits (3-15 min on 4-12 workers).
+- Searched and empty on v7: minimize --moves all --plateau; resynth 2..4 (466 groups); synth
+  k<=6 on the left 7, k<=7 on S1 + left 7, k<=7 on the top-left corner (crossing end + J' + D6
+  + S1 + left head, 8), k<=5 on the right feed + a1 path (6).
 
 ## Mechanism (19 blocks, mech-synth's `pist19r` with the T-mover on the right)
 - 9 door stones; left column on 3 retracted sticky pistons (-2,0..2) facing east (pull-type,

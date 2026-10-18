@@ -1,0 +1,8 @@
+# synth context: w42 without the P_T chain, the left column's chain and the TR chain
+clear 0 4 -2
+clear -1 4 -2
+clear -1 4 -1
+clear -2 4 -1
+clear -2 3 -1
+clear 2 4 -2
+clear 2 4 -1
