@@ -139,3 +139,11 @@ Traced with probes (`trace`), lever flip = t0, w = tick B extends (R_B turns on)
   unpowers P_R, whose event is appended to the block-event queue after B's (whichever of Rr/R_B
   ticks first), so T is pushed into (1,3,0) right after B lifts A out of it; A, T and RB_A all
   land at t14, A pushes T down at t15 => closed at t17. Same block count as rb7's hold.
+* rb9 (61, open 16 / close 17, FAST.txt): `door minimize --max-open 16 --max-close 17` (new
+  flags) removed Rb: R_B (delay 1) bridges the t4..6 gap between O2's pulse and Rc's (it is
+  still on when Rc's output arrives), so K needs only O2 + Rc. Then Rc moved to K's east side
+  (2,6,2), next to the start of O3's dust line (`rb9.patch`): -8 blocks. Local minimum for the
+  speed-constrained search (plateau too).
+* Why not faster: open = w+12 and close = w+13 with w = 4 (B's window t4..12). Every redstone
+  delay is even (observer, repeater, torch, comparator), so the window can't end at t11; B
+  can't start before t4 (O2 at t2 + R_B's 2 gt; in the open T only leaves (1,3,0) at t4).
