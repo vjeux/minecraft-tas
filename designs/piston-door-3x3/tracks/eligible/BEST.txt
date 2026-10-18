@@ -1,4 +1,4 @@
-name: eligible-fl80m
+name: eligible-fl72n
 port door: 0 0 0
 port lever: -1 -4 0
 origin: -3 0 0
@@ -22,20 +22,18 @@ palette:
 layer -4:
   ..LNBBH
 layer -3:
-  ..oOFDR
+  ..oOFDRB
 layer -2:
-  ooOHFO
+  ooOHFO.O
 layer -1:
-  O.E..S
+  O.E..S.O
 layer 0:
   OE.HHH.G
 layer 1:
   HE.HHH.G
 layer 2:
-  rE.HHH.A
+  rE.HHH.G
 layer 3:
-  O.....BC
+  O.H...HA
 layer 4:
-  rB..ss
-layer 5:
-  .OBBS
+  rBCBsBCB
