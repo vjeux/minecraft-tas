@@ -1165,6 +1165,7 @@ pub enum Target {
         seamless: Option<crate::properties::SeamReq>,
         repeater_input: bool,
         eligible: bool,
+        shape: Option<crate::ShapeLimits>,
     },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
@@ -1192,9 +1193,16 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, rotations, seamless, repeater_input, eligible, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, seamless, repeater_input, eligible, shape, .. } => {
             if let Some(t) = seamless {
                 t.check(w, sb, d)?;
+            }
+            // Shape boards (volume, flat...): the swept shape, at rest and while it moves.
+            if let Some(l) = shape {
+                let s = crate::swept_shape_in(w, sb, d)?;
+                if !l.allows(&s) {
+                    bail!("outside the --shape limits while it moves: {s:?}");
+                }
             }
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
             let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
@@ -1457,6 +1465,8 @@ pub struct ResynthOptions {
     /// Record eligibility: see [`crate::search::SearchOptions::repeater_input`] / `eligible`.
     pub repeater_input: bool,
     pub eligible: bool,
+    /// Shape limits on the swept shape (`--shape`: volume, flat, side...).
+    pub shape: Option<crate::ShapeLimits>,
     /// Compaction (volume boards): every replacement circuit stays inside this box (inclusive
     /// corners); while removable blocks lie outside it, only groups through them are cut and they
     /// grow back inside with up to `extra` more blocks.
@@ -1702,6 +1712,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 seamless: seam_req,
                 repeater_input: o.repeater_input || o.eligible,
                 eligible: o.eligible,
+                shape: o.shape,
             };
             let t = Instant::now();
             let inner = |m: &str| {
