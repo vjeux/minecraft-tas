@@ -57,6 +57,16 @@ control:
 * M: observer (0,-1,0) watching BL + 3 observers into M's piston: t22 on close (t24 open).
 * Budget: 19 mechanism + 26 control.
 
+## Searches on w42 that found nothing smaller
+* `door minimize --moves all --plateau`, `door regrow --size 2`, `door route2 --pairs` (lamps in
+  the palette);
+* `door synth` with the door judge on sub-problems (palette observers, blocks, dust, repeaters,
+  comparators, torches, lamps, targets, waxed copper bulbs): M's trigger <= 3 blocks; the west
+  side (P_T chain + left chain, 5 observers) <= 4; the right side (TR chain + pair watcher +
+  block, 4) <= 3; left chain + M trigger (6) <= 5; M trigger + pair (6) <= 5; P_T + left + TR
+  chains (7) <= 6; the B window feed (O_b + J) <= 1; B feed + TR chain (4) <= 3. Each sub-problem
+  only re-finds the current wiring at its current size.
+
 ## Searches on w43 that found nothing smaller
 * `door minimize --moves all --plateau` (436k swaps), a plateau walk with pairs (15 steps);
 * `door regrow --size 2` (7k) and `--size 3` (2.1M candidates, obs/block/dust/rep1-4);
@@ -78,6 +88,15 @@ control:
   needs a second observer on the lever plus a relay to B's quasi cell (+2).
 * P_T + L2 + L1 from one block at (-2,3,0) (above L2, beside P_T): unreachable by t9; BL down
   instead of L0 loses the BL link M's timing relies on.
+
+## Next ideas
+* `door synth` with the door judge on 4-6 block sub-problems is what found w42 (a lamp trick no
+  static reasoning suggested): rerun it on other doors' control sub-nets with lamps/bulbs in the
+  palette, and with bigger boxes / k = 7 when time allows.
+* A cheaper B window feed or A2/A3 source (the cluster is 8 blocks and every sub-problem of it
+  re-finds itself); an "A held at the end of the close" variant of pist19r would let M fire early
+  (no late trigger at all), if the hold costs less than M's 4-block trigger.
+* Speed: w42 opens in 28 / closes in 24; nothing was tuned for speed.
 
 ## Lessons
 * **Door-block watchers are asymmetric**: a pull-type piston fired at t moves its block at t+2 on
