@@ -26,18 +26,21 @@ crossing in front of the door must run at y >= 4 (floors at y 3) or y <= -1 (flo
 |---|---|---|---|
 | n3c-116.txt | 116 | 9 / 7 | speed-2 n3-112b with the staircase cut (9 blocks: the 6 column cells, its west end (-1,2,-4) + floor, its east end (3,3,-4)) and re-laid by `door route --swept-design` over the top at z = -5: (-1,2,-4) up to (-1,3,-5), along y 4 on floors at y 3 (x 0..2), down to (3,3,-5) and (3,3,-4) (13 blocks). Strength at the far ends 3 instead of 5. DOMINATED by speed-2's c1 (112, 9 / 7, the same fix with a hand route at equal size, found in parallel) |
 | **a1c-107.txt** | **107** | **10 / 7** | lamp-sweep a1-107 + speed-2's c1.patch (the hand route: S (-1,3,-3) -> (-1,4,-4) -> (0,4,-4) -> step up to (1,5,-4) over a new stone (1,4,-4), so the dust never touches the repeater-powered stone (1,4,-3) -> (2,4,-4) -> M (3,3,-4); 8 cells out, 8 in): equal size, the fewest-block close-7 door under the rule. (a1c-111 was my router version, +4) |
-| s4c (work) | 108 | 12 / 7 | speed-wire s4-108 + the same c1.patch: compliant at equal size too (dominated by a1c; base for a close-7-only resynth) |
+| s4c (work) | 108 | 12 / 7 | speed-wire s4-108 + the same c1.patch: compliant at equal size too (base for a close-7-only resynth) |
+| s4c-101.txt | 101 | 12 / 7 | s4c after the first 7 replacements of `door resynth --palette block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,note --max-size 3 --max-close 7` |
+| **s4c-93.txt = BEST** | **93** | **12 / 7** | the same resynth to its end (108 -> 93, 15 replacements: the target taps for the side torches and P_M's torch, the (2,4,0) observer + (2,5,0) dot, shorter lever-net ends): **the fewest-block close-7 door under the rule** (s4 had never been resynthesized; a1-107 and o6-107 had, by lamp-sweep) |
+| **c1r-108.txt** | **108** | **9 / 7** | speed-2's c1 (112) + `door resynth` (same palette, `--max-open 9 --max-close 7`): 4 replacements (the dead note-block feeder repeater + stones, obsidian (4,3,0) + stone (5,2,0) -> one smooth stone). **Fastest open (9) and open + close (16) under the rule**, one block under speed-2's c2-109 |
+| a1c resynth | 107 | 10 / 7 | `door resynth` size 2..3 `--max-close 7`: nothing (lamp-sweep had already resynthesized a1) |
 
-## Close 6 in the speed family (worked out, not built)
+## Close 6 in the speed family (proof with scripted arming, not wired)
 The close is 7 = F's second push [T, C] at c5 (lands c7). Chain: c1 F (BUD-armed through the stone
 (1,6,0) that the lock-delayed repeater (1,6,-1) powers from t16) is updated by S_F's head leaving
 (1,4,-1) and pushes C from E into N1; c2 the repeater falls, P_X retracts and updates F, F spits C
 (placed c2); the T-returner D (3,3,0) pushes T into E at c2 (update from the right top puller's head),
 P_D pushes R_F back at c2; c4 F's base, T and R_F land; c5 F extends.
 * Close 6 needs exactly: (1) F 0-ticks at c1 (C placed at N1 at c1, F's base lands c3 BE);
-  (2) T placed in E before c4's block events; (3) R_F back by c3 BE (S_F sticky: it pulls R_F back
-  at c1, and P_D + its observer go away). Then whichever of R_F / F's base / T lands last at c3 BE
-  updates F with everything placed and F extends at c4: close 6.
+  (2) T placed in E before c4's block events; (3) R_F back by c3 BE. Then whichever of R_F / F's
+  base / T lands last at c3 BE updates F with everything placed and F extends at c4: close 6.
 * (1): F's killer must be updated by F's extension (a neighbor of F's base or of E) and must move
   F's arming source in the same phase. The free neighbors (0,4,0) and (1,4,1) only give up-facing
   killers, which self-latch (the block they push sits next to their own quasi cell, tick-door's
@@ -46,13 +49,10 @@ P_D pushes R_F back at c2; c4 F's base, T and R_F land; c5 F extends.
   retracts through its head), p pushes R_X back to (1,5,1) (silent for F), R_Z reach-pulled back
   (silent for P_X), and the repeater (1,6,-1) + its lock chain removed (it would power P_X directly
   through (1,6,0)). Two more k pulses and one more p pulse, all wired from the lever.
-* (2) is the blocker: D must push T at c1 AFTER F's 0-tick (F's retraction only updates the
-  neighbors of (1,4,0), E and N1; D at (3,3,0) is none of them, and anything updated earlier
-  queues D before F's retraction, so D's push meets F's moving head and is dropped, no retry), or
-  D (sticky) must lose power at c3 for a spit (no c1 instant-on source exists on the close edge to
-  feed a torch, and an observer on a c1 mover only gives a c3 RISE), or D needs its own 0-tick
-  killer with a silent re-arm window. A different T parking cell (behind or in front of E, a
-  reach-through returner next to E) changes Q's push geometry: a new open.
+* (2) looked like the blocker: D must be UPDATED at c1 after F's 0-tick (F's retraction only
+  updates the neighbors of (1,4,0), E and N1; D at (3,3,0) is none of them, and an update before
+  F's retraction finds D's push blocked by F's moving head: dropped, no retry). Solved below with
+  a padding chain (`close6-pad.drive`).
 * `close6-ideal.drive` (a1c, open state edited by script: repeater (1,6,-1) removed, P_X retracted,
   R_X back at (1,5,1), R_Z back at (1,6,1), S_F sticky): **the close 0-tick of F works physically**
   (F extends, P_X shoves R_X, F retracts in the same phase: C is PLACED in N1, "air -> stone").
@@ -70,10 +70,26 @@ P_D pushes R_F back at c2; c4 F's base, T and R_F land; c5 F extends.
   pushes [T, C] at c4: closed at c6. Rule learned: a piston only queues an extend if its push
   resolves WHEN IT IS UPDATED, so D must be updated after F's retraction, not just run after it;
   a 3-piston chain from E's free neighbor does that.
+* **`close6-c1r.drive`: the same on c1r-108 (open 9) with R_F's return physical too**: an armed
+  P_D (3,4,-1) is updated by Xc's base and pushes R_F back to (1,4,-1) at c1 (lands c3 BE). Only
+  the arming is scripted (R_X/R_Z re-placed, blocks at (2,5,2), (4,4,0), (4,4,-1), the three
+  padding pistons placed). A wired c1r with this would open in 9 and close in 6 (open+close 15).
 * What a real door still needs (none of it built): (a) the P_X re-arm in the open state after t12
   (R_Z off -> P_X retracts; p pushes R_X back; R_Z back), with the repeater (1,6,-1) no longer
   powering (1,6,0) (its lock chain gives t10/t14/t16 signals to time this); (b) silent late arming
   of Xa (R_X arms it through (1,4,1) during t4..t10, when E changes 5 times: rotate P_X west so R_X
   sits at (0,5,0) instead), Xb (the observer o at (2,4,0) points into it: o looks dead weight), Xc
   (the observer (3,5,-1) updates it at t2/t4 through (3,5,0)), D and P_D; (c) R_F back by c3 BE:
-  Xc's base update also reaches P_D (3,4,-1), so an armed P_D pushes R_F at c1.
+  Xc's base update also reaches P_D (3,4,-1), so an armed P_D pushes R_F at c1 (done in close6-c1r).
+* Arming facts checked after that: with close 6 the observer o (2,4,0) is not needed (close6-c1r
+  still closes in 6 with o replaced by smooth stone, J's floor; o only served the old close), so Xb
+  is safe once o is gone. P_D may be armed for the whole open state (every update it gets meets
+  R_F moving or S_F's head: blocked); D silently any time, or by an updating source only while its
+  push is blocked (t4..t9: T moving into (2,3,0), then A' in E; at t2 its front is empty), Xc from
+  t6 (after the observer (3,5,-1)'s t4 update), Xb any time (silently; one strongly powered block at
+  (3,5,1) would arm Xb and Xc through their quasi cells), Xa only after t12 (E changes until
+  t12). A simpler P_X re-arm: make P_X STICKY. Losing R_Z's power it retracts and pulls R_X back to
+  (1,5,1) by itself (F stays silent: P_X's base lands before R_X), so p's push is not needed; but
+  then R_Z must go out at t2 and t12 and come back at ~t6 and ~t16 (k pulses on the OPEN edge only,
+  e.g. A AND NOT B with B a longer delay of the same lever signal: no pulse on the falling edge),
+  and P_X stays extended at rest. Not built: about ten new parts, all silent, in a full volume.

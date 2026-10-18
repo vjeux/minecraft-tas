@@ -1,4 +1,5 @@
 00819d629c32aa69	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
+01c3106b95281b0d	ok	24	9	safe		
 021417d4ef33fc2f	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 021e6db63a1991a1	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 0246c836563cc32d	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
@@ -19,6 +20,7 @@
 0ab25ef3a4e63232	ok	26	14	safe		
 0b6bad79d64fd8d4	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 0ba51a2857126447	ok	28	26	safe		
+0bf66b74bd6ab8ce	ok	24	9	safe		
 0d8ea7a0d600a62b	broken	-	-	-		at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:piston_head[facing=down,short=false,type=sticky], was minecraft:stone
 0e9339dfe83e9fbf	ok	42	30	safe		
 0ec576e2a96812d7	ok	22	23	safe		
@@ -50,6 +52,7 @@
 209375f21de865a2	ok	22	38	safe		
 210325abd1e0c7e4	broken	-	-	-		at offset [0, 0, 0]: blocks that change by themselves over time (random ticks, e.g. unwaxed copper oxidizes; use waxed): [4, 2, 1] minecraft:copper_bulb[lit=false,powered=false]
 212fd17460e1ab1b	broken	-	-	-		at offset [0, 0, 0]: port lever [5, 5, 1] is minecraft:air, expected an unpowered lever
+21b74a9895530096	ok	36	32	safe		
 220c9bbbb12ec626	ok	26	36	safe		
 23bd3c829238f083	ok	22	36	safe		
 245b186e00d11bd9	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
@@ -115,6 +118,7 @@
 4792948878e0a45b	ok	12	7	safe		
 484765fb330bf1c6	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 49bb8967cd3d5377	ok	10	7	safe		
+49c36d469094f157	ok	14	14	safe		
 4a271c7fbbeaa15b	broken	-	-	-		at offset [0, 0, 0]: unsupported blocks (they could not stand there in survival): [2, 0, 2] minecraft:redstone_torch[lit=true]; [3, 1, 1] minecraft:redstone_torch[lit=true]; [4, 2, 0] minecraft:redstone_torch[lit=true]; [4, 2, 3] minecraft:redstone_torch[lit=true]
 4ac7809a427732ba	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 4be242f16cb7b1fc	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone
@@ -149,6 +153,7 @@
 61a5e60e63866cf9	ok	32	28	safe		
 6269e1b92d6d52ec	ok	22	38	safe		
 62b314276e3f6e8e	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
+639dc399f2375941	ok	36	32	safe		
 6423f35a7132b087	ok	5	17	safe		
 6441fa1a4c8afa0c	ok	24	30	safe		
 648f2b3317b36ca8	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
@@ -158,6 +163,8 @@
 65eff574c84f24b0	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 66a7335fe0abcd09	ok	26	43	safe		
 695273513a753f33	ok	16	16	safe		
+6a8b3730101b6c5d	ok	36	32	safe		
+6a9304b575b74f3c	ok	36	32	safe		
 6c7d4840ba8e8f77	ok	42	40	safe		
 6cd573817cfc88c3	ok	16	16	safe		
 6de72df797dbf1d9	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minecraft:stone
@@ -174,6 +181,7 @@
 7308e135fdd557df	ok	24	32	safe		
 7323f9cf1db639c4	ok	24	14	safe		
 736d1ba6b88cf7c3	ok	32	28	safe		
+73c5140621159387	ok	36	32	safe		
 73fd8df417845424	broken	-	-	-		at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the door must be 9 identical blocks (minecraft:air); door cell [1, 1, 0] is minecraft:stone, but the door must be 9 identical blocks (minecraft:air); door cell [2, 1, 0] is minecraft:stone, but the door must be 9 identical blocks (minecraft:air); door cell [2, 0, 0] is minecraft:stone, but the door must be 9 identical blocks (minecraft:air); door cell [0, 2, 0] is minecraft:air; door cell [1, 2, 0] is minecraft:air; door cell [0, 1, 0] is minecraft:air; door cell [0, 0, 0] is minecraft:air; door cell [1, 0, 0] is minecraft:air
 741b0f3d1f98bc5e	ok	20	36	90	at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is minecraft:air, was minecraft:stone; [0, 1, 2] is minecraft:air, was minecraft:stone; [0, 0, 1] is minecraft:air, was minecraft:stone; [0, 0, 2] is minecraft:air, was minecraft:stone	
 74524125bc454a56	ok	9	7	safe		
@@ -305,6 +313,7 @@ b8eb7d232bd4f8e9	ok	5	16	safe
 bb630258033d9d1b	ok	11	7	safe		
 bba1e672cd597ca7	ok	40	38	safe		
 bbe2f00e403e0417	ok	14	14	safe		
+bd5b18a3d6bd730d	ok	36	32	safe		
 bd8f45826a22ec24	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 bdc906ad8e359deb	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:piston_head[facing=down,short=false,type=sticky]; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 bdd33aea1488501b	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:sand; [1, 0, 0] is minecraft:sand
@@ -314,6 +323,7 @@ bf1bef12688867f6	ok	24	26	safe
 bf4d33655bbf6ae1	broken	-	-	-		at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 columns in front of and behind the door, at any distance, at rest: not even dust, torches, rails or levers): [0, 1, -4] minecraft:smooth_stone; [1, 1, -4] minecraft:smooth_stone; [2, 1, -4] minecraft:smooth_stone; [0, 2, -4] minecraft:redstone_wire[east=side,north=none,power=10,south=none,west=up]; [1, 2, -4] minecraft:redstone_wire[east=side,north=none,power=11,south=none,west=side]; [2, 2, -4] minecraft:redstone_wire[east=side,north=none,power=12,south=none,west=side]
 c017481fc59d7566	ok	34	18	safe		
 c04480eae8efbcdc	ok	26	36	safe		
+c04b3b0e519a0eac	ok	24	9	safe		
 c0fd1da6a47bf0ef	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:stone
 c10ba75d7b931ce5	ok	32	30	safe		
 c1dd35870cd184fb	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone
@@ -346,6 +356,7 @@ d0aff87cad59f44d	ok	26	42	safe
 d3db53429f63361a	ok	38	22	safe		
 d3e1997c23cfa6f7	ok	24	24	safe		
 d443c23d71c11b39	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:piston_head[facing=down,short=false,type=sticky]; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
+d48abf85a016ce48	ok	4	15	safe		
 d4bf9159ba44aa03	ok	42	40	safe		
 d4e22a6d4462dff4	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 d4f0bc1202b62b89	ok	24	52	safe		

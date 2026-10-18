@@ -1,0 +1,14 @@
+name: wall-stop
+# Rail lines into a stone wall: carts sent at different speeds stop against it.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  R minecraft:rail[shape=east_west]
+layer 0:
+  SSSSSSSSS
+  SSSSSSSSS
+  SSSSSSSSS
+layer 1:
+  .RRRRRRRS
+  .RRRRRRRS
+  .RRRRRRRS

@@ -1,0 +1,125 @@
+# ground20: a door with nothing below it (ideal inputs). Sides: 3 pull-type sticky pistons per
+# side (x -2 / x 4). Middle column: elevator A (1,4) on B (1,5) on D (1,6), all sticky facing
+# down: A pulls T, C and M up out of the opening (M from three heights); P_T (-1,3) parks T at
+# (0,3), P_C (3,3) parks C at (2,3), M ends at (1,3). Every action is a 2 gt pulse (pull-type
+# with a gap in front, push-and-spit otherwise), one every 6 ticks.
+# Power cells: A at height 4/3/2: (1,4,-1)/(1,3,-1)/(1,2,-1); B at 5/4: (1,5,1)/(1,4,1);
+# D: (1,6,1); P_T: (-1,4,0); P_C: (3,4,0); sides: (-3,y,0) and (5,y,0).
+design designs/piston-door-3x3/tracks/shapes/bases/ground20.txt
+# ---- open ----
+# sides out, A pulls T up to (1,3)
+open 0 set -3 0 0 minecraft:redstone_block
+open 0 set -3 1 0 minecraft:redstone_block
+open 0 set -3 2 0 minecraft:redstone_block
+open 0 set 5 0 0 minecraft:redstone_block
+open 0 set 5 1 0 minecraft:redstone_block
+open 0 set 5 2 0 minecraft:redstone_block
+open 0 set 1 4 -1 minecraft:redstone_block
+open 2 clear -3 0 0
+open 2 clear -3 1 0
+open 2 clear -3 2 0
+open 2 clear 5 0 0
+open 2 clear 5 1 0
+open 2 clear 5 2 0
+open 2 clear 1 4 -1
+# P_T parks T at (0,3)
+open 6 set -1 4 0 minecraft:redstone_block
+open 8 clear -1 4 0
+# B pushes A down to (1,3) (spit)
+open 12 set 1 5 1 minecraft:redstone_block
+open 14 clear 1 5 1
+# A (height 3) pulls C up to (1,2)
+open 18 set 1 3 -1 minecraft:redstone_block
+open 20 clear 1 3 -1
+# B pulls A back up to (1,4)
+open 24 set 1 5 1 minecraft:redstone_block
+open 26 clear 1 5 1
+# A pulls C up to (1,3)
+open 30 set 1 4 -1 minecraft:redstone_block
+open 32 clear 1 4 -1
+# P_C parks C at (2,3)
+open 36 set 3 4 0 minecraft:redstone_block
+open 38 clear 3 4 0
+# D pushes B and A down (B (1,4), A (1,3))
+open 42 set 1 6 1 minecraft:redstone_block
+open 44 clear 1 6 1
+# B (height 4) pushes A down to (1,2)
+open 48 set 1 4 1 minecraft:redstone_block
+open 50 clear 1 4 1
+# A (height 2) pulls M up to (1,1)
+open 54 set 1 2 -1 minecraft:redstone_block
+open 56 clear 1 2 -1
+# B pulls A up to (1,3)
+open 60 set 1 4 1 minecraft:redstone_block
+open 62 clear 1 4 1
+# A (height 3) pulls M up to (1,2)
+open 66 set 1 3 -1 minecraft:redstone_block
+open 68 clear 1 3 -1
+# D pulls B up to (1,5)
+open 72 set 1 6 1 minecraft:redstone_block
+open 74 clear 1 6 1
+# B pulls A up to (1,4)
+open 78 set 1 5 1 minecraft:redstone_block
+open 80 clear 1 5 1
+# A pulls M up to (1,3): open
+open 84 set 1 4 -1 minecraft:redstone_block
+open 86 clear 1 4 -1
+# ---- close ----
+# A pushes M down to (1,2) (spit)
+close 0 set 1 4 -1 minecraft:redstone_block
+close 2 clear 1 4 -1
+# B pushes A down to (1,3)
+close 6 set 1 5 1 minecraft:redstone_block
+close 8 clear 1 5 1
+# A pushes M down to (1,1)
+close 12 set 1 3 -1 minecraft:redstone_block
+close 14 clear 1 3 -1
+# D pushes B down to (1,4)
+close 18 set 1 6 1 minecraft:redstone_block
+close 20 clear 1 6 1
+# B pushes A and M down: M home at (1,0), A at (1,2)
+close 24 set 1 4 1 minecraft:redstone_block
+close 26 clear 1 4 1
+# B pulls A up to (1,3)
+close 30 set 1 4 1 minecraft:redstone_block
+close 32 clear 1 4 1
+# D pulls B up to (1,5)
+close 36 set 1 6 1 minecraft:redstone_block
+close 38 clear 1 6 1
+# B pulls A up to (1,4)
+close 42 set 1 5 1 minecraft:redstone_block
+close 44 clear 1 5 1
+# P_C pushes C back to (1,3)
+close 48 set 3 4 0 minecraft:redstone_block
+close 50 clear 3 4 0
+# A pushes C down to (1,2)
+close 54 set 1 4 -1 minecraft:redstone_block
+close 56 clear 1 4 -1
+# B pushes A down to (1,3)
+close 60 set 1 5 1 minecraft:redstone_block
+close 62 clear 1 5 1
+# A pushes C home to (1,1)
+close 66 set 1 3 -1 minecraft:redstone_block
+close 68 clear 1 3 -1
+# B pulls A up to (1,4)
+close 72 set 1 5 1 minecraft:redstone_block
+close 74 clear 1 5 1
+# P_T pushes T back to (1,3)
+close 78 set -1 4 0 minecraft:redstone_block
+close 80 clear -1 4 0
+# A pushes T home to (1,2)
+close 84 set 1 4 -1 minecraft:redstone_block
+close 86 clear 1 4 -1
+# sides back
+close 90 set -3 0 0 minecraft:redstone_block
+close 90 set -3 1 0 minecraft:redstone_block
+close 90 set -3 2 0 minecraft:redstone_block
+close 90 set 5 0 0 minecraft:redstone_block
+close 90 set 5 1 0 minecraft:redstone_block
+close 90 set 5 2 0 minecraft:redstone_block
+close 92 clear -3 0 0
+close 92 clear -3 1 0
+close 92 clear -3 2 0
+close 92 clear 5 0 0
+close 92 clear 5 1 0
+close 92 clear 5 2 0
