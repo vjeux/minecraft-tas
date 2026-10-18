@@ -1,0 +1,11 @@
+4 workers; moves all; judge 32 positions
+[   10.1s] start: 41 blocks, open 24 close 9 ticks, passes the judge (32 positions x 3 cycles)
+[   14.9s]   348778 swaps (two blocks out, one block in nearby)
+[   14.9s] 41 blocks: 1581 removals, 0 reroutes (+0 neutral), 1848 compounds, 170 neutral edits
+[  146.8s]   352207 candidates: 897 seen, 351310 screened in 131.8s, 0 passed the screen, 0 judged, 0 passed the judge (131.8s)
+[  146.9s]   no improving move; plateau: judging 32691 neutral edits
+[  231.5s]   32691 candidates: 77 seen, 32614 screened in 13.7s, 36 passed the screen, 36 judged, 28 passed the judge (84.6s)
+[  265.2s]   plateau: routing took 33.7s
+[  265.2s]   plateau: 28 verified neutral designs, 868 removals and 0 reroutes after them
+[  265.4s]   868 candidates: 395 seen, 473 screened in 0.2s, 0 passed the screen, 0 judged, 0 passed the judge (0.2s)
+41 -> 41 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/semi-min.txt
