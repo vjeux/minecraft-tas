@@ -226,11 +226,12 @@ pub fn v2() -> Design {
     b.set([5, -1, 0], "redstone_wall_torch[facing=north,lit=true]");
     b.set([1, -3, 0], "redstone_wall_torch[facing=north,lit=true]");
     b.dust([6, 4, 0]);
-    b.dust([7, 3, 0]);
-    b.dust([8, 2, 0]);
-    b.dust([8, 1, 1]);
-    b.dust([7, 1, 1]);
-    b.dust([6, 0, 1]);
+    for (p, s) in [
+        ([8, 2, 2], FLOOR), ([8, 3, 2], "redstone_wire"), ([8, 1, 1], FLOOR), ([8, 2, 1], "redstone_wire"),
+        ([7, 0, 1], FLOOR), ([7, 1, 1], "redstone_wire"), ([6, -1, 1], FLOOR), ([6, 0, 1], "redstone_wire"),
+    ] {
+        b.set(p, s); // router: down the back-right corner to the sides line
+    }
     b.dust([5, 0, 1]); // floor (5,-1,1) = right torch attachment
     b.dust([4, -1, 1]);
     b.dust([3, -2, 1]);

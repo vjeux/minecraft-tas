@@ -11,8 +11,8 @@ palette:
   F minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=up]
   G minecraft:redstone_wire[east=none,north=none,power=0,south=up,west=side]
   H minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
-  I minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
-  J minecraft:redstone_wire[east=none,north=up,power=0,south=none,west=side]
+  I minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=up]
+  J minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
   K minecraft:redstone_wire[east=none,north=up,power=0,south=side,west=none]
   L minecraft:lever[face=floor,facing=west,powered=false]
   M minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
@@ -74,40 +74,40 @@ layer 0:
   .eF
   .
   hpslllsCk
-  M.......MXee
+  M.......MXe
   .
   .
 layer 1:
   .e
   .W
   .
-  ..sllls....e
-  ..........MJ
+  ..sllls
+  ..........Xe
   .
   .
 layer 2:
   .Ye
   .
   .
-  ..sllls...eF
-  .
-  .
+  ..sllls
+  ...........G
+  ...........e
   ..e
 layer 3:
   ..G
   ..e
   ..e
-  ....Pl..eeN
+  ....Pl..ee
   ..e.A....e
-  ..e.iDeeeee
+  ..e.iDeeeeeI
   ..Zeeeeeeee
 layer 4:
   .
-  ..I
+  ..J
   ..b
-  ..eRgV..MS
-  ..c......I
-  ..I...QdMTE
+  ..eRgV..ME
+  ..c......J
+  ..J...QdMTS
   ...MaaTdddH
 layer 5:
   .
