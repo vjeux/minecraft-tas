@@ -68,9 +68,9 @@ mctas door mech-wire designs/piston-door-3x3/tracks/mech-synth/catalog-21/m05-21
 ## Results (all verified by the judge, 32 positions x 3 cycles)
 | mechanism | schedule | wired | after polish | file |
 |---|---|---|---|---|
-| abpt21r (wire21 chain.ideal) | natural chain ticks | 53-56 (depends on the causality rule) | 53 (`--polish-secs`: route2 rip-up 56 -> 53), 51 (`door minimize --moves all` from 54) | `wired/abpt21r-chain-polished-53b.txt`, `wired/abpt21r-chain-min.txt` |
-| m05 (catalog-21) | --windows --retime: steps [1,5,11,13,19,21,23] = wire21's hand timing, found by the grid | 53 | | `wired/m05-natural-53b.txt` |
-| m02 (catalog-21) | --windows --retime: [1,5,9,11,17,19,21] (open 24 / close 24) | 52 | | `wired/m02-52b.txt` |
+| abpt21r (wire21 chain.ideal) | natural chain ticks | 53-56 (depends on the causality rule) | 53 (`--polish-secs`: route2 rip-up 56 -> 53), 51 (`door minimize --moves all` from 54) | `BEST.txt` = `wired/abpt21r-chain-min.txt` (51, open 25 / close 24), `wired/abpt21r-chain-polished-53b.txt` |
+| m05 (catalog-21) | --windows --retime: steps [1,5,11,13,19,21,23] = wire21's hand timing, found by the grid | 53-54 | 51 (`--polish-secs 90`: 54 -> 51, open 26 / close 26) | `wired/m05-polished-51b.txt`, `wired/m05-natural-53b.txt` |
+| m02 (catalog-21) | --windows --retime: [1,5,9,11,17,19,21] (open 24 / close 24) | 52 | 52 (polish and `minimize --moves all`: local minimum) | `wired/m02-52b.txt` |
 
 For comparison the hand wirings of these mechanisms: m05 = 40 (wire21), abpt21r ~41-43.
 
