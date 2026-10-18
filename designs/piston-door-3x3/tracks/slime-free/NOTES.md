@@ -48,9 +48,28 @@ honey_block anywhere.
   dance pulses (one observer watches one cell).
 
 ## Next ideas (after 44)
+(see the end of this file)
+
+## RB south of A (coordinator idea 2): studied, does not beat 44 (by count)
+- Ideal inputs (`sf2.sched` on `sf2-ideal.txt`: RB (1,4,1), Q (1,4,3) facing north, T parks NORTH
+  (1,3,-1) via P_T (1,3,-2), TL + TR up, side pairs, A's pulses from an observer (1,4,-1) facing
+  north): WORKS, but only if Q's close pulse comes >= 2 gt later than its open pulse (q 0..3 with
+  qc 4..12; pt 5..10, ptc 4..8, p0 0..2, dance pulses B-edge+1..2). Reason: Q now PULLS on open
+  (A off late) and PUSHES on close (A on early), the opposite of s7's shuttle. A redstone lamp
+  gives exactly that (lit at once, dark 4 gt later): lever on a lamp + an observer on the lamp
+  into Q's back = q 2, qc 6, the measured sweet spot.
+- `sf3.sched`: an observer under RB, (1,3,1) facing south (output north into (1,3,0)), gives the
+  first dance pulse (A down) but NOT p0: on close it powers C, which is A's FRONT face (pistons
+  ignore their front). So the north observer must fire at p0 and at both B edges, i.e. it must
+  watch a cell that changes at all three times: a dust there needs a floor at (1,3,-2), which is
+  P_T (dust on a piston powers it), so it costs an extra observer + dust + floor (+2 over s7's
+  X dust + floor). Q's feed (lamp + observer + lever) sits SOUTH while O_a, the B chain and A's
+  observer sit NORTH: a lever on one side and a path over A/B to the other (+3 or more).
+- Count: TL-up saves 1 (left pair 2 + TL feed 2 vs left column 5), A's pulses cost +2, the
+  split lever costs more: >= 46. Not built further.
 - A cheaper left column: it costs 5 control blocks for 3 pistons (3 observers + dust + floor); a
   pair + TL-up costs 4 but needs the cell west of A, which holds RB.
-- Hold A with RB south of A (1,4,1) pulled by a pulse-driven Q at (1,4,3) (so both TL and TR go
+- (studied above, see "RB south of A") Hold A with RB south of A (1,4,1) pulled by a pulse-driven Q at (1,4,3) (so both TL and TR go
   up), with P_T's park on the north (1,3,-1): needs X without a floor at (1,3,-1) (an observer at
   (1,4,-1) facing north powers A in both positions with updates) and p0 from elsewhere.
 
