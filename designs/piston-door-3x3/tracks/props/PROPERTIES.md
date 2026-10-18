@@ -1,11 +1,92 @@
+# Door properties (Redstone Squid catalogue rules)
+
+Definitions and judgment calls: [NOTES.md](NOTES.md). One position, one orientation, one cycle per check; not directional / not locational from the leaderboard's cached verdicts.
+
+## Board leaders
+
 | design | blocks | cat | seamless | hall | dents | full trap/flush/deluxe | semi | hipster | sym axes | sync | clean | components | not dir. | not loc. | 26.3 vanilla | lever surf. | repeater input | steps | isolated | weatherproof | contained | uses | volume | player o/ov/c/cv | repeater o/ov/c/cv |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | sf-holdA-b38-38b | 38 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 36/38/32/32 |  |
+| fc2-40b | 40 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 144 (8x9x2) | 24/26/9/9 |  |
+| lamp-sweep-flat43-43b | 43 | solid | QUART z-,z+ |  | dentless | trapdoor z-,trapdoor z+ | trapdoor z-,trapdoor z+ | - | - | - | no (opening: door block 3 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 81 (9x9x1) | 46/48/44/44 |  |
+| piston-door-3x3-fresh-b-mp8-43b | 43 | solid | QUART z-,z+ |  | minor | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 126 (7x9x2) | 16/18/16/16 |  |
+| pareto-mid-mp8-leafU-43b | 43 | solid | QUART z-,z+ |  | minor | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 15/17/17/17 |  |
+| pareto-mid-mp8-lampU-44b | 44 | solid | QUART z-,z+ |  | minor | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 14/16/16/16 |  |
+| pareto-mid-mp7-leafC-46b | 46 | solid | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 15/17/13/13 |  |
+| exotic-pm45-trap-45b | 45 | solid | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 14/16/14/14 |  |
+| sculk-ew-s4r-36b | 36 | sculk | QUART z-,z+ |  | minor | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 22/24/37/37 |  |
+| gravity2-g33-33b | 33 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z-,trapdoor z+ | - | V | SEMI | no (not super seamless) | H N E | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 5/17/16/16 |  |
+| tick-door-open4-218b | 218 | solid | - |  | dents | - | - | - | - | - | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 1386 (9x11x14) | 4/14/15/15 |  |
+| fast-clean-c1r-108b | 108 | solid | QUART z+ |  | dents | - | - | - | V | SEMI | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 720 (9x10x8) | 9/11/7/7 |  |
+| fast-clean-s4c-93b | 93 | solid | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | no |  |  |  |  |  |  | 405 (9x9x5) | 12/14/7/8 |  |
+| b38h-obs8b-45b | 45 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 396 (11x9x4) | 36/38/32/32 |  |
+
+components: S no slime, H no honey, G no gravity blocks, K no sticky surfaces, O no observers, N no note blocks, E no entities, F no flying machines, TD torch and dust only, RB redstone block only, ZA zomba-, ZI zombi- (no clocks holds for every door: the judge requires idle). Timings o/ov/c/cv = opening, opening visible, closing, closing visible time in ticks after the input. Definitions: tracks/props/NOTES.md.
+
+## Best design per property
+
+| property | designs | best by volume (volume, blocks) | best by blocks (blocks, volume) |
+|---|---|---|---|
+| QUART SEAMLESS or better | 228 | flat-b-v7-44b (80, 44) | gravity2-g33-33b (33, 126) |
+| SEMI SEAMLESS or better | 22 | flat-v2-57b (100, 57) | search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-46b (46, 378) |
+| FULL SEAMLESS or better | 22 | flat-v2-57b (100, 57) | search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-46b (46, 378) |
+| SUPER SEAMLESS | 0 | - | - |
+| hallway-compatible | not run | - | - |
+| DENTLESS | 53 | lamp-sweep-flat43-43b (81, 43) | sf-holdA-b38-38b (38, 252) |
+| MINOR DENTS ONLY or better | 113 | lamp-sweep-flat43-43b (81, 43) | sculk-ew-s4br-36b (36, 252) |
+| FULL TRAPDOOR (wall) | 131 | flat-b-v7-44b (80, 44) | gravity2-g33-33b (33, 126) |
+| FULL FLUSH | 0 | - | - |
+| FULL DELUXE | 0 | - | - |
+| SEMI FLUSH | 0 | - | - |
+| SEMI DELUXE | 0 | - | - |
+| FULL FLOOR HIPSTER | 0 | - | - |
+| SEMI FLOOR HIPSTER | 0 | - | - |
+| FULL CEILING HIPSTER | 0 | - | - |
+| SEMI CEILING HIPSTER | 0 | - | - |
+| FULL WALL HIPSTER | 0 | - | - |
+| SEMI WALL HIPSTER | 0 | - | - |
+| SYMMETRICAL (1 axis) | 85 | gravity2-g33-33b (126, 33) | gravity2-g33-33b (33, 126) |
+| FULL SYMMETRICAL (4 axes) | 0 | - | - |
+| SEMI SYNC or better | 85 | gravity2-g33-33b (126, 33) | gravity2-g33-33b (33, 126) |
+| FULL SYNC or better | 0 | - | - |
+| SUPER SYNC | 0 | - | - |
+| CLEAN | 0 | - | - |
+| NO SLIME | 108 | flat-b-v7-44b (80, 44) | sf-holdA-b38-38b (38, 252) |
+| NO HONEY | 245 | flat-b-v7-44b (80, 44) | gravity2-g33-33b (33, 126) |
+| NO GRAVITY BLOCKS | 218 | flat-b-v7-44b (80, 44) | sculk-ew-s4br-36b (36, 252) |
+| NO STICKY PISTONS (no sticky surfaces) | 0 | - | - |
+| NO OBSERVERS | 8 | gravity-g6-49b (280, 49) | gravity-g6-49b (49, 280) |
+| NO NOTE BLOCKS | 237 | flat-b-v7-44b (80, 44) | gravity2-g33-33b (33, 126) |
+| NO ENTITIES | 246 | flat-b-v7-44b (80, 44) | gravity2-g33-33b (33, 126) |
+| NO FLYING MACHINES | 218 | flat-b-v7-44b (80, 44) | sculk-ew-s4br-36b (36, 252) |
+| TORCH AND DUST ONLY | 0 | - | - |
+| REDSTONE BLOCK ONLY | 0 | - | - |
+| ZOMBA- | 0 | - | - |
+| ZOMBI- | 0 | - | - |
+| CONTAINED | not run | - | - |
+| WEATHERPROOF | not run | - | - |
+| NOT DIRECTIONAL | 238 | flat-b-v7-44b (80, 44) | gravity2-g33-33b (33, 126) |
+| UP-TO-DATE (vanilla PASS) | 106 | piston-door-3x3-fresh-b-mp8-43b (126, 43) | fc2-40b (40, 144) |
+| lever on the surface | 243 | flat-b-v7-44b (80, 44) | gravity2-g33-33b (33, 126) |
+| repeater input works | not run | - | - |
+| player steps cannot break it | not run | - | - |
+
+Open targets (no working design has them yet): SUPER SEAMLESS, FULL FLUSH, FULL DELUXE, SEMI FLUSH, SEMI DELUXE, FULL FLOOR HIPSTER, SEMI FLOOR HIPSTER, FULL CEILING HIPSTER, SEMI CEILING HIPSTER, FULL WALL HIPSTER, SEMI WALL HIPSTER, FULL SYMMETRICAL (4 axes), FULL SYNC or better, SUPER SYNC, CLEAN, NO STICKY PISTONS (no sticky surfaces), TORCH AND DUST ONLY, REDSTONE BLOCK ONLY, ZOMBA-, ZOMBI-.
+
+## Every working design (248)
+
+| design | blocks | cat | seamless | hall | dents | full trap/flush/deluxe | semi | hipster | sym axes | sync | clean | components | not dir. | not loc. | 26.3 vanilla | lever surf. | repeater input | steps | isolated | weatherproof | contained | uses | volume | player o/ov/c/cv | repeater o/ov/c/cv |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| sf-holdA-b38-38b | 38 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 36/38/32/32 |  |
+| sf-holdA-b38-38b-2 | 38 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 36/38/32/32 |  |
 | sf-holdA-b38r-38b | 38 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 36/38/32/32 |  |
 | sf-holdA-b39-39b | 39 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 40/42/36/36 |  |
 | fc2-40b | 40 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 144 (8x9x2) | 24/26/9/9 |  |
 | fc2-40b-2 | 40 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 144 (8x9x2) | 24/26/9/9 |  |
 | fc2-40b-3 | 40 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 144 (8x9x2) | 24/26/9/9 |  |
+| fc2-40b-4 | 40 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 144 (8x9x2) | 24/26/9/9 |  |
+| fc2-40b-5 | 40 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 144 (8x9x2) | 24/26/9/9 |  |
+| fc2-40b-6 | 40 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 144 (8x9x2) | 24/26/9/9 |  |
 | fc2-min-40b | 40 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 144 (8x9x2) | 24/26/9/9 |  |
 | m05-21b-sym-40b | 40 | solid | QUART z- |  | dentless | trapdoor z- | trapdoor z- | - | - | - | no (opening: door block 2 re-crosses the frame) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 162 (9x9x2) | 40/42/38/38 |  |
 | m05-21b-sym-40b-2 | 40 | solid | QUART z- |  | dentless | trapdoor z- | trapdoor z- | - | - | - | no (opening: door block 2 re-crosses the frame) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 162 (9x9x2) | 42/44/40/40 |  |
@@ -42,6 +123,9 @@
 | pareto-mid-mp8-lampU-44b | 44 | solid | QUART z-,z+ |  | minor | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 14/16/16/16 |  |
 | slime-free-s7q-44b | 44 | solid | QUART z- |  | minor | - | - | - | - | - | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 378 (7x9x6) | 24/26/14/14 |  |
 | wire19sf-w45-44b | 44 | solid | QUART z-,z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | - | - | no (closing: door block 1 moves back) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 189 (7x9x3) | 28/30/26/26 |  |
+| b38h-obs7-45b | 45 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 360 (10x9x4) | 36/38/32/32 |  |
+| b38h-obs8b-45b | 45 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 396 (11x9x4) | 36/38/32/32 |  |
+| exotic-pm45-trap-45b | 45 | solid | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 14/16/14/14 |  |
 | flat-b-v6-45b | 45 | solid | QUART z-,z+ |  | dents | trapdoor z-,trapdoor z+ | trapdoor z-,trapdoor z+ | - | - | - | no (closing: door block 4 moves back) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 80 (8x10x1) | 32/34/28/28 |  |
 | fresh-b-mp6-45b | 45 | solid | QUART z-,z+ |  | minor | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 16/18/16/16 |  |
 | fresh-d-s4-45b-2 | 45 | solid | QUART z-,z+ |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 144 (8x9x2) | 26/28/14/14 |  |
@@ -62,14 +146,18 @@
 | mechanics-rb5-hold-48b | 48 | solid | FULL |  | dents | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 441 (7x9x7) | 22/24/25/25 |  |
 | piston-door-3x3-rb6-48b | 48 | solid | FULL |  | dents | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 288 (8x9x4) | 22/24/25/25 |  |
 | slime-free-combo-48b | 48 | solid | QUART z- |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (closing: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 216 (8x9x3) | 24/26/50/50 |  |
+| b38h-vobs9m-49b | 49 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 448 (7x16x4) | 36/38/32/32 |  |
 | flat-v8-49b | 49 | solid | QUART z-,z+ |  | dentless | trapdoor z-,trapdoor z+ | trapdoor z-,trapdoor z+ | - | - | - | no (closing: door block 1 moves back) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 90 (9x10x1) | 32/34/30/30 |  |
 | logic-min-v2-49b | 49 | solid | QUART z- |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (closing: door block 0 re-crosses the frame) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 243 (9x9x3) | 24/26/52/52 |  |
 | search-tool-transplant-HEAD-logic-min-slime-free-50b-49b | 49 | solid | QUART z- |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (closing: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 216 (8x9x3) | 24/26/52/52 |  |
+| b38h-vobs9-50b | 50 | solid | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 448 (7x16x4) | 36/38/32/32 |  |
 | flat-v7-50b | 50 | solid | QUART z-,z+ |  | dentless | trapdoor z-,trapdoor z+ | trapdoor z-,trapdoor z+ | - | - | - | no (closing: door block 1 moves back) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 90 (9x10x1) | 32/34/30/30 |  |
 | logic-min-slime-free-50b | 50 | solid | QUART z- |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (closing: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 216 (8x9x3) | 24/26/52/52 |  |
 | logic-min-v2-50b | 50 | solid | QUART z- |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (closing: door block 0 re-crosses the frame) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 243 (9x9x3) | 24/26/52/52 |  |
 | logic-min-v2-50b-2 | 50 | solid | QUART z- |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 243 (9x9x3) | 24/26/24/42 |  |
 | mechanics-rb5-bchain-50b | 50 | solid | FULL |  | dents | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 378 (7x9x6) | 22/24/25/25 |  |
+| pareto-mid:pareto-mid-mp7-leafC-pgF-50b | 50 | solid | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | ? (not judged yet) | ? (1 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 15/17/11/11 |  |
+| pareto-mid:pareto-mid-mp7-repU-pgF-50b | 50 | solid | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | - | - | no (opening: door block 6 moves back) | H G N E F | ? (not judged yet) | ? (1 pos) | sim only | yes |  |  |  |  |  |  | 280 (7x10x4) | 14/16/12/12 |  |
 | flat-v6-51b | 51 | solid | QUART z-,z+ |  | dentless | trapdoor z-,trapdoor z+ | trapdoor z-,trapdoor z+ | - | - | - | no (closing: door block 1 moves back) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 90 (9x10x1) | 34/36/32/32 |  |
 | logic-min-slime-free-51b | 51 | solid | QUART z- |  | minor | trapdoor z- | trapdoor z- | - | - | - | no (closing: door block 0 re-crosses the frame) | S H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 216 (8x9x3) | 24/26/52/52 |  |
 | m05-21b-sym_steps__1__5__11__13__19__21__23_-51b-51b | 51 | solid | - |  | dents | - | - | - | - | - | no (closing: door block 1 moves back) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 216 (9x8x3) | 26/28/26/26 |  |
@@ -123,13 +211,16 @@
 | mechanics-ta-89b | 89 | solid | QUART z- |  | dents | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 480 (12x10x4) | 24/26/34/34 |  |
 | piston-door-3x3-obs-s1-89b | 89 | solid | - |  | minor | - | - | - | - | - | no (not super seamless) | S H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 819 (13x9x7) | 34/36/18/18 |  |
 | mechanics-ta-90b | 90 | solid | QUART z- |  | dents | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 480 (12x10x4) | 22/24/34/34 |  |
+| fast-clean:fast-clean-s4c-91b | 91 | solid | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (not super seamless) | S H G N E F | ? (not judged yet) | ? (1 pos) | sim only | no |  |  |  |  |  |  | 405 (9x9x5) | 12/14/7/8 |  |
 | mechanics-ta-91b | 91 | solid | QUART z- |  | dents | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 480 (12x10x4) | 22/24/34/34 |  |
 | fast-clean-s4c-93b | 93 | solid | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | no |  |  |  |  |  |  | 405 (9x9x5) | 12/14/7/8 |  |
 | piston-door-3x3-v2u2-96b | 96 | solid | QUART z- |  | inelig | trapdoor z- | trapdoor z- | - | V | SEMI | no (not super seamless) | G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 700 (10x10x7) | 24/26/31/31 |  |
 | mechanics-slime-free-99b | 99 | solid | QUART z- |  | dents | trapdoor z- | trapdoor z- | - | - | - | no (not super seamless) | S H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 520 (13x10x4) | 22/24/34/34 |  |
 | fast-clean-s4c-101b | 101 | solid | QUART z+ |  | dents | - | - | - | V | SEMI | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | no |  |  |  |  |  |  | 540 (10x9x6) | 12/14/7/8 |  |
+| fast-clean:fast-clean-c1r-103b | 103 | solid | QUART z+ |  | dents | - | - | - | V | SEMI | no (not super seamless) | S H G N E F | ? (not judged yet) | ? (1 pos) | sim only | yes |  |  |  |  |  |  | 630 (9x10x7) | 9/11/7/7 |  |
 | mechanics-slime-free-104b | 104 | solid | QUART z- |  | dents | - | - | - | - | - | no (not super seamless) | S H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 650 (13x10x5) | 22/24/34/34 |  |
 | fast-clean-a1c-107b | 107 | solid | QUART z+ |  | dents | - | - | - | V | SEMI | no (not super seamless) | S H G E F | yes | yes (32 pos) | sim only | no |  |  |  |  |  |  | 720 (9x10x8) | 10/12/7/10 |  |
+| fast-clean:fast-clean/BEST | 107 | solid | QUART z+ |  | dents | - | - | - | V | SEMI | no (not super seamless) | S H G N E F | ? (not judged yet) | ? (1 pos) | sim only | yes |  |  |  |  |  |  | 720 (9x10x8) | 9/11/7/7 |  |
 | lamp-sweep-a1-107-107b | 107 | solid | QUART z+ |  | inelig | - | - | - | V | SEMI | no (not super seamless) | S H G E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 720 (9x10x8) | 10/12/7/10 |  |
 | lamp-sweep-o6-107-107b | 107 | solid | QUART z+ |  | inelig | - | - | - | V | SEMI | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 720 (9x10x8) | 11/13/7/8 |  |
 | fast-clean-c1r-108b | 108 | solid | QUART z+ |  | dents | - | - | - | V | SEMI | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 720 (9x10x8) | 9/11/7/7 |  |
@@ -180,6 +271,10 @@
 | piston-door-3x3-v2-147b | 147 | solid | QUART z- |  | dents | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 1440 (12x10x12) | 26/28/42/42 |  |
 | piston-door-3x3-v2-151b | 151 | solid | QUART z- |  | dents | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 1440 (12x10x12) | 26/28/42/42 |  |
 | speed-wire-w6-161b | 161 | solid | QUART z+ |  | inelig | - | - | - | V | SEMI | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 1188 (11x12x9) | 12/14/7/8 |  |
+| tick-door-open4-218b | 218 | solid | - |  | dents | - | - | - | - | - | no (not super seamless) | S H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 1386 (9x11x14) | 4/14/15/15 |  |
+| tick-door-open4-229b | 229 | solid | - |  | minor | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 1820 (10x13x14) | 4/14/15/15 |  |
+| test-static-armor-39b | 39 | entity | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 36/38/32/32 |  |
+| entities:test-lift-stand | 41 | entity | QUART z+ |  | dentless | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 0 re-crosses the frame) | S H G F | ? (not judged yet) | ? (1 pos) | sim only | yes |  |  |  |  |  |  | 350 (7x10x5) | 36/38/32/32 |  |
 | gravity2-g33-33b | 33 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z-,trapdoor z+ | - | V | SEMI | no (not super seamless) | H N E | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 5/17/16/16 |  |
 | gravity2-t5-33b | 33 | gravity | QUART z- |  | dents | trapdoor z- | trapdoor z-,trapdoor z+ | - | V | SEMI | no (not super seamless) | H N E | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 126 (7x9x2) | 5/17/16/16 |  |
 | gravity2-g35-35b | 35 | gravity | QUART z- |  | dents | trapdoor z- | trapdoor z-,trapdoor z+ | - | V | SEMI | no (not super seamless) | H N E | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 189 (7x9x3) | 5/17/16/16 |  |
@@ -203,12 +298,12 @@
 | search-tool-from-HEAD-gravity-g3-60b-58b | 58 | gravity | QUART z+ |  | dents | - | trapdoor z-,trapdoor z+ | - | V | SEMI | no (not super seamless) | H O N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 350 (7x10x5) | 5/17/11/11 |  |
 | search-tool-from-HEAD-gravity-g3-60b-59b | 59 | gravity | QUART z+ |  | dents | - | trapdoor z-,trapdoor z+ | - | V | SEMI | no (not super seamless) | H O N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 350 (7x10x5) | 5/17/11/11 |  |
 | gravity-g3-60b | 60 | gravity | QUART z+ |  | dents | - | trapdoor z-,trapdoor z+ | - | V | SEMI | no (not super seamless) | H O N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 350 (7x10x5) | 5/17/11/11 |  |
-| gravity-sf4-62b | 62 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (not super seamless) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 19/25/11/11 |  |
-| gravity-sf3-64b | 64 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (not super seamless) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 22/28/11/11 |  |
-| gravity-sf3w-64b | 64 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (not super seamless) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 22/28/11/11 |  |
-| gravity-sf1-66b | 66 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (not super seamless) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 22/28/11/11 |  |
+| gravity-sf4-62b | 62 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 6 re-crosses the frame) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 19/25/11/11 |  |
+| gravity-sf3-64b | 64 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 7 moves back) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 22/28/11/11 |  |
+| gravity-sf3w-64b | 64 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 7 moves back) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 22/28/11/11 |  |
+| gravity-sf1-66b | 66 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 7 moves back) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 22/28/11/11 |  |
 | gravity-g1-67b | 67 | gravity | QUART z+ |  | dents | - | trapdoor z+ | - | V | SEMI | no (not super seamless) | H O N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 450 (9x10x5) | 6/18/11/11 |  |
-| gravity-sf1-68b | 68 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (not super seamless) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 22/28/11/11 |  |
+| gravity-sf1-68b | 68 | gravity | QUART z+ |  | dents | trapdoor z+ | trapdoor z+ | - | V | SEMI | no (opening: door block 4 moves back) | S H N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 280 (7x10x4) | 22/28/11/11 |  |
 | gravity-g1-69b | 69 | gravity | QUART z+ |  | dents | - | trapdoor z+ | - | V | SEMI | no (not super seamless) | H O N E | yes | yes (32 pos) | PASS | yes |  |  |  |  |  |  | 450 (9x10x5) | 6/18/11/11 |  |
 | sculk-ew-s4br-36b | 36 | sculk | QUART z-,z+ |  | minor | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 252 (7x9x4) | 22/24/36/36 |  |
 | sculk-ew-s4cr-36b | 36 | sculk | QUART z-,z+ |  | minor | - | - | - | - | - | no (not super seamless) | H G N E F | yes | yes (32 pos) | sim only | yes |  |  |  |  |  |  | 315 (7x9x5) | 22/24/36/36 |  |

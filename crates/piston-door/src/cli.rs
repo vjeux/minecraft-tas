@@ -2242,17 +2242,20 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let vanilla = pr::vanilla_verdicts(repo);
             let mut cands: Vec<(String, Design)> = Vec::new();
             if designs.is_empty() {
-                let all = crate::leaderboard::collect(repo, &refs, 200)?;
+                let all = crate::leaderboard::collect(repo, &refs, 400)?;
                 let n = all.len();
                 let mut unknown = 0;
                 for (s, d) in all {
                     match verdicts.get(&crate::leaderboard::design_hash(&d)) {
                         Some((true, _)) => cands.push((s, d)),
                         Some((false, _)) => {}
-                        None => unknown += 1,
+                        None => {
+                            unknown += 1;
+                            cands.push((s, d));
+                        }
                     }
                 }
-                eprintln!("{n} designs, {} working (cached verdicts), {unknown} not judged yet (skipped)", cands.len());
+                eprintln!("{n} designs, {} working or not judged yet ({unknown} not judged: screened by the judge at their own position)", cands.len());
             } else {
                 for p in &designs {
                     cands.push((p.display().to_string(), load_design(p)?));
@@ -2270,7 +2273,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             eprintln!("{} designs to compute", todo.len());
             if !todo.is_empty() {
                 let pool = mctas::sim::Pool::spawn(workers.min(todo.len()).max(1), &cfg)?;
-                let results = pool.map(todo, |w, _, (h, d)| Ok((h, pr::compute(w, &d, dynamic))));
+                let results = pool.map(todo, |w, _, (h, d)| {
+                    if !verdicts.contains_key(&h) {
+                        let one = VerifyOptions { offsets: vec![[0, 0, 0]], ..Default::default() };
+                        if let Err(e) = crate::verify(w, &d, &one) {
+                            let mut p = pr::Props::new();
+                            p.insert("screen".into(), format!("broken: {}", format!("{e:#}").replace(['\t', '\n'], " ")));
+                            return Ok((h, Ok(p)));
+                        }
+                    }
+                    Ok((h, pr::compute(w, &d, dynamic)))
+                });
                 for r in results {
                     let (h, p) = r?;
                     match p {
@@ -2288,15 +2301,28 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             for (s, d) in &cands {
                 let h = crate::leaderboard::design_hash(d);
                 let Some(mut p) = cache.get(&h).cloned() else { continue };
+                if p.get("screen").is_some_and(|s| s.starts_with("broken")) {
+                    continue;
+                }
                 if let Some((ok, rot)) = verdicts.get(&h) {
                     p.insert("dir".into(), if rot == "safe" { "yes".into() } else { format!("no ({rot})") });
                     p.insert("loc".into(), if *ok { "yes (32 pos)".into() } else { "no".into() });
+                } else {
+                    p.insert("dir".into(), "? (not judged yet)".into());
+                    p.insert("loc".into(), "? (1 pos)".into());
                 }
                 p.insert("vanilla".into(), vanilla.get(&h).cloned().unwrap_or_else(|| "sim only".into()));
                 rows.push((pr::display_name(s), crate::block_count(d), crate::category(d), p));
             }
             rows.sort_by(|a, b| (a.2 != "solid", a.2, a.1, &a.0).cmp(&(b.2 != "solid", b.2, b.1, &b.0)));
-            let table = pr::render(&rows);
+            let leaders: Vec<_> = pr::LEADERS.iter().filter_map(|n| rows.iter().find(|r| r.0 == *n).cloned()).collect();
+            let table = format!(
+                "# Door properties (Redstone Squid catalogue rules)\n\nDefinitions and judgment calls: [NOTES.md](NOTES.md). One position, one orientation, one cycle per check; not directional / not locational from the leaderboard's cached verdicts.\n\n## Board leaders\n\n{}\n## Best design per property\n\n{}\n## Every working design ({})\n\n{}",
+                pr::render(&leaders),
+                pr::summary(&rows),
+                rows.len(),
+                pr::render(&rows)
+            );
             print!("{table}");
             if let Some(path) = out_md {
                 std::fs::write(path, &table)?;

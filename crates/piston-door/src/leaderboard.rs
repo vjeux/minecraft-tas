@@ -56,28 +56,81 @@ fn git(repo: &Path, args: &[&str]) -> Result<String> {
 }
 
 /// Candidate designs as (source label, design): every `.txt` under designs/piston-door-3x3 on
-/// HEAD and on every ref under `refs_prefix`, parsed, with door+lever ports, deduplicated.
+/// HEAD and on every ref under `refs_prefix`, parsed, with door+lever ports, deduplicated. Blobs
+/// are read through one `git cat-file --batch` (each distinct file once, however many branches
+/// carry it).
 pub fn collect(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<(String, Design)>> {
     let mut refs = vec!["HEAD".to_string()];
     for line in git(repo, &["for-each-ref", "--format=%(refname:short)", refs_prefix])?.lines() {
         refs.push(line.trim().to_string());
     }
-    let mut seen = HashSet::new();
-    let mut out = Vec::new();
-    for r in refs {
-        let Ok(files) = git(repo, &["ls-tree", "-r", "--name-only", &r, "designs/piston-door-3x3"]) else { continue };
-        for f in files.lines().filter(|f| f.ends_with(".txt")) {
-            let Ok(text) = git(repo, &["show", &format!("{r}:{f}")]) else { continue };
-            let Ok(d) = Design::parse(&text) else { continue };
-            if !d.ports.contains_key("door") || !d.ports.contains_key("lever") || block_count(&d) > max_blocks {
-                continue;
-            }
-            let key = d.content_key();
-            if seen.insert(key) {
-                out.push((format!("{r}:{f}"), d));
+    // (ref, path, blob id)
+    let mut items: Vec<(String, String, String)> = Vec::new();
+    for r in &refs {
+        let Ok(list) = git(repo, &["ls-tree", "-r", r, "designs/piston-door-3x3"]) else { continue };
+        for line in list.lines() {
+            let Some((meta, path)) = line.split_once('\t') else { continue };
+            let f: Vec<&str> = meta.split_whitespace().collect();
+            if f.len() == 3 && f[1] == "blob" && path.ends_with(".txt") {
+                items.push((r.clone(), path.to_string(), f[2].to_string()));
             }
         }
     }
+    let mut blobs: Vec<String> = items.iter().map(|i| i.2.clone()).collect();
+    blobs.sort();
+    blobs.dedup();
+    let texts = cat_file_batch(repo, &blobs)?;
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for (r, f, blob) in items {
+        let Some(text) = texts.get(&blob) else { continue };
+        let Ok(d) = Design::parse(text) else { continue };
+        if !d.ports.contains_key("door") || !d.ports.contains_key("lever") || block_count(&d) > max_blocks {
+            continue;
+        }
+        let key = d.content_key();
+        if seen.insert(key) {
+            out.push((format!("{r}:{f}"), d));
+        }
+    }
+    Ok(out)
+}
+
+/// The contents of git blobs, through one `git cat-file --batch` process.
+fn cat_file_batch(repo: &Path, blobs: &[String]) -> Result<std::collections::HashMap<String, String>> {
+    use std::io::{BufRead, Read, Write};
+    let mut child = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["cat-file", "--batch"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()?;
+    let mut stdin = child.stdin.take().unwrap();
+    let list: Vec<String> = blobs.to_vec();
+    let writer = std::thread::spawn(move || {
+        let mut w = std::io::BufWriter::new(&mut stdin);
+        for b in &list {
+            let _ = writeln!(w, "{b}");
+        }
+    });
+    let mut rd = std::io::BufReader::new(child.stdout.take().unwrap());
+    let mut out = std::collections::HashMap::new();
+    for b in blobs {
+        let mut header = String::new();
+        rd.read_line(&mut header)?;
+        let f: Vec<&str> = header.split_whitespace().collect();
+        if f.len() < 3 {
+            continue;
+        }
+        let size: usize = f[2].parse().unwrap_or(0);
+        let mut buf = vec![0u8; size + 1];
+        rd.read_exact(&mut buf)?;
+        buf.truncate(size);
+        out.insert(b.clone(), String::from_utf8_lossy(&buf).into_owned());
+    }
+    let _ = writer.join();
+    let _ = child.wait();
     Ok(out)
 }
 
