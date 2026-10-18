@@ -51,11 +51,17 @@ pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &Search
     let mut working: Vec<(String, Design)> =
         fresh.into_iter().zip(verdicts).filter(|(_, v)| matches!(v, Ok(true))).map(|(c, _)| c).collect();
     working.sort_by_key(|(s, d)| (category(d), block_count(d), s.clone()));
-    let mut picked = Vec::new();
+    let mut picked: Vec<(String, Design)> = Vec::new();
     let mut cats: Vec<&'static str> = working.iter().map(|(_, d)| category(d)).collect();
     cats.dedup();
     for cat in cats {
         picked.extend(working.iter().filter(|(_, d)| category(d) == cat).take(opts.top).cloned());
+    }
+    // The slime-free league too.
+    for c in working.iter().filter(|(_, d)| crate::slime_free(d)).take(opts.top) {
+        if !picked.iter().any(|(s, _)| *s == c.0) {
+            picked.push(c.clone());
+        }
     }
     for (source, d0) in picked {
         let name = label(&source);
