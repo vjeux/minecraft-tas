@@ -1,0 +1,22 @@
+name: ground-mid
+port door: 0 0 0
+origin: -1 0 0
+palette:
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  I minecraft:stone
+layer 0:
+  ..I
+layer 1:
+  ..I
+layer 2:
+  ..I
+layer 3:
+  E...W
+layer 4:
+  ..D
+layer 5:
+  ..D
+layer 6:
+  ..D
