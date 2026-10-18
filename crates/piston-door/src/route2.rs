@@ -721,7 +721,10 @@ impl Model {
             let r = add(up, d);
             if qc && r != p {
                 if let Some(&i) = self.at.get(&r) {
-                    if emits_into(&self.nodes[i], self.pts.get(&r).copied(), up) {
+                    // A powered block's change does not update the piston two cells away, so its
+                    // quasi-connectivity power goes unnoticed (a BUD); only count emitters whose
+                    // own change updates the piston.
+                    if self.nodes[i].kind != Kind::Block && emits_into(&self.nodes[i], self.pts.get(&r).copied(), up) {
                         w = w.or(self.any[i]);
                     }
                 }
@@ -977,6 +980,14 @@ pub struct Problem<'a> {
     pub wants: Vec<(Pos, Pos, Wave)>,
 }
 
+/// Does node `u` (dust shape `pts`) power a receiver at `p` (reader code `facing`, see
+/// [`Model::piston_wave`]) in a way the receiver notices?
+fn reaches(u: &Node, pts: Option<[bool; 4]>, p: Pos, facing: Pos) -> bool {
+    let up = add(p, [0, 1, 0]);
+    (manhattan(u.pos, p) == 1 && sub(u.pos, p) != facing && emits_into(u, pts, p))
+        || (facing != READ_DIRECT && u.pos != p && u.kind != Kind::Block && manhattan(u.pos, up) == 1 && emits_into(u, pts, up))
+}
+
 /// Does node `v` (output `w`) power a piston cell outside the ticks that cell wants (give or take
 /// `tol` ticks)?
 fn poisons(wants: &[(Pos, Pos, Wave)], meas: &Measured, v: &Node, pts: Option<[bool; 4]>, w: Wave, tol: i32) -> bool {
@@ -1099,9 +1110,7 @@ impl Problem<'_> {
             let all = Overlay { base: blocks, top: &placed };
             // Hit?
             let pts = (u.node.kind == Kind::Dust).then(|| dust_points(&all, u.node.pos));
-            let up = add(r.pos, [0, 1, 0]);
-            let hits_r = (manhattan(u.node.pos, r.pos) == 1 && sub(u.node.pos, r.pos) != r.facing && emits_into(&u.node, pts, r.pos))
-                || (u.node.pos != r.pos && manhattan(u.node.pos, up) == 1 && emits_into(&u.node, pts, up));
+            let hits_r = reaches(&u.node, pts, r.pos, r.facing);
             if hits_r && same_masked(r.rest.or(u.any), r.want, r.mask, opts.tolerance) && !placed.is_empty() {
                 let mut key = placed.clone();
                 key.sort();
