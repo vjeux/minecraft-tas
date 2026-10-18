@@ -1,4 +1,4 @@
-name: speed-wire-o5
+name: speed-wire-o6
 port door: 0 0 0
 port lever: 0 4 -2
 origin: -4 0 -4
@@ -123,7 +123,7 @@ layer 5:
   .....D.w
   .......W
   .....R
-  .....p
+  .....ps
 layer 6:
   .
   .
@@ -131,14 +131,14 @@ layer 6:
   ...Jjh
   .....w
   ....R.n
-  .....sw
-  .....s
+  ......w
+  ......V
 layer 7:
   .
   .
-  .....O
-  .....A
-  .....A
-  .....w
-  .....YW
-  .....T
+  ......O
+  ......A
+  ......A
+  ......w
+  ......T
+  .
