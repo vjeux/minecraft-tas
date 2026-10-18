@@ -428,6 +428,40 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 50_000_000)]
         max_cands: usize,
     },
+    /// Large-neighborhood search by exact synthesis (see synth.rs `resynth`): every connected
+    /// group of 2..--max-size removable blocks (wiring, still plain blocks) is cleared and every
+    /// circuit of fewer blocks that could reconnect its surroundings is screened and judged; an
+    /// accepted replacement is applied and the search restarts. Writes the best design to --out.
+    Resynth {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        min_size: usize,
+        #[arg(long, default_value_t = 4)]
+        max_size: usize,
+        #[arg(long, default_value = "block,dust,dot,rep,obs,torch")]
+        palette: String,
+        #[arg(long, default_value = "block")]
+        floors: String,
+        /// The search box is the group's bounding box grown by this.
+        #[arg(long, default_value_t = 1)]
+        margin: i32,
+        /// Skip groups with more candidate circuits than this.
+        #[arg(long, default_value_t = 300_000)]
+        max_cands: usize,
+        #[arg(long)]
+        loose: bool,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        screen_offsets: usize,
+        /// Settle cap while screening (the door settles in < 60 ticks; clocks hit the cap).
+        #[arg(long, default_value_t = 100)]
+        screen_ticks: u32,
+    },
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
@@ -812,7 +846,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
                 },
             };
-            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
             log(&format!("{} workers", pool.len()));
             let found = synth(&pool, &base, &en, &buckets, &target, min_k, all_sizes, want, &log)?;
             if found.is_empty() {
@@ -829,6 +863,28 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     println!("  written to {}", path.display());
                 }
             }
+        }
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks } => {
+            use crate::synth::*;
+            let d = load_design(&design)?;
+            let o = ResynthOptions { min_size, max_size, palette: palette_states(&palette)?, floors: palette_states(&floors)?, margin, max_cands, loose };
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
+            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false };
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            {
+                let mut w = pool.worker(0);
+                crate::verify(&mut w, &d, &judge).map_err(|e| anyhow::anyhow!("the start design does not pass the judge: {e:#}"))?;
+            }
+            let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
+            let canon = {
+                let mut w = pool.worker(0);
+                crate::canonicalize(&mut w, &best).unwrap_or(best.clone())
+            };
+            canon.save(&out)?;
+            println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
         }
     }
     Ok(())

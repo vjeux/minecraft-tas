@@ -938,16 +938,31 @@ pub enum Target {
     Spec { spec: Spec, offsets: Vec<Pos> },
 }
 
-fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> bool {
-    match target {
-        Target::Door { screen, .. } => screen_in(w, sb, d, screen).is_ok(),
-        Target::Spec { spec, offsets } => offsets.iter().all(|off| run_spec(w, sb, &d.translated(*off), &spec.translated(*off), false).is_ok()),
+/// An error that means the worker itself is gone (not a verdict on the candidate).
+fn infra(e: &anyhow::Error) -> bool {
+    let m = format!("{e:#}");
+    ["bridge exited", "Broken pipe", "OutOfMemoryError", "failed to fill whole buffer", "Connection reset"].iter().any(|k| m.contains(k))
+}
+
+/// Ok(verdict), or Err when the worker died.
+fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> {
+    let r = match target {
+        Target::Door { screen, .. } => screen_in(w, sb, d, screen),
+        Target::Spec { spec, offsets } => offsets.iter().try_for_each(|off| run_spec(w, sb, &d.translated(*off), &spec.translated(*off), false)),
+    };
+    match r {
+        Ok(()) => Ok(true),
+        Err(e) if infra(&e) => Err(e),
+        Err(_) => Ok(false),
     }
 }
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
         Target::Door { judge, .. } => {
+            // Fail fast: one cycle at every judge position (frame-less) before the full judge.
+            let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false };
+            screen_in(w, sb, d, &quick)?;
             let r = verify_in(w, sb, d, judge)?;
             let (o, c) = crate::search::worst_ticks(&r);
             Ok(format!("door works at {} positions, open {o} / close {c}", judge.offsets.len()))
@@ -976,7 +991,43 @@ pub fn synth(
     want: usize,
     log: &(dyn Fn(&str) + Sync),
 ) -> Result<Vec<(Vec<u32>, Design, String)>> {
-    let sandboxes = crate::minimize::Sandboxes::new(pool);
+    let sandboxes = Sandboxes::new(pool);
+    synth_in(pool, &sandboxes, base, en, buckets, target, min_k, all_sizes, want, log)
+}
+
+/// Per-worker sandboxes, created once and reused (resynth calls synth hundreds of times: one
+/// set for all of them; dropping a used level can stall the bridge).
+pub struct Sandboxes(Vec<Mutex<Option<u32>>>);
+
+impl Sandboxes {
+    pub fn new(pool: &Pool) -> Sandboxes {
+        Sandboxes((0..pool.len()).map(|_| Mutex::new(None)).collect())
+    }
+    fn get(&self, w: &mut Worker, wi: usize) -> Result<u32> {
+        let mut slot = self.0[wi].lock().unwrap();
+        if let Some(sb) = *slot {
+            return Ok(sb);
+        }
+        let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+        *slot = Some(sb);
+        Ok(sb)
+    }
+}
+
+/// [`synth`] with caller-owned sandboxes.
+#[allow(clippy::too_many_arguments)]
+pub fn synth_in(
+    pool: &Pool,
+    sandboxes: &Sandboxes,
+    base: &Design,
+    en: &Gen,
+    buckets: &[Vec<Vec<u32>>],
+    target: &Target,
+    min_k: usize,
+    all_sizes: bool,
+    want: usize,
+    log: &(dyn Fn(&str) + Sync),
+) -> Result<Vec<(Vec<u32>, Design, String)>> {
     let mut found = Vec::new();
     for (size, cands) in buckets.iter().enumerate() {
         if cands.is_empty() || size < min_k {
@@ -986,39 +1037,60 @@ pub fn synth(
         let done = AtomicUsize::new(0);
         let passed: Mutex<Vec<usize>> = Mutex::new(Vec::new());
         let last = Mutex::new(Instant::now());
-        let chunk = 256usize;
-        let chunks: Vec<usize> = (0..cands.len().div_ceil(chunk)).collect();
-        let errors = AtomicUsize::new(0);
-        let _ = pool.map(chunks, |w, wi, c| {
-            let sb = sandboxes.get(w, wi)?;
-            for i in c * chunk..((c + 1) * chunk).min(cands.len()) {
-                let d = en.design(base, &cands[i]);
-                if screen(w, sb, &d, target) {
-                    passed.lock().unwrap().push(i);
+        // Small chunks when there are few candidates, so every worker gets some (a chunk of slow
+        // candidates, e.g. clocks that run to the settle cap, must not hold up the batch). Each
+        // worker pulls ranges from a shared queue; a worker whose JVM dies (out of memory: a
+        // candidate that flies off) gives the rest of its range back and stops, so no candidate
+        // is silently dropped.
+        let chunk = (cands.len() / (pool.len().max(1) * 16)).clamp(1, 256);
+        let queue: Mutex<std::collections::VecDeque<(usize, usize)>> =
+            Mutex::new((0..cands.len()).step_by(chunk).map(|s| (s, (s + chunk).min(cands.len()))).collect());
+        let crashed: Mutex<Vec<usize>> = Mutex::new(Vec::new());
+        let errors: Vec<String> = pool
+            .map((0..pool.len()).collect(), |w, wi, _| {
+                loop {
+                    let next = queue.lock().unwrap().pop_front();
+                    let Some((s, e)) = next else { break };
+                    for i in s..e {
+                        let d = en.design(base, &cands[i]);
+                        let verdict = sandboxes.get(w, wi).and_then(|sb| screen(w, sb, &d, target));
+                        match verdict {
+                            Ok(true) => passed.lock().unwrap().push(i),
+                            Ok(false) => {}
+                            Err(err) => {
+                                crashed.lock().unwrap().push(i);
+                                if i + 1 < e {
+                                    queue.lock().unwrap().push_back((i + 1, e));
+                                }
+                                return Err(err.context(format!("worker {wi} died on {}", en.describe(&cands[i]))));
+                            }
+                        }
+                    }
+                    let n = done.fetch_add(e - s, Ordering::Relaxed) + (e - s);
+                    let mut l = last.lock().unwrap();
+                    if l.elapsed().as_secs_f64() > 20.0 {
+                        *l = Instant::now();
+                        let rate = n as f64 / t.elapsed().as_secs_f64();
+                        log(&format!(
+                            "  size {size}: {n}/{} screened ({rate:.0}/s, eta {:.0}s), {} passed",
+                            cands.len(),
+                            (cands.len().saturating_sub(n)) as f64 / rate.max(1.0),
+                            passed.lock().unwrap().len()
+                        ));
+                    }
                 }
-            }
-            let n = done.fetch_add(chunk.min(cands.len() - c * chunk), Ordering::Relaxed) + chunk;
-            let mut l = last.lock().unwrap();
-            if l.elapsed().as_secs_f64() > 20.0 {
-                *l = Instant::now();
-                let rate = n as f64 / t.elapsed().as_secs_f64();
-                log(&format!(
-                    "  size {size}: {n}/{} screened ({rate:.0}/s, eta {:.0}s), {} passed",
-                    cands.len(),
-                    (cands.len().saturating_sub(n)) as f64 / rate.max(1.0),
-                    passed.lock().unwrap().len()
-                ));
-            }
-            Ok(())
-        })
-        .into_iter()
-        .filter(|r| r.is_err())
-        .map(|r| {
-            if errors.fetch_add(1, Ordering::Relaxed) == 0 {
-                log(&format!("  worker error: {:#}", r.err().unwrap()));
-            }
-        })
-        .count();
+                Ok(())
+            })
+            .into_iter()
+            .filter_map(|r| r.err().map(|e| format!("{e:#}")))
+            .collect();
+        for e in &errors {
+            log(&format!("  WORKER LOST: {e}"));
+        }
+        let left: usize = queue.lock().unwrap().iter().map(|(s, e)| e - s).sum();
+        if left > 0 {
+            bail!("every worker died with {left} candidates of size {size} left");
+        }
         let mut pass = passed.into_inner().unwrap();
         pass.sort_unstable();
         log(&format!("size {size}: {} candidates screened in {:.1}s, {} passed the screen", cands.len(), t.elapsed().as_secs_f64(), pass.len()));
@@ -1051,4 +1123,196 @@ pub fn synth(
         }
     }
     Ok(found)
+}
+
+// ---- resynthesis: replace any small sub-circuit of a door with a smaller one ---------------
+
+/// Cells of a door that change while it cycles (watch candidates for observers) and cells that
+/// are air at rest but filled while it moves (no new block may go there).
+pub fn door_motion(w: &mut Worker, d: &Design) -> Result<(HashSet<Pos>, HashSet<Pos>)> {
+    let spec = DoorSpec::from_design(d)?;
+    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let r = (|| -> Result<(HashSet<Pos>, HashSet<Pos>)> {
+        place_settled(w, sb, d, 400)?;
+        let (wlo, whi) = crate::watch_box(d, &spec);
+        let rest = w.get_region(sb, wlo, whi)?;
+        let (mut changing, mut swept) = (HashSet::new(), HashSet::new());
+        for _ in 0..2 {
+            w.use_block(sb, spec.lever)?;
+            let r = w.step_record(sb, 400, true, wlo, whi)?;
+            for f in &r.frames {
+                for (p, s) in f.iter() {
+                    let before = rest.get(p).unwrap_or("?");
+                    if before != s {
+                        changing.insert(p);
+                        if mctas::blockstate::is_air(before) {
+                            swept.insert(p);
+                        }
+                    }
+                }
+            }
+        }
+        Ok((changing, swept))
+    })();
+    let _ = w.drop_sandbox(sb);
+    r
+}
+
+/// Knobs of [`resynth`].
+pub struct ResynthOptions {
+    pub min_size: usize,
+    pub max_size: usize,
+    pub palette: Vec<String>,
+    pub floors: Vec<String>,
+    /// Box = the group's bounding box grown by this.
+    pub margin: i32,
+    /// Skip a group whose enumeration exceeds this many circuits.
+    pub max_cands: usize,
+    pub loose: bool,
+}
+
+/// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
+/// lamps) and plain blocks that do not move; never the door, the lever or what holds it up,
+/// pistons, slime/honey or redstone blocks.
+fn removable(d: &Design, changing: &HashSet<Pos>) -> Vec<Pos> {
+    let spec = DoorSpec::from_design(d).ok();
+    let door: HashSet<Pos> = spec.map(|s| s.door_cells().into_iter().collect()).unwrap_or_default();
+    let lever = spec.map(|s| s.lever);
+    let lever_support = lever.and_then(|l| d.blocks.get(&l).and_then(|s| Node::new(l, s).support));
+    d.blocks
+        .iter()
+        .filter(|(p, s)| {
+            let n = Node::new(**p, s);
+            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp);
+            let still_block = matches!(n.kind, Kind::Block) && !changing.contains(*p);
+            let glass = n.kind == Kind::Inert && s.contains("glass");
+            (wiring || still_block || glass) && !door.contains(*p) && Some(**p) != lever && Some(**p) != lever_support
+        })
+        .map(|(p, _)| *p)
+        .collect()
+}
+
+/// Connected groups (faces or a dust-style diagonal step) of `cells` with sizes in lo..=hi.
+fn groups(cells: &[Pos], lo: usize, hi: usize) -> Vec<Vec<Pos>> {
+    let set: HashSet<Pos> = cells.iter().copied().collect();
+    let linked = |a: Pos, b: Pos| {
+        let d = [(a[0] - b[0]).abs(), (a[1] - b[1]).abs(), (a[2] - b[2]).abs()];
+        d[0] + d[1] + d[2] == 1 || (d[1] == 1 && d[0] + d[2] == 1)
+    };
+    let mut seen: HashSet<Vec<Pos>> = HashSet::new();
+    let mut frontier: Vec<Vec<Pos>> = cells.iter().map(|c| vec![*c]).collect();
+    let mut out = Vec::new();
+    for size in 1..=hi {
+        let mut next = Vec::new();
+        for g in &frontier {
+            if size >= lo {
+                out.push(g.clone());
+            }
+            if size == hi {
+                continue;
+            }
+            for c in &set {
+                if g.contains(c) || !g.iter().any(|x| linked(*x, *c)) {
+                    continue;
+                }
+                let mut h = g.clone();
+                h.push(*c);
+                h.sort();
+                if seen.insert(h.clone()) {
+                    next.push(h);
+                }
+            }
+        }
+        frontier = next;
+    }
+    out
+}
+
+/// Large-neighborhood search by exact synthesis: for every connected group of removable blocks
+/// (sizes `min_size..=max_size`), clear it and synthesize every circuit of fewer blocks that
+/// could reconnect the cells around it; a replacement the judge accepts is applied and the search
+/// restarts. Returns the best design found (the input if nothing improves).
+pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &VerifyOptions, screen_opts: &VerifyOptions, log: &(dyn Fn(&str) + Sync)) -> Result<Design> {
+    let mut cur = design.clone();
+    let mut tried: HashSet<(u64, Vec<Pos>)> = HashSet::new();
+    let sandboxes = Sandboxes::new(pool);
+    'outer: loop {
+        let (changing, swept) = {
+            let mut w = pool.worker(0);
+            door_motion(&mut w, &cur)?
+        };
+        let rem = removable(&cur, &changing);
+        let gs = groups(&rem, o.min_size.max(1), o.max_size);
+        let h = crate::search::design_hash(&cur);
+        log(&format!("{} blocks: {} removable, {} groups of {}..{}", crate::block_count(&cur), rem.len(), gs.len(), o.min_size, o.max_size));
+        for g in gs {
+            if !tried.insert((h, g.clone())) {
+                continue;
+            }
+            let mut base = cur.clone();
+            for p in &g {
+                base.blocks.remove(p);
+            }
+            let near = |p: &Pos, r: i32| g.iter().any(|c| (0..3).all(|i| (p[i] - c[i]).abs() <= r));
+            let mut ctx_cells: Vec<Pos> = base.blocks.keys().filter(|p| near(p, 1)).copied().collect();
+            ctx_cells.sort();
+            let watch: Vec<Pos> = changing.iter().filter(|p| near(p, 2) && !base.blocks.contains_key(*p)).copied().collect();
+            let mut lo = g[0];
+            let mut hi = g[0];
+            for p in &g {
+                for i in 0..3 {
+                    lo[i] = lo[i].min(p[i] - o.margin);
+                    hi[i] = hi[i].max(p[i] + o.margin);
+                }
+            }
+            let so = SynthOptions {
+                lo,
+                hi,
+                palette: o.palette.clone(),
+                floors: o.floors.clone(),
+                k: g.len() - 1,
+                min_k: 1,
+                sources: ctx_cells.clone(),
+                watch,
+                sinks: ctx_cells,
+                forbid: swept.clone(),
+                require: Vec::new(),
+                limit: Vec::new(),
+                loose: o.loose,
+                max_cands: o.max_cands,
+            };
+            let desc = g.iter().map(|p| format!("{}{}", fmt_pos(*p), short(mctas::blockstate::block_name(&cur.blocks[p])).chars().take(4).collect::<String>())).collect::<Vec<_>>().join(" ");
+            let en = match Gen::new(&base, &so) {
+                Ok(e) => e,
+                Err(e) => {
+                    log(&format!("  group {desc}: {e:#}"));
+                    continue;
+                }
+            };
+            let quiet = |_: &str| {};
+            let buckets = match en.enumerate(&quiet) {
+                Ok(b) => b,
+                Err(e) => {
+                    log(&format!("  group {desc}: skipped ({e:#})"));
+                    continue;
+                }
+            };
+            let n: usize = buckets.iter().map(|b| b.len()).sum();
+            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone() };
+            let t = Instant::now();
+            let inner = |m: &str| {
+                if m.contains("VERIFIED") || (m.contains("passed the screen") && !m.ends_with(" 0 passed the screen")) {
+                    log(&format!("    {}", m.trim()));
+                }
+            };
+            let found = synth_in(pool, &sandboxes, &base, &en, &buckets, &target, 1, false, 1, &inner)?;
+            log(&format!("  group [{desc}] -> <= {} blocks: {n} circuits in {:.1}s{}", g.len() - 1, t.elapsed().as_secs_f64(), if found.is_empty() { String::new() } else { " FOUND".into() }));
+            if let Some((set, d, msg)) = found.into_iter().next() {
+                log(&format!("IMPROVED {} -> {} blocks: [{desc}] replaced by {} -- {msg}", crate::block_count(&cur), crate::block_count(&d), en.describe(&set)));
+                cur = d;
+                continue 'outer;
+            }
+        }
+        return Ok(cur);
+    }
 }
