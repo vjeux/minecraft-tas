@@ -1,0 +1,89 @@
+//! `mctas door leaderboard`: gather every door design on main (HEAD) and on the agents'
+//! `explore/*` branches, verify each one with the judge (main's verifier, extra offsets), and
+//! write a ranked table. Identical designs are verified once; the first source is kept.
+
+use std::collections::HashSet;
+use std::path::Path;
+use std::process::Command;
+
+use anyhow::{Result, bail};
+use mctas::design::Design;
+use mctas::sim::{Pool, WorkerConfig};
+
+use crate::{VerifyOptions, block_count, category};
+
+/// One candidate and its verdict.
+pub struct Entry {
+    pub source: String,
+    pub blocks: usize,
+    pub category: &'static str,
+    pub verdict: std::result::Result<(), String>,
+}
+
+fn git(repo: &Path, args: &[&str]) -> Result<String> {
+    let out = Command::new("git").arg("-C").arg(repo).args(args).output()?;
+    if !out.status.success() {
+        bail!("git {}: {}", args.join(" "), String::from_utf8_lossy(&out.stderr).trim());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// Candidate designs as (source label, design): every `.txt` under designs/piston-door-3x3 on
+/// HEAD and on every ref under `refs_prefix`, parsed, with door+lever ports, deduplicated.
+pub fn collect(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<(String, Design)>> {
+    let mut refs = vec!["HEAD".to_string()];
+    for line in git(repo, &["for-each-ref", "--format=%(refname:short)", refs_prefix])?.lines() {
+        refs.push(line.trim().to_string());
+    }
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for r in refs {
+        let Ok(files) = git(repo, &["ls-tree", "-r", "--name-only", &r, "designs/piston-door-3x3"]) else { continue };
+        for f in files.lines().filter(|f| f.ends_with(".txt")) {
+            let Ok(text) = git(repo, &["show", &format!("{r}:{f}")]) else { continue };
+            let Ok(d) = Design::parse(&text) else { continue };
+            if !d.ports.contains_key("door") || !d.ports.contains_key("lever") || block_count(&d) > max_blocks {
+                continue;
+            }
+            let key = format!("{:?}|{:?}", d.blocks, d.ports);
+            if seen.insert(key) {
+                out.push((format!("{r}:{f}"), d));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Verify every candidate in parallel.
+pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, workers: usize) -> Result<Vec<Entry>> {
+    let pool = Pool::spawn(workers.min(cands.len()).max(1), &WorkerConfig { version: version.to_string(), ..Default::default() })?;
+    let mut opts = VerifyOptions::default();
+    opts.offsets.extend(crate::extra_offsets(extra_offsets));
+    let results = pool.map(cands, |w, _, (source, d)| {
+        let verdict = crate::verify(w, &d, &opts).map(|_| ()).map_err(|e| format!("{e:#}"));
+        Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict })
+    });
+    let mut entries: Vec<Entry> = results.into_iter().collect::<Result<_>>()?;
+    entries.sort_by(|a, b| {
+        (a.verdict.is_err(), a.category, a.blocks, a.source.as_str()).cmp(&(b.verdict.is_err(), b.category, b.blocks, b.source.as_str()))
+    });
+    Ok(entries)
+}
+
+/// Markdown table of the entries.
+pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
+    let mut s = format!(
+        "# 3x3 piston door leaderboard\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
+         (3 cycles at {} positions). Working designs first, by category then block count.\n\n\
+         | # | blocks | category | verdict | source |\n|---|---|---|---|---|\n",
+        4 + extra_offsets
+    );
+    for (i, e) in entries.iter().enumerate() {
+        let verdict = match &e.verdict {
+            Ok(()) => "WORKS".to_string(),
+            Err(m) => format!("broken: {}", m.chars().take(90).collect::<String>().replace('|', "/")),
+        };
+        s.push_str(&format!("| {} | {} | {} | {} | `{}` |\n", i + 1, e.blocks, e.category, verdict, e.source));
+    }
+    s
+}

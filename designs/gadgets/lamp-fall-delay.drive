@@ -1,0 +1,16 @@
+# Redstone lamp: lights in the same tick it is powered (the observer pulses at t+2), goes dark
+# 4gt after the power goes away (the observer pulses at t+6): rise 0, fall 4.
+design designs/gadgets/lamp-fall-delay.txt
+probe lamp 0 0 0
+probe out 2 0 0
+use 0 1 0
+expect lamp 1
+expect_trace out 0++0000
+use 0 1 0
+expect lamp 1
+expect_trace lamp 1110000
+quiet 4
+use 0 1 0
+expect_trace out 0++0000
+use 0 1 0
+expect_trace out 00000++000

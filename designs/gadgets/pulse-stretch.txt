@@ -1,0 +1,14 @@
+name: gadget-pulse-stretch
+# Pulse stretcher: a repeater fed a pulse shorter than its delay outputs exactly its delay.
+# observer O (2gt pulse on each lever flip) -> repeater R (delay 4 = 8gt) -> dust D.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  R minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  D minecraft:redstone_wire[east=side,north=none,south=none,west=side,power=0]
+layer 0:
+  S.SS
+layer 1:
+  LORD

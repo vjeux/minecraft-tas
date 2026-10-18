@@ -19,9 +19,11 @@ pub mod cli;
 pub mod archive;
 pub mod designs;
 pub mod designs_history;
+pub mod leaderboard;
 pub mod drive;
 pub mod route;
 pub mod minimize;
+pub mod search;
 pub mod video;
 
 use anyhow::{Context, Result, bail};
@@ -130,6 +132,18 @@ pub fn verify(w: &mut Worker, design: &Design, opts: &VerifyOptions) -> Result<R
 /// Count of placed blocks: every non-air block except piston heads (part of their piston).
 pub fn block_count(d: &Design) -> usize {
     d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count()
+}
+
+/// `n` deterministic pseudo-random extra test positions, on top of the default four.
+pub fn extra_offsets(n: u32) -> Vec<Pos> {
+    let mut seed: u64 = 0x9e3779b97f4a7c15;
+    let mut next = |m: i64| {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed % (2 * m as u64 + 1)) as i32 - m as i32
+    };
+    (0..n).map(|_| [next(13), next(40), next(13)]).collect()
 }
 
 /// Blocks a survival player cannot place (creative-only or technical); designs may not use them.

@@ -1,0 +1,21 @@
+name: gadget-slime-nonstick
+# Slime drags every movable neighbor, except PUSH_ONLY blocks (glazed terracotta) and immovable
+# ones (obsidian), which stay put, so wiring can sit right next to a moving slime backbone.
+# Sticky piston P (extended, facing east, powered by redstone block R) holds slime S; G (glazed
+# terracotta) north of S, K (stone) south of S, O (obsidian) above S. The script removes R.
+origin: 0 0 0
+palette:
+  R minecraft:redstone_block
+  P minecraft:sticky_piston[extended=true,facing=east]
+  H minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:slime_block
+  G minecraft:white_glazed_terracotta[facing=north]
+  K minecraft:stone
+  O minecraft:obsidian
+layer 0:
+  ...G
+  RPHS
+  ...K
+layer 1:
+  .
+  ...O

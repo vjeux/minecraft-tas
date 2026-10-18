@@ -1,0 +1,7 @@
+# Observer watching a lever: a 2gt pulse 2gt after every flip, on and off alike.
+design designs/gadgets/dual-edge.txt
+probe out 2 1 0
+use 0 1 0
+expect_trace out 0++000000
+use 0 1 0
+expect_trace out 0++000000

@@ -1,0 +1,14 @@
+# Copper bulb: toggles on every rising edge of its power, in the same tick, ignores falling
+# edges; the comparator reads it (2gt later).
+design designs/gadgets/bulb-toggle.txt
+probe bulb 1 0 0
+probe out 3 0 0
+use 0 1 0
+expect bulb 1
+expect_trace out 0+++
+use 0 1 0
+expect bulb 1
+expect_trace out ++++
+use 0 1 0
+expect bulb 0
+expect_trace out +000

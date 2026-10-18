@@ -1,0 +1,17 @@
+name: gadget-lamp-fall-delay
+# Asymmetric delay: a redstone lamp lights at once when powered but goes dark 4gt after the
+# power goes away; an observer watching it turns that into pulses. Lever L on lamp M (the lever
+# powers its attachment), observer O watches the lamp, dust D shows the pulses.
+origin: 0 0 0
+palette:
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  M minecraft:redstone_lamp[lit=false]
+  O minecraft:observer[facing=west,powered=false]
+  D minecraft:redstone_wire[east=side,north=none,south=none,west=side,power=0]
+  S minecraft:stone
+layer 0:
+  MOD
+layer -1:
+  ..S
+layer 1:
+  L

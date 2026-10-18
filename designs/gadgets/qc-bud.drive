@@ -1,0 +1,13 @@
+# P is powered through the air cell above it (quasi-connectivity) and extends 2gt after the
+# lever. Q is powered the same way by a redstone block two cells up, but nothing updates it, so
+# it stays retracted until a block is placed next to it.
+design designs/gadgets/qc-bud.txt
+probe P 2 1 0
+probe Q 4 1 0
+use 0 2 0
+expect_trace P rEEE
+expect P E
+set 4 3 0 minecraft:redstone_block
+expect_trace Q rrrrrrrr
+set 5 1 0 minecraft:stone
+expect_trace Q EEE
