@@ -1,0 +1,17 @@
+name: gadget-memory-window
+# A copper-bulb T flip-flop turns TWO pulses into ONE window, but a window cannot CLOSE a
+# pull-type piston (wire56). B = waxed copper bulb (toggles LIT on each rising edge of its power),
+# C = comparator reading B through its rear (15 while lit), output into the sticky piston P, which
+# stands two cells from the block K (one-cell gap, the side pistons of a flat door). Inputs: a
+# redstone block placed / removed at x=0 by the drive script (two 2 gt pulses per "edge").
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:stone
+layer 0:
+  ..S
+layer 1:
+  .BCP.K

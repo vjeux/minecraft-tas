@@ -1,0 +1,8 @@
+open: 58 frames, powered piston-ticks t4:1,4 t5:1,4 t8:3,3 t9:3,3 t12:1,4 t12:1,5 t13:1,5 t15:1,3 t18:1,5 t19:1,5 t24:1,4 t25:1,4 t30:4,1 t30:4,2 t31:4,1 t31:4,2 t36:4,2 t36:4,1 t37:4,1 t37:4,2 t42:4,2 t42:4,1 t43:4,2 t43:4,1
+close: 58 frames, powered piston-ticks t4:1,4 t5:1,4 t8:3,3 t9:3,3 t12:1,5 t12:1,4 t13:1,5 t15:1,3 t18:1,5 t19:1,5 t24:1,4 t25:1,4 t30:4,2 t30:4,1 t31:4,2 t31:4,1 t36:4,2 t36:4,1 t37:4,1 t37:4,2 t42:4,1 t42:4,2 t43:4,2 t43:4,1
+[   0.4s] encoded: 7 free cells, 22 lever candidates, offsets 0..=12, horizon 75 ticks, 227155 vars, 868251 clauses
+[  16.0s] UNSAT (solve 4.6s): no wiring exists within this palette, box and model (wiring <= 7, 0 judged designs blocked)
+
+real	0m31.363s
+user	0m53.923s
+sys	0m2.035s
