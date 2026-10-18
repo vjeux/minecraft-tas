@@ -68,7 +68,18 @@ Verified at 32 and at 104 positions. Open 24 gt, close 50 gt.
   level signal from the lever, which then sits far from the top torch.
 
 ## Next ideas
+- fresh-c's close in a slime-free door, VALIDATED with ideal inputs (`door ideal asteady.sched`,
+  mechanism ideal-asteady.txt = the 48 without its control, A extended at rest): A held by a
+  steady source (off on open, on again on close after P_T brought T back above C), P_T steady,
+  X pulses p0 (close: A pushes C down one) + the two B-edge pulses, B window unchanged (on close
+  A is extended, so B cannot push it and the pulses are swallowed). Windows (one at a time):
+  a_off 1..5, pt_off 7..12 (open); pt_on 5..9, a_on 5..12 (close); pt_on = a_on works (6..9,
+  16 positions): A waits for T to land. So P_T = NOT(lever through a d3 repeater) (no OR, no
+  R_P: -2) and A = NOT(lever OR that repeater); the TL puller could then be steady on A's torch
+  (one dust instead of the 3-observer chain). The catch is A's fast-off/slow-on source: a torch
+  attachment fed by both the lever and the repeater does not fit next to A (every cell around
+  A is taken, and a lever cannot be both adjacent to the attachment's dust and behind the
+  repeater); a redstone-block shuttle (fresh-c) gives that asymmetry for free but needs a free
+  cell next to A for the block at rest and another for it when open.
 - A cheaper TL feed: the TL puller needs 1 (or 3) pulses; with the P_T torch moved to (0,4,2)
   one observer at (0,4,1) would do (-2), if the OR net can reach a torch attachment on the west.
-- B blocked on close by an extended A (fresh-c) in a slime-free door: A held extended on close
-  needs an asymmetric source next to A; worth an ideal-input study with `door ideal`.
