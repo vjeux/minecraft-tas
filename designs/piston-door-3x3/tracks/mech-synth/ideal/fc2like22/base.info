@@ -1,0 +1,4 @@
+22 blocks | open 8 + close 5 events | no symmetric sequence
+    added: 
+    open:  PSeast@(-3,1,0) PSup@(1,-2,0) LSdown+@(1,4,0) PSwest@(5,1,0) LSdown@(1,5,0) PSdown+@(1,4,0) LSdown@(1,5,0) PSdown+@(1,4,0)
+    close: PSeast@(-3,1,0) PSup@(1,-2,0) PSdown+@(1,4,0) PSwest@(5,1,0) LSdown+@(1,4,0)
