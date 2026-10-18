@@ -77,12 +77,26 @@ pub struct SearchArgs {
     /// the boards rank rotation-safe designs). The start design must be rotation-safe too.
     #[arg(long)]
     pub rotation_safe: bool,
+    /// Also accept candidates that add entities to a solid design (category entity, the "Entities
+    /// allowed" board): put `cart`, `chestcart` or `stand` in `door grow --states`.
+    #[arg(long)]
+    pub to_entity: bool,
+    /// Accept candidates that are not rotation-safe. By default a rotation-safe start design
+    /// only accepts rotation-safe candidates (the boards rank rotation-safe doors).
+    #[arg(long)]
+    pub any_rotation: bool,
+    /// With --tile: a shared end piece (see `door verify --tile-extra`).
+    #[arg(long)]
+    pub tile_extra: Option<PathBuf>,
 }
 
 impl SearchArgs {
     pub fn options(&self) -> Result<crate::search::SearchOptions> {
         let offsets = crate::search::judge_offsets(self.extra_offsets);
-        let tile = self.tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
+        let mut tile = self.tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
+        if let (Some(t), Some(p)) = (tile.as_mut(), &self.tile_extra) {
+            t.extra = Some(load_design(p)?);
+        }
         Ok(crate::search::SearchOptions {
             families: crate::search::parse_families(&self.moves)?,
             screen: VerifyOptions {
@@ -109,6 +123,8 @@ impl SearchArgs {
             to_sculk: self.to_sculk,
             shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
             rotation_safe: self.rotation_safe,
+            to_entity: self.to_entity,
+            keep_rotations: !self.any_rotation,
         })
     }
 
@@ -118,7 +134,8 @@ impl SearchArgs {
 }
 #[derive(Subcommand)]
 pub enum DoorCmd {
-    /// Record a video of every design in a folder (several at once), upload each, write VIDEOS.md.
+    /// Record a video of every design in a folder (several at once), upload each, then write the
+    /// folder's catalog (README.md, see `door catalog`).
     VideoAll {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         dir: PathBuf,
@@ -145,6 +162,26 @@ pub enum DoorCmd {
         /// after each flip); videos now always play until the door has settled.
         #[arg(long)]
         redo_cut: bool,
+        /// Only list the videos that would be recorded (records and writes nothing).
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Write the archive catalog (archive/README.md): every archived design with its blocks,
+    /// boards, open/close ticks, rotations, buildability (`door buildable`'s scripts), video link
+    /// and how it works (archive/captions.tsv, archive/records.tsv). Records nothing; verdicts
+    /// come from the verdict cache. `door video-all` writes it too.
+    Catalog {
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        archive: PathBuf,
+        /// A local folder of rendered videos (`<stem>.mp4`, video-all's --out): linked too.
+        #[arg(long)]
+        videos: Option<PathBuf>,
+        /// GitHub release whose `<stem>.mp4` assets are linked ("" = none).
+        #[arg(long, default_value = "videos")]
+        release: String,
+        /// Worker JVMs for archived designs missing from the verdict cache.
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
     },
     /// Draw the title card (and the corner label, as a transparent PNG) of a design's video,
     /// without recording anything.
@@ -156,17 +193,15 @@ pub enum DoorCmd {
         #[arg(long)]
         label: Option<PathBuf>,
     },
-    /// The best design of each board (solid, slime-free, sculk, gravity, fastest solid) as a
-    /// looping GIF (door camera, real client) plus a markdown page linking them with one line
-    /// per design (blocks, category, ticks, how it works from CAPTIONS.md / the archive README).
+    /// The best design of each board (block-count boards, speed boards) as a looping GIF (door
+    /// camera, real client), uploaded to the release, plus the night's timeline chart. No page of
+    /// its own: `door leaderboard` shows each board leader's GIF.
     Gallery {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
         /// Folder for the clips and GIFs (rendered when missing).
         #[arg(long)]
         videos: PathBuf,
-        #[arg(long, default_value = "designs/piston-door-3x3/GALLERY.md")]
-        out: PathBuf,
         /// GitHub release tag to upload the GIFs and clips to.
         #[arg(long)]
         upload: Option<String>,
@@ -190,7 +225,7 @@ pub enum DoorCmd {
         #[arg(long)]
         redo: bool,
     },
-    /// The solid record progression (archive README's table, plus a newer record) as one video:
+    /// A board's record progression (solid: archive/records.tsv, plus a newer record) as one video:
     /// every design filmed by the same camera, labeled with its block count and how it got there.
     Montage {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
@@ -212,7 +247,7 @@ pub enum DoorCmd {
         speed: f64,
         #[arg(long)]
         redo: bool,
-        /// solid (the archive README's progression table), slime-free, sculk or gravity (records
+        /// solid (archive/records.tsv), slime-free, flat, sculk, sculk-unrotated or gravity (records
         /// in archive order).
         #[arg(long, default_value = "solid")]
         board: String,
@@ -282,7 +317,8 @@ pub enum DoorCmd {
         #[arg(long)]
         no_table: bool,
     },
-    /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
+    /// Verify every design on HEAD and on the explore/* branches and write the boards
+    /// (LEADERBOARD.md: each board's leader with its GIF, video and caption, the rest collapsed).
     Leaderboard {
         /// Ref prefix to scan besides HEAD.
         #[arg(long, default_value = "refs/remotes/origin/explore/")]
@@ -306,6 +342,18 @@ pub enum DoorCmd {
         /// Archive every working design into this folder; designs already there are trusted.
         #[arg(long)]
         archive_dir: Option<PathBuf>,
+        /// Verdict cache folder (default: --archive-dir; none = verify everything).
+        #[arg(long)]
+        cache_dir: Option<PathBuf>,
+        /// Rank only designs whose verdict is cached (simulate nothing).
+        #[arg(long)]
+        cached_only: bool,
+        /// GitHub release with the GIFs, videos and montages to show ("" = none).
+        #[arg(long, default_value = "videos")]
+        release: String,
+        /// Archive folder whose captions.tsv / records.tsv describe the leaders.
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        captions: PathBuf,
     },
     /// Route a dust path in a design (prints the blocks to add).
     Route {
@@ -712,6 +760,14 @@ pub enum DoorCmd {
         /// Only the split symmetric search (edges block + searched core), not the graph one.
         #[arg(long)]
         split_only: bool,
+        /// Symmetric control by product BFS for the base itself: the open state reached by these
+        /// events ("P:x,y,z L:x,y,z ...", pistons named by their rest position), then the
+        /// shortest single sequence S with S(rest) = open and S(open) = rest (`--cap` pairs).
+        #[arg(long)]
+        sym_bfs: Option<String>,
+        /// With --sym-bfs: also allow level toggles (default: 2 gt pulses only).
+        #[arg(long)]
+        sym_levels: bool,
     },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
@@ -862,6 +918,14 @@ pub enum DoorCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// List a design's blocks with their coordinates, one `x y z state` line each (the same
+    /// coordinates `door patch` and `door drive` use), optionally only those inside a box.
+    Blocks {
+        design: PathBuf,
+        /// Only blocks inside this box, "x0,y0,z0:x1,y1,z1" (inclusive).
+        #[arg(long)]
+        only: Option<String>,
+    },
     /// Place a design, settle, flip the lever and print every block change tick by tick.
     Trace {
         design: PathBuf,
@@ -991,8 +1055,6 @@ pub enum DoorCmd {
         #[arg(long)]
         stay: bool,
     },
-    /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
-    /// run in both worlds and compared tick for tick; diverging ones are saved.
     /// Replay gadget drive scripts (designs/gadgets/*.drive) in the UNMODIFIED official server
     /// and compare every tick with the simulator (see vanilla_gadget.rs): the design in its rest
     /// state, `use` by a bot player, `setblock` as the game's command in both worlds, every tick
@@ -1011,6 +1073,8 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 100)]
         tick_rate: u32,
     },
+    /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
+    /// run in both worlds and compared tick for tick; diverging ones are saved.
     VanillaFuzz {
         #[arg(long, default_value_t = 50)]
         count: u64,
@@ -1094,6 +1158,28 @@ pub enum DoorCmd {
         /// With --tile: write the whole arrangement here (a plain design file).
         #[arg(long)]
         tile_out: Option<PathBuf>,
+        /// With --tile: a shared end piece placed once in copy 0's frame (its `port lever`, if
+        /// any, is the one lever; every copy then holds the relay).
+        #[arg(long)]
+        tile_extra: Option<PathBuf>,
+    },
+    /// Tile board (tile.rs): every design with a `tiling:` header (e.g. `tiling: period:8:3`) on
+    /// HEAD and the explore/* branches, judged as a tile module; ranked per tiling kind by blocks
+    /// per opening in a long row (TILEBOARD.md).
+    TileBoard {
+        /// Ref prefix to scan besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Skip designs with more blocks than this.
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        /// Write the markdown here (also printed), e.g. designs/piston-door-3x3/TILEBOARD.md.
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Tileability scan (tile.rs): every design under every tiling of --tiles, in parallel; prints
     /// per design which tilings work and the smallest working period.
@@ -1264,12 +1350,27 @@ pub enum DoorCmd {
         /// Judge every candidate as a tile module (tile.rs; see `door verify --tile`).
         #[arg(long)]
         tile: Option<String>,
+        /// Accept replacements that are not rotation-safe. By default a rotation-safe start
+        /// design only accepts rotation-safe replacements (the boards rank rotation-safe doors).
+        #[arg(long)]
+        any_rotation: bool,
     },
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::TileBoard { refs, extra_offsets, workers, max_blocks, out } => {
+            let cands = crate::leaderboard::collect(std::path::Path::new("."), &refs, max_blocks)?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let mut opts = VerifyOptions::default();
+            opts.offsets.extend(crate::extra_offsets(extra_offsets));
+            let (_, md) = crate::tile::board(&pool, cands, &opts);
+            print!("{md}");
+            if let Some(p) = out {
+                std::fs::write(p, &md)?;
+            }
+        }
         DoorCmd::TileScan { designs, tiles, levers, extra_offsets, workers, verbose } => {
             let mut ts = crate::tile::parse_tile_list(&tiles)?;
             let mode = match levers.as_str() {
@@ -1307,9 +1408,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut } => {
+        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut, dry_run } => {
             let opts = video_style(&style, orbit)?;
-            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut)?;
+            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut, dry_run)?;
+        }
+        DoorCmd::Catalog { archive, videos, release, workers } => {
+            let o = crate::catalog::CatalogOptions { archive: &archive, workers, videos: videos.as_deref(), release: Some(release.as_str()) };
+            crate::catalog::write(version, &o)?;
         }
         DoorCmd::Card { design, out, label } => {
             let d = load_design(&design)?;
@@ -1326,8 +1431,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("wrote {}", out.display());
         }
-        DoorCmd::Gallery { archive, videos, out, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo } => {
-            let o = crate::showcase::GalleryOptions { archive, videos, out, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
+        DoorCmd::Gallery { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo } => {
+            let o = crate::showcase::GalleryOptions { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
             crate::showcase::gallery(version, &o)?;
         }
         DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo, board } => {
@@ -1364,7 +1469,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             print!("{}", crate::shapes::best_report(&entries, &rules));
         }
-        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
+        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir, cache_dir, cached_only, release, captions } => {
             let repo = std::path::Path::new(".");
             if fetch {
                 let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
@@ -1374,9 +1479,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 eprintln!("synced tracks: {:?}", crate::leaderboard::sync_tracks(repo, &refs)?);
             }
             let trusted = archive_dir.as_deref().map(crate::leaderboard::archived_keys).unwrap_or_default();
-            let cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
+            let mut cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
+            let cache = cache_dir.or_else(|| archive_dir.clone());
+            let mut extras = crate::leaderboard::Extras::load(&captions, &release);
+            if cached_only {
+                let dir = cache.as_deref().ok_or_else(|| anyhow::anyhow!("--cached-only needs --cache-dir or --archive-dir"))?;
+                extras.uncached = crate::leaderboard::only_cached(&mut cands, dir);
+                eprintln!("{} designs without a cached verdict left out", extras.uncached);
+            }
             eprintln!("verifying {} designs ({} archived designs trusted)", cands.len(), trusted.len());
-            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, archive_dir.as_deref())?;
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, cache.as_deref())?;
             if let Some(dir) = &archive_dir {
                 for e in entries.iter().filter(|e| e.verdict.is_ok()) {
                     let note = format!("verified WORKS by door leaderboard: {} blocks, category {}", e.blocks, e.category);
@@ -1385,7 +1497,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     }
                 }
             }
-            let table = crate::leaderboard::render(&entries, extra_offsets);
+            let table = crate::leaderboard::render(&entries, extra_offsets, &extras);
             print!("{table}");
             if let Some(p) = out {
                 std::fs::write(p, &table)?;
@@ -1939,7 +2051,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only } => {
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, sym_bfs, sym_levels } => {
+            if let Some(seq) = &sym_bfs {
+                return crate::mechsynth::sym_cli(version, &base, seq, sym_levels, cap, out_dir.as_deref(), verify, extra_offsets, gap);
+            }
             crate::mechsynth::PULSES_ONLY.store(pulses_only, std::sync::atomic::Ordering::Relaxed);
             crate::mechsynth::SPLIT_ONLY.store(split_only, std::sync::atomic::Ordering::Relaxed);
             let e = match edges.as_str() {
@@ -2159,6 +2274,27 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             d.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d0), crate::block_count(&d), out.display());
         }
+        DoorCmd::Blocks { design, only } => {
+            let d = load_design(&design)?;
+            let bx: Option<([i32; 3], [i32; 3])> = match &only {
+                None => None,
+                Some(s) => {
+                    let (a, b) = anyhow::Context::context(s.split_once(':'), "--only wants x0,y0,z0:x1,y1,z1")?;
+                    let p = |t: &str| -> Result<[i32; 3]> {
+                        let v: Vec<i32> = t.split(',').map(|n| n.trim().parse()).collect::<std::result::Result<_, _>>()?;
+                        anyhow::ensure!(v.len() == 3, "a corner needs 3 coordinates: {t}");
+                        Ok([v[0], v[1], v[2]])
+                    };
+                    let (a, b) = (p(a)?, p(b)?);
+                    Some(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
+                }
+            };
+            let mut ps: Vec<(&[i32; 3], &String)> = d.blocks.iter().filter(|(p, _)| bx.is_none_or(|(lo, hi)| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]))).collect();
+            ps.sort_by_key(|(p, _)| (p[1], p[2], p[0]));
+            for (p, s) in ps {
+                println!("{} {} {} {}", p[0], p[1], p[2], s.strip_prefix("minecraft:").unwrap_or(s));
+            }
+        }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;
             let mut w = Worker::spawn(&cfg)?;
@@ -2212,10 +2348,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out, tile_extra } => {
             let d = load_design(&design)?;
             if let Some(spec) = tile {
                 let mut t = crate::tile::Tile::parse(&spec)?;
+                if let Some(p) = &tile_extra {
+                    t.extra = Some(load_design(p)?);
+                }
                 t.levers = match tile_levers.as_str() {
                     "one" => crate::tile::LeverMode::One,
                     "each" => crate::tile::LeverMode::Each,
@@ -2233,9 +2372,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
                     println!(
-                        "WORKS: {} ({} blocks, {}x{}x{}, category {}{}{})",
+                        "WORKS: {} ({} blocks{}, {}x{}x{}, category {}{}{})",
                         d.name,
                         r.blocks,
+                        match crate::entity_count(&d) {
+                            0 => String::new(),
+                            n => format!(" + {n} entit{}", if n == 1 { "y" } else { "ies" }),
+                        },
                         r.size[0],
                         r.size[1],
                         r.size[2],
@@ -2378,6 +2521,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     judge: VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() },
                     max_open,
                     max_close,
+                    rotations: false,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -2401,7 +2545,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation } => {
             use crate::synth::*;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let only = match only {
@@ -2430,7 +2574,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 if sweep {
                     log(&format!("=== {} ({} blocks)", design.display(), crate::block_count(&d)));
                 }
-                let o = ResynthOptions {
+                let mut o = ResynthOptions {
                     min_size,
                     max_size,
                     palette: palette_states(&palette)?,
@@ -2444,6 +2588,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     global_retry,
                     require_any: require_any_names(&require_any),
                     only,
+                    keep_rotations: false,
                 };
                 let start = {
                     let mut w = pool.worker(0);
@@ -2465,6 +2610,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     log(&format!("skipped: {e}"));
                     summary.push(format!("{}: skipped ({e})", design.display()));
                     continue;
+                }
+                if !any_rotation {
+                    let mut w = pool.worker(0);
+                    match crate::rotation_check(&mut w, &d, &judge)? {
+                        None => {
+                            o.keep_rotations = true;
+                            log("the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)");
+                        }
+                        Some((turns, _)) => log(&format!("the start design is NOT rotation-safe (turned {} degrees): rotations not checked", turns as u32 * 90)),
+                    }
                 }
                 let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
                 if sweep && crate::block_count(&best) >= crate::block_count(&d) {

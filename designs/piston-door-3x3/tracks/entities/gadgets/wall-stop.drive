@@ -1,0 +1,6 @@
+design designs/piston-door-3x3/tracks/entities/gadgets/wall-stop.txt
+summon minecraft:minecart 1.5 1.0625 0.5 {Motion:[0.4d,0d,0d]}
+summon minecraft:minecart 2.25 1.0625 1.5 {Motion:[0.17d,0d,0d]}
+summon minecraft:minecart 3.125 1.0625 2.5 {Motion:[0.333d,0d,0d]}
+settle 300
+entities

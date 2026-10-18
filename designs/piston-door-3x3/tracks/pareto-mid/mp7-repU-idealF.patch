@@ -1,0 +1,3 @@
+# mp7-repU with F driven by an ideal input: R_F and its output stone removed; a redstone block at (2,4,-1) is placed/cleared by the schedule
+clear 1 4 -1
+clear 2 4 -1

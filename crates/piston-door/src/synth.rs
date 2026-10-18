@@ -1156,7 +1156,7 @@ pub enum Target {
     /// The door: screen at a few positions, then the full judge. `max_open` / `max_close`
     /// (speed boards) reject a door that opens (closes) later than that many ticks in any
     /// cycle at the first position, as the leaderboard measures it.
-    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32> },
+    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, rotations: bool },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
 }
@@ -1182,7 +1182,7 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, .. } => {
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
             let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
             screen_in(w, sb, d, &quick)?;
@@ -1193,6 +1193,11 @@ fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String>
             }
             if let Some(m) = max_close.filter(|m| c > *m) {
                 bail!("too slow: closes after {c} ticks (max {m})");
+            }
+            if *rotations {
+                if let Some((turns, why)) = crate::rotation_check(w, d, judge)? {
+                    bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
+                }
             }
             Ok(format!("door works at {} positions, open {o} / close {c}", judge.offsets.len()))
         }
@@ -1428,6 +1433,8 @@ pub struct ResynthOptions {
     /// Only groups whose blocks all lie in this box (inclusive corners): focus a large-group
     /// run on one region.
     pub only: Option<(Pos, Pos)>,
+    /// Accept only rotation-safe replacements (set when the start design is rotation-safe).
+    pub keep_rotations: bool,
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
@@ -1597,7 +1604,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 }
             };
             let n: usize = buckets.iter().map(|b| b.len()).sum();
-            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close };
+            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, rotations: o.keep_rotations };
             let t = Instant::now();
             let inner = |m: &str| {
                 if m.contains("VERIFIED") || (m.contains("passed the screen") && !m.ends_with(" 0 passed the screen")) {

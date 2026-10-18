@@ -201,7 +201,7 @@ pub fn v1() -> Design {
     b.d
 }
 
-/// v2: all nine door blocks are plain stone ("UP dance", see docs/piston-door-3x3.md).
+/// v2: all nine door blocks are plain stone ("UP dance", see docs/history.md).
 /// Mechanism: side columns ride slime backbones (P_L, P_R), bottom-middle drops (P_BM), the
 /// top-middle T is lifted by A then pulled behind the wall by P_T, and the center C climbs two
 /// cells by A riding B: B pushes A down, an observer pulse makes A pull C up, B lifts A, a

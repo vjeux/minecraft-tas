@@ -51,6 +51,11 @@ pub struct Tile {
     pub step: Pos,
     pub copies: usize,
     pub levers: LeverMode,
+    /// A shared end piece placed once in copy 0's frame (`--tile-extra`): the lever and the
+    /// connection a definition needs at the start of the row (e.g. a riser from the lever to a
+    /// bus under a wide door). With a `port lever`, that lever replaces copy 0's (every copy then
+    /// holds the relay).
+    pub extra: Option<Design>,
 }
 
 impl Tile {
@@ -72,7 +77,7 @@ impl Tile {
         };
         ensure!(n >= 1, "--tile {s:?}: at least one copy");
         ensure!(step != [0, 0, 0], "--tile {s:?}: copies would all stand in one place");
-        Ok(Tile { label: s.trim().to_string(), step, copies: n as usize, levers: LeverMode::One })
+        Ok(Tile { label: s.trim().to_string(), step, copies: n as usize, levers: LeverMode::One, extra: None })
     }
 
     /// The same tiling with another number of copies.
@@ -122,6 +127,9 @@ pub struct Tiled {
 /// Build the arrangement: `tile.copies` copies of `module`, copy k moved by k * step (the whole
 /// row centered on the module's own position so it fits the judge's sandbox).
 pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
+    if !module.entities.is_empty() {
+        bail!("tile {}: modules with entities cannot be tiled yet (only blocks are copied)", tile.label);
+    }
     let openings = module_openings(module)?;
     let lever = openings[0].lever;
     let relay = relay_state(module)?;
@@ -131,10 +139,12 @@ pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
     let mut shared = 0;
     let mut specs = Vec::new();
     let mut levers = Vec::new();
+    let extra_lever = tile.extra.as_ref().and_then(|e| e.ports.get("lever").copied());
+    let o0 = [-center * tile.step[0], -center * tile.step[1], -center * tile.step[2]];
     for k in 0..tile.copies {
         let o = [(k as i32 - center) * tile.step[0], (k as i32 - center) * tile.step[1], (k as i32 - center) * tile.step[2]];
         let mv = |p: Pos| [p[0] + o[0], p[1] + o[1], p[2] + o[2]];
-        let keeps_lever = k == 0 || tile.levers == LeverMode::Each;
+        let keeps_lever = (k == 0 && extra_lever.is_none()) || tile.levers == LeverMode::Each;
         for (p, s) in &module.blocks {
             let state = if *p == lever && !keeps_lever {
                 match &relay {
@@ -162,6 +172,26 @@ pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
             specs.push(DoorSpec { door: mv(s.door), lever: mv(lever), along_z: false });
         }
     }
+    // The end piece: placed once, in copy 0's frame; its lever (if any) is THE lever.
+    if let Some(e) = &tile.extra {
+        let mv0 = |p: Pos| [p[0] + o0[0], p[1] + o0[1], p[2] + o0[2]];
+        for (p, s) in &e.blocks {
+            let q = mv0(*p);
+            match blocks.get(&q) {
+                Some((other, j)) if other != s => bail!("tile {}: the end piece and copy {j} both need {q:?}: {s} vs {other}", tile.label),
+                Some(_) => shared += 1,
+                None => {
+                    blocks.insert(q, (s.clone(), usize::MAX));
+                }
+            }
+        }
+        if let Some(l) = extra_lever {
+            if tile.levers == LeverMode::One {
+                levers.insert(0, mv0(l));
+            }
+        }
+    }
+    ensure!(!levers.is_empty(), "tile {}: no lever", tile.label);
     // Copy 0's lever is the lever of every opening.
     let first_lever = levers[0];
     for s in specs.iter_mut() {
@@ -181,6 +211,8 @@ pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
         meta: module.meta.clone(),
         ports: BTreeMap::new(),
         blocks: blocks.into_iter().map(|(p, (s, _))| (p, s)).collect(),
+        // Tiling copies blocks only: a module with entities is not tiled (yet).
+        entities: Vec::new(),
     };
     design.meta.insert("tile".into(), tile.label.clone());
     design.ports.insert("lever".into(), first_lever);
@@ -289,7 +321,7 @@ pub fn rotate_tiled(w: &mut Worker, t: &Tiled, turns: u8) -> Result<Tiled> {
     };
     let specs: Vec<DoorSpec> = t.specs.iter().map(rot_spec).collect();
     let levers: Vec<Pos> = t.levers.iter().map(|p| crate::rotate_pos(*p, turns)).collect();
-    let mut design = Design { name: t.design.name.clone(), meta: t.design.meta.clone(), ports: BTreeMap::new(), blocks };
+    let mut design = Design { name: t.design.name.clone(), meta: t.design.meta.clone(), ports: BTreeMap::new(), blocks, entities: Vec::new() };
     design.ports.insert("lever".into(), levers[0]);
     design.ports.insert("door".into(), specs[0].door);
     Ok(Tiled { design, specs, levers, copies: t.copies, shared: t.shared })
@@ -529,6 +561,86 @@ pub fn scan(
     jobs.into_iter().zip(results).map(|((i, t), r)| (i, t, r.map_err(|e| format!("{e:#}")))).collect()
 }
 
+/// One row of the tile board.
+pub struct BoardRow {
+    pub source: String,
+    pub name: String,
+    pub tiling: String,
+    pub kind: String,
+    /// Translation length (P or Q; 3 for wide/stack).
+    pub period: i32,
+    pub verdict: std::result::Result<(usize, usize, usize, u32, u32, bool), String>,
+}
+
+/// `door tile-board`: every candidate with a `tiling:` header (`tiling: period:8:3`) judged as a
+/// tile module (one lever, every opening, `opts` positions, rotation check), ranked per kind by
+/// blocks per opening in a long row (blocks(N) - blocks(N-1)), then by period. Markdown.
+pub fn board(pool: &mctas::sim::Pool, cands: Vec<(String, Design)>, opts: &VerifyOptions) -> (Vec<BoardRow>, String) {
+    let tiled: Vec<(String, Design, Tile)> = cands
+        .into_iter()
+        .filter_map(|(src, d)| {
+            let spec = d.meta.get("tiling")?.clone();
+            Tile::parse(&spec).ok().map(|t| (src, d, t))
+        })
+        .collect();
+    let verdicts = pool.map(tiled.clone(), |w, _, (_, d, t)| {
+        let marginal = marginal_blocks(&d, &t)?;
+        let (r, _, x) = verify_tiled(w, &d, &t, opts)?;
+        let o = r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0);
+        let c = r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0);
+        let safe = tiled_rotation_check(w, &x, opts)?.is_none();
+        Ok((marginal, tiled_blocks(&x), x.specs.len(), o, c, safe))
+    });
+    let mut rows: Vec<BoardRow> = tiled
+        .into_iter()
+        .zip(verdicts)
+        .map(|((source, d, t), v)| BoardRow {
+            source,
+            name: d.name.clone(),
+            kind: t.label.split(':').next().unwrap_or("").to_string(),
+            period: t.step.iter().map(|v| v.abs()).max().unwrap_or(0),
+            tiling: t.label.clone(),
+            verdict: v.map_err(|e| format!("{e:#}")),
+        })
+        .collect();
+    rows.sort_by_key(|r| (r.kind.clone(), r.verdict.as_ref().map(|v| v.0).unwrap_or(usize::MAX), r.period, r.source.clone()));
+    let mut s = String::from(
+        "# Tileable 3x3 piston doors\n\nEvery design with a `tiling:` header on main and the `explore/*` branches, judged by `door verify --tile` \
+         (copies of one module, ONE lever, every judge check on every opening, 32 positions). Ranked by blocks per opening in a long row \
+         (blocks(N) - blocks(N-1)), then by period. Definitions: designs/piston-door-3x3/tracks/tile/NOTES.md.\n\n",
+    );
+    let kinds = [("period", "PERIODIC: an opening every P blocks along the wall"), ("vperiod", "VPERIOD: a door every Q blocks up"), ("wide", "WIDE: openings side by side, one 3 x 3N opening"), ("stack", "STACK: openings stacked, one 3N x 3 opening"), ("step", "Other translations")];
+    for (k, title) in kinds {
+        let ok: Vec<&BoardRow> = rows.iter().filter(|r| r.kind == k && r.verdict.is_ok()).collect();
+        s.push_str(&format!("## {title}\n\n"));
+        if ok.is_empty() {
+            s.push_str("No working design yet.\n\n");
+            continue;
+        }
+        s.push_str("| # | blocks per opening | period | tested | open / close | rotations | source |\n|---|---|---|---|---|---|---|\n");
+        for (i, r) in ok.iter().enumerate() {
+            let (m, total, n, o, c, safe) = r.verdict.as_ref().unwrap();
+            s.push_str(&format!(
+                "| {} | {m} | {} | {n} openings, {total} blocks | {o} / {c} | {} | `{}` |\n",
+                i + 1,
+                r.period,
+                if *safe { "safe" } else { "NOT safe" },
+                r.source
+            ));
+        }
+        s.push('\n');
+    }
+    let broken: Vec<&BoardRow> = rows.iter().filter(|r| r.verdict.is_err()).collect();
+    if !broken.is_empty() {
+        s.push_str("## Broken\n\n| tiling | source | why |\n|---|---|---|\n");
+        for r in broken {
+            let why: String = r.verdict.as_ref().err().unwrap().chars().take(160).collect();
+            s.push_str(&format!("| {} | `{}` | {} |\n", r.tiling, r.source, why.replace('|', "/")));
+        }
+    }
+    (rows, s)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -570,5 +682,22 @@ mod tests {
         let m = module();
         // Period 2: the openings overlap.
         assert!(expand(&m, &Tile::parse("period:2:2").unwrap()).is_err());
+    }
+
+    #[test]
+    fn end_piece_lever() {
+        let m = module();
+        let extra = Design::parse(
+            "name: e\nport lever: -2 4 0\npalette:\n  S minecraft:stone\n  L minecraft:lever[face=floor,facing=east,powered=false]\nlayer 3:\n  S\nlayer 4:\n  L\n",
+        )
+        .unwrap()
+        .translated([-2, 0, 0]);
+        let mut t = Tile::parse("wide:2").unwrap();
+        t.extra = Some(Design { ports: [("lever".to_string(), [-2, 4, 0])].into_iter().collect(), ..extra });
+        let x = expand(&m, &t).unwrap();
+        // The end piece's lever is the only lever; both copies hold the relay.
+        assert_eq!(x.levers, vec![[-2, 4, 0]]);
+        assert_eq!(x.design.blocks.values().filter(|s| s.contains("lever")).count(), 1);
+        assert_eq!(x.design.blocks.values().filter(|s| s.contains("redstone_wire")).count(), 2);
     }
 }

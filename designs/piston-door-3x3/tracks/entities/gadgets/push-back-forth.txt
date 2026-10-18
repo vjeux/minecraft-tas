@@ -1,0 +1,18 @@
+name: push-back-forth
+# Two pistons push an armor stand and a minecart back and forth on a stone floor: does the entity
+# come back to exactly the same position every cycle?
+entity: minecraft:minecart 3.5 1 0.5
+entity: minecraft:armor_stand 3.5 1 2.5
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  SSSSSSS
+  .......
+  SSSSSSS
+layer 1:
+  ..E..W.
+  .......
+  ..E..W.

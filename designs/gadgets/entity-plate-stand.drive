@@ -1,0 +1,25 @@
+# (category entity) An armor stand is two cells tall, so a piston head entering the cell above a
+# pressure plate shoves it off the plate and another shoves it back, and the plate is never
+# touched (a block entering the plate's own cell would break it, and a minecart cannot be pushed off
+# a rail without moving the rail). Back on the plate: on in the block-entity phase of the push tick
+# (entityInside -> checkPressed), the piston next to it extends the next tick. Off it: the plate
+# lets go only at its re-check, 20 gt after it was pressed (BasePressurePlateBlock.tick), however
+# soon the stand left.
+design designs/gadgets/entity-plate-stand.txt
+probe plate 4 1 0
+probe q 4 1 1
+settle
+expect q E
+expect plate #
+setblock 2 2 0 minecraft:redstone_block
+etrace 24
+clear 2 2 0
+settle
+expect q r
+expect_entity armor_stand 5.26 1 0.5
+setblock 7 2 0 minecraft:redstone_block
+etrace 4
+expect q E
+clear 7 2 0
+settle
+expect_entity armor_stand 4.74 1 0.5

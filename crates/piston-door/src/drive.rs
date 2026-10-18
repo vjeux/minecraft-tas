@@ -265,6 +265,83 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
             "use" => {
                 w.use_block(sb, pos(1)?)?;
             }
+            // `summon <type> x y z [snbt]`: a design entity (decimal coordinates), like a design's
+            // `entity:` line.
+            "summon" => {
+                let rest = line.splitn(2, char::is_whitespace).nth(1).context("summon needs a type and a position")?;
+                let e = mctas::design::EntitySpec::parse(rest)?;
+                w.summon(sb, &[e])?;
+            }
+            // `entities`: print every entity (type, position, motion, at rest, state).
+            "entities" => {
+                if verbose {
+                    for e in w.entities(sb)? {
+                        println!(
+                            "  t={tick} {} pos=[{}, {}, {}] motion=[{:.5}, {:.5}, {:.5}]{}{} {}",
+                            e.kind,
+                            e.pos[0],
+                            e.pos[1],
+                            e.pos[2],
+                            e.motion[0],
+                            e.motion[1],
+                            e.motion[2],
+                            if e.still { " still" } else { " moving" },
+                            if e.design { "" } else { " (not the design's)" },
+                            e.state
+                        );
+                    }
+                }
+            }
+            // `etrace <n>`: step n ticks, printing every entity's position and motion after each.
+            "etrace" => {
+                for _ in 0..int(1)? {
+                    w.step(sb, 1)?;
+                    tick += 1;
+                    if verbose {
+                        let ents = w.entities(sb)?;
+                        let line: Vec<String> = ents
+                            .iter()
+                            .map(|e| {
+                                format!(
+                                    "{}@[{:.4},{:.4},{:.4}] v=[{:.4},{:.4},{:.4}]{}",
+                                    e.kind.trim_start_matches("minecraft:"),
+                                    e.pos[0],
+                                    e.pos[1],
+                                    e.pos[2],
+                                    e.motion[0],
+                                    e.motion[1],
+                                    e.motion[2],
+                                    if e.still { " still" } else { "" }
+                                )
+                            })
+                            .collect();
+                        let probes_line = trace_line(w, &probes, tick)?;
+                        println!("{probes_line} {}", line.join(" "));
+                    }
+                }
+            }
+            // `expect_entity <type> x y z`: an entity of that type stands exactly there.
+            "expect_entity" => {
+                let kind = parts.get(1).context("expect_entity needs a type")?;
+                let kind = if kind.contains(':') { kind.to_string() } else { format!("minecraft:{kind}") };
+                let f = |i: usize| -> Result<f64> { Ok(parts.get(i).context("expect_entity needs x y z")?.parse::<f64>()?) };
+                let want = [f(2)?, f(3)?, f(4)?];
+                let ents = w.entities(sb)?;
+                out.checks += 1;
+                if !ents.iter().any(|e| e.kind == kind && (0..3).all(|i| (e.pos[i] - want[i]).abs() <= crate::ENTITY_POS_TOLERANCE)) {
+                    let seen: Vec<String> = ents.iter().map(|e| format!("{} {:?}", e.kind, e.pos)).collect();
+                    out.failures.push(format!("line {}: t={tick} expect {kind} at {want:?}, have {}", lineno + 1, seen.join("; ")));
+                }
+            }
+            // `expect_entities <n>`: exactly n entities exist.
+            "expect_entities" => {
+                let n = int(1)? as usize;
+                let ents = w.entities(sb)?;
+                out.checks += 1;
+                if ents.len() != n {
+                    out.failures.push(format!("line {}: t={tick} expect {n} entities, have {}", lineno + 1, ents.len()));
+                }
+            }
             "step" => {
                 for _ in 0..int(1)? {
                     w.step(sb, 1)?;

@@ -41,7 +41,7 @@ import net.minecraft.world.phys.Vec3;
  * Line-delimited JSON protocol. Requests are read on a background thread and executed in order on
  * the server thread; each request gets exactly one response line carrying the same {@code id}.
  *
- * <p>See docs/protocol.md for the full reference.
+ * <p>See docs/internals.md (bridge protocol) for the full reference.
  */
 public final class Protocol {
     private static final JsonObject EOF = new JsonObject();
@@ -154,6 +154,7 @@ public final class Protocol {
             case "step" -> step(r);
             case "status" -> status(sandbox(r));
             case "entities" -> entities(r);
+            case "summon" -> summon(r);
             case "update" -> update(r);
             case "build" -> build(r);
             case "signals" -> signals(r);
@@ -367,10 +368,24 @@ public final class Protocol {
             }
         }
         JsonArray results = new JsonArray();
+        // Optional entity watch (designs with entities): after every tick, does any entity with
+        // collision (Sandbox#collides) overlap the walk box (the opening and its walkway), the
+        // first tick an entity's box leaves the watch box, and the first tick an entity the
+        // design did not declare exists (a drop, a broken cart).
+        net.minecraft.world.phys.AABB watchBox = null;
+        net.minecraft.world.phys.AABB walkBox = null;
+        if (r.has("entity_watch")) {
+            JsonObject ew = r.getAsJsonObject("entity_watch");
+            watchBox = blockBox(ew.getAsJsonArray("from"), ew.getAsJsonArray("to"));
+            walkBox = blockBox(ew.getAsJsonArray("walk_from"), ew.getAsJsonArray("walk_to"));
+        }
         for (Sandbox sb : targets) {
             Palette palette = region == null ? null : new Palette();
             JsonArray frames = region == null ? null : new JsonArray();
             JsonArray signalFrames = signals == null ? null : new JsonArray();
+            JsonArray blocked = watchBox == null ? null : new JsonArray();
+            JsonObject escape = null;
+            JsonObject foreign = null;
             int ticked = 0;
             boolean idle = false;
             while (ticked < ticks) {
@@ -386,6 +401,24 @@ public final class Protocol {
                         row.add(sb.level.getDirectSignalTo(p));
                     }
                     signalFrames.add(row);
+                }
+                if (blocked != null) {
+                    boolean any = false;
+                    for (Entity e : sb.entities()) {
+                        net.minecraft.world.phys.AABB bb = e.getBoundingBox();
+                        if (Sandbox.collides(e) && bb.intersects(walkBox)) {
+                            any = true;
+                        }
+                        boolean inside = bb.minX >= watchBox.minX && bb.minY >= watchBox.minY && bb.minZ >= watchBox.minZ
+                                && bb.maxX <= watchBox.maxX && bb.maxY <= watchBox.maxY && bb.maxZ <= watchBox.maxZ;
+                        if (!inside && escape == null) {
+                            escape = entityEvent(ticked, e);
+                        }
+                        if (!e.entityTags().contains(Sandbox.DESIGN_TAG) && foreign == null) {
+                            foreign = entityEvent(ticked, e);
+                        }
+                    }
+                    blocked.add(any);
                 }
                 if (untilIdle && sb.idle()) {
                     idle = true;
@@ -408,6 +441,15 @@ public final class Protocol {
             }
             if (signalFrames != null) {
                 res.add("signals", signalFrames);
+            }
+            if (blocked != null) {
+                res.add("entity_blocked", blocked);
+                if (escape != null) {
+                    res.add("entity_escape", escape);
+                }
+                if (foreign != null) {
+                    res.add("entity_foreign", foreign);
+                }
             }
             results.add(res);
         }
@@ -432,19 +474,82 @@ public final class Protocol {
         Sandbox sb = sandbox(r);
         JsonArray list = new JsonArray();
         for (Entity e : sb.entities()) {
-            JsonObject j = new JsonObject();
-            j.addProperty("type", BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString());
-            Vec3 p = e.position();
-            JsonArray a = new JsonArray();
-            a.add(p.x);
-            a.add(p.y);
-            a.add(p.z);
-            j.add("pos", a);
-            j.addProperty("uuid", e.getStringUUID());
-            list.add(j);
+            list.add(entityJson(sb, e));
         }
         JsonObject o = new JsonObject();
         o.add("entities", list);
+        return o;
+    }
+
+    /**
+     * One entity: type, exact position, uuid, motion, yaw/pitch, whether the design declared it,
+     * whether it is at rest, whether it collides for the walkway rule, its bounding box, and its key
+     * state (Sandbox#keyState: saved data without position/motion, plus a minecart's rail).
+     */
+    private static JsonObject entityJson(Sandbox sb, Entity e) {
+        JsonObject j = new JsonObject();
+        j.addProperty("type", BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString());
+        Vec3 p = e.position();
+        JsonArray a = new JsonArray();
+        a.add(p.x);
+        a.add(p.y);
+        a.add(p.z);
+        j.add("pos", a);
+        j.addProperty("uuid", e.getStringUUID());
+        Vec3 m = e.getDeltaMovement();
+        JsonArray mv = new JsonArray();
+        mv.add(m.x);
+        mv.add(m.y);
+        mv.add(m.z);
+        j.add("motion", mv);
+        j.addProperty("yaw", e.getYRot());
+        j.addProperty("pitch", e.getXRot());
+        j.addProperty("design", e.entityTags().contains(Sandbox.DESIGN_TAG));
+        j.addProperty("still", sb.still(e));
+        j.addProperty("collides", Sandbox.collides(e));
+        j.addProperty("on_ground", e.onGround());
+        net.minecraft.world.phys.AABB bb = e.getBoundingBox();
+        // Overlaps a block's collision shape (stuck inside a block: a player cannot place it so).
+        j.addProperty("embedded", !sb.level.noBlockCollision(e, bb.deflate(1.0E-7)));
+        JsonArray box = new JsonArray();
+        box.add(bb.minX);
+        box.add(bb.minY);
+        box.add(bb.minZ);
+        box.add(bb.maxX);
+        box.add(bb.maxY);
+        box.add(bb.maxZ);
+        j.add("box", box);
+        j.addProperty("state", sb.keyState(e));
+        return j;
+    }
+
+    /** Summon a design's entities ({@code entities: [{type, pos, nbt?}]}, see Sandbox#summon). */
+    private JsonObject summon(JsonObject r) throws CommandSyntaxException {
+        Sandbox sb = sandbox(r);
+        JsonArray uuids = new JsonArray();
+        for (Entity e : sb.summon(r.getAsJsonArray("entities"))) {
+            uuids.add(e.getStringUUID());
+        }
+        JsonObject o = new JsonObject();
+        o.add("uuids", uuids);
+        return o;
+    }
+
+    /** Continuous box [from, to + 1] of an inclusive block range. */
+    private static net.minecraft.world.phys.AABB blockBox(JsonArray from, JsonArray to) {
+        int[] a = ints(from);
+        int[] b = ints(to);
+        return new net.minecraft.world.phys.AABB(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.min(a[2], b[2]),
+                Math.max(a[0], b[0]) + 1, Math.max(a[1], b[1]) + 1, Math.max(a[2], b[2]) + 1);
+    }
+
+    private static JsonObject entityEvent(int tick, Entity e) {
+        JsonObject o = new JsonObject();
+        o.addProperty("tick", tick);
+        o.addProperty("type", BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString());
+        o.addProperty("uuid", e.getStringUUID());
+        Vec3 p = e.position();
+        o.addProperty("pos", String.format(java.util.Locale.ROOT, "%.4f %.4f %.4f", p.x, p.y, p.z));
         return o;
     }
 
@@ -660,6 +765,52 @@ public final class Protocol {
         }
         JsonObject o = new JsonObject();
         o.add("states", out);
+        // Entities ({type, nbt?}): turned the way structure templates turn them
+        // (StructureTemplate.placeEntities: yRot = rotate(rotation) + mirror(mirror) - yRot; a
+        // hanging entity's facing turns too). Returns each entity's data with its new Rotation (and
+        // facing), keeping every other key as given. Positions are turned by the caller.
+        if (r.has("entities")) {
+            net.minecraft.world.level.block.Rotation rot = switch (turns) {
+                case 1 -> net.minecraft.world.level.block.Rotation.CLOCKWISE_90;
+                case 2 -> net.minecraft.world.level.block.Rotation.CLOCKWISE_180;
+                case 3 -> net.minecraft.world.level.block.Rotation.COUNTERCLOCKWISE_90;
+                default -> net.minecraft.world.level.block.Rotation.NONE;
+            };
+            net.minecraft.world.level.block.Mirror mir = mirror ? net.minecraft.world.level.block.Mirror.FRONT_BACK : net.minecraft.world.level.block.Mirror.NONE;
+            JsonArray ents = new JsonArray();
+            for (JsonElement e : r.getAsJsonArray("entities")) {
+                JsonObject spec = e.getAsJsonObject();
+                net.minecraft.nbt.CompoundTag given = spec.has("nbt") && !spec.get("nbt").isJsonNull()
+                        ? net.minecraft.nbt.TagParser.parseCompoundFully(spec.get("nbt").getAsString())
+                        : new net.minecraft.nbt.CompoundTag();
+                net.minecraft.nbt.CompoundTag tag = given.copy();
+                tag.putString("id", spec.get("type").getAsString());
+                net.minecraft.server.level.ServerLevel scratch = this.server.overworld();
+                Entity entity = net.minecraft.world.entity.EntityType.loadEntityRecursive(tag, scratch,
+                        new net.minecraft.world.entity.EntitySpawnRequest(net.minecraft.world.entity.EntitySpawnReason.COMMAND, false), en -> en);
+                if (entity == null) {
+                    throw new IllegalArgumentException("cannot create " + spec.get("type").getAsString());
+                }
+                float yRot = entity.rotate(rot);
+                yRot += entity.mirror(mir) - entity.getYRot();
+                entity.snapTo(entity.getX(), entity.getY(), entity.getZ(), yRot, entity.getXRot());
+                net.minecraft.world.level.storage.TagValueOutput saved = net.minecraft.world.level.storage.TagValueOutput.createWithContext(
+                        net.minecraft.util.ProblemReporter.DISCARDING, scratch.registryAccess());
+                entity.saveWithoutId(saved);
+                net.minecraft.nbt.CompoundTag full = saved.buildResult();
+                net.minecraft.nbt.CompoundTag result = given.copy();
+                if (given.contains("Rotation") || net.minecraft.util.Mth.wrapDegrees(entity.getYRot()) != 0.0F || entity.getXRot() != 0.0F) {
+                    result.put("Rotation", full.get("Rotation"));
+                }
+                for (String k : new String[] {"Facing", "facing"}) {
+                    if (full.contains(k)) {
+                        result.put(k, full.get(k));
+                    }
+                }
+                ents.add(result.isEmpty() ? null : result.toString());
+            }
+            o.add("entities", ents);
+        }
         return o;
     }
 
