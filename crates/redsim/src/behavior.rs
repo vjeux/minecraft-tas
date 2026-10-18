@@ -39,7 +39,13 @@ pub fn is_solid(s: &Block) -> bool {
 }
 
 /// `isRedstoneConductor`.
+/// `isRedstoneConductor` (every modeled block's predicate depends on the state alone).
 pub fn is_conductor(_w: &World, s: &Block, _p: BlockPos) -> bool {
+    conductor_of(s)
+}
+
+/// `isRedstoneConductor` without a world (for static models: the search tools' enumerators).
+pub fn conductor_of(s: &Block) -> bool {
     match *s {
         Block::Simple(x) => x.conductor(),
         Block::Glazed { .. } | Block::Lamp { .. } | Block::Note { .. } | Block::Target { .. } | Block::Dispenser { .. } | Block::Crafter { .. } => true,
@@ -52,6 +58,12 @@ pub fn is_conductor(_w: &World, s: &Block, _p: BlockPos) -> bool {
 
 /// `isFaceSturdy(level, pos, face, support)`: the block's support shape covers that face.
 pub fn sturdy(_w: &World, s: &Block, _p: BlockPos, face: Dir, support: Support) -> bool {
+    sturdy_of(s, face, support)
+}
+
+/// `isFaceSturdy` without a world (for static models; a moving piston's box needs its block
+/// entity, see `sturdy`).
+pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
     match *s {
         Block::Simple(Simple::HoneyBlock) => face == Dir::Down && support == Support::Center,
         Block::Simple(x) => x.full(),
