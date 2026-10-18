@@ -568,18 +568,27 @@ final class Sandbox {
                 this.level.setBlock(q, dirt, 11);
                 this.level.gameEvent(net.minecraft.world.level.gameevent.GameEvent.BLOCK_PLACE, q,
                         net.minecraft.world.level.gameevent.GameEvent.Context.of(player, dirt));
+                int dirtTicks = 0;
                 for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
                     tick(server);
+                    dirtTicks++;
                 }
                 bestScore = wanted;
                 best = sClick;
                 aim(best);
                 item.place(new net.minecraft.world.item.context.BlockPlaceContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, stack, best.hit()));
+                int placedTicks = 0;
                 for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
                     tick(server);
+                    placedTicks++;
                 }
                 breakLikePlayer(q);
                 o.addProperty("scaffold", q.getX() + " " + q.getY() + " " + q.getZ());
+                // Ticks after the dirt went in and after the block went in (for exact replays).
+                com.google.gson.JsonArray scaffoldTicks = new com.google.gson.JsonArray();
+                scaffoldTicks.add(dirtTicks);
+                scaffoldTicks.add(placedTicks);
+                o.add("scaffold_ticks", scaffoldTicks);
                 scaffolded = true;
                 break;
             }
@@ -601,6 +610,7 @@ final class Sandbox {
         player.setShiftKeyDown(false);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
         int clicks = 0;
+        com.google.gson.JsonArray clickTicks = new com.google.gson.JsonArray();
         for (net.minecraft.world.level.block.state.properties.Property<?> prop : target.getProperties()) {
             if (!usableProperty(target, prop.getName())) {
                 continue;
@@ -611,13 +621,35 @@ final class Sandbox {
                     break;
                 }
                 // let the previous placement or click settle, then click again
+                int waited = 0;
                 for (int t = 0; t < settle && !idle(); t++) {
                     tick(server);
+                    waited++;
                 }
                 use(pos, Direction.UP);
                 clicks++;
+                clickTicks.add(waited);
             }
         }
+        // The exact click (look direction, hit point, sneaking) and the ticks before each
+        // right-click, so another world (vanilla-build) can replay the very same inputs.
+        o.addProperty("yaw", best.yaw());
+        o.addProperty("pitch", best.pitch());
+        o.addProperty("sneak", best.sneak());
+        BlockPos hitPos = best.hit().getBlockPos();
+        com.google.gson.JsonArray hitPosJson = new com.google.gson.JsonArray();
+        hitPosJson.add(hitPos.getX());
+        hitPosJson.add(hitPos.getY());
+        hitPosJson.add(hitPos.getZ());
+        o.add("hit_pos", hitPosJson);
+        o.addProperty("hit_face", best.hit().getDirection().getSerializedName());
+        Vec3 hitLoc = best.hit().getLocation();
+        com.google.gson.JsonArray hitLocJson = new com.google.gson.JsonArray();
+        hitLocJson.add(hitLoc.x);
+        hitLocJson.add(hitLoc.y);
+        hitLocJson.add(hitLoc.z);
+        o.add("hit_loc", hitLocJson);
+        o.add("click_ticks", clickTicks);
         BlockState placed = this.level.getBlockState(pos);
         boolean ok = bestScore == wanted && placed.getBlock() == target.getBlock();
         for (net.minecraft.world.level.block.state.properties.Property<?> prop : target.getProperties()) {
