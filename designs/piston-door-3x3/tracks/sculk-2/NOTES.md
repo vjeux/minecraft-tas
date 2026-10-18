@@ -59,3 +59,24 @@ t5..15 on both edges and O' still pulses A at t7 and t17 (R_B's two edges). Patc
   sensors + obs/block/dust/repeaters: 2.8M, nothing. fc2 with its B chain replaced by a sensor
   echoes forever (an observer on a sensor fires 3 times; the 3rd, at cooldown end, moves A,
   which the sensor hears again).
+
+### 06:15 s4: 36 blocks, sculk (open 20 / close 37), `s4-36b.txt` = BEST.txt
+s1 with the left pusher P_L moved down from (0,4,0) to (0,3,0) (it pushes slime (-1,3,0); the
+slime (-1,4,0) and the rider block (0,3,0) go). P_L's own base, retracting at t1 of the close,
+is now what makes the right structure's early pull fail (T would push C into (0,3,0), which is a
+moving piston then). The lever's block K moves to (0,3,-1), the hold sensor's old cell: it
+powers Q (above it) and P_L (south of it) directly; the lever hangs on K's west face (-1,3,-1)
+(it is next to the left slime (-1,3,0): slime never drags a lever). The hold sensor moves next to
+Q at (0,5,-1). Patch from s1: `s4.patch`. Variants with the hold sensor at (-1,4,-1) (s4b) or
+(0,4,-2) (s4c) work too (36, 32 positions).
+
+* Order that makes it work: the lever's update reaches Q first (K's neighbors in W,E,D,U,N,S
+  order), Q's retraction moves RB and queues P_R's pull AFTER P_L's retraction, so P_L's base is
+  already a moving piston when P_R tries to bring T back through C.
+* Sensors and players: the hold sensor (0,5,-1) is two blocks above the lever, out of reach from
+  the walkway floor; the calibrated sensor (1,6,2) is far above. Footsteps still wake both (the
+  sculk category's known risk): a player walking through the open door, not sneaking, wakes the
+  calibrated sensor and B then pushes A and C down into the opening.
+* Tried first, failed: a silent Q (K quasi-powering Q so the lever never updates it; then no early
+  pull and no blocker needed). The lever then sits above P_L's extended head, the head forwards
+  the lever's update to P_L, P_L's retraction updates Q (they touch), and Q retracts at t1 anyway.
