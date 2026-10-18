@@ -1,0 +1,32 @@
+[    8.1s] start: 44 blocks, open 30 / close 26
+[   16.5s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   25.7s] seamless QUART z-,z+ below FULL: repairing groups through (0,3,0) (2,-1,0) (3,2,0)
+[   25.7s] 44 blocks: 23 removable, 18 groups of 2..4
+[   28.4s]   group [(0,3,0)obse] -> <= 5 blocks: 1516 circuits in 2.7s
+[   28.4s]     size 1: 4 candidates screened in 0.0s, 1 passed the screen
+[   28.5s]     size 2: 6 candidates screened in 0.0s, 1 passed the screen
+[   28.6s]     size 3: 33 candidates screened in 0.0s, 8 passed the screen
+[   28.7s]     size 4: 86 candidates screened in 0.1s, 2 passed the screen
+[   29.0s]     size 5: 433 candidates screened in 0.3s, 33 passed the screen
+[   29.2s]   group [(2,-1,0)wire] -> <= 5 blocks: 562 circuits in 0.8s
+[   30.3s]     size 5: 1721 candidates screened in 0.7s, 1 passed the screen
+[   40.4s]     VERIFIED size 5: +(3,3,0) observer[facing=west,powered=false] +(4,3,0) repeater[delay=2,facing=west,locked=false,powered=false] +(5,1,0) smooth_stone +(5,2,0) observer[facing=up,powered=false] +(5,3,0) observer[facing=west,powered=false] [1 block, 3 observer, 1 repeater] -- door works at 32 positions, open 36 / close 34
+[   40.4s]   group [(3,2,0)obse] -> <= 5 blocks: 2292 circuits in 11.2s FOUND
+[   40.4s] REPAIRED 44 -> 48 blocks: [(3,2,0)obse] replaced by +(3,3,0) observer[facing=west,powered=false] +(4,3,0) repeater[delay=2,facing=west,locked=false,powered=false] +(5,1,0) smooth_stone +(5,2,0) observer[facing=up,powered=false] +(5,3,0) observer[facing=west,powered=false] -- door works at 32 positions, open 36 / close 34
+[   40.4s]   saved to designs/piston-door-3x3/tracks/seamless/wip/fbv7-full.txt
+[   53.0s] seamless QUART z-,z+ below FULL: repairing groups through (0,3,0) (2,-1,0)
+[   53.0s] 48 blocks: 27 removable, 16 groups of 2..4
+[   53.9s]   group [(0,3,0)obse] -> <= 5 blocks: 1516 circuits in 0.9s
+[   54.0s]     size 1: 4 candidates screened in 0.0s, 1 passed the screen
+[   54.0s]     size 2: 6 candidates screened in 0.0s, 1 passed the screen
+[   54.1s]     size 3: 33 candidates screened in 0.0s, 9 passed the screen
+[   54.2s]     size 4: 86 candidates screened in 0.1s, 15 passed the screen
+[   54.6s]     size 5: 433 candidates screened in 0.3s, 38 passed the screen
+[   54.8s]   group [(2,-1,0)wire] -> <= 5 blocks: 562 circuits in 0.8s
+[   78.6s]   group [(0,3,0)obse (0,4,0)obse] -> <= 6 blocks: 86705 circuits in 23.4s
+[   78.6s]     size 2: 32 candidates screened in 0.0s, 1 passed the screen
+[   78.7s]     size 3: 120 candidates screened in 0.0s, 2 passed the screen
+[   78.9s]     size 4: 687 candidates screened in 0.2s, 16 passed the screen
+[   79.6s]     size 5: 2226 candidates screened in 0.6s, 39 passed the screen
+[   82.3s]     size 6: 8724 candidates screened in 2.6s, 101 passed the screen
+[   82.8s]   group [(2,-2,0)obse (2,-1,0)wire] -> <= 6 blocks: 11792 circuits in 4.2s

@@ -1,0 +1,19 @@
+[    7.0s] start: 48 blocks, open 36 / close 34
+[   14.7s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   25.8s] seamless QUART z-,z+ below FULL: repairing groups through (0,3,0) (2,-1,0)
+[   25.8s] 48 blocks: 27 removable, 4 groups of 2..2
+[   28.6s]   group [(0,3,0)obse] -> <= 5 blocks: 1516 circuits in 2.8s
+[   28.6s]     size 1: 4 candidates screened in 0.0s, 1 passed the screen
+[   28.7s]     size 2: 6 candidates screened in 0.0s, 1 passed the screen
+[   28.7s]     size 3: 33 candidates screened in 0.0s, 9 passed the screen
+[   29.0s]     size 4: 86 candidates screened in 0.1s, 15 passed the screen
+[   29.6s]     size 5: 433 candidates screened in 0.5s, 38 passed the screen
+[   29.9s]   group [(2,-1,0)wire] -> <= 5 blocks: 562 circuits in 1.2s
+[   59.0s]   group [(0,3,0)obse (0,4,0)obse] -> <= 6 blocks: 86705 circuits in 28.7s
+[   59.0s]     size 2: 32 candidates screened in 0.0s, 1 passed the screen
+[   59.1s]     size 3: 120 candidates screened in 0.0s, 2 passed the screen
+[   59.4s]     size 4: 687 candidates screened in 0.2s, 16 passed the screen
+[   60.2s]     size 5: 2226 candidates screened in 0.8s, 39 passed the screen
+[   63.7s]     size 6: 8724 candidates screened in 3.3s, 101 passed the screen
+[   64.3s]   group [(2,-2,0)obse (2,-1,0)wire] -> <= 6 blocks: 11792 circuits in 5.3s
+48 -> 48 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/fbv7-full2.txt
