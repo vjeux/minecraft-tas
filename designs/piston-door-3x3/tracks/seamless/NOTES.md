@@ -50,7 +50,7 @@ thick<=1,volume<=80`. No run on flat43-full here.
 
 | design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
 |---|---|---|---|---|---|
-| [flat-b-v7-full.txt](flat-b-v7-full.txt) (archive/flat-b-v7-full-50b) | 50 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 32/32 | FLAT, slime-free, 8x10x1 = volume 80 (flat seamless record by volume). flat-b-v7-44b repaired in its own box: `resynth --seamless full+hall --extra 4 --shape thick<=1,volume<=80` (right-ring observer -> corner dropper/observer chain, +3), then `--extra 5 --fit=-3,-4,0:4,5,0` (ceiling-ring observer chain moved to x=-2/-1, +4; floor-ring dust -> smooth stone: a strongly powered block QC-powers the bottom piston through the empty cell above it), then shrunk 51 -> 50 under the filter |
+| [flat-b-v7-full.txt](flat-b-v7-full.txt) (archive/flat-b-v7-full-47b; 50b first) | 47 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 34/34 | FLAT, slime-free, 8x10x1 = volume 80 (flat seamless record by volume). flat-b-v7-44b repaired in its own box: `resynth --seamless full+hall --extra 4 --shape thick<=1,volume<=80` (right-ring observer -> corner dropper/observer chain, +3), then `--extra 5 --fit=-3,-4,0:4,5,0` (ceiling-ring observer chain moved to x=-2/-1, +4; floor-ring dust -> smooth stone: a strongly powered block QC-powers the bottom piston through the empty cell above it), then shrunk 51 -> 47 under the filter (the right column now fires when TR arrives in the ceiling ring, seen by an observer in the corner (3,3,0)) |
 | [flat43-full.txt](flat43-full.txt) (archive/flat43-full-44b) | 44 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 52/48 | FLAT, slime-free, 9x9x1 = volume 81. lamp-sweep-flat43 + (1) P_M's floor-ring observer replaced in-box: observer (-1,-1,0) watching the left ring cell -> lamp (-1,-2,0) -> observer (0,-2,0) into P_M (+1); (2) the obsidian at (0,3,0) was the dust floor AND the stopper that makes the corner piston's early close pulse fail (its row push T, C, ... must not move while C still sits at (1,3,0)): smooth stone there, the stopper moved to the far end of that row: the left trigger chain's repeater (-3,3,0) became an immovable dropper (block entities cannot be pushed; same pulse, 2 gt earlier) |
 | [flat-v7-full.txt](flat-v7-full.txt) (archive/flat-v7-full-54b) | 54 | FULL | yes (props-dyn) | 64/64 | FLAT, slime-free, 9x11x1 = 99. flat-v7-50b repaired by resynth (+4, one row more below) |
 | [fast-hA-full.txt](fast-hA-full.txt) (archive/hA-full-48b) | 48 | FULL | yes (props-dyn) | 24/24 | slime-free, 7x10x4; the FASTEST FULL + hallway door here (goal 3). sf-holdA-hA-43b repaired (+7) and shrunk under the filter. Fastest FULL without the hallway requirement stays rb9-61b (16/17, slime columns: no hallway) |
@@ -62,12 +62,14 @@ thick<=1,volume<=80`. No run on flat43-full here.
 ## 8x9 from flat-b-v7-full (open)
 
 flat-b-v7-full uses rows -4..5. The bottom row holds the lever (and `--fit` never moves the lever
-or pistons); the top row (5 blocks: O(-2,5) B(-1,5) D(0,5) B(1,5) S(2,5)) carries the signal from
-the top-left door block's arrival (observer (-1,3,0)) over the two ceiling pullers s(1,4,0) (T)
-and s(2,4,0) (TR) to S(2,5,0), which powers s(2,4,0) and QC-triggers the dropper (3,4,0) that
-starts the right column. Inside rows <= 4 nothing can cross column x=1: (1,3,0) is T's
-destination, (1,4,0) its puller, (2,4,0) TR's puller, and s(2,4,0)'s only in-box free side is
-(3,4,0). `resynth --fit=-3,-4,0:4,4,0 --seamless full+hall --extra 3..6` (groups through the top
+or pistons). Why the top row is needed (47-block version): the right ceiling puller s(2,4,0) (TR)
+can be powered only through (3,4,0) inside rows <= 4 (its other sides: the T puller (1,4,0), its
+own head cell, and (2,5,0) whose QC neighbours are all in row 5). (3,4,0) sits in a pocket
+{(3,3),(3,4),(4,2),(4,3),(4,4)} walled off by the ceiling ring, the T puller column and the right
+pistons (4,0),(4,1): signals enter it only through row 5 or through door-block arrivals seen from
+the corner (3,3,0), and the one arrival there (TR into (2,3,0)) is caused by s(2,4,0) itself. So
+an 8x9 version needs a different top (e.g. TR leaving sideways, below).
+ `resynth --fit=-3,-4,0:4,4,0 --seamless full+hall --extra 3..6` (groups through the top
 row, also restricted with --only to rows 2..5) found nothing.
 
 Hand variant [wip/fbv7-89m.txt](wip/fbv7-89m.txt) (8x9): T's puller fed by a delay-4 repeater at
