@@ -1,0 +1,6 @@
+# cut the P_BM chain only
+clear 0 -1 0
+clear 0 -1 -1
+clear 0 -1 -2
+clear 1 -1 -2
+clear 1 -1 -1

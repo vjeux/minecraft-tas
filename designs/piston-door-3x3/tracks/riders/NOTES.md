@@ -141,7 +141,11 @@ from P_M's column ((-1,-2,0), (3,-1,0), (1,-1,+-2)...) where nothing moves in fx
   seeds change the machine, none searches below 40; in the upper box: 64 of 201 kept, none
   searches below 40 (seed 57, an observer at (-1,2,1) facing north, made a worker run out of
   memory; restarted past it); 2-block riders (slime + payload) in the bottom box: 1823 working
-  seeds, timing filter + 30 s searches still running at report time.
+  seeds, 1128 change the machine, only the first ~9 kept seeds searched (30 s each) before I
+  stopped it (~9 h for all): low yield, not worth the shared box.
+* Verdict: P_M's 2 blocks are minimal in the fc2/fx1 family; a 39 needs a different bottom
+  (something that already moves next to P_M's column, e.g. a pulse-driven P_R or the lever at
+  the bottom), not a rider.
 
 ## Next ideas
 * Odd pulse counts are free toggles: any pulse-driven piston can take any existing source

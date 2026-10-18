@@ -8,6 +8,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 40 | solid | [fc2-40b-2](fc2-40b-2.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b-2.mp4) |
 | 40 | solid | [fc2-min-40b](fc2-min-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-min-40b.mp4) |
 | 40 | solid | [m05-21b-sym-40b](m05-21b-sym-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m05-21b-sym-40b.mp4) |
+| 40 | solid | [m05-21b-sym-40b-2](m05-21b-sym-40b-2.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m05-21b-sym-40b-2.mp4) |
 | 40 | solid | [riders-fx1-40b](riders-fx1-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/riders-fx1-40b.mp4) |
 | 41 | solid | [fc2f-41b](fc2f-41b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2f-41b.mp4) |
 | 41 | solid | [m05-21b-sym-41b](m05-21b-sym-41b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m05-21b-sym-41b.mp4) |
@@ -29,6 +30,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 43 | solid | [st43-bmobs-43b](st43-bmobs-43b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-43b.mp4) |
 | 43 | solid | [wire19sf-w43-43b](wire19sf-w43-43b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w43-43b.mp4) |
 | 43 | solid | [wire19sf-w43b-43b](wire19sf-w43b-43b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w43b-43b.mp4) |
+| 43 | solid | [wire19sf-w43e-43b](wire19sf-w43e-43b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w43e-43b.mp4) |
 | 44 | solid | [slime-free-s7q-44b](slime-free-s7q-44b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-s7q-44b.mp4) |
 | 44 | solid | [wire19sf-w45-44b](wire19sf-w45-44b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w45-44b.mp4) |
 | 45 | solid | [fresh-b-mp6-45b](fresh-b-mp6-45b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fresh-b-mp6-45b.mp4) |
