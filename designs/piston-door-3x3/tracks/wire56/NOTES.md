@@ -123,3 +123,21 @@ P4 three times (s1, s4, s6), PT once, P5 twice, PTR+PMR (K3's only input) an odd
 - Side finding: an immovable block at the ring corner (-1,3) (obsidian) makes PT's push a no-op
   whenever the top ring row is T, C, TL (the open state), so extra PT pulses become harmless before
   s1 on both edges and after TL parks: PT does not need to be the bottleneck.
+
+## 6. 7x8-038 and 7x8-039 (memory-only, oc): not wirable in the plane (19:55Z)
+- Gadget `designs/gadgets/qc-shared.drive` (PASS): a lower piston whose only feeds are quasi-
+  connected through the cell of the piston above it cannot fire alone: every such source powers
+  the upper piston directly and updates it first (observer output: front block, then its
+  neighbours), the upper piston's push carries the lower one and its event is dropped.
+- 038: P4 (1,4) sits between the pistons (0,4) and (2,4); its only feeds are (0,5)/(2,5) (QC via
+  P5's cell (1,5)), so by qc-shared P4 never fires at rest without P5 carrying it. Both of 038's
+  paths fire P4 at rest with P5 idle (open step 2 `PSD(1,4)` pulls T up). Dead.
+- 039: P4' (1,-2) (center elevator below) has pistons on all three free sides ((0,-2), (2,-2),
+  P5' (1,-3)) and its quasi cell (1,-1) is the ring cell in front of it (neighbours: ring and door
+  cells): no feed at all, and the open path fires it first. Dead.
+- Same check on the permissive 9-piston entries: 001 (P4' flanked by (0,-2)/(2,-2)) and 002 (P4
+  flanked by (0,4)/(2,4)) die the same way; 000, 003, 004 keep a free cell beside the elevator's
+  lower piston.
+- Tool idea for families/topology: model "shared QC" (a piston fed only through another piston's
+  cell fires only together with it, and second) and "no feed" pistons, which the macro model and
+  the region analysis currently accept.
