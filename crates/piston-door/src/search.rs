@@ -1933,12 +1933,16 @@ pub struct GrowOptions {
     pub k: usize,
     /// Stop judging after this many verified designs (0 = judge every survivor).
     pub want: usize,
+    /// Riders only: every added block must touch a slime/honey block (an existing one or, with
+    /// k=2, an added slime/honey that itself touches an existing one), so it moves with a structure.
+    pub glue: bool,
 }
 
 /// Expand `door grow --states` shorthands: `obs` (observer, 6 facings), `block`
 /// (smooth_stone), `dust` (cross wire), `rep`/`rep2`/`rep3`/`rep4` (repeater, 4 facings, that
 /// delay), `torch` (standing + 4 wall torches), `glass`, `obsidian`, `rblock` (redstone block),
-/// `lamp`, or a full `minecraft:...` state.
+/// `lamp`, `note` (note block: a conductor whose `powered` state an observer can watch), or a
+/// full `minecraft:...` state.
 pub fn grow_states(spec: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -1958,6 +1962,7 @@ pub fn grow_states(spec: &str) -> Result<Vec<String>> {
             "obsidian" => out.push("minecraft:obsidian".into()),
             "rblock" => out.push("minecraft:redstone_block".into()),
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
+            "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => return Err(anyhow!("unknown grow state {s:?}")),
         }
@@ -1984,9 +1989,16 @@ pub fn grow(pool: &Pool, base: &Design, g: &GrowOptions, opts: &SearchOptions, l
         }
     }
     let one = |p: Pos, s: &String| format!("+{} {}", fmt_pos(p), short(s));
+    let sticky = |s: &str| matches!(kind(s), "slime_block" | "honey_block");
+    let adj = |a: Pos, b: Pos| (0..3).map(|i| (a[i] - b[i]).abs()).sum::<i32>() == 1;
+    let glued_to_base = |p: Pos| {
+        [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+            .iter()
+            .any(|d| base.blocks.get(&add(p, *d)).is_some_and(|s| sticky(s)))
+    };
     let mut cands: Vec<Cand> = Vec::new();
     for (i, (p, s)) in singles.iter().enumerate() {
-        if support_ok(base, *p, s) {
+        if support_ok(base, *p, s) && (!g.glue || glued_to_base(*p)) {
             cands.push(Cand { base: 0, edit: Edit { set: vec![(*p, s.clone())], desc: one(*p, s), ..Default::default() } });
         }
         if g.k < 2 {
@@ -1995,6 +2007,17 @@ pub fn grow(pool: &Pool, base: &Design, g: &GrowOptions, opts: &SearchOptions, l
         for (q, t) in singles.iter().skip(i + 1) {
             if q == p {
                 continue;
+            }
+            if g.glue {
+                // One added slime/honey stuck to a structure, the other block stuck to it (or both
+                // stuck to the structure directly).
+                let rides = |a: Pos, sa: &String, b: Pos| glued_to_base(a) || (sticky(sa) && adj(a, b));
+                let ok = (sticky(s) && glued_to_base(*p) && rides(*q, t, *p))
+                    || (sticky(t) && glued_to_base(*q) && rides(*p, s, *q))
+                    || (glued_to_base(*p) && glued_to_base(*q));
+                if !ok {
+                    continue;
+                }
             }
             // Each block stands on the base or on the other one.
             let stands = |a: Pos, sa: &String, b: Pos, sb: &String| match attachment(a, sa) {

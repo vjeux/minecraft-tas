@@ -1,0 +1,7 @@
+# left column stack-feed (north side), BL watcher -> M, right column stack-feed (east side)
+set -2 2 -1 minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+set -2 1 -1 minecraft:smooth_stone
+set 0 -1 0 minecraft:observer[facing=up,powered=false]
+set 0 -2 0 minecraft:smooth_stone
+set 5 2 0 minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+set 5 1 0 minecraft:smooth_stone

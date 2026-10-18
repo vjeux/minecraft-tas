@@ -235,7 +235,9 @@ impl Wave {
             return Ok(Wave(w));
         }
         let mut w = [0u64; 2];
-        for part in s.split(';') {
+        // Phases are separated by ';' or '|' ('|' lets several waves share one `--need`, whose
+        // items are separated by ';').
+        for part in s.split([';', '|']) {
             let (ph, runs) = part.split_once(':').context("expected open:... or close:...")?;
             let i = match ph.trim() {
                 "open" => 0,

@@ -1,0 +1,5 @@
+# fc2 without P_L's observer pair and P_M's observer + block (ideal pulses instead)
+clear -3 4 0
+clear -3 3 0
+clear 2 -1 0
+clear 2 -2 0

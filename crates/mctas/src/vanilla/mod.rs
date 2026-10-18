@@ -358,9 +358,17 @@ impl VanillaServer {
 
     /// Teleport the bot and wait until it has accepted the teleport.
     pub fn teleport_bot(&mut self, x: f64, y: f64, z: f64) -> Result<()> {
+        self.teleport_bot_to(x, y, z, None)
+    }
+
+    /// Teleport the bot (feet position) and set where it looks (yaw, pitch in degrees: the
+    /// server stores them as body and head rotation, what block placement reads), then wait
+    /// until the bot has accepted the teleport (clicks sent after that are handled after it).
+    pub fn teleport_bot_to(&mut self, x: f64, y: f64, z: f64, look: Option<(f32, f32)>) -> Result<()> {
         let bot = self.bot.as_ref().context("no bot")?;
         let (name, before) = (bot.name.clone(), bot.teleports_accepted());
-        self.cmd_ok(&format!("tp {name} {x} {y} {z}"))?;
+        let rot = look.map(|(yaw, pitch)| format!(" {yaw} {pitch}")).unwrap_or_default();
+        self.cmd_ok(&format!("tp {name} {x:.5} {y:.5} {z:.5}{rot}"))?;
         let t0 = Instant::now();
         loop {
             let bot = self.bot.as_ref().unwrap();
@@ -373,10 +381,20 @@ impl VanillaServer {
             if t0.elapsed() > Duration::from_secs(20) {
                 bail!("the bot never acknowledged its teleport");
             }
-            std::thread::sleep(Duration::from_millis(5));
+            std::thread::sleep(Duration::from_millis(1));
         }
-        // The acceptance is handled on the server thread: make sure it ran before any click.
-        self.cmd("list")?;
+        if look.is_none() {
+            // The acceptance is handled on the server thread: make sure it ran before any click.
+            self.cmd("list")?;
+        }
+        Ok(())
+    }
+
+    /// Put an item in the bot's main hand (the selected hotbar slot), or empty it.
+    pub fn set_bot_main_hand(&mut self, item: Option<&str>) -> Result<()> {
+        let name = self.bot.as_ref().context("no bot")?.name.clone();
+        let item = item.unwrap_or("minecraft:air");
+        self.cmd_ok(&format!("item replace entity {name} weapon.mainhand with {item}"))?;
         Ok(())
     }
 

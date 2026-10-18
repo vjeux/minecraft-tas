@@ -1,0 +1,11 @@
+# m05 (wire21 40): P_L observer pair cut (o kept as the lever's wall), P_R lamp driver cut (keep (2,5,0),(2,4,0) that update A low),
+# M fired by the LEFT column (observer under the bottom-left door block) instead of the right column
+clear -3 3 0
+clear 3 4 0
+clear 4 4 0
+clear 5 4 0
+clear 5 3 0
+clear 2 -1 0
+clear 2 -2 0
+set 0 -1 0 minecraft:observer[facing=up,powered=false]
+set 0 -2 0 minecraft:smooth_stone

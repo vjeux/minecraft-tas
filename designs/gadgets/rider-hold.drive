@@ -1,0 +1,20 @@
+# Q is extended by its own source (a redstone block at (3,2,1)); the structure goes out (R lands
+# under Q); Q's source is removed and a block is placed next to Q: Q stays extended. The
+# structure comes back: Q retracts.
+design designs/gadgets/rider-hold.txt
+probe Q 2 2 1
+probe R 2 1 1
+set 3 2 1 minecraft:redstone_block
+quiet 3
+expect Q E
+set -1 1 0 minecraft:redstone_block
+quiet 4
+expect R R
+clear 3 2 1
+quiet 3
+expect Q E
+set 2 2 2 minecraft:stone
+quiet 3
+expect Q E
+clear -1 1 0
+expect_trace Q ~~r

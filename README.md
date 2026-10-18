@@ -42,23 +42,27 @@ See [docs/architecture.md](docs/architecture.md) and [docs/protocol.md](docs/pro
 
 ## 3x3 piston door
 
-Every solid record from 151 blocks down, filmed by one camera (3:11):
+Every solid record from 151 blocks down, filmed by one camera (2:52):
 
 [![every solid record](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4)
 
-On the night of 2026-10-18, about 20 agents took the record from 115 to 40 blocks:
-[docs/overnight-2026-10-18.md](docs/overnight-2026-10-18.md). The best door of each leaderboard
-as a GIF: [designs/piston-door-3x3/GALLERY.md](designs/piston-door-3x3/GALLERY.md). Every
-leader can be built by a survival player (with a specific placement order):
-[designs/piston-door-3x3/BUILDABILITY.md](designs/piston-door-3x3/BUILDABILITY.md), and every
-record behaves tick for tick the same on the unmodified official server (`mctas door vanilla-check`).
+On the night of 2026-10-18, 33 agent tracks took the record from 115 to 40 blocks:
+[docs/overnight-2026-10-18.md](docs/overnight-2026-10-18.md). The boards: solid (the main
+ranking), solid with no slime or honey, solid flat (the whole machine in the door's plane, one
+block thick, no slime or honey), sculk, gravity, and fastest open / close / open + close. The best
+door of each board as a GIF: [designs/piston-door-3x3/GALLERY.md](designs/piston-door-3x3/GALLERY.md).
+The board leaders checked so far can be built by a survival player (each with a specific placement
+order: [designs/piston-door-3x3/BUILDABILITY.md](designs/piston-door-3x3/BUILDABILITY.md)), and
+the records checked on the unmodified official server behave the same there tick for tick
+(`mctas door vanilla-check`).
 
 Current best (40 blocks), rendered by the real Minecraft client with `mctas door video`:
 https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4
 
 The ranked list of every design (main and the agents' `explore/*` branches) is in
 [designs/piston-door-3x3/LEADERBOARD.md](designs/piston-door-3x3/LEADERBOARD.md). The best is
-[designs/piston-door-3x3/archive/fc2-40b.txt](designs/piston-door-3x3/archive/fc2-40b.txt).
+[designs/piston-door-3x3/archive/fc2-40b.txt](designs/piston-door-3x3/archive/fc2-40b.txt)
+(tied since by `riders-fx1-40b.txt` and `m05-21b-sym-40b.txt` in the same folder).
 All nine door blocks are plain stone, 40 blocks in total, verified for 3 open/close cycles at 32
 positions, and it behaves identically tick for tick in the unmodified vanilla server. (v1 used a
 slime block as the top-middle door block, which is not a real door; the verifier now rejects it.)
@@ -87,8 +91,16 @@ The 3x3 door (`mctas door ...`):
 * `route`: dust auto-router (fewest blocks; avoids swept cells and the walkway).
 * `place`: try every combination of alternative patch groups (wiring puzzles).
 * `minimize`: local search for fewer blocks or ticks; only the full judge accepts a candidate.
-* `harvest`: run that search on the best designs of every branch and board.
+* `harvest` / `transplant`: run that search on the best designs of every branch and board / try one
+  lineage's edit on the others.
 * `grow` / `regrow`: add the cheapest 1-2 blocks / rebuild 2-3 control blocks with one fewer.
 * `synth`: try every circuit of up to k blocks between two cells; judge each with the door or a spec.
+* `resynth`: clear every connected group of 2 to `--max-size` (default 4) wiring blocks and
+  re-synthesize it with fewer blocks.
+* `mech-synth`: mechanism synthesis (pistons and slime around the door, open/close paths, symmetric
+  pulse schedules) in a macro piston model; replays the results with ideal inputs.
+* `route2`: timing-aware net router; rips up and re-routes groups of control blocks.
+* `buildable`: search for a survival build order that ends in the judge's rest state.
+* `vanilla-fuzz`: random small contraptions compared between the simulator and the official server.
 * `video` / `video-all` / `card`: record one design / a whole folder / draw just the title card.
 * `gallery` / `montage`: a GIF of each board's best (GALLERY.md) / a board's record progression.

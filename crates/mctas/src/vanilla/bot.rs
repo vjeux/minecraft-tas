@@ -26,6 +26,8 @@ const SB_CFG_ACCEPT_COC: i32 = 9;
 const SB_ACCEPT_TELEPORT: i32 = 0;
 const SB_CHUNK_BATCH_RECEIVED: i32 = 11;
 const SB_KEEP_ALIVE: i32 = 28;
+const SB_PLAYER_ACTION: i32 = 41;
+const SB_PLAYER_INPUT: i32 = 43;
 const SB_PLAYER_LOADED: i32 = 44;
 const SB_PONG: i32 = 45;
 const SB_USE_ITEM_ON: i32 = 66;
@@ -40,6 +42,7 @@ const CB_CFG_KEEP_ALIVE: i32 = 4;
 const CB_CFG_PING: i32 = 5;
 const CB_CFG_KNOWN_PACKS: i32 = 15;
 const CB_CFG_CODE_OF_CONDUCT: i32 = 30;
+const CB_BLOCK_CHANGED_ACK: i32 = 4;
 const CB_CHUNK_BATCH_FINISHED: i32 = 11;
 const CB_DISCONNECT: i32 = 32;
 const CB_KEEP_ALIVE: i32 = 45;
@@ -133,6 +136,8 @@ struct Shared {
     pending_teleport: bool,
     pos: [f64; 3],
     rot: [f32; 2],
+    /// Highest `ClientboundBlockChangedAckPacket` sequence received (0: none yet; ours start at 1).
+    acked: i32,
 }
 
 /// A logged-in bot player.
@@ -243,26 +248,87 @@ impl Bot {
 
     /// Right-click a block face with an empty main hand (the server checks reach: stand close).
     pub fn use_item_on(&mut self, pos: [i32; 3], face: u8) -> Result<()> {
+        self.use_item_on_at(pos, face, [0.5, 0.5, 0.5]).map(|_| ())
+    }
+
+    /// Right-click a block face with whatever the main hand holds, the hit point given relative
+    /// to the block's min corner (the server rebuilds it as `pos + cursor`). Returns the click's
+    /// sequence number: once [`Bot::wait_ack`] sees it, the server has handled the click and
+    /// every packet the bot sent before it (one connection is handled in order).
+    pub fn use_item_on_at(&mut self, pos: [i32; 3], face: u8, cursor: [f32; 3]) -> Result<i32> {
+        self.check_ready()?;
+        self.sequence += 1;
+        let mut p = Vec::new();
+        put_varint(&mut p, 0); // main hand
+        p.extend_from_slice(&packed_pos(pos).to_be_bytes());
+        put_varint(&mut p, face as i32);
+        for v in cursor {
+            p.extend_from_slice(&v.to_be_bytes());
+        }
+        p.push(0); // inside
+        p.push(0); // world border hit
+        put_varint(&mut p, self.sequence);
+        send(&self.writer, SB_USE_ITEM_ON, &p)?;
+        Ok(self.sequence)
+    }
+
+    /// Start breaking a block (`START_DESTROY_BLOCK`; a creative player breaks it at once:
+    /// `playerWillDestroy`, `removeBlock`, `destroy`, no drops). Returns the sequence number.
+    pub fn start_destroy(&mut self, pos: [i32; 3], face: u8) -> Result<i32> {
+        self.check_ready()?;
+        self.sequence += 1;
+        let mut p = Vec::new();
+        put_varint(&mut p, 0); // START_DESTROY_BLOCK
+        p.extend_from_slice(&packed_pos(pos).to_be_bytes());
+        p.push(face);
+        put_varint(&mut p, self.sequence);
+        send(&self.writer, SB_PLAYER_ACTION, &p)?;
+        Ok(self.sequence)
+    }
+
+    /// The movement keys: only sneaking (shift) matters here (`setShiftKeyDown`, i.e.
+    /// `isSecondaryUseActive`: a sneaking player holding an item places against a lever or a
+    /// repeater instead of using it).
+    pub fn set_sneaking(&mut self, sneak: bool) -> Result<()> {
+        if let Some(e) = self.error() {
+            bail!("bot: {e}");
+        }
+        send(&self.writer, SB_PLAYER_INPUT, &[if sneak { 32 } else { 0 }])
+    }
+
+    /// Wait until the server acknowledged block changes up to `sequence`.
+    pub fn wait_ack(&self, sequence: i32, timeout: Duration) -> Result<()> {
+        let t0 = Instant::now();
+        loop {
+            {
+                let sh = self.shared.lock().unwrap();
+                if let Some(e) = &sh.error {
+                    bail!("bot: {e}");
+                }
+                if sh.acked >= sequence {
+                    return Ok(());
+                }
+            }
+            if t0.elapsed() > timeout {
+                bail!("bot: the server never acknowledged action {sequence}");
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    fn check_ready(&self) -> Result<()> {
         if let Some(e) = self.error() {
             bail!("bot: {e}");
         }
         if self.shared.lock().unwrap().pending_teleport {
             bail!("bot: a teleport is still unanswered (the server would ignore the click)");
         }
-        self.sequence += 1;
-        let mut p = Vec::new();
-        put_varint(&mut p, 0); // main hand
-        let packed = ((pos[0] as i64 & 0x3ff_ffff) << 38) | ((pos[2] as i64 & 0x3ff_ffff) << 12) | (pos[1] as i64 & 0xfff);
-        p.extend_from_slice(&packed.to_be_bytes());
-        put_varint(&mut p, face as i32);
-        for v in [0.5f32, 0.5, 0.5] {
-            p.extend_from_slice(&v.to_be_bytes());
-        }
-        p.push(0); // inside
-        p.push(0); // world border hit
-        put_varint(&mut p, self.sequence);
-        send(&self.writer, SB_USE_ITEM_ON, &p)
+        Ok(())
     }
+}
+
+fn packed_pos(pos: [i32; 3]) -> i64 {
+    ((pos[0] as i64 & 0x3ff_ffff) << 38) | ((pos[2] as i64 & 0x3ff_ffff) << 12) | (pos[1] as i64 & 0xfff)
 }
 
 impl Drop for Bot {
@@ -298,6 +364,12 @@ fn play_loop(s: &mut TcpStream, w: &Mutex<TcpStream>, shared: &Mutex<Shared>, st
         match id {
             CB_KEEP_ALIVE => send(w, SB_KEEP_ALIVE, &payload)?,
             CB_PING => send(w, SB_PONG, &payload)?,
+            CB_BLOCK_CHANGED_ACK => {
+                let mut i = 0;
+                let seq = get_varint(&payload, &mut i)?;
+                let mut sh = shared.lock().unwrap();
+                sh.acked = sh.acked.max(seq);
+            }
             CB_CHUNK_BATCH_FINISHED => send(w, SB_CHUNK_BATCH_RECEIVED, &20.0f32.to_be_bytes())?,
             CB_LOGIN => {
                 send(w, SB_PLAYER_LOADED, &[])?;

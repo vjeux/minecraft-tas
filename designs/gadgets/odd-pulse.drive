@@ -1,0 +1,9 @@
+# Odd pulse: the observer behind the note block lights D at k5..k7 on the on flip and k7..k9 on
+# the off flip (both odd), from a repeater reading a block a k1 piston moves.
+design designs/gadgets/odd-pulse.txt
+probe D 2 1 5
+probe N 2 1 3
+use 0 1 0
+expect_trace D 0000++000000
+use 0 1 0
+expect_trace D 000000++0000

@@ -1,0 +1,5 @@
+# fc2: P_M fired by the LEFT column (observer under the bottom-left door block) instead of the right one
+clear 2 -1 0
+clear 2 -2 0
+set 0 -1 0 minecraft:observer[facing=up,powered=false]
+set 0 -2 0 minecraft:smooth_stone
