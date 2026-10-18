@@ -212,7 +212,14 @@ impl World {
 
     /// Apply an event; None when nothing changes (a no-op).
     pub fn apply(&self, e: Ev) -> Option<World> {
-        self.apply_mode(e, false)
+        if NO_RING_FIRE.load(Ordering::Relaxed) && in_s(self.b[e.id as usize].0) {
+            return None;
+        }
+        let w = self.apply_mode(e, false)?;
+        if SEAMLESS.load(Ordering::Relaxed) && s_off_plane(&w) {
+            return None;
+        }
+        Some(w)
     }
 
     /// `strict`: a level-on that cannot extend is refused (no powered-but-blocked states).
@@ -263,12 +270,19 @@ impl World {
     }
 
     pub fn is_open(&self) -> bool {
+        let seamless = SEAMLESS.load(Ordering::Relaxed);
         for (p, k) in &self.b {
             if in_corridor(*p) {
                 return false;
             }
+            if seamless && in_s(*p) && (*k != Kind::Door || p[2] != 0) {
+                return false;
+            }
             if let Kind::Piston { ext: true, f, .. } = k {
                 if in_corridor(add(*p, D[*f as usize])) {
+                    return false;
+                }
+                if seamless && in_s(add(*p, D[*f as usize])) {
                     return false;
                 }
             }
@@ -412,6 +426,26 @@ pub static PULSES_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::Atomi
 pub static EDGES: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 /// `--split-only`: skip the graph symmetric search (use the edge/core split search).
 pub static SPLIT_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--seamless`: FULL seamless + hallway in the macro model. S = the cells face-adjacent to the
+/// tunnel (the 3x3 columns through the opening, any depth). No block ever enters S off the door
+/// plane (the hallway's walls stand there), candidates are not placed there, and the open state
+/// holds nothing but door blocks in S (door plane included).
+pub static SEAMLESS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--no-ring-fire`: a piston standing in S cannot be fired (a bottom-row piston in the ring has
+/// no power cell outside S: its sides are S, below is the floor).
+pub static NO_RING_FIRE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// In the hallway surface S (face-adjacent to the tunnel, any depth).
+pub fn in_s(p: P) -> bool {
+    ((p[0] == -1 || p[0] == 3) && (0..=2).contains(&p[1])) || ((p[1] == -1 || p[1] == 3) && (0..=2).contains(&p[0]))
+}
+
+/// Some block (or piston head) in S off the door plane.
+fn s_off_plane(w: &World) -> bool {
+    w.b.iter().any(|(p, k)| {
+        (in_s(*p) && p[2] != 0) || matches!(k, Kind::Piston { ext: true, f, .. } if { let h = add(*p, D[*f as usize]); in_s(h) && h[2] != 0 })
+    })
+}
 
 pub fn events(w: &World) -> Vec<Ev> {
     let po = PULSES_ONLY.load(Ordering::Relaxed);
@@ -1040,6 +1074,9 @@ pub struct EnumOptions {
     pub max_blocks: usize,
     pub sym_len: usize,
     pub sym_tries: usize,
+    /// `--topology x0,y0:x1,y1`: report whether each mechanism can be wired inside that box of the
+    /// door plane with FULL seamless (topology.rs: wiring components, links, parity).
+    pub topology: Option<([i8; 2], [i8; 2])>,
 }
 
 fn ring16() -> Vec<P> {
@@ -1064,7 +1101,7 @@ pub fn candidates(base: &World, o: &EnumOptions) -> Vec<(P, Kind)> {
         for y in o.lo[1]..=o.hi[1] {
             for z in o.lo[2]..=o.hi[2] {
                 let p = [x, y, z];
-                if occupied(p) || in_corridor(p) {
+                if occupied(p) || in_corridor(p) || (SEAMLESS.load(Ordering::Relaxed) && in_s(p) && p[2] != 0) {
                     continue;
                 }
                 let near = D.iter().any(|d| active(add(p, *d)));
@@ -1704,7 +1741,12 @@ pub fn sym_cli(version: &str, base: &std::path::Path, open_seq: &str, levels: bo
 
 pub fn cli(version: &str, base: &std::path::Path, o: &EnumOptions, out_dir: Option<&std::path::Path>, top: usize, verify: usize, extra: u32, gap: u32, workers: usize, just_base: bool) -> Result<()> {
     let d = crate::cli::load_design(base)?;
-    let w = world_of_design(&d)?;
+    let mut w = world_of_design(&d)?;
+    if o.topology.is_some() {
+        // A full door design: its plain blocks are wiring (stack feeds, floors), not mechanism.
+        w.b.retain(|(_, k)| !matches!(k, Kind::Stone));
+        w.pow = World::rest_pow(&w.b);
+    }
     let log = |s: &str| eprintln!("[mech-synth] {s}");
     if just_base {
         let t0 = std::time::Instant::now();
@@ -1727,6 +1769,10 @@ pub fn cli(version: &str, base: &std::path::Path, o: &EnumOptions, out_dir: Opti
             Some(sol) => {
                 let f = Found { world: w.clone(), added: Vec::new(), sol };
                 println!("{}  ({} states, {:.1} ms)", describe(&f), f.sol.states, t0.elapsed().as_secs_f64() * 1e3);
+                if let Some((lo, hi)) = o.topology {
+                    let t = crate::topology::analyze(&f.world, &f.sol, lo, hi);
+                    print!("topology in x {}..{}, y {}..{}:\n{}", lo[0], hi[0], lo[1], hi[1], t.report);
+                }
                 if let Some(dir) = out_dir {
                     write_found(dir, "base", &f, gap)?;
                 }
@@ -1761,6 +1807,23 @@ pub fn cli(version: &str, base: &std::path::Path, o: &EnumOptions, out_dir: Opti
     for ((b, s), n) in &hist {
         println!("  {b} blocks{}: {n}", if *s { " (symmetric)" } else { "" });
     }
+    let found: Vec<Found> = match o.topology {
+        None => found,
+        Some((lo, hi)) => {
+            let mut keep = Vec::new();
+            let (mut strict, mut permissive) = (0, 0);
+            for f in found {
+                let t = crate::topology::analyze(&f.world, &f.sol, lo, hi);
+                strict += t.strict as usize;
+                permissive += t.permissive as usize;
+                if t.permissive {
+                    keep.push(f);
+                }
+            }
+            println!("topology in x {}..{}, y {}..{}: {strict} wirable (strict parity), {permissive} (permissive); listing the permissive ones", lo[0], hi[0], lo[1], hi[1]);
+            keep
+        }
+    };
     for (i, f) in found.iter().take(top).enumerate() {
         println!("#{i} {}", describe(f));
     }
