@@ -1,0 +1,6 @@
+# e89b record-eligibility attempt: the lever's support becomes a redstone lamp (a conductor whose
+# lit state the two lever watchers see), so a repeater powering the support drives the door too.
+clear 0 -4 0
+set 0 -4 0 minecraft:redstone_lamp[lit=false]
+set -1 -4 0 minecraft:lever[face=wall,facing=west,powered=false]
+port lever -1 -4 0

@@ -240,6 +240,8 @@ impl World {
                 }
             }
             if fl & flags::KNOWN_SHAPE == 0 && limit > 0 {
+                // `updateFlags & -34`: shape updates never update neighbors (bit 1) nor
+                // suppress drops (bit 32)
                 let nf = fl & !(flags::NEIGHBORS | flags::SUPPRESS_DROPS);
                 bh::update_indirect_neighbour_shapes(self, old, pos, nf, limit - 1);
                 self.update_neighbour_shapes(state, pos, nf, limit - 1);
@@ -561,21 +563,35 @@ impl World {
 
     // ------------------------------------------------------------------ inputs
 
-    /// Right-click a lever or a button (the bridge's `use`): `LeverBlock.pull` /
-    /// `ButtonBlock.press`. Returns false for other blocks.
+    /// Right-click a block (the bridge's `use`): levers and buttons directly (`LeverBlock.pull`,
+    /// `ButtonBlock.press`), other blocks their `useWithoutItem` for a building player (note
+    /// blocks tune, repeaters cycle the delay, comparators the mode, dust toggles cross/dot, oak
+    /// trapdoors and doors open). Returns false when nothing is modeled for that block.
     pub fn use_block(&mut self, pos: BlockPos) -> bool {
         let s = self.get(pos);
         match s {
-            Block::Lever { .. } => {
-                crate::redstone::lever::pull(self, s, pos);
-                true
+            Block::Lever { .. } => crate::redstone::lever::pull(self, s, pos),
+            Block::Button { .. } => crate::redstone::button::press(self, s, pos),
+            Block::Note { .. } => crate::redstone::blocks::note::use_block(self, s, pos),
+            Block::Repeater { facing, delay, locked, powered } => {
+                self.set_block_and_update(pos, Block::Repeater { facing, delay: delay % 4 + 1, locked, powered });
             }
-            Block::Button { .. } => {
-                crate::redstone::button::press(self, s, pos);
-                true
+            Block::Comparator { .. } => crate::redstone::diode::use_comparator(self, s, pos),
+            Block::Wire { .. } => crate::redstone::wire::use_block(self, s, pos),
+            Block::Trapdoor { iron: false, facing, top, open, powered } => {
+                self.set_block(pos, Block::Trapdoor { iron: false, facing, top, open: !open, powered }, flags::CLIENTS);
             }
-            _ => false,
+            Block::Door { iron: false, facing, upper, hinge_right, open, powered } => {
+                self.set_block(pos, Block::Door { iron: false, facing, upper, hinge_right, open: !open, powered }, flags::CLIENTS | flags::IMMEDIATE);
+                self.game_event(if open { "block_close" } else { "block_open" }, pos);
+            }
+            Block::Trapdoor { .. } | Block::Door { .. } | Block::Air => {}
+            _ => {
+                self.errors.push(format!("use on {s} at {pos} is not modeled"));
+                return false;
+            }
         }
+        true
     }
 
     /// The judge's placement (`piston-door/src/video.rs::place`): raw writes in this order, a

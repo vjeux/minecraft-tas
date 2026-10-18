@@ -19,6 +19,25 @@ pub enum Support {
 
 // ---------------------------------------------------------------------- static properties
 
+/// `BlockState.isSolid()` (`calculateSolid`): forced on, or a collision box whose mean size is
+/// at least 0.7291666 (a 3 px slab is exactly that) or a full block tall.
+pub fn is_solid(s: &Block) -> bool {
+    match *s {
+        Block::Air
+        | Block::Wire { .. }
+        | Block::Torch { .. }
+        | Block::WallTorch { .. }
+        | Block::Lever { .. }
+        | Block::Button { .. }
+        | Block::Rail { .. }
+        | Block::Repeater { .. }
+        | Block::Comparator { .. }
+        | Block::Skull { .. }
+        | Block::WallSkull { .. } => false,
+        _ => true,
+    }
+}
+
 /// `isRedstoneConductor`.
 pub fn is_conductor(_w: &World, s: &Block, _p: BlockPos) -> bool {
     match *s {
@@ -183,7 +202,8 @@ pub fn instrument(s: &Block) -> Instrument {
         Block::Note { .. } | Block::Log { .. } | Block::Composter { .. } => Instrument::Bass,
         Block::Falling { .. } => Instrument::Snare, // pistmodel
         Block::Trapdoor { iron: false, .. } | Block::Door { iron: false, .. } | Block::FenceGate { .. } => Instrument::Bass,
-        Block::Skull { .. } | Block::WallSkull { .. } => Instrument::Skeleton,
+        // (the wall variant has fresh properties: harp)
+        Block::Skull { .. } => Instrument::Skeleton,
         _ => Instrument::Harp,
     }
 }
@@ -203,10 +223,18 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         | Block::Skull { .. }
         | Block::WallSkull { .. }
         | Block::Cake { .. }
+        | Block::Leaves { .. }
         | Block::Door { .. } => PushReaction::Popped,
+        Block::RespawnAnchor { .. } => PushReaction::Immoveable,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::push_reaction(s),
         _ => PushReaction::PushPull,
     }
+}
+
+/// Leaves a drop (an item entity) when destroyed with drops: false for blocks without a loot
+/// table (`noLootTable`: piston heads, moving pistons, end portal frames) and air.
+pub fn drops_item(s: &Block) -> bool {
+    !matches!(s, Block::Air | Block::PistonHead { .. } | Block::MovingPiston { .. } | Block::EndPortalFrame { .. })
 }
 
 /// Destroy speed -1 (unbreakable: pistons cannot move it).
@@ -227,11 +255,6 @@ pub fn can_be_replaced(s: &Block) -> bool {
     s.is_air()
 }
 
-/// Destroying it drops an item (its loot table gives something without a tool).
-pub fn drops_item(s: &Block) -> bool {
-    !matches!(s, Block::Air | Block::PistonHead { .. } | Block::MovingPiston { .. })
-}
-
 // ---------------------------------------------------------------------- behavior
 
 pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
@@ -242,6 +265,7 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         Block::Lever { .. } | Block::Button { .. } => attached::can_survive(w, s, p),
         Block::Rail { .. } => rail::can_survive(w, p),
         Block::Door { .. } => indicator::door_can_survive(w, s, p),
+        Block::Cake { .. } => is_solid(&w.get(p.below())),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::can_survive(w, *s, p),
         _ => true,
     }
@@ -278,6 +302,14 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::FenceGate { .. } => indicator::gate_update_shape(s, d),
         Block::Leaves { .. } => leaves::update_shape(w, s, p, ns),
         Block::Falling { .. } => crate::gravity::update_shape(w, s, p, d, np, ns), // pistmodel
+        // CakeBlock: falls off a non-solid floor
+        Block::Cake { .. } => {
+            if d == Dir::Down && !is_solid(&w.get(p.below())) {
+                Block::Air
+            } else {
+                s
+            }
+        }
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::update_shape(w, s, p, d, np, ns),
         _ => s,
     }
