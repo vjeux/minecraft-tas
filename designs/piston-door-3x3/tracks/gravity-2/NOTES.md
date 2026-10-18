@@ -69,3 +69,32 @@ Board: gravity (the 9 door blocks are sand). Start: synth-g42 (42 blocks, open 5
   before the sand arrives (~t13) or move only after it has landed.
 * Observers watching a block that a moving structure carries away fire 2 ticks after the move
   starts (t3); an observer that rides a chain fires again when it lands.
+
+## Searches on g33 (it is a local minimum for all of them)
+* `door minimize --moves all --plateau`, `door resynth` sizes 2..5 (palette with lamps, note
+  blocks, comparators): nothing.
+* `door regrow --size 3 --any` (cut any 3 control blocks, regrow 2): 11.8M candidates screened in
+  30 min, none passes.
+* `door synth` for S1's trigger: no circuit of <= 2 blocks exists in its model; 3 is the minimum
+  (two observers + a block, two mirror layouts).
+* Verified at 128 positions (`--extra-offsets 124`) and rotation-safe (main's new check).
+
+## Ideas that did not pan out (counted or tested)
+* S1 fired by ONE observer off the redstone block's cell: it acts in tick 3, while R3 is still a
+  moving block, so the chain leaves R3 behind (t4 trace). Every delay element is even (2 gt), so
+  the earliest single-hop trigger is too early and two hops are needed.
+* The middle support dragged away by a side structure (no R3): the support returns with the
+  side structure at t1 on close, before the tower can lift the column (it would push the fallen
+  column's top block).
+* A redstone block arriving next to S1 when open (S1 as a level piston): no cell next to S1 can
+  receive a block carried by either side structure without gluing S1 itself.
+* Lever as the middle support with side pistons at the bottom: the column could never fall.
+* Two middle and right columns on one platform lifted by one tower: 14 blocks > push limit 12.
+* Replacing the riding observer O by a fixed pulse: a fixed cell cannot reach S2 in both cells
+  without also powering R3 at (1,-4,0).
+
+## Next ideas
+* A side structure that does not need its own open support (the right obsidian) or the left
+  y=-1 slime: e.g. a column that rides onto a piston head when open.
+* A tower whose chain mover acts on a level signal with a free 4-tick delay (lamp off-delay is
+  4 gt, but lamps power nothing; a torch needs a supported attachment).
