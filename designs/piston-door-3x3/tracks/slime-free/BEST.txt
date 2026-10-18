@@ -1,4 +1,4 @@
-name: slime-free-tlup
+name: slime-free-bgrow
 port door: 0 0 0
 port lever: 5 4 0
 origin: -2 0 0
@@ -51,10 +51,10 @@ layer 4:
   ..A....F
   ..O....S
 layer 5:
-  ...sBSO
+  ...sB.O
   .
   .
 layer 6:
-  ....ErS
+  ....ESD
   .
   .
