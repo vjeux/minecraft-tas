@@ -1,0 +1,67 @@
+# verified WORKS by door leaderboard: 45 blocks, category solid
+# archived 2026-10-18 11:42Z from origin/explore/wire19sf:designs/piston-door-3x3/tracks/wire19sf/BEST.txt (repo at 8962be4)
+name: wire19sf-w45
+port door: 0 0 0
+port lever: 1 4 -3
+origin: -2 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  .
+  .BCF
+layer -1:
+  .
+  .
+  .
+  .oB
+layer 0:
+  .
+  .
+  .
+  E.HHH.G
+layer 1:
+  .
+  .
+  S
+  E.HHH.G
+layer 2:
+  .
+  .
+  r
+  E.HHHCS
+layer 3:
+  .
+  .
+  B..S
+  .E
+layer 4:
+  .ooL
+  .A.AC
+  BA.RA
+  ...ss
+layer 5:
+  .
+  ...O
+  oO.B
+  ...s
+layer 6:
+  .
+  ...S
+  ...D
+  .

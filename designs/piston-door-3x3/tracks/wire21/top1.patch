@@ -1,0 +1,21 @@
+# fc2's top control on mech-synth's m05 (abpt21r with the T-mover at (1,3,1) facing north)
+port lever -2 4 0
+set -2 4 1 minecraft:stone
+set -2 4 0 minecraft:lever[face=wall,facing=north,powered=false]
+# O_a: watches the lever, 2gt pulse at t2 into X
+set -1 4 0 minecraft:observer[facing=west,powered=false]
+# X dust + floor: powers A at (1,4,0) and, through f, A at (1,3,0)
+set 0 3 0 minecraft:stone
+set 0 4 0 minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+# O_b watches O_a (t4) -> J -> R_B (delay 4) window t12..20 into B's quasi cell (1,6,0)
+set -1 5 0 minecraft:observer[facing=down,powered=false]
+set -1 6 0 minecraft:stone
+set 0 6 0 minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+# O watches R_B: t14, t22 into X
+set 0 5 0 minecraft:observer[facing=up,powered=false]
+# P_T chain: O_c watches O_a (t4), O_d watches O_c (t6) into P_T's quasi cell (1,4,1)
+set -1 4 1 minecraft:observer[facing=north,powered=false]
+set 0 4 1 minecraft:observer[facing=west,powered=false]
+# P_L chain: watches the lever (t2), watcher (t4) into P_L's quasi cell (-3,2,0)
+set -3 4 0 minecraft:observer[facing=east,powered=false]
+set -3 3 0 minecraft:observer[facing=up,powered=false]
