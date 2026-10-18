@@ -15,14 +15,16 @@ says whether a design is on the frontier and what dominates it.
 | `pareto-mid-mp7-leafC-46b.txt` | 46 | 15 / 13 | mp7 | log flag; leaves (4,-2,0) next to the cell it moves into; observer (3,-2,0) watching them -> dust (2,-2,0) on stone (2,-3,0) beside U: U at t13 open / t11 close (+1) |
 | `pareto-mid-mp7-repU-pgF-50b.txt` | 50 | 14 / 12 | mp7-repU | F asymmetric (`pgF.patch`, +4): R_F and its floor out; repeater d1 (0,4,-2) reads the lever's block and powers a sticky piston Pg (0,4,-3) facing east, which pushes a redstone block from (1,4,-3) to (2,4,-3), where a delay-2 repeater (2,4,-2) reads it and powers F's stone (2,4,-1). Opening: the block lands at t4, F moves at t8 as before; closing: Pg pulls it away at t2 (instant-off), F goes off at t6 instead of t8 |
 | `pareto-mid-mp7-leafC-pgF-50b.txt` | 50 | 15 / 11 | mp7-leafC | the same F shuttle |
+| `pareto-mid-mp7-dustU-47b.txt` | 47 | 14 / 13 | mp7-leafC | `dustU.patch` (+1): the bottom-right flag is a redstone block and the leaves become dust (4,-2,0) on a floor (4,-3,0) under the cell it moves into: lit when it lands (t10), dark the moment it leaves (t8, instant-off), so the observer (3,-2,0) fires U at t12 opening / t10 closing |
+| `pareto-mid-mp7-dustU-pgF-51b.txt` | 51 | 14 / 11 | mp7-dustU | plus the F shuttle: F off at t6 closing, U at t8, C lands t11 (with ideal inputs U may fire anywhere from t5 to t9 closing for 11) |
 
 Frontier after these (solid, all branches): 38 (36/32), 40 (24/9), 41 (22/9), 43 (15/17), 43 (16/16),
-44 (14/16), 46 (14/14), 46 (15/13), 50 (14/12), 50 (15/11), 93 (12/7, fast-clean), 107 (10/7), 108
-(9/7). For a new door with 51..92 blocks to count it now needs open <= 13, or 14 / <= 11, or
-close <= 10 with open <= 21.
+44 (14/16), 46 (14/14), 46 (15/13), 47 (14/13), 50 (14/12), 50 (15/11), 51 (14/11), 93 (12/7,
+fast-clean), 107 (10/7), 108 (9/7). For a new door with 52..92 blocks to count it now needs open
+<= 13, or close <= 10 with open <= 21.
 
-All six also pass `door vanilla-check` (the unmodified 26.3 server, tick for tick at 4 positions x
-3 cycles, plus a real-time 20 tps cycle): the leaves, lamp and shuttle timings are vanilla's.
+All eight also pass `door vanilla-check` (the unmodified 26.3 server, tick for tick at 4 positions x
+3 cycles, plus a real-time 20 tps cycle): the leaves, lamp, dust and shuttle timings are vanilla's.
 
 ## The mp family (fresh-b's mirrored pump) and its timing
 Mechanism (mp5..mp8): H (lever, t1) pushes the left side west; A1 (A's first pulse, t3, observer on
@@ -64,7 +66,9 @@ close timings is earlier than its open counterpart, so it needs per-edge (asymme
   that: F off at t6, A2 at t9, C lands t11, so close 11 (leafC) or 12 (repU, U at t10 + spit).
 * U's timing per edge is free within the toolbox below (offsets from the right structure's move at
   t8): pairs (open, close) = (9,11)+2k, (11,9)+2k [leaves], (12,14)+2k, (14,12)+2k [lamp + observer],
-  (10,10)+2k [observers]. (14 open, 13 close) would need (12, <=11): not in the set.
+  (12,10)+2k [dust + observer: the 47], (10,10)+2k [observers]. I first missed the dust pair and
+  thought 14 / 13 needed (12, <= 11) from a 1 gt asymmetry; (12, 10) does it, since C lands at t13
+  anyway.
 
 `door grow --k 1` (states obs, block, dust, rep1/2, torch, leaves, log; box -4..5 x -6..7 x -2..2):
 no single added block gives mp7-repU open <= 13, or close <= 13 with open <= 21; none gives
@@ -79,6 +83,11 @@ their speed bounds: mp8-lampU 44 and mp7-repU 46 are local minima.
   (1 -> 3 -> 5 -> 7, extra observer pulses).
 * **Lamp next to a moving redstone block** (even, asymmetric): lit at once when the block lands
   (m+2), dark 4 gt after it leaves (m+4).
+* **Dust next to a moving redstone block** (even, asymmetric the other way from the lamp): lit
+  when the block lands (m+2), dark the moment it leaves (m, instant-off). With an observer: m+4 on
+  the move out, m+2 on the move back (mp7-dustU).
+* **Shuttle** (a level whose falling edge comes 2 gt early): lever + delay-1 repeater -> sticky
+  piston -> redstone block pushed next to a repeater: on at 4 + 2d, off at 2 + 2d (mp7-*-pgF).
 * **Dust on a block beside a piston**: an observer whose output cell sits next to a slime row (where
   an observer or block would be dragged) can drive the piston through a dust there (dust is never
   dragged) standing on a block next to the piston; the dust also updates 2 cells deep.
@@ -112,7 +121,8 @@ layout. A cheap t0 pulse (a cut of a lever-fed line at t1..t8 on open) would giv
 * `door minimize --objective open --slack 6 --moves all` on mp8: nothing. `--max-open 14
   --max-close 14` on mp7-repU: nothing (46 is a local minimum at 14/14).
 * `door minimize --moves all --plateau` at their own bounds: mp8-lampU (14/16) and mp7-leafC (15/13)
-  are local minima too.
+  are local minima too; so are the 47 and the three shuttle doors (`--moves all` at their bounds,
+  400k..450k candidates each, none passes the screen).
 * fast-clean's compliant 93 (12/7, `fast-clean-93.txt`, copied from origin/explore/fast-clean
   BEST.txt) at relaxed speeds, where any smaller door would be a frontier point: `door minimize
   --moves all` at `--max-open 13 --max-close 20` and at `--max-open 21 --max-close 12` (1.7M
@@ -131,12 +141,11 @@ layout. A cheap t0 pulse (a cut of a lever-fed line at t1..t8 on open) would giv
   watches; estimated +4..8 blocks, so (45..49, 20, 9), a frontier point at any of those counts.
 * mp7 with F asymmetric, measured with F driven by an ideal input (`mp7-F.sched` on
   `mp7-repU-idealF.txt` / `mp7-leafC-F.sched`: R_F and its stone replaced by a scheduled redstone
-  block): F off at t6 on close gives repU 14 / 12 and leafC 15 / 11 (built: the two 50s), off at t7
-  would give 14 / 13 and 15 / 12; F cannot move before t8 on open, nor go off before t6 on close.
-  t7 is a delta of -1 against the open edge: the shuttle gives -2 (a moved power block lands 2
-  ticks after it starts moving and cuts power at once when it leaves), leaves and lamps give pulses,
-  not levels. A 14 / 13 needs a level that falls 1 tick earlier than it rises (an odd source on one
-  edge only).
+  block): F off at t6 on close gives repU 14 / 12 and leafC 15 / 11 (built: the two 50s); F cannot
+  move before t8 on open, nor go off before t6 on close. With F off at t6, `pgF-U.sched` (U by ideal
+  input) closes in 11 for U anywhere from t5 to t9: 14 / 11 is this mechanism's floor (built: the
+  51). Going lower needs C to land before t11 (A2 earlier, so TM back earlier, so F off before t6,
+  which breaks the close).
 * The shuttle is a general tool: any lever + delay level that should end earlier on the falling
   edge (by 2) can become lever + delay 1 -> sticky piston -> redstone block -> repeater, +4 blocks.
 * mp family open 13: a 3 gt pump pulse [7,10) and U at t11 (rest-side leaves + one observer on the
