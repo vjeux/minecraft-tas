@@ -2,7 +2,8 @@
 //! print the z=0 plane as ASCII after every step. For debugging mechanisms before wiring them,
 //! and for proving gadgets (`probe` + `trace` + `expect`, see designs/gadgets/).
 //!
-//! Script lines: `design <path|@name>`, `plane <z> <x0> <y0> <x1> <y1>`, `set x y z <state>`
+//! Script lines: `design <path|@name>`, `plane <z> <x0> <y0> <x1> <y1>`, `planex <x> <z0> <y0> <z1> <y1>`
+//! (side view), `set x y z <state>`
 //! (update mode, like a player), `clear x y z`, `use x y z`, `step <n>` (prints each tick),
 //! `quiet <n>` (steps without printing), `print`.
 //!
@@ -103,6 +104,19 @@ pub(crate) fn render(r: &Region, z: i32, x0: i32, y0: i32, x1: i32, y1: i32) -> 
     out
 }
 
+/// Side view of the plane `x`, z from left to right (same cell characters as [`render`]).
+pub(crate) fn render_x(r: &Region, x: i32, z0: i32, y0: i32, z1: i32, y1: i32) -> String {
+    let mut out = String::new();
+    for y in (y0..=y1).rev() {
+        out.push_str(&format!("{y:>4} "));
+        for z in z0..=z1 {
+            out.push(r.get([x, y, z]).map(cell).unwrap_or('?'));
+        }
+        out.push('\n');
+    }
+    out
+}
+
 /// Outcome of one script: how many expectations ran and which failed.
 #[derive(Default, Debug)]
 pub struct DriveOutcome {
@@ -155,10 +169,17 @@ fn collect_cells(w: &mut Worker, sb: u32, bx: Option<(Pos, Pos)>, out: &mut std:
 fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Option<&mut std::collections::HashSet<Pos>>) -> Result<DriveOutcome> {
     let mut bx: Option<(Pos, Pos)> = None;
     let mut plane = (0, -6, -5, 8, 9);
+    // `planex <x> <z0> <y0> <z1> <y1>`: show a side view (an x plane, z left to right) instead.
+    let mut plane_x: Option<(i32, i32, i32, i32, i32)> = None;
     let mut tick = 0u32;
     let mut probes: Vec<(String, Pos)> = Vec::new();
     let mut out = DriveOutcome::default();
-    let show = |w: &mut Worker, label: &str, plane: (i32, i32, i32, i32, i32)| -> Result<()> {
+    let show = |w: &mut Worker, label: &str, plane: (i32, i32, i32, i32, i32), plane_x: Option<(i32, i32, i32, i32, i32)>| -> Result<()> {
+        if let Some((x, z0, y0, z1, y1)) = plane_x {
+            let r = w.get_region(sb, [x, y0, z0], [x, y1, z1])?;
+            println!("-- {label} (x={x}, z {z0}..{z1})\n{}", render_x(&r, x, z0, y0, z1, y1));
+            return Ok(());
+        }
         let (z, x0, y0, x1, y1) = plane;
         let r = w.get_region(sb, [x0, y0, z], [x1, y1, z])?;
         println!("-- {label}\n{}", render(&r, z, x0, y0, x1, y1));
@@ -198,7 +219,11 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                     collect_cells(w, sb, bx, c)?;
                 }
             }
-            "plane" => plane = (int(1)?, int(2)?, int(3)?, int(4)?, int(5)?),
+            "plane" => {
+                plane = (int(1)?, int(2)?, int(3)?, int(4)?, int(5)?);
+                plane_x = None;
+            }
+            "planex" => plane_x = Some((int(1)?, int(2)?, int(3)?, int(4)?, int(5)?)),
             "set" => {
                 let state = parts.get(4).context("set needs a state")?;
                 w.set_blocks(sb, &[(pos(1)?, state.to_string())], PlaceMode::Update)?;
@@ -217,7 +242,7 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                         collect_cells(w, sb, bx, c)?;
                     }
                     if verbose {
-                        show(w, &format!("t={tick}"), plane)?;
+                        show(w, &format!("t={tick}"), plane, plane_x)?;
                     }
                 }
             }
@@ -235,7 +260,7 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
             }
             "print" => {
                 if verbose {
-                    show(w, &format!("t={tick}"), plane)?
+                    show(w, &format!("t={tick}"), plane, plane_x)?
                 }
             }
             "probe" => {

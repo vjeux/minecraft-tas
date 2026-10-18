@@ -133,18 +133,21 @@ pub struct IdealOptions {
     pub trace: Option<(i32, i32, i32, i32, i32)>,
 }
 
-/// Run the schedule with these variables; Ok(()) if it behaves like a door everywhere.
-pub fn run(w: &mut Worker, s: &Schedule, vars: &BTreeMap<String, i64>, opts: &IdealOptions) -> Result<()> {
+/// Run the schedule with these variables; Ok((open, close)) worst ticks if it behaves like a
+/// door everywhere.
+pub fn run(w: &mut Worker, s: &Schedule, vars: &BTreeMap<String, i64>, opts: &IdealOptions) -> Result<(u32, u32)> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
-    let r = (|| -> Result<()> {
+    let r = (|| -> Result<(u32, u32)> {
         let open_ev = s.phase(true, vars)?;
         let close_ev = s.phase(false, vars)?;
+        let mut worst = (0u32, 0u32);
         for (oi, off) in opts.offsets.iter().enumerate() {
             let d = s.design.translated(*off);
             let spec = DoorSpec { door: *d.ports.get("door").context("design has no door port")?, lever: [0, 0, 0] };
-            run_at(w, sb, &d, &spec, *off, &open_ev, &close_ev, opts, oi == 0).with_context(|| format!("at offset {off:?}"))?;
+            let (o, c) = run_at(w, sb, &d, &spec, *off, &open_ev, &close_ev, opts, oi == 0).with_context(|| format!("at offset {off:?}"))?;
+            worst = (worst.0.max(o), worst.1.max(c));
         }
-        Ok(())
+        Ok(worst)
     })();
     let _ = w.drop_sandbox(sb);
     r
@@ -161,7 +164,7 @@ fn run_at(
     close_ev: &[(u32, Pos, Option<String>)],
     opts: &IdealOptions,
     first: bool,
-) -> Result<()> {
+) -> Result<(u32, u32)> {
     w.clear(sb)?;
     crate::video::place(w, sb, d)?;
     let (wlo, whi) = crate::watch_box(d, spec);
@@ -170,10 +173,14 @@ fn run_at(
     if !problems.is_empty() {
         bail!("not closed at rest: {}", problems.join("; "));
     }
+    let closed_door: Vec<String> = spec.door_cells().iter().map(|p| rest.get(*p).unwrap_or("?").to_string()).collect();
     let mv = |p: Pos| [p[0] + off[0], p[1] + off[1], p[2] + off[2]];
+    // Worst open / close ticks over the cycles, measured like `door verify` does.
+    let (mut worst_open, mut worst_close) = (0u32, 0u32);
     for cycle in 0..opts.cycles {
         for (phase, evs) in [("open", open_ev), ("close", close_ev)] {
             let trace = if first && cycle == 0 { opts.trace } else { None };
+            let mut frames: Vec<mctas::sim::Region> = Vec::new();
             let mut t = 0u32;
             let mut i = 0;
             if let Some(_) = trace {
@@ -191,6 +198,7 @@ fn run_at(
                 }
                 w.step(sb, 1)?;
                 t += 1;
+                frames.push(w.get_region(sb, wlo, whi)?);
                 if let Some((z, x0, y0, x1, y1)) = trace {
                     let r = w.get_region(sb, mv([x0, y0, z]), mv([x1, y1, z]))?;
                     println!("-- {phase} t={t}\n{}", crate::drive::render(&r, z + off[2], x0 + off[0], y0 + off[1], x1 + off[0], y1 + off[1]));
@@ -200,13 +208,28 @@ fn run_at(
                 for _ in 0..12 {
                     w.step(sb, 1)?;
                     t += 1;
+                    frames.push(w.get_region(sb, wlo, whi)?);
                     let r = w.get_region(sb, mv([x0, y0, z]), mv([x1, y1, z]))?;
                     println!("-- {phase} t={t}\n{}", crate::drive::render(&r, z + off[2], x0 + off[0], y0 + off[1], x1 + off[0], y1 + off[1]));
                 }
             }
-            let settle = w.step_until_idle(sb, 300)?;
+            let settle = w.step_record(sb, 300, true, wlo, whi)?;
             if settle.idle != Some(true) {
                 bail!("cycle {cycle}: still moving 300 ticks after the last {phase} event");
+            }
+            frames.extend(settle.frames);
+            let ticks = if phase == "open" {
+                crate::settled_from(&frames, |f| crate::open_problems(f, spec).is_empty())
+            } else {
+                crate::settled_from(&frames, |f| {
+                    spec.door_cells().iter().zip(closed_door.iter()).all(|(p, s)| f.get(*p) == Some(s.as_str()))
+                })
+            };
+            let ticks = ticks.unwrap_or(u32::MAX);
+            if phase == "open" {
+                worst_open = worst_open.max(ticks);
+            } else {
+                worst_close = worst_close.max(ticks);
             }
             let now = w.get_region(sb, wlo, whi)?;
             if !w.entities(sb)?.is_empty() {
@@ -230,7 +253,7 @@ fn run_at(
             }
         }
     }
-    Ok(())
+    Ok((worst_open, worst_close))
 }
 
 fn short(s: &str) -> &str {
@@ -279,7 +302,7 @@ pub fn cli(version: &str, path: &std::path::Path, set: &[String], sweep: &[Strin
     if sweep.is_empty() {
         let mut w = Worker::spawn(&cfg)?;
         match run(&mut w, &s, &vars, &opts) {
-            Ok(()) => println!("WORKS ({} positions x {} cycles)", opts.offsets.len(), cycles),
+            Ok((o, c)) => println!("WORKS ({} positions x {} cycles): open after {o} ticks / closed after {c} ticks", opts.offsets.len(), cycles),
             Err(e) => {
                 println!("BROKEN: {e:#}");
                 std::process::exit(1);
@@ -324,7 +347,7 @@ pub fn cli(version: &str, path: &std::path::Path, set: &[String], sweep: &[Strin
     let results = pool.map(combos.clone(), |w, _, (_, c)| Ok(run(w, &s, &c, &IdealOptions { trace: None, ..opts.clone() })));
     for ((label, _), r) in combos.iter().zip(results) {
         match r {
-            Ok(Ok(())) => println!("{}: ok", label.join(" ")),
+            Ok(Ok((o, c))) => println!("{}: ok open {o} close {c}", label.join(" ")),
             Ok(Err(e)) => println!("{}: FAIL {}", label.join(" "), format!("{e:#}").chars().take(160).collect::<String>()),
             Err(e) => println!("{}: ERROR {e:#}", label.join(" ")),
         }
