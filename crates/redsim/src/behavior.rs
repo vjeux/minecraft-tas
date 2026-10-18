@@ -252,11 +252,6 @@ pub fn can_be_replaced(s: &Block) -> bool {
     s.is_air()
 }
 
-/// Destroying it drops an item (its loot table gives something without a tool).
-pub fn drops_item(s: &Block) -> bool {
-    !matches!(s, Block::Air | Block::PistonHead { .. } | Block::MovingPiston { .. })
-}
-
 // ---------------------------------------------------------------------- behavior
 
 pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
