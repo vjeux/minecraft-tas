@@ -1,0 +1,14 @@
+design designs/piston-door-3x3/tracks/speed/wire/ideal-11.txt
+# swept cells for the router: open + close with the lever only (sides/M torches unwired: script
+# their motion by toggling the torches' attachments with redstone blocks)
+quiet 2
+use 0 4 -2
+set -5 1 0 minecraft:redstone_block
+set 7 1 0 minecraft:redstone_block
+set 1 -5 0 minecraft:redstone_block
+quiet 30
+use 0 4 -2
+clear -5 1 0
+clear 7 1 0
+clear 1 -5 0
+quiet 30

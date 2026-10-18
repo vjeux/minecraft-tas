@@ -1,0 +1,22 @@
+name: gadget-pump
+# Pump (fresh-b mp6..mp8): a sticky piston given a 3+ gt pulse pushes a line of blocks one cell and
+# pulls back only the first one: the far block advances one cell with no piston touching it.
+# (A 2 gt pulse would spit: the whole line stays pushed.) Lever L on S, observer O watching L,
+# repeater R (delay 2: 4 gt pulse) into the sticky piston P facing up, line K1 (pulled back), K2.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  F minecraft:smooth_stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:stone
+layer 0:
+  S.F
+layer 1:
+  LORP
+layer 2:
+  ...K
+layer 3:
+  ...K

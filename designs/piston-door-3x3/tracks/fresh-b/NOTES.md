@@ -103,3 +103,87 @@ Patches (apply with `door patch`): pd3b-from-pd3.patch, pd3c-from-pd3b.patch, pd
 * `door minimize --moves all --plateau` finds nothing on pd3 / pd3c / pd3d.
 * pd3d control (28): lever + block, O_A1, O2, O3, O_S, P, 4 + 1 observers for A's 2nd pulse,
   torch tower 7 (to y=4), O_T + 4gt repeater + floor + block next to T, 4 + 1 observers for U.
+
+## 08:15Z MIRRORED PUMP: mp6 46 -> mp7 45 -> mp8 43 (= BEST.txt), opens 16 / closes 16
+Files: `door gen mp6` (designs_fresh_b.rs::mp6), patches mp7-from-mp6.patch, mp8-from-mp7.patch;
+mechanism-only checks: mp-mech.txt + mp.sched / mp2.sched (first order), mp5-mech.txt + mp5.sched
+(final order). All verified `--extra-offsets 28`.
+
+### Mechanism (25 = door 9 + slime 11 + 5 pistons, all retracted at rest)
+* Only BM and the bottom-LEFT corner ride a 2-slime row (0,-1,0),(1,-1,0); the right column is 3 high.
+* Pump P (0,-2,0, under the row): one 4gt pulse pushes the row up (BM pushes C into TM's cell) and
+  pulls it back (C is not glued, it stays at (1,2,0)).
+* U (1,-3,0, gap (1,-2,0)): one 2gt pulse at the end pulls the row down (BM + corner out); P is
+  pushed down with it and dragged back up on close (a retracted piston glued under slime RIDES it).
+* A (1,4,0, gap (1,3,0)): pulse 1 pulls TM up into (1,3,0); pulse 2 pulls C up into (1,3,0).
+* Left structure (slime (-1,1..3,0)) pushed west by H (0,3,0); right structure (slime (3,0..4,0)
+  + carrier (2,3,0)) pushed east by F (2,4,0); the carrier drags TM from (1,3,0) to (2,3,0).
+* ORDER (same on both edges): A1, H | pump | F | A2 | U. The pump only needs TM up and the LEFT
+  side open, so it runs before F; then A2 can be fired by F's own motion.
+  Ideal windows (mp5.sched): h 0..6, a1 <= t-3, t 5..9, tl 3..7, s 5..8 (and >= a1+5), a2 >= s+2
+  and > t, u >= t+tl+1; a double U pulse breaks the close.
+  Close: A1 pushes C from (1,3,0) down to (1,2,0) (spit), H pulls the left side back, the pump is a
+  no-op (P sits one lower), F brings TM back into (1,3,0), A2 pushes TM + C home (spit), U lifts the
+  row (spit; P rides back up).
+
+### Control (18): FLAGS = plain blocks glued to a moving slime structure, watched by an observer
+that touches no slime (an observer next to slime would be dragged). Watching the cell a flag moves
+INTO (instead of the one it leaves) is as good and frees the observer's back side.
+* Lever (0,3,-1) on the ceiling block S' (0,4,-1): powers H directly; S' feeds R_F (1,4,-1, d4,
+  floor (1,3,-1)) -> block (2,4,-1) -> F at 8.
+* Left structure moves at 1: top-left flag (-1,4,0) -> O (0,4,0) -> A (A1 at 3); bottom-left flag
+  (-1,0,0) -> O (-2,-1,0) watching (-2,0,0) -> block (-2,-2,0) -> R_P (-1,-2,0, d2 = 4gt pulse) -> P.
+* Right structure moves at 8: top-right flag (3,5,0) -> O_a (2,5,0) -> A's quasi cell (1,5,0) (A2 at
+  10); bottom-right flag (3,-1,0) -> O (3,-2,0) -> O (3,-3,0) -> O (2,-3,0) -> U (at 14).
+
+### 08:30Z mp8 = 43 blocks (25 mechanism + 18 control), opens 16 / closes 16, verified at 104 positions
+Control blocks: lever + S' (2), A1 = top-left flag + observer (2), F = repeater + floor + block (3),
+A2 = top-right flag + observer (2), pump = bottom-left flag + observer + block + d2 repeater + floor
+(5), U = bottom-right flag + 3 observers (4). `door minimize --moves all --plateau --plateau-pairs`
+and a 400-step neutral walk find nothing.
+Why each piece is still there:
+* U needs ONE 2 gt pulse after the pump ends (u >= t+tl+1 = 12); the cells next to U that are not
+  next to the lowered slime row are (2,-3,0), (1,-4,0), (1,-3,+-1), and the nearest late event is
+  the right structure's bottom flag at (3,-1,0): 3 observers is the shortest legal chain. An observer
+  watching the pump repeater or P itself would give two pulses (the second one breaks the close).
+* The pump needs >= 3 gt (a 2 gt pulse spits the row up and leaves it there), so a repeater; the
+  observer that sees the flag can only sit under the flag's destination, so its output block Y is
+  needed to feed that repeater from behind.
+* A1 cannot come from an observer on the lever while the lever also powers H directly (no cell is
+  next to the lever and has its back on A), hence the flag on the left structure.
+What fails: mp-mech order (pump after F, full slime row) needs A2 after the pump at the top and U at
+the bottom: ~23 control blocks. The reorder (only BM + the bottom-left corner ride the row, pump
+before F) is what lets F's own motion fire A2 with one observer.
+
+## Final report (08:40Z)
+* Best: **43 blocks, solid** (also the fastest solid door: opens 16, closes 16), `BEST.txt` = `mp8.txt`
+  on explore/fresh-b (built by `door gen mp6` + mp7-from-mp6.patch + mp8-from-mp7.patch); verified
+  `--extra-offsets 100 --cycles 5`.
+* Mechanism: mirrored top pump. A pulls TM up, the right structure's carrier drags it east; a pump
+  under a 2-slime row (BM + bottom-left corner) pushes C up into TM's cell and pulls the row back;
+  A pulls C up; U lowers the row (the pump piston rides it). Sides pushed from above (H west, F east).
+  All pistons retracted at rest, same order on both lever edges, fired by "flags" (plain blocks on
+  the moving side structures, watched by observers that touch no slime).
+* Path: top pump pd3 61 -> 53 (observer chains), mirrored pump mp6 46 -> 43.
+* Failed: top pump (pd3) can't go below ~50 (top/bottom/top/bottom signal order); slime-free sf1
+  (a piston's upper-spot source quasi-powers it in its lower spot); mirrored pump in the first order
+  (~48: needs a late A2 at the top). 43 is a local minimum (minimize, plateau, pairs, walk).
+* Gadgets: flag-observer, slime-rider, pump.
+* Next ideas: a U trigger closer than 3 observers (U is 3 cells from the nearest late mover); flags
+  for fc2-style designs (any piston that only needs to fire after a structure has moved costs one
+  flag + one observer).
+
+## 08:55Z flags on fc2 (fresh-c, 40) and fc2-style control on the mirrored pump: no gain found
+* fc2's P_M already fires off a moving door block (observer + block = 2); a 1-observer version needs
+  an extra slime + flag (3). Its B window (observer, block, d4 repeater, dance observer = 4) off a
+  right-structure flag costs flag + observer + d4 repeater (+ floor) + dance observer = 4-5. P_L's two
+  observers can't be replaced: nothing moves before it, and a steady lever-driven push piston must
+  sit at x=0, where X's dust support is.
+* RB shuttle on the mirrored pump (A extended at rest, Q moves the RB to F): Q + RB + d2 repeater +
+  floor (4) replace F's 3-block line: +1.
+* mp8's U chain: an observer at (2,-2,0) firing U through its quasi cell (1,-2,0) works electrically,
+  but the lowered row's slime lands in (1,-2,0) and drags that observer up on close. Every other cell
+  next to U is 2+ cells from the nearest late mover, so 3 observers stay.
+* mp8's pump path: the pump needs >= 3 gt (2 gt spits the row up), so a repeater is required, and the
+  only observer cell that sees a left-structure flag without touching slime is under the flag's
+  destination, whose output cell is not a repeater input: 5 blocks stay.

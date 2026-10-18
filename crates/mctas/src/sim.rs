@@ -165,6 +165,9 @@ pub struct StepResult {
     pub idle: Option<bool>,
     /// With `record`: the recorded region after every tick.
     pub frames: Vec<Region>,
+    /// With `signals`: after every tick, `[best, direct]` per probed position (flattened): the
+    /// best signal the position's neighbors give into it and the strong signal into it.
+    pub signals: Vec<Vec<u8>>,
 }
 
 /// What is still pending in a sandbox.
@@ -354,6 +357,20 @@ impl Worker {
         parse_region(&v, &v["data"])
     }
 
+    /// Positions in the box whose block cannot survive where it stands (`canSurvive` false):
+    /// floating levers, torches, dust, repeaters... (raw placement keeps them).
+    pub fn unsupported(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<Vec<Pos>> {
+        let v = self.call(json!({"op": "unsupported", "sandbox": sandbox, "from": from, "to": to}))?;
+        let mut out = Vec::new();
+        for p in v["positions"].as_array().cloned().unwrap_or_default() {
+            let c: Vec<i32> = p.as_array().map(|a| a.iter().filter_map(|n| n.as_i64()).map(|n| n as i32).collect()).unwrap_or_default();
+            if c.len() == 3 {
+                out.push([c[0], c[1], c[2]]);
+            }
+        }
+        Ok(out)
+    }
+
     /// Right-click a block (levers and buttons are toggled/pressed directly).
     pub fn use_block(&mut self, sandbox: u32, pos: Pos) -> Result<String> {
         let v = self.call(json!({"op": "use", "sandbox": sandbox, "pos": pos}))?;
@@ -388,6 +405,17 @@ impl Worker {
         parse_steps(&v)
     }
 
+    /// Advance `ticks` (or until idle, capped) recording, after every tick, the signal into each
+    /// of `probes` (see [`StepResult::signals`]) and optionally a region.
+    pub fn step_probe(&mut self, sandbox: u32, ticks: u32, until_idle: bool, probes: &[Pos], record: Option<(Pos, Pos)>) -> Result<StepResult> {
+        let mut req = json!({"op": "step", "sandbox": sandbox, "ticks": ticks, "until_idle": until_idle, "signals": probes});
+        if let Some((from, to)) = record {
+            req["record"] = json!({"from": from, "to": to});
+        }
+        let v = self.call(req)?;
+        Ok(parse_steps(&v)?.remove(0))
+    }
+
     pub fn status(&mut self, sandbox: u32) -> Result<Status> {
         let v = self.call(json!({"op": "status", "sandbox": sandbox}))?;
         Ok(serde_json::from_value(v)?)
@@ -415,6 +443,13 @@ impl Worker {
         Ok(())
     }
 
+    /// How many chunks around a viewer the sandbox's level sends (2 by default: a viewer sees a
+    /// 5x5-chunk area; chunks outside the sandbox are empty).
+    pub fn view_distance(&mut self, sandbox: u32, chunks: u32) -> Result<()> {
+        self.call(json!({"op": "view", "sandbox": sandbox, "chunks": chunks}))?;
+        Ok(())
+    }
+
     /// Step at a wall-clock pace so connected clients can watch.
     pub fn play(&mut self, sandbox: u32, ticks: u32, tps: f64) -> Result<()> {
         self.call(json!({"op": "play", "sandbox": sandbox, "ticks": ticks, "tps": tps}))?;
@@ -425,6 +460,21 @@ impl Worker {
     pub fn hold(&mut self, ms: u64) -> Result<()> {
         self.call(json!({"op": "hold", "ms": ms}))?;
         Ok(())
+    }
+
+    /// Signal probes now: `(best, direct)` per position: the best signal the position's neighbors
+    /// give into it (what a piston or lamp there would see) and the strong signal into it.
+    pub fn signals(&mut self, sandbox: u32, positions: &[Pos]) -> Result<Vec<(u8, u8)>> {
+        let v = self.call(json!({"op": "signals", "sandbox": sandbox, "positions": positions}))?;
+        let rows = v["signals"].as_array().ok_or_else(|| anyhow!("no signals"))?;
+        Ok(rows
+            .iter()
+            .map(|r| {
+                let a = r.as_array().cloned().unwrap_or_default();
+                let n = |i: usize| a.get(i).and_then(|x| x.as_u64()).unwrap_or(0) as u8;
+                (n(0), n(1))
+            })
+            .collect())
     }
 
     /// Manual block updates at `positions`: `neighbors` (notify the 6 neighbors), `self` (the
@@ -464,12 +514,19 @@ fn parse_steps(v: &Value) -> Result<Vec<StepResult>> {
                 frames.push(parse_region(r, f)?);
             }
         }
+        let mut signals = Vec::new();
+        if let Some(rows) = r["signals"].as_array() {
+            for row in rows {
+                signals.push(row.as_array().map(|a| a.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect()).unwrap_or_default());
+            }
+        }
         out.push(StepResult {
             sandbox: r["sandbox"].as_u64().unwrap_or(0) as u32,
             ticked: r["ticked"].as_u64().unwrap_or(0) as u32,
             time: r["time"].as_i64().unwrap_or(0),
             idle: r["idle"].as_bool(),
             frames,
+            signals,
         });
     }
     Ok(out)

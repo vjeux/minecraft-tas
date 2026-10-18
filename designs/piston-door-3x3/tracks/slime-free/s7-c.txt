@@ -1,0 +1,89 @@
+name: slime-free-combo
+port door: 0 0 0
+port lever: 1 4 -3
+origin: -2 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  F minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=north]
+  I minecraft:sticky_piston[extended=false,facing=south]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  M minecraft:sticky_piston[extended=true,facing=down]
+  N minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  .
+  ...JS
+  .
+  .
+layer -1:
+  .
+  .
+  .
+  ....B
+  .
+  .
+layer 0:
+  .
+  .
+  .
+  G.NNN.K
+  .
+  .
+layer 1:
+  .
+  .
+  .
+  G.NNN.K
+  S
+  .
+layer 2:
+  .
+  .
+  .
+  G.NNNCS
+  D
+  .
+layer 3:
+  .
+  ..S
+  ...S
+  ...P
+  B
+  ...H
+layer 4:
+  ..NL
+  ..EAC
+  ..IrA
+  ..RMs
+  oo
+  .
+layer 5:
+  .
+  ...O
+  ...B
+  ...s
+  .
+  .
+layer 6:
+  .
+  ...S
+  ...F
+  .
+  .
+  .

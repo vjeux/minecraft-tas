@@ -118,7 +118,14 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `honey-slime` | slime + honey | slime and honey never stick to each other: two touching structures move independently |
 | `rider-observer` | observer on a slime structure | an observer carried by a structure fires 2 gt after EVERY landing, out of its back wherever it landed: a structure's landings become pulses (riders r3: the left structure re-fires the shuttle piston) |
 | `rider-hold` | redstone block on a slime structure | a redstone block carried by a structure powers a piston only in one position: the piston ignores every update (its own source going away included) until the structure comes back (riders r2: the left structure holds Q) |
+| `landing-fire` | piston moved onto a powered spot | a piston pushed onto a powered cell extends as it lands (onPlace), no neighbor update needed |
+| `no-retry` | piston, moving block | a powered piston whose push line holds a moving block queues nothing and never retries when that block lands two cells away: it sits powered and retracted until a neighbor update (speed track's gotcha) |
+| `blocked-push` | 2 sticky pistons | a piston whose push line starts with an extended piston does nothing; it pushes that piston once it has retracted (fresh-c: the B window fires on both edges and is a no-op on close) |
 
+| `sculk-hold` | sculk sensor | (category sculk) a lever click or piston move within 8 blocks wakes it floor(distance) gt later; active 30 gt, then 10 gt deaf |
+| `flag-observer` | stone + observer | motion trigger (fresh-b mp6..mp8): a plain block glued to a moving slime structure, watched by an observer that touches no slime (so it is never dragged), gives one 2 gt pulse after each move, out and back; watching the cell the flag moves INTO works as well as the one it leaves |
+| `slime-rider` | retracted sticky piston | a retracted sticky piston right under a slime row rides it: pushed down when another piston pulls the row down, dragged back up when the row is pushed back, so it can pump the row from either spot (fresh-b mp6..mp8) |
+| `pump` | observer + repeater + sticky piston | a 3+ gt pulse (repeater delay 2 = 4 gt) makes a sticky piston push a 2-block line one cell and pull back only the first block: the far block advances one cell with no piston touching it (a 2 gt pulse spits the whole line instead; fresh-b mp6..mp8 move C this way) |
 * **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
   piston holds it 30 gt after a lever click (weak power on every side, strong power into the
   block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a
@@ -186,3 +193,17 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   fed by an observer pulse and by a delay-2 repeater from a SECOND observer gives a window at
   t+4..6 and t+8..12 (a 2gt hole: a repeater's turn-off tick outranks another's turn-on tick),
   vs t+10..18 for the plain pulse stretcher.
+* **Symmetric door control (fresh-c fc1/fc2):** with an A-on-B elevator, T dragged out by the
+  right structure and one shuttled redstone block (A off then P_R on / P_R off then A on), no
+  hold is needed if (1) A gets one pulse BEFORE the shuttle moves, on both edges (open: A is
+  still powered, the pulse is swallowed; close: A spits C down one cell, freeing T's cell),
+  (2) the shuttle piston is the lever through one repeater (>= 2 gt after that pulse), and
+  (3) the B window comes at the same delay on both edges: on close A is extended again and
+  B's push fails (gadget `blocked-push`). Close = spit C, T back, A pushes T and C home.
+* **Pulse-driven shuttle breaks the drag:** a 2gt pulse on the shuttle piston spits its redstone
+  block, which is then placed in the block-event phase; the piston it powers fires in that same
+  phase, before T (lifted 2 ticks earlier) has landed, so T is not dragged. Keep it steady.
+* **Pull-type pulse piston:** a sticky piston two cells from a structure (one-cell gap) pulls it
+  on the first 2 gt pulse and pushes+spits it back on the second, so a side column can be
+  pulled open from OUTSIDE its backbone (fc2's P_L at (-3,2,0): 3 backbone slimes, no pusher
+  under the walkway).

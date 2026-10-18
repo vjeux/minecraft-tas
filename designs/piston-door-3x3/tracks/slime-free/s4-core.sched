@@ -1,0 +1,28 @@
+# S4 core with ideal side/P_T pulses; the real lever drives A (shuttle), X and B.
+design designs/piston-door-3x3/tracks/slime-free/s4-core.txt
+let s = 1
+let pt = 5
+open s set -2 2 0 minecraft:redstone_block
+open s set 5 2 0 minecraft:redstone_block
+open s set 5 1 0 minecraft:redstone_block
+open s set -1 4 0 minecraft:redstone_block
+open s set 2 -2 0 minecraft:redstone_block
+open s+2 clear -2 2 0
+open s+2 clear 5 2 0
+open s+2 clear 5 1 0
+open s+2 clear -1 4 0
+open s+2 clear 2 -2 0
+open pt set 1 3 3 minecraft:redstone_block
+open pt+2 clear 1 3 3
+close s set -2 2 0 minecraft:redstone_block
+close s set 5 2 0 minecraft:redstone_block
+close s set 5 1 0 minecraft:redstone_block
+close s set -1 4 0 minecraft:redstone_block
+close s set 2 -2 0 minecraft:redstone_block
+close s+2 clear -2 2 0
+close s+2 clear 5 2 0
+close s+2 clear 5 1 0
+close s+2 clear -1 4 0
+close s+2 clear 2 -2 0
+close pt set 1 3 3 minecraft:redstone_block
+close pt+2 clear 1 3 3

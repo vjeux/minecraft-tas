@@ -1,0 +1,7 @@
+# ideal-10: real F rest/steady power. S_F (normal piston, lever-adjacent) pushes R_F from A
+# (1,4,-1) to B (2,4,-1) at k=1 on open and leaves it there on close; S_R (normal piston, 3,4,-1)
+# pushes it back at k=14 on close (on open its push is blocked by S_F's head at A).
+set 0 4 -1 minecraft:piston[extended=false,facing=east]
+set 3 4 -1 minecraft:piston[extended=false,facing=west]
+set 3 4 -3 minecraft:observer[facing=down,powered=false]
+set 3 4 -2 minecraft:observer[facing=north,powered=false]

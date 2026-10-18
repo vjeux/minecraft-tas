@@ -1,0 +1,76 @@
+name: speed-ideal-7
+port door: 0 0 0
+port lever: 0 4 -2
+origin: -3 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:obsidian
+  F minecraft:piston_head[facing=up,short=false,type=sticky]
+  G minecraft:piston_head[facing=west,short=false,type=sticky]
+  H minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  I minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
+  J minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  K minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:sticky_piston[extended=true,facing=down]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:sticky_piston[extended=true,facing=east]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:sticky_piston[extended=true,facing=up]
+  U minecraft:sticky_piston[extended=true,facing=west]
+  V minecraft:stone
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  .
+  .
+  .
+  ....R
+layer -2:
+  .
+  .
+  .
+  ....T
+layer -1:
+  .
+  .
+  .
+  ...EF
+layer 0:
+  .
+  .
+  .
+  RQpVVVGUR
+layer 1:
+  .
+  .
+  .
+  RQpVVVGUR
+layer 2:
+  .
+  .
+  .
+  RQpVVVGUR
+layer 3:
+  .....BD
+  ...VCDA
+  ....A.A
+  .EsSP.ME
+layer 4:
+  ....B
+  VVoLD
+  V.A.R
+  VV..N
+layer 5:
+  ....O
+  IH..A
+  r...A
+  JKV

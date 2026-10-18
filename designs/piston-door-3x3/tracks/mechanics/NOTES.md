@@ -126,3 +126,17 @@ the right. The right top puller's quasi cell (4,3,0) must not touch a powered bl
   ignore the middle edges (it is still on), which is why the second pulse route is worth its
   11 blocks: an observer-chain early pulse or a second repeater into B's quasi cell each break
   either the t6 X pulse or B's t12 update.
+
+## Harvest on the new bests (round 3)
+
+* fresh-c's fc2 (40, open 24 / close 9), fresh-b's mp7 (45, 16/16), my fast-57 and sculk-42 are
+  all local minima for `door minimize --moves all` (removals, pairs, moves, subs, reroutes,
+  renet, swaps; plateau where noted). None of my patches applies to fc2: its P_BM already uses
+  the observer, its B chain is 4 blocks (O_b, block, R_B, O), Q has no hold.
+* fc2 with a split B window (ideal study `fc2-split-ideal.sched`: fc2's real lever, O_a, Q, O and
+  R_B turned to delay 1; ideal pulses into R_B's input block): works for pulse 1 at t5..9 and
+  pulse 2 starting 2-4 ticks later with any length 3..8 (opens at ~21-22 instead of 24, close
+  stays 9). Needs a third observer (t6) plus a delay-3 repeater fed at t4 into R_B's input; the
+  cells around O_b/R_B's input leave no place for both (an observer cannot both watch O_b and
+  output into the block R_B reads, which sits right above O_b). Not built; the speed track
+  aims much lower (7/6).
