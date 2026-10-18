@@ -1,0 +1,6 @@
+8 workers; moves all; judge 32 positions
+[    1.7s] start: 50 blocks, open 14 close 12 ticks, passes the judge (32 positions x 3 cycles)
+[    8.5s]   436431 swaps (two blocks out, one block in nearby)
+[    8.5s] 50 blocks: 2246 removals, 0 reroutes (+0 neutral), 2429 compounds, 205 neutral edits
+[  162.4s]   441106 candidates: 893 seen, 440213 screened in 153.8s, 0 passed the screen, 0 judged, 0 passed the judge (153.8s)
+50 -> 50 blocks, written to designs/piston-door-3x3/tracks/pareto-mid/min-repU-pgF.txt

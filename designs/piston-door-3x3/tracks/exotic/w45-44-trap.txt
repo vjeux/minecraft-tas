@@ -1,0 +1,70 @@
+# exotic track: wire19sf's w45 (45, slime-free) through `door resynth --palette ...,exotic,shelf
+# --require-any`: the two observers (-1,4,-3), (0,4,-3) and the observer (-1,4,-2) of its lever
+# chain become an IRON TRAPDOOR at (-1,4,-2) plus one observer (0,4,-2): 44 blocks, open 26 /
+# close 24 (wire19sf's own 44, w45-44b, opens in 28 / closes in 26). Rotation-safe, slime-free.
+name: exotic-w45-44-trap
+port door: 0 0 0
+port lever: 1 4 -3
+origin: -2 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
+  I minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  .
+  .BCF
+layer -1:
+  .
+  .
+  .
+  .oB
+layer 0:
+  .
+  .
+  .
+  E.HHH.G
+layer 1:
+  .
+  .
+  S
+  E.HHH.G
+layer 2:
+  .
+  .
+  r
+  E.HHHCS
+layer 3:
+  .
+  .
+  B..S
+  .E
+layer 4:
+  ...L
+  .IoAC
+  BA.RA
+  ...ss
+layer 5:
+  .
+  ...O
+  oO.B
+  ...s
+layer 6:
+  .
+  ...S
+  ...D
+  .

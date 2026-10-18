@@ -28,8 +28,10 @@ crossing in front of the door must run at y >= 4 (floors at y 3) or y <= -1 (flo
 | **a1c-107.txt** | **107** | **10 / 7** | lamp-sweep a1-107 + speed-2's c1.patch (the hand route: S (-1,3,-3) -> (-1,4,-4) -> (0,4,-4) -> step up to (1,5,-4) over a new stone (1,4,-4), so the dust never touches the repeater-powered stone (1,4,-3) -> (2,4,-4) -> M (3,3,-4); 8 cells out, 8 in): equal size, the fewest-block close-7 door under the rule. (a1c-111 was my router version, +4) |
 | s4c (work) | 108 | 12 / 7 | speed-wire s4-108 + the same c1.patch: compliant at equal size too (base for a close-7-only resynth) |
 | s4c-101.txt | 101 | 12 / 7 | s4c after the first 7 replacements of `door resynth --palette block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,note --max-size 3 --max-close 7` |
-| **s4c-93.txt** | **93** | **12 / 7** | the same resynth to its end (108 -> 93, 15 replacements: the target taps for the side torches and P_M's torch, the (2,4,0) observer + (2,5,0) dot, shorter lever-net ends): **the fewest-block close-7 door under the rule** (s4 had never been resynthesized; a1-107 and o6-107 had, by lamp-sweep) |
-| **c1r-108.txt** | **108** | **9 / 7** | speed-2's c1 (112) + `door resynth` (same palette, `--max-open 9 --max-close 7`): 4 replacements (the dead note-block feeder repeater + stones, obsidian (4,3,0) + stone (5,2,0) -> one smooth stone). **Fastest open (9) and open + close (16) under the rule**, one block under speed-2's c2-109 |
+| **s4c-93.txt** | **93** | **12 / 7** | the same resynth to its end (108 -> 93, 15 replacements: the target taps for the side torches and P_M's torch, the (2,4,0) observer + (2,5,0) dot, shorter lever-net ends): the fewest-block close-7 door until s4c-91 (s4 had never been resynthesized; a1-107 and o6-107 had, by lamp-sweep) |
+| **c1r-108.txt** | **108** | **9 / 7** | speed-2's c1 (112) + `door resynth` (same palette, `--max-open 9 --max-close 7`): 4 replacements (the dead note-block feeder repeater + stones, obsidian (4,3,0) + stone (5,2,0) -> one smooth stone). One block under speed-2's c2-109 |
+| **s4c-91.txt** | **91** | **12 / 7** | s4c-93 + `door resynth --min-size 4 --max-size 4 --only=-2,3,-4:3,6,0 --max-cands 40000` (rotation-safe replacements only): repeater (-2,4,-1) + its stones (-2,3,-1), (-2,4,0), (-2,4,-2) folded into an observer (-1,4,-1) and dust (-1,3,-2) |
+| **s4c-90.txt** | **90** | **12 / 7** | the same run, later: observers (3,4,-2), (3,5,-1) + dust (3,5,-2) + stone (3,5,0) -> observer (2,5,-2) + targets (2,5,-1), (3,5,0): **the fewest-block close-7 door under the rule** |
 | a1c resynth | 107 | 10 / 7 | `door resynth` size 2..3 `--max-close 7`: nothing (lamp-sweep had already resynthesized a1) |
 | **c1r-107.txt = BEST** | **107** | **9 / 7** | c1r-108 + `door resynth --min-size 4 --max-size 6 --only=-4,2,-2:0,5,0` (Q's second-pulse chain on the west side): stone (-3,3,-1) + repeater (-3,3,0) + dot (-3,4,-1) + observer (-2,3,0) -> a waxed copper bulb (-3,4,-1) + observers (-3,4,0), (-2,4,0). **Fastest open (9) and open + close (16) under the rule** |
 | c1r-104 / -103 (work) | 104, 103 | 9 / 7 | `door minimize --moves all` on c1r-108: a lever-net renet from (3,4,-3) (-4), then o + J -> one observer (1,4,-2) (-1). Both pass the judge at 32 positions but are NOT rotation-safe (turned 90 degrees one position fails): the minimizer did not check rotations, so these land on the other board. Fixed in the tool (own commit): minimize and resynth keep rotation safety when the start design has it (`--any-rotation` opts out) |
@@ -106,7 +108,7 @@ in power at k7) pushes C down again when C lands at k7 BE.
 
 ## Report
 * Compliant fast tier (all rotation-safe, 32 positions): **c1r-107 (9 / 7, open + close 16)** and
-  **s4c-93 (12 / 7)**; a1c-107 (10 / 7) between them. Every fast door broke the new rule only
+  **s4c-90 (12 / 7)**; a1c-107 (10 / 7) between them. Every fast door broke the new rule only
   through the lever net's z = -4 staircase; speed-2's hand route (c1.patch) fixes it at equal size
   on every member of the family, the lamp-palette resynth then shrinks them (s4: 108 -> 93, never
   resynthesized before; c1: 112 -> 108 -> 107 with a size-4..6 group in Q's second-pulse chain).
