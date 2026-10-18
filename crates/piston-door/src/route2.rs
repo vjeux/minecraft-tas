@@ -1651,6 +1651,11 @@ pub struct RipOptions {
     pub extra_blocks: u32,
     /// Also rip pairs of separate groups (up to `max_rip` blocks in all).
     pub pairs: bool,
+    /// With `extra_blocks` 1: verified equal-size re-routes get a local search (`polish_secs`
+    /// each, at most `polish_max` of them).
+    pub polish: bool,
+    pub polish_secs: u64,
+    pub polish_max: usize,
 }
 
 /// One rip-up-and-re-route pass over `d`: every candidate (fewer blocks) that the static model
@@ -1828,7 +1833,35 @@ pub fn rip_and_reroute(
             }
             let _ = w.drop_sandbox(sb);
         }
+        let neutral: Vec<(Design, String)> = if o.polish {
+            edits.iter().filter(|e| e.set.len() == e.remove.len()).map(|e| (e.apply(&cur), e.desc.clone())).collect()
+        } else {
+            Vec::new()
+        };
         let found = crate::search::try_edits(pool, &cur, edits, sopts, &|m: &str| log(m));
+        let found = if found.is_empty() && !neutral.is_empty() {
+            // Plateau: every verified equal-size re-route gets a short local search.
+            let mut seen: HashSet<u64> = HashSet::new();
+            let neutral: Vec<(Design, String)> = neutral.into_iter().filter(|(x, _)| seen.insert(crate::search::design_hash(x))).collect();
+            log(&format!("polish: {} equal-size re-routes", neutral.len()));
+            let ok = validate(pool, neutral, sopts, log);
+            let mut out = Vec::new();
+            for (nd, ndesc) in ok.into_iter().take(o.polish_max) {
+                let mut popts = sopts.clone();
+                popts.deadline = Some(std::time::Instant::now() + std::time::Duration::from_secs(o.polish_secs));
+                let mut noop = |_: &Design, _: &str| -> Result<()> { Ok(()) };
+                let quiet = |_: &str| {};
+                let r = crate::search::search(pool, &nd, &popts, &quiet, &mut noop)?;
+                log(&format!("  polish {}: {} blocks", ndesc, block_count(&r)));
+                if block_count(&r) < block_count(&cur) {
+                    out.push((r, format!("{ndesc}, then local search")));
+                    break;
+                }
+            }
+            out
+        } else {
+            found
+        };
         let Some((best, desc)) = found.into_iter().next() else {
             log("no candidate passes the judge");
             return Ok(cur);

@@ -349,6 +349,14 @@ pub enum DoorCmd {
         /// source), up to --max-rip blocks in all.
         #[arg(long)]
         pairs: bool,
+        /// Plateau: re-route at equal size too, judge those designs, and give each a local search
+        /// (--moves, --polish-secs each, at most --polish-max designs).
+        #[arg(long)]
+        polish: bool,
+        #[arg(long, default_value_t = 60)]
+        polish_secs: u64,
+        #[arg(long, default_value_t = 20)]
+        polish_max: usize,
         #[arg(long)]
         archive: bool,
         #[command(flatten)]
@@ -1012,6 +1020,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             model_only,
             extra_blocks,
             pairs,
+            polish,
+            polish_secs,
+            polish_max,
             archive,
             search,
         } => {
@@ -1037,8 +1048,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 no_check,
                 rip: groups,
                 verbose: verbose || model_only,
-                extra_blocks,
+                extra_blocks: if polish { extra_blocks.max(1) } else { extra_blocks },
                 pairs,
+                polish,
+                polish_secs,
+                polish_max,
             };
             println!("{} workers; judge {} positions", pool.len(), sopts.judge.offsets.len());
             if model_only {
