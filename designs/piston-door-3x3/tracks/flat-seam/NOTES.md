@@ -62,8 +62,9 @@ the alternative when the lever cell has no room.
   watcher that sees a door block driven from the other region.
 - **8 x 8 (cd19)**: e89's row -4 is its only crossing of column x = 1 (lever -> (1,-4) -> (2,-4)
   under B', which also floors R_B and the dust that feeds the right bottom piston). Without it the
-  bottom-right (X's a2 = b1+2 / a3 = b2+4 and the right bottom piston, fed only from (4,-1)) has no
-  trigger; the T puller relay reaches only the top-right (column x = 4 is the right stack).
+  right bottom piston (fed only from (4,-1)) has no single-pulse trigger (X itself can watch B', see
+  box64's correction below); the T puller relay reaches only the top-right (column x = 4 is the
+  right stack).
 - **9 x 8 (cd19)**: same split, see "cd19 at 9x8" below.
 
 ## h45: flat43 made FULL (9 x 9) in three edits
@@ -93,12 +94,16 @@ the shrinking search that follows keeps the design inside. Pistons, the lever an
 never moved (they must already be inside). Combine with `--seamless full+hall` to keep the tier.
 57b -> s55 took 78 s (4 out-of-box blocks: 57 -> 57 -> 58 -> 57 -> 56, then 55).
 
-## Why the pist19r family (flat43, h44, s55, 57b) cannot go below 9 x 9
-- **Height >= 9 (rows y -2..6).** M's puller sits at y = -2 (pull-type, gap (1,-1)). A (1,4) faces down
-  and its quasi cell is B's own cell (1,5): every signal that powers B from its sides (0,5)/(2,5), or
-  from (1,6) itself, is the same query that quasi-powers A (identical position and direction). So B
-  can only be fed through the neighbours of (1,6): row y = 6 (flat43/h44: the repeater on top of B ->
-  dust (0,6); 57b/s55: a repeater at (0,6) pointing into (1,6)).
+## Why I could not take the pist19r family (flat43, h44, s55, 57b) below 9 x 9
+- **Height >= 9 (rows y -2..6) — WRONG, corrected by box64.** I argued: M's puller sits at y = -2,
+  A (1,4) faces down and its quasi cell is B's own cell (1,5), so anything powering B from
+  (0,5)/(2,5) also quasi-powers A, hence B only through row 6. That holds for observer/repeater feeds
+  next to B, NOT for a conductor feed: a strongly powered plain block at (2,5) (or (0,5)) arms A by
+  quasi-connectivity but its power source updates only that block's neighbours (B, (2,4), (2,6)),
+  never A, so B pushes A as usual (box64: explore/box64
+  designs/piston-door-3x3/tracks/box64/ideal/m19-88.ideal, flat m19 with every input inside
+  x -2..5, y -2..5, B from a redstone block at (2,5): WORKS 32 positions x 2 cycles). So the family
+  is not limited to 9 rows by B's feed.
 - **Width >= 9.** Each side column's bottom piston ((-2,0), (4,0)) can only be fed from (x,-1) or
   from the outer column (x = -3 / x = 5, directly or by quasi-connectivity through the middle
   piston). With the side columns, their ring gaps and M's column in the way, the bottom region is cut
@@ -107,7 +112,9 @@ never moved (they must already be inside). Combine with `--seamless full+hall` t
   fires twice per action: wrong parity) or by a repeater merger (needs a floor on row y = -3:
   outside the 9 rows). Tried in r1 (column x = 5 dropped, right bottom fed from M's watcher chain):
   BROKEN, the right bottom toggled twice per M pulse.
-- So 9 x 9 = 81 (h44) is this family's floor. cd19 (center DOWN, flat-b) has neither constraint:
+- So 9 x 9 = 81 (h44) was this family's floor in my wiring; the width argument (one outer column
+  reaches one bottom corner) still stands for wired doors, the height one does not (above).
+- cd19 (center DOWN, flat-b) has neither constraint:
   B' (1,-3) can be fed from (0,-3)/(2,-3) without touching A's quasi cell (1,-1), and the 8-row box
   y -3..4 needs only: B' driven by two 2 gt pulses instead of an 8 gt window (no repeater floor on
   y = -4), the top pullers fed from (0,4)/(3,4).
@@ -140,6 +147,12 @@ never moved (they must already be inside). Combine with `--seamless full+hall` t
   watch B's left driver: b1+2 and b2+2, the forbidden pulse), or P_M moves right (cd19.txt's
   (3,-1), M parks at (2,-1), X at (0,-1)) and then P_M (pm at a1+3..7) is the right-half job with no
   trigger. I stopped here: 9x8 needs a one-shot or a cleverer crossing.
+- **Correction (box64, explore/box64 tracks/box64/ideal/m5p.ideal):** with B's two pulses (or a
+  9..12 window) spaced 7..10 apart, a2 = b1+4 and a3 = b2+4 both work, so the right half CAN
+  derive X by only watching B' (observer next to B' -> observer -> X: b1+4, b2+4). My cd8 sweep only
+  tried gaps 5..9 with a2 swept at b1 = 12 (a2 14..15 passed there). In 9 x 8 this removes the
+  X problem; the right bottom piston can then be fed down column x = 5 from the T puller relay (late
+  is fine). 9 x 8 = 72 only ties e89b, so I did not build it.
 
 ## Log
 - `door minimize --moves all --plateau --shape flat --seamless full+hall` on 57b: nothing (48
