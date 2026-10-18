@@ -279,7 +279,7 @@ impl Node {
             // piston, quasi-connectivity included); they hold dust.
             "dispenser" | "dropper" | "crafter" => (Kind::Indicator, None, true, true),
             "powered_rail" | "activator_rail" => (Kind::Rail, below, false, true),
-            n if n.contains("glass") || n.ends_with("copper_grate") || n == "slime_block" || n == "honey_block" => (Kind::Inert, None, true, false),
+            n if n.contains("glass") || n.ends_with("copper_grate") => (Kind::Inert, None, true, false),
             // Top slabs and upside-down stairs: non-conducting dust floors, like glass.
             n if (n.contains("slab") && get("type").as_deref() == Some("top")) || (n.contains("stairs") && get("half").as_deref() == Some("top")) => {
                 (Kind::Inert, None, true, false)
@@ -287,7 +287,18 @@ impl Node {
             n if n.contains("slab") || n.contains("stairs") || n.contains("torch") || n.contains("button") || n.contains("rail") || n == "scaffolding" => {
                 (Kind::Other, None, false, false)
             }
-            _ => (Kind::Block, None, true, false),
+            // Every other plain block: conductor and floor from the game-verified redsim model
+            // (crates/redsim: `isRedstoneConductor`, `isFaceSturdy(UP)`): a slime block
+            // conducts and holds dust; honey and leaves conduct nothing and hold nothing (honey's
+            // box is inset, leaves have an empty support shape). Unknown blocks: a conductor.
+            _ => match redsim::Block::parse(state) {
+                Ok(b) => {
+                    let conductor = redsim::behavior::conductor_of(&b);
+                    let floor = redsim::behavior::sturdy_of(&b, redsim::Dir::Up, redsim::behavior::Support::Full);
+                    (if conductor { Kind::Block } else { Kind::Inert }, None, floor, false)
+                }
+                Err(_) => (Kind::Block, None, true, false),
+            },
         };
         let qc = matches!(name.as_str(), "dispenser" | "dropper");
         Node { pos, state: state.to_string(), kind, facing, support, sturdy, changes, em: Vec::new(), rd: Vec::new(), qc }.cached()
@@ -1735,5 +1746,34 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
             }
         }
         return Ok(cur);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Kind, Node, drives};
+
+    // The game's behavior behind these: crates/redsim/tests/fixtures/slime-is-a-conductor and
+    // leaves-honey-hold-nothing (real-game traces).
+
+    #[test]
+    fn slime_is_a_conductor_and_a_floor() {
+        let n = Node::new([0, 0, 0], "minecraft:slime_block");
+        assert_eq!(n.kind, Kind::Block);
+        assert!(n.sturdy);
+        // a lever on its side powers it, it powers a lamp beside it
+        let lever = Node::new([-1, 0, 0], "minecraft:lever[face=wall,facing=west,powered=false]");
+        let lamp = Node::new([1, 0, 0], "minecraft:redstone_lamp[lit=false]");
+        assert!(drives(&lever, &n));
+        assert!(drives(&n, &lamp));
+    }
+
+    #[test]
+    fn leaves_and_honey_conduct_nothing_and_hold_nothing() {
+        for s in ["minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]", "minecraft:honey_block"] {
+            let n = Node::new([0, 0, 0], s);
+            assert_eq!(n.kind, Kind::Inert, "{s}");
+            assert!(!n.sturdy, "{s}");
+        }
     }
 }
