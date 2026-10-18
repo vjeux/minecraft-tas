@@ -214,9 +214,14 @@ fn same_states(a: &Region, b: &Region) -> bool {
 /// Where the bot stands to click the lever: within reach, preferably outside the watch box (a
 /// player pushed around on the ground could make vibrations; flying in the void it makes none).
 fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
+    // Within reach of the lever; then, in order: touching no block of the build (nothing can
+    // push it, it stands on nothing, so it never steps or lands: no vibrations), outside the
+    // watch box, far from sculk sensors, close to the lever. (A bot standing on rb2s2-50b's
+    // sensor made it fire with power 15 at some flips: a player there is a real trigger.)
     let l = spec.lever;
     let inside = |p: Pos| (0..3).all(|i| p[i] >= wlo[i] && p[i] <= whi[i]);
-    let mut best: Option<(i32, f64, Pos)> = None;
+    let sensors: Vec<Pos> = d.blocks.iter().filter(|(_, s)| s.contains("sculk_sensor")).map(|(p, _)| *p).collect();
+    let mut best: Option<((i32, i32, i64, i64), Pos)> = None;
     for dx in -4..=4 {
         for dy in -4..=3 {
             for dz in -4..=4 {
@@ -224,26 +229,44 @@ fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
                 let head = [feet[0], feet[1] + 1, feet[2]];
                 let eye = [feet[0] as f64 + 0.5, feet[1] as f64 + 1.62, feet[2] as f64 + 0.5];
                 let dist = ((eye[0] - l[0] as f64 - 0.5).powi(2) + (eye[1] - l[1] as f64 - 0.5).powi(2) + (eye[2] - l[2] as f64 - 0.5).powi(2)).sqrt();
-                if dist > 4.0 {
+                if dist > 4.0 || d.blocks.contains_key(&feet) || d.blocks.contains_key(&head) {
                     continue;
                 }
-                let free = !d.blocks.contains_key(&feet) && !d.blocks.contains_key(&head);
-                if !free {
-                    continue;
+                let mut touching = 0;
+                for ox in -1..=1 {
+                    for oy in -1..=2 {
+                        for oz in -1..=1 {
+                            if d.blocks.contains_key(&[feet[0] + ox, feet[1] + oy, feet[2] + oz]) {
+                                touching += 1;
+                            }
+                        }
+                    }
                 }
-                let rank = if !inside(feet) && !inside(head) { 0 } else { 1 };
-                if best.is_none_or(|(r, bd, _)| (rank, dist) < (r, bd)) {
-                    best = Some((rank, dist, feet));
+                let sensor_dist = sensors
+                    .iter()
+                    .map(|s| (((s[0] - feet[0]).pow(2) + (s[1] - feet[1]).pow(2) + (s[2] - feet[2]).pow(2)) as f64).sqrt())
+                    .fold(f64::INFINITY, f64::min);
+                let score = (touching, if !inside(feet) && !inside(head) { 0 } else { 1 }, -(sensor_dist.min(99.0) * 100.0) as i64, (dist * 100.0) as i64);
+                if best.is_none_or(|(b, _)| score < b) {
+                    best = Some((score, feet));
                 }
             }
         }
     }
-    let p = best.map(|b| b.2).unwrap_or([l[0], l[1] + 2, l[2]]);
+    let p = best.map(|b| b.1).unwrap_or([l[0], l[1] + 2, l[2]]);
     [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5]
 }
 
 /// Right-click the lever with the bot and wait until it shows the new state.
 fn flip(v: &mut VanillaServer, lever: Pos, on: bool) -> Result<()> {
+    if !v.test_block(lever, "minecraft:lever")? {
+        // The lever is gone (a broken build popped it). The judge then right-clicks whatever is
+        // there with a mock player (nothing, for air); the bot does the same and moves on.
+        v.bot_use(lever, 1)?;
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        v.cmd("list")?;
+        return Ok(());
+    }
     v.bot_use(lever, 1)?;
     let t0 = std::time::Instant::now();
     loop {
@@ -254,7 +277,9 @@ fn flip(v: &mut VanillaServer, lever: Pos, on: bool) -> Result<()> {
             bail!("bot: {e}");
         }
         if t0.elapsed() > std::time::Duration::from_secs(15) {
-            bail!("the bot's click on the lever {lever:?} did not flip it (reach? spawn protection?)");
+            let now = v.snapshot(lever, lever).ok().and_then(|s| s.region.get(lever).map(|x| x.to_string())).unwrap_or_default();
+            let at = v.bot.as_ref().map(|b| b.position()).unwrap_or_default();
+            bail!("the bot's click on the lever {lever:?} did not flip it: the cell holds {now}; bot at {at:?}");
         }
         std::thread::sleep(std::time::Duration::from_millis(3));
     }
@@ -313,7 +338,15 @@ fn vanilla_run(v: &mut VanillaServer, placed: &[(Pos, String)], d: &Design, spec
         clean(v, plo, phi)?;
     }
     clean(v, wlo, whi)?;
-    let spot = bot_spot(d, spec, wlo, whi);
+    let mut spot = bot_spot(d, spec, wlo, whi);
+    // Experiments: MCTAS_BOT_OFFSET=dx,dy,dz puts the bot's feet at lever + offset.
+    if let Some(o) = std::env::var("MCTAS_BOT_OFFSET").ok().and_then(|s| {
+        let v: Vec<i32> = s.split(',').filter_map(|t| t.trim().parse().ok()).collect();
+        (v.len() == 3).then(|| [v[0], v[1], v[2]])
+    }) {
+        let l = spec.lever;
+        spot = [(l[0] + o[0]) as f64 + 0.5, (l[1] + o[1]) as f64, (l[2] + o[2]) as f64 + 0.5];
+    }
     v.teleport_bot(spot[0], spot[1], spot[2])?;
     v.dirty = Some((wlo, whi));
     for (p, s) in placed {
@@ -328,7 +361,11 @@ fn vanilla_run(v: &mut VanillaServer, placed: &[(Pos, String)], d: &Design, spec
     for i in 0..opts.cycles as usize {
         let s = sim.cycles.get(i);
         let mut c = CycleRun::default();
-        flip(v, spec.lever, true)?;
+        if let Err(e) = flip(v, spec.lever, true) {
+            // Say what vanilla's rest looked like next to the simulator's (bare names unexpanded).
+            let d = frame_diff(&sim.rest, &rest, 6);
+            bail!("{e:#} | vanilla rest vs simulator rest: {}", if d.is_empty() { "same".into() } else { d.join("; ") });
+        }
         let t = s.and_then(|s| target(&s.open, s.open_idle));
         (c.open, c.open_idle, c.open_pending) = vanilla_record(v, wlo, whi, opts.max_ticks, t)?;
         c.open_entities = v.count_entities("@e[type=!minecraft:player]")?;
@@ -542,6 +579,33 @@ pub fn check(w: &mut Worker, v: &mut VanillaServer, oracle: &mut Oracle, design:
     if !illegal.is_empty() {
         bail!("illegal design: {}", illegal.join("; "));
     }
+    // A file that is not its own rest state relies on the judge's `self` update (wire powers
+    // recomputed, pistons re-checked) which vanilla has no command for: check its rest state.
+    let rested;
+    let full = |w: &mut Worker, oracle: &mut Oracle, s: &str| -> Result<String> {
+        let mut r = Region { from: [0, 0, 0], size: [1, 1, 1], palette: vec![s.to_string()], flags: Vec::new(), data: vec![0] };
+        oracle.apply(w, &mut [&mut r])?;
+        Ok(r.palette[0].clone())
+    };
+    let design = match rest_state(w, design)? {
+        Some(r) if r.blocks != design.blocks => {
+            // Bare names in the file (`minecraft:sculk_sensor`) are the full default states.
+            let mut n = design.blocks.keys().filter(|p| !r.blocks.contains_key(*p)).count();
+            for (p, s) in &r.blocks {
+                match design.blocks.get(p) {
+                    Some(f) if f == s => {}
+                    Some(f) if !f.contains('[') && full(w, oracle, f)? == *s => {}
+                    _ => n += 1,
+                }
+            }
+            if n > 0 {
+                println!("  note: {} is not at rest as written ({n} cells change when the judge settles it); checking its rest state", design.name);
+            }
+            rested = r;
+            &rested
+        }
+        _ => design,
+    };
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let mut out = Vec::new();
     for off in &opts.offsets {
@@ -616,4 +680,115 @@ pub fn verdict_str(v: &std::result::Result<Vec<(u32, u32)>, String>) -> String {
             format!("FAIL ({short}{})", if e.chars().count() > 160 { "..." } else { "" })
         }
     }
+}
+
+/// The settled state of a design in the simulator (judge's placement sequence), read back over
+/// its bounds plus a margin so blocks that moved are kept; `None` unless it settles and placing
+/// the result again changes nothing (a true rest state). Used to make fuzz cases start at rest
+/// (vanilla has no equivalent of the judge's `self` update).
+pub fn rest_state(w: &mut Worker, d: &Design) -> Result<Option<Design>> {
+    let once = |w: &mut Worker, d: &Design, allow_drops: bool| -> Result<Option<Region>> {
+        let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+        let blocks = d.block_list();
+        w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+        let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+        w.update(sb, &wires, "shape")?;
+        let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
+        w.update(sb, &positions, "self")?;
+        let settle = w.step_until_idle(sb, 400)?;
+        let (lo, hi) = d.bounds().context("empty design")?;
+        let r = w.get_region(sb, [lo[0] - 4, lo[1] - 4, lo[2] - 4], [hi[0] + 4, hi[1] + 4, hi[2] + 4])?;
+        let entities = w.entities(sb)?.len();
+        let _ = w.drop_sandbox(sb);
+        Ok((settle.idle == Some(true) && (allow_drops || entities == 0)).then_some(r))
+    };
+    let Some(r) = once(w, d, true)? else { return Ok(None) };
+    let mut out = Design { name: d.name.clone(), meta: d.meta.clone(), ports: d.ports.clone(), blocks: Default::default() };
+    for (p, s) in r.blocks() {
+        if s.starts_with("minecraft:moving_piston") {
+            return Ok(None);
+        }
+        out.blocks.insert(p, s);
+    }
+    let Some(again) = once(w, &out, false)? else { return Ok(None) };
+    let same = r.iter().all(|(p, s)| again.get(p) == Some(s)) && again.iter().all(|(p, s)| r.get(p) == Some(s));
+    Ok(same.then_some(out))
+}
+
+/// A random small contraption for differential fuzzing (not a door): a 6x5x6 box of solid
+/// blocks, slime/honey, pistons, observers, repeaters, dust, torches, redstone blocks, lamps,
+/// targets, waxed copper bulbs, note blocks, glazed terracotta, obsidian and sand, plus a lever
+/// on a stone block. The `door` port sits at the box corner only so the watch box covers it.
+pub fn fuzz_design(seed: u64) -> Design {
+    let mut s = seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1;
+    let mut next = move |n: u64| {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        s % n
+    };
+    let dirs = ["north", "south", "east", "west", "up", "down"];
+    let hdirs = ["north", "south", "east", "west"];
+    let mut d = Design { name: format!("fuzz-{seed}"), ..Default::default() };
+    for x in 0..6 {
+        for y in 0..5 {
+            for z in 0..6 {
+                if next(100) >= 28 {
+                    continue;
+                }
+                let f = dirs[next(6) as usize];
+                let h = hdirs[next(4) as usize];
+                let state = match next(24) {
+                    0..=3 | 20..=23 => "minecraft:stone".to_string(),
+                    4 => "minecraft:slime_block".to_string(),
+                    5 => "minecraft:honey_block".to_string(),
+                    6 => format!("minecraft:sticky_piston[extended=false,facing={f}]"),
+                    7 => format!("minecraft:piston[extended=false,facing={f}]"),
+                    8 => format!("minecraft:observer[facing={f},powered=false]"),
+                    9 => format!("minecraft:repeater[delay={},facing={h},locked=false,powered=false]", 1 + next(4)),
+                    10 | 11 => "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".to_string(),
+                    12 => "minecraft:redstone_torch[lit=true]".to_string(),
+                    13 => format!("minecraft:redstone_wall_torch[facing={h},lit=true]"),
+                    14 => "minecraft:redstone_block".to_string(),
+                    15 => "minecraft:redstone_lamp[lit=false]".to_string(),
+                    16 => "minecraft:target[power=0]".to_string(),
+                    17 => "minecraft:waxed_copper_bulb[lit=false,powered=false]".to_string(),
+                    18 => format!("minecraft:white_glazed_terracotta[facing={h}]"),
+                    _ => ["minecraft:obsidian", "minecraft:sand", "minecraft:note_block[instrument=harp,note=0,powered=false]"][next(3) as usize].to_string(),
+                };
+                d.blocks.insert([x, y, z], state);
+            }
+        }
+    }
+    // The lever sits on a random stone block of the box that touches a redstone component (it
+    // strongly powers that block, so it drives the component); on top of the box if none.
+    let active = |s: &str| {
+        ["redstone_wire", "repeater", "piston", "redstone_torch", "redstone_wall_torch", "redstone_lamp", "target", "copper_bulb", "note_block"]
+            .iter()
+            .any(|k| s.contains(k))
+    };
+    let supports: Vec<Pos> = d
+        .blocks
+        .iter()
+        .filter(|(p, s)| {
+            s.as_str() == "minecraft:stone"
+                && !d.blocks.contains_key(&[p[0], p[1] + 1, p[2]])
+                && [[1, 0, 0], [-1, 0, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+                    .iter()
+                    .any(|o| d.blocks.get(&[p[0] + o[0], p[1] + o[1], p[2] + o[2]]).is_some_and(|n| active(n)))
+        })
+        .map(|(p, _)| *p)
+        .collect();
+    let lever = if supports.is_empty() {
+        let l = [next(6) as i32, 5, next(6) as i32];
+        d.blocks.insert([l[0], 4, l[2]], "minecraft:stone".to_string());
+        l
+    } else {
+        let p = supports[next(supports.len() as u64) as usize];
+        [p[0], p[1] + 1, p[2]]
+    };
+    d.blocks.insert(lever, format!("minecraft:lever[face=floor,facing={},powered=false]", hdirs[next(4) as usize]));
+    d.ports.insert("lever".to_string(), lever);
+    d.ports.insert("door".to_string(), [0, 0, 0]);
+    d
 }
