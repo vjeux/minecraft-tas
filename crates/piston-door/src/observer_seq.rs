@@ -14,6 +14,7 @@ pub fn build(name: &str) -> Option<Design> {
         "obs-d2" => Some(d2()),
         "obs-d3" => Some(d3()),
         "obs-e1m" => Some(e1_mech()),
+        "obs-s1" => Some(s1()),
         _ => None,
     }
 }
@@ -65,11 +66,17 @@ pub fn d3() -> Design {
     let mut b = Builder::default();
     b.d.name = "piston-door-3x3-obs-d3".into();
     mech_bottom_inner(&mut b);
+    top_d3(&mut b);
+    b.d
+}
+
+/// d3's top: Otl (A on both lever edges), window, lock + lever, park observer, late A.
+fn top_d3(b: &mut Builder) {
     // A on both lever edges: left column top observer.
-    put(&mut b, &[([0, 3, 0], &observer("down")), ([0, 4, 0], STONE)]);
+    put(b, &[([0, 3, 0], &observer("down")), ([0, 4, 0], STONE)]);
     // Window: R_B (1,5,-1) flows south into B; O (2,5,0) watches B -> D1 (3,5,0) -> X (2,4,0).
     put(
-        &mut b,
+        b,
         &[
             ([1, 5, -1], &repeater("south", 4)),
             ([1, 4, -1], FLOOR),
@@ -82,7 +89,7 @@ pub fn d3() -> Design {
     );
     // Lock: lever on (-2,5,-1), torch (-1,5,-1), RL (0,5,-1) into R_B's west side.
     put(
-        &mut b,
+        b,
         &[
             ([-2, 5, -1], FLOOR),
             ([-2, 6, -1], "minecraft:lever[face=floor,facing=west,powered=false]"),
@@ -94,7 +101,7 @@ pub fn d3() -> Design {
     b.port("lever", [-2, 6, -1]);
     // Park observer (1,3,-2) -> (1,3,-3) -> dust up to R_B's input (1,5,-2).
     put(
-        &mut b,
+        b,
         &[
             ([1, 3, -2], &observer("south")),
             ([1, 3, -3], FLOOR),
@@ -105,7 +112,7 @@ pub fn d3() -> Design {
     );
     // Late A: (1,5,-2) -> (2,5,-2) -> (3,5,-2) -> repeater (3,5,-1) south into D1.
     put(
-        &mut b,
+        b,
         &[
             ([2, 5, -2], WIRE),
             ([2, 4, -2], FLOOR),
@@ -115,8 +122,91 @@ pub fn d3() -> Design {
             ([3, 4, -1], FLOOR),
         ],
     );
+}
+
+/// s1: slime-free. Side columns pulled out by two stacks of 3 toggle pistons (x=-2 and x=4),
+/// each stack fed by ONE dust (line end pointing into the top piston; its floor powers the middle
+/// one and quasi-powers the bottom one). d3's top (Otl for A, window, lock, park, late A), the
+/// left column's bottom observer for P_BM, P_T from Otl's output through three 1-tick repeaters.
+pub fn s1() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-obs-s1".into();
+    for y in 0..3 {
+        for x in 0..3 {
+            b.set([x, y, 0], STONE);
+        }
+        b.set([-2, y, 0], &sticky("east"));
+        b.set([4, y, 0], &sticky("west"));
+    }
+    b.set([1, -2, 0], &sticky("up")); // P_BM
+    b.set([1, 4, 0], &sticky("down")); // A
+    b.set([1, 5, 0], &sticky("down")); // B
+    b.set([1, 3, 1], &sticky("north")); // P_T
+    b.port("door", [0, 0, 0]);
+    top_d3(&mut b);
+    put(
+        &mut b,
+        &[
+            // P_BM from the bottom-left stone
+            ([0, -1, 0], &observer("up")),
+            ([0, -2, 0], STONE),
+            // stack feeds: line ends pointing into the top pistons
+            ([-3, 2, 0], WIRE),
+            ([-3, 1, 0], FLOOR),
+            ([5, 2, 0], WIRE),
+            ([5, 1, 0], FLOOR),
+            // P_T: (0,4,0) -> rep (0,4,1) S -> rep (0,4,2) S -> dust (0,4,3),(1,4,3) -> rep (1,4,2) N
+            ([0, 4, 1], &repeater("south", 1)),
+            ([0, 3, 1], FLOOR),
+            ([0, 4, 2], &repeater("south", 1)),
+            ([0, 3, 2], FLOOR),
+            ([0, 4, 3], WIRE),
+            ([0, 3, 3], FLOOR),
+            ([1, 4, 3], WIRE),
+            ([1, 3, 3], FLOOR),
+            ([1, 4, 2], &repeater("north", 1)),
+            ([1, 3, 2], FLOOR),
+            // OL watches the lever, outputs west into the start dust
+            ([-3, 6, -1], &observer("east")),
+            ([-4, 6, -1], WIRE),
+            ([-4, 5, -1], FLOOR),
+        ],
+    );
+    for (p, s) in S1_ROUTES {
+        b.set(*p, s);
+    }
     b.d
 }
+
+/// Router output: OL's dust to the left stack feed; the P_T chain's dust to the right one.
+const S1_ROUTES: &[(Pos, &str)] = &[
+    ([-5, 4, -1], FLOOR),
+    ([-5, 5, -1], WIRE),
+    ([-6, 3, -1], FLOOR),
+    ([-6, 4, -1], WIRE),
+    ([-6, 2, 0], FLOOR),
+    ([-6, 3, 0], WIRE),
+    ([-5, 1, 0], FLOOR),
+    ([-5, 2, 0], WIRE),
+    ([-4, 1, 0], FLOOR),
+    ([-4, 2, 0], WIRE),
+    ([2, 3, 3], FLOOR),
+    ([2, 4, 3], WIRE),
+    ([3, 2, 3], FLOOR),
+    ([3, 3, 3], WIRE),
+    ([3, 1, 2], FLOOR),
+    ([3, 2, 2], WIRE),
+    ([4, 0, 2], FLOOR),
+    ([4, 1, 2], WIRE),
+    ([5, -1, 2], FLOOR),
+    ([5, 0, 2], WIRE),
+    ([5, -1, 1], FLOOR),
+    ([5, 0, 1], WIRE),
+    ([6, 0, 1], FLOOR),
+    ([6, 1, 1], WIRE),
+    ([6, 1, 0], FLOOR),
+    ([6, 2, 0], WIRE),
+];
 
 const STONE: &str = "minecraft:stone";
 const SLIME: &str = "minecraft:slime_block";
