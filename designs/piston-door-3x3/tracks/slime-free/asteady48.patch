@@ -1,0 +1,6 @@
+# fresh-c close on the 48: A extended at rest (steady, needs a fast-off/slow-on source: grow it),
+# P_T = NOT(R1) only (R_P + its floor removed; R1 lever+d4 -> torch off at 10 on both edges)
+clear 1 4 0
+set 1 4 0 minecraft:sticky_piston[extended=true,facing=down]
+clear 3 4 1
+clear 3 3 1

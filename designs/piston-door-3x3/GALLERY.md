@@ -18,13 +18,13 @@ The night, board by board (records from the archive):
 
 **40 blocks**, solid, opens in 24 ticks, closes in 9 (worst cycle): [fc2-40b](archive/fc2-40b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4)). Agent fresh-c, "symmetric control": open and close run the SAME signal chain at the same delays, so there is no hold at all: an observer on the lever pulses the center piston A 2 ticks after each flip (swallowed on open, it pushes the center down on close), the shuttle piston Q is the lever through one repeater (its redstone block powers A at rest, then the right piston, which drags the top-middle block out), and the B window fires on both edges but is harmlessly blocked on close; fc2 makes the left pusher a pull-type pulse piston west of its backbone, fired by two observers off the lever (opens in 24 ticks, closes in 9).
 
-## Solid, no slime or honey: 48 blocks
+## Solid, no slime or honey: 45 blocks
 
 Not a single slime or honey block anywhere.
 
-![slime-free-combo-48b](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-combo-48b.gif)
+![slime-free-s7-45b](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-s7-45b.gif)
 
-**48 blocks**, solid, slime-free, opens in 24 ticks, closes in 50 (worst cycle): [slime-free-combo-48b](archive/slime-free-combo-48b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-combo-48b.mp4)). Agent slime-free, no slime or honey anywhere: logic-min's slime-free 50 (each side column on sticky pistons retracted at rest, fired by observer pulses; the right column fed by an observer + dust; a torch quasi-powers the top piston) combined with this track's left side, where the top-left door block goes UP into a puller fired by an observer chain, and a B-chain link re-grown by `door grow`.
+**45 blocks**, solid, slime-free, opens in 24 ticks, closes in 14 (worst cycle): [slime-free-s7-45b](archive/slime-free-s7-45b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-s7-45b.mp4)). From agent slime-free; see [tracks/slime-free/NOTES.md](tracks/slime-free/NOTES.md).
 
 Every record of this board in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
@@ -48,11 +48,11 @@ The 9 door blocks are sand, gravel or concrete powder.
 
 Every record of this board in one video: [gravity-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.jpg)).
 
-## Fastest solid: 139 blocks
+## Fastest solid: 134 blocks
 
 Fewest game ticks to open plus close (worst cycle), ties by blocks.
 
-![speed-wire-w2-139b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w2-139b.gif)
+![speed-wire-w6-134b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w6-134b.gif)
 
-**139 blocks**, solid, slime-free, opens in 12 ticks, closes in 14 (worst cycle): [speed-wire-w2-139b](archive/speed-wire-w2-139b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w2-139b.mp4)). Agent speed, built for ticks instead of blocks: the top-middle block leaves into its exit cell first, a pusher shoves a sticky puller into that exit, the puller and a fixed piston above it pull the center out in two quick moves (1-tick pulses), and the close runs it backwards with spits; opens in 12 ticks, closes in 14.
+**134 blocks**, solid, slime-free, opens in 12 ticks, closes in 7 (worst cycle): [speed-wire-w6-134b](archive/speed-wire-w6-134b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w6-134b.mp4)). From agent speed; see [tracks/speed/NOTES.md](tracks/speed/NOTES.md).
 

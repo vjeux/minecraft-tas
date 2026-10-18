@@ -1,97 +1,265 @@
 # 3x3 piston door
 
+The goal is the 3x3 piston door with the fewest blocks, built from first principles against the
+real game code. The record is **40 blocks**:
+[fc2](../designs/piston-door-3x3/archive/fc2-40b.txt), by the fresh-c agent on the night of
+2026-10-18 ([GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.gif),
+[video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4)). The story
+of that night is in [overnight-2026-10-18.md](overnight-2026-10-18.md). Rankings are in
+[LEADERBOARD.md](../designs/piston-door-3x3/LEADERBOARD.md), the best of each board as a GIF in
+[GALLERY.md](../designs/piston-door-3x3/GALLERY.md), and every verified design in the
+[archive](../designs/piston-door-3x3/archive/README.md).
+
 ## The rules (what `mctas door verify` checks)
 
-A design names two ports: `door` (the minimum corner of the 3x3 opening, which lies in the
-plane `z = door.z`) and `lever`.
+A design names two ports: `door`, the minimum corner of the 3x3 opening, and `lever`. The opening
+lies in the plane `z = door.z` and spans x and y from that corner to +2. The checks live in
+`crates/piston-door/src/lib.rs`.
 
-* At rest (lever off) the 9 door cells hold **9 identical plain full blocks** (no slime, honey,
-  pistons, redstone or other mechanism blocks), and the walkway (the opening extended 3 blocks
-  in front of and behind the door) has no collision.
-* After the lever is switched on and everything settles, the 9 door cells and the walkway are
-  walkable.
-* After the lever is switched off and everything settles, every block of the build is back
-  exactly where it was (same states, after canonicalizing wire shapes), with no entities
-  (nothing dropped).
-* All of that for 3 cycles, at 4 different world offsets (redstone dust update order is
-  position dependent, so a design that only works at one position is rejected).
+* **Legal blocks.** Nothing a survival player cannot place: no command or structure blocks,
+  barriers, light, bedrock, spawners, portals, `moving_piston`, fire, infested blocks... (the
+  `FORBIDDEN` list), and no piston head without its extended piston. Every other block and
+  mechanic is allowed.
+* **It settles.** The design is placed as written, wire shapes are computed, and every block gets
+  one update. It must then go idle.
+* **Closed at rest:**
+  * the 9 door cells hold 9 identical full blocks, and none is a mechanism block (slime, honey,
+    pistons, observers, redstone blocks, lamps, targets, repeaters, comparators, dust, torches,
+    levers, dispensers, droppers, hoppers, note blocks, TNT);
+  * the **walkway** has no collision. It is the opening extended 3 blocks in front of and 3 behind
+    the door, 54 cells;
+  * the `lever` port holds an unpowered lever.
+* **Open.** The lever is right-clicked and the build runs until idle. Then the 9 door cells and the
+  walkway must have no collision and hold no moving block, with no entities.
+* **Close.** The lever is right-clicked again and the build runs until idle. Then the door cells
+  must hold their rest blocks, the whole watched box (the design plus the walkway plus a 2-block
+  margin) must be identical to the rest state, and there must be no entities (nothing broke or
+  dropped).
+* **3 cycles at every position.** Dust updates its neighbors in a position-dependent order, so a
+  door must work wherever it stands. Plain `verify` uses 4 world offsets. A record counts only if
+  `door verify <design> --extra-offsets 28` passes from main's code: 32 positions.
+* **Score**: the number of non-air blocks, piston heads excluded.
 
-The score is the number of non-air blocks, piston heads excluded.
+## Categories and boards
 
-## v2: the "UP dance"
+`door verify` prints `category solid|gravity|sculk` and `, slime-free` when it applies.
+`mctas door leaderboard` verifies every design on main and on the agents' `explore/*` branches with
+main's verifier and writes the boards.
+
+* **solid**: the main ranking. Everything that is neither gravity nor sculk.
+* **gravity**: the door blocks are sand, red sand, gravel, suspicious sand or gravel, or concrete
+  powder. Such a door can fall, so it ranks separately.
+* **sculk**: the design contains a sculk sensor. Footsteps or mobs nearby can trigger one, so it
+  ranks separately. Gravity wins if both apply.
+* **Solid, no slime or honey**: a board, not a category. It lists solid designs with no slime or
+  honey block anywhere.
+* **Walkway clutter**: blocks without collision (dust, torches, levers, rails...) may stand in the
+  walkway. The boards show how many do at rest; "clean" means none.
+* **Speed boards**: fastest open, fastest close and fastest open + close, for any category and for
+  solid only. Ties go to fewer blocks.
+  * open = the first tick after the flip from which the door cells and walkway stay walkable (a
+    moving block counts as blocking);
+  * close = the first tick from which the 9 door cells hold their rest blocks;
+  * both are the worst of the 3 cycles at the first position (the design as written). Other
+    positions can differ by a few ticks: gravity g10 opens in 3 to 7 depending on where it stands.
+
+## The current best: fc2 (40 blocks)
+
+Open 24 ticks, close 9 (idle at 26 / 24). Below, t is game ticks after the lever flip, read from
+`mctas door trace designs/piston-door-3x3/archive/fc2-40b.txt --close`.
+
+### Layout
 
 ```
-            B        sticky, facing down, retracted
-            A        sticky, facing down, extended (head on T)
-      .  T  .        top row:    T = top-middle
- s  #  C  #  s       middle row: C = center
- s  #  M  #  s       bottom row: M = bottom-middle
- s  #     #  s
+z = 0, the door plane (x grows to the right, y up)        z = 1 (south of it, above the walkway)
+
+  y\x  -3 -2 -1  0  1  2  3                                 y\x  -3 -2 -1  0  1
+   6    .  .  j  w  .  .  .                                  4    .  K  q  Q  $
+   5    .  .  b  o  B  .  .                                  3    .  .  k  .  .
+   4    l  L  a  X  A  F  s
+   3    p  .  .  f  h  s  s
+   2    P  .  s  #  T  #  s
+   1    .  .  s  #  C  #  s
+   0    .  .  s  #  M  #  s
+  -1    .  .  .  .  .  m  .
+  -2    .  .  .  .  G  g  .
 ```
 
-* The left and right columns (3 blocks each) are glued to slime backbones and pulled
-  sideways by one sticky piston per side.
-* M is pulled down by a sticky piston below it.
-* T is pulled up by A. A second sticky piston behind the wall (P_T) then pulls T back one
-  block, out of A's way.
-* C has to climb two cells, and the only piston above it is A. So A rides on B. B pushes A
-  down one cell. An observer pulse makes A extend and retract, which pulls C up one cell.
-  B pulls A back up, and a second pulse pulls C up again. Both pulses come from one observer
-  watching the repeater that powers B, so every B edge fires exactly one A pulse.
-* The observer lights a dust cross next to A. The dust powers A directly when A is up. When
-  A is down, it powers A through the block under the dust. That path also updates A
-  (second-order dust updates), which matters: a quasi-connected source alone would leave A
-  stuck extended.
-* Closing runs the dance backwards. B pushes A and C down together. The pulse makes A push C
-  into the center, and the pulse ends while C is still moving, so A drops it there. B lifts
-  A, P_T pushes T back, and A pushes T into the door.
+| symbol | name | block, at (x, y, z) | job |
+|---|---|---|---|
+| `#` `T` `C` `M` | door | 9 stone, x 0..2, y 0..2, z 0 | T top-middle (1,2,0), C center (1,1,0), M bottom-middle (1,0,0) |
+| `s` | left structure | 3 slime at (-1, 0..2, 0) | glued to the left door column |
+| `s` | right structure | 6 slime at (3, 0..4, 0) and (2,3,0) | glued to the right door column. (2,3,0) drags T |
+| `P` | P_L | sticky piston facing east, retracted, (-3,2,0) | pull-type pulse piston, one cell from the left backbone |
+| `F` | P_R | sticky piston facing east, retracted, (2,4,0) | pushes the right structure east while RB powers it |
+| `A` `h` | A | sticky piston facing down, extended, (1,4,0), head on T | lifts T, then pulls C up twice |
+| `B` | B | sticky piston facing down, retracted, (1,5,0) | the elevator: moves A down one cell and back |
+| `G` | P_M | sticky piston facing up, retracted, (1,-2,0) | pull-type pulse piston, one cell below M |
+| `Q` `$` | Q, RB | sticky piston facing east (0,4,1), redstone block (1,4,1) | RB powers A at rest; pushed to (2,4,1) it powers P_R |
+| `L` `K` | lever | lever at (-2,4,0) on the wall of stone K (-2,4,1) | the input |
+| `q` `k` | R_q | repeater, delay 2, at (-1,4,1), floor k | Q = the lever, 4 gt later, on both edges |
+| `a` | O_a | observer watching the lever, (-1,4,0) | p0: a 2 gt pulse into X 2 gt after each flip |
+| `X` `f` | X | dust (an east-west line) at (0,4,0), floor f | powers A up top directly, and A one cell lower through f |
+| `b` `j` | O_b, J | observer watching O_a (-1,5,0), stone (-1,6,0) | a 2 gt pulse at t4 into R_B |
+| `w` | R_B | repeater, delay 4, at (0,6,0) | stretches it to the B window t12-20, into B's quasi cell (1,6,0) |
+| `o` | O | observer watching R_B, (0,5,0) | A's two dance pulses into X (t14, t22) |
+| `l` `p` | P_L's observers | observer watching the lever (-3,4,0), observer watching it (-3,3,0) | a 2 gt pulse into P_L at t4 |
+| `m` `g` | O_m | observer watching the bottom-right door block (2,-1,0), smooth stone (2,-2,0) | a 2 gt pulse into P_M 2 gt after that block moves |
 
-Timing (game ticks after the lever flip):
+**Budget:** 25 mechanism blocks (door 9, left 3 slime + P_L, right 6 slime + P_R, A, B, P_M, Q,
+RB) + 15 control blocks:
 
-| | open | close |
-|---|---|---|
-| sides + M (NOT lever) | 2 | 2 |
-| A loses power (lifts T) | ~6 | n/a |
-| P_T (NOR of L+8, L+28) | 10 | 30 |
-| B window (observer on the lever, stretched to 8gt) | 14..22 | 14..22 |
-| A gets power back (late chain) | n/a | 34 |
+| control | blocks |
+|---|---|
+| lever + its block | 2 |
+| R_q + floor | 2 |
+| O_a | 1 |
+| X + floor | 2 |
+| O_b + J | 2 |
+| R_B + O | 2 |
+| P_L's two observers | 2 |
+| O_m + block | 2 |
+
+### Opening
+
+| t | what happens |
+|---|---|
+| 2 | O_a pulses X. A is still powered by RB, so nothing moves |
+| 4 | R_q fires Q, which pushes RB east. A loses power at once and retracts, lifting T to (1,3,0). P_L reaches into its gap |
+| 6 | P_L retracts and pulls the left structure west: the left column is open. T lands at (1,3,0). RB lands next to P_R |
+| 7 | P_R pushes the right structure east, and its slime (2,3,0) drags T along to (2,3,0) |
+| 9-11 | O_m saw the bottom-right block leave. P_M reaches up and pulls M down to (1,-1,0) |
+| 12 | R_B starts the B window. B pushes A down into (1,3,0), the cell T left |
+| 14-16 | O pulses X. A, powered through X's floor, extends and pulls C up into (1,2,0) |
+| 20 | The window ends. B lifts A back to (1,4,0) |
+| 22-24 | O pulses X again. A pulls C up into (1,3,0): **open at 24** |
+
+### Closing
+
+| t | what happens |
+|---|---|
+| 2 | O_a pulses X. A extends and pushes C from (1,3,0) down into (1,2,0) |
+| 4 | The pulse ends while C is moving, so A leaves it at (1,2,0) (a spit). R_q turns off and Q pulls RB back. P_R loses power and pulls the right structure home, bringing T back to (1,3,0). P_L pushes the left structure home and spits it |
+| 6 | Everything lands and RB is next to A again. O_m saw the bottom-right block return, so P_M pushes M up and spits it |
+| 7 | A extends and pushes T and C down together, to (1,2,0) and (1,1,0) |
+| 9 | They land: **closed at 9** |
+| 12-24 | The B window fires again, but B's push fails against the extended A (gadget [blocked-push](../designs/gadgets/blocked-push.drive)). O's pulses at 14 and 22 reach an A that is already powered. Idle at 24 |
+
+### Why it needs no hold
+
+The rb doors before it (rb6-bmobs, 47) hold Q extended for 16 gt after the lever goes off, using
+a 7-block silent hold. They need it because their close runs the whole B dance backwards before T
+may come back. fc2 closes the way observer-seq's slime-free doors do: A pushes C down one cell, T
+comes back, and A pushes T and C home together. Every signal comes from one chain with the same
+delays on both lever edges:
+
+* **p0** (O_a, 2 gt after each flip). On open, A is still powered and swallows it. On close, A
+  pushes C down one cell, which frees T's waypoint (1,3,0).
+* **Q** is the lever through one delay-2 repeater. On open, RB leaves A (A lifts T) and lands next
+  to P_R 2 gt later, after T has landed, so P_R drags it. On close, RB's return makes P_R pull T
+  back at once, and RB lands next to A, which pushes T and C home and stays extended.
+* **The B window** comes at the same delay on both edges. On open it runs the UP dance. On close,
+  A is extended (immovable), so B's push and O's pulses do nothing.
+
+fresh-c's ideal-input sweep
+([fc-sym.sched](../designs/piston-door-3x3/tracks/fresh-c/fc-sym.sched)) shows the scheme works
+for any Q delay from 2 to 7, as long as the A pulse comes at least 2 ticks before Q.
+
+### Constraints that shaped it
+
+From fresh-c's [notes](../designs/piston-door-3x3/tracks/fresh-c/NOTES.md):
+
+* **Q must be steady.** A pulse-driven Q spits RB, which is then placed in the block-event phase.
+  P_R fires in that same phase, before T has landed, and a moving block is not dragged.
+* **The lever must feed both Q's repeater and p0's observer.** RB and A's pulse dust cannot share
+  a side of A, so both sit next to the lever. That is why X sits west of A, where rb6 had P_L.
+* **X must be dust.** A solid block there would power Q and would not update A in its lower
+  position.
+* **P_L pulls from the west.** The pull-type P_L costs 3 blocks, against 5 for fc1's push-type
+  piston under the walkway (pusher, extra slime, 2 chain observers, block).
+
+Speed: open = b + 12, where b is the tick B fires. b must be at least d + 6 (T has to be aside
+before B), and d, Q's delay, at least p0 + 2 = 4. So 22 is the family's floor, reached by
+[fc2f](../designs/piston-door-3x3/archive/fc2f-41b.txt) (41 blocks, 22 / 9), whose B window is fed
+straight off the lever.
+
+### Is 40 the end?
+
+Nothing found so far shortens fc2:
+
+* `door minimize --moves all`, with plateau pairs and a 100-step neutral walk;
+* `door regrow` at sizes 2 (5.4k candidates) and 3 (1.6M), and with `--any` (cut any 2 control
+  blocks, add 1; 416k);
+* `door grow --k 2` after cutting 3 control blocks (up to 1.57M candidates);
+* `door synth`: no smaller replacement for any sub-circuit in its model;
+* fresh-b's flags: no gain.
+
+fresh-c's round-2 analysis in its [notes](../designs/piston-door-3x3/tracks/fresh-c/NOTES.md)
+explains why the control is pinned. X must reach A in both positions, which fixes O_a and so the
+lever. Q must sit at (0,4,+-1), which fixes R_q's input. P_L only accepts 2 gt pulses or a push
+from the east. The open leads are in
+[the overnight report](overnight-2026-10-18.md#open-problems-and-next-ideas).
+
+## How the mechanism evolved
+
+* **v2, the "UP dance"** (vjeux's session, 151 -> 115). The side columns ride slime backbones
+  pulled by pistons on NOT lines, M is pulled down, A lifts T and P_T pulls it aside, and C climbs
+  on A riding B. Most of its blocks were torches, NOT gates and delay lines.
+* **rb1-rb6** (73 -> 48). The side structures are pushed open by pistons that are off at rest. One
+  redstone block shuttled by Q switches A off, then P_R on, and the right structure drags T, so P_T
+  disappears. A 7-block silent hold keeps Q out through the closing dance.
+* **rb6-bmobs** (47). P_M is pulse-driven, fired by an observer watching the bottom-right door
+  block.
+* **fc1** (42). Symmetric control: no hold.
+* **fc2** (40). P_L becomes a pull-type pulse piston west of its backbone, fired by two observers
+  off the lever.
+
+Every step is in the [archive](../designs/piston-door-3x3/archive/README.md) with a
+[video](../designs/piston-door-3x3/archive/VIDEOS.md).
+
+## What the local search finds (and what it does not)
+
+* **Re-synthesized nets are shorter.** Nets rebuilt from their terminals (renet) beat nets laid one
+  connection at a time: v2 113 -> 109, and v2u2 96 -> 88 once a repeater dissolved into dust.
+* **Dust + its floor -> one block** (swap). An observer's or repeater's output strongly powers a
+  plain block, which feeds the next part directly: sculk 48 -> 46 and 48 -> 43, gravity 49 -> 46,
+  fast-60 -> 57.
+* **Floors next to moving slime must not be dragged**, so they are glazed terracotta. The router
+  knows this.
+* **It does not invent mechanisms.** fc2 40, mp8 43, rb6-bmobs 47, slime-free 48, st43-bmobs 42 and
+  g10 45 are all local minima of the search: removals of 1-3 blocks, swaps, moves, substitutions,
+  renets, and neutral-edit plateaus. What slack remains is in mechanism choices.
 
 ## Tools
 
-* `mctas door drive <script>` places a design, applies scripted inputs (`set`/`clear`/`use`)
-  and prints a plane per tick as ASCII. This is how the mechanism was validated with "ideal"
-  inputs (redstone blocks placed by hand) before any wiring existed.
-* `mctas door route` is a dust auto-router. It finds the fewest new blocks connecting two
-  cells, following the wiring rules: every dust needs a floor, steps need clearance, no new
-  block may touch a component it shouldn't power, and nothing goes into a cell the machine
-  sweeps while it runs (simulated) or into the walkway.
-* `mctas door minimize` is a local search (crates/piston-door/src/search.rs): removals of one to
-  three blocks, repeater delays, moving a block (or a piston with its head, or the lever) to a
-  neighbor cell, substitutions (dust/repeater, torch/observer, slime/honey, floors), swaps (a
-  pair or a connected triple out, one block in nearby: e.g. a dust and its floor become one
-  powered block), rip-up-and-reroute of dust segments, and net re-synthesis (every dust net's
-  terminals reconnected as a Steiner tree by the router, also with a terminal dropped or a
-  repeater dissolved). Candidates are screened at two positions, accepted only when the full
-  judge passes; `--plateau`/`--depth 2` explore count-neutral edits first. `door harvest` runs it
-  on the best designs of every branch.
-* `mctas door video` renders the build with the real client: a 2 s title card (block count,
-  category, timings) in the game's font, then a camera aimed between the build's center and
-  the 3x3 opening, from the side that hides the opening least, swinging +-20 degrees around it
-  (it ends where it started, so clips loop), with a block-count label (`--style clean` without
-  card/label, `--style classic` for the original still camera on the whole build).
-  `door video-all` does it for a whole folder (VIDEOS.md), `door gallery` makes a looping GIF
-  of each board's best (GALLERY.md), `door montage` films the solid record progression with
-  one camera and cuts it into one labeled video plus a poster of every record.
+The `mctas door` commands are listed in the [README](../README.md#tools). The workflow behind the
+records:
 
-## Block count history
+1. Validate a mechanism with ideal inputs, either redstone blocks placed by a `door drive` script
+   or a `door ideal` schedule.
+2. Wire it, by hand or with `door route`.
+3. Run `door verify --extra-offsets 28`.
+4. Shrink it with `door minimize`, `door grow` and `door regrow`.
 
-| design | blocks | note |
+Proven circuits go in the gadget library (`designs/gadgets/`, run them all with
+`mctas door drive --quiet designs/gadgets/*.drive`). Mechanics read from the source are in
+[mechanics.md](mechanics.md).
+
+## Solid record history
+
+| blocks | design (archive) | how |
 |---|---|---|
-| v1 | 125 → 121 | slime as the top-middle door block: invalid |
-| v2 | 151 | first valid design |
-| v2 | 143 → 128 | unified late chain, router-laid wires, A torch fed off the sides line |
-| v2-min | 126 | greedy single-block removal |
-| v2 | 118 | R_B stretches the B pulse itself, straight late line into the P_T net, A late tapped off the P_T net |
-| v2-min | 117 | greedy single-block removal |
-| v2 | 116 | router re-laid the drop from the lever to the sides line |
-| v2-min | 115 | greedy single-block removal |
+| 151 | piston-door-3x3-v2-151b | first valid design (v1 used a slime block as the top-middle door block, which the verifier now rejects) |
+| 147 -> 115 | piston-door-3x3-v2-147b ... -115b | vjeux's session: router-laid wires, unified late chain, greedy removals (v2-min) |
+| 113, 109 | search-tool-v2-min-113b, -109b | local search: a reroute, then net re-synthesis |
+| 96 | piston-door-3x3-v2u2-96b | sides pushed out from under the walkway, redstone blocks riding the side structures |
+| 91 | mechanics-ta-91b | A's torch next to the observer column |
+| 87 | piston-door-3x3-v3c-87b | side pistons high, redstone blocks on the backbones |
+| 73 | piston-door-3x3-rb1-73b | movable power: one shuttled redstone block, T dragged by the right structure |
+| 57 | piston-door-3x3-rb2-57b | rb1 with short nets |
+| 53, 51, 50 | mechanics-rb2-hold-53b, -51b, mechanics-rb5-bchain-50b | short hold, pulse bridge, rb5's silent hold |
+| 48 | mechanics-rb5-hold-48b, piston-door-3x3-rb6-48b | the silent hold in 7 blocks |
+| 47 | rb6-bmobs-47b | observer-fired bottom-middle piston |
+| 46 | piston-door-3x3-fresh-b-mp6-46b | mirrored pump |
+| 42 | fc1-42b | symmetric control |
+| 40 | fc2-40b | pull-type left piston |

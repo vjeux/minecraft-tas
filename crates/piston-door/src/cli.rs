@@ -493,6 +493,32 @@ pub enum DoorCmd {
         #[arg(long)]
         close: bool,
     },
+    /// Learn edits from pairs of designs (a -> b, b a smaller variant of a) and try each on the
+    /// best designs of every league (see harvest.rs); improvements are archived and polished.
+    Transplant {
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long)]
+        fetch: bool,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        /// Targets per league.
+        #[arg(long, default_value_t = 4)]
+        top: usize,
+        /// Targets within this many blocks of their league's best.
+        #[arg(long, default_value_t = 4)]
+        within: usize,
+        /// Largest patch (cells changed) to learn.
+        #[arg(long, default_value_t = 12)]
+        max_cells: usize,
+        /// Local search after each improvement, minutes.
+        #[arg(long, default_value_t = 5.0)]
+        minutes: f64,
+        #[arg(long)]
+        out_dir: PathBuf,
+        #[command(flatten)]
+        search: SearchArgs,
+    },
     /// Verify a design many times in ONE reused sandbox (as the search does) and count passes:
     /// shows state that leaks across `clear` (e.g. redstone torch burnout memory).
     ReuseCheck {
@@ -517,6 +543,9 @@ pub enum DoorCmd {
         /// Only the first N positions (quick runs).
         #[arg(long)]
         positions: Option<usize>,
+        /// Check at this one position only, "x,y,z" (reproduce a fuzz case or one judge offset).
+        #[arg(long)]
+        offset: Option<String>,
         #[arg(long, default_value_t = 400)]
         max_ticks: u32,
         /// Print every position, not only divergences and failures.
@@ -537,6 +566,21 @@ pub enum DoorCmd {
         #[arg(long)]
         trace: bool,
     },
+    /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
+    /// run in both worlds and compared tick for tick; diverging ones are saved.
+    VanillaFuzz {
+        #[arg(long, default_value_t = 50)]
+        count: u64,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value_t = 1)]
+        cycles: u32,
+        #[arg(long, default_value_t = 120)]
+        max_ticks: u32,
+        /// Where diverging designs are written.
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/vanilla-check/fuzz")]
+        out_dir: PathBuf,
+    },
     /// Check that a design is a working 3x3 piston door; print timings and block count.
     Verify {
         design: PathBuf,
@@ -555,6 +599,83 @@ pub enum DoorCmd {
         /// Archive into this folder instead (e.g. the main designs/piston-door-3x3/archive).
         #[arg(long)]
         archive_dir: Option<PathBuf>,
+    },
+    /// Circuit synthesis by exhaustive simulation (see synth.rs): every circuit of up to --k
+    /// blocks from --palette in the free cells of --lo..--hi that carries a signal from the
+    /// --from cells to the --to cells is simulated against a target (the door judge by default,
+    /// or a --spec behavior script); the smallest verified circuits are reported and written.
+    Synth {
+        /// The context: a door design or a gadget harness (cells in --clear are emptied first).
+        context: PathBuf,
+        #[arg(long)]
+        lo: String,
+        #[arg(long)]
+        hi: String,
+        /// Circuit blocks (see synth::palette_states): block,gt,glass,dust,dot,rep,rep1..4,cmp,obs,torch,rblock,lamp,...
+        #[arg(long, default_value = "block,dust,rep4")]
+        palette: String,
+        /// Blocks added under parts that need support (they count).
+        #[arg(long, default_value = "block")]
+        floors: String,
+        /// Most blocks per circuit.
+        #[arg(long, default_value_t = 4)]
+        k: usize,
+        /// Skip circuits smaller than this.
+        #[arg(long, default_value_t = 1)]
+        min_k: usize,
+        /// Source cells of the context, "x,y,z;...": the lever, a powered block, an observer...
+        #[arg(long)]
+        from: String,
+        /// Cells that change while the machine runs (moving blocks, pistons; air allowed):
+        /// observers may watch them.
+        #[arg(long, default_value = "")]
+        watch: String,
+        /// Sink cells: some circuit block must drive one of them.
+        #[arg(long)]
+        to: String,
+        /// Context cells to empty first (the old circuit), "x,y,z;...".
+        #[arg(long, default_value = "")]
+        clear: String,
+        /// Cells the circuit may not use, "x,y,z;...".
+        #[arg(long, default_value = "")]
+        forbid: String,
+        /// Parts constraints: at least n of a kind, "repeater:2,observer:1".
+        #[arg(long, default_value = "")]
+        require: String,
+        /// Parts constraints: at most n of a kind, "repeater:1".
+        #[arg(long, default_value = "")]
+        limit: String,
+        /// Behavior spec (see synth.rs); without it the target is the door judge.
+        #[arg(long)]
+        spec: Option<PathBuf>,
+        /// World offsets a spec is checked at (the judge's list).
+        #[arg(long, default_value_t = 2)]
+        spec_offsets: usize,
+        /// Keep circuits with blocks that are on no source-to-sink path.
+        #[arg(long)]
+        loose: bool,
+        /// Only count the candidates.
+        #[arg(long)]
+        count: bool,
+        /// Keep going after the first size with a verified circuit.
+        #[arg(long)]
+        all_sizes: bool,
+        /// Stop after this many verified circuits (0 = every one of the smallest size).
+        #[arg(long, default_value_t = 0)]
+        want: usize,
+        /// Write every verified circuit here (synth-<size>-<i>.txt).
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        screen_offsets: usize,
+        #[arg(long, default_value_t = 200)]
+        screen_ticks: u32,
+        #[arg(long, default_value_t = 50_000_000)]
+        max_cands: usize,
     },
 }
 
@@ -828,6 +949,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::thread::sleep(std::time::Duration::from_secs_f64(wait));
             }
         }
+        DoorCmd::Transplant { refs, fetch, max_blocks, top, within, max_cells, minutes, out_dir, search } => {
+            if fetch {
+                let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
+                anyhow::ensure!(st.success(), "git fetch failed");
+            }
+            let pool = search.pool(version)?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let hopts = crate::harvest::HarvestOptions { refs, max_blocks, top, minutes, out_dir, moves: search.moves.clone(), within };
+            crate::harvest::transplant(&pool, std::path::Path::new("."), &hopts, &search.options()?, max_cells, &log)?;
+        }
         DoorCmd::ReuseCheck { design, times, cycles, fresh } => {
             let d = load_design(&design)?;
             let mut w = Worker::spawn(&cfg)?;
@@ -880,8 +1012,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::VanillaCheck { designs, cycles, extra_offsets, positions, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace } => {
-            vanilla_check_cmd(version, &cfg, &designs, cycles, extra_offsets, positions, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace)?;
+        DoorCmd::VanillaCheck { designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace } => {
+            vanilla_check_cmd(version, &cfg, &designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace)?;
+        }
+        DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
+            vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
         }
         DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir } => {
             let d = load_design(&design)?;
@@ -921,6 +1056,104 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
+        DoorCmd::Synth {
+            context,
+            lo,
+            hi,
+            palette,
+            floors,
+            k,
+            min_k,
+            from,
+            watch,
+            to,
+            clear,
+            forbid,
+            require,
+            limit,
+            spec,
+            spec_offsets,
+            loose,
+            count,
+            all_sizes,
+            want,
+            out_dir,
+            workers,
+            extra_offsets,
+            screen_offsets,
+            screen_ticks,
+            max_cands,
+        } => {
+            use crate::synth::*;
+            let mut base = load_design(&context)?;
+            for p in parse_cells(&clear)? {
+                anyhow::ensure!(base.blocks.remove(&p).is_some(), "--clear {} is already air", fmt_pos(p));
+            }
+            let cell = |s: &str| -> Result<mctas::sim::Pos> {
+                let v = parse_cells(s)?;
+                anyhow::ensure!(v.len() == 1, "expected one x,y,z, got {s:?}");
+                Ok(v[0])
+            };
+            let (a, b) = (cell(&lo)?, cell(&hi)?);
+            let o = SynthOptions {
+                lo: [a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])],
+                hi: [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])],
+                palette: palette_states(&palette)?,
+                floors: palette_states(&floors)?,
+                k,
+                min_k,
+                sources: parse_cells(&from)?,
+                watch: parse_cells(&watch)?,
+                sinks: parse_cells(&to)?,
+                forbid: parse_cells(&forbid)?.into_iter().collect(),
+                require: parse_counts(&require)?,
+                limit: parse_counts(&limit)?,
+                loose,
+                max_cands,
+            };
+            let en = Gen::new(&base, &o)?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            log(&format!("{} atoms ({} palette states, {} floors) in the box", en.atoms.len(), o.palette.len(), o.floors.len()));
+            // Enumerate before starting the JVMs (they would sit idle meanwhile).
+            let buckets = en.enumerate(&log)?;
+            if count {
+                return Ok(());
+            }
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let target = match &spec {
+                Some(path) => Target::Spec {
+                    spec: Spec::parse(&std::fs::read_to_string(path)?)?,
+                    offsets: offsets.iter().take(spec_offsets.max(1)).copied().collect(),
+                },
+                None => Target::Door {
+                    screen: VerifyOptions {
+                        cycles: 1,
+                        max_ticks: screen_ticks,
+                        offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
+                        keep_frames: false,
+                    },
+                    judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
+                },
+            };
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            log(&format!("{} workers", pool.len()));
+            let found = synth(&pool, &base, &en, &buckets, &target, min_k, all_sizes, want, &log)?;
+            if found.is_empty() {
+                println!("nothing found");
+            }
+            for (i, (set, d, msg)) in found.iter().enumerate() {
+                println!("FOUND {} blocks: {} [{}] -- {msg}", set.len(), en.describe(set), en.kinds(set));
+                if let Some(dir) = &out_dir {
+                    std::fs::create_dir_all(dir)?;
+                    let mut w = pool.worker(0);
+                    let canon = crate::canonicalize(&mut w, d).unwrap_or_else(|_| d.clone());
+                    let path = dir.join(format!("synth-{}-{i}.txt", set.len()));
+                    canon.save(&path)?;
+                    println!("  written to {}", path.display());
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -945,6 +1178,7 @@ fn vanilla_check_cmd(
     cycles: u32,
     extra_offsets: u32,
     positions: Option<usize>,
+    offset: Option<String>,
     max_ticks: u32,
     verbose: bool,
     keep_world: bool,
@@ -957,6 +1191,11 @@ fn vanilla_check_cmd(
     offsets.extend(crate::extra_offsets(extra_offsets));
     if let Some(n) = positions {
         offsets.truncate(n.max(1));
+    }
+    if let Some(o) = offset {
+        let v: Vec<i32> = o.split(',').map(|t| t.trim().parse()).collect::<std::result::Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "--offset wants x,y,z");
+        offsets = vec![[v[0], v[1], v[2]]];
     }
     let opts = CheckOptions { cycles, offsets, max_ticks, verbose, free_run: !no_free_run, trace };
     let mut w = Worker::spawn(cfg)?;
@@ -1028,6 +1267,61 @@ fn vanilla_check_cmd(
     if any_bad {
         std::process::exit(1);
     }
+    Ok(())
+}
+
+/// `door vanilla-fuzz`: random contraptions, settled in the simulator, compared tick for tick.
+fn vanilla_fuzz_cmd(version: &str, cfg: &WorkerConfig, count: u64, seed: u64, cycles: u32, max_ticks: u32, out_dir: &std::path::Path) -> Result<()> {
+    use crate::vanilla_check::{CheckOptions, Oracle, check, fuzz_design, verdict_str};
+    let mut w = Worker::spawn(cfg)?;
+    let vopts = mctas::vanilla::VanillaOptions { version: version.to_string(), tick_rate: 100, ..Default::default() };
+    let mut v = mctas::vanilla::VanillaServer::start(&vopts)?;
+    let mut oracle = Oracle::default();
+    let offsets = crate::extra_offsets(32);
+    let (mut same, mut skipped, mut diverging, mut errors) = (0, 0, 0, 0);
+    for s in seed..seed + count {
+        let raw = fuzz_design(s);
+        let Some(canon) = crate::vanilla_check::rest_state(&mut w, &raw)? else {
+            skipped += 1;
+            continue;
+        };
+        let lever = canon.ports["lever"];
+        if !canon.blocks.get(&lever).is_some_and(|b| b.starts_with("minecraft:lever") && b.contains("powered=false")) {
+            skipped += 1;
+            continue;
+        }
+        let opts = CheckOptions { cycles, offsets: vec![offsets[(s % 32) as usize]], max_ticks, verbose: false, free_run: false, trace: true };
+        match check(&mut w, &mut v, &mut oracle, &canon, &opts) {
+            Ok(results) => {
+                let r = &results[0];
+                if r.divergence.is_some() || r.sim.is_err() != r.vanilla.is_err() {
+                    diverging += 1;
+                    std::fs::create_dir_all(out_dir)?;
+                    let path = out_dir.join(format!("fuzz-{s}.txt"));
+                    canon.save(&path)?;
+                    println!(
+                        "fuzz {s}: DIVERGES at offset {:?}: {} | sim {} | vanilla {} (saved {})",
+                        r.offset,
+                        r.divergence.as_deref().unwrap_or("verdicts differ"),
+                        verdict_str(&r.sim),
+                        verdict_str(&r.vanilla),
+                        path.display()
+                    );
+                } else {
+                    same += 1;
+                    println!("fuzz {s}: identical ({} ticks, {} blocks)", r.ticks_compared, canon.blocks.len());
+                }
+            }
+            Err(e) => {
+                errors += 1;
+                std::fs::create_dir_all(out_dir)?;
+                let path = out_dir.join(format!("fuzz-{s}-error.txt"));
+                canon.save(&path)?;
+                println!("fuzz {s}: ERROR {e:#} (saved {})", path.display());
+            }
+        }
+    }
+    println!("vanilla-fuzz: {same} identical, {diverging} diverging, {skipped} skipped (never settle / lever lost), {errors} errors");
     Ok(())
 }
 

@@ -23,7 +23,6 @@ branches) is [../LEADERBOARD.md](../LEADERBOARD.md). New records are archived he
 | 109 | search-tool-v2-min-109b.txt | overnight agent search-tool: local search + net re-synthesis of v2 |
 | 96 | piston-door-3x3-v2u2-96b.txt | agent center-mech: side groups pushed out by 2 pistons sharing an obsidian block, honey carrier for the bottom-middle, redstone blocks riding the side groups |
 | 91 | mechanics-ta-91b.txt | agent mechanics: A torch next to the observer column, lever on its attachment |
-| 90 | mechanics-ta-90b.txt | agent mechanics: minimizer removed a stray floor |
 | 88 | search-tool-center-mech-88b.txt | agent search-tool: local search on center-mech's 96 |
 | 87 | piston-door-3x3-v3c-87b.txt | agent top-control: side pistons high, redstone blocks riding the backbones power A, P_BM, P_T |
 | 73 | piston-door-3x3-rb1-73b.txt | agent redstone-block: sides pushed open, one redstone block shuttled by one piston powers A then P_R, the right structure drags T out (no P_T) |
@@ -31,13 +30,23 @@ branches) is [../LEADERBOARD.md](../LEADERBOARD.md). New records are archived he
 | 53 | mechanics-rb2-hold-53b.txt | agent mechanics: rb2 with the 24gt late hold re-laid as a short U west of the lever, glazed terracotta floors beside the slime backbone |
 | 51 | mechanics-rb2-hold-51b.txt | agent mechanics: the 53 plus O2's pulse to R_B through a strongly powered block and an isolated cross dust |
 | 50 | mechanics-rb5-bchain-50b.txt | agent mechanics: redstone-block's rb5 (BUD hold for Q, 52) + the O2 to R_B pulse bridge |
-| 48 | mechanics-rb5-hold-48b.txt / piston-door-3x3-rb6-48b.txt | agents mechanics + redstone-block: the BUD silent hold shrunk to 7 blocks + the O2 to R_B pulse bridge (both reached 48) |
+| 48 | mechanics-rb5-hold-48b.txt | agents mechanics + redstone-block: the BUD silent hold shrunk to 7 blocks + the O2 to R_B pulse bridge (both reached 48; also piston-door-3x3-rb6-48b.txt) |
 | 47 | rb6-bmobs-47b.txt | agent top-control: rb6 with the bottom-middle piston retracted at rest, fired by an observer watching the bottom-right door block (pull on open, push+spit on close) |
-| 46 | piston-door-3x3-fresh-b-mp6-46b.txt | agent fresh-b: "mirrored pump" family (bottom row on a slime row, pump below the door, motion-triggered flags), also the fastest solid door (open 16 / close 16) |
+| 46 | piston-door-3x3-fresh-b-mp6-46b.txt | agent fresh-b: "mirrored pump" family (bottom row on a slime row, pump below the door, motion-triggered flags), open 16 / close 16 |
 | 42 | fc1-42b.txt | agent fresh-c: "symmetric control" family: no hold at all (Q = lever through one repeater), an early A pulse spits the center down on close, the B window is harmlessly blocked on close |
-| 45 | piston-door-3x3-fresh-b-mp7-45b.txt | agent fresh-b: mirrored pump with a shorter pump path, open 16 / close 16 |
 | 40 | fc2-40b.txt | agent fresh-c: fc1 with the left pusher as a pull-type pulse piston west of the backbone fired by two observers off the lever |
+
+## Other notable designs (not records when found)
+
+| blocks | file | note |
+|---|---|---|
+| 90 | mechanics-ta-90b.txt | agent mechanics: minimizer removed a stray floor from its 91 (the 88 had landed first) |
 | 52 | piston-door-3x3-rb5-52b.txt | agent redstone-block: rb2 with a silent BUD hold for Q instead of the 24gt chain |
+| 45 | piston-door-3x3-fresh-b-mp7-45b.txt | agent fresh-b: mirrored pump with a shorter pump path, open 16 / close 16 |
+| 43 | piston-door-3x3-fresh-b-mp8-43b.txt | agent fresh-b: mirrored pump, fastest small solid door (open 16 / close 16) |
+| 41 | fc2f-41b.txt | agent fresh-c: fc2 with the B window fed straight off the lever, open 22 / close 9 |
+
+Every other board (slime-free, sculk, gravity, speed) is ranked in [../LEADERBOARD.md](../LEADERBOARD.md).
 
 Invalid (kept for history): piston-door-3x3-v1-invalid.txt (125) and -v1-min-invalid.txt (121)
 use a slime block as the top-middle door block.

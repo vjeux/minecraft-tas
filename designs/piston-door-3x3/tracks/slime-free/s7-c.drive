@@ -1,0 +1,43 @@
+design designs/piston-door-3x3/tracks/slime-free/s7-c.txt
+plane 0 -3 -2 5 6
+probe TL 0 2 0
+probe L1 0 1 0
+probe L0 0 0 0
+probe T 1 2 0
+probe C 1 1 0
+probe M 1 0 0
+probe TR 2 2 0
+probe R1 2 1 0
+probe R0 2 0 0
+probe park 1 3 1
+use 1 4 -3
+quiet 5
+set 1 3 3 minecraft:redstone_block
+quiet 2
+clear 1 3 3
+quiet 40
+print
+expect TL .
+expect L1 .
+expect L0 .
+expect T .
+expect C .
+expect M .
+expect TR .
+expect R1 .
+expect R0 .
+use 1 4 -3
+quiet 5
+set 1 3 3 minecraft:redstone_block
+quiet 2
+clear 1 3 3
+quiet 40
+expect TL #
+expect L1 #
+expect L0 #
+expect T #
+expect C #
+expect M #
+expect TR #
+expect R1 #
+expect R0 #

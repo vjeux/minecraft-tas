@@ -1,0 +1,25 @@
+name: gadget-hold-2rep
+# "Lever on, plus 16 ticks after it turns off" at the output cell (1,1,0), found by `door synth`
+# (designs/gadgets/synth/hold-harness.txt + hold12.spec): the lever's block X powers the output
+# while the lever is on; R1 reads X, its output block lights the dust, which feeds R2 pointing
+# back into the output cell. 7 blocks besides the lever and X. Synth proved it minimal for this
+# harness: no circuit of <= 6 blocks (blocks, dust, repeaters, observers, torches, comparators,
+# lamps) holds the output 12 ticks, and none of <= 7 with at most one repeater.
+origin: 0 0 0
+palette:
+  X minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  s minecraft:smooth_stone
+  N minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  S minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  ..
+  ss
+  .s
+layer 1:
+  X.
+  NS
+  sd
+layer 2:
+  L
