@@ -457,6 +457,10 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
                 continue;
             }
             let flags = f.flags_at(q).unwrap_or_default();
+            // Closed, the door plane's S ring touches T only through door blocks: unseen.
+            if name == "closed" && geo.in_s(q) && geo.depth(q) == 0 {
+                continue;
+            }
             let level = if geo.in_t(q) {
                 if flags.collides {
                     3
