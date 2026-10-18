@@ -122,6 +122,9 @@ pub struct Tiled {
 /// Build the arrangement: `tile.copies` copies of `module`, copy k moved by k * step (the whole
 /// row centered on the module's own position so it fits the judge's sandbox).
 pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
+    if !module.entities.is_empty() {
+        bail!("tile {}: modules with entities cannot be tiled yet (only blocks are copied)", tile.label);
+    }
     let openings = module_openings(module)?;
     let lever = openings[0].lever;
     let relay = relay_state(module)?;
@@ -181,6 +184,8 @@ pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
         meta: module.meta.clone(),
         ports: BTreeMap::new(),
         blocks: blocks.into_iter().map(|(p, (s, _))| (p, s)).collect(),
+        // Tiling copies blocks only: a module with entities is not tiled (yet).
+        entities: Vec::new(),
     };
     design.meta.insert("tile".into(), tile.label.clone());
     design.ports.insert("lever".into(), first_lever);
@@ -289,7 +294,7 @@ pub fn rotate_tiled(w: &mut Worker, t: &Tiled, turns: u8) -> Result<Tiled> {
     };
     let specs: Vec<DoorSpec> = t.specs.iter().map(rot_spec).collect();
     let levers: Vec<Pos> = t.levers.iter().map(|p| crate::rotate_pos(*p, turns)).collect();
-    let mut design = Design { name: t.design.name.clone(), meta: t.design.meta.clone(), ports: BTreeMap::new(), blocks };
+    let mut design = Design { name: t.design.name.clone(), meta: t.design.meta.clone(), ports: BTreeMap::new(), blocks, entities: Vec::new() };
     design.ports.insert("lever".into(), levers[0]);
     design.ports.insert("door".into(), specs[0].door);
     Ok(Tiled { design, specs, levers, copies: t.copies, shared: t.shared })

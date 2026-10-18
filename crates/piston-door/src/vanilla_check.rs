@@ -707,15 +707,19 @@ pub fn rest_state(w: &mut Worker, d: &Design) -> Result<Option<Design>> {
         w.update(sb, &wires, "shape")?;
         let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
         w.update(sb, &positions, "self")?;
+        if !d.entities.is_empty() {
+            w.summon(sb, &d.entities)?;
+        }
         let settle = w.step_until_idle(sb, 400)?;
         let (lo, hi) = d.bounds().context("empty design")?;
         let r = w.get_region(sb, [lo[0] - 4, lo[1] - 4, lo[2] - 4], [hi[0] + 4, hi[1] + 4, hi[2] + 4])?;
-        let entities = w.entities(sb)?.len();
+        // Drops and strays (the design's own entities are part of it).
+        let entities = w.entities(sb)?.iter().filter(|e| !e.design).count();
         let _ = w.drop_sandbox(sb);
         Ok((settle.idle == Some(true) && (allow_drops || entities == 0)).then_some(r))
     };
     let Some(r) = once(w, d, true)? else { return Ok(None) };
-    let mut out = Design { name: d.name.clone(), meta: d.meta.clone(), ports: d.ports.clone(), blocks: Default::default() };
+    let mut out = Design { name: d.name.clone(), meta: d.meta.clone(), ports: d.ports.clone(), blocks: Default::default(), entities: d.entities.clone() };
     for (p, s) in r.blocks() {
         if s.starts_with("minecraft:moving_piston") {
             return Ok(None);

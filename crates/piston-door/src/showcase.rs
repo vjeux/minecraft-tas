@@ -272,6 +272,12 @@ pub const BLOCK_BOARDS: &[(&str, &str, &str, fn(&Facts) -> bool)] = &[
         |f| f.category == "sculk" && !f.rotation_safe,
     ),
     ("gravity", "Gravity", "the 9 door blocks are sand, gravel or concrete powder", |f| f.category == "gravity" && f.rotation_safe),
+    (
+        "entities",
+        "Entities",
+        "a solid door that also uses entities (minecarts, armor stands, boats...; each counts as a block, all back where they rested after each close)",
+        |f| f.category == "entity" && f.rotation_safe,
+    ),
 ];
 
 /// The best design of each board: solid, slime-free, sculk, gravity (fewest blocks; ties go to

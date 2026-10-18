@@ -159,6 +159,11 @@ final class Sandbox {
      * gap, so they are always done before the next tick).
      */
     void tick(SimServer server) {
+        // Where each design entity stood before this tick ({@link #still}).
+        this.prevEntityPos.clear();
+        for (Entity e : designEntities()) {
+            this.prevEntityPos.put(e.getUUID(), e.position());
+        }
         this.level.tick(() -> true);
         // A level sends its block changes to players at the START of its next tick, while block
         // events (piston moves) go out at once. A real client never notices (the next tick is
@@ -216,15 +221,146 @@ final class Sandbox {
 
     /**
      * True when nothing is pending: no scheduled block/fluid ticks, no block events, no moving
-     * pistons, and no falling blocks still in the air (sand/gravel/concrete powder falling is a
-     * contraption still moving; it ends by landing as a block or breaking into an item).
+     * pistons, no falling blocks still in the air (sand/gravel/concrete powder falling is a
+     * contraption still moving; it ends by landing as a block or breaking into an item), and every
+     * entity of the design (summoned by {@link #summon}) at rest ({@link #still}). A design without
+     * entities has none, so this is the plain block condition for it.
      */
     boolean idle() {
         return this.level.getBlockTicks().count() == 0
                 && this.level.getFluidTicks().count() == 0
                 && blockEventCount() == 0
                 && movingPistonCount() == 0
-                && fallingBlockCount() == 0;
+                && fallingBlockCount() == 0
+                && designEntitiesStill();
+    }
+
+    // ---- design entities (minecarts, armor stands, boats... declared by the design) --------------
+
+    /** Scoreboard tag carried by every entity a design declares (the judge tells them from drops). */
+    static final String DESIGN_TAG = "mctas_design";
+
+    /** Position of every design entity before the last tick (see {@link #still}). */
+    private final java.util.Map<UUID, Vec3> prevEntityPos = new java.util.HashMap<>();
+
+    List<Entity> designEntities() {
+        List<Entity> out = new ArrayList<>();
+        for (Entity e : entities()) {
+            if (e.entityTags().contains(DESIGN_TAG)) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * At rest: the last tick did not move it, and it has no motion left. Horizontal motion must be
+     * exactly zero; vertical motion too, unless the entity stands on the ground: a living entity
+     * (armor stand) gets gravity after its move every tick (LivingEntity.travelInAir: the floor
+     * stops the move, then yd -= gravity), so it always carries a small downward motion while it
+     * rests on a block. A minecart on a rail ends every tick with motion (0, 0, 0)
+     * (OldMinecartBehavior.moveAlongTrack: applyNaturalSlowdown zeroes y) once it has stopped; a
+     * rolling cart only slows by 0.96 per tick and never reaches zero by itself, so it stops for
+     * good only on an unpowered powered rail (haltTrack: speed below 0.03 is set to zero) or
+     * against a block (Entity.move zeroes the colliding component).
+     */
+    boolean still(Entity e) {
+        Vec3 prev = this.prevEntityPos.get(e.getUUID());
+        Vec3 p = e.position();
+        Vec3 m = e.getDeltaMovement();
+        return prev != null && prev.x == p.x && prev.y == p.y && prev.z == p.z && m.x == 0.0 && m.z == 0.0 && (m.y == 0.0 || e.onGround());
+    }
+
+    boolean designEntitiesStill() {
+        for (Entity e : designEntities()) {
+            if (!still(e)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Summon a design's entities, deterministically: the entity's own random (Entity.random,
+     * seeded from the clock by RandomSource.create) is reseeded and its UUID fixed by its index in
+     * the design, so every run is the same. Mobs are refused (their AI is random). Each carries
+     * {@link #DESIGN_TAG}.
+     */
+    List<Entity> summon(com.google.gson.JsonArray specs) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        List<Entity> out = new ArrayList<>();
+        // Numbered after the design entities already there (a drive script can summon more).
+        int i = designEntities().size();
+        for (com.google.gson.JsonElement el : specs) {
+            com.google.gson.JsonObject s = el.getAsJsonObject();
+            String type = s.get("type").getAsString();
+            com.google.gson.JsonArray p = s.getAsJsonArray("pos");
+            double x = p.get(0).getAsDouble();
+            double y = p.get(1).getAsDouble();
+            double z = p.get(2).getAsDouble();
+            net.minecraft.nbt.CompoundTag tag = s.has("nbt") && !s.get("nbt").isJsonNull()
+                    ? net.minecraft.nbt.TagParser.parseCompoundFully(s.get("nbt").getAsString())
+                    : new net.minecraft.nbt.CompoundTag();
+            tag.putString("id", type);
+            Entity e = net.minecraft.world.entity.EntityType.loadEntityRecursive(tag, this.level,
+                    new net.minecraft.world.entity.EntitySpawnRequest(net.minecraft.world.entity.EntitySpawnReason.COMMAND, false), en -> {
+                        en.snapTo(x, y, z, en.getYRot(), en.getXRot());
+                        return en;
+                    });
+            if (e == null) {
+                throw new IllegalArgumentException("cannot summon " + type);
+            }
+            if (e instanceof net.minecraft.world.entity.Mob) {
+                throw new IllegalArgumentException(type + " is a mob: its AI is random, mobs are not allowed");
+            }
+            if (!e.getPassengers().isEmpty()) {
+                throw new IllegalArgumentException(type + ": passengers are not allowed");
+            }
+            e.setUUID(UUID.nameUUIDFromBytes(("mctas-entity-" + i).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            e.getRandom().setSeed(0x6d63746173L + i);
+            e.addTag(DESIGN_TAG);
+            if (!this.level.tryAddFreshEntityWithPassengers(e)) {
+                throw new IllegalArgumentException("could not add " + type + " (duplicate UUID?)");
+            }
+            out.add(e);
+            i++;
+        }
+        return out;
+    }
+
+    /**
+     * Collision for the walkway rule: an entity a player bumps into or shoves (boats, shulkers:
+     * canBeCollidedWith; minecarts: isPushable). Armor stands, item frames and paintings neither
+     * block nor get pushed, like dust or a torch.
+     */
+    static boolean collides(Entity e) {
+        return e.canBeCollidedWith(null) || e.isPushable();
+    }
+
+    /**
+     * The entity's state apart from its position and motion, for "back exactly as it was": its saved
+     * data (contents, fuel, pose, hopper enabled, fuse, item frame item...) with the volatile
+     * fields removed, keys sorted, plus the rail a minecart is on. A minecart's yaw is left out: the
+     * cart sets it from its direction of travel and flips it (OldMinecartBehavior.tick), so it says
+     * which way it last rolled, nothing more.
+     */
+    String keyState(Entity e) {
+        net.minecraft.world.level.storage.TagValueOutput out = net.minecraft.world.level.storage.TagValueOutput.createWithContext(
+                net.minecraft.util.ProblemReporter.DISCARDING, this.level.registryAccess());
+        e.saveWithoutId(out);
+        net.minecraft.nbt.CompoundTag t = out.buildResult();
+        for (String k : new String[] {"Pos", "Motion", "UUID", "fall_distance", "FallDistance", "OnGround", "Fire", "Air", "PortalCooldown",
+                "invulnerable_time", "TicksFrozen", "Tags", "HurtTime", "HurtByTimestamp", "DeathTime"}) {
+            t.remove(k);
+        }
+        if (e instanceof net.minecraft.world.entity.vehicle.minecart.AbstractMinecart m) {
+            t.remove("Rotation");
+            t.remove("FlippedRotation");
+            t.remove("HasTicked");
+            BlockPos rail = m.getCurrentBlockPosOrRailBelow();
+            boolean on = net.minecraft.world.level.block.BaseRailBlock.isRail(this.level.getBlockState(rail));
+            t.putString("mctas_rail", on ? rail.getX() + "," + rail.getY() + "," + rail.getZ() : "none");
+        }
+        return new net.minecraft.nbt.SnbtPrinterTagVisitor().visit(t).replaceAll("\\s*\\n\\s*", " ").trim();
     }
 
     int fallingBlockCount() {
@@ -268,6 +404,7 @@ final class Sandbox {
         for (Entity e : entities()) {
             e.discard();
         }
+        this.prevEntityPos.clear();
         BoundingBox bb = bounds();
         this.level.clearBlockEvents(bb);
         this.level.getBlockTicks().clearArea(bb);
