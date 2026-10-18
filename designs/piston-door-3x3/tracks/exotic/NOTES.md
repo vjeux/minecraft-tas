@@ -29,4 +29,35 @@ and rejects note block / lamp / stone / dispenser (they conduct into the piston 
 
 ## Searches
 
-(see the table below; filled in as runs finish)
+Palettes: `exotic` = iron trapdoor, oak fence gate, flat powered rails (2), dispenser, crafter,
+skeleton skull; size-2 regrows use every exotic state (trapdoor, gate, skull, shelf, rail incl.
+slopes, disp, crafter, scaffold, slab, stairs). `--require-any` keeps only candidates with at least
+one exotic block (the old palettes were already exhausted on these designs).
+
+| design | search | candidates | result |
+|---|---|---|---|
+| sf-holdA-b38 (38) | regrow --size 2, all exotic states | 5.3k | nothing |
+| sf-holdA-b38 | regrow --size 2 --any --margin 2, all exotic states | 288k | nothing |
+| sf-holdA-b38 | resynth --max-size 4, block,dust,dot,rep,obs,torch,note,exotic, --require-any | ~60 groups | nothing |
+| fc2 (40) | regrow --size 2, all exotic states | 6.6k | nothing |
+| fc2 | regrow --size 2 --any --margin 2, all exotic states | 523k | nothing |
+| fc2 | resynth --max-size 4 (as above) | ~80 groups | nothing |
+| mp8 (43) | resynth --max-size 4 (as above) | | nothing |
+| lamp-sweep-flat43 (43, flat) | resynth --max-size 4 (as above) | | nothing |
+| gravity2-g33 (33) | resynth --max-size 4 (as above) | 5 removable blocks | nothing |
+| pareto-mid BEST (mp8-leafU 43, 15/17) | resynth --max-size 4 (as above) | | nothing |
+| **pareto-mid 46 (14/14)** | resynth --max-size 4 (as above) | | **45** (pm45-trap, below) |
+| flat-b-v7 (44, smallest box) | resynth --max-size 4 (as above) | | nothing |
+| pm45-trap (45) | resynth --max-size 4, full palette + exotic, no filter; minimize --moves all --plateau (36k neutral edits) | | nothing |
+
+## pm45-trap: 45 blocks, open 14 / close 14 (Pareto frontier), rotation-safe
+
+`pm45-trap.txt` (= BEST.txt, archived). pareto-mid's 46 fired its bottom puller (1,-3,0) from the
+flag observer o (3,-2,0) (watching a stone glued under the right structure) through stone
+(3,-3,0) (o's output block) and a delay-1 repeater (2,-3,0) on a floor (2,-4,0). resynth replaced
+those 3 blocks by 2: an iron trapdoor at (3,-3,0) (o's output opens it in the same tick) and an
+observer (2,-3,0) watching it, firing into the puller. Same timing (the repeater turned o's 2 gt
+pulse into a 2 gt pulse 2 gt later; the observer does the same off the trapdoor's flip).
+A note block in the trapdoor's cell works too (verified at 4 positions): the saving is the
+"watchable relay" pattern (sf-holdA's note-block trick) applied where nobody had tried it; the
+trapdoor's non-conduction is not needed there.
