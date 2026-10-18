@@ -63,7 +63,7 @@ y\x  -3 -2 -1  0  1  2  3  4
 `regrow --any`, `door resynth --max-size 5|6` (found v6 -> v7), `door resynth --max-size 6
 --palette block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target` (lamp-sweep's wide palette, after
 it took the flat board to 43 with a lamp in track flat's pist19r design), `door route2 --max-rip
-6|7 --pairs`: nothing below 44.
+6|7 --pairs`, and explore/lamp-sweep's resynth with `note` added (size 5): nothing below 44.
 
 ## Why 44 is tight for this layout
 - a3 = R_B's input + 18 gt, and R_B's input is at least a1 + 2 >= t4 (a1 needs its own lever
