@@ -1,0 +1,108 @@
+//! Building the Java side of the simulator.
+//!
+//! The bridge (`bridge/` in the repository) is a few Java classes compiled against the
+//! unobfuscated server jar with plain `javac`: no mod loader, no Gradle, no remapping. The
+//! sources are embedded in this crate, so the `mctas` binary can rebuild them anywhere.
+
+use crate::net;
+use crate::paths;
+use crate::setup::{self, ServerInstall};
+use anyhow::{Context, Result, bail};
+use std::path::PathBuf;
+use std::process::Command;
+
+macro_rules! bridge_source {
+    ($name:literal) => {
+        (
+            concat!("dev/vjeux/mctas/bridge/", $name),
+            include_str!(concat!("../../../bridge/src/dev/vjeux/mctas/bridge/", $name)),
+        )
+    };
+}
+
+/// Java sources of the bridge, embedded at build time.
+pub const SOURCES: &[(&str, &str)] = &[
+    bridge_source!("Main.java"),
+    bridge_source!("SimServer.java"),
+    bridge_source!("Sandbox.java"),
+    bridge_source!("Protocol.java"),
+];
+
+/// Logging configuration: Minecraft's logs go to stderr so stdout stays the protocol channel.
+pub const LOG4J_CONFIG: &str = include_str!("../../../bridge/resources/mctas-log4j2.xml");
+
+/// The main class of the bridge.
+pub const MAIN_CLASS: &str = "dev.vjeux.mctas.bridge.Main";
+
+/// A compiled bridge for one Minecraft version.
+#[derive(Clone, Debug)]
+pub struct BridgeBuild {
+    pub install: ServerInstall,
+    pub classes: PathBuf,
+    pub log4j_config: PathBuf,
+}
+
+impl BridgeBuild {
+    /// `-cp` value: bridge classes, then the game, then its libraries.
+    pub fn classpath(&self) -> String {
+        let sep = if cfg!(windows) { ";" } else { ":" };
+        [
+            self.classes.display().to_string(),
+            self.install.server_jar.display().to_string(),
+            self.install.libs_dir.join("*").display().to_string(),
+        ]
+        .join(sep)
+    }
+}
+
+/// Compile the bridge for `version` (cached by a hash of the sources).
+pub fn build(version: &str) -> Result<BridgeBuild> {
+    let install = setup::install_server(version)?;
+    let mut all = String::from(version);
+    for (name, text) in SOURCES {
+        all.push_str(name);
+        all.push_str(text);
+    }
+    all.push_str(LOG4J_CONFIG);
+    let hash = &net::sha256_hex(all.as_bytes())[..12];
+    let dir = paths::version_dir(version).join(format!("bridge-{hash}"));
+    let classes = dir.join("classes");
+    let log4j_config = dir.join("mctas-log4j2.xml");
+    let stamp = dir.join(".built");
+    if stamp.exists() {
+        return Ok(BridgeBuild { install, classes, log4j_config });
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    let src = dir.join("src");
+    let mut files = Vec::new();
+    for (name, text) in SOURCES {
+        let path = src.join(name);
+        std::fs::create_dir_all(path.parent().unwrap())?;
+        std::fs::write(&path, text)?;
+        files.push(path);
+    }
+    std::fs::write(&log4j_config, LOG4J_CONFIG)?;
+    std::fs::create_dir_all(&classes)?;
+    let major = setup::required_java(version)?;
+    let javac = setup::javac_for(&install.java);
+    let build = BridgeBuild { install, classes: classes.clone(), log4j_config };
+    let cp = {
+        let sep = if cfg!(windows) { ";" } else { ":" };
+        format!(
+            "{}{sep}{}",
+            build.install.server_jar.display(),
+            build.install.libs_dir.join("*").display()
+        )
+    };
+    let out = Command::new(&javac)
+        .args(["--release", &major.to_string(), "-nowarn", "-encoding", "UTF-8", "-cp", &cp, "-d"])
+        .arg(&classes)
+        .args(&files)
+        .output()
+        .with_context(|| format!("running {}", javac.display()))?;
+    if !out.status.success() {
+        bail!("javac failed:\n{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    }
+    std::fs::write(&stamp, b"ok")?;
+    Ok(build)
+}

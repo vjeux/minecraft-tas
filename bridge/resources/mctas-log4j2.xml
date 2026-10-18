@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Minecraft logs go to stderr only (stdout is the protocol channel), warnings and up. -->
+<Configuration status="WARN">
+  <Appenders>
+    <Console name="StdErr" target="SYSTEM_ERR">
+      <PatternLayout pattern="[%d{HH:mm:ss.SSS}] [%t/%level] (%logger{1}) %msg%n"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level="${sys:mctas.loglevel:-warn}">
+      <AppenderRef ref="StdErr"/>
+    </Root>
+  </Loggers>
+</Configuration>

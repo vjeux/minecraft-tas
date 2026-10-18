@@ -1,0 +1,13 @@
+[package]
+name = "piston-door"
+description = "The 3x3 piston door project: spec, verifier and block-count minimizer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+mctas = { path = "../mctas" }
