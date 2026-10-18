@@ -96,3 +96,24 @@ pulls A' at k9, F 0-ticks at k9. R_X (k6 BE) and R_Z (k8 BE) are already early e
   them down. Fix ideas: arm F later (spit R_X into R1 in k9's block events by a sticky P_D whose
   fall is a repeater, HIGH priority, so it beats Q's observer fall), or a k7..k9 source on the
   west side that never touches F's neighbors.
+
+## Round 2 (after the coordinator's go): OPEN 9
+* **`n2.txt` = BEST: 113 blocks, solid, slime-free, open 9 / close 7 (open+close 16)**,
+  rotation-safe (`door verify --extra-offsets 28`: WORKS at 32 positions x 4 rotations).
+  Base: lamp-sweep's a1-107 (my a1 re-synthesized). `n1.patch` + `n2.patch`:
+  * Q's first pulse moved a tick earlier and made 1 gt shorter at the end: S_a (-1,3,-1), an
+    observer watching lever dust (-1,3,-2), fires k2..k4 straight into Q (its fall at k4 is the
+    update that finds T landed); O1 (0,4,0), an observer watching F (F retracts at k1), fires
+    k3..k5 into Q's QC cell (odd). Q extends at k4 and its power drops at k5: Q spits A' into E at
+    k5, A' extends in the same phase. (W + O_Q removed.)
+  * X (A' power) k4..k6: repeater (2,4,-3) (delay 1, floor (2,3,-3)) reads lever dust (3,4,-3)
+    into stone (1,4,-3) -> note block -> observer (1,3,-2) -> X; A' retracts at k6, C into N1
+    (lands k8 BE). (The repeater reading R_F's rest cell is gone.)
+  * Q's second pulse k7..k9, west side only (no dust near F or P_X, the a9 failure): O_S
+    (-1,4,-1) watches S_F (extends at k1) -> k3..k5 into stone (-2,4,-1) -> dot dust (-3,4,-1)
+    powers its floor (-3,3,-1) -> repeater (-3,3,0) delay 1 turns on at k5 -> observer A
+    (-2,3,0) watching that repeater fires k7..k9 into Q's back. Q's base lands k7 BE powered ->
+    extends k8; A's fall at k9 -> Q pulls A' out of E -> F 0-ticks C out of N1: **open 9**.
+  * O1 fires again k11..k13 after F's 0-tick: obsidian (4,3,0) makes Q's row push fail then.
+  * Validated first with a scripted Q pulse (`n1.drive`). Close unchanged (7): every Q pulse on
+    the close edge meets a moving block or F's head in E (blocked push).
