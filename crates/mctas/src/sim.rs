@@ -441,6 +441,21 @@ impl Worker {
         Ok(())
     }
 
+    /// Signal probes now: `(best, direct)` per position: the best signal the position's neighbors
+    /// give into it (what a piston or lamp there would see) and the strong signal into it.
+    pub fn signals(&mut self, sandbox: u32, positions: &[Pos]) -> Result<Vec<(u8, u8)>> {
+        let v = self.call(json!({"op": "signals", "sandbox": sandbox, "positions": positions}))?;
+        let rows = v["signals"].as_array().ok_or_else(|| anyhow!("no signals"))?;
+        Ok(rows
+            .iter()
+            .map(|r| {
+                let a = r.as_array().cloned().unwrap_or_default();
+                let n = |i: usize| a.get(i).and_then(|x| x.as_u64()).unwrap_or(0) as u8;
+                (n(0), n(1))
+            })
+            .collect())
+    }
+
     /// Manual block updates at `positions`: `neighbors` (notify the 6 neighbors), `self` (the
     /// block re-checks its inputs, e.g. a piston checks power) or `shape` (recompute
     /// connection-style properties without notifying anyone).

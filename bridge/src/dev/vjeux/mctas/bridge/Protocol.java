@@ -153,6 +153,7 @@ public final class Protocol {
             case "status" -> status(sandbox(r));
             case "entities" -> entities(r);
             case "update" -> update(r);
+            case "signals" -> signals(r);
             case "exec" -> exec(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
@@ -406,6 +407,26 @@ public final class Protocol {
         }
         JsonObject o = new JsonObject();
         o.add("entities", list);
+        return o;
+    }
+
+    /**
+     * Signal probes, now: for each position, [best signal its neighbors give into it (what a
+     * piston or lamp there would see), strong signal into it].
+     */
+    private JsonObject signals(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        JsonArray out = new JsonArray();
+        for (JsonElement e : r.getAsJsonArray("positions")) {
+            int[] p = ints(e.getAsJsonArray());
+            BlockPos pos = new BlockPos(p[0], p[1], p[2]);
+            JsonArray v = new JsonArray();
+            v.add(sb.level.getBestNeighborSignal(pos));
+            v.add(sb.level.getDirectSignalTo(pos));
+            out.add(v);
+        }
+        JsonObject o = new JsonObject();
+        o.add("signals", out);
         return o;
     }
 
