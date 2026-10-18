@@ -71,3 +71,20 @@ Opening = {sides, M, A1}, P_T, window (B1+A2, B2+A3). Closing = {sides, M, A'}, 
 
 ## Tools
 - `door drive`: `box x0 y0 z0 x1 y1 z1`, `changes N` (per-tick 3D block change log), `mark`.
+
+## Wiring e1 for the solid board (after 58): not below 47, stopped
+- `@obs-e1w` (wip/e1w-drive.txt): lever on the north face of O1 (0,4,-1) -> (0,4,0) fires P_L
+  and A on both edges at t2; a 4-observer chain O2..O5 ((1,4,-1) W, (1,4,-2) S, (2,4,-2) W,
+  (2,4,-1) N) fires P_R at t10. Opening and closing of sides, M, T verified in the simulator;
+  the window and the late A are still script pulses.
+- What e1 still needs, and why it does not fit under 47: (a) the B window must run in the
+  opening only (in the closing B would push A, T and C down and the window's first A pulse then
+  pushes T, C and M out of the door; even with P_BM blocking that push, the second pulse pulls T
+  back up); (b) the closing needs a late A after P_R brings T back, which no cheap event gives:
+  an observer on P_R's base double-pulses and its first pulse makes A block P_R's pull; an
+  observer on the right column is next to the slime (dragged); (c) logic-min's closing (window
+  both ways, P_T timed to B's retraction) needs P_R's pull at B's retract tick but its push
+  before B, impossible with one pulse per edge. The cheapest gate is a lever lock (torch + RL +
+  floor + lever block next to R_B), but the lever must also sit next to O1 at (0,4,-1): the two
+  sit 3-4 cells apart, so the estimate is 30 mechanism + 3 (O1, lever, (0,4,0)) + 4 (P_R chain)
+  + ~2 (window trigger) + ~4 (lock) + ~3 (late A) + 2-4 (relay) = 48-50.

@@ -1,0 +1,19 @@
+design @obs-e1w
+plane 0 -3 -3 5 7
+box -3 -3 -3 5 7 2
+mark OPEN
+use 0 4 -2
+changes 14
+set 1 6 2 minecraft:redstone_block
+quiet 2
+clear 1 6 2
+quiet 24
+print
+mark CLOSE
+use 0 4 -2
+changes 16
+set 1 4 -1 minecraft:redstone_block
+quiet 2
+clear 1 4 -1
+quiet 10
+print
