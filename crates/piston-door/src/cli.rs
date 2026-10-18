@@ -345,6 +345,10 @@ pub enum DoorCmd {
         /// not kept).
         #[arg(long, default_value_t = 0)]
         extra_blocks: u32,
+        /// Also rip pairs of separate groups (two nets re-routed together, e.g. from one shared
+        /// source), up to --max-rip blocks in all.
+        #[arg(long)]
+        pairs: bool,
         #[arg(long)]
         archive: bool,
         #[command(flatten)]
@@ -873,6 +877,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             verbose,
             model_only,
             extra_blocks,
+            pairs,
             archive,
             search,
         } => {
@@ -899,6 +904,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 rip: groups,
                 verbose: verbose || model_only,
                 extra_blocks,
+                pairs,
             };
             println!("{} workers; judge {} positions", pool.len(), sopts.judge.offsets.len());
             if model_only {

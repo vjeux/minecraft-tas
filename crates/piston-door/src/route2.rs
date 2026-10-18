@@ -229,6 +229,19 @@ pub fn same_wave(a: Wave, b: Wave, tol: i32) -> bool {
     a == b || (tol > 0 && (-tol..=tol).any(|k| a.shift(k) == b))
 }
 
+/// [`same_wave`] on the ticks of `mask` only (when a piston is at the cell).
+pub fn same_masked(a: Wave, b: Wave, mask: Wave, tol: i32) -> bool {
+    let m = |w: Wave| Wave([w.0[0] & mask.0[0], w.0[1] & mask.0[1]]);
+    m(a) == m(b) || (tol > 0 && (-tol..=tol).any(|k| m(a.shift(k)) == m(b)))
+}
+
+impl Measured {
+    /// The ticks at which the cell holds a piston (and the tick before it lands), ON if unknown.
+    pub fn mask(&self, p: Pos) -> Wave {
+        self.occ.get(&p).copied().unwrap_or(Wave::ON)
+    }
+}
+
 fn changes(s: &[bool]) -> Vec<bool> {
     (0..s.len()).map(|t| t > 0 && s[t] != s[t - 1]).collect()
 }
@@ -330,15 +343,69 @@ enum Feed {
     Strong,
 }
 
-/// Is the block at `p` a redstone conductor (full opaque block)?
-fn conductor(blocks: &BTreeMap<Pos, String>, p: Pos) -> bool {
-    blocks.get(&p).is_some_and(|s| Node::new(p, s).kind == Kind::Block)
+/// Read access to a block map (a design, or a design plus a few blocks on top).
+pub trait Look {
+    fn look(&self, p: Pos) -> Option<&str>;
+}
+impl Look for BTreeMap<Pos, String> {
+    fn look(&self, p: Pos) -> Option<&str> {
+        self.get(&p).map(|s| s.as_str())
+    }
+}
+/// `base` with the blocks of `top` (a short list) placed over it.
+pub struct Overlay<'a> {
+    pub base: &'a BTreeMap<Pos, String>,
+    pub top: &'a [(Pos, String)],
+}
+impl Look for Overlay<'_> {
+    fn look(&self, p: Pos) -> Option<&str> {
+        match self.top.iter().rev().find(|(q, _)| *q == p) {
+            Some((_, s)) => Some(s.as_str()),
+            None => self.base.get(&p).map(|s| s.as_str()),
+        }
+    }
+}
+
+/// Is the block at `p` a redstone conductor (full opaque block)? (Node::new's kinds, by name.)
+fn conductor<L: Look + ?Sized>(blocks: &L, p: Pos) -> bool {
+    blocks.look(p).is_some_and(|s| quick(s) == (Kind::Block, true))
+}
+
+/// Node::new's (kind, sturdy) without building the node.
+fn quick(s: &str) -> (Kind, bool) {
+    match bname(s) {
+        "redstone_wire" => (Kind::Dust, false),
+        "repeater" => (Kind::Repeater, false),
+        "comparator" => (Kind::Comparator, false),
+        "observer" => (Kind::Observer, true),
+        "redstone_torch" | "redstone_wall_torch" => (Kind::Torch, false),
+        "redstone_lamp" => (Kind::Lamp, true),
+        "redstone_block" => (Kind::RBlock, true),
+        "lever" => (Kind::Lever, false),
+        "piston" | "sticky_piston" => (Kind::Inert, !s.contains("extended=true")),
+        "piston_head" | "moving_piston" | "air" => (Kind::Other, false),
+        n if n.contains("glass") || n == "slime_block" || n == "honey_block" => (Kind::Inert, true),
+        n if n.contains("slab") || n.contains("stairs") || n.contains("torch") || n.contains("button") || n.contains("rail") => (Kind::Other, false),
+        _ => (Kind::Block, true),
+    }
+}
+
+/// `n` moved to `p` (its cached cells follow).
+fn shifted(n: &Node, p: Pos) -> Node {
+    let d = sub(p, n.pos);
+    let mut m = n.clone();
+    m.pos = p;
+    m.support = n.support.map(|s| add(s, d));
+    for c in m.em.iter_mut().chain(m.rd.iter_mut()) {
+        *c = add(*c, d);
+    }
+    m
 }
 
 /// Does dust at `n` see something to connect to (`shouldRedstoneWireConnectTo`) coming from
 /// direction `dir` (None: from above/below)?
-fn wire_connects(blocks: &BTreeMap<Pos, String>, n: Pos, dir: Option<Pos>) -> bool {
-    let Some(s) = blocks.get(&n) else { return false };
+fn wire_connects<L: Look + ?Sized>(blocks: &L, n: Pos, dir: Option<Pos>) -> bool {
+    let Some(s) = blocks.look(n) else { return false };
     match bname(s) {
         "redstone_wire" => true,
         "repeater" => dir.is_some_and(|d| facing_of(s).is_some_and(|f| f == d || f == [-d[0], -d[1], -d[2]])),
@@ -351,19 +418,19 @@ fn wire_connects(blocks: &BTreeMap<Pos, String>, n: Pos, dir: Option<Pos>) -> bo
 }
 
 /// Which horizontal sides (in HORIZ order) dust at `p` points into, as the game shapes it.
-fn dust_points(blocks: &BTreeMap<Pos, String>, p: Pos) -> [bool; 4] {
+fn dust_points<L: Look + ?Sized>(blocks: &L, p: Pos) -> [bool; 4] {
     let can_up = !conductor(blocks, add(p, [0, 1, 0]));
     let mut conn = [false; 4];
     for (i, h) in HORIZ.iter().enumerate() {
         let n = add(p, *h);
-        let sturdy_n = blocks.get(&n).is_some_and(|s| Node::new(n, s).sturdy);
+        let sturdy_n = blocks.look(n).is_some_and(|s| quick(s).1);
         if can_up && sturdy_n && wire_connects(blocks, add(n, [0, 1, 0]), None) {
             conn[i] = true;
             continue;
         }
         conn[i] = wire_connects(blocks, n, Some(*h)) || (!conductor(blocks, n) && wire_connects(blocks, add(n, [0, -1, 0]), None));
     }
-    let was_dot = blocks.get(&p).is_some_and(|s| !s.contains("=side") && !s.contains("=up"));
+    let was_dot = blocks.look(p).is_some_and(|s| !s.contains("=side") && !s.contains("=up"));
     if was_dot && !conn.iter().any(|c| *c) {
         return [false; 4];
     }
@@ -391,7 +458,7 @@ fn emits_into(u: &Node, pts: Option<[bool; 4]>, c: Pos) -> bool {
 }
 
 /// How `u` feeds `v` (None: it does not).
-fn feed(blocks: &BTreeMap<Pos, String>, u: &Node, upts: Option<[bool; 4]>, v: &Node) -> Option<Feed> {
+fn feed<L: Look + ?Sized>(blocks: &L, u: &Node, upts: Option<[bool; 4]>, v: &Node) -> Option<Feed> {
     if !drives(u, v) {
         return None;
     }
@@ -575,6 +642,8 @@ impl Model {
 pub struct Measured {
     /// Cells holding a piston at some tick, with its facing.
     pub pistons: Vec<(Pos, Pos)>,
+    /// Per piston cell: the ticks it holds a piston, and the tick before each arrival.
+    pub occ: HashMap<Pos, Wave>,
     /// Waves of sources the machine drives (observers watching non-control cells, sculk
     /// sensors), by cell.
     pub fixed: HashMap<Pos, Wave>,
@@ -649,6 +718,7 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
             let r0 = rest.get(p).unwrap_or("minecraft:air");
             let mut moved = false;
             let mut rb = Wave::OFF;
+            let mut occ = Wave::OFF;
             let mut chg = [0u64; 2];
             let mut prev = frames[1][T - 1].get(p).unwrap_or("minecraft:air").to_string();
             for ph in 0..2 {
@@ -665,6 +735,7 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
                     }
                     prev = s.to_string();
                     if is_piston(s) {
+                        occ.0[ph] |= 1 << t;
                         if let Some(f) = facing_of(s) {
                             pistons.insert(p, f);
                         }
@@ -681,6 +752,9 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
             }
             if !mctas::blockstate::is_air(r0) {
                 m.occupied.insert(p);
+            }
+            if !occ.is_off() {
+                m.occ.insert(p, occ.or(occ.shift(-1)));
             }
             if moved {
                 m.moving.insert(p);
@@ -745,6 +819,8 @@ pub struct Receiver {
     pub facing: Pos,
     pub want: Wave,
     pub rest: Wave,
+    /// Ticks that matter (a piston is there).
+    pub mask: Wave,
 }
 
 /// Router knobs.
@@ -799,6 +875,21 @@ pub struct Problem<'a> {
     pub forbidden: HashSet<Pos>,
     pub lo: Pos,
     pub hi: Pos,
+    /// The wave every piston cell must end up with: new blocks never add power outside it.
+    pub wants: Vec<(Pos, Pos, Wave)>,
+}
+
+/// Does node `v` (output `w`) power a piston cell outside the ticks that cell wants?
+fn poisons(wants: &[(Pos, Pos, Wave)], meas: &Measured, v: &Node, pts: Option<[bool; 4]>, w: Wave) -> bool {
+    wants.iter().any(|&(q, f, want)| {
+        let extra = w.minus(want);
+        let mask = meas.mask(q);
+        if extra.0[0] & mask.0[0] == 0 && extra.0[1] & mask.0[1] == 0 {
+            return false;
+        }
+        let up = add(q, [0, 1, 0]);
+        (manhattan(v.pos, q) == 1 && sub(v.pos, q) != f && emits_into(v, pts, q)) || (v.pos != q && manhattan(v.pos, up) == 1 && emits_into(v, pts, up))
+    })
 }
 
 #[derive(Clone)]
@@ -892,6 +983,7 @@ impl Problem<'_> {
                 }
             }
         }
+        let pal: Vec<Node> = opts.palette.iter().map(|s| Node::new([0, 0, 0], s)).collect();
         let mut expanded = 0usize;
         while let Some(Reverse((cost, ui))) = heap.pop() {
             if cost > budget || found.len() >= opts.hits || expanded >= opts.max_states {
@@ -902,19 +994,13 @@ impl Problem<'_> {
             // Path blocks so far.
             let placed = path_of(&arena, ui);
             let path: HashMap<Pos, String> = placed.iter().cloned().collect();
+            let all = Overlay { base: blocks, top: &placed };
             // Hit?
-            let mut all = blocks.clone();
-            for (p, s) in &placed {
-                all.insert(*p, s.clone());
-            }
             let pts = (u.node.kind == Kind::Dust).then(|| dust_points(&all, u.node.pos));
             let up = add(r.pos, [0, 1, 0]);
             let hits_r = (manhattan(u.node.pos, r.pos) == 1 && sub(u.node.pos, r.pos) != r.facing && emits_into(&u.node, pts, r.pos))
                 || (u.node.pos != r.pos && manhattan(u.node.pos, up) == 1 && emits_into(&u.node, pts, up));
-            if std::env::var("MCTAS_ROUTE2_DEBUG").is_ok() && cost <= 2 {
-                eprintln!("pop cost {cost} {} {} any [{}] hits_r {hits_r} rest [{}] want [{}]", fmt_pos(u.node.pos), short(&u.node.state), u.any.describe(), r.rest.describe(), r.want.describe());
-            }
-            if hits_r && same_wave(r.rest.or(u.any), r.want, opts.tolerance) && !placed.is_empty() {
+            if hits_r && same_masked(r.rest.or(u.any), r.want, r.mask, opts.tolerance) && !placed.is_empty() {
                 let mut key = placed.clone();
                 key.sort();
                 if seen_sets.insert(key) {
@@ -932,7 +1018,7 @@ impl Problem<'_> {
             for c in cells {
                 if !self.free(blocks, &path, c) {
                     // A context or path block already there: a conductor the tap powers is a relay.
-                    if let Some(s) = all.get(&c) {
+                    if let Some(s) = all.look(c) {
                         let v = Node::new(c, s);
                         if v.kind == Kind::Block && !path.contains_key(&c) {
                             if let Some(f) = feed(&all, &u.node, pts, &v) {
@@ -943,7 +1029,10 @@ impl Problem<'_> {
                                 let i = m.at.get(&c).copied();
                                 let a = i.map_or(a, |i| a.or(m.any[i]));
                                 let st = i.map_or(st, |i| st.or(m.strong[i]));
-                                let key = (c, s.clone(), a, st);
+                                if opts.tolerance == 0 && poisons(&self.wants, self.meas, &v, None, a) {
+                                    continue;
+                                }
+                                let key = (c, s.to_string(), a, st);
                                 if best.get(&key).is_none_or(|&b| cost < b) {
                                     best.insert(key, cost);
                                     arena.push(SNode { node: v, any: a, strong: st, strength: 15, cost, parent: ui, placed: Vec::new() });
@@ -955,11 +1044,8 @@ impl Problem<'_> {
                     continue;
                 }
                 let in_drag = self.meas.drag.contains(&c);
-                if std::env::var("MCTAS_ROUTE2_DEBUG").is_ok() && cost == 0 {
-                    eprintln!("  expand {} -> cell {} drag {in_drag}", fmt_pos(u.node.pos), fmt_pos(c));
-                }
-                for s in &opts.palette {
-                    let v = Node::new(c, s);
+                for (s, pn) in opts.palette.iter().zip(&pal) {
+                    let v = shifted(pn, c);
                     if in_drag && !(v.kind == Kind::Block && s.contains("glazed")) {
                         continue;
                     }
@@ -978,7 +1064,7 @@ impl Problem<'_> {
                     let mut add_cost = 1;
                     let mut step: Vec<(Pos, String)> = vec![(c, s.clone())];
                     if let Some(sc) = v.support {
-                        let ok_ctx = all.get(&sc).is_some_and(|x| Node::new(sc, x).sturdy) && !self.meas.moving.contains(&sc);
+                        let ok_ctx = all.look(sc).is_some_and(|x| quick(x).1) && !self.meas.moving.contains(&sc);
                         if !ok_ctx {
                             if !self.free(blocks, &path, sc) {
                                 continue;
@@ -992,10 +1078,9 @@ impl Problem<'_> {
                         continue;
                     }
                     // Its input: the parent plus anything powered next to it.
-                    let mut with = all.clone();
-                    for (p, x) in &step {
-                        with.insert(*p, x.clone());
-                    }
+                    let mut top2 = placed.clone();
+                    top2.extend(step.iter().cloned());
+                    let with = Overlay { base: blocks, top: &top2 };
                     let contrib = |w: Wave, st: Wave, f: Feed| -> (Wave, Wave) {
                         match f {
                             Feed::Any | Feed::Weak => (w, Wave::OFF),
@@ -1028,6 +1113,18 @@ impl Problem<'_> {
                     let (na, ns) = if v.kind == Kind::Block { (a, st) } else { (transfer(&v, a), transfer(&v, a)) };
                     if na.is_off() {
                         continue;
+                    }
+                    // Never power a piston cell outside the ticks it wants (nor through a new floor).
+                    if opts.tolerance == 0 {
+                        let vp = (v.kind == Kind::Dust).then(|| dust_points(&with, c));
+                        if poisons(&self.wants, self.meas, &v, vp, na) {
+                            continue;
+                        }
+                        if let (Some((fp, fs)), Kind::Dust) = (step.get(1), v.kind) {
+                            if poisons(&self.wants, self.meas, &Node::new(*fp, fs), None, na) {
+                                continue;
+                            }
+                        }
                     }
                     let key = (c, s.clone(), na, ns);
                     let nc = cost + add_cost;
@@ -1070,7 +1167,7 @@ pub fn route_net(pb: &Problem, receivers: &[Receiver], budget: u32, opts: &Route
                 let r = &receivers[ri];
                 let now = m.piston_wave(r.pos, r.facing);
                 let rest: Vec<usize> = left.iter().copied().filter(|x| *x != ri).collect();
-                if same_wave(now, r.want, opts.tolerance) {
+                if same_masked(now, r.want, r.mask, opts.tolerance) {
                     next.push((placed.clone(), rest));
                     continue;
                 }
@@ -1140,7 +1237,7 @@ fn control_blocks(d: &Design, meas: &Measured) -> Result<Vec<Pos>> {
 }
 
 /// Connected groups (face neighbors or a feed between them) of 2..=max control blocks.
-fn rip_sets(d: &Design, control: &[Pos], max: usize) -> Vec<Vec<Pos>> {
+fn rip_sets(d: &Design, control: &[Pos], max: usize, pairs: bool) -> Vec<Vec<Pos>> {
     let set: HashSet<Pos> = control.iter().copied().collect();
     let near = |a: Pos, b: Pos| -> bool {
         if manhattan(a, b) == 1 {
@@ -1178,7 +1275,38 @@ fn rip_sets(d: &Design, control: &[Pos], max: usize) -> Vec<Vec<Pos>> {
         }
         frontier = next;
     }
-    let mut out: Vec<Vec<Pos>> = all.into_iter().collect();
+    let mut out: Vec<Vec<Pos>> = all.iter().cloned().collect();
+    if pairs {
+        // Two separate groups at once (one net may then serve both: a shared source).
+        let groups: Vec<&Vec<Pos>> = all.iter().filter(|g| g.len() < max).collect();
+        let mut seen: HashSet<Vec<Pos>> = all.clone();
+        for (i, a) in groups.iter().enumerate() {
+            for b in groups.iter().skip(i + 1) {
+                if a.len() + b.len() > max || a.iter().any(|p| b.contains(p)) {
+                    continue;
+                }
+                let mut u: Vec<Pos> = a.iter().chain(b.iter()).copied().collect();
+                u.sort();
+                if seen.insert(u.clone()) {
+                    out.push(u);
+                }
+            }
+        }
+        // Single blocks paired with groups too.
+        for &p in control {
+            for g in &groups {
+                if g.len() + 1 > max || g.contains(&p) {
+                    continue;
+                }
+                let mut u = (*g).clone();
+                u.push(p);
+                u.sort();
+                if seen.insert(u.clone()) {
+                    out.push(u);
+                }
+            }
+        }
+    }
     out.sort();
     out
 }
@@ -1189,15 +1317,16 @@ fn rip_receivers(pb: &Problem, orig: &[(Pos, Pos, Wave)], ripped: &Model, tol: i
     let mut out = Vec::new();
     for &(p, f, want) in orig {
         let now = ripped.piston_wave(p, f);
-        if same_wave(now, want, tol) {
+        let mask = pb.meas.mask(p);
+        if same_masked(now, want, mask, tol) {
             continue;
         }
-        if !now.minus(want).is_off() && tol == 0 {
+        let extra = now.minus(want);
+        if (extra.0[0] & mask.0[0] != 0 || extra.0[1] & mask.0[1] != 0) && tol == 0 {
             return None;
         }
-        out.push(Receiver { pos: p, facing: f, want, rest: now });
+        out.push(Receiver { pos: p, facing: f, want, rest: now, mask });
     }
-    let _ = pb;
     Some(out)
 }
 
@@ -1266,13 +1395,14 @@ pub fn route_new(
     let spec = DoorSpec::from_design(d)?;
     let (lo, hi) = d.bounds().context("empty design")?;
     let mg = o.route.margin;
-    let pb = Problem {
+    let mut pb = Problem {
         base: d,
         meas,
         lever: Some(spec.lever),
         forbidden: forbidden_cells(d)?,
         lo: [lo[0] - mg, lo[1] - mg, lo[2] - mg],
         hi: [hi[0] + mg, hi[1] + mg, hi[2] + mg],
+        wants: Vec::new(),
     };
     let m = pb.model(&d.blocks);
     let mut want: Vec<(Pos, Pos, Wave)> = pb.receiver_waves(&m);
@@ -1282,10 +1412,11 @@ pub fn route_new(
             None => bail!("{} holds no piston at any tick", fmt_pos(*p)),
         }
     }
+    pb.wants = want.clone();
     let recv: Vec<Receiver> = want
         .iter()
-        .filter(|(p, f, w)| !same_wave(m.piston_wave(*p, *f), *w, o.route.tolerance))
-        .map(|&(p, f, w)| Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f) })
+        .filter(|(p, f, w)| !same_masked(m.piston_wave(*p, *f), *w, meas.mask(*p), o.route.tolerance))
+        .map(|&(p, f, w)| Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: meas.mask(p) })
         .collect();
     for r in &recv {
         log(&format!("  need {} [{}], has [{}]", fmt_pos(r.pos), r.want.describe(), r.rest.describe()));
@@ -1299,7 +1430,7 @@ pub fn route_new(
             new.blocks.insert(*p, x.clone());
         }
         let nm = pb.model(&new.blocks);
-        let ok = o.no_check || want.iter().all(|&(p, f, w)| same_wave(nm.piston_wave(p, f), w, o.route.tolerance));
+        let ok = o.no_check || want.iter().all(|&(p, f, w)| same_masked(nm.piston_wave(p, f), w, meas.mask(p), o.route.tolerance));
         if ok {
             let desc = c.iter().map(|(p, x)| format!("{} {}", fmt_pos(*p), short(x))).collect::<Vec<_>>().join(" ");
             designs.push((new, format!("+{} blocks: {desc}", c.len())));
@@ -1319,6 +1450,8 @@ pub struct RipOptions {
     pub verbose: bool,
     /// Allow this many more blocks than the rip removes (1: equal-size re-routes, a sanity check).
     pub extra_blocks: u32,
+    /// Also rip pairs of separate groups (up to `max_rip` blocks in all).
+    pub pairs: bool,
 }
 
 /// One rip-up-and-re-route pass over `d`: every candidate (fewer blocks) that the static model
@@ -1327,21 +1460,23 @@ pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn
     let spec = DoorSpec::from_design(d)?;
     let (lo, hi) = d.bounds().context("empty design")?;
     let mg = o.route.margin;
-    let pb0 = Problem {
+    let mut pb0 = Problem {
         base: d,
         meas,
         lever: Some(spec.lever),
         forbidden: forbidden_cells(d)?,
         lo: [lo[0] - mg, lo[1] - mg, lo[2] - mg],
         hi: [hi[0] + mg, hi[1] + mg, hi[2] + mg],
+        wants: Vec::new(),
     };
     let orig_model = pb0.model(&d.blocks);
     let orig = pb0.receiver_waves(&orig_model);
+    pb0.wants = orig.clone();
     if o.verbose {
         model_report(d, meas, log);
     }
     let control = control_blocks(d, meas)?;
-    let sets = if o.rip.is_empty() { rip_sets(d, &control, o.max_rip) } else { o.rip.clone() };
+    let sets = if o.rip.is_empty() { rip_sets(d, &control, o.max_rip, o.pairs) } else { o.rip.clone() };
     log(&format!("{} control blocks, {} rip sets (up to {})", control.len(), sets.len(), o.max_rip));
     let out: Mutex<Vec<Edit>> = Mutex::new(Vec::new());
     let next = std::sync::atomic::AtomicUsize::new(0);
@@ -1356,11 +1491,16 @@ pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn
                         break;
                     }
                     let set = &sets[i];
+                    // A kept block may not lose what it stands or hangs on.
+                    let orphan = d.blocks.iter().any(|(p, s)| !set.contains(p) && Node::new(*p, s).support.is_some_and(|q| set.contains(&q)));
+                    if orphan {
+                        continue;
+                    }
                     let mut base = d.clone();
                     for p in set {
                         base.blocks.remove(p);
                     }
-                    let pb = Problem { base: &base, meas, lever: pb0.lever, forbidden: pb0.forbidden.clone(), lo: pb0.lo, hi: pb0.hi };
+                    let pb = Problem { base: &base, meas, lever: pb0.lever, forbidden: pb0.forbidden.clone(), lo: pb0.lo, hi: pb0.hi, wants: orig.clone() };
                     let ripped = pb.model(&base.blocks);
                     let Some(recv) = rip_receivers(&pb, &orig, &ripped, o.route.tolerance) else { continue };
                     let budget = (set.len() as i64 - 1 + o.extra_blocks as i64).max(0) as u32;
@@ -1387,14 +1527,14 @@ pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn
                         // The static model must find every receiver cell unchanged.
                         let ok = o.no_check || {
                             let m = pb.model(&new.blocks);
-                            orig.iter().all(|&(p, f, w)| same_wave(m.piston_wave(p, f), w, o.route.tolerance))
+                            orig.iter().all(|&(p, f, w)| same_masked(m.piston_wave(p, f), w, meas.mask(p), o.route.tolerance))
                         };
                         if !ok {
                             if o.verbose {
                                 let m = pb.model(&new.blocks);
                                 let bad: Vec<String> = orig
                                     .iter()
-                                    .filter(|&&(p, f, w)| !same_wave(m.piston_wave(p, f), w, o.route.tolerance))
+                                    .filter(|&&(p, f, w)| !same_masked(m.piston_wave(p, f), w, meas.mask(p), o.route.tolerance))
                                     .map(|&(p, f, w)| format!("{} gets [{}] wants [{}]", fmt_pos(p), m.piston_wave(p, f).describe(), w.describe()))
                                     .collect();
                                 log(&format!("    rejected by the model: {} ({})", c.iter().map(|(p, x)| format!("{} {}", fmt_pos(*p), short(x))).collect::<Vec<_>>().join(" "), bad.join("; ")));
