@@ -22,7 +22,7 @@ In 7 wide the side pullers sit at x = -2 / x = 4 and their gaps at x = -1 / x = 
     Both side links at once leave no park cell for C / T. => none of the e89 / f43-89 / families
     entries can be wired in 7x9 with pull-type links and mergers alone.
 
-## New gadget: torch link (level-driven link piston), wip/torch-link.txt + .drive
+## New gadget: torch link (level-driven link piston), designs/gadgets/torch-link.txt + .drive
 A sticky piston held EXTENDED at rest by a redstone torch (head attached to its door block),
 torch on a block the lever powers: lever on -> torch off -> piston retracts (pulls its block),
 lever off -> extends (pushes it back). An observer watching it fires exactly ONCE per edge

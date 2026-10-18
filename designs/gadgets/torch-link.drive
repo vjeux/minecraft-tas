@@ -1,0 +1,15 @@
+# Lever on: torch off, P retracts pulling K from (3,2) to (2,2), O pulses once; lever off: P
+# pushes K back, O pulses once more. (A block strongly powered by O must not touch P's
+# quasi-connectivity cell (1,3): it would re-power P.)
+design designs/gadgets/torch-link.txt
+probe o 1 3 0
+probe near 2 2 0
+probe far 3 2 0
+expect far #
+use 0 0 0
+expect_trace o 0001100000000
+expect near #
+expect far .
+use 0 0 0
+expect_trace o 0001100000000
+expect far #
