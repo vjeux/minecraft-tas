@@ -184,25 +184,30 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Fastest open + close", Box::new(|e: &Entry| Some(e.open_ticks? + e.close_ticks?))),
     ];
     for (title, ticks) in &speed {
-        s.push_str(&format!(
-            "## {title}\n\nGame ticks after the lever flip (worst of the cycles), any category; ties by block count.\n\n\
-             | # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n"
-        ));
-        let mut rows: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && ticks(e).is_some()).collect();
-        rows.sort_by_key(|e| (ticks(e), e.blocks));
-        for (i, e) in rows.iter().take(10).enumerate() {
+        for (scope, solid_only) in [("any category", false), ("solid only", true)] {
             s.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | `{}` |\n",
-                i + 1,
-                ticks(e).unwrap(),
-                e.open_ticks.unwrap_or(0),
-                e.close_ticks.unwrap_or(0),
-                e.blocks,
-                e.category,
-                e.source
+                "## {title} ({scope})\n\nGame ticks after the lever flip (worst of the cycles); ties by block count.\n\n\
+                 | # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n"
             ));
+            let mut rows: Vec<&Entry> = entries
+                .iter()
+                .filter(|e| e.verdict.is_ok() && ticks(e).is_some() && (!solid_only || e.category == "solid"))
+                .collect();
+            rows.sort_by_key(|e| (ticks(e), e.blocks));
+            for (i, e) in rows.iter().take(if solid_only { 10 } else { 5 }).enumerate() {
+                s.push_str(&format!(
+                    "| {} | {} | {} | {} | {} | {} | `{}` |\n",
+                    i + 1,
+                    ticks(e).unwrap(),
+                    e.open_ticks.unwrap_or(0),
+                    e.close_ticks.unwrap_or(0),
+                    e.blocks,
+                    e.category,
+                    e.source
+                ));
+            }
+            s.push('\n');
         }
-        s.push('\n');
     }
     s.push_str("## Everything\n\n| # | blocks | category | slime-free | verdict | source |\n|---|---|---|---|---|---|\n");
     for (i, e) in entries.iter().enumerate() {

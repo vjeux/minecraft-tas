@@ -12,7 +12,7 @@ Every design on main and on the `explore/*` branches, verified with main's verif
 | 2 | 47 | `HEAD:designs/piston-door-3x3/archive/rb6-bmobs-47b.txt` |
 | 3 | 48 | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-hold-48b.txt` |
 | 4 | 48 | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb6-48b.txt` |
-| 5 | 49 | `origin/explore/logic-min:designs/piston-door-3x3/tracks/logic-min/BEST.txt` |
+| 5 | 49 | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-49b.txt` |
 | 6 | 50 | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-50b.txt` |
 | 7 | 50 | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-50b.txt` |
 | 8 | 50 | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-bchain-50b.txt` |
@@ -69,9 +69,9 @@ the 9 door blocks are sand, gravel or concrete powder.
 | 9 | 68 | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-68b.txt` |
 | 10 | 69 | `HEAD:designs/piston-door-3x3/archive/gravity-g1-69b.txt` |
 
-## Fastest open
+## Fastest open (any category)
 
-Game ticks after the lever flip (worst of the cycles), any category; ties by block count.
+Game ticks after the lever flip (worst of the cycles); ties by block count.
 
 | # | ticks | open | close | blocks | category | source |
 |---|---|---|---|---|---|---|
@@ -80,15 +80,27 @@ Game ticks after the lever flip (worst of the cycles), any category; ties by blo
 | 3 | 5 | 5 | 11 | 58 | gravity | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-58b.txt` |
 | 4 | 5 | 5 | 11 | 59 | gravity | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-59b.txt` |
 | 5 | 5 | 5 | 11 | 60 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g3-60b.txt` |
-| 6 | 6 | 6 | 11 | 67 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g1-67b.txt` |
-| 7 | 6 | 6 | 11 | 69 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g1-69b.txt` |
-| 8 | 16 | 16 | 17 | 71 | solid | `origin/explore/redstone-block:designs/piston-door-3x3/tracks/redstone-block/FAST.txt` |
-| 9 | 16 | 16 | 19 | 71 | solid | `origin/explore/redstone-block:designs/piston-door-3x3/tracks/redstone-block/archive/piston-door-3x3-rb7-71b.txt` |
-| 10 | 22 | 22 | 38 | 42 | sculk | `HEAD:designs/piston-door-3x3/archive/st43-bmobs-42b.txt` |
 
-## Fastest close
+## Fastest open (solid only)
 
-Game ticks after the lever flip (worst of the cycles), any category; ties by block count.
+Game ticks after the lever flip (worst of the cycles); ties by block count.
+
+| # | ticks | open | close | blocks | category | source |
+|---|---|---|---|---|---|---|
+| 1 | 16 | 16 | 19 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt` |
+| 2 | 16 | 16 | 17 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-71b.txt` |
+| 3 | 22 | 22 | 25 | 47 | solid | `HEAD:designs/piston-door-3x3/archive/m48-bmobs-47b.txt` |
+| 4 | 22 | 22 | 25 | 47 | solid | `HEAD:designs/piston-door-3x3/archive/rb6-bmobs-47b.txt` |
+| 5 | 22 | 22 | 25 | 48 | solid | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-hold-48b.txt` |
+| 6 | 22 | 22 | 25 | 48 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb6-48b.txt` |
+| 7 | 22 | 22 | 25 | 50 | solid | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-bchain-50b.txt` |
+| 8 | 22 | 22 | 29 | 51 | solid | `HEAD:designs/piston-door-3x3/archive/mechanics-rb2-hold-51b.txt` |
+| 9 | 22 | 22 | 25 | 52 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb5-52b.txt` |
+| 10 | 22 | 22 | 29 | 53 | solid | `HEAD:designs/piston-door-3x3/archive/mechanics-rb2-hold-53b.txt` |
+
+## Fastest close (any category)
+
+Game ticks after the lever flip (worst of the cycles); ties by block count.
 
 | # | ticks | open | close | blocks | category | source |
 |---|---|---|---|---|---|---|
@@ -97,15 +109,27 @@ Game ticks after the lever flip (worst of the cycles), any category; ties by blo
 | 3 | 11 | 5 | 11 | 58 | gravity | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-58b.txt` |
 | 4 | 11 | 5 | 11 | 59 | gravity | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-59b.txt` |
 | 5 | 11 | 5 | 11 | 60 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g3-60b.txt` |
-| 6 | 11 | 22 | 11 | 64 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-sf3-64b.txt` |
-| 7 | 11 | 22 | 11 | 66 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-66b.txt` |
-| 8 | 11 | 6 | 11 | 67 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g1-67b.txt` |
-| 9 | 11 | 22 | 11 | 68 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-68b.txt` |
-| 10 | 11 | 6 | 11 | 69 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g1-69b.txt` |
 
-## Fastest open + close
+## Fastest close (solid only)
 
-Game ticks after the lever flip (worst of the cycles), any category; ties by block count.
+Game ticks after the lever flip (worst of the cycles); ties by block count.
+
+| # | ticks | open | close | blocks | category | source |
+|---|---|---|---|---|---|---|
+| 1 | 17 | 16 | 17 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-71b.txt` |
+| 2 | 18 | 34 | 18 | 89 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s1-89b.txt` |
+| 3 | 19 | 16 | 19 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt` |
+| 4 | 22 | 33 | 22 | 58 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s6-58b.txt` |
+| 5 | 22 | 22 | 22 | 61 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3-61b.txt` |
+| 6 | 22 | 38 | 22 | 84 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s2-84b.txt` |
+| 7 | 24 | 24 | 24 | 53 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-53b.txt` |
+| 8 | 24 | 24 | 24 | 54 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-54b.txt` |
+| 9 | 24 | 24 | 24 | 55 | solid | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-55b.txt` |
+| 10 | 24 | 24 | 24 | 59 | solid | `HEAD:designs/piston-door-3x3/archive/search-tool-from-logic-min-BEST-59b.txt` |
+
+## Fastest open + close (any category)
+
+Game ticks after the lever flip (worst of the cycles); ties by block count.
 
 | # | ticks | open | close | blocks | category | source |
 |---|---|---|---|---|---|---|
@@ -114,11 +138,23 @@ Game ticks after the lever flip (worst of the cycles), any category; ties by blo
 | 3 | 16 | 5 | 11 | 58 | gravity | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-58b.txt` |
 | 4 | 16 | 5 | 11 | 59 | gravity | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-59b.txt` |
 | 5 | 16 | 5 | 11 | 60 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g3-60b.txt` |
-| 6 | 17 | 6 | 11 | 67 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g1-67b.txt` |
-| 7 | 17 | 6 | 11 | 69 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-g1-69b.txt` |
-| 8 | 33 | 22 | 11 | 64 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-sf3-64b.txt` |
-| 9 | 33 | 22 | 11 | 66 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-66b.txt` |
-| 10 | 33 | 22 | 11 | 68 | gravity | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-68b.txt` |
+
+## Fastest open + close (solid only)
+
+Game ticks after the lever flip (worst of the cycles); ties by block count.
+
+| # | ticks | open | close | blocks | category | source |
+|---|---|---|---|---|---|---|
+| 1 | 33 | 16 | 17 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-71b.txt` |
+| 2 | 35 | 16 | 19 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt` |
+| 3 | 44 | 22 | 22 | 61 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3-61b.txt` |
+| 4 | 47 | 22 | 25 | 47 | solid | `HEAD:designs/piston-door-3x3/archive/m48-bmobs-47b.txt` |
+| 5 | 47 | 22 | 25 | 47 | solid | `HEAD:designs/piston-door-3x3/archive/rb6-bmobs-47b.txt` |
+| 6 | 47 | 22 | 25 | 48 | solid | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-hold-48b.txt` |
+| 7 | 47 | 22 | 25 | 48 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb6-48b.txt` |
+| 8 | 47 | 22 | 25 | 50 | solid | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-bchain-50b.txt` |
+| 9 | 47 | 22 | 25 | 52 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb5-52b.txt` |
+| 10 | 48 | 24 | 24 | 53 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-53b.txt` |
 
 ## Everything
 
@@ -128,7 +164,7 @@ Game ticks after the lever flip (worst of the cycles), any category; ties by blo
 | 2 | 47 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/rb6-bmobs-47b.txt` |
 | 3 | 48 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-hold-48b.txt` |
 | 4 | 48 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb6-48b.txt` |
-| 5 | 49 | solid |  | WORKS | `origin/explore/logic-min:designs/piston-door-3x3/tracks/logic-min/BEST.txt` |
+| 5 | 49 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-49b.txt` |
 | 6 | 50 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-50b.txt` |
 | 7 | 50 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-50b.txt` |
 | 8 | 50 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-bchain-50b.txt` |
@@ -149,8 +185,8 @@ Game ticks after the lever flip (worst of the cycles), any category; ties by blo
 | 23 | 62 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s5-62b.txt` |
 | 24 | 65 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s4-65b.txt` |
 | 25 | 67 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb1-67b.txt` |
-| 26 | 71 | solid |  | WORKS | `origin/explore/redstone-block:designs/piston-door-3x3/tracks/redstone-block/FAST.txt` |
-| 27 | 71 | solid |  | WORKS | `origin/explore/redstone-block:designs/piston-door-3x3/tracks/redstone-block/archive/piston-door-3x3-rb7-71b.txt` |
+| 26 | 71 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt` |
+| 27 | 71 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-71b.txt` |
 | 28 | 73 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb1-73b.txt` |
 | 29 | 84 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s2-84b.txt` |
 | 30 | 85 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-85b.txt` |
