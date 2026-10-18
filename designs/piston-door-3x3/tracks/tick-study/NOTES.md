@@ -16,11 +16,12 @@ and identical in the official server at 4 positions (`door vanilla-gadget`, logs
 * New tool: `mctas door vanilla-gadget <drive>...` (crates/piston-door/src/vanilla_gadget.rs) and
   the drive command `setblock` (the game's /setblock, identical in both worlds).
 
-## Gadgets (19 new)
+## Gadgets (21 new)
 zero-tick, zero-tick-normal, zero-tick-reach, zero-tick-onplace, zero-tick-observer,
 zero-tick-pulse, double-move, instant-off, instant-on, event-order, landing-next-tick,
-spit-saves-tick, leaves-delay, odd-observer, button-pulse, center-exit, open-4 (+ open-4-cycle),
-center-return, corner-return.
+spit-saves-tick, leaves-delay, odd-observer, comparator-odd, button-pulse, torch-delay,
+center-exit, open-4 (+ open-4-cycle), center-return, corner-return. The 25 older use-only gadgets were also run
+through `door vanilla-gadget`: all identical.
 
 ## Findings worth knowing
 * A BUD-armed piston cannot be part of a rest state (the judge's placement updates every block):

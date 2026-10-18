@@ -116,6 +116,7 @@ next to the quasi cell (its updates reach only its own neighbors).
 | so a PUSHED block arrives after 0 gt (0-tick), 1 gt (its sticky pusher unpowered in the next tick's scheduled or block-event phase: spit at t+1), or 2 gt (spit at t+2 in the block-event phase, or landing in the block-entity phase); a PULLED or dragged block always after 2 gt (landing) | 101-110, 180-190 | `zero-tick`, `spit-saves-tick`, `landing-next-tick` | PASS |
 | an observer watching a cell a k1 piston changes fires k3..k5; chains stay odd (k5, k7...) | observer 2 gt from the block-event phase | `odd-observer` | PASS |
 | a repeater reading a redstone block a k1 piston moves falls at k1+2d; a note block turns that edge into a state change an observer sees | `DiodeBlock` 84-99 | `odd-pulse` (existing, speed-2) | PASS |
+| comparator subtraction keeps the parity of its inputs: side input from a redstone block a k1 piston pushes (lands k3) -> output off at k5; pulled away at k1 -> output back at k3 | `ComparatorBlock` 145-146 | `comparator-odd` | PASS |
 | **1 gt scheduled ticks**: persistent leaves recompute `distance` 1 gt after a neighbor change (also scaffolding, and 26.3's survival checks of sugar cane/cactus/bamboo/kelp/chorus, which break blocks); a piston at k1 -> leaves at k2 -> observer k4; a piston at k2 (even) -> leaves k3 (odd) | `LeavesBlock` 102, `ScaffoldingBlock` 83/103 | `leaves-delay` | PASS |
 | water spreads every 5 gt, lava 30 (fluid ticks) | `fluidTicks.tick` 396 | - | - |
 | sculk sensors wake floor(distance) gt after a vibration, in the block-entity phase (any parity, category sculk) | `SculkSensorBlock` 190/208 | `sculk-delay-line`, `sculk-hold` (existing) | PASS (sculk-delay-line, sculk-hold-cm) |
@@ -129,8 +130,8 @@ next to the quasi cell (its updates reach only its own neighbors).
 | pressure plate | entity -> on, off | +20 (weighted +10) re-check | scheduled | `BasePressurePlateBlock` 116 | - |
 | redstone dust | any change | 0 | where the change happens | updates 2 cells deep, `HashSet` order | `instant-off`, `dust-reach` |
 | repeater | input change | 2 x delay | scheduled; EXTREMELY_HIGH if it feeds another diode, VERY_HIGH when turning off, HIGH when turning on | a pulse shorter than the delay, even a 0-tick one, is stretched to it; locking is instant (side input) | `pulse-stretch`, `zero-tick-pulse`, `repeater-lock`, `early-window` |
-| comparator | input change | 2 | scheduled; HIGH if it feeds a diode, else NORMAL | output recomputed in its tick: a change undone before then (a 0-tick pulse) is swallowed | `zero-tick-pulse` |
-| redstone torch | input change | 2 | scheduled | burnout: 8 toggles in 60 gt -> off 160 gt (`RedstoneTorchBlock` 74, 87) | - |
+| comparator | input change | 2 | scheduled; HIGH if it feeds a diode, else NORMAL | output recomputed in its tick: a change undone before then (a 0-tick pulse) is swallowed; subtraction keeps its inputs' parity | `zero-tick-pulse`, `comparator-odd` |
+| redstone torch | input change | 2 | scheduled | burnout: 8 toggles in 60 gt -> off 160 gt (`RedstoneTorchBlock` 74, 87) | `torch-delay` |
 | observer | shape update from its face | on +2, off +2 more | scheduled | ignores changes while powered; sees 0-ticks | `observer-delay`, `zero-tick-observer`, `odd-observer` |
 | redstone lamp | power | on 0, off +4 | off scheduled | visible to observers | `lamp-fall-delay` |
 | copper bulb (waxed) | rising edge | toggles 0 | in the update | comparator reads 15/0 | `bulb-toggle`, `bulb-pulse` |
@@ -145,6 +146,11 @@ next to the quasi cell (its updates reach only its own neighbors).
 
 "1-tick" in the redstone community usually means one REDSTONE tick (2 gt, an observer pulse);
 this study uses game ticks throughout.
+
+No gadget for: lectern (its pulse needs a page turn, a menu click), daylight detector (follows the
+time of day, frozen in the judge's worlds; a right-click inverts it at once), bell (no redstone
+output), pressure plates and target blocks (need entities or projectiles). Their rows above are
+read from the source only.
 
 ### Pulse generators
 
@@ -254,6 +260,25 @@ Open + close >= 5; **the open-4 machine does open 4 + close 4 = 8 (built, `open-
 against the boards' 10 + 7; wiring it to a lever (instant-off line, arming after the flip, an
 observer chain for k4 and for each close tick) is the next step (tick-door track).
 
+### What a lever-driven open-4 must provide (the script's inputs)
+
+| when | scripted input (open-4-cycle.drive) | role | what can provide it |
+|---|---|---|---|
+| open k0 | air at the 7 pullers' redstone blocks, TL's first | the 7 plain pullers retract at k1; TL's puller must run before B's (F's update while B still blocks it) | one lever-fired piston shoving the redstone block of a dust net feeding them (`instant-off`); the dust order is position dependent, so feed TL's puller separately and first (update order W,E,D,U,N,S) |
+| open k0 | redstone blocks next to the quasi cells of X_T and X_A, and R_T | arm the k1 partners and P_T silently | the lever itself next to a quasi cell (it updates only its own and its support's neighbors), or dust -> conductor -> quasi cell from 3+ cells away |
+| open k3->k4 | air at Y_A's and Y_P's redstone blocks | the aside pullers retract at k4 | an observer pair off the lever (k4) firing a piston that shoves their redstone block (`observer-delay` + `instant-off`) |
+| open k3->k4 | arm G_T (R_G + X_G) and X_F | k4 partners | the same k4 pulse, or R_A's own landing (F is armed that way already) |
+| open, idle | disarm the 4 partners | ready for the close | any time while open (each removal updates the partner's head) |
+| close k0 | the 6 plain pullers' redstone blocks back | plain pushes at k1 | power ON at k1 on the lever-off edge: an instant-on (a conductor pulled off a dust step, `instant-on`); a redstone block merely pulled back lands at k3 and the pushes would land at k6 |
+| close k0 | F and G_T 0-ticks (R_F2 / R_G2 ordered before X_F2 / X_G2) | C and T into the top-row cells, placed at k1 | the lever-off edge reaching the pistons before their partners (update order), partners armed after the open |
+| close k1->k2 | R_A3 + X_A arming, Y_A 0-tick | A' carried back into E, fires, C home at k2 | an observer pulse at k2 off the lever-off edge |
+| close k2->k3 | R_T4 + X_T arming, Y_P 0-tick | P_T carried back, fires, T home at k3 | a k2 observer + 1 more link (odd: k3 comes from a k1 piston's observer, `odd-observer`) |
+| close k3->k4 | R_TL3, X_TL arming, a poke next to TL's puller | TL home at k4 | an observer pair at k4 |
+
+Observers fire on both lever edges, so every observer-driven input of the open also fires on the
+close (and vice versa): the wired door must make those runs no-ops (`blocked-push`, `order-flip`
+patterns) or route the two edges apart (a copper bulb toggles once per rising edge: `bulb-pulse`).
+
 ## 7. Notes for door builders
 
 * Pistons react to a landing one tick late (landing = block-entity phase): spit (2 gt pulse) or
@@ -281,10 +306,10 @@ positions. Logs: `designs/piston-door-3x3/tracks/tick-study/logs/`.
 |---|---|
 | zero-tick, zero-tick-normal, zero-tick-reach, zero-tick-onplace, zero-tick-observer, zero-tick-pulse | PASS, identical at 4 positions |
 | instant-off, instant-on | PASS, identical at 4 positions |
-| landing-next-tick, spit-saves-tick, leaves-delay, odd-observer | PASS, identical at 4 positions |
+| landing-next-tick, spit-saves-tick, leaves-delay, odd-observer, comparator-odd | PASS, identical at 4 positions |
 | center-exit, double-move | PASS, identical at 4 positions |
 | open-4, open-4-cycle, center-return, corner-return | PASS, identical at 4 positions |
-| event-order, button-pulse | PASS, identical at 4 positions |
+| event-order, button-pulse, torch-delay | PASS, identical at 4 positions |
 
 The rest of the library was run through the same tool (logs/vanilla-gadget-library.log): the 25
 older gadgets whose scripts only `use` levers (bulb-pulse, bulb-toggle, dual-edge, dust-below,
