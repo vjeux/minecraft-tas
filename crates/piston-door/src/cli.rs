@@ -9,6 +9,25 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum DoorCmd {
+    /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
+    Leaderboard {
+        /// Ref prefix to scan besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        /// Run `git fetch origin` first.
+        #[arg(long)]
+        fetch: bool,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        /// Skip designs with more blocks than this.
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Write the markdown table here (also printed).
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Route a dust path in a design (prints the blocks to add).
     Route {
         design: PathBuf,
@@ -83,6 +102,21 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out } => {
+            let repo = std::path::Path::new(".");
+            if fetch {
+                let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
+                anyhow::ensure!(st.success(), "git fetch failed");
+            }
+            let cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
+            eprintln!("verifying {} designs", cands.len());
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers)?;
+            let table = crate::leaderboard::render(&entries, extra_offsets);
+            print!("{table}");
+            if let Some(p) = out {
+                std::fs::write(p, &table)?;
+            }
+        }
         DoorCmd::Route { design, start, goal, allow } => {
             let d = load_design(&design)?;
             let cells = |s: &str| -> Vec<[i32; 3]> {
@@ -154,12 +188,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
             let mut opts = VerifyOptions { cycles, keep_frames: show, ..Default::default() };
-            let mut seed: u64 = 0x9e3779b97f4a7c15;
-            for _ in 0..extra_offsets {
-                let mut next = |m: i64| { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed % (2 * m as u64 + 1)) as i32 - m as i32 };
-                let off = [next(13), next(40), next(13)];
-                opts.offsets.push(off);
-            }
+            opts.offsets.extend(crate::extra_offsets(extra_offsets));
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
                     println!("WORKS: {} ({} blocks, {}x{}x{}, category {})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d));
