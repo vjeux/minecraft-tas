@@ -1487,6 +1487,13 @@ pub fn search(
     let sandboxes = Sandboxes::new(pool);
     let mut rng = opts.seed.max(1);
     let mut cur = start.clone();
+    // Air entries place nothing but would count as blocks (and removing them would look like an
+    // improvement): drop them.
+    let airs = cur.blocks.len();
+    cur.blocks.retain(|_, s| !mctas::blockstate::is_air(s));
+    if cur.blocks.len() != airs {
+        log(&format!("dropped {} air entries from the start design", airs - cur.blocks.len()));
+    }
     let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;
