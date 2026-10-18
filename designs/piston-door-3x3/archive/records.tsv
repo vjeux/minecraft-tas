@@ -1,0 +1,32 @@
+# The solid record progression (category solid: 9 identical plain door blocks), hand-edited.
+# One row per record: blocks<TAB>archive design (file stem)<TAB>how it got there (one line).
+# Read by `mctas door montage` (the solid board's clips and labels), `door gallery`, `door leaderboard`
+# and `door catalog` (archive/README.md). Add a row when a solid record falls.
+151	piston-door-3x3-v2-151b	first valid design: all-stone door, "UP dance"
+147	piston-door-3x3-v2-147b	greedy removal of 151
+143	piston-door-3x3-v2-143b	A early through a 21-block route across the front, unified late chain
+135	piston-door-3x3-v2-135b	A early from a branch of the sides line
+133	piston-door-3x3-v2-133b	unified late chain, A torch fed off the sides line
+128	piston-door-3x3-v2-128b	P_T nets hang off the lever line, A torch fed by repeaters
+126	piston-door-3x3-v2-126b	greedy removal of 128
+118	piston-door-3x3-v2-118b	R_B stretches the B pulse, straight late line, A late off the P_T net
+117	piston-door-3x3-v2-117b	greedy removal of 118
+116	piston-door-3x3-v2-116b	router re-laid the drop to the sides line
+115	piston-door-3x3-v2-115b	greedy removal of 116
+109	search-tool-v2-min-109b	overnight agent search-tool: local search + net re-synthesis of v2
+96	piston-door-3x3-v2u2-96b	agent center-mech: side groups pushed out by 2 pistons sharing an obsidian block, honey carrier for the bottom-middle, redstone blocks riding the side groups
+91	mechanics-ta-91b	agent mechanics: A torch next to the observer column, lever on its attachment
+88	search-tool-center-mech-88b	agent search-tool: local search on center-mech's 96
+87	piston-door-3x3-v3c-87b	agent top-control: side pistons high, redstone blocks riding the backbones power A, P_BM, P_T
+73	piston-door-3x3-rb1-73b	agent redstone-block: sides pushed open, one redstone block shuttled by one piston powers A then P_R, the right structure drags T out (no P_T)
+57	piston-door-3x3-rb2-57b	agent redstone-block: rb1 with short nets (dual-edge observer next to the lever feeds R_B by 3 dust, the 24gt late hold fed straight from the lever)
+53	mechanics-rb2-hold-53b	agent mechanics: rb2 with the 24gt late hold re-laid as a short U west of the lever, glazed terracotta floors beside the slime backbone
+51	mechanics-rb2-hold-51b	agent mechanics: the 53 plus O2's pulse to R_B through a strongly powered block and an isolated cross dust
+50	mechanics-rb5-bchain-50b	agent mechanics: redstone-block's rb5 (BUD hold for Q, 52) + the O2 to R_B pulse bridge
+48	mechanics-rb5-hold-48b	agents mechanics + redstone-block: the BUD silent hold shrunk to 7 blocks + the O2 to R_B pulse bridge (both reached 48; also piston-door-3x3-rb6-48b)
+47	rb6-bmobs-47b	agent top-control: rb6 with the bottom-middle piston retracted at rest, fired by an observer watching the bottom-right door block (pull on open, push+spit on close)
+46	piston-door-3x3-fresh-b-mp6-46b	agent fresh-b: "mirrored pump" family (bottom row on a slime row, pump below the door, motion-triggered flags), open 16 / close 16
+42	fc1-42b	agent fresh-c: "symmetric control" family: no hold at all (Q = lever through one repeater), an early A pulse spits the center down on close, the B window is harmlessly blocked on close
+40	fc2-40b	agent fresh-c: fc1 with the left pusher as a pull-type pulse piston west of the backbone fired by two observers off the lever
+39	sf-holdA-b39-39b	agent sf-holdA (also slime-free): mech-synth's 19-block mechanism; both top corners pulled up and fed X's 3 pulses (an odd pulse count toggles a pulse-driven piston once, so the doorway bounces before it settles), the B window and the T piston on one observer chain
+38	sf-holdA-b38-38b	agent sf-holdA (also slime-free): b39 with the lever on the observer O; it weakly powers a note block that O_a watches (a zero-delay relay that keeps power out of the T piston's quasi cell)

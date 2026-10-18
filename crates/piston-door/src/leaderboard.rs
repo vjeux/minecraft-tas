@@ -2,14 +2,15 @@
 //! `explore/*` branches, verify each one with the judge (main's verifier, extra offsets), and
 //! write a ranked table. Identical designs are verified once; the first source is kept.
 
-use std::collections::HashSet;
-use std::path::Path;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Result, bail};
 use mctas::design::Design;
 use mctas::sim::{Pool, WorkerConfig};
 
+use crate::showcase::{asset_url, sentence};
 use crate::{VerifyOptions, block_count, category};
 
 /// One candidate and its verdict.
@@ -128,6 +129,15 @@ fn save_cache(dir: &Path, m: &std::collections::HashMap<u64, Cached>) -> Result<
     Ok(())
 }
 
+/// Keep only the candidates whose verdict is cached in `dir` (nothing is simulated); returns how
+/// many were dropped.
+pub fn only_cached(cands: &mut Vec<(String, Design)>, dir: &Path) -> usize {
+    let cache = load_cache(dir);
+    let before = cands.len();
+    cands.retain(|(_, d)| cache.contains_key(&design_hash(d)));
+    before - cands.len()
+}
+
 /// Verify every candidate in parallel, then run the rotation check on the working ones. With
 /// `cache_dir`, verdicts and timings are cached by design content (main's verifier is
 /// deterministic), so only new designs are simulated.
@@ -174,34 +184,136 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
     Ok(entries)
 }
 
-/// Markdown table of the entries.
-pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
+/// What the boards show besides their tables: the assets of a GitHub release (each board
+/// leader's GIF from `door gallery`, design videos from `door video-all`, the montages and the
+/// timeline chart), and how each design works (`captions.tsv` / `records.tsv` of the archive).
+pub struct Extras {
+    pub tag: String,
+    pub assets: HashSet<String>,
+    pub captions: HashMap<String, String>,
+    pub archive: PathBuf,
+    /// Designs left out because their verdict was not cached (`--cached-only`).
+    pub uncached: usize,
+}
+
+impl Extras {
+    /// Captions from `archive`, asset names of the release `tag` (`gh`; none when `tag` is empty).
+    pub fn load(archive: &Path, tag: &str) -> Extras {
+        let assets = if tag.is_empty() { HashSet::new() } else { crate::showcase::release_assets(tag) };
+        if assets.is_empty() && !tag.is_empty() {
+            eprintln!("warning: no assets found in release {tag} (gh): the boards get no GIFs or video links");
+        }
+        Extras { tag: tag.to_string(), assets, captions: crate::showcase::captions(archive), archive: archive.to_path_buf(), uncached: 0 }
+    }
+
+    fn has(&self, name: &str) -> bool {
+        self.assets.contains(name)
+    }
+}
+
+/// The stem of a source's file: `HEAD:designs/piston-door-3x3/archive/fc2-40b.txt` -> `fc2-40b`.
+fn stem(source: &str) -> String {
+    let f = source.rsplit(['/', ':']).next().unwrap_or(source);
+    f.strip_suffix(".txt").unwrap_or(f).to_string()
+}
+
+/// A markdown link target for a source, from LEADERBOARD.md's folder: a relative path for HEAD
+/// files, the file on GitHub for a branch.
+fn source_link(source: &str) -> String {
+    let (r, path) = source.split_once(':').unwrap_or(("HEAD", source));
+    if r == "HEAD" {
+        path.strip_prefix("designs/piston-door-3x3/").map(String::from).unwrap_or_else(|| format!("../../{path}"))
+    } else {
+        format!("https://github.com/vjeux/minecraft-tas/blob/{}/{path}", r.strip_prefix("origin/").unwrap_or(r))
+    }
+}
+
+/// The leader of a board, above its table: the GIF of the first of `tied` (the leader and the
+/// designs tied with it) that has one, then one line about that design (blocks, kind, ticks,
+/// file, video, how it works) and the board's record progression video when there is one.
+fn push_leader(s: &mut String, x: &Extras, tied: &[&Entry], progression: Option<&str>) {
+    let Some(first) = tied.first() else { return };
+    let with_gif = tied.iter().find(|e| x.has(&format!("{}.gif", stem(&e.source)))).copied();
+    let e = with_gif.unwrap_or(first);
+    let st = stem(&e.source);
+    if with_gif.is_some() {
+        s.push_str(&format!("![{st}]({})\n\n", asset_url(&x.tag, &format!("{st}.gif"))));
+    }
+    let mut kind = e.category.to_string();
+    if crate::slime_free(&e.design) {
+        kind.push_str(", slime-free");
+    }
+    if crate::single_layer(&e.design) {
+        kind.push_str(", flat");
+    }
+    let timing = match (e.open_ticks, e.close_ticks) {
+        (Some(o), Some(c)) => format!(", opens in {o} ticks, closes in {c} (worst cycle)"),
+        _ => String::new(),
+    };
+    let video = if x.has(&format!("{st}.mp4")) { format!(" ([video]({}))", asset_url(&x.tag, &format!("{st}.mp4"))) } else { String::new() };
+    let how = x.captions.get(&st).map(|h| sentence(h)).unwrap_or_else(|| {
+        let track = match e.source.split_once(':') {
+            Some(("HEAD", path)) => crate::showcase::track_of(Path::new(path)),
+            Some((r, _)) => r.rsplit('/').next().map(String::from),
+            None => None,
+        };
+        track.map(|t| format!("From track {t}: [tracks/{t}/NOTES.md](tracks/{t}/NOTES.md).")).unwrap_or_default()
+    });
+    s.push_str(&format!("**{} blocks**, {kind}{timing}: [{st}]({}){video}. {how}\n\n", e.blocks, source_link(&e.source)));
+    if let Some(k) = progression.filter(|k| x.has(&format!("{k}-progression.mp4"))) {
+        s.push_str(&format!(
+            "Every record of this board in one video: [{k}-progression.mp4]({}) ([poster]({})).\n\n",
+            asset_url(&x.tag, &format!("{k}-progression.mp4")),
+            asset_url(&x.tag, &format!("{k}-progression.jpg"))
+        ));
+    }
+}
+
+/// LEADERBOARD.md: every board, its leader with a GIF, the rest collapsed.
+pub fn render(entries: &[Entry], extra_offsets: u32, x: &Extras) -> String {
     let mut s = format!(
-        "# 3x3 piston door leaderboards\n\nEach board shows its leader; click \"more\" for the rest. Walkway: since 2026-10-18 16:40Z nothing may stand in front of or behind the door \
-         (designs judged before keep their verdicts); \"clean\" means nothing in the 3-deep walkway at rest.\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
-         (3 cycles at {} positions). Videos of every archived design: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n\
-         Rotations: every working design is also run turned 90, 180 and 270 degrees (same positions; redstone updates its neighbors \
-         in a fixed direction order, so a door can work facing one way only). The boards below list rotation-safe designs; the \
-         others are not disqualified, they are listed on their own board, [Not rotation-safe](#not-rotation-safe).\n\n",
+        "# 3x3 piston door leaderboards\n\nGenerated by `mctas door leaderboard`; never edit it by hand. Every design on main and on the `explore/*` \
+         branches, judged by main's verifier (3 open/close cycles at {} positions). Each board shows its leader (GIF from `door gallery`, \
+         video, how it works); click \"more\" for the rest. What every board means and the rules: [docs/rules.md](../../docs/rules.md). \
+         Every archived design with its video: [archive/README.md](archive/README.md). The story: [docs/history.md](../../docs/history.md).\n\n\
+         Walkway \"clean\" = nothing in the 3-deep walkway at rest (designs judged before the 2026-10-18 16:40Z \"nothing in front of or behind \
+         the door\" rule keep their verdicts). The boards rank rotation-safe designs; the others are on [Not rotation-safe](#not-rotation-safe).\n\n",
         4 + extra_offsets
     );
-    let boards: [(&str, &str, Box<dyn Fn(&Entry) -> bool>); 5] = [
-        ("Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", Box::new(|e: &Entry| e.category == "solid")),
-        ("Solid, no slime or honey", "same, and not a single slime or honey block anywhere", Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design))),
+    if x.uncached > 0 {
+        s.push_str(&format!("({} designs without a cached verdict are not judged yet.)\n\n", x.uncached));
+    }
+    let best_solid = entries.iter().find(|e| e.verdict.is_ok() && e.rotation_safe() && e.category == "solid").map(|e| e.blocks);
+    if x.has(crate::showcase::MONTAGE_ASSET) {
+        s.push_str(&format!(
+            "The whole solid record progression in one video ({}, `mctas door montage`; click the poster):\n\n[![every solid record]({})]({})\n\n",
+            crate::showcase::progression_title(&x.archive, best_solid),
+            asset_url(&x.tag, crate::showcase::POSTER_ASSET),
+            asset_url(&x.tag, crate::showcase::MONTAGE_ASSET)
+        ));
+    }
+    if x.has(crate::showcase::TIMELINE_ASSET) {
+        s.push_str(&format!("The night, board by board (records from the archive):\n\n![records over the night]({})\n\n", asset_url(&x.tag, crate::showcase::TIMELINE_ASSET)));
+    }
+    let boards: [(&str, &str, &str, Box<dyn Fn(&Entry) -> bool>); 5] = [
+        ("Solid (main ranking)", "solid", "9 identical plain door blocks, no sculk sensors", Box::new(|e: &Entry| e.category == "solid")),
+        ("Solid, no slime or honey", "slime-free", "same, and not a single slime or honey block anywhere", Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design))),
         (
             "Solid, flat (one z layer), no slime or honey",
+            "flat",
             "slime-free, and every block (door, pistons, wiring, lever) in the door's plane: the whole machine is one block thick",
             Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design) && crate::single_layer(&e.design)),
         ),
-        ("Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", Box::new(|e: &Entry| e.category == "sculk")),
-        ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
+        ("Sculk", "sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", Box::new(|e: &Entry| e.category == "sculk")),
+        ("Gravity", "gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
     ];
-    for (title, rule, keep) in &boards {
+    for (title, key, rule, keep) in &boards {
         s.push_str(&format!("## {title}\n\n{rule}; rotation-safe.\n\n"));
-        let rows: Vec<String> = entries
+        let board: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && e.rotation_safe() && keep(e)).take(10).collect();
+        let tied: Vec<&Entry> = board.iter().take_while(|e| e.blocks == board[0].blocks).copied().collect();
+        push_leader(&mut s, x, &tied, Some(key));
+        let rows: Vec<String> = board
             .iter()
-            .filter(|e| e.verdict.is_ok() && e.rotation_safe() && keep(e))
-            .take(10)
             .enumerate()
             .map(|(i, e)| {
                 let clutter = crate::walkway_clutter(&e.design);
@@ -216,10 +328,11 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         "## Not rotation-safe\n\nWorking designs (they pass the judge as built) that break when turned 90, 180 or 270 degrees; the first \
          failing turn and the judge's reason.\n\n",
     );
-    let rows: Vec<String> = entries
+    let unrotated: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && !e.rotation_safe()).take(30).collect();
+    let tied: Vec<&Entry> = unrotated.iter().take_while(|e| e.blocks == unrotated[0].blocks).copied().collect();
+    push_leader(&mut s, x, &tied, None);
+    let rows: Vec<String> = unrotated
         .iter()
-        .filter(|e| e.verdict.is_ok() && !e.rotation_safe())
-        .take(30)
         .enumerate()
         .map(|(i, e)| {
             let (deg, why) = match &e.rotation {
@@ -298,6 +411,8 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
                 .filter(|e| e.verdict.is_ok() && e.rotation_safe() && ticks(e).is_some() && (!solid_only || e.category == "solid"))
                 .collect();
             sorted.sort_by_key(|e| (ticks(e), e.blocks));
+            let tied: Vec<&Entry> = sorted.iter().take_while(|e| (ticks(e), e.blocks) == (ticks(sorted[0]), sorted[0].blocks)).copied().collect();
+            push_leader(&mut s, x, &tied, None);
             let rows: Vec<String> = sorted
                 .iter()
                 .take(if solid_only { 10 } else { 5 })

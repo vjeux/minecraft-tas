@@ -488,9 +488,11 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
 /// Render a video of every design in `dir` (each `.txt`, README excluded) into `out/<stem>.mp4`,
 /// `jobs` at a time, skipping videos that already exist (unless `redo`); upload each new one to
 /// the GitHub release `upload` (as `<stem>.mp4`). With `redo_cut`, existing videos of doors that
-/// are still moving after `opts.ticks` are recorded again (clips used to stop there). Writes
-/// `dir/VIDEOS.md` linking every design to its video.
-pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Option<&str>, opts: &VideoOptions, redo: bool, redo_cut: bool) -> Result<()> {
+/// are still moving after `opts.ticks` are recorded again (clips used to stop there). Then writes
+/// the catalog `dir/README.md` (every design with its video link, see catalog.rs). `dry_run` only
+/// lists the videos it would record.
+#[allow(clippy::too_many_arguments)]
+pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Option<&str>, opts: &VideoOptions, redo: bool, redo_cut: bool, dry_run: bool) -> Result<()> {
     std::fs::create_dir_all(out)?;
     let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)?
         .flatten()
@@ -519,6 +521,12 @@ pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Op
         }
     }
     eprintln!("{} designs, {} videos to record ({} at a time)", files.len(), todo.len(), jobs);
+    if dry_run {
+        for p in &todo {
+            println!("would record {}", p.display());
+        }
+        return Ok(());
+    }
     let queue = std::sync::Mutex::new(todo);
     std::thread::scope(|s| {
         for _ in 0..jobs.max(1) {
@@ -542,24 +550,8 @@ pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Op
             });
         }
     });
-    // Index: every design with its block count, category and video link.
-    let mut rows = Vec::new();
-    for p in &files {
-        let stem = p.file_stem().unwrap().to_string_lossy().to_string();
-        let Ok(d) = Design::load(p) else { continue };
-        let has = out.join(format!("{stem}.mp4")).exists();
-        let link = if has {
-            format!("[video](https://github.com/vjeux/minecraft-tas/releases/download/videos/{stem}.mp4)")
-        } else {
-            "missing".to_string()
-        };
-        rows.push((crate::block_count(&d), stem, crate::category(&d), link));
-    }
-    rows.sort();
-    let mut md = String::from("# Videos of every archived design\n\nRendered by the real Minecraft client (`mctas door video-all`). The best of each board, as looping GIFs: [../GALLERY.md](../GALLERY.md).\n\n| blocks | category | design | video |\n|---|---|---|---|\n");
-    for (b, stem, cat, link) in rows {
-        md.push_str(&format!("| {b} | {cat} | [{stem}]({stem}.txt) | {link} |\n"));
-    }
-    std::fs::write(dir.join("VIDEOS.md"), md)?;
+    // The catalog: every design with its block count, boards, ticks and video link.
+    let catalog = crate::catalog::CatalogOptions { archive: dir, workers: jobs.max(1) * 2, videos: Some(out), release: Some(upload.unwrap_or("videos")) };
+    crate::catalog::write(version, &catalog)?;
     Ok(())
 }

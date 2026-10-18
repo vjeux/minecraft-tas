@@ -1,7 +1,9 @@
 //! Showcase material for people looking at the results: title cards and labels drawn in the
-//! game's own font, `door gallery` (a looping GIF of the best design of every board plus
-//! GALLERY.md) and `door montage` (the solid record progression as one labeled video).
-//! Everything is rendered by the real client (`door video`) and cut with the static ffmpeg.
+//! game's own font, `door gallery` (a looping GIF of the best design of every board, uploaded
+//! for LEADERBOARD.md, which shows each board leader's GIF) and `door montage` (a board's record
+//! progression as one labeled video). Everything is rendered by the real client (`door video`)
+//! and cut with the static ffmpeg. The hand-edited inputs live next to the archive:
+//! `records.tsv` (the solid record progression) and `captions.tsv` (how each design works).
 
 use crate::video::{self as dv, Camera, Facts, Shot, VideoOptions};
 use anyhow::{Context, Result, bail};
@@ -195,9 +197,9 @@ pub struct Archived {
     pub facts: Facts,
 }
 
-/// Every working design of the archive folder (verdicts and worst-cycle timings from the
-/// leaderboard's cache, new designs verified on the spot), files marked invalid excluded.
-pub fn archived(version: &str, dir: &Path, workers: usize) -> Result<Vec<Archived>> {
+/// Every design of the archive folder with its verdict (from the leaderboard's cache, new
+/// designs verified on the spot), files marked invalid excluded. Sources are the file paths.
+pub fn archive_entries(version: &str, dir: &Path, workers: usize) -> Result<Vec<crate::leaderboard::Entry>> {
     let mut cands = Vec::new();
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)?.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
     files.sort();
@@ -212,19 +214,23 @@ pub fn archived(version: &str, dir: &Path, workers: usize) -> Result<Vec<Archive
         }
         cands.push((p.display().to_string(), d));
     }
-    let entries = crate::leaderboard::judge(version, cands, 28, workers, Some(dir))?;
-    Ok(entries
-        .into_iter()
-        .filter(|e| e.verdict.is_ok())
-        .map(|e| {
-            let path = PathBuf::from(&e.source);
-            let mut facts = Facts::of(&e.design);
-            facts.open_ticks = e.open_ticks;
-            facts.close_ticks = e.close_ticks;
-            facts.rotation_safe = e.rotation_safe();
-            Archived { stem: path.file_stem().unwrap().to_string_lossy().to_string(), path, design: e.design, facts }
-        })
-        .collect())
+    crate::leaderboard::judge(version, cands, 28, workers, Some(dir))
+}
+
+/// An archive entry's [`Archived`] (its facts with the cached timings and rotation verdict).
+pub fn archived_of(e: &crate::leaderboard::Entry) -> Archived {
+    let path = PathBuf::from(&e.source);
+    let mut facts = Facts::of(&e.design);
+    facts.open_ticks = e.open_ticks;
+    facts.close_ticks = e.close_ticks;
+    facts.rotation_safe = e.rotation_safe();
+    Archived { stem: path.file_stem().unwrap().to_string_lossy().to_string(), path, design: e.design.clone(), facts }
+}
+
+/// Every working design of the archive folder (verdicts and worst-cycle timings from the
+/// leaderboard's cache, new designs verified on the spot), files marked invalid excluded.
+pub fn archived(version: &str, dir: &Path, workers: usize) -> Result<Vec<Archived>> {
+    Ok(archive_entries(version, dir, workers)?.iter().filter(|e| e.verdict.is_ok()).map(archived_of).collect())
 }
 
 /// A board and its current best.
@@ -260,9 +266,19 @@ pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 6] = [
     ("gravity", "Gravity", "the 9 door blocks are sand, gravel or concrete powder", |f| f.category == "gravity" && f.rotation_safe),
 ];
 
-/// The best design of each board: solid, slime-free, sculk, gravity (fewest blocks; ties go to
-/// a design of the record progression, then the faster one, then by name) and fastest solid
-/// (fewest open + close ticks, ties by blocks).
+/// The speed boards, as LEADERBOARD.md ranks them: title, solid only, ticks (worst cycle).
+pub const SPEED_BOARDS: [(&str, bool, fn(&Facts) -> Option<u32>); 6] = [
+    ("Fastest open (any category)", false, |f| f.open_ticks),
+    ("Fastest open (solid only)", true, |f| f.open_ticks),
+    ("Fastest close (any category)", false, |f| f.close_ticks),
+    ("Fastest close (solid only)", true, |f| f.close_ticks),
+    ("Fastest open + close (any category)", false, |f| Some(f.open_ticks? + f.close_ticks?)),
+    ("Fastest open + close (solid only)", true, |f| Some(f.open_ticks? + f.close_ticks?)),
+];
+
+/// The best design of each board: the block-count boards (fewest blocks; ties go to a design of
+/// the record progression, then the faster one, then by name) and the speed boards (fewest
+/// ticks, ties by blocks), rotation-safe designs only except on the not-rotation-safe board.
 pub fn boards(all: &[Archived], records: &HashMap<String, String>) -> Vec<Board> {
     let mut out = Vec::new();
     for (key, title, rule, keep) in BLOCK_BOARDS {
@@ -275,13 +291,15 @@ pub fn boards(all: &[Archived], records: &HashMap<String, String>) -> Vec<Board>
             out.push(Board { title, rule, key: Some(key), best });
         }
     }
-    let fastest = all
-        .iter()
-        .filter(|a| a.facts.category == "solid" && a.facts.rotation_safe && a.facts.open_ticks.is_some())
-        .min_by_key(|a| (total_ticks(a), a.facts.blocks, a.stem.clone()))
-        .cloned();
-    if let Some(best) = fastest {
-        out.push(Board { title: "Fastest solid", rule: "fewest game ticks to open plus close (worst cycle), ties by blocks", key: None, best });
+    for (title, solid_only, ticks) in SPEED_BOARDS {
+        let best = all
+            .iter()
+            .filter(|a| a.facts.rotation_safe && (!solid_only || a.facts.category == "solid") && ticks(&a.facts).is_some())
+            .min_by_key(|a| (ticks(&a.facts), a.facts.blocks, a.stem.clone()))
+            .cloned();
+        if let Some(best) = best {
+            out.push(Board { title, rule: "fewest game ticks after the lever flip (worst cycle), ties by blocks", key: None, best });
+        }
     }
     out
 }
@@ -314,61 +332,51 @@ pub fn timeline_progression(all: &[Archived], keep: fn(&Facts) -> bool, caps: &H
 
 // ---- captions -------------------------------------------------------------------------------
 
-/// Rows of the markdown tables of a file whose first two columns are `<file or design>` and
-/// whose `how_col` column describes it: stem -> description. A cell may name several files
-/// separated by `/`.
-fn table_captions(path: &Path, file_col: usize, how_col: usize) -> HashMap<String, String> {
-    let mut m = HashMap::new();
-    let Ok(text) = std::fs::read_to_string(path) else { return m };
-    for line in text.lines() {
-        let cells: Vec<&str> = line.trim().trim_matches('|').split('|').map(|c| c.trim()).collect();
-        if cells.len() <= file_col.max(how_col) || cells[file_col].starts_with("---") {
-            continue;
-        }
-        for f in cells[file_col].split('/') {
-            let f = f.trim().trim_matches('`');
-            let stem = f.strip_suffix(".txt").unwrap_or(f);
-            if !stem.is_empty() && !cells[how_col].is_empty() {
-                m.entry(stem.to_string()).or_insert_with(|| cells[how_col].to_string());
-            }
-        }
-    }
-    m
+/// The solid record progression, hand-edited, next to the archive: `blocks<TAB>design<TAB>how`.
+pub const RECORDS_TSV: &str = "records.tsv";
+/// How each design works, one line each, hand-edited, next to the archive: `design<TAB>how`.
+pub const CAPTIONS_TSV: &str = "captions.tsv";
+
+/// Rows of a hand-edited TSV file: blank lines and `#` comment lines skipped, cells trimmed.
+pub fn read_tsv(path: &Path) -> Vec<Vec<String>> {
+    let Ok(text) = std::fs::read_to_string(path) else { return Vec::new() };
+    text.lines()
+        .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+        .map(|l| l.split('\t').map(|c| c.trim().to_string()).collect())
+        .collect()
 }
 
-/// Captions: CAPTIONS.md next to the archive (`| design | how it works |`), then the record
-/// progression table of the archive README (`| blocks | file | how |`).
+/// A design cell as a stem: `fc2-40b`, `fc2-40b.txt` and `archive/fc2-40b.txt` are all `fc2-40b`.
+fn stem_of(cell: &str) -> String {
+    let f = cell.trim().trim_matches('`');
+    let f = f.rsplit('/').next().unwrap_or(f);
+    f.strip_suffix(".txt").unwrap_or(f).to_string()
+}
+
+/// Captions (stem -> how it works): the archive's `captions.tsv`, then the `how` of the record
+/// progression (`records.tsv`).
 pub fn captions(archive: &Path) -> HashMap<String, String> {
-    let mut m = table_captions(&archive.parent().unwrap_or(Path::new(".")).join("CAPTIONS.md"), 0, 1);
-    for (k, v) in table_captions(&archive.join("README.md"), 1, 2) {
-        m.entry(k).or_insert(v);
+    let mut m = HashMap::new();
+    for row in read_tsv(&archive.join(CAPTIONS_TSV)) {
+        if row.len() >= 2 && !row[1].is_empty() {
+            m.entry(stem_of(&row[0])).or_insert_with(|| row[1].clone());
+        }
+    }
+    for (_, stem, how) in progression(archive) {
+        m.entry(stem).or_insert(how);
     }
     m
 }
 
-/// The record progression of the archive README: (blocks, stem, how), largest first, one per
-/// block count (the first file of a row).
+/// The solid record progression (`records.tsv` next to the archive): (blocks, stem, how),
+/// largest first, one per block count (the first row of a count), designs present only.
 pub fn progression(archive: &Path) -> Vec<(usize, String, String)> {
-    let Ok(text) = std::fs::read_to_string(archive.join("README.md")) else { return Vec::new() };
     let mut rows: Vec<(usize, String, String)> = Vec::new();
-    let mut in_table = false;
-    for line in text.lines() {
-        if line.starts_with("## ") {
-            in_table = line.to_lowercase().contains("record progression");
-            continue;
-        }
-        if !in_table {
-            continue;
-        }
-        let cells: Vec<&str> = line.trim().trim_matches('|').split('|').map(|c| c.trim()).collect();
-        if cells.len() < 3 {
-            continue;
-        }
-        let Ok(blocks) = cells[0].parse::<usize>() else { continue };
-        let file = cells[1].split('/').next().unwrap_or("").trim().trim_matches('`');
-        let stem = file.strip_suffix(".txt").unwrap_or(file).to_string();
+    for row in read_tsv(&archive.join(RECORDS_TSV)) {
+        let (Some(blocks), Some(design)) = (row.first().and_then(|b| b.parse::<usize>().ok()), row.get(1)) else { continue };
+        let stem = stem_of(design);
         if archive.join(format!("{stem}.txt")).exists() && !rows.iter().any(|r| r.0 == blocks) {
-            rows.push((blocks, stem, cells[2].to_string()));
+            rows.push((blocks, stem, row.get(2).cloned().unwrap_or_default()));
         }
     }
     rows.sort_by(|a, b| b.0.cmp(&a.0));
@@ -376,7 +384,7 @@ pub fn progression(archive: &Path) -> Vec<(usize, String, String)> {
 }
 
 /// Which agent track a design came from (the archive header names its branch).
-fn track_of(path: &Path) -> Option<String> {
+pub fn track_of(path: &Path) -> Option<String> {
     let text = std::fs::read_to_string(path).ok()?;
     let line = text.lines().take(3).find(|l| l.contains("explore/"))?;
     let rest = &line[line.find("explore/")? + 8..];
@@ -392,7 +400,7 @@ fn first_sentence_cap(s: &str) -> String {
 }
 
 /// Capitalized, ending with a period.
-fn sentence(s: &str) -> String {
+pub fn sentence(s: &str) -> String {
     let s = first_sentence_cap(s.trim());
     if s.is_empty() || s.ends_with(['.', '!', '?']) { s } else { format!("{s}.") }
 }
@@ -403,7 +411,6 @@ pub struct GalleryOptions {
     pub archive: PathBuf,
     /// Clean door-camera clips and GIFs (rendered when missing).
     pub videos: PathBuf,
-    pub out: PathBuf,
     pub upload: Option<String>,
     pub jobs: usize,
     pub workers: usize,
@@ -445,7 +452,6 @@ fn render_all(version: &str, todo: Vec<(String, Design, VideoOptions, PathBuf)>,
 pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
     std::fs::create_dir_all(&o.videos)?;
     let all = archived(version, &o.archive, o.workers)?;
-    let caps = captions(&o.archive);
     let records: HashMap<String, String> = progression(&o.archive).into_iter().map(|(_, s, h)| (s, h)).collect();
     let boards = boards(&all, &records);
     eprintln!("{} working designs; boards: {}", all.len(), boards.iter().map(|b| format!("{} = {}", b.title, b.best.stem)).collect::<Vec<_>>().join(", "));
@@ -488,62 +494,13 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
     if o.upload.is_some() {
         println!("uploaded {}", mctas::video::upload_release_asset(REPO, &tag, &timeline)?);
     }
-    let assets = release_assets(&tag);
-    // The page.
-    let rel = |p: &Path| -> String {
-        let base = o.out.parent().unwrap_or(Path::new("."));
-        p.strip_prefix(base).map(|r| r.display().to_string()).unwrap_or_else(|_| p.display().to_string())
-    };
-    let mut md = String::from("# Gallery: the best 3x3 piston door of each board\n\n");
-    md.push_str(&format!(
-        "Looping GIFs rendered by the real Minecraft client (`mctas door gallery`, 1.5x the recording's 10 ticks/s). \
-         Rankings: [LEADERBOARD.md](LEADERBOARD.md). Every archived design has its own video: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n\
-         The whole solid record progression in one video ({}, `mctas door montage`; click the poster):\n\n[![every solid record]({})]({})\n\n\
-         The night, board by board (records from the archive):\n\n![records over the night]({})\n\n",
-        progression_title(&o.archive, &all),
-        asset_url(&tag, POSTER_ASSET),
-        asset_url(&tag, MONTAGE_ASSET),
-        asset_url(&tag, TIMELINE_ASSET)
-    ));
-    for b in &boards {
-        let a = &b.best;
-        let f = &a.facts;
-        md.push_str(&format!("## {}: {} blocks\n\n{}.\n\n", b.title, f.blocks, first_sentence_cap(b.rule)));
-        md.push_str(&format!("![{}]({})\n\n", a.stem, asset_url(&tag, &format!("{}.gif", a.stem))));
-        let timing = match (f.open_ticks, f.close_ticks) {
-            (Some(op), Some(cl)) => format!("opens in {op} ticks, closes in {cl} (worst cycle)"),
-            _ => "timing unknown".into(),
-        };
-        let how = caps
-            .get(&a.stem)
-            .cloned()
-            .or_else(|| track_of(&a.path).map(|t| format!("from agent {t}; see [tracks/{t}/NOTES.md](tracks/{t}/NOTES.md)")))
-            .unwrap_or_default();
-        md.push_str(&format!(
-            "**{} blocks**, {}, {}: [{}]({}) ([video]({})). {}\n\n",
-            f.blocks,
-            f.kind(),
-            timing,
-            a.stem,
-            rel(&a.path),
-            asset_url(&tag, &format!("{}.mp4", a.stem)),
-            sentence(&how)
-        ));
-        if let Some(k) = b.key.filter(|k| *k != "solid" && assets.contains(&format!("{k}-progression.mp4"))) {
-            md.push_str(&format!(
-                "Every record of this board in one video: [{k}-progression.mp4]({}) ([poster]({})).\n\n",
-                asset_url(&tag, &format!("{k}-progression.mp4")),
-                asset_url(&tag, &format!("{k}-progression.jpg"))
-            ));
-        }
-    }
-    std::fs::write(&o.out, md)?;
-    eprintln!("wrote {}", o.out.display());
+    // No page of its own: `door leaderboard` shows each board leader's GIF from the release.
+    eprintln!("GIFs and the timeline chart in {}", o.videos.display());
     Ok(())
 }
 
 /// Names of the assets of a release of the repository (empty when `gh` cannot tell).
-fn release_assets(tag: &str) -> std::collections::HashSet<String> {
+pub fn release_assets(tag: &str) -> std::collections::HashSet<String> {
     Command::new("gh")
         .args(["release", "view", tag, "--repo", REPO, "--json", "assets", "--jq", ".assets[].name"])
         .output()
@@ -693,11 +650,11 @@ fn poster(look: &Look, clips: &Path, rows: &[(usize, String, String)], out: &Pat
     img.save(out)
 }
 
-fn progression_title(archive: &Path, all: &[Archived]) -> String {
+/// "151 -> 38 blocks": the first record of the solid progression (`records.tsv`) and the current
+/// best solid door (`best`, e.g. the leaderboard's #1).
+pub fn progression_title(archive: &Path, best: Option<usize>) -> String {
     let rows = progression(archive);
-    let first = rows.first().map(|r| r.0);
-    let best = all.iter().filter(|a| a.facts.category == "solid").map(|a| a.facts.blocks).min();
-    match (first, best) {
+    match (rows.first().map(|r| r.0), best.or(rows.last().map(|r| r.0))) {
         (Some(a), Some(b)) => format!("{a} -> {b} blocks"),
         _ => "solid record progression".into(),
     }
@@ -714,7 +671,7 @@ pub struct MontageOptions {
     /// Playback speed of the clips (2 = real game speed: clips are recorded at 10 ticks/s).
     pub speed: f64,
     pub redo: bool,
-    /// Which board: solid (the archive README's curated progression), slime-free, sculk or
+    /// Which board: solid (the curated progression of `records.tsv`), slime-free, sculk or
     /// gravity (records in archive order).
     pub board: String,
 }
@@ -868,4 +825,38 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
         println!("uploaded {}", mctas::video::upload_release_asset(REPO, tag, &poster_path)?);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The archive of the repository (tests run from the crate folder).
+    fn archive() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../designs/piston-door-3x3/archive")
+    }
+
+    /// `door montage` and `door gallery` read the solid record progression from records.tsv:
+    /// every row names an archived design, largest first, ending at the current record.
+    #[test]
+    fn records_tsv_is_the_solid_progression() {
+        let rows = progression(&archive());
+        assert!(rows.len() >= 28, "{} rows", rows.len());
+        assert_eq!(rows[0].0, 151);
+        assert!(rows.windows(2).all(|w| w[0].0 > w[1].0));
+        assert!(rows.iter().all(|(_, stem, how)| archive().join(format!("{stem}.txt")).exists() && !how.is_empty()));
+        assert_eq!(read_tsv(&archive().join(RECORDS_TSV)).len(), rows.len(), "a records.tsv row was dropped (missing design or duplicate count)");
+    }
+
+    /// Captions come from captions.tsv first, then the record progression.
+    #[test]
+    fn captions_tsv_names_archived_designs() {
+        let caps = captions(&archive());
+        for row in read_tsv(&archive().join(CAPTIONS_TSV)) {
+            assert_eq!(row.len(), 2, "captions.tsv row {row:?}");
+            assert!(archive().join(format!("{}.txt", row[0])).exists(), "captions.tsv names {} which is not archived", row[0]);
+        }
+        assert!(caps.get("fc2-40b").is_some_and(|c| c.contains("symmetric control")));
+        assert!(caps.contains_key("piston-door-3x3-v2-151b"), "falls back to records.tsv");
+    }
 }
