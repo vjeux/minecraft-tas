@@ -71,6 +71,9 @@ pub enum DoorCmd {
         /// Open/close cycles per position.
         #[arg(long, default_value_t = 3)]
         cycles: u32,
+        /// Test at this many extra pseudo-random positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
         /// If it works, keep a copy in the archive folder next to the design (archive/<name>-<blocks>b.txt), unless an identical design is already archived.
         #[arg(long)]
         archive: bool,
@@ -146,11 +149,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets } => {
             let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
-            let opts = VerifyOptions { cycles, keep_frames: show, ..Default::default() };
+            let mut opts = VerifyOptions { cycles, keep_frames: show, ..Default::default() };
+            let mut seed: u64 = 0x9e3779b97f4a7c15;
+            for _ in 0..extra_offsets {
+                let mut next = |m: i64| { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed % (2 * m as u64 + 1)) as i32 - m as i32 };
+                let off = [next(13), next(40), next(13)];
+                opts.offsets.push(off);
+            }
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
                     println!("WORKS: {} ({} blocks, {}x{}x{})", d.name, r.blocks, r.size[0], r.size[1], r.size[2]);
