@@ -1420,9 +1420,48 @@ pub fn verify_plan(w: &mut mctas::sim::Worker, plan: &IdealPlan, extra: u32) -> 
     crate::ideal::run(w, &s, &Default::default(), &opts)
 }
 
+/// Wiring traits of a symmetric sequence: step of the bottom-middle piston's first pulse (the one
+/// under M), and the pistons other than the elevator column (x 1, z 0) that are pulsed at two
+/// different positions (they ride a structure: two places to power).
+pub fn traits(w: &World, seq: &[Ev]) -> (Option<usize>, Vec<String>) {
+    let mut cur = w.clone();
+    let mut m_step = None;
+    let mut seen: HashMap<u8, HashSet<P>> = HashMap::new();
+    for (i, e) in seq.iter().enumerate() {
+        let (p, _) = cur.b[e.id as usize];
+        let (p0, _) = w.b[e.id as usize];
+        if p0[0] == 1 && p0[2] == 0 && p0[1] < 0 && m_step.is_none() {
+            m_step = Some(i);
+        }
+        seen.entry(e.id).or_default().insert(p);
+        cur = cur.apply(*e).unwrap_or(cur);
+    }
+    let riders = seen
+        .iter()
+        .filter(|(id, ps)| {
+            let (p0, _) = w.b[**id as usize];
+            ps.len() > 1 && !(p0[0] == 1 && p0[2] == 0)
+        })
+        .map(|(id, _)| {
+            let (p0, k) = w.b[*id as usize];
+            format!("{}@({},{},{})", k.code(), p0[0], p0[1], p0[2])
+        })
+        .collect();
+    (m_step, riders)
+}
+
 fn describe(f: &Found) -> String {
     let sym = match &f.sol.sym {
-        Some(s) => format!("SYM {} events: {}", s.len(), fmt_seq(&f.world, s)),
+        Some(s) => {
+            let (m, riders) = traits(&f.world, s);
+            format!(
+                "SYM {} events: {} [M pulse at step {}, riders: {}]",
+                s.len(),
+                fmt_seq(&f.world, s),
+                m.map(|i| i.to_string()).unwrap_or("-".into()),
+                if riders.is_empty() { "none".to_string() } else { riders.join(" ") }
+            )
+        }
         None => "no symmetric sequence".to_string(),
     };
     format!(

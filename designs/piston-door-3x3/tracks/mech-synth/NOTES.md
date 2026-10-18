@@ -99,6 +99,19 @@ default; ticks after the first A pulse): A1 0..2, P_T 4..7, B on 11..16 (>= P_T 
 A3 lifts T on close), P_L and P_R anywhere (0..50). fc2's control produces A1 (lever observer ->
 dust -> A), the B window (8 gt repeater) and A2/A3 (observer on the window repeater) exactly.
 
+### k = 4: 22-block mechanisms (`catalog-22-k4.txt`)
+`sidesM + 4` pulse-only, x -2..4, y 3..6, z -1..1 (896k combinations, 11 min on 44 threads):
+3,031 mechanisms open+close (50 of 21 blocks, 2,577 of 22), **396 of 22 blocks with a symmetric
+sequence**. Each symmetric line ends with `[M pulse at step i, riders: ...]` (riders = pistons
+pulsed at two places on the open run). Notable:
+* M's pulse FIRST and the last pulse at the top (no late pulse at the bottom): #356, #358, #359,
+  #361, #362, #377 (most use a slime next to the T-mover so that a side column carries it).
+* **cores without the B elevator piston**: `bases/k4-356.txt` (X sticky down at (1,3) right on
+  T, slime (2,3), Y extended down at (2,5), Z west at (3,3)) and `bases/k4-355.txt` (P east at
+  (-1,3), slime (0,3), X down at (1,3), Y extended down at (0,5)): 22 blocks, symmetric 10
+  pulses, **verified in the simulator** (open/close and symmetric, 32 positions x 2 cycles):
+  `ideal/k4-35{5,6}/`.
+
 ### Why none of these was wired below 40
 * All 12 pulse-only schedules need either **M's pulse last** (after A3, >= ~22 gt after the flip,
   at the bottom of the door, far from the elevator's control) or a T-mover that rides a side
