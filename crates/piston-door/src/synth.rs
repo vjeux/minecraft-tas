@@ -1156,7 +1156,17 @@ pub enum Target {
     /// The door: screen at a few positions, then the full judge. `max_open` / `max_close`
     /// (speed boards) reject a door that opens (closes) later than that many ticks in any
     /// cycle at the first position, as the leaderboard measures it.
-    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, rotations: bool, seamless: Option<crate::properties::SeamReq>, shape: Option<crate::ShapeLimits> },
+    Door {
+        screen: VerifyOptions,
+        judge: VerifyOptions,
+        max_open: Option<u32>,
+        max_close: Option<u32>,
+        rotations: bool,
+        seamless: Option<crate::properties::SeamReq>,
+        shape: Option<crate::ShapeLimits>,
+        repeater_input: bool,
+        eligible: bool,
+    },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
 }
@@ -1170,7 +1180,8 @@ fn infra(e: &anyhow::Error) -> bool {
 /// Ok(verdict), or Err when the worker died.
 fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> {
     let r = match target {
-        Target::Door { screen, .. } => screen_in(w, sb, d, screen),
+        Target::Door { screen, repeater_input, eligible, judge, .. } => screen_in(w, sb, d, screen)
+            .and_then(|_| crate::search::eligibility(w, sb, d, *repeater_input, *eligible, &judge.offsets[..judge.offsets.len().min(1)])),
         Target::Spec { spec, offsets } => offsets.iter().try_for_each(|off| run_spec(w, sb, &d.translated(*off), &spec.translated(*off), false)),
     };
     match r {
@@ -1182,7 +1193,7 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, rotations, seamless, shape, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, seamless, shape, repeater_input, eligible, .. } => {
             if let Some(t) = seamless {
                 t.check(w, sb, d)?;
             }
@@ -1209,6 +1220,7 @@ fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String>
                     bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
                 }
             }
+            crate::search::eligibility(w, sb, d, *repeater_input, *eligible, &judge.offsets)?;
             Ok(format!("door works at {} positions, open {o} / close {c}", judge.offsets.len()))
         }
         Target::Spec { spec, offsets } => {
@@ -1452,6 +1464,9 @@ pub struct ResynthOptions {
     pub keep_rotations: bool,
     /// Shape limits on the swept shape (`--shape`: volume, flat, side...).
     pub shape: Option<crate::ShapeLimits>,
+    /// Record eligibility: see [`crate::search::SearchOptions::repeater_input`] / `eligible`.
+    pub repeater_input: bool,
+    pub eligible: bool,
     /// Compaction (volume boards): every replacement circuit stays inside this box (inclusive
     /// corners); while removable blocks lie outside it, only groups through them are cut and they
     /// grow back inside with up to `extra` more blocks.
@@ -1688,7 +1703,17 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 }
             };
             let n: usize = buckets.iter().map(|b| b.len()).sum();
-            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, rotations: o.keep_rotations, seamless: seam_req, shape: o.shape };
+            let target = Target::Door {
+                screen: screen_opts.clone(),
+                judge: judge_opts.clone(),
+                max_open: o.max_open,
+                max_close: o.max_close,
+                rotations: o.keep_rotations,
+                seamless: seam_req,
+                shape: o.shape,
+                repeater_input: o.repeater_input || o.eligible,
+                eligible: o.eligible,
+            };
             let t = Instant::now();
             let inner = |m: &str| {
                 if m.contains("VERIFIED") || (m.contains("passed the screen") && !m.ends_with(" 0 passed the screen")) {

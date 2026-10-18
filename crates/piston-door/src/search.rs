@@ -133,6 +133,46 @@ pub struct SearchOptions {
     /// when the start design is rotation-safe: the boards rank rotation-safe doors, so an
     /// improvement that breaks a turn lands on the other board. Checked after the full judge.
     pub keep_rotations: bool,
+    /// Record eligibility (Squid regulation 3.1.3, MC-172213): accept only designs that also work
+    /// with REPEATER input, the lever left off and its support block powered by a delay-1 repeater
+    /// (props-dyn's check, `properties_dyn::repeater_check`: both edges) at every judge position.
+    /// Screened at the first position, checked everywhere after the full judge.
+    pub repeater_input: bool,
+    /// `--eligible`: `repeater_input`, plus props-dyn's hallway check, footsteps for sculk designs
+    /// and props' QUART SEAMLESS or better (`properties::seamless_tier`).
+    pub eligible: bool,
+}
+
+/// The `--repeater-input` / `--eligible` filter at `offsets` (see [`SearchOptions::repeater_input`]).
+pub fn eligibility_check(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptions, offsets: &[Pos]) -> Result<()> {
+    eligibility(w, sb, d, opts.repeater_input, opts.eligible, offsets)
+}
+
+/// The eligibility filter with explicit switches (resynth's `Target::Door` uses it too).
+pub fn eligibility(w: &mut mctas::sim::Worker, sb: u32, d: &Design, repeater_input: bool, eligible: bool, offsets: &[Pos]) -> Result<()> {
+    if !repeater_input && !eligible {
+        return Ok(());
+    }
+    crate::properties_dyn::eligibility_in(w, sb, d, offsets, 1, eligible, eligible && crate::category(d) == "sculk")?;
+    if eligible {
+        let p = crate::properties::input_props(w, sb, d)?;
+        if p.get("seamless").is_none_or(|t| t == "-") {
+            anyhow::bail!("not seamless (no SEAMLESS tier)");
+        }
+        if p.get("lever_surface").is_none_or(|v| v != "yes") {
+            anyhow::bail!("the lever is not on the surface of the build's volume (3.1.2)");
+        }
+        if p.get("lever_support").is_none_or(|v| v != "yes") {
+            anyhow::bail!("the lever's support block moves or changes (3.1.5)");
+        }
+    }
+    Ok(())
+}
+
+/// The first judge position only: the cheap screen of the eligibility filter.
+fn eligibility_screen(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptions) -> Result<()> {
+    let first: Vec<Pos> = opts.judge.offsets.iter().take(1).copied().collect();
+    eligibility_check(w, sb, d, opts, &first)
 }
 
 /// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk, or (with
@@ -181,6 +221,8 @@ fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, 
 /// The acceptance test: [`judge_in`] with the judge's options, and with `rotation_safe` the
 /// door turned 90, 180 and 270 degrees too.
 fn accept_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptions) -> Result<crate::Report> {
+    // Fail fast on the eligibility filter (one position) before the full judge.
+    eligibility_screen(w, sb, d, opts)?;
     let r = judge_in(w, sb, d, &opts.judge, opts)?;
     if opts.rotation_safe {
         let v = VerifyOptions { keep_frames: false, ..opts.judge.clone() };
@@ -188,6 +230,7 @@ fn accept_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptio
             anyhow::bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
         }
     }
+    eligibility_check(w, sb, d, opts, &opts.judge.offsets)?;
     Ok(r)
 }
 
@@ -1439,6 +1482,8 @@ pub enum Objective {
     Open,
     Close,
     Total,
+    /// The community volume (`door properties` volume), then blocks.
+    Volume,
 }
 
 pub fn parse_objective(s: &str) -> Result<Objective> {
@@ -1447,8 +1492,25 @@ pub fn parse_objective(s: &str) -> Result<Objective> {
         "open" => Objective::Open,
         "close" => Objective::Close,
         "total" | "open+close" => Objective::Total,
-        _ => anyhow::bail!("unknown objective {s:?}; have blocks, open, close, total"),
+        "volume" => Objective::Volume,
+        _ => anyhow::bail!("unknown objective {s:?}; have blocks, open, close, total, volume"),
     })
+}
+
+/// The community VOLUME of a design (Squid rules 4.2, `door properties` `volume`: the bounding
+/// box of the circuitry over every state and tick of one cycle, the lever, the door blocks and
+/// quartz-like hallway-ring blocks excluded), from one recorded cycle at its own position.
+pub fn community_volume(w: &mut mctas::sim::Worker, sb: u32, d: &Design) -> Result<u32> {
+    let p = crate::properties::input_props(w, sb, d)?;
+    Ok(p.get("volume").and_then(|v| v.parse::<u32>().ok()).unwrap_or(u32::MAX))
+}
+
+/// [`objective_key`], with the volume objective computed in the sandbox (one recorded cycle).
+fn objective_key_in(w: &mut mctas::sim::Worker, sb: u32, obj: Objective, d: &Design, r: &crate::Report) -> Result<(u32, u32)> {
+    match obj {
+        Objective::Volume => Ok((community_volume(w, sb, d)?, block_count(d) as u32)),
+        _ => Ok(objective_key(obj, d, r)),
+    }
 }
 
 /// Worst-cycle ticks (open, close) of a judge report, as the speed leaderboards count them.
@@ -1466,6 +1528,8 @@ fn objective_key(obj: Objective, d: &Design, r: &crate::Report) -> (u32, u32) {
         Objective::Open => (open, b),
         Objective::Close => (close, b),
         Objective::Total => (open + close, b),
+        // Needs a sandbox: see objective_key_in.
+        Objective::Volume => (u32::MAX, b),
     }
 }
 
@@ -1501,10 +1565,11 @@ fn evaluate_with(
     let t = Instant::now();
     let n = cands.len();
     let batch_seen: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
-    let rank = |d: &Design, r: &crate::Report| -> (u32, u32) {
+    // The candidate's key: its objective with a bar (speed / volume objectives), blocks otherwise.
+    let rank = |w: &mut mctas::sim::Worker, sb: u32, d: &Design, r: &crate::Report| -> Result<(u32, u32)> {
         match bar {
-            Some(_) => objective_key(opts.objective, d, r),
-            None => (block_count(d) as u32, 0),
+            Some(_) => objective_key_in(w, sb, opts.objective, d, r),
+            None => Ok((block_count(d) as u32, 0)),
         }
     };
     let results = pool.map((0..n).collect(), |w, wi, i| {
@@ -1519,10 +1584,15 @@ fn evaluate_with(
         // per-tick regions). Timings (objective or --max-open/--max-close) need the frames.
         let frames = opts.screen_frames || bar.is_some() || opts.max_open.is_some() || opts.max_close.is_some();
         let verdict = if frames { judge_in(w, sb, &d, &opts.screen, opts).map(Some) } else { screen_in(w, sb, &d, &opts.screen).map(|_| None) };
+        // The eligibility filter's first position, on screen survivors only.
+        let verdict = verdict.and_then(|r| eligibility_screen(w, sb, &d, opts).map(|_| r));
         match verdict {
             Ok(r) => {
                 let k = match &r {
-                    Some(r) => rank(&d, r),
+                    Some(r) => match rank(w, sb, &d, r) {
+                        Ok(k) => k,
+                        Err(_) => return Ok(Screen::Fail),
+                    },
                     None => (block_count(&d) as u32, 0),
                 };
                 if bar.is_some_and(|b| k >= b) {
@@ -1575,7 +1645,7 @@ fn evaluate_with(
             let c = &cands[i];
             let d = c.edit.apply(&bases[c.base]);
             let sb = sandboxes.get(w, wi)?;
-            Ok(accept_in(w, sb, &d, opts).map(|r| (rank(&d, &r), d)).map_err(|e| format!("{e:#}")))
+            Ok(accept_in(w, sb, &d, opts).and_then(|r| Ok((rank(w, sb, &d, &r)?, d))).map_err(|e| format!("{e:#}")))
         });
         judged += part.len();
         for (&i, r) in part.iter().zip(res) {
@@ -1625,6 +1695,16 @@ fn finalize_report(pool: &Pool, _sandboxes: &Sandboxes, d: Design, opts: &Search
     // The exact `door verify` path (a fresh sandbox), so nothing a reused sandbox leaks can let
     // a design through.
     let mut w = pool.worker(0);
+    // The eligibility filter (--repeater-input / --eligible) in a fresh sandbox too.
+    let elig = |w: &mut mctas::sim::Worker, d: &Design| -> Result<()> {
+        if !opts.repeater_input && !opts.eligible {
+            return Ok(());
+        }
+        let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+        let r = eligibility_check(w, sb, d, opts, &opts.judge.offsets);
+        let _ = w.drop_sandbox(sb);
+        r
+    };
     let canon = crate::canonicalize(&mut w, &d)?;
     // A block that does not stay where it is written (it falls, pops or moves at rest) would
     // turn into an air entry: keep the design as edited then.
@@ -1632,15 +1712,17 @@ fn finalize_report(pool: &Pool, _sandboxes: &Sandboxes, d: Design, opts: &Search
         log("  the canonical form has air entries (something moves at rest); keeping the design as edited");
         let r = crate::verify(&mut w, &d, &opts.judge)
             .and_then(|r| speed_check(r, opts))
+            .and_then(|r| elig(&mut w, &d).map(|_| r))
             .context("the accepted design fails the judge in a fresh sandbox")?;
         return Ok((d, r));
     }
-    match crate::verify(&mut w, &canon, &opts.judge).and_then(|r| speed_check(r, opts)) {
+    match crate::verify(&mut w, &canon, &opts.judge).and_then(|r| speed_check(r, opts)).and_then(|r| elig(&mut w, &canon).map(|_| r)) {
         Ok(r) => Ok((canon, r)),
         Err(e) => {
             log(&format!("  canonical form fails the judge ({e:#}); keeping the design as edited"));
             let r = crate::verify(&mut w, &d, &opts.judge)
                 .and_then(|r| speed_check(r, opts))
+                .and_then(|r| elig(&mut w, &d).map(|_| r))
                 .context("the accepted design fails the judge in a fresh sandbox")?;
             Ok((d, r))
         }
@@ -1689,7 +1771,14 @@ pub fn search(
         let sb = sandboxes.get(&mut w, 0)?;
         accept_in(&mut w, sb, &cur, opts).context("the start design fails the judge")?
     };
-    let mut cur_key = objective_key(opts.objective, &cur, &start_report);
+    let mut cur_key = {
+        let mut w = pool.worker(0);
+        let sb = sandboxes.get(&mut w, 0)?;
+        objective_key_in(&mut w, sb, opts.objective, &cur, &start_report)?
+    };
+    if opts.objective == Objective::Volume {
+        log(&format!("start: volume {}", cur_key.0));
+    }
     let (o, c) = worst_ticks(&start_report);
     log(&format!(
         "start: {} blocks, open {o} close {c} ticks, passes the judge ({} positions x {} cycles)",
@@ -1749,16 +1838,21 @@ pub fn search(
             let verified = evaluate_with(pool, &sandboxes, &bases, cands, opts, &failed, 1, Some(cur_key), log);
             let Some((_, best, desc)) = verified.into_iter().next() else { break };
             let (d, r) = finalize_report(pool, &sandboxes, best, opts, log)?;
-            let k = objective_key(opts.objective, &d, &r);
+            let k = {
+                let mut w = pool.worker(0);
+                let sb = sandboxes.get(&mut w, 0)?;
+                objective_key_in(&mut w, sb, opts.objective, &d, &r)?
+            };
             if k >= cur_key {
                 log("  the canonical form is not better; stopping");
                 break;
             }
             let (o, c) = worst_ticks(&r);
-            log(&format!("  accepted: {desc} -> open {o}, close {c}, {} blocks", block_count(&d)));
+            let vol = if opts.objective == Objective::Volume { format!(", volume {}", k.0) } else { String::new() };
+            log(&format!("  accepted: {desc} -> open {o}, close {c}, {} blocks{vol}", block_count(&d)));
             cur = d;
             cur_key = k;
-            on_improve(&cur, &format!("{desc}; open {o} close {c} ticks"))?;
+            on_improve(&cur, &format!("{desc}; open {o} close {c} ticks{vol}"))?;
             continue;
         }
         let bases = vec![cur.clone()];

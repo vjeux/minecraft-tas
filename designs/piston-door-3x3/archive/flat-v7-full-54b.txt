@@ -1,0 +1,46 @@
+# verified WORKS by door leaderboard: 54 blocks, category solid
+# archived 2026-10-18 20:49Z from origin/explore/seamless:designs/piston-door-3x3/tracks/seamless/archive/flat-v7-full-54b.txt (repo at 62643aa)
+name: flat-v7-full
+port door: 0 0 0
+port lever: 4 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  F minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:stone
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wall_torch[facing=west,lit=false]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  .RS
+layer -2:
+  .SDBH
+layer -1:
+  ..A
+layer 0:
+  .G.JJJ.I
+layer 1:
+  SG.JJJ.IS
+layer 2:
+  AG.JJJ.IA
+layer 3:
+  EoOJ..I.A
+layer 4:
+  .A.DsooAB
+layer 5:
+  .oAAsOAL
+layer 6:
+  ..rFoCB
+layer 7:
+  ..Jor

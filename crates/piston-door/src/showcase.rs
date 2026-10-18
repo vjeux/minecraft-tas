@@ -1,9 +1,10 @@
 //! Showcase material for people looking at the results: title cards and labels drawn in the
-//! game's own font, `door gallery` (a looping GIF of the best design of every board, uploaded
-//! for LEADERBOARD.md, which shows each board leader's GIF) and `door montage` (a board's record
-//! progression as one labeled video). Everything is rendered by the real client (`door video`)
-//! and cut with the static ffmpeg. The hand-edited inputs live next to the archive:
-//! `records.tsv` (the solid record progression) and `captions.tsv` (how each design works).
+//! game's own font (a door's size, the volume, big; its placed blocks small), `door gallery` (a
+//! looping GIF of the best design of every board, uploaded for LEADERBOARD.md, which shows each
+//! board leader's GIF) and `door montage` (a board's record progression by blocks placed as one
+//! labeled video). Everything is rendered by the real client (`door video`) and cut with the
+//! static ffmpeg. The hand-edited inputs live next to the archive: `records.tsv` (the solid record
+//! progression, in blocks placed) and `captions.tsv` (how each design works).
 
 use crate::video::{self as dv, Camera, Facts, Shot, VideoOptions};
 use anyhow::{Context, Result, bail};
@@ -110,11 +111,12 @@ impl Look {
     }
 }
 
-/// Title card of a design video.
+/// Title card of a design video: the size (the volume) big, the placed blocks small.
 pub fn title_lines(f: &Facts) -> Vec<(String, u32, [u8; 3])> {
     let mut lines = vec![
         ("3x3 piston door".to_string(), 4, GRAY),
-        (format!("{} blocks", f.blocks), 12, YELLOW),
+        (f.size(), 12, YELLOW),
+        (f.placed(), 3, WHITE),
         (f.kind(), 4, WHITE),
     ];
     if let Some(t) = f.timing() {
@@ -124,9 +126,9 @@ pub fn title_lines(f: &Facts) -> Vec<(String, u32, [u8; 3])> {
     lines
 }
 
-/// Corner label of a design video.
+/// Corner label of a design video: the size big, the placed blocks small.
 pub fn label_lines(f: &Facts) -> Vec<(String, u32, [u8; 3])> {
-    vec![(format!("{} blocks", f.blocks), 4, YELLOW), (format!("{} - {}", f.name, f.kind()), 2, WHITE)]
+    vec![(f.size(), 4, YELLOW), (f.placed(), 2, WHITE), (format!("{} - {}", f.name, f.kind()), 2, WHITE)]
 }
 
 /// Final encode of a recording: title card (fading into the clip) and corner label as asked by
@@ -217,7 +219,8 @@ pub fn archive_entries(version: &str, dir: &Path, workers: usize) -> Result<Vec<
     crate::leaderboard::judge(version, cands, 28, workers, Some(dir))
 }
 
-/// An archive entry's [`Archived`] (its facts with the cached timings, rotation verdict and shape).
+/// An archive entry's [`Archived`] (its facts with the cached timings, rotation verdict, shape and
+/// volume).
 pub fn archived_of(e: &crate::leaderboard::Entry) -> Archived {
     let path = PathBuf::from(&e.source);
     let mut facts = Facts::of(&e.design);
@@ -226,11 +229,14 @@ pub fn archived_of(e: &crate::leaderboard::Entry) -> Archived {
     facts.rotation_safe = e.rotation_safe();
     facts.ground_safe = e.ground_safe();
     facts.shape = e.swept.or(facts.shape);
+    facts.volume = e.volume;
+    facts.volume_dims = e.volume_dims.clone();
     Archived { stem: path.file_stem().unwrap().to_string_lossy().to_string(), path, design: e.design.clone(), facts }
 }
 
 /// Every working design of the archive folder (verdicts and worst-cycle timings from the
-/// leaderboard's cache, new designs verified on the spot), files marked invalid excluded.
+/// leaderboard's cache, new designs verified on the spot; volumes from the properties cache, new
+/// designs measured), files marked invalid excluded.
 pub fn archived(version: &str, dir: &Path, workers: usize) -> Result<Vec<Archived>> {
     Ok(archive_entries(version, dir, workers)?.iter().filter(|e| e.verdict.is_ok()).map(archived_of).collect())
 }
@@ -248,7 +254,12 @@ fn total_ticks(a: &Archived) -> u32 {
     a.facts.open_ticks.unwrap_or(999) + a.facts.close_ticks.unwrap_or(999)
 }
 
-/// The block-count boards: key, title, rule, membership.
+/// How the size boards rank: volume (unknown last), then placed blocks.
+fn size_key(f: &Facts) -> (usize, usize) {
+    (f.volume.unwrap_or(usize::MAX), f.blocks)
+}
+
+/// The size boards (ranked by volume, then blocks placed): key, title, rule, membership.
 pub const BLOCK_BOARDS: &[(&str, &str, &str, fn(&Facts) -> bool)] = &[
     ("solid", "Solid (main ranking)", "9 identical plain door blocks, no sculk sensors, rotation-safe", |f| f.category == "solid" && f.rotation_safe),
     ("slime-free", "Solid, no slime or honey", "not a single slime or honey block anywhere", |f| f.category == "solid" && f.slime_free && f.rotation_safe),
@@ -281,7 +292,7 @@ pub const BLOCK_BOARDS: &[(&str, &str, &str, fn(&Facts) -> bool)] = &[
     (
         "entities",
         "Entities",
-        "a solid door that also uses entities (minecarts, armor stands, boats...; each counts as a block, all back where they rested after each close)",
+        "a solid door that also uses entities (minecarts, armor stands, boats...; counted apart from blocks, all back where they rested after each close)",
         |f| f.category == "entity" && f.rotation_safe,
     ),
 ];
@@ -296,16 +307,17 @@ pub const SPEED_BOARDS: [(&str, bool, fn(&Facts) -> Option<u32>); 6] = [
     ("Fastest open + close (solid only)", true, |f| Some(f.open_ticks? + f.close_ticks?)),
 ];
 
-/// The best design of each board: the block-count boards (fewest blocks; ties go to a design of
-/// the record progression, then the faster one, then by name) and the speed boards (fewest
-/// ticks, ties by blocks), rotation-safe designs only except on the not-rotation-safe board.
+/// The best design of each board: the size boards (smallest volume, then fewest blocks placed;
+/// ties go to a design of the record progression, then the faster one, then by name) and the
+/// speed boards (fewest ticks, ties by volume, then blocks), rotation-safe designs only except on
+/// the not-rotation-safe board.
 pub fn boards(all: &[Archived], records: &HashMap<String, String>) -> Vec<Board> {
     let mut out = Vec::new();
     for &(key, title, rule, keep) in BLOCK_BOARDS {
         let best = all
             .iter()
             .filter(|a| keep(&a.facts))
-            .min_by_key(|a| (a.facts.blocks, !records.contains_key(&a.stem), total_ticks(a), a.stem.clone()))
+            .min_by_key(|a| (size_key(&a.facts), !records.contains_key(&a.stem), total_ticks(a), a.stem.clone()))
             .cloned();
         if let Some(best) = best {
             out.push(Board { title, rule, key: Some(key), best });
@@ -315,19 +327,54 @@ pub fn boards(all: &[Archived], records: &HashMap<String, String>) -> Vec<Board>
         let best = all
             .iter()
             .filter(|a| a.facts.rotation_safe && (!solid_only || a.facts.category == "solid") && ticks(&a.facts).is_some())
-            .min_by_key(|a| (ticks(&a.facts), a.facts.blocks, a.stem.clone()))
+            .min_by_key(|a| (ticks(&a.facts), size_key(&a.facts), a.stem.clone()))
             .cloned();
         if let Some(best) = best {
-            out.push(Board { title, rule: "fewest game ticks after the lever flip (worst cycle), ties by blocks", key: None, best });
+            out.push(Board { title, rule: "fewest game ticks after the lever flip (worst cycle), ties by size (volume), then blocks placed", key: None, best });
         }
     }
-    let smallest = all
-        .iter()
-        .filter(|a| a.facts.category == "solid" && a.facts.rotation_safe && a.facts.shape.is_some())
-        .min_by_key(|a| (a.facts.shape.map(|s| s.volume()), a.facts.blocks, a.stem.clone()))
-        .cloned();
-    if let Some(best) = smallest {
-        out.push(Board { title: "Smallest box (solid)", rule: "fewest cells in the build's bounding box (door included), ties by blocks", key: None, best });
+    // The community regulation's boards (leaderboard.rs `seamless_boards`): seamless tier,
+    // hallway and record eligibility from the `door properties` / `properties-dyn` caches next to
+    // the archive; sizes from the facts.
+    if let Some(dir) = all.first().and_then(|a| a.path.parent()) {
+        let props = crate::properties::load_cache(dir);
+        let dynp = crate::properties::load_dyn(dir);
+        let get = |a: &Archived, k: &str| -> String {
+            let h = crate::leaderboard::design_hash(&a.design);
+            dynp.get(&h).and_then(|p| p.get(k)).or_else(|| props.get(&h).and_then(|p| p.get(k))).cloned().unwrap_or_default()
+        };
+        let yes = |v: String| v.starts_with("yes");
+        let tier = |a: &Archived| crate::leaderboard::tier_rank(&get(a, "seamless"));
+        let hall = |a: &Archived| yes(get(a, "hallway"));
+        let pick = |flat_only: bool| {
+            all.iter()
+                .filter(|a| a.facts.category == "solid" && a.facts.rotation_safe && tier(a) > 0 && (!flat_only || (a.facts.slime_free && a.facts.flat)))
+                .min_by_key(|a| (std::cmp::Reverse(tier(a)), !hall(a), size_key(&a.facts), a.stem.clone()))
+                .cloned()
+        };
+        if let Some(best) = pick(false) {
+            out.push(Board { title: "Seamless", rule: "best seamless tier, then hallway-compatible, then size (volume), then blocks placed", key: None, best });
+        }
+        if let Some(best) = pick(true) {
+            out.push(Board { title: "Seamless, flat, no slime or honey", rule: "the same for flat, slime-free doors", key: None, best });
+        }
+        let eligible = |a: &Archived| {
+            tier(a) > 0
+                && yes(get(a, "lever_surface"))
+                && yes(get(a, "lever_support"))
+                && yes(get(a, "repeater_input"))
+                && yes(get(a, "uses"))
+                && yes(get(a, "steps"))
+                && hall(a)
+        };
+        let best = all
+            .iter()
+            .filter(|a| a.facts.rotation_safe && a.facts.category != "entity" && eligible(a))
+            .min_by_key(|a| (size_key(&a.facts), a.stem.clone()))
+            .cloned();
+        if let Some(best) = best {
+            out.push(Board { title: "Record-eligible (community regulation)", rule: "eligible for records, smallest size (volume), then blocks placed", key: None, best });
+        }
     }
     out
 }
@@ -341,8 +388,9 @@ fn archived_at(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// The records of a board in archive order: every design that has fewer blocks than all the
-/// designs of the board archived before it (designs archived together: largest first).
+/// The records of a board in archive order, by blocks placed (the history before sizes were
+/// volumes): every design that places fewer blocks than all the designs of the board archived
+/// before it (designs archived together: largest first).
 pub fn timeline_progression(all: &[Archived], keep: fn(&Facts) -> bool, caps: &HashMap<String, String>) -> Vec<(usize, String, String)> {
     let mut list: Vec<(String, usize, &Archived)> = all.iter().filter(|a| keep(&a.facts)).map(|a| (archived_at(&a.path), a.facts.blocks, a)).collect();
     list.sort_by(|a, b| (&a.0, std::cmp::Reverse(a.1), &a.2.stem).cmp(&(&b.0, std::cmp::Reverse(b.1), &b.2.stem)));
@@ -508,7 +556,7 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
         if o.redo || !gif.exists() {
             let label = o.videos.join(format!("{stem}.gif-label.png"));
             let f = &b.best.facts;
-            look.label(o.gif_width, gif_h, &[(format!("{} blocks", f.blocks), 5, YELLOW), (f.kind(), 3, WHITE)], true, 0.9).save_png(&label)?;
+            look.label(o.gif_width, gif_h, &[(f.size(), 5, YELLOW), (f.placed(), 2, WHITE), (f.kind(), 3, WHITE)], true, 0.9).save_png(&label)?;
             make_gif(&clip_of(stem), Some(&label), &gif, o.gif_width, o.gif_fps, o.speed)?;
             eprintln!("gif {} ({} KB)", gif.display(), std::fs::metadata(&gif)?.len() / 1024);
         }
@@ -557,8 +605,9 @@ fn minutes_of(ts: &str) -> Option<i64> {
     Some((era * 146097 + doe - 719468) * 1440 + t[0] * 60 + t[1])
 }
 
-/// A chart of the night: the record of each block-count board over time (from the archive
-/// headers), as step lines in the boards' colors, in the game's font.
+/// A chart of the night: the blocks-placed record of each size board over time (from the archive
+/// headers; the history before sizes were volumes), as step lines in the boards' colors, in the
+/// game's font.
 pub fn timeline_chart(look: &Look, all: &[Archived], out: &Path) -> Result<()> {
     let colors: [[u8; 3]; 9] = [YELLOW, GREEN, [255, 255, 255], [255, 85, 255], [170, 85, 0], [85, 85, 255], AQUA, [85, 170, 170], [255, 170, 0]];
     let mut series: Vec<(&str, [u8; 3], Vec<(i64, usize)>)> = Vec::new();
@@ -584,7 +633,9 @@ pub fn timeline_chart(look: &Look, all: &[Archived], out: &Path) -> Result<()> {
     // Log scale: the last few blocks matter as much as the first hundred.
     let (llo, lhi) = ((lo as f64).ln(), (hi as f64).ln());
     let y_of = |b: usize| py1 - (((b as f64).ln() - llo) / (lhi - llo) * (py1 - py0) as f64).round() as i64;
-    look.font.draw_centered(&mut img, w as i64 / 2, 16, "One night of agents: the record of each board (blocks, log scale; UTC)", 3, YELLOW, true);
+    let chart_title = "One night of agents: each board's record in blocks placed (not sizes; log scale; UTC)";
+    let title_scale = if look.font.width(chart_title, 3) + 40 <= w { 3 } else { 2 };
+    look.font.draw_centered(&mut img, w as i64 / 2, 16, chart_title, title_scale, YELLOW, true);
     for b in [20, 30, 40, 50, 60, 70, 80, 100, 120, 150, 200, 250, 300] {
         if b < lo || b > hi {
             continue;
@@ -638,7 +689,7 @@ pub const POSTER_ASSET: &str = "solid-progression.jpg";
 pub const TIMELINE_ASSET: &str = "night-timeline.png";
 
 /// A poster of a progression: one frame of each clip (`at` seconds in, the door open) in a
-/// grid, labeled with its block count, under a title.
+/// grid, labeled with its count of blocks placed, under a title.
 fn poster(look: &Look, clips: &Path, rows: &[(usize, String, String)], out: &Path, at: f64, board_title: &str) -> Result<()> {
     let n = rows.len().max(1);
     let cols = ((n as f64).sqrt().ceil() as usize).max(1);
@@ -649,10 +700,10 @@ fn poster(look: &Look, clips: &Path, rows: &[(usize, String, String)], out: &Pat
     let mut img = Image::new(w, header + th * grid_rows as u32, [0, 0, 0, 255]);
     img.tile(&look.dirt, 4, 0.25);
     let (first, last) = (rows.first().map(|r| r.0).unwrap_or(0), rows.last().map(|r| r.0).unwrap_or(0));
-    let title = format!("The smallest 3x3 piston door: {first} -> {last} blocks");
+    let title = format!("3x3 piston door, fewest blocks placed: {first} -> {last}");
     let scale = if look.font.width(&title, 4) + 40 <= w { 4 } else { 3 };
     look.font.draw_centered(&mut img, w as i64 / 2, 12, &title, scale, YELLOW, true);
-    let sub = format!("{}: every record of one night of agents, same camera, door open ({} records)", board_title.to_lowercase(), rows.len());
+    let sub = format!("{}: every blocks-placed record of one night of agents, same camera, door open ({} records)", board_title.to_lowercase(), rows.len());
     look.font.draw_centered(&mut img, w as i64 / 2, 54, &sub, 2, GRAY, true);
     for (i, (blocks, stem, _)) in rows.iter().enumerate() {
         let frame = clips.join(format!("{stem}.poster.png"));
@@ -678,12 +729,12 @@ fn poster(look: &Look, clips: &Path, rows: &[(usize, String, String)], out: &Pat
     img.save(out)
 }
 
-/// "151 -> 38 blocks": the first record of the solid progression (`records.tsv`) and the current
-/// best solid door (`best`, e.g. the leaderboard's #1).
+/// "151 -> 38 blocks placed": the first record of the solid progression (`records.tsv`, a
+/// blocks-placed history) and the fewest blocks placed by a solid door today (`best`).
 pub fn progression_title(archive: &Path, best: Option<usize>) -> String {
     let rows = progression(archive);
     match (rows.first().map(|r| r.0), best.or(rows.last().map(|r| r.0))) {
-        (Some(a), Some(b)) => format!("{a} -> {b} blocks"),
+        (Some(a), Some(b)) => format!("{a} -> {b} blocks placed"),
         _ => "solid record progression".into(),
     }
 }
@@ -727,12 +778,13 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
         bail!("unknown --board {} (solid, slime-free, flat, wall, ground, sculk, sculk-unrotated, gravity)", o.board);
     };
     let mut rows = if board == "solid" { progression(&o.archive) } else { timeline_progression(&all, keep, &caps) };
-    // A newer record than the last row joins at the end.
+    // A newer blocks-placed record than the last row joins at the end (the board's fewest blocks
+    // placed, not its size leader: the progression counts placed blocks).
     let records: HashMap<String, String> = rows.iter().map(|(_, s, h)| (s.clone(), h.clone())).collect();
-    if let Some(best) = boards(&all, &records).into_iter().find(|b| b.key == Some(board)) {
-        if rows.last().is_none_or(|r| best.best.facts.blocks < r.0) {
-            let how = caps.get(&best.best.stem).cloned().unwrap_or_else(|| "the current record".into());
-            rows.push((best.best.facts.blocks, best.best.stem.clone(), how));
+    if let Some(best) = all.iter().filter(|a| keep(&a.facts)).min_by_key(|a| (a.facts.blocks, !records.contains_key(&a.stem), total_ticks(a), a.stem.clone())) {
+        if rows.last().is_none_or(|r| best.facts.blocks < r.0) {
+            let how = caps.get(&best.stem).cloned().unwrap_or_else(|| "the current record".into());
+            rows.push((best.facts.blocks, best.stem.clone(), how));
         }
     }
     if rows.is_empty() {
@@ -790,10 +842,11 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     let (first, last) = (rows[0].0, rows.last().unwrap().0);
     let mut segments = vec![still(
         &look.card(w, h, &[
-            ("The smallest 3x3 piston door".into(), 5, YELLOW),
+            ("3x3 piston door: fewest blocks placed".into(), 5, YELLOW),
             (format!("board: {}", board_title.to_lowercase()), 3, AQUA),
             ("".into(), 2, WHITE),
-            (format!("{first} -> {last} blocks"), 10, WHITE),
+            (format!("{first} -> {last}"), 10, WHITE),
+            ("blocks placed (not sizes)".into(), 4, WHITE),
             ("".into(), 2, WHITE),
             (format!("{} records in one night of agents", rows.len()), 3, GRAY),
             (sentence(board_rule), 2, GRAY),
@@ -805,9 +858,9 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     for (i, (blocks, stem, how)) in rows.iter().enumerate() {
         let clip = clips.join(format!("{stem}.mp4"));
         let label = seg_dir.join(format!("{i:02}-{stem}.label.png"));
-        let delta = if i == 0 { "first on this board".to_string() } else { format!("-{} blocks", rows[i - 1].0 - blocks) };
+        let delta = if i == 0 { "first on this board".to_string() } else { format!("-{} blocks placed", rows[i - 1].0 - blocks) };
         let mut overlay = Image::new(w, h, [0, 0, 0, 0]);
-        look.draw_box(&mut overlay, &[(format!("{blocks} blocks"), 6, YELLOW), (format!("{delta}  ({}/{})", i + 1, rows.len()), 2, GREEN)], false, 0.5, false);
+        look.draw_box(&mut overlay, &[(format!("{blocks} blocks placed"), 6, YELLOW), (format!("{delta}  ({}/{})", i + 1, rows.len()), 2, GREEN)], false, 0.5, false);
         look.draw_box(&mut overlay, &[(sentence(how), 2, WHITE), (stem.clone(), 2, GRAY)], true, 1.0, true);
         overlay.save_png(&label)?;
         let secs = duration(&clip)? / o.speed;
@@ -829,7 +882,7 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     }
     let best_stem = &rows.last().unwrap().1;
     let best_how = &rows.last().unwrap().2;
-    let mut outro: Vec<(String, u32, [u8; 3])> = vec![("Current record".into(), 4, GRAY), (format!("{last} blocks"), 12, YELLOW), (best_stem.clone(), 3, AQUA), ("".into(), 2, WHITE)];
+    let mut outro: Vec<(String, u32, [u8; 3])> = vec![("Fewest blocks placed so far".into(), 4, GRAY), (format!("{last} blocks placed"), 10, YELLOW), (best_stem.clone(), 3, AQUA), ("".into(), 2, WHITE)];
     for l in look.font.wrap(&sentence(best_how), 2, w * 4 / 5) {
         outro.push((l, 2, WHITE));
     }

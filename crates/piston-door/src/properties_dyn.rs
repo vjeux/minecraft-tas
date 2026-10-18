@@ -628,6 +628,143 @@ fn err_text(e: anyhow::Error) -> String {
     format!("{e:#}").replace(['\t', '\n'], " ")
 }
 
+/// A repeater-rig failure (the repeater or its floor cannot stand there, or the rig itself
+/// disturbs the rest state): not a verdict on the door; the next site is tried.
+fn rig_failure(e: &str) -> bool {
+    e.starts_with("an entity appeared at rest") || e.starts_with("unsupported blocks") || e.starts_with("not closed at rest")
+}
+
+/// The repeater-input check (column `repeater`) on a design whose swept cells are `swept`: the
+/// first site in [`repeater_sites`] order whose rig stands decides. Ok((worst open, worst close))
+/// in ticks after the input reached the support block, or Err(why) (`no free side ...` when no
+/// site's rig stands).
+pub fn repeater_check(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, swept: &HashSet<Pos>, cycles: u32) -> std::result::Result<(u32, u32), String> {
+    for (env, input, _) in repeater_sites(d, spec, swept) {
+        match env_run(w, sb, d, spec, &env, &RunOpts { cycles, input, snow: false, steps: false }) {
+            Ok(rr) => return Ok((rr.open_ticks.iter().copied().max().unwrap_or(0), rr.close_ticks.iter().copied().max().unwrap_or(0))),
+            Err(e) => {
+                let e = err_text(e);
+                if !rig_failure(&e) {
+                    return Err(e);
+                }
+            }
+        }
+    }
+    Err("no free side of the lever's support block for a repeater".to_string())
+}
+
+/// Record-eligibility checks for searches (`--repeater-input`, `--eligible` on minimize, regrow,
+/// grow, resynth): [`repeater_check`] at every one of `offsets` (the design translated there,
+/// `cycles` cycles each, both edges); with `hallway`, the hallway check at the first offset; with
+/// `steps` (sculk designs), footsteps in both stable states at the first offset. Ok((worst repeater
+/// open, worst repeater close)) or the first failure.
+pub fn eligibility_in(w: &mut Worker, sb: u32, d: &Design, offsets: &[Pos], cycles: u32, hallway: bool, steps: bool) -> Result<(u32, u32)> {
+    let mut worst = (0u32, 0u32);
+    for (i, off) in offsets.iter().enumerate() {
+        let dd = d.translated(*off);
+        let spec = DoorSpec::from_design(&dd)?;
+        let (swept, _) = swept_cells(w, sb, &dd, &spec)?;
+        match repeater_check(w, sb, &dd, &spec, &swept, cycles) {
+            Ok((o, c)) => worst = (worst.0.max(o), worst.1.max(c)),
+            Err(e) => bail!("repeater input fails at offset {off:?}: {e}"),
+        }
+        if i == 0 && hallway {
+            let hall = hallway_env(&dd, &spec, &swept);
+            if let Err(e) = env_run(w, sb, &dd, &spec, &hall, &RunOpts { cycles: 1, input: Input::Lever, snow: false, steps: false }) {
+                bail!("hallway check fails: {}", err_text(e));
+            }
+        }
+        if i == 0 && steps {
+            if let Err(e) = env_run(w, sb, &dd, &spec, &Env::default(), &RunOpts { cycles: 1, input: Input::Lever, snow: false, steps: true }) {
+                bail!("footsteps check fails: {}", err_text(e));
+            }
+        }
+    }
+    Ok(worst)
+}
+
+/// One line of `door eligible`: (every check passes, the line). The judge and rotation check at
+/// `offsets`, repeater input at every one of `offsets`, then at the design's own position the
+/// hallway check, footsteps (sculk designs), the SEAMLESS tier and the lever's place (3.1.2,
+/// 3.1.5).
+pub fn eligibility_line(w: &mut Worker, name: &str, d: &Design, offsets: &[Pos]) -> (bool, String) {
+    let short_name = name.rsplit('/').next().unwrap_or(name).trim_end_matches(".txt").to_string();
+    let mut ok = true;
+    let mut parts = vec![format!("{short_name}: {} blocks {}", crate::block_count(d), crate::category(d))];
+    let judge = crate::VerifyOptions { offsets: offsets.to_vec(), ..Default::default() };
+    match crate::verify(w, d, &judge) {
+        Ok(r) => {
+            let (o, c) = crate::search::worst_ticks(&r);
+            let rot = match crate::rotation_check(w, d, &judge) {
+                Ok(None) => "rotation-safe".to_string(),
+                Ok(Some((t, _))) => format!("NOT rotation-safe ({} deg)", t as u32 * 90),
+                Err(e) => format!("rotation check error: {}", err_text(e)),
+            };
+            parts.push(format!("judge ok x{} (lever {o}/{c}), {rot}", offsets.len()));
+        }
+        Err(e) => {
+            ok = false;
+            parts.push(format!("JUDGE FAILS: {}", err_text(e)));
+        }
+    }
+    let rest = (|| -> Result<Vec<(bool, String)>> {
+        let mut out = Vec::new();
+        let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+        let r = (|| -> Result<()> {
+            match eligibility_in(w, sb, d, offsets, 1, false, false) {
+                Ok((o, c)) => out.push((true, format!("repeater ok x{} ({o}/{c})", offsets.len()))),
+                Err(e) => out.push((false, format!("REPEATER FAILS: {}", err_text(e)))),
+            }
+            let spec = DoorSpec::from_design(d)?;
+            let (swept, _) = swept_cells(w, sb, d, &spec)?;
+            let hall = hallway_env(d, &spec, &swept);
+            match env_run(w, sb, d, &spec, &hall, &RunOpts { cycles: 1, input: Input::Lever, snow: false, steps: false }) {
+                Ok(_) => out.push((true, "hallway ok".into())),
+                Err(e) => out.push((false, format!("HALLWAY FAILS: {}", err_text(e)))),
+            }
+            if crate::category(d) == "sculk" {
+                match env_run(w, sb, d, &spec, &Env::default(), &RunOpts { cycles: 1, input: Input::Lever, snow: false, steps: true }) {
+                    Ok(_) => out.push((true, "steps ok".into())),
+                    Err(e) => out.push((false, format!("STEPS FAIL: {}", err_text(e)))),
+                }
+            }
+            let p = crate::properties::input_props(w, sb, d)?;
+            let tier = p.get("seamless").cloned().unwrap_or_else(|| "-".into());
+            if tier == "-" {
+                out.push((false, format!("NOT SEAMLESS ({})", p.get("seamless_why").cloned().unwrap_or_default())));
+            } else {
+                out.push((true, format!("seamless {tier}")));
+            }
+            out.push((true, format!("volume {} ({})", p.get("volume").map(String::as_str).unwrap_or("?"), p.get("volume_dims").map(String::as_str).unwrap_or("?"))));
+            for (k, what) in [("lever_surface", "lever on the surface"), ("lever_support", "lever support fixed")] {
+                if p.get(k).is_some_and(|v| v == "yes") {
+                    out.push((true, what.to_string()));
+                } else {
+                    out.push((false, format!("NO {what}")));
+                }
+            }
+            Ok(())
+        })();
+        let _ = w.drop_sandbox(sb);
+        r?;
+        Ok(out)
+    })();
+    match rest {
+        Ok(v) => {
+            for (good, s) in v {
+                ok &= good;
+                parts.push(s);
+            }
+        }
+        Err(e) => {
+            ok = false;
+            parts.push(format!("ERROR: {}", err_text(e)));
+        }
+    }
+    parts.push(if ok { "ELIGIBLE".into() } else { "not eligible".into() });
+    (ok, parts.join(" | "))
+}
+
 /// All six checks on one design (one sandbox, reused).
 pub fn check_design(w: &mut Worker, source: &str, d: &Design, verdict: &str) -> Result<Row> {
     let spec = DoorSpec::from_design(d)?;
@@ -664,25 +801,10 @@ pub fn check_design(w: &mut Worker, source: &str, d: &Design, verdict: &str) -> 
         let flammable = exposed_flammables(&rest);
         // Repeater input: the first site whose rig stands (a repeater on a non-sturdy design block
         // pops; that is the rig's fault, not the door's: try the next site).
-        let mut repeater: Check = Err("no free side of the lever's support block for a repeater".to_string());
-        let mut repeater_ticks = None;
-        for (env, input, _) in repeater_sites(d, &spec, &swept) {
-            match env_run(w, sb, d, &spec, &env, &RunOpts { cycles: 1, input, snow: false, steps: false }) {
-                Ok(rr) => {
-                    repeater = Ok(());
-                    repeater_ticks = Some((rr.open_ticks[0], rr.close_ticks[0]));
-                    break;
-                }
-                Err(e) => {
-                    let e = err_text(e);
-                    let rig = e.starts_with("an entity appeared at rest") || e.starts_with("unsupported blocks") || e.starts_with("not closed at rest");
-                    if !rig {
-                        repeater = Err(e);
-                        break;
-                    }
-                }
-            }
-        }
+        let (repeater, repeater_ticks) = match repeater_check(w, sb, d, &spec, &swept, 1) {
+            Ok(t) => (Ok(()), Some(t)),
+            Err(e) => (Err(e), None),
+        };
         // Footsteps.
         let steps = env_run(w, sb, d, &spec, &Env::default(), &RunOpts { cycles: 1, input: Input::Lever, snow: false, steps: true })
             .map(|_| ())

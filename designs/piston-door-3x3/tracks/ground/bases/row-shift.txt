@@ -1,0 +1,11 @@
+name: row-shift
+port door: 0 0 0
+origin: -3 0 -1
+palette:
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  S minecraft:sticky_piston[extended=false,facing=south]
+  I minecraft:stone
+layer 0:
+  ..S.....
+  EE.III.W

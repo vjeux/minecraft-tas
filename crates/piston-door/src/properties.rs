@@ -1418,6 +1418,19 @@ pub fn dynamic(w: &mut Worker, sb: u32, d: &Design, rec: &Recording, p: &mut Pro
     Ok(())
 }
 
+/// The SEAMLESS tier of a design at its own position ("SUPER", "FULL", "SEMI z-", "QUART z+,z-",
+/// or "-" for none), from one recorded cycle: what `--eligible` searches require (QUART or better).
+pub fn seamless_tier(w: &mut Worker, sb: u32, d: &Design) -> Result<String> {
+    Ok(input_props(w, sb, d)?.get("seamless").cloned().unwrap_or_else(|| "-".into()))
+}
+
+/// The cheap properties `--eligible` searches and `door eligible` read (one recorded cycle):
+/// `seamless`, `lever_surface` (3.1.2), `lever_support` (3.1.5) among others.
+pub fn input_props(w: &mut Worker, sb: u32, d: &Design) -> Result<Props> {
+    let rec = record(w, sb, d)?;
+    Ok(cheap(&rec, d))
+}
+
 /// Properties of one design (cheap ones, plus the dynamic ones when asked).
 pub fn compute(w: &mut Worker, d: &Design, with_dynamic: bool) -> Result<Props> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
@@ -1456,8 +1469,106 @@ pub fn save_cache(dir: &Path, m: &HashMap<u64, Props>) -> Result<()> {
         })
         .collect();
     lines.sort();
-    std::fs::write(dir.join(CACHE_FILE), lines.join("\n") + "\n")?;
+    // Written aside and renamed: a reader never sees half a file.
+    let tmp = dir.join(format!("{CACHE_FILE}.{}.tmp", std::process::id()));
+    std::fs::write(&tmp, lines.join("\n") + "\n")?;
+    std::fs::rename(&tmp, dir.join(CACHE_FILE))?;
     Ok(())
+}
+
+/// Serializes the read-merge-write of the cache within this process (`door video-all` records
+/// several videos at once).
+static CACHE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Merge freshly computed properties into the cache in `dir`, re-read under a lock so that
+/// concurrent writers of this process lose nothing.
+pub fn merge_into_cache(dir: &Path, fresh: HashMap<u64, Props>) -> Result<()> {
+    if fresh.is_empty() {
+        return Ok(());
+    }
+    let _guard = CACHE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut cache = load_cache(dir);
+    for (h, p) in fresh {
+        cache.entry(h).or_default().extend(p);
+    }
+    save_cache(dir, &cache)
+}
+
+/// A door's size, as the piston door community counts it (regulation section 4.2): the `volume`
+/// of the bounding box of the build over every state of a cycle, the lever excluded (definition:
+/// [`cheap`], tracks/props/NOTES.md), with its `volume_dims` (width x height x depth, `8x10x1`).
+/// A door labeled "80b" has volume 80, whatever its count of placed blocks.
+pub type Volume = (usize, String);
+
+/// The [`Volume`] in a design's properties, if they have one.
+pub fn cached_volume(p: &Props) -> Option<Volume> {
+    let v = p.get("volume")?.parse().ok()?;
+    Some((v, p.get("volume_dims").cloned().unwrap_or_default()))
+}
+
+/// THE size of a door (every board, label, title card and world reads it from here): the
+/// [`Volume`] cached in `cache_dir`'s properties cache, else measured ([`compute`] without the
+/// dynamic checks: one recorded cycle at the design's own position) and saved back to the cache.
+pub fn volume(w: &mut Worker, d: &Design, cache_dir: Option<&Path>) -> Result<Volume> {
+    let h = crate::leaderboard::design_hash(d);
+    if let Some(v) = cache_dir.and_then(|dir| load_cache(dir).get(&h).and_then(cached_volume)) {
+        return Ok(v);
+    }
+    let p = compute(w, d, false)?;
+    let v = cached_volume(&p).with_context(|| format!("{}: no volume measured", d.name))?;
+    if let Some(dir) = cache_dir {
+        merge_into_cache(dir, HashMap::from([(h, p)]))?;
+    }
+    Ok(v)
+}
+
+/// [`volume`] of many designs at once: design hash -> [`Volume`]. Cached designs are read from
+/// `cache_dir`, the others measured on a pool of `workers` and saved back to the cache. A design
+/// that cannot be measured is reported on stderr and has no entry.
+pub fn volumes(version: &str, designs: Vec<Design>, workers: usize, cache_dir: Option<&Path>) -> Result<HashMap<u64, Volume>> {
+    let cache = cache_dir.map(load_cache).unwrap_or_default();
+    let mut out = HashMap::new();
+    let mut todo = Vec::new();
+    let mut seen = HashSet::new();
+    for d in designs {
+        let h = crate::leaderboard::design_hash(&d);
+        if !seen.insert(h) {
+            continue;
+        }
+        match cache.get(&h).and_then(cached_volume) {
+            Some(v) => {
+                out.insert(h, v);
+            }
+            None => todo.push((h, d)),
+        }
+    }
+    if todo.is_empty() {
+        return Ok(out);
+    }
+    eprintln!("{} working designs to measure (volume: door properties, one recorded cycle)", todo.len());
+    let pool = mctas::sim::Pool::spawn(workers.min(todo.len()).max(1), &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+    let names: HashMap<u64, String> = todo.iter().map(|(h, d)| (*h, d.name.clone())).collect();
+    let results = pool.map(todo, |w, _, (h, d)| Ok((h, compute(w, &d, false))));
+    let mut fresh = HashMap::new();
+    for r in results {
+        let (h, p) = r?;
+        match p {
+            Ok(p) => {
+                match cached_volume(&p) {
+                    Some(v) => {
+                        out.insert(h, v);
+                    }
+                    None => eprintln!("warning: {} ({h:016x}): no volume measured", names[&h]),
+                }
+                fresh.insert(h, p);
+            }
+            Err(e) => eprintln!("warning: {} ({h:016x}): volume not measured: {e:#}", names[&h]),
+        }
+    }
+    if let Some(dir) = cache_dir {
+        merge_into_cache(dir, fresh)?;
+    }
+    Ok(out)
 }
 
 /// Cached leaderboard verdicts (verdicts-v5.tsv): hash -> (works, rotation-safe tag).
@@ -1751,4 +1862,30 @@ pub fn render(rows: &[(String, usize, &'static str, Props)]) -> String {
          Timings o/ov/c/cv = opening, opening visible, closing, closing visible time in ticks after the input. Definitions: tracks/props/NOTES.md.\n",
     );
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The archive of the repository (tests run from the crate folder).
+    fn archive() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../designs/piston-door-3x3/archive")
+    }
+
+    /// Sizes are the community's volumes, read from the properties cache: flat-b-v7 places 44
+    /// blocks but its size is 80b (8x10x1), and the leaderboard's size column says so.
+    #[test]
+    fn size_is_the_cached_volume() {
+        let d = Design::load(&archive().join("flat-b-v7-44b.txt")).unwrap();
+        assert_eq!(crate::block_count(&d), 44);
+        let cache = load_cache(&archive());
+        let v = cache.get(&crate::leaderboard::design_hash(&d)).and_then(cached_volume);
+        assert_eq!(v, Some((80, "8x10x1".to_string())));
+        let mut p = Props::new();
+        p.insert("volume".into(), "140".into());
+        assert_eq!(cached_volume(&p), Some((140, String::new())));
+        p.insert("volume".into(), "-".into());
+        assert_eq!(cached_volume(&p), None);
+    }
 }
