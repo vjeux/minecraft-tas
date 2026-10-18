@@ -259,6 +259,14 @@ fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
 
 /// Right-click the lever with the bot and wait until it shows the new state.
 fn flip(v: &mut VanillaServer, lever: Pos, on: bool) -> Result<()> {
+    if !v.test_block(lever, "minecraft:lever")? {
+        // The lever is gone (a broken build popped it). The judge then right-clicks whatever is
+        // there with a mock player (nothing, for air); the bot does the same and moves on.
+        v.bot_use(lever, 1)?;
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        v.cmd("list")?;
+        return Ok(());
+    }
     v.bot_use(lever, 1)?;
     let t0 = std::time::Instant::now();
     loop {
@@ -269,7 +277,9 @@ fn flip(v: &mut VanillaServer, lever: Pos, on: bool) -> Result<()> {
             bail!("bot: {e}");
         }
         if t0.elapsed() > std::time::Duration::from_secs(15) {
-            bail!("the bot's click on the lever {lever:?} did not flip it (reach? spawn protection?)");
+            let now = v.snapshot(lever, lever).ok().and_then(|s| s.region.get(lever).map(|x| x.to_string())).unwrap_or_default();
+            let at = v.bot.as_ref().map(|b| b.position()).unwrap_or_default();
+            bail!("the bot's click on the lever {lever:?} did not flip it: the cell holds {now}; bot at {at:?}");
         }
         std::thread::sleep(std::time::Duration::from_millis(3));
     }
@@ -351,7 +361,11 @@ fn vanilla_run(v: &mut VanillaServer, placed: &[(Pos, String)], d: &Design, spec
     for i in 0..opts.cycles as usize {
         let s = sim.cycles.get(i);
         let mut c = CycleRun::default();
-        flip(v, spec.lever, true)?;
+        if let Err(e) = flip(v, spec.lever, true) {
+            // Say what vanilla's rest looked like next to the simulator's (bare names unexpanded).
+            let d = frame_diff(&sim.rest, &rest, 6);
+            bail!("{e:#} | vanilla rest vs simulator rest: {}", if d.is_empty() { "same".into() } else { d.join("; ") });
+        }
         let t = s.and_then(|s| target(&s.open, s.open_idle));
         (c.open, c.open_idle, c.open_pending) = vanilla_record(v, wlo, whi, opts.max_ticks, t)?;
         c.open_entities = v.count_entities("@e[type=!minecraft:player]")?;
