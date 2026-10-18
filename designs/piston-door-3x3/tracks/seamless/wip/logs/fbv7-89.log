@@ -1,0 +1,45 @@
+[    8.7s] start: 50 blocks, open 32 / close 32
+[   18.2s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   30.1s] --fit: 5 removable blocks outside the box: (-2,5,0) (-1,5,0) (0,5,0) (1,5,0) (2,5,0)
+[   30.1s] 50 blocks: 29 removable, 40 groups of 2..3
+[   31.6s]   group [(-2,5,0)obse] -> <= 5 blocks: 39 circuits in 1.5s
+[   32.0s]   group [(-1,5,0)obse] -> <= 5 blocks: 75 circuits in 0.4s
+[   32.1s]   group [(0,5,0)drop] -> <= 5 blocks: 18 circuits in 0.1s
+[   32.1s]   group [(1,5,0)obse] -> <= 5 blocks: 3 circuits in 0.1s
+[   32.1s]   group [(2,5,0)smoo] -> <= 5 blocks: 0 circuits in 0.0s
+[   34.3s]   group [(-2,4,0)repe (-2,5,0)obse] -> <= 6 blocks: 1103 circuits in 2.2s
+[   37.2s]   group [(-2,4,0)repe (-1,5,0)obse] -> <= 6 blocks: 2232 circuits in 2.8s
+[   38.3s]   group [(-2,5,0)obse (-1,4,0)smoo] -> <= 6 blocks: 1466 circuits in 1.1s
+[   38.3s]   group [(-2,5,0)obse (-1,5,0)obse] -> <= 6 blocks: 75 circuits in 0.1s
+[   39.2s]   group [(-1,4,0)smoo (-1,5,0)obse] -> <= 6 blocks: 1403 circuits in 0.9s
+[   40.1s]   group [(-1,4,0)smoo (0,5,0)drop] -> <= 6 blocks: 1502 circuits in 0.9s
+[   40.2s]   group [(-1,5,0)obse (0,5,0)drop] -> <= 6 blocks: 75 circuits in 0.1s
+[   40.2s]   group [(0,5,0)drop (1,5,0)obse] -> <= 6 blocks: 18 circuits in 0.0s
+[   40.2s]   group [(1,5,0)obse (2,5,0)smoo] -> <= 6 blocks: 3 circuits in 0.0s
+[   40.3s]   group [(2,5,0)smoo (3,4,0)drop] -> <= 6 blocks: 12 circuits in 0.0s
+[   49.6s]   group [(-2,3,0)smoo (-2,5,0)obse (-1,4,0)smoo] -> <= 7 blocks: 15647 circuits in 9.2s
+[   56.4s]   group [(-2,3,0)smoo (-1,4,0)smoo (-1,5,0)obse] -> <= 7 blocks: 14975 circuits in 6.7s
+[   63.9s]   group [(-2,3,0)smoo (-1,4,0)smoo (0,5,0)drop] -> <= 7 blocks: 16031 circuits in 7.4s
+[   69.3s]   group [(-2,3,0)smoo (-2,4,0)repe (-2,5,0)obse] -> <= 7 blocks: 10735 circuits in 5.3s
+[   80.3s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,5,0)obse] -> <= 7 blocks: 23634 circuits in 10.9s
+[   86.7s]   group [(-2,4,0)repe (-2,5,0)obse (-1,4,0)smoo] -> <= 7 blocks: 13623 circuits in 6.2s
+[   90.6s]   group [(-2,4,0)repe (-2,5,0)obse (-1,3,0)obse] -> <= 7 blocks: 12143 circuits in 3.8s
+[   91.5s]   group [(-2,4,0)repe (-2,5,0)obse (-1,5,0)obse] -> <= 7 blocks: 2000 circuits in 0.8s
+[   98.1s]   group [(-2,4,0)repe (-1,4,0)smoo (-1,5,0)obse] -> <= 7 blocks: 14753 circuits in 6.4s
+[  104.9s]   group [(-2,4,0)repe (-1,4,0)smoo (0,5,0)drop] -> <= 7 blocks: 15393 circuits in 6.6s
+[  110.7s]   group [(-2,4,0)repe (-1,3,0)obse (-1,5,0)obse] -> <= 7 blocks: 17940 circuits in 5.7s
+[  111.8s]   group [(-2,4,0)repe (-1,5,0)obse (0,5,0)drop] -> <= 7 blocks: 2232 circuits in 1.1s
+[  114.0s]   group [(-2,5,0)obse (-1,3,0)obse (-1,4,0)smoo] -> <= 7 blocks: 7325 circuits in 2.2s
+[  114.5s]   group [(-2,5,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 7 blocks: 1403 circuits in 0.4s
+[  114.9s]   group [(-2,5,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 7 blocks: 1502 circuits in 0.4s
+[  114.9s]   group [(-2,5,0)obse (-1,5,0)obse (0,5,0)drop] -> <= 7 blocks: 75 circuits in 0.0s
+[  116.6s]   group [(-1,3,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 7 blocks: 6191 circuits in 1.6s
+[  118.8s]   group [(-1,3,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 7 blocks: 7775 circuits in 2.1s
+[  119.3s]   group [(-1,4,0)smoo (-1,5,0)obse (0,5,0)drop] -> <= 7 blocks: 1457 circuits in 0.4s
+[  119.8s]   group [(-1,4,0)smoo (0,5,0)drop (1,5,0)obse] -> <= 7 blocks: 1502 circuits in 0.4s
+[  119.8s]   group [(-1,5,0)obse (0,5,0)drop (1,5,0)obse] -> <= 7 blocks: 75 circuits in 0.0s
+[  119.8s]   group [(0,5,0)drop (1,5,0)obse (2,5,0)smoo] -> <= 7 blocks: 18 circuits in 0.0s
+[  119.8s]   group [(1,5,0)obse (2,5,0)smoo (3,4,0)drop] -> <= 7 blocks: 51 circuits in 0.0s
+[  119.9s]   group [(2,5,0)smoo (3,4,0)drop (4,4,0)obse] -> <= 7 blocks: 59 circuits in 0.0s
+[  120.0s]   group [(2,5,0)smoo (3,4,0)drop (4,3,0)obse] -> <= 7 blocks: 494 circuits in 0.2s
+50 -> 50 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/fbv7-89.txt

@@ -1,0 +1,58 @@
+# shift2 driven by 14 observers (wire/shift2-obs.txt): each step toggles a marker block in the
+# cells its observers watch (set on open, clear on close: one change per edge, like a repeater
+# line tapped at that delay).
+design designs/piston-door-3x3/tracks/ground/wire/shift2-obs.txt
+let a2 = 4
+let a3 = 6
+let a4 = 4
+let a5 = 4
+let a6 = 6
+let a7 = 4
+let b2 = 4
+let b3 = 6
+let b4 = 6
+let b5 = 6
+let b6 = 6
+let b7 = 0
+let L1 = 0
+let L2 = L1+a2
+let L3 = L2+a3
+let L4 = L3+a4
+let L5 = L4+a5
+let L6 = L5+a6
+let L7 = L6+a7
+let R1 = 0
+let R2 = R1+b2
+let R3 = R2+b3
+let R4 = R3+b4
+let R5 = R4+b5
+let R6 = R5+b6
+let R7 = R6+b7
+open L1 set -2 4 0 minecraft:stone
+open R1 set 4 0 -2 minecraft:stone
+close L1 clear -2 4 0
+close R1 clear 4 0 -2
+open L2 set -1 4 -1 minecraft:stone
+open R2 set 3 0 3 minecraft:stone
+close L2 clear -1 4 -1
+close R2 clear 3 0 3
+open L3 set -3 4 0 minecraft:stone
+open R3 set 5 2 0 minecraft:stone
+close L3 clear -3 4 0
+close R3 clear 5 2 0
+open L4 set -1 4 0 minecraft:stone
+open R4 set 3 1 -2 minecraft:stone
+close L4 clear -1 4 0
+close R4 clear 3 1 -2
+open L5 set -5 2 0 minecraft:stone
+open R5 set 7 0 0 minecraft:stone
+close L5 clear -5 2 0
+close R5 clear 7 0 0
+open L6 set -2 2 2 minecraft:stone
+open R6 set 4 0 2 minecraft:stone
+close L6 clear -2 2 2
+close R6 clear 4 0 2
+open R7 set -2 0 2 minecraft:stone
+open L7 set 4 4 0 minecraft:stone
+close R7 clear -2 0 2
+close L7 clear 4 4 0

@@ -1,0 +1,12 @@
+10 workers; moves all; judge 32 positions
+[   10.7s] the start design is rotation-safe: candidates must stay rotation-safe (--any-rotation to allow others)
+[   21.4s] start: 50 blocks, open 32 close 32 ticks, passes the judge (32 positions x 3 cycles)
+[   28.2s]   414336 swaps (two blocks out, one block in nearby)
+[   28.2s] 50 blocks: 1672 removals, 0 reroutes (+0 neutral), 2788 compounds, 308 neutral edits
+[   43.9s]   418796 candidates: 375344 seen, 43452 screened in 15.5s, 4 passed the screen, 4 judged, 0 passed the judge (15.6s)
+[   44.0s]   no improving move; plateau: judging 45962 neutral edits
+[   85.6s]   45962 candidates: 41586 seen, 4376 screened in 0.9s, 41 passed the screen, 41 judged, 36 passed the judge (41.5s)
+[  111.8s]   plateau: routing took 26.3s
+[  111.8s]   plateau: 36 verified neutral designs, 1440 removals and 0 reroutes after them
+[  112.0s]   1440 candidates: 354 seen, 1086 screened in 0.2s, 0 passed the screen, 0 judged, 0 passed the judge (0.2s)
+50 -> 50 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/fbv7-min.txt

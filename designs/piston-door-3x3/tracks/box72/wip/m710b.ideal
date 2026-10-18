@@ -1,0 +1,61 @@
+design designs/piston-door-3x3/tracks/box72/wip/m710.txt
+# f43-89's own pulse times (k = tick - 1); B is a level window b1..b2; a2 proxied by a block at (0,3)
+let a1 = 5
+let pt = 11
+let b1 = 15
+let ob2 = 23
+let cb2 = 25
+let a2 = 18
+let a3 = 26
+let opm = 25
+let cpm = 21
+let otl = 30
+let ctl = 2
+let bl = 30
+let r = 1
+open 0 set -2 -1 0 minecraft:redstone_block
+close 0 set -2 -1 0 minecraft:stone
+open a1 set 2 4 0 minecraft:redstone_block
+open a1+2 clear 2 4 0
+open pt set 3 4 0 minecraft:redstone_block
+open pt+2 clear 3 4 0
+open b1 set 2 5 0 minecraft:redstone_block
+open ob2 clear 2 5 0
+open a2 set 0 3 0 minecraft:redstone_block
+open a2+2 clear 0 3 0
+open a3 set 2 4 0 minecraft:redstone_block
+open a3+2 clear 2 4 0
+open otl set -1 4 0 minecraft:redstone_block
+open otl+2 clear -1 4 0
+open bl set -1 -2 0 minecraft:redstone_block
+open bl+2 clear -1 -2 0
+open opm set 1 -3 0 minecraft:redstone_block
+open opm+2 clear 1 -3 0
+open r set 4 -1 0 minecraft:redstone_block
+open r set 5 1 0 minecraft:redstone_block
+open r set 5 2 0 minecraft:redstone_block
+open r+2 clear 4 -1 0
+open r+2 clear 5 1 0
+open r+2 clear 5 2 0
+close a1 set 2 4 0 minecraft:redstone_block
+close a1+2 clear 2 4 0
+close pt set 3 4 0 minecraft:redstone_block
+close pt+2 clear 3 4 0
+close b1 set 2 5 0 minecraft:redstone_block
+close cb2 clear 2 5 0
+close a2 set 0 3 0 minecraft:redstone_block
+close a2+2 clear 0 3 0
+close cpm set 1 -3 0 minecraft:redstone_block
+close cpm+2 clear 1 -3 0
+close a3 set 2 4 0 minecraft:redstone_block
+close a3+2 clear 2 4 0
+close ctl set -1 4 0 minecraft:redstone_block
+close ctl+2 clear -1 4 0
+close bl set -1 -2 0 minecraft:redstone_block
+close bl+2 clear -1 -2 0
+close r set 4 -1 0 minecraft:redstone_block
+close r set 5 1 0 minecraft:redstone_block
+close r set 5 2 0 minecraft:redstone_block
+close r+2 clear 4 -1 0
+close r+2 clear 5 1 0
+close r+2 clear 5 2 0

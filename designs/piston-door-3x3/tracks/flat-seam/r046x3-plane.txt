@@ -1,0 +1,13 @@
+name: r046x3-plane
+port door: 0 0 0
+origin: -4 0 0
+palette:
+  N minecraft:piston[extended=false,facing=east]
+  S minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+layer 0:
+  N.N.CCC.SSS
+layer 1:
+  N.N.CCC.SSS
+layer 2:
+  N.N.CCC.SSS
