@@ -69,6 +69,28 @@ never moved (they must already be inside). Combine with `--seamless full+hall` t
   (t, t+4) feeds fires ONCE: the repeater is on for exactly 4 gt, and its off edge comes while the
   observer is still on (the repeater's tick has the higher priority).
 
+## cd19 at 9x8 (rows y -3..4): what I found, not built
+- **cd8 schedule passes with ideal inputs** ([cd8.ideal](cd8.ideal) on [cd8.txt](cd8.txt): flat-b v7
+  geometry, P_M (-1,-1) east so M parks at (0,-1), X cell (2,-1), TR goes RIGHT (right 3-stack), only
+  the T puller (1,4) on top, B' driven by two 2 gt pulses from (0,-3)): a1 2, pm 5..9, b1 9..12,
+  a2 = b1+2..3 at (2,-1), b2 = 17..18, a3 = b2+4 exactly at (2,-1) (A' lands back at b2+4 and extends
+  while X is lit), top 24..34 at (0,4), left and right stacks any time. An extra X pulse at
+  b2..b2+3 breaks it (A' high pushes C back up), so X cannot simply watch B's driver
+  (that gives b2+2); X needs b1+2 and b2+4: two separate single-pulse paths, or a lamp lit by a 4 gt
+  pulse (its watcher fires at on+2 and on+10) next to a lamp lit by a 2 gt pulse for B'.
+- **The 8-row box splits into two halves.** Column x = 1 is blocked top to bottom (B' (1,-3), A'
+  (1,-2), A's gap (1,-1), the door, T's park (1,3), the T puller (1,4)); 57b/s55 cross over B on row
+  7, flat43/h44 cross on row 6 (the repeater on top of B), flat-b-v7 crosses under B' on row -4. In
+  8 rows nothing crosses: the left half (lever, a1, pm, P_M, B's left feed, left stack, T puller)
+  and the right half (X (2,-1), right stack, B's right feed) can only talk by observing A', B' or the
+  T puller from (0|2,-3), (0|2,-2), (0|2,4); A' and B' change state many times per edge (wrong
+  parity and timing without one-shots), and the T puller moves last (t24+), too late for X (a2 at
+  t14). So the half without the lever has no usable trigger: X must be fed from the left (only
+  through M parked at (0,-1), whose only free feeder (0,-2) is also the cell that would have to
+  watch B's left driver: b1+2 and b2+2, the forbidden pulse), or P_M moves right (cd19.txt's
+  (3,-1), M parks at (2,-1), X at (0,-1)) and then P_M (pm at a1+3..7) is the right-half job with no
+  trigger. I stopped here: 9x8 needs a one-shot or a cleverer crossing.
+
 ## Log
 - `door minimize --moves all --plateau --shape flat --seamless full+hall` on 57b: nothing (48
   neutral designs, no removal after them). `door resynth --max-size 5` with lamps/notes/targets
