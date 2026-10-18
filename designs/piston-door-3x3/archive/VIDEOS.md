@@ -16,6 +16,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 45 | gravity | [gravity-g10-45b](gravity-g10-45b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g10-45b.mp4) |
 | 45 | solid | [piston-door-3x3-fresh-b-mp7-45b](piston-door-3x3-fresh-b-mp7-45b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-mp7-45b.mp4) |
 | 45 | gravity | [search-tool-transplant-HEAD-search-tool-from-HEAD-gravity-g6-49b-46b-45b](search-tool-transplant-HEAD-search-tool-from-HEAD-gravity-g6-49b-46b-45b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-transplant-HEAD-search-tool-from-HEAD-gravity-g6-49b-46b-45b.mp4) |
+| 45 | solid | [slime-free-s7-45b](slime-free-s7-45b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-s7-45b.mp4) |
 | 46 | gravity | [gravity-g9-46b](gravity-g9-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g9-46b.mp4) |
 | 46 | solid | [piston-door-3x3-fresh-b-mp6-46b](piston-door-3x3-fresh-b-mp6-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-mp6-46b.mp4) |
 | 46 | solid | [riders-r2-46b](riders-r2-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/riders-r2-46b.mp4) |
@@ -110,6 +111,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 117 | solid | [piston-door-3x3-v2-117b](piston-door-3x3-v2-117b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-117b.mp4) |
 | 118 | solid | [piston-door-3x3-v2-118b](piston-door-3x3-v2-118b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-118b.mp4) |
 | 121 | solid | [piston-door-3x3-v1-min-invalid](piston-door-3x3-v1-min-invalid.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v1-min-invalid.mp4) |
+| 121 | solid | [speed-wire-w5-121b](speed-wire-w5-121b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w5-121b.mp4) |
 | 122 | solid | [fresh-a-sf1-w2-122b](fresh-a-sf1-w2-122b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fresh-a-sf1-w2-122b.mp4) |
 | 122 | solid | [speed-wire-w5-122b](speed-wire-w5-122b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w5-122b.mp4) |
 | 123 | solid | [speed-wire-w1-123b](speed-wire-w1-123b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w1-123b.mp4) |
@@ -122,6 +124,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 128 | solid | [piston-door-3x3-v2-128b](piston-door-3x3-v2-128b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-128b.mp4) |
 | 133 | solid | [piston-door-3x3-v2-133b](piston-door-3x3-v2-133b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-133b.mp4) |
 | 133 | solid | [piston-door-3x3-v2-133b-2](piston-door-3x3-v2-133b-2.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-133b-2.mp4) |
+| 134 | solid | [speed-wire-w6-134b](speed-wire-w6-134b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w6-134b.mp4) |
 | 135 | solid | [piston-door-3x3-v2-135b](piston-door-3x3-v2-135b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-135b.mp4) |
 | 138 | solid | [speed-wire-w4-138b](speed-wire-w4-138b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w4-138b.mp4) |
 | 139 | solid | [speed-wire-w2-139b](speed-wire-w2-139b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w2-139b.mp4) |

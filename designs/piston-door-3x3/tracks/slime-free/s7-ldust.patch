@@ -1,0 +1,2 @@
+set -2 3 0 minecraft:smooth_stone
+set -2 4 0 minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]

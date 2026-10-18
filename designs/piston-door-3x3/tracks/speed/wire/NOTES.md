@@ -1,9 +1,51 @@
 # Track speed / wire: real (lever-only) versions of ideal-6
 
-Best: `wire/BEST.txt` = `wire/w5.txt` — `door verify --extra-offsets 28`: WORKS, 140 blocks,
-category solid, slime-free, **open 12 / close 11**. Chain of verified steps: w1 (12/19),
-w2 (12/14), w4 (12/13), w5 (12/11). Each wN.txt = w(N-1).txt + wN.patch (`door patch`).
-Ideal steps: ideal-7..10 (.txt/.sched/.patch), drive probes *.drive.
+Best: `wire/BEST.txt` = `wire/w6.txt` — `door verify --extra-offsets 28`: WORKS, 161 blocks,
+category solid, slime-free, **open 12 / close 7**. Chain of verified steps: w1 (12/19),
+w2 (12/14), w4 (12/13), w5 (12/11), w6 (12/7; w6 = w5 + w6b.patch + w6c.patch + w6d.patch).
+Each wN.txt = w(N-1).txt + wN.patch (`door patch`).
+Ideal steps: ideal-7..14 (.txt/.sched/.patch), drive probes *.drive.
+
+## w6: the BUD close (close 7)
+* F is a BUD: in the open state it is QC-powered SILENTLY by stone X_F (1,6,0) (above F's QC
+  cell (1,5,0), not next to F), driven by repeater R_s (1,6,-1) (delay 1) reading lever-net dust
+  (1,6,-2). R_s is held OFF by a lock repeater L_r (0,6,-1) (delay 2) fed by a torch
+  (-1,6,-1) on block (-1,6,-2) powered by repeater D (0,6,-2) (delay 4) off the same dust: the
+  lock drops at open k14, R_s turns on at k16 (after F's base landed at k14 BE, so F does not
+  re-extend). Close: the dust falls at k0, R_s turns off at k2 with VERY_HIGH priority (before
+  any observer tick of k2); the lock comes back at close k14.
+* Close k1: S_F's head leaving A updates F -> F (still silently powered) pushes C into N1.
+  k2: W's observer pulse updates the W-net dust (1,4,2), two cells from F -> F (now unpowered)
+  retracts with a spit: C placed in N1 at k2, E empty.
+* TR (retracted at rest) is silently QC-powered k2..4 by observer OT (3,5,-1) -> stone X_T
+  (3,5,0) and k4..6 by OT2 (3,4,2) (watches the W net extended to (3,4,3)) -> stone (3,4,1);
+  neither is next to TR, so TR only moves when the east top side piston, now on the direct
+  lever net (east repeater removed), extends at close k2: its event is queued after F's spit
+  (the lever's setBlock schedules W before updateNeighbours schedules the torches), and its
+  head update makes TR push T into E at k2 (lands k4 BE). OT2 keeps TR powered at k4 BE when T
+  lands (else TR, updated through its head, would pull T back); TR retracts at k8 against F's
+  head (harmless).
+* S_R fires at k2 (X4 watches new dust (3,4,-3)): R_F back at A at k4 BE.
+* k4 BE: F's base, R_F and T land -> F pushes [T, C] at k5, placed at k7: CLOSE 7.
+
+## Open <= 11: F 0-tick at k11 VALIDATED with scripted power (ideal-14.drive), not wired
+`ideal-14.txt` = w6 with O5 and its chain observer (1,5,-2) replaced by stone and a normal
+piston P_X (1,4,1) facing up. Scripted: redstone block R_X at (1,5,1) (QC-only for F) placed at
+open k8, and a redstone block at (2,5,1) (QC-only for P_X) at k9. At k11 Q's pull updates F ->
+F (powered by R_X) extends; F's own setBlock(extended) updates P_X -> P_X pushes R_X up to
+(1,6,1) in the SAME block-event phase; P_X's setBlock(extended) updates F, now unpowered -> F
+retracts type 1 and pulls C from N1 at k11 (trace: N1 air at k11, i.e. open 11). Close still 7.
+Missing to wire it:
+* R_X's cycle: after P_X's push R_X sits in P_X's QC neighborhood (P_X facing up always lands
+  it there), so P_X never retracts and R_X never returns. Clean geometry: P_X at (1,5,0) (F's
+  QC cell; a piston there does not block QC) facing south, R1=(1,5,1), R2=(1,5,2) (outside F's
+  and P_X's power sets); X_F powers P_X in the open state and drops it at close k2, and P_X's
+  retraction then gives F the k2 spit update (the W dust (1,4,2) can go). But R_X must be
+  re-armed R2 -> R1 between open k7 and k10 only: a pusher P_D at (1,5,3) needs a rising-edge-
+  only pulse (comparator subtract: back = lever via delay 3, side = lever via delay 4 -> k8..10)
+  and the W net must be rerouted off (0,5,3)/(1,4,3), which point into (1,5,3).
+* P_X's power must arrive SILENTLY after R_X lands (R_X's arrival updates P_X) and before k11:
+  O5's pulse into (1,5,0) is noisy (it would fire P_X at k10 as soon as R_X is placed).
 
 ## Signals in w5 (k = ticks after the lever flip)
 * Lever (0,4,-2) on (0,3,-2) at the north side; everything hangs off it.
