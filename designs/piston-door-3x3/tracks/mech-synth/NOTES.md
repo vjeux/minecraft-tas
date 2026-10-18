@@ -1,0 +1,81 @@
+# Track mech-synth: mechanism synthesis around the 3x3 door
+
+Tool: `mctas door mech-synth` (crates/piston-door/src/mechsynth.rs).
+
+## How it works
+* **Macro piston model** (pure Rust, no JVM): a port of `PistonStructureResolver` (push limit 12,
+  slime/honey branching, honey-slime non-stick, glazed terracotta push-only, obsidian and extended
+  pistons immovable, heads immovable) and of the sticky-retract rules of `PistonBaseBlock`
+  (pull only PUSH_PULL blocks or retracted pistons). One action = one settled piston action:
+  `L` toggles a piston's level signal (extend, or retract with the sticky pull), `P` is a 2 gt pulse
+  from rest (push and spit; or, with a gap in front, extend into it and pull the block beyond).
+  A world = the door (9 stone at x 0..2, y 0..2, z 0) + pistons/slime/honey/obsidian/gt/blocks
+  with identities and level bits.
+* **Solve**: the whole reachable state graph (capped) -> cheapest open path (door + walkway clear)
+  + close path (back to the exact rest state); big mechanisms use weighted A* (h = blocks in the
+  corridor / blocks off their rest cell).
+* **Symmetric schedules** (cheapest control: the same delays on both lever edges): ONE event
+  sequence S with S(rest) = open and S(open) = rest. Graph DFS with distance pruning, or (big
+  mechanisms) "edge" pistons fired as one block at the start/end + iterative deepening on the
+  core pistons. Swallowed pulses (pulse on a powered piston) and blocked pushes are no-ops, which
+  is exactly what fc2's symmetric control exploits.
+* **Enumeration**: a base design + up to `--add k` candidates (pistons of 4 planar or 6 facings,
+  retracted or extended at rest, whose push/pull reach touches the mechanism or the ring of cells
+  around the door; slime next to the mechanism), `--require kinds:box` constraints, screened by a
+  capped BFS, then solved; ranked by (blocks, control events).
+* **Ideal-input plans**: each macro event becomes redstone blocks set/cleared next to the piston
+  (`door ideal` schedule): cells kept air, away from slime/honey and from other pistons' bases
+  over the whole time they exist; commuting pulses share a tick (needed: stacked pistons
+  quasi-power each other); swallowed pulses are not emitted. `--verify N` replays them in the
+  real simulator (4 + `--extra-offsets` positions, 2 cycles).
+
+```
+mctas door mech-synth <base.txt> --just-base --cap 20000 --sym-len 8 --verify 1 --out-dir <dir>
+mctas door mech-synth <base.txt> --add 3 --lo=-2,3,0 --hi=4,6,0 --require 'piston,slime:1,3,0:1,6,0'
+```
+
+## Results (all mechanism blocks; the door's 9 included; wiring not included)
+
+| mechanism | blocks | slime | schedule | simulator (ideal inputs, 16 positions x 2 cycles) |
+|---|---|---|---|---|
+| fc2 (record 40) mechanism part | 25 (+4 floors) | 9 | open 8 + close 5 | (record) |
+| `fc2like22`: fc2 without Q/R and the P_R connector, P_R a pull-type pulse piston | 22 | 8 | open 8 + close 5, NO symmetric sequence | WORKS (open/close) |
+| **`abpt21`**: side columns on 3 slimes + 1 pull-type piston each, M pull-type, elevator A (extended at rest) on B, T-mover P_T at (0,3) facing east | **21** | 6 | open 9 + close 6; **symmetric 11** | WORKS (open/close and symmetric) |
+| **`pist19x` / `pist19`**: no slime: every edge block on its own pull-type sticky piston (2 stacks of 3 + M), elevator A on B, P_T at (-1,3) | **19** | 0 | open 13 + close 10-12; **symmetric 15** (pist19x) | WORKS (open/close and symmetric) |
+
+Ideal designs + schedules: `ideal/<name>/base-{oc,sym}.{txt,ideal}` (replay: `mctas door ideal
+ideal/abpt21/base-sym.ideal --extra-offsets 28`).
+
+### Minimality inside the searched spaces
+* Base `sidesM` (18: door, 2 slime columns, their pull-type drivers, M's pull-type piston) + up to
+  3 blocks (sticky pistons of 4 facings, retracted/extended, slime) anywhere in x -2..4, y 3..6:
+  19,967 combinations, **nothing below 21**; 50 distinct 21-block mechanisms, all "A + B + one
+  T-mover": A at (1,4) (retracted OR extended at rest), B at (1,5), the T-mover at (0,3) facing
+  east, (-1,3) facing east (pull-type), (2,3) facing west or (3,3) facing west (pull-type).
+* Base `sides` (17, no M piston) + 3 blocks anywhere in x -3..5, y -4..6 with one block above and
+  one below the door (570k combinations): none. M needs its own piston, the core needs 3.
+* Argument for 19 as the floor of this family: every block outside the window touches at most one
+  door block, so the 8 edge blocks need 8 handlers (a slime or a piston each; a slime column also
+  needs a driver, so 3 pistons per column beat 3 slimes + 1 piston); C needs two pulls from the
+  exit side (heads at (1,2) then (1,3)): A plus something that moves A (B); T must clear C's exit
+  column after it is lifted (+1 move: P_T, or 2 slimes riding a side structure as in fc2).
+  19 = 9 + 8 + B + P_T. The slime-free board's design (`slime-free-combo-48b`) has the same 19.
+
+### Symmetric control found (abpt21, the fc2 trick re-derived by the search)
+`S = [P_L P_M P_R + P_A] [P_T] [L_A] [P_T] [L_B] [P_A] [L_B] [P_A]` (one tick column per step):
+* open: P_A is swallowed (A powered at rest), the first P_T is a no-op (nothing at (1,3)), L_A
+  lifts T, P_T pushes T to (2,3), B pushes A down, A pulls C up, B lifts A, A pulls C up again;
+* close: P_A spits C down to (1,2), P_T brings T back to (1,3), L_A pushes T and C home and holds;
+  the second P_T is blocked by A's head, B's window is blocked (A extended), the later A pulses
+  are swallowed.
+Signals: one edge pulse (P_L, P_M, P_R, A), A's level = NOT lever delayed (fc2: the shuttle), two
+P_T pulses around A's level change, B's window, A pulses on B's edges (fc2/v2: an observer on B's
+line). fc2 needs the same signals except that its shuttle also drives P_R (the right structure
+drags T), which is why fc2 pays 4 more mechanism blocks (Q, R, 3 slimes) but no P_T pulses.
+
+### What failed / caveats
+* `fc2like22` (pulse-driven P_R dragging T) has no symmetric sequence: dragging T needs the
+  order "A then P_R" on open and "P_R then A" on close: an order reversal, which is what fc2's
+  redstone-block shuttle provides.
+* Ideal inputs ignore wiring cost; a redstone block next to B also quasi-powers A whenever A sits
+  right under B (unavoidable in the elevator; harmless because A is not updated then).
