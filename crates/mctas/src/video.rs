@@ -98,6 +98,20 @@ impl Display {
         // processes racing for the same number: the loser's Xvfb exits and it moves on).
         static START: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let _guard = START.lock().unwrap_or_else(|e| e.into_inner());
+        // Locks left by an Xvfb that died without cleaning up (killed) are reclaimed: their
+        // process is gone, so nobody uses those displays. (A server takes its lock before it
+        // creates its socket, so a socket without a lock is an orphan too.)
+        for number in 90..200u32 {
+            let lock = PathBuf::from(format!("/tmp/.X{number}-lock"));
+            let socket = PathBuf::from(format!("/tmp/.X11-unix/X{number}"));
+            if lock.exists() && !lock_alive(&lock) {
+                let _ = std::fs::remove_file(&lock);
+                let _ = std::fs::remove_file(&socket);
+            }
+            if !lock.exists() && socket.exists() {
+                let _ = std::fs::remove_file(&socket);
+            }
+        }
         for number in 90..200u32 {
             let lock = PathBuf::from(format!("/tmp/.X{number}-lock"));
             let socket = PathBuf::from(format!("/tmp/.X11-unix/X{number}"));
@@ -142,10 +156,34 @@ impl Display {
     }
 }
 
+/// True when the process named in an X lock file is still running (or the file is unreadable).
+fn lock_alive(lock: &Path) -> bool {
+    match std::fs::read_to_string(lock).ok().and_then(|s| s.trim().parse::<u32>().ok()) {
+        Some(pid) => Path::new(&format!("/proc/{pid}")).exists(),
+        None => true,
+    }
+}
+
+/// Stop a child politely (SIGTERM, so Xvfb removes its lock file and socket), then for good.
+fn terminate(child: &mut Child) {
+    if child.try_wait().ok().flatten().is_some() {
+        return;
+    }
+    let _ = Command::new("kill").arg("-TERM").arg(child.id().to_string()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < deadline {
+        if child.try_wait().ok().flatten().is_some() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
 impl Drop for Display {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        terminate(&mut self.child);
     }
 }
 

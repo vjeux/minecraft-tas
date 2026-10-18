@@ -71,7 +71,7 @@ pub fn design_hash(d: &Design) -> u64 {
 
 /// Verdict cache: design hash -> (verdict, open ticks, close ticks). Bump the file name when the
 /// rules change so old verdicts are dropped.
-const CACHE_FILE: &str = "verdicts-v1.tsv";
+const CACHE_FILE: &str = "verdicts-v2.tsv";
 type Cached = (std::result::Result<(), String>, Option<u32>, Option<u32>);
 
 fn load_cache(dir: &Path) -> std::collections::HashMap<u64, Cached> {
@@ -152,7 +152,7 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
 /// Markdown table of the entries.
 pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
     let mut s = format!(
-        "# 3x3 piston door leaderboards\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
+        "# 3x3 piston door leaderboards\n\nWalkway: the rules allow non-colliding blocks (dust, torches, levers) in the walkway; \"clean\" means none at rest.\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
          (3 cycles at {} positions). Videos of every archived design: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n",
         4 + extra_offsets
     );
@@ -163,14 +163,16 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
     ];
     for (title, rule, keep) in &boards {
-        s.push_str(&format!("## {title}\n\n{rule}.\n\n| # | blocks | source |\n|---|---|---|\n"));
+        s.push_str(&format!("## {title}\n\n{rule}.\n\n| # | blocks | walkway | source |\n|---|---|---|---|\n"));
         let mut n = 0;
         for e in entries.iter().filter(|e| e.verdict.is_ok() && keep(e)) {
             n += 1;
             if n > 10 {
                 break;
             }
-            s.push_str(&format!("| {n} | {} | `{}` |\n", e.blocks, e.source));
+            let clutter = crate::walkway_clutter(&e.design);
+            let walkway = if clutter == 0 { "clean".to_string() } else { format!("{clutter} blocks in it") };
+            s.push_str(&format!("| {n} | {} | {walkway} | `{}` |\n", e.blocks, e.source));
         }
         if n == 0 {
             s.push_str("| - | - | no entry yet |\n");
@@ -184,25 +186,30 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Fastest open + close", Box::new(|e: &Entry| Some(e.open_ticks? + e.close_ticks?))),
     ];
     for (title, ticks) in &speed {
-        s.push_str(&format!(
-            "## {title}\n\nGame ticks after the lever flip (worst of the cycles), any category; ties by block count.\n\n\
-             | # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n"
-        ));
-        let mut rows: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && ticks(e).is_some()).collect();
-        rows.sort_by_key(|e| (ticks(e), e.blocks));
-        for (i, e) in rows.iter().take(10).enumerate() {
+        for (scope, solid_only) in [("any category", false), ("solid only", true)] {
             s.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | `{}` |\n",
-                i + 1,
-                ticks(e).unwrap(),
-                e.open_ticks.unwrap_or(0),
-                e.close_ticks.unwrap_or(0),
-                e.blocks,
-                e.category,
-                e.source
+                "## {title} ({scope})\n\nGame ticks after the lever flip (worst of the cycles); ties by block count.\n\n\
+                 | # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n"
             ));
+            let mut rows: Vec<&Entry> = entries
+                .iter()
+                .filter(|e| e.verdict.is_ok() && ticks(e).is_some() && (!solid_only || e.category == "solid"))
+                .collect();
+            rows.sort_by_key(|e| (ticks(e), e.blocks));
+            for (i, e) in rows.iter().take(if solid_only { 10 } else { 5 }).enumerate() {
+                s.push_str(&format!(
+                    "| {} | {} | {} | {} | {} | {} | `{}` |\n",
+                    i + 1,
+                    ticks(e).unwrap(),
+                    e.open_ticks.unwrap_or(0),
+                    e.close_ticks.unwrap_or(0),
+                    e.blocks,
+                    e.category,
+                    e.source
+                ));
+            }
+            s.push('\n');
         }
-        s.push('\n');
     }
     s.push_str("## Everything\n\n| # | blocks | category | slime-free | verdict | source |\n|---|---|---|---|---|---|\n");
     for (i, e) in entries.iter().enumerate() {

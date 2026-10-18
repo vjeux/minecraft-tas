@@ -1,0 +1,25 @@
+name: gadget-dust-reach
+# Dust updates the neighbors of its neighbors: when dust D changes power, piston P two cells
+# away (D -> block K -> P) re-checks its power. P is held extended and unpowered (silent hold as
+# in head-forward); flipping lever M next to D makes P retract, although neither M nor D touches
+# P. (This is how the X dust reaches A one level lower, and Q's head, in the rb doors.)
+origin: 0 0 0
+palette:
+  P minecraft:sticky_piston[extended=false,facing=north]
+  H minecraft:stone
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  S minecraft:smooth_stone
+  K minecraft:stone
+  D minecraft:redstone_wire[east=side,north=side,south=side,west=side,power=0]
+  M minecraft:lever[face=floor,facing=east,powered=false]
+layer 0:
+  ...
+  .
+  S
+layer 1:
+  P.SS
+  K
+  DM
+layer 2:
+  .HRL

@@ -105,3 +105,16 @@ so the torch's first dust step and its floor disappear (-2). Verified at 124 pos
 * Chain top/bottom as a powered conductor (slime conducts): a repeater into the chain bottom
   powers S2 and quasi-powers S1, but none of the repeater positions that point into it have a
   cheap input in the current layout.
+
+## sf4: 62 blocks, slime-free gravity (`sf4.txt`; `door gen sf4-base` + the A-net patch)
+sf3's mechanism with cheaper side control: each side's two pullers hang off ONE torch beside the
+middle puller (T_L at (-2,1,-1) facing south: it powers the middle puller, and the block above it
+(-2,2,-1), which it strongly powers, powers the top puller). The torch's block is fed by an L dust
+that runs ON THE WALKWAY FLOOR from the lever ((0,0,-2), then a step up to (-1,1,-2) pointing into
+the torch block): the walkway check is "no collision", so dust/torches/levers may sit there.
+VL/VR are QC-powered by torches T_AL/T_AR hanging on those walkway dusts' floors (they sit next
+to VL's/VR's head cells). The A net for the tower starts under T_AL.
+
+## Router
+`door route` now widens its search box to the design bounds + a margin (the old fixed box stopped
+at y=-6, the gravity towers go to y=-8).

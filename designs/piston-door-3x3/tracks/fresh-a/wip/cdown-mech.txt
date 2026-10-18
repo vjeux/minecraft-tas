@@ -1,0 +1,51 @@
+name: fresh-a-cdown-mech
+port door: 0 0 0
+port lever: 4 5 0
+origin: -2 0 -1
+palette:
+  s minecraft:slime_block
+  k minecraft:stone
+  L minecraft:sticky_piston[facing=west,extended=false]
+  R minecraft:sticky_piston[facing=east,extended=false]
+  T minecraft:sticky_piston[facing=down,extended=true]
+  t minecraft:piston_head[facing=down,short=false,type=sticky]
+  A minecraft:sticky_piston[facing=up,extended=true]
+  a minecraft:piston_head[facing=up,short=false,type=sticky]
+  B minecraft:sticky_piston[facing=up,extended=false]
+  X minecraft:redstone_block
+layer 5:
+  .
+  ...X
+  .
+layer 4:
+  .
+  ...T
+  .
+layer 3:
+  .
+  .sLtRs
+  .
+layer 2:
+  .
+  .skkks
+  .
+layer 1:
+  .
+  .skkks
+  .
+layer 0:
+  .
+  .skkks
+  .
+layer -1:
+  .
+  ..Xass
+  .
+layer -2:
+  .
+  ...A
+  .
+layer -3:
+  .
+  ...B
+  .

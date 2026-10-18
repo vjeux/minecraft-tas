@@ -1,0 +1,15 @@
+name: gadget-honey-slime
+# Slime and honey never stick to each other: sticky piston P pulls its slime column S away and
+# the honey column Y right next to it stays (two structures can touch and move independently).
+# P is held extended by redstone block X; the script removes X.
+origin: 0 0 0
+palette:
+  X minecraft:redstone_block
+  P minecraft:sticky_piston[extended=true,facing=east]
+  H minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:slime_block
+  Y minecraft:honey_block
+layer 0:
+  XPHSY
+layer 1:
+  ...SY
