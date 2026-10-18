@@ -1,0 +1,13 @@
+# The observer O (watching the lever) pulses into P's head cell (0,1,0), P's quasi cell: P pulls
+# the stone down (lever on) and pushes it back up and spits it (lever off).
+design designs/gadgets/qc-head.txt
+use 0 1 2
+quiet 10
+expect_state 0 1 0 stone
+expect_state 0 2 0 air
+expect_state 0 0 0 extended=false
+use 0 1 2
+quiet 10
+expect_state 0 2 0 stone
+expect_state 0 1 0 air
+expect_state 0 0 0 extended=false
