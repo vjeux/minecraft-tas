@@ -41,6 +41,7 @@ pub mod patch;
 pub mod place;
 pub mod properties;
 pub mod relever;
+pub mod rowsfire;
 pub mod search;
 pub mod shapes;
 pub mod showcase;

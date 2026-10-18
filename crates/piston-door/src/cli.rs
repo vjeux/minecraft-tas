@@ -296,6 +296,20 @@ pub enum DoorCmd {
         #[arg(long)]
         all: bool,
     },
+    /// Where each strip-row mechanism's pistons fire (rowsfire.rs): replays every row of agent
+    /// families' ROWS.tsv (`door families --rows`) in the 1-D macro model and prints, per piston
+    /// action of the open and close schedules, the cell the piston stands on when it fires.
+    /// In a 5-tall strip box rows 0 and 1 cannot be fired from the door columns x 0..2 (the floor
+    /// and ceiling ring are there): `--wirable` keeps the rows with no such firing.
+    RowsFire {
+        tsv: PathBuf,
+        /// Only rows with no firing from x 0..2.
+        #[arg(long)]
+        wirable: bool,
+        /// Only ids starting with one of these (e.g. `r046,r075`).
+        #[arg(long, value_delimiter = ',')]
+        only: Vec<String>,
+    },
     /// The shape of every working design relative to its door: layers in front of and behind the
     /// door plane (thickness), rows below and above the opening, columns left and right of it,
     /// bounding box; then for each shape rule (wall, wall2, flat, ground, no-above, narrow1,
@@ -1595,6 +1609,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let (board, checks): (Vec<_>, Vec<_>) = entries.into_iter().partition(|e| !e.source.starts_with("check:"));
             let _ = n_board;
             print!("{}", crate::leaderboard::frontier_report(&board, &checks, !any_category, all));
+        }
+        DoorCmd::RowsFire { tsv, wirable, only } => {
+            crate::rowsfire::cli(&tsv, wirable, &only)?;
         }
         DoorCmd::Shapes { designs, dir, branches, refs, extra_offsets, max_blocks, workers, cache_dir, rule, table_max, no_table } => {
             let repo = std::path::Path::new(".");
