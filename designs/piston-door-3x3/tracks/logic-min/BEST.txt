@@ -35,7 +35,7 @@ layer -2:
   .
 layer -1:
   .....B
-  VooooA
+  VoooA
   .
   .
 layer 0:
