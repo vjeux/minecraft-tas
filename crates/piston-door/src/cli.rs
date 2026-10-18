@@ -749,6 +749,14 @@ pub enum DoorCmd {
         /// Only the split symmetric search (edges block + searched core), not the graph one.
         #[arg(long)]
         split_only: bool,
+        /// Symmetric control by product BFS for the base itself: the open state reached by these
+        /// events ("P:x,y,z L:x,y,z ...", pistons named by their rest position), then the
+        /// shortest single sequence S with S(rest) = open and S(open) = rest (`--cap` pairs).
+        #[arg(long)]
+        sym_bfs: Option<String>,
+        /// With --sym-bfs: also allow level toggles (default: 2 gt pulses only).
+        #[arg(long)]
+        sym_levels: bool,
     },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
@@ -1983,7 +1991,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only } => {
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, sym_bfs, sym_levels } => {
+            if let Some(seq) = &sym_bfs {
+                return crate::mechsynth::sym_cli(version, &base, seq, sym_levels, cap, out_dir.as_deref(), verify, extra_offsets, gap);
+            }
             crate::mechsynth::PULSES_ONLY.store(pulses_only, std::sync::atomic::Ordering::Relaxed);
             crate::mechsynth::SPLIT_ONLY.store(split_only, std::sync::atomic::Ordering::Relaxed);
             let e = match edges.as_str() {

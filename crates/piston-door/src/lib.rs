@@ -356,9 +356,10 @@ pub fn single_layer(d: &Design) -> bool {
     d.blocks.keys().all(|p| p[axis] == door[axis])
 }
 
-/// How far a design reaches beyond its 3x3 opening on every side, at rest (piston heads
-/// included; design files always have the door in a z plane). Builders care: a door that fits a
-/// thin wall, needs no digging or stays narrow is easier to place than a smaller block count.
+/// How far a design reaches beyond its 3x3 opening on every side (piston heads included), along
+/// the door's own axes: depth through the door (z, or x for a `door-axis: z` design), height, and
+/// width along the opening. Builders care: a door that fits a thin wall, needs no digging or
+/// stays narrow is easier to place than a smaller block count.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct Shape {
     /// Layers in front of the door plane (z < door.z) and behind it (z > door.z).
@@ -405,8 +406,11 @@ pub fn shape(d: &Design) -> Option<Shape> {
 }
 
 /// The [`Shape`] of a set of occupied cells around `door` (blocks below / above counted from the
-/// design's own blocks at rest).
+/// design's own blocks at rest). A `door-axis: z` design (an east/west-facing door) has its width
+/// along z and its depth along x.
 fn shape_of_cells<'a>(d: &Design, door: Pos, cells: impl IntoIterator<Item = &'a Pos>) -> Option<Shape> {
+    let along_z = d.meta.get("door-axis").is_some_and(|v| v.trim() == "z");
+    let (wi, di) = if along_z { (2, 0) } else { (0, 2) };
     let mut it = cells.into_iter();
     let first = *it.next()?;
     let (mut lo, mut hi) = (first, first);
@@ -418,12 +422,12 @@ fn shape_of_cells<'a>(d: &Design, door: Pos, cells: impl IntoIterator<Item = &'a
     }
     let counted = |p: &&Pos| !d.blocks[*p].starts_with("minecraft:piston_head");
     Some(Shape {
-        front: (door[2] - lo[2]).max(0),
-        behind: (hi[2] - door[2]).max(0),
+        front: (door[di] - lo[di]).max(0),
+        behind: (hi[di] - door[di]).max(0),
         below: (door[1] - lo[1]).max(0),
         above: (hi[1] - (door[1] + 2)).max(0),
-        left: (door[0] - lo[0]).max(0),
-        right: (hi[0] - (door[0] + 2)).max(0),
+        left: (door[wi] - lo[wi]).max(0),
+        right: (hi[wi] - (door[wi] + 2)).max(0),
         blocks_below: d.blocks.keys().filter(|p| p[1] < door[1]).filter(counted).count(),
         blocks_above: d.blocks.keys().filter(|p| p[1] > door[1] + 2).filter(counted).count(),
     })
