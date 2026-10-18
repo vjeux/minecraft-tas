@@ -302,8 +302,27 @@ pub struct SynthOptions {
     pub forbid: HashSet<Pos>,
     pub require: Vec<(String, usize)>,
     pub limit: Vec<(String, usize)>,
+    /// Keep only circuits with at least one block whose state contains one of these
+    /// (see [`require_any_names`]): sweep new palette entries on designs the old palette
+    /// already exhausted.
+    pub require_any: Vec<String>,
     pub loose: bool,
     pub max_cands: usize,
+}
+
+/// Expand `--require-any` shorthands (lamp, bulb, note, target, or any state substring).
+pub fn require_any_names(spec: &str) -> Vec<String> {
+    spec.split(',')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| match t {
+            "lamp" => "redstone_lamp".to_string(),
+            "bulb" => "copper_bulb".to_string(),
+            "note" => "note_block".to_string(),
+            "target" => "minecraft:target".to_string(),
+            s => s.to_string(),
+        })
+        .collect()
 }
 
 fn kind_name(k: Kind) -> &'static str {
@@ -338,6 +357,7 @@ pub struct Gen {
     k: usize,
     require: Vec<(Kind, usize)>,
     limit: Vec<(Kind, usize)>,
+    require_any: Vec<String>,
     loose: bool,
     max_cands: usize,
 }
@@ -461,6 +481,7 @@ impl Gen {
             k: o.k,
             require,
             limit,
+            require_any: o.require_any.clone(),
             loose: o.loose,
             max_cands: o.max_cands,
         })
@@ -521,6 +542,9 @@ impl Gen {
         let reached = set.iter().enumerate().any(|(i, &a)| fa[i] && self.reaches_sink(&self.atoms[a as usize]))
             || self.relays.iter().enumerate().any(|(j, r)| fr[j] && self.reaches_sink(r));
         if !reached {
+            return false;
+        }
+        if !self.require_any.is_empty() && !set.iter().any(|&a| self.require_any.iter().any(|s| self.atoms[a as usize].state.contains(s.as_str()))) {
             return false;
         }
         for (k, n) in &self.require {
@@ -1226,6 +1250,8 @@ pub struct ResynthOptions {
     /// After an improvement, search every group again (default: only groups whose
     /// neighborhood changed).
     pub global_retry: bool,
+    /// See [`SynthOptions::require_any`].
+    pub require_any: Vec<String>,
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
@@ -1369,10 +1395,13 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 forbid: swept.clone(),
                 require: Vec::new(),
                 limit: Vec::new(),
+                require_any: o.require_any.clone(),
                 loose: o.loose,
                 max_cands: o.max_cands,
             };
-            let desc = g.iter().map(|p| format!("{}{}", fmt_pos(*p), short(mctas::blockstate::block_name(&cur.blocks[p])).chars().take(4).collect::<String>())).collect::<Vec<_>>().join(" ");
+            // 4-letter tags; "redstone_" stripped so wire / lamp / torch / block stay distinct.
+            let tag = |s: &str| short(mctas::blockstate::block_name(s)).trim_start_matches("redstone_").chars().take(4).collect::<String>();
+            let desc = g.iter().map(|p| format!("{}{}", fmt_pos(*p), tag(&cur.blocks[p]))).collect::<Vec<_>>().join(" ");
             let en = match Gen::new(&base, &so) {
                 Ok(e) => e,
                 Err(e) => {

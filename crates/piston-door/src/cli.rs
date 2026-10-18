@@ -763,6 +763,10 @@ pub enum DoorCmd {
         /// Parts constraints: at most n of a kind, "repeater:1".
         #[arg(long, default_value = "")]
         limit: String,
+        /// Keep only circuits using at least one of these (lamp, bulb, note, target or any
+        /// block-state substring), comma list.
+        #[arg(long, default_value = "")]
+        require_any: String,
         /// Behavior spec (see synth.rs); without it the target is the door judge.
         #[arg(long)]
         spec: Option<PathBuf>,
@@ -844,6 +848,11 @@ pub enum DoorCmd {
         /// neighborhood, the blocks within margin + 3, changed).
         #[arg(long)]
         global_retry: bool,
+        /// Keep only replacement circuits using at least one of these (lamp, bulb, note,
+        /// target or any block-state substring), comma list: sweeps new palette entries on a
+        /// design the old palette already exhausted.
+        #[arg(long, default_value = "")]
+        require_any: String,
     },
 }
 
@@ -1373,6 +1382,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             forbid,
             require,
             limit,
+            require_any,
             spec,
             spec_offsets,
             loose,
@@ -1412,6 +1422,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 forbid: parse_cells(&forbid)?.into_iter().collect(),
                 require: parse_counts(&require)?,
                 limit: parse_counts(&limit)?,
+                require_any: require_any_names(&require_any),
                 loose,
                 max_cands,
             };
@@ -1463,7 +1474,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any } => {
             use crate::synth::*;
             let d = load_design(&design)?;
             let o = ResynthOptions {
@@ -1478,6 +1489,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 max_close,
                 save_to: Some(out.clone()),
                 global_retry,
+                require_any: require_any_names(&require_any),
             };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
