@@ -38,13 +38,36 @@ R_X). R_X/R_Z timing: P_D and P_V fired 2 ticks earlier (k4..k6) -> R_X lands k6
     BE powered -> extends k9 -> retracts k10 pulling A' out of E; F 0-ticks at k10: **open 10**.
 * `door route2 --need` (all four nets at once) found 0 routings in 12 min; the hand design did it.
 * Gadget `designs/gadgets/odd-pulse` (+ mechanics.md row): the odd-pulse trick on its own.
-* **`a3-123b.txt` = BEST: 123 blocks, open 10 / close 7.** `door minimize` on a1 removed the old
+* **`a3-123b.txt`: 123 blocks, open 10 / close 7.** `door minimize` on a1 removed the old
   hold repeater's floor (-2,3,-1) (124); `door regrow --size 3 --max-open 10 --max-close 7` then
   replaced the re-pulse's repeater + floor + observer by one observer (-2,4,-1) facing east that
   watches O_Q directly (k6..k8) and a smooth stone (-3,4,-1) next to the note block (123).
+* **`a4-122b.txt` = BEST: 122 blocks, open 10 / close 7.** regrow again: the k2 relay stone
+  (-2,4,-2) is unused now. Then a full `minimize --moves all --plateau` pass (2.4M swaps) and a
+  65-min `regrow --size 3` (4.7M candidates) found nothing more at 10/7.
 * `o7m-118b.txt` (118, 11/7): `door minimize --moves all --plateau --max-open 11 --max-close 7`
   on o7 (60 min): dust (1,6,-2) + its floor -> one smooth stone (R_s and the lock repeater read the
   block the lever dust points into). The same edit breaks a1 (the shift dust re-shapes (2,6,-2)).
+
+## Final report (speed-2)
+* Best: **`a4-122b.txt` = BEST.txt, 122 blocks, solid, slime-free, open 10 / close 7** (the first
+  solid door under 11 ticks; open+close 17 < 18). Also `o7m-118b.txt` (118, 11/7).
+* Mechanism: the speed track's o7 (T up into E at k1, Q shoves [A', T] east at k4, A' pulls C
+  into N1, Q pulls A' back and F 0-ticks C up into E) with a tick taken out of the middle: Q's
+  hold is gone, so Q's own 2gt pulse makes it spit A' into E at k6 and A' (powered) extends in the
+  same block-event phase; A' needs power that ends at k7 (odd), made by a repeater reading the
+  cell the k1 piston S_F shoves R_F out of (falls k3) -> note block -> observer -> stone next to E
+  (k5..k7); Q gets a second pulse k8..k10 (observer watching O_Q -> stone -> note block ->
+  observer into Q's QC cell) to re-extend at k9 and pull A' at k10; R_X/R_Z are fired 2 ticks
+  earlier so F's 0-tick is armed by k9 BE.
+* Failed: `route2 --need` (0 routings for the 4 nets); open 9 (a9: perfect up to k8, then the
+  E-watcher's dust also updates F, which pushes [A', C] down before Q pulls A'); close 6 (needs
+  F 0-ticking at close k1 from a removable redstone block and TR pushing T into E in the same
+  phase: TR gets no update there).
+* Next: open 9 via a k7..k9 source on Q's side that never touches F's neighbors (or arm F by
+  spitting R_X into R1 in k9's block events with a repeater-timed sticky P_D); close 6 via a BUD
+  piston at (2,4,0) facing east whose head entering (3,4,0) updates TR right after F's spit (order
+  problem: F's extension updates it first).
 
 ## Open 9: what it needs (worked out, not built)
 Q spits A' one tick earlier (k5), so A' pulls C at k6, Q's base lands k7 BE, Q re-extends k8 and
