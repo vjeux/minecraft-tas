@@ -38,3 +38,28 @@ anywhere: the problem is purely geometric (no once-per-edge source sits next to 
 * Merged explore/riders into this branch for `door grow --glue --k 2 --changed --then-search`
   (the riders track's unexplored "2-block riders" search) and ran it on fc2's left and right
   structures (results below).
+* Results: 2-block riders on the LEFT structure (box x-2..0 y-2..4 z-2..2, obs/rblock/block/slime,
+  `--glue --k 2`): 4584 candidates, 3418 still-working 41-42 block seeds, 0 change the door's
+  timings (`--changed`), so nothing to search from (`glue2-left.log`). The right-structure run
+  (12926 working seeds) was stopped during its `--changed` pass to stay within the worker cap.
+* `door regrow --size 2 --any --margin 2` on pmleft (states incl. note block, slime, repeaters):
+  482k candidates, nothing (`pmleft-regrow.log`).
+* New palette state `note` (note block) for `door synth`/`door grow`: a conductor whose own
+  `powered` state flips the tick its power changes, so an observer can watch any powered spot
+  through it (gadget `designs/gadgets/note-watch.drive`). Searched with it: fc2 minus P_L's
+  observer pair and O_b, `door grow --k 2` in x-4..1 y1..7 z-1..2 (obs, note, block, dust): 580k
+  candidates, nothing (`cut3-grow.log`).
+* Shared side pulse (`plpm-shared.sched`): ONE 2 gt pulse at the same tick fires both P_L and P_M
+  correctly for every tick 0..24. So one free once-per-edge source next to both would give 38; the
+  only cells next to both (with P_L push-type at (0,-1,0), fresh-e's pb) are (0,-2,0) and (1,-1,0)
+  (M's path), and no 1-block source can pulse (0,-2,0): every observer cell next to it watches a
+  cell where nothing moves ((-2,-2,0), (0,-4,0), (0,-2,+-2)); torches are on at rest, dust does
+  not power upward, a redstone block or lever is a level.
+
+## Why I think 40 holds for this family (summary)
+* Free Q: impossible as stated (head forwarding, above). A hold that saves it breaks the open.
+* Each control pair is pinned: P_L and P_M need a once-per-edge (or odd) pulse next to them and
+  nothing moves next to them except the structures they move themselves (plus the right column
+  for P_M, which fc2 uses); the window needs a repeater whose input comes from a horizontal
+  observer, and O_b's back faces up (J); X needs a floor; the lever must feed O_a (p0) and K
+  (R_q). Note blocks make more spots watchable but none of the useful ones (searched).

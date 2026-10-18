@@ -16,6 +16,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 40 | solid | [m05-21b-sym-40b-2](m05-21b-sym-40b-2.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m05-21b-sym-40b-2.mp4) |
 | 40 | solid | [riders-fx1-40b](riders-fx1-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/riders-fx1-40b.mp4) |
 | 41 | solid | [fc2f-41b](fc2f-41b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2f-41b.mp4) |
+| 41 | solid | [lamp-sweep-w41-41b](lamp-sweep-w41-41b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-w41-41b.mp4) |
 | 41 | solid | [m05-21b-sym-41b](m05-21b-sym-41b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m05-21b-sym-41b.mp4) |
 | 41 | solid | [m05-21b-sym-41b-2](m05-21b-sym-41b-2.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m05-21b-sym-41b-2.mp4) |
 | 41 | solid | [m05-21b-sym-41b-3](m05-21b-sym-41b-3.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m05-21b-sym-41b-3.mp4) |

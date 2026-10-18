@@ -18,13 +18,13 @@ The night, board by board (records from the archive):
 
 **40 blocks**, solid, opens in 24 ticks, closes in 9 (worst cycle): [fc2-40b](archive/fc2-40b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4)). Agent fresh-c, "symmetric control": open and close run the SAME signal chain at the same delays, so there is no hold at all: an observer on the lever pulses the center piston A 2 ticks after each flip (swallowed on open, it pushes the center down on close), the shuttle piston Q is the lever through one repeater (its redstone block powers A at rest, then the right piston, which drags the top-middle block out), and the B window fires on both edges but is harmlessly blocked on close; fc2 makes the left pusher a pull-type pulse piston west of its backbone, fired by two observers off the lever (opens in 24 ticks, closes in 9).
 
-## Solid, no slime or honey: 42 blocks
+## Solid, no slime or honey: 41 blocks
 
 Not a single slime or honey block anywhere.
 
-![wire19sf-w42-42b](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w42-42b.gif)
+![lamp-sweep-w41-41b](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-w41-41b.gif)
 
-**42 blocks**, solid, slime-free, opens in 28 ticks, closes in 24 (worst cycle): [wire19sf-w42-42b](archive/wire19sf-w42-42b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w42-42b.mp4)). From agent wire19sf; see [tracks/wire19sf/NOTES.md](tracks/wire19sf/NOTES.md).
+**41 blocks**, solid, slime-free, opens in 28 ticks, closes in 26 (worst cycle): [lamp-sweep-w41-41b](archive/lamp-sweep-w41-41b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-w41-41b.mp4)). From agent lamp-sweep; see [tracks/lamp-sweep/NOTES.md](tracks/lamp-sweep/NOTES.md).
 
 Every record of this board in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
