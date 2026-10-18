@@ -3,7 +3,7 @@
 At 05:14 UTC a coordinator agent started the first of about 20 agent tracks on two dev servers.
 The solid record was vjeux's v2-min at **115 blocks**; by 08:10 it was **40** (fresh-c's `fc2`).
 Every design was judged by `mctas door verify --extra-offsets 28` from main (3 open/close cycles
-at 32 world positions), and the records match the unmodified vanilla server tick for tick.
+at 32 world positions), and the current records match the unmodified vanilla server tick for tick.
 [LEADERBOARD.md](../designs/piston-door-3x3/LEADERBOARD.md) ranks over 120 working designs, and
 the [archive](../designs/piston-door-3x3/archive/README.md) keeps over 120 design files, each with
 a [video](../designs/piston-door-3x3/archive/VIDEOS.md). Times are UTC commit times.
