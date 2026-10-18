@@ -595,6 +595,17 @@ pub enum DoorCmd {
         /// Print what the router finds for each receiver alone (per lever spot).
         #[arg(long)]
         debug: bool,
+        /// Routing box "x0,y0,z0:x1,y1,z1" (world coordinates; lever spots too) instead of the
+        /// design's bounds +- --margin: e.g. a flat box (z0 = z1 = the door's z) for flat doors.
+        #[arg(long = "box")]
+        region_box: Option<String>,
+        /// Cells no wiring may use "x,y,z;...".
+        #[arg(long, default_value = "")]
+        forbid: String,
+        /// Also forbid the door plane's hallway ring (the 12 cells face-adjacent to the opening at
+        /// the door's z): static wiring there shows in the open doorway (not seamless).
+        #[arg(long)]
+        forbid_ring: bool,
         /// The positional file is a mech-synth catalog: wire these entries ("355,356").
         #[arg(long, default_value = "")]
         catalog_ids: String,
@@ -1898,6 +1909,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             verify,
             screen_top,
             debug,
+            region_box,
+            forbid,
+            forbid_ring,
             catalog_ids,
             catalog_base,
             compress,
@@ -1947,6 +1961,34 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             // The source schedules: the files themselves, or catalog entries of the first file.
             let schedule = schedules.first().cloned().context("no schedule file")?;
             let text = std::fs::read_to_string(&schedule).with_context(|| format!("reading {}", schedule.display()))?;
+            if region_box.is_some() || !forbid.is_empty() || forbid_ring {
+                let first = crate::ideal::Schedule::parse(&text)?;
+                let d = first.design();
+                let (blo, bhi) = d.bounds().context("empty design")?;
+                let (lo, hi) = match &region_box {
+                    Some(b) => {
+                        let (a, z) = b.split_once(':').context("--box x0,y0,z0:x1,y1,z1")?;
+                        let p = |s: &str| -> Result<[i32; 3]> {
+                            let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>().map_err(anyhow::Error::from)).collect::<Result<_>>()?;
+                            anyhow::ensure!(v.len() == 3, "--box corner {s:?}: expected x,y,z");
+                            Ok([v[0], v[1], v[2]])
+                        };
+                        (p(a)?, p(z)?)
+                    }
+                    None => ([blo[0] - margin, blo[1] - margin, blo[2] - margin], [bhi[0] + margin, bhi[1] + margin, bhi[2] + margin]),
+                };
+                let mut cells = crate::synth::parse_cells(&forbid)?;
+                if forbid_ring {
+                    let door = *d.ports.get("door").context("--forbid-ring: the design has no door port")?;
+                    for t in 0..=2 {
+                        for c in [[-1, t, 0], [3, t, 0], [t, -1, 0], [t, 3, 0]] {
+                            cells.push([door[0] + c[0], door[1] + c[1], door[2] + c[2]]);
+                        }
+                    }
+                }
+                println!("routing region {lo:?}..{hi:?}, {} forbidden cells", cells.len());
+                *mechwire::REGION.write().unwrap() = Some(mechwire::Region { lo, hi, forbid: cells });
+            }
             let mut sources: Vec<(String, crate::ideal::Schedule, std::collections::BTreeMap<String, i64>)> = Vec::new();
             if catalog_ids.is_empty() {
                 for path in &schedules {
