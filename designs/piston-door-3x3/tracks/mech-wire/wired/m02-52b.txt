@@ -1,0 +1,58 @@
+name: m02-21b-sym_steps__1__5__9__11__17__19__21_-52b
+port door: 0 0 0
+port lever: -1 4 0
+origin: -3 0 -2
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=south]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:stone
+  L minecraft:lever[face=ceiling,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  s minecraft:smooth_stone
+layer -2:
+  .
+  .
+  ....H
+layer -1:
+  ..CDD
+  ....ADDDD
+  .
+layer 0:
+  ..C
+  ........O
+  ..SJJJS
+layer 1:
+  ..C
+  ........R
+  F.SJJJS.I
+layer 2:
+  ..C
+  .
+  ..SJJJS
+layer 3:
+  ..C.G
+  .
+  C....s
+layer 4:
+  ..BD
+  ..B
+  ooLDERs
+layer 5:
+  .
+  .
+  ..OsEDR
+layer 6:
+  .
+  .
+  ..Rr
