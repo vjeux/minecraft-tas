@@ -21,18 +21,21 @@ Every solid record from 151 blocks down to 38, filmed by one camera:
 
 [![every solid record](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4)
 
-The best door of each board (state on 2026-10-18; the live rankings, each leader with its GIF:
-[LEADERBOARD.md](designs/piston-door-3x3/LEADERBOARD.md)):
+The best door of each board (state on 2026-10-18 at 18:00; the live rankings, each leader with its
+GIF: [LEADERBOARD.md](designs/piston-door-3x3/LEADERBOARD.md)):
 
 | Solid (main ranking): 38 blocks | Solid, flat (one block thick), no slime: 43 | Sculk: 42 |
 |---|---|---|
 | ![sf-holdA-b38-38b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sf-holdA-b38-38b.gif) | ![lamp-sweep-flat43-43b](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-flat43-43b.gif) | ![st43-bmobs-42b](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.gif) |
-| **Gravity (sand door): 33 blocks** | **Fastest solid: opens in 10 ticks, closes in 7** | **Not rotation-safe: 36** |
-| ![gravity2-g33-33b](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-g33-33b.gif) | ![lamp-sweep-a1-107-107b](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-a1-107-107b.gif) | ![sculk2-s4b-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.gif) |
+| **Gravity (sand door): 33 blocks** | **Fastest solid: opens in 9 ticks, closes in 7** | **Not rotation-safe: 36** |
+| ![gravity2-g33-33b](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-g33-33b.gif) | ![speed-2-c1-112b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-2-c1-112b.gif) | ![sculk2-s4b-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.gif) |
+| **Solid, in a 3-thick wall: 40 blocks** | **Solid, smallest box: 44 blocks** | |
+| ![fc2-40b](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.gif) | ![flat-b-v7-44b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-44b.gif) | |
 
-The 38-block solid door (sf-holdA's b38) also leads the "no slime or honey" board. Every design
-counts only if `mctas door verify <design> --extra-offsets 28` passes from main: 3 open/close
-cycles at 32 world positions ([the rules](docs/rules.md)).
+The 38-block solid door (sf-holdA's b38) also leads the "no slime or honey" board, and tick-door's
+229-block door opens in 4 ticks, the proven floor for a solid door. Every design counts only if
+`mctas door verify <design> --extra-offsets 28` passes from main: 3 open/close cycles at 32 world
+positions ([the rules](docs/rules.md)).
 
 ## Docs
 

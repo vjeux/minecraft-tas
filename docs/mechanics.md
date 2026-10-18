@@ -350,7 +350,8 @@ center (1,1); T = an edge cell next to it (say (1,2)); E = the cell outside T ((
 open when no cell of the opening or walkway blocks (moving blocks block) from that tick on; closed
 when the 9 cells hold their rest blocks (placed) from that tick on.
 
-**Floors (solid doors): open >= 4 gt, close >= 1 gt.** The boards are at 10 / 7. The speed
+**Floors (solid doors): open >= 4 gt, close >= 1 gt.** The wired doors are at 4 / 15 (tick-door,
+229 blocks) and 9 / 7 (speed-2). The speed
 track's bound (7 / 6) is for one topology (the edge block above the center leaves through the
 center's exit cell); routing that edge block out through its corner instead lets the center start
 moving in tick 1, which is what makes 4 possible. **The same machine opens in 4 and closes in 3
@@ -398,7 +399,8 @@ cells) and clear from k4 on. What remains for a real door: wire the inputs (leve
 line, arming paths after the flip, the k4 observer chain).
 
 The speed track's topology (T pulled into E at k1, lands k3; a pusher shoves [A', T] at k4 so a
-puller takes E; C into T's cell at k4, out at k7) has floor 7; the best wired door opens at 10.
+puller takes E; C into T's cell at k4, out at k7) has floor 7; its best wired door opens at 9
+(speed-2, with an odd-tick pulse).
 
 ### Close >= 1, and what each schedule costs
 
@@ -433,7 +435,8 @@ enter its cell after C went through:
   quasi cell), which puts P_T's push one round after A' left T's cell: C and T both placed at k2, TL
   at k3 (5 more padding pistons would bring TL into k2: close 2).
 
-Open + close >= 5; the open-4 machine does open 4 + close 3 = 7 against the boards' 10 + 7.
+Open + close >= 5; the open-4 machine does open 4 + close 3 = 7 with ideal inputs, against the
+wired doors' 9 + 7 (speed-2) and 4 + 15 (tick-door).
 
 ### What a lever-driven open-4 must provide (the script's inputs)
 
@@ -454,8 +457,8 @@ Open + close >= 5; the open-4 machine does open 4 + close 3 = 7 against the boar
 at the same boundary; TL's row moves to k2->k3.) Observers fire on both lever edges, so every
 observer-driven input of the open also fires on the close (and vice versa): the wired door must
 make those runs no-ops (`blocked-push`, `order-flip` patterns) or route the two edges apart (a
-copper bulb toggles once per rising edge: `bulb-pulse`). Wiring it to a lever is the tick-door
-track's work.
+copper bulb toggles once per rising edge: `bulb-pulse`). The tick-door track wired the open to a
+lever: `archive/tick-door-open4-229b.txt` opens in 4 (closes in 15, 229 blocks).
 
 ## 10. Gadget catalog
 

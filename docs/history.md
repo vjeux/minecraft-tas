@@ -7,17 +7,22 @@ in the [archive catalog](../designs/piston-door-3x3/archive/README.md); each age
 notebook in `designs/piston-door-3x3/tracks/<track>/NOTES.md` ([index](../designs/piston-door-3x3/tracks/README.md)).
 Times are UTC.
 
-## The boards (state on 2026-10-18 at 17:00)
+## The boards (state on 2026-10-18 at 18:00)
 
 | board | best | blocks | open / close | idea (track) |
 |---|---|---|---|---|
 | **Solid** | [sf-holdA-b38-38b](../designs/piston-door-3x3/archive/sf-holdA-b38-38b.txt) | **38** | 36 / 32 | mech-synth's 19-block slime-free mechanism with A held at rest, X's three pulses toggling both top corners, the lever on an observer next to a note block (sf-holdA); also the slime-free record |
 | Solid, no slime or honey | sf-holdA-b38-38b | 38 | 36 / 32 | the same door |
 | Solid, flat (one z layer), no slime or honey | [lamp-sweep-flat43-43b](../designs/piston-door-3x3/archive/lamp-sweep-flat43-43b.txt) | 43 | 46 / 44 | the 19-block mechanism in one plane (flat's 49), re-synthesized with a redstone lamp (lamp-sweep) |
+| Solid, in a 3-thick wall | [fc2-40b](../designs/piston-door-3x3/archive/fc2-40b.txt) | 40 | 24 / 9 | symmetric control (fresh-c) |
+| Solid, on the ground | - | - | - | no entry yet |
+| Solid, smallest box | [flat-b-v7-44b](../designs/piston-door-3x3/archive/flat-b-v7-44b.txt) | 44 | 30 / 26 | the 19-block mechanism upside down in one plane (flat-b) |
 | Sculk | [st43-bmobs-42b](../designs/piston-door-3x3/archive/st43-bmobs-42b.txt) | 42 | 22 / 38 | the rb family with a sculk sensor as Q's hold (top-control) |
 | Not rotation-safe | [sculk2-s4-36b](../designs/piston-door-3x3/archive/sculk2-s4-36b.txt) | 36 | 20 / 37 | st43 with a calibrated sculk sensor replacing a 5-block chain; works facing north or south only (sculk-2) |
 | Gravity | [gravity2-g33-33b](../designs/piston-door-3x3/archive/gravity2-g33-33b.txt) | 33 | 5 / 16 | a cheaper sand drop tower (gravity-2) |
-| Fastest solid (open, close, open + close) | [lamp-sweep-a1-107-107b](../designs/piston-door-3x3/archive/lamp-sweep-a1-107-107b.txt) | 107 | 10 / 7 | speed-2's odd-tick door re-synthesized (lamp-sweep) |
+| Fastest open + close, solid | [speed-2-c1-112b](../designs/piston-door-3x3/archive/speed-2-c1-112b.txt) | 112 | 9 / 7 | an odd pulse lets Q spit A' at k5; the lever net re-laid over the top under the column rule (speed-2) |
+| Fastest close, solid | [fast-clean-a1c-107b](../designs/piston-door-3x3/archive/fast-clean-a1c-107b.txt) | 107 | 10 / 7 | lamp-sweep's a1-107 with its lever net re-laid over the top (fast-clean) |
+| Fastest open, solid | [tick-door-open4-229b](../designs/piston-door-3x3/archive/tick-door-open4-229b.txt) | 229 | **4** / 15 | the proven floor: the open-4 machine wired to a lever (tick-door) |
 | Fastest open + close, any category | [gravity-g8-48b](../designs/piston-door-3x3/archive/gravity-g8-48b.txt) | 48 | 5 / 11 | the drop tower with a pulse-driven middle piston (gravity) |
 
 Every solid record, filmed by one camera:
@@ -261,10 +266,10 @@ Read in the 26.3 source, each proven by a [gadget](../designs/gadgets/) or a jud
 * **In one plane** (flat): repeaters cannot be locked (their sides face out of the plane), and a
   lever powers its neighbors, so it must stay off every piston and quasi cell.
 * **Speed.** A piston 0-ticks when the redstone block powering it is shoved away in the same
-  block-event phase (o2: open 11); odd ticks come only from pistons (speed-2's open 10). The
+  block-event phase (o2: open 11); odd ticks come only from pistons (speed-2's open 10, then 9). The
   tick-study proved the floors for solid doors, **open >= 4 and close >= 1**, and built a whole
   opening clear at tick 4 that closes in 3 with ideal inputs (`open-4`, `open-4-close3`); the
-  tick-door track works on wiring it.
+  tick-door track wired it to a lever: tick-door-open4-229b opens in 4 (closes in 15, 229 blocks).
 * **Sculk** (sculk-2). A vibration reaches a sensor max(1, floor(distance)) ticks after the event; a
   sensor stays active 30 gt (a calibrated one 10 gt), then deaf for 10. A lever flip and a piston's
   move are vibrations (a blocked extension is not); observers, repeaters and dust make none. A
