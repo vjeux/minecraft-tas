@@ -1,0 +1,9 @@
+# A extends on X's 2gt pulse while no direct neighbor of A carries a signal (S stays 0): it is
+# quasi-powered through B's head cell above it, and the dust's update reaches it.
+design designs/gadgets/head-qc.txt
+probe A 1 1 0
+probe_signal S 1 1 0
+use -2 2 0
+expect_trace A rEE~~r
+use -2 2 0
+expect_trace S 000000
