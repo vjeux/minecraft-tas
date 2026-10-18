@@ -1,0 +1,21 @@
+design designs/piston-door-3x3/tracks/slime-free/s7-a.txt
+use 1 4 -3
+quiet 1
+set -3 0 0 minecraft:redstone_block
+quiet 2
+clear -3 0 0
+quiet 2
+set 1 3 3 minecraft:redstone_block
+quiet 2
+clear 1 3 3
+quiet 40
+use 1 4 -3
+quiet 1
+set -3 0 0 minecraft:redstone_block
+quiet 2
+clear -3 0 0
+quiet 2
+set 1 3 3 minecraft:redstone_block
+quiet 2
+clear 1 3 3
+quiet 40

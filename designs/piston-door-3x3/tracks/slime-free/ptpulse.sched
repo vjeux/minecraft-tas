@@ -1,0 +1,65 @@
+# "A steady, B blocked on close" (fresh-c's close in a slime-free door), ideal inputs.
+# A: extended at rest, held by a redstone block at (1,4,-1); off at a_off (open), back at a_on
+#    (close), after P_T has brought T back above C: A then pushes T and C home and stays
+#    extended, so B's close window cannot push it and the dance pulses are swallowed.
+# X pulses (redstone block at (3,4,0) next to the X dust): p0 on both edges (close: A pushes C
+# down one and spits it), then 2 after each B edge (open: the UP dance; close: swallowed).
+# Side pistons (pulse-driven): left pair (-2,2,0), right column (5,2,0)+(5,1,0), TL puller
+# (-1,4,0), P_BM (2,-2,0).
+design designs/piston-door-3x3/tracks/slime-free/ideal-ptpulse.txt
+let s = 1
+let sw = 2
+let a_off = 3
+let p0 = 2
+let pw = 2
+let pt = 6
+let b = 12
+let bw = 8
+let dx = 2
+let xw = 2
+let a_on = 5
+let s2 = 1
+
+open s set -2 2 0 minecraft:redstone_block
+open s set 5 2 0 minecraft:redstone_block
+open s set 5 1 0 minecraft:redstone_block
+open s set -1 4 0 minecraft:redstone_block
+open s set 2 -2 0 minecraft:redstone_block
+open s+sw clear -2 2 0
+open s+sw clear 5 2 0
+open s+sw clear 5 1 0
+open s+sw clear -1 4 0
+open s+sw clear 2 -2 0
+open a_off clear 1 4 -1
+open p0 set 3 4 0 minecraft:redstone_block
+open p0+pw clear 3 4 0
+open pt set 1 3 3 minecraft:redstone_block
+open pt+2 clear 1 3 3
+open b set 1 6 0 minecraft:redstone_block
+open b+bw clear 1 6 0
+open b+dx set 3 4 0 minecraft:redstone_block
+open b+dx+xw clear 3 4 0
+open b+bw+dx set 3 4 0 minecraft:redstone_block
+open b+bw+dx+xw clear 3 4 0
+
+close s2 set -2 2 0 minecraft:redstone_block
+close s2 set 5 2 0 minecraft:redstone_block
+close s2 set 5 1 0 minecraft:redstone_block
+close s2 set -1 4 0 minecraft:redstone_block
+close s2 set 2 -2 0 minecraft:redstone_block
+close s2+sw clear -2 2 0
+close s2+sw clear 5 2 0
+close s2+sw clear 5 1 0
+close s2+sw clear -1 4 0
+close s2+sw clear 2 -2 0
+close p0 set 3 4 0 minecraft:redstone_block
+close p0+pw clear 3 4 0
+close a_on set 1 4 -1 minecraft:redstone_block
+close b set 1 6 0 minecraft:redstone_block
+close b+bw clear 1 6 0
+close b+dx set 3 4 0 minecraft:redstone_block
+close b+dx+xw clear 3 4 0
+close b+bw+dx set 3 4 0 minecraft:redstone_block
+close b+bw+dx+xw clear 3 4 0
+close pt set 1 3 3 minecraft:redstone_block
+close pt+2 clear 1 3 3
