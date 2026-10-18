@@ -116,6 +116,13 @@ fn region_diffs(now: &Region, rest: &Region, ignore: &HashSet<Pos>, max: usize) 
         .collect()
 }
 
+/// Blocks whose state is derived from their neighbors' shapes and safe to recompute (no tick
+/// scheduled): note blocks (instrument), fences, walls, panes, bars, stairs.
+fn shape_follows(state: &str) -> bool {
+    let n = mctas::blockstate::block_name(state);
+    n == "minecraft:note_block" || n.ends_with("_fence") || n.ends_with("_wall") || n.ends_with("pane") || n == "minecraft:iron_bars" || n.ends_with("_stairs")
+}
+
 /// Place the design (and `env`) the way the judge does and let it settle.
 fn place(w: &mut Worker, sb: u32, d: &Design, env: &Env) -> Result<()> {
     w.clear(sb)?;
@@ -125,6 +132,21 @@ fn place(w: &mut Worker, sb: u32, d: &Design, env: &Env) -> Result<()> {
     w.set_blocks(sb, &all, PlaceMode::Raw)?;
     let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
     w.update(sb, &wires, "shape")?;
+    // Blocks whose state follows their neighbors' shapes (a note block's instrument follows the
+    // block below, fences/walls/panes/stairs connect): built next to the surroundings, a player
+    // would get them that way, so recompute them once (never observers: their shape update fires
+    // them).
+    if !env.blocks.is_empty() {
+        let envs: HashSet<Pos> = env.blocks.iter().map(|(p, _)| *p).collect();
+        let follow: Vec<Pos> = blocks
+            .iter()
+            .filter(|(p, s)| shape_follows(s) && DIRS6.iter().any(|o| envs.contains(&add(*p, *o))))
+            .map(|(p, _)| *p)
+            .collect();
+        if !follow.is_empty() {
+            w.update(sb, &follow, "shape")?;
+        }
+    }
     let mut selfs: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
     selfs.extend(env.blocks.iter().filter(|(_, s)| s.contains("repeater")).map(|(p, _)| *p));
     w.update(sb, &selfs, "self")?;
@@ -358,9 +380,12 @@ pub fn swept_cells(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec) -> Resu
     Ok((cells, rest))
 }
 
-/// Smooth stone in every empty cell face-adjacent to the 3x3 tunnel (both sides of the opening's
-/// columns, above and below, door plane included) over the build's depth extent + 3 each way.
-pub fn hallway_env(d: &Design, spec: &DoorSpec) -> Env {
+/// Smooth stone in every cell face-adjacent to the 3x3 tunnel (both sides of the opening's
+/// columns, above and below, door plane included) over the build's depth extent + 3 each way that
+/// is air at every tick of a full open/close cycle (`swept` = every cell the build holds at rest or
+/// at any tick); the cells the machine or the door blocks use are the build's own wall cells and
+/// stay as they are (coordinator's definition, 2026-10-18 19:23Z).
+pub fn hallway_env(d: &Design, spec: &DoorSpec, swept: &HashSet<Pos>) -> Env {
     let (wa, da) = if spec.along_z { (2, 0) } else { (0, 2) };
     let (lo, hi) = d.bounds().unwrap_or((spec.door, spec.door));
     let at = |wv: i32, y: i32, t: i32| {
@@ -382,7 +407,7 @@ pub fn hallway_env(d: &Design, spec: &DoorSpec) -> Env {
             ring.push(at(wv, spec.door[1] + 3, t));
         }
         for p in ring {
-            if !d.blocks.contains_key(&p) {
+            if !d.blocks.contains_key(&p) && !swept.contains(&p) {
                 out.push((p, "minecraft:smooth_stone".to_string()));
             }
         }
@@ -611,7 +636,7 @@ pub fn check_design(w: &mut Worker, source: &str, d: &Design, verdict: &str) -> 
         let (swept, rest) = swept_cells(w, sb, d, &spec)?;
         let lever = RunOpts { cycles: 1, input: Input::Lever, snow: false, steps: false };
         // Hallway.
-        let hall = hallway_env(d, &spec);
+        let hall = hallway_env(d, &spec, &swept);
         let hallway = env_run(w, sb, d, &spec, &hall, &lever).map(|_| ()).map_err(err_text);
         // Contained: every shell, flush against the swept box, then with a one-block air gap.
         let shell = shell_cells(&spec, &swept, 0);

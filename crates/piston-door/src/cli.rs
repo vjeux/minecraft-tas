@@ -2240,6 +2240,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             let mut seen = std::collections::HashSet::new();
             let mut jobs: Vec<(String, Design, String)> = Vec::new();
+            let mut counts: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
             for (src, d, explicit) in cands {
                 let h = format!("{:016x}", crate::leaderboard::design_hash(&d));
                 if !seen.insert(h.clone()) {
@@ -2250,26 +2251,44 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     Some(false) => "broken",
                     None => "uncached",
                 };
+                *counts.entry(verdict).or_default() += 1;
                 if explicit || verdict == "ok" || (uncached && verdict == "uncached") {
                     jobs.push((src, d, verdict.to_string()));
                 }
             }
             jobs.sort_by_key(|(s, d, _)| (crate::block_count(d), s.clone()));
-            eprintln!("properties-dyn: {} designs", jobs.len());
+            eprintln!(
+                "properties-dyn: {counts:?} in the verdict cache; running {} designs{}",
+                jobs.len(),
+                if uncached { " (uncached ones only if the judge passes them at offset 0)" } else { " (uncached skipped; --uncached runs them)" }
+            );
+            if jobs.is_empty() {
+                return Ok(());
+            }
             let pool = mctas::sim::Pool::spawn(workers.min(jobs.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
             let t0 = std::time::Instant::now();
             let done = std::sync::atomic::AtomicUsize::new(0);
             let n = jobs.len();
             let results = pool.map(jobs, |w, _, (src, d, verdict)| {
-                let r = pd::check_design(w, &src, &d, &verdict).map_err(|e| e.context(src.clone()));
+                // A design the cache does not know runs only if the judge passes it at the
+                // design's own position (current rules).
+                let precheck = verdict != "uncached"
+                    || crate::verify(w, &d, &crate::VerifyOptions { offsets: vec![[0, 0, 0]], ..Default::default() }).is_ok();
+                let r = if precheck {
+                    let v = if verdict == "uncached" { "uncached (judge ok at offset 0)" } else { verdict.as_str() };
+                    pd::check_design(w, &src, &d, v).map(Some).map_err(|e| e.context(src.clone()))
+                } else {
+                    Ok(None)
+                };
                 let k = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-                eprintln!("[{k}/{n} {:.0}s] {src}", t0.elapsed().as_secs_f64());
+                eprintln!("[{k}/{n} {:.0}s] {src}{}", t0.elapsed().as_secs_f64(), if precheck { "" } else { " (uncached, fails the judge: skipped)" });
                 r
             });
             let mut rows = Vec::new();
             for r in results {
                 match r {
-                    Ok(row) => rows.push(row),
+                    Ok(Some(row)) => rows.push(row),
+                    Ok(None) => {}
                     Err(e) => eprintln!("error: {e:#}"),
                 }
             }
