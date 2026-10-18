@@ -1,0 +1,25 @@
+[    8.6s] start: 44 blocks, open 56 / close 54
+[   19.0s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   29.5s] seamless QUART z-,z+ below FULL: repairing groups through (0,3,0)
+[   29.5s] 44 blocks: 23 removable, 4 groups of 2..2
+[   30.2s]     size 1: 11 candidates screened in 0.7s, 1 passed the screen
+[   30.4s]     size 2: 38 candidates screened in 0.2s, 2 passed the screen
+[   31.2s]     size 3: 91 candidates screened in 0.4s, 10 passed the screen
+[   31.8s]     size 4: 147 candidates screened in 0.3s, 20 passed the screen
+[   32.0s]   group [(0,3,0)obsi] -> <= 4 blocks: 287 circuits in 2.5s
+[   32.2s]     size 2: 126 candidates screened in 0.1s, 1 passed the screen
+[   32.6s]     size 3: 511 candidates screened in 0.4s, 2 passed the screen
+[   34.1s]     size 4: 2019 candidates screened in 1.4s, 12 passed the screen
+[   38.4s]     size 5: 6899 candidates screened in 3.9s, 48 passed the screen
+[   38.9s]   group [(-1,3,0)lamp (0,3,0)obsi] -> <= 5 blocks: 9572 circuits in 6.8s
+[   39.0s]     size 2: 84 candidates screened in 0.0s, 2 passed the screen
+[   39.5s]     size 3: 594 candidates screened in 0.3s, 4 passed the screen
+[   41.2s]     size 4: 3010 candidates screened in 1.7s, 25 passed the screen
+[   50.1s]     size 5: 17510 candidates screened in 8.6s, 171 passed the screen
+[   51.3s]   group [(-1,4,0)wire (0,3,0)obsi] -> <= 5 blocks: 21209 circuits in 12.4s
+[   51.4s]     size 2: 119 candidates screened in 0.1s, 2 passed the screen
+[   51.7s]     size 3: 467 candidates screened in 0.2s, 4 passed the screen
+[   52.6s]     size 4: 1713 candidates screened in 0.9s, 20 passed the screen
+[   56.5s]     size 5: 8022 candidates screened in 3.8s, 92 passed the screen
+[   57.2s]   group [(0,3,0)obsi (0,4,0)wire] -> <= 5 blocks: 10334 circuits in 5.8s
+44 -> 44 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/f43-b1-B.txt
