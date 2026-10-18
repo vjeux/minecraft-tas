@@ -1163,9 +1163,9 @@ pub enum Target {
         max_close: Option<u32>,
         rotations: bool,
         seamless: Option<crate::properties::SeamReq>,
-        shape: Option<crate::ShapeLimits>,
         repeater_input: bool,
         eligible: bool,
+        shape: Option<crate::ShapeLimits>,
     },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
@@ -1193,7 +1193,7 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, rotations, seamless, shape, repeater_input, eligible, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, seamless, repeater_input, eligible, shape, .. } => {
             if let Some(t) = seamless {
                 t.check(w, sb, d)?;
             }
@@ -1462,11 +1462,11 @@ pub struct ResynthOptions {
     pub extra: usize,
     /// Accept only rotation-safe replacements (set when the start design is rotation-safe).
     pub keep_rotations: bool,
-    /// Shape limits on the swept shape (`--shape`: volume, flat, side...).
-    pub shape: Option<crate::ShapeLimits>,
     /// Record eligibility: see [`crate::search::SearchOptions::repeater_input`] / `eligible`.
     pub repeater_input: bool,
     pub eligible: bool,
+    /// Shape limits on the swept shape (`--shape`: volume, flat, side...).
+    pub shape: Option<crate::ShapeLimits>,
     /// Compaction (volume boards): every replacement circuit stays inside this box (inclusive
     /// corners); while removable blocks lie outside it, only groups through them are cut and they
     /// grow back inside with up to `extra` more blocks.
@@ -1710,9 +1710,9 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 max_close: o.max_close,
                 rotations: o.keep_rotations,
                 seamless: seam_req,
-                shape: o.shape,
                 repeater_input: o.repeater_input || o.eligible,
                 eligible: o.eligible,
+                shape: o.shape,
             };
             let t = Instant::now();
             let inner = |m: &str| {

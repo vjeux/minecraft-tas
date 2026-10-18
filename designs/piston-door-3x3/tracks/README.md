@@ -8,9 +8,10 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | track | goal | result |
 |---|---|---|
 | [buildable](buildable/NOTES.md) | integrity check: can a survival player build the records? | `door buildable`; every board leader buildable at 32/32 positions, none in the naive order; found the unwaxed-copper hazard |
+| [box56](box56/NOTES.md) | a flat FULL-seamless door in volume <= 56 (7x8 / 8x7) | no door: `door topology` (wiring components, piston links, pulse parity) finds 0 of the 99 7x8/8x7 mechanisms of agent families' catalog wirable (strict parity); 11 asymmetric ones survive only if 3+ pulses chain-merge; gadget merger-gap; tlup mechanism (19, ideal inputs) |
 | [center-mech](center-mech/NOTES.md) | new mechanisms for the middle column | v2u2 96 (solid record: sides pushed out off one shared block), rb2-sculk 48 (sculk) |
 | [entities](entities/) | doors that use entities (minecarts, armor stands, boats...) | the `entity` category and the "Entities allowed" board: entities summoned by the bridge, judged exactly back at rest after each close ([rules.md](../../../docs/rules.md#categories)) |
-| [eligible](eligible/NOTES.md) | doors ELIGIBLE for records under the Squid regulation (section 3: repeater input, hallway, seamless) | `door eligible`, `door relever`, `--repeater-input` / `--eligible` on every search, `minimize --objective volume`; **fl81n volume 81 (9x9x1), FULL + hallway** (flat43-full + a note block in the lever's cell); b39n 39 blocks (b38 + note block, the first eligible solid door) |
+| [eligible](eligible/NOTES.md) | doors ELIGIBLE for records under the Squid regulation (section 3: repeater input, hallway, seamless) | `door eligible`, `door relever`, `--repeater-input` / `--eligible` on every search, `minimize --objective volume`; **fl72m volume 72 (8x9x1), 50 blocks, FULL + hallway** (flat-seam's e89b + a note block in the lever's cell); s4ff 24/18 the fastest eligible FULL door; b39n 39 blocks (b38 + note block, the first eligible solid door) |
 | [exotic](exotic/NOTES.md) | unusual redstone components vs. the smallest door | trapdoors, fence gates, skulls, rails, dispensers, crafters, scaffolding: gadgets + search palettes; pm45-trap 45 (14 / 14: an observer watching an iron trapdoor) |
 | [fast-clean](fast-clean/NOTES.md) | the fastest solid doors under the "nothing in front of or behind" rule | every fast door broke it in the same six cells (the lever net's staircase); re-laid over the top: a1c 107 (10 / 7), s4c 101 (12 / 7), n3c 116 (9 / 7), c1r 108 (9 / 7) |
 | [flat](flat/NOTES.md) | the flat board (every block in the door's plane, no slime) | 60 -> 49 (flat-v8): observer chains, `synth` and `resynth` on the late chains |
@@ -31,6 +32,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [mech-wire](mech-wire/NOTES.md) | rank mechanisms by mechanism + wiring | `door mech-wire`; nothing below 40 (its router wires ~12 blocks worse than by hand) |
 | [observer-seq](observer-seq/NOTES.md) | event-driven sequencing | the first slime-free doors: s1 89 -> s6 58 |
 | [pareto-mid](pareto-mid/NOTES.md) | fill the middle of the solid Pareto frontier | `door frontier`; gadgets log-leaves and rb-lamp (asymmetric delays from a moving log or redstone block); mp8-leafU 43 (15 / 17), mp8-lampU 44 (14 / 16), mp7-leafC 46 (15 / 13), mp7-repU 46 (14 / 14) |
+| [pistmodel](pistmodel/NOTES.md) | exact game-verified piston / moving-block model (`crates/redsim`), differential fuzzing vs the bridge, full-model mechanism search | [INVENTORY.md](pistmodel/INVENTORY.md) (pistons from the source) |
 | [q-free](q-free/NOTES.md) | beat 40 with a free Q delay or a shared bottom pulse | both fail (Q's head forwards A's update; no 1-block shared source); a 40 variant |
 | [redstone-block](redstone-block/NOTES.md) | movable power: shuttled redstone blocks | rb1 73, rb2 57, rb5 52, rb6 48 (solid records); rb7-rb9 fast (rb9 61 at 16 / 17) |
 | [riders](riders/NOTES.md) | blocks riding moving structures as timing elements | fx1 40 (ties fc2), r3 43, r2 46; P_M cannot be freed |
@@ -55,3 +57,5 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [vanilla-check](vanilla-check/NOTES.md) | prove the simulator matches vanilla | `door vanilla-check`, `vanilla-fuzz`; no divergence |
 | [wire19sf](wire19sf/NOTES.md) | wire the 19-block slime-free mechanism | w45 -> w42 42 (slime-free record at the time, buildable) |
 | [wire21](wire21/NOTES.md) | wire the 21-block pulse-only mechanism | m05 40 (ties fc2) |
+
+- [box64](box64/NOTES.md): flat FULL-seamless doors in 8x8 / 9x7 boxes (volume <= 64): ideal-input mechanism checks in the box, region/crossing analysis of the wiring

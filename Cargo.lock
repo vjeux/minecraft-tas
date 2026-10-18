@@ -621,8 +621,11 @@ name = "piston-door"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "clap",
  "mctas",
+ "redsim",
+ "redsim-fuzz",
  "rustsat",
  "rustsat-cadical",
  "serde_json",
@@ -651,6 +654,20 @@ name = "r-efi"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
+
+[[package]]
+name = "redsim"
+version = "0.1.0"
+
+[[package]]
+name = "redsim-fuzz"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "redsim",
+]
 
 [[package]]
 name = "regex"

@@ -470,6 +470,7 @@ behavior: `mctas door drive --quiet designs/gadgets/*.drive` prints PASS/FAIL pe
 | `dual-edge` | observer | an observer watching a lever pulses 2 gt, 2 gt after *both* flips |
 | `pulse-stretch` | repeater | a pulse shorter than a repeater's delay comes out exactly that long (2 gt -> 8 gt); a second pulse while it is on is swallowed |
 | `pulse-merge` | observer + delay-2 repeater + observer | a DOUBLE pulse (two 2 gt pulses up to 4 gt apart, e.g. an observer watching a pull-type piston's gap or a piston that extends and retracts) becomes exactly ONE 2 gt pulse: the repeater is on for exactly 4 gt and its off edge comes while the observer watching it is still on (the repeater's tick has the higher priority). flat-seam e89 (8x9 flat seamless record) uses it twice: the T puller's feed and the relay that watches the T puller |
+| `merger-gap` | delay-2 repeater + observer | the pulse merger (flat-seam e89): two 2 gt pulses 4 gt apart come out of the observer as ONE pulse, but two pulses 8 gt apart (an elevator's B window edges) come out as two (box56's parity argument) |
 | `spit` | observer + sticky piston | a 2 gt pulse makes a sticky piston push its block and leave it (retract event type 2) |
 | `qc-bud` | repeater, piston | a piston is powered by anything powering the cell above it, but only acts when updated (BUD) |
 | `lamp-fall-delay` | lamp + observer | lamp: rise 0 gt, fall 4 gt |

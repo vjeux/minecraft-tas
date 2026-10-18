@@ -1,0 +1,57 @@
+# cd19: center down (elevator A'/B' below), top row up (3 pullers fed by one block at (1,5)), side pairs
+design designs/piston-door-3x3/tracks/box64/ideal/m5.txt
+let a1 = 0
+let pm = 6
+let b1 = 12
+let b2 = 20
+let a2 = 14
+let a3 = 22
+let top = 24
+let l = 2
+let r = 2
+open a1 set 2 -2 0 minecraft:redstone_block
+open a1+2 clear 2 -2 0
+open pm set 3 -2 0 minecraft:redstone_block
+open pm+2 clear 3 -2 0
+open b1 set 2 -3 0 minecraft:redstone_block
+open b2 clear 2 -3 0
+open a2 set 0 -1 0 minecraft:redstone_block
+open a2+2 clear 0 -1 0
+open a3 set 2 -2 0 minecraft:redstone_block
+open a3+2 clear 2 -2 0
+open top set 2 4 0 minecraft:redstone_block
+open top+2 clear 2 4 0
+open l set -2 3 0 minecraft:redstone_block
+open l set -2 -1 0 minecraft:redstone_block
+
+open l+2 clear -2 3 0
+open l+2 clear -2 -1 0
+open r set 5 1 0 minecraft:redstone_block
+open r set 5 2 0 minecraft:redstone_block
+open r set 5 0 0 minecraft:redstone_block
+open r+2 clear 5 1 0
+open r+2 clear 5 2 0
+open r+2 clear 5 0 0
+close a1 set 2 -2 0 minecraft:redstone_block
+close a1+2 clear 2 -2 0
+close pm set 3 -2 0 minecraft:redstone_block
+close pm+2 clear 3 -2 0
+close b1 set 2 -3 0 minecraft:redstone_block
+close b2 clear 2 -3 0
+close a2 set 0 -1 0 minecraft:redstone_block
+close a2+2 clear 0 -1 0
+close a3 set 2 -2 0 minecraft:redstone_block
+close a3+2 clear 2 -2 0
+close top set 2 4 0 minecraft:redstone_block
+close top+2 clear 2 4 0
+close l set -2 3 0 minecraft:redstone_block
+close l set -2 -1 0 minecraft:redstone_block
+
+close l+2 clear -2 3 0
+close l+2 clear -2 -1 0
+close r set 5 1 0 minecraft:redstone_block
+close r set 5 2 0 minecraft:redstone_block
+close r set 5 0 0 minecraft:redstone_block
+close r+2 clear 5 1 0
+close r+2 clear 5 2 0
+close r+2 clear 5 0 0
