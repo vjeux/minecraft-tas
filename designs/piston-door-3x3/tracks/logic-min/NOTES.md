@@ -116,3 +116,9 @@ Tried / ruled out:
 - Bridge to C (O -> block -> dust -> block): C's input cell is never adjacent to a cell an
   observer of the lever can output into without moving the lever, which feeds F and H.
 No rb variant below 47 found.
+- B-delay on my 49/50: the t=4 pulse must enter R_B's back; the only 1-block source is an
+  observer behind R_B watching an observer of the lever, which needs the lever (and with it O_R,
+  O_a's J_X feed and R1) moved; every arrangement I drew loses H0/P_R's QC, R_P's t=2 feed, or
+  puts O_R next to the backbone's path. A dust J_X would loop X's later pulses into R_B and R_P.
+- Random walks (`door minimize --moves all --walk 400 --plateau-pairs`, 30 min each, seeds 11 and
+  13) on BEST (49) and BEST-slime-free (50): nothing below.
