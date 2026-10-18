@@ -37,6 +37,7 @@ pub mod route2;
 pub mod minimize;
 pub mod patch;
 pub mod place;
+pub mod properties;
 pub mod search;
 pub mod shapes;
 pub mod showcase;

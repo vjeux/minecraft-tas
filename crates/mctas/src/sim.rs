@@ -155,6 +155,42 @@ impl Region {
     }
 }
 
+/// A block in motion (a piston's moving block entity, [`Worker::get_region_moving`]).
+#[derive(Clone, Debug)]
+pub struct MovingBlock {
+    pub pos: Pos,
+    /// The block it carries.
+    pub state: String,
+    /// Extending (it moves along `direction`) or retracting (against it).
+    pub extending: bool,
+    /// The piston's own head.
+    pub source: bool,
+    /// The piston's facing (`north`, `up`, ...).
+    pub direction: String,
+    pub progress: f64,
+}
+
+impl MovingBlock {
+    /// The direction the block travels.
+    pub fn motion(&self) -> Pos {
+        let d = match self.direction.as_str() {
+            "north" => [0, 0, -1],
+            "south" => [0, 0, 1],
+            "east" => [1, 0, 0],
+            "west" => [-1, 0, 0],
+            "up" => [0, 1, 0],
+            _ => [0, -1, 0],
+        };
+        if self.extending { d } else { [-d[0], -d[1], -d[2]] }
+    }
+
+    /// The cell it came from.
+    pub fn origin(&self) -> Pos {
+        let m = self.motion();
+        [self.pos[0] - m[0], self.pos[1] - m[1], self.pos[2] - m[2]]
+    }
+}
+
 /// Result of a step request for one sandbox.
 #[derive(Clone, Debug)]
 pub struct StepResult {
@@ -395,6 +431,33 @@ impl Worker {
     pub fn get_region(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<Region> {
         let v = self.call(json!({"op": "get", "sandbox": sandbox, "from": from, "to": to}))?;
         parse_region(&v, &v["data"])
+    }
+
+    /// [`Worker::get_region`] plus every block in motion inside the box (a piston's moving block
+    /// entity): what it carries, its piston's facing, extending or retracting.
+    pub fn get_region_moving(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<(Region, Vec<MovingBlock>)> {
+        let v = self.call(json!({"op": "get", "sandbox": sandbox, "from": from, "to": to, "moving": true}))?;
+        let region = parse_region(&v, &v["data"])?;
+        let mut moving = Vec::new();
+        for m in v["moving"].as_array().cloned().unwrap_or_default() {
+            moving.push(MovingBlock {
+                pos: pos_of(&m["pos"])?,
+                state: m["state"].as_str().unwrap_or_default().to_string(),
+                extending: m["extending"].as_bool().unwrap_or(false),
+                source: m["source"].as_bool().unwrap_or(false),
+                direction: m["direction"].as_str().unwrap_or_default().to_string(),
+                progress: m["progress"].as_f64().unwrap_or(0.0),
+            });
+        }
+        Ok((region, moving))
+    }
+
+    /// Emit a vanilla game event (`step`, `hit_ground`, ...: anything in the game's GameEvent
+    /// registry) at each position (the bottom center of the cell), as a player standing there
+    /// would: sculk sensors and other vibration listeners hear it.
+    pub fn game_event(&mut self, sandbox: u32, event: &str, positions: &[Pos]) -> Result<()> {
+        self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions}))?;
+        Ok(())
     }
 
     /// Positions in the box whose block cannot survive where it stands (`canSurvive` false):

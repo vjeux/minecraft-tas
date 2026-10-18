@@ -1056,6 +1056,33 @@ pub enum DoorCmd {
         #[arg(long)]
         verbose: bool,
     },
+    /// Redstone Squid catalogue properties (properties.rs) of the given designs, or of every
+    /// working design on HEAD and the explore/* branches (the leaderboard's list, verdicts from
+    /// the archive's verdicts-v5.tsv): seamless tiers, dents, trapdoor/flush/deluxe, hipster,
+    /// symmetry, sync, clean, component restrictions, volume, timings. Cached by design hash in
+    /// <archive-dir>/properties-v1.tsv; prints a markdown table.
+    Properties {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        archive_dir: PathBuf,
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 12)]
+        workers: usize,
+        /// Also write the rows as TSV here (design, blocks, category, then every property).
+        #[arg(long)]
+        out_tsv: Option<PathBuf>,
+        /// Write the markdown table here (also printed).
+        #[arg(long)]
+        out_md: Option<PathBuf>,
+        /// Also run the dynamic checks (hallway-compatible, contained, snow, repeater input,
+        /// player steps, uses), each at the design's own position.
+        #[arg(long)]
+        dynamic: bool,
+        /// Recompute cached designs.
+        #[arg(long)]
+        redo: bool,
+    },
     /// Check that a design is a working 3x3 piston door; print timings and block count.
     Verify {
         design: PathBuf,
@@ -2207,6 +2234,88 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
+        }
+        DoorCmd::Properties { designs, archive_dir, refs, workers, out_tsv, out_md, dynamic, redo } => {
+            use crate::properties as pr;
+            let repo = std::path::Path::new(".");
+            let verdicts = pr::cached_verdicts(&archive_dir);
+            let vanilla = pr::vanilla_verdicts(repo);
+            let mut cands: Vec<(String, Design)> = Vec::new();
+            if designs.is_empty() {
+                let all = crate::leaderboard::collect(repo, &refs, 200)?;
+                let n = all.len();
+                let mut unknown = 0;
+                for (s, d) in all {
+                    match verdicts.get(&crate::leaderboard::design_hash(&d)) {
+                        Some((true, _)) => cands.push((s, d)),
+                        Some((false, _)) => {}
+                        None => unknown += 1,
+                    }
+                }
+                eprintln!("{n} designs, {} working (cached verdicts), {unknown} not judged yet (skipped)", cands.len());
+            } else {
+                for p in &designs {
+                    cands.push((p.display().to_string(), load_design(p)?));
+                }
+            }
+            let mut cache = pr::load_cache(&archive_dir);
+            let todo: Vec<(u64, Design)> = {
+                let mut seen = std::collections::HashSet::new();
+                cands
+                    .iter()
+                    .map(|(_, d)| (crate::leaderboard::design_hash(d), d.clone()))
+                    .filter(|(h, _)| (redo || !cache.get(h).is_some_and(|p| !dynamic || p.contains_key("hallway"))) && seen.insert(*h))
+                    .collect()
+            };
+            eprintln!("{} designs to compute", todo.len());
+            if !todo.is_empty() {
+                let pool = mctas::sim::Pool::spawn(workers.min(todo.len()).max(1), &cfg)?;
+                let results = pool.map(todo, |w, _, (h, d)| Ok((h, pr::compute(w, &d, dynamic))));
+                for r in results {
+                    let (h, p) = r?;
+                    match p {
+                        Ok(p) => {
+                            let mut merged = cache.remove(&h).unwrap_or_default();
+                            merged.extend(p);
+                            cache.insert(h, merged);
+                        }
+                        Err(e) => eprintln!("{h:016x}: {e:#}"),
+                    }
+                }
+                pr::save_cache(&archive_dir, &cache)?;
+            }
+            let mut rows = Vec::new();
+            for (s, d) in &cands {
+                let h = crate::leaderboard::design_hash(d);
+                let Some(mut p) = cache.get(&h).cloned() else { continue };
+                if let Some((ok, rot)) = verdicts.get(&h) {
+                    p.insert("dir".into(), if rot == "safe" { "yes".into() } else { format!("no ({rot})") });
+                    p.insert("loc".into(), if *ok { "yes (32 pos)".into() } else { "no".into() });
+                }
+                p.insert("vanilla".into(), vanilla.get(&h).cloned().unwrap_or_else(|| "sim only".into()));
+                rows.push((pr::display_name(s), crate::block_count(d), crate::category(d), p));
+            }
+            rows.sort_by(|a, b| (a.2 != "solid", a.2, a.1, &a.0).cmp(&(b.2 != "solid", b.2, b.1, &b.0)));
+            let table = pr::render(&rows);
+            print!("{table}");
+            if let Some(path) = out_md {
+                std::fs::write(path, &table)?;
+            }
+            if let Some(path) = out_tsv {
+                let keys: Vec<String> = {
+                    let mut k = std::collections::BTreeSet::new();
+                    for r in &rows {
+                        k.extend(r.3.keys().cloned());
+                    }
+                    k.into_iter().collect()
+                };
+                let mut out = format!("design\tblocks\tcategory\t{}\n", keys.join("\t"));
+                for (n, b, c, p) in &rows {
+                    let vals: Vec<String> = keys.iter().map(|k| p.get(k).cloned().unwrap_or_default()).collect();
+                    out.push_str(&format!("{n}\t{b}\t{c}\t{}\n", vals.join("\t")));
+                }
+                std::fs::write(path, out)?;
+            }
         }
         DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out } => {
             let d = load_design(&design)?;
