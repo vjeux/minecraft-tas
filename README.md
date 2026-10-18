@@ -81,6 +81,10 @@ All tools are `mctas` subcommands, written in Rust; `--help` lists each one's fl
 The 3x3 door (`mctas door ...`):
 
 * `verify`: the judge (3 cycles at 4 positions, 32 with `--extra-offsets 28`); prints blocks and ticks.
+  `--tile wide:N|period:P:N|stack:N|vperiod:Q:N` judges the design as a tile module: N copies,
+  ONE lever (the other copies hold the module's `relay:` block in the lever's cell), every check on
+  every opening; prints blocks per opening and per extra copy (tracks/tile/NOTES.md).
+* `tile-scan`: which tilings (wide, stack, smallest period/vperiod) each design passes.
 * `leaderboard`: verify every design on main and `explore/*`, then write LEADERBOARD.md.
 * `vanilla-check`: replay designs in the unmodified official server and compare tick for tick.
 * `reuse-check`: verify a design many times in one sandbox, to catch state leaking across runs.

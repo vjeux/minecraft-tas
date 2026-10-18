@@ -598,4 +598,21 @@ mod tests {
         // Period 2: the openings overlap.
         assert!(expand(&m, &Tile::parse("period:2:2").unwrap()).is_err());
     }
+
+    #[test]
+    fn end_piece_lever() {
+        let m = module();
+        let extra = Design::parse(
+            "name: e\nport lever: -2 4 0\npalette:\n  S minecraft:stone\n  L minecraft:lever[face=floor,facing=east,powered=false]\nlayer 3:\n  S\nlayer 4:\n  L\n",
+        )
+        .unwrap()
+        .translated([-2, 0, 0]);
+        let mut t = Tile::parse("wide:2").unwrap();
+        t.extra = Some(Design { ports: [("lever".to_string(), [-2, 4, 0])].into_iter().collect(), ..extra });
+        let x = expand(&m, &t).unwrap();
+        // The end piece's lever is the only lever; both copies hold the relay.
+        assert_eq!(x.levers, vec![[-2, 4, 0]]);
+        assert_eq!(x.design.blocks.values().filter(|s| s.contains("lever")).count(), 1);
+        assert_eq!(x.design.blocks.values().filter(|s| s.contains("redstone_wire")).count(), 2);
+    }
 }
