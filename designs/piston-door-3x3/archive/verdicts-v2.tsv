@@ -59,6 +59,7 @@
 7c95d49d88bc6706	ok	26	36	
 7cbc45e3755f98a6	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 7d058b321906046d	ok	22	38	
+7d675a2ecb11fd09	ok	5	11	
 7e6328e71f41b39f	ok	24	36	
 8293f02540a7d4dd	ok	6	11	
 86b08551b59710b1	ok	24	31	
@@ -92,6 +93,7 @@ ae6fd14a328a8b53	ok	5	11
 b05d8ee8136b5b2a	broken	-	-	at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft:stone; [2, 2, 0] is minecraft:air, was minecraft:stone; [2, 1, 0] is minecraft:air, was minecraft:stone; [2, 0, 0] is minecraft:air, was minecraft:stone
 b16e855c38720634	ok	22	37	
 b181c0b8628d772d	ok	26	43	
+b5880baf480d1b38	ok	5	19	
 be2537e4a45ae00e	ok	22	29	
 c017481fc59d7566	ok	34	18	
 c04480eae8efbcdc	ok	26	36	
