@@ -141,3 +141,15 @@ P4 three times (s1, s4, s6), PT once, P5 twice, PTR+PMR (K3's only input) an odd
 - Tool idea for families/topology: model "shared QC" (a piston fed only through another piston's
   cell fires only together with it, and second) and "no feed" pistons, which the macro model and
   the region analysis currently accept.
+- 000/003/004 (the remaining 7x8 candidates) need the macro model's cheapest close paths of 45-46
+  events (PT fired up to 13 times, the left pistons 7 times per edge) next to 21-22 to open: an
+  edge-dependent sequencer of that size does not fit 26 free cells; not attempted.
+- Lemma note: an obsidian block at (-1,3) makes PT pulses harmless at rest and when open (row 3
+  empty, or full and blocked), so (4,3) could be a conductor; it is then powered only by (4,4)
+  emitting down, and P4 still reads (4,4) through (3,4): the same event train, same odd-gap wall.
+
+## Verdict (20:00Z)
+No flat FULL-seamless slime-free door in 7x8 from families' catalog: 013/014 (lemma above), 038,
+039, 001, 002 (unfeedable elevator piston, gadget qc-shared), 000/003/004 (45-event close trains).
+What carries over to other boxes: odd pulse counts without memory from observer busy windows
+(section 4), the 2-flip-flop memory link (7 cells), and the qc-shared rule.
