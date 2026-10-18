@@ -1,0 +1,62 @@
+# verified WORKS: 42 blocks, open after 24 ticks, closed after 14 ticks
+# archived 2026-10-18 08:08Z from designs/piston-door-3x3/tracks/fresh-c/fc1.txt (repo at c39ce7a)
+name: fc1
+port door: 0 0 0
+port lever: -2 4 0
+origin: -2 0 -1
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  E minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:sticky_piston[extended=true,facing=down]
+  K minecraft:stone
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:smooth_stone
+layer -2:
+  .
+  ...Hs
+  .
+layer -1:
+  ..KoA
+  .SI.B
+  .
+layer 0:
+  .
+  .SKKKS
+  .
+layer 1:
+  .
+  .SKKKS
+  .
+layer 2:
+  .
+  .SKKKS
+  .
+layer 3:
+  .
+  ..KPSS
+  .K
+layer 4:
+  .
+  LCrJGS
+  KDGR
+layer 5:
+  .
+  .OBF
+  .
+layer 6:
+  .
+  .KE
+  .

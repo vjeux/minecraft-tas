@@ -108,3 +108,19 @@ the right. The right top puller's quasi cell (4,3,0) must not touch a powered bl
   for 2 blocks, but B is not updated when R2 turns off (R2's off only updates its front block's
   neighbors) and O (watching R_B) never sees the t12 edge, so neither B's retraction at t12 nor
   A's second pulse at t14 happen: the door stays half open.
+* **fast-57** (`fast-57.txt` = `BEST-fast.txt`): `door minimize --moves all` (with the new swaps
+  family: two blocks out, one in) on fast-60 found three dust+floor -> block swaps: the X dust
+  and its floor become ONE block that O's back powers (A at (1,4,0) directly; A at (1,3,0)
+  quasi-connected, and in the fast dance it gets its update from B's own retraction at t6), and
+  two dust cells of the second-pulse route become blocks. The same X swap fails in the slow
+  dance (mech-47, sculk-42): there nothing next to A moves at the first pulse, so A at (1,3,0)
+  needs the dust's second-order update. mech-47 stays a local minimum for the full search
+  (swaps + plateau).
+* Fast-dance requirements, measured with ideal inputs (`fast-ideal.sched` on
+  `fast-ideal-mech.txt`, fast-57's machine with B, X, Q and X_L driven by redstone blocks):
+  B's early pulse must be exactly [4,6); the first X pulse exactly t6; the second B window
+  starts at 7..9 and ends at 12..17 with the second X pulse 2 ticks after its end (q_off ~20).
+  rb9's single repeater R_B (delay 1) with two input pulses gives B [4,6)+[8,12) and lets O
+  ignore the middle edges (it is still on), which is why the second pulse route is worth its
+  11 blocks: an observer-chain early pulse or a second repeater into B's quasi cell each break
+  either the t6 X pulse or B's t12 update.

@@ -1,0 +1,31 @@
+design designs/piston-door-3x3/tracks/fresh-b/mp-mech.txt
+let a1 = 0
+let s = 6
+let t = 10
+let tl = 4
+let a2 = 16
+let u = 20
+open a1 set 1 4 -1 minecraft:redstone_block
+open a1+2 clear 1 4 -1
+open s set 0 3 -1 minecraft:redstone_block
+open s set 2 4 -1 minecraft:redstone_block
+open s+2 clear 0 3 -1
+open s+2 clear 2 4 -1
+open t set 1 -2 -1 minecraft:redstone_block
+open t+tl clear 1 -2 -1
+open a2 set 1 4 -1 minecraft:redstone_block
+open a2+2 clear 1 4 -1
+open u set 0 -3 -1 minecraft:redstone_block
+open u+2 clear 0 -3 -1
+close a1 set 1 4 -1 minecraft:redstone_block
+close a1+2 clear 1 4 -1
+close s set 0 3 -1 minecraft:redstone_block
+close s set 2 4 -1 minecraft:redstone_block
+close s+2 clear 0 3 -1
+close s+2 clear 2 4 -1
+close t set 1 -2 -1 minecraft:redstone_block
+close t+tl clear 1 -2 -1
+close a2 set 1 4 -1 minecraft:redstone_block
+close a2+2 clear 1 4 -1
+close u set 0 -3 -1 minecraft:redstone_block
+close u+2 clear 0 -3 -1
