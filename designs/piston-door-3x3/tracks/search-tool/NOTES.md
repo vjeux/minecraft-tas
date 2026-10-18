@@ -28,9 +28,14 @@ v2-min and on the other tracks' bests, archive every improvement here with its s
 | blocks | source | how |
 |---|---|---|
 | 113 | v2-min (main, 115) | reroute: the sides line drop re-laid from (6,4,2) to (5,4,0), -2 (first round, 15 s) |
+| 109 | 113 above | renet: the lever net (7 terminals) re-synthesized from (6,4,2) as a greedy Steiner tree, -4 |
 
 ## Log
 
 - v2-min: singles and pairs: no removal passes even the 2-position screen (115 is pair-minimal).
 - v2-min, all families: round 1 found the reroute above (113). Round 2 at 113: nothing improving
-  among 14k removals + 4.5k compounds; plateau: 59 of 281 neutral edits pass the judge.
+  among 14k removals + 4.5k compounds; plateau: 59 of 281 neutral edits pass the judge, none of
+  them followed by a single or pair removal (316k candidates, 160 s) improves.
+- `--walk` (random walk over verified neutral designs) drifts into fragile designs: verified
+  neutral neighbors fell 59 -> 27 -> 9 -> ... -> 0 in 6 steps. Not useful as is.
+- renet (new family, net re-synthesis) on 113: -4 at once (109).
