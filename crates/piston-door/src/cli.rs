@@ -221,6 +221,10 @@ pub enum DoorCmd {
         states: String,
         #[arg(long, default_value_t = 1)]
         want: usize,
+        /// Cut any group of --size control blocks, connected or not (new blocks go within
+        /// --margin of any cut block).
+        #[arg(long)]
+        any: bool,
         #[command(flatten)]
         search: SearchArgs,
     },
@@ -522,14 +526,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
         }
-        DoorCmd::Regrow { design, out, size, margin, states, want, search } => {
+        DoorCmd::Regrow { design, out, size, margin, states, want, any, search } => {
             let d = load_design(&design)?;
             let pool = search.pool(version)?;
             let t = std::time::Instant::now();
             let opts = search.options()?;
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
             let st = crate::search::grow_states(&states)?;
-            let found = crate::search::regrow(&pool, &d, size, margin, &st, &opts, want, &log)?;
+            let found = crate::search::regrow(&pool, &d, size, margin, &st, &opts, want, any, &log)?;
             for (fd, desc) in &found {
                 println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
             }
