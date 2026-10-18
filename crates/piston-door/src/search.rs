@@ -1121,7 +1121,7 @@ fn reroutes(ctx: &Ctx, d: &Design, space: &Space) -> (Vec<Edit>, Vec<Edit>) {
 
 /// The judge's verdict without per-tick frames: same placement, same checks on the final state of
 /// every phase (verify_at only uses frames for timings). Screening only; the judge is verify_in.
-fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<()> {
+pub(crate) fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<()> {
     use anyhow::bail;
     use mctas::sim::{PlaceMode, Region};
     let illegal = crate::legality_problems(design);

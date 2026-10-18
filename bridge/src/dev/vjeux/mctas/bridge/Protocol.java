@@ -153,6 +153,7 @@ public final class Protocol {
             case "status" -> status(sandbox(r));
             case "entities" -> entities(r);
             case "update" -> update(r);
+            case "signals" -> signals(r);
             case "exec" -> exec(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
@@ -317,10 +318,22 @@ public final class Protocol {
             JsonObject rec = r.getAsJsonObject("record");
             region = new Region(ints(rec.getAsJsonArray("from")), ints(rec.getAsJsonArray("to")));
         }
+        // Optional signal probes: after every tick, for each position, the best signal its
+        // neighbors give into it (what a piston or lamp there would see) and the strong (direct)
+        // signal into it, as [best, direct] pairs flattened per tick.
+        List<BlockPos> signals = null;
+        if (r.has("signals")) {
+            signals = new ArrayList<>();
+            for (JsonElement e : r.getAsJsonArray("signals")) {
+                int[] p = ints(e.getAsJsonArray());
+                signals.add(new BlockPos(p[0], p[1], p[2]));
+            }
+        }
         JsonArray results = new JsonArray();
         for (Sandbox sb : targets) {
             Palette palette = region == null ? null : new Palette();
             JsonArray frames = region == null ? null : new JsonArray();
+            JsonArray signalFrames = signals == null ? null : new JsonArray();
             int ticked = 0;
             boolean idle = false;
             while (ticked < ticks) {
@@ -328,6 +341,14 @@ public final class Protocol {
                 ticked++;
                 if (frames != null) {
                     frames.add(region.capture(sb, palette));
+                }
+                if (signalFrames != null) {
+                    JsonArray row = new JsonArray();
+                    for (BlockPos p : signals) {
+                        row.add(sb.level.getBestNeighborSignal(p));
+                        row.add(sb.level.getDirectSignalTo(p));
+                    }
+                    signalFrames.add(row);
                 }
                 if (untilIdle && sb.idle()) {
                     idle = true;
@@ -347,6 +368,9 @@ public final class Protocol {
                 res.add("palette", palette.toJson());
                 res.add("flags", palette.flagsJson(sb));
                 res.add("frames", frames);
+            }
+            if (signalFrames != null) {
+                res.add("signals", signalFrames);
             }
             results.add(res);
         }
@@ -384,6 +408,26 @@ public final class Protocol {
         }
         JsonObject o = new JsonObject();
         o.add("entities", list);
+        return o;
+    }
+
+    /**
+     * Signal probes, now: for each position, [best signal its neighbors give into it (what a
+     * piston or lamp there would see), strong signal into it].
+     */
+    private JsonObject signals(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        JsonArray out = new JsonArray();
+        for (JsonElement e : r.getAsJsonArray("positions")) {
+            int[] p = ints(e.getAsJsonArray());
+            BlockPos pos = new BlockPos(p[0], p[1], p[2]);
+            JsonArray v = new JsonArray();
+            v.add(sb.level.getBestNeighborSignal(pos));
+            v.add(sb.level.getDirectSignalTo(pos));
+            out.add(v);
+        }
+        JsonObject o = new JsonObject();
+        o.add("signals", out);
         return o;
     }
 

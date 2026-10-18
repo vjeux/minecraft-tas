@@ -47,3 +47,15 @@ door cells hold their rest blocks (placed, not moving).
   an observer at (1,3,1) facing south power A' at E DIRECTLY (not through F's cell). Drive it
   with an observer chain from the lever (each observer side-watches the previous one: 2gt per
   link, clean single pulses on both lever edges, position independent).
+
+## Results (all `door verify --extra-offsets 28`, category solid, slime-free)
+| file | blocks | open / close | what |
+|---|---|---|---|
+| w1-123b.txt | 123 | 12 / 19 | first wired ideal-6 (child session, see wire/NOTES.md) |
+| w1-114b.txt | 114 | 12 / 19 | `door minimize --max-open 12 --max-close 19` |
+| w2-139b.txt | 139 | 12 / 14 | close spit at k6 (observer into F's side), TR at k10 |
+| w2-126b.txt | 126 | 12 / 14 | minimized at equal speed |
+| w5-140b.txt | 140 | 12 / 11 | F's redstone block returned by a 2nd piston at k6, TR at k7 |
+| **w5-122b.txt = BEST** | **122** | **12 / 11** | minimized at equal speed |
+Open 12 = the theory bound with 2gt pulses (C into N1 at k8, A' lands k10, Q pulls it k11, F
+reaches through k11-12). Below needs 0-ticks.
