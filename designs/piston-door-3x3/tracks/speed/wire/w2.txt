@@ -1,4 +1,4 @@
-name: speed-wire-w1
+name: speed-wire-w2
 port door: 0 0 0
 port lever: 0 4 -2
 origin: -4 0 -5

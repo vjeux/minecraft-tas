@@ -1,4 +1,4 @@
-name: speed-wire-w1
+name: speed-wire-w2
 port door: 0 0 0
 port lever: 0 4 -2
 origin: -4 0 -5
@@ -28,17 +28,18 @@ palette:
   W minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
   X minecraft:redstone_wire[east=side,north=none,power=0,south=up,west=none]
   Y minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
-  Z minecraft:redstone_wire[east=up,north=side,power=0,south=side,west=none]
-  a minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
-  b minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
-  c minecraft:sticky_piston[extended=false,facing=down]
-  d minecraft:sticky_piston[extended=false,facing=east]
-  e minecraft:sticky_piston[extended=false,facing=west]
-  f minecraft:sticky_piston[extended=true,facing=down]
-  g minecraft:sticky_piston[extended=true,facing=east]
-  h minecraft:sticky_piston[extended=true,facing=up]
-  i minecraft:sticky_piston[extended=true,facing=west]
-  j minecraft:stone
+  Z minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=none]
+  a minecraft:redstone_wire[east=up,north=side,power=0,south=side,west=none]
+  b minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  c minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  d minecraft:sticky_piston[extended=false,facing=down]
+  e minecraft:sticky_piston[extended=false,facing=east]
+  f minecraft:sticky_piston[extended=false,facing=west]
+  g minecraft:sticky_piston[extended=true,facing=down]
+  h minecraft:sticky_piston[extended=true,facing=east]
+  i minecraft:sticky_piston[extended=true,facing=up]
+  j minecraft:sticky_piston[extended=true,facing=west]
+  k minecraft:stone
   o minecraft:observer[facing=east,powered=false]
   p minecraft:piston[extended=false,facing=west]
   r minecraft:redstone_torch[lit=true]
@@ -50,13 +51,19 @@ layer -5:
   ...s
   ...s
   ...ss
+  .
+  .
+  .
 layer -4:
   .
   .
   ...s
   ...T
   ...Q
-  ...YUj
+  ...YUk
+  .
+  .
+  .
 layer -3:
   .
   ...s
@@ -64,13 +71,19 @@ layer -3:
   .
   .
   .....r
+  .
+  .
+  .
 layer -2:
   .
   ..sN
   .
   .
   .
-  .....h
+  .....i
+  .
+  .
+  .
 layer -1:
   .
   .sV
@@ -78,45 +91,66 @@ layer -1:
   .
   .
   ....FI
+  .
+  .
+  .
 layer 0:
   ..........s
   sV........s
   ..........s
   ..........s
   s.........s
-  .AgHjjjJiA
+  .AhHkkkJjA
+  .
+  .
+  .
 layer 1:
   .........sN
-  X.........Q
+  X.........b
   s.........Q
   s.........Q
   T.........Q
-  jKgHjjjJiMj
+  kKhHkkkJjMk
+  .
+  .
+  .
 layer 2:
   ...ssssssV
   ...s
-  Zsss
+  asss
   Q..s
   .
-  .jgHjjjJij
+  .khHkkkJjk
+  .
+  .
+  .
 layer 3:
-  ...WUUaUU
-  ...Q
-  .UUS..CE
-  ...QjDEB
+  ...WUUUUU
+  ...Q...B
+  .UUS...B
+  ...QkDEE
   .....B.B
-  ..FdcG.eF
+  ..FedG.fF
+  .
+  .
+  .....s
 layer 4:
   .
   .
   .....C.O
-  .jjoLE.B
-  .j.BPR.p
-  .jj..f
+  .kkoLE.B
+  .k.BPR.p
+  .kk..g
+  .s...C
+  .s...C
+  .ssssV
 layer 5:
   .
   .
   .....O
   .WU..B
   .Q...B
-  .Ybj
+  .Zck
+  .Q
+  .Q
+  .YUUU
