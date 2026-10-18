@@ -1,0 +1,50 @@
+vanilla server up in 11.7s (/dev/shm/mctas-vanilla-470955-5d6af4d458a85bae)
+  offset [0, 0, 0]: sim PASS (open 24, close 36) | vanilla FAIL (cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft:stone) | 60 ticks compared | DIVERGES: cycle 0 close: the simulator kept moving 36 ticks, vanilla went idle after 33
+  offset [-7, 3, 5]: sim PASS (open 24, close 36) | vanilla PASS (open 24, close 36) | 187 ticks compared
+  offset [5, -11, -6]: sim PASS (open 24, close 36) | vanilla PASS (open 24, close 36) | 187 ticks compared
+  offset [-3, 40, 2]: sim PASS (open 24, close 36) | vanilla PASS (open 24, close 36) | 187 ticks compared
+  offset [-1, -4, -7]: sim PASS (open 24, close 36) | vanilla PASS (open 24, close 36) | 187 ticks compared
+  offset [8, 1, 8]: sim PASS (open 24, close 36) | vanilla PASS (open 24, close 36) | 187 ticks compared
+  offset [12, -28, 3]: sim PASS (open 24, close 36) | vanilla PASS (open 24, close 36) | 187 ticks compared
+  offset [0, 9, 10]: sim PASS (open 24, close 36) | vanilla FAIL (cycle 0: door not restored: [1, 11, 10] is minecraft:air, was minecraft:stone) | 60 ticks compared | DIVERGES: cycle 0 close: the simulator kept moving 36 ticks, vanilla went idle after 33
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-v2-115b.txt (115 blocks, solid) DIVERGES at 2/8 positions; first at offset [0, 0, 0]: sim PASS (open 24, close 36) | vanilla FAIL (cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft:stone) | cycle 0 close: the simulator kept moving 36 ticks, vanilla went idle after 33 [40s]
+  vanilla time: 1543 steps 20.3s (13 ms each), 1543 snapshots 7.4s (5 ms each)
+  offset [0, 0, 0]: sim PASS (open 22, close 22) | vanilla PASS (open 22, close 22) | 145 ticks compared
+  offset [-7, 3, 5]: sim PASS (open 22, close 22) | vanilla PASS (open 22, close 22) | 145 ticks compared
+  offset [5, -11, -6]: sim PASS (open 22, close 22) | vanilla PASS (open 22, close 22) | 145 ticks compared
+  offset [-3, 40, 2]: sim PASS (open 22, close 22) | vanilla PASS (open 22, close 22) | 145 ticks compared
+  offset [-1, -4, -7]: sim PASS (open 22, close 22) | vanilla PASS (open 22, close 22) | 145 ticks compared
+  offset [8, 1, 8]: sim PASS (open 22, close 22) | vanilla PASS (open 22, close 22) | 145 ticks compared
+  offset [12, -28, 3]: sim PASS (open 22, close 22) | vanilla PASS (open 22, close 22) | 145 ticks compared
+  offset [0, 9, 10]: sim PASS (open 22, close 22) | vanilla PASS (open 22, close 22) | 145 ticks compared
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3-61b.txt (61 blocks, solid) PASS: vanilla matches the simulator tick for tick (1160 ticks at 8 positions x 3 cycles); PASS (open 22, close 22) [33s]
+  vanilla time: 2774 steps 40.2s (14 ms each), 2774 snapshots 12.0s (4 ms each)
+  offset [0, 0, 0]: sim PASS (open 24, close 25) | vanilla PASS (open 24, close 25) | 154 ticks compared
+  offset [-7, 3, 5]: sim PASS (open 24, close 25) | vanilla PASS (open 24, close 25) | 154 ticks compared
+  offset [5, -11, -6]: sim PASS (open 24, close 25) | vanilla PASS (open 24, close 25) | 154 ticks compared
+  offset [-3, 40, 2]: sim PASS (open 24, close 25) | vanilla PASS (open 24, close 25) | 154 ticks compared
+  offset [-1, -4, -7]: sim PASS (open 24, close 25) | vanilla PASS (open 24, close 25) | 154 ticks compared
+  offset [8, 1, 8]: sim PASS (open 24, close 25) | vanilla PASS (open 24, close 25) | 154 ticks compared
+  offset [12, -28, 3]: sim PASS (open 24, close 25) | vanilla PASS (open 24, close 25) | 154 ticks compared
+  offset [0, 9, 10]: sim PASS (open 24, close 25) | vanilla PASS (open 24, close 25) | 154 ticks compared
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-v2u2-88b.txt (88 blocks, solid) PASS: vanilla matches the simulator tick for tick (1232 ticks at 8 positions x 3 cycles); PASS (open 24, close 25) [35s]
+  vanilla time: 4077 steps 60.4s (15 ms each), 4077 snapshots 16.9s (4 ms each)
+  offset [0, 0, 0]: sim PASS (open 30, close 38) | vanilla PASS (open 30, close 38) | 259 ticks compared
+  offset [-7, 3, 5]: sim PASS (open 30, close 38) | vanilla PASS (open 30, close 38) | 259 ticks compared
+  offset [5, -11, -6]: sim PASS (open 30, close 38) | vanilla PASS (open 30, close 38) | 259 ticks compared
+  offset [-3, 40, 2]: sim PASS (open 30, close 38) | vanilla PASS (open 30, close 38) | 259 ticks compared
+  offset [-1, -4, -7]: sim PASS (open 30, close 38) | vanilla PASS (open 30, close 38) | 259 ticks compared
+  offset [8, 1, 8]: sim PASS (open 30, close 38) | vanilla PASS (open 30, close 38) | 259 ticks compared
+  offset [12, -28, 3]: sim PASS (open 30, close 38) | vanilla PASS (open 30, close 38) | 259 ticks compared
+  offset [0, 9, 10]: sim PASS (open 30, close 38) | vanilla PASS (open 30, close 38) | 259 ticks compared
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-rb2-sculk-48b.txt (48 blocks, sculk) PASS: vanilla matches the simulator tick for tick (2072 ticks at 8 positions x 3 cycles); PASS (open 30, close 38) [44s]
+  vanilla time: 6220 steps 87.4s (14 ms each), 6220 snapshots 23.2s (4 ms each)
+vanilla-check: designs/piston-door-3x3/archive/m51-sculk-48b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-4, -4, -5]..[5, 8, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/gravity-g1-67b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-5, -9, -5]..[7, 4, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-obs-s1-89b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-8, -4, -5]..[8, 8, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/mechanics-rb2-hold-51b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-5, -4, -5]..[5, 8, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-5, -4, -5]..[5, 8, 6] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/gravity-g8-48b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-3, -9, -5]..[5, 4, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/mechanics-ta-89b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-5, -5, -5]..[10, 8, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/logic-min-v2-49b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-5, -4, -5]..[7, 8, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-sf1-126b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-6, -5, -5]..[10, 8, 5] is not clean after clearing: ["minecraft:air"] ticks []

@@ -1,0 +1,44 @@
+vanilla server up in 9.6s (/dev/shm/mctas-vanilla-370523-c617922b2fee4c48)
+  offset [0, 0, 0]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [-7, 3, 5]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [5, -11, -6]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [-3, 40, 2]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [-1, -4, -7]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [8, 1, 8]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [12, -28, 3]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [0, 9, 10]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+vanilla-check: designs/piston-door-3x3/archive/m48-bmobs-47b.txt (47 blocks, solid) PASS: vanilla matches the simulator tick for tick (1208 ticks at 8 positions x 3 cycles); PASS (open 22, close 25) [137s]
+  vanilla time: 1279 steps 117.4s (92 ms each), 1279 snapshots 6.0s (5 ms each)
+  offset [0, 0, 0]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [-7, 3, 5]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [5, -11, -6]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [-3, 40, 2]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [-1, -4, -7]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [8, 1, 8]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [12, -28, 3]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+  offset [0, 9, 10]: sim PASS (open 22, close 25) | vanilla PASS (open 22, close 25) | 151 ticks compared
+vanilla-check: designs/piston-door-3x3/archive/rb6-bmobs-47b.txt (47 blocks, solid) PASS: vanilla matches the simulator tick for tick (1208 ticks at 8 positions x 3 cycles); PASS (open 22, close 25) [134s]
+  vanilla time: 2558 steps 235.1s (92 ms each), 2558 snapshots 11.5s (5 ms each)
+  offset [0, 0, 0]: sim PASS (open 24, close 52) | vanilla PASS (open 24, close 52) | 277 ticks compared
+  offset [-7, 3, 5]: sim PASS (open 24, close 52) | vanilla PASS (open 24, close 52) | 277 ticks compared
+  offset [5, -11, -6]: sim PASS (open 24, close 52) | vanilla PASS (open 24, close 52) | 277 ticks compared
+  offset [-3, 40, 2]: sim PASS (open 24, close 52) | vanilla PASS (open 24, close 52) | 277 ticks compared
+  offset [-1, -4, -7]: sim PASS (open 24, close 52) | vanilla PASS (open 24, close 52) | 277 ticks compared
+  offset [8, 1, 8]: sim PASS (open 24, close 52) | vanilla PASS (open 24, close 52) | 277 ticks compared
+  offset [12, -28, 3]: sim PASS (open 24, close 52) | vanilla PASS (open 24, close 52) | 277 ticks compared
+  offset [0, 9, 10]: sim PASS (open 24, close 52) | vanilla PASS (open 24, close 52) | 277 ticks compared
+vanilla-check: designs/piston-door-3x3/archive/logic-min-slime-free-50b.txt (50 blocks, solid) PASS: vanilla matches the simulator tick for tick (2216 ticks at 8 positions x 3 cycles); PASS (open 24, close 52) [187s]
+  vanilla time: 4845 steps 399.9s (83 ms each), 4845 snapshots 20.3s (4 ms each)
+  offset [0, 0, 0]: sim PASS (open 22, close 38) | vanilla PASS (open 22, close 38) | 259 ticks compared
+  offset [-7, 3, 5]: sim PASS (open 22, close 38) | vanilla PASS (open 22, close 38) | 259 ticks compared
+  offset [5, -11, -6]: sim PASS (open 22, close 38) | vanilla PASS (open 22, close 38) | 259 ticks compared
+  offset [-3, 40, 2]: sim PASS (open 22, close 38) | vanilla PASS (open 22, close 38) | 259 ticks compared
+  offset [-1, -4, -7]: sim PASS (open 22, close 38) | vanilla PASS (open 22, close 38) | 259 ticks compared
+  offset [8, 1, 8]: sim PASS (open 22, close 38) | vanilla PASS (open 22, close 38) | 259 ticks compared
+  offset [12, -28, 3]: sim PASS (open 22, close 38) | vanilla PASS (open 22, close 38) | 259 ticks compared
+  offset [0, 9, 10]: sim PASS (open 22, close 38) | vanilla PASS (open 22, close 38) | 259 ticks compared
+vanilla-check: designs/piston-door-3x3/archive/st43-bmobs-42b.txt (42 blocks, sculk) PASS: vanilla matches the simulator tick for tick (2072 ticks at 8 positions x 3 cycles); PASS (open 22, close 38) [176s]
+  vanilla time: 6988 steps 558.2s (80 ms each), 6988 snapshots 28.3s (4 ms each)
+vanilla-check: designs/piston-door-3x3/archive/gravity-g6-49b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-3, -9, -5]..[5, 4, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/search-tool-from-fresh-b-gravity-g6-49b-46b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-3, -9, -5]..[5, 4, 5] is not clean after clearing: ["minecraft:air"] ticks []
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-rb9-61b.txt ERROR: vanilla at offset [0, 0, 0]: the box [-4, -4, -5]..[5, 8, 5] is not clean after clearing: ["minecraft:air"] ticks []

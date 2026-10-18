@@ -2,10 +2,11 @@
 
 ## Gadget library (designs/gadgets/, each proven by a drive script)
 
-`mctas door drive --quiet designs/gadgets/*.drive` runs them all (PASS/FAIL); the table and the
-source facts behind them are in docs/mechanics.md. Ten gadgets: dual-edge, pulse-stretch, spit,
-qc-bud, lamp-fall-delay, bulb-toggle, slime-nonstick, silent-hold (rb5's trick), pulse-bridge,
-lever-tap.
+`mctas door drive --quiet designs/gadgets/*.drive` runs them all (PASS/FAIL, 24 scripts); the
+table and the source facts behind them are in docs/mechanics.md. Mine (18): dual-edge,
+pulse-stretch, spit, qc-bud, lamp-fall-delay, bulb-toggle, slime-nonstick, silent-hold (rb5's
+trick), pulse-bridge, lever-tap, lever-observer and pulse-toggle (logic-min's tricks),
+head-forward, dust-reach, observer-delay, repeater-lock, honey-slime, landing-fire.
 
 Tools added: `door drive` probes/trace/expect assertions and a multi-script PASS/FAIL runner;
 `door patch` (a design variant as a short edit script: set/clear/port). Every design below is a
@@ -25,6 +26,7 @@ patch file in this folder applied to its parent.
 | **47** | solid | mech-47.txt = BEST.txt | 48 + bm-obs.patch | top-control's trick: P_BM pulse-driven by an observer on the bottom-right door block (no redstone block, backbone 2 shorter) |
 | **42** | sculk | sculk-42.txt = BEST-sculk.txt | search-tool's sculk 43 + bm-obs.patch | same P_BM trick on the sculk-hold design (which already used the pulse bridge) |
 | 104 -> 99 | solid, slime-free | sf-104.txt, sf-99.txt = BEST-slime-free.txt | mech-90 + sf2.patch, then `door minimize` | side columns on individual pullers |
+| 60 -> **57** | solid, open 16 / close 17 (fastest solid) | fast-60.txt, fast-57.txt = BEST-fast.txt | redstone-block's rb9 61 + bm-obs.patch, then `door minimize --moves all --max-open 16 --max-close 17` (swaps) | rb9's split B window (t4..6 + t8..12) on the mech-47 base; three dust+floor -> block swaps |
 
 ### 91 / 89: the A torch (v2 family)
 

@@ -42,13 +42,13 @@ See [docs/architecture.md](docs/architecture.md) and [docs/protocol.md](docs/pro
 
 ## 3x3 piston door
 
-Current best (42 blocks), rendered by the real Minecraft client with `mctas door video`:
-https://github.com/vjeux/minecraft-tas/releases/download/videos/fc1-42b.mp4
+Current best (40 blocks), rendered by the real Minecraft client with `mctas door video`:
+https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4
 
 The ranked list of every design (main and the agents' `explore/*` branches) is in
 [designs/piston-door-3x3/LEADERBOARD.md](designs/piston-door-3x3/LEADERBOARD.md). The best is
-`designs/piston-door-3x3/archive/fc1-42b.txt`: all nine door blocks are plain
-stone, 42 blocks in total, verified for 3 open/close cycles at 4 positions. (v1 used a slime
+`designs/piston-door-3x3/archive/fc2-40b.txt`: all nine door blocks are plain
+stone, 40 blocks in total, verified for 3 open/close cycles at 4 positions. (v1 used a slime
 block as the top-middle door block, which is not a real door; the verifier now rejects it.) See [docs/piston-door-3x3.md](docs/piston-door-3x3.md)
 for the rules, the mechanism and the block-count work, and [docs/mechanics.md](docs/mechanics.md)
 for the mechanics read from the source.

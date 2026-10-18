@@ -4,10 +4,13 @@ Rendered by the real Minecraft client (`mctas door video-all`).
 
 | blocks | category | design | video |
 |---|---|---|---|
+| 40 | solid | [fc2-40b](fc2-40b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4) |
 | 42 | solid | [fc1-42b](fc1-42b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc1-42b.mp4) |
 | 42 | sculk | [st43-bmobs-42b](st43-bmobs-42b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.mp4) |
 | 43 | sculk | [search-tool-from-top-control-BEST-43b](search-tool-from-top-control-BEST-43b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-top-control-BEST-43b.mp4) |
+| 45 | solid | [fresh-b-mp6-45b](fresh-b-mp6-45b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fresh-b-mp6-45b.mp4) |
 | 45 | gravity | [gravity-g10-45b](gravity-g10-45b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g10-45b.mp4) |
+| 45 | solid | [piston-door-3x3-fresh-b-mp7-45b](piston-door-3x3-fresh-b-mp7-45b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-mp7-45b.mp4) |
 | 46 | gravity | [gravity-g9-46b](gravity-g9-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g9-46b.mp4) |
 | 46 | solid | [piston-door-3x3-fresh-b-mp6-46b](piston-door-3x3-fresh-b-mp6-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-mp6-46b.mp4) |
 | 46 | gravity | [search-tool-from-HEAD-gravity-g4-51b-46b](search-tool-from-HEAD-gravity-g4-51b-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g4-51b-46b.mp4) |
