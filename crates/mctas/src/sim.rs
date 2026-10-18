@@ -366,7 +366,13 @@ impl Worker {
     /// Block states turned `turns` quarter turns clockwise seen from above, by the game's own
     /// `BlockState.rotate` (facings, axes, dust connections, rails, levers...).
     pub fn rotate_states(&mut self, states: &[String], turns: u8) -> Result<Vec<String>> {
-        let v = self.call(json!({"op": "rotate", "states": states, "turns": turns}))?;
+        self.transform_states(states, turns, false)
+    }
+
+    /// Block states mirrored (x -> -x, the game's `Mirror.FRONT_BACK`) when `mirror`, then turned
+    /// `turns` quarter turns clockwise, by the game's own `BlockState.mirror` / `rotate`.
+    pub fn transform_states(&mut self, states: &[String], turns: u8, mirror: bool) -> Result<Vec<String>> {
+        let v = self.call(json!({"op": "rotate", "states": states, "turns": turns, "mirror": mirror}))?;
         let out: Vec<String> = v["states"].as_array().ok_or_else(|| anyhow!("rotate: no states"))?.iter().filter_map(|s| s.as_str().map(String::from)).collect();
         if out.len() != states.len() {
             bail!("rotate: {} states in, {} out", states.len(), out.len());

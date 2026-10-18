@@ -765,6 +765,20 @@ pub enum DoorCmd {
         #[arg(long)]
         check: bool,
     },
+    /// Write a design turned and/or mirrored (the game's own block-state rotate/mirror). A turn
+    /// of 90 or 270 degrees gives an east/west-facing door (`door-axis: z` in the file), which
+    /// every tool judges in that orientation: the way to build a variant for that direction.
+    Turn {
+        design: PathBuf,
+        /// Quarter turns clockwise seen from above.
+        #[arg(long, default_value_t = 1)]
+        turns: u8,
+        /// Mirror image (east-west) before turning.
+        #[arg(long)]
+        mirror: bool,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
         name: String,
@@ -997,6 +1011,9 @@ pub enum DoorCmd {
         /// It is not part of the judge: it decides which board a working door goes on.
         #[arg(long)]
         no_rotations: bool,
+        /// Also run all 8 orientations (4 turns, each as built and mirrored) and print which work.
+        #[arg(long)]
+        orientations: bool,
     },
     /// Circuit synthesis by exhaustive simulation (see synth.rs): every circuit of up to --k
     /// blocks from --palette in the free cells of --lo..--hi that carries a signal from the
@@ -1953,6 +1970,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let tar = crate::world::build(version, &o)?;
             println!("world packed: {}", tar.display());
         }
+        DoorCmd::Turn { design, turns, mirror, out } => {
+            let d = load_design(&design)?;
+            let mut w = Worker::spawn(&cfg)?;
+            let (mut rd, spec) = crate::transform_design(&mut w, &d, turns, mirror)?;
+            rd.name = format!("{}-{}{}", d.name, if spec.along_z { "ew" } else { "ns" }, if mirror { "-mirrored" } else { "" });
+            rd.save(&out)?;
+            println!("{} turned {} degrees{} ({}-facing door) written to {}", d.name, turns as u32 % 4 * 90, if mirror { ", mirrored" } else { "" }, if spec.along_z { "east/west" } else { "north/south" }, out.display());
+        }
         DoorCmd::Patch { design, script, out } => {
             let d0 = load_design(&design)?;
             let text = std::fs::read_to_string(&script)?;
@@ -2015,7 +2040,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations } => {
             let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
@@ -2055,6 +2080,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         match crate::rotation_check(&mut w, &d, &ropts)? {
                             None => println!("rotation-safe: also works turned 90, 180 and 270 degrees ({} positions each)", ropts.offsets.len()),
                             Some((turns, why)) => println!("NOT rotation-safe (listed on the separate board): turned {} degrees: {why}", turns as u32 * 90),
+                        }
+                    }
+                    if orientations {
+                        let ropts = VerifyOptions { keep_frames: false, ..opts.clone() };
+                        println!("orientations ({} positions each; turns are clockwise seen from above, mirrored = east-west mirror image first):", ropts.offsets.len());
+                        for (turns, mirrored, r) in crate::orientation_report(&mut w, &d, &ropts)? {
+                            let name = format!("{:>3} degrees{}", turns as u32 * 90, if mirrored { ", mirrored" } else { "" });
+                            match r {
+                                Ok(()) => println!("  {name:<22} WORKS"),
+                                Err(e) => println!("  {name:<22} BROKEN: {}", e.chars().take(140).collect::<String>()),
+                            }
                         }
                     }
                     if show {

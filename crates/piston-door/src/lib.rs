@@ -44,11 +44,8 @@ pub mod tickvideo;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
-<<<<<<< HEAD
-pub mod world;
-=======
 pub mod vanilla_gadget;
->>>>>>> origin/explore/tick-study
+pub mod world;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
@@ -68,7 +65,10 @@ impl DoorSpec {
     pub fn from_design(d: &Design) -> Result<DoorSpec> {
         let door = *d.ports.get("door").context("design has no 'port door: x y z'")?;
         let lever = *d.ports.get("lever").context("design has no 'port lever: x y z'")?;
-        Ok(DoorSpec { door, lever, along_z: false })
+        // `door-axis: z`: the opening spans z (an east/west-facing door, e.g. a variant built for
+        // that orientation); default x (a north/south-facing door, plane z = door.z).
+        let along_z = d.meta.get("door-axis").is_some_and(|v| v.trim() == "z");
+        Ok(DoorSpec { door, lever, along_z })
     }
 
     /// The same spec moved by `d`.
@@ -138,20 +138,48 @@ pub fn rotate_pos(p: Pos, turns: u8) -> Pos {
 /// state turned by the game itself ([`Worker::rotate_states`]), with the door spec that goes with
 /// it.
 pub fn rotate_design(w: &mut Worker, d: &Design, turns: u8) -> Result<(Design, DoorSpec)> {
+    transform_design(w, d, turns, false)
+}
+
+/// [`rotate_design`] of the mirror image (x -> -x, the game's `Mirror.FRONT_BACK`) when `mirror`.
+pub fn transform_design(w: &mut Worker, d: &Design, turns: u8, mirror: bool) -> Result<(Design, DoorSpec)> {
     let spec = DoorSpec::from_design(d)?;
     let turns = turns % 4;
+    let tf = |p: Pos| rotate_pos(if mirror { [-p[0], p[1], p[2]] } else { p }, turns);
     let states: Vec<String> = d.blocks.values().cloned().collect();
-    let turned = w.rotate_states(&states, turns)?;
-    let blocks = d.blocks.keys().zip(turned).map(|(p, s)| (rotate_pos(*p, turns), s)).collect();
-    let ports = d.ports.iter().map(|(k, p)| (k.clone(), rotate_pos(*p, turns))).collect();
-    // The opening's min corner after the turn.
-    let cells: Vec<Pos> = spec.door_cells().iter().map(|p| rotate_pos(*p, turns)).collect();
+    let turned = w.transform_states(&states, turns, mirror)?;
+    let blocks = d.blocks.keys().zip(turned).map(|(p, s)| (tf(*p), s)).collect();
+    let ports = d.ports.iter().map(|(k, p)| (k.clone(), tf(*p))).collect();
+    // The opening's min corner after the transform.
+    let cells: Vec<Pos> = spec.door_cells().iter().map(|p| tf(*p)).collect();
     let min = |i: usize| cells.iter().map(|p| p[i]).min().unwrap();
     let door = [min(0), min(1), min(2)];
-    let rspec = DoorSpec { door, lever: rotate_pos(spec.lever, turns), along_z: turns % 2 == 1 };
+    let rspec = DoorSpec { door, lever: tf(spec.lever), along_z: spec.along_z != (turns % 2 == 1) };
     let mut rd = Design { name: d.name.clone(), meta: d.meta.clone(), ports, blocks };
     rd.ports.insert("door".into(), door);
+    if rspec.along_z {
+        rd.meta.insert("door-axis".into(), "z".into());
+    } else {
+        rd.meta.remove("door-axis");
+    }
     Ok((rd, rspec))
+}
+
+/// The judge's checks ([`verify_in_spec`] with `opts`) on all 8 orientations of the door: 4 turns
+/// (0, 90, 180, 270 degrees clockwise seen from above), each as built and mirrored. Returns
+/// (turns, mirrored, `Ok` or the judge's reason) for each.
+pub fn orientation_report(w: &mut Worker, d: &Design, opts: &VerifyOptions) -> Result<Vec<(u8, bool, std::result::Result<(), String>)>> {
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let mut out = Vec::new();
+    for mirror in [false, true] {
+        for turns in 0..4u8 {
+            let (rd, rspec) = transform_design(w, d, turns, mirror)?;
+            let r = verify_in_spec(w, sb, &rd, rspec, opts).map(|_| ()).map_err(|e| format!("{e:#}"));
+            out.push((turns, mirror, r));
+        }
+    }
+    let _ = w.drop_sandbox(sb);
+    Ok(out)
 }
 
 /// Does the door also work turned 90, 180 and 270 degrees? Runs the judge's checks ([`verify_in`]
@@ -283,8 +311,10 @@ pub fn slime_free(d: &Design) -> bool {
 /// True when every block of the design lies in the door's plane (z = door.z): the whole machine
 /// is one block thick ("flat"; its own leaderboard together with slime-free).
 pub fn single_layer(d: &Design) -> bool {
-    let Some(door) = d.ports.get("door") else { return false };
-    d.blocks.keys().all(|p| p[2] == door[2])
+    let Ok(spec) = DoorSpec::from_design(d) else { return false };
+    // The door's plane: z = door.z, or x = door.x for an east/west-facing door.
+    let axis = if spec.along_z { 0 } else { 2 };
+    d.blocks.keys().all(|p| p[axis] == spec.door[axis])
 }
 
 /// Blocks standing in the walkway at rest. The rules allow non-colliding blocks there (dust,

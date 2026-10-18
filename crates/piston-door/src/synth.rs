@@ -184,13 +184,10 @@ impl Node {
             // comparators): it toggles `lit` on each rising edge.
             n if n.ends_with("copper_bulb") => (Kind::Lamp, None, true, true),
             "redstone_block" => (Kind::RBlock, None, true, false),
-<<<<<<< HEAD
             // A note block conducts like any full block, and its `powered` state follows its
             // power in the same tick (observers can watch it).
             "note_block" => (Kind::Block, None, true, true),
-=======
             "sculk_sensor" | "calibrated_sculk_sensor" => (Kind::Sensor, None, false, true),
->>>>>>> origin/explore/sculk-2
             "lever" => {
                 let s = match get("face").as_deref() {
                     Some("floor") => below,
@@ -1302,13 +1299,9 @@ fn removable(d: &Design, changing: &HashSet<Pos>) -> Vec<Pos> {
         .iter()
         .filter(|(p, s)| {
             let n = Node::new(**p, s);
-<<<<<<< HEAD
-            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp)
+            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp | Kind::Sensor)
                 || s.contains("note_block")
                 || s.contains("minecraft:target");
-=======
-            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp | Kind::Sensor);
->>>>>>> origin/explore/sculk-2
             let still_block = matches!(n.kind, Kind::Block) && !changing.contains(*p);
             let glass = n.kind == Kind::Inert && s.contains("glass");
             (wiring || still_block || glass) && !door.contains(*p) && Some(**p) != lever && Some(**p) != lever_support
