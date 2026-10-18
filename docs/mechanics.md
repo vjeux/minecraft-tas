@@ -107,3 +107,5 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `silent-hold` | block + repeater | a quasi-powered piston ignores its source switching on and off until a neighbor update |
 | `pulse-bridge` | block, cross dust, block | an observer pulse moved one cell sideways into a repeater's back with 4 blocks (mech-50) |
 | `lever-tap` | repeater | a repeater reading the lever feeds a net that the lever's block cannot back-feed (mech-89) |
+| `pulse-toggle` | observer + retracted sticky piston | one 2gt pulse grabs a block two cells ahead, the next pushes it back and spits it: pistons with no steady power (logic-min) |
+| `lever-observer` | observer under the lever | the lever's support is an observer facing up that watches it and fires out of its back (logic-min) |

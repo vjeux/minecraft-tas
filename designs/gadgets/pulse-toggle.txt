@@ -1,0 +1,18 @@
+name: gadget-pulse-toggle
+# Pulse-driven puller (found by the logic-min track): a RETRACTED sticky piston P with an empty
+# cell in front and the block K two cells ahead. A 2gt pulse makes it extend into the empty
+# cell and retract normally, pulling K one cell toward it ("grab"); the next 2gt pulse pushes K
+# back and, the pulse ending while K is still moving, spits it (retract event type 2). One
+# observer on the lever gives one pulse per flip, so the piston needs no steady (inverted)
+# power at all. Lever L, observer O watching it, P powered by O's back.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:stone
+layer 0:
+  S
+layer 1:
+  LOP.K
