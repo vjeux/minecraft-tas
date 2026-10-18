@@ -59,6 +59,10 @@ pub enum DoorCmd {
         /// Extra cells the path may touch, "x,y,z;...".
         #[arg(long, default_value = "")]
         allow: String,
+        /// Take the swept cells from this drive script (ideal inputs) instead of flipping the
+        /// design's lever: for wiring a mechanism that does not run on its own yet.
+        #[arg(long)]
+        swept_script: Option<PathBuf>,
     },
     /// Drive a design by hand from a script (see drive.rs) and print the z=0 plane per tick.
     /// Several scripts run one after the other; any failed `expect` makes the command fail.
@@ -210,7 +214,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(p, &table)?;
             }
         }
-        DoorCmd::Route { design, start, goal, allow } => {
+        DoorCmd::Route { design, start, goal, allow, swept_script } => {
             let d = load_design(&design)?;
             let cells = |s: &str| -> Vec<[i32; 3]> {
                 s.split(';').filter(|x| !x.trim().is_empty()).map(|c| {
@@ -220,7 +224,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let spec = crate::DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
-            let mut reserved = crate::route::swept_cells(&mut w, &d, &spec)?;
+            let mut reserved = match &swept_script {
+                Some(s) => crate::drive::swept(&mut w, &std::fs::read_to_string(s)?)?,
+                None => crate::route::swept_cells(&mut w, &d, &spec)?,
+            };
             reserved.retain(|p| !d.blocks.contains_key(p));
             for x in 0..=2 { for y in 0..=2 { for z in -4..=4 { reserved.insert([x, y, z]); } } }
             reserved.insert([1, 3, 1]);

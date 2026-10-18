@@ -117,12 +117,43 @@ pub fn run(w: &mut Worker, script: &str) -> Result<DriveOutcome> {
 
 pub fn run_opts(w: &mut Worker, script: &str, verbose: bool) -> Result<DriveOutcome> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
-    let r = run_in(w, sb, script, verbose);
+    let r = run_in(w, sb, script, verbose, None);
     let _ = w.drop_sandbox(sb);
     r
 }
 
-fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool) -> Result<DriveOutcome> {
+/// Run a script silently and return every cell it sweeps: each cell that is non-air at any tick
+/// (within the design's box + 3), plus every neighbor of a slime/honey block or a moving piston
+/// at any tick. `door route --swept-script` uses it to wire a mechanism that so far only works
+/// with ideal (scripted) inputs.
+pub fn swept(w: &mut Worker, script: &str) -> Result<std::collections::HashSet<Pos>> {
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let mut cells = std::collections::HashSet::new();
+    let r = run_in(w, sb, script, false, Some(&mut cells));
+    let _ = w.drop_sandbox(sb);
+    r?;
+    Ok(cells)
+}
+
+fn collect_cells(w: &mut Worker, sb: u32, bx: Option<(Pos, Pos)>, out: &mut std::collections::HashSet<Pos>) -> Result<()> {
+    let Some((lo, hi)) = bx else { return Ok(()) };
+    let r = w.get_region(sb, lo, hi)?;
+    for (p, s) in r.iter() {
+        if mctas::blockstate::is_air(s) {
+            continue;
+        }
+        out.insert(p);
+        if s.starts_with("minecraft:slime_block") || s.starts_with("minecraft:honey_block") || s.contains("moving_piston") {
+            for f in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] {
+                out.insert([p[0] + f[0], p[1] + f[1], p[2] + f[2]]);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Option<&mut std::collections::HashSet<Pos>>) -> Result<DriveOutcome> {
+    let mut bx: Option<(Pos, Pos)> = None;
     let mut plane = (0, -6, -5, 8, 9);
     let mut tick = 0u32;
     let mut probes: Vec<(String, Pos)> = Vec::new();
@@ -160,6 +191,12 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool) -> Result<DriveO
             "design" => {
                 let d: Design = crate::cli::load_design(std::path::Path::new(parts[1]))?;
                 crate::video::place(w, sb, &d)?;
+                if let Some((lo, hi)) = d.bounds() {
+                    bx = Some(([lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3]));
+                }
+                if let Some(c) = collect.as_deref_mut() {
+                    collect_cells(w, sb, bx, c)?;
+                }
             }
             "plane" => plane = (int(1)?, int(2)?, int(3)?, int(4)?, int(5)?),
             "set" => {
@@ -176,6 +213,9 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool) -> Result<DriveO
                 for _ in 0..int(1)? {
                     w.step(sb, 1)?;
                     tick += 1;
+                    if let Some(c) = collect.as_deref_mut() {
+                        collect_cells(w, sb, bx, c)?;
+                    }
                     if verbose {
                         show(w, &format!("t={tick}"), plane)?;
                     }
@@ -183,7 +223,14 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool) -> Result<DriveO
             }
             "quiet" => {
                 let n = int(1)? as u32;
-                w.step(sb, n)?;
+                if let Some(c) = collect.as_deref_mut() {
+                    for _ in 0..n {
+                        w.step(sb, 1)?;
+                        collect_cells(w, sb, bx, c)?;
+                    }
+                } else {
+                    w.step(sb, n)?;
+                }
                 tick += n;
             }
             "print" => {
