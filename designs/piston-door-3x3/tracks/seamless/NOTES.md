@@ -129,6 +129,18 @@ column falls back down when its support retracts): not built here.
 
 ## Log
 
+* Gravity SUPER (covered), the one open route, sketched (not built): 9 sand; side columns pulled
+  into the side rings by six sticky pistons whose heads rest in the ring behind the sand (covered),
+  each side-ring column standing on a block in the ring CORNER (corners are not in S); the center
+  column (M, C, T) must fall 3 cells into a pit under the floor, so the cell under M (in the floor
+  ring) may only empty DOWNWARD while M still covers it, and the pit must then be clear: e.g. a
+  support K at (1,-1,0) pulled down into (1,-2,0) by a sticky piston at (1,-3,0), then K and that
+  (retracted) piston pulled sideways out of the shaft (cells beside the shaft below the floor are
+  not in S). Closing needs a 3-cell lift of a sand column with support at every tick (sand falls
+  as soon as the cell below empties; pistons do not fall): a pusher under the shaft plus side
+  feeders that slide a new block under the stack after each push, then the feeders' blocks are
+  taken out again on the next opening. Every step can stay covered or below the floor, but it is a
+  large sequential machine; `door seamless-why` and `--seamless supercov` are ready to judge it.
 * fc2's only open blocker is O_m (2,-1,0) (P_M's trigger). P_M's neighbors outside S: (0,-2,0),
   (2,-2,0), (1,-3,0), (1,-2,+-1); an observer there must watch (-1,-2,0) / (3,-2,0) / (1,-4,0) /
   (1,-2,+-2). Cheapest found: glue a slime + stone under one side structure so the stone leaves the
