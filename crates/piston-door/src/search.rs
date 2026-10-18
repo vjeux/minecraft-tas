@@ -342,7 +342,7 @@ impl Ctx {
                 keep.insert(*p);
             }
         }
-        let forbidden = spec.door_cells().into_iter().chain(spec.corridor_cells()).collect();
+        let forbidden = crate::route::keep_clear(&spec).into_iter().collect();
         Ok(Ctx { keep, forbidden, spec })
     }
 

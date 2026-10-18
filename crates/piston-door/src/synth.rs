@@ -405,8 +405,7 @@ impl Gen {
     pub fn new(context: &Design, o: &SynthOptions) -> Result<Gen> {
         let mut forbid = o.forbid.clone();
         if let Ok(spec) = DoorSpec::from_design(context) {
-            forbid.extend(spec.door_cells());
-            forbid.extend(spec.corridor_cells());
+            forbid.extend(crate::route::keep_clear(&spec));
             forbid.insert(spec.lever);
         }
         let mut free = HashSet::new();

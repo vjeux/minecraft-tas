@@ -318,6 +318,11 @@ pub enum DoorCmd {
         /// design's lever: for wiring a mechanism that does not run on its own yet.
         #[arg(long)]
         swept_script: Option<PathBuf>,
+        /// Take the swept cells from this working design instead (e.g. the design before a net
+        /// was cut out of it to be re-laid elsewhere): only the cells its moving parts visit, so
+        /// the cut net's own cells are free again.
+        #[arg(long)]
+        swept_design: Option<PathBuf>,
         /// Append the path to this file as `door patch` lines (`set x y z <state>`) instead of
         /// printing builder code.
         #[arg(long)]
@@ -1370,7 +1375,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(p, &table)?;
             }
         }
-        DoorCmd::Route { design, start, goal, allow, swept_script, patch } => {
+        DoorCmd::Route { design, start, goal, allow, swept_script, swept_design, patch } => {
             let d = load_design(&design)?;
             let cells = |s: &str| -> Vec<[i32; 3]> {
                 s.split(';').filter(|x| !x.trim().is_empty()).map(|c| {
@@ -1380,12 +1385,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let spec = crate::DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
-            let mut reserved = match &swept_script {
-                Some(s) => crate::drive::swept(&mut w, &std::fs::read_to_string(s)?)?,
-                None => crate::route::swept_cells(&mut w, &d, &spec)?,
+            let mut reserved = match (&swept_script, &swept_design) {
+                (Some(s), _) => crate::drive::swept(&mut w, &std::fs::read_to_string(s)?)?,
+                (None, Some(sd)) => {
+                    let sd = load_design(sd)?;
+                    let sspec = crate::DoorSpec::from_design(&sd)?;
+                    crate::route::swept_moving_cells(&mut w, &sd, &sspec)?
+                }
+                (None, None) => crate::route::swept_cells(&mut w, &d, &spec)?,
             };
             reserved.retain(|p| !d.blocks.contains_key(p));
-            for x in 0..=2 { for y in 0..=2 { for z in -4..=4 { reserved.insert([x, y, z]); } } }
+            reserved.extend(crate::route::keep_clear(&spec));
             reserved.insert([1, 3, 1]);
             let r = crate::route::Router { blocks: &d.blocks, reserved, allow: cells(&allow).into_iter().collect(), lo: [-12, -6, -8], hi: [12, 12, 10], floor_only: Default::default() };
             let goal = cells(&goal)[0];
