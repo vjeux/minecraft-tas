@@ -64,6 +64,10 @@ pub struct SearchArgs {
     /// `minecraft:sculk_sensor` (or `calibrated_sculk_sensor[facing=..]`) in the states.
     #[arg(long)]
     pub to_sculk: bool,
+    /// Also accept candidates that add entities to a solid design (category entity, the "Entities
+    /// allowed" board): put `cart`, `chestcart` or `stand` in `door grow --states`.
+    #[arg(long)]
+    pub to_entity: bool,
 }
 
 impl SearchArgs {
@@ -92,6 +96,7 @@ impl SearchArgs {
             max_open: self.max_open,
             max_close: self.max_close,
             to_sculk: self.to_sculk,
+            to_entity: self.to_entity,
         })
     }
 
