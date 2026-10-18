@@ -1,0 +1,26 @@
+name: stack-feed
+# Three stacked retracted sticky pistons (x=0, y=0..2, facing east) pull three stones at x=2.
+# ONE cross dust behind the stack at (0,2,-1) on its floor (0,1,-1) fires all three: the dust
+# points into the top piston, the floor (powered by the dust) powers the middle piston and
+# quasi-powers the bottom one (the floor touches the bottom piston's quasi cell). The observer
+# (0,3,-1) above the dust gives a 2 gt pulse when its watched cell (0,4,-1) changes.
+port door: 0 0 0
+port lever: 5 5 5
+origin: 0 0 -1
+palette:
+  P minecraft:sticky_piston[facing=east,extended=false]
+  K minecraft:stone
+  D minecraft:redstone_wire[north=side,east=side,south=side,west=side]
+  S minecraft:smooth_stone
+  O minecraft:observer[facing=up,powered=false]
+layer 0:
+  .
+  P.K
+layer 1:
+  S
+  P.K
+layer 2:
+  D
+  P.K
+layer 3:
+  O

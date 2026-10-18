@@ -21,6 +21,7 @@ pub mod designs;
 pub mod designs_history;
 pub mod designs_top;
 pub mod designs_center_mech;
+pub mod observer_seq;
 pub mod leaderboard;
 pub mod designs_gravity;
 pub mod lm;
