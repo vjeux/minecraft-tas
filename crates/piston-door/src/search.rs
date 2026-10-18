@@ -1700,9 +1700,11 @@ pub fn search(
 
 /// `door regrow`: every face-connected group of `size` non-piston control blocks is cut and
 /// re-grown with `size - 1` blocks from `states` inside the group's bounding box grown by
-/// `margin` (a "cut n, add n-1" move the removal-only minimizer cannot make). Returns the
-/// verified designs, fewest blocks first.
-pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], opts: &SearchOptions, want: usize, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+/// `margin` (a "cut n, add n-1" move the removal-only minimizer cannot make). With `any`, every
+/// group of `size` control blocks is cut, connected or not, and the new blocks go in the cells
+/// within `margin` of any cut block (two far-apart parts replaced by one block somewhere near
+/// either). Returns the verified designs, fewest blocks first.
+pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], opts: &SearchOptions, want: usize, any: bool, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
     let sandboxes = Sandboxes::new(pool);
     let ctx = Ctx::new(base)?;
     let cuttable: Vec<Pos> = ctx
@@ -1720,16 +1722,18 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
     for _ in 1..size {
         let mut next = Vec::new();
         for g in &frontier {
-            for p in g {
-                for f in FACES {
-                    let n = add(*p, f);
-                    if set.contains(&n) && !g.contains(&n) {
-                        let mut h = g.clone();
-                        h.push(n);
-                        h.sort();
-                        if groups.insert(h.clone()) {
-                            next.push(h);
-                        }
+            let around: Vec<Pos> = if any {
+                cuttable.clone()
+            } else {
+                g.iter().flat_map(|p| FACES.iter().map(move |f| add(*p, *f))).collect()
+            };
+            for n in around {
+                if set.contains(&n) && !g.contains(&n) {
+                    let mut h = g.clone();
+                    h.push(n);
+                    h.sort();
+                    if groups.insert(h.clone()) {
+                        next.push(h);
                     }
                 }
             }
@@ -1741,24 +1745,42 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
     for g in &groups {
         let cut = Edit::removal(g, base);
         let d = cut.apply(base);
-        let (mut lo, mut hi) = (g[0], g[0]);
-        for p in g {
-            for i in 0..3 {
-                lo[i] = lo[i].min(p[i] - margin);
-                hi[i] = hi[i].max(p[i] + margin);
+        let mut cells: Vec<Pos> = Vec::new();
+        if any {
+            let mut seen: HashSet<Pos> = HashSet::new();
+            for p in g {
+                for x in p[0] - margin..=p[0] + margin {
+                    for y in p[1] - margin..=p[1] + margin {
+                        for z in p[2] - margin..=p[2] + margin {
+                            if seen.insert([x, y, z]) {
+                                cells.push([x, y, z]);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            let (mut lo, mut hi) = (g[0], g[0]);
+            for p in g {
+                for i in 0..3 {
+                    lo[i] = lo[i].min(p[i] - margin);
+                    hi[i] = hi[i].max(p[i] + margin);
+                }
+            }
+            for x in lo[0]..=hi[0] {
+                for y in lo[1]..=hi[1] {
+                    for z in lo[2]..=hi[2] {
+                        cells.push([x, y, z]);
+                    }
+                }
             }
         }
         let mut singles: Vec<(Pos, String)> = Vec::new();
-        for x in lo[0]..=hi[0] {
-            for y in lo[1]..=hi[1] {
-                for z in lo[2]..=hi[2] {
-                    let p = [x, y, z];
-                    if d.blocks.contains_key(&p) || ctx.forbidden.contains(&p) {
-                        continue;
-                    }
-                    singles.extend(states.iter().map(|s| (p, s.clone())));
-                }
+        for p in cells {
+            if d.blocks.contains_key(&p) || ctx.forbidden.contains(&p) {
+                continue;
             }
+            singles.extend(states.iter().map(|s| (p, s.clone())));
         }
         let stands = |a: Pos, sa: &String, other: Option<(Pos, &String)>| match attachment(a, sa) {
             Some(at) => match other {

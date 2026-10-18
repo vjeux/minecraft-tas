@@ -265,6 +265,24 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// Try every combination of alternative patch groups (see place.rs): for wiring a mechanism
+    /// whose part placements are a 3D puzzle. Screened at one position, judged at the default
+    /// positions; every working combination is written next to --out.
+    Place {
+        design: PathBuf,
+        #[arg(long)]
+        groups: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Stop after this many working designs (0 = all).
+        #[arg(long, default_value_t = 0)]
+        want: usize,
+        /// Extra pseudo-random judge positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+    },
     /// Cut every face-connected group of --size control blocks (pistons excluded) and re-grow it
     /// with size-1 blocks from --states inside the group's box grown by --margin (see search.rs
     /// `regrow`). The best verified design is written to --out.
@@ -281,6 +299,10 @@ pub enum DoorCmd {
         states: String,
         #[arg(long, default_value_t = 1)]
         want: usize,
+        /// Cut any group of --size control blocks, connected or not (new blocks go within
+        /// --margin of any cut block).
+        #[arg(long)]
+        any: bool,
         #[command(flatten)]
         search: SearchArgs,
     },
@@ -600,6 +622,22 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 anyhow::bail!("{failed} of {} scripts failed", scripts.len());
             }
         }
+        DoorCmd::Place { design, groups, out, workers, want, extra_offsets } => {
+            let d = load_design(&design)?;
+            let text = std::fs::read_to_string(&groups)?;
+            let gs = crate::place::parse_groups(&text)?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let opts = crate::place::PlaceOptions {
+                screen: VerifyOptions { cycles: 1, offsets: offsets.iter().take(1).copied().collect(), ..Default::default() },
+                judge: VerifyOptions { offsets, ..Default::default() },
+                want,
+            };
+            let found = crate::place::place(&pool, &d, &gs, &opts, &out, &log)?;
+            println!("{} working combinations", found.len());
+        }
         DoorCmd::Minimize { design, out, search, minutes, archive, name } => {
             let mut d = load_design(&design)?;
             if let Some(n) = name {
@@ -632,14 +670,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
         }
-        DoorCmd::Regrow { design, out, size, margin, states, want, search } => {
+        DoorCmd::Regrow { design, out, size, margin, states, want, any, search } => {
             let d = load_design(&design)?;
             let pool = search.pool(version)?;
             let t = std::time::Instant::now();
             let opts = search.options()?;
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
             let st = crate::search::grow_states(&states)?;
-            let found = crate::search::regrow(&pool, &d, size, margin, &st, &opts, want, &log)?;
+            let found = crate::search::regrow(&pool, &d, size, margin, &st, &opts, want, any, &log)?;
             for (fd, desc) in &found {
                 println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
             }

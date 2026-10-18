@@ -32,6 +32,7 @@ pub mod ideal;
 pub mod route;
 pub mod minimize;
 pub mod patch;
+pub mod place;
 pub mod search;
 pub mod showcase;
 pub mod video;
