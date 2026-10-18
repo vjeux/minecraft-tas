@@ -27,6 +27,7 @@ pub mod designs_fresh_b;
 pub mod designs_top;
 pub mod designs_center_mech;
 pub mod observer_seq;
+pub mod obschain;
 pub mod leaderboard;
 pub mod designs_gravity;
 pub mod lm;

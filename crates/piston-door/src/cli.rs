@@ -941,6 +941,23 @@ pub enum DoorCmd {
     /// Apply an edit script to a design and write the (canonicalized) result. Script lines:
     /// `set x y z <state>` (an extended piston gets its head too), `clear x y z` (a piston
     /// takes its head along), `port <name> x y z`; `#` starts a comment line.
+    /// Wire a pulse-driven mechanism with a tree of observers rooted at an observer watching the
+    /// lever (obschain.rs): every driver observer (spec options) fires at its time, watching a
+    /// tree observer one step earlier; exact-length observer paths through free cells, fewest
+    /// observers (branch and bound within --secs).
+    ObsChain {
+        spec: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Paths tried per driver.
+        #[arg(long, default_value_t = 12)]
+        max_paths: usize,
+        #[arg(long, default_value_t = 60)]
+        secs: u64,
+        /// Added to every group's time (the root's distance budget).
+        #[arg(long, default_value_t = 0)]
+        shift: i32,
+    },
     Patch {
         design: PathBuf,
         script: PathBuf,
@@ -1298,6 +1315,11 @@ pub enum DoorCmd {
         /// any, is the one lever; every copy then holds the relay).
         #[arg(long)]
         tile_extra: Option<PathBuf>,
+        /// Also decide the "on the ground" board: the swept shape (nothing below the door's
+        /// bottom row at rest or at any tick of a cycle) and the ground check (the judge's
+        /// positions with the door standing on a stone floor).
+        #[arg(long)]
+        ground: bool,
     },
     /// Tile board (tile.rs): every design with a `tiling:` header (e.g. `tiling: period:8:3`) on
     /// HEAD and the explore/* branches, judged as a tile module; ranked per tiling kind by blocks
@@ -2432,6 +2454,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             rd.save(&out)?;
             println!("{} turned {} degrees{} ({}-facing door) written to {}", d.name, turns as u32 % 4 * 90, if mirror { ", mirrored" } else { "" }, if spec.along_z { "east/west" } else { "north/south" }, out.display());
         }
+        DoorCmd::ObsChain { spec, out, max_paths, secs, shift } => {
+            let mut w = Worker::spawn(&cfg)?;
+            crate::obschain::run(&mut w, &spec, &out, max_paths, secs, shift)?;
+        }
         DoorCmd::Patch { design, script, out } => {
             let d0 = load_design(&design)?;
             let text = std::fs::read_to_string(&script)?;
@@ -2858,7 +2884,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(path, out)?;
             }
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out, tile_extra } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out, tile_extra, ground } => {
             let d = load_design(&design)?;
             if let Some(spec) = tile {
                 let mut t = crate::tile::Tile::parse(&spec)?;
@@ -2917,6 +2943,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         match crate::rotation_check(&mut w, &d, &ropts)? {
                             None => println!("rotation-safe: also works turned 90, 180 and 270 degrees ({} positions each)", ropts.offsets.len()),
                             Some((turns, why)) => println!("NOT rotation-safe (listed on the separate board): turned {} degrees: {why}", turns as u32 * 90),
+                        }
+                    }
+                    if ground {
+                        let swept = crate::swept_shape(&mut w, &d)?;
+                        let gopts = VerifyOptions { keep_frames: false, ..opts.clone() };
+                        if swept.below > 0 {
+                            println!("NOT on the ground: {} row(s) below the door at rest or while moving", swept.below);
+                        } else {
+                            match crate::ground_check(&mut w, &d, &gopts)? {
+                                None => println!("on the ground: nothing below the door at any tick, works on a stone floor ({} positions)", gopts.offsets.len()),
+                                Some(why) => println!("NOT on the ground: fails standing on a stone floor: {}", why.chars().take(200).collect::<String>()),
+                            }
                         }
                     }
                     if orientations {

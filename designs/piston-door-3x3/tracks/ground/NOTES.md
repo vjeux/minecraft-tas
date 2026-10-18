@@ -55,3 +55,25 @@ inputs: `ground20.ideal` per edge, `ground-sym.ideal` one 24-pulse train for bot
 - 20:44Z mech-wire on ground20.ideal (uniform gap 5, 128-tick waves, motion triggers): 0 lever
   spots reach every receiver. A self-timed sequencer needs its own search (couplings: observer
   watching a cell piston X changes -> piston Y), not route2.
+
+## FIRST GROUND DOOR: g99 (2026-10-18 21:32Z)
+`g99.txt` (= BEST.txt, archive/ground-g99-99b.txt): **99 blocks, volume 462 (11x6x7)**, open/close
+54/54, slime-free, rotation-safe, `door verify --extra-offsets 28 --ground`: WORKS at 32 positions,
+on the ground (nothing below the door at any tick, works on a stone floor at 32 positions). Not
+seamless (the ground board does not need it: vjeux via the coordinator, 20:48Z).
+* Mechanism: shift2 (21 blocks). Control: 76 observers + lever + its block, NOTHING else: a tree
+  of observers rooted at an observer watching the lever (one 2 gt pulse on BOTH edges), one
+  driver observer per (piston group, step) firing into its piston (stacked rows: the driver
+  above the top piston facing up powers it and quasi-powers the one below; P0-shifted by
+  quasi-connectivity through (3,1,0) from an observer at (3,1,-1); the QC'd piston gets its
+  update from the observer's output updating (3,1,0)'s neighbours).
+* Timing (2 gt units after the first step): rows 1-2 (left) 0,2,5,7,9,12 + far puller (right)
+  14; row 0 (right) 0,2,5,8,11,14 + far puller (left) 14. Observers on a cubic grid have a
+  fixed parity per time (cell parity = root parity + time), so gaps had to be chosen per side
+  to match the drivers' cell parities (`wire/shift2-obs-lr.ideal` validates them with ideal
+  marker blocks: works at 16 positions x 3 cycles).
+* Tool: `mctas door obs-chain <spec>` (obschain.rs): driver options per group + times; DFS over
+  driver choices with exact-length observer paths (BFS-distance pruned), branch and bound on
+  the observer count. Spec: `wire/shift2.chain` (`--shift 11`). Chain observers may output
+  into the ground check's floor (harmless: only the observer stands on that floor block).
+* `door verify --ground` (new): swept shape below + ground check at the judge's positions.
