@@ -125,6 +125,10 @@ pub struct SearchOptions {
     /// Also accept candidates that turn a solid design into an entity one (they add entities;
     /// the door stays otherwise solid): searches for the "Entities allowed" board.
     pub to_entity: bool,
+    /// Accept only rotation-safe candidates ([`crate::rotation_check`] at the judge's positions)
+    /// when the start design is rotation-safe: the boards rank rotation-safe doors, so an
+    /// improvement that breaks a turn lands on the other board. Checked after the full judge.
+    pub keep_rotations: bool,
 }
 
 /// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk, or (with
@@ -147,7 +151,8 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
         || (opts.to_entity && solid_base && crate::category(d) == "entity" && crate::entities_allowed_board(d) && keeps)
 }
 
-/// [`verify_in`] plus the search's speed constraints.
+/// [`verify_in`] plus the search's speed constraints, and (full judge only, with
+/// `keep_rotations`) the rotation check.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
     let r = speed_check(verify_in(w, sb, d, v)?, opts)?;
     // Shape boards measure the space a door needs while it moves too: check the swept shape.
@@ -155,6 +160,12 @@ fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, 
         let s = crate::swept_shape_in(w, sb, d)?;
         if !l.allows(&s) {
             anyhow::bail!("outside the --shape limits while it moves: {s:?}");
+        }
+    }
+    // The full judge (not a screen): with `keep_rotations`, the rotation check too.
+    if opts.keep_rotations && !opts.rotation_safe && std::ptr::eq(v, &opts.judge) {
+        if let Some((turns, why)) = crate::rotation_check(w, d, v)? {
+            anyhow::bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
         }
     }
     Ok(r)
@@ -1622,6 +1633,25 @@ pub fn search(
     if cur.blocks.len() != airs {
         log(&format!("dropped {} air entries from the start design", airs - cur.blocks.len()));
     }
+    // Keep rotation safety only if the start design has it.
+    let relaxed;
+    let opts = if opts.keep_rotations {
+        let mut w = pool.worker(0);
+        let start_rot = crate::rotation_check(&mut w, &cur, &opts.judge)?;
+        match start_rot {
+            None => {
+                log("the start design is rotation-safe: candidates must stay rotation-safe (--any-rotation to allow others)");
+                opts
+            }
+            Some((turns, _)) => {
+                log(&format!("the start design is NOT rotation-safe (turned {} degrees): rotations not checked", turns as u32 * 90));
+                relaxed = SearchOptions { keep_rotations: false, ..opts.clone() };
+                &relaxed
+            }
+        }
+    } else {
+        opts
+    };
     let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;

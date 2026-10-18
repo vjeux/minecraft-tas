@@ -1,0 +1,128 @@
+name: fast-clean-c1r
+port door: 0 0 0
+port lever: 0 4 -2
+origin: -3 0 -3
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:piston[extended=false,facing=south]
+  C minecraft:piston[extended=false,facing=west]
+  D minecraft:piston_head[facing=down,short=false,type=sticky]
+  E minecraft:piston_head[facing=east,short=false,type=sticky]
+  F minecraft:piston_head[facing=up,short=false,type=sticky]
+  G minecraft:piston_head[facing=west,short=false,type=sticky]
+  H minecraft:redstone_wall_torch[facing=south,lit=true]
+  I minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  J minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=up]
+  K minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=up]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  M minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  N minecraft:redstone_wire[east=none,north=up,power=0,south=side,west=none]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  Q minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  R minecraft:redstone_block
+  S minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=side]
+  T minecraft:redstone_wire[east=side,north=none,power=0,south=up,west=side]
+  U minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  V minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=none]
+  W minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=none]
+  X minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  Y minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=none]
+  Z minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=side]
+  a minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  b minecraft:repeater[delay=1,facing=north,locked=true,powered=false]
+  c minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
+  d minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  e minecraft:sticky_piston[extended=false,facing=down]
+  f minecraft:sticky_piston[extended=false,facing=east]
+  g minecraft:sticky_piston[extended=false,facing=west]
+  h minecraft:sticky_piston[extended=true,facing=down]
+  i minecraft:sticky_piston[extended=true,facing=east]
+  j minecraft:sticky_piston[extended=true,facing=up]
+  k minecraft:sticky_piston[extended=true,facing=west]
+  l minecraft:stone
+  o minecraft:observer[facing=north,powered=false]
+  p minecraft:piston[extended=false,facing=north]
+  r minecraft:redstone_wall_torch[facing=east,lit=true]
+  s minecraft:smooth_stone
+  t minecraft:target[power=0]
+layer -2:
+  .
+  .
+  .s
+  .l..j
+  .
+  .
+  .
+layer -1:
+  .
+  .s
+  .N
+  .UtrF
+  .
+  .
+  .
+layer 0:
+  s
+  sJ......s
+  .
+  .iElllGk
+  .
+  .
+  .
+layer 1:
+  Ys
+  V......sJ
+  t.......t
+  HiElllGkH
+  .
+  .
+  .
+layer 2:
+  .Xs....s
+  ..s....W
+  .
+  liElllGks
+  .
+  .
+  .
+layer 3:
+  ..ZssslJ
+  ..Ml
+  l.oAl
+  aAfeD.C
+  .
+  .
+  .
+layer 4:
+  ...SQQT
+  ...Lo.o
+  IlOPR.C
+  ...Oh
+  .
+  .
+  .
+layer 5:
+  .
+  ...s.sK
+  ...sl.o
+  ....B.s
+  .
+  ....R
+  ....ps
+layer 6:
+  .
+  ..ldtT
+  ..Hcbs
+  ....l
+  ...R.g
+  .....l
+  .....N
+layer 7:
+  .
+  .
+  .....M
+  .....o
+  .....l
+  .....M
+  .

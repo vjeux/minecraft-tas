@@ -81,6 +81,10 @@ pub struct SearchArgs {
     /// allowed" board): put `cart`, `chestcart` or `stand` in `door grow --states`.
     #[arg(long)]
     pub to_entity: bool,
+    /// Accept candidates that are not rotation-safe. By default a rotation-safe start design
+    /// only accepts rotation-safe candidates (the boards rank rotation-safe doors).
+    #[arg(long)]
+    pub any_rotation: bool,
 }
 
 impl SearchArgs {
@@ -114,6 +118,7 @@ impl SearchArgs {
             shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
             rotation_safe: self.rotation_safe,
             to_entity: self.to_entity,
+            keep_rotations: !self.any_rotation,
         })
     }
 
@@ -907,6 +912,14 @@ pub enum DoorCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// List a design's blocks with their coordinates, one `x y z state` line each (the same
+    /// coordinates `door patch` and `door drive` use), optionally only those inside a box.
+    Blocks {
+        design: PathBuf,
+        /// Only blocks inside this box, "x0,y0,z0:x1,y1,z1" (inclusive).
+        #[arg(long)]
+        only: Option<String>,
+    },
     /// Place a design, settle, flip the lever and print every block change tick by tick.
     Trace {
         design: PathBuf,
@@ -1305,6 +1318,10 @@ pub enum DoorCmd {
         /// Judge every candidate as a tile module (tile.rs; see `door verify --tile`).
         #[arg(long)]
         tile: Option<String>,
+        /// Accept replacements that are not rotation-safe. By default a rotation-safe start
+        /// design only accepts rotation-safe replacements (the boards rank rotation-safe doors).
+        #[arg(long)]
+        any_rotation: bool,
     },
 }
 
@@ -2214,6 +2231,27 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             d.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d0), crate::block_count(&d), out.display());
         }
+        DoorCmd::Blocks { design, only } => {
+            let d = load_design(&design)?;
+            let bx: Option<([i32; 3], [i32; 3])> = match &only {
+                None => None,
+                Some(s) => {
+                    let (a, b) = anyhow::Context::context(s.split_once(':'), "--only wants x0,y0,z0:x1,y1,z1")?;
+                    let p = |t: &str| -> Result<[i32; 3]> {
+                        let v: Vec<i32> = t.split(',').map(|n| n.trim().parse()).collect::<std::result::Result<_, _>>()?;
+                        anyhow::ensure!(v.len() == 3, "a corner needs 3 coordinates: {t}");
+                        Ok([v[0], v[1], v[2]])
+                    };
+                    let (a, b) = (p(a)?, p(b)?);
+                    Some(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
+                }
+            };
+            let mut ps: Vec<(&[i32; 3], &String)> = d.blocks.iter().filter(|(p, _)| bx.is_none_or(|(lo, hi)| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]))).collect();
+            ps.sort_by_key(|(p, _)| (p[1], p[2], p[0]));
+            for (p, s) in ps {
+                println!("{} {} {} {}", p[0], p[1], p[2], s.strip_prefix("minecraft:").unwrap_or(s));
+            }
+        }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;
             let mut w = Worker::spawn(&cfg)?;
@@ -2437,6 +2475,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     judge: VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() },
                     max_open,
                     max_close,
+                    rotations: false,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -2460,7 +2499,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation } => {
             use crate::synth::*;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let d = load_design(&design)?;
@@ -2473,7 +2512,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 None => None,
             };
-            let o = ResynthOptions {
+            let mut o = ResynthOptions {
                 min_size,
                 max_size,
                 palette: palette_states(&palette)?,
@@ -2487,6 +2526,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 global_retry,
                 require_any: require_any_names(&require_any),
                 only,
+                keep_rotations: false,
             };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() };
@@ -2500,6 +2540,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 let (o, c) = crate::search::worst_ticks(&r);
                 log(&format!("start: {} blocks, open {o} / close {c}", crate::block_count(&d)));
                 anyhow::ensure!(max_open.is_none_or(|m| o <= m) && max_close.is_none_or(|m| c <= m), "the start design misses the speed bounds (open {o} / close {c})");
+            }
+            if !any_rotation {
+                let mut w = pool.worker(0);
+                match crate::rotation_check(&mut w, &d, &judge)? {
+                    None => {
+                        o.keep_rotations = true;
+                        log("the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)");
+                    }
+                    Some((turns, _)) => log(&format!("the start design is NOT rotation-safe (turned {} degrees): rotations not checked", turns as u32 * 90)),
+                }
             }
             let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
             // Keep the canonical rest state only if it still passes the judge (a design written
