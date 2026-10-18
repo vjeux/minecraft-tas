@@ -16,6 +16,14 @@ league.
 * `resynth`: note blocks and targets are removable wiring; `--max-open/--max-close` (also on
   `synth`) reject candidates slower than the bound, at the first position as the leaderboard
   measures it (speed boards); every improvement is written to `--out` as soon as it is found.
+* `resynth`: after an improvement only the groups whose neighborhood (blocks within margin + 3)
+  changed are searched again (`--global-retry` restores the full restart). On the 119-block speed
+  door the old loop rescanned all ~1800 groups after each of its 12 improvements.
+* `synth`/`resynth --require-any lamp,bulb,note,target`: keep only circuits that use one of the
+  new blocks, to sweep them cheaply on designs the old palette already exhausted (fc2's top
+  cluster, 7 blocks -> k <= 6: 440k circuits instead of millions).
+* Gadget `target-tap`: a target beside a dust line is powered by it (the dust bends into the
+  signal source), a plain block is not.
 
 ## Inputs (board leaders at 13:20Z)
 | board | design | blocks |
@@ -33,12 +41,17 @@ Palette for every resynth: `block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,no
 
 | design | blocks | board | from | what changed | open / close |
 |---|---|---|---|---|---|
-| `w41.txt` | **41** | slime-free (was 42) | wire19sf-w42 | resynth 2..4: A1's X dust + floor and the right-side feed (lamp (1,4,-1) on (1,3,-1), observers (2,4,-2) watching O_a and (2,4,-1)) -> smooth stone (1,4,-1) + smooth stone (2,3,-1) + cross dust (2,4,-1): the block next to A is powered by the dust, which also feeds the TR puller | 28 / 26 |
+| `w41.txt` | **41** | slime-free (was 42) | wire19sf-w42 | resynth 2..4: A1's X dust (1,4,-1) + its floor (1,3,-1) and the TR puller's 2-observer chain ((2,4,-2) watching O_a, (2,4,-1)) -> smooth stone (1,4,-1) (O_a powers it, it powers A), cross dust (2,4,-1) beside it on smooth stone (2,3,-1): O_a's own pulse now fires the TR puller at t2 instead of t6 | 28 / 26 |
 | `fb44.txt` | **44** | flat (was 45) | flat-b-v6 | resynth 2..4: observers (-1,4,0), (-1,5,0), (0,5,0) + smooth stone (1,5,0) -> observer (0,5,0) facing down, observer (1,5,0) facing west, smooth stone (2,5,0) | 30 / 26 |
-<<<<<<< HEAD
-| fc2-40b | 40 | solid | - | resynth 2..4 (115 groups, up to 39k circuits each): nothing | |
-=======
 | `flat43.txt` | **43** | flat (was 45) | flat-v8 (49) | resynth 2..4, six steps in a row: (1) observers (-2,4,0), (-2,5,0), (-1,3,0), (-1,5,0) -> REDSTONE LAMP (-1,3,0) + cross dust (-1,4,0) + smooth stone (-1,5,0) (the lamp holds the signal 4 gt longer, which made the next five possible); (2-6) the observer/stone/repeater chain above (y=5..7) collapses into dust: a repeater d4 (1,6,0) fed by dust (0,6,0) | 46 / 44 |
 | fc2-40b, riders-fx1-40b, m05-21b-sym-40b | 40 | solid | - | resynth 2..4 (114-115 groups each, up to 40k circuits per group): nothing | |
 | sculk2-s4 | 36 | sculk | - | resynth 2..4: nothing | |
->>>>>>> origin/explore/lamp-sweep
+| synth-g42-42b | 42 | gravity | - | resynth 2..4: nothing | |
+| `o6-107.txt` | **107** | speed (solid, slime-free; was 119 at the same 11 / 7) | speed-wire-o6 (119) | resynth 2..4 with `--max-open 11 --max-close 7`: twelve replacements, among them twice a wall torch on a TARGET block (gadget target-tap: the dust beside it bends into the target and powers it) instead of stone + dust + floor (stopped after all size-2/3 groups: the ~1200 size-4 groups take 10-15 s each on the loaded box) | 11 / 7 |
+| `a1-107.txt` | **107** | speed: the fastest solid door (open 10) | speed-2-a1m (123, open 10 / close 7) | resynth 2..3 with `--max-open 10 --max-close 7`: 16 replacements (the o6 target taps again, a REDSTONE LAMP + observer instead of a block + 2 observers, the note block of speed-2's odd-pulse trick folded into the lamp) | 10 / 7 |
+| w41 | 41 | slime-free | - | resynth size 5 (52 groups, palette without torch/cmp, up to 274k circuits per group): nothing | |
+| fc2-40b | 40 | solid | - | targeted `door synth`: the whole top cluster (O_a, O_b, J, R_B, O, X + floor: 7 blocks) cleared, k <= 6, `--require-any lamp,bulb,note,target`, box (-2,2,-1)..(1,7,1), sinks A (both positions), B and its quasi cell: 440k circuits, none passes the screen | |
+| riders-fx1-40b | 40 | solid | - | the same top-cluster synth (sinks + P_L and its quasi cell, since X fires P_L in fx1): 701k circuits, none passes | |
+| m05-21b-sym-40b | 40 | solid | - | wire21's top-left synth again (O_a, A driver, O_b, J, O_c, O_d, P_L observer: 7 blocks, k <= 6) with bulb/note/target added and `--require-any`: 835k circuits, none passes | |
+| flat43 | 43 | flat | - | resynth size 5 (173 groups, full palette, up to 666k circuits per group, 70 min): nothing | |
+| sculk2-s4 | 36 | sculk | - | only 6 removable blocks, no connected group of 5 or 6: resynth exhausted | |

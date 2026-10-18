@@ -81,3 +81,17 @@ comes to rest, blocking: observer.
 
 Note: `fresh-d-s4-45b-2` is the waxed-bulb version (it passes 10+ cycles); only the unwaxed
 `fresh-d-s4-45b` / `fresh-d-s3-47b` (now `*-invalid.txt`) had the oxidation hazard.
+## Replayed in the real game (vanilla-build track)
+
+`mctas door vanilla-build <script>` replays these scripts in the UNMODIFIED 26.3 server with a bot
+player (item in hand, the script's look direction, sneaking, a right-click on the given face;
+temporary dirt placed and broken by the bot too), compares vanilla with the simulator after every
+action, the built world with the judge's rest state, then runs the judge's cycles with the bot.
+Every leader above, plus the newer leaders wire19sf-w43-43b, flat-v2-54b and sculk2-s1-38b
+(scripts in `tracks/vanilla-build/scripts/`), PASSES: identical after every action, built world =
+rest state, cycles identical tick for tick (4 positions; fc2-40b-2 at 32; also built at real-time
+20 tps). Details, the method and the findings (a player standing by st43's sensor makes it fire one
+extra time after step 26; the flat script belongs to the 55-block revision 07bdbd0, not
+`flat-v2-60b.txt`; 12% of clicks have no standing spot on their exact view ray; the build op sets
+repeater delays and the lever in the same tick as the placement) are in
+[tracks/vanilla-build/NOTES.md](tracks/vanilla-build/NOTES.md).

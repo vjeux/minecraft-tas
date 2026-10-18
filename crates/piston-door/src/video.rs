@@ -68,7 +68,8 @@ impl VideoOptions {
         VideoOptions { camera: Camera::Door { orbit }, title_secs: 0.0, label: false, ..Default::default() }
     }
 
-    /// Seconds of door footage per clip (holds + both plays), the orbit's period.
+    /// Seconds of door footage per clip (holds + both plays) for a door that settles within
+    /// `ticks`; `record` plays longer for a door that is still moving then.
     pub fn clip_secs(&self) -> f64 {
         HOLD_START + HOLD_OPEN + HOLD_END + 2.0 * self.ticks as f64 / self.tps
     }
@@ -278,7 +279,7 @@ pub fn design_shot(d: &Design, orbit: f64, aspect: f64) -> Result<Shot> {
     Ok(door_shot(&blocks, spec.door, orbit, aspect, 0.9))
 }
 
-fn free_port() -> Result<u16> {
+pub(crate) fn free_port() -> Result<u16> {
     let l = std::net::TcpListener::bind("127.0.0.1:0")?;
     Ok(l.local_addr()?.port())
 }
@@ -304,6 +305,9 @@ pub struct Facts {
     pub slime_free: bool,
     /// Every block in the door's plane (one block thick).
     pub flat: bool,
+    /// Also works turned 90, 180 and 270 degrees (from the leaderboard's cache; true when
+    /// unknown, e.g. a title card made outside the boards).
+    pub rotation_safe: bool,
     /// Ticks after the lever flip until open / closed (first cycle), when the door works.
     pub open_ticks: Option<u32>,
     pub close_ticks: Option<u32>,
@@ -317,6 +321,7 @@ impl Facts {
             category: crate::category(d).to_string(),
             slime_free: crate::slime_free(d),
             flat: crate::single_layer(d),
+            rotation_safe: true,
             open_ticks: None,
             close_ticks: None,
         }
@@ -363,12 +368,16 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     };
     let mut w = Worker::spawn(&cfg)?;
     let mut facts = Facts::of(d);
-    if opts.title_secs > 0.0 || opts.label {
-        // Timings for the card: one cycle at the origin (the judge's first position).
-        let vo = crate::VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], ..Default::default() };
-        if let Ok(r) = crate::verify(&mut w, d, &vo) {
-            facts.open_ticks = r.cycles.first().map(|c| c.open_ticks);
-            facts.close_ticks = r.cycles.first().map(|c| c.close_ticks);
+    // One cycle at the origin (the judge's first position): the card's timings, and how long to
+    // play after each flip: at least until nothing moves anymore, so the second flip never comes
+    // while the machine is still moving (a fixed 40 ticks cut the slow doors short).
+    let mut ticks = opts.ticks;
+    let vo = crate::VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], ..Default::default() };
+    if let Ok(r) = crate::verify(&mut w, d, &vo) {
+        if let Some(c) = r.cycles.first() {
+            facts.open_ticks = Some(c.open_ticks);
+            facts.close_ticks = Some(c.close_ticks);
+            ticks = ticks.max(c.open_settle).max(c.close_settle);
         }
     }
     let sb = w.create(&SandboxOptions { chunks: [-7, -7, 6, 6], seed: 0 })?;
@@ -424,8 +433,8 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
 
     let raw = run.join("raw.mkv");
     let rec = Recorder::start(&display, opts.width, opts.height, opts.fps, &raw)?;
-    let plan = [Step::Hold(HOLD_START), Step::Lever, Step::Ticks(opts.ticks), Step::Hold(HOLD_OPEN), Step::Lever, Step::Ticks(opts.ticks), Step::Hold(HOLD_END)];
-    let total = opts.clip_secs();
+    let plan = [Step::Hold(HOLD_START), Step::Lever, Step::Ticks(ticks), Step::Hold(HOLD_OPEN), Step::Lever, Step::Ticks(ticks), Step::Hold(HOLD_END)];
+    let total = HOLD_START + HOLD_OPEN + HOLD_END + 2.0 * ticks as f64 / opts.tps;
     let moving = shot.filter(|s| s.orbit.abs() > 1e-9);
     let t0 = Instant::now();
     // Serve the client until `until` seconds after t0, moving the camera along the orbit.
@@ -478,9 +487,10 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
 
 /// Render a video of every design in `dir` (each `.txt`, README excluded) into `out/<stem>.mp4`,
 /// `jobs` at a time, skipping videos that already exist (unless `redo`); upload each new one to
-/// the GitHub release `upload` (as `<stem>.mp4`). Writes `dir/VIDEOS.md` linking every design to
-/// its video.
-pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Option<&str>, opts: &VideoOptions, redo: bool) -> Result<()> {
+/// the GitHub release `upload` (as `<stem>.mp4`). With `redo_cut`, existing videos of doors that
+/// are still moving after `opts.ticks` are recorded again (clips used to stop there). Writes
+/// `dir/VIDEOS.md` linking every design to its video.
+pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Option<&str>, opts: &VideoOptions, redo: bool, redo_cut: bool) -> Result<()> {
     std::fs::create_dir_all(out)?;
     let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)?
         .flatten()
@@ -488,11 +498,26 @@ pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Op
         .filter(|p| p.extension().is_some_and(|x| x == "txt"))
         .collect();
     files.sort();
-    let todo: Vec<std::path::PathBuf> = files
-        .iter()
-        .filter(|p| redo || !out.join(format!("{}.mp4", p.file_stem().unwrap().to_string_lossy())).exists())
-        .cloned()
-        .collect();
+    let has_video = |p: &std::path::PathBuf| out.join(format!("{}.mp4", p.file_stem().unwrap().to_string_lossy())).exists();
+    let mut todo: Vec<std::path::PathBuf> = files.iter().filter(|p| redo || !has_video(p)).cloned().collect();
+    if redo_cut && !redo {
+        let have: Vec<std::path::PathBuf> = files.iter().filter(|p| has_video(p)).cloned().collect();
+        let pool = mctas::sim::Pool::spawn(jobs.max(1) * 2, &WorkerConfig { version: version.to_string(), ..Default::default() })?;
+        let vo = crate::VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], ..Default::default() };
+        let settle = pool.map(have.clone(), |w, _, p| {
+            let d = Design::load(&p)?;
+            let r = crate::verify(w, &d, &vo)?;
+            Ok(r.cycles.first().map(|c| c.open_settle.max(c.close_settle)).unwrap_or(0))
+        });
+        for (p, s) in have.into_iter().zip(settle) {
+            if let Ok(s) = s
+                && s > opts.ticks
+            {
+                eprintln!("{}: still moving after {} ticks (settles at {s}), re-recording", p.display(), opts.ticks);
+                todo.push(p);
+            }
+        }
+    }
     eprintln!("{} designs, {} videos to record ({} at a time)", files.len(), todo.len(), jobs);
     let queue = std::sync::Mutex::new(todo);
     std::thread::scope(|s| {

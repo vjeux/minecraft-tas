@@ -159,7 +159,7 @@ pub fn run(w: &mut Worker, s: &Schedule, vars: &BTreeMap<String, i64>, opts: &Id
         let mut worst = (0u32, 0u32);
         for (oi, off) in opts.offsets.iter().enumerate() {
             let d = s.design.translated(*off);
-            let spec = DoorSpec { door: *d.ports.get("door").context("design has no door port")?, lever: [0, 0, 0] };
+            let spec = DoorSpec { door: *d.ports.get("door").context("design has no door port")?, lever: [0, 0, 0], along_z: false };
             let (o, c) = run_at(w, sb, &d, &spec, *off, &open_ev, &close_ev, opts, oi == 0).with_context(|| format!("at offset {off:?}"))?;
             worst = (worst.0.max(o), worst.1.max(c));
         }

@@ -221,6 +221,7 @@ pub fn archived(version: &str, dir: &Path, workers: usize) -> Result<Vec<Archive
             let mut facts = Facts::of(&e.design);
             facts.open_ticks = e.open_ticks;
             facts.close_ticks = e.close_ticks;
+            facts.rotation_safe = e.rotation_safe();
             Archived { stem: path.file_stem().unwrap().to_string_lossy().to_string(), path, design: e.design, facts }
         })
         .collect())
@@ -240,17 +241,23 @@ fn total_ticks(a: &Archived) -> u32 {
 }
 
 /// The block-count boards: key, title, rule, membership.
-pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 5] = [
-    ("solid", "Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", |f| f.category == "solid"),
-    ("slime-free", "Solid, no slime or honey", "not a single slime or honey block anywhere", |f| f.category == "solid" && f.slime_free),
+pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 6] = [
+    ("solid", "Solid (main ranking)", "9 identical plain door blocks, no sculk sensors, rotation-safe", |f| f.category == "solid" && f.rotation_safe),
+    ("slime-free", "Solid, no slime or honey", "not a single slime or honey block anywhere", |f| f.category == "solid" && f.slime_free && f.rotation_safe),
     (
         "flat",
         "Solid, flat (one z layer), no slime or honey",
         "slime-free, and every block in the door's plane: the whole machine is one block thick",
-        |f| f.category == "solid" && f.slime_free && f.flat,
+        |f| f.category == "solid" && f.slime_free && f.flat && f.rotation_safe,
     ),
-    ("sculk", "Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", |f| f.category == "sculk"),
-    ("gravity", "Gravity", "the 9 door blocks are sand, gravel or concrete powder", |f| f.category == "gravity"),
+    ("sculk", "Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", |f| f.category == "sculk" && f.rotation_safe),
+    (
+        "sculk-unrotated",
+        "Sculk, not rotation-safe",
+        "uses sculk sensors; works as built but breaks when the whole door is turned 90 degrees",
+        |f| f.category == "sculk" && !f.rotation_safe,
+    ),
+    ("gravity", "Gravity", "the 9 door blocks are sand, gravel or concrete powder", |f| f.category == "gravity" && f.rotation_safe),
 ];
 
 /// The best design of each board: solid, slime-free, sculk, gravity (fewest blocks; ties go to
@@ -270,7 +277,7 @@ pub fn boards(all: &[Archived], records: &HashMap<String, String>) -> Vec<Board>
     }
     let fastest = all
         .iter()
-        .filter(|a| a.facts.category == "solid" && a.facts.open_ticks.is_some())
+        .filter(|a| a.facts.category == "solid" && a.facts.rotation_safe && a.facts.open_ticks.is_some())
         .min_by_key(|a| (total_ticks(a), a.facts.blocks, a.stem.clone()))
         .cloned();
     if let Some(best) = fastest {
@@ -568,7 +575,7 @@ fn minutes_of(ts: &str) -> Option<i64> {
 /// A chart of the night: the record of each block-count board over time (from the archive
 /// headers), as step lines in the boards' colors, in the game's font.
 pub fn timeline_chart(look: &Look, all: &[Archived], out: &Path) -> Result<()> {
-    let colors: [[u8; 3]; 5] = [YELLOW, GREEN, [255, 255, 255], AQUA, [255, 170, 0]];
+    let colors: [[u8; 3]; 6] = [YELLOW, GREEN, [255, 255, 255], AQUA, [85, 170, 170], [255, 170, 0]];
     let mut series: Vec<(&str, [u8; 3], Vec<(i64, usize)>)> = Vec::new();
     for ((key, _, _, keep), color) in BLOCK_BOARDS.iter().zip(colors) {
         let mut pts: Vec<(i64, usize)> = all.iter().filter(|a| keep(&a.facts)).filter_map(|a| Some((minutes_of(&archived_at(&a.path))?, a.facts.blocks))).collect();
@@ -732,7 +739,7 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     let all = archived(version, &o.archive, o.workers)?;
     let caps = captions(&o.archive);
     let Some(&(board, board_title, board_rule, keep)) = BLOCK_BOARDS.iter().find(|b| b.0 == o.board) else {
-        bail!("unknown --board {} (solid, slime-free, flat, sculk, gravity)", o.board);
+        bail!("unknown --board {} (solid, slime-free, flat, sculk, sculk-unrotated, gravity)", o.board);
     };
     let mut rows = if board == "solid" { progression(&o.archive) } else { timeline_progression(&all, keep, &caps) };
     // A newer record than the last row joins at the end.

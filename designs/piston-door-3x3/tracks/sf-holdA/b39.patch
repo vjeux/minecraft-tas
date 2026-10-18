@@ -1,0 +1,12 @@
+# b40 -> b39: one chain off the lever watcher serves both the B window and P_T. Observers
+# (1,5,-3) (watches the lever watcher, t4) -> (1,6,-3) (t6) -> Y (1,6,-2) facing north (t8) powers
+# R_B directly (J gone, B window t16-24); O (1,5,-2) turned to face UP watches Y (t10) and fires
+# into O_a's cell (1,4,-2) = P_T's quasi cell (and updates P_T): P_T's 3-block feed is gone.
+clear 1 6 -2
+set 1 6 -2 minecraft:observer[facing=north,powered=false]
+set 1 5 -2 minecraft:observer[facing=up,powered=false]
+clear 0 5 -2
+clear 0 4 -2
+clear 0 3 -2
+set 1 5 -3 minecraft:observer[facing=down,powered=false]
+set 1 6 -3 minecraft:observer[facing=down,powered=false]

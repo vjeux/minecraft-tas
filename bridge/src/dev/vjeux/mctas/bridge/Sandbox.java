@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Lifecycle;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -14,8 +15,11 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Util;
+import net.minecraft.util.profiling.Profiler;
+import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
@@ -156,9 +160,36 @@ final class Sandbox {
      */
     void tick(SimServer server) {
         this.level.tick(() -> true);
+        // A level sends its block changes to players at the START of its next tick, while block
+        // events (piston moves) go out at once. A real client never notices (the next tick is
+        // 50 ms away), but a client watching a sandbox stepped slowly (tick-by-tick videos) gets a
+        // piston move, finishes its own animation, then receives the late "this cell is a moving
+        // block" (without the moving block's data) and draws nothing there for a whole step. Send
+        // this tick's changes now. Packets only: no game state changes, and nothing at all when no
+        // player is watching (the judge's runs).
+        if (!this.level.players().isEmpty()) {
+            try {
+                BROADCAST_CHANGED_CHUNKS.invoke(this.level.getChunkSource(), Profiler.get());
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
         server.pumpTasks();
         while (this.level.getChunkSource().pollTask()) {
             // drain
+        }
+    }
+
+    /** {@code ServerChunkCache.broadcastChangedChunks(ProfilerFiller)}: see {@link #tick}. */
+    private static final Method BROADCAST_CHANGED_CHUNKS = broadcastMethod();
+
+    private static Method broadcastMethod() {
+        try {
+            Method m = ServerChunkCache.class.getDeclaredMethod("broadcastChangedChunks", ProfilerFiller.class);
+            m.setAccessible(true);
+            return m;
+        } catch (NoSuchMethodException e) {
+            throw new ExceptionInInitializerError(e);
         }
     }
 
@@ -568,18 +599,27 @@ final class Sandbox {
                 this.level.setBlock(q, dirt, 11);
                 this.level.gameEvent(net.minecraft.world.level.gameevent.GameEvent.BLOCK_PLACE, q,
                         net.minecraft.world.level.gameevent.GameEvent.Context.of(player, dirt));
+                int dirtTicks = 0;
                 for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
                     tick(server);
+                    dirtTicks++;
                 }
                 bestScore = wanted;
                 best = sClick;
                 aim(best);
                 item.place(new net.minecraft.world.item.context.BlockPlaceContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, stack, best.hit()));
+                int placedTicks = 0;
                 for (int t = 0; t < settle && (t < 4 || !idle()); t++) {
                     tick(server);
+                    placedTicks++;
                 }
                 breakLikePlayer(q);
                 o.addProperty("scaffold", q.getX() + " " + q.getY() + " " + q.getZ());
+                // Ticks after the dirt went in and after the block went in (for exact replays).
+                com.google.gson.JsonArray scaffoldTicks = new com.google.gson.JsonArray();
+                scaffoldTicks.add(dirtTicks);
+                scaffoldTicks.add(placedTicks);
+                o.add("scaffold_ticks", scaffoldTicks);
                 scaffolded = true;
                 break;
             }
@@ -601,6 +641,7 @@ final class Sandbox {
         player.setShiftKeyDown(false);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
         int clicks = 0;
+        com.google.gson.JsonArray clickTicks = new com.google.gson.JsonArray();
         for (net.minecraft.world.level.block.state.properties.Property<?> prop : target.getProperties()) {
             if (!usableProperty(target, prop.getName())) {
                 continue;
@@ -611,13 +652,35 @@ final class Sandbox {
                     break;
                 }
                 // let the previous placement or click settle, then click again
+                int waited = 0;
                 for (int t = 0; t < settle && !idle(); t++) {
                     tick(server);
+                    waited++;
                 }
                 use(pos, Direction.UP);
                 clicks++;
+                clickTicks.add(waited);
             }
         }
+        // The exact click (look direction, hit point, sneaking) and the ticks before each
+        // right-click, so another world (vanilla-build) can replay the very same inputs.
+        o.addProperty("yaw", best.yaw());
+        o.addProperty("pitch", best.pitch());
+        o.addProperty("sneak", best.sneak());
+        BlockPos hitPos = best.hit().getBlockPos();
+        com.google.gson.JsonArray hitPosJson = new com.google.gson.JsonArray();
+        hitPosJson.add(hitPos.getX());
+        hitPosJson.add(hitPos.getY());
+        hitPosJson.add(hitPos.getZ());
+        o.add("hit_pos", hitPosJson);
+        o.addProperty("hit_face", best.hit().getDirection().getSerializedName());
+        Vec3 hitLoc = best.hit().getLocation();
+        com.google.gson.JsonArray hitLocJson = new com.google.gson.JsonArray();
+        hitLocJson.add(hitLoc.x);
+        hitLocJson.add(hitLoc.y);
+        hitLocJson.add(hitLoc.z);
+        o.add("hit_loc", hitLocJson);
+        o.add("click_ticks", clickTicks);
         BlockState placed = this.level.getBlockState(pos);
         boolean ok = bestScore == wanted && placed.getBlock() == target.getBlock();
         for (net.minecraft.world.level.block.state.properties.Property<?> prop : target.getProperties()) {

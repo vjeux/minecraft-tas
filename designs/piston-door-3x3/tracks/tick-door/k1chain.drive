@@ -1,0 +1,17 @@
+design designs/piston-door-3x3/tracks/tick-door/k1chain.txt
+probe TR 2 2 0
+probe T 1 2 0
+probe C 1 1 0
+probe up 2 3 0
+probe W 3 2 0
+probe K 4 2 0
+probe A 1 3 0
+probe KA 1 3 1
+probe F 1 4 0
+quiet 2
+set 5 2 0 minecraft:redstone_block
+set 1 3 2 minecraft:redstone_block
+clear 4 6 0
+clear 1 7 1
+clear 2 5 0
+trace 6
