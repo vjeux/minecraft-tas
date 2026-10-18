@@ -1,0 +1,7 @@
+# O2's pulse to R_B: O2 strongly powers the block behind it (0,6,1), which lights an isolated
+# cross dust (0,6,2), which points into the block (1,6,2) that R_B reads. 6 -> 4 blocks.
+clear 0 5 1
+clear 1 5 2
+set 0 6 1 minecraft:smooth_stone
+set 0 6 2 minecraft:redstone_wire[east=side,north=side,south=side,west=side]
+set 1 6 2 minecraft:smooth_stone

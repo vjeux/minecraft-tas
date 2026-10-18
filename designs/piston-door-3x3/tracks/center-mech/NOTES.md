@@ -38,3 +38,22 @@ inherits P_T's NOR(L+8, L+28) window instead of NOT L.
   that block starts the X line. (Dust-under-a-dust-powered-block does NOT work: shouldSignal.)
 - One repeater refreshes the 19-dust line from the lever to X.
 - Top is v2's (A, B, P_T, B window, P_T NOR net).
+- `door minimize --moves all`: 96 -> 88 (`v2u2-min.txt`).
+
+## M3: C goes DOWN (proven with ideal inputs, `wip/c3-mech.txt` + `wip/c3-drive.txt`)
+Top is only A (T goes up one and stays; no drag, no pulses), held by a redstone block riding
+the right group. Bottom: P_M pulls M down, P_MA (sticky, z=-2 side) pulls M aside to
+(1,-1,-1), then the elevator: B_M pushes P_M up, pulse, B_M pulls it down, pulse: C ends at
+(1,-1). Close: B_M pushes P_M+C up, spit pulse, P_MA pushes M back, P_M (redstone block on the
+left group, late) pushes M up, A (late) pushes T down. It is v2/rb2 mirrored: same 6 pistons,
+so it only pays if the control is cheaper at the bottom (it is not obviously).
+
+## Sculk sensor = free 30gt hold (rb2-sculk, 50 blocks, verified 32 positions)
+rb2 (redstone-block track, 57) holds Q for 24gt after the lever goes off with 3 repeaters + 4
+dust (14 blocks) so the closing C dance finishes before T is pushed back. A sculk sensor next
+to Q does it in one block: every lever flip is a vibration (BLOCK_ACTIVATE/DEACTIVATE), the
+sensor goes ACTIVE for 30gt then COOLDOWN 10gt (it ignores the door's own piston vibrations
+meanwhile), and it powers adjacent components while active. The sensor reacts 1-2gt late (the
+vibration travels, then the block entity ticks after the block-event phase), so Q would retract
+at once when the lever's block goes dark: one repeater (0,4,-2) keeps Q powered across that gap.
+Patch: `rb2-sculk.patch` (57 -> 50).

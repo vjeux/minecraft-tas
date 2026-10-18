@@ -28,6 +28,11 @@ branches) is [../LEADERBOARD.md](../LEADERBOARD.md). New records are archived he
 | 87 | piston-door-3x3-v3c-87b.txt | agent top-control: side pistons high, redstone blocks riding the backbones power A, P_BM, P_T |
 | 73 | piston-door-3x3-rb1-73b.txt | agent redstone-block: sides pushed open, one redstone block shuttled by one piston powers A then P_R, the right structure drags T out (no P_T) |
 | 57 | piston-door-3x3-rb2-57b.txt | agent redstone-block: rb1 with short nets (dual-edge observer next to the lever feeds R_B by 3 dust, the 24gt late hold fed straight from the lever) |
+| 53 | mechanics-rb2-hold-53b.txt | agent mechanics: rb2 with the 24gt late hold re-laid as a short U west of the lever, glazed terracotta floors beside the slime backbone |
+| 51 | mechanics-rb2-hold-51b.txt | agent mechanics: the 53 plus O2's pulse to R_B through a strongly powered block and an isolated cross dust |
+| 50 | mechanics-rb5-bchain-50b.txt | agent mechanics: redstone-block's rb5 (BUD hold for Q, 52) + the O2 to R_B pulse bridge |
+| 48 | mechanics-rb5-hold-48b.txt / piston-door-3x3-rb6-48b.txt | agents mechanics + redstone-block: the BUD silent hold shrunk to 7 blocks + the O2 to R_B pulse bridge (both reached 48) |
+| 52 | piston-door-3x3-rb5-52b.txt | agent redstone-block: rb2 with a silent BUD hold for Q instead of the 24gt chain |
 
 Invalid (kept for history): piston-door-3x3-v1-invalid.txt (125) and -v1-min-invalid.txt (121)
 use a slime block as the top-middle door block.

@@ -164,10 +164,23 @@ pub fn is_gravity_block(state: &str) -> bool {
     n.ends_with("concrete_powder") || matches!(n, "sand" | "red_sand" | "gravel" | "suspicious_sand" | "suspicious_gravel")
 }
 
-/// The door category of a design: "solid" (normal blocks) or "gravity" (sand-like door blocks).
+/// True when the design uses no slime and no honey blocks anywhere (its own leaderboard).
+pub fn slime_free(d: &Design) -> bool {
+    !d.blocks.values().any(|s| s.contains("slime_block") || s.contains("honey_block"))
+}
+
+/// The door category of a design: "solid" (normal blocks), "gravity" (sand-like door blocks),
+/// or "sculk" (uses sculk sensors: vibrations from players or mobs nearby can trigger them, so
+/// those doors are ranked separately).
 pub fn category(d: &Design) -> &'static str {
     let door = d.ports.get("door").and_then(|p| d.blocks.get(p));
-    if door.is_some_and(|s| is_gravity_block(s)) { "gravity" } else { "solid" }
+    if door.is_some_and(|s| is_gravity_block(s)) {
+        "gravity"
+    } else if d.blocks.values().any(|s| s.contains("sculk_sensor")) {
+        "sculk"
+    } else {
+        "solid"
+    }
 }
 
 /// Static legality: no creative-only blocks, no infested blocks, and every piston head belongs to

@@ -1,0 +1,79 @@
+# verified WORKS: 51 blocks, open after 5 ticks, closed after 11 ticks
+# archived 2026-10-18 06:03Z from designs/piston-door-3x3/tracks/gravity/g4.txt (repo at 0158965)
+name: gravity-g4
+port door: 0 0 0
+port lever: 1 0 -2
+origin: -1 0 -3
+palette:
+  A minecraft:piston_head[facing=up,short=false,type=sticky]
+  B minecraft:redstone_wire[east=side,north=none,power=12,south=none,west=up]
+  C minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:redstone_wire[east=side,north=up,power=11,south=none,west=none]
+  F minecraft:redstone_wire[east=side,north=up,power=13,south=side,west=side]
+  G minecraft:redstone_wire[east=up,north=none,power=12,south=side,west=none]
+  H minecraft:redstone_wire[east=up,north=none,power=14,south=side,west=none]
+  I minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
+  J minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
+  K minecraft:smooth_stone
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=east]
+  N minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:obsidian
+  P minecraft:piston[extended=true,facing=up]
+  Q minecraft:sticky_piston[extended=true,facing=up]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:sand
+  p minecraft:piston_head[facing=up,short=false,type=normal]
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+  s minecraft:slime_block
+layer -7:
+  .
+  .
+  KK
+  .
+layer -6:
+  .
+  K.K
+  EJQ
+  .
+layer -5:
+  .
+  GKB
+  .OA
+  .
+layer -4:
+  .K
+  .F
+  .Is
+  .KQ
+layer -3:
+  .HK
+  .
+  ..s
+  ..A
+layer -2:
+  ..C
+  .K.K
+  .
+  ..P
+layer -1:
+  ..R
+  .DKD
+  .KrK
+  sNpMs
+layer 0:
+  .
+  ..L
+  .
+  sSSSs
+layer 1:
+  .
+  .
+  .
+  sSSSs
+layer 2:
+  .
+  .
+  .
+  sSSSs

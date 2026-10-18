@@ -1,0 +1,45 @@
+design designs/piston-door-3x3/tracks/center-mech/wip/c3-mech.txt
+set 1 -1 -3 minecraft:redstone_block
+quiet 2
+print
+# open: sides out (R_A and R_M leave)
+set 1 -1 2 minecraft:redstone_block
+quiet 6
+print
+# P_MA pulls M aside
+clear 1 -1 -3
+quiet 4
+print
+# B_M lifts P_M, pulse 1 pulls C down one
+set 1 -4 0 minecraft:redstone_block
+quiet 4
+set 2 -1 0 minecraft:redstone_block
+quiet 3
+clear 2 -1 0
+quiet 3
+print
+# B_M lowers P_M, pulse 2 pulls C out
+clear 1 -4 0
+quiet 4
+set 2 -2 0 minecraft:redstone_block
+quiet 3
+clear 2 -2 0
+quiet 4
+print
+# ---- close ----
+set 1 -4 0 minecraft:redstone_block
+quiet 4
+print
+set 2 -1 0 minecraft:redstone_block
+quiet 1
+clear 2 -1 0
+quiet 3
+print
+clear 1 -4 0
+quiet 4
+set 1 -1 -3 minecraft:redstone_block
+quiet 4
+print
+clear 1 -1 2
+quiet 8
+print

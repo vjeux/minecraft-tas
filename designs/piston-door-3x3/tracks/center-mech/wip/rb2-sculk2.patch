@@ -1,0 +1,16 @@
+# rb2-sculk with a cheaper bridge: the lever moves to (0,6,-3) on a block (0,5,-3); a repeater
+# (0,5,-2) reads that block and lights X_L (0,5,-1) (Q below it, P_L by QC as before); O2 now
+# watches dust on X_L instead of the lever.
+clear 0 6 -1
+set 0 6 -1 minecraft:redstone_wire
+clear 0 6 -2
+clear 0 5 -3
+clear 0 4 -3
+clear 0 4 -2
+clear 0 3 -2
+clear 0 5 -2
+set 0 4 -2 minecraft:smooth_stone
+set 0 5 -2 minecraft:repeater[facing=north,delay=4]
+set 0 5 -3 minecraft:smooth_stone
+set 0 6 -3 minecraft:lever[face=floor,facing=west,powered=false]
+port lever 0 6 -3

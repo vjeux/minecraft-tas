@@ -18,6 +18,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Util;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -182,12 +183,27 @@ final class Sandbox {
         return count;
     }
 
-    /** True when nothing is pending: no scheduled block/fluid ticks, no block events, no moving pistons. */
+    /**
+     * True when nothing is pending: no scheduled block/fluid ticks, no block events, no moving
+     * pistons, and no falling blocks still in the air (sand/gravel/concrete powder falling is a
+     * contraption still moving; it ends by landing as a block or breaking into an item).
+     */
     boolean idle() {
         return this.level.getBlockTicks().count() == 0
                 && this.level.getFluidTicks().count() == 0
                 && blockEventCount() == 0
-                && movingPistonCount() == 0;
+                && movingPistonCount() == 0
+                && fallingBlockCount() == 0;
+    }
+
+    int fallingBlockCount() {
+        int count = 0;
+        for (Entity e : this.level.getAllEntities()) {
+            if (e instanceof FallingBlockEntity && !e.isRemoved()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     List<Entity> entities() {

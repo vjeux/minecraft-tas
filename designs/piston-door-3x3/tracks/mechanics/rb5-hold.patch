@@ -1,0 +1,15 @@
+# On mech-50 (rb5 + bchain): the silent hold block H moves to (0,5,-2), which is already the
+# floor of the lever's repeater: lever -> repeater (0,6,-2) -> block (0,6,-3) -> dust (0,6,-4)
+# on (0,5,-4) -> repeater (0,5,-3) -> H. 9 -> 7 blocks.
+clear 0 6 -3
+clear 0 5 -3
+clear -1 5 -3
+clear -1 4 -3
+clear -1 5 -2
+clear -1 4 -2
+clear -1 5 -1
+set 0 6 -3 minecraft:smooth_stone
+set 0 6 -4 minecraft:redstone_wire[east=side,north=side,south=side,west=side]
+set 0 5 -4 minecraft:smooth_stone
+set 0 5 -3 minecraft:repeater[facing=north,delay=4]
+set 0 4 -3 minecraft:smooth_stone

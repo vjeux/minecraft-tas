@@ -1,0 +1,19 @@
+# On mech-90: T_A sits right next to X (feeds it directly; no X2 dust, no glazed floor). Its
+# attachment K'=(4,4,0) carries the lever on top; a second observer O2' above the lever is what
+# O2 watches now (+2gt), the lever net repeater reads the lever from (5,5,0), the A-late repeater
+# reads the P_T block (4,4,2) from (4,4,1).
+clear 3 5 0
+clear 3 4 0
+clear 3 3 0
+clear 4 6 0
+clear 5 6 0
+clear 4 5 1
+set 4 4 0 minecraft:smooth_stone
+set 4 5 0 minecraft:lever[face=floor,facing=west,powered=false]
+port lever 4 5 0
+set 3 4 0 minecraft:redstone_wall_torch[facing=west,lit=true]
+set 4 6 0 minecraft:observer[facing=down,powered=false]
+set 5 5 0 minecraft:repeater[facing=west,delay=1]
+set 5 4 0 minecraft:smooth_stone
+set 4 4 1 minecraft:repeater[facing=south,delay=2]
+set 4 3 1 minecraft:smooth_stone
