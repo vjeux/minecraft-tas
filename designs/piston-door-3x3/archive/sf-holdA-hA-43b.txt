@@ -1,0 +1,73 @@
+# verified WORKS by door leaderboard: 43 blocks, category solid
+# archived 2026-10-18 14:22Z from origin/explore/sf-holdA:designs/piston-door-3x3/tracks/sf-holdA/hA.txt (repo at 6fbb264)
+name: sf-holdA-hA
+port door: 0 0 0
+port lever: 1 4 -3
+origin: -2 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=south]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:sticky_piston[extended=true,facing=down]
+  K minecraft:sticky_piston[extended=true,facing=east]
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  M minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  .
+  ...HS
+layer -1:
+  .
+  .
+  .
+  ....B
+layer 0:
+  .
+  .
+  .
+  F.MMM.I
+layer 1:
+  .
+  .
+  S
+  F.MMM.I
+layer 2:
+  .
+  .
+  D
+  F.MMMCS
+layer 3:
+  .
+  .
+  B..S
+  .KpP
+layer 4:
+  ..oL
+  .oAAC
+  oAGrA
+  ..RJs
+layer 5:
+  .
+  ...O
+  ...B
+  ...s
+layer 6:
+  .
+  ...S
+  ...E
+  .
