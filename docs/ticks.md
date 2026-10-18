@@ -296,6 +296,8 @@ patterns) or route the two edges apart (a copper bulb toggles once per rising ed
 * Two chains of events started together interleave in the FIFO queue (each event appends its
   follow-ups at the end): if chain B needs chain A's result, start B from A's last action (a
   relay) or one tick later. A piston whose push fails when its event runs never retries.
+  (Interleaving goes roughly one event per chain per round, so a chain that must act second can
+  also be made longer: e.g. padded with BUD pistons that update each other; not tried here.)
 
 ## 8. Vanilla confirmation
 
