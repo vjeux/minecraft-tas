@@ -7,7 +7,47 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 | v2.txt (archive/flat-v2-60b.txt) | 60 | 48 / 48 | first flat door: pist19r mechanism + observer chains |
 | min-v2.txt (archive/flat-v2-57b.txt) | 57 | 42 / 42 | `door minimize`: a dust step replaces 3 chain observers; observer -> block feeds the right pair |
 | v3.txt (archive/flat-v2-55b.txt) | 55 | 36 / 34 | R_B's input = dust under a block powered by the top chain; M fired by an observer watching the bottom-left door block (BL flag), left stack fired late |
-| v4.txt = BEST.txt (archive/flat-v2-54b.txt) | **54** | 36 / 34 | the R_B-input dust stands on an observer that starts the late left chain |
+| v4.txt (archive/flat-v2-54b.txt) | 54 | 36 / 34 | the R_B-input dust stands on an observer that starts the late left chain |
+| v5.txt (archive/flat-v5-52b.txt) | 52 | 34 / 32 | `door synth` (k=9, obs/dust/block/rep1-4/torch, box x -6..-1, y -1..6) re-laid the late left chain + stack feed in 8 blocks instead of 10 |
+| v6.txt (archive/flat-v6-51b.txt) | 51 | 34 / 32 | `door resynth --min-size 5 --max-size 6` (palette with rep1-4): a delay-2 repeater replaces two chain observers |
+| v7.txt (archive/flat-v7-50b.txt) | 50 | 32 / 30 | `door synth` k=9 on the cut crossing (a1 path + P_T chain + top chain, 10 blocks, box x -1..5, y 3..8): 9 blocks |
+| v8.txt = BEST.txt (archive/flat-v8-49b.txt) | **49** | 32 / 30 | lever moved to (5,4) on its observer S (5,3), which fires a cross dust (5,2) on (5,1) = all three right pistons; observer (4,4)E watching the lever starts the a1 chain; X's floor obsidian so the early P_T pulse (t2) is a no-op |
+
+## v8 vs v7
+- The right column's feed was 4 blocks (3 observers + smooth stone) on top of the lever's
+  observer; now the lever-observer itself drives the stack-feed dust: lever (5,4), S (5,3) facing
+  up, cross dust (5,2), floor (5,1). The a1 chain needs one observer more ((4,4)E watching the
+  lever, then (3,4)E, (2,4)E -> A, still t6): net -1.
+- (4,4)E outputs into P_T's quasi cell (3,4), so P_T also fires at t2. Harmless: on open it pulls
+  air (T is lifted at t6); on close it pushes T into C's cell and C into X's floor (0,3), which is
+  OBSIDIAN (immovable) in v8, so the push is blocked (stone there gets pushed into the left chain).
+
+## Control of v7 (31 blocks), t = ticks after the flip
+- Right (8): lever (4,5) on observer S (4,4) [QC-fires the right top piston through (4,3), t2];
+  O_Y (3,4)E, O_X (2,4)E -> A (a1, t6); (5,4)W, (5,3)U, (5,2)U -> smooth stone (5,1): right
+  middle (direct) + bottom (QC), t8.
+- Crossing (7): (2,5) observer facing down watches O_X and lights the dust (2,6) standing on it
+  (t8); that dust steps up-west to the dust (1,7), whose floor is an observer (1,6) in B's QC cell
+  (R_B still QC-powers B through that cell). (3,6)W watches the dust (2,6), (3,5)U -> P_T's QC
+  cell (3,4): P_T at t12. (0,7)E watches the dust (1,7) -> J' (-1,7) (t10).
+- Top-left (6): J' stone, dust D6 (-1,6) under it (gadget dust-below), R_B (0,6) d4 -> B's QC
+  cell (1,6): window t18..26; O (0,5) on R_B -> X dust (0,4) on floor (0,3): a2 t20, a3 t28.
+- Left (8): S1 (-1,5) observer facing up watches D6 (t12) -> (-2,5)E -> (-2,4)U QC-fires the
+  top-left piston through (-2,3) (t16); TL lands in (-1,2), watched by (-1,3) facing down (a
+  TL flag) -> (-2,3)E -> delay-2 repeater (-3,3) facing east -> (-3,2)U -> smooth stone (-3,1):
+  left middle + bottom late (t26).
+- Bottom (2): BL flag: (0,-1) facing up watches BL, powers stone (0,-2) next to P_M: M after a3.
+
+## Synthesis notes (what found the last 4 blocks)
+- Hand layouts stalled at 54; `door synth` on a CUT region with the door judge as the target
+  found 52 (left chain, k=9) and 50 (crossing, k=9) in minutes; `door resynth` (groups of 5-6)
+  found 51. Recipe: `door patch` to clear a connected region of n control blocks, then
+  `door synth <cut> --lo --hi (z = 0..0) --from <cells feeding it> --to <cells it must reach>
+  --palette block,dust,obs,rep1,rep2,rep3,rep4,torch --k n-1`. Enumerations: k=9 ~150-850k
+  circuits (3-15 min on 4-12 workers).
+- Searched and empty on v7: minimize --moves all --plateau; resynth 2..4 (466 groups); synth
+  k<=6 on the left 7, k<=7 on S1 + left 7, k<=7 on the top-left corner (crossing end + J' + D6
+  + S1 + left head, 8), k<=5 on the right feed + a1 path (6).
 
 ## Mechanism (19 blocks, mech-synth's `pist19r` with the T-mover on the right)
 - 9 door stones; left column on 3 retracted sticky pistons (-2,0..2) facing east (pull-type,
@@ -35,6 +75,25 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
   floor powers the middle one and QC-powers the bottom one).
 - BL flag: observer (0,-1) facing up watches BL (0,0) and powers stone (0,-2) next to P_M:
   M moves 2 gt after BL on close (t32 >= a3) and 4 gt after it on open.
+
+## The coordinator's round-2 ideas, examined
+- **Lever on the left** (a1 via X, left column early from the lever, R_B fed late, right column
+  late from it, M watching BR): P_T sits opposite X (both want (0,3)/(2,3)), so with the lever
+  on the left P_T needs a pulse at a1+3..7 on the far side: a 10-observer chain over the top
+  arrives at t22 (too late) and a dust line needs a floor per cell. The left-lever cells are
+  also boxed in: (-2,4) QC-powers the left top piston through (-2,3), (-1,5)/(-1,6) power P_T's
+  or R_B's input, (0,6)/(1,7)/(2,6) power B's quasi cell. Paper estimate ~51; not built.
+  Moving the lever lower on the right instead gave v8 (49).
+- **Three pulses per side column**: valid with ideal inputs (m19-3p/3q/3r), but every source of
+  the two late pulses is at the top (O on R_B -> X; an observer in B's quasi cell (1,6) watching
+  R_B also works: R_B still quasi-powers B through it), and the bottom piston of either column
+  is 6+ cells away: the delivery costs more than the late chain it would replace (the left late
+  part is 5 blocks after the top-left fires). The pulse also comes ~10 gt after A's pulse at the
+  bottom, outside the dm 1..3 window M's no-op trick needs.
+- Observer X (no floor, so T could park at (0,3)): an observer at (0,4) facing west does power
+  AND update A in its lower position (its output updates the neighbors of B's head (1,4), which
+  include A), but it can watch only one cell, and nothing next to (-1,4) changes exactly at the
+  B edges (R_B cannot sit there); a second repeater costs what X's floor saves.
 
 ## Findings
 - **Three-toggle pistons**: a pulse-driven side stack may get 3 pulses per edge (out, back,
@@ -71,3 +130,18 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 - search.rs `same_league`: a flat design stays flat (candidates with a block off the door
   plane are rejected); synth.rs resynth clamps its box to the door plane for flat designs
   (merged to main).
+- `door resynth --only x0,y0,z0:x1,y1,z1` (commit d8b42b7): only groups inside a box, so groups
+  of 6-8 can be tried on one region (all groups of 5-6 on a 50-block design take ~2 h).
+- Gadget `dust-below` (observer -> stone -> the dust under it lights).
+- Searched and empty on v8: regrow --size 2 --any (162k), synth k<=9 on the cut a1+crossing+P_T
+  region (10 blocks, 193k circuits), synth k<=6 on the left late part + BL flag (7),
+  resynth --only on the right region (groups of 5-7, 27 groups), resynth groups of 5 over the
+  whole design (674 of 739 groups) and resynth --only on the left region (groups of 6-8, 54 of
+  59 groups): nothing.
+
+## Next ideas
+- A late pulse generated near the bottom for free (M must move after A's last pull): the whole
+  left late chain (7 blocks) exists only to delay BL so that the BL flag fires P_M after a3.
+- Synthesis at k = 10-12 on cut regions (enumeration grows ~5x per k; needs pruning by timing).
+- A topology where R_B's input and P_T share one source: the crossing over B (7 blocks) is the
+  other big cost; it exists because P_T (right) and X/R_B (left) must sit on opposite sides.

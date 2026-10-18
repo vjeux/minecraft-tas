@@ -1,0 +1,13 @@
+# fc2 without P_L's and P_M's triggers: ONE shared 2gt pulse at tick s on both edges fires both
+design designs/piston-door-3x3/tracks/q-free/cut-plpm.txt
+let s = 4
+open 0 use -2 4 0
+open s set -4 2 0 minecraft:redstone_block
+open s set 2 -2 0 minecraft:redstone_block
+open s+2 clear -4 2 0
+open s+2 clear 2 -2 0
+close 0 use -2 4 0
+close s set -4 2 0 minecraft:redstone_block
+close s set 2 -2 0 minecraft:redstone_block
+close s+2 clear -4 2 0
+close s+2 clear 2 -2 0

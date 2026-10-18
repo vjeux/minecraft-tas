@@ -89,7 +89,7 @@ pub fn probe_value(state: &str) -> String {
         n if n.ends_with("copper_bulb") => flag("lit").into(),
         "repeater" | "comparator" | "observer" | "lever" | "stone_button" | "oak_button" => flag("powered").into(),
         n if n.ends_with("_rail") || n.ends_with("trapdoor") || n.ends_with("door") || n == "note_block" => flag("powered").into(),
-        "target" | "sculk_sensor" | "daylight_detector" => b.get("power").unwrap_or("0").to_string(),
+        "target" | "sculk_sensor" | "calibrated_sculk_sensor" | "daylight_detector" => b.get("power").unwrap_or("0").to_string(),
         "slime_block" => "s".into(),
         "honey_block" => "y".into(),
         "redstone_block" => "R".into(),

@@ -1,0 +1,33 @@
+design designs/piston-door-3x3/tracks/tick-door/o4.txt
+probe TL 0 2 0
+probe T 1 2 0
+probe TR 2 2 0
+probe L 0 1 0
+probe C 1 1 0
+probe R 2 1 0
+probe BL 0 0 0
+probe M 1 0 0
+probe BR 2 0 0
+probe E 1 3 0
+probe up 2 3 0
+quiet 2
+set 5 2 0 minecraft:redstone_block
+set 0 4 -1 minecraft:redstone_block
+set 3 5 -1 minecraft:redstone_block
+clear 4 6 0
+clear 1 7 -1
+clear -3 0 0
+clear -3 1 0
+clear -3 2 0
+trace 1
+set 3 3 -2 minecraft:redstone_block
+set -1 4 0 minecraft:redstone_block
+trace 2
+clear 3 3 -2
+clear -1 4 0
+set 1 7 0 minecraft:redstone_block
+set 3 5 1 minecraft:redstone_block
+clear 1 -3 0
+clear 2 -3 0
+clear 5 1 0
+trace 5
