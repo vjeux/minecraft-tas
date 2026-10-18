@@ -26,6 +26,9 @@
   able to stand where it is (no floating levers, torches, dust or repeaters: the judge checks
   `canSurvive`). No blocks that change by themselves over time (random ticks: unwaxed copper
   oxidizes, leaves decay...; use waxed copper).
+- Rotations: `door verify` also runs the door turned 90, 180 and 270 degrees (same positions) and prints
+  `rotation-safe` or `NOT rotation-safe` (`--no-rotations` skips it). Not part of the judge: the boards
+  rank rotation-safe designs and list the others on their own board, "Not rotation-safe".
 - Boards besides the main one: "Solid, no slime or honey" (verify prints `, slime-free`) and "Solid, flat
   (one z layer), no slime or honey" (every block in the door's plane z = door.z, verify prints `, flat`).
 - Category: doors whose 9 blocks are gravity blocks (sand, gravel, concrete powder) are ranked
