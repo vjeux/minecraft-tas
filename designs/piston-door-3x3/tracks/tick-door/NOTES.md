@@ -86,7 +86,9 @@ How it opens (every input comes from the lever):
 * Close 15 -> ~10: the close waits for the torch (c6) because P_WN and Q must not race the F/V
   heads (c4); a separate earlier source for the ring/Q/P_WN, or F/V pulses at c0 (lever-direct
   1-tick pulse), would let everything shift by 2-4 ticks.
-* Blocks: `door minimize --objective total` is running on BEST; the many single-purpose observer
-  chains and the long torch net are the obvious candidates.
+* Blocks: `door minimize --objective total --moves all` ran 45 min on BEST (88723 removals, 105
+  reroutes, 25057 compounds, 827 neutral edits tried) and found nothing: every part is load-bearing
+  at this layout. Savings need a re-layout (share one observer chain between the A', W and K_W
+  close pulses; a shorter torch net once the lever sits on the north side).
 * Slime-free: the slime bottom row can go back to three pullers (P_BL west, P_M, P_BR) on the torch
   net; costs blocks.
