@@ -214,9 +214,14 @@ fn same_states(a: &Region, b: &Region) -> bool {
 /// Where the bot stands to click the lever: within reach, preferably outside the watch box (a
 /// player pushed around on the ground could make vibrations; flying in the void it makes none).
 fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
+    // Within reach of the lever; then, in order: touching no block of the build (nothing can
+    // push it, it stands on nothing, so it never steps or lands: no vibrations), outside the
+    // watch box, far from sculk sensors, close to the lever. (A bot standing on rb2s2-50b's
+    // sensor made it fire with power 15 at some flips: a player there is a real trigger.)
     let l = spec.lever;
     let inside = |p: Pos| (0..3).all(|i| p[i] >= wlo[i] && p[i] <= whi[i]);
-    let mut best: Option<(i32, f64, Pos)> = None;
+    let sensors: Vec<Pos> = d.blocks.iter().filter(|(_, s)| s.contains("sculk_sensor")).map(|(p, _)| *p).collect();
+    let mut best: Option<((i32, i32, i64, i64), Pos)> = None;
     for dx in -4..=4 {
         for dy in -4..=3 {
             for dz in -4..=4 {
@@ -224,21 +229,31 @@ fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
                 let head = [feet[0], feet[1] + 1, feet[2]];
                 let eye = [feet[0] as f64 + 0.5, feet[1] as f64 + 1.62, feet[2] as f64 + 0.5];
                 let dist = ((eye[0] - l[0] as f64 - 0.5).powi(2) + (eye[1] - l[1] as f64 - 0.5).powi(2) + (eye[2] - l[2] as f64 - 0.5).powi(2)).sqrt();
-                if dist > 4.0 {
+                if dist > 4.0 || d.blocks.contains_key(&feet) || d.blocks.contains_key(&head) {
                     continue;
                 }
-                let free = !d.blocks.contains_key(&feet) && !d.blocks.contains_key(&head);
-                if !free {
-                    continue;
+                let mut touching = 0;
+                for ox in -1..=1 {
+                    for oy in -1..=2 {
+                        for oz in -1..=1 {
+                            if d.blocks.contains_key(&[feet[0] + ox, feet[1] + oy, feet[2] + oz]) {
+                                touching += 1;
+                            }
+                        }
+                    }
                 }
-                let rank = if !inside(feet) && !inside(head) { 0 } else { 1 };
-                if best.is_none_or(|(r, bd, _)| (rank, dist) < (r, bd)) {
-                    best = Some((rank, dist, feet));
+                let sensor_dist = sensors
+                    .iter()
+                    .map(|s| (((s[0] - feet[0]).pow(2) + (s[1] - feet[1]).pow(2) + (s[2] - feet[2]).pow(2)) as f64).sqrt())
+                    .fold(f64::INFINITY, f64::min);
+                let score = (touching, if !inside(feet) && !inside(head) { 0 } else { 1 }, -(sensor_dist.min(99.0) * 100.0) as i64, (dist * 100.0) as i64);
+                if best.is_none_or(|(b, _)| score < b) {
+                    best = Some((score, feet));
                 }
             }
         }
     }
-    let p = best.map(|b| b.2).unwrap_or([l[0], l[1] + 2, l[2]]);
+    let p = best.map(|b| b.1).unwrap_or([l[0], l[1] + 2, l[2]]);
     [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5]
 }
 
@@ -313,7 +328,15 @@ fn vanilla_run(v: &mut VanillaServer, placed: &[(Pos, String)], d: &Design, spec
         clean(v, plo, phi)?;
     }
     clean(v, wlo, whi)?;
-    let spot = bot_spot(d, spec, wlo, whi);
+    let mut spot = bot_spot(d, spec, wlo, whi);
+    // Experiments: MCTAS_BOT_OFFSET=dx,dy,dz puts the bot's feet at lever + offset.
+    if let Some(o) = std::env::var("MCTAS_BOT_OFFSET").ok().and_then(|s| {
+        let v: Vec<i32> = s.split(',').filter_map(|t| t.trim().parse().ok()).collect();
+        (v.len() == 3).then(|| [v[0], v[1], v[2]])
+    }) {
+        let l = spec.lever;
+        spot = [(l[0] + o[0]) as f64 + 0.5, (l[1] + o[1]) as f64, (l[2] + o[2]) as f64 + 0.5];
+    }
     v.teleport_bot(spot[0], spot[1], spot[2])?;
     v.dirty = Some((wlo, whi));
     for (p, s) in placed {
