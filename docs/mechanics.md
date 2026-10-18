@@ -116,6 +116,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   cover the first ticks with a 4 gt repeater from the lever. The door's own late pistons move
   inside the 10 gt cooldown, so they do not re-trigger it (rb2s2 50, m51s 48). Doors using it
   rank in the `sculk` category.
+| `sculk-hold` | sculk sensor + repeater | a sculk sensor next to a piston holds it 30 gt after a lever flip (each flip is a vibration), then cools down 10 gt; the repeater bridges the sensor's 2 gt latency (category `sculk`; center-mech) |
 * **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
   source that later turns off WITHOUT updating it stays extended, unpowered, until any later
   neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
@@ -129,6 +130,20 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   next to piston B switches A off at once (the block becomes a moving piston that tick) and B
   on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
   then A on".
+* **Redstone block riding a structure (center-mech):** a redstone block carried by a slime
+  structure powers a piston at rest and lets it go when the structure moves. It must touch the
+  piston itself: in a quasi-only position its return never updates the piston, which then stays
+  retracted. Two pushers can share one powered block between them (v2u2: both side structures
+  pushed out from under the walkway off one obsidian block).
+* **Sculk sensor (center-mech, gadget `sculk-hold`):** a lever flip is a vibration
+  (BLOCK_ACTIVATE/DEACTIVATE); a sensor within 8 blocks goes ACTIVE after `floor(distance)` gt
+  plus its block-entity tick (after the block-event phase), stays active 30 gt (power by
+  distance, all directions, strongly into the block below it), then COOLDOWN 10 gt during which
+  it ignores the door's own piston vibrations. One block = a 30 gt monostable on both lever
+  edges; a piston that would see the lever's fall first needs a short bridge.
+* **Dust does not pick up a block powered only by other dust** (wire signals are off while a
+  wire computes its input): to tap a dust net one-way into another, put a repeater (or a block
+  strongly powered by a repeater) between them.
 ## Gravity blocks (`FallingBlock`, `FallingBlockEntity`) — track gravity
 
 * Sand/gravel/concrete powder schedule a tick 2 gt after being placed (pistons place them at the

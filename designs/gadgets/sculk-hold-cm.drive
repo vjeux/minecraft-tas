@@ -1,0 +1,10 @@
+# Lever on: the piston extends at t=3 (repeater), the sensor goes active for 30gt, then cools
+# down 10gt. Lever off after that: the repeater's power is gone 4gt later, but the sensor heard
+# the flip (active at t+2) and holds the piston until t+31; it retracts at t+32.
+design designs/gadgets/sculk-hold-cm.txt
+probe p 2 1 0
+probe s 2 0 0
+use 0 1 0
+expect_trace p rrEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+use 0 1 0
+expect_trace p EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE~~rrrr

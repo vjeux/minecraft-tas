@@ -63,6 +63,10 @@ pub enum DoorCmd {
         /// design's lever: for wiring a mechanism that does not run on its own yet.
         #[arg(long)]
         swept_script: Option<PathBuf>,
+        /// Append the path to this file as `door patch` lines (`set x y z <state>`) instead of
+        /// printing builder code.
+        #[arg(long)]
+        patch: Option<PathBuf>,
     },
     /// Drive a design by hand from a script (see drive.rs) and print the z=0 plane per tick.
     /// Several scripts run one after the other; any failed `expect` makes the command fail.
@@ -238,7 +242,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(p, &table)?;
             }
         }
-        DoorCmd::Route { design, start, goal, allow, swept_script } => {
+        DoorCmd::Route { design, start, goal, allow, swept_script, patch } => {
             let d = load_design(&design)?;
             let cells = |s: &str| -> Vec<[i32; 3]> {
                 s.split(';').filter(|x| !x.trim().is_empty()).map(|c| {
@@ -259,10 +263,20 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let goal = cells(&goal)[0];
             match r.route(&cells(&start), goal) {
                 Some(path) => {
-                    for (p, s) in path.iter().rev() {
-                        println!("    b.set([{}, {}, {}], \"{}\");", p[0], p[1], p[2], s);
+                    if let Some(file) = &patch {
+                        use std::io::Write;
+                        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(file)?;
+                        writeln!(f, "# route to {},{},{} ({} new blocks)", goal[0], goal[1], goal[2], path.len())?;
+                        for (p, s) in path.iter().rev() {
+                            writeln!(f, "set {} {} {} {}", p[0], p[1], p[2], s)?;
+                        }
+                        println!("{} new blocks appended to {}", path.len(), file.display());
+                    } else {
+                        for (p, s) in path.iter().rev() {
+                            println!("    b.set([{}, {}, {}], \"{}\");", p[0], p[1], p[2], s);
+                        }
+                        println!("    // {} new blocks", path.len());
                     }
-                    println!("    // {} new blocks", path.len());
                 }
                 None => anyhow::bail!("no route"),
             }
