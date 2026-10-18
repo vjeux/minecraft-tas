@@ -1,0 +1,15 @@
+12 workers; moves all; judge 32 positions
+[    2.2s] start: 40 blocks, open 24 close 9 ticks, passes the judge (32 positions x 3 cycles)
+[    6.0s]   338161 swaps (two blocks out, one block in nearby)
+[    6.0s] 40 blocks: 1539 removals, 0 reroutes (+0 neutral), 1809 compounds, 165 neutral edits
+[   72.5s]   341509 candidates: 905 seen, 340604 screened in 66.4s, 0 passed the screen, 0 judged, 0 passed the judge (66.4s)
+[   72.7s]   no improving move; plateau: judging 31428 neutral edits
+[   81.6s]   31428 candidates: 80 seen, 31348 screened in 6.2s, 35 passed the screen, 35 judged, 35 passed the judge (8.9s)
+[  100.1s]   plateau: routing took 18.5s
+[  100.1s]   plateau: 35 verified neutral designs, 1050 removals and 0 reroutes after them
+[  100.2s]   1050 candidates: 515 seen, 535 screened in 0.2s, 0 passed the screen, 0 judged, 0 passed the judge (0.2s)
+[  100.3s]   plateau level 2: judging 5774 neutral edits of the level-1 designs
+[  123.6s]   5774 candidates: 143 seen, 5631 screened in 1.6s, 283 passed the screen, 283 judged, 283 passed the judge (23.3s)
+[  123.6s]   plateau level 2: 282 verified designs, 8460 removals after them
+[  125.2s]   8460 candidates: 1262 seen, 7198 screened in 1.6s, 0 passed the screen, 0 judged, 0 passed the judge (1.6s)
+40 -> 40 blocks, written to designs/piston-door-3x3/tracks/q-free/pmleft-min.txt
