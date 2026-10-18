@@ -26,7 +26,11 @@ crossing in front of the door must run at y >= 4 (floors at y 3) or y <= -1 (flo
 |---|---|---|---|
 | n3c-116.txt | 116 | 9 / 7 | speed-2 n3-112b with the staircase cut (9 blocks: the 6 column cells, its west end (-1,2,-4) + floor, its east end (3,3,-4)) and re-laid by `door route --swept-design` over the top at z = -5: (-1,2,-4) up to (-1,3,-5), along y 4 on floors at y 3 (x 0..2), down to (3,3,-5) and (3,3,-4) (13 blocks). Strength at the far ends 3 instead of 5. DOMINATED by speed-2's c1 (112, 9 / 7, the same fix with a hand route at equal size, found in parallel) |
 | **a1c-107.txt** | **107** | **10 / 7** | lamp-sweep a1-107 + speed-2's c1.patch (the hand route: S (-1,3,-3) -> (-1,4,-4) -> (0,4,-4) -> step up to (1,5,-4) over a new stone (1,4,-4), so the dust never touches the repeater-powered stone (1,4,-3) -> (2,4,-4) -> M (3,3,-4); 8 cells out, 8 in): equal size, the fewest-block close-7 door under the rule. (a1c-111 was my router version, +4) |
-| s4c (work) | 108 | 12 / 7 | speed-wire s4-108 + the same c1.patch: compliant at equal size too (dominated by a1c; base for a close-7-only resynth) |
+| s4c (work) | 108 | 12 / 7 | speed-wire s4-108 + the same c1.patch: compliant at equal size too (base for a close-7-only resynth) |
+| s4c-101.txt | 101 | 12 / 7 | s4c after the first 7 replacements of `door resynth --palette block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,note --max-size 3 --max-close 7` |
+| **s4c-93.txt = BEST** | **93** | **12 / 7** | the same resynth to its end (108 -> 93, 15 replacements: the target taps for the side torches and P_M's torch, the (2,4,0) observer + (2,5,0) dot, shorter lever-net ends): **the fewest-block close-7 door under the rule** (s4 had never been resynthesized; a1-107 and o6-107 had, by lamp-sweep) |
+| **c1r-108.txt** | **108** | **9 / 7** | speed-2's c1 (112) + `door resynth` (same palette, `--max-open 9 --max-close 7`): 4 replacements (the dead note-block feeder repeater + stones, obsidian (4,3,0) + stone (5,2,0) -> one smooth stone). **Fastest open (9) and open + close (16) under the rule**, one block under speed-2's c2-109 |
+| a1c resynth | 107 | 10 / 7 | `door resynth` size 2..3 `--max-close 7`: nothing (lamp-sweep had already resynthesized a1) |
 
 ## Close 6 in the speed family (worked out, not built)
 The close is 7 = F's second push [T, C] at c5 (lands c7). Chain: c1 F (BUD-armed through the stone
