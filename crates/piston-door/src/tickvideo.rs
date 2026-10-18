@@ -155,8 +155,9 @@ pub fn record(version: &str, d: &Design, out: &Path, o: &TickVideoOptions) -> Re
     drop(client);
 
     // Captions, doorway map and phase strip on every screenshot.
-    let facts = Facts::of(d);
-    let title = format!("{}: {} blocks, {}", facts.name, facts.blocks, facts.kind());
+    let mut facts = Facts::of(d);
+    facts.measure_volume(&mut w, d).context("the title needs the door's volume")?;
+    let title = format!("{}: {} ({}), {}", facts.name, facts.size(), facts.placed(), facts.kind());
     let mut list = String::from("ffconcat version 1.0\n");
     let mut last = String::new();
     for (i, f) in frames.iter().enumerate() {

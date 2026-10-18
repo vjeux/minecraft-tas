@@ -37,11 +37,11 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 | `door drive <script>...` | place a design, apply scripted inputs (`set`, `clear`, `use`, `step`, `quiet`, `print`, `plane`, probes, `expect`), print a plane per tick; any failed `expect` fails the command. Validates mechanisms with ideal inputs and runs the gadget tests |
 | `door ideal <schedule> [--set name=value] [--sweep name=lo..hi]` | judge a mechanism driven by scheduled ideal inputs (`ideal.rs`) and sweep its timing windows: which input ticks work |
 | `door reuse-check <design>` | verify many times in one reused sandbox: catches state leaking across runs (torch burnout memory) |
-| `door frontier [--check <file>...] [--any-category] [--all]` | the Pareto frontier over (open, close, blocks) from the verdict cache; `--check` says whether a candidate lands on it or which doors dominate it |
+| `door frontier [--check <file>...] [--any-category] [--all]` | the Pareto frontier over (open, close, size: the volume) from the verdict and properties caches; `--check` says whether a candidate lands on it or which doors dominate it |
 | `door shapes [<design>...] [--branches] [--rule <preset or key<=n,...>]` | every working design's shape and swept shape relative to its door, the best rotation-safe design per shape rule (wall, wall2, flat, ground, no-above, narrow1, narrow2, wall-ground) and league, and the (volume, blocks) frontier |
 | `door tile-scan <design>... [--tiles wide:3,period:4..12:3] [--levers one\|each]` | every design under every tiling, in parallel: which tilings work and the smallest working period |
-| `door leaderboard [--fetch] [--sync-tracks] [--archive-dir DIR] [--cache-dir DIR] [--cached-only] --out designs/piston-door-3x3/LEADERBOARD.md` | judge every design on main and `explore/*` with main's verifier (verdicts cached by content in `archive/verdicts-v5.tsv`) and write the boards, each leader with its GIF, video and caption. `--archive-dir` also archives every working design; `--cached-only` simulates nothing |
-| `door catalog [--videos DIR]` | write the archive catalog `archive/README.md` (every archived design: blocks, boards, ticks, rotations, buildability, video, how it works) from the verdict cache; records nothing |
+| `door leaderboard [--fetch] [--sync-tracks] [--archive-dir DIR] [--cache-dir DIR] [--cached-only] --out designs/piston-door-3x3/LEADERBOARD.md` | judge every design on main and `explore/*` with main's verifier (verdicts cached by content in `archive/verdicts-v5.tsv`) and write the boards, each leader with its GIF, video and caption, ranked by size (the volume, [rules](rules.md#the-judge-mctas-door-verify-design---extra-offsets-28)). `--archive-dir` also archives every working design; `--cached-only` judges no new design (no cached verdict = left out); working designs without a volume in `archive/properties-v1.tsv` are measured (one recorded cycle each) and cached either way |
+| `door catalog [--videos DIR]` | write the archive catalog `archive/README.md` (every archived design: size (volume), blocks placed, boards, ticks, rotations, buildability, video, how it works) from the verdict and properties caches; records nothing |
 
 ## Building designs
 
@@ -92,13 +92,13 @@ plus the hallway check, footsteps for sculk designs, QUART SEAMLESS or better an
 
 | command | when to use it |
 |---|---|
-| `door video <design> --out <f.mp4>` | record the door opening and closing with the real Minecraft client (title card, door camera, block-count label; each flip plays until the door has settled) |
+| `door video <design> --out <f.mp4>` | record the door opening and closing with the real Minecraft client (title card, door camera, corner label: the size `80b` big, the blocks placed small; each flip plays until the door has settled) |
 | `door video-all --out DIR [--upload videos] [--dry-run]` | record every archived design that has no video yet, upload each to the `videos` release, then write the archive catalog; `--dry-run` lists what it would record |
 | `door tick-video <design> --out <f.mp4>` | one open/close cycle tick by tick: still camera, captions for the flips and the settled states, a 3x3 map of the doorway per tick and a strip of the whole phase |
 | `door card <design> --out <png>` | draw just a video's title card (and its corner label) |
 | `door gallery --videos DIR [--upload videos]` | a looping GIF of the best design of every board, uploaded to the release (LEADERBOARD.md shows them), plus the night's timeline chart |
-| `door montage --videos DIR --out <f.mp4> [--board solid] [--upload videos]` | a board's record progression as one video: every record filmed by the same camera, labeled with its block count and how it got there (solid: `archive/records.tsv`) |
-| `door world --out DIR` | one Minecraft world (a save folder for the real game) with every working archived design in rows by board, to try them by hand |
+| `door montage --videos DIR --out <f.mp4> [--board solid] [--upload videos]` | a board's record progression by blocks placed (the history before sizes were volumes) as one video: every record filmed by the same camera, labeled with its blocks placed and how it got there (solid: `archive/records.tsv`) |
+| `door world --out DIR` | one Minecraft world (a save folder for the real game) with every working archived design in rows by board, smallest volume first, its size in red concrete above it, to try them by hand |
 
 ## Generated files
 

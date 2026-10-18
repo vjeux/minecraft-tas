@@ -165,8 +165,8 @@ pub enum DoorCmd {
         #[arg(long)]
         upload: Option<String>,
         /// Look of the videos: `card` (title card, door camera swinging around the door,
-        /// block-count label), `clean` (the same camera, no card or label) or `classic` (the
-        /// original still camera framing the whole build).
+        /// size label: the volume big, the blocks placed small), `clean` (the same camera, no card
+        /// or label) or `classic` (the original still camera framing the whole build).
         #[arg(long, default_value = "card")]
         style: String,
         /// Orbit amplitude of the door camera in degrees each way (0 = still).
@@ -183,10 +183,11 @@ pub enum DoorCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Write the archive catalog (archive/README.md): every archived design with its blocks,
-    /// boards, open/close ticks, rotations, buildability (`door buildable`'s scripts), video link
-    /// and how it works (archive/captions.tsv, archive/records.tsv). Records nothing; verdicts
-    /// come from the verdict cache. `door video-all` writes it too.
+    /// Write the archive catalog (archive/README.md): every archived design with its size (the
+    /// volume) and blocks placed, boards, open/close ticks, rotations, buildability (`door
+    /// buildable`'s scripts), video link and how it works (archive/captions.tsv,
+    /// archive/records.tsv). Records nothing; verdicts come from the verdict cache, sizes from the
+    /// properties cache. `door video-all` writes it too.
     Catalog {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -210,9 +211,10 @@ pub enum DoorCmd {
         #[arg(long)]
         label: Option<PathBuf>,
     },
-    /// The best design of each board (block-count boards, speed boards) as a looping GIF (door
-    /// camera, real client), uploaded to the release, plus the night's timeline chart. No page of
-    /// its own: `door leaderboard` shows each board leader's GIF.
+    /// The best design of each board (size boards, speed boards) as a looping GIF (door camera,
+    /// real client; labeled with its size, the volume, big and its blocks placed small), uploaded
+    /// to the release, plus the night's timeline chart. No page of its own: `door leaderboard`
+    /// shows each board leader's GIF.
     Gallery {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -242,8 +244,9 @@ pub enum DoorCmd {
         #[arg(long)]
         redo: bool,
     },
-    /// A board's record progression (solid: archive/records.tsv, plus a newer record) as one video:
-    /// every design filmed by the same camera, labeled with its block count and how it got there.
+    /// A board's record progression by blocks placed (solid: archive/records.tsv, plus a newer
+    /// record; the history before sizes were volumes) as one video: every design filmed by the
+    /// same camera, labeled with its blocks placed and how it got there.
     Montage {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -269,10 +272,10 @@ pub enum DoorCmd {
         #[arg(long, default_value = "solid")]
         board: String,
     },
-    /// The Pareto frontier over (open ticks, close ticks, blocks): every working design on HEAD
-    /// and the explore/* branches (verdicts from the leaderboard cache, uncached ones verified),
-    /// then each --check design verified with the judge and placed against it: on the frontier,
-    /// or the doors that dominate it (see leaderboard.rs `frontier_report`).
+    /// The Pareto frontier over (open ticks, close ticks, size: the volume): every working design
+    /// on HEAD and the explore/* branches (verdicts from the leaderboard cache, uncached ones
+    /// verified), then each --check design verified with the judge and placed against it: on the
+    /// frontier, or the doors that dominate it (see leaderboard.rs `frontier_report`).
     Frontier {
         /// Candidate designs to place against the frontier.
         #[arg(long, num_args = 1..)]
@@ -850,7 +853,7 @@ pub enum DoorCmd {
         /// Upload to this GitHub release tag of vjeux/minecraft-tas.
         #[arg(long)]
         upload: Option<String>,
-        /// `card` (title card, door camera swinging around the door, block-count label),
+        /// `card` (title card, door camera swinging around the door, size label),
         /// `clean` (same camera, no card or label) or `classic` (still camera, whole build).
         #[arg(long, default_value = "card")]
         style: String,
@@ -882,8 +885,8 @@ pub enum DoorCmd {
         size: String,
     },
     /// One Minecraft world (a save folder for the real game) with every working archived design
-    /// in rows by board, smallest first, the block count above each in red concrete and its name
-    /// on a floating label; built by the official server (see world.rs).
+    /// in rows by board, smallest first, its size (the volume) above each in red concrete and its
+    /// name on a floating label; built by the official server (see world.rs).
     World {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -1562,6 +1565,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 facts.open_ticks = r.cycles.first().map(|c| c.open_ticks);
                 facts.close_ticks = r.cycles.first().map(|c| c.close_ticks);
             }
+            // The card's size: the volume (props cache, else measured and saved).
+            facts.measure_volume(&mut w, &d)?;
             let look = crate::showcase::Look::load(version)?;
             look.card(1280, 720, &crate::showcase::title_lines(&facts)).save_png(&out)?;
             if let Some(p) = label {
