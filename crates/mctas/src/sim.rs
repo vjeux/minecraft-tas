@@ -483,6 +483,11 @@ pub struct Pool {
 impl Pool {
     /// Start `n` workers in parallel.
     pub fn spawn(n: usize, cfg: &WorkerConfig) -> Result<Pool> {
+        // A box is shared by several agents: MCTAS_MAX_WORKERS caps every pool of one process.
+        let n = match std::env::var("MCTAS_MAX_WORKERS").ok().and_then(|v| v.parse::<usize>().ok()) {
+            Some(cap) if cap > 0 => n.min(cap),
+            _ => n,
+        };
         let build = bridge::build(&cfg.version)?;
         let results: Vec<Result<Worker>> = std::thread::scope(|s| {
             let handles: Vec<_> = (0..n).map(|_| s.spawn(|| Worker::spawn_with(&build, cfg))).collect();

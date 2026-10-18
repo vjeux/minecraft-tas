@@ -162,7 +162,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
-                    println!("WORKS: {} ({} blocks, {}x{}x{})", d.name, r.blocks, r.size[0], r.size[1], r.size[2]);
+                    println!("WORKS: {} ({} blocks, {}x{}x{}, category {})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d));
                     if archive {
                         let note = format!("verified WORKS: {} blocks, open after {} ticks, closed after {} ticks", r.blocks, r.cycles[0].open_ticks, r.cycles[0].close_ticks);
                         match crate::archive::save(&design, &d, r.blocks, &note)? {

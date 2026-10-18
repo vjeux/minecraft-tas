@@ -132,8 +132,77 @@ pub fn block_count(d: &Design) -> usize {
     d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count()
 }
 
+/// Blocks a survival player cannot place (creative-only or technical); designs may not use them.
+const FORBIDDEN: &[&str] = &[
+    "command_block", "chain_command_block", "repeating_command_block", "structure_block", "structure_void",
+    "jigsaw", "barrier", "light", "bedrock", "end_portal_frame", "end_portal", "end_gateway", "nether_portal",
+    "spawner", "trial_spawner", "vault", "reinforced_deepslate", "budding_amethyst", "petrified_oak_slab",
+    "moving_piston", "test_block", "test_instance_block", "frosted_ice", "bubble_column", "fire", "soul_fire",
+];
+
+/// Gravity-affected full blocks. A door made of these is a different category (it can fall).
+pub fn is_gravity_block(state: &str) -> bool {
+    let name = mctas::blockstate::block_name(state);
+    let n = name.trim_start_matches("minecraft:");
+    n.ends_with("concrete_powder") || matches!(n, "sand" | "red_sand" | "gravel" | "suspicious_sand" | "suspicious_gravel")
+}
+
+/// The door category of a design: "solid" (normal blocks) or "gravity" (sand-like door blocks).
+pub fn category(d: &Design) -> &'static str {
+    let door = d.ports.get("door").and_then(|p| d.blocks.get(p));
+    if door.is_some_and(|s| is_gravity_block(s)) { "gravity" } else { "solid" }
+}
+
+/// Static legality: no creative-only blocks, no infested blocks, and every piston head belongs to
+/// an extended piston facing the same way (no headless/orphan heads).
+pub fn legality_problems(d: &Design) -> Vec<String> {
+    let mut out = Vec::new();
+    for (p, s) in &d.blocks {
+        let name = mctas::blockstate::block_name(s);
+        let n = name.trim_start_matches("minecraft:");
+        if FORBIDDEN.contains(&n) || n.starts_with("infested_") {
+            out.push(format!("{p:?} is {s}: not placeable in survival"));
+        }
+        let facing = |st: &str| BlockStateLite::get(st, "facing");
+        if n == "piston_head" {
+            let f = facing(s).unwrap_or_default();
+            let back = match f.as_str() {
+                "up" => [p[0], p[1] - 1, p[2]],
+                "down" => [p[0], p[1] + 1, p[2]],
+                "north" => [p[0], p[1], p[2] + 1],
+                "south" => [p[0], p[1], p[2] - 1],
+                "east" => [p[0] - 1, p[1], p[2]],
+                _ => [p[0] + 1, p[1], p[2]],
+            };
+            let ok = d.blocks.get(&back).is_some_and(|b| {
+                let bn = mctas::blockstate::block_name(b);
+                (bn == "minecraft:piston" || bn == "minecraft:sticky_piston")
+                    && BlockStateLite::get(b, "extended").as_deref() == Some("true")
+                    && facing(b).as_deref() == Some(f.as_str())
+            });
+            if !ok {
+                out.push(format!("{p:?} is a piston head without its extended piston behind it"));
+            }
+        }
+    }
+    out
+}
+
+/// Minimal property reader for "minecraft:x[a=b,c=d]" strings.
+struct BlockStateLite;
+impl BlockStateLite {
+    fn get(state: &str, key: &str) -> Option<String> {
+        let props = state.split_once('[')?.1.trim_end_matches(']');
+        props.split(',').find_map(|kv| kv.split_once('=').filter(|(k, _)| k.trim() == key).map(|(_, v)| v.trim().to_string()))
+    }
+}
+
 /// [`verify`] in an existing sandbox (it is cleared first; reuse saves creating levels).
 pub fn verify_in(w: &mut Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<Report> {
+    let illegal = legality_problems(design);
+    if !illegal.is_empty() {
+        bail!("illegal design: {}", illegal.join("; "));
+    }
     let spec = DoorSpec::from_design(design)?;
     let (lo, hi) = design.bounds().context("empty design")?;
     let size = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
