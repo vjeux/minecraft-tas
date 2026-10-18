@@ -1,0 +1,77 @@
+# verified WORKS by door leaderboard: 60 blocks, category solid
+# archived 2026-10-18 05:57Z from origin/explore/logic-min:designs/piston-door-3x3/tracks/logic-min/BEST.txt (repo at 3846faf)
+name: piston-door-3x3-lm1
+port door: 0 0 0
+port lever: 5 4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:obsidian
+  D minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=up]
+  E minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  F minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  G minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=side]
+  H minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  I minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=none]
+  J minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  K minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=down]
+  N minecraft:sticky_piston[extended=false,facing=east]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=north,short=false,type=sticky]
+  Q minecraft:sticky_piston[extended=false,facing=up]
+  R minecraft:redstone_wall_torch[facing=west,lit=true]
+  S minecraft:slime_block
+  T minecraft:sticky_piston[extended=false,facing=west]
+  U minecraft:sticky_piston[extended=true,facing=north]
+  V minecraft:stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+  s minecraft:smooth_stone
+layer -2:
+  ....Qs
+  .
+  .
+  .
+layer -1:
+  .....B
+  VooooA
+  .
+  .
+layer 0:
+  N.SVVVS
+  H
+  .
+  .
+layer 1:
+  ..SVVVS.T
+  ........s
+  ........s
+  ........s
+layer 2:
+  ..SVVVS.C
+  ........K
+  ........E
+  .......sD
+layer 3:
+  .....V..B
+  ....P...s
+  ....URsss
+  .......I
+layer 4:
+  ....MHVoL
+  ........K
+  ......FGr
+  .
+layer 5:
+  ....MBsO
+  .
+  .
+  .
+layer 6:
+  .....JFs
+  .
+  .
+  .

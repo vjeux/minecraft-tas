@@ -1,0 +1,7 @@
+# Lever on the A torch's attachment (-1,4,0): A early comes free, the old A-early climb becomes
+# the descent to the sides line; the sides line repeater flips to flow east.
+clear 5 6 0
+set -1 5 0 minecraft:lever[face=floor,facing=west,powered=false]
+port lever -1 5 0
+set -1 4 -1 minecraft:redstone_wire
+set 2 -2 1 minecraft:repeater[facing=west,delay=1]

@@ -1,0 +1,21 @@
+design designs/piston-door-3x3/tracks/gravity/g2-ideal.txt
+plane 0 -4 -8 6 3
+print
+# open: R3 off, sides off
+clear 2 -2 0
+clear -3 -1 0
+clear 5 -1 0
+step 3
+clear 2 -4 0
+step 3
+clear 1 -7 1
+step 30
+# close: S1 on
+set 1 -7 1 minecraft:redstone_block
+set -3 -1 0 minecraft:redstone_block
+set 5 -1 0 minecraft:redstone_block
+step 3
+set 2 -4 0 minecraft:redstone_block
+step 3
+set 2 -2 0 minecraft:redstone_block
+step 20

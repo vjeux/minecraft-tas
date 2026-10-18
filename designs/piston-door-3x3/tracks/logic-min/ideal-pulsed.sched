@@ -1,0 +1,50 @@
+# Pulse-driven variant: P_L, P_R, P_BM and A are RETRACTED at rest and get 2gt pulses (an open
+# pulse pulls, a close pulse pushes and spits); P_T stays steady (extended at rest).
+#   S pulses (P_L, P_R, P_BM): redstone blocks at (-4,0,0) (6,0,0) (1,-3,0) for sw ticks
+#   A pulses: (3,4,0) next to the X dust (2,4,0): p0 (lift T), then 2 after each B edge
+#   P_T steady: (1,3,3)
+#   B: (1,6,0)
+design designs/piston-door-3x3/tracks/logic-min/ideal-mech-pulsed.txt
+let s = 1
+let sw = 2
+let p0 = 1
+let pw = 2
+let pt_off = 9
+let b = 11
+let bw = 8
+let dx = 2
+let xw = 2
+let s2 = 1
+let pt_on = 19
+
+open s set -4 0 0 minecraft:redstone_block
+open s set 6 0 0 minecraft:redstone_block
+open s set 1 -3 0 minecraft:redstone_block
+open s+sw clear -4 0 0
+open s+sw clear 6 0 0
+open s+sw clear 1 -3 0
+open p0 set 3 4 0 minecraft:redstone_block
+open p0+pw clear 3 4 0
+open pt_off clear 1 3 3
+open b set 1 6 0 minecraft:redstone_block
+open b+bw clear 1 6 0
+open b+dx set 3 4 0 minecraft:redstone_block
+open b+dx+xw clear 3 4 0
+open b+bw+dx set 3 4 0 minecraft:redstone_block
+open b+bw+dx+xw clear 3 4 0
+
+close s2 set -4 0 0 minecraft:redstone_block
+close s2 set 6 0 0 minecraft:redstone_block
+close s2 set 1 -3 0 minecraft:redstone_block
+close s2+sw clear -4 0 0
+close s2+sw clear 6 0 0
+close s2+sw clear 1 -3 0
+close p0 set 3 4 0 minecraft:redstone_block
+close p0+pw clear 3 4 0
+close b set 1 6 0 minecraft:redstone_block
+close b+bw clear 1 6 0
+close b+dx set 3 4 0 minecraft:redstone_block
+close b+dx+xw clear 3 4 0
+close b+bw+dx set 3 4 0 minecraft:redstone_block
+close b+bw+dx+xw clear 3 4 0
+close pt_on set 1 3 3 minecraft:redstone_block

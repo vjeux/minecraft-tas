@@ -1,0 +1,2 @@
+a29e2d82c8afe208 origin/explore/redstone-block:designs/piston-door-3x3/tracks/redstone-block/BEST.txt 57 -> 57
+79c0fabda7af1678 origin/explore/redstone-block:designs/piston-door-3x3/tracks/redstone-block/rb1-min.txt 67 -> 67

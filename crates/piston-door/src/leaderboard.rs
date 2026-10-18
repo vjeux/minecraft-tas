@@ -15,6 +15,7 @@ use crate::{VerifyOptions, block_count, category};
 /// One candidate and its verdict.
 pub struct Entry {
     pub source: String,
+    pub design: Design,
     pub blocks: usize,
     pub category: &'static str,
     pub verdict: std::result::Result<(), String>,
@@ -54,14 +55,20 @@ pub fn collect(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<
     Ok(out)
 }
 
-/// Verify every candidate in parallel.
-pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, workers: usize) -> Result<Vec<Entry>> {
+/// Verify every candidate in parallel; designs whose key is in `trusted` (already archived,
+/// hence verified when archived) are not re-verified.
+pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, workers: usize, trusted: &HashSet<String>) -> Result<Vec<Entry>> {
     let pool = Pool::spawn(workers.min(cands.len()).max(1), &WorkerConfig { version: version.to_string(), ..Default::default() })?;
     let mut opts = VerifyOptions::default();
     opts.offsets.extend(crate::extra_offsets(extra_offsets));
     let results = pool.map(cands, |w, _, (source, d)| {
-        let verdict = crate::verify(w, &d, &opts).map(|_| ()).map_err(|e| format!("{e:#}"));
-        Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict })
+        let key = format!("{:?}|{:?}", d.blocks, d.ports);
+        let verdict = if trusted.contains(&key) {
+            Ok(())
+        } else {
+            crate::verify(w, &d, &opts).map(|_| ()).map_err(|e| format!("{e:#}"))
+        };
+        Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d })
     });
     let mut entries: Vec<Entry> = results.into_iter().collect::<Result<_>>()?;
     entries.sort_by(|a, b| {
@@ -86,4 +93,34 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         s.push_str(&format!("| {} | {} | {} | {} | `{}` |\n", i + 1, e.blocks, e.category, verdict, e.source));
     }
     s
+}
+
+/// Copy every `explore/<track>` branch's `designs/piston-door-3x3/tracks/<track>` folder into
+/// the working tree (so main carries every agent's variants). Returns the tracks synced.
+pub fn sync_tracks(repo: &Path, refs_prefix: &str) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for r in git(repo, &["for-each-ref", "--format=%(refname:short)", refs_prefix])?.lines() {
+        let r = r.trim();
+        let Some(track) = r.rsplit('/').next() else { continue };
+        let path = format!("designs/piston-door-3x3/tracks/{track}");
+        if git(repo, &["ls-tree", "--name-only", r, &path]).map(|s| s.trim().is_empty()).unwrap_or(true) {
+            continue;
+        }
+        git(repo, &["checkout", r, "--", &path])?;
+        out.push(track.to_string());
+    }
+    Ok(out)
+}
+
+/// Keys of the designs already in an archive folder (verified when they were archived).
+pub fn archived_keys(dir: &Path) -> HashSet<String> {
+    let mut keys = HashSet::new();
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for e in rd.flatten() {
+            if let Ok(d) = Design::load(&e.path()) {
+                keys.insert(format!("{:?}|{:?}", d.blocks, d.ports));
+            }
+        }
+    }
+    keys
 }
