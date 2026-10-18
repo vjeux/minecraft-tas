@@ -38,3 +38,5 @@ Palette for every resynth: `block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,no
 | `flat43.txt` | **43** | flat (was 45) | flat-v8 (49) | resynth 2..4, six steps in a row: (1) observers (-2,4,0), (-2,5,0), (-1,3,0), (-1,5,0) -> REDSTONE LAMP (-1,3,0) + cross dust (-1,4,0) + smooth stone (-1,5,0) (the lamp holds the signal 4 gt longer, which made the next five possible); (2-6) the observer/stone/repeater chain above (y=5..7) collapses into dust: a repeater d4 (1,6,0) fed by dust (0,6,0) | 46 / 44 |
 | fc2-40b, riders-fx1-40b, m05-21b-sym-40b | 40 | solid | - | resynth 2..4 (114-115 groups each, up to 40k circuits per group): nothing | |
 | sculk2-s4 | 36 | sculk | - | resynth 2..4: nothing | |
+| synth-g42-42b | 42 | gravity | - | resynth 2..4: nothing | |
+| `o6-107.txt` | **107** | speed (solid, slime-free; was 119 at the same 11 / 7) | speed-wire-o6 (119) | resynth 2..4 with `--max-open 11 --max-close 7`: twelve replacements, among them twice a wall torch on a TARGET block (gadget target-tap: the dust beside it bends into the target and powers it) instead of stone + dust + floor | 11 / 7 |
