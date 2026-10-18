@@ -1,0 +1,118 @@
+name: piston-door-3x3-v2u2
+port door: 0 0 0
+port lever: 5 6 0
+origin: -1 0 0
+palette:
+  A minecraft:obsidian
+  B minecraft:piston_head[facing=up,short=false,type=sticky]
+  C minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=side]
+  D minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+  E minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  F minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
+  G minecraft:redstone_wire[east=none,north=up,power=0,south=none,west=side]
+  H minecraft:honey_block
+  I minecraft:redstone_wire[east=none,north=up,power=0,south=up,west=none]
+  J minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  K minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=side]
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  M minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  N minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=none]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:redstone_wire[east=up,north=side,power=0,south=none,west=none]
+  R minecraft:redstone_block
+  S minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  T minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  U minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  V minecraft:smooth_stone
+  W minecraft:sticky_piston[extended=false,facing=down]
+  X minecraft:sticky_piston[extended=false,facing=east]
+  Y minecraft:sticky_piston[extended=false,facing=west]
+  Z minecraft:sticky_piston[extended=true,facing=down]
+  a minecraft:sticky_piston[extended=true,facing=north]
+  b minecraft:sticky_piston[extended=true,facing=up]
+  c minecraft:stone
+  o minecraft:observer[facing=up,powered=false]
+  p minecraft:piston_head[facing=north,short=false,type=sticky]
+  r minecraft:redstone_wall_torch[facing=west,lit=true]
+  s minecraft:slime_block
+layer -3:
+  ..bRs
+  .
+  .
+  ..V
+  .
+  .
+  .
+layer -2:
+  ..B.s
+  .
+  ..V
+  ..I
+  ..V
+  .
+  .
+layer -1:
+  s.H.s
+  sYAXs
+  ..E
+  .
+  ..F
+  ..V
+  .
+layer 0:
+  scccs
+  .
+  .
+  .
+  .
+  ..F
+  ..V
+layer 1:
+  scccs
+  .
+  .
+  .
+  .
+  .
+  ..QV
+layer 2:
+  scccs
+  .
+  .
+  .
+  .
+  ...V
+  ...G
+layer 3:
+  s.Pc..VV
+  ..p....V
+  ..arVVVVV
+  .....VVVV
+  ....V
+  ...NV
+  .
+layer 4:
+  sRZM..JC
+  .......E
+  ....JUJKC
+  ....VUUUD
+  ....T
+  ....D
+  .
+layer 5:
+  ..Wo.VV
+  .
+  .
+  .
+  .
+  .
+  .
+layer 6:
+  ...UOSL
+  .
+  .
+  .
+  .
+  .
+  .
