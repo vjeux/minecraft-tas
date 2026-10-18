@@ -3,6 +3,14 @@
 Not a door track: tools that turn the archive into things to watch, all rendered by the real
 Minecraft client (`door video` pipeline) and cut with the static ffmpeg build, in Rust.
 
+## Results (release `videos`)
+* [GALLERY.md](../../GALLERY.md): the best of each board as looping GIFs (`<design>.gif`).
+* Record progressions, one camera per board, game speed, labeled: `solid-progression.mp4`
+  (151 -> 40, 29 records, 3:11), `slime-free-progression.mp4`, `sculk-progression.mp4`
+  (50 -> 42), `gravity-progression.mp4` (69 -> 45), each with a poster `<board>-progression.jpg`.
+* Every archived design's video in the new `card` style: the coordinator re-renders them with
+  `door video-all --redo`.
+
 ## Commands (branch explore/showcase)
 * `mctas door gallery --videos ~/videos/gallery --upload videos`: picks the best design of
   each board from the archive (verdicts and worst-cycle timings from the leaderboard cache,
