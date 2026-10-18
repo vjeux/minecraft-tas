@@ -1,0 +1,14 @@
+design designs/piston-door-3x3/tracks/fresh-a/wip/sf1-w2.txt
+probe Da 1 5 -2
+probe M -1 4 -4
+probe Mx -2 4 -2
+probe Ral -1 4 -2
+probe dA 0 4 -2
+probe TA 1 4 -1
+probe TP -1 3 -1
+probe A 1 4 0
+probe Ad 1 3 0
+use 1 6 3
+quiet 30
+use 1 6 3
+trace 45

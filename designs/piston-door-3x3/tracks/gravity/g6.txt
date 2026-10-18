@@ -1,0 +1,76 @@
+name: gravity-g6
+port door: 0 0 0
+port lever: 1 0 -2
+origin: -1 0 -3
+palette:
+  A minecraft:piston_head[facing=up,short=false,type=sticky]
+  B minecraft:redstone_wire[east=none,north=side,power=15,south=side,west=none]
+  C minecraft:redstone_wire[east=side,north=none,power=13,south=none,west=up]
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:redstone_wire[east=side,north=up,power=12,south=none,west=none]
+  F minecraft:redstone_wire[east=side,north=up,power=14,south=side,west=side]
+  G minecraft:redstone_wire[east=up,north=none,power=13,south=side,west=none]
+  H minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
+  I minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
+  J minecraft:smooth_stone
+  K minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:sticky_piston[extended=true,facing=up]
+  O minecraft:obsidian
+  P minecraft:piston[extended=true,facing=up]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:sand
+  p minecraft:piston_head[facing=up,short=false,type=normal]
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+  s minecraft:slime_block
+layer -7:
+  .
+  .
+  JJ
+  .
+layer -6:
+  .
+  J.J
+  EIN
+  .
+layer -5:
+  .
+  GJC
+  .OA
+  .
+layer -4:
+  .J
+  .F
+  .Hs
+  .JN
+layer -3:
+  .B
+  .
+  ..s
+  ..A
+layer -2:
+  .R
+  .J.J
+  .
+  ..P
+layer -1:
+  .
+  .DJD
+  .JrJ
+  sMpKs
+layer 0:
+  .
+  ..L
+  .
+  sSSSs
+layer 1:
+  .
+  .
+  .
+  sSSSs
+layer 2:
+  .
+  .
+  .
+  sSSSs

@@ -59,6 +59,14 @@ pub enum DoorCmd {
         /// Extra cells the path may touch, "x,y,z;...".
         #[arg(long, default_value = "")]
         allow: String,
+        /// Take the swept cells from this drive script (ideal inputs) instead of flipping the
+        /// design's lever: for wiring a mechanism that does not run on its own yet.
+        #[arg(long)]
+        swept_script: Option<PathBuf>,
+        /// Append the path to this file as `door patch` lines (`set x y z <state>`) instead of
+        /// printing builder code.
+        #[arg(long)]
+        patch: Option<PathBuf>,
     },
     /// Drive a design by hand from a script (see drive.rs) and print the z=0 plane per tick.
     /// Several scripts run one after the other; any failed `expect` makes the command fail.
@@ -141,6 +149,12 @@ pub enum DoorCmd {
         name: Option<String>,
         #[arg(long, default_value_t = 1)]
         seed: u64,
+        /// Speed boards: only accept designs that open within this many ticks (every cycle).
+        #[arg(long)]
+        max_open: Option<u32>,
+        /// Speed boards: only accept designs that close within this many ticks (every cycle).
+        #[arg(long)]
+        max_close: Option<u32>,
     },
     /// Record the door opening and closing with the real Minecraft client (needs Xvfb).
     Video {
@@ -219,7 +233,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let trusted = archive_dir.as_deref().map(crate::leaderboard::archived_keys).unwrap_or_default();
             let cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
             eprintln!("verifying {} designs ({} archived designs trusted)", cands.len(), trusted.len());
-            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, &trusted)?;
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, archive_dir.as_deref())?;
             if let Some(dir) = &archive_dir {
                 for e in entries.iter().filter(|e| e.verdict.is_ok()) {
                     let note = format!("verified WORKS by door leaderboard: {} blocks, category {}", e.blocks, e.category);
@@ -234,7 +248,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(p, &table)?;
             }
         }
-        DoorCmd::Route { design, start, goal, allow } => {
+        DoorCmd::Route { design, start, goal, allow, swept_script, patch } => {
             let d = load_design(&design)?;
             let cells = |s: &str| -> Vec<[i32; 3]> {
                 s.split(';').filter(|x| !x.trim().is_empty()).map(|c| {
@@ -244,7 +258,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let spec = crate::DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
-            let mut reserved = crate::route::swept_cells(&mut w, &d, &spec)?;
+            let mut reserved = match &swept_script {
+                Some(s) => crate::drive::swept(&mut w, &std::fs::read_to_string(s)?)?,
+                None => crate::route::swept_cells(&mut w, &d, &spec)?,
+            };
             reserved.retain(|p| !d.blocks.contains_key(p));
             for x in 0..=2 { for y in 0..=2 { for z in -4..=4 { reserved.insert([x, y, z]); } } }
             reserved.insert([1, 3, 1]);
@@ -252,10 +269,20 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let goal = cells(&goal)[0];
             match r.route(&cells(&start), goal) {
                 Some(path) => {
-                    for (p, s) in path.iter().rev() {
-                        println!("    b.set([{}, {}, {}], \"{}\");", p[0], p[1], p[2], s);
+                    if let Some(file) = &patch {
+                        use std::io::Write;
+                        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(file)?;
+                        writeln!(f, "# route to {},{},{} ({} new blocks)", goal[0], goal[1], goal[2], path.len())?;
+                        for (p, s) in path.iter().rev() {
+                            writeln!(f, "set {} {} {} {}", p[0], p[1], p[2], s)?;
+                        }
+                        println!("{} new blocks appended to {}", path.len(), file.display());
+                    } else {
+                        for (p, s) in path.iter().rev() {
+                            println!("    b.set([{}, {}, {}], \"{}\");", p[0], p[1], p[2], s);
+                        }
+                        println!("    // {} new blocks", path.len());
                     }
-                    println!("    // {} new blocks", path.len());
                 }
                 None => anyhow::bail!("no route"),
             }
@@ -308,6 +335,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             archive,
             name,
             seed,
+            max_open,
+            max_close,
         } => {
             let mut d = load_design(&design)?;
             if let Some(n) = name {
@@ -331,6 +360,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 walk,
                 deadline: minutes.map(|m| t + std::time::Duration::from_secs_f64(m * 60.0)),
                 seed,
+                max_open,
+                max_close,
             };
             println!("{} workers; moves {moves}; judge {} positions", pool.len(), offsets.len());
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());

@@ -1,0 +1,58 @@
+design designs/piston-door-3x3/tracks/fresh-b/mech2.txt
+plane 0 -4 -3 6 6
+probe A 1 -2 0
+probe PB 1 -1 2
+probe T 1 4 0
+probe U 0 5 0
+probe C 1 1 0
+probe c0 1 0 0
+probe cm 1 -1 0
+quiet 2
+print
+# ===== open at t=0
+clear -3 0 0
+clear -3 1 0
+clear 5 0 0
+clear 5 1 0
+set 1 -3 0 minecraft:redstone_block
+quiet 2
+clear 1 -3 0
+quiet 4
+print
+# t=6 T on for 4
+set 1 4 1 minecraft:redstone_block
+quiet 2
+# t=8 P_B off
+clear 1 -1 3
+quiet 2
+# t=10 T off
+clear 1 4 1
+quiet 2
+# t=12 A pulse, U off
+set 1 -3 0 minecraft:redstone_block
+clear -1 5 0
+quiet 2
+clear 1 -3 0
+quiet 10
+print
+# ===== close at t=0
+set -3 0 0 minecraft:redstone_block
+set -3 1 0 minecraft:redstone_block
+set 5 0 0 minecraft:redstone_block
+set 5 1 0 minecraft:redstone_block
+quiet 2
+set 1 -3 0 minecraft:redstone_block
+quiet 2
+clear 1 -3 0
+quiet 4
+print
+# t=8 P_B on
+set 1 -1 3 minecraft:redstone_block
+quiet 4
+# t=12 A pulse (spit 2), U on
+set 1 -3 0 minecraft:redstone_block
+set -1 5 0 minecraft:redstone_block
+quiet 2
+clear 1 -3 0
+quiet 10
+print

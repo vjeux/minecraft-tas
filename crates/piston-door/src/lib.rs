@@ -19,7 +19,11 @@ pub mod cli;
 pub mod archive;
 pub mod designs;
 pub mod designs_history;
+pub mod designs_top;
+pub mod designs_center_mech;
+pub mod observer_seq;
 pub mod leaderboard;
+pub mod designs_gravity;
 pub mod lm;
 pub mod drive;
 pub mod ideal;
@@ -484,6 +488,37 @@ pub fn timeline(frames: &[Region], spec: &DoorSpec) -> String {
 /// The design with every block replaced by the exact state it has once placed and settled
 /// (wire connections, repeater flags...), so the file is the true rest state.
 pub fn canonicalize(w: &mut Worker, d: &Design) -> Result<Design> {
+    // A design written with stale redstone states (dust at power 0, a repeater off) can let a
+    // piston fire before its signal settles, so the "rest" read back is a half-moved machine.
+    // Settle, copy back only the redstone parts' states, and retry until the machine stays put.
+    let is_redstone = |s: &str| {
+        let n = mctas::blockstate::block_name(s);
+        ["redstone_wire", "repeater", "comparator", "redstone_torch", "redstone_wall_torch", "observer", "redstone_lamp"]
+            .iter()
+            .any(|k| n == format!("minecraft:{k}"))
+    };
+    let mut cur = d.clone();
+    for _ in 0..6 {
+        let settled = canonicalize_once(w, &cur)?;
+        let moved = cur.blocks.iter().any(|(p, s)| !is_redstone(s) && settled.blocks.get(p) != Some(s));
+        if !moved {
+            return Ok(settled);
+        }
+        let mut next = d.clone();
+        for (p, s) in next.blocks.iter_mut() {
+            if is_redstone(s) {
+                *s = settled.blocks[p].clone();
+            }
+        }
+        if next == cur {
+            return Ok(settled);
+        }
+        cur = next;
+    }
+    canonicalize_once(w, &cur)
+}
+
+fn canonicalize_once(w: &mut Worker, d: &Design) -> Result<Design> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let blocks = d.block_list();
     w.set_blocks(sb, &blocks, PlaceMode::Raw)?;

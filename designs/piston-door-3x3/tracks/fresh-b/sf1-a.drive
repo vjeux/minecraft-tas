@@ -1,0 +1,34 @@
+design designs/piston-door-3x3/tracks/fresh-b/sf1-a.txt
+set -5 1 0 minecraft:lever[face=wall,facing=west,powered=false]
+set 7 1 0 minecraft:lever[face=wall,facing=east,powered=false]
+set 4 -3 0 minecraft:lever[face=wall,facing=east,powered=false]
+probe TM 1 2 0
+probe C 1 1 0
+probe BM 1 0 0
+probe m1 1 -1 0
+probe T3 1 3 0
+probe T4 1 4 0
+probe B 1 5 0
+probe A 1 -2 0
+probe RP2 4 2 0
+probe LP2 -2 2 0
+probe PB 3 -1 0
+quiet 4
+# OPEN
+use 1 -2 -2
+use -5 1 0
+use 7 1 0
+trace 8
+use 4 -3 0
+trace 4
+set 1 -4 0 minecraft:redstone_block
+trace 22
+# CLOSE
+use 1 -2 -2
+use -5 1 0
+use 7 1 0
+trace 8
+use 4 -3 0
+trace 4
+clear 1 -4 0
+trace 22
