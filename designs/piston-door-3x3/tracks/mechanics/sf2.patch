@@ -1,0 +1,44 @@
+# Slime-free from mech-89: the side columns' slime backbones and P_L/P_R become individual
+# pullers. Bottom row: three pullers below (torches under them on the sides line floors; the
+# line repeater moves to (3,-2,1)). Left (0,1),(0,2): pullers (-2,1,0),(-2,2,0), one torch at
+# (-3,2,0) (direct + quasi). Right (2,1),(2,2): pullers (4,1,0),(4,2,0), torch (5,2,0).
+clear -1 0 0
+clear -1 1 0
+clear -1 2 0
+clear 3 0 0
+clear 3 1 0
+clear 3 2 0
+clear -3 0 0
+clear 5 0 0
+clear -3 -1 0
+clear 5 -1 0
+set 0 -2 0 minecraft:sticky_piston[facing=up,extended=true]
+set 2 -2 0 minecraft:sticky_piston[facing=up,extended=true]
+set 0 -3 0 minecraft:redstone_wall_torch[facing=north,lit=true]
+set 2 -3 0 minecraft:redstone_wall_torch[facing=north,lit=true]
+set 3 -2 1 minecraft:repeater[facing=east,delay=1]
+set 2 -2 1 minecraft:redstone_wire
+set -2 1 0 minecraft:sticky_piston[facing=east,extended=true]
+set -2 2 0 minecraft:sticky_piston[facing=east,extended=true]
+set -3 2 0 minecraft:redstone_wall_torch[facing=east,lit=true]
+set -4 2 0 minecraft:smooth_stone
+set 4 1 0 minecraft:sticky_piston[facing=west,extended=true]
+set 4 2 0 minecraft:sticky_piston[facing=west,extended=true]
+set 5 2 0 minecraft:redstone_wall_torch[facing=west,lit=true]
+set 6 2 0 minecraft:smooth_stone
+# router: sides line west end -> dust on the left torch attachment
+set -2 -2 0 minecraft:smooth_stone
+set -2 -1 0 minecraft:redstone_wire
+set -3 -1 0 minecraft:smooth_stone
+set -3 0 0 minecraft:redstone_wire
+set -3 0 -1 minecraft:smooth_stone
+set -3 1 -1 minecraft:redstone_wire
+set -4 1 -1 minecraft:smooth_stone
+set -4 2 -1 minecraft:redstone_wire
+set -4 3 0 minecraft:redstone_wire
+# X2's floor: glass (not a conductor), so it cannot quasi-power the right top puller
+set 3 3 0 minecraft:glass
+# router: lever net (7,4,1) -> dust on the right torch attachment
+set 6 2 1 minecraft:smooth_stone
+set 6 3 1 minecraft:redstone_wire
+set 6 3 0 minecraft:redstone_wire

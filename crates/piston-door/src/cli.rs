@@ -69,6 +69,30 @@ pub enum DoorCmd {
         #[arg(long)]
         quiet: bool,
     },
+    /// Judge a mechanism driven by ideal inputs from a schedule (see ideal.rs); sweep its timing.
+    Ideal {
+        schedule: PathBuf,
+        /// Override a schedule variable, name=value (repeatable).
+        #[arg(long)]
+        set: Vec<String>,
+        /// Sweep a variable, name=lo..hi (repeatable: every combination).
+        #[arg(long)]
+        sweep: Vec<String>,
+        /// Sweep each --sweep variable on its own (others at their values) instead of the grid.
+        #[arg(long)]
+        independent: bool,
+        /// Extra pseudo-random positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        cycles: u32,
+        /// Print the plane z,x0,y0,x1,y1 every tick of the first cycle.
+        #[arg(long)]
+        trace: Option<String>,
+        /// Worker JVMs for sweeps.
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
     /// only if the full judge passes; every improvement is written to --out.
@@ -235,6 +259,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 None => anyhow::bail!("no route"),
             }
+        }
+        DoorCmd::Ideal { schedule, set, sweep, independent, extra_offsets, cycles, trace, workers } => {
+            crate::ideal::cli(version, &schedule, &set, &sweep, independent, extra_offsets, cycles, trace, workers)?;
         }
         DoorCmd::Drive { scripts, quiet } => {
             let mut w = Worker::spawn(&cfg)?;

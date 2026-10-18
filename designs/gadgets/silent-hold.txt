@@ -1,24 +1,17 @@
 name: gadget-silent-hold
-# Silent hold (BUD release): keep a piston extended after its lever goes off, until a later
-# neighbor update, with no extra power at release time. The lever on X powers sticky piston P
-# (X is P's quasi cell). The lever also feeds a 16gt delay (repeater D1, block B1, dot dust, its
-# floor, repeater R) into block H next to X: when the lever goes off P is updated but H still
-# quasi-powers it; H then drops 16gt later, and a repeater only updates the neighbors of the
-# block it points into, so P is NOT updated and stays extended, unpowered. The next neighbor
-# update retracts it. In the redstone-block door (rb5/rb6) the piston is Q (the redstone-block
-# shuttle) and the release is A landing back next to Q's head at the end of the closing dance.
-origin: -1 0 0
+# Silent hold (BUD hold, found by the redstone-block track for rb5): piston P is powered only
+# through its quasi cell (0,2,0) by block H, which repeater R switches. A repeater switching a
+# solid block updates only that block's neighbors, and P is not one of them: H turning on does
+# not extend P, H turning off does not retract it; P only re-checks when something next to it
+# changes. Lever L drives R.
+origin: 0 0 0
 palette:
-  S minecraft:stone
-  s minecraft:smooth_stone
-  P minecraft:sticky_piston[extended=false,facing=east]
-  R minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
-  D minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
-  d minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  P minecraft:sticky_piston[extended=false,facing=north]
+  H minecraft:stone
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
   L minecraft:lever[face=floor,facing=east,powered=false]
+  S minecraft:smooth_stone
 layer 1:
-  .s.P
+  P.SS
 layer 2:
-  sRSS
-layer 3:
-  dSDL
+  .HRL
