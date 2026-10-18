@@ -83,23 +83,51 @@ pub fn short_source(source: &str) -> String {
     }
 }
 
-/// The table of every working design: blocks, category, slime-free, rotations, then the shape
-/// and the preset rules it satisfies.
+/// The shape a board judges: the swept one (space needed at rest and while moving) when known.
+fn board_shape(e: &Entry) -> Option<Shape> {
+    e.swept.or_else(|| shape(&e.design))
+}
+
+/// Where the swept shape exceeds the rest shape ("L+1 B+2": the machine reaches one column
+/// further left and two layers further behind while it moves).
+fn moves_out(rest: &Shape, swept: &Shape) -> String {
+    let parts = [
+        ("F", swept.front - rest.front),
+        ("B", swept.behind - rest.behind),
+        ("D", swept.below - rest.below),
+        ("U", swept.above - rest.above),
+        ("L", swept.left - rest.left),
+        ("R", swept.right - rest.right),
+    ];
+    parts.iter().filter(|(_, d)| *d > 0).map(|(k, d)| format!("{k}+{d}")).collect::<Vec<_>>().join(" ")
+}
+
+/// The table of every working design: blocks, category, slime-free, rotations, then the space it
+/// needs (swept shape), what moves beyond its rest shape, and the preset rules it satisfies.
 pub fn table(entries: &[Entry], rules: &[Rule], table_max: usize) -> String {
     let mut s = String::from(
-        "blocks cat     sf  rot  thick(F+B) below above left right  box WxHxT  volume  rules                                   design\n",
+        "Shapes are the space each door needs, at rest and while it moves (swept); 'moves out' = beyond the rest shape \
+         (F front, B behind, D down, U up, L left, R right). below/above: rows (blocks at rest).\n\
+         blocks cat     sf  rot  thick(F+B) below above left right  box WxHxT  volume  moves out  rules                                   design\n",
     );
-    let mut rows: Vec<(&Entry, Shape)> = entries.iter().filter(|e| e.verdict.is_ok() && e.blocks <= table_max).filter_map(|e| Some((e, shape(&e.design)?))).collect();
+    let mut rows: Vec<(&Entry, Shape)> = entries.iter().filter(|e| e.verdict.is_ok() && e.blocks <= table_max).filter_map(|e| Some((e, board_shape(e)?))).collect();
     rows.sort_by(|a, b| (a.0.category != "solid", a.0.blocks, a.1.volume(), &a.0.source).cmp(&(b.0.category != "solid", b.0.blocks, b.1.volume(), &b.0.source)));
     for (e, sh) in rows {
-        let ok: Vec<&str> = rules.iter().filter(|r| r.limits.allows(&sh)).map(|r| r.name.as_str()).collect();
+        // A rule asking for nothing below also needs the door to work on a stone floor: "!"
+        // marks a design that fails (or has not passed) the ground check.
+        let ok: Vec<String> = rules
+            .iter()
+            .filter(|r| r.limits.allows(&sh))
+            .map(|r| if r.limits.below == Some(0) && !e.ground_safe() { format!("{}!", r.name) } else { r.name.clone() })
+            .collect();
         let rot = match &e.rotation {
             Some(Ok(())) => "safe".to_string(),
             Some(Err((deg, _))) => format!("x{deg}"),
             None => "-".into(),
         };
+        let out = shape(&e.design).map(|r| moves_out(&r, &sh)).unwrap_or_default();
         s.push_str(&format!(
-            "{:>6} {:<7} {:<3} {:<4} {:>2} ({}+{})   {:>5} {:>5} {:>4} {:>5}  {:>3}x{:<2}x{:<2}  {:>6}  {:<39} {}\n",
+            "{:>6} {:<7} {:<3} {:<4} {:>2} ({}+{})   {:>5} {:>5} {:>4} {:>5}  {:>3}x{:<2}x{:<2}  {:>6}  {:<9}  {:<39} {}\n",
             e.blocks,
             e.category,
             if crate::slime_free(&e.design) { "yes" } else { "" },
@@ -115,6 +143,7 @@ pub fn table(entries: &[Entry], rules: &[Rule], table_max: usize) -> String {
             sh.height(),
             sh.thickness(),
             sh.volume(),
+            out,
             ok.join(" "),
             short_source(&e.source)
         ));
@@ -124,15 +153,18 @@ pub fn table(entries: &[Entry], rules: &[Rule], table_max: usize) -> String {
 
 /// For each rule, the best rotation-safe design of each league (fewest blocks, ties by smaller
 /// box), how many working rotation-safe solid designs satisfy it, and the best design that only
-/// fails on rotations; then the (volume, blocks) Pareto frontier of the solid designs.
+/// fails on rotations; then the (volume, blocks) Pareto frontier of the solid designs. Rules
+/// apply to the swept shapes.
 pub fn best_report(entries: &[Entry], rules: &[Rule]) -> String {
-    let working: Vec<(&Entry, Shape)> = entries.iter().filter(|e| e.verdict.is_ok()).filter_map(|e| Some((e, shape(&e.design)?))).collect();
+    let working: Vec<(&Entry, Shape)> = entries.iter().filter(|e| e.verdict.is_ok()).filter_map(|e| Some((e, board_shape(e)?))).collect();
     let mut s = String::from("\nBest design per shape rule (rotation-safe; fewest blocks, ties by smaller box):\n");
     let none = || "-".to_string();
     for r in rules {
         s.push_str(&format!("\n{} ({}): {}\n", r.name, r.terms, r.what));
+        // Nothing below the door must also work standing on a stone floor (ground check).
+        let fits_rule = |e: &Entry, sh: &Shape| r.limits.allows(sh) && (r.limits.below != Some(0) || e.ground_safe());
         for (label, keep) in leagues() {
-            let fits: Vec<&(&Entry, Shape)> = working.iter().filter(|(e, sh)| e.rotation_safe() && keep(e) && r.limits.allows(sh)).collect();
+            let fits: Vec<&(&Entry, Shape)> = working.iter().filter(|(e, sh)| e.rotation_safe() && keep(e) && fits_rule(e, sh)).collect();
             let best = fits.iter().min_by_key(|(e, sh)| (e.blocks, sh.volume(), e.source.clone()));
             let line = match best {
                 Some((e, sh)) => format!(
@@ -153,9 +185,18 @@ pub fn best_report(entries: &[Entry], rules: &[Rule]) -> String {
             };
             s.push_str(&format!("  {label:<10} {line}\n"));
         }
-        let unrot = working.iter().filter(|(e, sh)| !e.rotation_safe() && r.limits.allows(sh)).min_by_key(|(e, _)| (e.blocks, e.source.clone()));
+        let unrot = working.iter().filter(|(e, sh)| !e.rotation_safe() && fits_rule(e, sh)).min_by_key(|(e, _)| (e.blocks, e.source.clone()));
         if let Some((e, _)) = unrot {
             s.push_str(&format!("  (not rotation-safe: {} blocks {} {})\n", e.blocks, e.category, e.source));
+        }
+        if r.limits.below == Some(0) {
+            for (e, _) in working.iter().filter(|(e, sh)| r.limits.allows(sh) && !e.ground_safe()) {
+                let why = match &e.ground {
+                    Some(Err(why)) => why.chars().take(160).collect::<String>(),
+                    _ => "not checked".into(),
+                };
+                s.push_str(&format!("  (fails on a stone floor: {} blocks {}: {why})\n", e.blocks, e.source));
+            }
         }
     }
     // Smallest box: the (volume, blocks) frontier, solid and rotation-safe.

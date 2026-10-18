@@ -26,11 +26,24 @@ pub struct Entry {
     /// ([`crate::rotation_check`]), else the first failing turn in degrees and the reason.
     /// `None` for a broken design.
     pub rotation: Option<std::result::Result<(), (u32, String)>>,
+    /// For a working design with nothing below its door ([`crate::on_ground`]): `Ok(())` if it
+    /// also works standing on a stone floor ([`crate::ground_check`]), else the judge's reason.
+    /// `None` otherwise.
+    pub ground: Option<std::result::Result<(), String>>,
+    /// For a working design: the space it needs at rest and while it moves
+    /// ([`crate::swept_shape`]); the shape boards use it.
+    pub swept: Option<crate::Shape>,
 }
 
 impl Entry {
     pub fn rotation_safe(&self) -> bool {
         matches!(self.rotation, Some(Ok(())))
+    }
+
+    /// Nothing below the door at rest or while it moves, and it works standing on the ground
+    /// (the "on the ground" board).
+    pub fn ground_safe(&self) -> bool {
+        matches!(self.ground, Some(Ok(()))) && crate::on_ground(&self.design) && self.swept.is_some_and(|s| s.below == 0)
     }
 }
 
@@ -106,6 +119,107 @@ fn load_cache(dir: &Path) -> std::collections::HashMap<u64, Cached> {
     m
 }
 
+/// Shape-facts cache: design hash -> the swept shape ([`crate::swept_shape`]: front behind below
+/// above left right blocks-below blocks-above) and the ground check ([`crate::ground_check`]:
+/// `safe`, `-` when something stands below the door, else the judge's reason), for working
+/// designs. Main's verifier and simulator are deterministic.
+const SHAPES_CACHE_FILE: &str = "shapes-v1.tsv";
+type ShapeFacts = (crate::Shape, Option<std::result::Result<(), String>>);
+
+fn load_shapes(dir: &Path) -> std::collections::HashMap<u64, ShapeFacts> {
+    let mut m = std::collections::HashMap::new();
+    let Ok(text) = std::fs::read_to_string(dir.join(SHAPES_CACHE_FILE)) else { return m };
+    for line in text.lines() {
+        let f: Vec<&str> = line.splitn(3, '\t').collect();
+        if f.len() < 3 {
+            continue;
+        }
+        let Ok(h) = u64::from_str_radix(f[0], 16) else { continue };
+        let n: Vec<i64> = f[1].split(' ').filter_map(|x| x.parse().ok()).collect();
+        if n.len() != 8 {
+            continue;
+        }
+        let shape = crate::Shape {
+            front: n[0] as i32,
+            behind: n[1] as i32,
+            below: n[2] as i32,
+            above: n[3] as i32,
+            left: n[4] as i32,
+            right: n[5] as i32,
+            blocks_below: n[6] as usize,
+            blocks_above: n[7] as usize,
+        };
+        let ground = match f[2] {
+            "safe" => Some(Ok(())),
+            "-" => None,
+            why => Some(Err(why.to_string())),
+        };
+        m.insert(h, (shape, ground));
+    }
+    m
+}
+
+fn save_shapes(dir: &Path, m: &std::collections::HashMap<u64, ShapeFacts>) -> Result<()> {
+    let mut lines: Vec<String> = m
+        .iter()
+        .map(|(h, (s, g))| {
+            let ground = match g {
+                Some(Ok(())) => "safe".to_string(),
+                None => "-".to_string(),
+                Some(Err(e)) => e.replace(['\t', '\n'], " "),
+            };
+            format!(
+                "{h:016x}\t{} {} {} {} {} {} {} {}\t{ground}",
+                s.front, s.behind, s.below, s.above, s.left, s.right, s.blocks_below, s.blocks_above
+            )
+        })
+        .collect();
+    lines.sort();
+    std::fs::write(dir.join(SHAPES_CACHE_FILE), lines.join("\n") + "\n")?;
+    Ok(())
+}
+
+/// Fill in [`Entry::swept`] and [`Entry::ground`] for the working designs: from the cache in
+/// `cache_dir`, the others simulated (one cycle for the swept shape; the judge's positions on a
+/// stone floor for designs with nothing below the door).
+fn judge_shapes(version: &str, entries: &mut [Entry], extra_offsets: u32, workers: usize, cache_dir: Option<&Path>) -> Result<()> {
+    let mut cache = cache_dir.map(load_shapes).unwrap_or_default();
+    let todo: Vec<(u64, Design)> = {
+        let mut seen = HashSet::new();
+        entries
+            .iter()
+            .filter(|e| e.verdict.is_ok())
+            .map(|e| (design_hash(&e.design), e.design.clone()))
+            .filter(|(h, _)| !cache.contains_key(h) && seen.insert(*h))
+            .collect()
+    };
+    if !todo.is_empty() {
+        eprintln!("{} working designs to measure (swept shape, ground check)", todo.len());
+        let pool = Pool::spawn(workers.min(todo.len()).max(1), &WorkerConfig { version: version.to_string(), ..Default::default() })?;
+        let mut opts = VerifyOptions::default();
+        opts.offsets.extend(crate::extra_offsets(extra_offsets));
+        let results = pool.map(todo, |w, _, (h, d)| {
+            let swept = crate::swept_shape(w, &d)?;
+            let ground = if crate::on_ground(&d) { Some(crate::ground_check(w, &d, &opts)?.map_or(Ok(()), Err)) } else { None };
+            Ok((h, (swept, ground)))
+        });
+        for r in results {
+            let (h, facts) = r?;
+            cache.insert(h, facts);
+        }
+        if let Some(dir) = cache_dir {
+            save_shapes(dir, &cache)?;
+        }
+    }
+    for e in entries.iter_mut().filter(|e| e.verdict.is_ok()) {
+        if let Some((s, g)) = cache.get(&design_hash(&e.design)) {
+            e.swept = Some(*s);
+            e.ground = g.clone();
+        }
+    }
+    Ok(())
+}
+
 fn save_cache(dir: &Path, m: &std::collections::HashMap<u64, Cached>) -> Result<()> {
     let mut lines: Vec<String> = m
         .iter()
@@ -139,7 +253,7 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
         .into_iter()
         .map(|(source, d)| {
             let (verdict, open_ticks, close_ticks, rotation) = cache[&design_hash(&d)].clone();
-            Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks, rotation }
+            Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks, rotation, ground: None, swept: None }
         })
         .collect();
     if !miss.is_empty() {
@@ -157,7 +271,7 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
                 }
                 Err(e) => (Err(format!("{e:#}")), None, None, None),
             };
-            Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks, rotation })
+            Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks, rotation, ground: None, swept: None })
         });
         for e in results.into_iter().collect::<Result<Vec<Entry>>>()? {
             cache.insert(design_hash(&e.design), (e.verdict.clone(), e.open_ticks, e.close_ticks, e.rotation.clone()));
@@ -167,6 +281,7 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
     if let Some(dir) = cache_dir {
         save_cache(dir, &cache)?;
     }
+    judge_shapes(version, &mut entries, extra_offsets, workers, cache_dir)?;
     entries.sort_by(|a, b| {
         let rank = |e: &Entry| (e.verdict.is_err(), e.category != "solid", e.blocks);
         (rank(a), a.source.as_str()).cmp(&(rank(b), b.source.as_str()))
@@ -184,13 +299,23 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
          others are not disqualified, they are listed on their own board, [Not rotation-safe](#not-rotation-safe).\n\n",
         4 + extra_offsets
     );
-    let boards: [(&str, &str, Box<dyn Fn(&Entry) -> bool>); 5] = [
+    let boards: Vec<(&str, &str, Box<dyn Fn(&Entry) -> bool>)> = vec![
         ("Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", Box::new(|e: &Entry| e.category == "solid")),
         ("Solid, no slime or honey", "same, and not a single slime or honey block anywhere", Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design))),
         (
             "Solid, flat (one z layer), no slime or honey",
             "slime-free, and every block (door, pistons, wiring, lever) in the door's plane: the whole machine is one block thick",
             Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design) && crate::single_layer(&e.design)),
+        ),
+        (
+            "Solid, in a 3-thick wall",
+            "every block within one layer of the door's plane (z = door.z-1..door.z+1), at rest and while it moves: the whole machine hides inside a wall 3 blocks thick",
+            Box::new(|e: &Entry| e.category == "solid" && e.swept.is_some_and(|s| s.front <= 1 && s.behind <= 1)),
+        ),
+        (
+            "Solid, on the ground (nothing below the door)",
+            "no block below the door's bottom row, at rest or while it moves, so it stands on flat ground with no digging; it must also work standing on a stone floor (slime may not drag the ground)",
+            Box::new(|e: &Entry| e.category == "solid" && e.ground_safe()),
         ),
         ("Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", Box::new(|e: &Entry| e.category == "sculk")),
         ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
@@ -212,6 +337,25 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         }
         s.push('\n');
     }
+    // Smallest box: the bounding-box volume of the space the build needs (at rest and while it
+    // moves, the door included), ties by blocks.
+    s.push_str(
+        "## Solid, smallest box\n\nthe fewest cells in the bounding box of the space the build needs, at rest and while it moves (width x height x thickness, \
+         the door included), ties by blocks; rotation-safe.\n\n| # | volume | box (W x H x T) | blocks | source |\n|---|---|---|---|---|\n",
+    );
+    let mut boxed: Vec<(&Entry, crate::Shape)> = entries
+        .iter()
+        .filter(|e| e.verdict.is_ok() && e.rotation_safe() && e.category == "solid")
+        .filter_map(|e| Some((e, e.swept?)))
+        .collect();
+    boxed.sort_by(|a, b| (a.1.volume(), a.0.blocks, &a.0.source).cmp(&(b.1.volume(), b.0.blocks, &b.0.source)));
+    for (i, (e, sh)) in boxed.iter().take(10).enumerate() {
+        s.push_str(&format!("| {} | {} | {} x {} x {} | {} | `{}` |\n", i + 1, sh.volume(), sh.width(), sh.height(), sh.thickness(), e.blocks, e.source));
+    }
+    if boxed.is_empty() {
+        s.push_str("| - | - | no entry yet |\n");
+    }
+    s.push('\n');
     // Working designs that break when turned: their own board, every category.
     s.push_str(
         "## Not rotation-safe\n\nWorking designs (they pass the judge as built) that break when turned 90, 180 or 270 degrees; the first \

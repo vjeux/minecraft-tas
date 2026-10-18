@@ -64,6 +64,11 @@ pub struct SearchArgs {
     /// `minecraft:sculk_sensor` (or `calibrated_sculk_sensor[facing=..]`) in the states.
     #[arg(long)]
     pub to_sculk: bool,
+    /// Shape boards: only accept designs within these shape limits relative to the door: a
+    /// preset (wall, wall2, flat, ground, no-above, narrow1, narrow2, wall-ground) or a comma list
+    /// of key<=n (front behind thick below above left right side volume).
+    #[arg(long)]
+    pub shape: Option<String>,
 }
 
 impl SearchArgs {
@@ -92,6 +97,7 @@ impl SearchArgs {
             max_open: self.max_open,
             max_close: self.max_close,
             to_sculk: self.to_sculk,
+            shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
         })
     }
 

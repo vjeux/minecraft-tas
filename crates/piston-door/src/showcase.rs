@@ -222,6 +222,8 @@ pub fn archived(version: &str, dir: &Path, workers: usize) -> Result<Vec<Archive
             facts.open_ticks = e.open_ticks;
             facts.close_ticks = e.close_ticks;
             facts.rotation_safe = e.rotation_safe();
+            facts.ground_safe = e.ground_safe();
+            facts.shape = e.swept.or(facts.shape);
             Archived { stem: path.file_stem().unwrap().to_string_lossy().to_string(), path, design: e.design, facts }
         })
         .collect())
@@ -241,7 +243,7 @@ fn total_ticks(a: &Archived) -> u32 {
 }
 
 /// The block-count boards: key, title, rule, membership.
-pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 6] = [
+pub const BLOCK_BOARDS: &[(&str, &str, &str, fn(&Facts) -> bool)] = &[
     ("solid", "Solid (main ranking)", "9 identical plain door blocks, no sculk sensors, rotation-safe", |f| f.category == "solid" && f.rotation_safe),
     ("slime-free", "Solid, no slime or honey", "not a single slime or honey block anywhere", |f| f.category == "solid" && f.slime_free && f.rotation_safe),
     (
@@ -249,6 +251,18 @@ pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 6] = [
         "Solid, flat (one z layer), no slime or honey",
         "slime-free, and every block in the door's plane: the whole machine is one block thick",
         |f| f.category == "solid" && f.slime_free && f.flat && f.rotation_safe,
+    ),
+    (
+        "wall",
+        "Solid, in a 3-thick wall",
+        "every block within one layer of the door's plane, at rest and while it moves: the whole machine hides inside a wall 3 blocks thick",
+        |f| f.category == "solid" && f.rotation_safe && f.shape.is_some_and(|s| s.front <= 1 && s.behind <= 1),
+    ),
+    (
+        "ground",
+        "Solid, on the ground",
+        "nothing below the door, at rest or while it moves: it stands on flat ground, no digging (and works on a stone floor)",
+        |f| f.category == "solid" && f.rotation_safe && f.ground_safe && f.shape.is_some_and(|s| s.below == 0),
     ),
     ("sculk", "Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", |f| f.category == "sculk" && f.rotation_safe),
     (
@@ -282,6 +296,14 @@ pub fn boards(all: &[Archived], records: &HashMap<String, String>) -> Vec<Board>
         .cloned();
     if let Some(best) = fastest {
         out.push(Board { title: "Fastest solid", rule: "fewest game ticks to open plus close (worst cycle), ties by blocks", key: None, best });
+    }
+    let smallest = all
+        .iter()
+        .filter(|a| a.facts.category == "solid" && a.facts.rotation_safe && a.facts.shape.is_some())
+        .min_by_key(|a| (a.facts.shape.map(|s| s.volume()), a.facts.blocks, a.stem.clone()))
+        .cloned();
+    if let Some(best) = smallest {
+        out.push(Board { title: "Smallest box (solid)", rule: "fewest cells in the build's bounding box (door included), ties by blocks", key: None, best });
     }
     out
 }
@@ -575,9 +597,9 @@ fn minutes_of(ts: &str) -> Option<i64> {
 /// A chart of the night: the record of each block-count board over time (from the archive
 /// headers), as step lines in the boards' colors, in the game's font.
 pub fn timeline_chart(look: &Look, all: &[Archived], out: &Path) -> Result<()> {
-    let colors: [[u8; 3]; 6] = [YELLOW, GREEN, [255, 255, 255], AQUA, [85, 170, 170], [255, 170, 0]];
+    let colors: [[u8; 3]; 9] = [YELLOW, GREEN, [255, 255, 255], [255, 85, 255], [170, 85, 0], [85, 85, 255], AQUA, [85, 170, 170], [255, 170, 0]];
     let mut series: Vec<(&str, [u8; 3], Vec<(i64, usize)>)> = Vec::new();
-    for ((key, _, _, keep), color) in BLOCK_BOARDS.iter().zip(colors) {
+    for ((key, _, _, keep), color) in BLOCK_BOARDS.iter().zip(colors.iter().copied().cycle()) {
         let mut pts: Vec<(i64, usize)> = all.iter().filter(|a| keep(&a.facts)).filter_map(|a| Some((minutes_of(&archived_at(&a.path))?, a.facts.blocks))).collect();
         pts.sort();
         let mut best = usize::MAX;
@@ -739,7 +761,7 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     let all = archived(version, &o.archive, o.workers)?;
     let caps = captions(&o.archive);
     let Some(&(board, board_title, board_rule, keep)) = BLOCK_BOARDS.iter().find(|b| b.0 == o.board) else {
-        bail!("unknown --board {} (solid, slime-free, flat, sculk, sculk-unrotated, gravity)", o.board);
+        bail!("unknown --board {} (solid, slime-free, flat, wall, ground, sculk, sculk-unrotated, gravity)", o.board);
     };
     let mut rows = if board == "solid" { progression(&o.archive) } else { timeline_progression(&all, keep, &caps) };
     // A newer record than the last row joins at the end.

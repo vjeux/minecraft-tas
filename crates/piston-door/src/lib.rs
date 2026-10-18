@@ -328,7 +328,21 @@ impl Shape {
 /// The [`Shape`] of a design relative to its door (`None` without a door port or blocks).
 pub fn shape(d: &Design) -> Option<Shape> {
     let door = *d.ports.get("door")?;
-    let (lo, hi) = d.bounds()?;
+    shape_of_cells(d, door, d.blocks.keys())
+}
+
+/// The [`Shape`] of a set of occupied cells around `door` (blocks below / above counted from the
+/// design's own blocks at rest).
+fn shape_of_cells<'a>(d: &Design, door: Pos, cells: impl IntoIterator<Item = &'a Pos>) -> Option<Shape> {
+    let mut it = cells.into_iter();
+    let first = *it.next()?;
+    let (mut lo, mut hi) = (first, first);
+    for p in it {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
     let counted = |p: &&Pos| !d.blocks[*p].starts_with("minecraft:piston_head");
     Some(Shape {
         front: (door[2] - lo[2]).max(0),
@@ -340,6 +354,48 @@ pub fn shape(d: &Design) -> Option<Shape> {
         blocks_below: d.blocks.keys().filter(|p| p[1] < door[1]).filter(counted).count(),
         blocks_above: d.blocks.keys().filter(|p| p[1] > door[1] + 2).filter(counted).count(),
     })
+}
+
+/// The space a door needs: the [`Shape`] of every cell it occupies at rest or at any tick of one
+/// open/close cycle (moving blocks included), at the design's own position. A builder has to
+/// keep all of it free: a structure that slides out of a wall, or a block pulled below the door,
+/// needs room there even if the door is compact at rest.
+pub fn swept_shape(w: &mut Worker, d: &Design) -> Result<Shape> {
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let r = swept_shape_in(w, sb, d);
+    let _ = w.drop_sandbox(sb);
+    r
+}
+
+/// [`swept_shape`] in an existing sandbox (cleared first).
+pub fn swept_shape_in(w: &mut Worker, sb: u32, d: &Design) -> Result<Shape> {
+    let spec = DoorSpec::from_design(d)?;
+    w.clear(sb)?;
+    let blocks = d.block_list();
+    w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+    let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+    w.update(sb, &wires, "shape")?;
+    let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
+    w.update(sb, &positions, "self")?;
+    w.step_until_idle(sb, 400)?;
+    let (wlo, whi) = watch_box(d, &spec);
+    let mut cells: std::collections::BTreeSet<Pos> = d.blocks.keys().copied().collect();
+    let mut add = |r: &Region| {
+        for (p, s) in r.iter() {
+            if !mctas::blockstate::is_air(s) {
+                cells.insert(p);
+            }
+        }
+    };
+    add(&w.get_region(sb, wlo, whi)?);
+    for _ in 0..2 {
+        w.use_block(sb, spec.lever)?;
+        let run = w.step_record(sb, 400, true, wlo, whi)?;
+        for f in &run.frames {
+            add(f);
+        }
+    }
+    shape_of_cells(d, spec.door, cells.iter()).context("empty design")
 }
 
 /// Shape limits (a board's rule, or a search constraint): every set bound must hold. Written
@@ -447,6 +503,39 @@ pub fn nothing_above(d: &Design) -> bool {
 /// True when at most `k` columns of the machine stand beside the opening on each side.
 pub fn narrow(d: &Design, k: i32) -> bool {
     shape(d).is_some_and(|s| s.side() <= k)
+}
+
+/// The block a [`ground_check`] floor is made of: real ground (dirt, grass, stone) is a full,
+/// movable, redstone-conducting block that slime sticks to, and so is stone (which, unlike grass,
+/// takes no random ticks).
+pub const GROUND_BLOCK: &str = "minecraft:stone";
+
+/// `d` standing on the ground: a floor of [`GROUND_BLOCK`] one below the door's bottom row,
+/// under the whole watched box (cells the design already fills are kept).
+pub fn on_floor(d: &Design) -> Result<Design> {
+    let spec = DoorSpec::from_design(d)?;
+    let (lo, hi) = watch_box(d, &spec);
+    let y = spec.door[1] - 1;
+    let mut out = d.clone();
+    for x in lo[0]..=hi[0] {
+        for z in lo[2]..=hi[2] {
+            out.blocks.entry([x, y, z]).or_insert_with(|| GROUND_BLOCK.to_string());
+        }
+    }
+    Ok(out)
+}
+
+/// Does a door with nothing below it ([`on_ground`]) still work standing on real ground? The
+/// judge's checks ([`verify_in`] with `opts`) on [`on_floor`]: the floor must not be dragged
+/// (slime, honey), pushed or powered into the machine, and must be back in place after every
+/// cycle. `Ok(None)` = works on the ground; `Ok(Some(why))` = the judge's reason it does not.
+/// Not part of the judge: it decides the "on the ground" board.
+pub fn ground_check(w: &mut Worker, d: &Design, opts: &VerifyOptions) -> Result<Option<String>> {
+    let floor = on_floor(d)?;
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let r = verify_in(w, sb, &floor, opts);
+    let _ = w.drop_sandbox(sb);
+    Ok(r.err().map(|e| format!("{e:#}")))
 }
 
 /// Blocks standing in the walkway at rest. The rules allow non-colliding blocks there (dust,

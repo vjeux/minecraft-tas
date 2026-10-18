@@ -115,10 +115,17 @@ pub struct SearchOptions {
     /// Also accept candidates that turn a solid design into a sculk one (they add a sculk
     /// sensor): searches for the sculk board starting from solid designs.
     pub to_sculk: bool,
+    /// Shape boards: reject candidates outside these shape limits (`--shape wall`, `ground`,
+    /// `side<=1`...; see [`crate::ShapeLimits`]).
+    pub shape: Option<crate::ShapeLimits>,
 }
 
-/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk.
+/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk; and within
+/// the `--shape` limits when set.
 fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
+    if opts.shape.is_some_and(|l| !l.allows_design(d)) {
+        return false;
+    }
     if same_league(base, d) {
         return true;
     }
@@ -132,7 +139,15 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
 
 /// [`verify_in`] plus the search's speed constraints.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
-    speed_check(verify_in(w, sb, d, v)?, opts)
+    let r = speed_check(verify_in(w, sb, d, v)?, opts)?;
+    // Shape boards measure the space a door needs while it moves too: check the swept shape.
+    if let Some(l) = &opts.shape {
+        let s = crate::swept_shape_in(w, sb, d)?;
+        if !l.allows(&s) {
+            anyhow::bail!("outside the --shape limits while it moves: {s:?}");
+        }
+    }
+    Ok(r)
 }
 
 /// The speed constraints (`max_open`, `max_close`) on a judge report.
