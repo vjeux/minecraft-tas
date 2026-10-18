@@ -11,7 +11,7 @@ league.
 ## Summary (verified with `door verify --extra-offsets 28`, archived in `archive/`)
 | file | blocks | board | was | open / close |
 |---|---|---|---|---|
-| `flat43.txt` | **43** | flat (one z layer, slime-free): best on the board | 45 (flat-b-v6), 49 (flat-v8, its source) | 46 / 44 |
+| `flat43.txt` (= `BEST.txt`) | **43** | flat (one z layer, slime-free): best on the board | 45 (flat-b-v6), 49 (flat-v8, its source) | 46 / 44 |
 | `a1-107.txt` | **107** | speed: the fastest-open solid door, 16 blocks smaller | 123 (speed-2-a1m) | 10 / 7 |
 | `o6-107.txt` | **107** | speed: open 11 / close 7, 12 blocks smaller | 119 (speed-wire-o6) | 11 / 7 |
 | `w41.txt` | 41 | slime-free (best at 06:28; sf-holdA reached 40 and 38 since) | 42 (wire19sf-w42) | 28 / 26 |
