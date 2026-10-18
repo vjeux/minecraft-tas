@@ -1,0 +1,17 @@
+name: sidesM
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  G minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  S minecraft:slime_block
+  I minecraft:stone
+layer -2:
+  ....G
+layer 0:
+  ..SIIIS
+layer 1:
+  E.SIIIS.W
+layer 2:
+  ..SIIIS

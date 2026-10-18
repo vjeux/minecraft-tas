@@ -1,0 +1,5 @@
+# r1 + P_L held by the B window: a second B repeater R_B2 (0,5,1) reads the cross dust's floor
+# (0,5,2) and points into K (0,5,0) right above P_L (K also powers B). Glass floor: X points into it.
+set 0 4 1 minecraft:glass
+set 0 5 1 minecraft:repeater[facing=south,delay=4]
+set 0 5 0 minecraft:stone

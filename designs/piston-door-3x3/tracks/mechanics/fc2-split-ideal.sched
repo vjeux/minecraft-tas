@@ -1,0 +1,14 @@
+design designs/piston-door-3x3/tracks/mechanics/fc2-split-ideal-mech.txt
+let p1 = 6
+let p2 = 10
+let w2 = 4
+open 0 use -2 4 0
+close 0 use -2 4 0
+open p1 set -1 6 0 minecraft:redstone_block
+open p1+2 set -1 6 0 minecraft:stone
+open p2 set -1 6 0 minecraft:redstone_block
+open p2+w2 set -1 6 0 minecraft:stone
+close p1 set -1 6 0 minecraft:redstone_block
+close p1+2 set -1 6 0 minecraft:stone
+close p2 set -1 6 0 minecraft:redstone_block
+close p2+w2 set -1 6 0 minecraft:stone

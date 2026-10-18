@@ -1,0 +1,13 @@
+# s4 = s3 with Q's silent hold shortened: repeater (-2,4,-1) (delay 2, facing north, on new floor
+# (-2,3,-1)) reads G (-2,4,-2) (W's output) and powers stone (-2,4,0) (next to Q's QC cell).
+clear -2 5 -2
+clear -3 5 -2
+clear -3 5 -1
+clear -3 5 0
+clear -3 4 -2
+clear -3 4 -1
+clear -3 4 0
+clear -2 5 0
+clear -1 5 0
+set -2 3 -1 minecraft:smooth_stone
+set -2 4 -1 minecraft:repeater[delay=2,facing=north,locked=false,powered=false]

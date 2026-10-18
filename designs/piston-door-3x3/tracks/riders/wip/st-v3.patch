@@ -1,0 +1,4 @@
+clear 0 3 -1
+set -1 4 -1 minecraft:observer[facing=west,powered=false]
+set 0 3 0 minecraft:slime_block
+set 0 4 1 minecraft:smooth_stone

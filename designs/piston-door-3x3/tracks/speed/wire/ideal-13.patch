@@ -1,0 +1,5 @@
+# ideal-13 (BUD close test) = w5 without F's close observer (1,4,1), TR's OT (3,3,-1) and S_R's
+# last observer (3,4,-2): those three are scripted in ideal-13.sched.
+clear 1 4 1
+clear 3 3 -1
+clear 3 4 -2

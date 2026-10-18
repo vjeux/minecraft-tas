@@ -35,18 +35,29 @@ v2-min and on the other tracks' bests, archive every improvement here with its s
 - The router knows "drag" cells (next to moving slime, never occupied): new floors there are
   glazed terracotta (slime never drags it), no dust. It treats every plain non-door block as a
   floor it can stand dust on.
-- Screening: first `--screen-offsets` judge positions (default 2), 1 cycle, 200-tick cap:
-  ~2500 candidates/s with 24 workers. Survivors get the full judge (4 + `--extra-offsets` 28
-  positions x 3 cycles), so every accepted step passes `door verify --extra-offsets 28`.
-  Failed designs are cached by hash; sandboxes are reused per worker. Candidates stay in their
-  league (same category; no slime/honey added to a slime-free design).
+- Screening: first `--screen-offsets` judge positions (default 2), 1 cycle, 200-tick cap, with a
+  frame-less copy of the judge's checks (`--screen-frames` uses the judge's own code): ~8000
+  candidates/s with 24 workers. Survivors get the full judge (4 + `--extra-offsets` 28 positions
+  x 3 cycles), and every accepted step is re-verified in a fresh sandbox (the exact `door
+  verify` path). Failed designs are cached by hash; sandboxes are reused per worker. Candidates
+  stay in their league (same category; no slime/honey added to a slime-free design).
+- `--max-open/--max-close` (from redstone-block): speed constraints for the speed boards.
 - `--archive` archives each improvement next to `--out`; `--name` renames the design.
 
-### `mctas door harvest --out-dir <dir> --top N --minutes M --moves all --plateau` (harvest.rs)
+### `mctas door harvest --out-dir <dir> --top N --within W --minutes M --moves all --plateau [--every 15]` (harvest.rs)
 Gathers every design on HEAD and `origin/explore/*` (like `door leaderboard`), judges them, and
-runs the search on the `--top` smallest working designs of each category that were not
-harvested yet (`<dir>/harvested.txt`), writing `<dir>/from-<label>.txt` and archiving every
-improvement in `<dir>/archive/`.
+runs the search on the `--top` smallest working designs of each league (categories +
+slime-free) within `--within` blocks of the league best that were not harvested yet
+(`<dir>/harvested.txt`), writing `<dir>/from-<label>.txt` and archiving every improvement in
+`<dir>/archive/`. `--every M --hours H` keeps fetching and harvesting.
+
+### `mctas door transplant --out-dir <dir> --top N --within W --max-cells 12` (harvest.rs)
+Learns an edit from every pair of designs (a -> b with the same door port, b smaller, at most
+`--max-cells` cells apart) and tries each on the best designs of every league where the touched
+cells match; improvements are archived and polished by the local search.
+
+### `mctas door reuse-check <design> [--times N] [--fresh]`
+Verifies a design N times in one reused sandbox and counts passes (found the torch leak below).
 
 ## Results (all verified at 32 positions x 3 cycles)
 
@@ -61,15 +72,20 @@ improvement in `<dir>/archive/`.
 | 58 | gravity | gravity g3 (60) | smooth stone -> glass then renet without a terminal (-1), then a floor removed (-1) |
 | 67 | gravity | gravity g1 (69) | reroute (-2) |
 | 46 | sculk | main archive rb2-sculk-48 | swap twice: a dust + its floor became one smooth stone (observer/repeater fed through a powered block), -1 each |
-| **43** | sculk | top-control sculk BEST (48) | swap (-1), then a hold repeater with both its floors removed, plus a merge (-4) |
-| **46** | gravity | fresh-b gravity-g6 (49) | swap: obsidian + repeater -> one observer, then removals (-3) |
+| **43** | sculk | top-control sculk BEST (48) | swap (-1), then a hold repeater with both its floors removed, plus a merge (-4); was the sculk record until st43-bmobs (42) was built on it |
+| **46** | gravity | fresh-b gravity-g6 (49) | swap: obsidian + repeater -> one observer, then removals (-3); was the gravity record until g10 (45) was built on it |
+| 46 | gravity | gravity g4 (51), gravity BEST (49), g8 (48) | wall torch moved + its dust/floor dropped, dust+floor pairs |
+| 43 | sculk | m51-sculk (48) | swap + removals |
+| 48 | gravity | gravity g4 (51) with `--max-open 5 --max-close 11` | speed boards: same 5/11 ticks as g4 with 3 fewer blocks |
 
 Speed (`--objective total`): the 88 gets (4,4,3) delay 4->1: close 31 -> 25 ticks at 88 blocks.
-The speed leaders (gravity g4: open 5, close 11) are local minima for speed too.
+The speed leaders (gravity g4: open 5, close 11; fc2: close 9) are local minima for speed too.
 
-Local minima for every family (plateau depth 1-2): rb2 57, mechanics 53/51/50, rb5 52,
-center-mech 88, sculk 50s, gravity g4 51. The current records are hand-tight: their remaining
-slack is in mechanism choices, not in wiring the local moves can see.
+Local minima for every family (plateau depth 1-2, swaps): solid fc2 40, rb6-bmobs/m48-bmobs 47,
+mechanics 48/51/53, rb2 57, rb5 52, logic-min 49/50/52/53, sculk st43-bmobs 42, gravity g10 45.
+The records are hand-tight: their remaining slack is in mechanism choices, not in wiring or
+components the local moves can see. Transplanting the tracks' own patches between lineages
+re-derived known designs only.
 
 ## Log
 
