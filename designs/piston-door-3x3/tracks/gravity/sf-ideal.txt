@@ -1,0 +1,41 @@
+name: sf-ideal
+port door: 0 0 0
+port lever: 8 1 3
+origin: -3 0 0
+palette:
+  S minecraft:sand
+  k minecraft:stone
+  E minecraft:sticky_piston[facing=east,extended=true]
+  e minecraft:piston_head[facing=east,type=sticky,short=false]
+  W minecraft:sticky_piston[facing=west,extended=true]
+  w minecraft:piston_head[facing=west,type=sticky,short=false]
+  U minecraft:sticky_piston[facing=up,extended=true]
+  u minecraft:piston_head[facing=up,type=sticky,short=false]
+  P minecraft:piston[facing=up,extended=true]
+  p minecraft:piston_head[facing=up,type=normal,short=false]
+  R minecraft:redstone_block
+  L minecraft:lever[face=floor,facing=west,powered=false]
+layer -6:
+  ...RU
+layer -5:
+  ....u
+layer -4:
+  ....UR
+layer -3:
+  ....u
+layer -2:
+  ...RP
+layer -1:
+  ..kkpkk
+layer 0:
+  REeSSSwWR
+  .
+  .
+  ...........k
+layer 1:
+  REeSSSwWR
+  .
+  .
+  ...........L
+layer 2:
+  REeSSSwWR
