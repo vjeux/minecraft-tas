@@ -1,12 +1,12 @@
-name: speed-wire-s4
+name: speed-wire-o2
 port door: 0 0 0
 port lever: 0 4 -2
 origin: -4 0 -4
 palette:
-  A minecraft:observer[facing=north,powered=false]
-  B minecraft:observer[facing=south,powered=false]
-  C minecraft:observer[facing=up,powered=false]
-  D minecraft:observer[facing=west,powered=false]
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:piston[extended=false,facing=south]
+  D minecraft:piston[extended=false,facing=west]
   E minecraft:piston_head[facing=down,short=false,type=sticky]
   F minecraft:piston_head[facing=east,short=false,type=sticky]
   G minecraft:piston_head[facing=up,short=false,type=sticky]
@@ -17,100 +17,129 @@ palette:
   L minecraft:lever[face=floor,facing=north,powered=false]
   M minecraft:redstone_wire[east=none,north=none,power=0,south=up,west=side]
   N minecraft:redstone_wire[east=none,north=none,power=0,south=up,west=up]
-  O minecraft:observer[facing=down,powered=false]
+  O minecraft:observer[facing=east,powered=false]
   P minecraft:piston[extended=false,facing=east]
-  Q minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=up]
+  Q minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
   R minecraft:redstone_block
-  S minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
-  T minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
-  U minecraft:redstone_wire[east=none,north=up,power=0,south=side,west=none]
-  V minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
-  W minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
-  X minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
-  Y minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=side]
-  Z minecraft:redstone_wire[east=side,north=none,power=0,south=up,west=none]
-  a minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
-  b minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=up]
-  c minecraft:redstone_wire[east=side,north=side,power=0,south=up,west=none]
-  d minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=none]
-  e minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
-  f minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=none]
-  g minecraft:repeater[delay=1,facing=north,locked=true,powered=false]
-  h minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
-  i minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
-  j minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
-  k minecraft:sticky_piston[extended=false,facing=down]
-  l minecraft:sticky_piston[extended=false,facing=east]
-  m minecraft:sticky_piston[extended=false,facing=west]
-  n minecraft:sticky_piston[extended=true,facing=down]
-  o minecraft:observer[facing=east,powered=false]
-  p minecraft:piston[extended=false,facing=west]
-  q minecraft:sticky_piston[extended=true,facing=east]
+  S minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=up]
+  T minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  U minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
+  V minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
+  W minecraft:redstone_wire[east=none,north=up,power=0,south=side,west=none]
+  X minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  Y minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  Z minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
+  a minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=side]
+  b minecraft:redstone_wire[east=side,north=none,power=0,south=up,west=none]
+  c minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=up]
+  e minecraft:redstone_wire[east=side,north=side,power=0,south=up,west=none]
+  f minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=none]
+  g minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  h minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=none]
+  i minecraft:repeater[delay=1,facing=north,locked=true,powered=false]
+  j minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  k minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
+  l minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  m minecraft:sticky_piston[extended=false,facing=down]
+  n minecraft:sticky_piston[extended=false,facing=east]
+  o minecraft:observer[facing=north,powered=false]
+  p minecraft:piston[extended=false,facing=north]
+  q minecraft:sticky_piston[extended=false,facing=west]
   r minecraft:redstone_wall_torch[facing=east,lit=true]
   s minecraft:smooth_stone
-  t minecraft:sticky_piston[extended=true,facing=up]
-  u minecraft:sticky_piston[extended=true,facing=west]
-  v minecraft:stone
+  t minecraft:sticky_piston[extended=true,facing=down]
+  u minecraft:sticky_piston[extended=true,facing=east]
+  v minecraft:sticky_piston[extended=true,facing=up]
+  w minecraft:sticky_piston[extended=true,facing=west]
+  x minecraft:stone
 layer -2:
   .
   .
   .
   ..s
-  ..vvrt
+  ..xxrv
+  .
+  .
   .
 layer -1:
   .
   .
   ..s.......s
-  ..U
-  ..aV.G
+  ..W
+  ..cX.G
+  .
+  .
   .
 layer 0:
   ....ss
   .s
   .sK......sN
   s.........s
-  ..qFvvvHu
+  ..uFxxxHw
+  .
+  .
   .
 layer 1:
-  ...sWes
-  .fs
-  sb......sW
-  U.........S
-  vrqFvvvHuJv
+  ...sYgs
+  .hs
+  sd......sY
+  W.........T
+  xruFxxxHwJx
+  .
+  .
   .
 layer 2:
-  ...Z..es
-  ..es....s
-  X..s....d
+  ...b..gs
+  ..gs....s
+  Z..s....f
   .
-  .vqFvvvHuv
+  .xuFxxxHwx
+  .
+  .
   .
 layer 3:
   .......M
-  ...T...vK
-  ...SvC
-  ..s..A
-  ...lkE.m
+  ...U...xK
+  ...TxA
+  ..s..o
+  ...nmE.q
   ......s
+  .
+  .
 layer 4:
   .
-  .....B.c
-  ..voLD.A
-  ..hAPR.p
-  ..v..n.A
-  ......ev
+  .......e
+  ..xOLB.o
+  ..joPR.D
+  ..x..t.o
+  ......gx
+  .
+  .
 layer 5:
   .
-  .....O
-  ....sAsQ
-  ....sA.A
-  .......v
-  .......V
+  .
+  ....sxsSBB
+  ....sx.o.o
+  .....C.x.x
+  .......X.s
+  .....R
+  .....p
 layer 6:
   .
   .
-  ...vjYV
-  ...Iig
-  .....v
+  ...xlaX
+  ...Iki
+  .....x...T
+  ....n.R..V
+  ....s....s
+  ....ssssss
+layer 7:
   .
+  .
+  .
+  .
+  .
+  .
+  ....T....T
+  ....cXXXXQ

@@ -1,0 +1,8 @@
+# o1 = o0 + P_D: normal piston (1,5,3) facing north (pushes R_X R2 -> R1 at open k6; on close its
+# push is blocked by P_X's head at R1) + P_V: sticky piston (0,6,1) facing east, retracted, with
+# R_Z redstone block 2 in front at (2,6,1): a k6 pulse on both edges pulls R_Z into (1,6,1) on open
+# (lands k10 BE: silent QC power for P_X) and pushes + spits it back on close (P_X's head forwards
+# that update: P_X retracts).
+set 1 5 3 minecraft:piston[extended=false,facing=north]
+set 0 6 1 minecraft:sticky_piston[extended=false,facing=east]
+set 2 6 1 minecraft:redstone_block

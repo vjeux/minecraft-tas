@@ -1,0 +1,7 @@
+# fc2 with P_L fired by X (3 pulses per edge = net toggle): P_L at (0,3,-1) next to X floor, pushing an arm (-1,3,-1),(-1,2,-1)
+clear -3 4 0
+clear -3 3 0
+clear -3 2 0
+set 0 3 -1 minecraft:sticky_piston[facing=west,extended=false]
+set -1 3 -1 minecraft:slime_block
+set -1 2 -1 minecraft:slime_block

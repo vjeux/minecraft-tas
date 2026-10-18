@@ -1,6 +1,6 @@
 # Track speed / wire: real (lever-only) versions of ideal-6
 
-Best: `wire/BEST.txt` = `wire/w6.txt` — `door verify --extra-offsets 28`: WORKS, 161 blocks,
+Best: `wire/BEST.txt` = `wire/o3.txt` (open 11 / close 7, 135 blocks: o2 minus the 2 dead reach-through observers; see "o2" below). Before: `wire/w6.txt`, 161 blocks,
 category solid, slime-free, **open 12 / close 7**. Chain of verified steps: w1 (12/19),
 w2 (12/14), w4 (12/13), w5 (12/11), w6 (12/7; w6 = w5 + w6b.patch + w6c.patch + w6d.patch).
 Each wN.txt = w(N-1).txt + wN.patch (`door patch`).
@@ -46,6 +46,31 @@ Missing to wire it:
   and the W net must be rerouted off (0,5,3)/(1,4,3), which point into (1,5,3).
 * P_X's power must arrive SILENTLY after R_X lands (R_X's arrival updates P_X) and before k11:
   O5's pulse into (1,5,0) is noisy (it would fire P_X at k10 as soon as R_X is placed).
+
+## o2: OPEN 11 (real 0-tick of F at k11) — open 11 / close 7, 137 blocks
+`o2.txt` = s4 + o0.patch + o1.patch + o2.patch (`door verify --extra-offsets 28`: WORKS, solid,
+slime-free, open 11 / close 7). Validated first with scripted parts (o0.drive, o1.drive).
+* P_X: NORMAL piston (1,5,0) facing south, in F's QC cell (a piston there does not block QC: X_F
+  (1,6,0) still QC-powers F). O5 and its chain observer (1,5,-2) replaced by stone (they are the
+  floors of R_s and of its input dust; O5's output into (1,5,0) would fire P_X early).
+* R_X: redstone block resting at R2 (1,5,2) (powers nothing). P_D: normal piston (1,5,3) facing
+  north pushes it into R1 (1,5,1) (QC-only spot of F) at open k6, lands k8 BE; P_D's pulse ends k8
+  (head gone, R2 free). F's later updates (A' retract k8, A' landing k10 BE before C lands) fail
+  to push, so F stays retracted although powered.
+* R_Z: redstone block resting at (2,6,1); P_V: sticky piston (0,6,1) facing east, retracted, a
+  pulse-toggle: the open k6 pulse extends it into (1,6,1) and retracts it at k8 pulling R_Z into
+  (1,6,1) (lands k10 BE): QC power for P_X (neighbor of (1,6,0)), not adjacent to P_X, so silent;
+  it must land AFTER R_X (R_X's landing next to P_X would fire it).
+* k11: Q pulls A' out of E -> F (powered by R_X) extends; F's setBlock(extended) updates P_X ->
+  P_X (powered by R_Z) pushes R_X to R2; P_X's setBlock updates F, now unpowered -> F retracts
+  (type 1) in the same block-event phase and pulls C from N1: OPEN 11.
+* P_X stays extended (R_Z, then X_F from k16). Close: P_D's k6 push is blocked by P_X's head at
+  R1; P_V's k6 pulse pushes R_Z back to (2,6,1) and spits it at k8; R_Z leaving (1,6,1) updates
+  P_X's head (at R1, adjacent), which forwards it -> P_X (X_F off since k2) retracts (normal
+  piston: R_X stays at R2). F's close is unchanged: close 7.
+* The k6 pulse (both edges): O1 (4,5,-2) watches lever-net dust (3,5,-2) (k2) -> O2 (5,5,-2)
+  (k4) -> O3 (5,5,-1) (k6) into stone (5,5,0) -> dust (5,6,0),(5,6,1), up to y=7, west along z=3
+  to (0,7,2); floor (1,6,3) powers P_D below it, floor (0,6,2) powers P_V.
 
 ## Size at equal speed (12/7): s1..s4 (each = previous + sN.patch; s1 from ../w6-134b.txt)
 * s1 128: TR's second hold = observer (3,4,0) (in TR's QC cell, facing north) watching S_R,

@@ -59,3 +59,21 @@ door cells hold their rest blocks (placed, not moving).
 | **w5-122b.txt = BEST** | **122** | **12 / 11** | minimized at equal speed |
 Open 12 = the theory bound with 2gt pulses (C into N1 at k8, A' lands k10, Q pulls it k11, F
 reaches through k11-12). Below needs 0-ticks.
+| w6-161b.txt | 161 | 12 / 7 | F as a BUD: silently quasi-powered in the open state (lock-delayed repeater), pushes C at close k1 when the shuttle piston's head leaves, spits at k2; TR pushes T at k2; F pushes [T, C] home at k5 (close = the topology bound) |
+| w6-134b.txt | 134 | 12 / 7 | minimized at equal speed |
+| s1..s3 | 128, 125, 116 | 12 / 7 | hand size passes (wire/NOTES.md) |
+| **s4-109b.txt = BEST** | **109** | **12 / 7** | Q's silent hold from a single repeater |
+| w5-121b.txt | 121 | 12 / 11 | w5 deep-minimized |
+
+## Mechanism of the 12/7 door (s4), in short
+* Open: a lever-powered piston shoves the redstone block powering F (and the side/M torches go
+  dark through dust): F pulls T up into E at t1, sides and M leave at t1-2. Observer chain off
+  the lever (t2, t4) pushes Q at t4: Q shoves [A', T] east, A' takes E. Observer O_A (t6) powers
+  A' at E directly: A' extends t7, retracts t8 pulling C into N1. Q is held silently (repeater
+  into a block next to Q's quasi cell) and released by A' landing at t10 (through Q's head):
+  Q pulls A' back at t11; F, quasi-powered through (1,5,0) (kept air, so A' at E never sees it)
+  by a 4-observer chain, extends into the freed E at t11 and retracts at t12 pulling C out: open 12.
+* Close: F is silently armed in the open state; the shuttle piston's head leaving at t1 updates
+  it: F pushes C from E into N1, an observer pulse updates it unpowered at t2 so it spits C; the
+  T-returner pushes T into E at t2 (its update comes from a side piston's head); F's redstone
+  block is pushed back by a second piston (lands t4) and F pushes [T, C] home at t5: close 7.
