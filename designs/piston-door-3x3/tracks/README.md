@@ -8,6 +8,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | track | goal | result |
 |---|---|---|
 | [buildable](buildable/NOTES.md) | integrity check: can a survival player build the records? | `door buildable`; every board leader buildable at 32/32 positions, none in the naive order; found the unwaxed-copper hazard |
+| [box56](box56/NOTES.md) | a flat FULL-seamless door in volume <= 56 (7x8 / 8x7) | no door: `door topology` (wiring components, piston links, pulse parity) finds 0 of the 99 7x8/8x7 mechanisms of agent families' catalog wirable (strict parity); 11 asymmetric ones survive only if 3+ pulses chain-merge; gadget merger-gap; tlup mechanism (19, ideal inputs) |
 | [center-mech](center-mech/NOTES.md) | new mechanisms for the middle column | v2u2 96 (solid record: sides pushed out off one shared block), rb2-sculk 48 (sculk) |
 | [entities](entities/) | doors that use entities (minecarts, armor stands, boats...) | the `entity` category and the "Entities allowed" board: entities summoned by the bridge, judged exactly back at rest after each close ([rules.md](../../../docs/rules.md#categories)) |
 | [eligible](eligible/NOTES.md) | doors ELIGIBLE for records under the Squid regulation (section 3: repeater input, hallway, seamless) | `door eligible`, `door relever`, `--repeater-input` / `--eligible` on every search, `minimize --objective volume`; **fl81n volume 81 (9x9x1), FULL + hallway** (flat43-full + a note block in the lever's cell); b39n 39 blocks (b38 + note block, the first eligible solid door) |
@@ -16,6 +17,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [flat](flat/NOTES.md) | the flat board (every block in the door's plane, no slime) | 60 -> 49 (flat-v8): observer chains, `synth` and `resynth` on the late chains |
 | [flat-b](flat-b/NOTES.md) | the flat board with a different mechanism | the 19-block mechanism upside down: 48 -> 44 (flat-b-v7) |
 | [flat-seam](flat-seam/NOTES.md) | the smallest-VOLUME flat + FULL seamless + hallway door (slime-free) | `resynth --fit` compaction; s55 9x10 = 90 (55 blocks, FULL + hallway) |
+| [families](families/NOTES.md) | the complete catalog of flat seamless MECHANISMS per box | `door families`: exit-plan generator + exact macro solve; [CATALOG.md](families/CATALOG.md) |
 | [fresh-a](fresh-a/NOTES.md) | a door from first principles | slime-free 122 (a side group drags the top-middle out) |
 | [fresh-b](fresh-b/NOTES.md) | a fresh design, minimum blocks | the mirrored pump family: mp6 46 (solid record), mp8 43, opens and closes in 16 |
 | [fresh-c](fresh-c/NOTES.md) | symmetric control: the same signals on both lever edges | fc1 42, **fc2 40** (solid record 08:10-15:15), fc2f 41 (22 / 9) |
@@ -53,3 +55,5 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [vanilla-check](vanilla-check/NOTES.md) | prove the simulator matches vanilla | `door vanilla-check`, `vanilla-fuzz`; no divergence |
 | [wire19sf](wire19sf/NOTES.md) | wire the 19-block slime-free mechanism | w45 -> w42 42 (slime-free record at the time, buildable) |
 | [wire21](wire21/NOTES.md) | wire the 21-block pulse-only mechanism | m05 40 (ties fc2) |
+
+- [box64](box64/NOTES.md): flat FULL-seamless doors in 8x8 / 9x7 boxes (volume <= 64): ideal-input mechanism checks in the box, region/crossing analysis of the wiring
