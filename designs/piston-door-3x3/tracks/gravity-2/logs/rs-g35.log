@@ -1,0 +1,9 @@
+[    7.2s] start: 35 blocks, open 5 / close 16
+[   11.2s] 35 blocks: 5 removable, 6 groups of 2..4
+[   12.0s]   group [(-1,-1,1)obse (-1,-1,2)obse] -> <= 1 blocks: 5 circuits in 0.8s
+[   12.1s]   group [(-1,-1,2)obse (0,-1,2)obse] -> <= 1 blocks: 5 circuits in 0.0s
+[   12.1s]   group [(0,-1,2)obse (1,-1,2)smoo] -> <= 1 blocks: 4 circuits in 0.0s
+[   12.9s]   group [(-1,-1,1)obse (-1,-1,2)obse (0,-1,2)obse] -> <= 2 blocks: 32 circuits in 0.8s
+[   13.1s]   group [(-1,-1,2)obse (0,-1,2)obse (1,-1,2)smoo] -> <= 2 blocks: 20 circuits in 0.2s
+[   13.4s]   group [(-1,-1,1)obse (-1,-1,2)obse (0,-1,2)obse (1,-1,2)smoo] -> <= 3 blocks: 123 circuits in 0.3s
+35 -> 35 blocks, written to designs/piston-door-3x3/tracks/gravity-2/rs-g35.txt
