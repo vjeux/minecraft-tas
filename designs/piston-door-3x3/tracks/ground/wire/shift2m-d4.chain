@@ -1,0 +1,45 @@
+# obs-chain spec for shift2m (Z0 at (3,0,-1) facing south) in a 9x5x4 box (z -2..1).
+# Left (rows 1-2): 0,2,5,7,9,12 + far puller RP7 14. Right (row 0): 0,3,7,10,13,15 + far
+# puller LP0 16 (2 gt units; ideal/shift2m-lr.ideal validates these gaps). Cell parity = root
+# parity + time. P0-shifted's driver must output INTO (3,1,0) (its update reaches (3,0,0)).
+schedule designs/piston-door-3x3/tracks/ground/ideal/shift2m.ideal
+lever 1 3 -1 minecraft:lever[face=wall,facing=north,powered=false]
+support 1 3 0 minecraft:stone
+root 1 3 -2 south
+box -3 0 -2 5 4 1
+group P1H 0
+opt -2 3 0 up
+opt -2 2 -1 north
+group Z2 2
+opt -1 3 -1 up
+opt -2 2 -1 west
+group Q3 5
+opt -3 3 0 up
+opt -3 2 -1 north
+group PS4 7
+opt -1 3 0 up
+group Q5 9
+opt -3 3 0 up
+opt -3 2 -1 north
+group P6H 12
+opt -2 3 0 up
+opt -2 2 -1 north
+group RP7 14
+opt 4 2 -1 north
+opt 4 3 0 up
+group R1H 0
+opt 4 0 -1 north
+group RZ2 3
+optb 3 1 -2 up 3 0 -2 minecraft:stone
+group RQ3 7
+opt 5 1 0 up
+opt 5 0 -1 north
+group RPS4 10
+opt 3 1 -1 north
+group RQ5 13
+opt 5 1 0 up
+opt 5 0 -1 north
+group R6H 15
+optb 4 1 1 up 4 0 1 minecraft:stone
+group LP0 16
+opt -2 0 -1 north

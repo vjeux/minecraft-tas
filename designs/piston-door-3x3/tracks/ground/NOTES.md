@@ -83,3 +83,34 @@ seamless (the ground board does not need it: vjeux via the coordinator, 20:48Z).
   Boxes that fail: y <= 3 (PS4's only driver (-1,3,0) faces up: its watched cell is y = 4),
   z -1..1 (P0-home's drivers (4,0,+-1) watch z = +-2), z -2..1 (R1H and R6H both need
   (4,0,-1)). Next: conductor options (an observer powering a solid block next to the piston).
+- 22:15Z **v225b** (`v225b.txt` = BEST, archive/ground-v225b-98b.txt): volume 225 (9x5x5), **98
+  blocks**, 54/54, rotation-safe, ground check at 32 positions (same box, randomized restarts:
+  75 observers instead of 85).
+
+## Why not smaller than 9x5x5 (with this mechanism)
+* Width 9 = the mechanism (left shifter Q at x -3, right Q0 at x 5).
+* Height 5: the left P-shifted driver must output down into (-1,2,0) (the only free side of the
+  shifted piston), so it faces up and watches y = 4. A conductor at (-1,3,0) (an observer
+  powering a stone there) works with ideal inputs, but in a y <= 3 box the left corner runs
+  out of cells: Q needs two drivers at (-3,2,+-1) (watching (-3,2,+-2)), P-home two among
+  (-2,2,+-1)/(-2,3,0)-conductor, Z one more; the forward check proves every choice infeasible.
+* Depth 5: P0-home needs two drivers; its only free sides are (4,0,+-1) (observers there watch
+  z = +-2) or a conductor there, which is next to Z0 or Z0's parked block. Mirroring Z0
+  (`bases/shift2m.txt`, `ideal/shift2m(-lr).ideal`: works) moves the conflict: the cells around
+  (3,1,-1) are then needed by Z0's driver, P0-shifted's driver (it must output INTO (3,1,0):
+  a conductor beside it does not update (3,0,0), the quasi-powered piston never fires) and
+  P0-home's. Every z -2..1 / z -1..2 variant fails the forward check.
+* Smaller needs a different mechanism (fewer distinct pulses on the bottom row's right side, or
+  pistons whose drivers share cells), or an elevator design (ground20) wired the same way.
+
+## Tools (all on explore/ground)
+* `door obs-chain <spec> --out f [--shift N] [--secs S] [--restarts R] [--max-paths P]`
+  (obschain.rs): observer-tree wiring. Spec: the ideal schedule (mechanism + the cells it uses),
+  lever + support + root observer, a box, per group a time (2 gt units) and driver options
+  (`opt x y z facing`, or `optb x y z facing bx by bz state`: the observer powers a conductor
+  block). DFS over driver choices, exact-length observer paths (BFS-distance pruned), forward
+  check of later groups' viable options, soft reservation of tight groups' cells, randomized
+  restarts, branch and bound on the block count. Observer cells have a fixed parity per time.
+* `door verify --ground`: the swept shape (below = 0) and the ground check at the judge's
+  positions.
+* `mech-synth --seamless`, `--no-ring-fire`: hallway-ring constraints in the macro model.
