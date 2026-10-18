@@ -91,5 +91,34 @@ r2 -> r3 showed that a seed which changes the machine (a rider) lets the local s
 removals it could never reach from the record itself. `door grow <design> --k 1 --want 0
 --then-search --moves singles,pairs,triples [--seed-minutes M] [--seed-from N]` adds every
 single block that keeps the door working, then runs the local search from each such seed and
-writes the best result below the start's block count. On fc2 with observers / redstone blocks
-glued to the left and right structures (117 + 223 seeds): see the results line below.
+writes the best result below the start's block count. `--glue` keeps only riders (every added
+block touches a slime/honey block, or with `--k 2` an added slime that touches one);
+`--changed` skips seeds whose screen timings equal the start's (inert blocks; checked in
+parallel, ~3 s per seed per worker). Runs so far, all "nothing below the start":
+fc2 single observers/redstone blocks around the left structure (117 seeds) and the right
+structure (223 seeds); fx1 riders (`--glue`, 231 seeds); `door regrow --size 3` on fx1 (1.74M
+candidates, rider states included).
+
+## What failed and why (summary)
+* rb family below 43: the B window still needs rb6's 6-block bridge (O2 must watch the lever
+  from a cell whose back is far from every R_B input), so the rb family stays above fc2's
+  observer-chain B trigger.
+* fc2 below 40 with riders: its structures are far from its control (left column y <= 2,
+  shuttle y = 4, R_B y = 6), so every rider needs 2-3 glue slimes, and each fc2 control pair
+  (P_L pulse, Q delay, B trigger, P_M pulse) already costs 2.
+* Pulse-driven shuttle Q on open (r3 style): the spit places RB next to P_R in the block-event
+  phase while T is still moving, so T is not dragged (fresh-c's finding, confirmed); r3 only
+  uses Q pulses on the close.
+* Pulse-driven A instead of RB: on close the B window then pushes A, T and C down and the
+  dance pulses pull T back up; fc2 needs A extended during the close's B window.
+
+## Next ideas
+* Odd pulse counts are free toggles: any pulse-driven piston can take any existing source
+  that fires an odd number of times per edge at harmless moments (X: 3). P_M is the remaining
+  pulse-driven piston with a dedicated 2-block source; a 3-pulse source near the floor would
+  save 2 (none exists in fc2 today: the left column's bottom block toggles 3 times in fx1, but
+  an observer watching it still needs a relay block to reach P_M).
+* r3's self-sequenced close (riding observer + X-kicked left structure) on fc2's layout would
+  remove the B window's need on close entirely; it needs the left structure next to Q.
+* `door grow --glue --k 2 --changed --then-search` on fc2/fx1 (2-block riders: slime arm +
+  payload); the screen is fast but the timing check is ~3 s per seed, 10k seeds per side.
