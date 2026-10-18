@@ -71,6 +71,9 @@ pub enum DoorCmd {
         /// Open/close cycles per position.
         #[arg(long, default_value_t = 3)]
         cycles: u32,
+        /// If it works, keep a copy in the archive folder next to the design (archive/<name>-<blocks>b.txt), unless an identical design is already archived.
+        #[arg(long)]
+        archive: bool,
     },
 }
 
@@ -143,7 +146,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive } => {
             let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
@@ -151,6 +154,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
                     println!("WORKS: {} ({} blocks, {}x{}x{})", d.name, r.blocks, r.size[0], r.size[1], r.size[2]);
+                    if archive {
+                        let note = format!("verified WORKS: {} blocks, open after {} ticks, closed after {} ticks", r.blocks, r.cycles[0].open_ticks, r.cycles[0].close_ticks);
+                        match crate::archive::save(&design, &d, r.blocks, &note)? {
+                            Some(p) => println!("archived {}", p.display()),
+                            None => println!("already archived"),
+                        }
+                    }
                     for (i, c) in r.cycles.iter().enumerate() {
                         println!(
                             "  cycle {i}: open after {} ticks (idle at {}), closed after {} ticks (idle at {})",

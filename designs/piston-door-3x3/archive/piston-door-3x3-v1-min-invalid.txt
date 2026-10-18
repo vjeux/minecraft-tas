@@ -1,0 +1,135 @@
+# INVALID under the current rules (the top-middle door block is a slime block); kept for history.
+# verifier says: BROKEN: piston-door-3x3-v1: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:slime_block, but the door must be 9 identical blocks (minecraft:stone); door cell [1, 2, 0] is minecraft:slime_block, not a plain door block
+name: piston-door-3x3-v1
+port door: 0 0 0
+port lever: 8 8 5
+origin: -3 0 0
+palette:
+  A minecraft:piston_head[facing=up,short=false,type=sticky]
+  B minecraft:piston_head[facing=west,short=false,type=sticky]
+  C minecraft:redstone_wire[east=none,north=none,power=0,south=up,west=side]
+  D minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+  E minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  F minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
+  G minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
+  H minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  I minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  J minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=side]
+  K minecraft:redstone_wire[east=side,north=side,power=0,south=up,west=none]
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  M minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  N minecraft:redstone_wire[east=up,north=side,power=0,south=none,west=none]
+  O minecraft:observer[facing=south,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:redstone_wire[east=up,north=up,power=0,south=none,west=side]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  U minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  V minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  W minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  X minecraft:smooth_stone
+  Y minecraft:sticky_piston[extended=true,facing=down]
+  Z minecraft:sticky_piston[extended=true,facing=east]
+  a minecraft:sticky_piston[extended=true,facing=up]
+  b minecraft:sticky_piston[extended=true,facing=west]
+  c minecraft:stone
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=side]
+  s minecraft:slime_block
+layer -3:
+  ....R
+  ..XXXXX
+  .
+  .
+  .
+  .
+  .
+layer -2:
+  ....a
+  .XIHHSMX
+  .
+  .
+  .
+  .
+  .
+layer -1:
+  R...A...R
+  XH.....MXX
+  .
+  .
+  .
+  .
+  .
+layer 0:
+  ZpscccsBb
+  ........HMX
+  .
+  .
+  .
+  .
+  .
+layer 1:
+  ..scccs
+  ..........MX
+  .
+  .
+  .
+  .
+  .
+layer 2:
+  ...cscs
+  ...........C
+  ...........X
+  .
+  .
+  .
+  .
+layer 3:
+  ....P
+  .
+  ...........G
+  ....X......X
+  ....X
+  ....X
+  .
+layer 4:
+  ....Y
+  ....R
+  ....XX
+  ....TX.....G
+  ....TX.....XXXXX
+  ....NX
+  .....X
+layer 5:
+  ....P
+  ....O
+  ....Sr
+  .....T
+  .....V.....KHHHMX
+  .....F.....X
+  .....NX
+layer 6:
+  ....Y
+  .
+  .
+  ....X
+  ....X...........C
+  ...........EXXXXX
+  ......MX
+layer 7:
+  .
+  ....R
+  ....X
+  ....U
+  ....U
+  ....XXXXXXXXHWWWD
+  .......QX
+layer 8:
+  .
+  .
+  .
+  .
+  .
+  ....HHHJJHHL
+  ........D
