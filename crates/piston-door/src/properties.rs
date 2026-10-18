@@ -378,13 +378,17 @@ fn timings(rec: &Recording, t0: u32) -> [i64; 4] {
     [o - t0, ov - t0, c - t0, cv - t0]
 }
 
-/// The SEAMLESS tiers (2.1.4.1), weakest first.
+/// The SEAMLESS tiers (2.1.4.1), weakest first. `SuperCovered` = FULL + every tick of the
+/// animation clean when an S cell counts as seen only while its face toward T is open (its one T
+/// neighbor holds no door block, resting or moving: a piston head in the door plane's ring behind
+/// a door block is not seen). SUPER (every S cell counts) implies it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
     None,
     Quart,
     Semi,
     Full,
+    SuperCovered,
     Super,
 }
 
@@ -394,8 +398,9 @@ impl Tier {
             "quart" => Tier::Quart,
             "semi" => Tier::Semi,
             "full" => Tier::Full,
+            "supercov" | "super-covered" => Tier::SuperCovered,
             "super" => Tier::Super,
-            _ => bail!("unknown seamless tier {s:?} (quart, semi, full, super)"),
+            _ => bail!("unknown seamless tier {s:?} (quart, semi, full, supercov, super)"),
         })
     }
     pub fn name(self) -> &'static str {
@@ -404,9 +409,22 @@ impl Tier {
             Tier::Quart => "QUART",
             Tier::Semi => "SEMI",
             Tier::Full => "FULL",
+            Tier::SuperCovered => "SUPER (covered)",
             Tier::Super => "SUPER",
         }
     }
+}
+
+/// The T cell an S cell faces (every S cell touches T through exactly one face).
+fn t_neighbor(geo: &Geo, p: Pos) -> Pos {
+    let (u, v, d) = (geo.u(p), geo.v(p), geo.depth(p));
+    let (u, v) = match (u, v) {
+        (-1, v) => (0, v),
+        (3, v) => (2, v),
+        (u, -1) => (u, 0),
+        (u, _) => (u, 2),
+    };
+    geo.cell(u, v, d)
 }
 
 /// The seamless verdict of one recorded cycle: the tier, its table label (with the viewer
@@ -432,12 +450,17 @@ pub fn seamless(rec: &Recording) -> Seamless {
     let quart = |s: i32| circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).collect::<Vec<_>>();
     let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).collect();
     let mut anim_vis: Option<String> = None;
+    let mut anim_cov: Option<String> = None;
     for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
         for (i, (f, _)) in frames.iter().enumerate() {
             let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
             let c = circuitry(&geo, f, &doors, lever);
+            let when = || format!("{} t{}", if std::ptr::eq(frames, &rec.open) { "opening" } else { "closing" }, i + 1);
             if let Some(x) = first(c.iter().filter(|c| vis(c))) {
-                anim_vis.get_or_insert(format!("{} t{}: {x}", if std::ptr::eq(frames, &rec.open) { "opening" } else { "closing" }, i + 1));
+                anim_vis.get_or_insert(format!("{}: {x}", when()));
+            }
+            if let Some(x) = first(c.iter().filter(|c| geo.in_t(c.0) || (geo.in_s(c.0) && !doors.contains(&t_neighbor(&geo, c.0))))) {
+                anim_cov.get_or_insert(format!("{}: {x}", when()));
             }
         }
     }
@@ -446,6 +469,8 @@ pub fn seamless(rec: &Recording) -> Seamless {
     let sides = || qs.iter().map(|s| geo.side(*s)).collect::<Vec<_>>().join(",");
     let (tier, label) = if full && anim_vis.is_none() {
         (Tier::Super, "SUPER".to_string())
+    } else if full && anim_cov.is_none() {
+        (Tier::SuperCovered, "FULL, SUPER (covered)".to_string())
     } else if full {
         (Tier::Full, "FULL".to_string())
     } else if !qs.is_empty() && open_vis.is_empty() {
@@ -461,6 +486,8 @@ pub fn seamless(rec: &Recording) -> Seamless {
         first(open_vis.iter().copied()).map(|x| format!("open: {x}"))
     } else if qs.len() < 2 {
         first(quart(-qs[0])).map(|x| format!("closed other side: {x}"))
+    } else if anim_cov.is_some() {
+        anim_cov.clone().map(|x| format!("moving (covered): {x}"))
     } else {
         anim_vis.clone().map(|x| format!("moving: {x}"))
     };
@@ -533,7 +560,7 @@ pub fn seamless_offenders(rec: &Recording, min: Tier) -> Vec<Pos> {
                 out.extend(if neg.len() <= pos.len() { neg } else { pos });
             }
         }
-        Tier::Full | Tier::Super => {
+        Tier::Full | Tier::SuperCovered | Tier::Super => {
             out.extend(neg);
             out.extend(pos);
         }
@@ -541,11 +568,12 @@ pub fn seamless_offenders(rec: &Recording, min: Tier) -> Vec<Pos> {
     if min >= Tier::Semi {
         out.extend(circuitry(&geo, rec.open_state(), &rec.open_doors(), lever).into_iter().map(|c| c.0).filter(|p| vis(*p)));
     }
-    if min == Tier::Super {
+    if min >= Tier::SuperCovered {
         for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
             for (i, (f, _)) in frames.iter().enumerate() {
                 let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
-                out.extend(circuitry(&geo, f, &doors, lever).into_iter().map(|c| c.0).filter(|p| vis(*p)));
+                let seen = |p: &Pos| geo.in_t(*p) || (geo.in_s(*p) && (min == Tier::Super || !doors.contains(&t_neighbor(&geo, *p))));
+                out.extend(circuitry(&geo, f, &doors, lever).into_iter().map(|c| c.0).filter(|p| seen(p)));
             }
         }
     }
