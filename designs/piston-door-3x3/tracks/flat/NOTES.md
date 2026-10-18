@@ -10,7 +10,17 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 | v4.txt (archive/flat-v2-54b.txt) | 54 | 36 / 34 | the R_B-input dust stands on an observer that starts the late left chain |
 | v5.txt (archive/flat-v5-52b.txt) | 52 | 34 / 32 | `door synth` (k=9, obs/dust/block/rep1-4/torch, box x -6..-1, y -1..6) re-laid the late left chain + stack feed in 8 blocks instead of 10 |
 | v6.txt (archive/flat-v6-51b.txt) | 51 | 34 / 32 | `door resynth --min-size 5 --max-size 6` (palette with rep1-4): a delay-2 repeater replaces two chain observers |
-| v7.txt = BEST.txt (archive/flat-v7-50b.txt) | **50** | 32 / 30 | `door synth` k=9 on the cut crossing (a1 path + P_T chain + top chain, 10 blocks, box x -1..5, y 3..8): 9 blocks |
+| v7.txt (archive/flat-v7-50b.txt) | 50 | 32 / 30 | `door synth` k=9 on the cut crossing (a1 path + P_T chain + top chain, 10 blocks, box x -1..5, y 3..8): 9 blocks |
+| v8.txt = BEST.txt (archive/flat-v8-49b.txt) | **49** | 32 / 30 | lever moved to (5,4) on its observer S (5,3), which fires a cross dust (5,2) on (5,1) = all three right pistons; observer (4,4)E watching the lever starts the a1 chain; X's floor obsidian so the early P_T pulse (t2) is a no-op |
+
+## v8 vs v7
+- The right column's feed was 4 blocks (3 observers + smooth stone) on top of the lever's
+  observer; now the lever-observer itself drives the stack-feed dust: lever (5,4), S (5,3) facing
+  up, cross dust (5,2), floor (5,1). The a1 chain needs one observer more ((4,4)E watching the
+  lever, then (3,4)E, (2,4)E -> A, still t6): net -1.
+- (4,4)E outputs into P_T's quasi cell (3,4), so P_T also fires at t2. Harmless: on open it pulls
+  air (T is lifted at t6); on close it pushes T into C's cell and C into X's floor (0,3), which is
+  OBSIDIAN (immovable) in v8, so the push is blocked (stone there gets pushed into the left chain).
 
 ## Control of v7 (31 blocks), t = ticks after the flip
 - Right (8): lever (4,5) on observer S (4,4) [QC-fires the right top piston through (4,3), t2];
