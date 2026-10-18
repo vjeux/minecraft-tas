@@ -50,3 +50,26 @@ the box on a region boundary).
   A on each window edge by onPlace when A lands; checked in the simulator, wip/v1.txt), but a1
   and pt need an EARLY far-side event and every early crossing either fires B or collides with
   A's window pulses. Not solved yet.
+
+## M2: flat43 mirrored + BL down (side-pair link), 22:55-23:20Z
+* [wip/m2.txt](wip/m2.txt) + [wip/m2.ideal](wip/m2.ideal): pist19r (T parks LEFT via (-1,3)) with
+  BL leaving DOWN (puller (0,-2)); left side = pair (-2,1),(-2,2) fired from above; (-2,0) free.
+  WORKS with ideal inputs (39/39).
+* [wip/m2w.txt](wip/m2w.txt): its TOP hand-wired inside x -2..4 (flat43-full mirrored with
+  `door turn --turns 0 --mirror`): the lever OUTSIDE the box at (-3,4) (volume excludes it) on
+  the observer (-2,4) that watches it; observer (-2,3) facing up fires TL + ML (observer trick);
+  far pistons TR/MR fired once per edge by a waxed copper bulb (3,5) under the B-window dust
+  (3,6), read by a comparator (4,5) (an observer on the bulb itself fires twice: its `powered`
+  property follows the 8 gt window), observer (4,4) on the comparator -> stone (4,3). Checked
+  with `door ideal` + ideal bottom inputs: everything opens except M (see below).
+* The bottom is the problem: the side-pair link gives the bottom TWO pulses (ML's puller is
+  pull-type: extend + landing, 4 gt apart), so it needs a merger (delay-2 repeater + observer),
+  and in rows -3..-1 every repeater spot on the left outputs into BL's puller or its gap (QC):
+  a 4 gt pulse breaks a pull-type piston on close (push, then pull back). The right half is
+  reachable only along row -3. P_M's flat43 trigger (observer on BR's arrival cell -> lamp ->
+  observer) also double-fires P_M here (measured: lit at t40, dark at t50). So M2 needs a 4th
+  bottom row (7x11 = 77, worse than e89's 72).
+* satwire: both plans UNSAT in 7x10 (m710b 29 s, m2 454 s). satwire does model observers
+  watching mechanism cells (`mchg`), so the UNSAT is real for those exact schedules; but every
+  piston's power must match the schedule tick for tick (only a global offset), so a link +
+  merger chain has to land on the scheduled ticks exactly.
