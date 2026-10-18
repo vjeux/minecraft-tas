@@ -161,3 +161,62 @@ pub fn g3() -> Design {
     b.repeater([1, -6, -1], "south", 1); // RS1b
     b.d
 }
+
+/// g4: g3 with the tower's slime chain and S1 moved to the north side (z=-1), next to the
+/// control: S1's fast input is the floor of an A dust, S2 is fed through a block west of it.
+pub fn g4() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "gravity-g4".into();
+    let sand = "minecraft:sand";
+    for y in 0..3 {
+        for x in 0..3 {
+            b.set([x, y, 0], sand);
+        }
+    }
+    for y in -1..3 {
+        b.set([-1, y, 0], "slime_block");
+        b.set([3, y, 0], "slime_block");
+    }
+    b.set([0, -1, 0], "sticky_piston[facing=west,extended=false]"); // P_L
+    b.set([2, -1, 0], "sticky_piston[facing=east,extended=false]"); // P_R
+    b.set([1, -2, 0], "piston[facing=up,extended=true]"); // R3
+    b.set([1, -1, 0], "piston_head[facing=up,type=normal,short=false]");
+    b.set([1, -4, 0], "sticky_piston[facing=up,extended=true]"); // S2
+    b.set([1, -3, 0], "piston_head[facing=up,type=sticky,short=false]");
+    b.set([1, -4, -1], "slime_block"); // chain
+    b.set([1, -3, -1], "slime_block");
+    b.set([1, -6, -1], "sticky_piston[facing=up,extended=true]"); // S1
+    b.set([1, -5, -1], "piston_head[facing=up,type=sticky,short=false]");
+    b.port("door", [0, 0, 0]);
+    b.set([1, -1, -2], FLOOR); // LB
+    b.set([1, 0, -2], "lever[face=floor,facing=north,powered=false]");
+    b.port("lever", [1, 0, -2]);
+    b.set([1, -1, -1], "redstone_wall_torch[facing=south,lit=true]"); // T_A2: R3 by QC
+    b.set([1, -1, -3], "redstone_wall_torch[facing=north,lit=true]"); // T_A
+    let cross = "redstone_wire[north=side,east=side,south=side,west=side]";
+    b.set([0, -1, -2], cross);
+    b.set([0, -2, -2], FLOOR);
+    b.set([0, -1, -1], FLOOR);
+    b.set([2, -1, -2], cross);
+    b.set([2, -2, -2], FLOOR);
+    b.set([2, -1, -1], FLOOR);
+    let w = "minecraft:redstone_wire";
+    let f = FLOOR;
+    for (p, s) in [
+        ([1, -2, -3], w), ([1, -3, -3], f),
+        ([0, -3, -3], w), ([0, -4, -3], f),
+        ([0, -4, -2], w), ([0, -5, -2], f),
+        ([1, -5, -2], w), ([1, -6, -2], f), // floor = S1 fast
+        ([-1, -5, -2], w), ([-1, -6, -2], f),
+        ([-1, -6, -1], w), ([-1, -7, -1], f),
+    ] {
+        b.set(p, s);
+    }
+    // RS2 on an obsidian floor (the chain would drag a normal one), into the block west of S2.
+    b.set([0, -4, -1], "repeater[facing=north,delay=2]");
+    b.set([0, -5, -1], "obsidian");
+    b.set([0, -4, 0], FLOOR);
+    // RS1: A + 8 gt into S1 from the west.
+    b.repeater([0, -6, -1], "east", 4);
+    b.d
+}
