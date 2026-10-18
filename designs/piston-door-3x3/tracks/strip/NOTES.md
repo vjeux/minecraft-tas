@@ -62,25 +62,50 @@ mechanism without the pattern. A static SAT wiring model of a 5-tall strip hits 
 - 22:13Z started; merged main + families + flat-seam; `door families --rows` + `door rows-fire`.
 - 22:41Z lemma above (sent to the coordinator).
 - `door families --rows --forbid-fire=<x,...>` (new, families.rs `FORBID_X`): no piston may act
-  from those x columns; enumerating 12-wide rows (arms up to 7, <= 5 pistons) with
-  `--forbid-fire=-1,1,3` (each corner only serves the inner cell) ...
+  from those x columns.
   Result: **no row mechanism avoids the corner pattern**, for every single-role assignment of the
   two corners (`--forbid-fire=-1,1,3`: corners serve only the inner cells; `=1,2,-1` and `=0,1,3`:
   one corner inner, the other ring column; `=0,1,2`: no inner firing at all), rows up to 12 wide,
-  every arm split (0+9 .. 4+5), <= 6 pistons per row: 0 rows open and close (without a forbid set
-  the same runs find families' 198 rows at 11 wide and 222 at 12 wide, so the tool works).
+  every arm split (0+9 .. 4+5), **<= 7 pistons per row** (1.7-2.9 M candidates per 12-wide split):
+  0 rows open and close (without a forbid set the same runs find families' 198 rows at 11 wide and
+  339 at 12 wide, so the tool works).
   => **a 5-tall strip door cannot be wired with fixed parts**: row 0 is blocked whatever the other
   rows do (its pistons can only be powered from row -1: QC looks up into row 1), row 1 likewise
   at the top corner unless row 0's door block sits on a torch at (3,-1) at the right moment (which
   row 0's own conflict forbids).
+- Moving sources IN the rows (`--rblocks N`, new: redstone-block pieces in the row line, a piston
+  beside one (not through its front) is powered, every state settled, a block-held piston takes no
+  wiring event; `--r-both` also powers through the front): up to 2 blocks + 5 pistons per row, 12
+  wide, `--forbid-fire=-1,0,1,2,3` or `=-1,1,3`: 0 rows; even WITHOUT a forbid set no row with a
+  block opens and closes at 11 or 12 wide (same 396 / 153 open+close as without blocks): a block
+  costs a cell the minimal rows do not have, and a block-held walker is extended, so immovable (it
+  cannot travel with its block).
 - 6 tall does not save it with fixed parts: the side with a single wiring row keeps the conflict
   (two rows below fix row 0: a torch at (2,-2) strongly powers the ring stone (2,-1), freeing the
   corner (3,-1); two rows above fix row 1: dust at (2,4) on the ring stone (2,3) frees (3,3)); a
-  7-tall box (11 x 7 = 77) is worse than the record.
-- A second wall for 1-high wiring rows: a run of k adjacent firing columns (r046's x = 3..6 for
-  rows 1 and 2) needs k adjacent cells of row 3 that send power DOWN (a strongly powered
-  conductor, a wall torch or a redstone block); a conductor needs a horizontal neighbour that
-  strongly powers it (an observer facing away, which itself sends nothing down; repeaters have no
-  floor), a wall torch hangs on a horizontal neighbour block and is ON by default (every walker
-  landing under it fires). Only runs whose both ends touch an outside observer cell can be driven,
-  and their torch cells are inverted levels.
+  7-tall box (11 x 7 = 77) is worse than the record. With two rows below, row 1's x = 3 firing can
+  come from row 0's door block standing on a torch at (3,-1) (row 0 opened first, its right block
+  parks at (3,0)), but row 1's x = 4..6 firings still need the run below.
+- **Run lemma (1-high wiring rows)**: a run of k adjacent firing columns (r046's x = 2..6; every
+  catalog row has one of length >= 5: 222 rows 5, 132 rows 6, 79 rows 7) needs k adjacent row-3 cells that send power DOWN
+  for row 1 (a strongly powered conductor, a wall torch, a redstone block) and k row -1 cells that
+  send power UP for row 0. A conductor needs a horizontal neighbour that strongly powers it (an
+  observer facing away, which sends nothing vertically; repeaters and comparators have no floor in
+  a 1-high row); a wall torch hangs on a horizontal neighbour block and is ON unless that block is
+  powered (every walker landing under it fires); a torch on a conductor turns off whenever the
+  conductor fires. So interior cells of a run cannot be driven independently: only runs of <= 2
+  (each end next to an outside observer) work. With 2 rows on a side (torches under the row -1
+  conductors, dust on the row 3 conductors) adjacent columns still share their drivers (adjacent
+  dust merges into one net; a torch's attachment block is shared with its neighbour's torch).
+- Vertical strips (5 x 11): the middle COLUMN's pistons have only door-column cells around them
+  and around their quasi cell (QC looks up, along the column), so it is unreachable outright.
+
+## Conclusion (23:00Z)
+**55 (11 x 5) and 60 (12 x 5) are not reachable as strip doors**: with the catalog's row
+mechanisms (exhaustive up to 12 wide, 7 pistons per row; families: nothing narrower than 11), a
+5-tall box cannot power row 0's (and row 1's) walkers at the corner by any fixed part, in-row
+redstone blocks do not fit, and 1-high wiring rows cannot drive the walkers' runs of adjacent
+firing columns. A strip needs >= 2 wiring rows on both sides (7 tall: 77 > 72). Anything below
+72 has to come from 2-D mechanisms (families' 7x8 / 8x8 / 7x9 catalogs, boxes 6+ tall where blocks
+can move vertically) or from moving pulse sources in the wiring layers (observers or redstone
+blocks carried by extra pistons), which a static SAT wiring model cannot express.
