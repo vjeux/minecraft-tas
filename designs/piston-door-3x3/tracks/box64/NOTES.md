@@ -72,3 +72,29 @@ quartz-like blocks or nothing (FULL), and a quartz-like block only powers its ow
   (b1, b1+8) from one input pulse.
 - A region/crossing analyzer over families' CATALOG (which pistons each region can drive, which
   pistons are visible from two regions) to rank the 97 8x8 mechanisms by wireability.
+
+## 5. families 8x8-102 (box x=-3..4, y=-2..5), the topology tool's "wirable" pick (coordinator 22:14Z)
+Pieces `SE(-3,1) SE(-2,0) SE(-2,1) SD+(-1,3) SD(0,4) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) SW(4,1)`: the
+center exits LEFT (L1 (-2,1) lifted to (-1,1) by E3 (-3,1)), ML goes up into (-1,2) when the level
+piston PD (-1,3) (extended at rest, head in (-1,2)) retracts, TL/T/TR go up, M and BR go down, MR
+right. Sym train (13+L): L1, PD level, E3, L1, E3, L1, then 7 toggles (L0, (0,4), (1,-2), (1,4),
+(2,-2), (2,4), (4,1)) in any order. Files: f102/f102-pure.txt (mechanism), f102/f102.ideal (in-plane
+ideal inputs, wip), f102/ideal/f102-pure-{oc,sym}.ideal (families' own plans, written by the new
+`door families --check <design> --verify`).
+Simulator findings (not yet a working ideal replay):
+- families' own ideal plans (inputs off the plane / outside the box) break at BL: the input block
+  behind L1 (-2,1,1) quasi-powers L0 (L0's quasi cell is L1's rest cell), so L0 fires an extra time.
+- In the plane the same holds: L1's only free input cell at rest is (-2,2), and anything emitting
+  down there also arms L0 (quasi) and, if it is a conductor, E3 (quasi through (-3,2)). L0 then
+  fires with L1 at s1 and s6; giving L0 one own pulse more makes it odd (3), which is allowed.
+- PD's rest holder cannot sit at (-2,3) (arms L1 through its quasi cell) nor (-1,4) (powers (0,4));
+  a standing torch at (-2,4) holds PD by quasi-connectivity without touching L1, E3 or (0,4), and
+  its 2-level update retracts PD when its block is powered. PD must retract only after L1's first
+  pull has landed (ML at (-1,1)), so its level needs a delayed lever level (repeaters or a torch
+  pair), and the first L1 pulse must come within ~6 gt of the flip.
+- The lifted L1 at (-1,1) (s4) has no input from (-2,2): it can be fed through the BL door block
+  sitting at (-1,0) (strongly powered by an observer at (-1,-1) facing down) when L0 has already
+  pulled BL (open), but that cell is empty on close; or through ML at (-1,2) (an observer at (-2,2)
+  facing west), which conflicts with the rest-position driver at (-2,2) facing up.
+- Ideal emulation needs care: a redstone block placed next to a piston's quasi cell arms it but
+  does not update it; placing/removing a glass block next to the piston gives the update.
