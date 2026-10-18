@@ -1,0 +1,17 @@
+name: gadget-zero-tick
+# 0-tick piston: a sticky piston that extends and retracts inside ONE block-event phase places
+# the block it pushed at once (PistonBaseBlock.triggerEvent, retract branch: the moving block two
+# cells ahead is finalTick'd). T (sticky, facing north) pushes K; X (normal, facing south) is
+# armed silently (quasi-powered by a redstone block the script puts on (0,3,-1), two cells above
+# it: no update). The script then puts redstone block R at S=(0,1,0): its updates reach T (west)
+# before X (north), so T's extend event runs first; T's push updates the cell next to X (K's old
+# cell), X shoves R away in the same phase, T is updated unpowered while K is still moving:
+# retract event type 2, K finalTick'd at (-1,1,-2) in tick 1, T's base moving until tick 3.
+origin: -1 0 -1
+palette:
+  T minecraft:sticky_piston[extended=false,facing=north]
+  X minecraft:piston[extended=false,facing=south]
+  K minecraft:stone
+layer 1:
+  KX
+  T.

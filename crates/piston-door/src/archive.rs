@@ -23,7 +23,7 @@ pub fn save(source: &Path, d: &Design, blocks: usize, note: &str, into: Option<&
             continue;
         }
         if let Ok(old) = Design::load(&p) {
-            if old.blocks == d.blocks {
+            if old.blocks == d.blocks && old.entities == d.entities {
                 return Ok(None);
             }
         }

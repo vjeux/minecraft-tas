@@ -1,0 +1,19 @@
+name: gadget-zero-tick-observer
+# An observer sees a 0-tick: zero-tick plus observer O above K's cell (facing down). In tick 1 the
+# cell turns into T's moving head and back to air inside the block-event phase; O got a shape
+# update from it (ObserverBlock.updateShape schedules on every update from its face, whatever the
+# final state), so it fires 2 gt later (tick 3..5) although no tick boundary shows any change
+# there except K gone. A normal push changes the cell at the event and again when the head lands
+# (2 gt later), so an observer watching a plainly moved piston fires twice; a 0-ticked one fires
+# once.
+origin: -1 0 -1
+palette:
+  T minecraft:sticky_piston[extended=false,facing=north]
+  X minecraft:piston[extended=false,facing=south]
+  K minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+layer 1:
+  KX
+  T.
+layer 2:
+  O.

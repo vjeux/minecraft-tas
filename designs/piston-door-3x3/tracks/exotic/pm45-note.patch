@@ -1,0 +1,2 @@
+# pm45-trap with a note block instead of the iron trapdoor (is non-conduction needed?)
+set 3 -3 0 minecraft:note_block[instrument=harp,note=0,powered=false]

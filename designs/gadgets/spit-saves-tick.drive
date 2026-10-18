@@ -1,0 +1,12 @@
+# P pushes R in tick 2 and spits it in tick 4; U extends in tick 4 (not 5).
+design designs/gadgets/spit-saves-tick.txt
+probe P 2 1 0
+probe R 4 1 0
+probe U 4 1 1
+use 0 1 0
+expect_trace P rEE
+expect R ~
+expect U r
+expect_trace R R
+expect U E
+expect P ~

@@ -115,10 +115,21 @@ pub struct SearchOptions {
     /// Also accept candidates that turn a solid design into a sculk one (they add a sculk
     /// sensor): searches for the sculk board starting from solid designs.
     pub to_sculk: bool,
+    /// Shape boards: reject candidates outside these shape limits (`--shape wall`, `ground`,
+    /// `side<=1`...; see [`crate::ShapeLimits`]).
+    pub shape: Option<crate::ShapeLimits>,
+    /// Accept only rotation-safe designs: an accepted candidate must also pass the judge turned
+    /// 90, 180 and 270 degrees ([`crate::rotation_check`], at the judge's positions). The boards
+    /// rank rotation-safe designs, so a search from one should not trade that away for a block.
+    pub rotation_safe: bool,
 }
 
-/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk.
+/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk; and within
+/// the `--shape` limits when set.
 fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
+    if opts.shape.is_some_and(|l| !l.allows_design(d)) {
+        return false;
+    }
     if same_league(base, d) {
         return true;
     }
@@ -132,7 +143,28 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
 
 /// [`verify_in`] plus the search's speed constraints.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
-    speed_check(verify_in(w, sb, d, v)?, opts)
+    let r = speed_check(verify_in(w, sb, d, v)?, opts)?;
+    // Shape boards measure the space a door needs while it moves too: check the swept shape.
+    if let Some(l) = &opts.shape {
+        let s = crate::swept_shape_in(w, sb, d)?;
+        if !l.allows(&s) {
+            anyhow::bail!("outside the --shape limits while it moves: {s:?}");
+        }
+    }
+    Ok(r)
+}
+
+/// The acceptance test: [`judge_in`] with the judge's options, and with `rotation_safe` the
+/// door turned 90, 180 and 270 degrees too.
+fn accept_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, opts: &SearchOptions) -> Result<crate::Report> {
+    let r = judge_in(w, sb, d, &opts.judge, opts)?;
+    if opts.rotation_safe {
+        let v = VerifyOptions { keep_frames: false, ..opts.judge.clone() };
+        if let Some((turns, why)) = crate::rotation_check(w, d, &v)? {
+            anyhow::bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
+        }
+    }
+    Ok(r)
 }
 
 /// The speed constraints (`max_open`, `max_close`) on a judge report.
@@ -230,10 +262,12 @@ fn kind(s: &str) -> &str {
 }
 /// Can hold dust or a torch (roughly: a full block).
 fn is_support(s: &str) -> bool {
+    let k = kind(s);
     !matches!(
-        kind(s),
-        "redstone_wire" | "repeater" | "comparator" | "redstone_torch" | "redstone_wall_torch" | "lever" | "piston_head" | "moving_piston"
-    )
+        k,
+        "redstone_wire" | "repeater" | "comparator" | "redstone_torch" | "redstone_wall_torch" | "lever" | "piston_head" | "moving_piston" | "scaffolding"
+    ) && !(k.ends_with("trapdoor") || k.ends_with("fence_gate") || k.ends_with("_rail") || k == "rail" || k.ends_with("_skull") || k.ends_with("_head") || k.ends_with("_door") || k.ends_with("_shelf"))
+        && !((k.contains("slab") && !s.contains("type=top") && !s.contains("type=double")) || (k.contains("stairs") && !s.contains("half=top")))
 }
 /// Plain building blocks: full blocks with no behavior of their own besides holding things up
 /// and conducting (a name-based denylist of mechanism, partial and gravity blocks).
@@ -252,7 +286,12 @@ fn is_plain(s: &str) -> bool {
 }
 /// Approximation of `isRedstoneConductor` (cuts dust steps).
 fn is_conductor(s: &str) -> bool {
-    is_support(s) && !matches!(kind(s), "glass" | "observer" | "piston" | "sticky_piston" | "slime_block" | "honey_block" | "redstone_block")
+    let k = kind(s);
+    is_support(s)
+        && !matches!(k, "glass" | "tinted_glass" | "observer" | "piston" | "sticky_piston" | "slime_block" | "honey_block" | "redstone_block")
+        && !k.ends_with("copper_grate")
+        && !k.contains("slab")
+        && !k.contains("stairs")
 }
 fn movable(k: &str) -> bool {
     !matches!(k, "piston_head" | "moving_piston" | "lever")
@@ -283,7 +322,8 @@ fn attachment(p: Pos, s: &str) -> Option<Pos> {
     let b = BlockState::parse(s).ok()?;
     match b.short_name() {
         "redstone_wall_torch" => Some(sub(p, dir(b.get("facing")?)?)),
-        "redstone_torch" | "redstone_wire" | "repeater" | "comparator" => Some(add(p, [0, -1, 0])),
+        "redstone_torch" | "redstone_wire" | "repeater" | "comparator" | "powered_rail" | "activator_rail" | "rail" | "detector_rail" => Some(add(p, [0, -1, 0])),
+        n if n.ends_with("_door") && b.get("half") == Some("lower") => Some(add(p, [0, -1, 0])),
         "lever" => match b.get("face") {
             Some("floor") => Some(add(p, [0, -1, 0])),
             Some("ceiling") => Some(add(p, [0, 1, 0])),
@@ -327,7 +367,7 @@ impl Ctx {
                 keep.insert(*p);
             }
         }
-        let forbidden = spec.door_cells().into_iter().chain(spec.corridor_cells()).collect();
+        let forbidden = crate::route::keep_clear(&spec).into_iter().collect();
         Ok(Ctx { keep, forbidden, spec })
     }
 
@@ -1474,7 +1514,7 @@ fn evaluate_with(
             let c = &cands[i];
             let d = c.edit.apply(&bases[c.base]);
             let sb = sandboxes.get(w, wi)?;
-            Ok(judge_in(w, sb, &d, &opts.judge, opts).map(|r| (rank(&d, &r), d)).map_err(|e| format!("{e:#}")))
+            Ok(accept_in(w, sb, &d, opts).map(|r| (rank(&d, &r), d)).map_err(|e| format!("{e:#}")))
         });
         judged += part.len();
         for (&i, r) in part.iter().zip(res) {
@@ -1567,7 +1607,7 @@ pub fn search(
     let start_report = {
         let mut w = pool.worker(0);
         let sb = sandboxes.get(&mut w, 0)?;
-        judge_in(&mut w, sb, &cur, &opts.judge, opts).context("the start design fails the judge")?
+        accept_in(&mut w, sb, &cur, opts).context("the start design fails the judge")?
     };
     let mut cur_key = objective_key(opts.objective, &cur, &start_report);
     let (o, c) = worst_ticks(&start_report);
@@ -1660,7 +1700,7 @@ pub fn search(
                 }
                 let mut w = pool.worker(0);
                 let sb = sandboxes.get(&mut w, 0)?;
-                if judge_in(&mut w, sb, &cand, &opts.judge, opts).is_ok() {
+                if accept_in(&mut w, sb, &cand, opts).is_ok() {
                     log(&format!("  also: {d2} -> {} blocks", block_count(&cand)));
                     next = cand;
                 }
@@ -1783,7 +1823,9 @@ pub fn search(
 /// either). `only` restricts the cut blocks to a box. Returns the verified designs, fewest blocks
 /// first.
 #[allow(clippy::too_many_arguments)]
-pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], only: Option<(Pos, Pos)>, opts: &SearchOptions, want: usize, any: bool, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], only: Option<(Pos, Pos)>, opts: &SearchOptions, want: usize, any: bool, require_any: &[String], log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+    // `require_any`: a candidate must add one block whose state names one of these.
+    let wanted = |s: &str| require_any.is_empty() || require_any.iter().any(|r| s.contains(r.as_str()));
     let sandboxes = Sandboxes::new(pool);
     let ctx = Ctx::new(base)?;
     let inside = |p: &Pos| only.is_none_or(|(lo, hi)| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]));
@@ -1898,7 +1940,7 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
         let one = |p: Pos, s: &String| format!("+{} {}", fmt_pos(p), short(s));
         for (i, (p, s)) in singles.iter().enumerate() {
             if size == 2 {
-                if stands(*p, s, None) {
+                if stands(*p, s, None) && wanted(s) {
                     let mut e = cut.clone();
                     e.set.push((*p, s.clone()));
                     e.desc = format!("{} {}", cut.desc, one(*p, s));
@@ -1907,7 +1949,7 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
                 continue;
             }
             for (q, t) in singles.iter().skip(i + 1) {
-                if q == p || !stands(*p, s, Some((*q, t))) || !stands(*q, t, Some((*p, s))) {
+                if q == p || !stands(*p, s, Some((*q, t))) || !stands(*q, t, Some((*p, s))) || !(wanted(s) || wanted(t)) {
                     continue;
                 }
                 let mut e = cut.clone();
@@ -1944,8 +1986,8 @@ pub struct GrowOptions {
 /// Expand `door grow --states` shorthands: `obs` (observer, 6 facings), `block`
 /// (smooth_stone), `dust` (cross wire), `rep`/`rep2`/`rep3`/`rep4` (repeater, 4 facings, that
 /// delay), `torch` (standing + 4 wall torches), `glass`, `obsidian`, `rblock` (redstone block),
-/// `lamp`, `note` (note block: a conductor whose `powered` state an observer can watch), or a
-/// full `minecraft:...` state.
+/// `lamp`, `note` (note block: a conductor whose `powered` state an observer can watch), `bulb`
+/// (waxed copper bulb), `target`, or a full `minecraft:...` state.
 pub fn grow_states(spec: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -1966,8 +2008,17 @@ pub fn grow_states(spec: &str) -> Result<Vec<String>> {
             "rblock" => out.push("minecraft:redstone_block".into()),
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
             "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
-            s if s.starts_with("minecraft:") => out.push(s.to_string()),
-            s => return Err(anyhow!("unknown grow state {s:?}")),
+            "bulb" => out.push("minecraft:waxed_copper_bulb[lit=false,powered=false]".into()),
+            "target" => out.push("minecraft:target[power=0]".into()),
+            // Persistent leaves (never random-tick): re-read their distance 1 gt after a neighbor
+            // changes, so next to a moving log they are an asymmetric 1 gt delay (pareto-mid).
+            "leaves" => out.push("minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]".into()),
+            "log" => out.extend(["x", "y", "z"].iter().map(|a| format!("minecraft:oak_log[axis={a}]"))),
+            s => match crate::synth::exotic_states(s) {
+                Some(v) => out.extend(v),
+                None if s.starts_with("minecraft:") => out.push(s.to_string()),
+                None => return Err(anyhow!("unknown grow state {s:?}")),
+            },
         }
     }
     Ok(out)

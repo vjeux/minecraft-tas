@@ -17,6 +17,7 @@
 
 pub mod cli;
 pub mod mechsynth;
+pub mod mechwire;
 pub mod archive;
 pub mod buildable;
 pub mod designs;
@@ -37,6 +38,7 @@ pub mod minimize;
 pub mod patch;
 pub mod place;
 pub mod search;
+pub mod shapes;
 pub mod showcase;
 pub mod synth;
 pub mod tickvideo;
@@ -44,6 +46,7 @@ pub mod tile;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
+pub mod vanilla_gadget;
 pub mod world;
 
 use anyhow::{Context, Result, bail};
@@ -64,7 +67,10 @@ impl DoorSpec {
     pub fn from_design(d: &Design) -> Result<DoorSpec> {
         let door = *d.ports.get("door").context("design has no 'port door: x y z'")?;
         let lever = *d.ports.get("lever").context("design has no 'port lever: x y z'")?;
-        Ok(DoorSpec { door, lever, along_z: false })
+        // `door-axis: z`: the opening spans z (an east/west-facing door, e.g. a variant built for
+        // that orientation); default x (a north/south-facing door, plane z = door.z).
+        let along_z = d.meta.get("door-axis").is_some_and(|v| v.trim() == "z");
+        Ok(DoorSpec { door, lever, along_z })
     }
 
     /// The same spec moved by `d`.
@@ -134,20 +140,70 @@ pub fn rotate_pos(p: Pos, turns: u8) -> Pos {
 /// state turned by the game itself ([`Worker::rotate_states`]), with the door spec that goes with
 /// it.
 pub fn rotate_design(w: &mut Worker, d: &Design, turns: u8) -> Result<(Design, DoorSpec)> {
+    transform_design(w, d, turns, false)
+}
+
+/// [`rotate_design`] of the mirror image (x -> -x, the game's `Mirror.FRONT_BACK`) when `mirror`.
+pub fn transform_design(w: &mut Worker, d: &Design, turns: u8, mirror: bool) -> Result<(Design, DoorSpec)> {
     let spec = DoorSpec::from_design(d)?;
     let turns = turns % 4;
+    let tf = |p: Pos| rotate_pos(if mirror { [-p[0], p[1], p[2]] } else { p }, turns);
     let states: Vec<String> = d.blocks.values().cloned().collect();
-    let turned = w.rotate_states(&states, turns)?;
-    let blocks = d.blocks.keys().zip(turned).map(|(p, s)| (rotate_pos(*p, turns), s)).collect();
-    let ports = d.ports.iter().map(|(k, p)| (k.clone(), rotate_pos(*p, turns))).collect();
-    // The opening's min corner after the turn.
-    let cells: Vec<Pos> = spec.door_cells().iter().map(|p| rotate_pos(*p, turns)).collect();
+    let turned = w.transform_states(&states, turns, mirror)?;
+    let blocks = d.blocks.keys().zip(turned).map(|(p, s)| (tf(*p), s)).collect();
+    let ports = d.ports.iter().map(|(k, p)| (k.clone(), tf(*p))).collect();
+    // The opening's min corner after the transform.
+    let cells: Vec<Pos> = spec.door_cells().iter().map(|p| tf(*p)).collect();
     let min = |i: usize| cells.iter().map(|p| p[i]).min().unwrap();
     let door = [min(0), min(1), min(2)];
-    let rspec = DoorSpec { door, lever: rotate_pos(spec.lever, turns), along_z: turns % 2 == 1 };
-    let mut rd = Design { name: d.name.clone(), meta: d.meta.clone(), ports, blocks };
+    let rspec = DoorSpec { door, lever: tf(spec.lever), along_z: spec.along_z != (turns % 2 == 1) };
+    // Entities: positions by the same map in continuous coordinates (a block cell [x, x+1) mirrors
+    // to [-x, -x+1): X -> 1 - X; a turn takes cell (x, z) to (-z, x): (X, Z) -> (1 - Z, X)), their
+    // data (yaw, a hanging entity's facing) by the game ([`Worker::transform_entities`]).
+    let entities = if d.entities.is_empty() {
+        Vec::new()
+    } else {
+        let nbts = w.transform_entities(&d.entities, turns, mirror)?;
+        d.entities
+            .iter()
+            .zip(nbts)
+            .map(|(e, nbt)| {
+                let mut p = e.pos;
+                if mirror {
+                    p[0] = 1.0 - p[0];
+                }
+                for _ in 0..turns {
+                    p = [1.0 - p[2], p[1], p[0]];
+                }
+                mctas::design::EntitySpec { kind: e.kind.clone(), pos: p, nbt }
+            })
+            .collect()
+    };
+    let mut rd = Design { name: d.name.clone(), meta: d.meta.clone(), ports, blocks, entities };
     rd.ports.insert("door".into(), door);
+    if rspec.along_z {
+        rd.meta.insert("door-axis".into(), "z".into());
+    } else {
+        rd.meta.remove("door-axis");
+    }
     Ok((rd, rspec))
+}
+
+/// The judge's checks ([`verify_in_spec`] with `opts`) on all 8 orientations of the door: 4 turns
+/// (0, 90, 180, 270 degrees clockwise seen from above), each as built and mirrored. Returns
+/// (turns, mirrored, `Ok` or the judge's reason) for each.
+pub fn orientation_report(w: &mut Worker, d: &Design, opts: &VerifyOptions) -> Result<Vec<(u8, bool, std::result::Result<(), String>)>> {
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let mut out = Vec::new();
+    for mirror in [false, true] {
+        for turns in 0..4u8 {
+            let (rd, rspec) = transform_design(w, d, turns, mirror)?;
+            let r = verify_in_spec(w, sb, &rd, rspec, opts).map(|_| ()).map_err(|e| format!("{e:#}"));
+            out.push((turns, mirror, r));
+        }
+    }
+    let _ = w.drop_sandbox(sb);
+    Ok(out)
 }
 
 /// Does the door also work turned 90, 180 and 270 degrees? Runs the judge's checks ([`verify_in`]
@@ -246,9 +302,10 @@ pub fn verify(w: &mut Worker, design: &Design, opts: &VerifyOptions) -> Result<R
     r
 }
 
-/// Count of placed blocks: every non-air block except piston heads (part of their piston).
+/// Count of placed blocks: every non-air block except piston heads (part of their piston), plus one
+/// per entity (a minecart, an armor stand... counts as a block).
 pub fn block_count(d: &Design) -> usize {
-    d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count()
+    d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count() + d.entities.len()
 }
 
 /// `n` deterministic pseudo-random extra test positions, on top of the default four.
@@ -286,8 +343,265 @@ pub fn slime_free(d: &Design) -> bool {
 /// True when every block of the design lies in the door's plane (z = door.z): the whole machine
 /// is one block thick ("flat"; its own leaderboard together with slime-free).
 pub fn single_layer(d: &Design) -> bool {
-    let Some(door) = d.ports.get("door") else { return false };
-    d.blocks.keys().all(|p| p[2] == door[2])
+    let Ok(spec) = DoorSpec::from_design(d) else { return false };
+    // The door's plane: z = door.z, or x = door.x for an east/west-facing door.
+    let axis = if spec.along_z { 0 } else { 2 };
+    d.blocks.keys().all(|p| p[axis] == spec.door[axis])
+}
+
+/// How far a design reaches beyond its 3x3 opening on every side, at rest (piston heads
+/// included; design files always have the door in a z plane). Builders care: a door that fits a
+/// thin wall, needs no digging or stays narrow is easier to place than a smaller block count.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Shape {
+    /// Layers in front of the door plane (z < door.z) and behind it (z > door.z).
+    pub front: i32,
+    pub behind: i32,
+    /// Rows below the door's bottom row (y < door.y) and above its top row (y > door.y + 2).
+    pub below: i32,
+    pub above: i32,
+    /// Columns left of the opening (x < door.x) and right of it (x > door.x + 2).
+    pub left: i32,
+    pub right: i32,
+    /// Blocks below the bottom row and above the top row (counted like the score).
+    pub blocks_below: usize,
+    pub blocks_above: usize,
+}
+
+impl Shape {
+    /// Layers along the door's depth axis (the door plane included): 1 = flat.
+    pub fn thickness(&self) -> i32 {
+        1 + self.front + self.behind
+    }
+    /// Columns across (the opening's 3 included).
+    pub fn width(&self) -> i32 {
+        3 + self.left + self.right
+    }
+    /// Rows (the opening's 3 included).
+    pub fn height(&self) -> i32 {
+        3 + self.below + self.above
+    }
+    /// Bounding-box volume, the door included.
+    pub fn volume(&self) -> i32 {
+        self.thickness() * self.width() * self.height()
+    }
+    /// The wider of the two sides of the opening (columns).
+    pub fn side(&self) -> i32 {
+        self.left.max(self.right)
+    }
+}
+
+/// The [`Shape`] of a design relative to its door (`None` without a door port or blocks).
+pub fn shape(d: &Design) -> Option<Shape> {
+    let door = *d.ports.get("door")?;
+    shape_of_cells(d, door, d.blocks.keys())
+}
+
+/// The [`Shape`] of a set of occupied cells around `door` (blocks below / above counted from the
+/// design's own blocks at rest).
+fn shape_of_cells<'a>(d: &Design, door: Pos, cells: impl IntoIterator<Item = &'a Pos>) -> Option<Shape> {
+    let mut it = cells.into_iter();
+    let first = *it.next()?;
+    let (mut lo, mut hi) = (first, first);
+    for p in it {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
+    let counted = |p: &&Pos| !d.blocks[*p].starts_with("minecraft:piston_head");
+    Some(Shape {
+        front: (door[2] - lo[2]).max(0),
+        behind: (hi[2] - door[2]).max(0),
+        below: (door[1] - lo[1]).max(0),
+        above: (hi[1] - (door[1] + 2)).max(0),
+        left: (door[0] - lo[0]).max(0),
+        right: (hi[0] - (door[0] + 2)).max(0),
+        blocks_below: d.blocks.keys().filter(|p| p[1] < door[1]).filter(counted).count(),
+        blocks_above: d.blocks.keys().filter(|p| p[1] > door[1] + 2).filter(counted).count(),
+    })
+}
+
+/// The space a door needs: the [`Shape`] of every cell it occupies at rest or at any tick of one
+/// open/close cycle (moving blocks included), at the design's own position. A builder has to
+/// keep all of it free: a structure that slides out of a wall, or a block pulled below the door,
+/// needs room there even if the door is compact at rest.
+pub fn swept_shape(w: &mut Worker, d: &Design) -> Result<Shape> {
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let r = swept_shape_in(w, sb, d);
+    let _ = w.drop_sandbox(sb);
+    r
+}
+
+/// [`swept_shape`] in an existing sandbox (cleared first).
+pub fn swept_shape_in(w: &mut Worker, sb: u32, d: &Design) -> Result<Shape> {
+    let spec = DoorSpec::from_design(d)?;
+    w.clear(sb)?;
+    let blocks = d.block_list();
+    w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+    let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+    w.update(sb, &wires, "shape")?;
+    let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
+    w.update(sb, &positions, "self")?;
+    w.step_until_idle(sb, 400)?;
+    let (wlo, whi) = watch_box(d, &spec);
+    let mut cells: std::collections::BTreeSet<Pos> = d.blocks.keys().copied().collect();
+    let mut add = |r: &Region| {
+        for (p, s) in r.iter() {
+            if !mctas::blockstate::is_air(s) {
+                cells.insert(p);
+            }
+        }
+    };
+    add(&w.get_region(sb, wlo, whi)?);
+    for _ in 0..2 {
+        w.use_block(sb, spec.lever)?;
+        let run = w.step_record(sb, 400, true, wlo, whi)?;
+        for f in &run.frames {
+            add(f);
+        }
+    }
+    shape_of_cells(d, spec.door, cells.iter()).context("empty design")
+}
+
+/// Shape limits (a board's rule, or a search constraint): every set bound must hold. Written
+/// as a comma list of `key<=n` (`front behind thick below above left right side volume`; `key=0`
+/// is `key<=0`) or a named preset ([`ShapeLimits::PRESETS`]: `wall`, `wall2`, `ground`...).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct ShapeLimits {
+    pub front: Option<i32>,
+    pub behind: Option<i32>,
+    pub thick: Option<i32>,
+    pub below: Option<i32>,
+    pub above: Option<i32>,
+    pub left: Option<i32>,
+    pub right: Option<i32>,
+    pub side: Option<i32>,
+    pub volume: Option<i32>,
+}
+
+impl ShapeLimits {
+    /// Named shape rules: (name, limits as `key<=n` terms, what it means for a builder).
+    pub const PRESETS: &'static [(&'static str, &'static str, &'static str)] = &[
+        ("wall", "front<=1,behind<=1", "the whole machine inside a 3-thick wall centered on the door (z = door.z-1..door.z+1)"),
+        ("wall2", "thick<=2", "the whole machine inside a 2-thick wall: the door plane and one layer on one side"),
+        ("flat", "thick<=1", "one block thick (slime allowed): every block in the door's plane"),
+        ("ground", "below=0", "nothing below the door's bottom row: it stands on the ground, no digging"),
+        ("no-above", "above=0", "nothing above the door's top row: no ceiling machinery"),
+        ("narrow1", "side<=1", "at most 1 column beside the opening on each side (5 wide)"),
+        ("narrow2", "side<=2", "at most 2 columns beside the opening on each side (7 wide)"),
+        ("wall-ground", "front<=1,behind<=1,below=0", "inside a 3-thick wall and nothing below the door"),
+    ];
+
+    pub fn parse(spec: &str) -> anyhow::Result<ShapeLimits> {
+        let spec = spec.trim();
+        if let Some((_, terms, _)) = Self::PRESETS.iter().find(|(n, _, _)| *n == spec) {
+            return Self::parse(terms);
+        }
+        let mut l = ShapeLimits::default();
+        for term in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+            let (key, n) = term
+                .split_once("<=")
+                .or_else(|| term.split_once('='))
+                .ok_or_else(|| anyhow::anyhow!("shape term {term:?}: expected key<=n or key=0, or a preset ({})", Self::preset_names()))?;
+            let n: i32 = n.trim().parse().with_context(|| format!("shape term {term:?}"))?;
+            let slot = match key.trim() {
+                "front" => &mut l.front,
+                "behind" => &mut l.behind,
+                "thick" => &mut l.thick,
+                "below" => &mut l.below,
+                "above" => &mut l.above,
+                "left" => &mut l.left,
+                "right" => &mut l.right,
+                "side" => &mut l.side,
+                "volume" => &mut l.volume,
+                k => bail!("unknown shape key {k:?} (front behind thick below above left right side volume, or a preset: {})", Self::preset_names()),
+            };
+            *slot = Some(n);
+        }
+        Ok(l)
+    }
+
+    fn preset_names() -> String {
+        Self::PRESETS.iter().map(|(n, _, _)| *n).collect::<Vec<_>>().join(" ")
+    }
+
+    pub fn allows(&self, s: &Shape) -> bool {
+        let ok = |lim: Option<i32>, v: i32| lim.is_none_or(|m| v <= m);
+        ok(self.front, s.front)
+            && ok(self.behind, s.behind)
+            && ok(self.thick, s.thickness())
+            && ok(self.below, s.below)
+            && ok(self.above, s.above)
+            && ok(self.left, s.left)
+            && ok(self.right, s.right)
+            && ok(self.side, s.side())
+            && ok(self.volume, s.volume())
+    }
+
+    /// Does the design (at rest, as written) keep within these limits?
+    pub fn allows_design(&self, d: &Design) -> bool {
+        shape(d).is_some_and(|s| self.allows(&s))
+    }
+}
+
+/// True when the whole machine fits a 3-thick wall centered on the door: every block within one
+/// layer of the door plane (z = door.z-1..door.z+1). The "wall" board.
+pub fn in_wall(d: &Design) -> bool {
+    shape(d).is_some_and(|s| s.front <= 1 && s.behind <= 1)
+}
+
+/// True when the whole machine fits a 2-thick wall (the door plane and one layer on one side).
+pub fn in_wall2(d: &Design) -> bool {
+    shape(d).is_some_and(|s| s.thickness() <= 2)
+}
+
+/// True when nothing lies below the door's bottom row: the door stands on the ground, no digging.
+pub fn on_ground(d: &Design) -> bool {
+    shape(d).is_some_and(|s| s.below == 0)
+}
+
+/// True when nothing lies above the door's top row.
+pub fn nothing_above(d: &Design) -> bool {
+    shape(d).is_some_and(|s| s.above == 0)
+}
+
+/// True when at most `k` columns of the machine stand beside the opening on each side.
+pub fn narrow(d: &Design, k: i32) -> bool {
+    shape(d).is_some_and(|s| s.side() <= k)
+}
+
+/// The block a [`ground_check`] floor is made of: real ground (dirt, grass, stone) is a full,
+/// movable, redstone-conducting block that slime sticks to, and so is stone (which, unlike grass,
+/// takes no random ticks).
+pub const GROUND_BLOCK: &str = "minecraft:stone";
+
+/// `d` standing on the ground: a floor of [`GROUND_BLOCK`] one below the door's bottom row,
+/// under the whole watched box (cells the design already fills are kept).
+pub fn on_floor(d: &Design) -> Result<Design> {
+    let spec = DoorSpec::from_design(d)?;
+    let (lo, hi) = watch_box(d, &spec);
+    let y = spec.door[1] - 1;
+    let mut out = d.clone();
+    for x in lo[0]..=hi[0] {
+        for z in lo[2]..=hi[2] {
+            out.blocks.entry([x, y, z]).or_insert_with(|| GROUND_BLOCK.to_string());
+        }
+    }
+    Ok(out)
+}
+
+/// Does a door with nothing below it ([`on_ground`]) still work standing on real ground? The
+/// judge's checks ([`verify_in`] with `opts`) on [`on_floor`]: the floor must not be dragged
+/// (slime, honey), pushed or powered into the machine, and must be back in place after every
+/// cycle. `Ok(None)` = works on the ground; `Ok(Some(why))` = the judge's reason it does not.
+/// Not part of the judge: it decides the "on the ground" board.
+pub fn ground_check(w: &mut Worker, d: &Design, opts: &VerifyOptions) -> Result<Option<String>> {
+    let floor = on_floor(d)?;
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let r = verify_in(w, sb, &floor, opts);
+    let _ = w.drop_sandbox(sb);
+    Ok(r.err().map(|e| format!("{e:#}")))
 }
 
 /// Blocks standing in the walkway at rest. The rules allow non-colliding blocks there (dust,
@@ -297,18 +611,98 @@ pub fn walkway_clutter(d: &Design) -> usize {
     spec.corridor_cells().iter().filter(|p| d.blocks.get(*p).is_some_and(|s| !mctas::blockstate::is_air(s))).count()
 }
 
-/// The door category of a design: "solid" (normal blocks), "gravity" (sand-like door blocks),
-/// or "sculk" (uses sculk sensors: vibrations from players or mobs nearby can trigger them, so
-/// those doors are ranked separately).
+/// The door category of a design: "entity" (it declares entities: minecarts, armor stands,
+/// boats...; ranked on its own board, every other board bans entities), "solid" (normal blocks),
+/// "gravity" (sand-like door blocks), or "sculk" (uses sculk sensors: vibrations from players or
+/// mobs nearby can trigger them, so those doors are ranked separately).
 pub fn category(d: &Design) -> &'static str {
     let door = d.ports.get("door").and_then(|p| d.blocks.get(p));
-    if door.is_some_and(|s| is_gravity_block(s)) {
+    if !d.entities.is_empty() {
+        "entity"
+    } else if door.is_some_and(|s| is_gravity_block(s)) {
         "gravity"
     } else if d.blocks.values().any(|s| s.contains("sculk_sensor")) {
         "sculk"
     } else {
         "solid"
     }
+}
+
+/// On the "Entities allowed" board: a solid design, or a design with entities whose door is
+/// otherwise solid (plain door blocks, not gravity blocks, and no sculk sensors: a gravity or
+/// sculk door with entities is ranked nowhere).
+pub fn entities_allowed_board(d: &Design) -> bool {
+    match category(d) {
+        "solid" => true,
+        "entity" => {
+            let door = d.ports.get("door").and_then(|p| d.blocks.get(p));
+            !door.is_some_and(|s| is_gravity_block(s)) && !d.blocks.values().any(|s| s.contains("sculk_sensor"))
+        }
+        _ => false,
+    }
+}
+
+/// Entity types a design may declare: what a survival player can place and what never acts on
+/// its own (no mobs: their AI is random; no items, arrows or experience: they despawn; no
+/// command block or spawner minecarts: creative only).
+pub fn entity_type_allowed(kind: &str) -> bool {
+    let n = kind.trim_start_matches("minecraft:");
+    matches!(
+        n,
+        "minecart" | "chest_minecart" | "hopper_minecart" | "furnace_minecart" | "tnt_minecart" | "armor_stand" | "item_frame" | "glow_item_frame"
+            | "painting" | "bamboo_raft" | "bamboo_chest_raft"
+    ) || n.ends_with("_boat")
+}
+
+/// Entity data keys a design may set: what a survival player chooses when placing or filling an
+/// entity (its facing, a container's items, an armor stand's equipment, an item frame's item and
+/// rotation, a painting's variant). Not NoGravity, Invulnerable, Tags, Passengers, poses... (only
+/// commands set those).
+const ENTITY_KEYS: &[&str] = &["Rotation", "Items", "equipment", "Item", "ItemRotation", "Facing", "facing", "variant"];
+
+/// The top-level keys of an SNBT compound (`{a:1,b:[2,3],"c":{d:4}}` -> a, b, c).
+pub fn snbt_top_keys(s: &str) -> std::result::Result<Vec<String>, String> {
+    let inner = s.trim().strip_prefix('{').and_then(|r| r.strip_suffix('}')).ok_or_else(|| format!("not an SNBT compound: {s}"))?;
+    let mut keys = Vec::new();
+    let (mut depth, mut quote, mut escaped, mut in_key) = (0i32, None::<char>, false, true);
+    let mut cur = String::new();
+    for c in inner.chars() {
+        if let Some(q) = quote {
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+                continue;
+            } else if c == q {
+                quote = None;
+                continue;
+            }
+            if in_key && depth == 0 {
+                cur.push(c);
+            }
+            continue;
+        }
+        match c {
+            '"' | '\'' => quote = Some(c),
+            '{' | '[' => depth += 1,
+            '}' | ']' => depth -= 1,
+            ':' if depth == 0 && in_key => {
+                keys.push(cur.trim().to_string());
+                cur.clear();
+                in_key = false;
+            }
+            ',' if depth == 0 => {
+                in_key = true;
+                cur.clear();
+            }
+            _ if in_key && depth == 0 => cur.push(c),
+            _ => {}
+        }
+    }
+    if depth != 0 || quote.is_some() {
+        return Err(format!("unbalanced SNBT: {s}"));
+    }
+    Ok(keys)
 }
 
 /// Static legality: no creative-only blocks, no infested blocks, and every piston head belongs to
@@ -340,6 +734,21 @@ pub fn legality_problems(d: &Design) -> Vec<String> {
             });
             if !ok {
                 out.push(format!("{p:?} is a piston head without its extended piston behind it"));
+            }
+        }
+    }
+    for e in &d.entities {
+        if !entity_type_allowed(&e.kind) {
+            out.push(format!("entity {} at {:?}: not allowed (minecarts, boats, armor stands, item frames and paintings only; no mobs)", e.kind, e.pos));
+        }
+        if let Some(nbt) = &e.nbt {
+            match snbt_top_keys(nbt) {
+                Ok(keys) => {
+                    for k in keys.iter().filter(|k| !ENTITY_KEYS.contains(&k.as_str())) {
+                        out.push(format!("entity {} at {:?}: data key {k} is not something a survival player sets (allowed: {})", e.kind, e.pos, ENTITY_KEYS.join(", ")));
+                    }
+                }
+                Err(why) => out.push(format!("entity {} at {:?}: {why}", e.kind, e.pos)),
             }
         }
     }
@@ -392,16 +801,143 @@ pub fn verify_in_spec(w: &mut Worker, sb: u32, design: &Design, spec: DoorSpec, 
     Ok(report)
 }
 
-/// The box the verifier watches: the design plus a margin (blocks can move out of it).
+/// The box the verifier watches: the design (its entities' cells included) plus a margin (blocks
+/// can move out of it).
 pub(crate) fn watch_box(d: &Design, spec: &DoorSpec) -> (Pos, Pos) {
     let (mut lo, mut hi) = d.bounds().unwrap();
-    for p in spec.door_cells().iter().chain(spec.corridor_cells().iter()) {
+    for p in spec.door_cells().iter().chain(spec.corridor_cells().iter()).chain(d.entities.iter().map(|e| e.cell()).collect::<Vec<_>>().iter()) {
         for i in 0..3 {
             lo[i] = lo[i].min(p[i]);
             hi[i] = hi[i].max(p[i]);
         }
     }
     ([lo[0] - 2, lo[1] - 2, lo[2] - 2], [hi[0] + 2, hi[1] + 2, hi[2] + 2])
+}
+
+/// Inclusive block box of a set of cells.
+fn cell_box(cells: &[Pos]) -> (Pos, Pos) {
+    let mut lo = cells[0];
+    let mut hi = cells[0];
+    for p in cells {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
+    (lo, hi)
+}
+
+/// Does an entity's bounding box overlap the inclusive block box (`lo`..=`hi`)? Touching faces do
+/// not count.
+fn overlaps(bbox: &[f64; 6], (lo, hi): (Pos, Pos)) -> bool {
+    (0..3).all(|i| bbox[i + 3] > lo[i] as f64 && bbox[i] < (hi[i] + 1) as f64)
+}
+
+/// The 3x3 columns in front of and behind the door, `depth` blocks each way, as two block boxes.
+fn front_back_boxes(spec: &DoorSpec, depth: i32) -> [(Pos, Pos); 2] {
+    let axis = if spec.along_z { 0 } else { 2 };
+    let cells = spec.in_front_and_behind(depth);
+    let front: Vec<Pos> = cells.iter().filter(|p| p[axis] < spec.door[axis]).copied().collect();
+    let back: Vec<Pos> = cells.iter().filter(|p| p[axis] > spec.door[axis]).copied().collect();
+    [cell_box(&front), cell_box(&back)]
+}
+
+/// The opening and its walkway as one block box (3 wide, 3 high, 7 deep).
+fn walk_box(spec: &DoorSpec) -> (Pos, Pos) {
+    let mut cells = spec.door_cells();
+    cells.extend(spec.corridor_cells());
+    cell_box(&cells)
+}
+
+fn entity_line(e: &mctas::sim::EntityInfo) -> String {
+    format!("{} at {:?} (motion {:?})", e.kind, e.pos, e.motion)
+}
+
+/// The design's entities at rest (after placement and settling): exactly the declared ones, all at
+/// rest, inside the watch box, none in the 3x3 columns in front of or behind the door (at any
+/// distance, like blocks) and none with collision in the walkway. Returns them (the state every
+/// cycle must come back to).
+fn entity_rest(
+    w: &mut Worker,
+    sb: u32,
+    d: &Design,
+    spec: &DoorSpec,
+    opts: &VerifyOptions,
+    watch: (Pos, Pos),
+    uuids: &[String],
+    report: &mut Report,
+    first_position: bool,
+) -> Result<Vec<mctas::sim::EntityInfo>> {
+    let ents = w.entities(sb)?;
+    if let Some(e) = ents.iter().find(|e| !e.design) {
+        bail!("an entity the design does not declare is there at rest (something broke or dropped): {}", entity_line(e));
+    }
+    if ents.len() != d.entities.len() {
+        bail!("{} of the design's {} entities are left after placement", ents.len(), d.entities.len());
+    }
+    for e in &ents {
+        if !e.still {
+            bail!("entity not at rest after placement: {}", entity_line(e));
+        }
+        if !(0..3).all(|i| e.bbox[i] >= watch.0[i] as f64 && e.bbox[i + 3] <= (watch.1[i] + 1) as f64) {
+            bail!("entity outside the watch box at rest: {}", entity_line(e));
+        }
+        if opts.empty_walkway {
+            let reach = (watch.1[0] - watch.0[0]).max(watch.1[2] - watch.0[2]) + 1;
+            if front_back_boxes(spec, reach).iter().any(|b| overlaps(&e.bbox, *b)) {
+                bail!("entity in front of or behind the door at rest (nothing may stand in the 3x3 columns in front of and behind the door, at any distance): {}", entity_line(e));
+            }
+        }
+        if e.collides && front_back_boxes(spec, 3).iter().any(|b| overlaps(&e.bbox, *b)) {
+            bail!("not closed at rest: an entity with collision stands in the walkway: {}", entity_line(e));
+        }
+    }
+    if first_position {
+        // Report the entities that did not stay where the file put them (like blocks "not at
+        // rest as written"); `uuids[i]` is the design's entity number i (summon order).
+        for (spec_e, uuid) in d.entities.iter().zip(uuids) {
+            if let Some(e) = ents.iter().find(|e| &e.uuid == uuid) {
+                if e.pos != spec_e.pos {
+                    report.warnings.push(format!("entity not at rest as written: {} {:?} settled at {:?}", spec_e.kind, spec_e.pos, e.pos));
+                }
+            }
+        }
+    }
+    Ok(ents)
+}
+
+/// After a lever flip of a design with entities: no entity left the watch box, none appeared that
+/// the design does not declare, and every declared one is still there.
+fn entity_cycle_checks(w: &mut Worker, sb: u32, d: &Design, step: &mctas::sim::StepResult, what: &str) -> Result<Vec<mctas::sim::EntityInfo>> {
+    if let Some(x) = &step.entity_escape {
+        bail!("an entity left the watch box while {what}: {x}");
+    }
+    if let Some(x) = &step.entity_foreign {
+        bail!("an entity the design does not declare appeared while {what} (something broke or dropped): {x}");
+    }
+    let ents = w.entities(sb)?;
+    if let Some(e) = ents.iter().find(|e| !e.design) {
+        bail!("an entity the design does not declare is there after {what}: {}", entity_line(e));
+    }
+    if ents.len() != d.entities.len() {
+        bail!("{} of the design's {} entities are left after {what}", ents.len(), d.entities.len());
+    }
+    Ok(ents)
+}
+
+/// First 1-based index from which every remaining flag is true.
+fn settled_from_flags(ok: &[bool]) -> Option<u32> {
+    let mut first = None;
+    for (i, &b) in ok.iter().enumerate() {
+        if b {
+            if first.is_none() {
+                first = Some(i as u32 + 1);
+            }
+        } else {
+            first = None;
+        }
+    }
+    first
 }
 
 fn is_moving(state: &str) -> bool {
@@ -493,6 +1029,10 @@ fn verify_at(
     w.update(sb, &wires, "shape")?;
     let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
     w.update(sb, &positions, "self")?;
+    // A design with entities (category entity): summon them once the blocks stand; settling then
+    // also waits for every one of them to come to rest.
+    let has_entities = !d.entities.is_empty();
+    let uuids = if has_entities { w.summon(sb, &d.entities)? } else { Vec::new() };
     let settle = w.step_until_idle(sb, opts.max_ticks)?;
     if settle.idle != Some(true) {
         bail!("the build never settles after placement ({} ticks)", settle.ticked);
@@ -539,11 +1079,14 @@ fn verify_at(
         bail!("port lever {:?} is {lever}, expected an unpowered lever", spec.lever);
     }
     let closed_door: Vec<String> = spec.door_cells().iter().map(|p| rest.get(*p).unwrap().to_string()).collect();
+    // The entities' rest state, and the boxes the entity checks use.
+    let rest_entities = if has_entities { entity_rest(w, sb, d, spec, opts, (wlo, whi), &uuids, report, first_position)? } else { Vec::new() };
+    let watch = mctas::sim::EntityWatch { watch: (wlo, whi), walk: walk_box(spec) };
 
     for cycle in 0..opts.cycles {
         // Open.
         w.use_block(sb, spec.lever)?;
-        let open = w.step_record(sb, opts.max_ticks, true, wlo, whi)?;
+        let open = if has_entities { w.step_record_watch(sb, opts.max_ticks, true, wlo, whi, &watch)? } else { w.step_record(sb, opts.max_ticks, true, wlo, whi)? };
         if open.idle != Some(true) {
             bail!("cycle {cycle}: still moving {} ticks after opening", open.ticked);
         }
@@ -552,13 +1095,27 @@ fn verify_at(
         if !problems.is_empty() {
             bail!("cycle {cycle}: not open after the lever was switched on: {}", problems.join("; "));
         }
-        let open_ticks = settled_from(&open.frames, |f| open_problems(f, spec).is_empty()).unwrap();
-        if !w.entities(sb)?.is_empty() {
+        let open_ticks = if has_entities {
+            entity_cycle_checks(w, sb, d, &open, "opening").with_context(|| format!("cycle {cycle}"))?;
+            if open.entity_blocked.last() == Some(&true) {
+                let ents: Vec<String> =
+                    w.entities(sb)?.iter().filter(|e| e.collides && overlaps(&e.bbox, watch.walk)).map(entity_line).collect();
+                bail!("cycle {cycle}: not open after the lever was switched on: an entity with collision stands in the opening or its walkway: {}", ents.join("; "));
+            }
+            // Open from the first tick where the blocks are walkable and no colliding entity is in
+            // the way, for good.
+            let ok: Vec<bool> =
+                open.frames.iter().zip(open.entity_blocked.iter()).map(|(f, blocked)| !blocked && open_problems(f, spec).is_empty()).collect();
+            settled_from_flags(&ok).unwrap()
+        } else {
+            settled_from(&open.frames, |f| open_problems(f, spec).is_empty()).unwrap()
+        };
+        if !has_entities && !w.entities(sb)?.is_empty() {
             bail!("cycle {cycle}: entities appeared while opening (something broke): {:?}", w.entities(sb)?);
         }
         // Close.
         w.use_block(sb, spec.lever)?;
-        let close = w.step_record(sb, opts.max_ticks, true, wlo, whi)?;
+        let close = if has_entities { w.step_record_watch(sb, opts.max_ticks, true, wlo, whi, &watch)? } else { w.step_record(sb, opts.max_ticks, true, wlo, whi)? };
         if close.idle != Some(true) {
             bail!("cycle {cycle}: still moving {} ticks after closing", close.ticked);
         }
@@ -587,7 +1144,27 @@ fn verify_at(
                 bail!("cycle {cycle}: the build did not return to its rest state: {}", diffs.join("; "));
             }
         }
-        if !w.entities(sb)?.is_empty() {
+        if has_entities {
+            // Every entity back exactly as it was at rest: same position (exactly: rails put a
+            // cart back on the rail's center line at the rail's height + 1/16, piston moves are
+            // exact half-block steps; nothing in the source jitters a resting entity), at rest, same
+            // state (rail, contents, pose...).
+            let now = entity_cycle_checks(w, sb, d, &close, "closing").with_context(|| format!("cycle {cycle}"))?;
+            for r in &rest_entities {
+                let Some(e) = now.iter().find(|e| e.uuid == r.uuid) else {
+                    bail!("cycle {cycle}: the design's {} that rested at {:?} is gone after closing", r.kind, r.pos);
+                };
+                if e.pos != r.pos {
+                    bail!("cycle {cycle}: {} not back after closing: at {:?}, rested at {:?}", e.kind, e.pos, r.pos);
+                }
+                if !e.still {
+                    bail!("cycle {cycle}: {} still moving after closing: {}", e.kind, entity_line(e));
+                }
+                if e.state != r.state {
+                    bail!("cycle {cycle}: {} at {:?} changed after closing: {} (at rest: {})", e.kind, e.pos, e.state, r.state);
+                }
+            }
+        } else if !w.entities(sb)?.is_empty() {
             bail!("cycle {cycle}: entities appeared while closing (something broke)");
         }
         let close_ticks = settled_from(&close.frames, |f| {
@@ -683,6 +1260,9 @@ fn canonicalize_once(w: &mut Worker, d: &Design) -> Result<Design> {
     w.update(sb, &wires, "shape")?;
     let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
     w.update(sb, &positions, "self")?;
+    if !d.entities.is_empty() {
+        w.summon(sb, &d.entities)?;
+    }
     let settle = w.step_until_idle(sb, 400)?;
     if settle.idle != Some(true) {
         bail!("design never settles");

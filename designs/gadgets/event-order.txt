@@ -1,0 +1,16 @@
+name: gadget-event-order
+# Block events run first-in first-out, in the order the pistons were updated
+# (ServerLevel.runBlockEvents: removeFirst until empty), and one update reaches the six neighbors
+# in the fixed order WEST, EAST, DOWN, UP, NORTH, SOUTH (NeighborUpdater.UPDATE_ORDER). Redstone
+# block R placed at S updates A (its west neighbor) before B (its north neighbor): both are
+# powered and both want stone K, A northward, B westward. A's event runs first and pushes K north;
+# B's event then finds A's moving head in front of it, its push no longer resolves and it does
+# nothing (triggerEvent: moveBlocks returns false). Swap A and B around S and the other one wins.
+origin: -1 0 -1
+palette:
+  A minecraft:piston[extended=false,facing=north]
+  B minecraft:piston[extended=false,facing=west]
+  K minecraft:stone
+layer 1:
+  KB
+  A.

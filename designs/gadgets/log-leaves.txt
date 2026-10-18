@@ -1,0 +1,36 @@
+name: gadget-log-leaves
+# Asymmetric odd delay (pareto-mid): persistent leaves re-read their distance in a scheduled tick
+# 1 gt after a neighbor changes (LeavesBlock.updateShape -> scheduleTick(1)) and never random-tick.
+# Lever L powers sticky piston P, which moves oak log G one cell east at k1 (back at k1 on the off
+# flip, landing k3). Leaves A (2,1,-1) touch only the log's REST cell: they change at k2 when the
+# log leaves (on flip) and at k4 after it lands back (off flip: a moving block reads as distance
+# 7). Leaves B (3,1,1) touch only the cell the log moves INTO: k4 on the on flip (it lands at k3),
+# k2 on the off flip. Observers OA / OB watching them light dust DA / DB 2 gt later.
+origin: 0 0 -3
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:oak_log[axis=y]
+  A minecraft:oak_leaves[distance=1,persistent=true,waterlogged=false]
+  B minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  N minecraft:observer[facing=south,powered=false]
+  M minecraft:observer[facing=north,powered=false]
+  D minecraft:redstone_wire[east=none,north=none,south=none,west=none,power=0]
+  F minecraft:smooth_stone
+layer 0:
+  ..F.
+  ....
+  ....
+  S...
+  ....
+  ....
+  ...F
+layer 1:
+  ..D.
+  ..N.
+  ..A.
+  LPG.
+  ...B
+  ...M
+  ...D

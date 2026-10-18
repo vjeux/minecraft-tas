@@ -1,0 +1,15 @@
+name: gadget-button-pulse
+# A stone button pressed between ticks powers at once (ButtonBlock.press: setBlock + updates,
+# then scheduleTick(ticksToStayPressed)) and turns off in the scheduled phase 20 gt later (wood:
+# 30): piston P next to its block is extended from tick 1 and retracts in tick 20 (its stone
+# lands back at tick 22). Even, like every scheduled redstone delay.
+origin: -1 0 0
+palette:
+  S minecraft:stone
+  U minecraft:stone_button[face=floor,facing=east,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:stone
+layer 0:
+  S
+layer 1:
+  UPK

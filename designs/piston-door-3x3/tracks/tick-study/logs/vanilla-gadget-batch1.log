@@ -1,0 +1,12 @@
+vanilla server up in 11.7s (/dev/shm/mctas-vanilla-1291978-697c3740f2e7f91e)
+vanilla-gadget: designs/gadgets/zero-tick.drive PASS: identical in vanilla at 4 positions (252 ticks compared); drive PASS (6 checks) [81s]
+vanilla-gadget: designs/gadgets/zero-tick-normal.drive PASS: identical in vanilla at 4 positions (252 ticks compared); drive PASS (3 checks) [98s]
+vanilla-gadget: designs/gadgets/zero-tick-reach.drive PASS: identical in vanilla at 4 positions (252 ticks compared); drive PASS (3 checks) [84s]
+vanilla-gadget: designs/gadgets/zero-tick-onplace.drive PASS: identical in vanilla at 4 positions (252 ticks compared); drive PASS (5 checks) [80s]
+vanilla-gadget: designs/gadgets/zero-tick-observer.drive PASS: identical in vanilla at 4 positions (272 ticks compared); drive PASS (3 checks) [87s]
+vanilla-gadget: designs/gadgets/instant-off.drive PASS: identical in vanilla at 4 positions (252 ticks compared); drive PASS (3 checks) [84s]
+vanilla-gadget: designs/gadgets/instant-on.drive PASS: identical in vanilla at 4 positions (252 ticks compared); drive PASS (4 checks) [65s]
+vanilla-gadget: designs/gadgets/landing-next-tick.drive PASS: identical in vanilla at 4 positions (260 ticks compared); drive PASS (6 checks) [66s]
+vanilla-gadget: designs/gadgets/spit-saves-tick.drive PASS: identical in vanilla at 4 positions (256 ticks compared); drive PASS (6 checks) [35s]
+vanilla-gadget: designs/gadgets/leaves-delay.drive PASS: identical in vanilla at 4 positions (264 ticks compared); drive PASS (3 checks) [34s]
+vanilla-gadget: designs/gadgets/odd-observer.drive PASS: identical in vanilla at 4 positions (272 ticks compared); drive PASS (4 checks) [34s]

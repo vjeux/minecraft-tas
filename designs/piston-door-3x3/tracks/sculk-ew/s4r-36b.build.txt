@@ -1,0 +1,42 @@
+# sculk-ew-s4r: BUILDABLE (36 actions, lever off while building, 9 placed against a temporary dirt block; 4/4 positions, the built door opens in 22 / closes in 37 ticks)
+# source: designs/piston-door-3x3/tracks/sculk-ew/s4r.txt
+# found by anneal (chain 6, iteration 5) after 4116 simulated builds in 29s
+# note: the plain order (mechanism, pistons, wiring, observers, power) does not: first damage at step 36/36: placing calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false] at 1 6 2 (things move for 56 ticks): 1 -1 0: should be air (rest air, built stone) | 1 0 0: moved or broken (rest stone, built air) | 2 0 0: moved or broken (rest stone, built air) | 3 0 0: moved or broken (rest slime_block, built stone) | 12 more; at the end: slime_block: 3 0 0: rest slime_block, built stone; 4 0 0: rest air, built slime_block; 3 1 0: rest slime_block, built stone; 4 1 0: rest air, built slime_block; 3 2 0: rest slime_block, built stone; 4 2 0: rest air, built slime_block; 2 3 0: rest slime_block, built stone; 4 3 0: rest air, built slime_block; 3 4 0: rest slime_block, built air; 4 4 0: rest air, built slime_block | stone: 1 -1 0: rest air, built stone; 1 0 0: rest stone, built air; 2 0 0: rest stone, built air; 1 1 0: rest stone, built air; 2 1 0: rest stone, built air; 2 2 0: rest stone, built air
+# note:   trace of that step: t0 (click the south face of 1 6 1, facing north, sneaking): 1 6 2 air -> calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+# Build script (design coordinates; the world settles after every action):
+  1. place smooth_stone at 2 -2 0: put a temporary dirt block at 2 -3 0, click its up face, looking down, then break the dirt
+  2. place slime_block at -1 0 0: put a temporary dirt block at -1 -1 0, click its up face, looking down, then break the dirt
+  3. place stone at 0 0 0: click the east face of -1 0 0, facing west
+  4. place stone at 1 0 0: click the east face of 0 0 0, facing west
+  5. place stone at 2 0 0: click the east face of 1 0 0, facing west
+  6. place slime_block at 3 0 0: click the east face of 2 0 0, facing west
+  7. place slime_block at 3 4 0: put a temporary dirt block at 3 3 0, click its up face, looking down, then break the dirt
+  8. place stone at 0 1 0: click the up face of 0 0 0, looking down
+  9. place stone at 1 1 0: click the up face of 1 0 0, looking down
+ 10. place stone at 2 1 0: click the up face of 2 0 0, looking down
+ 11. place slime_block at 3 1 0: click the up face of 3 0 0, looking down
+ 12. place slime_block at -1 2 0: put a temporary dirt block at -1 1 0, click its up face, looking down, then break the dirt
+ 13. place stone at 0 2 0: click the up face of 0 1 0, looking down
+ 14. place stone at 1 2 0: click the up face of 1 1 0, looking down
+ 15. place stone at 2 2 0: click the up face of 2 1 0, looking down
+ 16. place slime_block at 3 2 0: click the up face of 3 1 0, looking down
+ 17. place sticky_piston[extended=false,facing=east] at 0 4 -1: put a temporary dirt block at 0 3 -1, click its up face, facing west looking down 30, then break the dirt
+ 18. place sticky_piston[extended=true,facing=down] at 1 4 0: put a temporary dirt block at 1 4 -1, click its south face, facing north looking up 60, then break the dirt
+ 19. place sticky_piston[extended=false,facing=east] at 2 4 0: click the east face of 1 4 0, facing west looking down 30
+ 20. place smooth_stone at 0 3 -1: click the down face of 0 4 -1, looking up
+ 21. place slime_block at -1 3 0: click the up face of -1 2 0, looking down
+ 22. place lever[face=wall,facing=west,powered=false] at -1 3 -1: click the west face of 0 3 -1, facing east
+ 23. place slime_block at 3 3 0: click the down face of 3 4 0, facing south looking up 30
+ 24. place smooth_stone at 1 3 1: put a temporary dirt block at 1 2 1, click its up face, looking down, then break the dirt
+ 25. place slime_block at -1 1 0: click the down face of -1 2 0, facing south looking up 30
+ 26. place redstone_wire[east=side,north=side,power=0,south=side,west=side] at 1 4 1: click the up face of 1 3 1, looking down
+ 27. place slime_block at 2 3 0: click the down face of 2 4 0, facing south looking up 30
+ 28. place redstone_block at 1 4 -1: click the north face of 1 4 0, facing south
+ 29. place sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false] at 0 5 -1: click the up face of 0 4 -1, looking down
+ 30. place calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false] at 1 6 2: put a temporary dirt block at 1 5 2, click its up face, looking down, then break the dirt [things move for 56 ticks]
+ 31. place sticky_piston[extended=false,facing=up] at 1 -2 0: click the west face of 2 -2 0, facing east looking down 60
+ 32. place sticky_piston[extended=false,facing=west] at 0 3 0: click the west face of 1 3 0, facing east looking down 30 [things move for 56 ticks]
+ 33. place sticky_piston[extended=false,facing=down] at 1 5 0: put a temporary dirt block at 1 6 0, click its down face, facing south looking up 60, then break the dirt [things move for 54 ticks]
+ 34. place observer[facing=up,powered=false] at 2 -1 0: click the down face of 2 0 0, facing south looking up 60
+ 35. place observer[facing=up,powered=false] at 1 5 1: click the south face of 1 5 0, facing north looking up 60 [things move for 55 ticks]
+ 36. place repeater[delay=2,facing=south,locked=false,powered=false] at 1 6 1: click the up face of 1 5 1, looking down

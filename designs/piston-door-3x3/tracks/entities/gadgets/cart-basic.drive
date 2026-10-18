@@ -1,0 +1,13 @@
+design designs/piston-door-3x3/tracks/entities/gadgets/cart-basic.txt
+probe w 1 1 0
+probe d 5 1 0
+probe h 8 1 0
+entities
+settle
+use 1 1 1
+etrace 40
+settle
+entities
+use 1 1 1
+etrace 5
+entities

@@ -1,0 +1,22 @@
+# mp8 with the pump P and U driven by ideal inputs (redstone blocks where R_P and U's last
+# observer were), everything else real (lever, H, A1 flag, F, A2 flag). A redstone block at
+# (-1,-2,0) powers P at rest and QC-powers it one lower (the close-edge pump trip, as R_P does).
+design designs/piston-door-3x3/tracks/pareto-mid/mp8-ideal-PU.txt
+let p = 6
+let pl = 4
+let pc = 6
+let pcl = 4
+let u = 13
+let ul = 2
+let uc = 13
+let ucl = 2
+open 0 use 0 3 -1
+open p set -1 -2 0 minecraft:redstone_block
+open p+pl clear -1 -2 0
+open u set 2 -3 0 minecraft:redstone_block
+open u+ul clear 2 -3 0
+close 0 use 0 3 -1
+close pc set -1 -2 0 minecraft:redstone_block
+close pc+pcl clear -1 -2 0
+close uc set 2 -3 0 minecraft:redstone_block
+close uc+ucl clear 2 -3 0

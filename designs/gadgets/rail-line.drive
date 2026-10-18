@@ -1,0 +1,24 @@
+# Rails 1..9 power up in the click's tick (slope included), rail 10 never; the observer above
+# rail 9 pulses 2 gt after each edge; the piston under rail 5 never moves.
+design designs/gadgets/rail-line.txt
+probe R1 1 1 0
+probe R2 2 1 0
+probe R5 5 2 0
+probe R9 9 2 0
+probe R10 10 2 0
+probe Q 5 1 0
+probe O 9 3 0
+use 0 1 0
+expect R1 1
+expect R2 1
+expect R5 1
+expect R9 1
+expect R10 0
+expect_trace O 0110
+expect Q r
+expect R10 0
+use 0 1 0
+expect R1 0
+expect R9 0
+expect_trace O 0110
+expect Q r

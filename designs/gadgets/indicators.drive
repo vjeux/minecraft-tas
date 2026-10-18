@@ -1,0 +1,20 @@
+# Fence gate, skull, copper trapdoor and both door halves flip in the click's own tick, on both
+# edges; an observer watching the skull pulses 2 gt later.
+design designs/gadgets/indicators.txt
+probe K 3 1 2
+probe O 4 1 2
+use 2 1 2
+expect_state 1 1 2 open=true
+expect_state 1 1 2 powered=true
+expect K 1
+expect_state 2 1 1 open=true
+expect_state 2 1 3 open=true
+expect_state 2 2 3 open=true
+expect_trace O 0110
+use 2 1 2
+expect_state 1 1 2 open=false
+expect K 0
+expect_state 2 1 1 open=false
+expect_state 2 1 3 open=false
+expect_state 2 2 3 open=false
+expect_trace O 0110

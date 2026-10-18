@@ -113,6 +113,8 @@ fn snbt_str(s: &str) -> String {
 struct Placed {
     /// Blocks to paste (absolute coordinates, settled rest states).
     blocks: Vec<(Pos, String)>,
+    /// Entities to summon (absolute coordinates): type, position, SNBT data.
+    entities: Vec<(String, [f64; 3], Option<String>)>,
     /// Red concrete cells of the block count.
     label: Vec<Pos>,
     /// Where the name label floats, and its text.
@@ -147,6 +149,7 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
             ("Gravity (sand / gravel / concrete powder door)", pick(&|a| a.facts.category == "gravity")),
             ("Fastest solid doors (open + close within 20 ticks), fastest first", fastest),
             ("Sculk (sensors hear you: walk softly)", pick(&|a| a.facts.category == "sculk")),
+            ("Entities allowed (minecarts, armor stands, boats... count as blocks)", pick(&|a| a.facts.category == "entity")),
         ]
     };
     let count: usize = rows.iter().map(|(_, v)| v.len()).sum();
@@ -208,6 +211,12 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
             let t = [cursor - lo[0], DOOR_Y - spec.door[1], row_z - spec.door[2]];
             let mv = |p: Pos| [p[0] + t[0], p[1] + t[1], p[2] + t[2]];
             let blocks: Vec<(Pos, String)> = settled.blocks.iter().map(|(p, s)| (mv(*p), s.clone())).collect();
+            // The design's entities (category entity), moved like its blocks.
+            let entities: Vec<(String, [f64; 3], Option<String>)> = d0
+                .entities
+                .iter()
+                .map(|e| (e.kind.clone(), [e.pos[0] + t[0] as f64, e.pos[1] + t[1] as f64, e.pos[2] + t[2] as f64], e.nbt.clone()))
+                .collect();
             // The number, in the door's plane 5 blocks above the machine, reads left to right
             // from the south (the viewer's side), like every other number (vjeux).
             let (cells, width) = number_cells(a.facts.blocks);
@@ -237,7 +246,7 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
             if turned {
                 text.push_str(", turned 180 degrees so its lever faces you");
             }
-            placed.push(Placed { blocks, label, text_at: [center_x as f64 + 0.5, base_y as f64 + 7.0, z as f64 + 0.5], text });
+            placed.push(Placed { blocks, entities, label, text_at: [center_x as f64 + 0.5, base_y as f64 + 7.0, z as f64 + 0.5], text });
             cursor += hi[0] - lo[0] + 1 + gap;
         }
     }
@@ -263,6 +272,10 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
         boxes.push((lo, hi));
         for (q, s) in &p.blocks {
             lines.push(format!("setblock {} {} {} {s} strict", q[0], q[1], q[2]));
+        }
+        // Entities after the blocks they stand on.
+        for (kind, [x, y, z], nbt) in &p.entities {
+            lines.push(format!("summon {kind} {x} {y} {z}{}", nbt.as_ref().map(|n| format!(" {n}")).unwrap_or_default()));
         }
         for q in &p.label {
             lines.push(format!("setblock {} {} {} minecraft:red_concrete strict", q[0], q[1], q[2]));
@@ -290,7 +303,7 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
         sy + 3.0,
         sz - 4.0,
         snbt_str(&format!(
-            "minecraft-tas: {count} working 3x3 piston doors. Rows front to back: flat, no slime, slime or honey, sand, fastest, sculk. Red number = blocks. Every lever faces you; fly east along a row, north to the next row."
+            "minecraft-tas: {count} working 3x3 piston doors. Rows front to back: flat, no slime, slime or honey, sand, fastest, sculk, entities. Red number = blocks. Every lever faces you; fly east along a row, north to the next row."
         ))
     ));
     let mut chunks: std::collections::BTreeSet<(i32, i32)> = Default::default();

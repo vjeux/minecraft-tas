@@ -1,0 +1,12 @@
+# The button is on for 20 gt: P extends in tick 1, is still extended at tick 19, retracts in 20.
+design designs/gadgets/button-pulse.txt
+probe U -1 1 0
+probe P 0 1 0
+use -1 1 0
+expect U 1
+expect_trace P E
+quiet 17
+expect P E
+expect U 1
+expect_trace P E~
+expect U 0

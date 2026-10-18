@@ -1,0 +1,21 @@
+# C leaves the center in tick 1 (lands in N1 at tick 3) and leaves N1 in tick 4 (into E).
+design designs/gadgets/center-exit.txt
+probe C 0 0 0
+probe N1 0 1 0
+probe E 0 2 0
+probe Aside 0 2 1
+probe F 0 3 0
+setblock 0 4 1 minecraft:redstone_block
+setblock 1 5 0 minecraft:redstone_block
+expect F r
+setblock 1 2 0 minecraft:redstone_block
+expect_trace C ...
+expect N1 #
+expect E r
+setblock 0 2 3 minecraft:air
+expect_trace N1 .
+expect C .
+expect E ~
+expect Aside ~
+expect_trace E ~#
+expect F r

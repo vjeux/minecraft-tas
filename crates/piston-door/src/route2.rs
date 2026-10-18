@@ -398,6 +398,33 @@ fn lamp_seq(s: &[bool]) -> Vec<bool> {
 
 /// A node's output wave from the OR of its inputs.
 fn transfer(n: &Node, input: Wave) -> Wave {
+    // The state machines run on 192-tick sequences: memoize them (the router asks for the same
+    // few waves millions of times).
+    thread_local! {
+        static CACHE: std::cell::RefCell<HashMap<(u8, usize, Wave), Wave>> = std::cell::RefCell::new(HashMap::new());
+    }
+    let key = match n.kind {
+        Kind::Repeater => (0u8, repeater_delay(&n.state)),
+        Kind::Observer => (1, 0),
+        Kind::Torch => (2, 0),
+        Kind::Lamp => (3, 0),
+        _ => return transfer_raw(n, input),
+    };
+    if let Some(w) = CACHE.with(|c| c.borrow().get(&(key.0, key.1, input)).copied()) {
+        return w;
+    }
+    let w = transfer_raw(n, input);
+    CACHE.with(|c| {
+        let mut c = c.borrow_mut();
+        if c.len() > 200_000 {
+            c.clear();
+        }
+        c.insert((key.0, key.1, input), w);
+    });
+    w
+}
+
+fn transfer_raw(n: &Node, input: Wave) -> Wave {
     match n.kind {
         Kind::Repeater => Wave::from_seq(&repeater_seq(&input.seq(), 2 * repeater_delay(&n.state))),
         Kind::Observer => Wave::from_seq(&observer_seq(&changes(&input.seq()))),
@@ -786,6 +813,34 @@ impl Model {
         self.at.get(&p).map(|&i| self.any[i])
     }
 
+    /// Nodes fed (directly or not) by any of `roots` (roots included).
+    pub fn downstream(&self, roots: &[usize]) -> HashSet<usize> {
+        let n = self.nodes.len();
+        let mut out: HashSet<usize> = roots.iter().copied().collect();
+        let mut stack: Vec<usize> = roots.to_vec();
+        // Reverse adjacency: who reads whom.
+        let mut readers: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for (v, ins) in self.inputs.iter().enumerate() {
+            for &(u, _) in ins {
+                readers[u].push(v);
+            }
+        }
+        while let Some(u) = stack.pop() {
+            for &v in &readers[u] {
+                if out.insert(v) {
+                    stack.push(v);
+                }
+            }
+            // A dust net is one unit.
+            for &v in &self.net[u] {
+                if out.insert(v) {
+                    stack.push(v);
+                }
+            }
+        }
+        out
+    }
+
     /// The OR of what feeds the node at `p` (for a measured node: what the model would feed it).
     pub fn input_of(&self, p: Pos) -> Option<Wave> {
         let &v = self.at.get(&p)?;
@@ -880,8 +935,19 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
             idle &= w.status(sb)?.idle;
             frames.push(f);
         }
+        Ok(analyze(d, &rest, &frames, idle, &HashSet::new()))
+    })();
+    let _ = w.drop_sandbox(sb);
+    r
+}
+
+/// What one recorded cycle tells the router: `rest` is the settled region, `frames[ph][t]` the
+/// region at the end of tick t of phase ph (t = 0: right after the flip). Cells in `exclude` are
+/// ignored (mech-wire: the cells where ideal inputs are set and cleared by script).
+pub fn analyze(d: &Design, rest: &mctas::sim::Region, frames: &[Vec<mctas::sim::Region>], idle: bool, exclude: &HashSet<Pos>) -> Measured {
+    {
         let mut m = Measured { idle, ..Default::default() };
-        let cells: Vec<Pos> = rest.iter().map(|(p, _)| p).collect();
+        let cells: Vec<Pos> = rest.iter().map(|(p, _)| p).filter(|p| !exclude.contains(p)).collect();
         let state = |ph: usize, t: usize, p: Pos| -> &str { frames[ph][t.min(frames[ph].len() - 1)].get(p).unwrap_or("minecraft:air") };
         let mut pistons: BTreeMap<Pos, Pos> = BTreeMap::new();
         let mut near: HashSet<Pos> = HashSet::new();
@@ -989,10 +1055,8 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
                 }
             }
         }
-        Ok(m)
-    })();
-    let _ = w.drop_sandbox(sb);
-    r
+        m
+    }
 }
 
 // ---- the router ---------------------------------------------------------------------------
@@ -1007,6 +1071,60 @@ pub struct Receiver {
     pub rest: Wave,
     /// Ticks that matter (a piston is there).
     pub mask: Wave,
+    /// Other waves the receiver accepts as well (mech-wire: free timing); empty = only `want`.
+    pub alts: Vec<Wave>,
+    /// Free timing (mech-wire): also accept 1 (or, with the flag, 3) 2 gt pulses per edge, the
+    /// same on both edges, the last one starting at a tick in lo..=hi (a pulse-driven piston
+    /// toggles on every pulse: 3 pulses = one net move timed by the last).
+    pub free: Option<(usize, usize, bool)>,
+    /// Cells whose motion depends on this receiver's own action (mech-wire measures them by
+    /// replaying the schedule without it): never watched to drive it.
+    pub forbid_watch: Vec<Pos>,
+}
+
+impl Receiver {
+    /// Does the receiver accept the wave `w` (its `want` or one of its `alts`, on the masked ticks)?
+    pub fn accepts(&self, w: Wave, tol: i32) -> bool {
+        same_masked(w, self.want, self.mask, tol) || self.alts.iter().any(|a| same_masked(w, *a, self.mask, tol)) || self.free_ok(w)
+    }
+    fn free_ok(&self, w: Wave) -> bool {
+        let Some((lo, hi, odd)) = self.free else { return false };
+        let m = Wave([w.0[0] & self.mask.0[0], w.0[1] & self.mask.0[1]]);
+        // Per edge: runs of on bits all 2 long, 1 or 3 of them, the last starting in lo..=hi
+        // (the two edges may differ: a motion trigger fires 2 gt apart on a pull and a push).
+        let ok = |mut x: u64| -> bool {
+            if x == 0 {
+                return false;
+            }
+            let mut starts = Vec::new();
+            while x != 0 {
+                let s = x.trailing_zeros();
+                let run = (x >> s).trailing_ones();
+                if run != 2 {
+                    return false;
+                }
+                starts.push(s as usize);
+                x &= !(((1u64 << run) - 1) << s);
+            }
+            (starts.len() == 1 || (odd && starts.len() == 3)) && starts.last().is_some_and(|&s| s >= lo && s <= hi)
+        };
+        ok(m.0[0]) && ok(m.0[1])
+    }
+    /// With `w` delivered, is the receiver closer to `want` (or one of its `alts`) without any
+    /// power it must not get (a strict subset of the wanted ticks, more than it had)? Partial
+    /// routing (`--partial`): a receiver needing several pulses from different sources is
+    /// connected in several steps.
+    pub fn progress(&self, w: Wave) -> bool {
+        let m = |x: Wave| Wave([x.0[0] & self.mask.0[0], x.0[1] & self.mask.0[1]]);
+        let (w, rest) = (m(w), m(self.rest));
+        if w.minus(rest).is_off() {
+            return false;
+        }
+        std::iter::once(&self.want).chain(self.alts.iter()).any(|a| {
+            let a = m(*a);
+            w.minus(a).is_off() && w != a
+        })
+    }
 }
 
 /// Router knobs.
@@ -1026,6 +1144,17 @@ pub struct RouteOptions {
     pub taps: Vec<Pos>,
     /// Allow watching cells the machine changes (observers on moving blocks).
     pub watch: bool,
+    /// Accept partial hits: a path that brings a receiver closer to its wave without wrong power
+    /// (it is then connected again later); for receivers that need pulses from several sources.
+    pub partial: bool,
+    /// Per partial solution, only route the first this many receivers left, in the given order
+    /// (0: every receiver, a beam over all orders).
+    pub order_limit: usize,
+    /// Threads for the searches of one beam round.
+    pub threads: usize,
+    /// A* instead of Dijkstra (distance to the receiver as the heuristic): same cheapest
+    /// routes, far fewer states.
+    pub astar: bool,
 }
 
 pub fn palette(spec: &str) -> Result<Vec<String>> {
@@ -1080,7 +1209,11 @@ fn reaches(u: &Node, pts: Option<[bool; 4]>, p: Pos, facing: Pos) -> bool {
 /// `tol` ticks)?
 fn poisons(wants: &[(Pos, Pos, Wave)], meas: &Measured, v: &Node, pts: Option<[bool; 4]>, w: Wave, tol: i32) -> bool {
     wants.iter().any(|&(q, f, want)| {
-        let allowed = (-tol..=tol).fold(want, |a, k| a.or(want.shift(k)));
+        // Cheap rejections first: only receivers this node can reach matter.
+        if manhattan(v.pos, q) > 2 {
+            return false;
+        }
+        let allowed = if tol == 0 { want } else { (-tol..=tol).fold(want, |a, k| a.or(want.shift(k))) };
         let extra = w.minus(allowed);
         let mask = meas.mask(q);
         if extra.0[0] & mask.0[0] == 0 && extra.0[1] & mask.0[1] == 0 {
@@ -1107,8 +1240,24 @@ struct SNode {
 const ROOT: usize = usize::MAX;
 
 impl Problem<'_> {
-    fn model(&self, blocks: &BTreeMap<Pos, String>) -> Model {
-        Model::new(blocks, self.lever, &self.meas.fixed, &self.meas.extra)
+    pub fn model(&self, blocks: &BTreeMap<Pos, String>) -> Model {
+        // Observers the router placed watching a cell the machine changes: their measured wave
+        // (the static model cannot derive it: the watched block is not a component).
+        let mut fixed = self.meas.fixed.clone();
+        for (p, s) in blocks {
+            if bname(s) != "observer" || fixed.contains_key(p) {
+                continue;
+            }
+            if let Some(f) = facing_of(s) {
+                let c = add(*p, f);
+                if self.meas.moving.contains(&c) {
+                    if let Some(w) = self.meas.watch.get(&c) {
+                        fixed.insert(*p, *w);
+                    }
+                }
+            }
+        }
+        Model::new(blocks, self.lever, &fixed, &self.meas.extra)
     }
 
     /// Wave per receiver cell (every cell a piston occupies at some tick).
@@ -1126,14 +1275,26 @@ impl Problem<'_> {
 
     /// Cheapest placements (up to `opts.hits` alternatives) after which `r` gets its wave, on top
     /// of `blocks`; each alternative is the list of new blocks.
-    fn search(&self, blocks: &BTreeMap<Pos, String>, r: &Receiver, budget: u32, opts: &RouteOptions) -> Vec<Vec<(Pos, String)>> {
+    fn search(&self, blocks: &BTreeMap<Pos, String>, r: &Receiver, budget: u32, opts: &RouteOptions) -> Vec<(Vec<(Pos, String)>, bool)> {
         let m = self.model(blocks);
         let mut arena: Vec<SNode> = Vec::new();
         let mut heap: BinaryHeap<Reverse<(u32, usize)>> = BinaryHeap::new();
         let mut best: HashMap<(Pos, String, Wave, Wave), u32> = HashMap::new();
+        // A* (`opts.astar`): every new block moves the signal at most one cell, and a node two
+        // cells from the receiver can already reach it.
+        let hk = |p: Pos| -> u32 { if opts.astar { (manhattan(p, r.pos) - 2).max(0) as u32 } else { 0 } };
         // Taps: every powered node, and observers watching any cell the machine changes.
+        // (A receiver never taps a node fed by an observer watching a cell whose motion depends
+        // on its own action: `forbid_watch`.)
+        let tainted: HashSet<usize> = if r.forbid_watch.is_empty() {
+            HashSet::new()
+        } else {
+            let roots: Vec<usize> = (0..m.nodes.len()).filter(|&i| m.nodes[i].kind == Kind::Observer && r.forbid_watch.contains(&add(m.nodes[i].pos, m.nodes[i].facing))).collect();
+            m.downstream(&roots)
+        };
+        let late = |i: usize| tainted.contains(&i);
         for (i, n) in m.nodes.iter().enumerate() {
-            if m.any[i].is_off() || matches!(n.kind, Kind::Inert | Kind::Other) {
+            if m.any[i].is_off() || matches!(n.kind, Kind::Inert | Kind::Other) || late(i) {
                 continue;
             }
             if !opts.taps.is_empty() && !opts.taps.contains(&n.pos) {
@@ -1141,9 +1302,9 @@ impl Problem<'_> {
             }
             let strength = if n.kind == Kind::Dust { 15 } else { 15 };
             arena.push(SNode { node: n.clone(), any: m.any[i], strong: m.strong[i], strength, cost: 0, parent: ROOT, placed: Vec::new() });
-            heap.push(Reverse((0, arena.len() - 1)));
+            { let i = arena.len() - 1; heap.push(Reverse((hk(arena[i].node.pos), i))); }
         }
-        let mut found: Vec<Vec<(Pos, String)>> = Vec::new();
+        let mut found: Vec<(Vec<(Pos, String)>, bool)> = Vec::new();
         let mut seen_sets: HashSet<Vec<(Pos, String)>> = HashSet::new();
         let path_of = |arena: &Vec<SNode>, mut i: usize| -> Vec<(Pos, String)> {
             let mut out = Vec::new();
@@ -1155,8 +1316,11 @@ impl Problem<'_> {
         };
         // Watch taps: an observer watching a cell the machine changes.
         if opts.watch {
+            // Never watch a motion that depends on this receiver's own action (a side piston
+            // fired by watching its own column never fires): `forbid_watch`.
+            let causal = |c: Pos| !r.forbid_watch.contains(&c);
             for (&c, &wv) in &self.meas.watch {
-                if wv.is_off() || (!opts.taps.is_empty() && !opts.taps.contains(&c)) {
+                if wv.is_off() || (!opts.taps.is_empty() && !opts.taps.contains(&c)) || !causal(c) {
                     continue;
                 }
                 for f in FACES {
@@ -1179,14 +1343,15 @@ impl Problem<'_> {
                     }
                     let node = Node::new(o, &s);
                     arena.push(SNode { node, any: wv, strong: wv, strength: 15, cost: 1, parent: ROOT, placed: vec![(o, s)] });
-                    heap.push(Reverse((1, arena.len() - 1)));
+                    { let i = arena.len() - 1; heap.push(Reverse((1 + hk(arena[i].node.pos), i))); }
                 }
             }
         }
         let pal: Vec<Node> = opts.palette.iter().map(|s| Node::new([0, 0, 0], s)).collect();
         let mut expanded = 0usize;
-        while let Some(Reverse((cost, ui))) = heap.pop() {
-            if cost > budget || found.len() >= opts.hits || expanded >= opts.max_states {
+        while let Some(Reverse((key, ui))) = heap.pop() {
+            let cost = arena[ui].cost;
+            if key > budget || found.len() >= opts.hits || expanded >= opts.max_states {
                 break;
             }
             expanded += 1;
@@ -1198,11 +1363,13 @@ impl Problem<'_> {
             // Hit?
             let pts = (u.node.kind == Kind::Dust).then(|| dust_points(&all, u.node.pos));
             let hits_r = reaches(&u.node, pts, r.pos, r.facing);
-            if hits_r && same_masked(r.rest.or(u.any), r.want, r.mask, opts.tolerance) && !placed.is_empty() {
+            let full = hits_r && r.accepts(r.rest.or(u.any), opts.tolerance);
+            let part = hits_r && !full && opts.partial && r.progress(r.rest.or(u.any));
+            if (full || part) && !placed.is_empty() {
                 let mut key = placed.clone();
                 key.sort();
                 if seen_sets.insert(key) {
-                    found.push(placed.clone());
+                    found.push((placed.clone(), full));
                 }
                 continue;
             }
@@ -1234,7 +1401,7 @@ impl Problem<'_> {
                                 if best.get(&key).is_none_or(|&b| cost < b) {
                                     best.insert(key, cost);
                                     arena.push(SNode { node: v, any: a, strong: st, strength: 15, cost, parent: ui, placed: Vec::new() });
-                                    heap.push(Reverse((cost, arena.len() - 1)));
+                                    { let i = arena.len() - 1; heap.push(Reverse((cost + hk(arena[i].node.pos), i))); }
                                 }
                             }
                         }
@@ -1287,6 +1454,7 @@ impl Problem<'_> {
                         }
                     };
                     let (mut a, mut st) = contrib(u.any, u.strong, f);
+                    let mut uses_taint = false;
                     for dx in -1..=1 {
                         for dy in -1..=1 {
                             for dz in -1..=1 {
@@ -1303,10 +1471,14 @@ impl Problem<'_> {
                                         let (x, y) = contrib(m.any[i], m.strong[i], g);
                                         a = a.or(x);
                                         st = st.or(y);
+                                        uses_taint |= tainted.contains(&i);
                                     }
                                 }
                             }
                         }
+                    }
+                    if uses_taint {
+                        continue;
                     }
                     let (na, ns) = if v.kind == Kind::Block { (a, st) } else { (transfer(&v, a), transfer(&v, a)) };
                     if na.is_off() {
@@ -1332,11 +1504,11 @@ impl Problem<'_> {
                         let floor = step.get(1).cloned();
                         arena.push(SNode { node: v.clone(), any: na, strong: ns, strength, cost: nc, parent: ui, placed: step });
                         let vi = arena.len() - 1;
-                        heap.push(Reverse((nc, vi)));
+                        heap.push(Reverse((nc + hk(c), vi)));
                         if let (Some((fp, fs)), Kind::Dust) = (floor, v.kind) {
                             let fnode = Node::new(fp, &fs);
                             arena.push(SNode { node: fnode, any: na, strong: Wave::OFF, strength: 15, cost: nc, parent: vi, placed: Vec::new() });
-                            heap.push(Reverse((nc, arena.len() - 1)));
+                            { let i = arena.len() - 1; heap.push(Reverse((nc + hk(arena[i].node.pos), i))); }
                         }
                     }
                 }
@@ -1353,34 +1525,84 @@ pub fn route_net(pb: &Problem, receivers: &[Receiver], budget: u32, opts: &Route
     let mut beam: Vec<(Vec<(Pos, String)>, Vec<usize>)> = vec![(Vec::new(), (0..receivers.len()).collect())];
     let mut done: Vec<Vec<(Pos, String)>> = Vec::new();
     let mut seen: HashSet<Vec<(Pos, String)>> = HashSet::new();
-    for _ in 0..receivers.len() {
+    // A partial hit keeps its receiver in the list: more rounds then.
+    let rounds = if opts.partial { receivers.len() * 3 } else { receivers.len() };
+    for _ in 0..rounds {
+        // Every (partial solution, receiver) search of this round, run on `opts.threads`.
+        let mut jobs: Vec<(usize, usize)> = Vec::new();
+        let mut models: Vec<(BTreeMap<Pos, String>, Model)> = Vec::new();
         let mut next: Vec<(Vec<(Pos, String)>, Vec<usize>)> = Vec::new();
-        for (placed, left) in &beam {
+        for (bi, (placed, left)) in beam.iter().enumerate() {
             let mut blocks = pb.base.blocks.clone();
             for (p, s) in placed {
                 blocks.insert(*p, s.clone());
             }
             let m = pb.model(&blocks);
+            let mut tried = 0;
             for &ri in left {
                 let r = &receivers[ri];
                 let now = m.piston_wave(r.pos, r.facing);
-                let rest: Vec<usize> = left.iter().copied().filter(|x| *x != ri).collect();
-                if same_masked(now, r.want, r.mask, opts.tolerance) {
+                if r.accepts(now, opts.tolerance) {
+                    let rest: Vec<usize> = left.iter().copied().filter(|x| *x != ri).collect();
                     next.push((placed.clone(), rest));
                     continue;
                 }
-                let r2 = Receiver { rest: now, ..r.clone() };
-                let left_budget = budget.saturating_sub(placed.len() as u32);
-                for alt in pb.search(&blocks, &r2, left_budget, opts) {
-                    let mut p2 = placed.clone();
-                    p2.extend(alt);
-                    if p2.len() as u32 <= budget {
-                        next.push((p2, rest.clone()));
-                    }
+                if opts.order_limit > 0 && tried >= opts.order_limit {
+                    continue;
+                }
+                tried += 1;
+                jobs.push((bi, ri));
+            }
+            models.push((blocks, m));
+        }
+        let results: Vec<Vec<(Vec<(Pos, String)>, bool)>> = {
+            let out: Mutex<Vec<Option<Vec<(Vec<(Pos, String)>, bool)>>>> = Mutex::new(vec![None; jobs.len()]);
+            let k = std::sync::atomic::AtomicUsize::new(0);
+            std::thread::scope(|s| {
+                for _ in 0..opts.threads.clamp(1, jobs.len().max(1)) {
+                    s.spawn(|| loop {
+                        let j = k.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        if j >= jobs.len() {
+                            break;
+                        }
+                        let (bi, ri) = jobs[j];
+                        let (placed, _) = &beam[bi];
+                        let (blocks, m) = &models[bi];
+                        let r = &receivers[ri];
+                        let r2 = Receiver { rest: m.piston_wave(r.pos, r.facing), ..r.clone() };
+                        let left_budget = budget.saturating_sub(placed.len() as u32);
+                        let found = pb.search(blocks, &r2, left_budget, opts);
+                        out.lock().unwrap()[j] = Some(found);
+                    });
+                }
+            });
+            out.into_inner().unwrap().into_iter().map(|x| x.unwrap_or_default()).collect()
+        };
+        for ((bi, ri), found) in jobs.iter().zip(results) {
+            let (placed, left) = &beam[*bi];
+            let rest: Vec<usize> = left.iter().copied().filter(|x| x != ri).collect();
+            // A partially served receiver goes to the back of the order: the others may build
+            // the source its other pulses can tap.
+            let mut later = rest.clone();
+            later.push(*ri);
+            for (alt, full) in found {
+                let mut p2 = placed.clone();
+                p2.extend(alt);
+                if p2.len() as u32 <= budget {
+                    next.push((p2, if full { rest.clone() } else { later.clone() }));
                 }
             }
         }
         next.sort_by_key(|(p, l)| (l.len(), p.len()));
+        if std::env::var("MW_TRACE").is_ok() {
+            eprintln!(
+                "  [route_net] round: {} jobs, {} next, best left {:?}, beam {:?}",
+                jobs.len(),
+                next.len(),
+                next.first().map(|(p, l)| (l.len(), p.len())),
+                beam.iter().map(|(p, l)| (l.len(), p.len())).collect::<Vec<_>>()
+            );
+        }
         let mut kept = Vec::new();
         let mut keys: HashSet<(Vec<(Pos, String)>, Vec<usize>)> = HashSet::new();
         for (p, l) in next {
@@ -1390,6 +1612,22 @@ pub fn route_net(pb: &Problem, receivers: &[Receiver], budget: u32, opts: &Route
             lk.sort();
             if !keys.insert((k.clone(), lk)) {
                 continue;
+            }
+            if (l.is_empty() || kept.len() < opts.beam) && opts.partial {
+                // New blocks may change what older ones do (a dust reshaped by a new neighbor):
+                // every receiver already served must still be.
+                let mut blocks = pb.base.blocks.clone();
+                for (q, s) in &p {
+                    blocks.insert(*q, s.clone());
+                }
+                let m = pb.model(&blocks);
+                let broken = (0..receivers.len()).filter(|i| !l.contains(i)).any(|i| {
+                    let r = &receivers[i];
+                    !r.accepts(m.piston_wave(r.pos, r.facing), opts.tolerance)
+                });
+                if broken {
+                    continue;
+                }
             }
             if l.is_empty() {
                 if seen.insert(k) {
@@ -1412,10 +1650,11 @@ pub fn route_net(pb: &Problem, receivers: &[Receiver], budget: u32, opts: &Route
 
 // ---- rip-up and re-route ------------------------------------------------------------------
 
-/// Where nothing new goes: a door design's door cells and walkway (none without a door port).
-fn forbidden_cells(d: &Design) -> Result<HashSet<Pos>> {
+/// Where nothing new goes: a door design's door cells and the 3x3 columns in front of and behind
+/// it, at any distance (none without a door port).
+pub fn forbidden_cells(d: &Design) -> Result<HashSet<Pos>> {
     Ok(match DoorSpec::from_design(d) {
-        Ok(spec) => spec.door_cells().into_iter().chain(spec.corridor_cells()).collect(),
+        Ok(spec) => crate::route::keep_clear(&spec).into_iter().collect(),
         Err(_) => HashSet::new(),
     })
 }
@@ -1527,7 +1766,7 @@ fn rip_receivers(pb: &Problem, orig: &[(Pos, Pos, Wave)], ripped: &Model, tol: i
         if (extra.0[0] & mask.0[0] != 0 || extra.0[1] & mask.0[1] != 0) && tol == 0 {
             return None;
         }
-        out.push(Receiver { pos: p, facing: f, want, rest: now, mask });
+        out.push(Receiver { pos: p, facing: f, want, rest: now, mask, alts: Vec::new(), free: None, forbid_watch: Vec::new() });
     }
     Some(out)
 }
@@ -1618,7 +1857,7 @@ pub fn route_new(
     let recv: Vec<Receiver> = want
         .iter()
         .filter(|(p, f, w)| !same_masked(m.piston_wave(*p, *f), *w, meas.mask(*p), o.route.tolerance))
-        .map(|&(p, f, w)| Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: meas.mask(p) })
+        .map(|&(p, f, w)| Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: meas.mask(p), alts: Vec::new(), free: None, forbid_watch: Vec::new() })
         .collect();
     for r in &recv {
         log(&format!("  need {} [{}], has [{}]", fmt_pos(r.pos), r.want.describe(), r.rest.describe()));

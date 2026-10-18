@@ -1,0 +1,28 @@
+# fresh-c's fc ideal mechanism (fc2's machine, inputs by redstone blocks) with Q's timing per edge:
+# Q placed at d on the open edge and cleared at dc on the close edge (an OR of two repeater delays
+# would give Q early on open, late on close). B window b..b+bw and A's dance pulses as fc-sym.
+design designs/piston-door-3x3/tracks/fresh-c/ideal-mech.txt
+let b = 9
+let bw = 8
+let d = 3
+let dc = 3
+let p = 1
+let pw = 2
+open d set 0 5 -1 minecraft:redstone_block
+open p set 1 4 1 minecraft:redstone_block
+open p+pw clear 1 4 1
+open b set 1 6 0 minecraft:redstone_block
+open b+bw clear 1 6 0
+open b+2 set 1 3 1 minecraft:redstone_block
+open b+4 clear 1 3 1
+open b+bw+2 set 1 4 1 minecraft:redstone_block
+open b+bw+4 clear 1 4 1
+close p set 1 4 1 minecraft:redstone_block
+close p+pw clear 1 4 1
+close dc clear 0 5 -1
+close b set 1 6 0 minecraft:redstone_block
+close b+bw clear 1 6 0
+close b+2 set 1 3 1 minecraft:redstone_block
+close b+4 clear 1 3 1
+close b+bw+2 set 1 4 1 minecraft:redstone_block
+close b+bw+4 clear 1 4 1

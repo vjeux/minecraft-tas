@@ -1,0 +1,4 @@
+# mp7 (no pump trip on close: its pump is fed through dust on obsidian, 3 updates away from the lowered pump), U fired at t12 on both edges: flag -> observer (3,-2,0) -> block (3,-3,0) -> repeater d1 (2,-3,0) -> U
+set 3 -3 0 minecraft:stone
+set 2 -3 0 minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+set 2 -4 0 minecraft:smooth_stone

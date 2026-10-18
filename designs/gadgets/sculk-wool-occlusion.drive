@@ -1,0 +1,22 @@
+# Wool occludes vibrations (VibrationSystem.Listener.isOccluded: every one of the 6 nudged lines
+# from the source to the sensor crosses a block tagged occludes_vibration_signals). With the wool
+# on the line, the lever's click is not heard at all; a piston whose line misses the wool still
+# wakes the sensor (floor(distance) gt later). With the wool moved away (here: cleared), the same
+# click wakes it 4 gt later. Use: a wool door block or wool support can make a sensor hear the
+# lever on one edge only (when a moving wool block is in the way on the other), or hear a later
+# door piston instead of the lever (an event-triggered window, no wire).
+design designs/gadgets/sculk-wool-occlusion.txt
+probe S 4 1 0
+probe P 4 0 2
+quiet 5
+use 0 1 0
+expect_trace S 0000000000
+set 4 0 3 minecraft:redstone_block
+expect_trace S 00++
+quiet 40
+clear 4 0 3
+quiet 60
+expect S 0
+clear 2 1 0
+use 0 1 0
+expect_trace S 000+++

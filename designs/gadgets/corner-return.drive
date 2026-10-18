@@ -1,0 +1,26 @@
+# T placed in the corner at k1 and in its own cell at k2 (pushed by a piston carried into R at
+# k2), the corner block placed at k3.
+design designs/gadgets/corner-return.txt
+probe N1 1 2 0
+probe K 2 2 0
+probe R 3 2 0
+probe U 2 3 0
+setblock 5 4 -1 minecraft:redstone_block
+setblock 5 2 0 minecraft:redstone_block
+expect_trace K #
+expect R .
+expect N1 .
+setblock 3 3 -1 minecraft:redstone_block
+setblock 3 4 1 minecraft:redstone_block
+setblock 4 4 1 minecraft:redstone_block
+setblock 4 2 2 minecraft:redstone_block
+expect_trace N1 #
+expect K .
+expect R ~
+setblock 1 6 -1 minecraft:redstone_block
+setblock 1 4 0 minecraft:redstone_block
+expect_trace K #
+expect U .
+expect N1 #
+expect_trace N1 ###
+expect K #

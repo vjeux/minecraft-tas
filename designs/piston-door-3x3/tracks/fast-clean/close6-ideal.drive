@@ -1,0 +1,32 @@
+# Close 6 on a1c with partly ideal inputs: in the open state F's killer P_X is re-armed for the
+# close (repeater f removed, P_X retracted, R_X back at (1,5,1), R_Z back at (1,6,1)), S_F made
+# sticky (pulls R_F back at c1), and T is teleported into E between c1 and c2 (stands for a T
+# returner that places T at c2). Expect: F 0-ticks at c1 (C placed in N1), F's base and R_F land at
+# c3 BE, F pushes [T, C] at c4, the door is closed at c6.
+design designs/piston-door-3x3/tracks/fast-clean/a1c-107.txt
+probe T 1 2 0
+probe C 1 1 0
+probe E 1 3 0
+probe F 1 4 0
+probe RF 1 4 -1
+probe TL 0 2 0
+probe TR 2 2 0
+probe M 1 0 0
+use 0 4 -2
+quiet 24
+clear 1 6 -1
+clear 1 6 1
+quiet 4
+clear 0 4 -1
+set 0 4 -1 minecraft:sticky_piston[facing=east,extended=true]
+quiet 2
+clear 1 5 2
+set 1 5 1 minecraft:redstone_block
+set 1 6 1 minecraft:redstone_block
+quiet 4
+print
+use 0 4 -2
+trace 1
+clear 2 3 0
+set 1 3 0 minecraft:stone
+trace 10

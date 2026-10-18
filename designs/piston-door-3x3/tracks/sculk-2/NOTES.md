@@ -157,3 +157,19 @@ Blocked by geometry in this family, and the searches agree:
   wireless source (fed by the lever, weak power on every side, a calibrated one not into its
   back, strong into the block below; observers can watch it), so sensors can be synthesized
   into any circuit. `resynth --max-size 4` on s4 with sensors in the palette: nothing (13 groups).
+* `resynth --max-size 5` with both sensor kinds in the palette (every connected group of 2-5
+  wiring blocks ripped and re-synthesized with fewer blocks, sensors placeable anywhere): fc2-40b
+  (all 190 groups), riders-fx1-40b (147 of 189 in 20 min), m05-21b-sym-40b (most of 172): no
+  smaller circuit, solid or sculk. A sensor's 10/30 gt window cannot stand in for a 2 gt pulse
+  (the pull-type pistons pull back when it ends) and an observer on a sensor fires 3 times.
+* New gadget `sculk-wool-occlusion`: wool on the line from the lever hides the click from a
+  sensor; a piston off that line still wakes it. With wool door blocks (legal: plain full
+  blocks) a sensor could hear the lever on one edge only, or a door piston instead of the
+  lever. I found no place in s4 where that saves a block: what needs asymmetry there is A's
+  at-rest power source, and that has to be a block that moves (RB on Q).
+
+## Round 2 result
+s4 stays the best at 36. Both ideas fail on geometry in this family (no free cell next to A
+that can ride the left structure without powering P_L; nothing next to P_M or its QC cell sees
+a cell that moves once per edge), and exhaustive 2-block regrowths of the cut subsystems
+confirm it. Tools: sensors in `synth`/`resynth`, gadget `sculk-wool-occlusion`.

@@ -38,13 +38,21 @@ Slime-free, and every block in the door's plane: the whole machine is one block 
 
 Every record of this board in one video: [flat-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.jpg)).
 
-## Sculk: 42 blocks
+## Solid, in a 3-thick wall: 40 blocks
+
+Every block within one layer of the door's plane, at rest and while it moves: the whole machine hides inside a wall 3 blocks thick.
+
+![fc2-40b](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.gif)
+
+**40 blocks**, solid, opens in 24 ticks, closes in 9 (worst cycle): [fc2-40b](archive/fc2-40b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4)). Agent fresh-c, "symmetric control": open and close run the SAME signal chain at the same delays, so there is no hold at all: an observer on the lever pulses the center piston A 2 ticks after each flip (swallowed on open, it pushes the center down on close), the shuttle piston Q is the lever through one repeater (its redstone block powers A at rest, then the right piston, which drags the top-middle block out), and the B window fires on both edges but is harmlessly blocked on close; fc2 makes the left pusher a pull-type pulse piston west of its backbone, fired by two observers off the lever (opens in 24 ticks, closes in 9).
+
+## Sculk: 36 blocks
 
 Uses sculk sensors (footsteps or mobs nearby can trigger them).
 
-![st43-bmobs-42b](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.gif)
+![sculk-ew-s4br-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-ew-s4br-36b.gif)
 
-**42 blocks**, sculk, opens in 22 ticks, closes in 38 (worst cycle): [st43-bmobs-42b](archive/st43-bmobs-42b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.mp4)). Agent top-control on search-tool's 43: the redstone-block family with a sculk sensor and one repeater as the late hold, and the bottom-middle piston retracted at rest, fired by an observer watching the bottom-right door block.
+**36 blocks**, sculk, opens in 22 ticks, closes in 36 (worst cycle): [sculk-ew-s4br-36b](archive/sculk-ew-s4br-36b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-ew-s4br-36b.mp4)). 
 
 Every record of this board in one video: [sculk-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.jpg)).
 
@@ -66,11 +74,19 @@ The 9 door blocks are sand, gravel or concrete powder.
 
 Every record of this board in one video: [gravity-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.jpg)).
 
-## Fastest solid: 107 blocks
+## Fastest solid: 108 blocks
 
 Fewest game ticks to open plus close (worst cycle), ties by blocks.
 
-![lamp-sweep-a1-107-107b](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-a1-107-107b.gif)
+![fast-clean-c1r-108b](https://github.com/vjeux/minecraft-tas/releases/download/videos/fast-clean-c1r-108b.gif)
 
-**107 blocks**, solid, slime-free, opens in 10 ticks, closes in 7 (worst cycle): [lamp-sweep-a1-107-107b](archive/lamp-sweep-a1-107-107b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-a1-107-107b.mp4)). From agent lamp-sweep; see [tracks/lamp-sweep/NOTES.md](tracks/lamp-sweep/NOTES.md).
+**108 blocks**, solid, slime-free, opens in 9 ticks, closes in 7 (worst cycle): [fast-clean-c1r-108b](archive/fast-clean-c1r-108b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fast-clean-c1r-108b.mp4)). 
+
+## Smallest box (solid): 44 blocks
+
+Fewest cells in the build's bounding box (door included), ties by blocks.
+
+![flat-b-v7-44b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-44b.gif)
+
+**44 blocks**, solid, slime-free, flat, opens in 30 ticks, closes in 26 (worst cycle): [flat-b-v7-44b](archive/flat-b-v7-44b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-44b.mp4)). From agent flat-b; see [tracks/flat-b/NOTES.md](tracks/flat-b/NOTES.md).
 

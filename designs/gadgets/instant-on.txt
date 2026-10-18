@@ -1,0 +1,28 @@
+name: gadget-instant-on
+# Power GAIN inside a block-event phase without any moved power source: dust climbing a step
+# (D_low (0,1,0) -> D_up (1,2,0)) is cut while a conductor C sits above D_low
+# (RedstoneWireBlock: a wire connects up a step only if the block above it is not a conductor).
+# Lever L fires piston P in tick 1; C turns into a moving block (not a conductor), the step
+# connects, D_up and D_up2 light in the same phase and piston U at the end extends in tick 1.
+origin: -1 0 -2
+palette:
+  S minecraft:stone
+  G minecraft:redstone_block
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=south]
+  C minecraft:stone
+  W minecraft:redstone_wire[east=side,north=none,south=none,west=side,power=0]
+  U minecraft:piston[extended=false,facing=east]
+  K minecraft:stone
+layer 0:
+  .S
+  ..
+  .S
+layer 1:
+  .S
+  ..
+  GWSS
+layer 2:
+  .L
+  .P
+  .CWWUK

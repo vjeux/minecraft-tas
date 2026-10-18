@@ -2,42 +2,107 @@
 
 Direction (coordinator): the solid frontier at the start was 38 (36/32), 40 (24/9, fc2), 41 (22/9,
 fc2f), 43 (16/16, mp8), then nothing until 107 (10/7, lamp-sweep-a1-107). Fill the middle: every
-design not dominated on all three counts.
-
-Where a new door lands on the frontier (b = blocks): for 44 <= b <= 106 it is a frontier point iff
-open <= 15, or close <= 8, or (open <= 21 and close <= 15). At 43 it must beat mp8 on open or close
-and fc2f's 22/9. `mctas door frontier --check <file>` (this track's tool) says it directly.
+design not dominated on all three counts. `mctas door frontier --check <file>` (this track's tool)
+says whether a design is on the frontier and what dominates it.
 
 ## Frontier points found (all `door verify --extra-offsets 28`, rotation-safe, category solid)
 
-| file | blocks | open / close | from | what changed |
+| file (archive/) | blocks | open / close | from | what changed |
 |---|---|---|---|---|
-| `archive/pareto-mid-mp8-leafU-43b.txt` | 43 | 15 / 17 | mp8 (43, 16/16) | U's trigger one tick earlier on the open edge: the bottom-right flag is an oak log, the first observer of U's 3-observer chain becomes persistent oak leaves (2 blocks swapped, same count) |
+| `pareto-mid-mp8-leafU-43b.txt` | 43 | 15 / 17 | mp8 (43, 16/16) | the bottom-right flag is an oak log, the first observer of U's 3-observer chain becomes persistent leaves next to it (2 swaps, same count): U at t13 open / t15 close |
+| `pareto-mid-mp8-lampU-44b.txt` | 44 | 14 / 16 | mp8 | the bottom-right flag is a redstone block; a lamp (4,-2,0) next to the cell it moves into, observer (3,-2,0) watching the lamp, dust (2,-2,0) on stone (2,-3,0) beside U: U at t12 open / t14 close (+1) |
+| `pareto-mid-mp7-repU-46b.txt` | 46 | 14 / 14 | mp7 (45, 16/16) | U at t12 on both edges: flag -> observer (3,-2,0) -> block (3,-3,0) -> delay-1 repeater (2,-3,0) on a floor (2,-4,0) -> U (+1). Needs mp7's pump that does not trip on close (below) |
+| `pareto-mid-mp7-leafC-46b.txt` | 46 | 15 / 13 | mp7 | log flag; leaves (4,-2,0) next to the cell it moves into; observer (3,-2,0) watching them -> dust (2,-2,0) on stone (2,-3,0) beside U: U at t13 open / t11 close (+1) |
 
-## Tools (own commit)
+Frontier after these (solid): 38 (36/32), 40 (24/9), 41 (22/9), 43 (15/17), 43 (16/16), 44 (14/16),
+46 (14/14), 46 (15/13), 107 (10/7). For a new door with 47..106 blocks to count it now needs open
+<= 13, or close <= 12 (with open <= 21), or 14/13.
+
+## The mp family (fresh-b's mirrored pump) and its timing
+Mechanism (mp5..mp8): H (lever, t1) pushes the left side west; A1 (A's first pulse, t3, observer on
+the left structure's top flag) lifts TM into E (1,3,0); the pump P under a 2-slime row (BM + corner)
+pushes C into TM's cell (t7..t11, flag observer + delay-2 repeater) and pulls the row back; F (lever
++ delay-4 repeater, t8) pushes the right structure east and its carrier drags TM aside; A2 (t10,
+observer on the right structure's top flag) pulls C into E; U (t14, 3-observer chain off the right
+structure's bottom flag) reach-pulls the row down: open 16. Close: the same events push C down
+(A1, spit), bring TM back (F), push TM + C home (A2, spit, C lands at t13), lift the row (U).
+
+### The pump trip (why mp8 cannot simply fire U earlier)
+mp8's pump repeater R_P points straight into the pump P (0,-2,0). On the close edge the lowered P
+sits at (0,-3,0) under the lowered slime row; R_P's t7 pulse strongly powers the slime at (0,-2,0)
+and its turn-on updates that cell's neighbours, so the lowered P fires: the row goes up at t7 (U,
+glued under it, rides up), P pulls it back at t11, and U is pushed down again, landing at t13 BE,
+before the row (block-entity order). So on the close edge U needs a NEW power edge at t14 or later
+(an extend queued by its landing finds the slime still moving and is dropped, no retry): close >=
+16 with 2 gt pulses, whatever the open edge does. mp7 (fresh-b's previous step, 45 blocks) feeds
+the pump through dust on obsidian (R_P -> dust (0,-1,-1) -> obsidian (0,-2,-1) -> P): dust updates
+reach 2 cells, the lowered pump is 3 away, so it is never updated and never fires on close (it is
+quasi-powered, but stays a silent BUD until the door's own close lifts it back). In that no-trip
+world U can fire at the same tick on both edges: U at t12 gives 14 / 14.
+
+Measured with ideal inputs (`mp8-PU.sched`: P and U by redstone blocks, no trip; `mp8-PUr.sched`:
+P through its real repeater turned to delay 1, trip modelled), open edge: pump [7,11) -> U must
+extend at t12 (2 gt) or t11 (3 gt): open 14; pump [6,9) and U at t10: open 12. Close edge, no trip:
+U at t10..t11 -> close 13 (A2's C lands at 13: F's return at t8 sets it); with the trip, close 13
+only if the trip ends by t8, 14 if by t9, 15 if by t10, else 16.
+`mp5-close.sched` (fresh-b's mp5 mechanism, separate close timings): the mechanism closes in 8
+(A1 at t1, F back at t3, A2 at t5/6, U by t5) and opens in 12 with ideal inputs; every one of those
+close timings is earlier than its open counterpart, so it needs per-edge (asymmetric) control.
+
+### What bounds the wired mp doors now
+* open: the pump [7,11) (left flag observer t3 + delay-2 repeater) lands the row at t13, so U
+  retracts at t14 at the earliest: open >= 14. Open 13 needs the pump to end by t10 (a 3 gt pulse,
+  odd edges near the bottom-left), open 12 a pump [6,9) plus U at t10.
+* close: F returns at t8 (lever + delay 4, symmetric), TM lands t10, A2 pushes at t11, C lands t13:
+  close >= 13 unless F returns earlier on the close edge only (an AND of two lever delays; nothing
+  cheap found: a piston moving F's power block needs a delay that is <= 5 on the rising edge and >= 6
+  on the falling one, and the lever is far from the pump/U side).
+* U's timing per edge is free within the toolbox below (offsets from the right structure's move at
+  t8): pairs (open, close) = (9,11)+2k, (11,9)+2k [leaves], (12,14)+2k, (14,12)+2k [lamp + observer],
+  (10,10)+2k [observers]. (14 open, 13 close) would need (12, <=11): not in the set.
+
+`door grow --k 1` (states obs, block, dust, rep1/2, torch, leaves, log; box -4..5 x -6..7 x -2..2):
+no single added block gives mp7-repU open <= 13, or close <= 13 with open <= 21; none gives
+mp8 / mp8-leafU open <= 14, or (open <= 15, close <= 16). `door minimize --moves all --plateau` at
+their speed bounds: mp8-lampU 44 and mp7-repU 46 are local minima.
+
+## New timing elements (gadgets `log-leaves`, `rb-lamp`, rows in docs/mechanics.md)
+* **Persistent leaves next to a moving log** (odd, asymmetric): leaves re-read their distance in a
+  scheduled tick 1 gt after a neighbour changes and never random-tick. A log LEAVING their neighbour
+  cell at tick m changes them at m+1; a log ARRIVING is a moving block (distance 7) until it lands
+  at m+2, so they change at m+3. One leaves block per log: two leaves re-read each other and ripple
+  (1 -> 3 -> 5 -> 7, extra observer pulses).
+* **Lamp next to a moving redstone block** (even, asymmetric): lit at once when the block lands
+  (m+2), dark 4 gt after it leaves (m+4).
+* **Dust on a block beside a piston**: an observer whose output cell sits next to a slime row (where
+  an observer or block would be dragged) can drive the piston through a dust there (dust is never
+  dragged) standing on a block next to the piston; the dust also updates 2 cells deep.
+
+## fc2 family: an earlier B window would open in 18..20 (not wired)
+`fc-asym.sched` (fresh-c's fc2 ideal mechanism with Q's timing per edge): with fc2's own Q (t4 on
+both edges) the B window can start at t7 already: window [7,14) opens in 18, [8,16) in 20, close 9
+in every case (fresh-c's bound "b >= d + 6" is not tight). With Q at t1 on open (Q powered by the
+lever directly OR by its delay-2 repeater, off at t4 on close) the window [6,14) opens in 18 and
+[5,12) in 16. The blocker is the window itself: B must turn on at t7..t8 and off 7..8 ticks later,
+and A's two dance pulses must come 2 ticks after each edge (fc2's O watches the window). A delay-4
+repeater only gives [8,16) from an input pulse starting at t0; from the lever observer (t2) it gives
+fc2f's [10,18) = 22. An OR of two delay-3 repeaters fed at t2 and t4 gives [8,16), but then O must
+watch the OR (a dust carrying both) and the geometry around B/O/X/R_B has no room for it in fc2f's
+layout. A cheap t0 pulse (a cut of a lever-fed line at t1..t8 on open) would give 20 at +1..2 blocks.
+
+## Tools (own commits)
 * `door frontier [--all] [--check FILE...] [--any-category] [--cache-dir D]`: the frontier from the
   leaderboard's verdict cache (designs not in it are verified), every working design with its ticks
   (`--all`), and each candidate placed against it (ON THE FRONTIER, which frontier doors it pushes
   off, or which doors dominate it).
-
-## Persistent leaves: an asymmetric 1 gt delay (new timing element)
-Persistent leaves recompute `distance` in a scheduled tick 1 gt after a neighbor changes
-(`LeavesBlock.updateShape` -> `scheduleTick(.., 1)`), and never random-tick (allowed by the judge).
-Next to a log carried by a moving structure:
-* when the log LEAVES (the cell turns to air in the block-event phase of the move, tick m), the
-  leaves change at m+1 (distance 1 -> 7);
-* when the log ARRIVES it is a `moving_piston` (distance 7, no change) until it lands at m+2, so the
-  leaves change at m+3 (7 -> 1).
-So leaves next to the log's REST cell fire an observer chain 2 ticks earlier on the open edge than
-on the close edge (leaves next to its OPEN cell: the reverse). Chains of several leaves ripple
-(each re-reads the other: 1 -> 3 -> 5 -> 7...), so only one leaves block per log.
-
-mp8 + leaves: the right structure moves at t8. Old chain: stone flag (3,-1,0) -> observers
-(3,-2,0), (3,-3,0), (2,-3,0) -> U at t14 on both edges (open 16 / close 16). New: log (3,-1,0) ->
-leaves (3,-2,0) (t9 open / t11 close) -> observer (3,-3,0) -> observer (2,-3,0) -> U at t13 open
-(open 15) / t15 close (close 17).
+* `door grow --states leaves,log` shorthands.
 
 ## Log
 * Background: `door resynth` on a1-107 with `--max-open 12 --max-close 8` (sizes 2..3, full palette
   with lamps/bulbs/notes/targets): 107 -> 107, nothing (the 107's wiring is resynth-minimal even at a
-  relaxed speed).
+  relaxed speed). `door minimize --moves all --max-open 16 --max-close 8` on a1-107: nothing (no
+  removal, pair, swap or move works even at open 16). s4-108 (12/7) is not legal any more (dust and
+  stone at z = -4 in the columns in front of the door, rule of 16:40Z), so the speed family can only
+  shrink after a re-route.
+* `door minimize --objective open --slack 6 --moves all` on mp8: nothing. `--max-open 14
+  --max-close 14` on mp7-repU: nothing (46 is a local minimum at 14/14).

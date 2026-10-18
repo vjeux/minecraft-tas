@@ -1,0 +1,17 @@
+name: gadget-zero-tick-reach
+# 0-tick reach-through: a sticky piston with an EMPTY front cell, 0-ticked, pulls the block TWO
+# cells away. T (sticky, facing north) extends into the empty cell (-1,1,-1); X (armed silently
+# like in zero-tick) is updated by the head cell and shoves R away in the same phase; T is
+# updated unpowered with a plain block (not a moving one) two cells ahead: retract event type 1
+# (PistonBaseBlock.checkIfExtend), the moving head is finalTick'd to air and K is pulled from
+# (-1,1,-2) into (-1,1,-1): K's old cell is air in tick 1, K lands in tick 3 (a pull is never
+# finalized early).
+origin: -1 0 -2
+palette:
+  T minecraft:sticky_piston[extended=false,facing=north]
+  X minecraft:piston[extended=false,facing=south]
+  K minecraft:stone
+layer 1:
+  K.
+  .X
+  T.

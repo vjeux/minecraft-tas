@@ -168,6 +168,12 @@ pub struct StepResult {
     /// With `signals`: after every tick, `[best, direct]` per probed position (flattened): the
     /// best signal the position's neighbors give into it and the strong signal into it.
     pub signals: Vec<Vec<u8>>,
+    /// With an entity watch: after every tick, whether a colliding entity overlapped the walk box.
+    pub entity_blocked: Vec<bool>,
+    /// With an entity watch: the first entity seen outside the watch box ("tick N: type at x y z").
+    pub entity_escape: Option<String>,
+    /// With an entity watch: the first entity the design did not declare (a drop...).
+    pub entity_foreign: Option<String>,
 }
 
 /// What is still pending in a sandbox.
@@ -189,6 +195,40 @@ pub struct EntityInfo {
     pub kind: String,
     pub pos: [f64; 3],
     pub uuid: String,
+    #[serde(default)]
+    pub motion: [f64; 3],
+    #[serde(default)]
+    pub yaw: f32,
+    #[serde(default)]
+    pub pitch: f32,
+    /// Declared by the design ([`Worker::summon`]), not a drop or a stray.
+    #[serde(default)]
+    pub design: bool,
+    /// At rest: the last tick did not move it and it has no motion left (see the bridge's
+    /// `Sandbox.still`).
+    #[serde(default)]
+    pub still: bool,
+    /// Bumps or gets shoved by a player walking (boats, minecarts): it blocks a walkway.
+    #[serde(default)]
+    pub collides: bool,
+    #[serde(default)]
+    pub on_ground: bool,
+    /// Bounding box `[min x, min y, min z, max x, max y, max z]`.
+    #[serde(default, rename = "box")]
+    pub bbox: [f64; 6],
+    /// Everything about it but position and motion (saved data without volatile fields, the rail
+    /// a minecart is on).
+    #[serde(default)]
+    pub state: String,
+}
+
+/// Entity checks of a recorded step ([`Worker::step_record_watch`]): `watch` is the box every
+/// entity must stay inside, `walk` the box no colliding entity may overlap (the opening and its
+/// walkway), both inclusive block ranges.
+#[derive(Clone, Copy, Debug)]
+pub struct EntityWatch {
+    pub watch: (Pos, Pos),
+    pub walk: (Pos, Pos),
 }
 
 static UNIVERSE_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -366,7 +406,13 @@ impl Worker {
     /// Block states turned `turns` quarter turns clockwise seen from above, by the game's own
     /// `BlockState.rotate` (facings, axes, dust connections, rails, levers...).
     pub fn rotate_states(&mut self, states: &[String], turns: u8) -> Result<Vec<String>> {
-        let v = self.call(json!({"op": "rotate", "states": states, "turns": turns}))?;
+        self.transform_states(states, turns, false)
+    }
+
+    /// Block states mirrored (x -> -x, the game's `Mirror.FRONT_BACK`) when `mirror`, then turned
+    /// `turns` quarter turns clockwise, by the game's own `BlockState.mirror` / `rotate`.
+    pub fn transform_states(&mut self, states: &[String], turns: u8, mirror: bool) -> Result<Vec<String>> {
+        let v = self.call(json!({"op": "rotate", "states": states, "turns": turns, "mirror": mirror}))?;
         let out: Vec<String> = v["states"].as_array().ok_or_else(|| anyhow!("rotate: no states"))?.iter().filter_map(|s| s.as_str().map(String::from)).collect();
         if out.len() != states.len() {
             bail!("rotate: {} states in, {} out", states.len(), out.len());
@@ -444,6 +490,38 @@ impl Worker {
     pub fn entities(&mut self, sandbox: u32) -> Result<Vec<EntityInfo>> {
         let v = self.call(json!({"op": "entities", "sandbox": sandbox}))?;
         Ok(serde_json::from_value(v["entities"].clone())?)
+    }
+
+    /// Summon a design's entities (deterministic UUIDs and randoms, tagged as the design's; mobs
+    /// are refused). Returns their UUIDs.
+    pub fn summon(&mut self, sandbox: u32, entities: &[crate::design::EntitySpec]) -> Result<Vec<String>> {
+        let list: Vec<Value> = entities.iter().map(|e| json!({"type": e.kind, "pos": e.pos, "nbt": e.nbt})).collect();
+        let v = self.call(json!({"op": "summon", "sandbox": sandbox, "entities": list}))?;
+        Ok(v["uuids"].as_array().map(|a| a.iter().filter_map(|u| u.as_str().map(String::from)).collect()).unwrap_or_default())
+    }
+
+    /// Entities' data turned like structure templates turn them (mirror first, then `turns`
+    /// quarter turns clockwise): each entity's SNBT with its new `Rotation` (and a hanging entity's
+    /// facing), `None` when it has no data left to write. Positions are turned by the caller.
+    pub fn transform_entities(&mut self, entities: &[crate::design::EntitySpec], turns: u8, mirror: bool) -> Result<Vec<Option<String>>> {
+        let list: Vec<Value> = entities.iter().map(|e| json!({"type": e.kind, "nbt": e.nbt})).collect();
+        let v = self.call(json!({"op": "rotate", "states": [], "turns": turns, "mirror": mirror, "entities": list}))?;
+        let out: Vec<Option<String>> =
+            v["entities"].as_array().ok_or_else(|| anyhow!("rotate: no entities"))?.iter().map(|s| s.as_str().map(String::from)).collect();
+        if out.len() != entities.len() {
+            bail!("rotate: {} entities in, {} out", entities.len(), out.len());
+        }
+        Ok(out)
+    }
+
+    /// [`Worker::step_record`] plus entity checks after every tick ([`EntityWatch`]).
+    pub fn step_record_watch(&mut self, sandbox: u32, ticks: u32, until_idle: bool, from: Pos, to: Pos, watch: &EntityWatch) -> Result<StepResult> {
+        let v = self.call(json!({
+            "op": "step", "sandbox": sandbox, "ticks": ticks, "until_idle": until_idle,
+            "record": {"from": from, "to": to},
+            "entity_watch": {"from": watch.watch.0, "to": watch.watch.1, "walk_from": watch.walk.0, "walk_to": watch.walk.1}
+        }))?;
+        Ok(parse_steps(&v)?.remove(0))
     }
 
     /// Run a vanilla command (e.g. `fill 0 0 0 3 3 3 stone`) inside a sandbox.
@@ -547,9 +625,18 @@ fn parse_steps(v: &Value) -> Result<Vec<StepResult>> {
             idle: r["idle"].as_bool(),
             frames,
             signals,
+            entity_blocked: r["entity_blocked"].as_array().map(|a| a.iter().map(|v| v.as_bool().unwrap_or(false)).collect()).unwrap_or_default(),
+            entity_escape: entity_event(&r["entity_escape"]),
+            entity_foreign: entity_event(&r["entity_foreign"]),
         });
     }
     Ok(out)
+}
+
+fn entity_event(v: &Value) -> Option<String> {
+    v.is_object().then(|| {
+        format!("tick {}: {} at {}", v["tick"].as_u64().unwrap_or(0), v["type"].as_str().unwrap_or("?"), v["pos"].as_str().unwrap_or("?"))
+    })
 }
 
 /// Several workers; jobs are spread over them by [`Pool::map`].
