@@ -1,0 +1,19 @@
+# On redstone-block's rb9 (61, open 16 / close 17): B's second window [8,12) came from a second
+# lever observer and a 13-block dust route into R_B's input. Instead, a repeater R2 sits in B's
+# quasi-connected cell (1,6,0) (on top of B), reads R_B (delay 2: R_B's [4,6) becomes [8,12))
+# and strongly powers a block F=(1,6,-1) next to that cell, which keeps B quasi-powered.
+clear 1 6 -1
+clear 2 6 -1
+clear 3 6 -1
+clear 3 6 0
+clear 3 6 1
+clear 3 6 2
+clear 2 5 -1
+clear 3 5 -1
+clear 3 5 0
+clear 3 5 1
+clear 3 5 2
+clear 2 6 2
+clear 2 5 2
+set 1 6 0 minecraft:repeater[facing=south,delay=2]
+set 1 6 -1 minecraft:smooth_stone

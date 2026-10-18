@@ -1,0 +1,16 @@
+# L on: D lights. M on: R locked. L off: D stays lit. M off: R unlocked, D goes dark.
+design designs/gadgets/repeater-lock.txt
+probe D 2 1 0
+probe R 1 1 0
+use 0 1 0
+quiet 4
+expect D 15
+use 1 1 2
+quiet 4
+expect_state 1 1 0 locked=true
+use 0 1 0
+quiet 6
+expect D 15
+use 1 1 2
+quiet 6
+expect D 0

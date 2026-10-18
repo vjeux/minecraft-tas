@@ -1,0 +1,7 @@
+# Both flips: the piston extends 2gt after the flip for the pulse, then retracts.
+design designs/gadgets/lever-observer.txt
+probe P 1 0 0
+use 0 2 0
+expect_trace P rEE~~r
+use 0 2 0
+expect_trace P rEE~~r
