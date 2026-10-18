@@ -1,0 +1,5 @@
+set 2 5 0 minecraft:observer[facing=west,powered=false]
+set 3 5 0 minecraft:observer[facing=west,powered=false]
+set 4 5 0 minecraft:observer[facing=west,powered=false]
+set 5 5 0 minecraft:redstone_lamp[lit=false]
+set 5 4 0 minecraft:observer[facing=up,powered=false]

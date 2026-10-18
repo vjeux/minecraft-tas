@@ -112,6 +112,22 @@ pub struct SearchOptions {
     /// many ticks in any recorded cycle, as the leaderboard measures them.
     pub max_open: Option<u32>,
     pub max_close: Option<u32>,
+    /// Also accept candidates that turn a solid design into a sculk one (they add a sculk
+    /// sensor): searches for the sculk board starting from solid designs.
+    pub to_sculk: bool,
+}
+
+/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk.
+fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
+    if same_league(base, d) {
+        return true;
+    }
+    let slimy = |x: &Design| x.blocks.values().any(|s| matches!(kind(s), "slime_block" | "honey_block"));
+    opts.to_sculk
+        && crate::category(base) == "solid"
+        && crate::category(d) == "sculk"
+        && (slimy(base) || !slimy(d))
+        && (!crate::single_layer(base) || crate::single_layer(d))
 }
 
 /// [`verify_in`] plus the search's speed constraints.
@@ -1391,7 +1407,7 @@ fn evaluate_with(
         let c = &cands[i];
         let d = c.edit.apply(&bases[c.base]);
         let h = design_hash(&d);
-        if failed.lock().unwrap().contains(&h) || !batch_seen.lock().unwrap().insert(h) || !same_league(&bases[c.base], &d) {
+        if failed.lock().unwrap().contains(&h) || !batch_seen.lock().unwrap().insert(h) || !league_ok(&bases[c.base], &d, opts) {
             return Ok(Screen::Skip);
         }
         let sb = sandboxes.get(w, wi)?;

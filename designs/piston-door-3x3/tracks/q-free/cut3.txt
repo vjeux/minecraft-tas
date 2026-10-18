@@ -1,0 +1,47 @@
+name: fc2
+port door: 0 0 0
+port lever: -2 4 0
+origin: -3 0 0
+palette:
+  A minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  B minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=down]
+  D minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=true,facing=down]
+  G minecraft:stone
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  O minecraft:observer[facing=up,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  o minecraft:observer[facing=west,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:smooth_stone
+layer -2:
+  ....Es
+  .
+layer -1:
+  .....O
+  .
+layer 0:
+  ..SGGGS
+  .
+layer 1:
+  ..SGGGS
+  .
+layer 2:
+  D.SGGGS
+  .
+layer 3:
+  ...GPSS
+  ..G
+layer 4:
+  .LorFDS
+  .GADR
+layer 5:
+  ...OC
+  .
+layer 6:
+  ..GB
+  .

@@ -1,39 +1,42 @@
-name: flat-v2
+name: flat-v8
 port door: 0 0 0
-port lever: 4 5 0
-origin: -5 0 0
+port lever: 5 4 0
+origin: -3 0 0
 palette:
   A minecraft:observer[facing=up,powered=false]
   B minecraft:observer[facing=west,powered=false]
-  C minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
-  D minecraft:sticky_piston[extended=false,facing=east]
-  E minecraft:sticky_piston[extended=false,facing=up]
-  F minecraft:sticky_piston[extended=false,facing=west]
-  G minecraft:stone
+  C minecraft:obsidian
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  F minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:stone
   L minecraft:lever[face=floor,facing=west,powered=false]
   O minecraft:observer[facing=down,powered=false]
   R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   S minecraft:smooth_stone
   o minecraft:observer[facing=east,powered=false]
-  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
   s minecraft:sticky_piston[extended=false,facing=down]
 layer -2:
-  .....GE
+  ...JH
 layer -1:
-  .....A
+  ...A
 layer 0:
-  ...D.GGG.F
+  .G.JJJ.I
 layer 1:
-  ..GD.GGG.FS
+  SG.JJJ.IS
 layer 2:
-  ..rD.GGG.FA
+  AG.JJJ.ID
 layer 3:
-  ..A..G..F.A
+  EoOC..I.A
 layer 4:
-  ABB..rsooAB
+  .A.DsoooL
 layer 5:
-  A...GAs.AL
+  .oAAsOA
 layer 6:
-  ooooRC..AO
+  ..RForB
 layer 7:
-  ....GooooO
+  ..JoR

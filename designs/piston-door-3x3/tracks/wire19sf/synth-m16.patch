@@ -1,0 +1,5 @@
+# synth context: w44 with M's trigger removed (O_bl + 3-observer chain); left column at t16
+clear 0 -1 0
+clear -1 -1 0
+clear -1 -2 0
+clear 0 -2 0

@@ -1,0 +1,5 @@
+# P_T chain off O_a (3 observers, t8) instead of off the lever (4)
+clear 0 4 -3
+clear -1 4 -3
+set 0 4 -2 minecraft:observer[facing=east,powered=false]
+set -1 4 -2 minecraft:observer[facing=east,powered=false]

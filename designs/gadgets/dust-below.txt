@@ -1,0 +1,20 @@
+name: gadget-dust-below
+# Dust under a strongly powered block (flat track, J' in the flat doors): an observer O facing
+# west watches the lever L and strongly powers the stone J east of it; the dust D directly
+# BELOW J reads that strong power (dust looks at all six neighbors) and feeds the repeater R.
+# A one-way tap from an observer into a dust net with no floor-side contact: in the flat door
+# it hands the top observer chain's pulse to R_B's input dust (4 observers -> 3 blocks).
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  J minecraft:stone
+  D minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  R minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+layer -1:
+  ..SS
+layer 0:
+  S.DR
+layer 1:
+  LOJ

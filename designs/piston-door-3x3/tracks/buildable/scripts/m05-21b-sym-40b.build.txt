@@ -1,0 +1,49 @@
+# m05-21b-sym: BUILDABLE (40 actions, lever off while building, 7 placed against a temporary dirt block; 32/32 positions, the built door opens in 40 / closes in 38 ticks)
+# source: designs/piston-door-3x3/archive/m05-21b-sym-40b.txt
+# found by heuristic: power, wiring, mechanism, pistons, observers, connected after 54 simulated builds in 36s
+# note: the plain order (mechanism, pistons, wiring, observers, power) does not: first damage at step 30/40: placing observer[facing=east,powered=false] at -3 4 0 (things move for 6 ticks): -2 0 0: should be air (rest air, built slime_block) | -1 0 0: moved or broken (rest slime_block, built stone) | 0 0 0: moved or broken (rest stone, built air) | -2 1 0: should be air (rest air, built slime_block) | 5 more; at the end: slime_block: 3 0 0: rest slime_block, built stone; 4 0 0: rest air, built slime_block; 3 1 0: rest slime_block, built stone; 4 1 0: rest air, built slime_block; 3 2 0: rest slime_block, built stone; 4 2 0: rest air, built slime_block | stone: 1 -1 0: rest air, built stone; 1 0 0: rest stone, built air; 2 0 0: rest stone, built air; 1 1 0: rest stone, built air; 2 1 0: rest stone, built air; 1 2 0: rest stone, built air; 2 2 0: rest stone, built air; 1 3 -1: rest air, built stone; 1 3 0: rest air, built stone
+# note:   trace of that step: t0 (click the up face of -3 3 0, facing east looking down 30): -3 4 0 air -> observer[facing=east,powered=false]
+# note:   trace of that step: t2: -3 1 0 sticky_piston[extended=false,facing=east] -> sticky_piston[extended=true,facing=east]; -2 1 0 air -> moving_piston[facing=east,type=sticky]; -3 3 0 observer[facing=up,powered=false] -> observer[facing=up,powered=true]
+# note:   trace of that step: t4: -2 0 0 air -> moving_piston[facing=east,type=normal]; -1 0 0 slime_block -> moving_piston[facing=east,type=normal]; 0 0 0 stone -> air; -3 1 0 sticky_piston[extended=true,facing=east] -> moving_piston[facing=east,type=sticky]; -2 1 0 moving_piston[facing=east,type=sticky] -> moving_piston[facing=east,type=normal]; -1 1 0 slime_block -> moving_piston[facing=east,type=normal]; 5 more
+# note:   trace of that step: t6: -2 0 0 moving_piston[facing=east,type=normal] -> slime_block; -1 0 0 moving_piston[facing=east,type=normal] -> stone; -3 1 0 moving_piston[facing=east,type=sticky] -> sticky_piston[extended=false,facing=east]; -2 1 0 moving_piston[facing=east,type=normal] -> slime_block; -1 1 0 moving_piston[facing=east,type=normal] -> stone; -2 2 0 moving_piston[facing=east,type=normal] -> slime_block; 1 more
+# Build script (design coordinates; the world settles after every action):
+  1. place observer[facing=east,powered=false] at -3 4 0: put a temporary dirt block at -3 3 0, click its up face, facing east looking down 30, then break the dirt
+  2. place lever[face=wall,facing=east,powered=false] at -2 4 0: click the east face of -3 4 0, facing west
+  3. place observer[facing=up,powered=false] at -3 3 0: click the down face of -3 4 0, looking up
+  4. place observer[facing=west,powered=false] at -1 4 0: click the east face of -2 4 0, facing west, sneaking
+  5. place smooth_stone at 0 4 0: click the east face of -1 4 0, facing west
+  6. place sticky_piston[extended=false,facing=down] at 1 4 0: click the east face of 0 4 0, facing west looking up 60
+  7. place sticky_piston[extended=false,facing=down] at 1 5 0: put a temporary dirt block at 1 6 0, click its down face, facing south looking up 60, then break the dirt
+  8. place observer[facing=up,powered=false] at 2 4 0: click the east face of 1 4 0, facing west looking up 60
+  9. place observer[facing=west,powered=false] at 3 4 0: click the east face of 2 4 0, facing west
+ 10. place smooth_stone at 4 4 0: click the east face of 3 4 0, facing west
+ 11. place redstone_lamp[lit=false] at 5 4 0: click the east face of 4 4 0, facing west
+ 12. place observer[facing=up,powered=false] at 5 3 0: click the down face of 5 4 0, looking up
+ 13. place sticky_piston[extended=false,facing=west] at 5 2 0: click the down face of 5 3 0, facing east looking up 30
+ 14. place observer[facing=north,powered=false] at -1 4 1: click the south face of -1 4 0, facing north
+ 15. place observer[facing=west,powered=false] at 0 4 1: click the south face of 0 4 0, facing west (20 degrees toward north)
+ 16. place observer[facing=down,powered=false] at -1 5 0: click the up face of -1 4 0, looking down
+ 17. place stone at -1 6 0: click the up face of -1 5 0, looking down
+ 18. place observer[facing=up,powered=false] at 0 5 0: put a temporary dirt block at 0 6 0, click its down face, facing south looking up 60, then break the dirt [things move for 6 ticks]
+ 19. place repeater[delay=4,facing=west,locked=false,powered=false] at 0 6 0: click the up face of 0 5 0, looking down [things move for 6 ticks]
+ 20. place observer[facing=west,powered=false] at 2 5 0: click the up face of 2 4 0, facing west looking down 30 [things move for 16 ticks]
+ 21. place smooth_stone at 2 -2 0: put a temporary dirt block at 2 -3 0, click its up face, looking down, then break the dirt
+ 22. place sticky_piston[extended=false,facing=up] at 1 -2 0: click the west face of 2 -2 0, facing east looking down 60
+ 23. place observer[facing=up,powered=false] at 2 -1 0: put a temporary dirt block at 2 0 0, click its down face, facing south looking up 60, then break the dirt [things move for 6 ticks]
+ 24. place stone at 2 0 0: click the up face of 2 -1 0, looking down [things move for 6 ticks]
+ 25. place stone at 1 0 0: click the west face of 2 0 0, facing east
+ 26. place stone at 0 0 0: click the west face of 1 0 0, facing east
+ 27. place slime_block at -1 0 0: click the west face of 0 0 0, facing east
+ 28. place slime_block at 3 0 0: click the east face of 2 0 0, facing west
+ 29. place slime_block at -1 1 0: click the up face of -1 0 0, looking down
+ 30. place stone at 0 1 0: click the up face of 0 0 0, looking down
+ 31. place stone at 1 1 0: click the up face of 1 0 0, looking down
+ 32. place stone at 2 1 0: click the up face of 2 0 0, looking down
+ 33. place slime_block at 3 1 0: click the up face of 3 0 0, looking down
+ 34. place slime_block at -1 2 0: click the up face of -1 1 0, looking down
+ 35. place stone at 0 2 0: click the up face of 0 1 0, looking down
+ 36. place stone at 1 2 0: click the up face of 1 1 0, looking down
+ 37. place stone at 2 2 0: click the up face of 2 1 0, looking down
+ 38. place slime_block at 3 2 0: click the up face of 3 1 0, looking down
+ 39. place sticky_piston[extended=false,facing=east] at -3 1 0: put a temporary dirt block at -3 0 0, click its up face, facing west looking down 30, then break the dirt
+ 40. place sticky_piston[extended=false,facing=north] at 1 3 1: put a temporary dirt block at 1 2 1, click its up face, facing south looking down 30, then break the dirt

@@ -1,0 +1,10 @@
+# p1: o7 minus Q hold, minus O_A, minus the P_D/P_V net (to be re-routed 2 ticks earlier)
+clear -2 4 -1
+clear -2 4 0
+clear 1 3 -1
+clear 2 7 0
+clear 2 7 1
+clear 2 7 2
+clear 2 6 2
+clear 2 6 3
+clear 2 5 3

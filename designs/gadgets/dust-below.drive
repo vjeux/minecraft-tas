@@ -1,0 +1,10 @@
+# Lever on: O pulses 2 gt later, J is strongly powered, the dust under J lights for the 2 gt
+# pulse and the repeater R reading the dust follows 2 gt later.
+design designs/gadgets/dust-below.txt
+probe d 2 0 0
+probe r 3 0 0
+expect d 0
+use 0 1 0
+expect_trace d 0++0
+expect r 1
+expect_trace r 100

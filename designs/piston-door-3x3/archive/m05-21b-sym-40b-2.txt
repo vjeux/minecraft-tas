@@ -1,0 +1,50 @@
+# verified WORKS by door leaderboard: 40 blocks, category solid
+# archived 2026-10-18 12:46Z from origin/explore/wire21:designs/piston-door-3x3/tracks/wire21/synth/s61-min.txt (repo at 344fe9c)
+name: m05-21b-sym
+port door: 0 0 0
+port lever: -2 4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=north]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  s minecraft:smooth_stone
+layer -2:
+  ....Gs
+  .
+layer -1:
+  .....B
+  .
+layer 0:
+  ..SIIIS
+  .
+layer 1:
+  E.SIIIS
+  .
+layer 2:
+  ..SIIIS.H
+  .
+layer 3:
+  B.......B
+  ....F
+layer 4:
+  oLCsDBCRC
+  ..AC
+layer 5:
+  ..OBDC
+  .
+layer 6:
+  ..Ir
+  .
