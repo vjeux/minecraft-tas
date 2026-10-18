@@ -1,0 +1,40 @@
+design designs/piston-door-3x3/wip/v2-mech.txt
+set 1 3 -1 minecraft:sticky_piston[facing=south,extended=false]
+quiet 2
+print
+# open
+clear -4 0 0
+clear 6 0 0
+clear 1 -3 0
+clear 0 4 0
+quiet 4
+# P_T short pulse: push T to (1,3,1), drop it
+set 1 3 -2 minecraft:redstone_block
+quiet 1
+clear 1 3 -2
+quiet 3
+print
+set 3 6 0 minecraft:redstone_block
+quiet 9
+print
+clear 3 6 0
+quiet 9
+print
+# ---- close ----
+set 3 6 0 minecraft:redstone_block
+quiet 9
+print
+clear 3 6 0
+quiet 9
+print
+set 1 3 -2 minecraft:redstone_block
+quiet 5
+clear 1 3 -2
+quiet 4
+print
+set 0 4 0 minecraft:redstone_block
+set -4 0 0 minecraft:redstone_block
+set 6 0 0 minecraft:redstone_block
+set 1 -3 0 minecraft:redstone_block
+quiet 6
+print

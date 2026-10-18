@@ -17,6 +17,7 @@
 
 pub mod cli;
 pub mod designs;
+pub mod drive;
 pub mod minimize;
 pub mod video;
 

@@ -9,6 +9,8 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum DoorCmd {
+    /// Drive a design by hand from a script (see drive.rs) and print the z=0 plane per tick.
+    Drive { script: PathBuf },
     /// Greedily remove blocks while the door keeps working; writes the result.
     Minimize {
         design: PathBuf,
@@ -62,6 +64,11 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::Drive { script } => {
+            let text = std::fs::read_to_string(&script)?;
+            let mut w = Worker::spawn(&cfg)?;
+            crate::drive::run(&mut w, &text)?;
+        }
         DoorCmd::Minimize { design, out, workers } => {
             let d = load_design(&design)?;
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
