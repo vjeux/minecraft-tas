@@ -1,0 +1,35 @@
+# sz2 with ONE pulse train on both lever edges: A'-low pulses at x1 and a3, P_M2 at pp, B' window [b, b+w], A'-high at h, A_T at at
+design designs/piston-door-3x3/tracks/gravity-2/solid/sz2-mech.txt
+let x1 = 3
+let pp = 7
+let b = 11
+let w = 8
+let k = 4
+let hd = 2
+let at = 3
+open 0 use 1 3 1
+close 0 use 1 3 1
+open at set 0 4 0 minecraft:redstone_block
+open at+2 clear 0 4 0
+close at set 0 4 0 minecraft:redstone_block
+close at+2 clear 0 4 0
+open x1 set 0 -2 0 minecraft:redstone_block
+open x1+2 clear 0 -2 0
+close x1 set 0 -2 0 minecraft:redstone_block
+close x1+2 clear 0 -2 0
+open pp set 1 -1 -3 minecraft:redstone_block
+open pp+2 clear 1 -1 -3
+close pp set 1 -1 -3 minecraft:redstone_block
+close pp+2 clear 1 -1 -3
+open b set 1 -4 0 minecraft:redstone_block
+open b+w clear 1 -4 0
+close b set 1 -4 0 minecraft:redstone_block
+close b+w clear 1 -4 0
+open b+hd set 2 -1 0 minecraft:redstone_block
+open b+hd+2 clear 2 -1 0
+close b+hd set 2 -1 0 minecraft:redstone_block
+close b+hd+2 clear 2 -1 0
+open b+w+k set 0 -2 0 minecraft:redstone_block
+open b+w+k+2 clear 0 -2 0
+close b+w+k set 0 -2 0 minecraft:redstone_block
+close b+w+k+2 clear 0 -2 0

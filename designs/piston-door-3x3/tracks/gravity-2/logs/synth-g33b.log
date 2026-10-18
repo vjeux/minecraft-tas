@@ -1,0 +1,6 @@
+[    0.0s] 2320 atoms (20 palette states, 2 floors) in the box
+[    0.0s] enumerated 313 sets (8563 visited) in 0.0s on 32 threads: 2:9 3:304
+[   11.9s] 14 workers
+[   12.8s] size 2: 9 candidates screened in 0.9s, 0 passed the screen
+[   13.6s] size 3: 304 candidates screened in 0.9s, 0 passed the screen
+nothing found
