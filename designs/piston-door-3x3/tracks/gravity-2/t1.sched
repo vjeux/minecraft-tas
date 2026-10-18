@@ -1,0 +1,16 @@
+# t1: lever real; S2 pulse (RB at (0,-3,0), QC via (1,-3,0)) at p2/q2; S1 pulse (RB at (0,-6,1)) at p1/q1
+design designs/piston-door-3x3/tracks/gravity-2/t1.txt
+let p2 = 3
+let p1 = 8
+let q1 = 3
+let q2 = 7
+open 0 use 1 3 0
+open p2 set 0 -4 0 minecraft:redstone_block
+open p2+2 clear 0 -4 0
+open p1 set 0 -6 1 minecraft:redstone_block
+open p1+2 clear 0 -6 1
+close 0 use 1 3 0
+close q1 set 0 -6 1 minecraft:redstone_block
+close q1+2 clear 0 -6 1
+close q2 set 0 -4 0 minecraft:redstone_block
+close q2+2 clear 0 -4 0

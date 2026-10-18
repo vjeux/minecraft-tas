@@ -1,0 +1,16 @@
+# t2 with separate open/close timings: open S1 at so, S2-lower at ao; close S2-lower at ac, S1 at sc
+design designs/piston-door-3x3/tracks/gravity-2/t2.txt
+let so = 9
+let ao = 13
+let ac = 2
+let sc = 9
+open 0 use 1 3 0
+open so set 0 -6 1 minecraft:redstone_block
+open so+2 clear 0 -6 1
+open ao set 0 -5 0 minecraft:redstone_block
+open ao+2 clear 0 -5 0
+close 0 use 1 3 0
+close ac set 0 -5 0 minecraft:redstone_block
+close ac+2 clear 0 -5 0
+close sc set 0 -6 1 minecraft:redstone_block
+close sc+2 clear 0 -6 1
