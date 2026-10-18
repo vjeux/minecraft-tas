@@ -990,6 +990,46 @@ impl Steps {
         self.retimed_edit(new, cell, step, None).unwrap()
     }
 
+    /// Pulse pairs as windows: a cell set twice per phase with plain short pulses becomes one
+    /// level window from the first set to the second (a pulse-toggled piston pushed then
+    /// pulled = a sticky piston on a window, which one repeater makes). Only the `cells` given.
+    pub fn with_windows(&self, cells_ok: &[Pos]) -> Steps {
+        let mut s = self.clone();
+        let mut out = Vec::new();
+        let cells: Vec<(bool, Pos)> = {
+            let mut v: Vec<(bool, Pos)> = self.events.iter().map(|e| (e.0, e.1)).collect();
+            v.sort();
+            v.dedup();
+            v
+        };
+        for (open, c) in cells {
+            let mine: Vec<&(bool, Pos, usize, End)> = self.events.iter().filter(|e| e.0 == open && e.1 == c).collect();
+            let pulses = cells_ok.contains(&c) && mine.len() == 2 && mine.iter().all(|e| matches!(e.3, End::After(l) if l <= 3));
+            if pulses {
+                let (a, b) = (mine[0].2.min(mine[1].2), mine[0].2.max(mine[1].2));
+                out.push((open, c, a, End::AtStep(b, 0)));
+            } else {
+                out.extend(mine.into_iter().cloned());
+            }
+        }
+        s.events = out;
+        s
+    }
+
+    /// Cells set twice per phase with short pulses (window candidates).
+    pub fn pulse_pair_cells(&self) -> Vec<Pos> {
+        let mut v: Vec<Pos> = self.events.iter().map(|e| e.1).collect();
+        v.sort();
+        v.dedup();
+        v.retain(|c| {
+            [true, false].iter().all(|&open| {
+                let mine: Vec<&(bool, Pos, usize, End)> = self.events.iter().filter(|e| e.0 == open && e.1 == *c).collect();
+                mine.len() == 2 && mine.iter().all(|e| matches!(e.3, End::After(l) if l <= 3))
+            })
+        });
+        v
+    }
+
     /// [`Steps::retimed`] without several events.
     pub fn retimed_without_all(&self, new: &[u32], drop: &[(Pos, usize)]) -> Schedule {
         let mut s = self.clone();
@@ -1111,4 +1151,40 @@ pub fn early_receivers(mech: &Mech, k: usize) -> Vec<Pos> {
 pub fn judge(pool: &Pool, cands: &[Wired], sopts: &crate::search::SearchOptions, log: &(dyn Fn(&str) + Sync)) -> Vec<(Design, String)> {
     let v: Vec<(Design, String)> = cands.iter().map(|w| (w.design.clone(), w.desc.clone())).collect();
     route2::validate(pool, v, sopts, log)
+}
+
+/// Polish a verified wired design: route2's rip-up and re-route (groups of up to 6 control
+/// blocks, pairs too), then the local search (`--moves all`: removals, swaps, moves, renets)
+/// until `secs` run out. Returns the smallest verified design.
+pub fn polish(pool: &Pool, d: &Design, route: &RouteOptions, sopts: &crate::search::SearchOptions, secs: u64, log: &(dyn Fn(&str) + Sync)) -> Result<Design> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+    let quiet = |m: &str| {
+        if m.contains("improved") {
+            log(m);
+        }
+    };
+    let ro = route2::RipOptions {
+        max_rip: 6,
+        route: RouteOptions { partial: false, order_limit: 0, ..route.clone() },
+        no_check: false,
+        rip: Vec::new(),
+        verbose: false,
+        extra_blocks: 0,
+        pairs: true,
+        polish: false,
+        polish_secs: 0,
+        polish_max: 0,
+    };
+    let mut noop = |_: &Design, _: &str| -> Result<()> { Ok(()) };
+    let mut cur = route2::rip_and_reroute(pool, d, &ro, sopts, &quiet, &mut noop).unwrap_or_else(|_| d.clone());
+    if std::time::Instant::now() < deadline {
+        let mut o = sopts.clone();
+        o.families = crate::search::parse_families("all")?;
+        o.deadline = Some(deadline);
+        let r = crate::search::search(pool, &cur, &o, &quiet, &mut noop)?;
+        if block_count(&r) < block_count(&cur) {
+            cur = r;
+        }
+    }
+    Ok(cur)
 }

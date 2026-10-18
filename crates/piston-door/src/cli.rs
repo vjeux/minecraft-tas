@@ -455,6 +455,13 @@ pub enum DoorCmd {
         /// windows (ideal-input sweep, others fixed).
         #[arg(long)]
         timing: bool,
+        /// Pulse pairs on one cell become one level window (a repeater instead of two pulses).
+        #[arg(long)]
+        windows: bool,
+        /// Polish each schedule's verified design for this many seconds (route2 rip-up, then
+        /// the local search with every move family); 0: off.
+        #[arg(long, default_value_t = 0)]
+        polish_secs: u64,
         /// Re-time every step to tick first + gap * k before anything else (0: keep).
         #[arg(long, default_value_t = 0)]
         uniform_gap: u32,
@@ -1238,6 +1245,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             auto_free,
             odd,
             timing,
+            windows,
+            polish_secs,
             uniform_gap,
             out_dir,
             archive,
@@ -1300,11 +1309,30 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     }
                 }
             }
-            // The schedules to wire.
-            let mut scheds: Vec<(String, crate::ideal::Schedule, std::collections::BTreeMap<String, i64>)> = Vec::new();
+            // Each source: its schedules are built, then wired at once (results as they come).
+            let mut all: Vec<mechwire::Wired> = Vec::new();
+            let mut ranking: Vec<(usize, String, usize)> = Vec::new();
+            let steps_of = |s: &crate::ideal::Schedule, vars: &std::collections::BTreeMap<String, i64>| -> Result<mechwire::Steps> {
+                let st = mechwire::Steps::from_schedule(s, vars)?;
+                if !windows {
+                    return Ok(st);
+                }
+                // Each pulse pair alone as a window, kept if the door still works with ideal
+                // inputs at the schedule's own timing.
+                let mut ok_cells = Vec::new();
+                for c in st.pulse_pair_cells() {
+                    let w = st.with_windows(&[c]);
+                    if !mechwire::working_retimes(&pool, &w, vec![st.ticks.clone()], 0, 2).is_empty() {
+                        ok_cells.push(c);
+                    }
+                }
+                log(&format!("  windows: pulse pairs at {:?} become windows", ok_cells.iter().map(|c| route2::fmt_pos(*c)).collect::<Vec<_>>()));
+                Ok(st.with_windows(&ok_cells))
+            };
             for (name, s, vars) in &sources {
+                let mut scheds: Vec<(String, crate::ideal::Schedule, std::collections::BTreeMap<String, i64>)> = Vec::new();
                 if retime {
-                    let steps = mechwire::Steps::from_schedule(s, vars)?;
+                    let steps = steps_of(s, vars)?;
                     let assigns = steps.assignments(&nums(&first)?, &nums(&gaps)?, max_tick);
                     log(&format!("{name}: {} steps (old ticks {:?}), {} retimings to replay", steps.ticks.len(), steps.ticks, assigns.len()));
                     let mut ok = mechwire::working_retimes(&pool, &steps, assigns, 0, 2);
@@ -1315,7 +1343,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         scheds.push((format!("{name} steps {a:?}"), steps.retimed(a), Default::default()));
                     }
                 } else if compress {
-                    let steps = mechwire::Steps::from_schedule(s, vars)?;
+                    let steps = steps_of(s, vars)?;
                     let f = nums(&first)?.first().copied().unwrap_or(1);
                     match mechwire::compress(&pool, &steps, f, 6, &nums(&gaps)?, &log) {
                         Some(a) => {
@@ -1325,7 +1353,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         None => log(&format!("{name}: no working retiming")),
                     }
                 } else if uniform_gap > 0 {
-                    let steps = mechwire::Steps::from_schedule(s, vars)?;
+                    let steps = steps_of(s, vars)?;
                     let f = nums(&first)?.first().copied().unwrap_or(1);
                     let a: Vec<u32> = (0..steps.ticks.len()).map(|k| f + uniform_gap * k as u32).collect();
                     log(&format!("{name}: {} steps re-timed to {a:?}", steps.ticks.len()));
@@ -1333,9 +1361,6 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 } else {
                     scheds.push((name.clone(), s.clone(), vars.clone()));
                 }
-            }
-            let mut all: Vec<mechwire::Wired> = Vec::new();
-            let mut ranking: Vec<(usize, String, usize)> = Vec::new();
             for (label, sc, v) in &scheds {
                 let mech = match mechwire::measure_ideal(&mut pool.worker(0), sc, v) {
                     Ok(m) => m,
@@ -1411,8 +1436,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let n = verify.min(r.len());
                     let ok = mechwire::judge(&pool, &r[..n], &sopts, &log);
                     match ok.first() {
-                        Some((d, desc)) => {
-                            log(&format!("{label}: VERIFIED {} blocks: {desc}", crate::block_count(d)));
+                        Some((d0, desc)) => {
+                            log(&format!("{label}: VERIFIED {} blocks: {desc}", crate::block_count(d0)));
+                            let polished;
+                            let d = if polish_secs > 0 {
+                                polished = mechwire::polish(&pool, d0, &o.route, &sopts, polish_secs, &log)?;
+                                log(&format!("{label}: polished {} -> {} blocks", crate::block_count(d0), crate::block_count(&polished)));
+                                &polished
+                            } else {
+                                d0
+                            };
                             ranking.push((crate::block_count(d), label.clone(), crate::block_count(&mech.bare)));
                             if let Some(dir) = &out_dir {
                                 std::fs::create_dir_all(dir)?;
@@ -1436,6 +1469,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     }
                 }
                 all.extend(r.into_iter().map(|w| mechwire::Wired { desc: format!("{label}: {}", w.desc), ..w }));
+            }
             }
             ranking.sort();
             println!("== ranking (verified mechanism + wiring) ==");
