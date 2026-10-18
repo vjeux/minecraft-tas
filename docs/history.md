@@ -402,7 +402,9 @@ Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and unde
 * **7x8 (56)**: box56's pulse-parity proof (0/99 catalog entries) is void: its even-link premise
   fails (observer busy window). 7x8-028/029 (v2 013/014) are blocked by one cell, K2's (4,4),
   which must serve the middle core piston (last gap 8|10 gt) and the bottom-right input (5..7 gt)
-  (wire56). Sweep of all 7x8/8x7 entries with timing variants: sweep56.
+  (wire56). 038/039 and 001/002 have a piston fed only through another piston's cell, which can
+  never fire alone (gadget `qc-shared`), or no feed at all; 000/003/004 need 45-46-event close
+  trains (wire56). Sweep of the rest with timing variants: sweep56.
 * **8x8 (64)**: 8x8-102 (v2 130): its bottom regions are reachable only through E3 (two pulses 7+
   gt apart) and R1 (4 gt apart), with no room for a converter (wire64, box64). v2 8x8-118..129:
   the elevator sits above BL's puller, so quasi-connectivity re-fires it (families). 139..142
