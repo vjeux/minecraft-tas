@@ -590,6 +590,38 @@ pub enum DoorCmd {
         #[arg(long, default_value = "designs/piston-door-3x3/tracks/vanilla-check/fuzz")]
         out_dir: PathBuf,
     },
+    /// Can a survival player build it? Search for a build program (placement order with real
+    /// player placements and normal updates, the lever state while building, temporary helper
+    /// blocks) that ends exactly in the judge's rest state, then run the judge's cycles from the
+    /// built state (see buildable.rs). Designs: files, `@builtin`, or `<git ref>:<path>`.
+    Buildable {
+        designs: Vec<String>,
+        /// Search time per design, in seconds.
+        #[arg(long, default_value_t = 300)]
+        budget: u64,
+        /// Worker JVMs.
+        #[arg(long, default_value_t = 16)]
+        workers: usize,
+        /// Allow temporary helper blocks in the search.
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+        helpers: bool,
+        /// Re-check a found program at this many positions (the judge's default four first).
+        #[arg(long, default_value_t = 4)]
+        positions: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Write each design's build script / diagnosis here (one file per design).
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// Append one markdown table row per design here.
+        #[arg(long)]
+        table: Option<PathBuf>,
+        /// Lever state while building: `both` (search both), `off`, `on`.
+        #[arg(long, default_value = "both")]
+        lever: String,
+        #[arg(long)]
+        verbose: bool,
+    },
     /// Check that a design is a working 3x3 piston door; print timings and block count.
     Verify {
         design: PathBuf,
@@ -1081,6 +1113,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
+        }
+        DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
+            let lever = match lever.as_str() {
+                "both" => None,
+                "off" => Some(false),
+                "on" => Some(true),
+                other => anyhow::bail!("--lever {other}: expected both, off or on"),
+            };
+            let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
+            crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
         DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir } => {
             let d = load_design(&design)?;
