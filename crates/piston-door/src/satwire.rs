@@ -397,8 +397,10 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
 }
 
 /// Replay an ideal schedule: the mechanism frames, and the power the redstone blocks give each
-/// piston (direct or quasi-connected) per tick.
-pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> Result<Rec> {
+/// piston (direct or quasi-connected) per tick. `real`: take that power from the simulator's
+/// real signals instead (a piston is powered when its cell or the cell above it receives a
+/// signal), so the schedule's inputs may sit off the plane and avoid quasi couplings.
+pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32, real: bool) -> Result<Rec> {
     let d = s.design().clone();
     let door = *d.ports.get("door").context("design has no 'port door'")?;
     let spec = DoorSpec { door, lever: door, along_z: false };
@@ -429,12 +431,21 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             })
             .collect()
     };
+    let probes = plane_cells(lo, hi, z);
+    let power_now = |w: &mut Worker, f: &HashMap<C2, String>| -> Result<HashMap<C2, bool>> {
+        if !real {
+            return Ok(pow_of(f));
+        }
+        let sig = w.signals(sb, &probes)?;
+        let on = |c: C2| probes.iter().position(|p| p[0] == c.0 && p[1] == c.1).is_some_and(|i| sig[i].0 > 0);
+        Ok(f.iter().filter(|(_, st)| matches!(mk(st), MK::Piston { .. })).map(|(c, _)| (*c, on(*c) || on(add(*c, U)))).collect())
+    };
     let mut phases: [Phase; 2] = Default::default();
     for (ph, open) in [(0usize, true), (1usize, false)] {
         let evs = s.events_of(open, s.vars())?;
         let before = snap(w)?;
         let mut frames = Vec::new();
-        let mut power = vec![pow_of(&before)];
+        let mut power = vec![power_now(w, &before)?];
         for t in 0..=ticks {
             for (et, p, st) in &evs {
                 if *et == t {
@@ -446,8 +457,8 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
                 }
             }
             let f = snap(w)?;
+            power.push(power_now(w, &f)?);
             frames.push(mech(&f));
-            power.push(pow_of(&f));
             w.step(sb, 1)?;
         }
         power.truncate(frames.len());

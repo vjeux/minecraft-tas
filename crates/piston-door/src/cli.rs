@@ -778,6 +778,11 @@ pub enum DoorCmd {
         /// Fix the source design's own wiring and report where the model disagrees with it.
         #[arg(long)]
         check: bool,
+        /// Ideal schedules: take each piston's wanted power from the simulator's real signals
+        /// (direct, or into the cell above it) instead of in-plane redstone-block adjacency, so
+        /// inputs may sit off the plane (z=+-1) and feed one piston with no quasi coupling.
+        #[arg(long)]
+        real_power: bool,
         /// CEGAR iterations.
         #[arg(long, default_value_t = 300)]
         iters: usize,
@@ -2396,7 +2401,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, settle, rec_ticks, no_qc, levels, check, iters, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, settle, rec_ticks, no_qc, levels, check, real_power, iters, first, extra_offsets, out } => {
             use crate::satwire as sw;
             let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
             let rec = {
@@ -2407,7 +2412,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 } else {
                     let text = std::fs::read_to_string(&mechanism)?;
                     let s = crate::ideal::Schedule::parse(&text)?;
-                    sw::record_ideal(&mut w, &s, rec_ticks)?
+                    sw::record_ideal(&mut w, &s, rec_ticks, real_power)?
                 }
             };
             for (i, ph) in rec.phases.iter().enumerate() {
