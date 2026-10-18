@@ -1,0 +1,56 @@
+# cd8: flat-b v7 geometry (P_M (-1,-1) east, M parks at (0,-1); X cell (2,-1)), TR goes RIGHT
+# (right 3-stack), only the T puller (1,4) on top; B' driven by two 2 gt pulses (8 rows: y -3..4).
+design designs/piston-door-3x3/tracks/flat-seam/cd8.txt
+let a1 = 2
+let pm = 6
+let b1 = 12
+let b2 = 18
+let a2 = 14
+let a3 = 22
+let top = 24
+let l = 14
+let r = 30
+open a1 set 0 -2 0 minecraft:redstone_block
+open a1+2 clear 0 -2 0
+open pm set -1 -2 0 minecraft:redstone_block
+open pm+2 clear -1 -2 0
+open b1 set 0 -3 0 minecraft:redstone_block
+open b1+2 clear 0 -3 0
+open b2 set 0 -3 0 minecraft:redstone_block
+open b2+2 clear 0 -3 0
+open a2 set 2 -1 0 minecraft:redstone_block
+open a2+2 clear 2 -1 0
+open a3 set 2 -1 0 minecraft:redstone_block
+open a3+2 clear 2 -1 0
+open top set 0 4 0 minecraft:redstone_block
+open top+2 clear 0 4 0
+open l set -3 1 0 minecraft:redstone_block
+open l set -3 2 0 minecraft:redstone_block
+open l+2 clear -3 1 0
+open l+2 clear -3 2 0
+open r set 5 1 0 minecraft:redstone_block
+open r set 5 2 0 minecraft:redstone_block
+open r+2 clear 5 1 0
+open r+2 clear 5 2 0
+close a1 set 0 -2 0 minecraft:redstone_block
+close a1+2 clear 0 -2 0
+close pm set -1 -2 0 minecraft:redstone_block
+close pm+2 clear -1 -2 0
+close b1 set 0 -3 0 minecraft:redstone_block
+close b1+2 clear 0 -3 0
+close b2 set 0 -3 0 minecraft:redstone_block
+close b2+2 clear 0 -3 0
+close a2 set 2 -1 0 minecraft:redstone_block
+close a2+2 clear 2 -1 0
+close a3 set 2 -1 0 minecraft:redstone_block
+close a3+2 clear 2 -1 0
+close top set 0 4 0 minecraft:redstone_block
+close top+2 clear 0 4 0
+close l set -3 1 0 minecraft:redstone_block
+close l set -3 2 0 minecraft:redstone_block
+close l+2 clear -3 1 0
+close l+2 clear -3 2 0
+close r set 5 1 0 minecraft:redstone_block
+close r set 5 2 0 minecraft:redstone_block
+close r+2 clear 5 1 0
+close r+2 clear 5 2 0
