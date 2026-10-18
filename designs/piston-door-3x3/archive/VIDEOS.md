@@ -19,6 +19,7 @@ Rendered by the real Minecraft client (`mctas door video-all`).
 | 53 | solid | [mechanics-rb2-hold-53b](mechanics-rb2-hold-53b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-rb2-hold-53b.mp4) |
 | 53 | solid | [piston-door-3x3-lm1-53b](piston-door-3x3-lm1-53b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-lm1-53b.mp4) |
 | 54 | solid | [piston-door-3x3-lm1-54b](piston-door-3x3-lm1-54b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-lm1-54b.mp4) |
+| 55 | solid | [logic-min-slime-free-55b](logic-min-slime-free-55b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/logic-min-slime-free-55b.mp4) |
 | 57 | solid | [piston-door-3x3-rb2-57b](piston-door-3x3-rb2-57b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-rb2-57b.mp4) |
 | 58 | gravity | [search-tool-from-HEAD-gravity-g3-60b-58b](search-tool-from-HEAD-gravity-g3-60b-58b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g3-60b-58b.mp4) |
 | 59 | gravity | [search-tool-from-HEAD-gravity-g3-60b-59b](search-tool-from-HEAD-gravity-g3-60b-59b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g3-60b-59b.mp4) |
@@ -38,6 +39,7 @@ Rendered by the real Minecraft client (`mctas door video-all`).
 | 90 | solid | [mechanics-ta-90b](mechanics-ta-90b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-ta-90b.mp4) |
 | 91 | solid | [mechanics-ta-91b](mechanics-ta-91b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-ta-91b.mp4) |
 | 96 | solid | [piston-door-3x3-v2u2-96b](piston-door-3x3-v2u2-96b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2u2-96b.mp4) |
+| 104 | solid | [mechanics-slime-free-104b](mechanics-slime-free-104b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-slime-free-104b.mp4) |
 | 109 | solid | [search-tool-v2-min-109b](search-tool-v2-min-109b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-v2-min-109b.mp4) |
 | 113 | solid | [search-tool-v2-min-113b](search-tool-v2-min-113b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-v2-min-113b.mp4) |
 | 115 | solid | [piston-door-3x3-v2-115b](piston-door-3x3-v2-115b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-115b.mp4) |

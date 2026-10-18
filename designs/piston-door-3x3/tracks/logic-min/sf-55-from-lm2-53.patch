@@ -1,0 +1,29 @@
+# slime-free from lm2-53: each side column gets 3 sticky pistons (retracted, pulse-driven)
+# instead of slime backbone + 1 piston.
+# Left: pistons x=-2; chain from O_m (single pulse): (2,-1,1)N, (1,-1,1)E ... (-2,-1,1)E,
+# (-2,0,1) fires up into floor (-2,1,1) (L1 direct, L0 by QC), dust (-2,2,1) on it -> L2.
+clear -3 0 0
+clear -1 0 0
+clear -1 1 0
+clear -1 2 0
+set -2 0 0 minecraft:sticky_piston[facing=east,extended=false]
+set -2 1 0 minecraft:sticky_piston[facing=east,extended=false]
+set -2 2 0 minecraft:sticky_piston[facing=east,extended=false]
+clear -3 -1 1
+clear -3 0 1
+set 2 -1 1 minecraft:observer[facing=north]
+set 1 -1 1 minecraft:observer[facing=east]
+set -2 0 1 minecraft:observer[facing=down]
+set -2 1 1 minecraft:smooth_stone
+set -2 2 1 minecraft:redstone_wire[north=side,east=side,south=side,west=side]
+# Right: pistons x=4; O_R fires into K_R (5,2,0) (R2 direct, R1 QC, R_P input); dust (5,1,0)
+# under it -> R1 direct, floor (5,0,0) -> R0.
+clear 5 1 0
+clear 3 0 0
+clear 3 1 0
+clear 3 2 0
+set 4 0 0 minecraft:sticky_piston[facing=west,extended=false]
+set 4 1 0 minecraft:sticky_piston[facing=west,extended=false]
+set 4 2 0 minecraft:sticky_piston[facing=west,extended=false]
+set 5 1 0 minecraft:redstone_wire[north=side,east=side,south=side,west=side]
+set 5 0 0 minecraft:smooth_stone
