@@ -80,3 +80,8 @@ Q at (0,5,-1). Patch from s1: `s4.patch`. Variants with the hold sensor at (-1,4
 * Tried first, failed: a silent Q (K quasi-powering Q so the lever never updates it; then no early
   pull and no blocker needed). The lever then sits above P_L's extended head, the head forwards
   the lever's update to P_L, P_L's retraction updates Q (they touch), and Q retracts at t1 anyway.
+* `door vanilla-check s4-36b.txt --extra-offsets 28`: PASS, the official 26.3 server matches the
+  simulator tick for tick (9344 ticks at 32 positions x 3 cycles; and a real-time 20 tps cycle at
+  the default positions). The calibrated sensor behaves the same in vanilla.
+* `door minimize --moves all --plateau` on s4: local minimum. `regrow --size 2 --any` and
+  `--size 3` with both sensor kinds, observers, blocks, dust, repeaters, redstone blocks: nothing.
