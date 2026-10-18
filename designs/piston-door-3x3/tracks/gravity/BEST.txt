@@ -1,96 +1,91 @@
-name: gravity-g1
+name: gravity-g3
 port door: 0 0 0
 port lever: 1 0 -2
-origin: -3 0 -3
+origin: -1 0 -3
 palette:
-  A minecraft:piston_head[facing=up,short=false,type=normal]
-  B minecraft:piston_head[facing=up,short=false,type=sticky]
-  C minecraft:piston_head[facing=west,short=false,type=sticky]
-  D minecraft:redstone_wire[east=none,north=none,power=14,south=up,west=side]
-  E minecraft:redstone_wire[east=none,north=none,power=8,south=side,west=side]
-  F minecraft:redstone_wire[east=none,north=side,power=5,south=side,west=none]
-  G minecraft:redstone_wire[east=none,north=side,power=6,south=side,west=none]
-  H minecraft:redstone_wire[east=none,north=side,power=7,south=side,west=none]
-  I minecraft:redstone_wire[east=side,north=none,power=13,south=none,west=side]
-  J minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=side]
-  K minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=up]
+  A minecraft:piston_head[facing=up,short=false,type=sticky]
+  B minecraft:redstone_wire[east=none,north=none,power=11,south=side,west=side]
+  C minecraft:redstone_wire[east=none,north=none,power=9,south=side,west=side]
+  D minecraft:redstone_wire[east=none,north=side,power=15,south=side,west=none]
+  E minecraft:redstone_wire[east=none,north=side,power=6,south=side,west=none]
+  F minecraft:redstone_wire[east=none,north=side,power=7,south=side,west=none]
+  G minecraft:redstone_wire[east=none,north=side,power=8,south=side,west=none]
+  H minecraft:redstone_wire[east=none,north=up,power=14,south=none,west=side]
+  I minecraft:redstone_wire[east=side,north=none,power=12,south=up,west=none]
+  J minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  K minecraft:redstone_wire[east=side,north=side,power=10,south=none,west=none]
   L minecraft:lever[face=floor,facing=north,powered=false]
-  M minecraft:redstone_wire[east=side,north=none,power=9,south=none,west=side]
-  N minecraft:redstone_wire[east=side,north=side,power=10,south=none,west=none]
-  O minecraft:obsidian
+  M minecraft:redstone_wire[east=up,north=side,power=13,south=none,west=none]
+  N minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  O minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
   P minecraft:piston[extended=true,facing=up]
-  Q minecraft:redstone_wire[east=up,north=none,power=11,south=side,west=none]
-  R minecraft:redstone_wall_torch[facing=south,lit=true]
-  S minecraft:redstone_wire[east=up,north=side,power=13,south=none,west=none]
-  T minecraft:redstone_wire[east=up,north=side,power=15,south=none,west=side]
-  U minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
-  V minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
-  W minecraft:repeater[delay=3,facing=north,locked=false,powered=true]
-  X minecraft:slime_block
-  Y minecraft:smooth_stone
-  Z minecraft:sticky_piston[extended=true,facing=east]
-  a minecraft:sticky_piston[extended=true,facing=up]
-  b minecraft:sticky_piston[extended=true,facing=west]
-  p minecraft:piston_head[facing=east,short=false,type=sticky]
-  r minecraft:redstone_wire[east=none,north=none,power=12,south=up,west=side]
-  s minecraft:sand
+  Q minecraft:repeater[delay=3,facing=north,locked=false,powered=true]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:sand
+  T minecraft:smooth_stone
+  U minecraft:sticky_piston[extended=false,facing=east]
+  V minecraft:sticky_piston[extended=false,facing=west]
+  W minecraft:sticky_piston[extended=true,facing=up]
+  p minecraft:piston_head[facing=up,short=false,type=normal]
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+  s minecraft:slime_block
 layer -7:
   .
   .
-  ....Y
-  ....Y
+  ..T
+  ..T
   .
 layer -6:
-  ...Y
-  ...YYY
-  ....UY
-  ....WY
-  ....aY
+  .TT
+  ..TT
+  ..NT
+  ..QT
+  ..WT
 layer -5:
-  ...QY
-  ...NME
-  ....YH
-  .....G
-  ....BF
+  .IB
+  .TKC
+  ..TG
+  ...F
+  ..AE
 layer -4:
-  ....r
-  ....Y
-  ....V
-  ....a
-  ....X
+  .
+  .MT
+  ..O
+  ..W
+  ..s
 layer -3:
+  ..T
+  ..H
   .
-  ....SY
-  .
-  ....B
-  ....X
+  ..A
+  ..s
 layer -2:
+  ..D
+  .T.T
   .
-  .....D
-  ...Y.Y
-  ....P
+  ..P
   .
 layer -1:
-  .
-  ....Y
-  .YYKRTYY
-  ..OYAYO
+  ..R
+  .JTJ
+  .TrT
+  sVpUs
   .
 layer 0:
   .
-  ....L
-  YIJ...JIY
-  ZpXsssXCb
+  ..L
+  .
+  sSSSs
   .
 layer 1:
   .
   .
   .
-  ..XsssX
+  sSSSs
   .
 layer 2:
   .
   .
   .
-  ..XsssX
+  sSSSs
   .

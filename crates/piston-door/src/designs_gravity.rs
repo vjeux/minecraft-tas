@@ -95,3 +95,69 @@ fn g1_routes() -> Vec<([i32; 3], &'static str)> {
         ([2, -5, 1], w), ([2, -6, 1], f),
     ]
 }
+
+/// g3: g1 with the sides PUSHED open from inside by sticky pistons that are the doorway floor
+/// under the side columns (P_L at (0,-1,0) facing west, P_R at (2,-1,0) facing east): the
+/// backbones reach down to y=-1, and once pushed the side sand rests on the piston heads.
+/// The side pistons are powered by the lever itself (no torch, no side lines).
+pub fn g3() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "gravity-g3".into();
+    let sand = "minecraft:sand";
+    for y in 0..3 {
+        for x in 0..3 {
+            b.set([x, y, 0], sand);
+        }
+    }
+    for y in -1..3 {
+        b.set([-1, y, 0], "slime_block");
+        b.set([3, y, 0], "slime_block");
+    }
+    b.set([0, -1, 0], "sticky_piston[facing=west,extended=false]"); // P_L
+    b.set([2, -1, 0], "sticky_piston[facing=east,extended=false]"); // P_R
+    b.set([1, -2, 0], "piston[facing=up,extended=true]"); // R3
+    b.set([1, -1, 0], "piston_head[facing=up,type=normal,short=false]");
+    b.set([1, -4, 0], "sticky_piston[facing=up,extended=true]"); // S2
+    b.set([1, -3, 0], "piston_head[facing=up,type=sticky,short=false]");
+    b.set([1, -4, 1], "slime_block"); // chain
+    b.set([1, -3, 1], "slime_block");
+    b.set([1, -6, 1], "sticky_piston[facing=up,extended=true]"); // S1
+    b.set([1, -5, 1], "piston_head[facing=up,type=sticky,short=false]");
+    b.port("door", [0, 0, 0]);
+    // Lever block LB, T_A2 (R3 by QC) on its south face, T_A (A net) on its north face.
+    b.set([1, -1, -2], FLOOR);
+    b.set([1, 0, -2], "lever[face=floor,facing=north,powered=false]");
+    b.port("lever", [1, 0, -2]);
+    b.set([1, -1, -1], "redstone_wall_torch[facing=south,lit=true]"); // T_A2
+    b.set([1, -1, -3], "redstone_wall_torch[facing=north,lit=true]"); // T_A
+    // Side pistons: L through a dust on each side of LB into the block next to the piston.
+    b.set([0, -1, -2], "redstone_wire[north=side,east=side,south=side,west=side]");
+    b.set([0, -2, -2], FLOOR);
+    b.set([0, -1, -1], FLOOR);
+    b.set([2, -1, -2], "redstone_wire[north=side,east=side,south=side,west=side]");
+    b.set([2, -2, -2], FLOOR);
+    b.set([2, -1, -1], FLOOR);
+    let w = "minecraft:redstone_wire";
+    let f = FLOOR;
+    for (p, s) in [
+        // A: under T_A, down to the floor feeding RS2.
+        ([1, -2, -3], w), ([1, -3, -3], f),
+        ([1, -3, -2], w), ([1, -4, -2], f),
+        // On to the floor behind RS1b.
+        ([0, -4, -2], w), ([0, -5, -2], f),
+        ([0, -5, -3], w), ([0, -6, -3], f),
+        ([1, -5, -3], w), ([1, -6, -3], f),
+        ([1, -5, -2], w), ([1, -6, -2], f),
+        // S1 fast.
+        ([2, -5, -2], w), ([2, -6, -2], f),
+        ([2, -5, -1], w), ([2, -6, -1], f),
+        ([2, -5, 0], w), ([2, -6, 0], f),
+        ([2, -5, 1], w), ([2, -6, 1], f),
+    ] {
+        b.set(p, s);
+    }
+    b.repeater([1, -4, -1], "south", 2); // RS2
+    b.repeater([1, -6, 0], "south", 3); // RS1
+    b.repeater([1, -6, -1], "south", 1); // RS1b
+    b.d
+}
