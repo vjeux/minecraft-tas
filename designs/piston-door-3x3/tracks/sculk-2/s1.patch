@@ -1,0 +1,7 @@
+# st43-bmobs-42b: the 5-block lever->R_B chain -> one calibrated sculk sensor feeding R_B (delay 1)
+clear 0 6 0
+clear 0 6 1
+clear 0 6 2
+clear 0 5 2
+set 1 6 2 minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+set 1 6 1 minecraft:repeater[delay=1,facing=south,locked=false,powered=false]

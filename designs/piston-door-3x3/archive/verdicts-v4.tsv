@@ -283,6 +283,7 @@ e88e623ae8e41d2a	ok	24	36
 e8c45358ecec94f9	broken	-	-	at offset [0, 0, 0]: unsupported blocks (they could not stand there in survival): [0, 3, 5] minecraft:redstone_wall_torch[facing=north,lit=true]; [2, 0, 2] minecraft:redstone_torch[lit=true]; [2, 4, 0] minecraft:redstone_wall_torch[facing=south,lit=true]; [5, 4, 1] minecraft:redstone_torch[lit=true]
 e90f54068e175cb7	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 ea9807b63e10002a	ok	16	19	
+eb6ca83566ebb0eb	ok	19	38	
 ec7f41ee05c47334	ok	22	29	
 ed6f9c1d3e5dc178	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 ed7b9b739fa60844	ok	22	38	

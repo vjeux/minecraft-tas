@@ -36,13 +36,13 @@ Slime-free, and every block in the door's plane: the whole machine is one block 
 
 **54 blocks**, solid, slime-free, flat, opens in 36 ticks, closes in 34 (worst cycle): [flat-v2-54b](archive/flat-v2-54b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-54b.mp4)). From agent flat; see [tracks/flat/NOTES.md](tracks/flat/NOTES.md).
 
-## Sculk: 42 blocks
+## Sculk: 38 blocks
 
 Uses sculk sensors (footsteps or mobs nearby can trigger them).
 
-![st43-bmobs-42b](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.gif)
+![sculk2-s1-38b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s1-38b.gif)
 
-**42 blocks**, sculk, opens in 22 ticks, closes in 38 (worst cycle): [st43-bmobs-42b](archive/st43-bmobs-42b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.mp4)). Agent top-control on search-tool's 43: the redstone-block family with a sculk sensor and one repeater as the late hold, and the bottom-middle piston retracted at rest, fired by an observer watching the bottom-right door block.
+**38 blocks**, sculk, opens in 19 ticks, closes in 38 (worst cycle): [sculk2-s1-38b](archive/sculk2-s1-38b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s1-38b.mp4)). From agent sculk-2; see [tracks/sculk-2/NOTES.md](tracks/sculk-2/NOTES.md).
 
 Every record of this board in one video: [sculk-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.jpg)).
 
