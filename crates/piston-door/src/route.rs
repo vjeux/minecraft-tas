@@ -12,6 +12,7 @@ use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
 use std::cmp::Reverse;
 
 use mctas::blockstate::BlockState;
+use anyhow::Context;
 use mctas::sim::Pos;
 
 pub const FLOOR: &str = "minecraft:smooth_stone";
@@ -121,4 +122,40 @@ impl Router<'_> {
         }
         Some(out)
     }
+}
+
+/// Cells a design touches while it runs: every cell that is non-air at any tick of one
+/// open/close cycle, plus every cell next to a slime block at any tick (it would be dragged).
+pub fn swept_cells(w: &mut mctas::sim::Worker, d: &mctas::design::Design, spec: &crate::DoorSpec) -> anyhow::Result<HashSet<Pos>> {
+    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    crate::video::place(w, sb, d)?;
+    let (lo, hi) = d.bounds().context("empty design")?;
+    let lo = [lo[0] - 3, lo[1] - 3, lo[2] - 3];
+    let hi = [hi[0] + 3, hi[1] + 3, hi[2] + 3];
+    let mut out = HashSet::new();
+    for _ in 0..2 {
+        w.use_block(sb, spec.lever)?;
+        for _ in 0..70 {
+            w.step(sb, 1)?;
+            let r = w.get_region(sb, lo, hi)?;
+            for x in lo[0]..=hi[0] {
+                for y in lo[1]..=hi[1] {
+                    for z in lo[2]..=hi[2] {
+                        let Some(s) = r.get([x, y, z]) else { continue };
+                        if mctas::blockstate::is_air(s) {
+                            continue;
+                        }
+                        out.insert([x, y, z]);
+                        if s.starts_with("minecraft:slime_block") || s.contains("moving_piston") {
+                            for f in FACES {
+                                out.insert(add([x, y, z], f));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    w.drop_sandbox(sb)?;
+    Ok(out)
 }

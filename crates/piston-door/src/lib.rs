@@ -52,11 +52,12 @@ impl DoorSpec {
         out
     }
 
-    /// The 18 cells right in front of and behind the opening.
+    /// The walkway: the 3x3 opening extended 3 blocks in front of and behind the door, so you
+    /// can actually walk up to and through it.
     pub fn corridor_cells(&self) -> Vec<Pos> {
         let [x, y, z] = self.door;
         let mut out = Vec::new();
-        for dz in [-1, 1] {
+        for dz in [-3, -2, -1, 1, 2, 3] {
             for dy in 0..3 {
                 for dx in 0..3 {
                     out.push([x + dx, y + dy, z + dz]);

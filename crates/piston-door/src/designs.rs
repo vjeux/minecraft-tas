@@ -239,15 +239,12 @@ pub fn v2() -> Design {
     // A steady power: torch (0,4,0) on (-1,4,0), lit = NOR(L, L_late).
     b.set([0, 4, 0], "redstone_wall_torch[facing=east,lit=true]");
     b.set([-1, 4, 0], FLOOR);
-    b.dust([6, 6, 1]); // next to the lever
-    b.set([6, 5, -1], FLOOR);
-    b.set([6, 6, -1], "redstone_wire"); // next to the lever (front)
+    // A's early input: a branch of the sides line (which carries L), up the left side.
     for (p, s) in [
-        ([5, 4, -1], FLOOR), ([5, 5, -1], "redstone_wire"), ([4, 3, -1], FLOOR), ([4, 4, -1], "redstone_wire"),
-        ([3, 3, -1], FLOOR), ([3, 4, -1], "redstone_wire"), ([3, 2, -2], FLOOR), ([3, 3, -2], "redstone_wire"),
-        ([2, 3, -2], FLOOR), ([2, 4, -2], "redstone_wire"), ([1, 3, -2], FLOOR), ([1, 4, -2], "redstone_wire"),
-        ([0, 3, -2], FLOOR), ([0, 4, -2], "redstone_wire"), ([-1, 2, -2], FLOOR), ([-1, 3, -2], "redstone_wire"),
-        ([-1, 3, -1], FLOOR), ([-1, 4, -1], "redstone_wire"), ([-1, 5, 0], "redstone_wire"),
+        ([-4, -1, 1], FLOOR), ([-4, 0, 1], "redstone_wire"), ([-5, 0, 1], FLOOR), ([-5, 1, 1], "redstone_wire"),
+        ([-5, 1, 0], FLOOR), ([-5, 2, 0], "redstone_wire"), ([-4, 2, 0], FLOOR), ([-4, 3, 0], "redstone_wire"),
+        ([-3, 3, 0], FLOOR), ([-3, 4, 0], "redstone_wire"), ([-2, 4, 0], FLOOR), ([-2, 5, 0], "redstone_wire"),
+        ([-1, 5, 0], "redstone_wire"),
     ] {
         b.set(p, s);
     }
@@ -271,19 +268,14 @@ pub fn v2() -> Design {
     b.dust([3, 4, 5]);
     b.dust([3, 4, 4]);
     b.repeater([3, 4, 3], "north", 1);
-    // A's late input: L_6 + 30gt off R1's net, into the A net at (5,5,-1).
-    b.repeater([8, 6, -1], "north", 4);
-    b.repeater([8, 6, -2], "north", 4);
-    b.repeater([8, 6, -3], "north", 4);
-    b.repeater([8, 6, -4], "north", 3);
-    b.dust([8, 6, -5]);
-    b.repeater([5, 5, -2], "south", 1);
+    // A's late input: the P_T late net (L_28) through a 6gt repeater into the A net's end.
     for (p, s) in [
-        ([7, 4, -5], FLOOR), ([7, 5, -5], "redstone_wire"), ([6, 3, -5], FLOOR), ([6, 4, -5], "redstone_wire"),
-        ([5, 2, -5], FLOOR), ([5, 3, -5], "redstone_wire"), ([5, 3, -4], FLOOR), ([5, 4, -4], "redstone_wire"),
-        ([5, 4, -3], FLOOR), ([5, 5, -3], "redstone_wire"),
+        ([2, 3, 4], FLOOR), ([2, 4, 4], "redstone_wire"), ([1, 3, 4], FLOOR), ([1, 4, 4], "redstone_wire"),
+        ([0, 3, 4], FLOOR), ([0, 4, 4], "redstone_wire"), ([-1, 2, 4], FLOOR), ([-1, 3, 4], "redstone_wire"),
+        ([-1, 3, 3], FLOOR), ([-1, 4, 3], "redstone_wire"), ([-1, 4, 2], FLOOR), ([-1, 5, 2], "redstone_wire"),
     ] {
         b.set(p, s);
     }
+    b.repeater([-1, 5, 1], "north", 3);
     b.d
 }

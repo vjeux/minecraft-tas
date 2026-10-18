@@ -85,9 +85,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     [v[0], v[1], v[2]]
                 }).collect()
             };
-            let mut reserved = std::collections::HashSet::new();
-            for x in -5..=7 { for y in -4..=7 { reserved.insert([x, y, 0]); } }
-            for x in 0..=2 { for y in 0..=2 { for z in [-2, -1, 1, 2] { reserved.insert([x, y, z]); } } }
+            let spec = crate::DoorSpec::from_design(&d)?;
+            let mut w = Worker::spawn(&cfg)?;
+            let mut reserved = crate::route::swept_cells(&mut w, &d, &spec)?;
+            reserved.retain(|p| !d.blocks.contains_key(p));
+            for x in 0..=2 { for y in 0..=2 { for z in -4..=4 { reserved.insert([x, y, z]); } } }
             reserved.insert([1, 3, 1]);
             let r = crate::route::Router { blocks: &d.blocks, reserved, allow: cells(&allow).into_iter().collect(), lo: [-12, -6, -8], hi: [12, 12, 10] };
             let goal = cells(&goal)[0];
