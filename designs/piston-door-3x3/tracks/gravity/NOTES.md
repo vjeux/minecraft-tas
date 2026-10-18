@@ -85,3 +85,23 @@ No slime or honey anywhere (`door verify` prints slime-free). Mechanism:
   more and pulls R3 down the last cell. On close the pulse lands while S2 is already on.
 * sf1 (68): three pullers per side. sf2 (66): bottom side sands drop onto vertical pistons.
   sf3 (64): S1's fast input is a dust pointing into a block beside S1.
+
+## g6: 49 blocks, category gravity (current BEST.txt)
+g4 with T_A (the torch that starts the A net) hung on the floor of the left cross dust instead of
+on the lever block: a dust's floor is a strongly powered block, and this one is one level lower,
+so the torch's first dust step and its floor disappear (-2). Verified at 124 positions.
+
+## What did not pan out (materials, solid category)
+* Glazed terracotta door blocks: they can be pushed but never pulled or dragged, so every door
+  block would need a pusher on both sides of its travel; the side columns can only be pushed
+  outward from inside the door. No useful solid design came out of it. GT (or obsidian) is
+  still the right floor next to a moving slime structure (g1 used obsidian floors).
+* Honey instead of slime: same block counts here (honey drags sand like slime does, and honey
+  is not a redstone conductor while slime is).
+* A slime platform lifting two columns at once: slime does not fall when the piston under it
+  retracts, and the 12-block push limit is hit immediately.
+* Moving power sources (redstone blocks riding the chain) cannot reach S2: no cell is next to
+  both a chain slime and S2.
+* Chain top/bottom as a powered conductor (slime conducts): a repeater into the chain bottom
+  powers S2 and quasi-powers S1, but none of the repeater positions that point into it have a
+  cheap input in the current layout.
