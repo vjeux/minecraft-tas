@@ -49,3 +49,45 @@
   watched by O_A2 (A pulse 2); a torch tower on the lever block (2 gt per stage) up the front:
   O_T watches the L@8 torch -> 4gt stretch repeater -> obsidian -> T (lower spot only); the NOT L@10
   torch -> dust -> repeater (L18) watched by O_U -> U. Opens and closes in 22 ticks.
+
+## pd3 block budget (61)
+| part | blocks |
+|---|---|
+| door | 9 |
+| slime: left structure 5 (backbone 2, BM carrier, connector, push cell), right 3, top row 3 | 11 |
+| pistons A, LP, RP, T, U (all retracted at rest) | 5 |
+| bottom control: lever + block, O_A1, 2 dust + 2 floors, R6 + floor, O_S, P, block, dust, R14 + floor, O_A2 | 16 |
+| top control: torch tower 9 (W0 + 4 blocks + 4 torches), O_T, R_T + floor, obsidian, 2 dust + 2 floors, R18 + floor, O_U | 20 |
+`door minimize --moves all` finds nothing (61 is a local minimum for removals/pairs/moves/reroutes).
+
+## Why the top pump does not beat 47
+* Its mechanism is as heavy as rb6's (25 vs 26) but its action is split: the pump (T) and the lift
+  (U) sit above the door while A sits below it, so the control pays ~20 blocks to climb from the
+  lever to y=4..6. rb6 keeps every piston but the bottom-middle at the top and triggers that one
+  locally from a moving structure.
+* A needs an EARLY pulse (pull BM down before the left structure drags it aside), so the lever (or
+  something that changes at the flip) must be next to A; the late pulses (T pump, U lift, A grab)
+  could come from moving parts, but nothing moves near the top before the pump itself.
+
+## Findings worth reusing
+* Push-open sides from the doorway floor with ONE block (2,-1,-1) feeding both pushers LP (1,-1,-1)
+  west and RP (2,-1,0) east; with a 2gt pulse they push+spit on open and pull back on close.
+* A side structure can carry BM away at y=-1 (carrier slime next to the bottom-middle column cell)
+  and push it back on close; the carrier needs a slime connector to the backbone, otherwise the
+  backbone stays behind on the return pull (a pushed slime line has no glue on the way back).
+* The pump: push a line, sticky retract pulls only the first (glued) block back. Moves C one cell
+  without any piston touching C.
+* Pitfalls: an observer in a piston's quasi cell watching that piston, outputting upward, makes it
+  oscillate (its output block quasi-powers the piston); a torch tower stage next to a side piston's
+  quasi cell re-extends it; any source that powers a piston's upper spot quasi-powers it in the spot
+  below (sf1's T riding B) unless that lower piston gets no block update (BUD-safe if the source
+  powers a block next to the upper spot instead of the spot itself).
+
+## Next ideas
+* pd3: replace the 9-block torch tower with an observer chain (1 block / 2gt, no floors) climbing
+  the front; derive U's late pulse from that chain instead of a repeater line (~-4 blocks).
+* A mirrored pump (C exits UP, bottom row glued to a slime row and pumped from below, A grabs C at
+  the top, the right structure drags TM aside at y=3 like rb6) would put A, TM's exit and the side
+  pushers at the top; only the pump and the bottom-row lowering stay below.
+* sf1 (slime-free top pump) with the BUD-safe upper-spot source above is buildable now; it needs ~6
+  side pullers so it will not beat 53 either.
