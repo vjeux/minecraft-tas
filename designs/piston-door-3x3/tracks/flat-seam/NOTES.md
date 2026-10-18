@@ -43,6 +43,32 @@ the shrinking search that follows keeps the design inside. Pistons, the lever an
 never moved (they must already be inside). Combine with `--seamless full+hall` to keep the tier.
 57b -> s55 took 78 s (4 out-of-box blocks: 57 -> 57 -> 58 -> 57 -> 56, then 55).
 
+## Why the pist19r family (flat43, h44, s55, 57b) cannot go below 9 x 9
+- **Height >= 9 (rows y -2..6).** M's puller sits at y = -2 (pull-type, gap (1,-1)). A (1,4) faces down
+  and its quasi cell is B's own cell (1,5): every signal that powers B from its sides (0,5)/(2,5), or
+  from (1,6) itself, is the same query that quasi-powers A (identical position and direction). So B
+  can only be fed through the neighbours of (1,6): row y = 6 (flat43/h44: the repeater on top of B ->
+  dust (0,6); 57b/s55: a repeater at (0,6) pointing into (1,6)).
+- **Width >= 9.** Each side column's bottom piston ((-2,0), (4,0)) can only be fed from (x,-1) or
+  from the outer column (x = -3 / x = 5, directly or by quasi-connectivity through the middle
+  piston). With the side columns, their ring gaps and M's column in the way, the bottom region is cut
+  off from the top region except through an outer column: one outer column reaches one bottom
+  corner; the other corner is reachable only by watching M (an observer watching a pull-type piston
+  fires twice per action: wrong parity) or by a repeater merger (needs a floor on row y = -3:
+  outside the 9 rows). Tried in r1 (column x = 5 dropped, right bottom fed from M's watcher chain):
+  BROKEN, the right bottom toggled twice per M pulse.
+- So 9 x 9 = 81 (h44) is this family's floor. cd19 (center DOWN, flat-b) has neither constraint:
+  B' (1,-3) can be fed from (0,-3)/(2,-3) without touching A's quasi cell (1,-1), and the 8-row box
+  y -3..4 needs only: B' driven by two 2 gt pulses instead of an 8 gt window (no repeater floor on
+  y = -4), the top pullers fed from (0,4)/(3,4).
+- **B' with two pulses works (ideal inputs):** schedule
+  [cd19-2p.ideal](cd19-2p.ideal) (on flat-b's cd19.txt): B' pulsed at b1 (push A' up; the pulse ends before the push does,
+  so A' stays up) and b2 (head into the gap, then pull A' back); passes for b1 = 12, b2 = 17..20,
+  a2 = 14..15, a3 >= b2 + 4 (A' lands back 4 gt after b2), top 24, pm 3..10. 4 gt X pulses all fail.
+- Pulse merger (read in flat-b-v7-full): an observer watching a delay-2 repeater that a double pulse
+  (t, t+4) feeds fires ONCE: the repeater is on for exactly 4 gt, and its off edge comes while the
+  observer is still on (the repeater's tick has the higher priority).
+
 ## Log
 - `door minimize --moves all --plateau --shape flat --seamless full+hall` on 57b: nothing (48
   neutral designs, no removal after them). `door resynth --max-size 5` with lamps/notes/targets
