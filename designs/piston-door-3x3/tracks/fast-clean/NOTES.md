@@ -95,3 +95,23 @@ P_D pushes R_F back at c2; c4 F's base, T and R_F land; c5 F extends.
   then R_Z must go out at t2 and t12 and come back at ~t6 and ~t16 (k pulses on the OPEN edge only,
   e.g. A AND NOT B with B a longer delay of the same lever signal: no pulse on the falling edge),
   and P_X stays extended at rest. Not built: about ten new parts, all silent, in a full volume.
+
+## Open 8 (speed-2's lead, not attempted beyond reading)
+speed-2's e1.drive opens in 8 with four scripted inputs (P's arming, A' power on k4 / off k5, a
+k6..k8 pulse for Q that avoids P, R_Z by k6 BE). The torch idea for A' (a torch next to E whose
+support is powered at k3, so it falls at k5) needs an observer on a k1 mover pointing into that
+support; every position checked ((1,3,±1) torches, supports (1,3,±2)) has no such observer cell, and
+the torch relights 2 gt after its support falls: the support's pulse must last past k8, or A' (back
+in power at k7) pushes C down again when C lands at k7 BE.
+
+## Report
+* Compliant fast tier (all rotation-safe, 32 positions): **c1r-107 (9 / 7, open + close 16)** and
+  **s4c-93 (12 / 7)**; a1c-107 (10 / 7) between them. Every fast door broke the new rule only
+  through the lever net's z = -4 staircase; speed-2's hand route (c1.patch) fixes it at equal size
+  on every member of the family, the lamp-palette resynth then shrinks them (s4: 108 -> 93, never
+  resynthesized before; c1: 112 -> 108 -> 107 with a size-4..6 group in Q's second-pulse chain).
+* Close 6 exists in this family: `close6-c1r.drive` closes c1r in 6 with only the arming scripted
+  (F's close 0-tick by a re-armed P_X; a 3-piston padding chain so that D is updated after F
+  retracts; an armed P_D brings R_F back at c1). Wiring the arming is the next step (list above).
+* Tools: routers and searches keep the columns clear; `door route --swept-design`; `door blocks`;
+  minimize/resynth keep rotation safety (a renet gave a 103 that only works facing one way).
