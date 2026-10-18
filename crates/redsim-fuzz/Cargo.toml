@@ -1,0 +1,13 @@
+[package]
+name = "redsim-fuzz"
+description = "Differential fuzzing of redsim against the real game (the bridge sandbox)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }
