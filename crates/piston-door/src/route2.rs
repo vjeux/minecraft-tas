@@ -1415,7 +1415,9 @@ pub fn route_net(pb: &Problem, receivers: &[Receiver], budget: u32, opts: &Route
 /// Where nothing new goes: a door design's door cells and walkway (none without a door port).
 fn forbidden_cells(d: &Design) -> Result<HashSet<Pos>> {
     Ok(match DoorSpec::from_design(d) {
-        Ok(spec) => spec.door_cells().into_iter().chain(spec.corridor_cells()).collect(),
+        // The door, and the 3x3 columns in front of and behind it at any distance (the judge
+        // wants them empty at rest; they include the walkway).
+        Ok(spec) => spec.door_cells().into_iter().chain(spec.in_front_and_behind(64)).collect(),
         Err(_) => HashSet::new(),
     })
 }
