@@ -1,0 +1,14 @@
+# v1base cluster check: pm + top by ideal inputs
+design designs/piston-door-3x3/tracks/flat-b/v1base.txt
+open 0 use -3 -1 0
+close 0 use -3 -1 0
+let pm = 10
+let top = 28
+open pm set 3 -2 0 minecraft:redstone_block
+open pm+2 clear 3 -2 0
+open top set 1 5 0 minecraft:redstone_block
+open top+2 clear 1 5 0
+close pm set 3 -2 0 minecraft:redstone_block
+close pm+2 clear 3 -2 0
+close top set 1 5 0 minecraft:redstone_block
+close top+2 clear 1 5 0
