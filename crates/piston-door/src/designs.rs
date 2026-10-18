@@ -74,6 +74,9 @@ pub fn build(name: &str) -> Option<Design> {
         "v2-133" => Some(crate::designs_history::v2_133()),
         "v2-135" => Some(crate::designs_history::v2_135()),
         "v2-143" => Some(crate::designs_history::v2_143()),
+        "g1" => Some(crate::designs_gravity::g1()),
+        "g3" => Some(crate::designs_gravity::g3()),
+        "g4" => Some(crate::designs_gravity::g4()),
         _ => None,
     }
 }

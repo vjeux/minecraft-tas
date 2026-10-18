@@ -120,3 +120,16 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   next to piston B switches A off at once (the block becomes a moving piston that tick) and B
   on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
   then A on".
+## Gravity blocks (`FallingBlock`, `FallingBlockEntity`) — track gravity
+
+* Sand/gravel/concrete powder schedule a tick 2 gt after being placed (pistons place them at the
+  end of a move) or shape-updated; the tick makes them fall if the block below is air, fire,
+  liquid or replaceable. A `moving_piston` below counts as support. Slime next to sand does not
+  hold it up.
+* A falling block that lands on a moving piston (or anywhere it cannot be placed) breaks into an
+  item. `Sandbox.idle()` waits for falling blocks to land, so the judge sees that item.
+* Gadget `designs/gadgets/sand-drop-tower`: a 3-piston tower lowers/lifts a sand column 3 cells
+  (the slime chain lets the bottom piston pull both upper pistons down). Used by door g4.
+* An isolated redstone dust is a dot and powers nothing sideways; written as a cross
+  (`redstone_wire[north=side,east=side,south=side,west=side]`) it stays a cross after the shape
+  update and powers all four neighbors.
