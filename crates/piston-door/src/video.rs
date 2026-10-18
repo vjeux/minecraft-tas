@@ -372,7 +372,7 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     // play after each flip: at least until nothing moves anymore, so the second flip never comes
     // while the machine is still moving (a fixed 40 ticks cut the slow doors short).
     let mut ticks = opts.ticks;
-    let vo = crate::VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], ..Default::default() };
+    let vo = crate::VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], empty_walkway: false, ..Default::default() };
     if let Ok(r) = crate::verify(&mut w, d, &vo) {
         if let Some(c) = r.cycles.first() {
             facts.open_ticks = Some(c.open_ticks);
@@ -503,7 +503,7 @@ pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Op
     if redo_cut && !redo {
         let have: Vec<std::path::PathBuf> = files.iter().filter(|p| has_video(p)).cloned().collect();
         let pool = mctas::sim::Pool::spawn(jobs.max(1) * 2, &WorkerConfig { version: version.to_string(), ..Default::default() })?;
-        let vo = crate::VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], ..Default::default() };
+        let vo = crate::VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], empty_walkway: false, ..Default::default() };
         let settle = pool.map(have.clone(), |w, _, p| {
             let d = Design::load(&p)?;
             let r = crate::verify(w, &d, &vo)?;

@@ -76,6 +76,7 @@ impl SearchArgs {
                 max_ticks: self.screen_ticks,
                 offsets: offsets.iter().take(self.screen_offsets.max(1)).copied().collect(),
                 keep_frames: false,
+                empty_walkway: true,
             },
             judge: VerifyOptions { offsets, ..Default::default() },
             radius: self.radius,
@@ -619,6 +620,9 @@ pub enum DoorCmd {
         /// designs/piston-door-3x3/archive/verdicts-v4.tsv).
         #[arg(long)]
         verdicts: Option<PathBuf>,
+        /// Read every design back from the saved region files and fail on any difference.
+        #[arg(long)]
+        check: bool,
     },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
@@ -978,7 +982,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let d = load_design(&design)?;
             let mut facts = crate::video::Facts::of(&d);
             let mut w = Worker::spawn(&cfg)?;
-            if let Ok(r) = verify(&mut w, &d, &VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], ..Default::default() }) {
+            if let Ok(r) = verify(&mut w, &d, &VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], empty_walkway: false, ..Default::default() }) {
                 facts.open_ticks = r.cycles.first().map(|c| c.open_ticks);
                 facts.close_ticks = r.cycles.first().map(|c| c.close_ticks);
             }
@@ -1467,8 +1471,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("uploaded {url}");
             }
         }
-        DoorCmd::World { archive, out, name, workers, shots, verdicts } => {
-            let o = crate::world::WorldOptions { archive, out, name, workers, shots, verdicts };
+        DoorCmd::World { archive, out, name, workers, shots, verdicts, check } => {
+            let o = crate::world::WorldOptions { archive, out, name, workers, shots, verdicts, check };
             let tar = crate::world::build(version, &o)?;
             println!("world packed: {}", tar.display());
         }
@@ -1647,6 +1651,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         max_ticks: screen_ticks,
                         offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
                         keep_frames: false,
+                        empty_walkway: true,
                     },
                     judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
                     max_open,
@@ -1702,7 +1707,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
-            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false };
+            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false, empty_walkway: true };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
             let t = std::time::Instant::now();
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
