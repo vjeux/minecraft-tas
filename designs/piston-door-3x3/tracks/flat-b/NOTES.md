@@ -4,7 +4,8 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 
 | file | blocks | open/close | note |
 |---|---|---|---|
-| v2.txt = BEST.txt (archive/flat-b-v2-48b.txt) | 48 | 32 / 30 | center goes DOWN (elevator below the door), top pair up, one observer chain |
+| v3.txt = BEST.txt (archive/flat-b-v3-47b.txt) | 47 | 32 / 30 | v2 with the lever hanging under the observer that watches it (no floor) |
+| v2.txt (archive/flat-b-v2-48b.txt) | 48 | 32 / 30 | center goes DOWN (elevator below the door), top pair up, one observer chain |
 
 ## Mechanism `cd19` (19 blocks): the center goes DOWN, the elevator sits below the door
 - `cd19.txt` (+ `cd19.ideal`): mirror of mech-synth's pist19r. A' (1,-2) sticky up (pull-type,
