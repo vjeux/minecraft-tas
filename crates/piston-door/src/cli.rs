@@ -936,6 +936,35 @@ pub enum DoorCmd {
         #[arg(long)]
         close: bool,
     },
+    /// Dynamic properties of working designs (properties_dyn.rs): hallway-compatible, contained
+    /// (shells of air, smooth stone, slime, honey, obsidian, a mix), snow-proof (+ flammable
+    /// blocks on top), repeater input (open/close ticks), footsteps, 20 cycles. One position,
+    /// one orientation. Writes a TSV (joins properties.rs on the design hash) and prints a table.
+    PropertiesDyn {
+        /// Design files (always run, cached verdict or not).
+        designs: Vec<PathBuf>,
+        /// Folder of designs to add (the working ones per the verdict cache).
+        #[arg(long)]
+        archive_dir: Option<PathBuf>,
+        /// Also every design on HEAD and on the explore/* branches (as the leaderboard collects
+        /// them), the working ones per the verdict cache.
+        #[arg(long)]
+        branches: bool,
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        /// The leaderboard's verdict cache.
+        #[arg(long, default_value = "designs/piston-door-3x3/archive/verdicts-v5.tsv")]
+        verdicts: PathBuf,
+        /// Also run designs the cache does not know (verdict "uncached").
+        #[arg(long)]
+        uncached: bool,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long, default_value = "designs/piston-door-3x3/archive/properties-dyn-v1.tsv")]
+        out_tsv: PathBuf,
+    },
     /// Learn edits from pairs of designs (a -> b, b a smaller variant of a) and try each on the
     /// best designs of every league (see harvest.rs); improvements are archived and polished.
     Transplant {
@@ -1119,6 +1148,33 @@ pub enum DoorCmd {
         lever: String,
         #[arg(long)]
         verbose: bool,
+    },
+    /// Redstone Squid catalogue properties (properties.rs) of the given designs, or of every
+    /// working design on HEAD and the explore/* branches (the leaderboard's list, verdicts from
+    /// the archive's verdicts-v5.tsv): seamless tiers, dents, trapdoor/flush/deluxe, hipster,
+    /// symmetry, sync, clean, component restrictions, volume, timings. Cached by design hash in
+    /// <archive-dir>/properties-v1.tsv; prints a markdown table.
+    Properties {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        archive_dir: PathBuf,
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 12)]
+        workers: usize,
+        /// Also write the rows as TSV here (design, blocks, category, then every property).
+        #[arg(long)]
+        out_tsv: Option<PathBuf>,
+        /// Write the markdown table here (also printed).
+        #[arg(long)]
+        out_md: Option<PathBuf>,
+        /// Also run the dynamic checks (hallway-compatible, contained, snow, repeater input,
+        /// player steps, uses), each at the design's own position.
+        #[arg(long)]
+        dynamic: bool,
+        /// Recompute cached designs.
+        #[arg(long)]
+        redo: bool,
     },
     /// Check that a design is a working 3x3 piston door; print timings and block count.
     Verify {
@@ -2305,6 +2361,89 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
+        DoorCmd::PropertiesDyn { designs, archive_dir, branches, refs, verdicts, uncached, max_blocks, workers, out_tsv } => {
+            use crate::properties_dyn as pd;
+            let cache = pd::load_verdicts(&verdicts);
+            let mut cands: Vec<(String, Design, bool)> = Vec::new();
+            for p in &designs {
+                cands.push((p.display().to_string(), load_design(p)?, true));
+            }
+            if let Some(dir) = &archive_dir {
+                cands.extend(crate::shapes::collect_dir(dir, max_blocks)?.into_iter().map(|(s, d)| (s, d, false)));
+            }
+            if branches {
+                cands.extend(pd::collect_refs(std::path::Path::new("."), &refs, max_blocks)?.into_iter().map(|(s, d)| (s, d, false)));
+            }
+            let mut seen = std::collections::HashSet::new();
+            let mut jobs: Vec<(String, Design, String)> = Vec::new();
+            let mut counts: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+            for (src, d, explicit) in cands {
+                let h = format!("{:016x}", crate::leaderboard::design_hash(&d));
+                if !seen.insert(h.clone()) {
+                    continue;
+                }
+                let verdict = match cache.get(&h) {
+                    Some(true) => "ok",
+                    Some(false) => "broken",
+                    None => "uncached",
+                };
+                *counts.entry(verdict).or_default() += 1;
+                if explicit || verdict == "ok" || (uncached && verdict == "uncached") {
+                    jobs.push((src, d, verdict.to_string()));
+                }
+            }
+            jobs.sort_by_key(|(s, d, _)| (crate::block_count(d), s.clone()));
+            eprintln!(
+                "properties-dyn: {counts:?} in the verdict cache; running {} designs{}",
+                jobs.len(),
+                if uncached { " (uncached ones only if the judge passes them at offset 0)" } else { " (uncached skipped; --uncached runs them)" }
+            );
+            if jobs.is_empty() {
+                return Ok(());
+            }
+            let pool = mctas::sim::Pool::spawn(workers.min(jobs.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let t0 = std::time::Instant::now();
+            let done = std::sync::atomic::AtomicUsize::new(0);
+            let n = jobs.len();
+            let results = pool.map(jobs, |w, _, (src, d, verdict)| {
+                // A design the cache does not know runs only if the judge passes it at the
+                // design's own position (current rules).
+                let precheck = verdict != "uncached"
+                    || crate::verify(w, &d, &crate::VerifyOptions { offsets: vec![[0, 0, 0]], ..Default::default() }).is_ok();
+                let r = if precheck {
+                    let v = if verdict == "uncached" { "uncached (judge ok at offset 0)" } else { verdict.as_str() };
+                    pd::check_design(w, &src, &d, v).map(Some).map_err(|e| e.context(src.clone()))
+                } else {
+                    Ok(None)
+                };
+                let k = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                eprintln!("[{k}/{n} {:.0}s] {src}{}", t0.elapsed().as_secs_f64(), if precheck { "" } else { " (uncached, fails the judge: skipped)" });
+                r
+            });
+            let mut rows = Vec::new();
+            for r in results {
+                match r {
+                    Ok(Some(row)) => rows.push(row),
+                    Ok(None) => {}
+                    Err(e) => eprintln!("error: {e:#}"),
+                }
+            }
+            rows.sort_by_key(|r| (r.blocks, r.source.clone()));
+            let mut tsv = String::from(pd::TSV_HEADER);
+            tsv.push('\n');
+            for r in &rows {
+                tsv.push_str(&pd::tsv_line(r));
+                tsv.push('\n');
+            }
+            if let Some(dir) = out_tsv.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            std::fs::write(&out_tsv, tsv)?;
+            let table = pd::table(&rows);
+            std::fs::write(out_tsv.with_extension("md"), &table)?;
+            print!("{table}");
+            eprintln!("wrote {} and {} ({} rows)", out_tsv.display(), out_tsv.with_extension("md").display(), rows.len());
+        }
         DoorCmd::VanillaCheck { designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace } => {
             vanilla_check_cmd(version, &cfg, &designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace)?;
         }
@@ -2343,6 +2482,158 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
+        }
+        DoorCmd::Properties { designs, archive_dir, refs, workers, out_tsv, out_md, dynamic, redo } => {
+            use crate::properties as pr;
+            let repo = std::path::Path::new(".");
+            let verdicts = pr::cached_verdicts(&archive_dir);
+            let vanilla = pr::vanilla_verdicts(repo);
+            let mut cands: Vec<(String, Design)> = Vec::new();
+            if designs.is_empty() {
+                let all = crate::leaderboard::collect(repo, &refs, 400)?;
+                let n = all.len();
+                let mut unknown = 0;
+                for (s, d) in all {
+                    match verdicts.get(&crate::leaderboard::design_hash(&d)) {
+                        Some((true, _)) => cands.push((s, d)),
+                        Some((false, _)) => {}
+                        None => {
+                            unknown += 1;
+                            cands.push((s, d));
+                        }
+                    }
+                }
+                eprintln!("{n} designs, {} working or not judged yet ({unknown} not judged: screened by the judge at their own position)", cands.len());
+            } else {
+                for p in &designs {
+                    cands.push((p.display().to_string(), load_design(p)?));
+                }
+            }
+            let mut cache = pr::load_cache(&archive_dir);
+            let todo: Vec<(u64, Design)> = {
+                let mut seen = std::collections::HashSet::new();
+                cands
+                    .iter()
+                    .map(|(_, d)| (crate::leaderboard::design_hash(d), d.clone()))
+                    .filter(|(h, _)| (redo || !cache.get(h).is_some_and(|p| !dynamic || p.contains_key("hallway"))) && seen.insert(*h))
+                    .collect()
+            };
+            eprintln!("{} designs to compute", todo.len());
+            if !todo.is_empty() {
+                let pool = mctas::sim::Pool::spawn(workers.min(todo.len()).max(1), &cfg)?;
+                let results = pool.map(todo, |w, _, (h, d)| {
+                    if !verdicts.contains_key(&h) {
+                        let one = VerifyOptions { offsets: vec![[0, 0, 0]], ..Default::default() };
+                        if let Err(e) = crate::verify(w, &d, &one) {
+                            let mut p = pr::Props::new();
+                            p.insert("screen".into(), format!("broken: {}", format!("{e:#}").replace(['\t', '\n'], " ")));
+                            return Ok((h, Ok(p)));
+                        }
+                    }
+                    Ok((h, pr::compute(w, &d, dynamic)))
+                });
+                for r in results {
+                    let (h, p) = r?;
+                    match p {
+                        Ok(p) => {
+                            let mut merged = cache.remove(&h).unwrap_or_default();
+                            merged.extend(p);
+                            cache.insert(h, merged);
+                        }
+                        Err(e) => eprintln!("{h:016x}: {e:#}"),
+                    }
+                }
+                pr::save_cache(&archive_dir, &cache)?;
+            }
+            let dynp = pr::load_dyn(&archive_dir);
+            if !dynp.is_empty() {
+                eprintln!("joined {} designs' dynamic checks from properties-dyn-v1.tsv", dynp.len());
+            }
+            let mut rows = Vec::new();
+            for (s, d) in &cands {
+                let h = crate::leaderboard::design_hash(d);
+                let Some(mut p) = cache.get(&h).cloned() else { continue };
+                if let Some(x) = dynp.get(&h) {
+                    p.extend(x.clone());
+                }
+                if p.contains_key("steps") {
+                    let sculk = p.get("risky").is_some_and(|r| r.contains("sculk"));
+                    let steps_ok = p.get("steps").is_some_and(|s| s.starts_with("yes"));
+                    let risky = p.get("risky").is_some_and(|r| r != "-");
+                    p.insert(
+                        "isolated".into(),
+                        if sculk && !steps_ok {
+                            "no (hears footsteps)".into()
+                        } else if risky {
+                            "? (steps ok, outside untested)".into()
+                        } else {
+                            "yes".into()
+                        },
+                    );
+                    // Record eligibility (3): valid input (lever on the surface, steady support,
+                    // repeater input), unlimited uses, footsteps harmless, isolated, and a seamless
+                    // tier whose hallway can be built.
+                    let yes = |k: &str| p.get(k).is_some_and(|v| v.starts_with("yes"));
+                    let mut miss = Vec::new();
+                    for (k, what) in [
+                        ("lever_surface", "lever"),
+                        ("lever_support", "support"),
+                        ("repeater_input", "repeater input"),
+                        ("uses", "uses"),
+                        ("steps", "steps"),
+                        ("isolated", "isolated"),
+                        ("hallway", "hallway"),
+                    ] {
+                        if !yes(k) {
+                            miss.push(what);
+                        }
+                    }
+                    if p.get("seamless").is_none_or(|s| s == "-") {
+                        miss.push("seamless");
+                    }
+                    p.insert("eligible".into(), if miss.is_empty() { "yes".into() } else { format!("no ({})", miss.join(", ")) });
+                }
+                if p.get("screen").is_some_and(|s| s.starts_with("broken")) {
+                    continue;
+                }
+                if let Some((ok, rot)) = verdicts.get(&h) {
+                    p.insert("dir".into(), if rot == "safe" { "yes".into() } else { format!("no ({rot})") });
+                    p.insert("loc".into(), if *ok { "yes (32 pos)".into() } else { "no".into() });
+                } else {
+                    p.insert("dir".into(), "? (not judged yet)".into());
+                    p.insert("loc".into(), "? (1 pos)".into());
+                }
+                p.insert("vanilla".into(), vanilla.get(&h).cloned().unwrap_or_else(|| "sim only".into()));
+                rows.push((pr::display_name(s), crate::block_count(d), crate::category(d), p));
+            }
+            rows.sort_by(|a, b| (a.2 != "solid", a.2, a.1, &a.0).cmp(&(b.2 != "solid", b.2, b.1, &b.0)));
+            let leaders: Vec<_> = pr::LEADERS.iter().filter_map(|n| rows.iter().find(|r| r.0 == *n).cloned()).collect();
+            let table = format!(
+                "# Door properties (Redstone Squid catalogue rules)\n\nDefinitions and judgment calls: [NOTES.md](NOTES.md). One position, one orientation, one cycle per check; not directional / not locational from the leaderboard's cached verdicts.\n\n## Board leaders\n\n{}\n## Best design per property\n\n{}\n## Every working design ({})\n\n{}",
+                pr::render(&leaders),
+                pr::summary(&rows),
+                rows.len(),
+                pr::render(&rows)
+            );
+            print!("{table}");
+            if let Some(path) = out_md {
+                std::fs::write(path, &table)?;
+            }
+            if let Some(path) = out_tsv {
+                let keys: Vec<String> = {
+                    let mut k = std::collections::BTreeSet::new();
+                    for r in &rows {
+                        k.extend(r.3.keys().cloned());
+                    }
+                    k.into_iter().collect()
+                };
+                let mut out = format!("design\tblocks\tcategory\t{}\n", keys.join("\t"));
+                for (n, b, c, p) in &rows {
+                    let vals: Vec<String> = keys.iter().map(|k| p.get(k).cloned().unwrap_or_default()).collect();
+                    out.push_str(&format!("{n}\t{b}\t{c}\t{}\n", vals.join("\t")));
+                }
+                std::fs::write(path, out)?;
+            }
         }
         DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out, tile_extra } => {
             let d = load_design(&design)?;

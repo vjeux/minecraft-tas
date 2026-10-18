@@ -110,3 +110,49 @@ table reports `track=lost N` if a door block was lost (none so far is the goal).
 * Volume: quartz-like blocks resting in S are hallway, never circuitry (also when they are part of
   a moving structure at rest); a moving quartz-like block is circuitry while it moves.
 * EXPANDABLE / TILEABLE / M WIDE / N HIGH: not computed (tileable is skipped per the coordinator).
+
+## Joined columns from props-dyn
+
+`mctas door properties` reads `archive/properties-dyn-v1.tsv` (props-dyn's dynamic checks, same
+design hash) and shows hallway, contained (+ the shells that fail and the 1-block-gap variant),
+weatherproof (= props-dyn's snow check passes AND no flammable block under the open sky),
+repeater input (`n/a (no site)` = no free side of the lever's support for a repeater rig), steps,
+uses (20 cycles). Derived here:
+* isolated (3.9): `no` for sculk doors that hear footsteps; `?` when some other risky block
+  (pressure plate, tripwire, daylight detector, target, lightning rod) is present; else yes.
+* record-eligible (3): lever on the surface, steady support, repeater input works, 20 cycles,
+  footsteps harmless, isolated, hallway-compatible and a seamless tier. The column lists what is
+  missing.
+* lever support: the same BLOCK (its state may change: a lamp lights) in every frame, never moved.
+
+## Findings (2026-10-18 19:35Z, 248 working designs; props-dyn @947d8c9)
+
+props-dyn redefined hallway-compatible (coordinator): the hallway fills only the ring cells that
+are air at every tick of a cycle. A ring cell some block passes through therefore stays empty for
+good: this tool now counts it as a HOLE (a missing hallway block: minor on walls and ceiling, a
+dent on the floor; hidden in the door plane while closed) and treats circuitry in the cell right
+behind a hole (one further out from the tunnel) as visible for SEAMLESS (`holes` in the TSV).
+
+* Seamless: SUPER 0, FULL 22, SEMI 0 (every door clean in the open state is also clean on both
+  closed sides), QUART 206, none 20 (the holes changed no tier).
+* Hallway-compatible: 100; with a seamless tier: 93 (smallest: flat-b-v7-44b, volume 80; b38, 38
+  blocks); FULL SEAMLESS + hallway: 4 (flat-v2-57b smallest, 57 blocks, volume 100).
+* Dents with the holes: DENTLESS 57 (was 90; best: lamp-sweep-flat43 volume 81, fc2 40 blocks),
+  MINOR DENTS ONLY or better 160. b38 drops to minor (a swept wall cell).
+* Record-eligible: 0. The blocker is repeater input (229 doors), then the hallway (143), isolation
+  (34: sculk), footsteps (20), no seamless tier (18). Missing ONLY repeater input: b38 (38) and
+  its family (b38r, b39, b40, b40r, e41), lamp-sweep-w41, m05-41 family and more: their control
+  reads the lever block itself (observers watching it), so powering the support block does
+  nothing. The 14 doors where repeater input works all fail the hallway (gravity g1/g4/g6/sf1/sf3
+  family) or hear footsteps (sculk s1r, sculk2-s1).
+* Repeater input fails for doors that read the lever block itself (observers watching it: fc2,
+  b38's family) or its weak power into a non-support neighbor (props-dyn's finding).
+* Every leader is QUART seamless (except tick-door 218: none); fc2 and mp8 43/44 have exactly ONE
+  open-state blocker (fc2: O_m observer (2,-1,0) in the floor ring; mp8: the sticky piston (0,3,0)
+  in the ceiling ring) with both closed sides clean.
+* Open targets (no working door): SUPER SEAMLESS, any FLUSH or DELUXE (full or semi), every
+  HIPSTER tier, FULL SYMMETRICAL, FULL/SUPER SYNC, CLEAN, NO STICKY PISTONS, TORCH AND DUST ONLY,
+  REDSTONE BLOCK ONLY, ZOMBA-, ZOMBI-, record eligibility.
+* Cheapest path to a first record-eligible door: a b38-family door whose lever-reading observer is
+  replaced by something that sees the support block's power (b38 already passes hallway,
+  contained, weatherproof, footsteps, 20 cycles, QUART seamless).
