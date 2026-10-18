@@ -1,0 +1,10 @@
+# mp7-repU-pgF (F shuttle: F on t8 / off t6), U by ideal input: U powered [u+1, u+3) opening, [uc+1, uc+3) closing
+design designs/piston-door-3x3/tracks/pareto-mid/mp7-repU-pgF-idealU.txt
+let u = 11
+let uc = 9
+open 0 use 0 3 -1
+open u set 2 -3 0 minecraft:redstone_block
+open u+2 clear 2 -3 0
+close 0 use 0 3 -1
+close uc set 2 -3 0 minecraft:redstone_block
+close uc+2 clear 2 -3 0
