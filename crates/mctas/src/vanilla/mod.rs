@@ -99,11 +99,26 @@ pub struct VanillaOptions {
     /// `/tick rate` while frozen: only how often the idle server loop wakes up (a `tick step`
     /// waits for the next wake-up), not what a tick does. Vanilla's default is 20.
     pub tick_rate: u32,
+    /// Start on a copy of this saved world instead of a fresh void world.
+    pub world: Option<PathBuf>,
+    /// view-distance (chunks sent to players).
+    pub view_distance: u32,
+    /// `level-name`: the world folder's name, and the name the game lists for a new world.
+    pub level_name: String,
 }
 
 impl Default for VanillaOptions {
     fn default() -> Self {
-        VanillaOptions { version: crate::DEFAULT_VERSION.to_string(), heap_mb: 1536, keep_dir: false, bot_name: "mctas_bot".into(), tick_rate: 20 }
+        VanillaOptions {
+            version: crate::DEFAULT_VERSION.to_string(),
+            heap_mb: 1536,
+            keep_dir: false,
+            bot_name: "mctas_bot".into(),
+            tick_rate: 20,
+            world: None,
+            view_distance: 3,
+            level_name: "world".into(),
+        }
     }
 }
 
@@ -151,6 +166,8 @@ pub struct VanillaServer {
     /// Marker block state per chunk (see `snapshot`).
     markers: HashMap<(i32, i32), bool>,
     markers_seen: u64,
+    /// The world folder's name under `dir` (`level-name`).
+    pub level_name: String,
     /// The server's console log.
     pub log: PathBuf,
 }
@@ -176,8 +193,11 @@ impl VanillaServer {
         let rcon_port = free_port()?;
         let password = format!("p{:x}", rand_u64());
         std::fs::write(dir.join("eula.txt"), "eula=true\n")?;
+        if let Some(src) = &opts.world {
+            copy_tree(src, &dir.join(&opts.level_name))?;
+        }
         let props = [
-            ("level-name", "world".to_string()),
+            ("level-name", opts.level_name.clone()),
             ("level-type", "minecraft\\:flat".to_string()),
             ("generator-settings", r#"{"layers":[{"block":"minecraft:air","height":1}],"biome":"minecraft:the_void","features":false,"lakes":false}"#.to_string()),
             ("generate-structures", "false".to_string()),
@@ -200,7 +220,7 @@ impl VanillaServer {
             ("max-players", "4".to_string()),
             ("max-tick-time", "-1".to_string()),
             ("pause-when-empty-seconds", "0".to_string()),
-            ("view-distance", "3".to_string()),
+            ("view-distance", opts.view_distance.to_string()),
             ("simulation-distance", "3".to_string()),
             ("network-compression-threshold", "-1".to_string()),
             ("sync-chunk-writes", "false".to_string()),
@@ -259,7 +279,7 @@ impl VanillaServer {
             }
             std::thread::sleep(Duration::from_millis(200));
         };
-        let mut server = VanillaServer { child, dir, rcon, bot: None, game_port, keep_dir: opts.keep_dir, log, stats: Stats::default(), tick_rate: opts.tick_rate, dirty: None, markers: HashMap::new(), markers_seen: 0 };
+        let mut server = VanillaServer { child, dir, rcon, bot: None, game_port, keep_dir: opts.keep_dir, log, stats: Stats::default(), tick_rate: opts.tick_rate, dirty: None, markers: HashMap::new(), markers_seen: 0, level_name: opts.level_name.clone() };
         for c in [
             "tick freeze",
             "save-off",
@@ -437,8 +457,8 @@ impl VanillaServer {
             bail!("save-all flush: {out}");
         }
         // 26.x keeps each dimension under world/dimensions/<namespace>/<name>/.
-        let modern = self.dir.join("world").join("dimensions").join("minecraft").join("overworld");
-        let dim = if modern.exists() { modern } else { self.dir.join("world") };
+        let modern = self.dir.join(&self.level_name).join("dimensions").join("minecraft").join("overworld");
+        let dim = if modern.exists() { modern } else { self.dir.join(&self.level_name) };
         read_box(&dim, lo, hi)
     }
 }
@@ -466,6 +486,21 @@ impl Drop for VanillaServer {
             let _ = std::fs::remove_dir_all(&self.dir);
         }
     }
+}
+
+/// Copy a directory tree (a saved world), skipping `session.lock`.
+fn copy_tree(from: &Path, to: &Path) -> Result<()> {
+    std::fs::create_dir_all(to)?;
+    for e in std::fs::read_dir(from)? {
+        let e = e?;
+        let (p, q) = (e.path(), to.join(e.file_name()));
+        if e.file_type()?.is_dir() {
+            copy_tree(&p, &q)?;
+        } else if e.file_name() != "session.lock" {
+            std::fs::copy(&p, &q)?;
+        }
+    }
+    Ok(())
 }
 
 fn rand_u64() -> u64 {

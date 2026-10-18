@@ -149,6 +149,7 @@ public final class Protocol {
             case "fill" -> fill(r);
             case "get" -> get(r);
             case "unsupported" -> unsupported(r);
+            case "rotate" -> rotate(r);
             case "use" -> use(r);
             case "step" -> step(r);
             case "status" -> status(sandbox(r));
@@ -636,6 +637,26 @@ public final class Protocol {
     }
 
     // ---- helpers -----------------------------------------------------------------------------
+
+    /**
+     * Block states turned by {@code turns} quarter turns clockwise seen from above (the game's
+     * own {@code BlockState.rotate(Rotation.CLOCKWISE_90)}: facings, axes, dust connections, rail
+     * shapes, lever faces...). No sandbox needed.
+     */
+    private JsonObject rotate(JsonObject r) throws CommandSyntaxException {
+        int turns = Math.floorMod(r.get("turns").getAsInt(), 4);
+        JsonArray out = new JsonArray();
+        for (JsonElement e : r.getAsJsonArray("states")) {
+            BlockState s = parse(e.getAsString());
+            for (int i = 0; i < turns; i++) {
+                s = s.rotate(net.minecraft.world.level.block.Rotation.CLOCKWISE_90);
+            }
+            out.add(serialize(s));
+        }
+        JsonObject o = new JsonObject();
+        o.add("states", out);
+        return o;
+    }
 
     private JsonArray moving(Sandbox sb, Region region) {
         JsonArray list = new JsonArray();

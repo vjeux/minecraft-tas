@@ -135,4 +135,13 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 - Gadget `dust-below` (observer -> stone -> the dust under it lights).
 - Searched and empty on v8: regrow --size 2 --any (162k), synth k<=9 on the cut a1+crossing+P_T
   region (10 blocks, 193k circuits), synth k<=6 on the left late part + BL flag (7),
-  resynth --only on the right region (groups of 5-7, 27 groups).
+  resynth --only on the right region (groups of 5-7, 27 groups), resynth groups of 5 over the
+  whole design (674 of 739 groups) and resynth --only on the left region (groups of 6-8, 54 of
+  59 groups): nothing.
+
+## Next ideas
+- A late pulse generated near the bottom for free (M must move after A's last pull): the whole
+  left late chain (7 blocks) exists only to delay BL so that the BL flag fires P_M after a3.
+- Synthesis at k = 10-12 on cut regions (enumeration grows ~5x per k; needs pruning by timing).
+- A topology where R_B's input and P_T share one source: the crossing over B (7 blocks) is the
+  other big cost; it exists because P_T (right) and X/R_B (left) must sit on opposite sides.

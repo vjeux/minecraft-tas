@@ -363,6 +363,17 @@ impl Worker {
         Ok(self.static_problems(sandbox, from, to)?.0)
     }
 
+    /// Block states turned `turns` quarter turns clockwise seen from above, by the game's own
+    /// `BlockState.rotate` (facings, axes, dust connections, rails, levers...).
+    pub fn rotate_states(&mut self, states: &[String], turns: u8) -> Result<Vec<String>> {
+        let v = self.call(json!({"op": "rotate", "states": states, "turns": turns}))?;
+        let out: Vec<String> = v["states"].as_array().ok_or_else(|| anyhow!("rotate: no states"))?.iter().filter_map(|s| s.as_str().map(String::from)).collect();
+        if out.len() != states.len() {
+            bail!("rotate: {} states in, {} out", states.len(), out.len());
+        }
+        Ok(out)
+    }
+
     /// (unsupported positions, randomly-ticking positions) in the box: blocks that could not
     /// stand where they are, and blocks that change by themselves over time (random ticks).
     pub fn static_problems(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<(Vec<Pos>, Vec<Pos>)> {

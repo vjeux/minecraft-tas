@@ -1,0 +1,18 @@
+[    7.1s] start: 40 blocks, open 24 / close 9
+[   10.9s] 40 blocks: 13 removable, 75 groups of 5..5
+[   84.0s]   group [(-1,3,1)ston (-1,4,1)repe (-1,5,0)obse (0,4,0)wire (0,6,0)repe] -> <= 4 blocks: 295351 circuits in 67.5s
+[  106.5s]   group [(-1,3,1)ston (-1,4,1)repe (-1,5,0)obse (-1,6,0)ston (0,6,0)repe] -> <= 4 blocks: 80015 circuits in 21.2s
+[  142.2s]   group [(-1,3,1)ston (-1,4,1)repe (-1,5,0)obse (0,5,0)obse (0,6,0)repe] -> <= 4 blocks: 167690 circuits in 32.2s
+[  196.6s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (-1,5,0)obse (0,6,0)repe] -> <= 4 blocks: 284617 circuits in 51.5s
+[  230.7s]   group [(-1,3,1)ston (-1,4,1)repe (-1,5,0)obse (-1,6,0)ston (0,4,0)wire] -> <= 4 blocks: 123059 circuits in 31.3s
+[  258.2s]   group [(-1,3,1)ston (-1,4,1)repe (-1,5,0)obse (0,3,0)ston (0,4,0)wire] -> <= 4 blocks: 109103 circuits in 25.1s
+[  307.6s]   group [(-1,3,1)ston (-1,4,1)repe (-1,5,0)obse (0,4,0)wire (0,5,0)obse] -> <= 4 blocks: 189490 circuits in 45.0s
+[  345.3s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (-1,5,0)obse (0,4,0)wire] -> <= 4 blocks: 142353 circuits in 33.7s
+[  383.0s]   group [(-1,3,1)ston (-1,4,1)repe (-1,5,0)obse (-1,6,0)ston (0,5,0)obse] -> <= 4 blocks: 146591 circuits in 34.8s
+[  402.4s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (-1,5,0)obse (-1,6,0)ston] -> <= 4 blocks: 78525 circuits in 18.4s
+[  449.3s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (-1,5,0)obse (0,5,0)obse] -> <= 4 blocks: 208755 circuits in 42.1s
+[  490.1s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (-1,5,0)obse (0,3,0)ston] -> <= 4 blocks: 219360 circuits in 38.0s
+[  501.0s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (0,3,0)ston (0,4,0)wire] -> <= 4 blocks: 59140 circuits in 10.3s
+[  532.4s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (0,4,0)wire (0,5,0)obse] -> <= 4 blocks: 162145 circuits in 29.0s
+[  573.8s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (0,3,0)ston (0,5,0)obse] -> <= 4 blocks: 274855 circuits in 38.9s
+[  610.8s]   group [(-1,3,1)ston (-1,4,0)obse (-1,4,1)repe (0,5,0)obse (0,6,0)repe] -> <= 4 blocks: 233309 circuits in 34.5s

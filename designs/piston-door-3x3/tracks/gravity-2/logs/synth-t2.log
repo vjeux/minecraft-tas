@@ -1,0 +1,11 @@
+[    0.0s] 1530 atoms (17 palette states, 1 floors) in the box
+[  240.8s] enumerated 92020 sets (909154315 visited) in 240.8s on 32 threads: 1:1 2:3 3:25 4:194 5:1466 6:10779 7:79552
+[  255.0s] 16 workers
+[  255.9s] size 1: 1 candidates screened in 0.9s, 0 passed the screen
+[  256.6s] size 2: 3 candidates screened in 0.7s, 0 passed the screen
+[  257.5s] size 3: 25 candidates screened in 0.9s, 0 passed the screen
+[  258.2s] size 4: 194 candidates screened in 0.7s, 0 passed the screen
+[  259.6s] size 5: 1466 candidates screened in 1.5s, 0 passed the screen
+[  265.5s] size 6: 10779 candidates screened in 5.9s, 0 passed the screen
+[  284.2s] size 7: 79552 candidates screened in 18.7s, 0 passed the screen
+nothing found

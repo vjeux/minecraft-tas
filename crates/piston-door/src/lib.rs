@@ -39,9 +39,11 @@ pub mod place;
 pub mod search;
 pub mod showcase;
 pub mod synth;
+pub mod tickvideo;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
+pub mod world;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
@@ -52,22 +54,43 @@ use mctas::sim::{PlaceMode, Pos, Region, SandboxOptions, Worker};
 pub struct DoorSpec {
     pub door: Pos,
     pub lever: Pos,
+    /// The opening spans z (plane x = door.x) instead of x (plane z = door.z): a design turned a
+    /// quarter turn ([`rotate_design`]). Design files always have the door in a z plane.
+    pub along_z: bool,
 }
 
 impl DoorSpec {
     pub fn from_design(d: &Design) -> Result<DoorSpec> {
         let door = *d.ports.get("door").context("design has no 'port door: x y z'")?;
         let lever = *d.ports.get("lever").context("design has no 'port lever: x y z'")?;
-        Ok(DoorSpec { door, lever })
+        Ok(DoorSpec { door, lever, along_z: false })
     }
 
-    /// The 9 cells of the opening, row by row from the top (y desc), west to east.
+    /// The same spec moved by `d`.
+    pub fn translated(&self, d: Pos) -> DoorSpec {
+        let mv = |p: Pos| [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
+        DoorSpec { door: mv(self.door), lever: mv(self.lever), along_z: self.along_z }
+    }
+
+    /// One step along the opening's width (x, or z for a turned door).
+    fn width_step(&self, i: i32) -> Pos {
+        if self.along_z { [0, 0, i] } else { [i, 0, 0] }
+    }
+
+    /// One step through the door (z, or x for a turned door).
+    fn depth_step(&self, i: i32) -> Pos {
+        if self.along_z { [i, 0, 0] } else { [0, 0, i] }
+    }
+
+    /// The 9 cells of the opening, row by row from the top (y desc), west to east (north to
+    /// south for a turned door).
     pub fn door_cells(&self) -> Vec<Pos> {
         let [x, y, z] = self.door;
         let mut out = Vec::new();
         for dy in (0..3).rev() {
-            for dx in 0..3 {
-                out.push([x + dx, y + dy, z]);
+            for dw in 0..3 {
+                let s = self.width_step(dw);
+                out.push([x + s[0], y + dy, z + s[2]]);
             }
         }
         out
@@ -76,17 +99,80 @@ impl DoorSpec {
     /// The walkway: the 3x3 opening extended 3 blocks in front of and behind the door, so you
     /// can actually walk up to and through it.
     pub fn corridor_cells(&self) -> Vec<Pos> {
+        self.in_front_and_behind(3)
+    }
+
+    /// The 3x3 columns in front of and behind the door, `depth` blocks each way.
+    pub fn in_front_and_behind(&self, depth: i32) -> Vec<Pos> {
         let [x, y, z] = self.door;
         let mut out = Vec::new();
-        for dz in [-3, -2, -1, 1, 2, 3] {
+        for dd in (-depth..=depth).filter(|d| *d != 0) {
+            let d = self.depth_step(dd);
             for dy in 0..3 {
-                for dx in 0..3 {
-                    out.push([x + dx, y + dy, z + dz]);
+                for dw in 0..3 {
+                    let s = self.width_step(dw);
+                    out.push([x + s[0] + d[0], y + dy, z + s[2] + d[2]]);
                 }
             }
         }
         out
     }
+}
+
+/// `p` turned `turns` quarter turns clockwise seen from above, around the vertical axis through
+/// the origin: north (-z) becomes east (+x), as the game's `Rotation.CLOCKWISE_90` does.
+pub fn rotate_pos(p: Pos, turns: u8) -> Pos {
+    let mut q = p;
+    for _ in 0..turns % 4 {
+        q = [-q[2], q[1], q[0]];
+    }
+    q
+}
+
+/// `d` turned `turns` quarter turns clockwise (seen from above) around the origin, every block
+/// state turned by the game itself ([`Worker::rotate_states`]), with the door spec that goes with
+/// it.
+pub fn rotate_design(w: &mut Worker, d: &Design, turns: u8) -> Result<(Design, DoorSpec)> {
+    let spec = DoorSpec::from_design(d)?;
+    let turns = turns % 4;
+    let states: Vec<String> = d.blocks.values().cloned().collect();
+    let turned = w.rotate_states(&states, turns)?;
+    let blocks = d.blocks.keys().zip(turned).map(|(p, s)| (rotate_pos(*p, turns), s)).collect();
+    let ports = d.ports.iter().map(|(k, p)| (k.clone(), rotate_pos(*p, turns))).collect();
+    // The opening's min corner after the turn.
+    let cells: Vec<Pos> = spec.door_cells().iter().map(|p| rotate_pos(*p, turns)).collect();
+    let min = |i: usize| cells.iter().map(|p| p[i]).min().unwrap();
+    let door = [min(0), min(1), min(2)];
+    let rspec = DoorSpec { door, lever: rotate_pos(spec.lever, turns), along_z: turns % 2 == 1 };
+    let mut rd = Design { name: d.name.clone(), meta: d.meta.clone(), ports, blocks };
+    rd.ports.insert("door".into(), door);
+    Ok((rd, rspec))
+}
+
+/// Does the door also work turned 90, 180 and 270 degrees? Runs the judge's checks ([`verify_in`]
+/// with `opts`) on each turned copy. `Ok(None)` = works in all four orientations; `Ok(Some((turns,
+/// why)))` = the first orientation that fails (a quarter-turn count) and the judge's reason.
+/// Redstone updates neighbors in a fixed direction order (west, east, down, up, north, south),
+/// so a door can work facing one way and not another. Not part of the judge: the boards rank
+/// rotation-safe designs and list the others apart.
+pub fn rotation_check(w: &mut Worker, d: &Design, opts: &VerifyOptions) -> Result<Option<(u8, String)>> {
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let mut result = Ok(None);
+    for turns in 1..4u8 {
+        let (rd, rspec) = match rotate_design(w, d, turns) {
+            Ok(x) => x,
+            Err(e) => {
+                result = Err(e);
+                break;
+            }
+        };
+        if let Err(e) = verify_in_spec(w, sb, &rd, rspec, opts) {
+            result = Ok(Some((turns, format!("{e:#}"))));
+            break;
+        }
+    }
+    let _ = w.drop_sandbox(sb);
+    result
 }
 
 /// Knobs of [`verify`].
@@ -100,6 +186,11 @@ pub struct VerifyOptions {
     pub offsets: Vec<Pos>,
     /// Keep the per-tick frames of the first cycle (for timelines and videos).
     pub keep_frames: bool,
+    /// Nothing at all may stand in front of or behind the door: at rest the 3x3 columns in front
+    /// of and behind the door, at any distance, are air (no machine parts, dust, torches, rails,
+    /// levers...). vjeux's rule since 2026-10-18 16:40Z; designs judged before keep their cached
+    /// verdicts for now.
+    pub empty_walkway: bool,
 }
 
 impl Default for VerifyOptions {
@@ -109,6 +200,7 @@ impl Default for VerifyOptions {
             max_ticks: 400,
             offsets: vec![[0, 0, 0], [-7, 3, 5], [5, -11, -6], [-3, 40, 2]],
             keep_frames: false,
+            empty_walkway: true,
         }
     }
 }
@@ -257,11 +349,16 @@ impl BlockStateLite {
 
 /// [`verify`] in an existing sandbox (it is cleared first; reuse saves creating levels).
 pub fn verify_in(w: &mut Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<Report> {
+    let spec = DoorSpec::from_design(design)?;
+    verify_in_spec(w, sb, design, spec, opts)
+}
+
+/// [`verify_in`] with an explicit door spec (a turned design's door spans z: [`rotate_design`]).
+pub fn verify_in_spec(w: &mut Worker, sb: u32, design: &Design, spec: DoorSpec, opts: &VerifyOptions) -> Result<Report> {
     let illegal = legality_problems(design);
     if !illegal.is_empty() {
         bail!("illegal design: {}", illegal.join("; "));
     }
-    let spec = DoorSpec::from_design(design)?;
     let (lo, hi) = design.bounds().context("empty design")?;
     let size = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
     let mut report = Report {
@@ -275,13 +372,12 @@ pub fn verify_in(w: &mut Worker, sb: u32, design: &Design, opts: &VerifyOptions)
     let result = (|| -> Result<()> {
         for (i, off) in opts.offsets.iter().enumerate() {
             let d = design.translated(*off);
-            let s = DoorSpec::from_design(&d)?;
+            let s = spec.translated(*off);
             verify_at(w, sb, &d, &s, opts, &mut report, i == 0).with_context(|| format!("at offset {off:?}"))?;
         }
         Ok(())
     })();
     result?;
-    let _ = spec;
     Ok(report)
 }
 
@@ -411,6 +507,21 @@ fn verify_at(
     let problems = closed_problems(&rest, spec);
     if !problems.is_empty() {
         bail!("not closed at rest: {}", problems.join("; "));
+    }
+    if opts.empty_walkway {
+        // The 3x3 columns in front of and behind the door, out to the edge of the watch box.
+        let reach = (whi[0] - wlo[0]).max(whi[2] - wlo[2]) + 1;
+        let clutter: Vec<String> = spec
+            .in_front_and_behind(reach)
+            .iter()
+            .filter_map(|p| rest.get(*p).filter(|s| !mctas::blockstate::is_air(s)).map(|s| format!("{p:?} {s}")))
+            .collect();
+        if !clutter.is_empty() {
+            bail!(
+                "blocks in front of or behind the door (nothing may stand in the 3x3 columns in front of and behind the door, at any distance, at rest: not even dust, torches, rails or levers): {}",
+                clutter.join("; ")
+            );
+        }
     }
     let lever = rest.get(spec.lever).unwrap_or("?");
     if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {

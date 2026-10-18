@@ -1,0 +1,19 @@
+[    0.0s] 1537 atoms (29 palette states, 1 floors) in the box
+[   21.3s] enumerated 752130 sets (59059636 visited) in 21.3s on 32 threads: 2:12 3:164 4:3199 5:47686 6:701069
+[   32.1s] 12 workers
+[   33.1s] size 2: 12 candidates screened in 1.0s, 0 passed the screen
+[   33.7s] size 3: 164 candidates screened in 0.6s, 0 passed the screen
+[   36.7s] size 4: 3199 candidates screened in 2.9s, 0 passed the screen
+[   54.4s] size 5: 47686 candidates screened in 17.7s, 0 passed the screen
+[   74.4s]   size 6: 59648/701069 screened (2981/s, eta 215s), 0 passed
+[   94.5s]   size 6: 107008/701069 screened (2668/s, eta 223s), 0 passed
+[  114.5s]   size 6: 152064/701069 screened (2528/s, eta 217s), 0 passed
+[  134.8s]   size 6: 240896/701069 screened (2997/s, eta 154s), 0 passed
+[  154.8s]   size 6: 328704/701069 screened (3274/s, eta 114s), 0 passed
+[  175.0s]   size 6: 404992/701069 screened (3358/s, eta 88s), 0 passed
+[  195.0s]   size 6: 471296/701069 screened (3352/s, eta 69s), 0 passed
+[  215.2s]   size 6: 546048/701069 screened (3396/s, eta 46s), 0 passed
+[  235.2s]   size 6: 605696/701069 screened (3350/s, eta 28s), 0 passed
+[  255.3s]   size 6: 653824/701069 screened (3254/s, eta 15s), 0 passed
+[  274.0s] size 6: 701069 candidates screened in 219.6s, 0 passed the screen
+nothing found

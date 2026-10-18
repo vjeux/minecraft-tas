@@ -1,0 +1,3 @@
+[    7.7s] start: 44 blocks, open 30 / close 26
+[   12.4s] 44 blocks: 23 removable, 30 groups of 5..5
+[   16.6s]   group [(-3,-2,0)obse (-2,-2,0)obse (-1,-3,0)obse (-1,-2,0)obse (0,-2,0)ston] -> <= 4 blocks: 6205 circuits in 4.2s

@@ -76,6 +76,7 @@ impl SearchArgs {
                 max_ticks: self.screen_ticks,
                 offsets: offsets.iter().take(self.screen_offsets.max(1)).copied().collect(),
                 keep_frames: false,
+                empty_walkway: true,
             },
             judge: VerifyOptions { offsets, ..Default::default() },
             radius: self.radius,
@@ -123,6 +124,10 @@ pub enum DoorCmd {
         /// Re-record videos that already exist.
         #[arg(long)]
         redo: bool,
+        /// Re-record existing videos of doors still moving when the clip used to stop (40 ticks
+        /// after each flip); videos now always play until the door has settled.
+        #[arg(long)]
+        redo_cut: bool,
     },
     /// Draw the title card (and the corner label, as a transparent PNG) of a design's video,
     /// without recording anything.
@@ -194,6 +199,33 @@ pub enum DoorCmd {
         /// in archive order).
         #[arg(long, default_value = "solid")]
         board: String,
+    },
+    /// The Pareto frontier over (open ticks, close ticks, blocks): every working design on HEAD
+    /// and the explore/* branches (verdicts from the leaderboard cache, uncached ones verified),
+    /// then each --check design verified with the judge and placed against it: on the frontier,
+    /// or the doors that dominate it (see leaderboard.rs `frontier_report`).
+    Frontier {
+        /// Candidate designs to place against the frontier.
+        #[arg(long, num_args = 1..)]
+        check: Vec<PathBuf>,
+        /// Ref prefix to scan besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 4)]
+        workers: usize,
+        /// Verdict cache folder (read; new verdicts are written back).
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        cache_dir: PathBuf,
+        /// All categories (default: solid only, the main Pareto board).
+        #[arg(long)]
+        any_category: bool,
+        /// Also list every working design with its ticks, not just the frontier.
+        #[arg(long)]
+        all: bool,
     },
     /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
     Leaderboard {
@@ -573,6 +605,52 @@ pub enum DoorCmd {
         #[arg(long, default_value = "1280x720")]
         size: String,
     },
+    /// One open/close cycle tick by tick, still camera, with captions: the lever flips, every
+    /// tick after each flip until nothing moves anymore (the state the judge checks), a 3x3 map
+    /// of the doorway as the server sees it, and a strip of the whole phase (see tickvideo.rs).
+    TickVideo {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Seconds each tick stays on screen.
+        #[arg(long, default_value_t = 0.35)]
+        secs_per_tick: f64,
+        /// Milliseconds the client gets to draw each tick before the screenshot.
+        #[arg(long, default_value_t = 500)]
+        draw_ms: u64,
+        /// Upload to this GitHub release tag of vjeux/minecraft-tas.
+        #[arg(long)]
+        upload: Option<String>,
+        /// Frame size, WIDTHxHEIGHT.
+        #[arg(long, default_value = "1280x720")]
+        size: String,
+    },
+    /// One Minecraft world (a save folder for the real game) with every working archived design
+    /// in rows by board, smallest first, the block count above each in red concrete and its name
+    /// on a floating label; built by the official server (see world.rs).
+    World {
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        archive: PathBuf,
+        /// Folder for the save (`<out>/<name>`) and its `.tar.gz`.
+        #[arg(long)]
+        out: PathBuf,
+        /// The save's folder name, as the game lists it.
+        #[arg(long, default_value = "minecraft-tas doors")]
+        name: String,
+        #[arg(long, default_value_t = 12)]
+        workers: usize,
+        /// Then screenshot the spawn and the first N designs of each row with the real client
+        /// joined to the saved world (0 = none).
+        #[arg(long, default_value_t = 0)]
+        shots: usize,
+        /// Take verdicts from this verdict-cache file instead of judging (e.g.
+        /// designs/piston-door-3x3/archive/verdicts-v4.tsv).
+        #[arg(long)]
+        verdicts: Option<PathBuf>,
+        /// Read every design back from the saved region files and fail on any difference.
+        #[arg(long)]
+        check: bool,
+    },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
         name: String,
@@ -783,6 +861,10 @@ pub enum DoorCmd {
         /// Archive into this folder instead (e.g. the main designs/piston-door-3x3/archive).
         #[arg(long)]
         archive_dir: Option<PathBuf>,
+        /// Skip the rotation check (the door turned 90, 180 and 270 degrees, same positions).
+        /// It is not part of the judge: it decides which board a working door goes on.
+        #[arg(long)]
+        no_rotations: bool,
     },
     /// Circuit synthesis by exhaustive simulation (see synth.rs): every circuit of up to --k
     /// blocks from --palette in the free cells of --lo..--hi that carries a signal from the
@@ -919,15 +1001,15 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
-        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo } => {
+        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut } => {
             let opts = video_style(&style, orbit)?;
-            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo)?;
+            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut)?;
         }
         DoorCmd::Card { design, out, label } => {
             let d = load_design(&design)?;
             let mut facts = crate::video::Facts::of(&d);
             let mut w = Worker::spawn(&cfg)?;
-            if let Ok(r) = verify(&mut w, &d, &VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], ..Default::default() }) {
+            if let Ok(r) = verify(&mut w, &d, &VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], empty_walkway: false, ..Default::default() }) {
                 facts.open_ticks = r.cycles.first().map(|c| c.open_ticks);
                 facts.close_ticks = r.cycles.first().map(|c| c.close_ticks);
             }
@@ -945,6 +1027,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo, board } => {
             let o = crate::showcase::MontageOptions { archive, videos, out, upload, jobs, workers, speed, redo, board };
             crate::showcase::montage(version, &o)?;
+        }
+        DoorCmd::Frontier { check, refs, extra_offsets, max_blocks, workers, cache_dir, any_category, all } => {
+            let repo = std::path::Path::new(".");
+            let mut cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
+            let n_board = cands.len();
+            for p in &check {
+                cands.push((format!("check:{}", p.display()), load_design(p)?));
+            }
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, Some(&cache_dir))?;
+            let (board, checks): (Vec<_>, Vec<_>) = entries.into_iter().partition(|e| !e.source.starts_with("check:"));
+            let _ = n_board;
+            print!("{}", crate::leaderboard::frontier_report(&board, &checks, !any_category, all));
         }
         DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
             let repo = std::path::Path::new(".");
@@ -1405,6 +1499,22 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("uploaded {url}");
             }
         }
+        DoorCmd::TickVideo { design, out, secs_per_tick, draw_ms, upload, size } => {
+            let d = load_design(&design)?;
+            let (width, height) = size.split_once('x').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))).ok_or_else(|| anyhow::anyhow!("--size wants WIDTHxHEIGHT"))?;
+            let opts = crate::tickvideo::TickVideoOptions { width, height, secs_per_tick, draw_ms, ..Default::default() };
+            crate::tickvideo::record(version, &d, &out, &opts)?;
+            println!("recorded {}", out.display());
+            if let Some(tag) = upload {
+                let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
+                println!("uploaded {url}");
+            }
+        }
+        DoorCmd::World { archive, out, name, workers, shots, verdicts, check } => {
+            let o = crate::world::WorldOptions { archive, out, name, workers, shots, verdicts, check };
+            let tar = crate::world::build(version, &o)?;
+            println!("world packed: {}", tar.display());
+        }
         DoorCmd::Patch { design, script, out } => {
             let d0 = load_design(&design)?;
             let text = std::fs::read_to_string(&script)?;
@@ -1447,7 +1557,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations } => {
             let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
@@ -1481,6 +1591,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     }
                     for warning in &r.warnings {
                         println!("  warning: {warning}");
+                    }
+                    if !no_rotations {
+                        let ropts = VerifyOptions { keep_frames: false, ..opts.clone() };
+                        match crate::rotation_check(&mut w, &d, &ropts)? {
+                            None => println!("rotation-safe: also works turned 90, 180 and 270 degrees ({} positions each)", ropts.offsets.len()),
+                            Some((turns, why)) => println!("NOT rotation-safe (listed on the separate board): turned {} degrees: {why}", turns as u32 * 90),
+                        }
                     }
                     if show {
                         println!("opening (top row, middle row, bottom row; # block, ~ moving, h piston head, . air):");
@@ -1573,6 +1690,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         max_ticks: screen_ticks,
                         offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
                         keep_frames: false,
+                        empty_walkway: true,
                     },
                     judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
                     max_open,
@@ -1628,7 +1746,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
-            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false };
+            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false, empty_walkway: true };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
             let t = std::time::Instant::now();
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());

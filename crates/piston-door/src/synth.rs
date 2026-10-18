@@ -989,7 +989,7 @@ fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String>
     match target {
         Target::Door { judge, max_open, max_close, .. } => {
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
-            let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false };
+            let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway };
             screen_in(w, sb, d, &quick)?;
             let r = verify_in(w, sb, d, judge)?;
             let (o, c) = crate::search::worst_ticks(&r);
