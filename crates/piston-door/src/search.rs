@@ -1430,15 +1430,23 @@ fn finalize(pool: &Pool, sandboxes: &Sandboxes, d: Design, opts: &SearchOptions,
 }
 
 /// [`finalize`], with the judge report of the kept design.
-fn finalize_report(pool: &Pool, sandboxes: &Sandboxes, d: Design, opts: &SearchOptions, log: &dyn Fn(&str)) -> Result<(Design, crate::Report)> {
+fn finalize_report(pool: &Pool, _sandboxes: &Sandboxes, d: Design, opts: &SearchOptions, log: &dyn Fn(&str)) -> Result<(Design, crate::Report)> {
+    // The exact `door verify` path (a fresh sandbox), so nothing a reused sandbox leaks can let
+    // a design through.
     let mut w = pool.worker(0);
     let canon = crate::canonicalize(&mut w, &d)?;
-    let sb = sandboxes.get(&mut w, 0)?;
-    match verify_in(&mut w, sb, &canon, &opts.judge) {
+    // A block that does not stay where it is written (it falls, pops or moves at rest) would
+    // turn into an air entry: keep the design as edited then.
+    if canon.blocks.values().any(|s| mctas::blockstate::is_air(s)) {
+        log("  the canonical form has air entries (something moves at rest); keeping the design as edited");
+        let r = crate::verify(&mut w, &d, &opts.judge).context("the accepted design fails the judge in a fresh sandbox")?;
+        return Ok((d, r));
+    }
+    match crate::verify(&mut w, &canon, &opts.judge) {
         Ok(r) => Ok((canon, r)),
         Err(e) => {
             log(&format!("  canonical form fails the judge ({e:#}); keeping the design as edited"));
-            let r = verify_in(&mut w, sb, &d, &opts.judge)?;
+            let r = crate::verify(&mut w, &d, &opts.judge).context("the accepted design fails the judge in a fresh sandbox")?;
             Ok((d, r))
         }
     }
