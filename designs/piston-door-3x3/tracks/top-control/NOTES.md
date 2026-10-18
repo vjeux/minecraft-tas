@@ -9,6 +9,7 @@ the wiring with the router and the minimizer.
 |---|---|---|---|---|
 | **rb6o** | **47** | **solid (record)** | `rb6o.txt` = `BEST.txt` = `BEST-solid.txt` | redstone-block's rb6 (48) with the bottom-middle piston fired by an observer watching the bottom-right door block |
 | m48o | 47 | solid | `m48o.txt` | the same trick on mechanics' rb5-hold (48) |
+| st43o | 42 | sculk (record) | `st43o.txt` | the same trick on search-tool's 43 sculk |
 | v3c | 87 | solid | `v3c.txt` | side pistons high; redstone blocks riding the backbones power A, P_T and P_BM; only the side pistons are wired |
 | rb2s2 | 50 | sculk | `rb2s2.txt` | redstone-block's rb2 (57) with its 14-block late hold replaced by a sculk sensor + one repeater |
 | m51s | 48 | sculk | `m51s.txt` | mechanics' 51 with its 10-block hold replaced the same way |
