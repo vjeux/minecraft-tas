@@ -48,6 +48,7 @@ R_X). R_X/R_Z timing: P_D and P_V fired 2 ticks earlier (k4..k6) -> R_X lands k6
 * `o7m-118b.txt` (118, 11/7): `door minimize --moves all --plateau --max-open 11 --max-close 7`
   on o7 (60 min): dust (1,6,-2) + its floor -> one smooth stone (R_s and the lock repeater read the
   block the lever dust points into). The same edit breaks a1 (the shift dust re-shapes (2,6,-2)).
+  A 35-min `regrow --size 3 --max-open 11 --max-close 7` on it (3M candidates) found nothing.
 
 ## Final report (speed-2)
 * Best: **`a4-122b.txt` = BEST.txt, 122 blocks, solid, slime-free, open 10 / close 7** (the first
