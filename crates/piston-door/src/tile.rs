@@ -556,6 +556,86 @@ pub fn scan(
     jobs.into_iter().zip(results).map(|((i, t), r)| (i, t, r.map_err(|e| format!("{e:#}")))).collect()
 }
 
+/// One row of the tile board.
+pub struct BoardRow {
+    pub source: String,
+    pub name: String,
+    pub tiling: String,
+    pub kind: String,
+    /// Translation length (P or Q; 3 for wide/stack).
+    pub period: i32,
+    pub verdict: std::result::Result<(usize, usize, usize, u32, u32, bool), String>,
+}
+
+/// `door tile-board`: every candidate with a `tiling:` header (`tiling: period:8:3`) judged as a
+/// tile module (one lever, every opening, `opts` positions, rotation check), ranked per kind by
+/// blocks per opening in a long row (blocks(N) - blocks(N-1)), then by period. Markdown.
+pub fn board(pool: &mctas::sim::Pool, cands: Vec<(String, Design)>, opts: &VerifyOptions) -> (Vec<BoardRow>, String) {
+    let tiled: Vec<(String, Design, Tile)> = cands
+        .into_iter()
+        .filter_map(|(src, d)| {
+            let spec = d.meta.get("tiling")?.clone();
+            Tile::parse(&spec).ok().map(|t| (src, d, t))
+        })
+        .collect();
+    let verdicts = pool.map(tiled.clone(), |w, _, (_, d, t)| {
+        let marginal = marginal_blocks(&d, &t)?;
+        let (r, _, x) = verify_tiled(w, &d, &t, opts)?;
+        let o = r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0);
+        let c = r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0);
+        let safe = tiled_rotation_check(w, &x, opts)?.is_none();
+        Ok((marginal, tiled_blocks(&x), x.specs.len(), o, c, safe))
+    });
+    let mut rows: Vec<BoardRow> = tiled
+        .into_iter()
+        .zip(verdicts)
+        .map(|((source, d, t), v)| BoardRow {
+            source,
+            name: d.name.clone(),
+            kind: t.label.split(':').next().unwrap_or("").to_string(),
+            period: t.step.iter().map(|v| v.abs()).max().unwrap_or(0),
+            tiling: t.label.clone(),
+            verdict: v.map_err(|e| format!("{e:#}")),
+        })
+        .collect();
+    rows.sort_by_key(|r| (r.kind.clone(), r.verdict.as_ref().map(|v| v.0).unwrap_or(usize::MAX), r.period, r.source.clone()));
+    let mut s = String::from(
+        "# Tileable 3x3 piston doors\n\nEvery design with a `tiling:` header on main and the `explore/*` branches, judged by `door verify --tile` \
+         (copies of one module, ONE lever, every judge check on every opening, 32 positions). Ranked by blocks per opening in a long row \
+         (blocks(N) - blocks(N-1)), then by period. Definitions: designs/piston-door-3x3/tracks/tile/NOTES.md.\n\n",
+    );
+    let kinds = [("period", "PERIODIC: an opening every P blocks along the wall"), ("vperiod", "VPERIOD: a door every Q blocks up"), ("wide", "WIDE: openings side by side, one 3 x 3N opening"), ("stack", "STACK: openings stacked, one 3N x 3 opening"), ("step", "Other translations")];
+    for (k, title) in kinds {
+        let ok: Vec<&BoardRow> = rows.iter().filter(|r| r.kind == k && r.verdict.is_ok()).collect();
+        s.push_str(&format!("## {title}\n\n"));
+        if ok.is_empty() {
+            s.push_str("No working design yet.\n\n");
+            continue;
+        }
+        s.push_str("| # | blocks per opening | period | tested | open / close | rotations | source |\n|---|---|---|---|---|---|---|\n");
+        for (i, r) in ok.iter().enumerate() {
+            let (m, total, n, o, c, safe) = r.verdict.as_ref().unwrap();
+            s.push_str(&format!(
+                "| {} | {m} | {} | {n} openings, {total} blocks | {o} / {c} | {} | `{}` |\n",
+                i + 1,
+                r.period,
+                if *safe { "safe" } else { "NOT safe" },
+                r.source
+            ));
+        }
+        s.push('\n');
+    }
+    let broken: Vec<&BoardRow> = rows.iter().filter(|r| r.verdict.is_err()).collect();
+    if !broken.is_empty() {
+        s.push_str("## Broken\n\n| tiling | source | why |\n|---|---|---|\n");
+        for r in broken {
+            let why: String = r.verdict.as_ref().err().unwrap().chars().take(160).collect();
+            s.push_str(&format!("| {} | `{}` | {} |\n", r.tiling, r.source, why.replace('|', "/")));
+        }
+    }
+    (rows, s)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

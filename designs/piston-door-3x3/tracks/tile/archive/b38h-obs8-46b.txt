@@ -1,6 +1,7 @@
 # verified WORKS as a tile module: --tile period:8:3 (3 openings, 138 blocks total, +46 per extra copy), open 60 / close 56
 # archived 2026-10-18 17:42Z from designs/piston-door-3x3/tracks/tile/b38h-obs8.txt (repo at 11c179a)
 name: b38h-obs8
+tiling: period:8:3
 relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
 port door: 0 0 0
 port lever: 1 5 -3

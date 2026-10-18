@@ -895,6 +895,24 @@ pub enum DoorCmd {
         #[arg(long)]
         tile_extra: Option<PathBuf>,
     },
+    /// Tile board (tile.rs): every design with a `tiling:` header (e.g. `tiling: period:8:3`) on
+    /// HEAD and the explore/* branches, judged as a tile module; ranked per tiling kind by blocks
+    /// per opening in a long row (TILEBOARD.md).
+    TileBoard {
+        /// Ref prefix to scan besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Skip designs with more blocks than this.
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        /// Write the markdown here (also printed), e.g. designs/piston-door-3x3/TILEBOARD.md.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Tileability scan (tile.rs): every design under every tiling of --tiles, in parallel; prints
     /// per design which tilings work and the smallest working period.
     TileScan {
@@ -1057,6 +1075,17 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::TileBoard { refs, extra_offsets, workers, max_blocks, out } => {
+            let cands = crate::leaderboard::collect(std::path::Path::new("."), &refs, max_blocks)?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let mut opts = VerifyOptions::default();
+            opts.offsets.extend(crate::extra_offsets(extra_offsets));
+            let (_, md) = crate::tile::board(&pool, cands, &opts);
+            print!("{md}");
+            if let Some(p) = out {
+                std::fs::write(p, &md)?;
+            }
+        }
         DoorCmd::TileScan { designs, tiles, levers, extra_offsets, workers, verbose } => {
             let mut ts = crate::tile::parse_tile_list(&tiles)?;
             let mode = match levers.as_str() {
