@@ -1,0 +1,8 @@
+design designs/piston-door-3x3/tracks/sf-holdA/b40p.txt
+let m = 26
+open 0 use 2 4 -3
+close 0 use 2 4 -3
+open m set 1 -3 0 minecraft:redstone_block
+open m+2 clear 1 -3 0
+close m set 1 -3 0 minecraft:redstone_block
+close m+2 clear 1 -3 0

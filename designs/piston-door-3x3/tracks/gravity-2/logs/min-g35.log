@@ -1,0 +1,11 @@
+10 workers; moves all; judge 32 positions
+[    2.2s] start: 35 blocks, open 5 close 16 ticks, passes the judge (32 positions x 3 cycles)
+[    7.6s]   199392 swaps (two blocks out, one block in nearby)
+[    7.6s] 35 blocks: 914 removals, 0 reroutes (+0 neutral), 1238 compounds, 131 neutral edits
+[   54.2s]   201544 candidates: 546 seen, 200998 screened in 46.5s, 0 passed the screen, 0 judged, 0 passed the judge (46.5s)
+[   54.2s]   no improving move; plateau: judging 24885 neutral edits
+[   60.6s]   24885 candidates: 54 seen, 24831 screened in 4.8s, 24 passed the screen, 24 judged, 24 passed the judge (6.4s)
+[   76.6s]   plateau: routing took 16.0s
+[   76.6s]   plateau: 24 verified neutral designs, 600 removals and 0 reroutes after them
+[   76.7s]   600 candidates: 253 seen, 347 screened in 0.1s, 0 passed the screen, 0 judged, 0 passed the judge (0.1s)
+35 -> 35 blocks, written to designs/piston-door-3x3/tracks/gravity-2/g35-min.txt

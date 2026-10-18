@@ -1,0 +1,41 @@
+# verified WORKS by door leaderboard: 55 blocks, category solid
+# archived 2026-10-18 12:19Z from HEAD:designs/piston-door-3x3/tracks/flat/BEST.txt (repo at ed73367)
+name: flat-v2
+port door: 0 0 0
+port lever: 4 5 0
+origin: -5 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:stone
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .....GE
+layer -1:
+  .....A
+layer 0:
+  ...D.GGG.F
+layer 1:
+  ..GD.GGG.FS
+layer 2:
+  ..rD.GGG.FA
+layer 3:
+  ..A..G..F.A
+layer 4:
+  ABB..rsooAB
+layer 5:
+  A...GAs.AL
+layer 6:
+  ooooRC..AO
+layer 7:
+  ....GooooO

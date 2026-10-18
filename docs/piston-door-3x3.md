@@ -4,8 +4,11 @@ The goal is the 3x3 piston door with the fewest blocks, built from first princip
 real game code. The record is **40 blocks**:
 [fc2](../designs/piston-door-3x3/archive/fc2-40b.txt), by the fresh-c agent on the night of
 2026-10-18 ([GIF](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.gif),
-[video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4)). The story
-of that night is in [overnight-2026-10-18.md](overnight-2026-10-18.md). Rankings are in
+[video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4)). Two other
+40-block doors tie it: riders' [fx1](../designs/piston-door-3x3/archive/riders-fx1-40b.txt) (fc2
+with its left piston toggled by three pulses per flip) and wire21's
+[m05](../designs/piston-door-3x3/archive/m05-21b-sym-40b.txt) (a different, pulse-only mechanism).
+The story of that night is in [overnight-2026-10-18.md](overnight-2026-10-18.md). Rankings are in
 [LEADERBOARD.md](../designs/piston-door-3x3/LEADERBOARD.md), the best of each board as a GIF in
 [GALLERY.md](../designs/piston-door-3x3/GALLERY.md), and every verified design in the
 [archive](../designs/piston-door-3x3/archive/README.md).
@@ -22,6 +25,12 @@ lies in the plane `z = door.z` and spans x and y from that corner to +2. The che
   mechanic is allowed.
 * **It settles.** The design is placed as written, wire shapes are computed, and every block gets
   one update. It must then go idle.
+* **Every block can stand where it is.** In the settled rest state every block must pass the
+  game's own `canSurvive` check, as it would have to for a survival player: no lever, torch, dust
+  or repeater on air. (The minimizer once produced a floating lever.)
+* **Nothing changes by itself.** No block may take random ticks (`isRandomlyTicking`): unwaxed
+  copper oxidizes, leaves decay, crops grow. Use waxed copper: fresh-d's unwaxed copper bulb
+  oxidized, its observer saw the change, and the door fired by itself at cycle 20 of a 40-cycle run.
 * **Closed at rest:**
   * the 9 door cells hold 9 identical full blocks, and none is a mechanism block (slime, honey,
     pistons, observers, redstone blocks, lamps, targets, repeaters, comparators, dust, torches,
@@ -51,6 +60,11 @@ main's verifier and writes the boards.
   powder. Such a door can fall, so it ranks separately.
 * **sculk**: the design contains a sculk sensor. Footsteps or mobs nearby can trigger one, so it
   ranks separately. Gravity wins if both apply.
+* **Rotations** (not a rule): every working design is also run turned 90, 180 and 270 degrees at the
+  same positions (`door verify` prints `rotation-safe` or `NOT rotation-safe`; the game's own
+  `BlockState.rotate` turns every block). Redstone updates neighbors in a fixed direction order, so a door
+  can work facing one way only. The boards rank rotation-safe designs; the others are listed on their
+  own board, "Not rotation-safe", with the first turn that breaks them.
 * **Solid, no slime or honey**: a board, not a category. It lists solid designs with no slime or
   honey block anywhere.
 * **Solid, flat (one z layer), no slime or honey**: a board. Slime-free solid designs whose every
@@ -195,6 +209,9 @@ Nothing found so far shortens fc2:
   blocks, add 1; 416k);
 * `door grow --k 2` after cutting 3 control blocks (up to 1.57M candidates);
 * `door synth`: no smaller replacement for any sub-circuit in its model;
+* `door route2`: whole-net rip-up and re-route of up to 8 control blocks, two nets at once;
+* riders' rider seeds (a block glued to a moving structure, then local search), and its analysis
+  showing that P_M's 2 blocks are minimal in this family;
 * fresh-b's flags: no gain.
 
 fresh-c's round-2 analysis in its [notes](../designs/piston-door-3x3/tracks/fresh-c/NOTES.md)
@@ -232,6 +249,9 @@ Every step is in the [archive](../designs/piston-door-3x3/archive/README.md) wit
 * **It does not invent mechanisms.** fc2 40, mp8 43, rb6-bmobs 47, slime-free 48, st43-bmobs 42 and
   g10 45 are all local minima of the search: removals of 1-3 blocks, swaps, moves, substitutions,
   renets, and neutral-edit plateaus. What slack remains is in mechanism choices.
+* **Exact re-synthesis found wiring slack it missed.** `door resynth` clears every connected group
+  of a few wiring blocks (2-4 by default) and tries every smaller circuit in its place: g10 45 -> 42
+  (the gravity record) and slime-free-combo 48 -> 46.
 
 ## Tools
 

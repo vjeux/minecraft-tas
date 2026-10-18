@@ -99,11 +99,15 @@ pub struct VanillaOptions {
     /// `/tick rate` while frozen: only how often the idle server loop wakes up (a `tick step`
     /// waits for the next wake-up), not what a tick does. Vanilla's default is 20.
     pub tick_rate: u32,
+    /// Start on a copy of this saved world instead of a fresh void world.
+    pub world: Option<PathBuf>,
+    /// view-distance (chunks sent to players).
+    pub view_distance: u32,
 }
 
 impl Default for VanillaOptions {
     fn default() -> Self {
-        VanillaOptions { version: crate::DEFAULT_VERSION.to_string(), heap_mb: 1536, keep_dir: false, bot_name: "mctas_bot".into(), tick_rate: 20 }
+        VanillaOptions { version: crate::DEFAULT_VERSION.to_string(), heap_mb: 1536, keep_dir: false, bot_name: "mctas_bot".into(), tick_rate: 20, world: None, view_distance: 3 }
     }
 }
 
@@ -176,6 +180,9 @@ impl VanillaServer {
         let rcon_port = free_port()?;
         let password = format!("p{:x}", rand_u64());
         std::fs::write(dir.join("eula.txt"), "eula=true\n")?;
+        if let Some(src) = &opts.world {
+            copy_tree(src, &dir.join("world"))?;
+        }
         let props = [
             ("level-name", "world".to_string()),
             ("level-type", "minecraft\\:flat".to_string()),
@@ -200,7 +207,7 @@ impl VanillaServer {
             ("max-players", "4".to_string()),
             ("max-tick-time", "-1".to_string()),
             ("pause-when-empty-seconds", "0".to_string()),
-            ("view-distance", "3".to_string()),
+            ("view-distance", opts.view_distance.to_string()),
             ("simulation-distance", "3".to_string()),
             ("network-compression-threshold", "-1".to_string()),
             ("sync-chunk-writes", "false".to_string()),
@@ -358,9 +365,17 @@ impl VanillaServer {
 
     /// Teleport the bot and wait until it has accepted the teleport.
     pub fn teleport_bot(&mut self, x: f64, y: f64, z: f64) -> Result<()> {
+        self.teleport_bot_to(x, y, z, None)
+    }
+
+    /// Teleport the bot (feet position) and set where it looks (yaw, pitch in degrees: the
+    /// server stores them as body and head rotation, what block placement reads), then wait
+    /// until the bot has accepted the teleport (clicks sent after that are handled after it).
+    pub fn teleport_bot_to(&mut self, x: f64, y: f64, z: f64, look: Option<(f32, f32)>) -> Result<()> {
         let bot = self.bot.as_ref().context("no bot")?;
         let (name, before) = (bot.name.clone(), bot.teleports_accepted());
-        self.cmd_ok(&format!("tp {name} {x} {y} {z}"))?;
+        let rot = look.map(|(yaw, pitch)| format!(" {yaw} {pitch}")).unwrap_or_default();
+        self.cmd_ok(&format!("tp {name} {x:.5} {y:.5} {z:.5}{rot}"))?;
         let t0 = Instant::now();
         loop {
             let bot = self.bot.as_ref().unwrap();
@@ -373,10 +388,20 @@ impl VanillaServer {
             if t0.elapsed() > Duration::from_secs(20) {
                 bail!("the bot never acknowledged its teleport");
             }
-            std::thread::sleep(Duration::from_millis(5));
+            std::thread::sleep(Duration::from_millis(1));
         }
-        // The acceptance is handled on the server thread: make sure it ran before any click.
-        self.cmd("list")?;
+        if look.is_none() {
+            // The acceptance is handled on the server thread: make sure it ran before any click.
+            self.cmd("list")?;
+        }
+        Ok(())
+    }
+
+    /// Put an item in the bot's main hand (the selected hotbar slot), or empty it.
+    pub fn set_bot_main_hand(&mut self, item: Option<&str>) -> Result<()> {
+        let name = self.bot.as_ref().context("no bot")?.name.clone();
+        let item = item.unwrap_or("minecraft:air");
+        self.cmd_ok(&format!("item replace entity {name} weapon.mainhand with {item}"))?;
         Ok(())
     }
 
@@ -448,6 +473,21 @@ impl Drop for VanillaServer {
             let _ = std::fs::remove_dir_all(&self.dir);
         }
     }
+}
+
+/// Copy a directory tree (a saved world), skipping `session.lock`.
+fn copy_tree(from: &Path, to: &Path) -> Result<()> {
+    std::fs::create_dir_all(to)?;
+    for e in std::fs::read_dir(from)? {
+        let e = e?;
+        let (p, q) = (e.path(), to.join(e.file_name()));
+        if e.file_type()?.is_dir() {
+            copy_tree(&p, &q)?;
+        } else if e.file_name() != "session.lock" {
+            std::fs::copy(&p, &q)?;
+        }
+    }
+    Ok(())
 }
 
 fn rand_u64() -> u64 {

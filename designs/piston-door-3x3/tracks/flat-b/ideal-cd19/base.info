@@ -1,0 +1,4 @@
+19 blocks | open 13 + close 10 events | SYM 13 events: PSup@(1,-2,0) PSwest@(3,-1,0) PSup@(1,-3,0) PSup@(1,-2,0) PSup@(1,-3,0) PSup@(1,-2,0) PSeast@(-2,0,0) PSeast@(-2,1,0) PSdown@(0,4,0) PSdown@(1,4,0) PSdown@(2,4,0) PSwest@(4,0,0) PSwest@(4,1,0) [M pulse at step 0, riders: none]
+    added: 
+    open:  PSeast@(-2,0,0) PSeast@(-2,1,0) PSdown@(0,4,0) PSup@(1,-2,0) PSdown@(1,4,0) PSdown@(2,4,0) PSwest@(3,-1,0) PSup@(1,-3,0) PSup@(1,-2,0) PSup@(1,-3,0) PSup@(1,-2,0) PSwest@(4,0,0) PSwest@(4,1,0)
+    close: PSeast@(-2,0,0) PSeast@(-2,1,0) PSdown@(0,4,0) PSup@(1,-2,0) PSdown@(1,4,0) PSdown@(2,4,0) PSwest@(3,-1,0) PSup@(1,-2,0) PSwest@(4,0,0) PSwest@(4,1,0)

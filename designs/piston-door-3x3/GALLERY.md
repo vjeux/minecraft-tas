@@ -2,7 +2,7 @@
 
 Looping GIFs rendered by the real Minecraft client (`mctas door gallery`, 1.5x the recording's 10 ticks/s). Rankings: [LEADERBOARD.md](LEADERBOARD.md). Every archived design has its own video: [archive/VIDEOS.md](archive/VIDEOS.md).
 
-The whole solid record progression in one video (151 -> 40 blocks, `mctas door montage`; click the poster):
+The whole solid record progression in one video (151 -> 38 blocks, `mctas door montage`; click the poster):
 
 [![every solid record](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4)
 
@@ -10,31 +10,33 @@ The night, board by board (records from the archive):
 
 ![records over the night](https://github.com/vjeux/minecraft-tas/releases/download/videos/night-timeline.png)
 
-## Solid (main ranking): 40 blocks
+## Solid (main ranking): 38 blocks
 
-9 identical plain door blocks, no sculk sensors.
+9 identical plain door blocks, no sculk sensors, rotation-safe.
 
-![fc2-40b](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.gif)
+![sf-holdA-b38-38b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sf-holdA-b38-38b.gif)
 
-**40 blocks**, solid, opens in 24 ticks, closes in 9 (worst cycle): [fc2-40b](archive/fc2-40b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4)). Agent fresh-c, "symmetric control": open and close run the SAME signal chain at the same delays, so there is no hold at all: an observer on the lever pulses the center piston A 2 ticks after each flip (swallowed on open, it pushes the center down on close), the shuttle piston Q is the lever through one repeater (its redstone block powers A at rest, then the right piston, which drags the top-middle block out), and the B window fires on both edges but is harmlessly blocked on close; fc2 makes the left pusher a pull-type pulse piston west of its backbone, fired by two observers off the lever (opens in 24 ticks, closes in 9).
+**38 blocks**, solid, slime-free, opens in 36 ticks, closes in 32 (worst cycle): [sf-holdA-b38-38b](archive/sf-holdA-b38-38b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sf-holdA-b38-38b.mp4)). Agent sf-holdA (also slime-free): b39 with the lever on the observer O; it weakly powers a note block that O_a watches (a zero-delay relay that keeps power out of the T piston's quasi cell).
 
-## Solid, no slime or honey: 44 blocks
+## Solid, no slime or honey: 38 blocks
 
 Not a single slime or honey block anywhere.
 
-![slime-free-s7q-44b](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-s7q-44b.gif)
+![sf-holdA-b38-38b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sf-holdA-b38-38b.gif)
 
-**44 blocks**, solid, slime-free, opens in 24 ticks, closes in 14 (worst cycle): [slime-free-s7q-44b](archive/slime-free-s7q-44b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-s7q-44b.mp4)). From agent slime-free; see [tracks/slime-free/NOTES.md](tracks/slime-free/NOTES.md).
+**38 blocks**, solid, slime-free, opens in 36 ticks, closes in 32 (worst cycle): [sf-holdA-b38-38b](archive/sf-holdA-b38-38b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sf-holdA-b38-38b.mp4)). Agent sf-holdA (also slime-free): b39 with the lever on the observer O; it weakly powers a note block that O_a watches (a zero-delay relay that keeps power out of the T piston's quasi cell).
 
 Every record of this board in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
-## Solid, flat (one z layer), no slime or honey: 57 blocks
+## Solid, flat (one z layer), no slime or honey: 43 blocks
 
 Slime-free, and every block in the door's plane: the whole machine is one block thick.
 
-![flat-v2-57b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-57b.gif)
+![lamp-sweep-flat43-43b](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-flat43-43b.gif)
 
-**57 blocks**, solid, slime-free, flat, opens in 42 ticks, closes in 42 (worst cycle): [flat-v2-57b](archive/flat-v2-57b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-57b.mp4)). From agent flat; see [tracks/flat/NOTES.md](tracks/flat/NOTES.md).
+**43 blocks**, solid, slime-free, flat, opens in 46 ticks, closes in 44 (worst cycle): [lamp-sweep-flat43-43b](archive/lamp-sweep-flat43-43b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-flat43-43b.mp4)). From agent lamp-sweep; see [tracks/lamp-sweep/NOTES.md](tracks/lamp-sweep/NOTES.md).
+
+Every record of this board in one video: [flat-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.jpg)).
 
 ## Sculk: 42 blocks
 
@@ -46,21 +48,29 @@ Uses sculk sensors (footsteps or mobs nearby can trigger them).
 
 Every record of this board in one video: [sculk-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.jpg)).
 
-## Gravity: 42 blocks
+## Sculk, not rotation-safe: 36 blocks
+
+Uses sculk sensors; works as built but breaks when the whole door is turned 90 degrees.
+
+![sculk2-s4b-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.gif)
+
+**36 blocks**, sculk, opens in 20 ticks, closes in 36 (worst cycle): [sculk2-s4b-36b](archive/sculk2-s4b-36b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.mp4)). From agent sculk-2; see [tracks/sculk-2/NOTES.md](tracks/sculk-2/NOTES.md).
+
+## Gravity: 33 blocks
 
 The 9 door blocks are sand, gravel or concrete powder.
 
-![synth-g42-42b](https://github.com/vjeux/minecraft-tas/releases/download/videos/synth-g42-42b.gif)
+![gravity2-g33-33b](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-g33-33b.gif)
 
-**42 blocks**, gravity, opens in 5 ticks, closes in 17 (worst cycle): [synth-g42-42b](archive/synth-g42-42b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/synth-g42-42b.mp4)). From agent synth; see [tracks/synth/NOTES.md](tracks/synth/NOTES.md).
+**33 blocks**, gravity, opens in 5 ticks, closes in 16 (worst cycle): [gravity2-g33-33b](archive/gravity2-g33-33b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-g33-33b.mp4)). From agent gravity-2; see [tracks/gravity-2/NOTES.md](tracks/gravity-2/NOTES.md).
 
 Every record of this board in one video: [gravity-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.jpg)).
 
-## Fastest solid: 119 blocks
+## Fastest solid: 107 blocks
 
 Fewest game ticks to open plus close (worst cycle), ties by blocks.
 
-![speed-wire-o6-119b](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o6-119b.gif)
+![lamp-sweep-a1-107-107b](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-a1-107-107b.gif)
 
-**119 blocks**, solid, slime-free, opens in 11 ticks, closes in 7 (worst cycle): [speed-wire-o6-119b](archive/speed-wire-o6-119b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-o6-119b.mp4)). From agent speed; see [tracks/speed/NOTES.md](tracks/speed/NOTES.md).
+**107 blocks**, solid, slime-free, opens in 10 ticks, closes in 7 (worst cycle): [lamp-sweep-a1-107-107b](archive/lamp-sweep-a1-107-107b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-a1-107-107b.mp4)). From agent lamp-sweep; see [tracks/lamp-sweep/NOTES.md](tracks/lamp-sweep/NOTES.md).
 

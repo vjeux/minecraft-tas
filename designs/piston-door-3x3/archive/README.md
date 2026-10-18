@@ -35,6 +35,8 @@ branches) is [../LEADERBOARD.md](../LEADERBOARD.md). New records are archived he
 | 46 | piston-door-3x3-fresh-b-mp6-46b.txt | agent fresh-b: "mirrored pump" family (bottom row on a slime row, pump below the door, motion-triggered flags), open 16 / close 16 |
 | 42 | fc1-42b.txt | agent fresh-c: "symmetric control" family: no hold at all (Q = lever through one repeater), an early A pulse spits the center down on close, the B window is harmlessly blocked on close |
 | 40 | fc2-40b.txt | agent fresh-c: fc1 with the left pusher as a pull-type pulse piston west of the backbone fired by two observers off the lever |
+| 39 | sf-holdA-b39-39b.txt | agent sf-holdA (also slime-free): mech-synth's 19-block mechanism; both top corners pulled up and fed X's 3 pulses (an odd pulse count toggles a pulse-driven piston once, so the doorway bounces before it settles), the B window and the T piston on one observer chain |
+| 38 | sf-holdA-b38-38b.txt | agent sf-holdA (also slime-free): b39 with the lever on the observer O; it weakly powers a note block that O_a watches (a zero-delay relay that keeps power out of the T piston's quasi cell) |
 
 ## Other notable designs (not records when found)
 

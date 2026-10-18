@@ -1,0 +1,9 @@
+# synth context: w45 with the left chain shortened to 2 observers (left column at t12) and M's
+# trigger removed (O_bl + 3-observer chain)
+clear -1 5 -1
+clear -2 5 -1
+set -2 4 -1 minecraft:observer[facing=east,powered=false]
+clear 0 -1 0
+clear -1 -1 0
+clear -1 -2 0
+clear 0 -2 0

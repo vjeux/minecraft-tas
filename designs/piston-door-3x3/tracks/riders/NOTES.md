@@ -135,6 +135,17 @@ from P_M's column ((-1,-2,0), (3,-1,0), (1,-1,+-2)...) where nothing moves in fx
   --depth 2` on fx1.
 * Cheapest equal-cost variants: observer (0,-1,0) facing west + slime (-1,-1,0) under the left
   backbone (3 pulses per flip in fx1): 40 again.
+* Rider seeds on fx1 with `--changed` (after fixing it to compare settle ticks: the first version
+  compared only open/close ticks and dropped riders that fire extra but finish on time):
+  1-block riders (observer / redstone block / block glued to a slime) in the bottom box: 24 of 64
+  seeds change the machine, none searches below 40; in the upper box: 64 of 201 kept, none
+  searches below 40 (seed 57, an observer at (-1,2,1) facing north, made a worker run out of
+  memory; restarted past it); 2-block riders (slime + payload) in the bottom box: 1823 working
+  seeds, 1128 change the machine, only the first ~9 kept seeds searched (30 s each) before I
+  stopped it (~9 h for all): low yield, not worth the shared box.
+* Verdict: P_M's 2 blocks are minimal in the fc2/fx1 family; a 39 needs a different bottom
+  (something that already moves next to P_M's column, e.g. a pulse-driven P_R or the lever at
+  the bottom), not a rider.
 
 ## Next ideas
 * Odd pulse counts are free toggles: any pulse-driven piston can take any existing source

@@ -1,0 +1,7 @@
+[    0.0s] 276 groups of 2
+[    0.5s] batch of 400877 candidates (400877 so far)
+[  119.4s]   400877 candidates: 312 seen, 400565 screened in 118.9s, 0 passed the screen, 0 judged, 0 passed the judge (118.9s)
+[  119.6s] batch of 81426 candidates (482303 so far)
+[  141.9s]   81426 candidates: 77 seen, 81349 screened in 22.3s, 0 passed the screen, 0 judged, 0 passed the judge (22.3s)
+[  141.9s] 276 groups of 2; 482303 candidates judged
+nothing found

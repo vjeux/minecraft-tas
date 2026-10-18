@@ -1,0 +1,48 @@
+name: gravity2-t1
+port door: 0 0 0
+port lever: 1 3 0
+origin: -1 0 -1
+palette:
+  S minecraft:sand
+  s minecraft:slime_block
+  R minecraft:redstone_block
+  P minecraft:sticky_piston[extended=false,facing=west]
+  Q minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=ceiling,facing=north,powered=false]
+  C minecraft:smooth_stone
+  H minecraft:piston[extended=true,facing=up]
+  h minecraft:piston_head[facing=up,short=false,type=normal]
+  U minecraft:sticky_piston[extended=false,facing=up]
+layer -6:
+  .
+  .
+  ..U
+layer -4:
+  .
+  ..U
+  ..s
+layer -3:
+  .
+  .
+  ..s
+layer -2:
+  .
+  ..H
+layer -1:
+  .
+  sRhCs
+layer 0:
+  .
+  sSSSs
+layer 1:
+  .
+  sSSSs
+layer 2:
+  .
+  sSSSs
+layer 3:
+  .
+  sPLQs
+layer 4:
+  .
+  ..C

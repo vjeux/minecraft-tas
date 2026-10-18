@@ -26,6 +26,9 @@
   able to stand where it is (no floating levers, torches, dust or repeaters: the judge checks
   `canSurvive`). No blocks that change by themselves over time (random ticks: unwaxed copper
   oxidizes, leaves decay...; use waxed copper).
+- Rotations: `door verify` also runs the door turned 90, 180 and 270 degrees (same positions) and prints
+  `rotation-safe` or `NOT rotation-safe` (`--no-rotations` skips it). Not part of the judge: the boards
+  rank rotation-safe designs and list the others on their own board, "Not rotation-safe".
 - Boards besides the main one: "Solid, no slime or honey" (verify prints `, slime-free`) and "Solid, flat
   (one z layer), no slime or honey" (every block in the door's plane z = door.z, verify prints `, flat`).
 - Category: doors whose 9 blocks are gravity blocks (sand, gravel, concrete powder) are ranked
@@ -55,11 +58,19 @@
   both lever edges), and writes ideal-input designs + `door ideal` schedules that it replays in
   the simulator. Results and catalogs: `designs/piston-door-3x3/tracks/mech-synth/NOTES.md`.
 - `gen <name> --out <file>`: canonicalize a design built in `crates/piston-door/src/designs.rs`.
+- `tick-video <design> --out <f.mp4>` (coordinator: videos): one open/close cycle tick by tick, still camera,
+  captions for the flips and the settled states, a 3x3 map of the doorway per tick and a strip of the
+  whole phase. Regular videos (`video`, `video-all`) now play each flip until the door has settled.
 - `vanilla-check <design>... [--extra-offsets 28]`: run designs in an UNMODIFIED
   vanilla 26.3 server (official jar, RCON, a bot player clicks the lever, region-file readback)
   and compare every tick with the simulator under the judge's rules, plus one real-time cycle.
   PASS = identical tick for tick; DIVERGES names the first differing tick and cells (`--trace`
   prints pending ticks of both worlds). Method: `designs/piston-door-3x3/tracks/vanilla-check/NOTES.md`.
+- `vanilla-build <script.build.txt>... [--extra-offsets 28] [--real-time] [--slow N]`: replay a
+  `door buildable` script in the unmodified server with a bot player (item in hand, the script's
+  look, sneaking, a right-click on the given face; temporary dirt placed and broken by clicks),
+  compare with the simulator after every action, the built world with the judge's rest state,
+  then run the judge's cycles with the bot. Method: `designs/piston-door-3x3/tracks/vanilla-build/NOTES.md`.
 - `mctas src grep|find|show`: read the decompiled Minecraft 26.3 source (the ground truth for
   mechanics; see `docs/mechanics.md`).
 - Design files: layer text format (see any file in `designs/`); `@name` loads a built-in.

@@ -123,7 +123,7 @@ pub fn judge(run: &Run, spec: &DoorSpec) -> Result<Vec<(u32, u32)>> {
 
 /// Step the simulator until idle (max ticks), recording the box; with `trace`, one tick per
 /// request (same semantics: the bridge checks idle after every tick) plus the pending counts.
-fn sim_phase(w: &mut Worker, sb: u32, max: u32, lo: Pos, hi: Pos, trace: bool) -> Result<(Vec<Region>, bool, Vec<String>)> {
+pub(crate) fn sim_phase(w: &mut Worker, sb: u32, max: u32, lo: Pos, hi: Pos, trace: bool) -> Result<(Vec<Region>, bool, Vec<String>)> {
     if !trace {
         let r = w.step_record(sb, max, true, lo, hi)?;
         return Ok((r.frames, r.idle == Some(true), Vec::new()));
@@ -179,7 +179,7 @@ fn sim_run(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, opts: &CheckOpt
 /// blocks). If it is not, it keeps stepping until it is (the extra frames are a divergence).
 /// Without a target (the simulator never settled), vanilla stops on its own: quiet, confirmed by
 /// one more tick in which nothing changes (block events are not saved to disk), or `max_ticks`.
-fn vanilla_record(v: &mut VanillaServer, lo: Pos, hi: Pos, max_ticks: u32, judge_ticks: Option<usize>) -> Result<(Vec<Region>, bool, Vec<String>)> {
+pub(crate) fn vanilla_record(v: &mut VanillaServer, lo: Pos, hi: Pos, max_ticks: u32, judge_ticks: Option<usize>) -> Result<(Vec<Region>, bool, Vec<String>)> {
     let mut frames: Vec<Region> = Vec::new();
     let mut pending: Vec<String> = Vec::new();
     let mut quiet_since: Option<usize> = None;
@@ -207,13 +207,13 @@ fn vanilla_record(v: &mut VanillaServer, lo: Pos, hi: Pos, max_ticks: u32, judge
     }
 }
 
-fn same_states(a: &Region, b: &Region) -> bool {
+pub(crate) fn same_states(a: &Region, b: &Region) -> bool {
     a.size == b.size && a.from == b.from && a.iter().zip(b.iter()).all(|((_, x), (_, y))| x == y)
 }
 
 /// Where the bot stands to click the lever: within reach, preferably outside the watch box (a
 /// player pushed around on the ground could make vibrations; flying in the void it makes none).
-fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
+pub(crate) fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
     // Within reach of the lever; then, in order: touching no block of the build (nothing can
     // push it, it stands on nothing, so it never steps or lands: no vibrations), outside the
     // watch box, far from sculk sensors, close to the lever. (A bot standing on rb2s2-50b's
@@ -259,7 +259,7 @@ fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
 
 /// Entities the judge would see: every non-player entity, plus anything the bot picked up (a
 /// player near a broken build collects the dropped items; the judge's sandbox has no player).
-fn vanilla_entities(v: &mut VanillaServer) -> Result<u32> {
+pub(crate) fn vanilla_entities(v: &mut VanillaServer) -> Result<u32> {
     let mut n = v.count_entities("@e[type=!minecraft:player]")?;
     let name = v.bot.as_ref().map(|b| b.name.clone()).unwrap_or_default();
     if v.cmd(&format!("execute if data entity {name} Inventory[0]"))?.contains("Test passed") {
@@ -270,7 +270,7 @@ fn vanilla_entities(v: &mut VanillaServer) -> Result<u32> {
 }
 
 /// Right-click the lever with the bot and wait until it shows the new state.
-fn flip(v: &mut VanillaServer, lever: Pos, on: bool) -> Result<()> {
+pub(crate) fn flip(v: &mut VanillaServer, lever: Pos, on: bool) -> Result<()> {
     if !v.test_block(lever, "minecraft:lever")? {
         // The lever is gone (a broken build popped it). The judge then right-clicks whatever is
         // there with a mock player (nothing, for air); the bot does the same and moves on.
@@ -298,7 +298,7 @@ fn flip(v: &mut VanillaServer, lever: Pos, on: bool) -> Result<()> {
 }
 
 /// Force-load the chunks of a box and wait until they tick with entities loaded.
-fn load_box(v: &mut VanillaServer, lo: Pos, hi: Pos) -> Result<()> {
+pub(crate) fn load_box(v: &mut VanillaServer, lo: Pos, hi: Pos) -> Result<()> {
     v.cmd_ok(&format!("forceload add {} {} {} {}", lo[0], lo[2], hi[0], hi[2])).or_else(|e| {
         // "No chunks were marked" when they are all force-loaded already.
         if format!("{e:#}").contains("No chunks") { Ok(String::new()) } else { Err(e) }
@@ -319,7 +319,7 @@ fn load_box(v: &mut VanillaServer, lo: Pos, hi: Pos) -> Result<()> {
 
 /// Empty a box: blocks (no updates), non-player entities, and let pending ticks and the redstone
 /// torch burnout memory (60 gt) expire.
-fn clean(v: &mut VanillaServer, lo: Pos, hi: Pos) -> Result<()> {
+pub(crate) fn clean(v: &mut VanillaServer, lo: Pos, hi: Pos) -> Result<()> {
     // A broken design can push blocks out of its watch box: clear a margin around it too.
     let (flo, fhi) = ([lo[0] - 6, lo[1] - 6, lo[2] - 6], [hi[0] + 6, hi[1] + 6, hi[2] + 6]);
     load_box(v, flo, fhi)?;
@@ -400,14 +400,14 @@ pub struct Oracle {
 }
 
 impl Oracle {
-    fn learn(&mut self, r: &Region) {
+    pub(crate) fn learn(&mut self, r: &Region) {
         for (s, f) in r.palette.iter().zip(r.flags.iter()) {
             self.flags.entry(s.clone()).or_insert(*f);
         }
     }
 
     /// Expand bare names and fill the flags of vanilla regions.
-    fn apply(&mut self, w: &mut Worker, regions: &mut [&mut Region]) -> Result<()> {
+    pub(crate) fn apply(&mut self, w: &mut Worker, regions: &mut [&mut Region]) -> Result<()> {
         let mut unknown: Vec<String> = Vec::new();
         for r in regions.iter() {
             for s in &r.palette {
@@ -448,7 +448,7 @@ impl Oracle {
 }
 
 /// Give vanilla regions full state strings and the simulator's collision flags.
-fn fill_flags(w: &mut Worker, oracle: &mut Oracle, sim: &Run, van: &mut Run) -> Result<()> {
+pub(crate) fn fill_flags(w: &mut Worker, oracle: &mut Oracle, sim: &Run, van: &mut Run) -> Result<()> {
     oracle.learn(&sim.rest);
     for f in sim.settle.iter().chain(sim.cycles.iter().flat_map(|c| c.open.iter().chain(c.close.iter()))) {
         oracle.learn(f);
@@ -463,7 +463,7 @@ fn fill_flags(w: &mut Worker, oracle: &mut Oracle, sim: &Run, van: &mut Run) -> 
 }
 
 /// Tick by tick: what each world still had pending, and the cells that differ.
-fn print_trace(phase: &str, sim: &[Region], sim_pending: &[String], van: &[Region], van_pending: &[String]) {
+pub(crate) fn print_trace(phase: &str, sim: &[Region], sim_pending: &[String], van: &[Region], van_pending: &[String]) {
     println!("    trace {phase}:");
     for t in 0..sim.len().max(van.len()) {
         let diff = match (sim.get(t), van.get(t)) {
@@ -483,13 +483,13 @@ fn print_trace(phase: &str, sim: &[Region], sim_pending: &[String], van: &[Regio
 }
 
 /// First cells that differ between two frames.
-fn frame_diff(a: &Region, b: &Region, limit: usize) -> Vec<String> {
+pub(crate) fn frame_diff(a: &Region, b: &Region, limit: usize) -> Vec<String> {
     a.iter().filter(|(p, s)| b.get(*p) != Some(*s)).take(limit).map(|(p, s)| format!("{p:?} sim {s} / vanilla {}", b.get(p).unwrap_or("?"))).collect()
 }
 
 /// Compare a phase's frames; vanilla may carry one trailing "confirmation" frame equal to its
 /// last one. Returns the first divergence.
-fn compare_frames(phase: &str, sim: &[Region], van: &[Region], sim_idle: bool, van_idle: bool) -> Option<String> {
+pub(crate) fn compare_frames(phase: &str, sim: &[Region], van: &[Region], sim_idle: bool, van_idle: bool) -> Option<String> {
     let n = sim.len().min(van.len());
     for t in 0..n {
         let d = frame_diff(&sim[t], &van[t], 6);

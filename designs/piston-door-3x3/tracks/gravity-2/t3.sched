@@ -1,0 +1,10 @@
+# t3: S1 above the chain (push on open, pull on close), O_s rides the chain and fires S2; ideal S1 pulse at s
+design designs/piston-door-3x3/tracks/gravity-2/t3.txt
+let so = 9
+let sc = 9
+open 0 use 1 3 0
+open so set 1 -1 2 minecraft:redstone_block
+open so+2 clear 1 -1 2
+close 0 use 1 3 0
+close sc set 1 -1 2 minecraft:redstone_block
+close sc+2 clear 1 -1 2

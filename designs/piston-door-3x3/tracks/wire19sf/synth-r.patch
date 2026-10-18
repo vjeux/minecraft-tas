@@ -1,0 +1,5 @@
+# synth context: w43 without its right-side wiring (TR puller chain, pair watcher + block)
+clear 2 4 -2
+clear 2 4 -1
+clear 3 2 0
+clear 4 2 0

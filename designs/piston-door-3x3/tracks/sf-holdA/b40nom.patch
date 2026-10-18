@@ -1,0 +1,5 @@
+# b40core without M's lamp trigger (M by ideal input)
+clear -1 -2 0
+clear -1 -1 0
+clear 0 -1 0
+clear 0 -2 0

@@ -1,0 +1,33 @@
+name: flat-b-v1base
+port door: 0 0 0
+port lever: -3 -1 0
+origin: -4 0 0
+palette:
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  w minecraft:observer[facing=west,powered=false]
+  e minecraft:observer[facing=east,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  d minecraft:observer[facing=down,powered=false]
+  X minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  R minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+layer -4:
+  ....C
+layer -3:
+  ...CRU
+layer -2:
+  .C.udU
+layer -1:
+  .LwwX..W
+layer 0:
+  ..E.CCC.W
+layer 1:
+  ..E.CCC.W
+layer 2:
+  ..CeCCCwC
+layer 4:
+  ....DDD

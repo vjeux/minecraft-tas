@@ -78,8 +78,10 @@ pub fn parse_cells(s: &str) -> Result<Vec<Pos>> {
 /// Expand palette shorthands: `block` (smooth_stone), `gt` (glazed terracotta: a floor slime
 /// never drags), `glass`, `obsidian`, `dust` (cross wire), `dot` (dot wire), `rep` (every delay)
 /// or `rep1`..`rep4` (4 facings each), `cmp` (comparator, both modes, 4 facings), `obs`
-/// (observer, 6 facings), `torch` (standing + 4 wall torches), `rblock`, `lamp`, `target`, or a
-/// full `minecraft:...` state.
+/// (observer, 6 facings), `torch` (standing + 4 wall torches), `rblock`, `lamp`, `bulb` (waxed
+/// copper bulb, a T flip-flop), `target`, `note` (note block: a conductor whose `powered` state
+/// follows its power at once, so an observer watching it pulses on both edges, and which updates
+/// its neighbors when it changes), or a full `minecraft:...` state.
 pub fn palette_states(spec: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -111,7 +113,11 @@ pub fn palette_states(spec: &str) -> Result<Vec<String>> {
             }
             "rblock" => out.push("minecraft:redstone_block".into()),
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
+            "bulb" => out.push("minecraft:waxed_copper_bulb[lit=false,powered=false]".into()),
             "target" => out.push("minecraft:target[power=0]".into()),
+            // A conductor whose own state flips (powered) the tick its power changes: an
+            // observer can watch any powered spot through it, on both edges, with no delay.
+            "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => bail!("unknown palette entry {s:?}"),
         }
@@ -171,7 +177,13 @@ impl Node {
             "redstone_torch" => (Kind::Torch, below, false, true),
             "redstone_wall_torch" => (Kind::Torch, Some(add(pos, neg(facing))), false, true),
             "redstone_lamp" => (Kind::Lamp, None, true, true),
+            // A copper bulb takes power like a lamp and shows it only to observers (and
+            // comparators): it toggles `lit` on each rising edge.
+            n if n.ends_with("copper_bulb") => (Kind::Lamp, None, true, true),
             "redstone_block" => (Kind::RBlock, None, true, false),
+            // A note block conducts like any full block, and its `powered` state follows its
+            // power in the same tick (observers can watch it).
+            "note_block" => (Kind::Block, None, true, true),
             "lever" => {
                 let s = match get("face").as_deref() {
                     Some("floor") => below,
@@ -246,6 +258,11 @@ impl Node {
 pub fn drives(u: &Node, v: &Node) -> bool {
     if v.kind == Kind::Observer {
         return u.changes && add(v.pos, v.facing) == u.pos;
+    }
+    // A comparator reads a copper bulb behind it (analog output 15 while lit): the bulb's T
+    // flip-flop state as a level.
+    if v.kind == Kind::Comparator && u.kind == Kind::Lamp && u.state.contains("copper_bulb") {
+        return add(v.pos, v.facing) == u.pos;
     }
     if !u.em.contains(&v.pos) || !v.rd.contains(&u.pos) {
         return false;
@@ -941,8 +958,10 @@ pub fn run_spec(w: &mut Worker, sb: u32, d: &Design, spec: &Spec, verbose: bool)
 
 /// How candidates are judged.
 pub enum Target {
-    /// The door: screen at a few positions, then the full judge.
-    Door { screen: VerifyOptions, judge: VerifyOptions },
+    /// The door: screen at a few positions, then the full judge. `max_open` / `max_close`
+    /// (speed boards) reject a door that opens (closes) later than that many ticks in any
+    /// cycle at the first position, as the leaderboard measures it.
+    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32> },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
 }
@@ -968,12 +987,18 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, .. } => {
+        Target::Door { judge, max_open, max_close, .. } => {
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
             let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false };
             screen_in(w, sb, d, &quick)?;
             let r = verify_in(w, sb, d, judge)?;
             let (o, c) = crate::search::worst_ticks(&r);
+            if let Some(m) = max_open.filter(|m| o > *m) {
+                bail!("too slow: opens after {o} ticks (max {m})");
+            }
+            if let Some(m) = max_close.filter(|m| c > *m) {
+                bail!("too slow: closes after {c} ticks (max {m})");
+            }
             Ok(format!("door works at {} positions, open {o} / close {c}", judge.offsets.len()))
         }
         Target::Spec { spec, offsets } => {
@@ -1195,11 +1220,22 @@ pub struct ResynthOptions {
     /// Skip a group whose enumeration exceeds this many circuits.
     pub max_cands: usize,
     pub loose: bool,
+    /// Speed bounds for the judge (see [`Target::Door`]).
+    pub max_open: Option<u32>,
+    pub max_close: Option<u32>,
+    /// Write every improvement here as soon as it is found (the design as judged).
+    pub save_to: Option<std::path::PathBuf>,
+    /// After an improvement, search every group again (default: only groups whose
+    /// neighborhood changed).
+    pub global_retry: bool,
+    /// Only groups whose blocks all lie in this box (inclusive corners): focus a large-group
+    /// run on one region.
+    pub only: Option<(Pos, Pos)>,
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
-/// lamps) and plain blocks that do not move; never the door, the lever or what holds it up,
-/// pistons, slime/honey or redstone blocks.
+/// lamps, copper bulbs, note blocks, targets) and plain blocks that do not move; never the door,
+/// the lever or what holds it up, pistons, slime/honey or redstone blocks.
 fn removable(d: &Design, changing: &HashSet<Pos>) -> Vec<Pos> {
     let spec = DoorSpec::from_design(d).ok();
     let door: HashSet<Pos> = spec.map(|s| s.door_cells().into_iter().collect()).unwrap_or_default();
@@ -1209,7 +1245,9 @@ fn removable(d: &Design, changing: &HashSet<Pos>) -> Vec<Pos> {
         .iter()
         .filter(|(p, s)| {
             let n = Node::new(**p, s);
-            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp);
+            let wiring = matches!(n.kind, Kind::Dust | Kind::Repeater | Kind::Comparator | Kind::Observer | Kind::Torch | Kind::Lamp)
+                || s.contains("note_block")
+                || s.contains("minecraft:target");
             let still_block = matches!(n.kind, Kind::Block) && !changing.contains(*p);
             let glass = n.kind == Kind::Inert && s.contains("glass");
             (wiring || still_block || glass) && !door.contains(*p) && Some(**p) != lever && Some(**p) != lever_support
@@ -1262,17 +1300,32 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
     let mut cur = design.clone();
     let mut tried: HashSet<(u64, Vec<Pos>)> = HashSet::new();
     let sandboxes = Sandboxes::new(pool);
+    // A group's candidate circuits depend only on the blocks around it (box = bounding box +
+    // margin, sinks = pistons within 3): after an improvement elsewhere, a group whose
+    // neighborhood is unchanged is not searched again (unless --global-retry).
+    let local_key = |d: &Design, g: &[Pos]| -> u64 {
+        let r = o.margin + 3;
+        let mut near: Vec<(&Pos, &String)> = d.blocks.iter().filter(|(p, _)| g.iter().any(|c| (0..3).all(|i| (p[i] - c[i]).abs() <= r))).collect();
+        near.sort();
+        let mut hs = DefaultHasher::new();
+        near.hash(&mut hs);
+        hs.finish()
+    };
     'outer: loop {
         let (changing, swept) = {
             let mut w = pool.worker(0);
             door_motion(&mut w, &cur)?
         };
         let rem = removable(&cur, &changing);
-        let gs = groups(&rem, o.min_size.max(1), o.max_size);
+        let mut gs = groups(&rem, o.min_size.max(1), o.max_size);
+        if let Some((lo, hi)) = o.only {
+            gs.retain(|g| g.iter().all(|p| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i])));
+        }
         let h = crate::search::design_hash(&cur);
         log(&format!("{} blocks: {} removable, {} groups of {}..{}", crate::block_count(&cur), rem.len(), gs.len(), o.min_size, o.max_size));
         for g in gs {
-            if !tried.insert((h, g.clone())) {
+            let key = if o.global_retry { h } else { local_key(&cur, &g) };
+            if !tried.insert((key, g.clone())) {
                 continue;
             }
             let mut base = cur.clone();
@@ -1344,7 +1397,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 }
             };
             let n: usize = buckets.iter().map(|b| b.len()).sum();
-            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone() };
+            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close };
             let t = Instant::now();
             let inner = |m: &str| {
                 if m.contains("VERIFIED") || (m.contains("passed the screen") && !m.ends_with(" 0 passed the screen")) {
@@ -1355,6 +1408,12 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
             log(&format!("  group [{desc}] -> <= {} blocks: {n} circuits in {:.1}s{}", g.len() - 1, t.elapsed().as_secs_f64(), if found.is_empty() { String::new() } else { " FOUND".into() }));
             if let Some((set, d, msg)) = found.into_iter().next() {
                 log(&format!("IMPROVED {} -> {} blocks: [{desc}] replaced by {} -- {msg}", crate::block_count(&cur), crate::block_count(&d), en.describe(&set)));
+                if let Some(path) = &o.save_to {
+                    match d.save(path) {
+                        Ok(()) => log(&format!("  saved to {}", path.display())),
+                        Err(e) => log(&format!("  could not save to {}: {e:#}", path.display())),
+                    }
+                }
                 cur = d;
                 continue 'outer;
             }
