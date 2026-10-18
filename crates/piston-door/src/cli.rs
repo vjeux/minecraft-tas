@@ -51,6 +51,9 @@ pub struct SearchArgs {
     /// Speed objectives: allow up to this many blocks more than the start design.
     #[arg(long, default_value_t = 0)]
     pub slack: usize,
+    /// Screen with the judge's own code (per-tick frames) instead of the faster frame-less copy.
+    #[arg(long)]
+    pub screen_frames: bool,
 }
 
 impl SearchArgs {
@@ -74,6 +77,7 @@ impl SearchArgs {
             seed: self.seed,
             objective: crate::search::parse_objective(&self.objective)?,
             slack: self.slack,
+            screen_frames: self.screen_frames,
         })
     }
 

@@ -106,6 +106,8 @@ pub struct SearchOptions {
     pub objective: Objective,
     /// Speed objectives: allow up to this many blocks more than the start design.
     pub slack: usize,
+    /// Screen with the judge's own code (per-tick frames) instead of the frame-less copy.
+    pub screen_frames: bool,
 }
 
 impl SearchOptions {
@@ -1064,6 +1066,92 @@ fn reroutes(ctx: &Ctx, d: &Design, space: &Space) -> (Vec<Edit>, Vec<Edit>) {
     (better, neutral)
 }
 
+/// The judge's verdict without per-tick frames: same placement, same checks on the final state of
+/// every phase (verify_at only uses frames for timings). Screening only; the judge is verify_in.
+fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<()> {
+    use anyhow::bail;
+    use mctas::sim::{PlaceMode, Region};
+    let illegal = crate::legality_problems(design);
+    if !illegal.is_empty() {
+        bail!("illegal design: {}", illegal.join("; "));
+    }
+    let moving = |s: &str| s.starts_with("minecraft:moving_piston");
+    for off in &opts.offsets {
+        let d = design.translated(*off);
+        let spec = DoorSpec::from_design(&d)?;
+        w.clear(sb)?;
+        let blocks = d.block_list();
+        w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+        let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+        w.update(sb, &wires, "shape")?;
+        let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
+        w.update(sb, &positions, "self")?;
+        if w.step_until_idle(sb, opts.max_ticks)?.idle != Some(true) {
+            bail!("never settles");
+        }
+        let (mut lo, mut hi) = d.bounds().context("empty design")?;
+        for p in spec.door_cells().iter().chain(spec.corridor_cells().iter()) {
+            for i in 0..3 {
+                lo[i] = lo[i].min(p[i]);
+                hi[i] = hi[i].max(p[i]);
+            }
+        }
+        let (wlo, whi) = ([lo[0] - 2, lo[1] - 2, lo[2] - 2], [hi[0] + 2, hi[1] + 2, hi[2] + 2]);
+        let rest = w.get_region(sb, wlo, whi)?;
+        // Closed: 9 identical full non-mechanism door blocks, the walkway clear.
+        let first = rest.get(spec.door_cells()[0]).unwrap_or("?").to_string();
+        for p in spec.door_cells() {
+            let s = rest.get(p).unwrap_or("?");
+            if s != first || is_mechanism_door_block(s) || !rest.flags_at(p).is_some_and(|f| f.full) || moving(s) {
+                bail!("not closed at rest");
+            }
+        }
+        if spec.corridor_cells().iter().any(|p| rest.flags_at(*p).is_some_and(|f| f.collides)) {
+            bail!("walkway blocked at rest");
+        }
+        let lever = rest.get(spec.lever).unwrap_or("?");
+        if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {
+            bail!("lever");
+        }
+        let open_ok = |r: &Region| {
+            spec.door_cells().into_iter().chain(spec.corridor_cells()).all(|p| {
+                let s = r.get(p).unwrap_or("?");
+                !(r.flags_at(p).is_some_and(|f| f.collides) || moving(s))
+            })
+        };
+        for _ in 0..opts.cycles {
+            w.use_block(sb, spec.lever)?;
+            if w.step_until_idle(sb, opts.max_ticks)?.idle != Some(true) {
+                bail!("still moving after opening");
+            }
+            if !open_ok(&w.get_region(sb, wlo, whi)?) || !w.entities(sb)?.is_empty() {
+                bail!("not open");
+            }
+            w.use_block(sb, spec.lever)?;
+            if w.step_until_idle(sb, opts.max_ticks)?.idle != Some(true) {
+                bail!("still moving after closing");
+            }
+            let last = w.get_region(sb, wlo, whi)?;
+            if rest.iter().any(|(p, s)| last.get(p) != Some(s)) || !w.entities(sb)?.is_empty() {
+                bail!("not back at rest");
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The judge's list of blocks a door may not be made of.
+fn is_mechanism_door_block(state: &str) -> bool {
+    let name = mctas::blockstate::block_name(state);
+    [
+        "slime_block", "honey_block", "piston", "sticky_piston", "piston_head", "moving_piston", "observer",
+        "redstone_block", "redstone_lamp", "target", "repeater", "comparator", "redstone_wire", "redstone_torch",
+        "redstone_wall_torch", "lever", "dispenser", "dropper", "hopper", "note_block", "tnt",
+    ]
+    .iter()
+    .any(|n| name.strip_prefix("minecraft:") == Some(*n))
+}
+
 /// A candidate stays in its base's leaderboard: same category, and no slime/honey added to a
 /// slime-free design.
 fn same_league(base: &Design, d: &Design) -> bool {
@@ -1203,9 +1291,18 @@ fn evaluate_with(
             return Ok(Screen::Skip);
         }
         let sb = sandboxes.get(w, wi)?;
-        match verify_in(w, sb, &d, &opts.screen) {
+        // Blocks objective: the frame-less screen (same verdict, no per-tick regions).
+        let verdict = if bar.is_none() && !opts.screen_frames {
+            screen_in(w, sb, &d, &opts.screen).map(|_| None)
+        } else {
+            verify_in(w, sb, &d, &opts.screen).map(Some)
+        };
+        match verdict {
             Ok(r) => {
-                let k = rank(&d, &r);
+                let k = match &r {
+                    Some(r) => rank(&d, r),
+                    None => (block_count(&d) as u32, 0),
+                };
                 if bar.is_some_and(|b| k >= b) {
                     return Ok(Screen::Fail);
                 }
