@@ -44,8 +44,26 @@ open/close cycles with the judge's rules from the built state.
 
 ## Results
 
-See [BUILDABILITY.md](../../BUILDABILITY.md) (the table) and `scripts/<design>.build.txt` (the
-build scripts, one line per action, design coordinates).
+See [BUILDABILITY.md](../../BUILDABILITY.md) (the table) and `scripts/<design file>.build.txt` (the
+build scripts, one line per action, design coordinates; the `# note:` lines say where the plain
+order first goes wrong, with a tick trace of that step).
+
+Every board leader (13 designs, the flat board's 60-block flat-v2 included) is BUILDABLE at 32/32 judge positions with the lever off while
+building and no helper block (only temporary dirt supports, because the sandbox is a void); so
+are the next rows, except fresh-d-s4-45b (31/32, the copper bulb below). None is buildable with
+the plain order (mechanism, pistons, wiring, observers, power
+last; attached blocks after their support). Typical failure (fc2): the observer on top of the left
+sticky piston has to face up, and the only visible face giving "up" is a temporary block above it,
+the cell it watches; breaking that block makes it pulse into the piston, which extends and pulls
+the left slime column and the door's left column one block west. riders-r3 was first found with
+the lever ON while building (placing the lever ON then switching it off runs one full door cycle
+that settles the machine); a lever-off order exists too.
+
+What changed between runs (all on this branch): the view-ray visibility rule (a face is clickable
+only through an open cell; 12 yaws, 7 pitches), sneaking on interactive supports, temporary dirt
+only for blocks that stand on their own and only where a click works (dry run against silently
+pasted dirt), never placing a block in the wrong orientation (the step fails instead), attached
+blocks after their support in the heuristic orders, parallel 32-position re-checks.
 
 ## Self-test
 
@@ -62,3 +80,21 @@ must say NOT FOUND (blocking: observer).
 - Footsteps: walking near a sculk sensor triggers it; sneaking (or standing still) after placing
   the sensor last avoids that, as in the st43 script.
 - A faster player acting while pistons are still moving (more options, not needed so far).
+
+## Found on the way: the unwaxed copper bulb is a time bomb
+
+fresh-d-s3-47b and fresh-d-s4-45b(-2) use an unwaxed copper bulb watched by an observer. Random
+ticks oxidize it (exposed, weathered, oxidized); each stage is a block change the observer sees,
+so the door fires on its own and ends broken. The build check caught it (one position failed with
+the bulb turned exposed mid-cycle: the build adds ~1000 ticks of random ticks); `door verify
+--cycles 40 --extra-offsets 28` confirms (BROKEN at cycle 20 of one position). A waxed copper bulb
+(same block count, `fresh-d-s4-waxed.txt`) works for 40 cycles at all 32 positions.
+
+## Next ideas
+
+- Replay a build script in the unmodified vanilla server (the vanilla-check track's bot) with
+  real item placements, as the vanilla cross-check of this simulator path.
+- Run `door buildable` from the leaderboard cycle on every new record (about a minute per design
+  with 14 workers) and add a column; or gate archiving on it.
+- Search for designs that are NOT buildable on purpose (observer pairs, BUD states set up by the
+  judge's update order) to see whether any minimizer result relies on one; so far none does.

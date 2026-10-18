@@ -181,6 +181,36 @@ pub fn cost(rest: &Region, out: &Outcome) -> f64 {
 /// Damage of a partial build: things placing more blocks cannot repair (a block where the rest
 /// state has air, a placed block gone or replaced, a drop, a failed placement), plus a small
 /// weight for state differences on placed cells.
+/// The cells [`damage`] counts as hard damage, described (for reports).
+fn damage_cells(rest: &Region, out: &Outcome, placed: &BTreeSet<Pos>) -> Vec<String> {
+    let mut v = Vec::new();
+    for (p, r) in rest.iter() {
+        let g = out.region.get(p).unwrap_or("?");
+        if g == r {
+            continue;
+        }
+        let what = if is_air(r) {
+            Some("should be air")
+        } else if placed.contains(&p) && block_name(g) != block_name(r) {
+            Some("moved or broken")
+        } else if !placed.contains(&p) && !is_air(g) && block_name(g) != block_name(r) {
+            Some("something else there")
+        } else {
+            None
+        };
+        if let Some(w) = what {
+            v.push(format!("{} {} {}: {w} (rest {}, built {})", p[0], p[1], p[2], short(r), short(g)));
+        }
+    }
+    if out.entities > 0 {
+        v.push(format!("{} dropped items", out.entities));
+    }
+    for s in out.steps.iter().filter(|s| !s.ok) {
+        v.push(s.error.clone().unwrap_or_else(|| "a placement failed".into()));
+    }
+    v
+}
+
 fn damage(rest: &Region, out: &Outcome, placed: &BTreeSet<Pos>) -> (f64, f64) {
     let mut hard = 10.0 * out.entities as f64 + 3.0 * out.failed() as f64;
     let mut soft = 0.0;
@@ -301,7 +331,7 @@ fn heuristic_orders(items: &[Item]) -> Vec<(String, Vec<usize>)> {
         };
         let mut o: Vec<usize> = (0..items.len()).collect();
         o.sort_by_key(|&i| key(i));
-        out.push((name.to_string(), o));
+        out.push((name.to_string(), supports_first(items, o)));
         // Connected growth: the same ranking, but always a block touching what is built when
         // there is one (fewer temporary blocks).
         let mut placed: BTreeSet<Pos> = BTreeSet::new();
@@ -324,9 +354,58 @@ fn heuristic_orders(items: &[Item]) -> Vec<(String, Vec<usize>)> {
             rest.retain(|&x| x != pick);
             o.push(pick);
         }
-        out.push((format!("{name}, connected"), o));
+        out.push((format!("{name}, connected"), supports_first(items, o)));
     }
     out
+}
+
+/// The block an attached block stands on (dust, repeaters, torches, levers...), if any.
+fn support_of(it: &Item) -> Option<Pos> {
+    let s = mctas::blockstate::BlockState::parse(&it.state).ok()?;
+    let p = it.pos;
+    let below = [p[0], p[1] - 1, p[2]];
+    let behind = |f: &str| match f {
+        "north" => Some([p[0], p[1], p[2] + 1]),
+        "south" => Some([p[0], p[1], p[2] - 1]),
+        "east" => Some([p[0] - 1, p[1], p[2]]),
+        "west" => Some([p[0] + 1, p[1], p[2]]),
+        _ => None,
+    };
+    match block_name(&it.state).trim_start_matches("minecraft:") {
+        "redstone_wire" | "repeater" | "comparator" | "redstone_torch" | "torch" | "rail" | "powered_rail" | "detector_rail"
+        | "activator_rail" => Some(below),
+        "redstone_wall_torch" | "wall_torch" => behind(s.get("facing")?),
+        n if n == "lever" || n.ends_with("_button") => match s.get("face")? {
+            "floor" => Some(below),
+            "ceiling" => Some([p[0], p[1] + 1, p[2]]),
+            _ => behind(s.get("facing")?),
+        },
+        _ => None,
+    }
+}
+
+/// Move every attached block right after the block it stands on when that comes later.
+fn supports_first(items: &[Item], mut order: Vec<usize>) -> Vec<usize> {
+    let index: BTreeMap<Pos, usize> = items.iter().enumerate().map(|(i, it)| (it.pos, i)).collect();
+    for _ in 0..items.len() {
+        let mut moved = false;
+        let pos_in: BTreeMap<usize, usize> = order.iter().enumerate().map(|(k, &i)| (i, k)).collect();
+        for k in 0..order.len() {
+            let i = order[k];
+            let Some(sup) = support_of(&items[i]).and_then(|q| index.get(&q).copied()) else { continue };
+            let ks = pos_in[&sup];
+            if ks > k {
+                let x = order.remove(k);
+                order.insert(ks, x);
+                moved = true;
+                break;
+            }
+        }
+        if !moved {
+            break;
+        }
+    }
+    order
 }
 
 /// xorshift64*.
@@ -473,14 +552,50 @@ pub fn search(version: &str, p: &Problem, opts: &SearchOptions, log: &(dyn Fn(&s
         }
         s.join(" | ")
     };
-    // How the plain rule order ends, for the report.
+    // How the plain rule order ends, for the report, and the first placement that does damage.
     if let Some((name, order)) = heuristic_orders(&p.items).into_iter().next() {
-        let plan = Plan { order, lever_on: false, helpers: vec![] };
+        let plan = Plan { order: order.clone(), lever_on: false, helpers: vec![] };
         let out = simulate(&mut w, sb, &p.design, &p.steps(&plan), &opts.sim)?;
         if cost(&p.rest, &out) == 0.0 {
             found.notes.push(format!("the plain order ({name}) works too"));
         } else {
-            found.notes.push(format!("the plain order ({name}) does not: {}", summary(&out)));
+            let mut first = String::new();
+            let mut first_k: Option<usize> = None;
+            let mut placed = BTreeSet::new();
+            for k in 1..=order.len() {
+                placed.insert(p.items[order[k - 1]].pos);
+                let pre = Plan { order: order[..k].to_vec(), lever_on: false, helpers: vec![] };
+                let o2 = simulate(&mut w, sb, &p.design, &p.steps(&pre), &opts.sim)?;
+                found.evaluations += 1;
+                if damage(&p.rest, &o2, &placed).0 > 0.0 {
+                    first_k = Some(k);
+                    let it = &p.items[order[k - 1]];
+                    let ticks = o2.steps.last().map(|s| s.ticks).unwrap_or(0);
+                    let cells = damage_cells(&p.rest, &o2, &placed);
+                    let shown: Vec<String> = cells.iter().take(4).cloned().collect();
+                    first = format!(
+                        "first damage at step {k}/{}: placing {} at {} {} {} (things move for {ticks} ticks): {}{}; ",
+                        order.len(),
+                        short(&it.state),
+                        it.pos[0],
+                        it.pos[1],
+                        it.pos[2],
+                        shown.join(" | "),
+                        if cells.len() > 4 { format!(" | {} more", cells.len() - 4) } else { String::new() }
+                    );
+                    break;
+                }
+            }
+            found.notes.push(format!("the plain order ({name}) does not: {first}at the end: {}", summary(&out)));
+            if let Some(k) = first_k {
+                let pre = Plan { order: order[..k - 1].to_vec(), lever_on: false, helpers: vec![] };
+                let last = Plan { order: order[..k].to_vec(), lever_on: false, helpers: vec![] };
+                let steps = p.steps(&last);
+                let n_pre = p.steps(&pre).len();
+                for line in trace_step(&mut w, sb, p, &steps[..n_pre], &steps[n_pre..], &opts.sim)? {
+                    found.notes.push(format!("  trace of that step: {line}"));
+                }
+            }
         }
     }
     let mut i = found.plan.helpers.len();
@@ -814,6 +929,51 @@ pub fn check_at(w: &mut Worker, d: &Design, steps: &[Step], off: Pos, opts: &Sim
     r
 }
 
+/// What happens tick by tick when `step` runs after `prefix` (built and settled first): one
+/// line per tick that changed something, "t<n>: x y z old -> new; ...".
+pub fn trace_step(w: &mut Worker, sb: u32, p: &Problem, prefix: &[Step], step: &[Step], opts: &SimOptions) -> Result<Vec<String>> {
+    simulate(w, sb, &p.design, prefix, opts)?;
+    let (lo, hi) = watch_box(&p.design, &p.spec);
+    let before = w.get_region(sb, lo, hi)?;
+    let list: Vec<Value> = step
+        .iter()
+        .map(|s| match &s.action {
+            Action::Place(st) => json!({"do": "place", "pos": s.pos, "state": st}),
+            Action::Use => json!({"do": "use", "pos": s.pos}),
+            Action::Break => json!({"do": "break", "pos": s.pos}),
+        })
+        .collect();
+    let v = w.call(json!({"op": "build", "sandbox": sb, "steps": list, "settle": 0, "min_ticks": 0, "stop_on_fail": false}))?;
+    let click = v["results"][0]["click"].as_str().unwrap_or("").to_string();
+    let placed = w.get_region(sb, lo, hi)?;
+    let rec = w.step_record(sb, 60, true, lo, hi)?;
+    let mut lines = Vec::new();
+    let change = |a: &Region, b: &Region| -> Vec<String> {
+        a.iter()
+            .filter(|(q, s)| b.get(*q) != Some(*s))
+            .map(|(q, s)| format!("{} {} {} {} -> {}", q[0], q[1], q[2], short(s), short(b.get(q).unwrap_or("?"))))
+            .collect()
+    };
+    let c0 = change(&before, &placed);
+    if !c0.is_empty() {
+        lines.push(format!("t0 ({click}): {}", c0.join("; ")));
+    }
+    let mut prev = placed;
+    for (t, f) in rec.frames.iter().enumerate() {
+        let c = change(&prev, f);
+        if !c.is_empty() {
+            let shown: Vec<String> = c.iter().take(6).cloned().collect();
+            lines.push(format!("t{}: {}{}", t + 1, shown.join("; "), if c.len() > 6 { format!("; {} more", c.len() - 6) } else { String::new() }));
+        }
+        prev = f.clone();
+        if lines.len() >= 12 {
+            lines.push("...".into());
+            break;
+        }
+    }
+    Ok(lines)
+}
+
 fn short(s: &str) -> String {
     s.strip_prefix("minecraft:").unwrap_or(s).to_string()
 }
@@ -1025,7 +1185,12 @@ pub fn run_cli(version: &str, designs: &[String], o: &CliOptions, out_dir: Optio
         }
         if let Some(dir) = out_dir {
             std::fs::create_dir_all(dir)?;
-            let file = dir.join(format!("{}.build.txt", v.name.replace('/', "_")));
+            // Named after the source file (several files can share a design name).
+            let stem = std::path::Path::new(spec.rsplit(':').next().unwrap_or(spec))
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| v.name.replace('/', "_"));
+            let file = dir.join(format!("{stem}.build.txt"));
             std::fs::write(&file, &v.text)?;
             println!("  wrote {}", file.display());
         }

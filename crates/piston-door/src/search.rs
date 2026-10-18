@@ -1801,9 +1801,35 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
         }
         frontier = next;
     }
-    let groups: Vec<Vec<Pos>> = groups.into_iter().filter(|g| g.len() == size).collect();
+    let mut groups: Vec<Vec<Pos>> = groups.into_iter().filter(|g| g.len() == size).collect();
+    groups.sort();
+    log(&format!("{} groups of {size}", groups.len()));
+    // Candidates are built and judged in batches of at most BATCH (size-3 `--any` cuts make
+    // tens of millions of candidates: materializing them all at once took 55 GB).
+    const BATCH: usize = 400_000;
+    let failed: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
+    let mut verified: Vec<(usize, Design, String)> = Vec::new();
     let mut cands: Vec<Cand> = Vec::new();
+    let mut total = 0usize;
+    let mut flush = |cands: &mut Vec<Cand>, verified: &mut Vec<(usize, Design, String)>| {
+        if cands.is_empty() {
+            return;
+        }
+        total += cands.len();
+        log(&format!("batch of {} candidates ({total} so far)", cands.len()));
+        let left = if want == 0 { 0 } else { want.saturating_sub(verified.len()).max(1) };
+        verified.extend(evaluate(pool, &sandboxes, &[base.clone()], std::mem::take(cands), opts, &failed, left, log));
+    };
     for g in &groups {
+        if want > 0 && verified.len() >= want {
+            break;
+        }
+        if cands.len() >= BATCH {
+            flush(&mut cands, &mut verified);
+            if want > 0 && verified.len() >= want {
+                break;
+            }
+        }
         let cut = Edit::removal(g, base);
         let d = cut.apply(base);
         let mut cells: Vec<Pos> = Vec::new();
@@ -1873,9 +1899,10 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
             }
         }
     }
-    log(&format!("{} groups of {size}; {} candidates", groups.len(), cands.len()));
-    let failed: Mutex<HashSet<u64>> = Mutex::new(HashSet::new());
-    let verified = evaluate(pool, &sandboxes, &[base.clone()], cands, opts, &failed, want, log);
+    if want == 0 || verified.len() < want {
+        flush(&mut cands, &mut verified);
+    }
+    log(&format!("{} groups of {size}; {total} candidates judged", groups.len()));
     Ok(verified.into_iter().map(|(_, d, desc)| (d, desc)).collect())
 }
 

@@ -86,6 +86,7 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 54 | solid | [piston-door-3x3-fresh-b-pd3c-54b](piston-door-3x3-fresh-b-pd3c-54b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-pd3c-54b.mp4) |
 | 54 | solid | [piston-door-3x3-lm1-54b](piston-door-3x3-lm1-54b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-lm1-54b.mp4) |
 | 55 | solid | [logic-min-slime-free-55b](logic-min-slime-free-55b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/logic-min-slime-free-55b.mp4) |
+| 57 | solid | [flat-v2-57b](flat-v2-57b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-57b.mp4) |
 | 57 | solid | [mechanics-fast-57b](mechanics-fast-57b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-fast-57b.mp4) |
 | 57 | solid | [piston-door-3x3-rb2-57b](piston-door-3x3-rb2-57b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-rb2-57b.mp4) |
 | 58 | solid | [piston-door-3x3-obs-s6-58b](piston-door-3x3-obs-s6-58b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-obs-s6-58b.mp4) |
