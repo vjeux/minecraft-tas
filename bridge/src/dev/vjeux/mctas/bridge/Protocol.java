@@ -102,7 +102,8 @@ public final class Protocol {
     void serve() {
         JsonObject request;
         try {
-            request = this.queue.poll(200, TimeUnit.MILLISECONDS);
+            this.server.viewerTick();
+            request = this.queue.poll(this.server.listening() ? 50 : 200, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             return;
         }
@@ -153,6 +154,10 @@ public final class Protocol {
             case "entities" -> entities(r);
             case "update" -> update(r);
             case "exec" -> exec(r);
+            case "viewers" -> viewers();
+            case "camera" -> camera(r);
+            case "play" -> play(r);
+            case "hold" -> hold(r);
             case "__invalid" -> throw new IllegalArgumentException(r.get("error").getAsString());
             default -> throw new IllegalArgumentException("unknown op '" + op + "'");
         };
@@ -419,6 +424,65 @@ public final class Protocol {
                 .withPosition(Vec3.ZERO)
                 .withSuppressedOutput();
         this.server.getCommands().performPrefixedCommand(source, r.get("command").getAsString());
+        return new JsonObject();
+    }
+
+    private JsonObject viewers() {
+        JsonObject o = new JsonObject();
+        JsonArray names = new JsonArray();
+        for (net.minecraft.server.level.ServerPlayer p : this.server.getPlayerList().getPlayers()) {
+            names.add(p.getGameProfile().name());
+        }
+        o.addProperty("count", names.size());
+        o.add("names", names);
+        return o;
+    }
+
+    /** Put every connected viewer in spectator mode at a camera pose inside a sandbox. */
+    private JsonObject camera(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        JsonArray p = r.getAsJsonArray("pos");
+        float yaw = r.has("yaw") ? r.get("yaw").getAsFloat() : 0F;
+        float pitch = r.has("pitch") ? r.get("pitch").getAsFloat() : 0F;
+        int n = 0;
+        for (net.minecraft.server.level.ServerPlayer player : this.server.getPlayerList().getPlayers()) {
+            player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
+            player.teleportTo(sb.level, p.get(0).getAsDouble(), p.get(1).getAsDouble(), p.get(2).getAsDouble(), java.util.Set.of(), yaw, pitch, true);
+            n++;
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("moved", n);
+        return o;
+    }
+
+    /** Step a sandbox at a wall-clock pace (for viewers), with network work between ticks. */
+    private JsonObject play(JsonObject r) throws InterruptedException {
+        Sandbox sb = sandbox(r);
+        int ticks = r.get("ticks").getAsInt();
+        double tps = r.has("tps") ? r.get("tps").getAsDouble() : 20.0;
+        long period = (long) (1_000_000_000L / tps);
+        long next = System.nanoTime();
+        for (int i = 0; i < ticks; i++) {
+            sb.tick(this.server);
+            this.server.viewerTick();
+            next += period;
+            long sleep = next - System.nanoTime();
+            if (sleep > 0) {
+                Thread.sleep(sleep / 1_000_000L, (int) (sleep % 1_000_000L));
+            }
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("time", sb.gameTime());
+        return o;
+    }
+
+    /** Keep viewers served for a while without ticking any level. */
+    private JsonObject hold(JsonObject r) throws InterruptedException {
+        long until = System.nanoTime() + (long) (r.get("ms").getAsDouble() * 1_000_000L);
+        while (System.nanoTime() < until) {
+            this.server.viewerTick();
+            Thread.sleep(25);
+        }
         return new JsonObject();
     }
 

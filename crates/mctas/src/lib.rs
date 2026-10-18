@@ -14,6 +14,7 @@ pub mod paths;
 pub mod setup;
 pub mod sim;
 pub mod source;
+pub mod video;
 
 /// The Minecraft version everything defaults to.
 pub const DEFAULT_VERSION: &str = "26.3";

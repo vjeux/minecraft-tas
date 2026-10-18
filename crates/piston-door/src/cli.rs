@@ -9,6 +9,27 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum DoorCmd {
+    /// Greedily remove blocks while the door keeps working; writes the result.
+    Minimize {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Worker JVMs.
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+    },
+    /// Record the door opening and closing with the real Minecraft client (needs Xvfb).
+    Video {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Simulation ticks per second while recording (20 = real time).
+        #[arg(long, default_value_t = 10.0)]
+        tps: f64,
+        /// Upload to this GitHub release tag of vjeux/minecraft-tas.
+        #[arg(long)]
+        upload: Option<String>,
+    },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
         name: String,
@@ -41,6 +62,27 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::Minimize { design, out, workers } => {
+            let d = load_design(&design)?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let t = std::time::Instant::now();
+            let opts = VerifyOptions::default();
+            let best = crate::minimize::minimize(&pool, &d, &opts, &|m| println!("[{:6.1}s] {m}", t.elapsed().as_secs_f64()))?;
+            let mut w = pool.worker(0);
+            let best = crate::canonicalize(&mut w, &best)?;
+            best.save(&out)?;
+            println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
+        }
+        DoorCmd::Video { design, out, tps, upload } => {
+            let d = load_design(&design)?;
+            let opts = crate::video::VideoOptions { tps, ..Default::default() };
+            crate::video::record(version, &d, &out, &opts)?;
+            println!("recorded {}", out.display());
+            if let Some(tag) = upload {
+                let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
+                println!("uploaded {url}");
+            }
+        }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;
             let mut w = Worker::spawn(&cfg)?;

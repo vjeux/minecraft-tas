@@ -23,9 +23,12 @@ public final class Main {
         System.setOut(System.err);
 
         Path universe = null;
+        int listen = -1;
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--universe") && i + 1 < args.length) {
                 universe = Path.of(args[++i]);
+            } else if (args[i].equals("--listen") && i + 1 < args.length) {
+                listen = Integer.parseInt(args[++i]);
             }
         }
         if (universe == null) {
@@ -34,6 +37,6 @@ public final class Main {
         Files.createDirectories(universe);
 
         Protocol protocol = new Protocol(System.in, protocolOut);
-        SimServer.launch(universe, protocol);
+        SimServer.launch(universe, protocol, listen);
     }
 }

@@ -197,3 +197,104 @@ pub fn vineflower() -> Result<PathBuf> {
     net::download(&url, &dest, Checksum::Sha256(VINEFLOWER_SHA256))?;
     Ok(dest)
 }
+
+/// What the real game client needs (for recording videos with Minecraft's own renderer).
+#[derive(Clone, Debug)]
+pub struct ClientInstall {
+    pub version: String,
+    pub java: PathBuf,
+    pub client_jar: PathBuf,
+    pub libs: Vec<PathBuf>,
+    pub assets_dir: PathBuf,
+    pub asset_index: String,
+}
+
+fn rules_allow(lib: &Value) -> bool {
+    let Some(rules) = lib["rules"].as_array() else { return true };
+    let os = match std::env::consts::OS {
+        "macos" => "osx",
+        other => other,
+    };
+    let mut allowed = false;
+    for r in rules {
+        let matches = r["os"]["name"].as_str().is_none_or(|n| n == os);
+        if matches {
+            allowed = r["action"] == "allow";
+        }
+    }
+    allowed
+}
+
+/// Run `jobs` downloads on `threads` threads.
+fn download_all(jobs: Vec<(String, PathBuf, String)>, threads: usize) -> Result<()> {
+    let queue = std::sync::Mutex::new(jobs);
+    let errors = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| {
+                loop {
+                    let job = queue.lock().unwrap().pop();
+                    let Some((url, dest, sha1)) = job else { break };
+                    if let Err(e) = net::download(&url, &dest, Checksum::Sha1(&sha1)) {
+                        errors.lock().unwrap().push(format!("{url}: {e:#}"));
+                    }
+                }
+            });
+        }
+    });
+    let errors = errors.into_inner().unwrap();
+    if !errors.is_empty() {
+        bail!("{} downloads failed, first: {}", errors.len(), errors[0]);
+    }
+    Ok(())
+}
+
+/// Download the client jar, its libraries (natives for this OS) and the assets.
+pub fn install_client(version: &str) -> Result<ClientInstall> {
+    let v = version_json(version)?;
+    let java = java(required_java(version)?)?;
+    let dir = paths::version_dir(version);
+    let client_jar = dir.join("client.jar");
+    let client = &v["downloads"]["client"];
+    net::download(
+        client["url"].as_str().ok_or_else(|| anyhow!("no client download"))?,
+        &client_jar,
+        Checksum::Sha1(client["sha1"].as_str().unwrap_or_default()),
+    )?;
+    let mut jobs = Vec::new();
+    let mut libs = Vec::new();
+    for lib in v["libraries"].as_array().into_iter().flatten() {
+        if !rules_allow(lib) {
+            continue;
+        }
+        let art = &lib["downloads"]["artifact"];
+        let (Some(url), Some(path)) = (art["url"].as_str(), art["path"].as_str()) else { continue };
+        let dest = dir.join("client-libs").join(path);
+        jobs.push((url.to_string(), dest.clone(), art["sha1"].as_str().unwrap_or_default().to_string()));
+        libs.push(dest);
+    }
+    let assets_dir = paths::home().join("assets");
+    let index = &v["assetIndex"];
+    let asset_index = index["id"].as_str().unwrap_or("legacy").to_string();
+    let index_path = assets_dir.join("indexes").join(format!("{asset_index}.json"));
+    net::download(
+        index["url"].as_str().ok_or_else(|| anyhow!("no asset index"))?,
+        &index_path,
+        Checksum::Sha1(index["sha1"].as_str().unwrap_or_default()),
+    )?;
+    let objects: Value = serde_json::from_slice(&std::fs::read(&index_path)?)?;
+    for obj in objects["objects"].as_object().into_iter().flat_map(|o| o.values()) {
+        let Some(hash) = obj["hash"].as_str() else { continue };
+        let dest = assets_dir.join("objects").join(&hash[..2]).join(hash);
+        if dest.exists() {
+            continue;
+        }
+        let url = format!("https://resources.download.minecraft.net/{}/{hash}", &hash[..2]);
+        jobs.push((url, dest, hash.to_string()));
+    }
+    if !jobs.is_empty() {
+        eprintln!("downloading {} client files", jobs.len());
+    }
+    download_all(jobs, 32)?;
+    Ok(ClientInstall { version: version.to_string(), java, client_jar, libs, assets_dir, asset_index })
+}

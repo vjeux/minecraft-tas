@@ -51,6 +51,8 @@ pub struct WorkerConfig {
     pub jvm_args: Vec<String>,
     /// Where worker stderr goes (`None` = inherit).
     pub stderr_log: Option<PathBuf>,
+    /// Accept real game clients on this localhost port (video recording).
+    pub listen: Option<u16>,
 }
 
 impl Default for WorkerConfig {
@@ -62,6 +64,7 @@ impl Default for WorkerConfig {
             log_level: "warn".to_string(),
             jvm_args: Vec::new(),
             stderr_log: None,
+            listen: None,
         }
     }
 }
@@ -228,6 +231,7 @@ impl Worker {
             .arg(MAIN_CLASS)
             .arg("--universe")
             .arg(&universe)
+            .args(cfg.listen.map(|p| vec!["--listen".to_string(), p.to_string()]).unwrap_or_default())
             .current_dir(&universe)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped());
@@ -397,6 +401,29 @@ impl Worker {
     /// Run a vanilla command (e.g. `fill 0 0 0 3 3 3 stone`) inside a sandbox.
     pub fn exec(&mut self, sandbox: u32, command: &str) -> Result<()> {
         self.call(json!({"op": "exec", "sandbox": sandbox, "command": command}))?;
+        Ok(())
+    }
+
+    /// Number of connected game clients.
+    pub fn viewers(&mut self) -> Result<u32> {
+        Ok(self.call(json!({"op": "viewers"}))?["count"].as_u64().unwrap_or(0) as u32)
+    }
+
+    /// Move connected clients (spectator mode) to a camera pose in a sandbox.
+    pub fn camera(&mut self, sandbox: u32, pos: [f64; 3], yaw: f32, pitch: f32) -> Result<()> {
+        self.call(json!({"op": "camera", "sandbox": sandbox, "pos": pos, "yaw": yaw, "pitch": pitch}))?;
+        Ok(())
+    }
+
+    /// Step at a wall-clock pace so connected clients can watch.
+    pub fn play(&mut self, sandbox: u32, ticks: u32, tps: f64) -> Result<()> {
+        self.call(json!({"op": "play", "sandbox": sandbox, "ticks": ticks, "tps": tps}))?;
+        Ok(())
+    }
+
+    /// Serve connected clients for `ms` milliseconds without ticking.
+    pub fn hold(&mut self, ms: u64) -> Result<()> {
+        self.call(json!({"op": "hold", "ms": ms}))?;
         Ok(())
     }
 

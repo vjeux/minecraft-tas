@@ -88,7 +88,11 @@ public final class SimServer extends MinecraftServer {
     final LevelStem voidStem;
     final LevelSettings levelSettings;
 
-    public static void launch(Path universe, Protocol protocol) throws Exception {
+    /** Port for real game clients (viewers, for video recording); -1 = no network at all. */
+    static int listenPort = -1;
+
+    public static void launch(Path universe, Protocol protocol, int listen) throws Exception {
+        listenPort = listen;
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
         Bootstrap.validate();
@@ -195,6 +199,33 @@ public final class SimServer extends MinecraftServer {
         return this.storageSource;
     }
 
+    boolean listening() {
+        return listenPort > 0;
+    }
+
+    /**
+     * Network work a real server does every tick, for connected viewers: packets, keep-alives,
+     * player bookkeeping and chunk sending. Levels are NOT ticked here.
+     */
+    void viewerTick() {
+        if (!listening()) {
+            return;
+        }
+        java.util.List<net.minecraft.server.level.ServerPlayer> players = this.getPlayerList().getPlayers();
+        players.forEach(p -> p.connection.suspendFlushing());
+        this.tickConnection();
+        this.getPlayerList().tick();
+        for (net.minecraft.server.level.ServerPlayer p : this.getPlayerList().getPlayers()) {
+            p.connection.chunkSender.sendNextChunks(p);
+            p.connection.resumeFlushing();
+        }
+    }
+
+    
+    public boolean enforceSecureProfile() {
+        return false;
+    }
+
     /** Run queued server-thread tasks (chunk futures and the like) without ticking anything. */
     void pumpTasks() {
         this.runAllTasks();
@@ -209,10 +240,14 @@ public final class SimServer extends MinecraftServer {
     }
 
     @Override
-    protected boolean initServer() {
+    protected boolean initServer() throws java.io.IOException {
         this.setPlayerList(new PlayerList(this, this.registries(), this.playerDataStorage, new EmptyNotificationService()) {});
         Gizmos.withCollector(GizmoCollector.NOOP);
         this.loadLevel();
+        if (listenPort > 0) {
+            this.setUsesAuthentication(false);
+            this.getConnection().startTcpServerListener(java.net.InetAddress.getLoopbackAddress(), listenPort);
+        }
         this.protocol.start(this);
         return true;
     }

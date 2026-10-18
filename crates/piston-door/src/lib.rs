@@ -17,6 +17,8 @@
 
 pub mod cli;
 pub mod designs;
+pub mod minimize;
+pub mod video;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
@@ -114,12 +116,24 @@ pub struct Report {
 
 /// Verdict: Ok(report) when the door works everywhere, Err(reason) otherwise.
 pub fn verify(w: &mut Worker, design: &Design, opts: &VerifyOptions) -> Result<Report> {
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let r = verify_in(w, sb, design, opts);
+    let _ = w.drop_sandbox(sb);
+    r
+}
+
+/// Count of placed blocks: every non-air block except piston heads (part of their piston).
+pub fn block_count(d: &Design) -> usize {
+    d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count()
+}
+
+/// [`verify`] in an existing sandbox (it is cleared first; reuse saves creating levels).
+pub fn verify_in(w: &mut Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<Report> {
     let spec = DoorSpec::from_design(design)?;
     let (lo, hi) = design.bounds().context("empty design")?;
     let size = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
-    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let mut report = Report {
-        blocks: design.block_count(),
+        blocks: block_count(design),
         size,
         cycles: Vec::new(),
         open_frames: Vec::new(),
@@ -134,7 +148,6 @@ pub fn verify(w: &mut Worker, design: &Design, opts: &VerifyOptions) -> Result<R
         }
         Ok(())
     })();
-    let _ = w.drop_sandbox(sb);
     result?;
     let _ = spec;
     Ok(report)
