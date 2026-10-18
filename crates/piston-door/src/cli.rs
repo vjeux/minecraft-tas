@@ -73,6 +73,10 @@ pub struct SearchArgs {
     /// vperiod:Q:N or step:dx,dy,dz:N (copies of the design, one lever, every opening checked).
     #[arg(long)]
     pub tile: Option<String>,
+    /// Accept only rotation-safe designs (the judge also passes turned 90, 180 and 270 degrees;
+    /// the boards rank rotation-safe designs). The start design must be rotation-safe too.
+    #[arg(long)]
+    pub rotation_safe: bool,
 }
 
 impl SearchArgs {
@@ -104,6 +108,7 @@ impl SearchArgs {
             max_close: self.max_close,
             to_sculk: self.to_sculk,
             shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
+            rotation_safe: self.rotation_safe,
         })
     }
 

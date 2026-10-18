@@ -96,7 +96,15 @@ pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &Search
             }
             Ok(())
         };
-        let best = search(pool, &d, &o, log, &mut on_improve)?;
+        let best = match search(pool, &d, &o, log, &mut on_improve) {
+            Ok(b) => b,
+            // --rotation-safe: a design that is not rotation-safe cannot start the search.
+            Err(e) if o.rotation_safe && format!("{e:#}").contains("not rotation-safe") => {
+                log(&format!("== {source}: skipped ({e:#})"));
+                continue;
+            }
+            Err(e) => return Err(e),
+        };
         // The result is a local minimum too: never harvest it again.
         let mut line = format!("{:016x} {source} {} -> {}\n", design_hash(&d0), block_count(&d0), block_count(&best));
         if best.blocks != d0.blocks {
@@ -170,7 +178,15 @@ pub fn transplant(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: 
         save(&d, &desc)?;
         let o = SearchOptions { deadline: Some(Instant::now() + Duration::from_secs_f64(opts.minutes * 60.0)), ..search_opts.clone() };
         let mut on_improve = |best: &Design, how: &str| save(best, &format!("{desc}, then {how}"));
-        let best = search(pool, &d, &o, log, &mut on_improve)?;
+        let best = match search(pool, &d, &o, log, &mut on_improve) {
+            Ok(b) => b,
+            // --rotation-safe: a transplant that is not rotation-safe cannot start the search.
+            Err(e) if o.rotation_safe && format!("{e:#}").contains("not rotation-safe") => {
+                log(&format!("== {source}: transplant kept, search skipped ({e:#})"));
+                continue;
+            }
+            Err(e) => return Err(e),
+        };
         log(&format!("== {source}: {} -> {} blocks", block_count(&target), block_count(&best)));
     }
     Ok(())
