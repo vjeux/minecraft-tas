@@ -504,10 +504,101 @@ pub fn shrink(sc: &Scenario, fails: &mut dyn FnMut(&Scenario) -> bool) -> Scenar
 
 // ---- the model side ----
 
-/// Run a scenario in the redsim model.
+/// The redsim side of a scenario.
+pub struct ModelSim {
+    pub w: redsim::World,
+}
+
+impl ModelSim {
+    pub fn new(lo: P3, hi: P3) -> ModelSim {
+        let m = 15;
+        let min = redsim::BlockPos::new(lo[0] - m, lo[1] - m, lo[2] - m);
+        let size = [hi[0] - lo[0] + 1 + 2 * m, hi[1] - lo[1] + 1 + 2 * m, hi[2] - lo[2] + 1 + 2 * m];
+        ModelSim { w: redsim::World::new(min, size) }
+    }
+}
+
+fn bp(p: P3) -> redsim::BlockPos {
+    redsim::BlockPos::new(p[0], p[1], p[2])
+}
+
+fn parse_block(s: &str) -> Result<redsim::Block> {
+    redsim::Block::parse(s).map_err(|e| anyhow::anyhow!("{e}"))
+}
+
+impl Sim for ModelSim {
+    fn place_raw(&mut self, blocks: &[(P3, String)]) -> Result<()> {
+        for (p, s) in blocks {
+            let b = parse_block(s)?;
+            self.w.set_block(bp(*p), b, redsim::world::flags::RAW);
+        }
+        Ok(())
+    }
+    fn update_self(&mut self, positions: &[P3]) -> Result<()> {
+        for p in positions {
+            let k = self.w.get(bp(*p)).kind();
+            self.w.neighbor_changed(bp(*p), k);
+        }
+        Ok(())
+    }
+    fn set_update(&mut self, pos: P3, state: &str) -> Result<()> {
+        let b = parse_block(state)?;
+        self.w.set_block(bp(pos), b, redsim::world::flags::ALL);
+        Ok(())
+    }
+    fn use_block(&mut self, pos: P3) -> Result<()> {
+        self.w.use_block(bp(pos));
+        Ok(())
+    }
+    fn tick(&mut self, lo: P3, hi: P3) -> Result<Frame> {
+        self.w.tick();
+        let mut f = Frame::default();
+        for y in lo[1]..=hi[1] {
+            for z in lo[2]..=hi[2] {
+                for x in lo[0]..=hi[0] {
+                    let b = self.w.get(redsim::BlockPos::new(x, y, z));
+                    if !b.is_air() {
+                        f.blocks.insert([x, y, z], b.to_string());
+                    }
+                }
+            }
+        }
+        for (p, be) in self.w.piston.all() {
+            if p.x < lo[0] || p.y < lo[1] || p.z < lo[2] || p.x > hi[0] || p.y > hi[1] || p.z > hi[2] {
+                continue;
+            }
+            f.moving.insert(
+                [p.x, p.y, p.z],
+                format!(
+                    "{} {} {} {} {}",
+                    short(&be.moved.to_string()),
+                    if be.extending { "ext" } else { "ret" },
+                    if be.source { "src" } else { "blk" },
+                    be.direction.name(),
+                    be.progress_o
+                ),
+            );
+        }
+        f.block_events = self.w.events.len() as u32;
+        f.block_ticks = self.w.ticks.count() as u32;
+        f.moving_count = self.w.piston.live_count() as u32;
+        f.drops = !self.w.drops.is_empty();
+        Ok(f)
+    }
+}
+
+/// Run a scenario in the redsim model (errors the model reports itself count as a failure).
 pub fn run_model(sc: &Scenario) -> Result<Vec<Frame>> {
-    let _ = sc;
-    bail!("the redsim model is not wired yet")
+    let mut sim = ModelSim::new(sc.lo, sc.hi);
+    let frames = run(&mut sim, sc)?;
+    if std::env::var("PISTFUZZ_DEBUG").is_ok() {
+        eprintln!("model drops: {:?}", sim.w.drops);
+        eprintln!("model errors: {:?}", sim.w.errors);
+    }
+    if let Some(e) = sim.w.errors.first() {
+        bail!("model error: {e}");
+    }
+    Ok(frames)
 }
 
 // ---- command line ----

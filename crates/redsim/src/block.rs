@@ -178,10 +178,12 @@ pub enum Simple {
     HoneyBlock,
     WaxedCopperGrate,
     SeaLantern,
+    // ---- pistmodel ----
+    CryingObsidian,
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 19] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 20] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -204,6 +206,8 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 19] = [
     (Simple::HoneyBlock, "honey_block", false, false, Instrument::Harp, PushReaction::PushPull),
     (Simple::WaxedCopperGrate, "waxed_copper_grate", false, true, Instrument::Harp, PushReaction::PushPull),
     (Simple::SeaLantern, "sea_lantern", false, true, Instrument::Hat, PushReaction::PushPull),
+    // ---- pistmodel ----
+    (Simple::CryingObsidian, "crying_obsidian", true, true, Instrument::Basedrum, PushReaction::Immoveable),
 ];
 
 impl Simple {

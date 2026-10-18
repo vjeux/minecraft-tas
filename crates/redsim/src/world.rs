@@ -281,7 +281,7 @@ impl World {
         if s.is_air() {
             return false;
         }
-        if drop {
+        if drop && bh::drops_item(&s) {
             self.drops.push((pos, s));
         }
         self.set_block_limit(pos, Block::Air, flags::ALL, limit)
