@@ -1,9 +1,8 @@
-# b38 (sf-holdA) as a period-8 tile module (ONE lever for every copy). The copies without the
-# lever hold dust in the lever's cell (relay), fed by the previous copy's bus: a repeater + 6 dust
-# on 7 smooth stone (14 blocks). The note block under the lever became a hopper: dust strongly
-# powers the block it stands on, and a strongly powered note block (a conductor) quasi-powered
-# the south piston E through observer A; a hopper is not a conductor.
-name: b38h-bus8
+# b38 period-8 tile module, 46 blocks per opening (tile-aware door minimize from b38h-bus8):
+# the bus is an observer chain: observer (2,4,-3) watches the hopper under the lever and
+# strongly powers smooth stone (3,4,-3) under dust (3,5,-3); observers (4..8,5,-3) carry the
+# pulse east into the next copy's relay dust (b38 reacts to edges, so one pulse per edge works).
+name: b38h-obs8
 relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
 port door: 0 0 0
 port lever: 1 5 -3
@@ -16,14 +15,12 @@ palette:
   E minecraft:sticky_piston[extended=false,facing=south]
   F minecraft:sticky_piston[extended=false,facing=up]
   G minecraft:sticky_piston[extended=false,facing=west]
-  H minecraft:stone
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:stone
   L minecraft:lever[face=wall,facing=north,powered=false]
-  N minecraft:hopper[enabled=true,facing=down]
   O minecraft:observer[facing=down,powered=false]
   R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
-  w minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   S minecraft:smooth_stone
-  W minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
   o minecraft:observer[facing=east,powered=false]
   r minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
   s minecraft:sticky_piston[extended=false,facing=down]
@@ -41,29 +38,29 @@ layer 0:
   .
   .
   .
-  D.HHH.G
+  D.III.G
 layer 1:
   .
   .
   .
-  D.HHH.G
+  D.III.G
 layer 2:
   .
   .
   .
-  SoHHHCS
+  SoIIICS
 layer 3:
   .
   ...E
   ..S.S
   .
 layer 4:
-  ...NSSSSSSS
+  ...HCS
   ...A
   ..RSR
   ..sss
 layer 5:
-  ...LWwwwwww
+  ...L.RCCCCC
   ...B
   ...B
   ...s

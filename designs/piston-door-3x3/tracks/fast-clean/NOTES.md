@@ -53,3 +53,11 @@ P_D pushes R_F back at c2; c4 F's base, T and R_F land; c5 F extends.
   feed a torch, and an observer on a c1 mover only gives a c3 RISE), or D needs its own 0-tick
   killer with a silent re-arm window. A different T parking cell (behind or in front of E, a
   reach-through returner next to E) changes Q's push geometry: a new open.
+* `close6-ideal.drive` (a1c, open state edited by script: repeater (1,6,-1) removed, P_X retracted,
+  R_X back at (1,5,1), R_Z back at (1,6,1), S_F sticky): **the close 0-tick of F works physically**
+  (F extends, P_X shoves R_X, F retracts in the same phase: C is PLACED in N1, "air -> stone").
+  But it happened at c2, not c1: a sticky S_F pulls R_F into (1,4,-1) as a moving block, so the head
+  removal that BUD-updates F at c1 (a normal piston's `removeBlock` of its head) never happens; only
+  the old R_F cell's neighbors are updated. So R_F's early return must come from elsewhere (keep S_F
+  normal). And with E empty at c2 and T not back, Q pushed A' into E at c4: the T-returner is the
+  part that decides whether close 6 exists in this family.
