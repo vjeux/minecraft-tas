@@ -48,6 +48,7 @@ pub mod rowsfire;
 pub mod search;
 pub mod shapes;
 pub mod showcase;
+pub mod redsim_fuzz;
 pub mod synth;
 pub mod tickvideo;
 pub mod tile;
