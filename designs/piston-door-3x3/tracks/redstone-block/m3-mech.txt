@@ -1,0 +1,47 @@
+name: m3-mechanism-only
+port door: 0 0 0
+port lever: 9 9 9
+origin: -5 0 -1
+palette:
+  S minecraft:stone
+  s minecraft:slime_block
+  L minecraft:sticky_piston[facing=west,extended=false]
+  E minecraft:sticky_piston[facing=east,extended=false]
+  U minecraft:sticky_piston[facing=up,extended=true]
+  u minecraft:piston_head[facing=up,type=sticky,short=false]
+  D minecraft:sticky_piston[facing=down,extended=true]
+  d minecraft:piston_head[facing=down,type=sticky,short=false]
+  B minecraft:sticky_piston[facing=down,extended=false]
+  O minecraft:observer[facing=north,powered=false]
+  r minecraft:repeater[facing=west,delay=1]
+  R minecraft:redstone_block
+layer -3:
+  .
+  ......R
+layer -2:
+  .
+  ......U
+layer -1:
+  .
+  ....sLuEs
+layer 0:
+  .
+  ....sSSSs
+layer 1:
+  .
+  ....sSSSs
+layer 2:
+  .
+  ....sSSSs
+layer 3:
+  .
+  ....s.dss
+layer 4:
+  ......O
+  ....sRD
+layer 5:
+  .
+  .....SB
+layer 6:
+  .
+  .....r

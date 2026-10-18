@@ -29,6 +29,7 @@ v2-min and on the other tracks' bests, archive every improvement here with its s
 |---|---|---|
 | 113 | v2-min (main, 115) | reroute: the sides line drop re-laid from (6,4,2) to (5,4,0), -2 (first round, 15 s) |
 | 109 | 113 above | renet: the lever net (7 terminals) re-synthesized from (6,4,2) as a greedy Steiner tree, -4 |
+| **88** | center-mech BEST (96, v2u2) | repeater (3,4,4) turned into dust + renet of the merged X net (-6), then the lever drop reroute (6,4,2) -> (5,4,0) (-2); 16 s |
 
 ## Log
 
@@ -39,3 +40,8 @@ v2-min and on the other tracks' bests, archive every improvement here with its s
 - `--walk` (random walk over verified neutral designs) drifts into fragile designs: verified
   neutral neighbors fell 59 -> 27 -> 9 -> ... -> 0 in 6 steps. Not useful as is.
 - renet (new family, net re-synthesis) on 113: -4 at once (109).
+- 109 is a local minimum for every family incl. plateau depth 1 with pairs (297k candidates)
+  and relaxed renet.
+- center-mech's 96 (v2u2): -8 in 16 s (88). BEST.txt is now this 88 (v2u2 mechanism: sides
+  pushed out by two pistons sharing an obsidian block, honey carrier for M, redstone blocks
+  riding the side groups). Plateau depth 1 after it: nothing.

@@ -9,6 +9,19 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum DoorCmd {
+    /// Record a video of every design in a folder (several at once), upload each, write VIDEOS.md.
+    VideoAll {
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        dir: PathBuf,
+        /// Local folder for the videos (existing ones are skipped).
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 4)]
+        jobs: usize,
+        /// GitHub release tag to upload each new video to.
+        #[arg(long)]
+        upload: Option<String>,
+    },
     /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
     Leaderboard {
         /// Ref prefix to scan besides HEAD.
@@ -27,6 +40,12 @@ pub enum DoorCmd {
         /// Write the markdown table here (also printed).
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Copy every explore branch's tracks/<track> folder into the working tree first.
+        #[arg(long)]
+        sync_tracks: bool,
+        /// Archive every working design into this folder; designs already there are trusted.
+        #[arg(long)]
+        archive_dir: Option<PathBuf>,
     },
     /// Route a dust path in a design (prints the blocks to add).
     Route {
@@ -152,21 +171,39 @@ pub enum DoorCmd {
         /// If it works, keep a copy in the archive folder next to the design (archive/<name>-<blocks>b.txt), unless an identical design is already archived.
         #[arg(long)]
         archive: bool,
+        /// Archive into this folder instead (e.g. the main designs/piston-door-3x3/archive).
+        #[arg(long)]
+        archive_dir: Option<PathBuf>,
     },
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
-        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out } => {
+        DoorCmd::VideoAll { dir, out, jobs, upload } => {
+            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref())?;
+        }
+        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
             let repo = std::path::Path::new(".");
             if fetch {
                 let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
                 anyhow::ensure!(st.success(), "git fetch failed");
             }
+            if sync_tracks {
+                eprintln!("synced tracks: {:?}", crate::leaderboard::sync_tracks(repo, &refs)?);
+            }
+            let trusted = archive_dir.as_deref().map(crate::leaderboard::archived_keys).unwrap_or_default();
             let cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
-            eprintln!("verifying {} designs", cands.len());
-            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers)?;
+            eprintln!("verifying {} designs ({} archived designs trusted)", cands.len(), trusted.len());
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, &trusted)?;
+            if let Some(dir) = &archive_dir {
+                for e in entries.iter().filter(|e| e.verdict.is_ok()) {
+                    let note = format!("verified WORKS by door leaderboard: {} blocks, category {}", e.blocks, e.category);
+                    if let Some(p) = crate::archive::save(std::path::Path::new(&e.source), &e.design, e.blocks, &note, Some(dir))? {
+                        eprintln!("archived {}", p.display());
+                    }
+                }
+            }
             let table = crate::leaderboard::render(&entries, extra_offsets);
             print!("{table}");
             if let Some(p) = out {
@@ -280,7 +317,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         crate::block_count(best),
                         offsets.len()
                     );
-                    if let Some(p) = crate::archive::save(&out, best, crate::block_count(best), &note)? {
+                    if let Some(p) = crate::archive::save(&out, best, crate::block_count(best), &note, None)? {
                         log(&format!("archived {}", p.display()));
                     }
                 }
@@ -323,7 +360,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir } => {
             let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
@@ -331,10 +368,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             opts.offsets.extend(crate::extra_offsets(extra_offsets));
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
-                    println!("WORKS: {} ({} blocks, {}x{}x{}, category {})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d));
+                    println!("WORKS: {} ({} blocks, {}x{}x{}, category {}{})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d), if crate::slime_free(&d) { ", slime-free" } else { "" });
                     if archive {
                         let note = format!("verified WORKS: {} blocks, open after {} ticks, closed after {} ticks", r.blocks, r.cycles[0].open_ticks, r.cycles[0].close_ticks);
-                        match crate::archive::save(&design, &d, r.blocks, &note)? {
+                        match crate::archive::save(&design, &d, r.blocks, &note, archive_dir.as_deref())? {
                             Some(p) => println!("archived {}", p.display()),
                             None => println!("already archived"),
                         }

@@ -1,0 +1,36 @@
+design designs/piston-door-3x3/tracks/redstone-block/m3-mech.txt
+plane 0 -5 -3 6 7
+quiet 2
+print
+# open: P_L pushes the left structure (carries RB_A away from A), BM loses power
+set 0 -1 1 minecraft:redstone_block
+clear 1 -3 0
+step 5
+# P_R pushes the right structure, dragging T
+set 2 -1 1 minecraft:redstone_block
+step 4
+# B on, then pulse A via the observer
+set -1 6 0 minecraft:redstone_block
+quiet 3
+set 1 4 -2 minecraft:stone
+step 6
+clear -1 6 0
+quiet 3
+clear 1 4 -2
+step 6
+# ---- close ----
+set -1 6 0 minecraft:redstone_block
+quiet 3
+set 1 4 -2 minecraft:stone
+step 6
+clear -1 6 0
+quiet 3
+clear 1 4 -2
+quiet 6
+print
+clear 2 -1 1
+set 1 -3 0 minecraft:redstone_block
+quiet 4
+print
+clear 0 -1 1
+step 6
