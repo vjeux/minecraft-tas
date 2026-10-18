@@ -1,0 +1,40 @@
+# verified WORKS: 44 blocks, open after 30 ticks, closed after 26 ticks
+# archived 2026-10-18 13:29Z from designs/piston-door-3x3/tracks/lamp-sweep/fb44.txt (repo at 2f17521)
+name: lamp-sweep-fb44
+port door: 0 0 0
+port lever: 0 -4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:stone
+  L minecraft:lever[face=ceiling,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  ...LAAF
+layer -3:
+  ..oODBR
+layer -2:
+  ooOFDO
+layer -1:
+  O.C..r
+layer 0:
+  OC.FFF.E
+layer 1:
+  FC.FFF.E
+layer 2:
+  rC.FFFAF
+layer 3:
+  ...O
+layer 4:
+  ...Oss
+layer 5:
+  ...OAS
