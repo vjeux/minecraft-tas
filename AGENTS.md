@@ -22,7 +22,9 @@
   (the opening extended 3 blocks in front and behind) is clear. Lever on: door cells + walkway
   walkable. Lever off: every block back exactly where it was, no entities. Score = non-air
   blocks, piston heads excluded. Survival-placeable blocks only (no command blocks, barriers,
-  bedrock, headless pistons...). Any other block or mechanic in the game is allowed.
+  bedrock, headless pistons...). Any other block or mechanic in the game is allowed. Every block must be
+  able to stand where it is (no floating levers, torches, dust or repeaters: the judge checks
+  `canSurvive`).
 - Category: doors whose 9 blocks are gravity blocks (sand, gravel, concrete powder) are ranked
   separately (`category gravity` in the verify output), and so are doors using sculk sensors
   (`category sculk`: a player's footsteps or a mob nearby can trigger them); everything else is
