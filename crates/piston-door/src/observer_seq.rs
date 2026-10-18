@@ -6,15 +6,53 @@ use mctas::design::Design;
 use mctas::sim::Pos;
 
 pub fn names() -> Vec<&'static str> {
-    vec!["obs-d2", "obs-d3"]
+    vec!["obs-d2", "obs-d3", "obs-e1m"]
 }
 
 pub fn build(name: &str) -> Option<Design> {
     match name {
         "obs-d2" => Some(d2()),
         "obs-d3" => Some(d3()),
+        "obs-e1m" => Some(e1_mech()),
         _ => None,
     }
+}
+
+/// e1 mechanism (toggles + redstone-block tricks): P_L (0,3,0) faces west into the left
+/// structure's top slime (-1,3,0) and shares (0,4,0) with A; the left structure carries RB_BM
+/// (0,-2,0) that holds P_BM extended; P_R (2,4,0) faces east into (3,4,0) and the right
+/// structure's slime (2,3,0) drags T out of (1,3,0) (no P_T). A and B retracted at rest.
+pub fn e1_mech() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-obs-e1m".into();
+    for y in 0..3 {
+        for x in 0..3 {
+            b.set([x, y, 0], STONE);
+        }
+    }
+    for y in 0..4 {
+        b.set([-1, y, 0], SLIME);
+    }
+    for y in 0..5 {
+        b.set([3, y, 0], SLIME);
+    }
+    b.set([2, 3, 0], SLIME);
+    // P_BM toggle, pulsed by the left column's bottom observer through (0,-2,0).
+    b.set([1, -2, 0], &sticky("up"));
+    b.set([0, -1, 0], &observer("up"));
+    b.set([0, -2, 0], STONE);
+    b.set([0, 3, 0], &sticky("west")); // P_L
+    b.set([2, 4, 0], &sticky("east")); // P_R
+    b.set([1, 4, 0], &sticky("down")); // A
+    b.set([1, 5, 0], &sticky("down")); // B
+    // rb2's window: R_B (1,6,1) -> B's QC cell; O (1,5,1) watches R_B -> X (1,4,1) on (1,3,1).
+    b.set([1, 6, 1], &repeater("north", 4));
+    b.set([1, 5, 1], &observer("up"));
+    b.set([1, 4, 1], "minecraft:redstone_wire[north=side,east=side,south=side,west=side]");
+    b.set([1, 3, 1], STONE);
+    b.port("door", [0, 0, 0]);
+    b.port("lever", [9, 9, 9]);
+    b.d
 }
 
 const WIRE: &str = "minecraft:redstone_wire";
