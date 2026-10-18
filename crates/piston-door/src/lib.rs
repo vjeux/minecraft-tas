@@ -302,10 +302,16 @@ pub fn verify(w: &mut Worker, design: &Design, opts: &VerifyOptions) -> Result<R
     r
 }
 
-/// Count of placed blocks: every non-air block except piston heads (part of their piston), plus one
-/// per entity (a minecart, an armor stand... counts as a block).
+/// Count of placed blocks: every non-air block except piston heads (part of their piston).
+/// Entities are not blocks: they are counted on their own ([`entity_count`]; vjeux 2026-10-18:
+/// fewer blocks with more entities is fine), and the Entities board ranks by blocks, then entities.
 pub fn block_count(d: &Design) -> usize {
-    d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count() + d.entities.len()
+    d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count()
+}
+
+/// Count of the design's entities (minecarts, armor stands...), scored apart from blocks.
+pub fn entity_count(d: &Design) -> usize {
+    d.entities.len()
 }
 
 /// `n` deterministic pseudo-random extra test positions, on top of the default four.
@@ -343,10 +349,10 @@ pub fn slime_free(d: &Design) -> bool {
 /// True when every block of the design lies in the door's plane (z = door.z): the whole machine
 /// is one block thick ("flat"; its own leaderboard together with slime-free).
 pub fn single_layer(d: &Design) -> bool {
-    let Ok(spec) = DoorSpec::from_design(d) else { return false };
-    // The door's plane: z = door.z, or x = door.x for an east/west-facing door.
-    let axis = if spec.along_z { 0 } else { 2 };
-    d.blocks.keys().all(|p| p[axis] == spec.door[axis])
+    let Some(door) = d.ports.get("door") else { return false };
+    // The door's plane: z = door.z, or x = door.x for an east/west-facing door (`door-axis: z`).
+    let axis = if d.meta.get("door-axis").is_some_and(|v| v.trim() == "z") { 0 } else { 2 };
+    d.blocks.keys().all(|p| p[axis] == door[axis])
 }
 
 /// How far a design reaches beyond its 3x3 opening on every side, at rest (piston heads

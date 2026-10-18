@@ -330,18 +330,22 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
         (
             "Entities allowed",
-            "solid doors that may also use entities (minecarts, armor stands, boats...; category `entity`, each entity counts as a block; every \
-             entity must be back exactly where it rested, at rest, after each close, and nothing else may appear): every other board bans entities. \
-             Solid designs compete here too (0 entities)",
+            "solid doors that may also use entities (minecarts, armor stands, boats...; category `entity`). Entities are counted apart from \
+             blocks: ranked by blocks, then entities. Every entity must be back exactly where it rested, at rest, after each close, and \
+             nothing else may appear; every other board bans entities. Solid designs compete here too (0 entities)",
             Box::new(|e: &Entry| crate::entities_allowed_board(&e.design)),
         ),
     ];
     for (title, rule, keep) in &boards {
         s.push_str(&format!("## {title}\n\n{rule}; rotation-safe.\n\n"));
         let entities_col = title.starts_with("Entities");
-        let rows: Vec<String> = entries
-            .iter()
-            .filter(|e| e.verdict.is_ok() && e.rotation_safe() && keep(e))
+        let mut members: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && e.rotation_safe() && keep(e)).collect();
+        if entities_col {
+            // Blocks first, entities break ties (stable: the usual order otherwise).
+            members.sort_by_key(|e| (e.blocks, crate::entity_count(&e.design)));
+        }
+        let rows: Vec<String> = members
+            .into_iter()
             .take(10)
             .enumerate()
             .map(|(i, e)| {

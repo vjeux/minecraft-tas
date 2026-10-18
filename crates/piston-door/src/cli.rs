@@ -2229,9 +2229,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
                     println!(
-                        "WORKS: {} ({} blocks, {}x{}x{}, category {}{}{})",
+                        "WORKS: {} ({} blocks{}, {}x{}x{}, category {}{}{})",
                         d.name,
                         r.blocks,
+                        match crate::entity_count(&d) {
+                            0 => String::new(),
+                            n => format!(" + {n} entit{}", if n == 1 { "y" } else { "ies" }),
+                        },
                         r.size[0],
                         r.size[1],
                         r.size[2],
