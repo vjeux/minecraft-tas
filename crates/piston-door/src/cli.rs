@@ -787,6 +787,16 @@ pub enum DoorCmd {
         /// With --sym-bfs: also allow level toggles (default: 2 gt pulses only).
         #[arg(long)]
         sym_levels: bool,
+        /// Open states must also be FULL seamless for a flat door (macro proxy): the door plane's
+        /// 12 hallway-ring cells hold only door blocks, plain stone or air (no heads, no slime or
+        /// honey), and an empty ring cell has no circuitry right behind it.
+        #[arg(long)]
+        seamless_open: bool,
+        /// Replay a hand-written mechanism path instead of searching: "<open events> | <close
+        /// events>" (same event syntax as --sym-bfs); writes oc.txt/oc.ideal to --out-dir and
+        /// replays the ideal inputs in the simulator with --verify 1.
+        #[arg(long)]
+        oc: Option<String>,
     },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
@@ -2189,7 +2199,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, sym_bfs, sym_levels } => {
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, sym_bfs, sym_levels, seamless_open, oc } => {
+            crate::mechsynth::SEAMLESS_OPEN.store(seamless_open, std::sync::atomic::Ordering::Relaxed);
+            if let Some(oc) = &oc {
+                return crate::mechsynth::oc_cli(version, &base, oc, out_dir.as_deref(), verify, extra_offsets, gap);
+            }
             if let Some(seq) = &sym_bfs {
                 return crate::mechsynth::sym_cli(version, &base, seq, sym_levels, cap, out_dir.as_deref(), verify, extra_offsets, gap);
             }
