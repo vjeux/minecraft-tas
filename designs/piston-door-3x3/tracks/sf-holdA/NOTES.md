@@ -169,7 +169,7 @@ Searches on b38, all nothing: `door synth` k = 1 for the TL feed (dust + floor; 
 incl. note, lamp, bulb, target, comparator) and for the left follower (--loose: only 2-block
 followers exist, the current one and its note/lamp/target variants); k = 3 for {TL feed + left
 follower}, {left follower + M}, {right follower + M}, {both TL/TR feeds}; `minimize --moves all
---depth 2 --plateau-pairs`; `regrow --size 3 --any` (obs/block/dust/note, ran for 90 min);
+--depth 2 --plateau-pairs`; `regrow --size 3 --any` (obs/block/dust/note: 8.7M candidates in 32 min, none passed the screen; stopped);
 `resynth --margin 2 --max-size 3` (with torches, comparators, note blocks).
 Why the cube (x = 1, 9 blocks) is pinned: P_T must fire >= 4 gt after p0 (T lands 4 gt after A's
 pull) and B >= 4 gt after P_T; R_B (delay 4 = 8 gt) is the only one-block window, so its input must
