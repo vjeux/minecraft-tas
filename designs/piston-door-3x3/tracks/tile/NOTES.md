@@ -38,6 +38,11 @@ wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile` on `minimize`/`harv
 
 ## Summary
 
+* Real game check: the 3-copy arrangements of both bests (`b38h-obs8b-x3.tiled`,
+  `b38h-vobs9m-x3.tiled`, written by `--tile-out`) PASS `door vanilla-check`: the unmodified
+  vanilla 26.3 server matches the simulator tick for tick (3080 ticks at 8 positions x 3 cycles,
+  plus a real-time 20 tps cycle). (`.tiled`, not `.txt`, so the leaderboard does not judge the
+  arrangements as single doors.)
 * PERIODIC: **45 blocks per opening at period 8** (`b38h-obs8b.txt` = BEST.txt), one lever, slime-free,
   rotation-safe, checked with 2, 3, 4 and 6 copies. b38 + an 8-block observer bus.
 * VPERIOD: **49 blocks per opening every 9 blocks up** (`b38h-vobs9m.txt`), same family.
