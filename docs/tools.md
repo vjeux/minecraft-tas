@@ -37,11 +37,11 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 | `door drive <script>...` | place a design, apply scripted inputs (`set`, `clear`, `use`, `step`, `quiet`, `print`, `plane`, probes, `expect`), print a plane per tick; any failed `expect` fails the command. Validates mechanisms with ideal inputs and runs the gadget tests |
 | `door ideal <schedule> [--set name=value] [--sweep name=lo..hi]` | judge a mechanism driven by scheduled ideal inputs (`ideal.rs`) and sweep its timing windows: which input ticks work |
 | `door reuse-check <design>` | verify many times in one reused sandbox: catches state leaking across runs (torch burnout memory) |
-| `door frontier [--check <file>...] [--any-category] [--all]` | the Pareto frontier over (open, close, blocks) from the verdict cache; `--check` says whether a candidate lands on it or which doors dominate it |
+| `door frontier [--check <file>...] [--any-category] [--all]` | the Pareto frontier over (open, close, size: the volume) from the verdict and properties caches; `--check` says whether a candidate lands on it or which doors dominate it |
 | `door shapes [<design>...] [--branches] [--rule <preset or key<=n,...>]` | every working design's shape and swept shape relative to its door, the best rotation-safe design per shape rule (wall, wall2, flat, ground, no-above, narrow1, narrow2, wall-ground) and league, and the (volume, blocks) frontier |
 | `door tile-scan <design>... [--tiles wide:3,period:4..12:3] [--levers one\|each]` | every design under every tiling, in parallel: which tilings work and the smallest working period |
-| `door leaderboard [--fetch] [--sync-tracks] [--archive-dir DIR] [--cache-dir DIR] [--cached-only] --out designs/piston-door-3x3/LEADERBOARD.md` | judge every design on main and `explore/*` with main's verifier (verdicts cached by content in `archive/verdicts-v5.tsv`) and write the boards, each leader with its GIF, video and caption. `--archive-dir` also archives every working design; `--cached-only` simulates nothing |
-| `door catalog [--videos DIR]` | write the archive catalog `archive/README.md` (every archived design: blocks, boards, ticks, rotations, buildability, video, how it works) from the verdict cache; records nothing |
+| `door leaderboard [--fetch] [--sync-tracks] [--archive-dir DIR] [--cache-dir DIR] [--cached-only] --out designs/piston-door-3x3/LEADERBOARD.md` | judge every design on main and `explore/*` with main's verifier (verdicts cached by content in `archive/verdicts-v5.tsv`) and write the boards, each leader with its GIF, video and caption, ranked by size (the volume, [rules](rules.md#the-judge-mctas-door-verify-design---extra-offsets-28)). `--archive-dir` also archives every working design; `--cached-only` judges no new design (no cached verdict = left out); working designs without a volume in `archive/properties-v1.tsv` are measured (one recorded cycle each) and cached either way |
+| `door catalog [--videos DIR]` | write the archive catalog `archive/README.md` (every archived design: size (volume), blocks placed, boards, ticks, rotations, buildability, video, how it works) from the verdict and properties caches; records nothing |
 
 ## Building designs
 
@@ -69,7 +69,7 @@ plus the hallway check, footsteps for sculk designs, QUART SEAMLESS or better an
 
 | command | when to use it |
 |---|---|
-| `door minimize <design> --out <file> --moves all [--plateau] [--depth 2] [--archive]` | local search (`search.rs`): removals of 1-3 blocks, repeater delays, moves, substitutions, swaps (2-3 blocks out, 1 in), dust re-routing and net re-synthesis; `--plateau` walks neutral edits; `--objective open\|close\|total` optimizes speed; `--max-open/--max-close` keep a speed; `--to-sculk` lets it turn a solid design into a sculk one |
+| `door minimize <design> --out <file> --moves all [--plateau] [--depth 2] [--archive]` | local search (`search.rs`): removals of 1-3 blocks, repeater delays, moves, substitutions, swaps (2-3 blocks out, 1 in), dust re-routing and net re-synthesis; `--plateau` walks neutral edits; `--objective open\|close\|total\|volume` optimizes speed or the community volume (`door properties` volume; `--slack N` lets blocks grow); `--max-open/--max-close` keep a speed; `--to-sculk` lets it turn a solid design into a sculk one |
 | `door harvest --out-dir DIR --moves all --plateau [--every 20]` | run that search on the best working designs of every branch and board not harvested yet |
 | `door transplant` | learn edits from pairs of designs (a, then a smaller variant of a) and try each on the best designs of every board |
 | `door grow <design> --out <file> --lo --hi --states [--k 2]` | add 1 or 2 blocks in a box to a design (usually one whose old wiring was cut), screening every combination; `--states` takes shorthands like `leaves` (persistent oak leaves) and `log` (3 axes); `--then-search --glue` seeds riders |
@@ -86,19 +86,20 @@ plus the hallway check, footsteps for sculk designs, QUART SEAMLESS or better an
 | `door vanilla-build <script.build.txt>... [--real-time] [--slow N]` | replay a `door buildable` script on the unmodified server with a bot player (item in hand, the script's look, sneaking, a right-click on the given face), compare after every action, then run the judge's cycles with the bot. Method: `tracks/vanilla-build/NOTES.md` |
 | `door vanilla-gadget designs/gadgets/<g>.drive...` | replay gadget drive scripts on the unmodified server and compare every tick ([mechanics.md](mechanics.md#11-vanilla-confirmation)) |
 | `door vanilla-fuzz [--count 50]` | differential fuzzing: random small contraptions compared between the simulator and the official server |
-| `door eligible <design>... [--extra-offsets 28]` | record eligibility under the Squid regulation (section 3), one line per design: the judge + rotations, repeater input at every judge position (props-dyn's rig: the lever left off, a delay-1 repeater into its support block, both edges), the hallway check, footsteps (sculk), the SEAMLESS tier, the lever's place; ELIGIBLE or what fails ([tracks/eligible](../designs/piston-door-3x3/tracks/eligible/NOTES.md)) |
+| `door eligible <design>... [--extra-offsets 28]` | record eligibility under the Squid regulation (section 3), one line per design: the judge + rotations, repeater input at every judge position (props-dyn's rig: the lever left off, a delay-1 repeater into its support block, both edges), the hallway check, footsteps (sculk), the SEAMLESS tier, the community volume, the lever's place; ELIGIBLE or what fails ([tracks/eligible](../designs/piston-door-3x3/tracks/eligible/NOTES.md)) |
+| `door relever <design>... [--subs note,dust] [--out-dir DIR] [--why]` | make working doors repeater-input eligible: the lever's cell becomes a note block (the lever hung on it, or kept on its old support) or dust (the lever kept on its support); every variant judged like a record and checked with `--eligible`; table with ticks, seamless tier and volume |
 
 ## Videos and showcase (coordinator only: the X displays are shared)
 
 | command | when to use it |
 |---|---|
-| `door video <design> --out <f.mp4>` | record the door opening and closing with the real Minecraft client (title card, door camera, block-count label; each flip plays until the door has settled) |
-| `door video-all --out DIR [--upload videos] [--dry-run]` | record every archived design that has no video yet, upload each to the `videos` release, then write the archive catalog; `--dry-run` lists what it would record |
+| `door video <design> --out <f.mp4> [--redo] [--relabel]` | the door opening and closing in the real Minecraft client: title card, then the design's one clip (still door camera; each flip plays until the door has settled) with the corner label (the size `80b` big, the blocks placed small). The clip is recorded only when missing or stale ([internals](internals.md#videos)); `--relabel` never records |
+| `door video-all --out DIR [--upload videos] [--relabel] [--dry-run]` | every archived design's video cut from its clip: clips missing or stale are recorded first, a video is cut again (seconds, no Minecraft) when its clip, card or label changed, uploaded to the `videos` release, then the archive catalog; `--relabel` records nothing and cuts every video again; `--dry-run` lists the work |
 | `door tick-video <design> --out <f.mp4>` | one open/close cycle tick by tick: still camera, captions for the flips and the settled states, a 3x3 map of the doorway per tick and a strip of the whole phase |
 | `door card <design> --out <png>` | draw just a video's title card (and its corner label) |
-| `door gallery --videos DIR [--upload videos]` | a looping GIF of the best design of every board, uploaded to the release (LEADERBOARD.md shows them), plus the night's timeline chart |
-| `door montage --videos DIR --out <f.mp4> [--board solid] [--upload videos]` | a board's record progression as one video: every record filmed by the same camera, labeled with its block count and how it got there (solid: `archive/records.tsv`) |
-| `door world --out DIR` | one Minecraft world (a save folder for the real game) with every working archived design in rows by board, to try them by hand |
+| `door gallery --videos DIR [--upload videos] [--gif-only]` | a looping GIF of the best design of every board cut from its clip (the same clips as the videos; a leader without one is recorded first, `--gif-only` records nothing), uploaded to the release (LEADERBOARD.md shows them), plus the night's timeline chart |
+| `door montage --videos DIR --out <f.mp4> [--board solid] [--upload videos]` | a board's record progression by blocks placed (the history before sizes were volumes) as one video: every record filmed by the same camera, labeled with its blocks placed and how it got there (solid: `archive/records.tsv`) |
+| `door world --out DIR` | one Minecraft world (a save folder for the real game) with every working archived design in rows by board, smallest volume first, its size in red concrete above it, to try them by hand |
 
 ## Generated files
 

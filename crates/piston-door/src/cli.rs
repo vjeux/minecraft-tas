@@ -151,42 +151,49 @@ impl SearchArgs {
 }
 #[derive(Subcommand)]
 pub enum DoorCmd {
-    /// Record a video of every design in a folder (several at once), upload each, then write the
-    /// folder's catalog (README.md, see `door catalog`).
+    /// Publish a video of every design in a folder (`<out>/<stem>.mp4`, uploaded), cut from each
+    /// design's one clip (recorded first when missing or stale, several at once), then write the
+    /// folder's catalog (README.md, see `door catalog`). A video is cut again only when its clip,
+    /// card or label changed (seconds, no Minecraft).
     VideoAll {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         dir: PathBuf,
-        /// Local folder for the videos (existing ones are skipped).
+        /// Local folder for the videos.
         #[arg(long)]
         out: PathBuf,
+        /// The clips folder (one recording per design, shared with `door video` and `door
+        /// gallery`; default ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// Client recordings (and cuts) at once.
         #[arg(long, default_value_t = 4)]
         jobs: usize,
         /// GitHub release tag to upload each new video to.
         #[arg(long)]
         upload: Option<String>,
-        /// Look of the videos: `card` (title card, door camera swinging around the door,
-        /// block-count label), `clean` (the same camera, no card or label) or `classic` (the
-        /// original still camera framing the whole build).
+        /// `card` (title card, then the clip with the size label: the volume big, the blocks
+        /// placed small) or `clean` (the clip itself).
         #[arg(long, default_value = "card")]
         style: String,
-        /// Orbit amplitude of the door camera in degrees each way (0 = still).
-        #[arg(long, default_value_t = 20.0)]
+        /// Orbit amplitude of the door camera in degrees each way (0 = still; part of the clip's
+        /// settings: the gallery's GIFs need a still camera).
+        #[arg(long, default_value_t = 0.0)]
         orbit: f64,
-        /// Re-record videos that already exist.
-        #[arg(long)]
+        /// Record every clip again.
+        #[arg(long, conflicts_with = "relabel")]
         redo: bool,
-        /// Re-record existing videos of doors still moving when the clip used to stop (40 ticks
-        /// after each flip); videos now always play until the door has settled.
+        /// Record nothing: cut every video that has a clip again (new labels in seconds).
         #[arg(long)]
-        redo_cut: bool,
-        /// Only list the videos that would be recorded (records and writes nothing).
+        relabel: bool,
+        /// Only list the work (cuts and recordings); records and writes nothing.
         #[arg(long)]
         dry_run: bool,
     },
-    /// Write the archive catalog (archive/README.md): every archived design with its blocks,
-    /// boards, open/close ticks, rotations, buildability (`door buildable`'s scripts), video link
-    /// and how it works (archive/captions.tsv, archive/records.tsv). Records nothing; verdicts
-    /// come from the verdict cache. `door video-all` writes it too.
+    /// Write the archive catalog (archive/README.md): every archived design with its size (the
+    /// volume) and blocks placed, boards, open/close ticks, rotations, buildability (`door
+    /// buildable`'s scripts), video link and how it works (archive/captions.tsv,
+    /// archive/records.tsv). Records nothing; verdicts come from the verdict cache, sizes from the
+    /// properties cache. `door video-all` writes it too.
     Catalog {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -210,19 +217,24 @@ pub enum DoorCmd {
         #[arg(long)]
         label: Option<PathBuf>,
     },
-    /// The best design of each board (block-count boards, speed boards) as a looping GIF (door
-    /// camera, real client), uploaded to the release, plus the night's timeline chart. No page of
-    /// its own: `door leaderboard` shows each board leader's GIF.
+    /// The best design of each board (size boards, speed boards) as a looping GIF (labeled with
+    /// its size, the volume, big and its blocks placed small), cut from the design's one clip (the
+    /// clips of `door video-all`, recorded here only when missing), uploaded to the release, plus
+    /// the night's timeline chart. No page of its own: `door leaderboard` shows each board
+    /// leader's GIF.
     Gallery {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
-        /// Folder for the clips and GIFs (rendered when missing).
+        /// Folder for the GIFs.
         #[arg(long)]
         videos: PathBuf,
-        /// GitHub release tag to upload the GIFs and clips to.
+        /// The clips folder (shared with `door video` and `video-all`; default ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// GitHub release tag to upload the GIFs to.
         #[arg(long)]
         upload: Option<String>,
-        /// Client renders at once.
+        /// Client recordings at once (leaders without a clip).
         #[arg(long, default_value_t = 2)]
         jobs: usize,
         /// Worker JVMs to verify archived designs missing from the verdict cache.
@@ -238,12 +250,17 @@ pub enum DoorCmd {
         /// GIF playback speed (clips are recorded at 10 ticks/s: 2 = game speed).
         #[arg(long, default_value_t = 1.5)]
         speed: f64,
-        /// Re-render clips and GIFs that exist.
-        #[arg(long)]
+        /// Record the leaders' clips again (and rebuild their GIFs). Not needed for new labels:
+        /// a GIF is rebuilt whenever its clip or label changed.
+        #[arg(long, conflicts_with = "gif_only")]
         redo: bool,
+        /// Record nothing: rebuild every GIF from the clips there are.
+        #[arg(long)]
+        gif_only: bool,
     },
-    /// A board's record progression (solid: archive/records.tsv, plus a newer record) as one video:
-    /// every design filmed by the same camera, labeled with its block count and how it got there.
+    /// A board's record progression by blocks placed (solid: archive/records.tsv, plus a newer
+    /// record; the history before sizes were volumes) as one video: every design filmed by the
+    /// same camera, labeled with its blocks placed and how it got there.
     Montage {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -269,10 +286,10 @@ pub enum DoorCmd {
         #[arg(long, default_value = "solid")]
         board: String,
     },
-    /// The Pareto frontier over (open ticks, close ticks, blocks): every working design on HEAD
-    /// and the explore/* branches (verdicts from the leaderboard cache, uncached ones verified),
-    /// then each --check design verified with the judge and placed against it: on the frontier,
-    /// or the doors that dominate it (see leaderboard.rs `frontier_report`).
+    /// The Pareto frontier over (open ticks, close ticks, size: the volume): every working design
+    /// on HEAD and the explore/* branches (verdicts from the leaderboard cache, uncached ones
+    /// verified), then each --check design verified with the judge and placed against it: on the
+    /// frontier, or the doors that dominate it (see leaderboard.rs `frontier_report`).
     Frontier {
         /// Candidate designs to place against the frontier.
         #[arg(long, num_args = 1..)]
@@ -853,7 +870,8 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
-    /// Record the door opening and closing with the real Minecraft client (needs Xvfb).
+    /// Record the door opening and closing with the real Minecraft client (needs Xvfb) and publish
+    /// it: the design's one clip (recorded only when missing or stale) cut into the video.
     Video {
         design: PathBuf,
         #[arg(long)]
@@ -864,16 +882,27 @@ pub enum DoorCmd {
         /// Upload to this GitHub release tag of vjeux/minecraft-tas.
         #[arg(long)]
         upload: Option<String>,
-        /// `card` (title card, door camera swinging around the door, block-count label),
-        /// `clean` (same camera, no card or label) or `classic` (still camera, whole build).
+        /// `card` (title card, then the clip with the size label), `clean` (the clip itself) or
+        /// `classic` (still camera framing the whole build, recorded on its own, no clip).
         #[arg(long, default_value = "card")]
         style: String,
-        /// Orbit amplitude of the door camera in degrees each way (0 = still).
-        #[arg(long, default_value_t = 20.0)]
+        /// Orbit amplitude of the door camera in degrees each way (0 = still; part of the clip's
+        /// settings).
+        #[arg(long, default_value_t = 0.0)]
         orbit: f64,
         /// Frame size, WIDTHxHEIGHT.
         #[arg(long, default_value = "1280x720")]
         size: String,
+        /// The clips folder (shared with `door video-all` and `door gallery`; default
+        /// ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// Record the clip again even when it is there.
+        #[arg(long, conflicts_with = "relabel")]
+        redo: bool,
+        /// Never record: cut the video from the clip there is (fails without one).
+        #[arg(long)]
+        relabel: bool,
     },
     /// One open/close cycle tick by tick, still camera, with captions: the lever flips, every
     /// tick after each flip until nothing moves anymore (the state the judge checks), a 3x3 map
@@ -896,8 +925,8 @@ pub enum DoorCmd {
         size: String,
     },
     /// One Minecraft world (a save folder for the real game) with every working archived design
-    /// in rows by board, smallest first, the block count above each in red concrete and its name
-    /// on a floating label; built by the official server (see world.rs).
+    /// in rows by board, smallest first, its size (the volume) above each in red concrete and its
+    /// name on a floating label; built by the official server (see world.rs).
     World {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -999,6 +1028,14 @@ pub enum DoorCmd {
         /// Also print why each failing variant fails.
         #[arg(long)]
         why: bool,
+        /// Also every design on HEAD and on the origin/explore/* branches (as the leaderboard
+        /// collects them, at most --max-blocks).
+        #[arg(long)]
+        branches: bool,
+        /// Only designs at least this seamless as they are (`full`, `semi`, ...: screened first),
+        /// and every eligible variant must meet `<tier>[+hall]` too.
+        #[arg(long)]
+        seamless: Option<String>,
     },
     /// Record eligibility of designs, one line each (what `--eligible` searches keep): the judge
     /// (the lever, every judge position) and the rotation check, repeater input at every judge
@@ -1567,9 +1604,19 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut, dry_run } => {
-            let opts = video_style(&style, orbit)?;
-            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut, dry_run)?;
+        DoorCmd::VideoAll { dir, out, clips, jobs, upload, style, orbit, redo, relabel, dry_run } => {
+            let card = video_card(&style)?;
+            let o = crate::clips::AllOptions {
+                clips: clips.unwrap_or_else(crate::clips::default_dir),
+                settings: crate::clips::ClipSettings { orbit, ..Default::default() },
+                card,
+                jobs,
+                upload,
+                redo,
+                relabel,
+                dry_run,
+            };
+            crate::clips::record_all(version, &dir, &out, &o)?;
         }
         DoorCmd::Catalog { archive, videos, release, workers } => {
             let o = crate::catalog::CatalogOptions { archive: &archive, workers, videos: videos.as_deref(), release: Some(release.as_str()) };
@@ -1583,6 +1630,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 facts.open_ticks = r.cycles.first().map(|c| c.open_ticks);
                 facts.close_ticks = r.cycles.first().map(|c| c.close_ticks);
             }
+            // The card's size: the volume (props cache, else measured and saved).
+            facts.measure_volume(&mut w, &d)?;
             let look = crate::showcase::Look::load(version)?;
             look.card(1280, 720, &crate::showcase::title_lines(&facts)).save_png(&out)?;
             if let Some(p) = label {
@@ -1590,8 +1639,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("wrote {}", out.display());
         }
-        DoorCmd::Gallery { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo } => {
-            let o = crate::showcase::GalleryOptions { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
+        DoorCmd::Gallery { archive, videos, clips, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo, gif_only } => {
+            let clips = clips.unwrap_or_else(crate::clips::default_dir);
+            let o = crate::showcase::GalleryOptions { archive, videos, clips, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo, gif_only };
             crate::showcase::gallery(version, &o)?;
         }
         DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo, board } => {
@@ -2392,11 +2442,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("{line}\n{passes}/{times} passed in {} sandbox(es)", if fresh { "fresh" } else { "one reused" });
         }
-        DoorCmd::Video { design, out, tps, upload, style, orbit, size } => {
+        DoorCmd::Video { design, out, tps, upload, style, orbit, size, clips, redo, relabel } => {
             let d = load_design(&design)?;
             let (width, height) = size.split_once('x').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))).ok_or_else(|| anyhow::anyhow!("--size wants WIDTHxHEIGHT"))?;
-            let opts = crate::video::VideoOptions { tps, width, height, ..video_style(&style, orbit)? };
-            crate::video::record(version, &d, &out, &opts)?;
+            if style == "classic" {
+                let opts = crate::video::VideoOptions { tps, width, height, ..crate::video::VideoOptions::classic() };
+                crate::video::record(version, &d, &out, &opts)?;
+            } else {
+                let s = crate::clips::ClipSettings { width, height, tps, orbit, ..Default::default() };
+                let dir = clips.unwrap_or_else(crate::clips::default_dir);
+                crate::clips::video_one(version, &dir, &d, &s, &out, video_card(&style)?, redo, relabel)?;
+            }
             println!("recorded {}", out.display());
             if let Some(tag) = upload {
                 let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
@@ -2471,27 +2527,45 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::Relever { designs, subs, out_dir, extra_offsets, workers, verdicts, max_blocks, any_rotation, table, why } => {
+        DoorCmd::Relever { designs, subs, out_dir, extra_offsets, workers, verdicts, max_blocks, any_rotation, table, why, branches, seamless } => {
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
             let screen = VerifyOptions { cycles: 1, max_ticks: 200, offsets: offsets.iter().take(2).copied().collect(), keep_frames: false, empty_walkway: true, tile: None };
             let known = verdicts.as_deref().map(crate::properties_dyn::load_verdicts).unwrap_or_default();
+            let seam = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let subs: Vec<String> = subs.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             let mut seen = std::collections::HashSet::new();
             let mut loaded: Vec<(String, Design)> = Vec::new();
+            let mut sources: Vec<(String, Design)> = Vec::new();
             for p in &designs {
-                let d = match load_design(p) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        eprintln!("{}: {e:#}", p.display());
-                        continue;
-                    }
-                };
+                match load_design(p) {
+                    Ok(d) => sources.push((p.display().to_string(), d)),
+                    Err(e) => eprintln!("{}: {e:#}", p.display()),
+                }
+            }
+            if branches {
+                sources.extend(crate::properties_dyn::collect_refs(std::path::Path::new("."), "refs/remotes/origin/explore/", max_blocks)?);
+            }
+            for (src, d) in sources {
                 let h = format!("{:016x}", crate::leaderboard::design_hash(&d));
                 if crate::block_count(&d) > max_blocks || known.get(&h) == Some(&false) || !seen.insert(d.content_key()) {
                     continue;
                 }
-                loaded.push((p.display().to_string(), d));
+                loaded.push((src, d));
+            }
+            // Seamless pre-screen (the tier only, as the design is).
+            if let Some(req) = seam {
+                let tier_only = crate::properties::SeamReq { hallway: false, ..req };
+                let pool = mctas::sim::Pool::spawn(workers.min(loaded.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+                let keep = pool.map(loaded.clone(), |w, _, (_, d)| {
+                    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+                    let ok = tier_only.check(w, sb, &d).is_ok();
+                    let _ = w.drop_sandbox(sb);
+                    Ok(ok)
+                });
+                let before = loaded.len();
+                loaded = loaded.into_iter().zip(keep).filter(|(_, k)| matches!(k, Ok(true))).map(|(x, _)| x).collect();
+                eprintln!("seamless pre-screen: {} of {before} designs reach the tier", loaded.len());
             }
             let mut jobs: Vec<(usize, crate::relever::Variant)> = Vec::new();
             for (i, (_, d)) in loaded.iter().enumerate() {
@@ -2502,7 +2576,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{} designs, {} variants (as-is included), {} positions", loaded.len(), jobs.len(), offsets.len());
             let pool = mctas::sim::Pool::spawn(workers.min(jobs.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
-            let results = pool.map(jobs, |w, _, (i, v)| Ok((i, crate::relever::judge_variant(w, v, &judge, &screen, !any_rotation)?)));
+            let results = pool.map(jobs, |w, _, (i, v)| Ok((i, crate::relever::judge_variant(w, v, &judge, &screen, !any_rotation, seam)?)));
             let mut per: Vec<Vec<crate::relever::Outcome>> = vec![Vec::new(); loaded.len()];
             for r in results {
                 match r {
@@ -3258,15 +3332,14 @@ fn tile_verify_cmd(
     Ok(())
 }
 
-/// Video options of a `--style` name.
-fn video_style(style: &str, orbit: f64) -> Result<crate::video::VideoOptions> {
-    use crate::video::{Camera, VideoOptions};
-    Ok(match style {
-        "card" => VideoOptions { camera: Camera::Door { orbit }, ..Default::default() },
-        "clean" => VideoOptions::clean(orbit),
-        "classic" => VideoOptions::classic(),
-        _ => anyhow::bail!("unknown --style {style} (card, clean or classic)"),
-    })
+/// Whether a published video's `--style` has the title card and label (`card`) or is the clip
+/// itself (`clean`).
+fn video_card(style: &str) -> Result<bool> {
+    match style {
+        "card" => Ok(true),
+        "clean" => Ok(false),
+        _ => anyhow::bail!("unknown --style {style} (card or clean; door video also takes classic)"),
+    }
 }
 
 /// `door vanilla-check`: one vanilla server and one simulator worker for all the designs.

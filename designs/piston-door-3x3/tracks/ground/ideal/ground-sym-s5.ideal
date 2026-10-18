@@ -1,0 +1,183 @@
+# ground-sym: ground20 driven by ONE pulse train on both lever edges (the same events after the
+# flip whether it opens or closes), found by `mech-synth --sym-bfs` on the middle column
+# (bases/ground-mid.txt): 24 pulses, one every s ticks, plus the 6 side pistons at tick 0.
+# Height-addressed power cells: A at 4/3/2: (1,4,-1)/(1,3,-1)/(1,2,-1); B at 5/4: (1,5,1)/(1,4,1);
+# D: (1,6,1); P_T: (-1,4,0); P_C: (3,4,0); sides: (-3,y,0) and (5,y,0).
+# S = A4 T D A3 T C C B4 D B5 C B5 T A2/A3 D T B4 A3 D B5 T C C A4
+# `--set s=4` re-times every step (s = ticks between steps, w = pulse length).
+design designs/piston-door-3x3/tracks/shapes/bases/ground20.txt
+let s = 5
+let w = 2
+let t1 = s
+let t2 = t1+s
+let t3 = t2+s
+let t4 = t3+s
+let t5 = t4+s
+let t6 = t5+s
+let t7 = t6+s
+let t8 = t7+s
+let t9 = t8+s
+let t10 = t9+s
+let t11 = t10+s
+let t12 = t11+s
+let t13 = t12+s
+let t14 = t13+s
+let t15 = t14+s
+let t16 = t15+s
+let t17 = t16+s
+let t18 = t17+s
+let t19 = t18+s
+let t20 = t19+s
+let t21 = t20+s
+let t22 = t21+s
+let t23 = t22+s
+let t24 = t23+s
+# step 0: sides
+open 0 set -3 0 0 minecraft:redstone_block
+open 0 set -3 1 0 minecraft:redstone_block
+open 0 set -3 2 0 minecraft:redstone_block
+open 0 set 5 0 0 minecraft:redstone_block
+open 0 set 5 1 0 minecraft:redstone_block
+open 0 set 5 2 0 minecraft:redstone_block
+open w clear -3 0 0
+open w clear -3 1 0
+open w clear -3 2 0
+open w clear 5 0 0
+open w clear 5 1 0
+open w clear 5 2 0
+close 0 set -3 0 0 minecraft:redstone_block
+close 0 set -3 1 0 minecraft:redstone_block
+close 0 set -3 2 0 minecraft:redstone_block
+close 0 set 5 0 0 minecraft:redstone_block
+close 0 set 5 1 0 minecraft:redstone_block
+close 0 set 5 2 0 minecraft:redstone_block
+close w clear -3 0 0
+close w clear -3 1 0
+close w clear -3 2 0
+close w clear 5 0 0
+close w clear 5 1 0
+close w clear 5 2 0
+# 1 A4
+open t1 set 1 4 -1 minecraft:redstone_block
+open t1+w clear 1 4 -1
+close t1 set 1 4 -1 minecraft:redstone_block
+close t1+w clear 1 4 -1
+# 2 T
+open t2 set -1 4 0 minecraft:redstone_block
+open t2+w clear -1 4 0
+close t2 set -1 4 0 minecraft:redstone_block
+close t2+w clear -1 4 0
+# 3 D
+open t3 set 1 6 1 minecraft:redstone_block
+open t3+w clear 1 6 1
+close t3 set 1 6 1 minecraft:redstone_block
+close t3+w clear 1 6 1
+# 4 A3
+open t4 set 1 3 -1 minecraft:redstone_block
+open t4+w clear 1 3 -1
+close t4 set 1 3 -1 minecraft:redstone_block
+close t4+w clear 1 3 -1
+# 5 T
+open t5 set -1 4 0 minecraft:redstone_block
+open t5+w clear -1 4 0
+close t5 set -1 4 0 minecraft:redstone_block
+close t5+w clear -1 4 0
+# 6 C
+open t6 set 3 4 0 minecraft:redstone_block
+open t6+w clear 3 4 0
+close t6 set 3 4 0 minecraft:redstone_block
+close t6+w clear 3 4 0
+# 7 C
+open t7 set 3 4 0 minecraft:redstone_block
+open t7+w clear 3 4 0
+close t7 set 3 4 0 minecraft:redstone_block
+close t7+w clear 3 4 0
+# 8 B4
+open t8 set 1 4 1 minecraft:redstone_block
+open t8+w clear 1 4 1
+close t8 set 1 4 1 minecraft:redstone_block
+close t8+w clear 1 4 1
+# 9 D
+open t9 set 1 6 1 minecraft:redstone_block
+open t9+w clear 1 6 1
+close t9 set 1 6 1 minecraft:redstone_block
+close t9+w clear 1 6 1
+# 10 B5
+open t10 set 1 5 1 minecraft:redstone_block
+open t10+w clear 1 5 1
+close t10 set 1 5 1 minecraft:redstone_block
+close t10+w clear 1 5 1
+# 11 C
+open t11 set 3 4 0 minecraft:redstone_block
+open t11+w clear 3 4 0
+close t11 set 3 4 0 minecraft:redstone_block
+close t11+w clear 3 4 0
+# 12 B5
+open t12 set 1 5 1 minecraft:redstone_block
+open t12+w clear 1 5 1
+close t12 set 1 5 1 minecraft:redstone_block
+close t12+w clear 1 5 1
+# 13 T
+open t13 set -1 4 0 minecraft:redstone_block
+open t13+w clear -1 4 0
+close t13 set -1 4 0 minecraft:redstone_block
+close t13+w clear -1 4 0
+# 14 A2 (from rest) / A3 (from open)
+open t14 set 1 2 -1 minecraft:redstone_block
+open t14 set 1 3 -1 minecraft:redstone_block
+open t14+w clear 1 2 -1
+open t14+w clear 1 3 -1
+close t14 set 1 2 -1 minecraft:redstone_block
+close t14 set 1 3 -1 minecraft:redstone_block
+close t14+w clear 1 2 -1
+close t14+w clear 1 3 -1
+# 15 D
+open t15 set 1 6 1 minecraft:redstone_block
+open t15+w clear 1 6 1
+close t15 set 1 6 1 minecraft:redstone_block
+close t15+w clear 1 6 1
+# 16 T
+open t16 set -1 4 0 minecraft:redstone_block
+open t16+w clear -1 4 0
+close t16 set -1 4 0 minecraft:redstone_block
+close t16+w clear -1 4 0
+# 17 B4
+open t17 set 1 4 1 minecraft:redstone_block
+open t17+w clear 1 4 1
+close t17 set 1 4 1 minecraft:redstone_block
+close t17+w clear 1 4 1
+# 18 A3
+open t18 set 1 3 -1 minecraft:redstone_block
+open t18+w clear 1 3 -1
+close t18 set 1 3 -1 minecraft:redstone_block
+close t18+w clear 1 3 -1
+# 19 D
+open t19 set 1 6 1 minecraft:redstone_block
+open t19+w clear 1 6 1
+close t19 set 1 6 1 minecraft:redstone_block
+close t19+w clear 1 6 1
+# 20 B5
+open t20 set 1 5 1 minecraft:redstone_block
+open t20+w clear 1 5 1
+close t20 set 1 5 1 minecraft:redstone_block
+close t20+w clear 1 5 1
+# 21 T
+open t21 set -1 4 0 minecraft:redstone_block
+open t21+w clear -1 4 0
+close t21 set -1 4 0 minecraft:redstone_block
+close t21+w clear -1 4 0
+# 22 C
+open t22 set 3 4 0 minecraft:redstone_block
+open t22+w clear 3 4 0
+close t22 set 3 4 0 minecraft:redstone_block
+close t22+w clear 3 4 0
+# 23 C
+open t23 set 3 4 0 minecraft:redstone_block
+open t23+w clear 3 4 0
+close t23 set 3 4 0 minecraft:redstone_block
+close t23+w clear 3 4 0
+# 24 A4
+open t24 set 1 4 -1 minecraft:redstone_block
+open t24+w clear 1 4 -1
+close t24 set 1 4 -1 minecraft:redstone_block
+close t24+w clear 1 4 -1

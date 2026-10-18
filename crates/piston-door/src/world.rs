@@ -1,7 +1,7 @@
 //! `mctas door world`: one Minecraft world (a save folder for the real game) holding every
-//! working design of the archive, in rows by board, smallest first, each with its block count
-//! written above it in red concrete and its name on a floating label, so they can be tried by
-//! hand in the real client.
+//! working design of the archive, in rows by board, smallest (by volume) first, each with its size
+//! (the volume) written above it in red concrete and its name on a floating label, so they can be
+//! tried by hand in the real client.
 //!
 //! The world is built by the official server jar (as `door vanilla-check` runs it): an empty
 //! void world (nothing under or around the machines, like the judge's world), every design
@@ -35,8 +35,9 @@ pub struct WorldOptions {
 }
 
 /// The working designs of `archive` according to a verdict-cache file (hash, ok|broken, open,
-/// close, ...), without simulating anything.
-fn archived_from_cache(archive: &Path, verdicts: &Path) -> Result<Vec<Archived>> {
+/// close, ...), without judging anything; their volumes from the archive's properties cache
+/// ([`crate::properties::volumes`]: designs not measured yet are measured and saved).
+fn archived_from_cache(version: &str, archive: &Path, verdicts: &Path, workers: usize) -> Result<Vec<Archived>> {
     let text = std::fs::read_to_string(verdicts).with_context(|| format!("reading {}", verdicts.display()))?;
     let mut ok: std::collections::HashMap<u64, (Option<u32>, Option<u32>)> = Default::default();
     for line in text.lines() {
@@ -61,6 +62,13 @@ fn archived_from_cache(archive: &Path, verdicts: &Path) -> Result<Vec<Archived>>
         facts.open_ticks = open;
         facts.close_ticks = close;
         out.push(Archived { stem, path: p, design: d, facts });
+    }
+    let vols = crate::properties::volumes(version, out.iter().map(|a| a.design.clone()).collect(), workers, Some(archive))?;
+    for a in &mut out {
+        if let Some((v, dims)) = vols.get(&crate::leaderboard::design_hash(&a.design)) {
+            a.facts.volume = Some(*v);
+            a.facts.volume_dims = Some(dims.clone());
+        }
     }
     Ok(out)
 }
@@ -115,7 +123,7 @@ struct Placed {
     blocks: Vec<(Pos, String)>,
     /// Entities to summon (absolute coordinates): type, position, SNBT data.
     entities: Vec<(String, [f64; 3], Option<String>)>,
-    /// Red concrete cells of the block count.
+    /// Red concrete cells of the size (the volume).
     label: Vec<Pos>,
     /// Where the name label floats, and its text.
     text_at: [f64; 3],
@@ -124,14 +132,19 @@ struct Placed {
 
 pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
     let all = match &o.verdicts {
-        Some(v) => archived_from_cache(&o.archive, v)?,
+        Some(v) => archived_from_cache(version, &o.archive, v, o.workers)?,
         None => crate::showcase::archived(version, &o.archive, o.workers)?,
     };
+    // Every number above a door is its size (the volume): a design without one fails the build.
+    if let Some(a) = all.iter().find(|a| a.facts.volume.is_none()) {
+        bail!("{}: no volume measured (door properties): its size cannot be written above it", a.stem);
+    }
+    let size = |a: &Archived| (a.facts.volume.unwrap_or(usize::MAX), a.facts.blocks);
     let rotation_known = o.verdicts.is_none();
     let rows: Vec<(&str, Vec<&Archived>)> = {
         let pick = |keep: &dyn Fn(&Archived) -> bool| -> Vec<&Archived> {
             let mut v: Vec<&Archived> = all.iter().filter(|a| keep(a)).collect();
-            v.sort_by(|a, b| (a.facts.blocks, &a.stem).cmp(&(b.facts.blocks, &b.stem)));
+            v.sort_by(|a, b| (size(a), &a.stem).cmp(&(size(b), &b.stem)));
             v
         };
         // Front (next to the spawn) to back (vjeux's order). The fastest solid doors (open + close
@@ -140,7 +153,7 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
         let mut fastest = pick(&|a| fast(a));
         fastest.sort_by(|a, b| {
             let t = |x: &Archived| x.facts.open_ticks.unwrap_or(99) + x.facts.close_ticks.unwrap_or(99);
-            (t(a), a.facts.blocks, &a.stem).cmp(&(t(b), b.facts.blocks, &b.stem))
+            (t(a), size(a), &a.stem).cmp(&(t(b), size(b), &b.stem))
         });
         vec![
             ("Solid, flat (one block thick), no slime or honey", pick(&|a| a.facts.category == "solid" && a.facts.slime_free && a.facts.flat && !fast(a))),
@@ -217,9 +230,9 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
                 .iter()
                 .map(|e| (e.kind.clone(), [e.pos[0] + t[0] as f64, e.pos[1] + t[1] as f64, e.pos[2] + t[2] as f64], e.nbt.clone()))
                 .collect();
-            // The number, in the door's plane 5 blocks above the machine, reads left to right
-            // from the south (the viewer's side), like every other number (vjeux).
-            let (cells, width) = number_cells(a.facts.blocks);
+            // The size (the volume), in the door's plane 5 blocks above the machine, reads left to
+            // right from the south (the viewer's side), like every other number (vjeux).
+            let (cells, width) = number_cells(a.facts.volume.unwrap_or(a.facts.blocks));
             let center_x = spec.door[0] + 1 + t[0];
             let base_y = number_y;
             let z = spec.door[2] + t[2];
@@ -233,7 +246,7 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
             if spawn.is_none() {
                 spawn = Some(spawn_platform(&mut w, &d0, t)?);
             }
-            let mut text = format!("{}: {} blocks, {}", a.stem, a.facts.blocks, a.facts.kind());
+            let mut text = format!("{}: {} ({}), {}", a.stem, a.facts.size(), a.facts.placed(), a.facts.kind());
             if rotation_known && !a.facts.rotation_safe {
                 text.push_str(", NOT rotation-safe");
                 if lever_faces_north(&d0) {
@@ -303,7 +316,7 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
         sy + 3.0,
         sz - 4.0,
         snbt_str(&format!(
-            "minecraft-tas: {count} working 3x3 piston doors. Rows front to back: flat, no slime, slime or honey, sand, fastest, sculk, entities. Red number = blocks. Every lever faces you; fly east along a row, north to the next row."
+            "minecraft-tas: {count} working 3x3 piston doors. Rows front to back: flat, no slime, slime or honey, sand, fastest, sculk, entities. Red number = size (the volume the community counts: the bounding box over every state, lever excluded). Every lever faces you; fly east along a row, north to the next row."
         ))
     ));
     let mut chunks: std::collections::BTreeSet<(i32, i32)> = Default::default();

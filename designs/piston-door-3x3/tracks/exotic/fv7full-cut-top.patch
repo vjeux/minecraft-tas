@@ -1,0 +1,5 @@
+# flat-v7-full (seamless track, FULL+hall, 99 = 9x11x1) without its top row y = 7: stone
+# (-1,7,0), observer (0,7,0), dust (1,7,0).
+clear -1 7 0
+clear 0 7 0
+clear 1 7 0

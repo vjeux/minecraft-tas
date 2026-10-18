@@ -1,0 +1,68 @@
+# verified WORKS by door leaderboard: 48 blocks, category solid
+# archived 2026-10-18 20:49Z from HEAD:designs/piston-door-3x3/tracks/seamless/wip/s4-full.txt (repo at 62643aa)
+name: fresh-d-s4
+port door: 0 0 0
+port lever: -2 4 1
+origin: -2 0 -1
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  F minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  G minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=east]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=true,facing=down]
+  L minecraft:lever[face=wall,facing=south,powered=false]
+  M minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:smooth_stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  .....S
+  .
+  .
+layer -2:
+  ...SoE
+  ...I.S
+  .
+layer -1:
+  .
+  .....B
+  .
+layer 0:
+  .
+  H.MMM.J
+  ......M
+layer 1:
+  .
+  H.MMM.J
+  S.....B
+layer 2:
+  .
+  H.MMM.J
+  D.....W
+layer 3:
+  .
+  ..MP.JM
+  BM....D
+layer 4:
+  .
+  ACrK
+  LFHR.CM
+layer 5:
+  .
+  .OBs
+  .
+layer 6:
+  .
+  .MG
+  .

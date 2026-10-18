@@ -1,9 +1,10 @@
-//! `mctas door video`: the door opening and closing, rendered by the real Minecraft client.
+//! Recording the door opening and closing with the real Minecraft client ([`record`]).
 //!
-//! Default style: a short title card (block count, category, timings), then the door seen by a
-//! camera centered between the 3x3 opening and the machine that swings slowly around it (it
-//! ends where it started, so clips loop), with a block-count label in the corner.
-//! `--style classic` is the original still camera framing the whole build, no card, no label.
+//! Every door is recorded once: [`crate::clips`] keeps one clean clip per design (the door camera,
+//! still, no card, no label) and cuts the published video (title card + corner label) and the
+//! gallery GIF from it with ffmpeg. The camera is centered between the 3x3 opening and the machine
+//! (it can swing around it: `orbit`, ending where it started so clips loop). `--style classic` is
+//! the original still camera framing the whole build, recorded on its own.
 
 use crate::DoorSpec;
 use anyhow::{Context, Result, bail};
@@ -33,39 +34,31 @@ pub struct VideoOptions {
     /// Ticks to play after each lever flip.
     pub ticks: u32,
     pub camera: Camera,
-    /// Seconds of title card before the clip (0 = none).
-    pub title_secs: f64,
-    /// Burn a block-count label into the bottom-left corner.
-    pub label: bool,
     /// Height of the grass floor (design coordinates); default two blocks under the build.
     pub floor_y: Option<i32>,
+    /// The door camera frames the build for a centered crop of this aspect (4:3 in a 16:9
+    /// recording: the GIF's crop keeps the whole build); None = the frame's own aspect.
+    pub shot_aspect: Option<f64>,
+    /// x264 quality of the encode (lower = better; clips that are cut again use 16).
+    pub crf: u32,
 }
 
 impl Default for VideoOptions {
     fn default() -> Self {
-        VideoOptions {
-            width: 1280,
-            height: 720,
-            fps: 30,
-            tps: 10.0,
-            ticks: 40,
-            camera: Camera::Door { orbit: 20.0 },
-            title_secs: 2.0,
-            label: true,
-            floor_y: None,
-        }
+        VideoOptions { width: 1280, height: 720, fps: 30, tps: 10.0, ticks: 40, camera: Camera::Door { orbit: 0.0 }, floor_y: None, shot_aspect: None, crf: 20 }
     }
 }
 
 impl VideoOptions {
-    /// The original look: still camera framing the whole build, no title card, no label.
+    /// The original look: still camera framing the whole build.
     pub fn classic() -> VideoOptions {
-        VideoOptions { camera: Camera::Classic, title_secs: 0.0, label: false, ..Default::default() }
+        VideoOptions { camera: Camera::Classic, ..Default::default() }
     }
 
-    /// Door camera without title card or label (raw clips for galleries and montages).
+    /// Door camera swinging `orbit` degrees each way (0 = still); recordings never carry a title
+    /// card or a label ([`crate::clips`] adds them).
     pub fn clean(orbit: f64) -> VideoOptions {
-        VideoOptions { camera: Camera::Door { orbit }, title_secs: 0.0, label: false, ..Default::default() }
+        VideoOptions { camera: Camera::Door { orbit }, ..Default::default() }
     }
 
     /// Seconds of door footage per clip (holds + both plays) for a door that settles within
@@ -321,7 +314,15 @@ pub struct Facts {
     /// Nothing below the door and it works standing on a stone floor (from the leaderboard's
     /// ground check; false when unknown).
     pub ground_safe: bool,
+    /// The door's size, the piston door community's volume, and its width x height x depth
+    /// ([`crate::properties::volume`]; `None` when not measured).
+    pub volume: Option<usize>,
+    pub volume_dims: Option<String>,
 }
+
+/// The archive folder whose properties cache holds every design's volume (commands run from the
+/// repository root).
+pub const ARCHIVE_DIR: &str = "designs/piston-door-3x3/archive";
 
 impl Facts {
     pub fn of(d: &Design) -> Facts {
@@ -336,6 +337,34 @@ impl Facts {
             close_ticks: None,
             shape: crate::shape(d),
             ground_safe: false,
+            volume: None,
+            volume_dims: None,
+        }
+    }
+
+    /// Fill in the volume from [`crate::properties::volume`] (the archive's cache, else one
+    /// recorded cycle on `w`, saved back to the cache).
+    pub fn measure_volume(&mut self, w: &mut Worker, d: &Design) -> Result<()> {
+        let dir = Path::new(ARCHIVE_DIR);
+        let (v, dims) = crate::properties::volume(w, d, dir.is_dir().then_some(dir))?;
+        self.volume = Some(v);
+        self.volume_dims = Some(dims);
+        Ok(())
+    }
+
+    /// The door's size as shown big: `80b` (the volume; the placed blocks when not measured).
+    pub fn size(&self) -> String {
+        match self.volume {
+            Some(v) => format!("{v}b"),
+            None => format!("{} blocks", self.blocks),
+        }
+    }
+
+    /// The small line under the size: `volume 8x10x1, 44 blocks placed`.
+    pub fn placed(&self) -> String {
+        match (self.volume, self.volume_dims.as_deref()) {
+            (Some(_), Some(d)) if !d.is_empty() => format!("volume {d}, {} blocks placed", self.blocks),
+            _ => format!("{} blocks placed", self.blocks),
         }
     }
 
@@ -362,7 +391,17 @@ enum Step {
     Ticks(u32),
 }
 
-pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Result<()> {
+/// What a recording measured on the way.
+pub struct Recorded {
+    /// The design's facts with its volume and its first cycle's timings (when it works).
+    pub facts: Facts,
+    /// Ticks played after each flip (at least `opts.ticks`, until the door settled).
+    pub ticks: u32,
+}
+
+/// Record `d` with the real client into `out` (H.264, no title card, no label), its first frame
+/// as `out.png`.
+pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Result<Recorded> {
     static RUN_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let spec = DoorSpec::from_design(d)?;
     let client_build = video::build_client(version)?;
@@ -380,6 +419,9 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     };
     let mut w = Worker::spawn(&cfg)?;
     let mut facts = Facts::of(d);
+    // The card's size: the volume (the archive's properties cache, else measured here and saved,
+    // so cutting the published video from the clip finds it in the cache).
+    facts.measure_volume(&mut w, d).context("the title card needs the door's volume")?;
     // One cycle at the origin (the judge's first position): the card's timings, and how long to
     // play after each flip: at least until nothing moves anymore, so the second flip never comes
     // while the machine is still moving (a fixed 40 ticks cut the slow doors short).
@@ -417,7 +459,7 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     let aspect = opts.width as f64 / opts.height as f64;
     let shot = match opts.camera {
         Camera::Classic => None,
-        Camera::Door { orbit } => Some(design_shot(d, orbit, aspect)?),
+        Camera::Door { orbit } => Some(design_shot(d, orbit, opts.shot_aspect.unwrap_or(aspect))?),
         Camera::Shot(s) => Some(s),
     };
     if let Some(s) = &shot {
@@ -489,81 +531,6 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     }
     let raw = rec.stop()?;
     drop(client);
-    if opts.title_secs > 0.0 || opts.label {
-        crate::showcase::finish_video(version, &raw, out, &facts, opts)?;
-    } else {
-        video::encode(&raw, out, 1.0)?;
-    }
-    Ok(())
-}
-
-/// Render a video of every design in `dir` (each `.txt`, README excluded) into `out/<stem>.mp4`,
-/// `jobs` at a time, skipping videos that already exist (unless `redo`); upload each new one to
-/// the GitHub release `upload` (as `<stem>.mp4`). With `redo_cut`, existing videos of doors that
-/// are still moving after `opts.ticks` are recorded again (clips used to stop there). Then writes
-/// the catalog `dir/README.md` (every design with its video link, see catalog.rs). `dry_run` only
-/// lists the videos it would record.
-#[allow(clippy::too_many_arguments)]
-pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Option<&str>, opts: &VideoOptions, redo: bool, redo_cut: bool, dry_run: bool) -> Result<()> {
-    std::fs::create_dir_all(out)?;
-    let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)?
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|x| x == "txt"))
-        .collect();
-    files.sort();
-    let has_video = |p: &std::path::PathBuf| out.join(format!("{}.mp4", p.file_stem().unwrap().to_string_lossy())).exists();
-    let mut todo: Vec<std::path::PathBuf> = files.iter().filter(|p| redo || !has_video(p)).cloned().collect();
-    if redo_cut && !redo {
-        let have: Vec<std::path::PathBuf> = files.iter().filter(|p| has_video(p)).cloned().collect();
-        let pool = mctas::sim::Pool::spawn(jobs.max(1) * 2, &WorkerConfig { version: version.to_string(), ..Default::default() })?;
-        let vo = crate::VerifyOptions { cycles: 1, offsets: vec![[0, 0, 0]], empty_walkway: false, ..Default::default() };
-        let settle = pool.map(have.clone(), |w, _, p| {
-            let d = Design::load(&p)?;
-            let r = crate::verify(w, &d, &vo)?;
-            Ok(r.cycles.first().map(|c| c.open_settle.max(c.close_settle)).unwrap_or(0))
-        });
-        for (p, s) in have.into_iter().zip(settle) {
-            if let Ok(s) = s
-                && s > opts.ticks
-            {
-                eprintln!("{}: still moving after {} ticks (settles at {s}), re-recording", p.display(), opts.ticks);
-                todo.push(p);
-            }
-        }
-    }
-    eprintln!("{} designs, {} videos to record ({} at a time)", files.len(), todo.len(), jobs);
-    if dry_run {
-        for p in &todo {
-            println!("would record {}", p.display());
-        }
-        return Ok(());
-    }
-    let queue = std::sync::Mutex::new(todo);
-    std::thread::scope(|s| {
-        for _ in 0..jobs.max(1) {
-            s.spawn(|| loop {
-                let Some(p) = queue.lock().unwrap().pop() else { break };
-                let stem = p.file_stem().unwrap().to_string_lossy().to_string();
-                let mp4 = out.join(format!("{stem}.mp4"));
-                let tmp = out.join(format!("{stem}.part.mp4"));
-                let result = Design::load(&p).and_then(|d| record(version, &d, &tmp, opts));
-                match result {
-                    Ok(()) => {
-                        let _ = std::fs::rename(&tmp, &mp4);
-                        let up = upload.map(|tag| video::upload_release_asset("vjeux/minecraft-tas", tag, &mp4));
-                        match up {
-                            Some(Err(e)) => eprintln!("recorded {stem}, upload failed: {e:#}"),
-                            _ => eprintln!("recorded {stem}"),
-                        }
-                    }
-                    Err(e) => eprintln!("FAILED {stem}: {e:#}"),
-                }
-            });
-        }
-    });
-    // The catalog: every design with its block count, boards, ticks and video link.
-    let catalog = crate::catalog::CatalogOptions { archive: dir, workers: jobs.max(1) * 2, videos: Some(out), release: Some(upload.unwrap_or("videos")) };
-    crate::catalog::write(version, &catalog)?;
-    Ok(())
+    video::encode_crf(&raw, out, 1.0, opts.crf)?;
+    Ok(Recorded { facts, ticks })
 }

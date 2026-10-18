@@ -10,7 +10,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [buildable](buildable/NOTES.md) | integrity check: can a survival player build the records? | `door buildable`; every board leader buildable at 32/32 positions, none in the naive order; found the unwaxed-copper hazard |
 | [center-mech](center-mech/NOTES.md) | new mechanisms for the middle column | v2u2 96 (solid record: sides pushed out off one shared block), rb2-sculk 48 (sculk) |
 | [entities](entities/) | doors that use entities (minecarts, armor stands, boats...) | the `entity` category and the "Entities allowed" board: entities summoned by the bridge, judged exactly back at rest after each close ([rules.md](../../../docs/rules.md#categories)) |
-| [eligible](eligible/NOTES.md) | doors ELIGIBLE for records under the Squid regulation (section 3: repeater input, hallway, seamless) | `--repeater-input` / `--eligible` on every search, `door eligible`; **b39n 39**: b38 with a note block in the lever's cell (the first eligible solid door) |
+| [eligible](eligible/NOTES.md) | doors ELIGIBLE for records under the Squid regulation (section 3: repeater input, hallway, seamless) | `door eligible`, `door relever`, `--repeater-input` / `--eligible` on every search, `minimize --objective volume`; **fl81n volume 81 (9x9x1), FULL + hallway** (flat43-full + a note block in the lever's cell); b39n 39 blocks (b38 + note block, the first eligible solid door) |
 | [exotic](exotic/NOTES.md) | unusual redstone components vs. the smallest door | trapdoors, fence gates, skulls, rails, dispensers, crafters, scaffolding: gadgets + search palettes; pm45-trap 45 (14 / 14: an observer watching an iron trapdoor) |
 | [fast-clean](fast-clean/NOTES.md) | the fastest solid doors under the "nothing in front of or behind" rule | every fast door broke it in the same six cells (the lever net's staircase); re-laid over the top: a1c 107 (10 / 7), s4c 101 (12 / 7), n3c 116 (9 / 7), c1r 108 (9 / 7) |
 | [flat](flat/NOTES.md) | the flat board (every block in the door's plane, no slime) | 60 -> 49 (flat-v8): observer chains, `synth` and `resynth` on the late chains |
@@ -40,6 +40,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [sf-holdA](sf-holdA/NOTES.md) | the 19-block slime-free mechanism with A held at rest | **b38 38**: the solid and slime-free record |
 | [shapes](shapes/NOTES.md) | door shapes relative to the opening, shape boards | `door shapes`, swept shapes, the ground check, `--shape` on every search; boards "in a 3-thick wall", "on the ground", "smallest box" |
 | [showcase](showcase/NOTES.md) | make the results easy to look at | `door gallery`, `door montage`, title cards, the timeline chart |
+| [onerender](onerender/NOTES.md) | record every door once | one clip per design (`clips.rs`): videos and GIFs cut from it by ffmpeg, a new label in 1.5 s instead of a 60 s recording |
 | [slime-free](slime-free/NOTES.md) | the "no slime or honey" board | combo 48, s7 45, s7q 44 |
 | [speed](speed/NOTES.md) | the fastest door | w6 12 / 7, s4 12 / 7 at 108, o7 11 / 7 at 119 |
 | [speed-2](speed-2/NOTES.md) | open in 10, smaller 11 / 7 | a1 125 opens in 10 (an odd-tick pulse, gadget odd-pulse), n2 113 the first to open in 9; c1 112 and c2 109 at 9 / 7 under the column rule; open 8 validated with scripted inputs |
