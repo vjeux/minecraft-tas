@@ -1,0 +1,15 @@
+4 workers; moves all; judge 32 positions
+[    1.8s] start: 40 blocks, open 24 close 9 ticks, passes the judge (32 positions x 3 cycles)
+[    3.9s]   338199 swaps (two blocks out, one block in nearby)
+[    4.0s] 40 blocks: 1535 removals, 0 reroutes (+0 neutral), 1794 compounds, 164 neutral edits
+[  126.0s]   341528 candidates: 905 seen, 340623 screened in 121.9s, 0 passed the screen, 0 judged, 0 passed the judge (121.9s)
+[  126.1s]   no improving move; plateau: judging 31427 neutral edits
+[  144.8s]   31427 candidates: 80 seen, 31347 screened in 13.0s, 34 passed the screen, 34 judged, 34 passed the judge (18.7s)
+[  168.0s]   plateau: routing took 23.3s
+[  168.0s]   plateau: 34 verified neutral designs, 1020 removals and 0 reroutes after them
+[  168.3s]   1020 candidates: 499 seen, 521 screened in 0.3s, 0 passed the screen, 0 judged, 0 passed the judge (0.3s)
+[  168.3s]   plateau level 2: judging 5584 neutral edits of the level-1 designs
+[  210.8s]   5584 candidates: 135 seen, 5449 screened in 2.7s, 256 passed the screen, 256 judged, 256 passed the judge (42.4s)
+[  210.8s]   plateau level 2: 255 verified designs, 7650 removals after them
+[  213.5s]   7650 candidates: 1180 seen, 6470 screened in 2.7s, 0 passed the screen, 0 judged, 0 passed the judge (2.7s)
+40 -> 40 blocks, written to designs/piston-door-3x3/tracks/fresh-e/fc2-depth2.txt
