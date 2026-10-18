@@ -63,3 +63,24 @@ anywhere: the problem is purely geometric (no once-per-edge source sits next to 
   for P_M, which fc2 uses); the window needs a repeater whose input comes from a horizontal
   observer, and O_b's back faces up (J); X needs a floor; the lever must feed O_a (p0) and K
   (R_q). Note blocks make more spots watchable but none of the useful ones (searched).
+* `fx1-pmleft.txt` (40, verify WORKS, open 26 / close 28): fx1 with the same left-column P_M
+  trigger (the left column moves 3 times per edge in fx1: P_M toggles 3 times, net 1). Every side
+  piston then hangs off X. `door minimize --moves all --plateau --depth 2`: 161 level-2 neutral
+  designs, no removal (`fx1-pmleft-min.log`).
+
+## Final report (13:40Z)
+* Best: 40 blocks, solid (tie, no record): `BEST.txt` = `pmleft.txt` (archived
+  `archive/q-free-pmleft-40b.txt`), fc2 with P_M fired by the left column. Open 24 / close 9.
+* Lead 1 (free Q delay) does not work: Q's head sits next to A on close and forwards p0's update,
+  so Q always retracts at p0; the only update-proof p0 path (a conductor at (1,4,-1)) costs more
+  than R_q + floor and breaks the dance (A low is not updated at the end of its pulse).
+* Lead 2 (feed the shared bottom block): confirmed as stated (any single shared pulse at any tick
+  0..24 fires P_L and P_M), but no 1-block source exists next to (0,-2,0).
+* Searches (all nothing below 40): 2-block riders on the left structure (3418 working seeds, none
+  changes timing), regrow --size 2 --any on pmleft (482k), grow --k 2 with note blocks after
+  cutting P_L's pair + O_b (580k), minimize --depth 2 on pmleft and fx1-pmleft.
+* Tools: `note` palette state for synth/grow + gadget note-watch; explore/riders merged here.
+* Next ideas: (1) a mechanism where something already moves once per edge next to (0,-2,0)
+  (38 with the shared pulse); (2) wire21's m05 with M fired by the left column and P_L fed by the
+  A-driver stone's 3 pulses (needs O_a moved off (-1,4,0) and an ideal close that orders M after
+  A3; m05x shows the naive version breaks); (3) e1 with order-flip + one shared side pulse.

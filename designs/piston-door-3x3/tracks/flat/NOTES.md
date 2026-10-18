@@ -76,6 +76,25 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 - BL flag: observer (0,-1) facing up watches BL (0,0) and powers stone (0,-2) next to P_M:
   M moves 2 gt after BL on close (t32 >= a3) and 4 gt after it on open.
 
+## The coordinator's round-2 ideas, examined
+- **Lever on the left** (a1 via X, left column early from the lever, R_B fed late, right column
+  late from it, M watching BR): P_T sits opposite X (both want (0,3)/(2,3)), so with the lever
+  on the left P_T needs a pulse at a1+3..7 on the far side: a 10-observer chain over the top
+  arrives at t22 (too late) and a dust line needs a floor per cell. The left-lever cells are
+  also boxed in: (-2,4) QC-powers the left top piston through (-2,3), (-1,5)/(-1,6) power P_T's
+  or R_B's input, (0,6)/(1,7)/(2,6) power B's quasi cell. Paper estimate ~51; not built.
+  Moving the lever lower on the right instead gave v8 (49).
+- **Three pulses per side column**: valid with ideal inputs (m19-3p/3q/3r), but every source of
+  the two late pulses is at the top (O on R_B -> X; an observer in B's quasi cell (1,6) watching
+  R_B also works: R_B still quasi-powers B through it), and the bottom piston of either column
+  is 6+ cells away: the delivery costs more than the late chain it would replace (the left late
+  part is 5 blocks after the top-left fires). The pulse also comes ~10 gt after A's pulse at the
+  bottom, outside the dm 1..3 window M's no-op trick needs.
+- Observer X (no floor, so T could park at (0,3)): an observer at (0,4) facing west does power
+  AND update A in its lower position (its output updates the neighbors of B's head (1,4), which
+  include A), but it can watch only one cell, and nothing next to (-1,4) changes exactly at the
+  B edges (R_B cannot sit there); a second repeater costs what X's floor saves.
+
 ## Findings
 - **Three-toggle pistons**: a pulse-driven side stack may get 3 pulses per edge (out, back,
   out on open; back, out, back on close). Ideal inputs (`m19-3p.ideal`, `m19-3q.ideal`,

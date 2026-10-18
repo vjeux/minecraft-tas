@@ -28,13 +28,13 @@ Not a single slime or honey block anywhere.
 
 Every record of this board in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
-## Solid, flat (one z layer), no slime or honey: 44 blocks
+## Solid, flat (one z layer), no slime or honey: 43 blocks
 
 Slime-free, and every block in the door's plane: the whole machine is one block thick.
 
-![flat-b-v7-44b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-44b.gif)
+![lamp-sweep-flat43-43b](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-flat43-43b.gif)
 
-**44 blocks**, solid, slime-free, flat, opens in 30 ticks, closes in 26 (worst cycle): [flat-b-v7-44b](archive/flat-b-v7-44b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-44b.mp4)). From agent flat-b; see [tracks/flat-b/NOTES.md](tracks/flat-b/NOTES.md).
+**43 blocks**, solid, slime-free, flat, opens in 46 ticks, closes in 44 (worst cycle): [lamp-sweep-flat43-43b](archive/lamp-sweep-flat43-43b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/lamp-sweep-flat43-43b.mp4)). From agent lamp-sweep; see [tracks/lamp-sweep/NOTES.md](tracks/lamp-sweep/NOTES.md).
 
 Every record of this board in one video: [flat-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.jpg)).
 

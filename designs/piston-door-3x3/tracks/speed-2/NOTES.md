@@ -37,3 +37,24 @@ R_X). R_X/R_Z timing: P_D and P_V fired 2 ticks earlier (k4..k6) -> R_X lands k6
     west fires k8..k10 into Q's QC cell (-1,4,0) (loud: its fall updates Q). Q's base lands k8
     BE powered -> extends k9 -> retracts k10 pulling A' out of E; F 0-ticks at k10: **open 10**.
 * `door route2 --need` (all four nets at once) found 0 routings in 12 min; the hand design did it.
+* Gadget `designs/gadgets/odd-pulse` (+ mechanics.md row): the odd-pulse trick on its own.
+* `o7m-118b.txt` (118, 11/7): `door minimize --moves all --plateau --max-open 11 --max-close 7`
+  on o7 (60 min): dust (1,6,-2) + its floor -> one smooth stone (R_s and the lock repeater read the
+  block the lever dust points into). The same edit breaks a1 (the shift dust re-shapes (2,6,-2)).
+
+## Open 9: what it needs (worked out, not built)
+Q spits A' one tick earlier (k5), so A' pulls C at k6, Q's base lands k7 BE, Q re-extends k8 and
+pulls A' at k9, F 0-ticks at k9. R_X (k6 BE) and R_Z (k8 BE) are already early enough.
+* Q1: Q must extend at k4 (after T lands at k3 BE) and lose power in the k5 SCHEDULED phase (a
+  block-event power loss gives retract type 1: Q would pull A' back). Solution on paper: observer
+  (-1,3,-1) facing north watching lever-net dust (-1,3,-2) fires k2..k4 straight into Q, observer
+  (0,4,0) facing east watching F fires k3..k5 into Q's QC cell; S_a's fall at k4 is the update that
+  finds T landed, S_b's fall at k5 is the spit.
+* A1: A' power k4..k6: a delay-1 repeater (2,4,-3) reading lever dust (3,4,-3) into stone
+  (1,4,-3) makes the note block change at k2, so observer (1,3,-2) fires k4..k6 into X.
+* Q2 is the blocker: Q needs power at k7 BE..k8 and a loud fall at k9 (odd). Every odd source
+  (k1 movers S_F/F/R_F/T, k3 BE landings, repeaters reading R_F's cells) is north/center; Q's loud
+  inputs ((-1,3,+-1), (-2,3,0), observers into (-1,4,0)) are west, and every 1-observer relay
+  between them is geometrically blocked (traced cell by cell). An observer watching E fires
+  exactly k3..k5 and k7..k9 (the k5 spit re-triggers it) but sits at (1,3,+-1) with its output
+  pointing away from Q; the dust relay over (1,4,2) is lit by R_X's rest block above it.
