@@ -66,6 +66,11 @@ honey_block anywhere.
   split lever costs more: >= 46. Not built further.
 
 ## Next ideas (after 44)
+- wire19sf's 43 (pist19r, pulse-driven A, no shuttle) leads the board. Tried on it: its M chain
+  (5 observers off BL's watcher) replaced by s7's observer under BR + block breaks (T not
+  restored: M must move at t >= 22 on close), and `door grow` (k=2, 152k candidates, obs/block/
+  dust/repeaters/torches around P_BM) finds no 2-block feed. A redstone lamp (fall 4 gt) only
+  delays the close by 4, not enough for t >= 22 from an early source.
 - A cheaper left column: it costs 5 control blocks for 3 pistons (3 observers + dust + floor); a
   pair + TL-up costs 4 but needs the cell west of A, which holds RB.
 - The lamp (rise 0, fall 4 gt) is a free 4 gt "late on close" delay: any pulse-driven piston whose

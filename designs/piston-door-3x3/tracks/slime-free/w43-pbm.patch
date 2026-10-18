@@ -1,0 +1,8 @@
+# P_BM: the 5-observer chain watching BL -> observer under BR + block next to P_BM (s7 style)
+clear 0 -1 0
+clear 0 -1 -1
+clear 0 -1 -2
+clear 1 -1 -2
+clear 1 -1 -1
+set 2 -1 0 minecraft:observer[facing=up,powered=false]
+set 2 -2 0 minecraft:smooth_stone
