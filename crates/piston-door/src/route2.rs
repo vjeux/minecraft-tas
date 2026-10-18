@@ -1913,5 +1913,16 @@ mod tests {
         assert_eq!(Wave::parse("level+4").unwrap(), lever.shift(4));
         assert_eq!(Wave::parse("pulse+2/2").unwrap(), o);
         assert_eq!(Wave::parse("open:2-3;close:2-3").unwrap(), o);
+        // A lamp lights at once and goes dark 4 gt after losing power.
+        let l = Wave::from_seq(&lamp_seq(&lever.seq()));
+        assert_eq!(l.describe(), "open 0-, close 0-3");
+        // A repeater locked through the whole cycle keeps its rest state (off).
+        let locked = Wave::from_seq(&repeater_locked_seq(&lever.seq(), 2, Some(&Wave::ON.seq())));
+        assert_eq!(locked, Wave::OFF);
+        // Locked for the first 10 ticks of the open phase: it follows its input 2 gt after the
+        // unlock, and normally in the close phase.
+        let lock = Wave::parse("open:0-9").unwrap();
+        let w = Wave::from_seq(&repeater_locked_seq(&lever.seq(), 2, Some(&lock.seq())));
+        assert_eq!(w.describe(), "open 12-, close 0-1");
     }
 }
