@@ -1,0 +1,45 @@
+design designs/piston-door-3x3/tracks/tick-door/w2.txt
+open 0 use 3 5 1
+open 0 set 1 4 -2 minecraft:redstone_block
+open 0 clear 1 7 -1
+open 3 clear -3 0 0
+open 3 clear -3 1 0
+open 1 set -1 4 0 minecraft:redstone_block
+open 1 set 3 3 -2 minecraft:redstone_block
+open 3 clear -1 4 0
+open 3 clear 3 3 -2
+open 3 set 1 7 0 minecraft:redstone_block
+open 3 clear 1 -3 0
+open 3 clear -3 2 0
+open 3 clear 4 0 0
+open 3 clear 2 -3 0
+close 0 use 3 5 1
+close 0 set 1 4 1 minecraft:redstone_block
+close 0 set 4 2 1 minecraft:redstone_block
+close 0 set -3 0 0 minecraft:redstone_block
+close 0 set -3 1 0 minecraft:redstone_block
+close 0 set -3 2 0 minecraft:redstone_block
+close 0 set 1 -3 0 minecraft:redstone_block
+close 0 set 2 -3 0 minecraft:redstone_block
+close 0 set 4 0 0 minecraft:redstone_block
+close 1 clear 1 4 1
+close 1 clear 4 2 1
+close 2 set 3 3 -2 minecraft:redstone_block
+close 2 set -1 4 0 minecraft:redstone_block
+close 3 clear 3 3 -2
+close 3 clear -1 4 0
+close 3 set 1 3 1 minecraft:redstone_block
+close 4 clear 1 3 1
+close 5 set 3 2 -1 minecraft:redstone_block
+close 6 clear 3 2 -1
+close 10 set 3 3 -1 minecraft:stone
+close 10 set 4 4 0 minecraft:stone
+close 10 clear 1 4 -2
+close 11 clear 3 3 -1
+close 11 clear 4 4 0
+close 14 clear 1 7 0
+close 14 set 0 5 0 minecraft:stone
+close 15 clear 0 5 0
+close 18 set 1 7 -1 minecraft:redstone_block
+close 19 set -9 9 -9 minecraft:stone
+close 20 clear -9 9 -9
