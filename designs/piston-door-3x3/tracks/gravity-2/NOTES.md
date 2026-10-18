@@ -98,3 +98,48 @@ Board: gravity (the 9 door blocks are sand). Start: synth-g42 (42 blocks, open 5
   y=-1 slime: e.g. a column that rides onto a piston head when open.
 * A tower whose chain mover acts on a level signal with a free 4-tick delay (lamp off-delay is
   4 gt, but lamps power nothing; a torch needs a supported attachment).
+
+## Round 2 (coordinator: port the tricks to solid / flat; gravity sides without obsidian / bottom slime)
+
+### Gravity: the right obsidian and the left y=-1 slime stay
+* `door synth` on g33 with the obsidian AND S1's 3-block trigger cleared (k <= 3, palette observers,
+  blocks, obsidian, glazed terracotta, dust, repeaters, lamps, note blocks, floors block/GT,
+  watching every cell that moves): nothing. The obsidian cannot become the trigger's last block:
+  no observer can both watch a cell that changes at t1 and point into (3,-1,0).
+* Why the supports are pinned: the open support of a side column is the cell its own backbone's
+  y=-1 slime would vacate, so (a) a foot block needs that slime (left: the RB foot), (b) a fixed
+  block there must be non-sticky (right: obsidian), and (c) any piston next to that cell is glued
+  to the backbone at rest (so a riding redstone block cannot fire S1 there either).
+* Bottom side pistons (g10's free supports: body at rest, head when open) would save 3, but the
+  only cell touching both is (1,-1,0): a lever there holds the middle column up (sand rests on a
+  lever) and blocks its fall. Top pistons + lever between them is the cheapest control.
+* Tower: 3 vertical pistons are needed (3 cells of lift on close); the chain must touch R3's top
+  cell and S2 (3 slimes); a slime between S2 and R3 does not work (a pulled piston does not drag
+  the slime next to it: only sticky blocks in the moving set pull their neighbours).
+
+### Solid: the lever between top side pistons conflicts with the elevator
+* `solid/sz-mech.txt` + `sz.sched` (ideal): side pistons at (0,3,1)/(2,3,1) pushing 5-slime
+  backbones, lever (1,3,1) on P_L's back (sides + lever = 13 blocks, lever-direct), fc2/b38's
+  middle (A (1,4,0), B, P_T (1,3,-2), P_M). FAILS: the lever touches (1,3,0), A's low position, so
+  A is held extended there during the UP dance. Moving the lever row to z=2 costs 2 slimes
+  (sides 15): mechanism + lever 28, and b38's middle control is 10 -> 38 at best.
+* **sz2 (validated with ideal inputs, 32 positions):** `solid/sz2-mech.txt`, `sz2-sym2.sched`.
+  Same lever-direct sides (backbones (-1,0..2,0)+(-1,2,1)+(-1,3,1) and mirror), T only goes UP
+  (pull-type A_T (1,4,0); T stays at (1,3,0), the lever cell next to it is harmless), and C and M
+  go DOWN with a bottom elevator: A' (1,-2,0) sticky up rides B' (1,-3,0); M is pulled down by
+  A' and aside by P_M2 (1,-1,-2) facing south (parks at (1,-1,-1)). Mechanism + lever = 26.
+  ONE pulse train works on both lever edges (fc2-style symmetric control):
+  A_T pulse anywhere in 1..12; A' pulses at x1 (1..4), at b+2 (A' high) and at b+8+2 (A' low);
+  P_M2 pulse at b-2 exactly; B' window [b, b+8] (w >= 7), e.g. x1 3, P_M2 7, B' 9-17, A' 11, 19.
+  Close: x1 pushes C up from (1,-1,0) (spit), B' lifts A', the b+2 pulse pushes C to (1,1,0),
+  P_M2 pushes M back, the last pulse pushes M up; A_T pushes T down whenever it fires.
+  Wiring estimate: A_T's pulse 3 (note block next to the lever, observer, observer into A_T),
+  the bottom chain like fc2's top cluster (source observer under a door corner, hub dust + floor
+  reaching A' in both cells, O_b, J, R_B delay 4, O, a delay-3 tap for P_M2 at b-2) 8-9: 37-38.
+  Not wired: both bottom-corner watchers output into (0,-2,0)/(2,-2,0), which are neighbours of
+  B''s quasi cell (1,-2,0) (B' would fire with x1), and no observer can feed the hub dust
+  (1,-1,1)/(0,-1,0) from a cell that moves at t1 without being glued to a backbone.
+
+### Flat: nothing to port
+The flat board has no slime, so there are no backbones for top side pistons to push, and the flat
+leaders already hang the lever on an existing observer (no support block to save).

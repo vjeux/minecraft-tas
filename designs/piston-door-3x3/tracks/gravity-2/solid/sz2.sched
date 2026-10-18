@@ -1,0 +1,42 @@
+# sz2: lever-direct slime sides (pistons y=3 z=1); T pulled up by A_T (1,4,0); M down by A' (1,-2,0) + aside by P_M2 (1,-1,-2); C down 2 by A' riding B' (1,-3,0)
+design designs/piston-door-3x3/tracks/gravity-2/solid/sz2-mech.txt
+let at = 3
+let m1 = 3
+let pm = 7
+let bon = 11
+let bw = 8
+let a2 = 13
+let a3 = 21
+let ca = 3
+let cbon = 7
+let cbw = 8
+let ca2 = 9
+let cpm = 19
+let cm = 23
+let cat = 3
+open 0 use 1 3 1
+open at set 0 4 0 minecraft:redstone_block
+open at+2 clear 0 4 0
+open m1 set 0 -2 0 minecraft:redstone_block
+open m1+2 clear 0 -2 0
+open pm set 1 -1 -3 minecraft:redstone_block
+open pm+2 clear 1 -1 -3
+open bon set 1 -4 0 minecraft:redstone_block
+open bon+bw clear 1 -4 0
+open a2 set 2 -1 0 minecraft:redstone_block
+open a2+2 clear 2 -1 0
+open a3 set 0 -2 0 minecraft:redstone_block
+open a3+2 clear 0 -2 0
+close 0 use 1 3 1
+close cat set 0 4 0 minecraft:redstone_block
+close cat+2 clear 0 4 0
+close ca set 0 -2 0 minecraft:redstone_block
+close ca+2 clear 0 -2 0
+close cbon set 1 -4 0 minecraft:redstone_block
+close cbon+cbw clear 1 -4 0
+close ca2 set 2 -1 0 minecraft:redstone_block
+close ca2+2 clear 2 -1 0
+close cpm set 1 -1 -3 minecraft:redstone_block
+close cpm+2 clear 1 -1 -3
+close cm set 0 -2 0 minecraft:redstone_block
+close cm+2 clear 0 -2 0
