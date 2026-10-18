@@ -1154,7 +1154,7 @@ pub enum Target {
     /// The door: screen at a few positions, then the full judge. `max_open` / `max_close`
     /// (speed boards) reject a door that opens (closes) later than that many ticks in any
     /// cycle at the first position, as the leaderboard measures it.
-    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, rotations: bool },
+    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, rotations: bool, repeater_input: bool, eligible: bool },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
 }
@@ -1168,7 +1168,8 @@ fn infra(e: &anyhow::Error) -> bool {
 /// Ok(verdict), or Err when the worker died.
 fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> {
     let r = match target {
-        Target::Door { screen, .. } => screen_in(w, sb, d, screen),
+        Target::Door { screen, repeater_input, eligible, judge, .. } => screen_in(w, sb, d, screen)
+            .and_then(|_| crate::search::eligibility(w, sb, d, *repeater_input, *eligible, &judge.offsets[..judge.offsets.len().min(1)])),
         Target::Spec { spec, offsets } => offsets.iter().try_for_each(|off| run_spec(w, sb, &d.translated(*off), &spec.translated(*off), false)),
     };
     match r {
@@ -1180,7 +1181,7 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, rotations, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, repeater_input, eligible, .. } => {
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
             let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
             screen_in(w, sb, d, &quick)?;
@@ -1197,6 +1198,7 @@ fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String>
                     bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
                 }
             }
+            crate::search::eligibility(w, sb, d, *repeater_input, *eligible, &judge.offsets)?;
             Ok(format!("door works at {} positions, open {o} / close {c}", judge.offsets.len()))
         }
         Target::Spec { spec, offsets } => {
@@ -1433,6 +1435,9 @@ pub struct ResynthOptions {
     pub only: Option<(Pos, Pos)>,
     /// Accept only rotation-safe replacements (set when the start design is rotation-safe).
     pub keep_rotations: bool,
+    /// Record eligibility: see [`crate::search::SearchOptions::repeater_input`] / `eligible`.
+    pub repeater_input: bool,
+    pub eligible: bool,
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
@@ -1602,7 +1607,15 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 }
             };
             let n: usize = buckets.iter().map(|b| b.len()).sum();
-            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, rotations: o.keep_rotations };
+            let target = Target::Door {
+                screen: screen_opts.clone(),
+                judge: judge_opts.clone(),
+                max_open: o.max_open,
+                max_close: o.max_close,
+                rotations: o.keep_rotations,
+                repeater_input: o.repeater_input || o.eligible,
+                eligible: o.eligible,
+            };
             let t = Instant::now();
             let inner = |m: &str| {
                 if m.contains("VERIFIED") || (m.contains("passed the screen") && !m.ends_with(" 0 passed the screen")) {
