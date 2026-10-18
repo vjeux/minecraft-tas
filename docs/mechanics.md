@@ -59,3 +59,16 @@ Neighbor updates go out in the fixed order `WEST, EAST, DOWN, UP, NORTH, SOUTH`
 * **Lever:** strongly powers the block it is attached to, weakly every neighbor.
 * **Torch:** 2 gt delay; powers every neighbor except its attachment, strongly the block above;
   a lit/unlit change also updates the neighbors of its neighbors.
+* **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
+  source that later turns off WITHOUT updating it stays extended, unpowered, until any later
+  neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
+  to the head counts). A repeater switching a solid block only updates that block's neighbors:
+  feed the piston's quasi cell through such a block to drop the hold silently.
+* **Slime drags:** blocks with PushReaction DESTROY (dust, repeaters, levers, torches) next to a
+  moving slime block are left in place, not dragged or broken (only a DESTROY block in the
+  movement path breaks); their floors are normal blocks and do get dragged (glazed terracotta
+  never is).
+* **Redstone block shuttle:** a sticky piston pushing a redstone block from next to piston A to
+  next to piston B switches A off at once (the block becomes a moving piston that tick) and B
+  on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
+  then A on".
