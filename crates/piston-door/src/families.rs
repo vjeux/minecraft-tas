@@ -164,8 +164,9 @@ impl Mech {
         let mut pid = Vec::new();
         for x in 0..3 {
             for y in 0..3 {
+                // a row (or column) box holds only part of the door
                 if !bx.has(x, y) {
-                    return None;
+                    continue;
                 }
                 g[bx.idx(x, y)] = DOOR;
             }
@@ -485,10 +486,10 @@ pub struct Sol {
 
 /// Weighted A* from `start` to states meeting `goal` (up to `want` goal states, in order found).
 /// Err(()) when the cap stops it before `want` goals; Ok(v) with fewer goals = space exhausted.
-fn astar(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, h: &dyn Fn(&St) -> u32, cap: usize, want: usize) -> (Vec<(St, Vec<E>)>, bool) {
+fn astar(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, h: &dyn Fn(&St) -> u32, cap: usize, want: usize, evs: &[E]) -> (Vec<(St, Vec<E>)>, bool) {
     use std::cmp::Reverse;
     use std::collections::BinaryHeap;
-    let evs = m.events(true);
+    let evs = evs.to_vec();
     let mut states: Vec<St> = vec![start.clone()];
     let mut parent: Vec<(u32, Option<E>)> = vec![(0, None)];
     let mut gs: Vec<u32> = vec![0];
@@ -565,18 +566,29 @@ pub fn solve(m: &Mech, rest: &St, cap: usize, levels: bool) -> Result<Option<Sol
         Ok(None) if !levels => return Ok(None),
         Ok(None) => {}
     }
-    match solve_levels(m, rest, cap) {
+    match solve_levels(m, rest, cap, &m.events(true)) {
         Ok(s) => Ok(s),
         Err(()) => Ok(None),
     }
 }
 
-fn solve_levels(m: &Mech, rest: &St, cap: usize) -> Result<Option<Sol>, ()> {
+/// A* in the pulse model (for candidates whose pulse graph is too big to enumerate):
+/// Ok(Some) = a real solution; Err(()) = not found within the cap (still unresolved).
+pub fn solve_pulse_astar(m: &Mech, rest: &St, cap: usize) -> Result<Option<Sol>, ()> {
+    solve_levels(m, rest, cap, &m.events_pulse()).map(|o| {
+        o.map(|mut s| {
+            s.levels = false;
+            s
+        })
+    })
+}
+
+fn solve_levels(m: &Mech, rest: &St, cap: usize, evs: &[E]) -> Result<Option<Sol>, ()> {
     let bx = m.bx;
     let ci = bx.idx(1, 1);
     let tcells: Vec<usize> = (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).map(|(x, y)| bx.idx(x, y)).collect();
     let h_open = |s: &St| -> u32 { tcells.iter().map(|&i| if s.g[i] == AIR { 0 } else if i == ci { 2 } else { 1 }).sum() };
-    let (opens, capped) = astar(m, rest, &|s| m.is_open(s), &h_open, cap, 6);
+    let (opens, capped) = astar(m, rest, &|s| m.is_open(s), &h_open, cap, 6, evs);
     if opens.is_empty() {
         return if capped { Err(()) } else { Ok(None) };
     }
@@ -593,7 +605,7 @@ fn solve_levels(m: &Mech, rest: &St, cap: usize) -> Result<Option<Sol>, ()> {
     let mut best: Option<Sol> = None;
     let mut any_cap = capped;
     for (o, open) in &opens {
-        let (back, c2) = astar(m, o, &|s| s == rest, &h_close, cap, 1);
+        let (back, c2) = astar(m, o, &|s| s == rest, &h_close, cap, 1, evs);
         any_cap |= c2;
         let Some((_, close)) = back.into_iter().next() else { continue };
         // the cycle's states for the hole rule and the extent
@@ -1186,9 +1198,254 @@ pub struct Entry {
     pub sticky: usize,
     pub free_cells: usize,
     pub ring_quasi: usize,
+    pub wire: Wire,
     pub verified: Option<String>,
     /// The pieces as solved in `bx` (the canonical form or its mirror image).
     pub orient: Vec<Pc>,
+}
+
+/// Wiring feasibility (the quadrant / parity analysis of track box56, automated).
+#[derive(Clone, Debug, Default)]
+pub struct Wire {
+    /// A: one region feeds every piston; B: links needed, each with an odd pulse count where
+    /// an odd count is needed; C: some region needs a pulse merger (only even links reach it);
+    /// X: a piston no free cell can feed, or two regions no link reaches.
+    pub class: char,
+    /// Free-cell regions (sizes, largest first).
+    pub regions: Vec<usize>,
+    /// Regions that some piston can only be fed from.
+    pub forced: usize,
+    /// Pistons fed from more than one position (riders).
+    pub riders: usize,
+    pub why: String,
+}
+
+fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
+    let bx = m.bx;
+    let n = bx.n();
+    // the two runs of the train (or open then close)
+    let (seq_o, seq_c) = match &sol.sym {
+        Some(s) => (s.clone(), s.clone()),
+        None => (sol.open.clone(), sol.close.clone()),
+    };
+    let mut o = rest.clone();
+    for e in &sol.open {
+        if let Out::Ok(nx) = m.apply(&o, *e) {
+            o = nx;
+        }
+    }
+    if let Some(s) = &sol.sym {
+        // the train's open state
+        let mut c = rest.clone();
+        for e in s {
+            if let Out::Ok(nx) = m.apply(&c, *e) {
+                c = nx;
+            }
+        }
+        o = c;
+    }
+    let mut swept = vec![false; n];
+    // per-edge change counts of every cell (observer pulses, approximately)
+    let mut cnt: [Vec<u32>; 2] = [vec![0; n], vec![0; n]];
+    // firing positions and pulse counts per piston per edge
+    let np = m.info.len();
+    let mut fire_pos: Vec<HashSet<usize>> = vec![HashSet::new(); np];
+    // receivers = (piston, the cell it fires from): pulse counts per edge, level use
+    let mut recv: BTreeMap<(usize, usize), ([u32; 2], bool)> = BTreeMap::new();
+    let mut need: [Vec<u32>; 2] = [vec![0; np], vec![0; np]];
+    let mut levels = vec![false; np];
+    for (edge, (start, seq)) in [(rest, &seq_o), (&o, &seq_c)].into_iter().enumerate() {
+        let mut c = start.clone();
+        for i in 0..n {
+            if c.g[i] != AIR {
+                swept[i] = true;
+            }
+        }
+        for e in seq {
+            let id = e.id as usize;
+            let p = c.pp[id] as usize;
+            fire_pos[id].insert(p);
+            let r = recv.entry((id, p)).or_insert(([0, 0], false));
+            if e.act == Act::P {
+                need[edge][id] += 1;
+                r.0[edge] += 1;
+            } else {
+                levels[id] = true;
+                r.1 = true;
+            }
+            let Out::Ok(nx) = m.apply(&c, *e) else { continue };
+            for i in 0..n {
+                if nx.g[i] != c.g[i] {
+                    cnt[edge][i] += 1;
+                }
+                if nx.g[i] != AIR {
+                    swept[i] = true;
+                }
+            }
+            if e.act == Act::P {
+                // the head goes out and back inside one pulse: body and head cell change twice
+                let (_, f) = m.info[id];
+                cnt[edge][p] += 2;
+                if let Some(h) = m.step(p, f) {
+                    swept[h] = true;
+                    cnt[edge][h] += 1;
+                }
+            } else {
+                cnt[edge][p] += 1;
+            }
+            c = nx;
+        }
+    }
+    // forbidden: the 3x3, the ring, every swept cell, the cells behind holes when open
+    let mut free = vec![true; n];
+    for i in 0..n {
+        let (x, y) = bx.xy(i);
+        if in_t(x, y) || in_r(x, y) || swept[i] {
+            free[i] = false;
+        }
+    }
+    for (x, y) in ring() {
+        if !bx.has(x, y) {
+            continue;
+        }
+        let i = bx.idx(x, y);
+        if swept[i] && o.g[i] == AIR {
+            let (ox, oy) = outward(x, y);
+            if bx.has(ox, oy) {
+                free[bx.idx(ox, oy)] = false;
+            }
+        }
+    }
+    // regions (4-connected)
+    let mut reg = vec![usize::MAX; n];
+    let mut sizes = Vec::new();
+    for s in 0..n {
+        if !free[s] || reg[s] != usize::MAX {
+            continue;
+        }
+        let r = sizes.len();
+        let mut q = vec![s];
+        reg[s] = r;
+        let mut k = 0;
+        while let Some(i) = q.pop() {
+            k += 1;
+            for f in 0..4u8 {
+                if let Some(j) = m.step(i, f) {
+                    if free[j] && reg[j] == usize::MAX {
+                        reg[j] = r;
+                        q.push(j);
+                    }
+                }
+            }
+        }
+        sizes.push(k);
+    }
+    let nr = sizes.len();
+    // feed regions of each receiver (a piston at one firing cell): free cells next to it (not
+    // its head side) or next to the cell above it (quasi-connectivity)
+    let keys: Vec<(usize, usize)> = recv.keys().copied().collect();
+    let mut feeds: Vec<HashSet<usize>> = vec![HashSet::new(); keys.len()];
+    let riders = (0..np).filter(|&id| fire_pos[id].len() > 1).count();
+    for (k, &(id, p)) in keys.iter().enumerate() {
+        let (_, f) = m.info[id];
+        for d in 0..4u8 {
+            if d == f {
+                continue;
+            }
+            if let Some(j) = m.step(p, d) {
+                if free[j] {
+                    feeds[k].insert(reg[j]);
+                }
+            }
+        }
+        if let Some(a) = m.step(p, 2) {
+            if free[a] {
+                feeds[k].insert(reg[a]);
+            }
+            for d in 0..4u8 {
+                if let Some(j) = m.step(a, d) {
+                    if j != p && free[j] {
+                        feeds[k].insert(reg[j]);
+                    }
+                }
+            }
+        }
+    }
+    let _ = (&need, &levels);
+    let used: Vec<usize> = (0..keys.len()).collect();
+    let mut why = Vec::new();
+    for &k in &used {
+        if feeds[k].is_empty() {
+            let (id, p) = keys[k];
+            let (x, y) = bx.xy(p);
+            why.push(format!("{} at ({x},{y}) has no free cell to feed it", m.pieces[m.pid[id]].code()));
+        }
+    }
+    let mut sorted = sizes.clone();
+    sorted.sort_unstable_by(|a, b| b.cmp(a));
+    if !why.is_empty() {
+        return Wire { class: 'X', regions: sorted, forced: 0, riders, why: why.join("; ") };
+    }
+    // one region feeding everything?
+    if (0..nr).any(|r| used.iter().all(|&k| feeds[k].contains(&r))) {
+        return Wire { class: 'A', regions: sorted, forced: 1, riders, why: "one region feeds every piston".into() };
+    }
+    // forced regions: the only region of some receiver
+    let mut forced: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for &k in &used {
+        if feeds[k].len() == 1 {
+            forced.entry(*feeds[k].iter().next().unwrap()).or_default().push(k);
+        }
+    }
+    // links into a region: changing cells next to it, with their per-edge counts
+    let links = |r: usize| -> Vec<(u32, u32)> {
+        let mut v = Vec::new();
+        for i in 0..n {
+            if free[i] || (cnt[0][i] == 0 && cnt[1][i] == 0) {
+                continue;
+            }
+            if (0..4u8).any(|d| m.step(i, d).is_some_and(|j| free[j] && reg[j] == r)) {
+                v.push((cnt[0][i], cnt[1][i]));
+            }
+        }
+        v
+    };
+    let mut best: Option<(char, String)> = None;
+    let cands: Vec<usize> = if forced.is_empty() { (0..nr).collect() } else { forced.keys().copied().collect() };
+    for &lever in &cands {
+        let mut class = 'B';
+        let mut notes = Vec::new();
+        for (&r, ids) in &forced {
+            if r == lever {
+                continue;
+            }
+            let l = links(r);
+            if l.is_empty() {
+                class = 'X';
+                notes.push(format!("region {r} ({} cells) has no link", sizes[r]));
+                continue;
+            }
+            let odd_needed = ids.iter().any(|&k| {
+                let (nd, _) = recv[&keys[k]];
+                nd[0] % 2 == 1 || nd[1] % 2 == 1
+            });
+            let odd_link = l.iter().any(|&(a, b)| a % 2 == 1 && b % 2 == 1);
+            if odd_needed && !odd_link && class != 'X' {
+                class = 'C';
+                notes.push(format!("region {r} ({} cells) needs an odd count, its links are even", sizes[r]));
+            }
+        }
+        let rank = |c: char| match c {
+            'B' => 0,
+            'C' => 1,
+            _ => 2,
+        };
+        if best.as_ref().is_none_or(|(c, _)| rank(class) < rank(*c)) {
+            best = Some((class, format!("lever in region {lever}; {} forced regions{}{}", forced.len(), if notes.is_empty() { "" } else { ": " }, notes.join("; "))));
+        }
+    }
+    let (class, w) = best.unwrap_or(('X', "no region".into()));
+    Wire { class, regions: sorted, forced: forced.len(), riders, why: w }
 }
 
 fn wireability(m: &Mech, rest: &St, sol: &Sol) -> (usize, usize) {
@@ -1303,6 +1560,12 @@ pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize) -> 
         }
     }
     let bx = Bx { x0: x0 - margin, y0: y0 - margin, w: x1 - x0 + 1 + 2 * margin, h: y1 - y0 + 1 + 2 * margin };
+    // FAMILIES_ROW: solve door row 0 alone (a strip row mechanism)
+    let (bx, pieces) = if std::env::var("FAMILIES_ROW").is_ok() {
+        (Bx { x0: x0 - margin, y0: 0, w: x1 - x0 + 1 + 2 * margin, h: 1 }, pieces.into_iter().filter(|p| p.y == 0).collect::<Vec<_>>())
+    } else {
+        (bx, pieces)
+    };
     let (m, rest) = Mech::new(bx, &pieces).context("pieces overlap")?;
     println!("{} pieces: {}", m.pieces.len(), m.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "));
     println!("box {}x{} (x {}..{}, y {}..{}), rest ring clean: {}", bx.w, bx.h, bx.x0, bx.x0 + bx.w - 1, bx.y0, bx.y0 + bx.h - 1, m.rest_ring_clean(&rest));
@@ -1320,10 +1583,17 @@ pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize) -> 
                     println!("after {}:\n{}", m.fmt_ev(*e), m.render(&c));
                 }
             }
+            let mut sol = sol;
             match best_sym(&m, &rest, &sol, sym_cap, 6) {
-                Some((s, lv)) => println!("  sym {}{}: {}", s.len(), if lv { " (levels)" } else { " (pulses only)" }, m.fmt_seq(&s)),
+                Some((s, lv)) => {
+                    println!("  sym {}{}: {}", s.len(), if lv { " (levels)" } else { " (pulses only)" }, m.fmt_seq(&s));
+                    sol.sym = Some(s);
+                    sol.sym_levels = lv;
+                }
                 None => println!("  no symmetric train"),
             }
+            let w = wiring(&m, &rest, &sol);
+            println!("  wire {} regions {:?} forced {} riders {}: {}", w.class, w.regions, w.forced, w.riders, w.why);
         }
         Ok(None) => println!("does not open (FULL seamless) and close in the macro model"),
         Err(()) => println!("state cap hit"),
@@ -1376,7 +1646,7 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
     let log = |s: &str| eprintln!("[families] {s}");
     std::fs::create_dir_all(&o.out_dir)?;
     let mut entries: BTreeMap<Vec<Pc>, Entry> = BTreeMap::new();
-    let mut per_box: Vec<(i8, i8, usize, usize, usize, bool)> = Vec::new(); // (w, h, candidates, fits, new, complete)
+    let mut per_box: Vec<(i8, i8, usize, usize, usize, usize)> = Vec::new(); // (w, h, candidates, fits, new, unresolved)
     let mut boxes = o.boxes.clone();
     boxes.sort_by_key(|&(w, h)| ((w as i32) * (h as i32), w.max(h), w));
     for &(w, h) in &boxes {
@@ -1397,12 +1667,14 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                 }
             }
         }
+        let total = cands.len();
         if o.limit > 0 && cands.len() > o.limit {
             cands.truncate(o.limit);
         }
-        log(&format!("{w}x{h}: {} candidate mechanisms ({:.1}s)", cands.len(), t0.elapsed().as_secs_f64()));
+        log(&format!("{w}x{h}: {} candidate mechanisms ({total} generated, {:.1}s)", cands.len(), t0.elapsed().as_secs_f64()));
         let found: Mutex<Vec<(Bx, Vec<Pc>)>> = Mutex::new(Vec::new());
         let capped = AtomicUsize::new(0);
+        let capped_list: Mutex<Vec<usize>> = Mutex::new(Vec::new());
         let next = AtomicUsize::new(0);
         let done = AtomicUsize::new(0);
         std::thread::scope(|s| {
@@ -1420,6 +1692,7 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                             Ok(None) => {}
                             Err(()) => {
                                 capped.fetch_add(1, Ordering::Relaxed);
+                                capped_list.lock().unwrap().push(i);
                             }
                         }
                     }
@@ -1430,8 +1703,35 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                 });
             }
         });
+        // second pass on the candidates whose pulse graph hit the cap: goal-directed A* (pulse
+        // model); what it does not solve stays UNRESOLVED (reported per box)
+        let capped_list = capped_list.into_inner().unwrap();
+        let unresolved = AtomicUsize::new(0);
+        let next = AtomicUsize::new(0);
+        std::thread::scope(|s| {
+            for _ in 0..o.threads.max(1) {
+                s.spawn(|| loop {
+                    let k = next.fetch_add(1, Ordering::Relaxed);
+                    if k >= capped_list.len() {
+                        break;
+                    }
+                    let (bx, v) = &cands[capped_list[k]];
+                    if let Some((m, rest)) = Mech::new(*bx, v) {
+                        match solve_pulse_astar(&m, &rest, o.cap) {
+                            Ok(Some(_)) => found.lock().unwrap().push((*bx, v.clone())),
+                            Ok(None) => {}
+                            Err(()) => {
+                                unresolved.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+        let unresolved = unresolved.load(Ordering::Relaxed);
+        let capped = AtomicUsize::new(unresolved);
         let found = found.into_inner().unwrap();
-        log(&format!("{w}x{h}: {} open+close ({} hit the state cap), minimizing", found.len(), capped.load(Ordering::Relaxed)));
+        log(&format!("{w}x{h}: {} open+close ({} candidates unresolved: pulse graph over the cap and A* found nothing), minimizing", found.len(), capped.load(Ordering::Relaxed)));
         // minimal + canonical + every offset of this box that fits
         let mins: Mutex<HashSet<Vec<Pc>>> = Mutex::new(HashSet::new());
         let next = AtomicUsize::new(0);
@@ -1477,7 +1777,8 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                                 let (free, rq) = wireability(&m, &rest, &sol);
                                 let np = n_pistons(&vv);
                                 let sticky = vv.iter().filter(|p| matches!(p.k, K::Piston { sticky: true, .. })).count();
-                                got = Some(Entry { pieces: v.clone(), w, h, bx, sol, rest_clean: m.rest_ring_clean(&rest), pistons: np, sticky, free_cells: free, ring_quasi: rq, verified: None, orient: vv.clone() });
+                                let wire = wiring(&m, &rest, &sol);
+                                got = Some(Entry { pieces: v.clone(), w, h, bx, sol, rest_clean: m.rest_ring_clean(&rest), pistons: np, sticky, free_cells: free, ring_quasi: rq, verified: None, orient: vv.clone(), wire });
                                 break;
                             }
                         }
@@ -1498,7 +1799,7 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                 entries.insert(e.pieces.clone(), e);
             }
         }
-        per_box.push((w, h, cands.len(), fits, new, capped.load(Ordering::Relaxed) == 0));
+        per_box.push((w, h, cands.len(), fits, new, capped.load(Ordering::Relaxed)));
         log(&format!("{w}x{h}: {fits} minimal mechanisms fit ({new} new) in {:.0}s", t0.elapsed().as_secs_f64()));
         write_catalog(o, &entries, &per_box)?;
     }
@@ -1513,8 +1814,6 @@ fn verify_entries(version: &str, o: &Opts, entries: &mut BTreeMap<Vec<Pc>, Entry
     let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() };
     let pool = mctas::sim::Pool::spawn(o.workers, &cfg)?;
     let keys: Vec<Vec<Pc>> = entries.keys().cloned().collect();
-    let ideal_dir = o.out_dir.join("ideal");
-    std::fs::create_dir_all(&ideal_dir)?;
     let items: Vec<(usize, bool)> = keys.iter().enumerate().flat_map(|(i, k)| {
         let mut v = vec![(i, false)];
         if entries[k].sol.sym.is_some() {
@@ -1535,14 +1834,6 @@ fn verify_entries(version: &str, o: &Opts, entries: &mut BTreeMap<Vec<Pc>, Entry
         };
         let name = format!("{}x{}-{:04}", e.w, e.h, i);
         let plan = mechsynth::ideal_plan(&w, &sol, sym, o.gap, &name)?;
-        // keep the files
-        let tag = if sym { "sym" } else { "oc" };
-        let mut dd = plan.design.clone();
-        dd.name = format!("{name}-{tag}");
-        let dpath = ideal_dir.join(format!("{name}-{tag}.txt"));
-        dd.save(&dpath)?;
-        let text = plan.text.replace(&format!("design {name}.txt"), &format!("design {}", dpath.display()));
-        std::fs::write(ideal_dir.join(format!("{name}-{tag}.ideal")), text)?;
         Ok(mechsynth::verify_plan(wk, &plan, o.extra).map_err(|e| format!("{e:#}")))
     });
     let mut verdicts: HashMap<usize, Vec<String>> = HashMap::new();
@@ -1563,9 +1854,15 @@ fn verify_entries(version: &str, o: &Opts, entries: &mut BTreeMap<Vec<Pc>, Entry
     Ok(())
 }
 
-fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i8, usize, usize, usize, bool)]) -> Result<()> {
+fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i8, usize, usize, usize, usize)]) -> Result<()> {
     let mut list: Vec<&Entry> = entries.values().collect();
-    list.sort_by_key(|e| ((e.w as i32) * (e.h as i32), e.w.max(e.h), e.w, e.pistons, e.sol.sym.as_ref().map_or(99, |s| s.len()), e.sol.open.len() + e.sol.close.len()));
+    let wrank = |c: char| match c {
+        'A' => 0,
+        'B' => 1,
+        'C' => 2,
+        _ => 3,
+    };
+    list.sort_by_key(|e| ((e.w as i32) * (e.h as i32), e.w.max(e.h), e.w, wrank(e.wire.class), e.wire.forced, std::cmp::Reverse(e.wire.regions.first().copied().unwrap_or(0)), e.pistons, e.sol.sym.as_ref().map_or(99, |s| s.len()), e.sol.open.len() + e.sol.close.len()));
     let mut md = String::new();
     md.push_str("# Flat (1-wide) seamless 3x3 door mechanisms: the catalog per box\n\n");
     md.push_str("Generated by `mctas door families` (crates/piston-door/src/families.rs). Do not edit by hand.\n\n");
@@ -1576,30 +1873,57 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
         if o.pushes { "" } else { " (pushes off)" },
         o.cap
     ));
-    md.push_str("Columns: box (W x H, door offset = columns left of / rows below the door), pistons (sticky), rest-ring = no piston/head in the ring at rest (the strict reading), sym = one pulse train for both lever edges (P = 2 gt pulse, L = level toggle; `+L` = needs levels), free = box cells the mechanism never touches (room for wiring), rq = pistons whose quasi-connectivity cell (above) is in the ring or the 3x3, sim = `door ideal` replay with ideal inputs (oc = separate open/close schedules, sym = the shared train).\n\n");
-    md.push_str("| box | candidates | minimal mechanisms that fit | first fitting here | search complete |\n|---|---|---|---|---|\n");
-    for (w, h, c, f, n, comp) in per_box {
-        md.push_str(&format!("| {w}x{h} | {c} | {f} | {n} | {} |\n", if *comp { "yes" } else { "no (state cap hit)" }));
+    md.push_str("Columns: box (W x H, door offset = columns left of / rows below the door), pistons (sticky), rest-ring = no piston/head in the ring at rest (the strict reading), sym = one pulse train for both lever edges (P = 2 gt pulse, L = level toggle; `+L` = needs levels), free = box cells the mechanism never touches (room for wiring), rq = pistons whose quasi-connectivity cell (above) is in the ring or the 3x3, wire = wiring feasibility (track box56's quadrant + parity argument, automated: free cells minus the ring, the swept cells and the cells behind open holes split into REGIONS; a piston is fed from a region touching it or the cell above it (QC) at every place it fires; a region with pistons only it can feed but no lever needs a LINK: a changing mechanism cell next to it an observer can watch, whose pulse count per lever edge must be odd where a piston there needs an odd count. Class A = one region feeds every piston; B = links needed, each with the right parity; C = some region only gets even links (needs a pulse merger, designs/gadgets/pulse-merge on explore/flat-seam); X = a piston no free cell feeds, or a region with no link), sim = `door ideal` replay with ideal inputs (oc = separate open/close schedules, sym = the shared train). Within a box, rows are ranked by wire class, forced regions, largest region, pistons, train length.\n\n");
+    md.push_str("| box | candidates | minimal mechanisms that fit | first fitting here | unresolved candidates |\n|---|---|---|---|---|\n");
+    for (w, h, c, f, n, unres) in per_box {
+        md.push_str(&format!("| {w}x{h} | {c} | {f} | {n} | {} |\n", if *unres == 0 { "0 (exhaustive within the bounds)".to_string() } else { format!("{unres} (pulse graph over the cap, A* found nothing)") }));
     }
     md.push('\n');
-    let mut tsv = String::from("id\tbox\tdoor_offset\tpistons\tsticky\trest_ring_clean\tsym_len\tsym_levels\topen_len\tclose_len\tfree_cells\tring_quasi\textent\tpieces\topen\tclose\tsym\tsim\n");
+    let mut tsv = String::from("id\tbox\tdoor_offset\tpistons\tsticky\trest_ring_clean\tsym_len\tsym_levels\topen_len\tclose_len\tfree_cells\tring_quasi\twire_class\tregions\tforced_regions\triders\twire_why\textent\tpieces\topen\tclose\tsym\tsim\tfiles\n");
     let mut cur_box = (0, 0);
     for (i, e) in list.iter().enumerate() {
         if (e.w, e.h) != cur_box {
             cur_box = (e.w, e.h);
-            md.push_str(&format!("\n## {}x{} (volume {})\n\n| id | offset | pistons | rest-ring | sym | open/close | free | rq | pieces | sim |\n|---|---|---|---|---|---|---|---|---|---|\n", e.w, e.h, e.w as i32 * e.h as i32));
+            md.push_str(&format!("\n## {}x{} (volume {})\n\n| id | offset | pistons | rest-ring | wire | sym | open/close | free | rq | pieces | sim |\n|---|---|---|---|---|---|---|---|---|---|---|\n", e.w, e.h, e.w as i32 * e.h as i32));
         }
         let (m, _) = Mech::new(e.bx, &e.orient).unwrap();
         let sym = e.sol.sym.as_ref().map(|s| format!("{}{}: {}", s.len(), if e.sol.sym_levels { "+L" } else { "" }, m.fmt_seq(s))).unwrap_or("-".into());
         let pieces = m.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" ");
         let id = format!("{}x{}-{:03}", e.w, e.h, i);
+        let wire = format!("{} regions {:?}{}: {}", e.wire.class, e.wire.regions, if e.wire.riders > 0 { format!(", {} riders", e.wire.riders) } else { String::new() }, e.wire.why);
+        // machine-readable files: the mechanism (door + pistons, no wiring) and its ideal
+        // schedules (`door ideal` format: redstone blocks set/cleared next to each piston)
+        let mdir = o.out_dir.join("mech");
+        std::fs::create_dir_all(&mdir)?;
+        let (wld, map) = to_world(&m);
+        let md_design = mechsynth::design_of_world(&wld, &id);
+        md_design.save(&mdir.join(format!("{id}.txt")))?;
+        let msol = mechsynth::Solution { open: ms_seq(&map, &e.sol.open), close: ms_seq(&map, &e.sol.close), sym: e.sol.sym.as_ref().map(|s| ms_seq(&map, s)), states: 0 };
+        let mut files = vec![format!("mech/{id}.txt")];
+        for sym in [true, false] {
+            if sym && msol.sym.is_none() {
+                continue;
+            }
+            if let Ok(plan) = mechsynth::ideal_plan(&wld, &msol, sym, o.gap, &id) {
+                let tag = if sym { "sym" } else { "oc" };
+                let mut dd = plan.design.clone();
+                dd.name = format!("{id}-{tag}");
+                let dpath = mdir.join(format!("{id}-{tag}.txt"));
+                dd.save(&dpath)?;
+                let text = plan.text.replace(&format!("design {id}.txt"), &format!("design {}", dpath.display()));
+                std::fs::write(mdir.join(format!("{id}-{tag}.ideal")), text)?;
+                files.push(format!("mech/{id}-{tag}.ideal"));
+            }
+        }
+        let files = files.join(" ");
         md.push_str(&format!(
-            "| {id} | {},{} | {} ({}) | {} | {} | {}/{} | {} | {} | `{}` | {} |\n",
+            "| {id} | {},{} | {} ({}) | {} | {} | {} | {}/{} | {} | {} | `{}` | {} |\n",
             -e.bx.x0,
             -e.bx.y0,
             e.pistons,
             e.sticky,
             if e.rest_clean { "clean" } else { "piston" },
+            wire,
             sym,
             e.sol.open.len(),
             e.sol.close.len(),
@@ -1609,7 +1933,7 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
             e.verified.clone().unwrap_or("-".into())
         ));
         tsv.push_str(&format!(
-            "{id}\t{}x{}\t{},{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:?}\t{}\t{}\t{}\t{}\t{}\n",
+            "{id}\t{}x{}\t{},{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:?}\t{}\t{}\t{}\t{:?}\t{}\t{}\t{}\t{}\t{}\t{files}\n",
             e.w,
             e.h,
             -e.bx.x0,
@@ -1623,6 +1947,11 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
             e.sol.close.len(),
             e.free_cells,
             e.ring_quasi,
+            e.wire.class,
+            e.wire.regions,
+            e.wire.forced,
+            e.wire.riders,
+            e.wire.why,
             e.sol.extent,
             pieces,
             m.fmt_seq(&e.sol.open),
@@ -1633,5 +1962,241 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
     }
     std::fs::write(o.out_dir.join("CATALOG.md"), md)?;
     std::fs::write(o.out_dir.join("CATALOG.tsv"), tsv)?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------- strips: rows and columns
+
+/// One row mechanism: horizontal pistons in a door row, the row's left arm `a` cells and right
+/// arm `b` cells (row box x in -a..2+b).
+#[derive(Clone, Debug)]
+pub struct RowMech {
+    pub a: i8,
+    pub b: i8,
+    pub pieces: Vec<Pc>,
+    pub sol: Sol,
+}
+
+/// Every placement of <= kmax horizontal pistons in the arms of a row (exhaustive). Pistons
+/// facing out of the row box from its last cell are skipped (they can never extend).
+pub fn row_candidates(a: i8, b: i8, kmax: usize) -> Vec<Vec<Pc>> {
+    let cells: Vec<i8> = (-a..0).chain(3..3 + b).collect();
+    let lo = -a;
+    let hi = 2 + b;
+    let mut out = Vec::new();
+    fn rec(i: usize, cells: &[i8], lo: i8, hi: i8, kmax: usize, cur: &mut Vec<Pc>, occ: &mut HashSet<i8>, out: &mut Vec<Vec<Pc>>) {
+        if i == cells.len() {
+            out.push(cur.clone());
+            return;
+        }
+        let x = cells[i];
+        rec(i + 1, cells, lo, hi, kmax, cur, occ, out);
+        if occ.contains(&x) || cur.len() >= kmax {
+            return;
+        }
+        for sticky in [true, false] {
+            for f in 0..2u8 {
+                let hx = x + F[f as usize].0;
+                for ext in [false, true] {
+                    if hx < lo || hx > hi {
+                        continue; // never extends inside the row box
+                    }
+                    if ext && ((0..=2).contains(&hx) || occ.contains(&hx) || cur.iter().any(|p| p.x == hx)) {
+                        continue;
+                    }
+                    cur.push(Pc { x, y: 0, k: K::Piston { sticky, f, ext } });
+                    occ.insert(x);
+                    if ext {
+                        occ.insert(hx);
+                    }
+                    rec(i + 1, cells, lo, hi, kmax, cur, occ, out);
+                    cur.pop();
+                    occ.remove(&x);
+                    if ext {
+                        occ.remove(&hx);
+                    }
+                }
+            }
+        }
+    }
+    rec(0, &cells, lo, hi, kmax, &mut Vec::new(), &mut HashSet::new(), &mut out);
+    out
+}
+
+pub struct RowOpts {
+    pub kmax: usize,
+    pub arm: i8,
+    pub cap: usize,
+    pub sym_cap: usize,
+    pub threads: usize,
+    pub out_dir: std::path::PathBuf,
+    /// Widest row (a + b + 3) to enumerate.
+    pub max_w: i8,
+    pub gap: u32,
+}
+
+/// `families --rows`: every row mechanism per (left arm, right arm) split, exhaustively (<= kmax
+/// pistons, arms <= `arm`), solved exactly, minimal, mirror-merged; then the strip boxes.
+pub fn rows_cli(o: &RowOpts) -> Result<()> {
+    let log = |s: &str| eprintln!("[families rows] {s}");
+    std::fs::create_dir_all(&o.out_dir)?;
+    // canonical minimal row mechanism -> the smallest split it works in (a <= b after mirror)
+    let mut all: BTreeMap<Vec<Pc>, RowMech> = BTreeMap::new();
+    let mut per_split: Vec<(i8, i8, usize, usize, usize)> = Vec::new(); // a, b, candidates, working, minimal (canonical)
+    let mut splits: Vec<(i8, i8)> = Vec::new();
+    for a in 0..=o.arm {
+        for b in a..=o.arm {
+            if a + b + 3 <= o.max_w {
+                splits.push((a, b));
+            }
+        }
+    }
+    splits.sort_by_key(|&(a, b)| (a + b, b - a));
+    // minimal mechanisms found per split (canonical keys)
+    let mut fits: BTreeMap<(i8, i8), Vec<Vec<Pc>>> = BTreeMap::new();
+    for &(a, b) in &splits {
+        let t0 = std::time::Instant::now();
+        let bx = Bx { x0: -a, y0: 0, w: a + b + 3, h: 1 };
+        let cands = row_candidates(a, b, o.kmax);
+        let found: Mutex<Vec<Vec<Pc>>> = Mutex::new(Vec::new());
+        let next = AtomicUsize::new(0);
+        std::thread::scope(|s| {
+            for _ in 0..o.threads.max(1) {
+                s.spawn(|| loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    if i >= cands.len() {
+                        break;
+                    }
+                    let v = &cands[i];
+                    if v.is_empty() {
+                        continue;
+                    }
+                    let Some((m, rest)) = Mech::new(bx, v) else { continue };
+                    if let Ok(Some(_)) = solve(&m, &rest, o.cap, false) {
+                        found.lock().unwrap().push(v.clone());
+                    }
+                });
+            }
+        });
+        let found = found.into_inner().unwrap();
+        let mut mins: HashSet<Vec<Pc>> = HashSet::new();
+        for v in &found {
+            if let Some(mv) = minimal(v, bx, o.cap, false) {
+                mins.insert(canon(&mv));
+            }
+        }
+        let mut mins: Vec<Vec<Pc>> = mins.into_iter().collect();
+        mins.sort();
+        for c in &mins {
+            if all.contains_key(c) {
+                continue;
+            }
+            for vv in [c.clone(), c.iter().map(|p| p.mirror()).collect::<Vec<_>>()] {
+                let Some((m, rest)) = Mech::new(bx, &vv) else { continue };
+                if let Ok(Some(mut sol)) = solve(&m, &rest, o.cap, false) {
+                    if let Some((s, lv)) = best_sym(&m, &rest, &sol, o.sym_cap, 4) {
+                        sol.sym = Some(s);
+                        sol.sym_levels = lv;
+                    }
+                    all.insert(c.clone(), RowMech { a, b, pieces: vv.clone(), sol });
+                    break;
+                }
+            }
+        }
+        log(&format!("arms {a}+{b} (width {}): {} candidates, {} open+close, {} minimal ({:.1}s)", a + b + 3, cands.len(), found.len(), mins.len(), t0.elapsed().as_secs_f64()));
+        per_split.push((a, b, cands.len(), found.len(), mins.len()));
+        fits.insert((a, b), mins);
+        write_rows(o, &all, &per_split, &fits)?;
+    }
+    Ok(())
+}
+
+fn write_rows(o: &RowOpts, all: &BTreeMap<Vec<Pc>, RowMech>, per_split: &[(i8, i8, usize, usize, usize)], fits: &BTreeMap<(i8, i8), Vec<Vec<Pc>>>) -> Result<()> {
+    // the strip door: the same row mechanism in the 3 door rows, a box of height `h` (3: rows
+    // 0..2; 5: rows -1..3, the ring rows inside), the rows' schedules one after the other
+    let compose = |r: &RowMech, h: i8| -> Option<Wire> {
+        let rbx = Bx { x0: -r.a, y0: 0, w: r.a + r.b + 3, h: 1 };
+        let (rm, _) = Mech::new(rbx, &r.pieces)?;
+        let mut pieces = Vec::new();
+        for y in 0..3 {
+            for p in &r.pieces {
+                pieces.push(Pc { x: p.x, y, k: p.k });
+            }
+        }
+        let bx = Bx { x0: -r.a, y0: if h >= 5 { -1 } else { 0 }, w: r.a + r.b + 3, h };
+        let (m, rest) = Mech::new(bx, &pieces)?;
+        let map = |y: i8, e: E| -> E {
+            let p = rm.pieces[rm.pid[e.id as usize]];
+            let id = (0..m.info.len()).find(|&i| {
+                let q = m.pieces[m.pid[i]];
+                q.x == p.x && q.y == y && q.k == p.k
+            });
+            E { id: id.unwrap_or(0) as u8, act: e.act }
+        };
+        let cat = |s: &[E]| -> Vec<E> { (0..3).flat_map(|y| s.iter().map(move |e| map(y, *e))).collect() };
+        let sol = Sol {
+            open: cat(&r.sol.open),
+            close: cat(&r.sol.close),
+            sym: r.sol.sym.as_ref().map(|s| cat(s)),
+            sym_levels: r.sol.sym_levels,
+            states: 0,
+            extent: r.sol.extent,
+            levels: r.sol.levels,
+        };
+        Some(wiring(&m, &rest, &sol))
+    };
+    let mut md = String::new();
+    md.push_str("# Strip doors: row (and column) mechanisms\n\nGenerated by `mctas door families --rows` (crates/piston-door/src/families.rs). Do not edit by hand.\n\n");
+    md.push_str(&format!(
+        "In a box of height 3, 4 or 5 (width 3, 4 or 5 for columns) the door blocks can only slide sideways in their rows (up/down in their columns): nothing can pull a block out of the 3x3 vertically. Bounds: each door row is solved on its own (pistons facing E/W in the row, no vertical pistons), EVERY placement of at most **{} pistons** (sticky or normal, retracted or extended at rest) in the row's arms of at most {} cells each, no helpers, no slime; solved exactly in the macro model (pulse model state graph): the 3 door cells empty and the 2 ring cells of the row holding only air or door blocks when open (FULL seamless; the top and bottom ring rows are outside a height-3 box, the hallway fills them), back to the exact rest state, every state inside the row box. Minimal (no piston can be dropped), mirror images merged. A door = one row mechanism per row (any three, each also mirrored): a W x 3 box with arms a + b holds every row mechanism that fits a + b. A column mechanism is a row mechanism turned 90 degrees (a 3 x H box; up/down is not a symmetry for the wiring: both turns count).\n\n",
+        o.kmax, o.arm
+    ));
+    md.push_str("| arms (left+right) | row width = strip box W (Wx3, Wx4, Wx5) | candidates | open+close | minimal row mechanisms (new / fitting) |\n|---|---|---|---|---|\n");
+    let mut seen: HashSet<Vec<Pc>> = HashSet::new();
+    for (a, b, c, f, n) in per_split {
+        let fitting: Vec<&Vec<Pc>> = fits.iter().filter(|((aa, bb), _)| aa <= a && bb <= b).flat_map(|(_, v)| v.iter()).collect();
+        let mut uniq: HashSet<&Vec<Pc>> = HashSet::new();
+        for v in &fitting {
+            uniq.insert(v);
+        }
+        let _ = n;
+        let new = fits.get(&(*a, *b)).map_or(0, |v| v.iter().filter(|x| seen.insert((*x).clone())).count());
+        md.push_str(&format!("| {a}+{b} | {} | {c} | {f} | {new} / {} |\n", a + b + 3, uniq.len()));
+    }
+    md.push_str("\n## Row mechanisms (smallest row first; STATIC = every piston fires from its rest cell only, the easy ones to wire)\n\nwire3 / wire5 = the wiring check of CATALOG.md on the strip door made of this row mechanism in all 3 rows, in a box of height 3 / 5 (5: the ring rows inside the box, their cells beside the ring free for wiring).\n\n| id | arms | pistons | movers | wire3 | wire5 | sym train | open / close | pieces (x in the row; door at x 0..2) |\n|---|---|---|---|---|---|---|---|---|\n");
+    let riders_of = |m: &Mech, rest: &St, sol: &Sol| -> usize {
+        let mut pos: Vec<HashSet<u8>> = vec![HashSet::new(); m.info.len()];
+        let mut c = rest.clone();
+        for e in sol.open.iter().chain(sol.close.iter()) {
+            pos[e.id as usize].insert(c.pp[e.id as usize]);
+            if let Out::Ok(n) = m.apply(&c, *e) {
+                c = n;
+            }
+        }
+        pos.iter().filter(|p| p.len() > 1).count()
+    };
+    let mut list: Vec<(&RowMech, usize)> = all
+        .values()
+        .map(|r| {
+            let bx = Bx { x0: -r.a, y0: 0, w: r.a + r.b + 3, h: 1 };
+            let (m, rest) = Mech::new(bx, &r.pieces).unwrap();
+            (r, riders_of(&m, &rest, &r.sol))
+        })
+        .collect();
+    list.sort_by_key(|(r, rd)| (r.a + r.b, *rd, r.b - r.a, n_pistons(&r.pieces), r.sol.sym.as_ref().map_or(99, |s| s.len())));
+    let mut tsv = String::from("id\tarms\tpistons\tmovers\tsym\topen\tclose\tpieces\n");
+    for (i, (r, rd)) in list.iter().enumerate() {
+        let bx = Bx { x0: -r.a, y0: 0, w: r.a + r.b + 3, h: 1 };
+        let (m, _) = Mech::new(bx, &r.pieces).unwrap();
+        let sym = r.sol.sym.as_ref().map(|s| format!("{}{}: {}", s.len(), if r.sol.sym_levels { "+L" } else { "" }, m.fmt_seq(s))).unwrap_or("-".into());
+        let pieces = m.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" ");
+        let movers = if *rd == 0 { "STATIC".to_string() } else { format!("{rd} riders") };
+        let w3 = compose(r, 3).map(|w| format!("{} {:?}", w.class, w.regions)).unwrap_or("-".into());
+        let w5 = compose(r, 5).map(|w| format!("{} {:?}", w.class, w.regions)).unwrap_or("-".into());
+        md.push_str(&format!("| r{i:03} | {}+{} | {} | {} | {w3} | {w5} | {} | {} / {} | `{}` |\n", r.a, r.b, n_pistons(&r.pieces), movers, sym, r.sol.open.len(), r.sol.close.len(), pieces));
+        tsv.push_str(&format!("r{i:03}\t{}+{}\t{}\t{}\t{}\t{}\t{}\t{}\n", r.a, r.b, n_pistons(&r.pieces), rd, r.sol.sym.as_ref().map(|s| m.fmt_seq(s)).unwrap_or_default(), m.fmt_seq(&r.sol.open), m.fmt_seq(&r.sol.close), pieces));
+    }
+    std::fs::write(o.out_dir.join("ROWS.md"), md)?;
+    std::fs::write(o.out_dir.join("ROWS.tsv"), tsv)?;
     Ok(())
 }
