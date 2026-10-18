@@ -296,3 +296,21 @@ pub fn get_signal(w: &World, state: &Block, pos: BlockPos, d: Dir) -> i32 {
 pub fn get_direct_signal(w: &World, state: &Block, pos: BlockPos, d: Dir) -> i32 {
     if !w.wire_signal.get() { 0 } else { get_signal(w, state, pos, d) }
 }
+
+/// `useWithoutItem`: a cross becomes a dot and a dot a cross (when that changes the shape).
+pub fn use_block(w: &mut World, state: Block, pos: BlockPos) {
+    if is_cross(&state) || is_dot(&state) {
+        let base = if is_cross(&state) { default_with_power(power(&state)) } else { with_power(CROSS, power(&state)) };
+        let ns = connection_state(w, base, pos);
+        if ns != state {
+            w.set_block_and_update(pos, ns);
+            // updatesOnShapeChange
+            for d in Dir::HORIZONTAL {
+                let rp = pos.rel(d);
+                if side(&state, d).connected() != side(&ns, d).connected() && bh::is_conductor(w, &w.get(rp), rp) {
+                    w.update_neighbors_except(rp, Kind::Wire, d.opposite());
+                }
+            }
+        }
+    }
+}

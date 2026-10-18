@@ -343,7 +343,13 @@ pub enum Block {
     Piston { sticky: bool, facing: Dir, extended: bool },
     PistonHead { sticky: bool, facing: Dir, short: bool },
     MovingPiston { sticky: bool, facing: Dir },
+    /// Gravity blocks (pistmodel, `gravity.rs`): index into `FALLING` (sand, red sand, gravel,
+    /// white concrete powder).
+    Falling { id: u8 },
 }
+
+/// Gravity blocks (`Block::Falling`), by id.
+pub const FALLING: [&str; 4] = ["sand", "red_sand", "gravel", "white_concrete_powder"];
 
 /// The block type (`state.getBlock()`): what `state.is(block)`, scheduled ticks and block events
 /// compare.
@@ -384,6 +390,7 @@ pub enum Kind {
     Piston(bool),
     PistonHead,
     MovingPiston,
+    Falling(u8),
 }
 
 fn b(s: bool) -> &'static str {
@@ -428,6 +435,7 @@ impl Block {
             Block::Piston { sticky, .. } => Kind::Piston(sticky),
             Block::PistonHead { .. } => Kind::PistonHead,
             Block::MovingPiston { .. } => Kind::MovingPiston,
+            Block::Falling { id } => Kind::Falling(id),
         }
     }
 
@@ -664,6 +672,7 @@ impl Block {
                 },
                 facing: dir_of("facing", Dir::North)?,
             },
+            n if FALLING.contains(&n) => Block::Falling { id: FALLING.iter().position(|x| *x == n).unwrap() as u8 },
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
         })
     }
@@ -762,6 +771,7 @@ impl fmt::Display for Block {
                 write!(f, "minecraft:piston_head[facing={},short={},type={}]", facing.name(), b(short), if sticky { "sticky" } else { "normal" })
             }
             Block::MovingPiston { sticky, facing } => write!(f, "minecraft:moving_piston[facing={},type={}]", facing.name(), if sticky { "sticky" } else { "normal" }),
+            Block::Falling { id } => write!(f, "minecraft:{}", FALLING[id as usize]),
         }
     }
 }

@@ -20,23 +20,25 @@ The night, board by board (records by blocks placed, from the archive):
 
 9 identical plain door blocks, no sculk sensors; rotation-safe.
 
-**72b** (volume 8x9x1, 49 blocks placed), solid, slime-free, flat, opens in 34 ticks, closes in 34 (worst cycle): [flat-seam/BEST](tracks/flat-seam/BEST.txt). 
+![flat-seam-e89b-49b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-seam-e89b-49b.gif)
+
+**72b** (volume 8x9x1, 49 blocks placed), solid, slime-free, flat, opens in 34 ticks, closes in 34 (worst cycle): [flat-seam-e89b-49b](archive/flat-seam-e89b-49b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-seam-e89b-49b.mp4)). Agent flat-seam: the flat FULL seamless + hallway door in 8 x 9: flat-b's center-down machine with the top-right block sent RIGHT so no ceiling puller needs a 10th row; the right top and middle fire off an observer that watches the top-middle puller, its double pulse merged into one by a delay-2 repeater (gadget pulse-merge), the right bottom fed from below.
 
 Every record of this board by blocks placed (the history before sizes were volumes) in one video: [solid-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 72b (8x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
+| 1 | 72b (8x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/BEST.txt` |
-| 3 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89el-50b.txt` |
-| 4 | 72b (8x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89-51b.txt` |
-| 5 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72f-52b.txt` |
-| 6 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72n-52b.txt` |
+| 2 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 3 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 4 | 72b (8x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 5 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 6 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
 | 7 | 80b (8x10x1) | 44 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 8 | 80b (8x10x1) | 45 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v6-45b.txt` |
 | 9 | 80b (8x10x1) | 46 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v5-46b.txt` |
@@ -48,23 +50,23 @@ Every record of this board by blocks placed (the history before sizes were volum
 
 same, and not a single slime or honey block anywhere; rotation-safe.
 
-Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam/BEST](tracks/flat-seam/BEST.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam-e89b-49b](archive/flat-seam-e89b-49b.txt).
 
 Every record of this board by blocks placed (the history before sizes were volumes) in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 72b (8x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
+| 1 | 72b (8x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/BEST.txt` |
-| 3 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89el-50b.txt` |
-| 4 | 72b (8x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89-51b.txt` |
-| 5 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72f-52b.txt` |
-| 6 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72n-52b.txt` |
+| 2 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 3 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 4 | 72b (8x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 5 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 6 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
 | 7 | 80b (8x10x1) | 44 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 8 | 80b (8x10x1) | 45 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v6-45b.txt` |
 | 9 | 80b (8x10x1) | 46 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v5-46b.txt` |
@@ -76,23 +78,23 @@ Every record of this board by blocks placed (the history before sizes were volum
 
 slime-free, and every block (door, pistons, wiring, lever) in the door's plane: the whole machine is one block thick; rotation-safe.
 
-Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam/BEST](tracks/flat-seam/BEST.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam-e89b-49b](archive/flat-seam-e89b-49b.txt).
 
 Every record of this board by blocks placed (the history before sizes were volumes) in one video: [flat-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.jpg)).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 72b (8x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
+| 1 | 72b (8x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/BEST.txt` |
-| 3 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89el-50b.txt` |
-| 4 | 72b (8x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89-51b.txt` |
-| 5 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72f-52b.txt` |
-| 6 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72n-52b.txt` |
+| 2 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 3 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 4 | 72b (8x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 5 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 6 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
 | 7 | 80b (8x10x1) | 44 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 8 | 80b (8x10x1) | 45 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v6-45b.txt` |
 | 9 | 80b (8x10x1) | 46 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v5-46b.txt` |
@@ -104,21 +106,21 @@ Every record of this board by blocks placed (the history before sizes were volum
 
 every block within one layer of the door's plane (z = door.z-1..door.z+1), at rest and while it moves: the whole machine hides inside a wall 3 blocks thick; rotation-safe.
 
-Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam/BEST](tracks/flat-seam/BEST.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam-e89b-49b](archive/flat-seam-e89b-49b.txt).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 72b (8x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
+| 1 | 72b (8x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/BEST.txt` |
-| 3 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89el-50b.txt` |
-| 4 | 72b (8x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89-51b.txt` |
-| 5 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72f-52b.txt` |
-| 6 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72n-52b.txt` |
+| 2 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 3 | 72b (8x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 4 | 72b (8x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 5 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 6 | 72b (8x9x1) | 52 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
 | 7 | 80b (8x10x1) | 44 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 8 | 80b (8x10x1) | 45 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v6-45b.txt` |
 | 9 | 80b (8x10x1) | 46 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v5-46b.txt` |
@@ -130,18 +132,20 @@ Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x
 
 no block below the door's bottom row, at rest or while it moves, so it stands on flat ground with no digging; it must also work standing on a stone floor (slime may not drag the ground); rotation-safe.
 
-**225b** (volume 9x5x5, 98 blocks placed), solid, slime-free, opens in 54 ticks, closes in 54 (worst cycle): [ground/BEST](tracks/ground/BEST.txt). 
+![ground-v225b-98b](https://github.com/vjeux/minecraft-tas/releases/download/videos/ground-v225b-98b.gif)
+
+**225b** (volume 9x5x5, 98 blocks placed), solid, slime-free, opens in 54 ticks, closes in 54 (worst cycle): [ground-v225b-98b](archive/ground-v225b-98b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/ground-v225b-98b.mp4)). 
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 225b (9x5x5) | 98 | clean | `HEAD:designs/piston-door-3x3/tracks/ground/BEST.txt` |
+| 1 | 225b (9x5x5) | 98 | clean | `HEAD:designs/piston-door-3x3/archive/ground-v225b-98b.txt` |
 
 <details><summary>2 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 225b (9x5x5) | 108 | clean | `HEAD:designs/piston-door-3x3/tracks/ground/archive/ground-v225-108b.txt` |
-| 3 | 462b (11x6x7) | 99 | clean | `HEAD:designs/piston-door-3x3/tracks/ground/archive/ground-g99-99b.txt` |
+| 2 | 225b (9x5x5) | 108 | clean | `HEAD:designs/piston-door-3x3/archive/ground-v225-108b.txt` |
+| 3 | 462b (11x6x7) | 99 | clean | `HEAD:designs/piston-door-3x3/archive/ground-g99-99b.txt` |
 
 </details>
 
@@ -209,21 +213,21 @@ Every record of this board by blocks placed (the history before sizes were volum
 
 solid doors that may also use entities (minecarts, armor stands, boats...; category `entity`). Entities are counted apart from blocks: ranked by size (the volume), then entities, then blocks placed. Every entity must be back exactly where it rested, at rest, after each close, and nothing else may appear; every other board bans entities. Solid designs compete here too (0 entities); rotation-safe.
 
-Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam/BEST](tracks/flat-seam/BEST.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam-e89b-49b](archive/flat-seam-e89b-49b.txt).
 
 | # | size | entities | blocks | open / close | walkway | source |
 |---|---|---|---|---|---|---|
-| 1 | 72b (8x9x1) | 0 | 49 | 34 / 34 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
+| 1 | 72b (8x9x1) | 0 | 49 | 34 / 34 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | entities | blocks | open / close | walkway | source |
 |---|---|---|---|---|---|---|
-| 2 | 72b (8x9x1) | 0 | 50 | 34 / 34 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/BEST.txt` |
-| 3 | 72b (8x9x1) | 0 | 50 | 34 / 38 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89el-50b.txt` |
-| 4 | 72b (8x9x1) | 0 | 51 | 36 / 36 | clean | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89-51b.txt` |
-| 5 | 72b (8x9x1) | 0 | 52 | 34 / 34 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72f-52b.txt` |
-| 6 | 72b (8x9x1) | 0 | 52 | 36 / 36 | clean | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72n-52b.txt` |
+| 2 | 72b (8x9x1) | 0 | 50 | 34 / 34 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 3 | 72b (8x9x1) | 0 | 50 | 34 / 38 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 4 | 72b (8x9x1) | 0 | 51 | 36 / 36 | clean | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 5 | 72b (8x9x1) | 0 | 52 | 34 / 34 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 6 | 72b (8x9x1) | 0 | 52 | 36 / 36 | clean | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
 | 7 | 80b (8x10x1) | 0 | 44 | 30 / 26 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 8 | 80b (8x10x1) | 0 | 45 | 32 / 28 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v6-45b.txt` |
 | 9 | 80b (8x10x1) | 0 | 46 | 32 / 28 | clean | `HEAD:designs/piston-door-3x3/archive/flat-b-v5-46b.txt` |
@@ -249,27 +253,25 @@ Doors that use entities (category `entity`):
 
 solid doors with a SEAMLESS tier of the community regulation (QUART: nothing visible on the front side when closed; SEMI: also nothing in the hallway when open; FULL: also clean from the back when closed; SUPER: also clean at every tick while moving), ranked by tier, then whether the hallway can be built around it, then size (the volume), then blocks placed; rotation-safe.
 
-![flat-b-v7-full-50b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-full-50b.gif)
-
-**80b** (volume 8x10x1, 50 blocks placed), solid, slime-free, flat, opens in 32 ticks, closes in 32 (worst cycle): [flat-b-v7-full-50b](archive/flat-b-v7-full-50b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-full-50b.mp4)). From track seamless: [tracks/seamless/NOTES.md](tracks/seamless/NOTES.md).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam-e89b-49b](archive/flat-seam-e89b-49b.txt).
 
 | # | seamless | hallway | size | blocks | source |
 |---|---|---|---|---|---|
-| 1 | FULL | yes | 80b (8x10x1) | 50 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-50b.txt` |
+| 1 | FULL | yes | 72b (8x9x1) | 49 | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | seamless | hallway | size | blocks | source |
 |---|---|---|---|---|---|
-| 2 | FULL | yes | 81b (9x9x1) | 43 | `HEAD:designs/piston-door-3x3/archive/flat43-full-43b.txt` |
-| 3 | FULL | yes | 81b (9x9x1) | 44 | `HEAD:designs/piston-door-3x3/archive/eligible-fl81m-44b.txt` |
-| 4 | FULL | yes | 81b (9x9x1) | 44 | `HEAD:designs/piston-door-3x3/archive/flat-seam-h44-44b.txt` |
-| 5 | FULL | yes | 81b (9x9x1) | 44 | `HEAD:designs/piston-door-3x3/archive/flat43-full-44b.txt` |
-| 6 | FULL | yes | 81b (9x9x1) | 45 | `HEAD:designs/piston-door-3x3/archive/eligible-fl81n-45b.txt` |
-| 7 | FULL | yes | 81b (9x9x1) | 45 | `HEAD:designs/piston-door-3x3/archive/flat-seam-h45-45b.txt` |
-| 8 | FULL | yes | 90b (9x10x1) | 55 | `HEAD:designs/piston-door-3x3/archive/flat-seam-s55-55b.txt` |
-| 9 | FULL | yes | 99b (9x11x1) | 54 | `HEAD:designs/piston-door-3x3/archive/flat-v7-full-54b.txt` |
-| 10 | FULL | yes | 100b (10x10x1) | 57 | `HEAD:designs/piston-door-3x3/archive/flat-v2-57b.txt` |
+| 2 | FULL | yes | 72b (8x9x1) | 50 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 3 | FULL | yes | 72b (8x9x1) | 50 | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 4 | FULL | yes | 72b (8x9x1) | 51 | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 5 | FULL | yes | 72b (8x9x1) | 52 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 6 | FULL | yes | 72b (8x9x1) | 52 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
+| 7 | FULL | yes | 80b (8x10x1) | 47 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-47b.txt` |
+| 8 | FULL | yes | 80b (8x10x1) | 48 | `HEAD:designs/piston-door-3x3/archive/eligible-fl80m-48b.txt` |
+| 9 | FULL | yes | 80b (8x10x1) | 48 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-bottom-48b.txt` |
+| 10 | FULL | yes | 80b (8x10x1) | 48 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-north-48b.txt` |
 
 </details>
 
@@ -277,25 +279,25 @@ solid doors with a SEAMLESS tier of the community regulation (QUART: nothing vis
 
 the same ranking for flat, slime-free doors (every block in the door's plane); rotation-safe.
 
-Same leader as [Seamless](#seamless): **80b** (volume 8x10x1, 50 blocks placed), opens in 32 ticks, closes in 32, [flat-b-v7-full-50b](archive/flat-b-v7-full-50b.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **72b** (volume 8x9x1, 49 blocks placed), opens in 34 ticks, closes in 34, [flat-seam-e89b-49b](archive/flat-seam-e89b-49b.txt).
 
 | # | seamless | hallway | size | blocks | source |
 |---|---|---|---|---|---|
-| 1 | FULL | yes | 80b (8x10x1) | 50 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-50b.txt` |
+| 1 | FULL | yes | 72b (8x9x1) | 49 | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | seamless | hallway | size | blocks | source |
 |---|---|---|---|---|---|
-| 2 | FULL | yes | 81b (9x9x1) | 43 | `HEAD:designs/piston-door-3x3/archive/flat43-full-43b.txt` |
-| 3 | FULL | yes | 81b (9x9x1) | 44 | `HEAD:designs/piston-door-3x3/archive/eligible-fl81m-44b.txt` |
-| 4 | FULL | yes | 81b (9x9x1) | 44 | `HEAD:designs/piston-door-3x3/archive/flat-seam-h44-44b.txt` |
-| 5 | FULL | yes | 81b (9x9x1) | 44 | `HEAD:designs/piston-door-3x3/archive/flat43-full-44b.txt` |
-| 6 | FULL | yes | 81b (9x9x1) | 45 | `HEAD:designs/piston-door-3x3/archive/eligible-fl81n-45b.txt` |
-| 7 | FULL | yes | 81b (9x9x1) | 45 | `HEAD:designs/piston-door-3x3/archive/flat-seam-h45-45b.txt` |
-| 8 | FULL | yes | 90b (9x10x1) | 55 | `HEAD:designs/piston-door-3x3/archive/flat-seam-s55-55b.txt` |
-| 9 | FULL | yes | 99b (9x11x1) | 54 | `HEAD:designs/piston-door-3x3/archive/flat-v7-full-54b.txt` |
-| 10 | FULL | yes | 100b (10x10x1) | 57 | `HEAD:designs/piston-door-3x3/archive/flat-v2-57b.txt` |
+| 2 | FULL | yes | 72b (8x9x1) | 50 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 3 | FULL | yes | 72b (8x9x1) | 50 | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 4 | FULL | yes | 72b (8x9x1) | 51 | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 5 | FULL | yes | 72b (8x9x1) | 52 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 6 | FULL | yes | 72b (8x9x1) | 52 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
+| 7 | FULL | yes | 80b (8x10x1) | 47 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-47b.txt` |
+| 8 | FULL | yes | 80b (8x10x1) | 48 | `HEAD:designs/piston-door-3x3/archive/eligible-fl80m-48b.txt` |
+| 9 | FULL | yes | 80b (8x10x1) | 48 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-bottom-48b.txt` |
+| 10 | FULL | yes | 80b (8x10x1) | 48 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-west-48b.txt` |
 
 </details>
 
@@ -303,23 +305,27 @@ Same leader as [Seamless](#seamless): **80b** (volume 8x10x1, 50 blocks placed),
 
 doors that meet the regulation's record eligibility (section 3): a SEAMLESS tier, the hallway can be built around them, the lever on the surface with steady support, works with repeater input too, unlimited uses, footsteps in the hallway harmless; ranked by size (the volume), then blocks placed; rotation-safe.
 
-![eligible-fl81m-44b](https://github.com/vjeux/minecraft-tas/releases/download/videos/eligible-fl81m-44b.gif)
+![eligible-fl72m-50b](https://github.com/vjeux/minecraft-tas/releases/download/videos/eligible-fl72m-50b.gif)
 
-**81b** (volume 9x9x1, 44 blocks placed), solid, slime-free, flat, opens in 52 ticks, closes in 48 (worst cycle): [eligible-fl81m-44b](archive/eligible-fl81m-44b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/eligible-fl81m-44b.mp4)). 
-
-| # | size | blocks | seamless | open / close | source |
-|---|---|---|---|---|---|
-| 1 | 81b (9x9x1) | 44 | FULL | 52 / 48 | `HEAD:designs/piston-door-3x3/archive/eligible-fl81m-44b.txt` |
-
-<details><summary>5 more</summary>
+**72b** (volume 8x9x1, 50 blocks placed), solid, slime-free, flat, opens in 34 ticks, closes in 34 (worst cycle): [eligible-fl72m-50b](archive/eligible-fl72m-50b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/eligible-fl72m-50b.mp4)). 
 
 | # | size | blocks | seamless | open / close | source |
 |---|---|---|---|---|---|
-| 2 | 81b (9x9x1) | 45 | FULL | 52 / 48 | `HEAD:designs/piston-door-3x3/archive/eligible-fl81n-45b.txt` |
-| 3 | 100b (10x10x1) | 58 | FULL | 42 / 42 | `HEAD:designs/piston-door-3x3/archive/eligible-fv58n-58b.txt` |
-| 4 | 252b (7x9x4) | 39 | QUART z+ | 36 / 32 | `HEAD:designs/piston-door-3x3/archive/eligible-b39n-39b.txt` |
-| 5 | 252b (7x9x4) | 43 | QUART z-,z+ | 28 / 24 | `HEAD:designs/piston-door-3x3/archive/eligible-w43n-43b.txt` |
-| 6 | 280b (7x10x4) | 45 | FULL | 36 / 28 | `HEAD:designs/piston-door-3x3/archive/eligible-f45n-45b.txt` |
+| 1 | 72b (8x9x1) | 50 | FULL | 34 / 34 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+
+<details><summary>9 more</summary>
+
+| # | size | blocks | seamless | open / close | source |
+|---|---|---|---|---|---|
+| 2 | 72b (8x9x1) | 50 | FULL | 34 / 38 | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 3 | 72b (8x9x1) | 52 | FULL | 34 / 34 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 4 | 72b (8x9x1) | 52 | FULL | 36 / 36 | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
+| 5 | 80b (8x10x1) | 48 | FULL | 34 / 34 | `HEAD:designs/piston-door-3x3/archive/eligible-fl80m-48b.txt` |
+| 6 | 80b (8x10x1) | 48 | FULL | 34 / 34 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-bottom-48b.txt` |
+| 7 | 80b (8x10x1) | 48 | FULL | 34 / 34 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-north-48b.txt` |
+| 8 | 80b (8x10x1) | 48 | FULL | 34 / 34 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-south-48b.txt` |
+| 9 | 80b (8x10x1) | 48 | FULL | 34 / 34 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-west-48b.txt` |
+| 10 | 80b (8x10x1) | 48 | FULL | 34 / 34 | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper@support-north-48b.txt` |
 
 </details>
 
@@ -352,7 +358,7 @@ Every door that no other door beats on open ticks, close ticks and size (the vol
 
 | size | blocks | open | close | category | slime-free | rotations | source |
 |---|---|---|---|---|---|---|---|
-| 72b (8x9x1) | 49 | 34 | 34 | solid | yes | safe | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
+| 72b (8x9x1) | 49 | 34 | 34 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 | 80b (8x10x1) | 44 | 30 | 26 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 126b (7x9x2) | 33 | 5 | 16 | gravity |  | safe | `HEAD:designs/piston-door-3x3/archive/gravity2-g33-33b.txt` |
 | 126b (7x9x2) | 46 | 14 | 13 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/exotic-pm46-trap-46b.txt` |
@@ -369,7 +375,7 @@ Every door that no other door beats on open ticks, close ticks and size (the vol
 
 | size | blocks | open | close | category | slime-free | rotations | source |
 |---|---|---|---|---|---|---|---|
-| 72b (8x9x1) | 49 | 34 | 34 | solid | yes | safe | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
+| 72b (8x9x1) | 49 | 34 | 34 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 | 80b (8x10x1) | 44 | 30 | 26 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 126b (7x9x2) | 46 | 14 | 13 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/exotic-pm46-trap-46b.txt` |
 | 144b (8x9x2) | 41 | 22 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
@@ -384,7 +390,7 @@ Every door that no other door beats on open ticks, close ticks and size (the vol
 
 | size | blocks | open | close | category | slime-free | rotations | source |
 |---|---|---|---|---|---|---|---|
-| 72b (8x9x1) | 49 | 34 | 34 | solid | yes | safe | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
+| 72b (8x9x1) | 49 | 34 | 34 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
 | 80b (8x10x1) | 44 | 30 | 26 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 126b (7x9x2) | 46 | 14 | 13 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/exotic-pm46-trap-46b.txt` |
 | 144b (8x9x2) | 41 | 22 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
@@ -611,55 +617,55 @@ Same leader as [Fastest open + close (solid only)](#fastest-open--close-solid-on
 
 | # | size | blocks | category | slime-free | rotations | verdict | source |
 |---|---|---|---|---|---|---|---|
-| 1 | 72b (8x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/flat-seam/BEST.txt` |
-| 2 | 72b (8x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/eligible/BEST.txt` |
-| 3 | 72b (8x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89el-50b.txt` |
-| 4 | 72b (8x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-e89-51b.txt` |
-| 5 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72f-52b.txt` |
-| 6 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl72n-52b.txt` |
+| 1 | 72b (8x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
+| 2 | 72b (8x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 3 | 72b (8x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 4 | 72b (8x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 5 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 6 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
 | 7 | 80b (8x10x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
 | 8 | 80b (8x10x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v6-45b.txt` |
 | 9 | 80b (8x10x1) | 46 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v5-46b.txt` |
 | 10 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-47b.txt` |
 | 11 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v3-47b.txt` |
-| 12 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/BEST-flat.txt` |
-| 13 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl80m-48b.txt` |
-| 14 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-dropper-bottom.txt` |
-| 15 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-dropper-north.txt` |
-| 16 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-dropper-south.txt` |
-| 17 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-dropper-west.txt` |
-| 18 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-dropper@support-north.txt` |
-| 19 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-dropper@support-south.txt` |
-| 20 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-note-bottom.txt` |
-| 21 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-note-north.txt` |
-| 22 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-note-south.txt` |
-| 23 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-lamp-bottom.txt` |
-| 24 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-lamp-north.txt` |
-| 25 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-lamp-south.txt` |
-| 26 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-lamp-west.txt` |
+| 12 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-47b.txt` |
+| 13 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80m-48b.txt` |
+| 14 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-bottom-48b.txt` |
+| 15 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-north-48b.txt` |
+| 16 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-south-48b.txt` |
+| 17 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-west-48b.txt` |
+| 18 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper@support-north-48b.txt` |
+| 19 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper@support-south-48b.txt` |
+| 20 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-bottom-48b.txt` |
+| 21 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-north-48b.txt` |
+| 22 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-south-48b.txt` |
+| 23 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-bottom-48b.txt` |
+| 24 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-north-48b.txt` |
+| 25 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-south-48b.txt` |
+| 26 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-west-48b.txt` |
 | 27 | 80b (8x10x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-50b.txt` |
-| 28 | 80b (8x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl80f-51b.txt` |
-| 29 | 80b (8x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl80n-51b.txt` |
+| 28 | 80b (8x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80f-51b.txt` |
+| 29 | 80b (8x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80n-51b.txt` |
 | 30 | 80b (8x10x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-52b.txt` |
 | 31 | 81b (9x9x1) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-flat43-43b.txt` |
 | 32 | 81b (9x9x1) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-43b.txt` |
-| 33 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-fl81f-44b.txt` |
+| 33 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81f-44b.txt` |
 | 34 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81m-44b.txt` |
 | 35 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-h44-44b.txt` |
 | 36 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-44b.txt` |
 | 37 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/f43-b1-44b.txt` |
 | 38 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81n-45b.txt` |
-| 39 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-dropper-east.txt` |
-| 40 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-dropper-north.txt` |
-| 41 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-dropper-south.txt` |
-| 42 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-dropper-top.txt` |
-| 43 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-note-north.txt` |
-| 44 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-note-south.txt` |
-| 45 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-note-top.txt` |
-| 46 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-lamp-east.txt` |
-| 47 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-lamp-north.txt` |
-| 48 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-lamp-south.txt` |
-| 49 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat43-full-rl-lamp-top.txt` |
+| 39 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-east-45b.txt` |
+| 40 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-north-45b.txt` |
+| 41 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-south-45b.txt` |
+| 42 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-top-45b.txt` |
+| 43 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-north-45b.txt` |
+| 44 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-south-45b.txt` |
+| 45 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-top-45b.txt` |
+| 46 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-east-45b.txt` |
+| 47 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-north-45b.txt` |
+| 48 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-south-45b.txt` |
+| 49 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-top-45b.txt` |
 | 50 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-h45-45b.txt` |
 | 51 | 88b (8x11x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v2-48b.txt` |
 | 52 | 90b (9x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-fbv7-full-trap-48b.txt` |
@@ -727,7 +733,7 @@ Same leader as [Fastest open + close (solid only)](#fastest-open--close-solid-on
 | 114 | 210b (7x10x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-w41-44b.txt` |
 | 115 | 210b (7x10x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w42-44b.txt` |
 | 116 | 210b (7x10x3) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-d-s4-48b.txt` |
-| 117 | 210b (7x10x3) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/eligible/archive/eligible-s4ff-49b.txt` |
+| 117 | 210b (7x10x3) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-s4ff-49b.txt` |
 | 118 | 216b (8x9x3) | 46 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/synth-sf46-46b.txt` |
 | 119 | 216b (8x9x3) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-combo-48b.txt` |
 | 120 | 216b (8x9x3) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-transplant-HEAD-logic-min-slime-free-50b-49b.txt` |
@@ -740,8 +746,8 @@ Same leader as [Fastest open + close (solid only)](#fastest-open--close-solid-on
 | 127 | 216b (8x9x3) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-walk-52b.txt` |
 | 128 | 216b (8x9x3) | 53 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-53b.txt` |
 | 129 | 216b (8x9x3) | 55 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-55b.txt` |
-| 130 | 225b (9x5x5) | 98 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/ground/BEST.txt` |
-| 131 | 225b (9x5x5) | 108 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/ground/archive/ground-v225-108b.txt` |
+| 130 | 225b (9x5x5) | 98 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-v225b-98b.txt` |
+| 131 | 225b (9x5x5) | 108 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-v225-108b.txt` |
 | 132 | 243b (9x9x3) | 49 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-49b.txt` |
 | 133 | 243b (9x9x3) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-50b-2.txt` |
 | 134 | 243b (9x9x3) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-50b.txt` |
@@ -768,21 +774,21 @@ Same leader as [Fastest open + close (solid only)](#fastest-open--close-solid-on
 | 155 | 252b (7x9x4) | 57 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-fast-57b.txt` |
 | 156 | 252b (7x9x4) | 60 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-fast-60b.txt` |
 | 157 | 252b (7x9x4) | 61 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb9-61b.txt` |
-| 158 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-f45n-45b.txt` |
-| 159 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-dropper-bottom.txt` |
-| 160 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-dropper-east.txt` |
-| 161 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-dropper-north.txt` |
-| 162 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-dropper-top.txt` |
-| 163 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-dropper-west.txt` |
-| 164 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-note-bottom.txt` |
-| 165 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-note-east.txt` |
-| 166 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-note-north.txt` |
-| 167 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-note-top.txt` |
-| 168 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-lamp-bottom.txt` |
-| 169 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-lamp-east.txt` |
-| 170 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-lamp-north.txt` |
-| 171 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-lamp-top.txt` |
-| 172 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/full-e41-rl-lamp-west.txt` |
+| 158 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-bottom-45b.txt` |
+| 159 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-east-45b.txt` |
+| 160 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-north-45b.txt` |
+| 161 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-top-45b.txt` |
+| 162 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-west-45b.txt` |
+| 163 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-bottom-45b.txt` |
+| 164 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-east-45b.txt` |
+| 165 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-north-45b.txt` |
+| 166 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-top-45b.txt` |
+| 167 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-f45n-45b.txt` |
+| 168 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-bottom-45b.txt` |
+| 169 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-east-45b.txt` |
+| 170 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-north-45b.txt` |
+| 171 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-top-45b.txt` |
+| 172 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-west-45b.txt` |
 | 173 | 280b (7x10x4) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-repU-pgF-50b.txt` |
 | 174 | 280b (7x8x5) | 58 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s6-58b.txt` |
 | 175 | 288b (8x9x4) | 47 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/rb6-bmobs-47b.txt` |
@@ -796,18 +802,18 @@ Same leader as [Fastest open + close (solid only)](#fastest-open--close-solid-on
 | 183 | 324b (9x9x4) | 59 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-logic-min-BEST-59b.txt` |
 | 184 | 324b (9x9x4) | 60 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-60b.txt` |
 | 185 | 350b (7x10x5) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-hA-48b.txt` |
-| 186 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-dropper-bottom.txt` |
-| 187 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-dropper-east.txt` |
-| 188 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-dropper-north.txt` |
-| 189 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-dropper-top.txt` |
-| 190 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-note-bottom.txt` |
-| 191 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-note-east.txt` |
-| 192 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-note-north.txt` |
-| 193 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-note-top.txt` |
-| 194 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-lamp-bottom.txt` |
-| 195 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-lamp-east.txt` |
-| 196 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-lamp-north.txt` |
-| 197 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/fast-hA-full-rl-lamp-top.txt` |
+| 186 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-bottom-49b.txt` |
+| 187 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-east-49b.txt` |
+| 188 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-north-49b.txt` |
+| 189 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-top-49b.txt` |
+| 190 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-bottom-49b.txt` |
+| 191 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-east-49b.txt` |
+| 192 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-north-49b.txt` |
+| 193 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-top-49b.txt` |
+| 194 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-bottom-49b.txt` |
+| 195 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-east-49b.txt` |
+| 196 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-north-49b.txt` |
+| 197 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-top-49b.txt` |
 | 198 | 360b (10x9x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-obs7-45b.txt` |
 | 199 | 360b (9x10x4) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wired00-54b-51b.txt` |
 | 200 | 360b (9x10x4) | 54 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wired00-54b-54b.txt` |
@@ -833,7 +839,7 @@ Same leader as [Fastest open + close (solid only)](#fastest-open--close-solid-on
 | 220 | 441b (7x9x7) | 48 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-hold-48b.txt` |
 | 221 | 448b (7x16x4) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-vobs9m-49b.txt` |
 | 222 | 448b (7x16x4) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-vobs9-50b.txt` |
-| 223 | 462b (11x6x7) | 99 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/ground/archive/ground-g99-99b.txt` |
+| 223 | 462b (11x6x7) | 99 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-g99-99b.txt` |
 | 224 | 480b (12x10x4) | 89 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-89b.txt` |
 | 225 | 480b (12x10x4) | 90 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-90b.txt` |
 | 226 | 480b (12x10x4) | 91 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-91b.txt` |
