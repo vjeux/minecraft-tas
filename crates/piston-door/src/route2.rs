@@ -80,6 +80,35 @@ fn bname(s: &str) -> &str {
 fn is_piston(s: &str) -> bool {
     matches!(bname(s), "piston" | "sticky_piston")
 }
+
+/// Reader code of a non-piston receiver that also reads its quasi-connectivity cell (dispensers,
+/// droppers, crafters) and has no blind face.
+pub const READ_QC: Pos = [0, 0, 0];
+/// Reader code of a receiver that reads only its own neighbors (lamps, note blocks, doors...).
+pub const READ_DIRECT: Pos = [0, 9, 0];
+
+/// If `s` reads redstone power (an actuator the router must deliver signals to): its reader code
+/// (a piston's facing: blind on that face, quasi-connected; or READ_QC / READ_DIRECT).
+fn reader(s: &str) -> Option<Pos> {
+    let n = bname(s);
+    if is_piston(s) {
+        return facing_of(s);
+    }
+    if matches!(n, "dispenser" | "dropper" | "crafter") {
+        return Some(READ_QC);
+    }
+    let direct = matches!(n, "redstone_lamp" | "note_block" | "tnt" | "bell" | "powered_rail" | "activator_rail" | "iron_door" | "iron_trapdoor")
+        || n.ends_with("_door")
+        || n.ends_with("_trapdoor")
+        || n.ends_with("_fence_gate")
+        || n.ends_with("copper_bulb");
+    direct.then_some(READ_DIRECT)
+}
+
+/// The input lever of a design (`port lever`).
+fn lever_port(d: &Design) -> Result<Pos> {
+    d.ports.get("lever").copied().context("design has no 'port lever: x y z' (route2 flips it to measure the machine)")
+}
 fn facing_of(s: &str) -> Option<Pos> {
     let b = mctas::blockstate::BlockState::parse(s).ok()?;
     Some(match b.get("facing")? {
@@ -317,14 +346,39 @@ fn torch_seq(s: &[bool]) -> Vec<bool> {
     out
 }
 
+/// `RedstoneLampBlock`: lights at once, goes dark 4 gt after the power goes away.
+fn lamp_seq(s: &[bool]) -> Vec<bool> {
+    let mut out = vec![false; s.len()];
+    let (mut lit, mut pending) = (s[0], None::<usize>);
+    for t in 0..s.len() {
+        let before = if t > 0 { s[t - 1] } else { s[0] };
+        if pending == Some(t) {
+            pending = None;
+            if lit && !before {
+                lit = false;
+            }
+        }
+        if t > 0 && s[t] != s[t - 1] {
+            if s[t] && !lit {
+                lit = true;
+            } else if !s[t] && lit && pending.is_none() {
+                pending = Some(t + 4);
+            }
+        }
+        out[t] = lit;
+    }
+    out
+}
+
 /// A node's output wave from the OR of its inputs.
 fn transfer(n: &Node, input: Wave) -> Wave {
     match n.kind {
         Kind::Repeater => Wave::from_seq(&repeater_seq(&input.seq(), 2 * repeater_delay(&n.state))),
         Kind::Observer => Wave::from_seq(&observer_seq(&changes(&input.seq()))),
         Kind::Torch => Wave::from_seq(&torch_seq(&input.seq())),
+        Kind::Lamp => Wave::from_seq(&lamp_seq(&input.seq())),
         Kind::Comparator => input.shift(2),
-        Kind::Dust | Kind::Lamp | Kind::Block => input,
+        Kind::Dust | Kind::Block => input,
         _ => Wave::OFF,
     }
 }
@@ -495,6 +549,8 @@ pub struct Model {
     pub at: HashMap<Pos, usize>,
     pts: HashMap<Pos, [bool; 4]>,
     inputs: Vec<Vec<(usize, Feed)>>,
+    /// For dust: every dust node of its connected net (itself included).
+    net: Vec<Vec<usize>>,
     fixed: HashMap<usize, Wave>,
     pub any: Vec<Wave>,
     pub strong: Vec<Wave>,
@@ -557,7 +613,42 @@ impl Model {
             }
         }
         let n = nodes.len();
-        let mut m = Model { blocks: all, nodes, at, pts, inputs, fixed: fx, any: vec![Wave::OFF; n], strong: vec![Wave::OFF; n] };
+        // Connected dust nets: evaluated as one unit (dust-dust feeds go both ways and would
+        // latch any signal they ever saw in a fixpoint).
+        let mut comp: Vec<usize> = (0..n).collect();
+        fn root(c: &mut Vec<usize>, i: usize) -> usize {
+            let mut r = i;
+            while c[r] != r {
+                r = c[r];
+            }
+            let mut j = i;
+            while c[j] != r {
+                let nx = c[j];
+                c[j] = r;
+                j = nx;
+            }
+            r
+        }
+        for v in 0..n {
+            if nodes[v].kind != Kind::Dust {
+                continue;
+            }
+            for &(u, _) in &inputs[v] {
+                if nodes[u].kind == Kind::Dust {
+                    let (a, b) = (root(&mut comp, u), root(&mut comp, v));
+                    comp[a] = b;
+                }
+            }
+        }
+        let mut members: HashMap<usize, Vec<usize>> = HashMap::new();
+        for v in 0..n {
+            if nodes[v].kind == Kind::Dust {
+                let r = root(&mut comp, v);
+                members.entry(r).or_default().push(v);
+            }
+        }
+        let net: Vec<Vec<usize>> = (0..n).map(|v| if nodes[v].kind == Kind::Dust { members[&root(&mut comp, v)].clone() } else { Vec::new() }).collect();
+        let mut m = Model { blocks: all, nodes, at, pts, inputs, net, fixed: fx, any: vec![Wave::OFF; n], strong: vec![Wave::OFF; n] };
         m.evaluate();
         m
     }
@@ -575,13 +666,20 @@ impl Model {
                     continue;
                 }
                 let (mut a, mut s) = (Wave::OFF, Wave::OFF);
-                for &(u, f) in &self.inputs[v] {
-                    match f {
-                        Feed::Any | Feed::Weak => a = a.or(self.any[u]),
-                        Feed::StrongOf => a = a.or(self.strong[u]),
-                        Feed::Strong => {
-                            a = a.or(self.any[u]);
-                            s = s.or(self.any[u]);
+                let dust = self.nodes[v].kind == Kind::Dust;
+                let sources: &[usize] = if dust { &self.net[v] } else { std::slice::from_ref(&v) };
+                for &x in sources {
+                    for &(u, f) in &self.inputs[x] {
+                        if dust && self.nodes[u].kind == Kind::Dust && self.net[v].contains(&u) {
+                            continue;
+                        }
+                        match f {
+                            Feed::Any | Feed::Weak => a = a.or(self.any[u]),
+                            Feed::StrongOf => a = a.or(self.strong[u]),
+                            Feed::Strong => {
+                                a = a.or(self.any[u]);
+                                s = s.or(self.any[u]);
+                            }
                         }
                     }
                 }
@@ -605,10 +703,12 @@ impl Model {
         }
     }
 
-    /// The signal a piston facing `facing` gets at cell `p`.
+    /// The signal a receiver gets at cell `p`: `facing` is a piston's facing (blind on that face,
+    /// quasi-connected), or [`READ_QC`] / [`READ_DIRECT`].
     pub fn piston_wave(&self, p: Pos, facing: Pos) -> Wave {
         let mut w = Wave::OFF;
         let up = add(p, [0, 1, 0]);
+        let qc = facing != READ_DIRECT;
         for d in FACES {
             let q = add(p, d);
             if d != facing {
@@ -619,7 +719,7 @@ impl Model {
                 }
             }
             let r = add(up, d);
-            if r != p {
+            if qc && r != p {
                 if let Some(&i) = self.at.get(&r) {
                     if emits_into(&self.nodes[i], self.pts.get(&r).copied(), up) {
                         w = w.or(self.any[i]);
@@ -691,7 +791,7 @@ fn on_value(s: &str) -> Option<bool> {
 }
 
 pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
-    let spec = DoorSpec::from_design(d)?;
+    let lever = lever_port(d)?;
     let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let r = (|| -> Result<Measured> {
         place_settled(w, sb, d)?;
@@ -702,7 +802,7 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
         let mut frames: Vec<Vec<mctas::sim::Region>> = Vec::new();
         let mut idle = true;
         for _ in 0..2 {
-            w.use_block(sb, spec.lever)?;
+            w.use_block(sb, lever)?;
             let mut f = vec![w.get_region(sb, lo, hi)?];
             let r = w.step_probe(sb, (T - 1) as u32, false, &[], Some((lo, hi)))?;
             f.extend(r.frames);
@@ -734,11 +834,9 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
                         chg[ph] |= 1 << t;
                     }
                     prev = s.to_string();
-                    if is_piston(s) {
+                    if let Some(f) = reader(s) {
                         occ.0[ph] |= 1 << t;
-                        if let Some(f) = facing_of(s) {
-                            pistons.insert(p, f);
-                        }
+                        pistons.insert(p, f);
                     }
                     if bname(s) == "redstone_block" {
                         rb.0[ph] |= 1 << t;
@@ -796,7 +894,7 @@ pub fn measure(w: &mut Worker, d: &Design) -> Result<Measured> {
                 "observer" => facing_of(s).is_some_and(|f| !watched_control(add(*p, f))),
                 "sculk_sensor" | "calibrated_sculk_sensor" | "daylight_detector" | "target" => true,
                 _ => false,
-            };
+            } || (m.moving.contains(p) && on_value(s).is_some());
             if src {
                 if let Some(wv) = m.measured.get(p) {
                     m.fixed.insert(*p, *wv);
@@ -879,10 +977,12 @@ pub struct Problem<'a> {
     pub wants: Vec<(Pos, Pos, Wave)>,
 }
 
-/// Does node `v` (output `w`) power a piston cell outside the ticks that cell wants?
-fn poisons(wants: &[(Pos, Pos, Wave)], meas: &Measured, v: &Node, pts: Option<[bool; 4]>, w: Wave) -> bool {
+/// Does node `v` (output `w`) power a piston cell outside the ticks that cell wants (give or take
+/// `tol` ticks)?
+fn poisons(wants: &[(Pos, Pos, Wave)], meas: &Measured, v: &Node, pts: Option<[bool; 4]>, w: Wave, tol: i32) -> bool {
     wants.iter().any(|&(q, f, want)| {
-        let extra = w.minus(want);
+        let allowed = (-tol..=tol).fold(want, |a, k| a.or(want.shift(k)));
+        let extra = w.minus(allowed);
         let mask = meas.mask(q);
         if extra.0[0] & mask.0[0] == 0 && extra.0[1] & mask.0[1] == 0 {
             return false;
@@ -898,6 +998,8 @@ struct SNode {
     any: Wave,
     strong: Wave,
     strength: u8,
+    /// New blocks from the taps to here (the heap key; kept for debugging).
+    #[allow(dead_code)]
     cost: u32,
     parent: usize,
     /// Blocks this step placed (the element, its floor).
@@ -1029,7 +1131,7 @@ impl Problem<'_> {
                                 let i = m.at.get(&c).copied();
                                 let a = i.map_or(a, |i| a.or(m.any[i]));
                                 let st = i.map_or(st, |i| st.or(m.strong[i]));
-                                if opts.tolerance == 0 && poisons(&self.wants, self.meas, &v, None, a) {
+                                if poisons(&self.wants, self.meas, &v, None, a, opts.tolerance) {
                                     continue;
                                 }
                                 let key = (c, s.to_string(), a, st);
@@ -1115,13 +1217,13 @@ impl Problem<'_> {
                         continue;
                     }
                     // Never power a piston cell outside the ticks it wants (nor through a new floor).
-                    if opts.tolerance == 0 {
+                    {
                         let vp = (v.kind == Kind::Dust).then(|| dust_points(&with, c));
-                        if poisons(&self.wants, self.meas, &v, vp, na) {
+                        if poisons(&self.wants, self.meas, &v, vp, na, opts.tolerance) {
                             continue;
                         }
                         if let (Some((fp, fs)), Kind::Dust) = (step.get(1), v.kind) {
-                            if poisons(&self.wants, self.meas, &Node::new(*fp, fs), None, na) {
+                            if poisons(&self.wants, self.meas, &Node::new(*fp, fs), None, na, opts.tolerance) {
                                 continue;
                             }
                         }
@@ -1214,23 +1316,27 @@ pub fn route_net(pb: &Problem, receivers: &[Receiver], budget: u32, opts: &Route
 
 // ---- rip-up and re-route ------------------------------------------------------------------
 
-/// The judge's door cells and walkway, where nothing new goes.
+/// Where nothing new goes: a door design's door cells and walkway (none without a door port).
 fn forbidden_cells(d: &Design) -> Result<HashSet<Pos>> {
-    let spec = DoorSpec::from_design(d)?;
-    Ok(spec.door_cells().into_iter().chain(spec.corridor_cells()).collect())
+    Ok(match DoorSpec::from_design(d) {
+        Ok(spec) => spec.door_cells().into_iter().chain(spec.corridor_cells()).collect(),
+        Err(_) => HashSet::new(),
+    })
 }
 
-/// Blocks a rip may take: wiring and control parts, not the machine.
+/// Blocks a rip may take: wiring and control parts, not the machine (pistons, slime, readers,
+/// door blocks, the lever, anything that moves).
 fn control_blocks(d: &Design, meas: &Measured) -> Result<Vec<Pos>> {
-    let spec = DoorSpec::from_design(d)?;
-    let door: HashSet<Pos> = spec.door_cells().into_iter().collect();
+    let lever = lever_port(d)?;
+    let door: HashSet<Pos> = DoorSpec::from_design(d).map(|s| s.door_cells().into_iter().collect()).unwrap_or_default();
     Ok(d.blocks
         .iter()
         .filter(|(p, s)| {
             !door.contains(*p)
-                && **p != spec.lever
+                && **p != lever
                 && !meas.moving.contains(*p)
-                && !matches!(bname(s), "piston" | "sticky_piston" | "piston_head" | "moving_piston" | "slime_block" | "honey_block")
+                && reader(s).is_none()
+                && !matches!(bname(s), "piston_head" | "moving_piston" | "slime_block" | "honey_block")
         })
         .map(|(p, _)| *p)
         .collect())
@@ -1333,7 +1439,7 @@ fn rip_receivers(pb: &Problem, orig: &[(Pos, Pos, Wave)], ripped: &Model, tol: i
 /// Print every piston cell's signal in the model and compare the model with the simulator on
 /// every control component of `d`.
 pub fn model_report(d: &Design, meas: &Measured, log: &(dyn Fn(&str) + Sync)) {
-    let lever = DoorSpec::from_design(d).ok().map(|s| s.lever);
+    let lever = lever_port(d).ok();
     let m = Model::new(&d.blocks, lever, &meas.fixed, &meas.extra);
     for &(p, f) in &meas.pistons {
         log(&format!("  piston cell {} facing {}: {}", fmt_pos(p), fmt_pos(f), m.piston_wave(p, f).describe()));
@@ -1392,13 +1498,13 @@ pub fn route_new(
     sopts: &SearchOptions,
     log: &(dyn Fn(&str) + Sync),
 ) -> Result<Vec<(Design, String)>> {
-    let spec = DoorSpec::from_design(d)?;
+    let lever = lever_port(d)?;
     let (lo, hi) = d.bounds().context("empty design")?;
     let mg = o.route.margin;
     let mut pb = Problem {
         base: d,
         meas,
-        lever: Some(spec.lever),
+        lever: Some(lever),
         forbidden: forbidden_cells(d)?,
         lo: [lo[0] - mg, lo[1] - mg, lo[2] - mg],
         hi: [hi[0] + mg, hi[1] + mg, hi[2] + mg],
@@ -1437,6 +1543,13 @@ pub fn route_new(
         }
     }
     log(&format!("{} pass the static model", designs.len()));
+    if DoorSpec::from_design(d).is_err() {
+        // Not a door: the judge does not apply; the static model (calibrated on the original) is
+        // the check.
+        log("no door port: candidates are checked by the static model only");
+        designs.sort_by_key(|(x, _)| block_count(x));
+        return Ok(designs);
+    }
     Ok(validate(pool, designs, sopts, log))
 }
 
@@ -1457,13 +1570,13 @@ pub struct RipOptions {
 /// One rip-up-and-re-route pass over `d`: every candidate (fewer blocks) that the static model
 /// accepts, as edits of `d`.
 pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn(&str) + Sync)) -> Result<Vec<Edit>> {
-    let spec = DoorSpec::from_design(d)?;
+    let lever = lever_port(d)?;
     let (lo, hi) = d.bounds().context("empty design")?;
     let mg = o.route.margin;
     let mut pb0 = Problem {
         base: d,
         meas,
-        lever: Some(spec.lever),
+        lever: Some(lever),
         forbidden: forbidden_cells(d)?,
         lo: [lo[0] - mg, lo[1] - mg, lo[2] - mg],
         hi: [hi[0] + mg, hi[1] + mg, hi[2] + mg],
@@ -1481,6 +1594,7 @@ pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn
     let out: Mutex<Vec<Edit>> = Mutex::new(Vec::new());
     let next = std::sync::atomic::AtomicUsize::new(0);
     let stats = Mutex::new((0usize, 0usize, 0usize));
+    let last_log = Mutex::new(std::time::Instant::now());
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(24);
     std::thread::scope(|s| {
         for _ in 0..threads {
@@ -1518,7 +1632,15 @@ pub fn rip_candidates(d: &Design, meas: &Measured, o: &RipOptions, log: &(dyn Fn
                     let mut st = stats.lock().unwrap();
                     st.0 += 1;
                     st.1 += cands.len();
+                    let progress = (st.0, st.1, st.2);
                     drop(st);
+                    {
+                        let mut l = last_log.lock().unwrap();
+                        if l.elapsed().as_secs_f64() > 30.0 {
+                            *l = std::time::Instant::now();
+                            log(&format!("  {} / {} rip sets routed, {} candidates, {} pass the model", progress.0, sets.len(), progress.1, progress.2));
+                        }
+                    }
                     for c in cands {
                         let mut new = base.clone();
                         for (p, x) in &c {
