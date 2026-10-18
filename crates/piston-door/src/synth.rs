@@ -115,11 +115,8 @@ pub fn palette_states(spec: &str) -> Result<Vec<String>> {
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
             "bulb" => out.push("minecraft:waxed_copper_bulb[lit=false,powered=false]".into()),
             "target" => out.push("minecraft:target[power=0]".into()),
-<<<<<<< HEAD
             // A conductor whose own state flips (powered) the tick its power changes: an
             // observer can watch any powered spot through it, on both edges, with no delay.
-=======
->>>>>>> origin/explore/lamp-sweep
             "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => bail!("unknown palette entry {s:?}"),
@@ -184,12 +181,8 @@ impl Node {
             // comparators): it toggles `lit` on each rising edge.
             n if n.ends_with("copper_bulb") => (Kind::Lamp, None, true, true),
             "redstone_block" => (Kind::RBlock, None, true, false),
-<<<<<<< HEAD
-            // A conductor that observers can see switch (its `powered` state follows its power).
-=======
             // A note block conducts like any full block, and its `powered` state follows its
             // power in the same tick (observers can watch it).
->>>>>>> origin/explore/lamp-sweep
             "note_block" => (Kind::Block, None, true, true),
             "lever" => {
                 let s = match get("face").as_deref() {
@@ -1227,7 +1220,6 @@ pub struct ResynthOptions {
     /// Skip a group whose enumeration exceeds this many circuits.
     pub max_cands: usize,
     pub loose: bool,
-<<<<<<< HEAD
     /// Speed bounds for the judge (see [`Target::Door`]).
     pub max_open: Option<u32>,
     pub max_close: Option<u32>,
@@ -1236,11 +1228,9 @@ pub struct ResynthOptions {
     /// After an improvement, search every group again (default: only groups whose
     /// neighborhood changed).
     pub global_retry: bool,
-=======
     /// Only groups whose blocks all lie in this box (inclusive corners): focus a large-group
     /// run on one region.
     pub only: Option<(Pos, Pos)>,
->>>>>>> origin/explore/flat
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,

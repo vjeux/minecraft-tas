@@ -1600,10 +1600,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-<<<<<<< HEAD
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry } => {
             use crate::synth::*;
             let d = load_design(&design)?;
+            let only = match only {
+                Some(s) => {
+                    let (a, b) = s.split_once(':').ok_or_else(|| anyhow::anyhow!("--only wants x0,y0,z0:x1,y1,z1"))?;
+                    let a = parse_cells(a)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --only corner {a:?}"))?;
+                    let b = parse_cells(b)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --only corner {b:?}"))?;
+                    Some(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
+                }
+                None => None,
+            };
             let o = ResynthOptions {
                 min_size,
                 max_size,
@@ -1616,22 +1624,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 max_close,
                 save_to: Some(out.clone()),
                 global_retry,
+                only,
             };
-=======
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks } => {
-            use crate::synth::*;
-            let d = load_design(&design)?;
-            let only = match only {
-                Some(s) => {
-                    let (a, b) = s.split_once(':').ok_or_else(|| anyhow::anyhow!("--only wants x0,y0,z0:x1,y1,z1"))?;
-                    let a = parse_cells(a)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --only corner {a:?}"))?;
-                    let b = parse_cells(b)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --only corner {b:?}"))?;
-                    Some(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
-                }
-                None => None,
-            };
-            let o = ResynthOptions { min_size, max_size, palette: palette_states(&palette)?, floors: palette_states(&floors)?, margin, max_cands, loose, only };
->>>>>>> origin/explore/flat
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
             let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false };
