@@ -31,7 +31,7 @@
 //! step gaps from `--gaps` is replayed with ideal inputs, and the working ones are wired.
 
 use crate::ideal::Schedule;
-use crate::route2::{self, Measured, Problem, READ_LATENT, Receiver, RouteOptions, T, Wave};
+use crate::route2::{self, Measured, Model, Problem, READ_LATENT, Receiver, RouteOptions, T, Wave};
 use crate::synth::{Kind, Node};
 use crate::block_count;
 use anyhow::{Context, Result, bail};
@@ -254,10 +254,27 @@ pub fn lever_spots(mech: &Mech, near: &[Pos], radius: i32) -> Result<Vec<LeverSp
     }
     let mut cells: Vec<Pos> = cells.into_iter().collect();
     cells.sort();
+    // A lever (or its block, which it powers) next to a piston or the cell above one would
+    // power that piston at every flip: skip those spots at once.
+    let piston_cells: Vec<Pos> = mech.meas.pistons.iter().map(|x| x.0).collect();
+    let powers_piston = |c: Pos| piston_cells.iter().any(|&q| manhattan(q, c) == 1 || manhattan(add(q, [0, 1, 0]), c) == 1);
+    cells.retain(|&c| !powers_piston(c));
     let mut out = Vec::new();
     for l in cells {
         for d in FACES {
             let k = add(l, d);
+            if powers_piston(k) && !mech.bare.blocks.contains_key(&k) {
+                // A new block there: an observer still outputs only out of its back, so only
+                // the plain-block variant is useless.
+                let d2 = [-d[0], -d[1], -d[2]];
+                let back = add(k, [-d2[0], -d2[1], -d2[2]]);
+                if !used(k) && !mech.meas.drag.contains(&k) {
+                    let _ = back;
+                    let obs = format!("minecraft:observer[facing={},powered=false]", facing_name(d2));
+                    out.push(LeverSpot { lever: l, state: lever_state(d), attach: k, new_block: Some(obs) });
+                }
+                continue;
+            }
             let new_block = match mech.bare.blocks.get(&k) {
                 Some(s) => {
                     let n = Node::new(k, s);
@@ -311,6 +328,9 @@ pub struct WireOptions {
     pub odd: bool,
     /// Print what the router finds for each receiver alone.
     pub debug: bool,
+    /// Screen every lever spot cheaply first (each receiver alone) and fully route only the
+    /// best this many (0: route every spot fully).
+    pub screen_top: usize,
 }
 
 /// A wired candidate.
@@ -320,6 +340,87 @@ pub struct Wired {
     pub blocks: usize,
     pub desc: String,
 }
+
+/// Cheap screen of a lever spot: each receiver routed alone (no sharing); the sum of the best
+/// costs, None if some receiver cannot be connected at all.
+pub fn spot_estimate(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Option<usize> {
+    let mut quick = o.clone();
+    quick.route.beam = 2;
+    quick.route.hits = 1;
+    quick.route.threads = 1;
+    quick.debug = false;
+    quick.screen_top = 0;
+    let base = with_lever(mech, spot);
+    // Reuse wire_spot's receiver setup by routing each receiver as the only one.
+    let mut total = 0usize;
+    let recv = receivers_of(mech, spot, &quick)?;
+    let (pb_base, wants) = (base, recv.1);
+    let (lo, hi) = pb_base.bounds()?;
+    let mg = quick.route.margin;
+    let pb = Problem {
+        base: &pb_base,
+        meas: &mech.meas,
+        lever: Some(spot.lever),
+        forbidden: route2::forbidden_cells(&pb_base).ok()?,
+        lo: [lo[0] - mg, lo[1] - mg, lo[2] - mg],
+        hi: [hi[0] + mg, hi[1] + mg, hi[2] + mg],
+        wants,
+    };
+    for r in &recv.0 {
+        let found = route2::route_net(&pb, std::slice::from_ref(r), quick.budget, &quick.route);
+        total += found.first()?.len();
+    }
+    Some(total)
+}
+
+/// The receivers `wire_spot` routes for this spot and the wanted (allowed) waves, or None if the
+/// lever already powers a piston it must not.
+fn receivers_of(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Option<(Vec<Receiver>, Vec<(Pos, Pos, Wave)>)> {
+    let base = with_lever(mech, spot);
+    let free_of = |p: Pos| -> Option<(usize, usize, bool)> { o.free.iter().find(|x| x.0 == p).map(|&(_, a, b)| (a, b, o.odd)) };
+    let alts_of = |p: Pos| -> Vec<Wave> { o.alts.iter().find(|x| x.0 == p).map(|x| x.1.clone()).unwrap_or_default() };
+    let allowed_of = |p: Pos, w: Wave| -> Wave {
+        let w = alts_of(p).into_iter().fold(w, |a, x| a.or(x));
+        match free_of(p) {
+            Some((a, b, odd)) => {
+                let from = if odd { 1 } else { a };
+                let mut x = w;
+                for t in from..=(b + 1).min(T - 1) {
+                    x.0[0] |= 1 << t;
+                    x.0[1] |= 1 << t;
+                }
+                x
+            }
+            None => w,
+        }
+    };
+    let wants: Vec<(Pos, Pos, Wave)> = mech.wants.iter().map(|&(p, f, w)| (p, f, allowed_of(p, w))).collect();
+    let m = Model::new(&base.blocks, Some(spot.lever), &mech.meas.fixed, &mech.meas.extra);
+    let mut recv = Vec::new();
+    for &(p, f, w) in &mech.wants {
+        let r = Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: mech.meas.mask(p), alts: alts_of(p), free: free_of(p) };
+        if r.accepts(r.rest, o.route.tolerance) {
+            continue;
+        }
+        let extra = r.rest.minus(allowed_of(p, w));
+        if extra.0[0] & r.mask.0[0] != 0 || extra.0[1] & r.mask.0[1] != 0 {
+            return None;
+        }
+        recv.push(r);
+    }
+    let first_on = |r: &Receiver| -> u32 {
+        let w = Wave([r.want.0[0] & r.mask.0[0], r.want.0[1] & r.mask.0[1]]);
+        w.0[0].trailing_zeros().min(w.0[1].trailing_zeros())
+    };
+    recv.sort_by_key(|r| (first_on(r), r.pos));
+    Some((recv, wants))
+}
+
+/// Spot outcomes of the last [`wire_all`] (rejected before routing: the lever powers a piston;
+/// no routing found; routings the full static model rejects).
+pub static SPOT_EARLY: AtomicUsize = AtomicUsize::new(0);
+pub static SPOT_NONE: AtomicUsize = AtomicUsize::new(0);
+pub static SPOT_MODEL: AtomicUsize = AtomicUsize::new(0);
 
 /// Route every receiver of `mech` from the lever at `spot`; candidates the static model accepts.
 pub fn wire_spot(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Result<Vec<Wired>> {
@@ -366,6 +467,7 @@ pub fn wire_spot(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Result<Vec<W
         let allowed = allowed_of(p, w);
         let extra = r.rest.minus(allowed);
         if extra.0[0] & r.mask.0[0] != 0 || extra.0[1] & r.mask.0[1] != 0 {
+            SPOT_EARLY.fetch_add(1, Ordering::Relaxed);
             return Ok(Vec::new());
         }
         recv.push(r);
@@ -393,6 +495,7 @@ pub fn wire_spot(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Result<Vec<W
         }
     }
     let cands = route2::route_net(&pb, &recv, o.budget, &o.route);
+    let n_cands = cands.len();
     if o.debug && cands.is_empty() {
         // Greedy diagnosis: connect the receivers one at a time (first routing each), report the
         // first one that cannot be connected on top of the others.
@@ -453,11 +556,57 @@ pub fn wire_spot(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Result<Vec<W
         );
         out.push(Wired { blocks: block_count(&new), design: new, desc });
     }
+    if out.is_empty() {
+        if n_cands == 0 { &SPOT_NONE } else { &SPOT_MODEL }.fetch_add(1, Ordering::Relaxed);
+    }
     Ok(out)
 }
 
 /// Wire `mech` from every spot (in parallel); all candidates, fewest blocks first.
 pub fn wire_all(mech: &Mech, spots: &[LeverSpot], o: &WireOptions, log: &(dyn Fn(&str) + Sync)) -> Vec<Wired> {
+    for c in [&SPOT_EARLY, &SPOT_NONE, &SPOT_MODEL] {
+        c.store(0, Ordering::Relaxed);
+    }
+    let spots: Vec<LeverSpot> = if o.screen_top > 0 && spots.len() > o.screen_top {
+        // Cheap screen in parallel, then the full routing on the best spots only.
+        let est: Mutex<Vec<(usize, usize)>> = Mutex::new(Vec::new());
+        let next = AtomicUsize::new(0);
+        std::thread::scope(|s| {
+            for _ in 0..o.threads.max(1) {
+                s.spawn(|| loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    if i >= spots.len() {
+                        break;
+                    }
+                    if let Some(c) = spot_estimate(mech, &spots[i], o) {
+                        est.lock().unwrap().push((c, i));
+                    }
+                });
+            }
+        });
+        let mut est = est.into_inner().unwrap();
+        est.sort();
+        log(&format!(
+            "  screen: {} of {} spots reach every receiver alone; best estimates {:?}",
+            est.len(),
+            spots.len(),
+            est.iter().take(8).map(|(c, i)| format!("{c} ({})", spots[*i].describe())).collect::<Vec<_>>()
+        ));
+        est.into_iter().take(o.screen_top).map(|(_, i)| spots[i].clone()).collect()
+    } else {
+        spots.to_vec()
+    };
+    let v = wire_all_inner(mech, &spots, o, log);
+    log(&format!(
+        "  spots: {} rejected (the lever powers a piston), {} without routing, {} with routings the model rejects",
+        SPOT_EARLY.load(Ordering::Relaxed),
+        SPOT_NONE.load(Ordering::Relaxed),
+        SPOT_MODEL.load(Ordering::Relaxed)
+    ));
+    v
+}
+
+fn wire_all_inner(mech: &Mech, spots: &[LeverSpot], o: &WireOptions, log: &(dyn Fn(&str) + Sync)) -> Vec<Wired> {
     // Few spots: the threads go to each spot's searches instead.
     let mut o = o.clone();
     o.route.threads = (o.threads / spots.len().max(1)).max(1);

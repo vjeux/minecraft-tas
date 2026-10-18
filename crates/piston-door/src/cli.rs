@@ -364,7 +364,9 @@ pub enum DoorCmd {
     /// mechanism + lever + wiring by blocks, judge the best. --retime re-times a mech-synth
     /// schedule to chain ticks first (every working assignment is wired).
     MechWire {
-        schedule: PathBuf,
+        /// Ideal schedules (`door ideal` format), or one mech-synth catalog with --catalog-ids.
+        #[arg(required = true, num_args = 1..)]
+        schedules: Vec<PathBuf>,
         /// Schedule variables "name=value".
         #[arg(long)]
         set: Vec<String>,
@@ -424,6 +426,10 @@ pub enum DoorCmd {
         /// Judge the best N candidates (0: none).
         #[arg(long, default_value_t = 12)]
         verify: usize,
+        /// Screen every lever spot cheaply (each receiver routed alone) and fully route only the
+        /// best N (0: every spot fully).
+        #[arg(long, default_value_t = 6)]
+        screen_top: usize,
         /// Print what the router finds for each receiver alone (per lever spot).
         #[arg(long)]
         debug: bool,
@@ -1200,7 +1206,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             println!("{} -> {} blocks", crate::block_count(&d), crate::block_count(&best));
         }
         DoorCmd::MechWire {
-            schedule,
+            schedules,
             set,
             levers,
             lever_radius,
@@ -1224,6 +1230,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             max_tick,
             retime_max,
             verify,
+            screen_top,
             debug,
             catalog_ids,
             catalog_base,
@@ -1266,18 +1273,24 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 alts: Vec::new(),
                 odd,
                 debug,
+                screen_top,
             };
+            // The source schedules: the files themselves, or catalog entries of the first file.
+            let schedule = schedules.first().cloned().context("no schedule file")?;
             let text = std::fs::read_to_string(&schedule).with_context(|| format!("reading {}", schedule.display()))?;
-            // The source schedules: the file itself, or catalog entries.
             let mut sources: Vec<(String, crate::ideal::Schedule, std::collections::BTreeMap<String, i64>)> = Vec::new();
             if catalog_ids.is_empty() {
-                let s = crate::ideal::Schedule::parse(&text)?;
-                let mut vars = s.vars().clone();
-                for kv in &set {
-                    let (k, v) = kv.split_once('=').context("--set name=value")?;
-                    vars.insert(k.to_string(), v.parse()?);
+                for path in &schedules {
+                    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+                    let s = crate::ideal::Schedule::parse(&text)?;
+                    let mut vars = s.vars().clone();
+                    for kv in &set {
+                        let (k, v) = kv.split_once('=').context("--set name=value")?;
+                        vars.insert(k.to_string(), v.parse()?);
+                    }
+                    let name = path.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+                    sources.push((name, s, vars));
                 }
-                sources.push((schedule.display().to_string(), s, vars));
             } else {
                 let base = load_design(&catalog_base)?;
                 for id in nums(&catalog_ids)? {
@@ -1322,6 +1335,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
             let mut all: Vec<mechwire::Wired> = Vec::new();
+            let mut ranking: Vec<(usize, String, usize)> = Vec::new();
             for (label, sc, v) in &scheds {
                 let mech = match mechwire::measure_ideal(&mut pool.worker(0), sc, v) {
                     Ok(m) => m,
@@ -1391,7 +1405,42 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 let r = mechwire::wire_all(&mech, &spots, &ow, &log);
                 log(&format!("{label}: {} candidates, best {}", r.len(), r.first().map(|w| w.blocks.to_string()).unwrap_or("-".into())));
+                // Judge this schedule's best candidates now (one lever spot's near-duplicates
+                // would crowd a global list).
+                if verify > 0 && !r.is_empty() {
+                    let n = verify.min(r.len());
+                    let ok = mechwire::judge(&pool, &r[..n], &sopts, &log);
+                    match ok.first() {
+                        Some((d, desc)) => {
+                            log(&format!("{label}: VERIFIED {} blocks: {desc}", crate::block_count(d)));
+                            ranking.push((crate::block_count(d), label.clone(), crate::block_count(&mech.bare)));
+                            if let Some(dir) = &out_dir {
+                                std::fs::create_dir_all(dir)?;
+                                let stem: String = label.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' }).collect();
+                                let mut dd = d.clone();
+                                dd.name = format!("{stem}-{}b", crate::block_count(d));
+                                let path = dir.join(format!("{}.txt", dd.name));
+                                dd.save(&path)?;
+                                if archive {
+                                    let note = format!("verified WORKS: {} blocks; door mech-wire from {label}: {desc}", crate::block_count(d));
+                                    if let Some(p) = crate::archive::save(&path, &dd, crate::block_count(d), &note, None)? {
+                                        log(&format!("archived {}", p.display()));
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            log(&format!("{label}: none of the best {n} candidates passes the judge"));
+                            ranking.push((usize::MAX, label.clone(), crate::block_count(&mech.bare)));
+                        }
+                    }
+                }
                 all.extend(r.into_iter().map(|w| mechwire::Wired { desc: format!("{label}: {}", w.desc), ..w }));
+            }
+            ranking.sort();
+            println!("== ranking (verified mechanism + wiring) ==");
+            for (b, label, mb) in &ranking {
+                println!("{:>6} total, {mb} mechanism: {label}", if *b == usize::MAX { "-".to_string() } else { b.to_string() });
             }
             all.sort_by(|a, b| a.blocks.cmp(&b.blocks).then_with(|| a.desc.cmp(&b.desc)));
             let mut seen = std::collections::HashSet::new();
@@ -1407,28 +1456,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     d.save(&dir.join(format!("cand{i:02}-{}b.txt", w.blocks)))?;
                 }
             }
-            if verify > 0 && !all.is_empty() {
-                let n = verify.min(all.len());
-                let ok = mechwire::judge(&pool, &all[..n], &sopts, &log);
-                for (i, (d, desc)) in ok.iter().enumerate() {
-                    println!("WORKS {} blocks: {desc}", crate::block_count(d));
-                    if let Some(dir) = &out_dir {
-                        let mut dd = d.clone();
-                        dd.name = format!("wired{i:02}-{}b", crate::block_count(d));
-                        let path = dir.join(format!("wired{i:02}-{}b.txt", crate::block_count(d)));
-                        dd.save(&path)?;
-                        if archive {
-                            let note = format!("verified WORKS: {} blocks; door mech-wire from {}: {desc}", crate::block_count(d), schedule.display());
-                            if let Some(p) = crate::archive::save(&path, &dd, crate::block_count(d), &note, None)? {
-                                log(&format!("archived {}", p.display()));
-                            }
-                        }
-                    }
-                }
-                if ok.is_empty() {
-                    println!("none of the best {n} candidates passes the judge");
-                }
-            }
+            let _ = &schedule;
         }
         DoorCmd::Regrow { design, out, size, margin, states, only, want, any, search } => {
             let d = load_design(&design)?;
