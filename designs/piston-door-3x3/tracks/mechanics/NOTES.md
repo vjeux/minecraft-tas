@@ -24,7 +24,7 @@ patch file in this folder applied to its parent.
 | **48** | solid | mech-48.txt | 50 + rb5-hold.patch | silent-hold block on the floor of the lever's repeater |
 | **47** | solid | mech-47.txt = BEST.txt | 48 + bm-obs.patch | top-control's trick: P_BM pulse-driven by an observer on the bottom-right door block (no redstone block, backbone 2 shorter) |
 | **42** | sculk | sculk-42.txt = BEST-sculk.txt | search-tool's sculk 43 + bm-obs.patch | same P_BM trick on the sculk-hold design (which already used the pulse bridge) |
-| 104 | solid, slime-free | sf-104.txt = BEST-slime-free.txt | mech-90 + sf2.patch | side columns on individual pullers |
+| 104 -> 99 | solid, slime-free | sf-104.txt, sf-99.txt = BEST-slime-free.txt | mech-90 + sf2.patch, then `door minimize` | side columns on individual pullers |
 
 ### 91 / 89: the A torch (v2 family)
 
