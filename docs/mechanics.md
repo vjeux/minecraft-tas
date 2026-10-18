@@ -154,3 +154,13 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 * **OR of two repeaters in one dust:** a dust sandwiched between the output block of one
   repeater (above it) and of another (below it, its floor) is lit by either, and a cross dust
   powers the block it points into: a 2-input OR feeding a torch with 1 dust (logic-min P_T).
+* **Dust reads strong power from every side (fresh-a):** a dust on top of (or next to) a block
+  that a repeater strongly powers picks that power up. If that dust's net also feeds the chain
+  that drives the repeater, the chain latches on after the first lever flip. Feed a NOR torch's
+  block with repeaters only, or make the late input weak (a dust pointing into the block).
+* **Lever updates reach a piston through its head (fresh-a):** a lever (or its block) right
+  above an extended piston's head updates the head, which forwards the update to its base: a
+  quasi-connected piston whose power was meant to linger is re-checked at the flip.
+* **Sculk sensor strong power goes DOWN (fresh-a):** `getDirectSignal` only answers queries from
+  below, so a sensor holds the block UNDER it (sensor on top of the lever's block, lever on the
+  side: Y = L OR 30 gt after any flip). Sculk doors are ranked in their own category.
