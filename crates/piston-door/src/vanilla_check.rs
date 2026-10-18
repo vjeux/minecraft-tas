@@ -617,3 +617,114 @@ pub fn verdict_str(v: &std::result::Result<Vec<(u32, u32)>, String>) -> String {
         }
     }
 }
+
+/// The settled state of a design in the simulator (judge's placement sequence), read back over
+/// its bounds plus a margin so blocks that moved are kept; `None` unless it settles and placing
+/// the result again changes nothing (a true rest state). Used to make fuzz cases start at rest
+/// (vanilla has no equivalent of the judge's `self` update).
+pub fn rest_state(w: &mut Worker, d: &Design) -> Result<Option<Design>> {
+    let once = |w: &mut Worker, d: &Design, allow_drops: bool| -> Result<Option<Region>> {
+        let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+        let blocks = d.block_list();
+        w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+        let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+        w.update(sb, &wires, "shape")?;
+        let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
+        w.update(sb, &positions, "self")?;
+        let settle = w.step_until_idle(sb, 400)?;
+        let (lo, hi) = d.bounds().context("empty design")?;
+        let r = w.get_region(sb, [lo[0] - 4, lo[1] - 4, lo[2] - 4], [hi[0] + 4, hi[1] + 4, hi[2] + 4])?;
+        let entities = w.entities(sb)?.len();
+        let _ = w.drop_sandbox(sb);
+        Ok((settle.idle == Some(true) && (allow_drops || entities == 0)).then_some(r))
+    };
+    let Some(r) = once(w, d, true)? else { return Ok(None) };
+    let mut out = Design { name: d.name.clone(), meta: d.meta.clone(), ports: d.ports.clone(), blocks: Default::default() };
+    for (p, s) in r.blocks() {
+        if s.starts_with("minecraft:moving_piston") {
+            return Ok(None);
+        }
+        out.blocks.insert(p, s);
+    }
+    let Some(again) = once(w, &out, false)? else { return Ok(None) };
+    let same = r.iter().all(|(p, s)| again.get(p) == Some(s)) && again.iter().all(|(p, s)| r.get(p) == Some(s));
+    Ok(same.then_some(out))
+}
+
+/// A random small contraption for differential fuzzing (not a door): a 6x5x6 box of solid
+/// blocks, slime/honey, pistons, observers, repeaters, dust, torches, redstone blocks, lamps,
+/// targets, waxed copper bulbs, note blocks, glazed terracotta, obsidian and sand, plus a lever
+/// on a stone block. The `door` port sits at the box corner only so the watch box covers it.
+pub fn fuzz_design(seed: u64) -> Design {
+    let mut s = seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1;
+    let mut next = move |n: u64| {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        s % n
+    };
+    let dirs = ["north", "south", "east", "west", "up", "down"];
+    let hdirs = ["north", "south", "east", "west"];
+    let mut d = Design { name: format!("fuzz-{seed}"), ..Default::default() };
+    for x in 0..6 {
+        for y in 0..5 {
+            for z in 0..6 {
+                if next(100) >= 28 {
+                    continue;
+                }
+                let f = dirs[next(6) as usize];
+                let h = hdirs[next(4) as usize];
+                let state = match next(24) {
+                    0..=3 | 20..=23 => "minecraft:stone".to_string(),
+                    4 => "minecraft:slime_block".to_string(),
+                    5 => "minecraft:honey_block".to_string(),
+                    6 => format!("minecraft:sticky_piston[extended=false,facing={f}]"),
+                    7 => format!("minecraft:piston[extended=false,facing={f}]"),
+                    8 => format!("minecraft:observer[facing={f},powered=false]"),
+                    9 => format!("minecraft:repeater[delay={},facing={h},locked=false,powered=false]", 1 + next(4)),
+                    10 | 11 => "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".to_string(),
+                    12 => "minecraft:redstone_torch[lit=true]".to_string(),
+                    13 => format!("minecraft:redstone_wall_torch[facing={h},lit=true]"),
+                    14 => "minecraft:redstone_block".to_string(),
+                    15 => "minecraft:redstone_lamp[lit=false]".to_string(),
+                    16 => "minecraft:target[power=0]".to_string(),
+                    17 => "minecraft:waxed_copper_bulb[lit=false,powered=false]".to_string(),
+                    18 => format!("minecraft:white_glazed_terracotta[facing={h}]"),
+                    _ => ["minecraft:obsidian", "minecraft:sand", "minecraft:note_block[instrument=harp,note=0,powered=false]"][next(3) as usize].to_string(),
+                };
+                d.blocks.insert([x, y, z], state);
+            }
+        }
+    }
+    // The lever sits on a random stone block of the box that touches a redstone component (it
+    // strongly powers that block, so it drives the component); on top of the box if none.
+    let active = |s: &str| {
+        ["redstone_wire", "repeater", "piston", "redstone_torch", "redstone_wall_torch", "redstone_lamp", "target", "copper_bulb", "note_block"]
+            .iter()
+            .any(|k| s.contains(k))
+    };
+    let supports: Vec<Pos> = d
+        .blocks
+        .iter()
+        .filter(|(p, s)| {
+            s.as_str() == "minecraft:stone"
+                && !d.blocks.contains_key(&[p[0], p[1] + 1, p[2]])
+                && [[1, 0, 0], [-1, 0, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+                    .iter()
+                    .any(|o| d.blocks.get(&[p[0] + o[0], p[1] + o[1], p[2] + o[2]]).is_some_and(|n| active(n)))
+        })
+        .map(|(p, _)| *p)
+        .collect();
+    let lever = if supports.is_empty() {
+        let l = [next(6) as i32, 5, next(6) as i32];
+        d.blocks.insert([l[0], 4, l[2]], "minecraft:stone".to_string());
+        l
+    } else {
+        let p = supports[next(supports.len() as u64) as usize];
+        [p[0], p[1] + 1, p[2]]
+    };
+    d.blocks.insert(lever, format!("minecraft:lever[face=floor,facing={},powered=false]", hdirs[next(4) as usize]));
+    d.ports.insert("lever".to_string(), lever);
+    d.ports.insert("door".to_string(), [0, 0, 0]);
+    d
+}
