@@ -19,6 +19,7 @@ pub mod cli;
 pub mod archive;
 pub mod designs;
 pub mod designs_history;
+pub mod designs_fresh_b;
 pub mod designs_top;
 pub mod leaderboard;
 pub mod designs_gravity;

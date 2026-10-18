@@ -41,3 +41,11 @@
   on close after B pushed T down and pumps the closed column. Needs asymmetric B (NOT(L18 OR L26)
   via a locked repeater) or an open-only pulse. Also: an observer in a piston's QC cell watching
   that piston, outputting upward, makes it oscillate (seen with RP2).
+- 06:57Z **pd3 WORKS: 61 blocks, solid** (`door gen pd3`, designs_fresh_b.rs::pd3; BEST.txt; archived).
+  Fully pulse-driven top-pump door (mech3p mechanism: U also pulse-only, retracted with a gap).
+  Ideal timing measured with `door ideal mech3p.sched` (tolerances: s in a1+5..9, t in s+1..a2-1,
+  tl 3..7, a2 >= t+1, u >= t+tl+1). Control: lever + observer O_A1 on it (A pulse 1), dust ->
+  R6 (L6) watched by O_S (pulse into P = both side pushers), R6 -> block -> dust -> repeater (L14)
+  watched by O_A2 (A pulse 2); a torch tower on the lever block (2 gt per stage) up the front:
+  O_T watches the L@8 torch -> 4gt stretch repeater -> obsidian -> T (lower spot only); the NOT L@10
+  torch -> dust -> repeater (L18) watched by O_U -> U. Opens and closes in 22 ticks.
