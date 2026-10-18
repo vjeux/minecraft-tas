@@ -1,8 +1,7 @@
 # Track `tick-study`: 0-tick and 1-tick gadgets, floors for the 3x3 door
 
-The study is in `docs/mechanics.md` (sections 5-9 and 11, formerly `docs/ticks.md`: catalog,
-components table, pulse generators, floors with proofs and schedules). Gadgets in `designs/gadgets/`
-(rows in the gadget catalog, `docs/mechanics.md` section 10), all passing `door drive`
+The study is `docs/ticks.md` (catalog, components table, pulse generators, floors with proofs and
+schedules). Gadgets in `designs/gadgets/` (rows in `docs/mechanics.md`), all passing `door drive`
 and identical in the official server at 4 positions (`door vanilla-gadget`, logs/ here).
 
 ## Results
@@ -39,7 +38,7 @@ vanilla-gadget`: all identical, so the whole library matches the official server
   the same phase: put the piston that must go first west of the redstone block.
 
 ## Not done / next
-* Wiring open-4 into a lever-driven door (`docs/mechanics.md` section 9 has the input table: which input at
+* Wiring open-4 into a lever-driven door (ticks.md section 6 has the input table: which input at
   which tick and what can provide it).
 * Close 2: TL's chain padded by ~5 BUD pistons so TL's puller fires after T left its cell inside
   tick 2; close 1 needs C's first move and the carried pistons in the same tick too (relays).

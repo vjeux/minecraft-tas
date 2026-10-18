@@ -1,0 +1,11 @@
+8 workers; moves all; judge 32 positions
+[    1.7s] start: 44 blocks, open 14 close 16 ticks, passes the judge (32 positions x 3 cycles)
+[    7.6s]   339246 swaps (two blocks out, one block in nearby)
+[    7.6s] 44 blocks: 1491 removals, 0 reroutes (+0 neutral), 1789 compounds, 176 neutral edits
+[  128.4s]   342526 candidates: 655 seen, 341871 screened in 120.7s, 0 passed the screen, 0 judged, 0 passed the judge (120.7s)
+[  128.5s]   no improving move; plateau: judging 35545 neutral edits
+[  145.5s]   35545 candidates: 68 seen, 35477 screened in 13.5s, 51 passed the screen, 51 judged, 51 passed the judge (17.0s)
+[  187.7s]   plateau: routing took 42.2s
+[  187.7s]   plateau: 51 verified neutral designs, 1734 removals and 0 reroutes after them
+[  188.2s]   1734 candidates: 573 seen, 1161 screened in 0.5s, 0 passed the screen, 0 judged, 0 passed the judge (0.5s)
+44 -> 44 blocks, written to designs/piston-door-3x3/tracks/pareto-mid/min-mp8-lampU.txt
