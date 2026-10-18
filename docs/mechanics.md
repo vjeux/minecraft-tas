@@ -86,6 +86,12 @@ Neighbor updates go out in the fixed order `WEST, EAST, DOWN, UP, NORTH, SOUTH`
 * **Lamp, copper bulb:** a redstone lamp lights in the tick it is powered and goes dark 4 gt
   after (asymmetric delay, visible to observers). A copper bulb toggles `lit` on every rising
   edge of its power in the same tick (`checkAndFlip`) and a comparator reads it as 15/0.
+* **Note block, target:** a note block is a plain conductor whose `powered` state follows
+  `hasNeighborSignal` in the same tick (`NoteBlock.neighborChanged`, `setBlockAndUpdate`: it also
+  updates its neighbors), so an observer watching it pulses on both edges of its power, with no
+  lamp-style fall delay; its `instrument` follows the block below (an observer sees that change
+  too). A target is a conductor and a signal source (power 0 unless hit), so dust always connects
+  to it (gadget `target-tap`).
 * **Walkway rule:** the judge asks the walkway for *no collision*, so collision-free blocks
   (dust, torches, levers, buttons, rails) may sit in it (dust at the door's bottom level on
   floors one lower). The router still keeps out of it.
@@ -130,6 +136,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `slime-rider` | retracted sticky piston | a retracted sticky piston right under a slime row rides it: pushed down when another piston pulls the row down, dragged back up when the row is pushed back, so it can pump the row from either spot (fresh-b mp6..mp8) |
 | `bulb-pulse` | waxed copper bulb + observer | exactly ONE pulse per input pulse/rising edge: a dust standing on a copper bulb toggles it on each rising edge, an observer under the bulb fires once (a lamp would fire twice: lit, then dark 4 gt later). fresh-d s4: fires the bottom-right puller off the P_T pulse without double-firing the middle puller |
 | `pump` | observer + repeater + sticky piston | a 3+ gt pulse (repeater delay 2 = 4 gt) makes a sticky piston push a 2-block line one cell and pull back only the first block: the far block advances one cell with no piston touching it (a 2 gt pulse spits the whole line instead; fresh-b mp6..mp8 move C this way) |
+| `target-tap` | target block | a target beside a straight dust line is powered by it, a plain block there is not: a target is a signal source, so the dust bends into it and powers it; a torch on the target then reads the line (lamp-sweep: `door resynth` put a torch on a target in place of stone + dust + floor, twice in the speed doors o6 and a1) |
 * **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
   piston holds it 30 gt after a lever click (weak power on every side, strong power into the
   block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a
