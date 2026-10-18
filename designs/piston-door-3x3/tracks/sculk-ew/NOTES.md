@@ -47,3 +47,17 @@ The B window and both O' pulses come 2 gt later (B at t8, pulses t10-12 and t20-
   C home.
 * Open: B pushes A down at t8, A pulls C up at t11-12 and again at t21-22 after B lifts it: open 22
   (s4: 20). The hold (30 gt from t2) still outlasts the close dance (done at t22 < t32).
+
+## 10:24 the same fix on s1, s4b, s4c: all rotation-safe, same block counts
+R_B delay 1 -> 2 and nothing else; each verified at 32 positions in all 8 orientations
+(`--extra-offsets 28 --orientations`) and archived in `archive/`:
+
+| design | blocks | open / close | file | east/west file |
+|---|---|---|---|---|
+| s4r (from s4) | 36 | 22 / 37 | `s4r.txt` | `s4r-ew.txt` |
+| s4br (from s4b, hold sensor at (-1,4,-1)) | 36 | 22 / 36 | `s4br.txt` | (turn it) |
+| s4cr (from s4c, hold sensor at (0,4,-2)) | 36 | 22 / 36 | `s4cr.txt` | (turn it) |
+| s1r (from s1) | 38 | 21 / 38 | `s1r.txt` | `s1r-ew.txt` |
+
+s1 broke east/west the same way (its RB/A/Q geometry is s4's: RB (1,4,-1) between Q (0,4,-1) and
+A (1,4,0)); with delay 2 its close goes like s4r's.
