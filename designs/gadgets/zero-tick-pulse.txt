@@ -1,0 +1,31 @@
+name: gadget-zero-tick-pulse
+# A 0-tick POWER pulse and how components see it: redstone block R3 exists as a placed block only
+# inside one block-event phase. T (sticky) 0-ticks it onto (-1,1,-2) as in zero-tick (X shoves the
+# script's redstone block away); R3's placement updates Z (armed silently), which shoves R3 down
+# in the same phase. Around (-1,1,-2): the repeater turns on 2 gt later and stays on for its delay
+# (DiodeBlock.tick: it turns on, then schedules its own turn-off: stretched to 2 gt); the
+# comparator sees nothing (ComparatorBlock recomputes its output in its tick, the input is gone:
+# swallowed); the lamp lit at once and goes dark 4 gt later. S is obsidian at rest so that X,
+# powered by R3 at rest, cannot extend before the script replaces S by a redstone block.
+origin: -2 0 -3
+palette:
+  S minecraft:stone
+  T minecraft:sticky_piston[extended=false,facing=north]
+  X minecraft:piston[extended=false,facing=south]
+  Z minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_block
+  O minecraft:obsidian
+  Q minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  L minecraft:redstone_lamp[lit=false]
+layer 0:
+  .S
+  ..S
+layer 1:
+  .C
+  L.Q
+  .RX
+  .TO
+layer 2:
+  .
+  .Z

@@ -1,0 +1,12 @@
+# The torch is off from tick 2 and P retracting in tick 2; lever off: lit at 2, P extending at 2.
+design designs/gadgets/torch-delay.txt
+probe T 1 1 0
+probe P 1 2 0
+use -1 1 0
+expect_trace T 10
+expect P ~
+expect_trace P ~r
+quiet 4
+use -1 1 0
+expect_trace T 01
+expect P E

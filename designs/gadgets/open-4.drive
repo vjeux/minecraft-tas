@@ -1,0 +1,71 @@
+# The 3x3 opening is clear at tick 4 and stays clear: at k3 T and C still sit in the top edge
+# cells (landed), at k4 both have left (reach-through pulls), everything else left at k1.
+design designs/gadgets/open-4.txt
+probe TL 0 2 0
+probe T 1 2 0
+probe TR 2 2 0
+probe ML 0 1 0
+probe C 1 1 0
+probe MR 2 1 0
+probe BL 0 0 0
+probe B 1 0 0
+probe BR 2 0 0
+probe E 1 3 0
+probe Tout -1 2 0
+probe W1 1 1 1
+probe W2 1 2 -1
+probe W3 0 2 -1
+# k0 (the lever flip): arm the k1 partners (X_T via its quasi cell, R_T, X_A), then the plain
+# pullers lose their redstone blocks, TL's first.
+setblock -1 3 1 minecraft:redstone_block
+setblock -1 4 1 minecraft:redstone_block
+setblock 2 4 1 minecraft:redstone_block
+setblock 0 4 -1 minecraft:air
+setblock 5 2 0 minecraft:air
+setblock 5 1 0 minecraft:air
+setblock 5 0 0 minecraft:air
+setblock -3 1 0 minecraft:air
+setblock -3 0 0 minecraft:air
+setblock 1 -3 0 minecraft:air
+expect_trace C ...
+expect TL #
+expect T #
+expect TR .
+expect ML .
+expect MR .
+expect BL .
+expect B .
+expect BR .
+# k3 -> k4 (an observer chain at k4): arm G_T (R_G, X_G) and X_F, release the aside pullers.
+setblock -2 3 1 minecraft:redstone_block
+setblock -2 5 0 minecraft:redstone_block
+setblock 1 7 0 minecraft:redstone_block
+setblock 1 3 -3 minecraft:air
+setblock -1 2 -3 minecraft:air
+expect_trace T .
+expect TL .
+expect TR .
+expect ML .
+expect C .
+expect MR .
+expect BL .
+expect B .
+expect BR .
+expect E ~
+expect Tout ~
+expect W1 .
+expect W2 .
+expect_trace E ~#
+expect Tout #
+expect TL .
+expect T .
+expect C .
+# and it stays open: nothing comes back into the opening or the walkway (the pullers parked
+# aside must stay unpowered there).
+quiet 10
+expect TL .
+expect T .
+expect C .
+expect W1 .
+expect W2 .
+expect W3 .

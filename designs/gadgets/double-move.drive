@@ -1,0 +1,17 @@
+# C (from (-1,1,-1)) ends tick 1 placed at (0,1,-2): two cells, two 0-ticks, one tick.
+design designs/gadgets/double-move.txt
+probe C0 -1 1 -1
+probe C1 -1 1 -2
+probe C2 0 1 -2
+probe T0 -1 1 0
+probe T1 -2 1 -2
+setblock 0 3 -1 minecraft:redstone_block
+setblock -1 2 -2 minecraft:redstone_block
+setblock -2 4 -2 minecraft:redstone_block
+expect T1 r
+setblock 0 1 0 minecraft:redstone_block
+expect_trace C2 ###
+expect C0 .
+expect C1 .
+expect T0 r
+expect T1 r

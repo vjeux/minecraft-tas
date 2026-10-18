@@ -1,0 +1,232 @@
+name: tick-door-o4b-ideal
+port door: 0 0 0
+port lever: 3 5 1
+origin: -2 0 -6
+palette:
+  ! minecraft:stone
+  $ minecraft:sticky_piston[extended=false,facing=up]
+  % minecraft:sticky_piston[extended=false,facing=west]
+  & minecraft:sticky_piston[extended=true,facing=down]
+  * minecraft:sticky_piston[extended=true,facing=east]
+  + minecraft:sticky_piston[extended=true,facing=south]
+  0 minecraft:redstone_wire[east=up,north=side,power=0,south=up,west=none]
+  1 minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  2 minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  3 minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  4 minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  5 minecraft:slime_block
+  6 minecraft:smooth_stone
+  7 minecraft:sticky_piston[extended=false,facing=down]
+  8 minecraft:sticky_piston[extended=false,facing=east]
+  9 minecraft:sticky_piston[extended=false,facing=north]
+  = minecraft:sticky_piston[extended=true,facing=up]
+  ? minecraft:sticky_piston[extended=true,facing=west]
+  @ minecraft:sticky_piston[extended=false,facing=south]
+  A minecraft:piston_head[facing=down,short=false,type=sticky]
+  B minecraft:piston_head[facing=east,short=false,type=sticky]
+  C minecraft:piston_head[facing=south,short=false,type=sticky]
+  D minecraft:piston_head[facing=up,short=false,type=sticky]
+  E minecraft:piston_head[facing=west,short=false,type=sticky]
+  F minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=up]
+  G minecraft:glass
+  H minecraft:redstone_wire[east=none,north=none,power=0,south=up,west=side]
+  I minecraft:redstone_wire[east=none,north=none,power=11,south=up,west=side]
+  J minecraft:redstone_wire[east=none,north=none,power=12,south=side,west=side]
+  K minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  M minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  N minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:piston[extended=true,facing=down]
+  Q minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
+  R minecraft:redstone_block
+  S minecraft:redstone_wire[east=none,north=side,power=1,south=side,west=none]
+  T minecraft:redstone_wire[east=none,north=side,power=12,south=none,west=up]
+  U minecraft:redstone_wire[east=none,north=side,power=14,south=side,west=none]
+  V minecraft:redstone_wire[east=none,north=side,power=15,south=side,west=none]
+  W minecraft:redstone_wire[east=none,north=side,power=3,south=none,west=side]
+  X minecraft:redstone_wire[east=none,north=side,power=3,south=side,west=none]
+  Y minecraft:redstone_wire[east=none,north=side,power=4,south=side,west=none]
+  Z minecraft:redstone_wire[east=none,north=side,power=5,south=side,west=none]
+  a minecraft:redstone_wire[east=none,north=up,power=0,south=side,west=none]
+  b minecraft:redstone_wire[east=none,north=up,power=13,south=side,west=none]
+  c minecraft:redstone_wire[east=none,north=up,power=14,south=side,west=none]
+  d minecraft:redstone_wire[east=none,north=up,power=6,south=side,west=none]
+  e minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  f minecraft:redstone_wire[east=side,north=none,power=0,south=up,west=none]
+  g minecraft:redstone_wire[east=side,north=none,power=10,south=none,west=side]
+  h minecraft:redstone_wire[east=side,north=none,power=11,south=none,west=side]
+  i minecraft:redstone_wire[east=side,north=none,power=13,south=none,west=up]
+  j minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=up]
+  k minecraft:redstone_wire[east=side,north=none,power=2,south=side,west=none]
+  l minecraft:redstone_wire[east=side,north=none,power=5,south=side,west=none]
+  m minecraft:redstone_wire[east=side,north=none,power=6,south=none,west=side]
+  n minecraft:redstone_wire[east=side,north=none,power=7,south=none,west=side]
+  o minecraft:redstone_wire[east=side,north=none,power=7,south=side,west=none]
+  p minecraft:piston_head[facing=down,short=false,type=normal]
+  q minecraft:redstone_wire[east=side,north=none,power=8,south=none,west=side]
+  r minecraft:redstone_wall_torch[facing=west,lit=true]
+  s minecraft:redstone_wire[east=side,north=none,power=9,south=none,west=side]
+  t minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  u minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=side]
+  v minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=none]
+  w minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=none]
+  x minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=side]
+  y minecraft:redstone_wire[east=side,north=up,power=15,south=side,west=none]
+  z minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=none]
+layer -4:
+  .
+  .
+  .
+  ...6666666
+  ...6
+  ...6
+  .
+  .
+  .
+  .
+  .
+layer -3:
+  .
+  .
+  .
+  ...lmnqsgI
+  ...Y.....6
+  ...X
+  ...=
+  .
+  .
+  .
+  .
+layer -2:
+  .
+  .
+  .
+  .
+  ........6T
+  .
+  ...D
+  .
+  .
+  .
+  .
+layer -1:
+  .
+  .
+  .
+  .
+  .......6i
+  .
+  ..555
+  .
+  .
+  .
+  .
+layer 0:
+  .
+  .
+  .
+  .
+  ......6j
+  ......6
+  ..!!!
+  .
+  .
+  .
+  .
+layer 1:
+  .
+  .
+  ......6
+  ......6
+  ......y
+  ......U
+  *B!!!E?
+  .
+  .
+  .
+  .
+layer 2:
+  .
+  .6....6
+  .6....c
+  .6....VG
+  66...+r!
+  6....C
+  *B!!!%%
+  .
+  .
+  .
+  .
+layer 3:
+  .666666
+  .d....b
+  .Z
+  .Y.6..!z6
+  kW.....M
+  S..$
+  !*B7A@8R
+  GG...R.6
+  .......6
+  .
+  .
+layer 4:
+  .oqsghJ
+  ...6
+  ...6
+  ...a....H
+  ...!....6
+  ...R....6
+  ...7&..!6
+  eHO6R!626
+  .66666.06
+  .....6.66
+  ....66666
+layer 5:
+  ...!
+  ..6F
+  ...M
+  .
+  ........M
+  ...p....M
+  ...9....M
+  ..647L3!M
+  .txeeN..N
+  ....61.vN
+  ....wueuK
+layer 6:
+  .
+  ..f
+  ..6
+  .
+  ..8R
+  ..GP
+  ..G
+  ..a6
+  ...6!
+  ...6F
+  .
+layer 7:
+  .
+  .
+  ..Q
+  ..6
+  ..!
+  ..a
+  ..M!
+  ...2
+  ...M
+  ...t
+  .
+layer 8:
+  .
+  .
+  .
+  ..M
+  ..M
+  .
+  .
+  .
+  .
+  .
+  .

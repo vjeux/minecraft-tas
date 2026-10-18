@@ -1,0 +1,5 @@
+vanilla server up in 11.3s (/dev/shm/mctas-vanilla-1414272-2314c2d2270676aa)
+vanilla-gadget: designs/gadgets/center-exit.drive PASS: identical in vanilla at 4 positions (24 ticks compared); drive PASS (10 checks) [43s]
+vanilla-gadget: designs/gadgets/double-move.drive PASS: identical in vanilla at 4 positions (12 ticks compared); drive PASS (6 checks) [58s]
+vanilla-gadget: designs/gadgets/event-order.drive PASS: identical in vanilla at 4 positions (12 ticks compared); drive PASS (4 checks) [83s]
+vanilla-gadget: designs/gadgets/button-pulse.drive PASS: identical in vanilla at 4 positions (88 ticks compared); drive PASS (6 checks) [38s]

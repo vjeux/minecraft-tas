@@ -76,6 +76,27 @@ fn eval(expr: &str, vars: &BTreeMap<String, i64>) -> Result<i64> {
 }
 
 impl Schedule {
+    /// The rest-state design (ideal inputs present at rest included).
+    pub fn design(&self) -> &Design {
+        &self.design
+    }
+    /// The schedule's own variables (`let`).
+    pub fn vars(&self) -> &BTreeMap<String, i64> {
+        &self.vars
+    }
+    /// Resolved events of one phase: (tick, pos, Some(state) = set / None = clear), sorted by
+    /// tick. `use` events carry the state `@use`.
+    pub fn events_of(&self, open: bool, vars: &BTreeMap<String, i64>) -> Result<Vec<(u32, Pos, Option<String>)>> {
+        self.phase(open, vars)
+    }
+    /// Cells the schedule sets or clears (its ideal inputs).
+    pub fn input_cells(&self) -> Vec<Pos> {
+        let mut v: Vec<Pos> = self.events.iter().filter(|e| e.state.as_deref() != Some(USE)).map(|e| e.pos).collect();
+        v.sort();
+        v.dedup();
+        v
+    }
+
     /// A schedule built in code: (open?, tick, pos, Some(state) = set / None = clear).
     pub fn from_events(design: Design, events: &[(bool, u32, Pos, Option<String>)]) -> Schedule {
         let events = events

@@ -1,0 +1,26 @@
+name: gadget-center-return
+# The center's two-move RETURN with both moves placed (close side, docs/ticks.md section 6): C
+# goes E (0,2,0) -> N1 (0,1,0) -> center (0,0,0) and is placed in the center at tick 2.
+# * Tick 1: redstone block R at (-1,3,0) reaches G (sticky, above E) before its partner X: G
+#   pushes C down, X shoves R away, G retracts while C moves: C finalTick'd in N1, E empty.
+# * Tick 2 (the tick boundary orders it after E emptied; a relay would do it in tick 1): R2 at
+#   (3,2,0) fires Q2 then X2: Q2 pushes the parked sticky piston P2 (facing down) into E and is
+#   0-ticked, so P2 is placed in E; P2's onPlace finds it quasi-powered through G's cell by R3
+#   and pushes C into the center; P2's push updates X3 (above the walkway, next to E), which
+#   shoves R3 away and updates P2 unpowered: P2 retracts while C moves, C finalTick'd in the
+#   center. A carried piston that fires the tick it is placed is what a close in 1-2 gt needs.
+origin: -1 0 -1
+palette:
+  C minecraft:stone
+  G minecraft:sticky_piston[extended=false,facing=down]
+  P minecraft:sticky_piston[extended=false,facing=down]
+  Q minecraft:sticky_piston[extended=false,facing=west]
+  X minecraft:piston[extended=false,facing=south]
+  Y minecraft:piston[extended=false,facing=up]
+layer 2:
+  ....X
+  .CPQ
+  .Y
+layer 3:
+  X
+  .G

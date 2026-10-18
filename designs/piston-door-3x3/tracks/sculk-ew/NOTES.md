@@ -1,0 +1,97 @@
+# sculk-ew track: the sculk doors facing east/west
+
+Ask (vjeux): sculk-2's four sculk doors (s4, s4b, s4c at 36, s1 at 38) work facing north/south
+(0 and 180 degrees, also mirrored) and break facing east/west (90/270). Find why, and build a
+variant that works facing east/west with as few extra blocks as possible.
+
+Coordinates below are the north/south design's (`archive/sculk2-s4-36b.txt`): door x 0..2, y 0..2,
+z 0; A = the sticky piston at (1,4,0) holding T, Q = the shuttle piston (0,4,-1) facing east,
+RB = its redstone block (1,4,-1), B = the elevator (1,5,0), R_B = the repeater (1,6,1) fed by the
+calibrated sensor (1,6,2), O' = the observer (1,5,1) pulsing A through the dust X' (1,4,1).
+
+## 10:20 s4r: 36 blocks, sculk, ROTATION-SAFE (all 8 orientations), open 22 / close 37
+`s4r.txt` (= BEST.txt) is s4 with ONE change: R_B delay 1 -> 2. Same 36 blocks. It works in all
+8 orientations (4 turns x mirrored) at 32 positions (`door verify --extra-offsets 28
+--orientations`), so the north/south door and the east/west door are the same design.
+`s4r-ew.txt` is it turned 90 degrees (`door turn --turns 1`, `door-axis: z`): the east/west-facing
+file, also verified at 32 positions in all 8 orientations. Archived: `archive/sculk-ew-s4r-36b.txt`,
+`archive/sculk-ew-s4r-ew-36b.txt`.
+
+### Why s4 breaks facing east/west (traced with `door trace --close` on `s4-ew0.txt` = `door turn` of s4)
+* Close, t1: the lever goes off, K loses power, Q retracts and pulls RB back next to A (P_R's
+  early pull fails against P_L's moving base, in both orientations). t2: the hold sensor re-powers Q.
+* t3, block-entity phase: Q lands BEFORE RB (its moving block entity was created first), but it
+  cannot queue its re-extension: `PistonBaseBlock.checkIfExtend` only queues the block event when
+  `PistonStructureResolver.resolve()` succeeds, and RB in front of it is still a moving block.
+  Then RB lands (`setBlock` flag 1) and updates its neighbours in the order W, E, D, U, N, S. Both
+  A (powered by RB) and Q (now able to push) queue their extension in that update.
+* North/south: Q is WEST of RB (east at 180) and A is SOUTH (north at 180): Q is queued first; at
+  t4 Q pushes RB away, then A's event finds no signal and is dropped (`triggerEvent` re-checks).
+* East/west: A is WEST/EAST of RB and Q is NORTH/SOUTH: A is queued first. At t4 A extends and
+  starts pushing C down from (1,3,0) into (1,2,0); Q then pushes RB away, A retracts in the same
+  block-event phase and spits C at (1,2,0). A's base is a moving piston until t6, so B's push at
+  t6 fails (retried at t7, when A lands), A reaches (1,3,0) only at t9 and misses O''s pulse
+  (t8-t10): C is never pushed home. The second pulse (t18-20) pulls C back up to (1,3,0), where it
+  blocks the right structure's return when the hold ends (t32: T would push C into P_L), so the
+  right column, C and M (P_M fires on the right column's return) stay open.
+* Every east/west orientation has A and RB side by side across the door plane (W/E) and Q behind
+  RB along the door's axis (N/S), so no mirror or turn of this geometry fixes it.
+
+### The fix: R_B delay 2 (no extra block)
+The B window and both O' pulses come 2 gt later (B at t8, pulses t10-12 and t20-22).
+* East/west close: A still spits C to (1,2,0) at t4, but A has landed by t6; B pushes A down to
+  (1,3,0) at t8, A lands at t10 inside the pulse, extends at t11 and pushes C home to (1,1,0)
+  (spit at t12). From there the close is s4's: the second pulse moves nothing, the hold ends at
+  t32, P_R pulls T back, A pushes it home (closed 37).
+* North/south close: no spit at t4; B pushes A and C down together at t8 and the same pulse pushes
+  C home.
+* Open: B pushes A down at t8, A pulls C up at t11-12 and again at t21-22 after B lifts it: open 22
+  (s4: 20). The hold (30 gt from t2) still outlasts the close dance (done at t22 < t32).
+
+## 10:24 the same fix on s1, s4b, s4c: all rotation-safe, same block counts
+R_B delay 1 -> 2 and nothing else; each verified at 32 positions in all 8 orientations
+(`--extra-offsets 28 --orientations`) and archived in `archive/`:
+
+| design | blocks | open / close | file | east/west file |
+|---|---|---|---|---|
+| s4r (from s4) | 36 | 22 / 37 | `s4r.txt` | `s4r-ew.txt` |
+| s4br (from s4b, hold sensor at (-1,4,-1)) | 36 | 22 / 36 | `s4br.txt` | (turn it) |
+| s4cr (from s4c, hold sensor at (0,4,-2)) | 36 | 22 / 36 | `s4cr.txt` | (turn it) |
+| s1r (from s1) | 38 | 21 / 38 | `s1r.txt` | `s1r-ew.txt` |
+
+s1 broke east/west the same way (its RB/A/Q geometry is s4's: RB (1,4,-1) between Q (0,4,-1) and
+A (1,4,0)); with delay 2 its close goes like s4r's.
+
+## Checks on s4r
+* `door vanilla-check s4r.txt s4r-ew.txt --extra-offsets 28`: PASS for both, the unmodified 26.3
+  server matches the simulator tick for tick (9344 ticks at 32 positions x 3 cycles, plus a
+  real-time 20 tps cycle). So the east/west fix holds in the real game too.
+* `door verify --cycles 20` (s4r, s4r-ew): fine.
+* `door buildable`: both BUILDABLE (36 actions, lever off while building, 9 placements against a
+  temporary dirt block; the built door opens 22 / closes 37): `s4r-36b.build.txt`,
+  `s4r-ew-36b.build.txt`. `door vanilla-build` on both: PASS (a bot player builds each in the
+  unmodified server at 4 positions, the built world equals the judge's rest state, cycles
+  identical tick for tick).
+* `door minimize --moves all --plateau --rotation-safe` on s4r (new flag, see below): local minimum
+  at 36 (272k candidates, 17 verified neutral designs, 442 removals after them, none passes).
+* `door regrow --rotation-safe` on s4r with observers, blocks, dust, repeaters 1-2, redstone blocks,
+  sculk and calibrated sensors (4 facings): `--size 2 --any` (any 2 control blocks out, 1 in;
+  94k candidates) and `--size 3` (1.05M): nothing smaller in these neighborhoods (sculk-2's
+  searches on s4 found none either).
+
+## What did not work / was not needed
+* The plain `door turn` of s4 (`s4-ew0.txt`): broken at 90/270 (the race above). No mirror helps.
+* Extra blocks: none needed; the timing change alone fixes every orientation.
+
+## Next ideas
+* The east/west spit is a free 0-tick move of C (A pushes it one cell at t4 of the close). A door
+  that needs it would be east/west-only (not rotation-safe), so it is not worth a board slot.
+* Below 36 needs a new mechanism (sculk-2's NOTES list the blocked leads: Q-less center, shared
+  P_M trigger, one sensor for hold + window).
+
+## Tools and gadgets (own commits)
+* `door minimize/harvest/regrow/grow --rotation-safe`: accept only candidates that also pass the
+  judge turned 90, 180 and 270 degrees (the boards rank rotation-safe designs).
+* Gadget `landing-race` (+ `landing-race-turned`): the east/west failure in a minimal circuit. A powered
+  piston blocked by a moving block queues nothing until it lands; the landing block's
+  W,E,D,U,N,S update then decides which of it and another piston the block powers fires first.

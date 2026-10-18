@@ -1,0 +1,22 @@
+# b38's center-column pistons: power seen by each (direct, and quasi: the cell above) per tick,
+# opening then closing. The WIDE module drives all three columns with these waveforms.
+design designs/piston-door-3x3/archive/sf-holdA-b38-38b.txt
+probe A 1 4 0
+probe_signal Ad 1 4 0
+probe_signal Aq 1 5 0
+probe A3 1 3 0
+probe_signal A3d 1 3 0
+probe_signal A3q 1 4 0
+probe B 1 5 0
+probe_signal Bd 1 5 0
+probe_signal Bq 1 6 0
+probe E 1 3 -2
+probe_signal Ed 1 3 -2
+probe_signal Eq 1 4 -2
+probe F 1 -2 0
+probe_signal Fd 1 -2 0
+probe_signal Fq 1 -1 0
+use 1 5 -3
+trace 40
+use 1 5 -3
+trace 40
