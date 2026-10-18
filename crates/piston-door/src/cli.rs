@@ -60,6 +60,10 @@ pub struct SearchArgs {
     /// Speed boards: only accept designs that close within this many ticks (every cycle).
     #[arg(long)]
     pub max_close: Option<u32>,
+    /// Also accept candidates that add a sculk sensor to a solid design (category sculk): put
+    /// `minecraft:sculk_sensor` (or `calibrated_sculk_sensor[facing=..]`) in the states.
+    #[arg(long)]
+    pub to_sculk: bool,
 }
 
 impl SearchArgs {
@@ -86,6 +90,7 @@ impl SearchArgs {
             screen_frames: self.screen_frames,
             max_open: self.max_open,
             max_close: self.max_close,
+            to_sculk: self.to_sculk,
         })
     }
 
