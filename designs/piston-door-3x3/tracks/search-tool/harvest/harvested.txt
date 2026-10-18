@@ -22,3 +22,8 @@ df806478daa01ba0 HEAD:designs/piston-door-3x3/archive/mechanics-rb2-hold-51b.txt
 30ed9b17ddbcdbb0 HEAD:designs/piston-door-3x3/archive/mechanics-rb5-hold-48b.txt 48 -> 48
 855dd64c9670d61c HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb6-48b.txt 48 -> 48
 73ac9b21c40d1829 origin/explore/logic-min:designs/piston-door-3x3/tracks/logic-min/BEST.txt 53 -> 53
+9605b06b94dcbb9a origin/explore/gravity:designs/piston-door-3x3/tracks/gravity/BEST.txt 49 -> 49
+8d164cb80656df2e origin/explore/top-control:designs/piston-door-3x3/tracks/top-control/BEST-solid.txt 47 -> 47
+b0307b76ae1c07f4 origin/explore/top-control:designs/piston-door-3x3/tracks/top-control/archive/m48-bmobs-47b.txt 47 -> 47
+033078947079d39a origin/explore/logic-min:designs/piston-door-3x3/tracks/logic-min/BEST.txt 52 -> 52
+7a2499017183ae0d origin/explore/logic-min:designs/piston-door-3x3/tracks/logic-min/BEST-slime-free.txt 53 -> 53

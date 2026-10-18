@@ -89,3 +89,19 @@ overtaken during the night (solid 48, sculk 46, slime-free 55 by other tracks).
 * Gaps that stay: a lever-driven piston always reacts at tick 1, so any wireless/late holder
   needs a 2-tick cover; making Q quasi-powered by the lever (not updated by it) would remove the
   cover, but then P_L loses its quasi source and O2 its watched lever (no layout found).
+
+## Pulse-driven follow-up (round 2): timings and why the hold stays
+* Speed of rb6o (47 solid): opens after 22 ticks, closes after 25 (worst cycle).
+* Trace of rb6o's close: P_L's silent hold is released at t=10 by B pushing A (A's cell (1,4,0)
+  is next to P_L); Q's hold (the 7-block repeater loop) is what keeps the right structure out
+  until t=20, when A comes back to (1,4,0) and updates Q through Q's head at (1,4,-1).
+* So Q has to stay powered when it is updated at close t=1 (the lever block is above it) and at
+  t=10 (B's push reaches its head), and lose power before t=18/20. One 4-tick repeater from the
+  lever goes off at t=8: tried (`rb6o-h1`), Q is released at t=10, T is pushed into A's cell and
+  C is lost. Two repeaters (16gt) is the cheapest pure-repeater hold.
+* A pulse-toggled right structure doesn't fit: it has to move at open t=4..9 (after T lands,
+  before B) and at close t>=18 (after B lifts A), but every cell near the middle column changes
+  at both B edges (10 and 18), so an observer chain fires at the same delay on both flips.
+  Ways out that are still untested: power Q (or P_R) by OR(lever, R_B) so the dance itself is the
+  hold (R_B is on exactly during close t=10..18), which needs R_B's output next to Q's
+  quasi-connected cell; or a left structure that comes back last and carries RB_A.
