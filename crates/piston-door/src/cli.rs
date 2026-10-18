@@ -947,6 +947,37 @@ pub enum DoorCmd {
         #[arg(long)]
         close: bool,
     },
+    /// Make working doors record-eligible for repeater input (relever.rs): the lever's cell becomes
+    /// a note block (or --subs dropper,dispenser,lamp,bulb) with the lever hung on each of its free
+    /// faces. Every variant (and the design as it is) is judged like a record (positions, cycles,
+    /// rotation check) and must pass the --eligible checks (repeater input at every position,
+    /// hallway, footsteps for sculk, QUART SEAMLESS+, lever place). Prints the passing variants
+    /// per design and writes them to --out-dir.
+    Relever {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "note")]
+        subs: String,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 16)]
+        workers: usize,
+        /// Skip designs this verdict cache (verdicts-v5.tsv) marks broken.
+        #[arg(long)]
+        verdicts: Option<PathBuf>,
+        #[arg(long, default_value_t = 400)]
+        max_blocks: usize,
+        /// Also accept variants that are not rotation-safe.
+        #[arg(long)]
+        any_rotation: bool,
+        /// Write the result table (markdown) here too.
+        #[arg(long)]
+        table: Option<PathBuf>,
+        /// Also print why each failing variant fails.
+        #[arg(long)]
+        why: bool,
+    },
     /// Record eligibility of designs, one line each (what `--eligible` searches keep): the judge
     /// (the lever, every judge position) and the rotation check, repeater input at every judge
     /// position (props-dyn's rig: the lever left off, a delay-1 repeater into its support block,
@@ -2390,6 +2421,81 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let d = load_design(&design)?;
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
+        }
+        DoorCmd::Relever { designs, subs, out_dir, extra_offsets, workers, verdicts, max_blocks, any_rotation, table, why } => {
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
+            let screen = VerifyOptions { cycles: 1, max_ticks: 200, offsets: offsets.iter().take(2).copied().collect(), keep_frames: false, empty_walkway: true, tile: None };
+            let known = verdicts.as_deref().map(crate::properties_dyn::load_verdicts).unwrap_or_default();
+            let subs: Vec<String> = subs.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            let mut seen = std::collections::HashSet::new();
+            let mut loaded: Vec<(String, Design)> = Vec::new();
+            for p in &designs {
+                let d = match load_design(p) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        eprintln!("{}: {e:#}", p.display());
+                        continue;
+                    }
+                };
+                let h = format!("{:016x}", crate::leaderboard::design_hash(&d));
+                if crate::block_count(&d) > max_blocks || known.get(&h) == Some(&false) || !seen.insert(d.content_key()) {
+                    continue;
+                }
+                loaded.push((p.display().to_string(), d));
+            }
+            let mut jobs: Vec<(usize, crate::relever::Variant)> = Vec::new();
+            for (i, (_, d)) in loaded.iter().enumerate() {
+                match crate::relever::variants(d, &subs) {
+                    Ok(vs) => jobs.extend(vs.into_iter().map(|v| (i, v))),
+                    Err(e) => eprintln!("{}: {e:#}", loaded[i].0),
+                }
+            }
+            eprintln!("{} designs, {} variants (as-is included), {} positions", loaded.len(), jobs.len(), offsets.len());
+            let pool = mctas::sim::Pool::spawn(workers.min(jobs.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let results = pool.map(jobs, |w, _, (i, v)| Ok((i, crate::relever::judge_variant(w, v, &judge, &screen, !any_rotation)?)));
+            let mut per: Vec<Vec<crate::relever::Outcome>> = vec![Vec::new(); loaded.len()];
+            for r in results {
+                match r {
+                    Ok((i, o)) => per[i].push(o),
+                    Err(e) => eprintln!("worker error: {e:#}"),
+                }
+            }
+            let mut order: Vec<usize> = (0..loaded.len()).collect();
+            order.sort_by_key(|&i| (crate::category(&loaded[i].1) != "solid", crate::category(&loaded[i].1), crate::block_count(&loaded[i].1), loaded[i].0.clone()));
+            let mut md = String::from("| design | blocks | category | as-is | eligible variants (blocks, lever open/close, repeater open/close, seamless) |\n|---|---|---|---|---|\n");
+            if let Some(dir) = &out_dir {
+                std::fs::create_dir_all(dir)?;
+            }
+            for i in order {
+                let (src, d) = &loaded[i];
+                let stem = std::path::Path::new(src).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                let mut asis = String::from("-");
+                let mut good = Vec::new();
+                for o in &per[i] {
+                    match (&o.verdict, o.label.as_str()) {
+                        (Ok((lo, lc, ro, rc, t)), "as-is") => asis = format!("ELIGIBLE ({lo}/{lc}, rep {ro}/{rc}, {t})"),
+                        (Err(why), "as-is") => asis = format!("no: {}", why.chars().take(90).collect::<String>()),
+                        (Ok((lo, lc, ro, rc, t)), label) => {
+                            good.push(format!("{label} ({}, {lo}/{lc}, rep {ro}/{rc}, {t})", crate::block_count(&o.design)));
+                            if let Some(dir) = &out_dir {
+                                let mut nd = o.design.clone();
+                                nd.name = format!("{}-rl-{label}", d.name);
+                                nd.save(&dir.join(format!("{stem}-rl-{label}.txt")))?;
+                            }
+                        }
+                        (Err(reason), label) if why => println!("  {stem} {label}: {}", reason.chars().take(300).collect::<String>()),
+                        _ => {}
+                    }
+                }
+                let line = format!("| {stem} | {} | {} | {asis} | {} |", crate::block_count(d), crate::category(d), if good.is_empty() { "-".to_string() } else { good.join("; ") });
+                println!("{line}");
+                md.push_str(&line);
+                md.push('\n');
+            }
+            if let Some(p) = table {
+                std::fs::write(p, md)?;
+            }
         }
         DoorCmd::Eligible { designs, extra_offsets, workers } => {
             let offsets = crate::search::judge_offsets(extra_offsets);
