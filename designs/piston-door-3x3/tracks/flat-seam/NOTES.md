@@ -148,11 +148,14 @@ never moved (they must already be inside). Combine with `--seamless full+hall` t
   (3,-1), M parks at (2,-1), X at (0,-1)) and then P_M (pm at a1+3..7) is the right-half job with no
   trigger. I stopped here: 9x8 needs a one-shot or a cleverer crossing.
 - **Correction (box64, explore/box64 tracks/box64/ideal/m5p.ideal):** with B's two pulses (or a
-  9..12 window) spaced 7..10 apart, a2 = b1+4 and a3 = b2+4 both work, so the right half CAN
-  derive X by only watching B' (observer next to B' -> observer -> X: b1+4, b2+4). My cd8 sweep only
-  tried gaps 5..9 with a2 swept at b1 = 12 (a2 14..15 passed there). In 9 x 8 this removes the
-  X problem; the right bottom piston can then be fed down column x = 5 from the T puller relay (late
-  is fine). 9 x 8 = 72 only ties e89b, so I did not build it.
+  9..12 window) spaced 7..10 apart, a2 = b1+4 and a3 = b2+4 both work with IDEAL X pulses (my cd8
+  agrees: a2 anywhere in b1+2..b2-3, a3 = b2+4, for gaps >= 7). But a REAL watcher does not deliver
+  them: in [cd8-bw.ideal](cd8-bw.ideal) (cd8 + observer (2,-3) facing west watching B', observer (2,-2) facing down, X
+  smooth stone (2,-1), B' pulsed from (0,-3) at b1 = 12, b2 = 17..24) every run fails. Trace at
+  b2 = 20: B's watcher fires at b1+3, b1+7, b2+3, b2+7 (B' changes state when it starts extending
+  and again when its spit retraction finishes), so X also fires at b1+9 = b2+1, inside the fatal
+  window: A' high pushes C back up. Merging the pair (repeater + observer) makes X far too late.
+  So in 9 x 8 the X problem stays open.
 
 ## Log
 - `door minimize --moves all --plateau --shape flat --seamless full+hall` on 57b: nothing (48
