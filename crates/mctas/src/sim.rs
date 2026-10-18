@@ -415,6 +415,13 @@ impl Worker {
         Ok(())
     }
 
+    /// How many chunks around a viewer the sandbox's level sends (2 by default: a viewer sees a
+    /// 5x5-chunk area; chunks outside the sandbox are empty).
+    pub fn view_distance(&mut self, sandbox: u32, chunks: u32) -> Result<()> {
+        self.call(json!({"op": "view", "sandbox": sandbox, "chunks": chunks}))?;
+        Ok(())
+    }
+
     /// Step at a wall-clock pace so connected clients can watch.
     pub fn play(&mut self, sandbox: u32, ticks: u32, tps: f64) -> Result<()> {
         self.call(json!({"op": "play", "sandbox": sandbox, "ticks": ticks, "tps": tps}))?;

@@ -361,15 +361,16 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
             facts.close_ticks = r.cycles.first().map(|c| c.close_ticks);
         }
     }
-    let sb = w.create(&SandboxOptions { chunks: [-3, -3, 2, 2], seed: 0 })?;
+    let sb = w.create(&SandboxOptions { chunks: [-7, -7, 6, 6], seed: 0 })?;
     place(&mut w, sb, d)?;
-    // A grass floor under the build (never touching it), inside the sandbox, daylight.
-    let (lo, hi) = d.bounds().context("empty design")?;
+    // A grass floor under the build (never touching it) out to the client's render distance
+    // (6 chunks), so the horizon is fog rather than the floor's edge; daylight.
+    let (lo, _) = d.bounds().context("empty design")?;
     let fy = opts.floor_y.unwrap_or(lo[1] - 2).min(lo[1] - 2);
-    let (x0, x1) = ((lo[0] - 30).max(-46), (hi[0] + 30).min(45));
-    let (z0, z1) = ((lo[2] - 30).max(-46), (hi[2] + 30).min(45));
-    w.fill(sb, [x0, fy, z0], [x1, fy, z1], "minecraft:grass_block", PlaceMode::Raw)?;
+    w.fill(sb, [-110, fy, -110], [109, fy, 109], "minecraft:grass_block", PlaceMode::Raw)?;
     w.exec(sb, "time set noon")?;
+    // Send the client every chunk it renders (6), not the level's default 2.
+    w.view_distance(sb, 8)?;
 
     let mut client = Client::launch(&client_build, &display, port, opts.width, opts.height, &run.join("client"))?;
     let deadline = Instant::now() + Duration::from_secs(240);
