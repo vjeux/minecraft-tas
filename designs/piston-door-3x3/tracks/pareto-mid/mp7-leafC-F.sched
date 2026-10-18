@@ -1,0 +1,8 @@
+# mp7-repU with F asymmetric by ideal input: F powered from tick f+1 on the open edge, unpowered from tick fc+1 on the close edge
+design designs/piston-door-3x3/tracks/pareto-mid/mp7-leafC-idealF.txt
+let f = 7
+let fc = 7
+open 0 use 0 3 -1
+open f set 2 4 -1 minecraft:redstone_block
+close 0 use 0 3 -1
+close fc clear 2 4 -1
