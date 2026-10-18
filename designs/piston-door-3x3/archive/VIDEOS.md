@@ -129,3 +129,4 @@ Rendered by the real Minecraft client (`mctas door video-all`). The best of each
 | 143 | solid | [piston-door-3x3-v2-143b](piston-door-3x3-v2-143b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-143b.mp4) |
 | 147 | solid | [piston-door-3x3-v2-147b](piston-door-3x3-v2-147b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-147b.mp4) |
 | 151 | solid | [piston-door-3x3-v2-151b](piston-door-3x3-v2-151b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-v2-151b.mp4) |
+| 161 | solid | [speed-wire-w6-161b](speed-wire-w6-161b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/speed-wire-w6-161b.mp4) |

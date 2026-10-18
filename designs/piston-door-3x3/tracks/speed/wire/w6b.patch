@@ -1,0 +1,13 @@
+# w6b = w5 + BUD close parts (S2 = F's silent source still scripted in w6b.drive):
+# no F close observer; S_R fired at k2 (X4 watches new dust (3,4,-3)); east branch repeater
+# removed (east sides extend at close k2, after F's spit); TR silently QC-powered k2..4 by OT
+# (3,5,-1) -> stone X_T (3,5,0): TR moves only when the east top side extension updates it.
+clear 1 4 1
+clear 3 3 -1
+clear 3 3 -2
+set 3 3 -3 minecraft:stone
+set 3 4 -3 minecraft:redstone_wire
+set 3 5 -2 minecraft:redstone_wire
+set 3 5 -1 minecraft:observer[facing=north,powered=false]
+set 3 5 0 minecraft:stone
+set 6 1 -4 minecraft:redstone_wire

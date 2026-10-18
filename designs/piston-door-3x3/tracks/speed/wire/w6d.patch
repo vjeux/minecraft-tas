@@ -1,0 +1,20 @@
+# w6d = w6c + real S2 (F's silent QC source): repeater R_s (1,6,-1) reads lever-net dust (1,6,-2)
+# and powers stone X_F (1,6,0) (QC-only for F: silent). R_s is locked OFF by L_r (0,6,-1) until
+# open k14 (D (0,6,-2) delay 4 -> block (-1,6,-2) -> torch (-1,6,-1) off k10 -> L_r (delay 2) off
+# k14), so R_s turns on at k16 (after F's base landed at k14). Close: dust off k0 -> R_s off at k2
+# (VERY_HIGH) before W's k2 dust update -> F spits.
+set 2 3 -4 minecraft:smooth_stone
+set 2 4 -4 minecraft:redstone_wire
+set 2 4 -3 minecraft:smooth_stone
+set 2 5 -3 minecraft:redstone_wire
+set 2 5 -2 minecraft:smooth_stone
+set 2 6 -2 minecraft:redstone_wire
+set 1 6 -2 minecraft:redstone_wire
+set 1 6 -1 minecraft:repeater[delay=1,facing=north,locked=true,powered=false]
+set 1 6 0 minecraft:stone
+set 0 5 -2 minecraft:smooth_stone
+set 0 6 -2 minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+set -1 6 -2 minecraft:stone
+set -1 6 -1 minecraft:redstone_wall_torch[facing=south,lit=true]
+set 0 5 -1 minecraft:smooth_stone
+set 0 6 -1 minecraft:repeater[delay=2,facing=west,locked=false,powered=true]

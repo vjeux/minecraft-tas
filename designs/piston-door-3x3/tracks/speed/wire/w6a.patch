@@ -1,0 +1,21 @@
+# w6a = w5 + BUD close parts (S2 still scripted in w6a.drive): no F close observer; TR extended at
+# rest, powered by a wall torch (4,3,0) on (5,3,0) fed by a new lever-net branch (TR pushes at
+# close k2 after F's spit, updated by the east top side piston's extension); S_R fired at k2.
+clear 1 4 1
+clear 3 3 -1
+clear 3 3 -2
+set 3 3 0 minecraft:sticky_piston[extended=true,facing=west]
+set 4 3 0 minecraft:redstone_wall_torch[facing=west,lit=true]
+set 5 3 0 minecraft:stone
+set 4 2 -4 minecraft:smooth_stone
+set 4 3 -4 minecraft:redstone_wire
+set 5 2 -4 minecraft:smooth_stone
+set 5 3 -4 minecraft:redstone_wire
+set 5 2 -3 minecraft:smooth_stone
+set 5 3 -3 minecraft:redstone_wire
+set 5 2 -2 minecraft:smooth_stone
+set 5 3 -2 minecraft:redstone_wire
+set 5 2 -1 minecraft:smooth_stone
+set 5 3 -1 minecraft:redstone_wire
+set 3 3 -3 minecraft:stone
+set 3 4 -3 minecraft:redstone_wire
