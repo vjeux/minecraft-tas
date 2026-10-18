@@ -38,7 +38,9 @@ Size-4 groups take ~1 s, size-5 groups ~7 s (70-80k circuits each).
 | `BEST-slime-free.txt` = `sf-resynth-46.txt` | 46 | solid, slime-free (record when found, was 48; fresh-d/s7q reached 45/44 since) | slime-free-combo 48 | stone+dust+stone+repeater -> block + 2 observers; observer + its floor -> 1 observer (open 24 / close 24) |
 
 `door resynth` found nothing on fc2 40 (sizes 2..5, 115 + 136 groups, up to 128k circuits per
-group), st43 sculk 42 (2..4), fresh-b mp8 43 (2..4), gravity 42 (2..5), slime-free s7q 44 (2..4).
+group), st43 sculk 42 (2..4), fresh-b mp8 43 (2..4), gravity 42 (2..5, and 2..4 with comparators,
+lamps, glass and glazed terracotta added), slime-free s7q 44 (2..4, and 157 of 161 size-5 groups;
+2 skipped at > 150k circuits).
 
 ### fc2 (40, the record) sub-circuits: all already minimal in this model
 | sub-circuit (blocks) | cleared | searched | result |

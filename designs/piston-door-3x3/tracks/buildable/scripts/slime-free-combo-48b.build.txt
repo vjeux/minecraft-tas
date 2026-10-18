@@ -1,0 +1,60 @@
+# slime-free-combo: BUILDABLE (48 actions, lever off while building, 8 placed against a temporary dirt block; 32/32 positions, the built door opens in 24 / closes in 50 ticks)
+# source: designs/piston-door-3x3/archive/slime-free-combo-48b.txt
+# found by heuristic: mechanism, wiring, power, pistons, observers, connected after 64 simulated builds in 40s
+# note: the plain order (mechanism, pistons, wiring, observers, power) does not: first damage at step 40/48: placing observer[facing=east,powered=false] at 4 4 0 (things move for 18 ticks): 1 2 0: moved or broken (rest stone, built air) | 1 3 0: should be air (rest air, built stone); at the end: stone: 1 -1 0: rest air, built stone; -1 0 0: rest air, built stone; 0 0 0: rest stone, built air; 2 0 0: rest stone, built air; 3 0 0: rest air, built stone; -1 1 0: rest air, built stone; 0 1 0: rest stone, built air; 2 1 0: rest stone, built air; 3 1 0: rest air, built stone; 0 2 0: rest stone, built air; 1 2 0: rest stone, built air; 2 2 0: rest stone, built air; 3 2 0: rest air, built stone; 0 3 0: rest air, built stone
+# note:   trace of that step: t0 (put a temporary dirt block at 5 4 0, click its west face, facing east looking down 30, then break the dirt): 4 4 0 air -> observer[facing=east,powered=false]
+# note:   trace of that step: t2: 3 0 0 air -> moving_piston[facing=west,type=sticky]; 4 0 0 sticky_piston[extended=false,facing=west] -> sticky_piston[extended=true,facing=west]; 3 1 0 air -> moving_piston[facing=west,type=sticky]; 4 1 0 sticky_piston[extended=false,facing=west] -> sticky_piston[extended=true,facing=west]; 3 2 0 air -> moving_piston[facing=west,type=sticky]; 4 2 0 sticky_piston[extended=false,facing=west] -> sticky_piston[extended=true,facing=west]; 6 more
+# note:   trace of that step: t4: 2 0 0 stone -> air; 3 0 0 moving_piston[facing=west,type=sticky] -> moving_piston[facing=west,type=normal]; 4 0 0 sticky_piston[extended=true,facing=west] -> moving_piston[facing=west,type=sticky]; 2 1 0 stone -> air; 3 1 0 moving_piston[facing=west,type=sticky] -> moving_piston[facing=west,type=normal]; 4 1 0 sticky_piston[extended=true,facing=west] -> moving_piston[facing=west,type=sticky]; 10 more
+# note:   trace of that step: t6: 1 -2 0 sticky_piston[extended=false,facing=up] -> sticky_piston[extended=true,facing=up]; 1 -1 0 air -> moving_piston[facing=up,type=sticky]; 2 -1 0 observer[facing=up,powered=false] -> observer[facing=up,powered=true]; 3 0 0 moving_piston[facing=west,type=normal] -> stone; 4 0 0 moving_piston[facing=west,type=sticky] -> sticky_piston[extended=false,facing=west]; 3 1 0 moving_piston[facing=west,type=normal] -> stone; 5 more
+# note:   trace of that step: t8: 1 -2 0 sticky_piston[extended=true,facing=up] -> moving_piston[facing=up,type=sticky]; 1 -1 0 moving_piston[facing=up,type=sticky] -> moving_piston[facing=up,type=normal]; 2 -1 0 observer[facing=up,powered=true] -> observer[facing=up,powered=false]; 1 0 0 stone -> air
+# note:   trace of that step: t10: 1 -2 0 moving_piston[facing=up,type=sticky] -> sticky_piston[extended=false,facing=up]; 1 -1 0 moving_piston[facing=up,type=normal] -> stone; 3 4 1 repeater[delay=4,facing=north,locked=false,powered=false] -> repeater[delay=4,facing=north,locked=false,powered=true]; 4 4 2 redstone_wire[east=side,north=side,power=0,south=side,west=side] -> redstone_wire[east=side,north=side,power=15,south=side,west=side]
+# note:   trace of that step: t18: 3 4 1 repeater[delay=4,facing=north,locked=false,powered=true] -> repeater[delay=4,facing=north,locked=false,powered=false]; 4 4 2 redstone_wire[east=side,north=side,power=15,south=side,west=side] -> redstone_wire[east=side,north=side,power=0,south=side,west=side]
+# Build script (design coordinates; the world settles after every action):
+  1. place smooth_stone at 2 -2 0: put a temporary dirt block at 2 -3 0, click its up face, looking down, then break the dirt
+  2. place sticky_piston[extended=false,facing=up] at 1 -2 0: click the west face of 2 -2 0, facing east looking down 60
+  3. place observer[facing=up,powered=false] at 2 -1 0: put a temporary dirt block at 2 0 0, click its down face, facing south looking up 60, then break the dirt [things move for 6 ticks]
+  4. place stone at 2 0 0: click the up face of 2 -1 0, looking down [things move for 6 ticks]
+  5. place stone at 1 0 0: click the west face of 2 0 0, facing east
+  6. place stone at 0 0 0: click the west face of 1 0 0, facing east
+  7. place stone at 0 1 0: click the up face of 0 0 0, looking down
+  8. place stone at 1 1 0: click the up face of 1 0 0, looking down
+  9. place stone at 2 1 0: click the up face of 2 0 0, looking down
+ 10. place stone at 0 2 0: click the up face of 0 1 0, looking down
+ 11. place stone at 1 2 0: click the up face of 1 1 0, looking down
+ 12. place stone at 2 2 0: click the up face of 2 1 0, looking down
+ 13. place stone at 2 3 0: click the up face of 2 2 0, looking down
+ 14. place redstone_wire[east=side,north=side,power=0,south=side,west=side] at 2 4 0: click the up face of 2 3 0, looking down
+ 15. place stone at 3 4 0: click the east face of 2 4 0, facing west, sneaking
+ 16. place smooth_stone at 3 3 1: put a temporary dirt block at 3 2 1, click its up face, looking down, then break the dirt
+ 17. place repeater[delay=4,facing=north,locked=false,powered=false] at 3 4 1: click the up face of 3 3 1, looking down
+ 18. place smooth_stone at 3 4 2: click the south face of 3 4 1, facing north, sneaking
+ 19. place smooth_stone at 4 3 2: put a temporary dirt block at 4 2 2, click its up face, looking down, then break the dirt
+ 20. place redstone_wire[east=side,north=side,power=0,south=side,west=side] at 4 4 2: click the up face of 4 3 2, looking down
+ 21. place smooth_stone at 5 4 2: click the east face of 4 4 2, facing west, sneaking
+ 22. place smooth_stone at 5 3 1: put a temporary dirt block at 5 2 1, click its up face, looking down, then break the dirt
+ 23. place repeater[delay=4,facing=north,locked=false,powered=false] at 5 4 1: click the up face of 5 3 1, looking down
+ 24. place redstone_wall_torch[facing=west,lit=true] at 2 4 2: click the west face of 3 4 2, facing east
+ 25. place sticky_piston[extended=false,facing=down] at 1 4 0: click the west face of 2 4 0, facing east looking up 60, sneaking
+ 26. place sticky_piston[extended=false,facing=down] at 0 4 0: click the west face of 1 4 0, facing east looking up 60
+ 27. place sticky_piston[extended=false,facing=down] at 1 5 0: put a temporary dirt block at 1 6 0, click its down face, facing south looking up 60, then break the dirt
+ 28. place observer[facing=east,powered=false] at -1 2 0: click the west face of 0 2 0, facing east
+ 29. place smooth_stone at -2 2 0: click the west face of -1 2 0, facing east
+ 30. place sticky_piston[extended=false,facing=east] at -2 1 0: click the down face of -2 2 0, facing west looking up 30
+ 31. place sticky_piston[extended=false,facing=east] at -2 0 0: click the down face of -2 1 0, facing west looking up 30
+ 32. place observer[facing=up,powered=false] at 5 3 0: click the north face of 5 3 1, facing south looking up 60
+ 33. place lever[face=floor,facing=west,powered=false] at 5 4 0: click the up face of 5 3 0, looking down
+ 34. place smooth_stone at 5 1 0: put a temporary dirt block at 5 0 0, click its up face, looking down, then break the dirt
+ 35. place redstone_wire[east=side,north=side,power=0,south=side,west=side] at 5 2 0: click the down face of 5 3 0, facing south looking up 30
+ 36. place sticky_piston[extended=false,facing=west] at 4 1 0: click the west face of 5 1 0, facing east
+ 37. place sticky_piston[extended=false,facing=west] at 4 0 0: click the down face of 4 1 0, facing east looking up 30
+ 38. place sticky_piston[extended=false,facing=west] at 4 2 0: click the up face of 4 1 0, facing east looking down 30
+ 39. place observer[facing=east,powered=false] at 4 4 0: click the west face of 5 4 0, facing east looking down 30, sneaking
+ 40. place observer[facing=south,powered=false] at 0 4 1: put a temporary dirt block at 0 4 2, click its north face, facing south looking down 30, then break the dirt [things move for 10 ticks]
+ 41. place observer[facing=down,powered=false] at 0 4 2: click the south face of 0 4 1, facing north looking down 60 [things move for 8 ticks]
+ 42. place observer[facing=east,powered=false] at 0 3 2: click the down face of 0 4 2, facing east looking up 30 [things move for 12 ticks]
+ 43. place sticky_piston[extended=true,facing=north] at 1 3 2: click the east face of 0 3 2, facing south (20 degrees toward west) [things move for 12 ticks]
+ 44. place observer[facing=up,powered=false] at 2 5 0: click the east face of 1 5 0, facing west looking up 60
+ 45. place repeater[delay=4,facing=east,locked=false,powered=false] at 2 6 0: click the up face of 2 5 0, looking down [things move for 32 ticks]
+ 46. place smooth_stone at 3 6 0: click the east face of 2 6 0, facing west, sneaking
+ 47. place observer[facing=down,powered=false] at 4 5 0: click the up face of 4 4 0, looking down
+ 48. place redstone_wire[east=side,north=side,power=0,south=side,west=side] at 4 6 0: click the up face of 4 5 0, looking down

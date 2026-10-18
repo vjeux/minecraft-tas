@@ -1,0 +1,8 @@
+# fc2 with P_L as a push-type pulse piston under the walkway (0,-1,0) + slime (-1,-1,0); bottom triggers cut
+clear -3 2 0
+clear -3 3 0
+clear -3 4 0
+set 0 -1 0 minecraft:sticky_piston[extended=false,facing=west]
+set -1 -1 0 minecraft:slime_block
+clear 2 -1 0
+clear 2 -2 0

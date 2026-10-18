@@ -1,0 +1,5 @@
+# o5 = o4 with P_V powered from its south side (dust on P_V broke when it extended): dust (2,7,1)
+# removed; dust (2,7,2) (fed by (1,7,2)) on stone (2,6,2) next to P_V.
+clear 2 7 1
+set 2 6 2 minecraft:stone
+set 2 7 2 minecraft:redstone_wire

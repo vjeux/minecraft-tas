@@ -1,0 +1,41 @@
+name: flat-v1
+port door: 0 0 0
+port lever: 4 5 0
+origin: -4 0 0
+palette:
+  C minecraft:stone
+  s minecraft:sticky_piston[extended=false,facing=east]
+  w minecraft:sticky_piston[extended=false,facing=west]
+  u minecraft:sticky_piston[extended=false,facing=up]
+  d minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=east,powered=false]
+  W minecraft:observer[facing=west,powered=false]
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  o minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  x minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  c minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  R minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+layer -3:
+  ....UWC
+layer -2:
+  UWWWWuu
+layer -1:
+  U
+layer 0:
+  U.s.CCC
+layer 1:
+  UCs.CCC.w
+layer 2:
+  Ucs.CCC.w
+layer 3:
+  EU..C..wo
+layer 4:
+  .U..xdEEU
+layer 5:
+  .U..Ud.UL
+layer 6:
+  .EUWR..UD
+layer 7:
+  ..EEEEEED
