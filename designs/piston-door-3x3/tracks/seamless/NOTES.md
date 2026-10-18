@@ -81,6 +81,21 @@ piston (4,0,0) has no power left (it was QC-powered through the stone (4,2,0)). 
 relay (watch T arriving, or a dropper in the chain) and a feed for (4,0,0) from below
 ((4,-1,0) and the corner (3,-1,0) are free).
 
+## 8x9 from flat43-full (one block short) and the 7x9 target
+
+[wip/f43-89.txt](wip/f43-89.txt): flat43-full without its right outer column (x=5): the lever moved
+to (4,5,0) on top of the lever observer, which now faces up and strongly powers a smooth stone at
+(4,3,0); that stone powers the right pullers (4,2,0) directly, (4,1,0) by QC and the corner
+piston (3,3,0) directly. 8 wide x 9 tall, 42 blocks; the left outer column (x=-3) is still there.
+EVERYTHING opens except the bottom-right door block: its puller (4,0,0) was QC-powered through
+the right outer column's stone (5,1,0) and is now in a sealed quadrant {(2,-2),(3,-2),(4,-2),
+(3,-1),(4,-1)} whose only signal source is P_M's own motion (`door grow --k 2` on it: nothing).
+Relaying P_M's motion (observer -> stone -> lamp -> observer) gives the puller TWO pulses per flip
+(lamp on, lamp off): the second one pushes the block back and spits it, the parity problem box56
+describes. Next: a one-shot relay (a copper bulb toggles once per rising edge if P_M's changes fall
+in one observer window), or the bottom-right block leaving DOWN (a puller at (2,-2,0), fed from
+the corner (3,-1,0) by QC) so (4,0,0) is not needed; then the left outer column for 7x9.
+
 ## SUPER is impossible under props' definition (proof)
 
 
