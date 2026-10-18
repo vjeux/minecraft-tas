@@ -42,11 +42,14 @@ pub fn place(w: &mut Worker, sb: u32, d: &Design) -> Result<()> {
 }
 
 pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Result<()> {
+    static RUN_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let spec = DoorSpec::from_design(d)?;
     let client_build = video::build_client(version)?;
     let display = Display::start(opts.width, opts.height)?;
     let port = free_port()?;
-    let run = mctas::paths::run_dir().join(format!("video-{}", std::process::id()));
+    // Unique per call: several recordings can run at once in one process (door video-all).
+    let n = RUN_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let run = mctas::paths::run_dir().join(format!("video-{}-{n}", std::process::id()));
     std::fs::create_dir_all(&run)?;
     let cfg = WorkerConfig {
         version: version.to_string(),
@@ -87,9 +90,6 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     let view: Vec<f64> = std::env::var("MCTAS_VIEW").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).filter(|v: &Vec<f64>| v.len() == 3).unwrap_or(vec![-0.45, 0.2, 1.0]);
     let (eye, yaw, pitch) = video::frame_points(&corners, [view[0], view[1], view[2]], 70.0, opts.width as f64 / opts.height as f64, 0.92);
     w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
-    eprintln!("camera requested eye={eye:?} yaw={yaw} pitch={pitch}");
-    w.hold(3000)?;
-    eprintln!("viewers: {}", w.call(serde_json::json!({"op": "viewers"}))?);
     // Let chunks arrive and the renderer warm up.
     w.hold(12_000)?;
     video::screenshot(&display, opts.width, opts.height, &out.with_extension("png"))?;
@@ -106,5 +106,67 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     let raw = rec.stop()?;
     video::encode(&raw, out, 1.0)?;
     drop(client);
+    Ok(())
+}
+
+/// Render a video of every design in `dir` (each `.txt`, README excluded) into `out/<stem>.mp4`,
+/// `jobs` at a time, skipping videos that already exist; upload each new one to the GitHub
+/// release `upload` (as `<stem>.mp4`). Writes `dir/VIDEOS.md` linking every design to its video.
+pub fn record_all(version: &str, dir: &Path, out: &Path, jobs: usize, upload: Option<&str>) -> Result<()> {
+    std::fs::create_dir_all(out)?;
+    let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|x| x == "txt"))
+        .collect();
+    files.sort();
+    let todo: Vec<std::path::PathBuf> = files
+        .iter()
+        .filter(|p| !out.join(format!("{}.mp4", p.file_stem().unwrap().to_string_lossy())).exists())
+        .cloned()
+        .collect();
+    eprintln!("{} designs, {} videos to record ({} at a time)", files.len(), todo.len(), jobs);
+    let queue = std::sync::Mutex::new(todo);
+    std::thread::scope(|s| {
+        for _ in 0..jobs.max(1) {
+            s.spawn(|| loop {
+                let Some(p) = queue.lock().unwrap().pop() else { break };
+                let stem = p.file_stem().unwrap().to_string_lossy().to_string();
+                let mp4 = out.join(format!("{stem}.mp4"));
+                let tmp = out.join(format!("{stem}.part.mp4"));
+                let result = Design::load(&p).and_then(|d| record(version, &d, &tmp, &VideoOptions::default()));
+                match result {
+                    Ok(()) => {
+                        let _ = std::fs::rename(&tmp, &mp4);
+                        let up = upload.map(|tag| video::upload_release_asset("vjeux/minecraft-tas", tag, &mp4));
+                        match up {
+                            Some(Err(e)) => eprintln!("recorded {stem}, upload failed: {e:#}"),
+                            _ => eprintln!("recorded {stem}"),
+                        }
+                    }
+                    Err(e) => eprintln!("FAILED {stem}: {e:#}"),
+                }
+            });
+        }
+    });
+    // Index: every design with its block count, category and video link.
+    let mut rows = Vec::new();
+    for p in &files {
+        let stem = p.file_stem().unwrap().to_string_lossy().to_string();
+        let Ok(d) = Design::load(p) else { continue };
+        let has = out.join(format!("{stem}.mp4")).exists();
+        let link = if has {
+            format!("[video](https://github.com/vjeux/minecraft-tas/releases/download/videos/{stem}.mp4)")
+        } else {
+            "missing".to_string()
+        };
+        rows.push((crate::block_count(&d), stem, crate::category(&d), link));
+    }
+    rows.sort();
+    let mut md = String::from("# Videos of every archived design\n\nRendered by the real Minecraft client (`mctas door video-all`).\n\n| blocks | category | design | video |\n|---|---|---|---|\n");
+    for (b, stem, cat, link) in rows {
+        md.push_str(&format!("| {b} | {cat} | [{stem}]({stem}.txt) | {link} |\n"));
+    }
+    std::fs::write(dir.join("VIDEOS.md"), md)?;
     Ok(())
 }

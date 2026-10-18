@@ -1,0 +1,37 @@
+design designs/piston-door-3x3/tracks/observer-seq/wip/toggle-window.txt
+# Ideal timeline: lever edge = pokes {L,R,BM} + a 2-tick redstone block on A; P_T poke 6gt later;
+# the park observer would then trigger (opening) the B window (poke O2's cell (4,6,0)) and
+# (both directions) a delayed A pulse.
+plane 0 -5 -4 7 7
+box -5 -4 -1 7 7 3
+mark OPEN
+set -5 0 0 minecraft:obsidian
+set 7 0 0 minecraft:obsidian
+set 1 -4 0 minecraft:obsidian
+set 0 4 0 minecraft:redstone_block
+quiet 2
+clear 0 4 0
+quiet 4
+set 1 3 3 minecraft:obsidian
+quiet 4
+set 0 4 0 minecraft:redstone_block
+set 4 6 0 minecraft:obsidian
+quiet 2
+clear 0 4 0
+quiet 30
+print
+mark CLOSE
+set -5 0 0 minecraft:crying_obsidian
+set 7 0 0 minecraft:crying_obsidian
+set 1 -4 0 minecraft:crying_obsidian
+set 0 4 0 minecraft:redstone_block
+quiet 2
+clear 0 4 0
+quiet 4
+set 1 3 3 minecraft:crying_obsidian
+quiet 6
+set 0 4 0 minecraft:redstone_block
+quiet 2
+clear 0 4 0
+quiet 10
+print

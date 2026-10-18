@@ -1,0 +1,23 @@
+name: gadget-lever-tap
+# One-way tap of a lever: repeater T reads the lever L itself (a lever is a signal source for
+# the component behind it), so the lever net after T cannot be back-fed through the lever's
+# block K. Repeater F (fed by the redstone block the script places) strongly powers K, as the
+# A-late repeater does in mech-89: dust D next to K lights up (back-feed), dust E after T does
+# not.
+origin: 0 0 0
+palette:
+  K minecraft:smooth_stone
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  T minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  E minecraft:redstone_wire[east=side,north=none,south=none,west=side,power=0]
+  F minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  D minecraft:redstone_wire[east=side,north=none,south=none,west=side,power=0]
+  S minecraft:smooth_stone
+layer 0:
+  S
+  .S
+layer 1:
+  DKSS
+  .F
+layer 2:
+  .LTE

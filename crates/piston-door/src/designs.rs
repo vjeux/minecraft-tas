@@ -57,20 +57,30 @@ impl Builder {
 }
 
 pub fn names() -> Vec<&'static str> {
-    vec!["v1", "v2", "v2u"]
+    vec!["v1", "v2"]
 }
 
 pub fn build(name: &str) -> Option<Design> {
     match name {
         "v1" => Some(v1()),
         "v2" => Some(v2()),
-        "v2u" => Some(v2u()),
-        "v2u2" => Some(v2u2()),
-        "v2nf" => Some(v2nf()),
+        "rb1" => Some(rb1()),
+        "rb2" => Some(rb2()),
+        "rb3" => Some(rb3()),
+        "rb5" => Some(rb5()),
+        "rb6" => Some(rb6()),
+        "rb4-bench" => Some(rb4_bench()),
+        "rb1-base" => Some(rb1_route_base()),
+        "v2u" => Some(crate::designs_center_mech::v2u()),
+        "v2u2" => Some(crate::designs_center_mech::v2u2()),
+        "v2nf" => Some(crate::designs_center_mech::v2nf()),
         "v2-133" => Some(crate::designs_history::v2_133()),
         "v2-135" => Some(crate::designs_history::v2_135()),
         "v2-143" => Some(crate::designs_history::v2_143()),
-        _ => None,
+        "g1" => Some(crate::designs_gravity::g1()),
+        "g3" => Some(crate::designs_gravity::g3()),
+        "g4" => Some(crate::designs_gravity::g4()),
+        other => crate::lm::build(other),
     }
 }
 
@@ -295,153 +305,198 @@ pub fn v2() -> Design {
     b.d
 }
 
-/// v2u2: v2u with A's torch replaced by a redstone block R_A riding the left group (two more
-/// backbone slime carry it). The side groups are fed L OR L_late, so they come home late, and
-/// R_A with them: A's power is "NOR(L, L_late)" for free, with no A-early or A-late wiring.
-/// X's line (L) passes under the P_T torch attachment, which the P_T net (L_8 OR L_24) powers,
-/// so the line picks up L_24 one-way. Without the X line (see `v2u2_x`).
-pub fn v2u2() -> Design {
-    let mut d = v2u();
-    d.name = "piston-door-3x3-v2u2".into();
-    for p in [
-        [0, 4, 0], [-1, 4, 0], [-1, 4, -1], [-1, 3, -1], [2, 4, 3], [2, 3, 3], [1, 4, 3], [1, 3, 3],
-        [0, 3, 3], [0, 4, 3], [-1, 2, 3], [-1, 3, 3], [-1, 3, 2], [-1, 4, 2], [-1, 4, 1], [-1, 3, 1],
-    ] {
-        d.blocks.remove(&p);
-    }
-    let mut b = Builder { d };
-    b.set([-1, 3, 0], "slime_block");
-    b.set([-1, 4, 0], "slime_block");
-    b.set([0, 4, 0], "redstone_block"); // R_A
-    // Late chain ends in a solid block, strongly powered by the last repeater: it powers the P_T
-    // net dust (3,4,2) and, one-way, the X line's stub (3,4,4).
-    b.d.blocks.remove(&[3, 3, 3]);
-    b.set([3, 4, 3], FLOOR);
-    b.repeater([3, 4, 4], "south", 1);
-    b.dust([3, 4, 5]);
-    for (p, s) in [
-        ([2, 2, 5], FLOOR), ([2, 3, 5], "redstone_wire"), ([2, 1, 6], FLOOR), ([2, 2, 6], "redstone_wire"),
-        ([1, 0, 6], FLOOR), ([1, 1, 6], "redstone_wire"), ([1, -1, 5], FLOOR), ([1, 0, 5], "redstone_wire"),
-        ([1, -2, 4], FLOOR), ([1, -1, 4], "redstone_wire"), ([1, -3, 3], FLOOR), ([1, -2, 3], "redstone_wire"),
-        ([1, -2, 2], FLOOR), ([1, -1, 2], "redstone_wire"),
-    ] {
-        b.set(p, s); // router: X line from the late stub down to the dust pointing into X
-    }
-    for (p, s) in [
-        ([7, 2, 4], FLOOR), ([7, 3, 4], "redstone_wire"), ([6, 1, 4], FLOOR), ([6, 2, 4], "redstone_wire"),
-        ([5, 1, 4], FLOOR), ([5, 2, 4], "repeater[facing=east,delay=1]"), ([4, 2, 4], FLOOR), ([4, 3, 4], "redstone_wire"),
-        ([4, 3, 5], FLOOR), ([4, 4, 5], "redstone_wire"),
-    ] {
-        b.set(p, s); // router: L net into the X line
-    }
-    b.d
-}
-
-/// v2nf: slime-free (no slime or honey anywhere). v2u2's top (A, B, P_T, B window, late chain,
-/// X line = L OR L_24) but every side block has its own sticky puller: two stacks of three at
-/// x=-2 / x=4, each stack held by ONE torch (direct to the middle puller, strongly through the
-/// block above it to the top puller, quasi-connected to the bottom one). The torches, A's torch
-/// and M's torch hang off the X line, so they are NOR(L, L_24).
-pub fn v2nf() -> Design {
-    let mut d = v2u2();
-    d.name = "piston-door-3x3-v2nf".into();
-    d.blocks.retain(|_, s| !s.contains("slime_block") && !s.contains("honey_block"));
-    for p in [[0, -1, 1], [2, -1, 1], [1, -1, 1], [2, -3, 0], [0, 4, 0], [1, -3, 0], [1, -2, 0]] {
-        d.blocks.remove(&p);
-    }
-    let mut b = Builder { d };
-    for y in 0..3 {
-        b.set([-2, y, 0], "sticky_piston[facing=east,extended=true]");
-        b.set([-1, y, 0], "piston_head[facing=east,type=sticky,short=false]");
-        b.set([4, y, 0], "sticky_piston[facing=west,extended=true]");
-        b.set([3, y, 0], "piston_head[facing=west,type=sticky,short=false]");
-    }
-    b.set([-3, 1, 0], "redstone_wall_torch[facing=east,lit=true]");
-    b.set([-4, 1, 0], FLOOR);
-    b.set([-3, 2, 0], FLOOR);
-    b.set([5, 1, 0], "redstone_wall_torch[facing=west,lit=true]");
-    b.set([6, 1, 0], FLOOR);
-    b.set([5, 2, 0], FLOOR);
-    b.set([1, -2, 0], "sticky_piston[facing=up,extended=true]"); // P_M
-    b.set([1, -1, 0], "piston_head[facing=up,type=sticky,short=false]");
-    b.set([1, -2, 1], "redstone_wall_torch[facing=north,lit=true]"); // on (1,-2,2), under the X line's end
-    b.set([0, 4, 0], "redstone_wall_torch[facing=east,lit=true]"); // A torch on (-1,4,0)
-    b.set([-1, 4, 0], FLOOR);
-    b.d
-}
-
-/// v2u: v2's top (A, B, P_T and their control) over a new bottom with no torches and no
-/// sides line. The side groups are PUSHED out from under the walkway by two sticky pistons that
-/// share one obsidian block X (powered from the lever net); the bottom-middle rides a honey
-/// carrier (honey never sticks to the side slime) pulled by P_M, which a redstone block riding
-/// the right group keeps extended while the door is closed.
-pub fn v2u() -> Design {
-    let mut b = Builder::default();
-    b.d.name = "piston-door-3x3-v2u".into();
+/// rb1 ("movable power", track redstone-block): v2's UP dance with power carried by moving
+/// blocks. Both side structures are PUSHED open (pistons off at rest, no torches). One redstone
+/// block RB_A, shuttled by the lever-driven sticky piston Q, powers A at rest and, moved, powers
+/// P_R: A lifts T first, then P_R's structure drags T out of the column (its top slime touches T),
+/// so P_T is gone. On close Q pulls RB_A back: P_R retracts (pushes T back) and A's extension
+/// waits for T to land. BM is powered by a redstone block riding the left structure.
+pub fn rb1_mech(b: &mut Builder) {
     let stone = "minecraft:stone";
     for y in 0..3 {
         for x in 0..3 {
             b.set([x, y, 0], stone);
         }
+    }
+    // Left structure S1, pushed west by P_L (top), carries RB_BM.
+    for y in -2..=4 {
         b.set([-1, y, 0], "slime_block");
+    }
+    b.set([0, -2, 0], "redstone_block"); // RB_BM: powers BM at rest
+    b.set([0, 4, 0], "sticky_piston[facing=west,extended=false]"); // P_L
+    // Right structure S2, pushed east by P_R; (2,3,0) drags T.
+    for y in 0..=4 {
         b.set([3, y, 0], "slime_block");
     }
-    // Bottom: pushers, X, honey M carrier, P_M, R_M.
-    b.set([-1, -1, 0], "slime_block");
-    b.set([-1, -1, 1], "slime_block");
-    b.set([0, -1, 1], "sticky_piston[facing=west,extended=false]");
-    b.set([1, -1, 1], "obsidian"); // X
-    b.set([2, -1, 1], "sticky_piston[facing=east,extended=false]");
-    for p in [[3, -1, 0], [3, -2, 0], [3, -3, 0], [3, -1, 1]] {
-        b.set(p, "slime_block");
-    }
-    b.set([2, -3, 0], "redstone_block"); // R_M
-    b.set([1, -1, 0], "honey_block");
-    b.set([1, -3, 0], "sticky_piston[facing=up,extended=true]"); // P_M
-    b.set([1, -2, 0], "piston_head[facing=up,type=sticky,short=false]");
-    // Top (v2).
+    b.set([2, 3, 0], "slime_block");
+    b.set([2, 4, 0], "sticky_piston[facing=east,extended=false]"); // P_R
+    b.set([1, -2, 0], "sticky_piston[facing=up,extended=true]"); // BM
+    b.set([1, -1, 0], "piston_head[facing=up,type=sticky,short=false]");
     b.set([1, 4, 0], "sticky_piston[facing=down,extended=true]"); // A
     b.set([1, 3, 0], "piston_head[facing=down,type=sticky,short=false]");
     b.set([1, 5, 0], "sticky_piston[facing=down,extended=false]"); // B
-    b.set([1, 3, 2], "sticky_piston[facing=north,extended=true]"); // P_T
-    b.set([1, 3, 1], "piston_head[facing=north,type=sticky,short=false]");
+    b.set([0, 4, -1], "sticky_piston[facing=east,extended=false]"); // Q
+    b.set([1, 4, -1], "redstone_block"); // RB_A
     b.port("door", [0, 0, 0]);
-    b.set([5, 5, 0], FLOOR);
-    b.set([5, 6, 0], "lever[face=floor,facing=west,powered=false]");
-    b.port("lever", [5, 6, 0]);
-    b.repeater([4, 6, 0], "west", 1); // W
-    b.set([3, 6, 0], "observer[facing=east,powered=false]"); // O2
-    b.set([2, 5, 0], "observer[facing=up,powered=false]"); // O
-    b.set([2, 6, 0], "repeater[facing=east,delay=4]"); // R_B
-    b.dust([5, 4, 0]); // L net
-    b.set([2, 3, 0], stone);
-    b.set([2, 4, 0], "redstone_wire[north=side,east=side,south=side,west=side]"); // X dust
-    b.dust([6, 4, 0]);
-    // A steady power: torch (0,4,0) on (-1,4,0), lit = NOR(L, L_late).
-    b.set([0, 4, 0], "redstone_wall_torch[facing=east,lit=true]");
-    b.set([-1, 4, 0], FLOOR);
-    b.repeater([-1, 4, -1], "south", 1); // A early (input routed from the L net)
-    // P_T power: torch (2,3,2) on (3,3,2), lit = NOR(L_6, L_28).
-    b.set([2, 3, 2], "redstone_wall_torch[facing=west,lit=true]");
-    b.dust([3, 4, 2]);
-    b.dust([6, 4, 1]);
-    b.dust([6, 4, 2]);
-    b.dust([5, 4, 2]);
-    b.repeater([4, 4, 2], "west", 4);
-    b.dust([7, 4, 2]);
-    b.dust([7, 4, 3]);
-    b.repeater([6, 4, 3], "west", 4);
-    b.repeater([5, 4, 3], "west", 4);
-    b.repeater([4, 4, 3], "west", 4);
-    b.dust([3, 4, 3]);
-    b.repeater([2, 4, 3], "west", 1);
-    b.repeater([1, 4, 3], "west", 1);
-    for (p, s) in [
-        ([0, 3, 3], FLOOR), ([0, 4, 3], "redstone_wire"), ([-1, 2, 3], FLOOR), ([-1, 3, 3], "redstone_wire"),
-        ([-1, 3, 2], FLOOR), ([-1, 4, 2], "redstone_wire"),
-    ] {
-        b.set(p, s);
+    // A pulses: R_B QC-powers B through (1,6,0); O watches R_B and lights X (both A heights).
+    b.set([1, 3, 1], FLOOR);
+    b.set([1, 4, 1], "redstone_wire[north=side,east=side,south=side,west=side]"); // X
+    b.set([1, 5, 1], "observer[facing=up]"); // O
+    b.set([1, 6, 1], "repeater[facing=south,delay=4]"); // R_B (input from (1,6,2))
+    b.set([1, 6, 2], "observer[facing=south]"); // O2 watches (1,6,3)
+}
+
+
+/// rb1 skeleton plus the first lever dust, for routing.
+pub fn rb1_route_base() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-rb1".into();
+    rb1_mech(&mut b);
+    b.set([0, 5, -1], FLOOR);
+    b.set([0, 6, -1], "lever[face=floor,facing=west,powered=false]");
+    b.port("lever", [0, 6, -1]);
+    for z in [-2, -3, -4] {
+        b.set([0, 4, z], FLOOR);
+        b.set([0, 5, z], "repeater[facing=north,delay=4]");
     }
-    b.repeater([-1, 4, 1], "north", 2);
+    b.dust([-1, 6, -1]);
+    b.d
+}
+pub fn rb1() -> Design {
+    let mut d = rb1_route_base();
+    let mut b = Builder { d: std::mem::take(&mut d) };
+    // router: lever net -> late chain input
+    b.set([-2, 5, -1], "minecraft:smooth_stone");
+    b.set([-2, 6, -1], "minecraft:redstone_wire");
+    b.set([-2, 6, 0], "minecraft:smooth_stone");
+    b.set([-2, 7, 0], "minecraft:redstone_wire");
+    b.set([-2, 5, 1], "minecraft:smooth_stone");
+    b.set([-2, 6, 1], "minecraft:redstone_wire");
+    b.set([-2, 4, 2], "minecraft:smooth_stone");
+    b.set([-2, 5, 2], "minecraft:redstone_wire");
+    b.set([-2, 3, 3], "minecraft:smooth_stone");
+    b.set([-2, 4, 3], "minecraft:redstone_wire");
+    b.set([-1, 3, 3], "minecraft:smooth_stone");
+    b.set([-1, 4, 3], "minecraft:redstone_wire");
+    b.set([0, 4, 3], "minecraft:smooth_stone");
+    b.set([0, 5, 3], "minecraft:redstone_wire");
+    b.set([1, 5, 3], "minecraft:smooth_stone");
+    b.set([1, 6, 3], "minecraft:redstone_wire");
+    b.set([-2, 5, -1], "minecraft:smooth_stone");
+    b.set([-2, 6, -1], "minecraft:redstone_wire");
+    b.set([-2, 4, -2], "minecraft:smooth_stone");
+    b.set([-2, 5, -2], "minecraft:redstone_wire");
+    b.set([-2, 3, -3], "minecraft:smooth_stone");
+    b.set([-2, 4, -3], "minecraft:redstone_wire");
+    b.set([-2, 2, -4], "minecraft:smooth_stone");
+    b.set([-2, 3, -4], "minecraft:redstone_wire");
+    b.set([-2, 2, -5], "minecraft:smooth_stone");
+    b.set([-2, 3, -5], "minecraft:redstone_wire");
+    b.set([-1, 3, -5], "minecraft:smooth_stone");
+    b.set([-1, 4, -5], "minecraft:redstone_wire");
+    b.set([0, 4, -5], "minecraft:smooth_stone");
+    b.set([0, 5, -5], "minecraft:redstone_wire");
+    b.d
+}
+
+/// rb2: rb1 with short nets. O2 sits next to the lever (watching it) and feeds R_B through three
+/// dust; Q's late hold is a 3-repeater chain into Q from the north, fed by dust from the lever.
+pub fn rb2() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-rb2".into();
+    rb1_mech(&mut b);
+    b.d.blocks.remove(&[1, 6, 2]); // O2 moves next to the lever
+    b.set([0, 5, -1], FLOOR); // X_L
+    b.set([0, 6, -1], "lever[face=floor,facing=west,powered=false]");
+    b.port("lever", [0, 6, -1]);
+    // B trigger: O2 watches the lever, its back lights (0,6,1) -> (0,6,2) -> (1,6,2) -> R_B.
+    b.set([0, 6, 0], "observer[facing=north]");
+    b.dust([0, 6, 1]);
+    b.dust([0, 6, 2]);
+    b.dust([1, 6, 2]);
+    // Q late hold: 3 x 4-tick repeaters into Q from the north, fed from the lever by dust.
+    for z in [-2, -3, -4] {
+        b.set([0, 3, z], FLOOR);
+        b.set([0, 4, z], "repeater[facing=north,delay=4]");
+    }
+    b.dust([0, 6, -2]);
+    b.dust([0, 6, -3]);
+    b.dust([0, 6, -4]);
+    b.dust([0, 5, -5]);
+    b.d
+}
+
+/// rb3: rb2 with BM quasi-powered by RB_BM at (0,-1,0) (next to BM's head; the head forwards
+/// neighbor updates to BM), so the left backbone stops at y=-1.
+pub fn rb3() -> Design {
+    let mut d = rb2();
+    d.name = "piston-door-3x3-rb3".into();
+    d.blocks.remove(&[-1, -2, 0]);
+    d.blocks.remove(&[0, -2, 0]);
+    d.blocks.insert([0, -1, 0], "minecraft:redstone_block".into());
+    d
+}
+
+/// rb4 test bench: rb2 without the late chain; Q's hold is a silent quasi source H (a repeater
+/// into (-1,5,-1), next to Q's quasi cell (0,5,-1)). Driven by `rb4-drive.txt`.
+pub fn rb4_bench() -> Design {
+    let mut d = rb2();
+    d.name = "piston-door-3x3-rb4-bench".into();
+    for z in [-2, -3, -4] {
+        d.blocks.remove(&[0, 3, z]);
+        d.blocks.remove(&[0, 4, z]);
+        d.blocks.remove(&[0, 6, z]);
+        d.blocks.remove(&[0, 5, z]);
+    }
+    d.blocks.remove(&[0, 5, -5]);
+    d.blocks.remove(&[0, 4, -5]);
+    let mut b = Builder { d };
+    b.set([-1, 5, -1], FLOOR); // H block
+    b.repeater([-1, 5, -2], "south", 1); // H repeater: input from (-1,5,-3)
+    b.d
+}
+
+/// rb5: rb2 with a silent hold instead of the 24gt late chain. Q keeps extended after the lever
+/// goes off because H (-1,5,-1), next to Q's quasi cell, is powered by L delayed 14gt; H turns off
+/// without updating Q, so Q stays extended (BUD) until A, lifted back by B at the end of the
+/// closing dance, lands next to Q's head (the head forwards the update to Q).
+pub fn rb5() -> Design {
+    let mut d = rb4_bench();
+    d.name = "piston-door-3x3-rb5".into();
+    d.blocks.remove(&[-1, 4, -2]);
+    d.blocks.remove(&[-1, 5, -2]);
+    let mut b = Builder { d };
+    b.repeater([0, 6, -2], "north", 4); // rep1: input from the lever
+    b.dust([0, 6, -3]);
+    b.dust([-1, 5, -3]);
+    b.repeater([-1, 5, -2], "south", 4); // rep2 into H
+    b.d
+}
+
+/// rb6: rb5 with a 7-block silent hold and mechanics' 5-block O2 -> R_B link.
+/// Hold: lever -> repeater (-1,6,-1) (its floor is H) -> block (-2,6,-1) -> dust (-3,6,-1) ->
+/// its floor powers repeater (-2,5,-1) -> H (-1,5,-1), next to Q's quasi cell. The repeater's
+/// floor (-2,4,-1) touches the open left backbone: glazed terracotta, which slime never drags.
+/// O2 link (from mechanics' 51): O2 strongly powers (0,6,1), which lights the cross dust (0,6,2),
+/// which strongly powers (1,6,2) behind R_B.
+pub fn rb6() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-rb6".into();
+    rb1_mech(&mut b);
+    b.d.blocks.remove(&[1, 6, 2]);
+    b.set([0, 5, -1], FLOOR); // X_L
+    b.set([0, 6, -1], "lever[face=floor,facing=west,powered=false]");
+    b.port("lever", [0, 6, -1]);
+    b.set([0, 6, 0], "observer[facing=north]"); // O2 watches the lever
+    b.set([0, 6, 1], FLOOR);
+    b.set([0, 5, 2], FLOOR);
+    b.set([0, 6, 2], "redstone_wire[north=side,east=side,south=side,west=side]");
+    b.set([1, 6, 2], FLOOR);
+    // silent hold
+    b.repeater([-1, 6, -1], "west", 4); // floor (-1,5,-1) = H
+    b.set([-2, 6, -1], FLOOR);
+    b.dust([-3, 6, -1]);
+    b.set([-2, 5, -1], "repeater[facing=west,delay=4]");
+    b.set([-2, 4, -1], "white_glazed_terracotta[facing=north]");
     b.d
 }

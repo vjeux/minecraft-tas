@@ -1,0 +1,20 @@
+name: gadget-pulse-toggle
+# Pulse-toggled sticky piston (logic-min): a RETRACTED sticky piston with its block two cells
+# ahead, fired by a dual-edge observer, needs no steady power: the lever-on pulse pulls the
+# block one cell toward the piston (the block 2 ahead is still, so the retract is a normal
+# sticky pull) and the lever-off pulse pushes it back and spits it (the block is still moving
+# when the 2 gt pulse ends). This is how every door piston but P_T works in logic-min's v2
+# door: no torch, no steady line, any pulse source works (S pistons in v2 accept the pulse at
+# any time). Lever L on stone, observer O facing west (watches L), sticky piston P facing
+# east, air, stone K.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:stone
+layer 0:
+  S
+layer 1:
+  LOP.K
