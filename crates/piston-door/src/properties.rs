@@ -191,6 +191,8 @@ fn track(start: &[Pos], before: &Region, frames: &[Frame], door_state: &str) -> 
     let mut cur: Vec<Option<Pos>> = start.iter().map(|p| Some(*p)).collect();
     let mut prev_keys: HashSet<(Pos, String, bool)> = HashSet::new();
     let mut prev_region = before;
+    // Blocks of the door's type that are not door blocks (at rest, outside the start cells).
+    let static_same: HashSet<Pos> = before.iter().filter(|(q, s)| *s == door_state && !start.contains(q)).map(|(q, _)| q).collect();
     for (f, mv) in frames {
         let mut moves: HashMap<Pos, Pos> = HashMap::new();
         let mut keys = HashSet::new();
@@ -244,6 +246,30 @@ fn track(start: &[Pos], before: &Region, frames: &[Frame], door_state: &str) -> 
                     cur[i] = None;
                     t.lost += 1;
                 }
+            }
+        }
+        // A door block that fell (a falling block entity) or vanished comes back when it lands:
+        // match lost blocks to unclaimed door-type blocks (not the design's other blocks of that
+        // type), nearest first.
+        if cur.iter().any(|c| c.is_none()) {
+            let claimed: HashSet<Pos> = cur.iter().flatten().copied().collect();
+            let mut cands: Vec<Pos> = f
+                .iter()
+                .filter(|(q, _)| holds(f, &moving_at, *q, door_state) && !claimed.contains(q) && !static_same.contains(q))
+                .map(|(q, _)| q)
+                .collect();
+            for i in 0..n {
+                if cur[i].is_some() || cands.is_empty() {
+                    continue;
+                }
+                let last = *t.paths[i].last().unwrap();
+                let dist = |q: &Pos| (0..3).map(|k| (q[k] - last[k]).abs()).sum::<i32>();
+                let k = (0..cands.len()).min_by_key(|k| dist(&cands[*k])).unwrap();
+                let q = cands.remove(k);
+                cur[i] = Some(q);
+                t.moves[i] += 1;
+                t.paths[i].push(q);
+                t.lost -= 1;
             }
         }
         t.moving.push(cur.iter().map(|c| c.is_some_and(|p| f.get(p).is_some_and(is_moving))).collect());
@@ -509,6 +535,20 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     if let Some(w) = s.why {
         p.insert("seamless_why".into(), w);
     }
+    // Every blocker, per check: closed side z-/z+ and the open state.
+    let list = |v: &[&(Pos, String)]| -> String {
+        if v.is_empty() {
+            return "-".into();
+        }
+        let mut s: Vec<String> = v.iter().take(8).map(|(q, st)| format!("{}{:?}", short(st), q)).collect();
+        if v.len() > 8 {
+            s.push(format!("+{}", v.len() - 8));
+        }
+        s.join(" ")
+    };
+    p.insert(format!("vis_closed_{}", geo.side(-1)), list(&quart(-1)));
+    p.insert(format!("vis_closed_{}", geo.side(1)), list(&quart(1)));
+    p.insert("vis_open".into(), list(&open_vis));
 
     // DENTLESS / MINOR DENTS ONLY (2.1.4.2-3), stable states.
     let mut dent = 0u8; // 0 dentless, 1 minor dents only, 2 dents, 3 ineligible
@@ -521,6 +561,10 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
                 continue;
             }
             let flags = f.flags_at(q).unwrap_or_default();
+            // Closed, the door plane's S ring touches T only through door blocks: unseen.
+            if name == "closed" && geo.in_s(q) && geo.depth(q) == 0 {
+                continue;
+            }
             let level = if geo.in_t(q) {
                 if flags.collides {
                     3
@@ -1322,6 +1366,110 @@ pub const COLUMNS: &[(&str, &str)] = &[
     ("volume", "volume"),
     ("t_player", "player o/ov/c/cv"),
     ("t_repeater", "repeater o/ov/c/cv"),
+];
+
+/// Per property: how many designs have it, and the best one by the catalogue's volume and by our
+/// block count (ties broken by the other). Properties no design has are the open targets.
+pub fn summary(rows: &[(String, usize, &'static str, Props)]) -> String {
+    type Test = Box<dyn Fn(&Props) -> bool>;
+    let has = |k: &'static str, pat: &'static str| -> Test { Box::new(move |p: &Props| p.get(k).is_some_and(|v| v.contains(pat))) };
+    let eq = |k: &'static str, val: &'static str| -> Test { Box::new(move |p: &Props| p.get(k).is_some_and(|v| v == val)) };
+    let starts = |k: &'static str, pat: &'static str| -> Test { Box::new(move |p: &Props| p.get(k).is_some_and(|v| v.starts_with(pat))) };
+    let comp = |code: &'static str| -> Test { Box::new(move |p: &Props| p.get("components").is_some_and(|v| v.split(' ').any(|c| c == code))) };
+    let seam = |tiers: &'static [&'static str]| -> Test { Box::new(move |p: &Props| p.get("seamless").is_some_and(|v| tiers.iter().any(|t| v.starts_with(t)))) };
+    let props: Vec<(&str, Test)> = vec![
+        ("QUART SEAMLESS or better", seam(&["QUART", "SEMI", "FULL", "SUPER"])),
+        ("SEMI SEAMLESS or better", seam(&["SEMI", "FULL", "SUPER"])),
+        ("FULL SEAMLESS or better", seam(&["FULL", "SUPER"])),
+        ("SUPER SEAMLESS", seam(&["SUPER"])),
+        ("hallway-compatible", starts("hallway", "yes")),
+        ("DENTLESS", eq("dents", "dentless")),
+        ("MINOR DENTS ONLY or better", Box::new(|p: &Props| p.get("dents").is_some_and(|v| v == "dentless" || v == "minor"))),
+        ("FULL TRAPDOOR (wall)", has("flush_full", "trapdoor")),
+        ("FULL FLUSH", has("flush_full", "flush")),
+        ("FULL DELUXE", has("flush_full", "deluxe")),
+        ("SEMI FLUSH", has("flush_semi", "flush")),
+        ("SEMI DELUXE", has("flush_semi", "deluxe")),
+        ("FULL FLOOR HIPSTER", has("hipster", "FULL floor")),
+        ("SEMI FLOOR HIPSTER", has("hipster", "floor")),
+        ("FULL CEILING HIPSTER", has("hipster", "FULL ceiling")),
+        ("SEMI CEILING HIPSTER", has("hipster", "ceiling")),
+        ("FULL WALL HIPSTER", has("hipster", "FULL wall")),
+        ("SEMI WALL HIPSTER", has("hipster", "wall")),
+        ("SYMMETRICAL (1 axis)", Box::new(|p: &Props| p.get("sym").is_some_and(|v| v != "-"))),
+        ("FULL SYMMETRICAL (4 axes)", Box::new(|p: &Props| p.get("sym").is_some_and(|v| v.split(' ').count() == 4))),
+        ("SEMI SYNC or better", Box::new(|p: &Props| p.get("sync").is_some_and(|v| v != "-"))),
+        ("FULL SYNC or better", Box::new(|p: &Props| p.get("sync").is_some_and(|v| v == "FULL" || v == "SUPER"))),
+        ("SUPER SYNC", eq("sync", "SUPER")),
+        ("CLEAN", eq("clean", "yes")),
+        ("NO SLIME", comp("S")),
+        ("NO HONEY", comp("H")),
+        ("NO GRAVITY BLOCKS", comp("G")),
+        ("NO STICKY PISTONS (no sticky surfaces)", comp("K")),
+        ("NO OBSERVERS", comp("O")),
+        ("NO NOTE BLOCKS", comp("N")),
+        ("NO ENTITIES", comp("E")),
+        ("NO FLYING MACHINES", comp("F")),
+        ("TORCH AND DUST ONLY", comp("TD")),
+        ("REDSTONE BLOCK ONLY", comp("RB")),
+        ("ZOMBA-", comp("ZA")),
+        ("ZOMBI-", comp("ZI")),
+        ("CONTAINED", starts("contained", "yes")),
+        ("WEATHERPROOF", starts("weatherproof", "yes")),
+        ("NOT DIRECTIONAL", eq("dir", "yes")),
+        ("UP-TO-DATE (vanilla PASS)", eq("vanilla", "PASS")),
+        ("lever on the surface", eq("lever_surface", "yes")),
+        ("repeater input works", starts("repeater_input", "yes")),
+        ("player steps cannot break it", starts("steps", "yes")),
+    ];
+    let vol = |p: &Props| p.get("volume").and_then(|v| v.parse::<i64>().ok()).unwrap_or(i64::MAX);
+    let mut out = String::from("| property | designs | best by volume (volume, blocks) | best by blocks (blocks, volume) |\n|---|---|---|---|\n");
+    let mut open = Vec::new();
+    for (name, test) in &props {
+        let with: Vec<&(String, usize, &'static str, Props)> = rows.iter().filter(|r| test(&r.3)).collect();
+        if with.is_empty() {
+            let known = rows.iter().any(|r| {
+                let key = match *name {
+                    "hallway-compatible" => "hallway",
+                    "CONTAINED" => "contained",
+                    "WEATHERPROOF" => "weatherproof",
+                    "repeater input works" => "repeater_input",
+                    "player steps cannot break it" => "steps",
+                    _ => "seamless",
+                };
+                r.3.contains_key(key)
+            });
+            out.push_str(&format!("| {name} | {} | - | - |\n", if known { "0" } else { "not run" }));
+            if known {
+                open.push(*name);
+            }
+            continue;
+        }
+        let bv = with.iter().min_by_key(|r| (vol(&r.3), r.1, r.0.clone())).unwrap();
+        let bb = with.iter().min_by_key(|r| (r.1, vol(&r.3), r.0.clone())).unwrap();
+        let v = |r: &&&(String, usize, &'static str, Props)| r.3.get("volume").cloned().unwrap_or("?".into());
+        out.push_str(&format!("| {name} | {} | {} ({}, {}) | {} ({}, {}) |\n", with.len(), bv.0, v(&bv), bv.1, bb.0, bb.1, v(&bb)));
+    }
+    out.push_str(&format!("\nOpen targets (no working design has them yet): {}.\n", if open.is_empty() { "none".to_string() } else { open.join(", ") }));
+    out
+}
+
+/// The board leaders named by the coordinator (display names).
+pub const LEADERS: &[&str] = &[
+    "sf-holdA-b38-38b",
+    "fc2-40b",
+    "lamp-sweep-flat43-43b",
+    "piston-door-3x3-fresh-b-mp8-43b",
+    "pareto-mid-mp8-leafU-43b",
+    "pareto-mid-mp8-lampU-44b",
+    "pareto-mid-mp7-leafC-46b",
+    "exotic-pm45-trap-45b",
+    "sculk-ew-s4r-36b",
+    "gravity2-g33-33b",
+    "tick-door-open4-218b",
+    "fast-clean-c1r-108b",
+    "fast-clean-s4c-93b",
+    "b38h-obs8b-45b",
 ];
 
 pub fn render(rows: &[(String, usize, &'static str, Props)]) -> String {
