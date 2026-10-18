@@ -109,3 +109,29 @@ layout. A cheap t0 pulse (a cut of a lever-fed line at t1..t8 on open) would giv
   shrink after a re-route.
 * `door minimize --objective open --slack 6 --moves all` on mp8: nothing. `--max-open 14
   --max-close 14` on mp7-repU: nothing (46 is a local minimum at 14/14).
+* `door minimize --moves all --plateau` at their own bounds: mp8-lampU (14/16) and mp7-leafC (15/13)
+  are local minima too.
+* fast-clean's compliant 93 (12/7, `fast-clean-93.txt`, copied from origin/explore/fast-clean
+  BEST.txt) at relaxed speeds, where any smaller door would be a frontier point: `door minimize
+  --moves all` at `--max-open 13 --max-close 20` and at `--max-open 21 --max-close 12` (1.7M
+  candidates each, none even passes the 2-position screen) and `door resynth --max-open 13
+  --max-close 12 --max-size 3` (full palette): nothing. Its wiring has no slack even 1 tick slower
+  on open or 5 slower on close.
+
+## Next ideas
+* fc2 family, open 18..20 with close 9 (see the fc2 section): build B's window [8,16) as the OR of
+  two delay-3 repeaters fed at t2 (lever observer) and t4 (observer on O_a), feeding a dust that O
+  watches; estimated +4..8 blocks, so (45..49, 20, 9), a frontier point at any of those counts.
+* mp7 with F asymmetric (on at t8 when opening, off at t6 when closing): measured with F driven by
+  an ideal input (`mp7-F.sched` on `mp7-repU-idealF.txt` / `mp7-leafC-F.sched`: R_F and its stone
+  replaced by a scheduled redstone block): F off at t6 on close gives repU 14 / 12 and leafC 15 / 11,
+  off at t7 gives 14 / 13 and 15 / 12; F cannot move before t8 on open, nor go off before t6 on
+  close. All of these are frontier points up to 106 blocks (14 / 13 even pushes both 46s off).
+  t6 is a delta of -2 against the open edge, so it is in reach of the toolbox: a redstone block
+  carried by a structure that moves at tick m powers F at m+3 when it lands and stops at m+1 when
+  it leaves (m = 5: nothing moves then), or a comparator in subtract mode in front of F (back =
+  lever + delay 3, side = a torch on the lever's block + delay-1 repeater), or a sticky piston on
+  lever + delay 3 that shuttles F's power block. mp7's layout leaves no room next to F for the last
+  two without moving the lever's control to the other side (z = +1).
+* mp family open 13: a 3 gt pump pulse [7,10) and U at t11 (rest-side leaves + one observer on the
+  right structure's flag, if a cell for that observer can be found next to U).
