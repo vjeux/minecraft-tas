@@ -1,0 +1,114 @@
+name: tick-door-o4b-ideal
+port door: 0 0 0
+port lever: -4 0 2
+origin: -4 0 -2
+palette:
+  A minecraft:piston_head[facing=down,short=false,type=normal]
+  B minecraft:piston_head[facing=down,short=false,type=sticky]
+  C minecraft:piston_head[facing=east,short=false,type=sticky]
+  D minecraft:piston_head[facing=north,short=false,type=normal]
+  E minecraft:piston_head[facing=up,short=false,type=sticky]
+  F minecraft:piston_head[facing=west,short=false,type=sticky]
+  G minecraft:sticky_piston[extended=false,facing=north]
+  H minecraft:sticky_piston[extended=false,facing=south]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=true,facing=down]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  M minecraft:sticky_piston[extended=true,facing=east]
+  N minecraft:sticky_piston[extended=true,facing=up]
+  O minecraft:sticky_piston[extended=true,facing=west]
+  P minecraft:piston[extended=true,facing=down]
+  Q minecraft:stone
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  p minecraft:piston[extended=true,facing=north]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  .
+  .
+  .....RR
+  .
+  .
+  .
+  .
+layer -2:
+  .
+  .
+  .....NN
+  .
+  .
+  .
+  .
+layer -1:
+  .
+  .
+  .....EE
+  .
+  Q
+  .
+  .
+layer 0:
+  .
+  .
+  .RMCQQQ.R
+  .
+  L
+  .
+  .
+layer 1:
+  .
+  .
+  .RMCQQQFO
+  .
+  .
+  .
+  .
+layer 2:
+  .......H
+  .
+  .RMCQQQJJ
+  .
+  .
+  .
+  .
+layer 3:
+  .
+  .....I
+  ...s.SBHsR
+  .......R
+  .......D
+  .......p
+  ......sR
+layer 4:
+  .
+  .....R
+  .....SK
+  ......R
+  .
+  .
+  .
+layer 5:
+  .
+  .....A
+  .....G
+  ......S
+  .
+  .
+  .
+layer 6:
+  .
+  .....P
+  .
+  .
+  .
+  .
+  .
+layer 7:
+  .
+  .....R
+  .
+  .
+  .
+  .
+  .
