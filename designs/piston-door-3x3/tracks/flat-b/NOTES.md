@@ -60,8 +60,23 @@ y\x  -3 -2 -1  0  1  2  3  4
 
 ## Searches run on v3..v7 (all at 32 positions)
 `door minimize --moves all --plateau` (also `--plateau-pairs --walk 60`), `door regrow --size 2|3`,
-`regrow --any`, `door resynth --max-size 5|6` (found v6 -> v7), `door route2 --max-rip 6|7
---pairs`: nothing below 44.
+`regrow --any`, `door resynth --max-size 5|6` (found v6 -> v7), `door resynth --max-size 6
+--palette block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target` (lamp-sweep's wide palette, after
+it took the flat board to 43 with a lamp in track flat's pist19r design), `door route2 --max-rip
+6|7 --pairs`: nothing below 44.
+
+## Why 44 is tight for this layout
+- a3 = R_B's input + 18 gt, and R_B's input is at least a1 + 2 >= t4 (a1 needs its own lever
+  watcher, R_B's input sits across the door): a3 >= t22. T's puller must fire at or after a3, and
+  in v7 the only path to it is the chain lever -> ... -> left stack -> TL watcher -> top: 11
+  observers = 22 gt, exactly a3, and each hop also does geometry (a1, pm, the walk to the left
+  stack, the walk to (1,5)). A repeater (8 gt for 2 blocks) never fits where the chain also has
+  to turn.
+- The other 14 blocks each do one job: lever, a1 stone, R_B + floor + 3-block input cross, O, X,
+  stack stone + dust, top stone, TR watcher + stone.
+- Going the other way round (chain through the cross and up the right side, right 3-stack
+  mid-chain, left pair from TL's watcher) costs one more: then a1's and pm's observers are off
+  the chain.
 
 ## What did not work
 - v1: three top pullers fed by (1,5) with the chain arriving along y=5: the observer (-1,5)
