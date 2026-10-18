@@ -6,16 +6,22 @@ Rendered by the real Minecraft client (`mctas door video-all`).
 |---|---|---|---|
 | 42 | sculk | [st43-bmobs-42b](st43-bmobs-42b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.mp4) |
 | 43 | sculk | [search-tool-from-top-control-BEST-43b](search-tool-from-top-control-BEST-43b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-top-control-BEST-43b.mp4) |
+| 46 | gravity | [search-tool-from-HEAD-gravity-g4-51b-46b](search-tool-from-HEAD-gravity-g4-51b-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g4-51b-46b.mp4) |
+| 46 | gravity | [search-tool-from-HEAD-gravity-g6-49b-46b](search-tool-from-HEAD-gravity-g6-49b-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g6-49b-46b.mp4) |
+| 46 | sculk | [search-tool-from-HEAD-m51-sculk-48b-46b](search-tool-from-HEAD-m51-sculk-48b-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-m51-sculk-48b-46b.mp4) |
 | 46 | sculk | [search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-46b](search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-46b.mp4) |
 | 46 | gravity | [search-tool-from-fresh-b-gravity-g6-49b-46b](search-tool-from-fresh-b-gravity-g6-49b-46b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-fresh-b-gravity-g6-49b-46b.mp4) |
 | 47 | solid | [m48-bmobs-47b](m48-bmobs-47b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m48-bmobs-47b.mp4) |
 | 47 | solid | [rb6-bmobs-47b](rb6-bmobs-47b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/rb6-bmobs-47b.mp4) |
 | 47 | sculk | [search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-47b](search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-47b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-47b.mp4) |
 | 47 | sculk | [search-tool-from-top-control-BEST-47b](search-tool-from-top-control-BEST-47b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-top-control-BEST-47b.mp4) |
+| 48 | gravity | [gravity-g8-48b](gravity-g8-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g8-48b.mp4) |
 | 48 | sculk | [m51-sculk-48b](m51-sculk-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/m51-sculk-48b.mp4) |
 | 48 | solid | [mechanics-rb5-hold-48b](mechanics-rb5-hold-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-rb5-hold-48b.mp4) |
 | 48 | sculk | [piston-door-3x3-rb2-sculk-48b](piston-door-3x3-rb2-sculk-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-rb2-sculk-48b.mp4) |
 | 48 | solid | [piston-door-3x3-rb6-48b](piston-door-3x3-rb6-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-rb6-48b.mp4) |
+| 48 | gravity | [search-tool-from-HEAD-gravity-g4-51b-48b](search-tool-from-HEAD-gravity-g4-51b-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g4-51b-48b.mp4) |
+| 48 | gravity | [search-tool-from-HEAD-gravity-g6-49b-48b](search-tool-from-HEAD-gravity-g6-49b-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g6-49b-48b.mp4) |
 | 49 | gravity | [gravity-g6-49b](gravity-g6-49b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g6-49b.mp4) |
 | 49 | gravity | [gravity-g7-49b](gravity-g7-49b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g7-49b.mp4) |
 | 49 | solid | [logic-min-v2-49b](logic-min-v2-49b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/logic-min-v2-49b.mp4) |
@@ -52,6 +58,7 @@ Rendered by the real Minecraft client (`mctas door video-all`).
 | 62 | gravity | [gravity-sf4-62b](gravity-sf4-62b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-sf4-62b.mp4) |
 | 62 | solid | [piston-door-3x3-obs-s5-62b](piston-door-3x3-obs-s5-62b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-obs-s5-62b.mp4) |
 | 64 | gravity | [gravity-sf3-64b](gravity-sf3-64b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-sf3-64b.mp4) |
+| 64 | gravity | [gravity-sf3w-64b](gravity-sf3w-64b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-sf3w-64b.mp4) |
 | 65 | solid | [piston-door-3x3-obs-s4-65b](piston-door-3x3-obs-s4-65b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-obs-s4-65b.mp4) |
 | 66 | gravity | [gravity-sf1-66b](gravity-sf1-66b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-sf1-66b.mp4) |
 | 67 | gravity | [gravity-g1-67b](gravity-g1-67b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g1-67b.mp4) |

@@ -3,6 +3,7 @@
 05a8095f01a73bf0	ok	24	52	
 09fe3416069fabfe	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:sand; [1, 2, 0] is minecraft:sand; [2, 2, 0] is minecraft:sand; [0, 1, 0] is minecraft:sand; [1, 1, 0] is minecraft:sand; [2, 1, 0] is minecraft:sand; [0, 0, 0] is minecraft:sand; [1, 0, 0] is minecraft:sand; [2, 0, 0] is minecraft:sand
 0e9339dfe83e9fbf	ok	42	30	
+103d2a7e01cc415b	ok	5	19	
 10afec18b6e4cc79	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 1242ad34489553a0	ok	22	29	
 17daf6f7265dde3e	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
@@ -12,6 +13,7 @@
 1bf29bbb21044508	ok	24	36	
 1c48ea3c3677f19d	ok	24	24	
 1f733a3ead188be1	broken	-	-	at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected an unpowered lever
+209375f21de865a2	ok	22	38	
 220c9bbbb12ec626	ok	26	36	
 256c42af5a141915	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 27d1a0f1de3936d0	ok	24	52	
@@ -26,6 +28,7 @@
 3bfc193d3dc668ca	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 3d097017e2e2f26c	ok	24	24	
 402a1c5ba6948f61	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone
+40842a13b5f51d24	ok	22	11	
 41f14f6cfdbd67ee	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:sand; [1, 0, 0] is minecraft:sand
 4247a66fb00e3a6c	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minecraft:stone
 433143b0ad76218a	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:sand; [1, 0, 0] is minecraft:sand
@@ -62,6 +65,7 @@
 7d675a2ecb11fd09	ok	5	11	
 7e6328e71f41b39f	ok	24	36	
 8293f02540a7d4dd	ok	6	11	
+8688c9fd67fda3f4	ok	5	11	
 86b08551b59710b1	ok	24	31	
 871fed3604aa2133	broken	-	-	at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected an unpowered lever
 87dc3a1be1620e43	ok	33	22	
@@ -100,6 +104,7 @@ c04480eae8efbcdc	ok	26	36
 c2d5ac632c20c6b7	ok	6	11	
 c3b16c361ba65e9b	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone
 c4b01906d4407c5d	ok	22	25	
+c96e7ab8eedd3164	ok	5	11	
 ca8fd4377e6da59d	ok	24	34	
 ccebc04d889ddc55	ok	22	25	
 cd73c821ab5001fd	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
@@ -110,11 +115,13 @@ d3db53429f63361a	ok	38	22
 d3e1997c23cfa6f7	ok	24	24	
 d4f0bc1202b62b89	ok	24	52	
 d79add81e019f3ce	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
+d98a4b9ee6149e97	ok	5	19	
 dacf8d619e0a7c53	ok	26	36	
 ddf7c8fb067d775b	ok	5	11	
 e22d291ac5e84b44	ok	22	29	
 e24adbb012043d68	ok	37	32	
 e3f163f1a5a65ade	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:sand; [1, 2, 0] is minecraft:sand; [2, 2, 0] is minecraft:sand; [0, 1, 0] is minecraft:sand; [1, 1, 0] is minecraft:sand; [2, 1, 0] is minecraft:sand; [0, 0, 0] is minecraft:sand; [1, 0, 0] is minecraft:sand; [2, 0, 0] is minecraft:sand
+e54d7384592b11fb	ok	5	11	
 e6296df789305e2b	ok	24	36	
 e6cac7ba0d7161a7	ok	16	17	
 e77f38420a876fb9	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever

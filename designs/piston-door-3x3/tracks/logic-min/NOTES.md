@@ -92,3 +92,27 @@ repeater R1 <= 8, so R1 = 8, q = 4, R_P fed at 2.
 - A layout search for the lever / O_R / O_a / R1 / R_P cluster (the parity argument shows
   where relays are unavoidable; the simulator judges candidates).
 - Apply pulse-driven pistons, QC-through-air firing and the P_T-watching chain to the rb family.
+
+## rb family (rb6-bmobs-47), measured with `door ideal` (rb-ideal-mech.txt + rb-ideal.sched)
+Ideal ticks (event after t ticks = piston acts at rel t+1), one variable at a time:
+- H (left pusher): any time on both edges (h1 0..12, h2 0..30): free; in rb47 it already costs 0
+  (QC from the lever block, closed by A's update at rel 10).
+- P_BM pulse: open 4..12, close 16..30: free.
+- P_R: open p1 3..9 (needs A released >= 3 ticks before), close p2 17..19 or 21..23 only.
+- A: release a1 = 0 (with p1 = 3); re-power a2 >= 18.
+So rb has the same asymmetric requirement as v2's P_T: P_R early on open, at B-off on close.
+rb47 pays for it with F + R (shared with A) + the 7-block hold; the hold must keep F powered
+through A's updates at close rel 10 and 12 (F's head touches A) and release before rel 18, and
+it must stay silent (its output is not F's neighbour) so F retracts on A's landing update.
+Tried / ruled out:
+- Hold with D pointing into the lever's block (6 blocks): D would be Rb's floor (a repeater
+  cannot carry a repeater) -> Rb pops. Every placement of "Rb reads the lever, D points at F's
+  QC cell" collides the same way or needs a longer route.
+- One-repeater hold (lever+8): ends at rel 8, F then retracts on A's rel-10 update.
+- Pulse-toggled P_R / F: needs one pulse per edge, early on open and at B-off on close; every
+  cheap pulse source (lever observer, X observer, B, the centre cell) is symmetric.
+- P_R = R1 OR R_P without a torch: a 2-tick gap on close (R1 falls at 8, R_P rises at 10) and
+  P_R is A's neighbour, so it is updated inside the gap.
+- Bridge to C (O -> block -> dust -> block): C's input cell is never adjacent to a cell an
+  observer of the lever can output into without moving the lever, which feeds F and H.
+No rb variant below 47 found.
