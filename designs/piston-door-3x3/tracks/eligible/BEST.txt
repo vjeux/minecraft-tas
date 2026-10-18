@@ -1,67 +1,40 @@
-name: eligible-b39n
+name: eligible-fl81n
 port door: 0 0 0
-port lever: 0 5 -3
-origin: -2 0 -3
+port lever: 6 4 0
+origin: -3 0 0
 palette:
-  A minecraft:observer[facing=north,powered=false]
-  B minecraft:observer[facing=up,powered=false]
-  C minecraft:observer[facing=west,powered=false]
-  D minecraft:sticky_piston[extended=false,facing=east]
-  E minecraft:sticky_piston[extended=false,facing=south]
-  F minecraft:sticky_piston[extended=false,facing=up]
-  G minecraft:sticky_piston[extended=false,facing=west]
-  H minecraft:stone
-  L minecraft:lever[face=wall,facing=west,powered=false]
-  N minecraft:note_block[instrument=bass,note=0,powered=false]
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  D minecraft:dropper[facing=up,triggered=false]
+  E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
   O minecraft:observer[facing=down,powered=false]
-  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  R minecraft:redstone_lamp[lit=false]
   S minecraft:smooth_stone
-  n minecraft:note_block[instrument=harp,note=0,powered=false]
   o minecraft:observer[facing=east,powered=false]
-  r minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   s minecraft:sticky_piston[extended=false,facing=down]
 layer -2:
-  .
-  .
-  .
-  ...F
+  ..RBG
 layer -1:
-  .
-  .
-  .
-  .BC
+  ..A
 layer 0:
-  .
-  .
-  .
-  D.HHH.G
+  .F.III.H
 layer 1:
-  .
-  .
-  .
-  D.HHH.G
+  SF.III.HS
 layer 2:
-  .
-  .
-  .
-  SoHHHCS
+  AF.III.HC
 layer 3:
-  .
-  ...E
-  ..S.S
-  .
+  DoRS..H.A
 layer 4:
-  ...n
-  ...A
-  ..RSR
-  ..sss
+  ..rrsoooNL
 layer 5:
-  ..LN
-  ...B
-  ...B
-  ...s
+  ...AsOA
 layer 6:
-  ...O
-  ...A
-  ...r
-  .
+  ...rErB
