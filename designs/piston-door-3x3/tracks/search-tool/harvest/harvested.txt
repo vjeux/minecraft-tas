@@ -22,3 +22,10 @@ a63d8a89cbdef07a HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-51b.t
 eb6d596b35627b2c HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-55b.txt 55 -> 55
 a322baaeb6241d98 origin/explore/gravity:designs/piston-door-3x3/tracks/gravity/BEST.txt 45 -> 45
 740b52ca874db0de origin/explore/gravity:designs/piston-door-3x3/tracks/gravity/archive/gravity-g9-46b.txt 46 -> 46
+897bb619fe9b5d39 origin/explore/fresh-c:designs/piston-door-3x3/archive/gravity-g8-48b.txt 48 -> 46
+740b52ca874db0de result of origin/explore/fresh-c:designs/piston-door-3x3/archive/gravity-g8-48b.txt 46
+e4840b7e9b2c94b4 origin/explore/fresh-c:designs/piston-door-3x3/tracks/fresh-c/BEST.txt 40 -> 40
+333565cd5c1524d6 origin/explore/fresh-c:designs/piston-door-3x3/archive/fc1-42b.txt 42 -> 42
+a5101287aad17d79 origin/explore/fresh-b:designs/piston-door-3x3/tracks/fresh-b/BEST.txt 43 -> 43
+26eea6d3b19bbc92 origin/explore/fresh-c:designs/piston-door-3x3/archive/slime-free-combo-48b.txt 48 -> 48
+64d8c9f3f97665df origin/explore/fresh-c:designs/piston-door-3x3/archive/slime-free-bgrow-51b.txt 51 -> 51

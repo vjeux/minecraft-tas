@@ -154,3 +154,21 @@ Why each piece is still there:
 What fails: mp-mech order (pump after F, full slime row) needs A2 after the pump at the top and U at
 the bottom: ~23 control blocks. The reorder (only BM + the bottom-left corner ride the row, pump
 before F) is what lets F's own motion fire A2 with one observer.
+
+## Final report (08:40Z)
+* Best: **43 blocks, solid** (also the fastest solid door: opens 16, closes 16), `BEST.txt` = `mp8.txt`
+  on explore/fresh-b (built by `door gen mp6` + mp7-from-mp6.patch + mp8-from-mp7.patch); verified
+  `--extra-offsets 100 --cycles 5`.
+* Mechanism: mirrored top pump. A pulls TM up, the right structure's carrier drags it east; a pump
+  under a 2-slime row (BM + bottom-left corner) pushes C up into TM's cell and pulls the row back;
+  A pulls C up; U lowers the row (the pump piston rides it). Sides pushed from above (H west, F east).
+  All pistons retracted at rest, same order on both lever edges, fired by "flags" (plain blocks on
+  the moving side structures, watched by observers that touch no slime).
+* Path: top pump pd3 61 -> 53 (observer chains), mirrored pump mp6 46 -> 43.
+* Failed: top pump (pd3) can't go below ~50 (top/bottom/top/bottom signal order); slime-free sf1
+  (a piston's upper-spot source quasi-powers it in its lower spot); mirrored pump in the first order
+  (~48: needs a late A2 at the top). 43 is a local minimum (minimize, plateau, pairs, walk).
+* Gadgets: flag-observer, slime-rider, pump.
+* Next ideas: a U trigger closer than 3 observers (U is 3 cells from the nearest late mover); flags
+  for fc2-style designs (any piston that only needs to fire after a structure has moved costs one
+  flag + one observer).
