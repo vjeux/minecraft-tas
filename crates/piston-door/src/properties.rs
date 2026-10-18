@@ -1418,6 +1418,19 @@ pub fn dynamic(w: &mut Worker, sb: u32, d: &Design, rec: &Recording, p: &mut Pro
     Ok(())
 }
 
+/// The SEAMLESS tier of a design at its own position ("SUPER", "FULL", "SEMI z-", "QUART z+,z-",
+/// or "-" for none), from one recorded cycle: what `--eligible` searches require (QUART or better).
+pub fn seamless_tier(w: &mut Worker, sb: u32, d: &Design) -> Result<String> {
+    Ok(input_props(w, sb, d)?.get("seamless").cloned().unwrap_or_else(|| "-".into()))
+}
+
+/// The cheap properties `--eligible` searches and `door eligible` read (one recorded cycle):
+/// `seamless`, `lever_surface` (3.1.2), `lever_support` (3.1.5) among others.
+pub fn input_props(w: &mut Worker, sb: u32, d: &Design) -> Result<Props> {
+    let rec = record(w, sb, d)?;
+    Ok(cheap(&rec, d))
+}
+
 /// Properties of one design (cheap ones, plus the dynamic ones when asked).
 pub fn compute(w: &mut Worker, d: &Design, with_dynamic: bool) -> Result<Props> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;

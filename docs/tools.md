@@ -62,7 +62,10 @@ All candidates are screened at a few positions and accepted only by the full jud
 (and the routers) keep the 3x3 columns in front of and behind the door clear. Every search takes
 `--shape <preset or key<=n,...>` (only designs within those shape limits; the judge also checks the
 swept shape) and `--tile <spec>` (judge each candidate as a tile module); `minimize`, `regrow`,
-`grow` and `harvest` take `--rotation-safe` (accept only designs that also work turned).
+`grow` and `harvest` take `--rotation-safe` (accept only designs that also work turned). `minimize`,
+`regrow`, `grow`, `harvest` and `resynth` take `--repeater-input` (accept only designs that also work
+with repeater input, the Squid regulation's 3.1.3, at every judge position) and `--eligible` (that
+plus the hallway check, footsteps for sculk designs, QUART SEAMLESS or better and the lever's place).
 
 | command | when to use it |
 |---|---|
@@ -83,6 +86,7 @@ swept shape) and `--tile <spec>` (judge each candidate as a tile module); `minim
 | `door vanilla-build <script.build.txt>... [--real-time] [--slow N]` | replay a `door buildable` script on the unmodified server with a bot player (item in hand, the script's look, sneaking, a right-click on the given face), compare after every action, then run the judge's cycles with the bot. Method: `tracks/vanilla-build/NOTES.md` |
 | `door vanilla-gadget designs/gadgets/<g>.drive...` | replay gadget drive scripts on the unmodified server and compare every tick ([mechanics.md](mechanics.md#11-vanilla-confirmation)) |
 | `door vanilla-fuzz [--count 50]` | differential fuzzing: random small contraptions compared between the simulator and the official server |
+| `door eligible <design>... [--extra-offsets 28]` | record eligibility under the Squid regulation (section 3), one line per design: the judge + rotations, repeater input at every judge position (props-dyn's rig: the lever left off, a delay-1 repeater into its support block, both edges), the hallway check, footsteps (sculk), the SEAMLESS tier, the lever's place; ELIGIBLE or what fails ([tracks/eligible](../designs/piston-door-3x3/tracks/eligible/NOTES.md)) |
 
 ## Videos and showcase (coordinator only: the X displays are shared)
 
