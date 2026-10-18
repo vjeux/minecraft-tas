@@ -40,7 +40,28 @@ Ideal steps: ideal-7..10 (.txt/.sched/.patch), drive probes *.drive.
 * Close bound with 2gt observer pulses: F push k_a, spit k_a+2, base lands k_a+4, F2 k_a+5:
   close = k_a+7. k_a=2 is harmful on open (F's base lands k3, T's landing updates F before Q).
 
-## Next idea (not built): close ~8
+## BUD close VALIDATED with scripted parts: close 7 (ideal-13.drive)
+`ideal-13.txt` = w5 minus F's close observer (1,4,1), OT (3,3,-1) and S_R's last observer.
+`door drive wire/ideal-13.drive` (real lever via `use`; `door ideal` cannot drive this design:
+its scripted `set` of the lever does not update the lever's floor block, so the dust net never
+sees it): RB2 placed at (1,6,0) after open k16 (QC-only for F: silent). Close: k1 S_F's head
+leaving A updates F -> F pushes C (BUD works); RB2 cleared before k2; the W-net dust (1,4,2)
+updates F at k2 -> spit, C placed at N1 at k2; TR (scripted at k3, spit k4) puts T in E at k4;
+R_F back by k4; F's base lands k4 BE -> F pushes [T, C] at k5, placed k7: CLOSE 7.
+Still to wire (planned, not built):
+* S2 (silent F source, on >= open k15, off before close k2's W tick): repeater R_s into a block
+  X at a QC-only spot of F ((1,6,0) or (2,5,0)), input = lever net (falls at k0 -> R_s off at k2
+  with VERY_HIGH priority, before W's NORMAL observer tick), held OFF by a lock repeater L_r =
+  torch on a lever chain delayed 5 repeater ticks (unlocks at open k14, R_s on k16; relocks at
+  close k14).
+* TR: extended at rest, powered by a wall torch at (4,3,0) (facing west, attached to (5,3,0) fed
+  by a new lever-net branch (4,3,-4),(5,3,-4..-1)); the torch also powers the east top side
+  piston, whose k2 extension (queued after F's spit, since the lever's setBlock schedules W
+  before updateNeighbours schedules the torches) updates TR after E clears -> TR at k2, T in E
+  at k4. On open the torch drops at k2: TR's head leaves (2,3,0) before Q's k4 push.
+* S_R at k2: X2 -> stone, dust (3,4,-3) on it, X4 (3,4,-2) watches that dust (fires k2).
+
+## Next idea (superseded by the BUD section above): close ~8
 F as a BUD: silent QC power on F only in the settled open state (slow-on), off at k2 on close
 (fast-off); S_F's head leaving A at k1 updates F -> push C at k1; the W-net dust (1,4,2) gives
 F a pure update at k2 -> spit; TR at k4, S_R at k2, F2 at k6 -> close 8. Missing piece: a
