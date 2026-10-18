@@ -1,0 +1,218 @@
+name: tick-door-o4b-ideal
+port door: 0 0 0
+port lever: 3 5 1
+origin: -3 0 -5
+palette:
+  $ minecraft:sticky_piston[extended=false,facing=west]
+  % minecraft:sticky_piston[extended=true,facing=down]
+  & minecraft:sticky_piston[extended=true,facing=east]
+  * minecraft:sticky_piston[extended=true,facing=south]
+  + minecraft:sticky_piston[extended=true,facing=up]
+  0 minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  1 minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  2 minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  3 minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  4 minecraft:slime_block
+  5 minecraft:smooth_stone
+  6 minecraft:sticky_piston[extended=false,facing=down]
+  7 minecraft:sticky_piston[extended=false,facing=east]
+  8 minecraft:sticky_piston[extended=false,facing=north]
+  9 minecraft:sticky_piston[extended=false,facing=south]
+  = minecraft:sticky_piston[extended=true,facing=west]
+  ? minecraft:stone
+  @ minecraft:sticky_piston[extended=false,facing=up]
+  A minecraft:piston_head[facing=down,short=false,type=sticky]
+  B minecraft:piston_head[facing=east,short=false,type=sticky]
+  C minecraft:piston_head[facing=south,short=false,type=sticky]
+  D minecraft:piston_head[facing=up,short=false,type=sticky]
+  E minecraft:piston_head[facing=west,short=false,type=sticky]
+  F minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=up]
+  G minecraft:glass
+  H minecraft:redstone_wire[east=none,north=none,power=0,south=up,west=side]
+  I minecraft:redstone_wire[east=none,north=none,power=11,south=up,west=side]
+  J minecraft:redstone_wire[east=none,north=none,power=14,south=side,west=side]
+  K minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  M minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  N minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
+  O minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
+  P minecraft:piston[extended=true,facing=down]
+  Q minecraft:redstone_wire[east=none,north=side,power=12,south=none,west=up]
+  R minecraft:redstone_block
+  S minecraft:redstone_wire[east=none,north=side,power=14,south=side,west=none]
+  T minecraft:redstone_wire[east=none,north=side,power=15,south=side,west=none]
+  U minecraft:redstone_wire[east=none,north=side,power=3,south=side,west=none]
+  V minecraft:redstone_wire[east=none,north=side,power=4,south=side,west=none]
+  W minecraft:redstone_wire[east=none,north=side,power=5,south=side,west=none]
+  X minecraft:redstone_wire[east=none,north=side,power=6,south=side,west=none]
+  Y minecraft:redstone_wire[east=none,north=side,power=7,south=side,west=none]
+  Z minecraft:redstone_wire[east=none,north=side,power=8,south=side,west=none]
+  a minecraft:redstone_wire[east=none,north=up,power=0,south=side,west=none]
+  b minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  c minecraft:redstone_wire[east=side,north=none,power=0,south=up,west=none]
+  d minecraft:redstone_wire[east=side,north=none,power=10,south=none,west=side]
+  e minecraft:redstone_wire[east=side,north=none,power=10,south=none,west=up]
+  f minecraft:redstone_wire[east=side,north=none,power=11,south=none,west=side]
+  g minecraft:redstone_wire[east=side,north=none,power=12,south=none,west=side]
+  h minecraft:redstone_wire[east=side,north=none,power=13,south=none,west=side]
+  i minecraft:redstone_wire[east=side,north=none,power=13,south=none,west=up]
+  j minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=up]
+  k minecraft:redstone_wire[east=side,north=none,power=5,south=side,west=none]
+  l minecraft:redstone_wire[east=side,north=none,power=6,south=none,west=side]
+  m minecraft:redstone_wire[east=side,north=none,power=7,south=none,west=side]
+  n minecraft:redstone_wire[east=side,north=none,power=7,south=side,west=none]
+  o minecraft:redstone_wire[east=side,north=none,power=8,south=none,west=side]
+  p minecraft:piston_head[facing=down,short=false,type=normal]
+  q minecraft:redstone_wire[east=side,north=none,power=9,south=none,west=side]
+  r minecraft:redstone_wall_torch[facing=west,lit=true]
+  s minecraft:redstone_wire[east=side,north=none,power=9,south=side,west=side]
+  t minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  u minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=side]
+  v minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=none]
+  w minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=none]
+  x minecraft:redstone_wire[east=side,north=up,power=15,south=side,west=none]
+  y minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=none]
+  z minecraft:redstone_wire[east=up,north=side,power=0,south=up,west=none]
+layer -4:
+  .
+  .
+  ....5555555
+  ....5
+  ....5
+  .
+  .
+  .
+  .
+  .
+layer -3:
+  .
+  .
+  ....klmoqdI
+  ....V.....5
+  ....U
+  ....+
+  .
+  .
+  .
+  .
+layer -2:
+  .
+  .
+  .
+  .........5Q
+  .
+  ....D
+  .
+  .
+  .
+  .
+layer -1:
+  .
+  .
+  .
+  ........5i
+  .
+  ...444
+  .
+  .
+  .
+  .
+layer 0:
+  .
+  .
+  .
+  .......5j
+  .......5
+  ...???
+  .
+  .
+  .
+  .
+layer 1:
+  .
+  ...55555
+  .......5
+  .......x
+  .......S
+  .&B???E=
+  .
+  .
+  .
+  .
+layer 2:
+  .
+  555efghJ
+  5.5....TG
+  5.5...*r?
+  5.5...C
+  ?&B???$$
+  .
+  .
+  .
+  .
+layer 3:
+  .
+  nos
+  X.Z.5..?y5
+  W.Y.....M
+  V.X.@
+  U.&B6A97R
+  ......R.5
+  ........5
+  .
+  .
+layer 4:
+  ....5
+  ....5
+  ....a....H
+  ....?....5
+  ....R....5
+  ....6%..?5
+  ....5R?515
+  ...5555.z5
+  ......5.55
+  .....55555
+layer 5:
+  ...5F
+  ....M
+  .
+  .........M
+  ....p....M
+  ....8....M
+  ...536L2?M
+  ...wbbN..N
+  .....50.vN
+  .....wubuK
+layer 6:
+  ...c
+  ...5
+  .
+  ...7R
+  ...GP
+  ...G
+  ...a5
+  ....5?
+  ....5F
+  .
+layer 7:
+  .
+  ...O
+  ...5
+  ...?
+  ...a
+  ...M?
+  ....1
+  ....M
+  ....t
+  .
+layer 8:
+  .
+  .
+  ...M
+  ...M
+  .
+  .
+  .
+  .
+  .
+  .
