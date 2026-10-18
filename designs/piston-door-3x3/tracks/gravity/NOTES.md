@@ -3,8 +3,31 @@
 Direction: (1) a gravity door (all 9 door blocks sand, `category gravity`), as small as possible;
 (2) material tricks (glazed terracotta, honey/slime, special piston behavior) for `category solid`.
 
-## Best: g4, 51 blocks, category gravity (`BEST.txt`, `mctas door gen g4`)
+## Best: g10, 45 blocks, category gravity, empty walkway (`BEST.txt` = `g10.txt`)
 
+g7 (= g6 with the lever off the walkway) + three steps, each a `door patch` or minimizer result:
+* **g8 (48): S2 is pulse-driven.** At rest S2 is RETRACTED at (1,-4,0) with an empty cell above it
+  and R3 floating at (1,-2,0) (pistons do not fall). RS2 + its obsidian floor are replaced by one
+  observer OS2 at (0,-4,-1) facing north: it watches the A dust (0,-4,-2) and fires into the block
+  (0,-4,0) next to S2. Open: R3 retracts (+2), the A dust changes (+2), OS2 pulses (+4..+6): S2
+  extends into the gap and retracts, pulling R3 down one cell (+6); S1 then pulls the chain (+10).
+  Close: S2 is lifted by S1; OS2's pulse makes S2 push R3 + sand up and SPIT (the pulse ends while
+  R3 is still moving, so S2 retracts alone); R3 lands at the top and extends (QC from T_A2).
+  OS2 is adjacent to the slime chain, so it RIDES the chain (down when open, up when closed).
+* **g9 (46): S1 loses its fast path** (minimizer). Because OS2 rides the chain, in the open state
+  it no longer watches the A dust; on close it fires only when S1 brings it back up, i.e. exactly
+  when S2 must push R3. So the close sequences itself and S1 can simply be A + 8 gt (RS1).
+* **g10 (45): RS1 takes the floor of an existing A dust as its input** ((-1,-6,-2) under dust
+  (-1,-5,-2)) and points into a new block (1,-6,-2) beside S1, which drops the dust/floor pair that
+  fed it. Verified at 124 positions. Timing: open 5 ticks, close 19 ticks (g8, 48 blocks, keeps
+  close 11 for the speed boards).
+
+Control of g10 (21 blocks): lever + lever block; 2 cross dusts + floors + target blocks (P_L, P_R
+= lever); T_A2 (R3, QC, top position only); T_A + 3 dusts + floors (A net); RS1 + floor + block
+(S1 = A + 8 gt); OS2 + its block (S2 pulses). Mechanism (24): 9 sand, 8 backbone slime, P_L, P_R,
+R3, S2, S1, 2 chain slime.
+
+## Earlier best: g4/g6/g7 (51 / 49 / 49)
 Built in `crates/piston-door/src/designs_gravity.rs::g4`. Mechanism ("drop tower"):
 
 ```
