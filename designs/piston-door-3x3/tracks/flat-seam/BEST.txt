@@ -1,4 +1,4 @@
-name: flat-seam-e89
+name: flat-seam-e89b
 port door: 0 0 0
 port lever: 0 -4 0
 origin: -3 0 0
@@ -33,6 +33,6 @@ layer 1:
 layer 2:
   rE.HHH.G
 layer 3:
-  O.H...HA
+  O......A
 layer 4:
-  rBCBsBCB
+  OBBBsBSC
