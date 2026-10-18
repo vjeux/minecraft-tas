@@ -80,3 +80,5 @@ Timing (game ticks after the lever flip):
 | v2-min | 126 | greedy single-block removal |
 | v2 | 118 | R_B stretches the B pulse itself, straight late line into the P_T net, A late tapped off the P_T net |
 | v2-min | 117 | greedy single-block removal |
+| v2 | 116 | router re-laid the drop from the lever to the sides line |
+| v2-min | 115 | greedy single-block removal |

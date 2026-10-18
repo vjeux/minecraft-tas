@@ -17,6 +17,8 @@ automatically (and skips a design that is already here).
 | piston-door-3x3-v2-126b.txt | 126 | greedy removal of 128 |
 | piston-door-3x3-v2-118b.txt | 118 | R_B stretches the B pulse, straight late line, A late off the P_T net |
 | piston-door-3x3-v2-117b.txt | 117 | greedy removal of 118 |
+| piston-door-3x3-v2-116b.txt | 116 | router re-laid the drop to the sides line |
+| piston-door-3x3-v2-115b.txt | 115 | greedy removal of 116 |
 
 The 143- and 135-block steps were rebuilt by replaying the session's edits on top of the 133
 commit (`crates/piston-door/src/designs_history.rs`, `mctas door gen v2-143`); the replayed 133
