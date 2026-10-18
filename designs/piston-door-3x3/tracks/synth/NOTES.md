@@ -31,6 +31,17 @@ Size-4 groups take ~1 s, size-5 groups ~7 s (70-80k circuits each).
 
 ## Results
 
+### Records from `door resynth` (verified --extra-offsets 28, also with main's new support check)
+| file | blocks | board | from | what changed |
+|---|---|---|---|---|
+| `BEST-gravity.txt` = `gravity-resynth-42.txt` | **42** | gravity (record, was 45) | gravity-g10 45 | stone+dust+stone+repeater feed -> 2 observers + a delay-1 repeater; stone+dust+stone -> block + observer; a dust dropped. With the new feed a piston rests retracted, so the file is the settled state (open 5 / close 17) |
+| `BEST-slime-free.txt` = `sf-resynth-46.txt` | 46 | solid, slime-free (record when found, was 48; fresh-d/s7q reached 45/44 since) | slime-free-combo 48 | stone+dust+stone+repeater -> block + 2 observers; observer + its floor -> 1 observer (open 24 / close 24) |
+
+`door resynth` found nothing on fc2 40 (sizes 2..5, 115 + 136 groups, up to 128k circuits per
+group), st43 sculk 42 (2..4), fresh-b mp8 43 (2..4), gravity 42 (2..5, and 2..4 with comparators,
+lamps, glass and glazed terracotta added), slime-free s7q 44 (2..4, and 157 of 161 size-5 groups;
+2 skipped at > 150k circuits).
+
 ### fc2 (40, the record) sub-circuits: all already minimal in this model
 | sub-circuit (blocks) | cleared | searched | result |
 |---|---|---|---|
@@ -61,3 +72,22 @@ ticks 1..12 after the off flip, off by 30, two cycles).
   <= 3 blocks from O2/the lever to R_B's input, B's quasi cell or B (watching Q/RB/A cells too):
   none; at 4 only the original and a glass-floor variant.
 * (The coordinator then reported fc2 = 40 with no Q hold, which made problem 1 moot.)
+
+## What did not work / limits
+* The static model only grows circuits that a signal can traverse: blocks whose only job is to
+  block a dust connection, or update relays (BUD), are not generated (use `--loose` for dangling
+  blocks). Pistons are not circuit parts yet (a pulse-driven side piston can't be re-placed).
+* Moving the lever (a port) is outside resynth: in fc2 the lever's own support block and R_q's
+  floor are the most likely savings, and they need a lever move.
+* A design whose replacement leaves a piston unpowered at rest settles into another arrangement
+  (gravity 42): `canonicalize` keeps only the original positions and breaks it, so resynth now
+  writes the settled state (every block read back after placement) when the canonical form fails.
+* Early runs leaked a sandbox per synth call (resynth calls it hundreds of times) and a JVM ran
+  out of memory; sandboxes are now created once per worker and reused, and a worker whose JVM
+  dies gives its unscreened candidates back to the others.
+
+## Next ideas
+* Pistons and the lever as circuit atoms (pulse-driven pistons anywhere they can pull a block 2
+  away; lever positions around the cluster), so resynth can move P_L/P_M and the lever.
+* Size-5/6 resynth on the slime-free leaders (each size-5 group costs ~10-20 s; sf44 has ~150).
+* A speed objective for resynth (keep open/close <= the start's) for the speed boards.

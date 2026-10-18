@@ -1,0 +1,11 @@
+# One pulse per lever edge through a copper bulb: O1 pulses on both edges, the bulb toggles on
+# each O1 pulse (rising edges only), O2 watching the bulb fires exactly once per edge.
+design designs/gadgets/bulb-pulse.txt
+probe o2 0 0 0
+probe bulb 0 1 0
+use 2 2 0
+expect_trace o2 000110000
+expect bulb 1
+use 2 2 0
+expect_trace o2 000110000
+expect bulb 0

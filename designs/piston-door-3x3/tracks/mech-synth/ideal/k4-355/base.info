@@ -1,0 +1,4 @@
+22 blocks | open 8 + close 5 events | SYM 10 events: PSeast@(-1,3,0) PSeast@(-1,3,0) PSup@(1,-2,0) PSdown@(1,3,0) PSdown+@(0,5,0) PSeast@(-3,1,0) PSwest@(5,1,0) LSdown+@(0,5,0) PSdown@(1,3,0) PSwest@(5,1,0) [M pulse at step 2, riders: none]
+    added: 
+    open:  PSeast@(-1,3,0) PSup@(1,-2,0) PSwest@(5,1,0) PSeast@(-1,3,0) PSdown@(1,3,0) LSdown+@(0,5,0) PSdown@(1,3,0) PSwest@(5,1,0)
+    close: LSdown+@(0,5,0) PSup@(1,-2,0) PSdown@(1,3,0) PSeast@(-3,1,0) PSwest@(5,1,0)

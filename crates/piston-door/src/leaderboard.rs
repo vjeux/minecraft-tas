@@ -156,9 +156,14 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
          (3 cycles at {} positions). Videos of every archived design: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n",
         4 + extra_offsets
     );
-    let boards: [(&str, &str, Box<dyn Fn(&Entry) -> bool>); 4] = [
+    let boards: [(&str, &str, Box<dyn Fn(&Entry) -> bool>); 5] = [
         ("Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", Box::new(|e: &Entry| e.category == "solid")),
         ("Solid, no slime or honey", "same, and not a single slime or honey block anywhere", Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design))),
+        (
+            "Solid, flat (one z layer), no slime or honey",
+            "slime-free, and every block (door, pistons, wiring, lever) in the door's plane: the whole machine is one block thick",
+            Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design) && crate::single_layer(&e.design)),
+        ),
         ("Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", Box::new(|e: &Entry| e.category == "sculk")),
         ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
     ];

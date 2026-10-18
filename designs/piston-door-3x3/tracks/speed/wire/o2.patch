@@ -1,0 +1,26 @@
+# o2 = o1 + real k6 pulse for P_D/P_V (both edges): O1 (4,5,-2) watches lever-net dust (3,5,-2)
+# (k2) -> O2 (5,5,-2) (k4) -> O3 (5,5,-1) (k6) into stone (5,5,0) -> dust (5,6,0),(5,6,1), up to
+# y=7 along z=3 west to (0,7,2): floor (1,6,3) powers P_D, floor (0,6,2) powers P_V.
+set 4 5 -2 minecraft:observer[facing=west,powered=false]
+set 5 5 -2 minecraft:observer[facing=west,powered=false]
+set 5 5 -1 minecraft:observer[facing=north,powered=false]
+set 5 5 0 minecraft:stone
+set 5 6 0 minecraft:redstone_wire
+set 5 5 1 minecraft:smooth_stone
+set 5 6 1 minecraft:redstone_wire
+set 5 6 2 minecraft:smooth_stone
+set 5 7 2 minecraft:redstone_wire
+set 5 6 3 minecraft:smooth_stone
+set 5 7 3 minecraft:redstone_wire
+set 4 6 3 minecraft:smooth_stone
+set 4 7 3 minecraft:redstone_wire
+set 3 6 3 minecraft:smooth_stone
+set 3 7 3 minecraft:redstone_wire
+set 2 6 3 minecraft:smooth_stone
+set 2 7 3 minecraft:redstone_wire
+set 1 6 3 minecraft:smooth_stone
+set 1 7 3 minecraft:redstone_wire
+set 0 6 3 minecraft:smooth_stone
+set 0 7 3 minecraft:redstone_wire
+set 0 6 2 minecraft:smooth_stone
+set 0 7 2 minecraft:redstone_wire
