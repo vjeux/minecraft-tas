@@ -1,0 +1,9 @@
+# One 4 gt pulse: K1 goes up and comes back (pulled by the sticky head), K2 ends one cell higher.
+design designs/gadgets/pump.txt
+probe K1 3 2 0
+probe K2 3 3 0
+probe K2up 3 4 0
+use 0 1 0
+expect_trace K2up .....~~#######
+expect K1 #
+expect K2 .
