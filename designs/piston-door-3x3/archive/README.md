@@ -30,6 +30,8 @@ branches) is [../LEADERBOARD.md](../LEADERBOARD.md). New records are archived he
 | 57 | piston-door-3x3-rb2-57b.txt | agent redstone-block: rb1 with short nets (dual-edge observer next to the lever feeds R_B by 3 dust, the 24gt late hold fed straight from the lever) |
 | 53 | mechanics-rb2-hold-53b.txt | agent mechanics: rb2 with the 24gt late hold re-laid as a short U west of the lever, glazed terracotta floors beside the slime backbone |
 | 51 | mechanics-rb2-hold-51b.txt | agent mechanics: the 53 plus O2's pulse to R_B through a strongly powered block and an isolated cross dust |
+| 50 | mechanics-rb5-bchain-50b.txt | agent mechanics: redstone-block's rb5 (BUD hold for Q, 52) + the O2 to R_B pulse bridge |
+| 52 | piston-door-3x3-rb5-52b.txt | agent redstone-block: rb2 with a silent BUD hold for Q instead of the 24gt chain |
 
 Invalid (kept for history): piston-door-3x3-v1-invalid.txt (125) and -v1-min-invalid.txt (121)
 use a slime block as the top-middle door block.
