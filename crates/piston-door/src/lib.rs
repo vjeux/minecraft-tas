@@ -16,6 +16,7 @@
 //!   positions in the world (Minecraft has location-dependent update orders).
 
 pub mod cli;
+pub mod designs;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
@@ -212,7 +213,10 @@ fn verify_at(
     w.clear(sb)?;
     let blocks = d.block_list();
     w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
-    // Let every block re-check its inputs once (no observer pulses), then settle.
+    // Compute redstone wire connections (raw placement skips shape updates), let every block
+    // re-check its inputs once (no observer pulses), then settle.
+    let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+    w.update(sb, &wires, "shape")?;
     let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
     w.update(sb, &positions, "self")?;
     let settle = w.step_until_idle(sb, opts.max_ticks)?;
@@ -336,4 +340,28 @@ pub fn timeline(frames: &[Region], spec: &DoorSpec) -> String {
         out.push('\n');
     }
     out
+}
+
+/// The design with every block replaced by the exact state it has once placed and settled
+/// (wire connections, repeater flags...), so the file is the true rest state.
+pub fn canonicalize(w: &mut Worker, d: &Design) -> Result<Design> {
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let blocks = d.block_list();
+    w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+    let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+    w.update(sb, &wires, "shape")?;
+    let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
+    w.update(sb, &positions, "self")?;
+    let settle = w.step_until_idle(sb, 400)?;
+    if settle.idle != Some(true) {
+        bail!("design never settles");
+    }
+    let (lo, hi) = d.bounds().context("empty design")?;
+    let r = w.get_region(sb, lo, hi)?;
+    let _ = w.drop_sandbox(sb);
+    let mut out = d.clone();
+    for (p, s) in out.blocks.iter_mut() {
+        *s = r.get(*p).context("outside region")?.to_string();
+    }
+    Ok(out)
 }

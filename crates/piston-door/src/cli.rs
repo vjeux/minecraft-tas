@@ -9,6 +9,23 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum DoorCmd {
+    /// Print a built-in design (see designs.rs) in the text format.
+    Gen {
+        name: String,
+        /// Write to this file instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Place a design, settle, flip the lever and print every block change tick by tick.
+    Trace {
+        design: PathBuf,
+        /// Ticks to record after each flip.
+        #[arg(long, default_value_t = 40)]
+        ticks: u32,
+        /// Also flip the lever back and trace the closing.
+        #[arg(long)]
+        close: bool,
+    },
     /// Check that a design is a working 3x3 piston door; print timings and block count.
     Verify {
         design: PathBuf,
@@ -24,8 +41,22 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::Gen { name, out } => {
+            let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;
+            let mut w = Worker::spawn(&cfg)?;
+            let d = crate::canonicalize(&mut w, &d0)?;
+            match out {
+                Some(path) => d.save(&path)?,
+                None => print!("{}", d.to_text()),
+            }
+        }
+        DoorCmd::Trace { design, ticks, close } => {
+            let d = load_design(&design)?;
+            let mut w = Worker::spawn(&cfg)?;
+            trace(&mut w, &d, ticks, close)?;
+        }
         DoorCmd::Verify { design, timeline: show, cycles } => {
-            let d = Design::load(&design)?;
+            let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
             let opts = VerifyOptions { cycles, keep_frames: show, ..Default::default() };
@@ -53,6 +84,64 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     std::process::exit(1);
                 }
             }
+        }
+    }
+    Ok(())
+}
+
+/// Load a design path, or a built-in design name prefixed with `@` (e.g. `@v1`).
+pub fn load_design(path: &std::path::Path) -> Result<Design> {
+    let s = path.to_string_lossy();
+    if let Some(name) = s.strip_prefix('@') {
+        return crate::designs::build(name).ok_or_else(|| anyhow::anyhow!("no built-in design {name}"));
+    }
+    Design::load(path)
+}
+
+fn short(s: &str) -> String {
+    s.strip_prefix("minecraft:").unwrap_or(s).to_string()
+}
+
+pub fn trace(w: &mut Worker, d: &Design, ticks: u32, close: bool) -> Result<()> {
+    use mctas::sim::{PlaceMode, SandboxOptions};
+    let spec = DoorSpec::from_design(d)?;
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let blocks = d.block_list();
+    w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+    let wires: Vec<_> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+    w.update(sb, &wires, "shape")?;
+    let positions: Vec<_> = blocks.iter().map(|(p, _)| *p).collect();
+    w.update(sb, &positions, "self")?;
+    let settle = w.step_until_idle(sb, 400)?;
+    println!("settled in {} ticks (idle {:?})", settle.ticked, settle.idle);
+    let (mut lo, mut hi) = d.bounds().unwrap();
+    for i in 0..3 {
+        lo[i] -= 2;
+        hi[i] += 2;
+    }
+    let mut prev = w.get_region(sb, lo, hi)?;
+    for (p, s) in &blocks {
+        if prev.get(*p) != Some(s.as_str()) {
+            println!("  at rest: {p:?} {} -> {}", short(s), short(prev.get(*p).unwrap_or("?")));
+        }
+    }
+    let flips = if close { 2 } else { 1 };
+    for flip in 0..flips {
+        println!("== lever {} ==", if flip == 0 { "ON" } else { "OFF" });
+        w.use_block(sb, spec.lever)?;
+        let r = w.step_record(sb, ticks, false, lo, hi)?;
+        for (t, f) in r.frames.iter().enumerate() {
+            let mut changes = Vec::new();
+            for (p, s) in f.iter() {
+                let before = prev.get(p).unwrap_or("?");
+                if before != s {
+                    changes.push(format!("{p:?} {} -> {}", short(before), short(s)));
+                }
+            }
+            if !changes.is_empty() {
+                println!("t={:<3} {}", t + 1, changes.join("\n      "));
+            }
+            prev = f.clone();
         }
     }
     Ok(())

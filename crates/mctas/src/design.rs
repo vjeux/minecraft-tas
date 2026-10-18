@@ -215,7 +215,9 @@ impl Design {
                 for x in lo[0]..=hi[0] {
                     row.push(self.blocks.get(&[x, y, z]).map(|s| chars[s]).unwrap_or('.'));
                 }
-                out.push_str(row.trim_end_matches('.'));
+                let trimmed = row.trim_end_matches('.');
+                // An all-air row must stay visible or the parser would skip it and shift the rows.
+                out.push_str(if trimmed.len() <= 2 { "  ." } else { trimmed });
                 out.push('\n');
             }
         }
