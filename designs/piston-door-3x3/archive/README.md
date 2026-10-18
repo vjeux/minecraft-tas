@@ -15,6 +15,8 @@ automatically (and skips a design that is already here).
 | piston-door-3x3-v2-133b.txt | 133 | unified late chain, A torch fed off the sides line |
 | piston-door-3x3-v2-128b.txt | 128 | P_T nets hang off the lever line, A torch fed by repeaters |
 | piston-door-3x3-v2-126b.txt | 126 | greedy removal of 128 |
+| piston-door-3x3-v2-118b.txt | 118 | R_B stretches the B pulse, straight late line, A late off the P_T net |
+| piston-door-3x3-v2-117b.txt | 117 | greedy removal of 118 |
 
 The 143- and 135-block steps were rebuilt by replaying the session's edits on top of the 133
 commit (`crates/piston-door/src/designs_history.rs`, `mctas door gen v2-143`); the replayed 133
