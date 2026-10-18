@@ -75,3 +75,32 @@ Y is fed by two observers climbing from the lever watcher: (1,5,-3) facing down 
 facing down (t6) -> Y (t8) -> R_B (B window t16-24, A2 t18, A3 t26) and O (t10) -> P_T.
 Budget: 19 mechanism + lever 1, lever watcher 1, O_a 1, X 1, two dust + floor 4, (1,5,-3),
 (1,6,-3), Y, O, R_B, O' 6, left pair 2, right pair 2, M 2 = 39. Open 40 / close 36, 32 positions.
+
+## Searches that found nothing smaller
+* r41: `minimize --moves all --plateau` (336k swaps, 34k neutral edits); resynth max-size 5.
+* b40: minimize --moves all --plateau; regrow --size 2 --any (67k), --size 3 (1.78M).
+* b39: minimize --moves all --plateau (31k neutral edits); resynth max-size 4 (245 groups).
+
+## Why the hold (the brief's direction) does not pay
+* hA (43, `hA.patch` on w42): RB (0,4,0) west of A, Q (0,4,-1) south, fed by w42's P_T-chain head
+  (0,4,-2) turned north + an observer (0,4,-3) watching the lever (s7q's feed). Trick worth
+  keeping: P_T (-1,3,0) is EXTENDED at rest (RB quasi-powers it); when RB leaves it retracts
+  empty with A, its t8 pulse then pulls T; on close the pulse ends after RB is back, so P_T stays
+  extended. A's extension is blocked while T is still moving into (1,3,0); T's landing updates
+  A, which then pushes T and C home. Open 24 / close 14 (fast close).
+* Count: Q + RB + Q's feed (>= 2, Q needs ONE pulse at real t4..7 and every cell next to Q is
+  >= 2 hops from the lever) cost >= 4; M's late trigger it replaces costs 4 in w42 but only 2 in
+  b39 (L0 toggles three times, which gives the late close push for free). Net >= +2.
+* The X-block trick cannot be combined with hA: the X block (1,4,-1) would power Q (0,4,-1).
+  With both TL and TR up (b39), A's only free neighbour is (1,4,1), and RB's open cell would then
+  sit next to a puller.
+
+## Ideas examined for 38 (none pays yet)
+* Lever at (1,5,-3) on O (one observer fewer in the Y chain): Y fires at t4, P_T at t6 = p0 + 2,
+  but on open P_T must come >= 4 gt after p0 (T lands 4 gt after p0). A lamp under the lever
+  (weakly powered, so it does not quasi-power P_T) makes p0 t2 on open but t6 on close, where P_T
+  then collides with p0.
+* P_T on the far side (south) frees the lever cell next to O_a (no lever watcher) but its feed
+  must cross over B.
+* The side-pair follower blocks: an observer firing into air quasi-powers only the upper piston
+  of the pair; the lower one then needs its own feed (>= 2).
