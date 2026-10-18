@@ -1,0 +1,37 @@
+design designs/piston-door-3x3/tracks/center-mech/wip/c1-mech.txt
+quiet 2
+print
+# open: right side, M and A lose power (A lifts T next to the left slime at (0,3))
+clear 6 0 0
+clear 1 -3 0
+clear 0 4 0
+quiet 4
+print
+# left side: the slime at (0,3) drags T to (0,3)
+clear -4 0 0
+quiet 4
+print
+# B window: two observer pulses lift C two cells
+set 3 6 0 minecraft:redstone_block
+quiet 9
+print
+clear 3 6 0
+quiet 9
+print
+# ---- close ----
+set 3 6 0 minecraft:redstone_block
+quiet 9
+print
+clear 3 6 0
+quiet 9
+print
+# left side back: pushes T from (0,3) to (1,3)
+set -4 0 0 minecraft:redstone_block
+quiet 4
+print
+# A pushes T into the door, right side and M back
+set 0 4 0 minecraft:redstone_block
+set 6 0 0 minecraft:redstone_block
+set 1 -3 0 minecraft:redstone_block
+quiet 6
+print
