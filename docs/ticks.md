@@ -1,0 +1,249 @@
+# 0-tick and 1-tick study (Minecraft 26.3, track `tick-study`)
+
+What can happen inside ONE game tick (0 gt), what happens on ODD ticks (1 gt), which gadget shows
+each effect, and what that means for the fastest possible 3x3 piston door. Everything here was
+read in the decompiled 26.3 source (`mctas src show <Class>`, line numbers below are that
+listing's) and every gadget was checked tick for tick against the UNMODIFIED official server
+(`mctas door vanilla-gadget`, section 8). "gt" = game tick; "k" or "t" = ticks after the lever
+flip (the flip happens between ticks, so the first tick after it is k1).
+
+## TL;DR
+
+* **Floors (solid doors): open >= 4 gt, close >= 1 gt** (section 6). The boards are at 10 / 7.
+  The speed track's bound (7 / 6) is for one topology (the edge block above the center leaves
+  through the center's exit cell); routing that edge block out through its corner instead lets the
+  center start moving in tick 1, which is what makes 4 possible.
+* **The open floor is exactly the center**: it needs two moves; a pull (or drag, or plain push)
+  lands 2 gt after it starts and can move again 1 gt later, so the second move is >= 3 gt after
+  the first; a push can be finalized at once (0-tick), but its pusher then sits inside the
+  opening and is stuck for 2 gt. Either way the center is out at k1 + 3 = **k4** at best. Gadget
+  `center-exit` performs exactly that critical path (out of the center at k1, out of the opening
+  at k4) and matches vanilla at every position.
+* **0 gt** = inside one block-event phase. Block events (piston moves) run FIFO until the queue
+  is empty, so any number of piston actions can chain in one tick as long as every link is
+  triggered by something that happens inside the phase: a block a sticky piston finalTicks
+  (`zero-tick`), a moved power source (`instant-off`), a conductor leaving a dust step
+  (`instant-on`), a piston placed by a 0-tick (`zero-tick-onplace`). One block can even make two
+  placed moves in one tick (`double-move`).
+* **1 gt / odd ticks**: every redstone component delays by an even number of game ticks; odd
+  ticks come from (1) pistons fired by the lever itself (k1), (2) moved blocks landing in the
+  block-entity phase, AFTER that tick's block events, so pistons react one tick later
+  (`landing-next-tick`), (3) 1 gt scheduled ticks (persistent leaves: `leaves-delay`), and are
+  carried on by observers/repeaters (`odd-observer`, `odd-pulse`). Spitting turns a landing into
+  a block-event-phase placement and saves exactly that tick (`spit-saves-tick`).
+
+## 1. Anatomy of a tick (`ServerLevel.tick`, 358-460)
+
+| order | phase | source | what runs there |
+|---|---|---|---|
+| between ticks | player actions | `LeverBlock.pull`, `ButtonBlock.press` | lever/button state + neighbor updates at once: dust re-powers, pistons QUEUE events, observers/repeaters/torches SCHEDULE ticks, lamps light, bulbs toggle |
+| 1 | `handlingTick = true` | 360 | (used by `PistonBaseBlock.checkIfExtend`, see section 2) |
+| 2 | game time + 1 | 387 `tickTime()` | |
+| 3 | scheduled block ticks | 394 `blockTicks.tick` | repeaters, comparators, observers, torches, buttons, plates, lamps (off), leaves... by (time, priority, insertion) |
+| 4 | fluid ticks | 396 | water 5 gt, lava 30 gt |
+| 5 | block events | 409 `runBlockEvents` (1267-1292) | pistons (`triggerEvent`), note blocks, bells/chests; FIFO `removeFirst` until EMPTY, events added meanwhile run in the same phase; the queue is an `ObjectLinkedOpenHashSet` (215): an identical pending event is dropped |
+| 6 | `handlingTick = false` | 412 | |
+| 7 | entities | 431 | |
+| 8 | block entities | 459 `tickBlockEntities` | `PistonMovingBlockEntity.tick` (progress, landing), sculk sensors, daylight detectors (every 20 gt), hoppers |
+
+Neighbor updates go to W, E, D, U, N, S (`NeighborUpdater.UPDATE_ORDER`), so pistons powered by
+one change queue their events in that order (`event-order`). Dust updates its neighbors and their
+neighbors in `HashSet` order (position dependent; `DefaultRedstoneWireEvaluator`).
+
+**Orientation-based update order:** 26.3 ships `ExperimentalRedstoneWireEvaluator` and passes an
+`Orientation` through `CollectingNeighborUpdater` (149-155) and `PistonBaseBlock.moveBlocks` (336),
+but `ExperimentalRedstoneUtils.initialOrientation` (9-22) returns null and
+`RedstoneWireBlock.updatePowerStrength` (271-275) uses the default evaluator unless the world has
+the `redstone_experiments` feature flag. Default worlds (the judge's, the official server's)
+keep the fixed W,E,D,U,N,S order and the position-dependent dust order.
+
+## 2. Pistons: the rules that set the timing
+
+| rule | source |
+|---|---|
+| A power change only QUEUES an event (0 extend, 1 retract-and-pull, 2 retract-and-drop); the event re-checks power when it runs: an extend whose power is gone is dropped, a retract whose power is back just re-sets `extended` | `checkIfExtend` 93-114, `triggerEvent` 143-151 |
+| An extend is only queued if the push resolves at that moment (no retry later: gadget `no-retry`) | 96-98 |
+| Moved blocks become `moving_piston` at the destination at once; their old cells are air at once (head cell: the moving head) | `moveBlocks` 299-326 |
+| A moving block's entity goes 0 -> 0.5 -> 1.0 in the block-entity phases of t and t+1 and is placed in the block-entity phase of t+2 | `PistonMovingBlockEntity.tick` 294-327 |
+| Retract while extending: the head's moving entity is finalTick'd (to air: it is the source piston) | `triggerEvent` 164-166, `finalTick` 270-271 |
+| Sticky only: if the block two ahead is a moving block this piston pushed (extending, same direction), it is finalTick'd: PLACED NOW, not pulled. Normal pistons only remove their head (the block keeps moving) | 180-190, 204-205 |
+| Retract type 2 (drop) when the block two ahead is moving and (progress < 0.5 or this tick's entity tick already ran or the unpower happens in the scheduled/block-event phases); else type 1 (pull) | 101-110 |
+| Type 1 with a plain block two ahead pulls it (also when the front cell was EMPTY: reach-through) | 192-202, `PistonStructureResolver` (retract starts at pos+2) |
+| A pull is never finalized early: pulled and dragged blocks always land at t+2 | (finalTick needs `isExtending`) |
+| The retracting base is a `moving_piston` (immovable, cannot act) until t+2; it lands with `setBlock(..,67)` + `neighborChanged`, so a powered piston re-extends at t+3 at the earliest | 168-179, `PistonMovingBlockEntity.tick` 313-314 |
+| A piston placed by `finalTick` or a landing runs `onPlace` and queues an extend if powered (in the same phase when placed by a 0-tick) | `onPlace` 80-86 |
+| A moving block's entity is also finalTick'd when its cell is overwritten (`preRemoveSideEffects`), which no piston action does (moving pistons are immovable) | `PistonMovingBlockEntity` 286-288 |
+| Extended pistons, moving pistons, obsidian, block entities are immovable; 12 blocks max | `isPushable` 215-257 |
+
+## 3. Catalog: what can happen in 0 gt (inside one block-event phase)
+
+| effect | why (source) | gadget | vanilla |
+|---|---|---|---|
+| **0-tick piston**: a sticky piston extends and retracts in one phase; the block it pushed is PLACED in that tick | 180-190 (finalTick two ahead) | `zero-tick` | PASS |
+| a 0-ticked NORMAL piston's block still lands at t+2 | 204-205 | `zero-tick-normal` | PASS |
+| **reach-through**: a 0-ticked sticky piston with an empty front pulls the block two cells away | 101-110 (type 1: nothing it pushed is moving), retract resolver starts at pos+2 | `zero-tick-reach` | PASS |
+| a piston placed by a 0-tick fires in the same phase | `onPlace` 80-86 | `zero-tick-onplace` | PASS |
+| one block, two placed moves, one tick | finalTick's `setBlockAndUpdate` updates the next (armed) piston, which is 0-ticked in turn | `double-move` | PASS |
+| power LOSS: a moved redstone block (or any moved conductor) cuts power at once; pistons on that line queue retracts that run in the same phase | `moveBlocks` (source becomes `moving_piston`) | `instant-off` | PASS |
+| power GAIN without a moved source: a conductor pushed (or pulled) off a dust step connects the step at once | `RedstoneWireBlock` 150 (`canConnectUp = !above.isRedstoneConductor`) | `instant-on` | PASS |
+| power GAIN from a placed source: a redstone block finalTick'd by a sticky retract powers its neighbors in the block-event phase (their events run in the same phase) | 180-190 + `finalTick` 276 | `zero-tick-onplace` (a piston instead of a redstone block), `spit-saves-tick` | PASS |
+| an observer SEES a 0-tick (the cell changed twice inside the phase): one pulse 2 gt later | `ObserverBlock.updateShape` 67-68 | `zero-tick-observer` | PASS |
+| event order = update order (W,E,D,U,N,S), FIFO; a piston whose front became a moving block meanwhile does nothing | `runBlockEvents` 1270-1271, `moveBlocks` returns false | `event-order` | PASS |
+| a powered piston carried onto a powered spot by a LANDING fires next tick (landing is in the block-entity phase) | `onPlace` | `landing-fire` (existing) | (vanilla-check of doors) |
+| a quasi-powered piston ignores its source until any neighbor update (BUD); arming one silently is how 0-tick partners wait | `getNeighborSignal` 116-136 | `qc-bud`, `silent-hold` (existing), every 0-tick gadget | PASS |
+
+**Constraint for doors:** a BUD-armed (powered, not yet updated) piston cannot exist in the REST
+state: the judge places a design with a `self` update of every block. Partners and armed pullers
+must be armed after the flip: by the lever itself (it only updates its own neighbors and its
+support's: a lever next to a piston's quasi cell arms it silently), by dust feeding a conductor
+next to the quasi cell from 3+ cells away (dust updates reach 2), or by a redstone block placed
+next to the quasi cell (its updates reach only its own neighbors).
+
+## 4. What happens in 1 gt (odd ticks)
+
+| source of odd timing | when | gadget | vanilla |
+|---|---|---|---|
+| pistons the lever powers directly move at k1 | lever between ticks, events in tick 1 | every lever gadget | PASS |
+| a block pushed at t lands at t+2 in the block-entity phase, after that tick's block events: pistons it powers act at t+3 (k1 push -> k4), components it feeds schedule from t+2 (repeater delay 1: k5) | `ServerLevel.tick` 409 vs 459 | `landing-next-tick` | PASS |
+| a spit block is placed in the block-event phase of the retract tick: pistons it powers act THAT tick (one tick earlier than a landing) | `checkIfExtend` 108 (`isHandlingTick`) | `spit-saves-tick`, `spit` (existing) | PASS |
+| an observer watching a cell a k1 piston changes fires k3..k5; chains stay odd (k5, k7...) | observer 2 gt from the block-event phase | `odd-observer` | PASS |
+| a repeater reading a redstone block a k1 piston moves falls at k1+2d; a note block turns that edge into a state change an observer sees | `DiodeBlock` 84-99 | `odd-pulse` (existing, speed-2) | (door vanilla-check) |
+| **1 gt scheduled ticks**: persistent leaves recompute `distance` 1 gt after a neighbor change (also scaffolding, and 26.3's survival checks of sugar cane/cactus/bamboo/kelp/chorus, which break blocks); a piston at k1 -> leaves at k2 -> observer k4; a piston at k2 (even) -> leaves k3 (odd) | `LeavesBlock` 102, `ScaffoldingBlock` 83/103 | `leaves-delay` | PASS |
+| water spreads every 5 gt, lava 30 (fluid ticks) | `fluidTicks.tick` 396 | - | - |
+| sculk sensors wake floor(distance) gt after a vibration, in the block-entity phase (any parity, category sculk) | `SculkSensorBlock` 190/208 | `sculk-delay-line`, `sculk-hold` (existing) | (door vanilla-check) |
+
+## 5. Components: timing table (all from the 26.3 source)
+
+| component | input -> output | delay (gt) | phase / priority | notes | gadget |
+|---|---|---|---|---|---|
+| lever | click -> powered | 0 (between ticks) | - | strong power into its support, signal to adjacent components | all |
+| stone / wood button | click -> on, then off | on 0, off +20 / +30 | scheduled | `ButtonBlock` 97 | `button-pulse` |
+| pressure plate | entity -> on, off | +20 (weighted +10) re-check | scheduled | `BasePressurePlateBlock` 116 | - |
+| redstone dust | any change | 0 | where the change happens | updates 2 cells deep, `HashSet` order | `instant-off`, `dust-reach` |
+| repeater | input change | 2 x delay | scheduled; EXTREMELY_HIGH if it feeds another diode, VERY_HIGH when turning off, HIGH when turning on | a pulse shorter than the delay is stretched to it; locking is instant (side input) | `pulse-stretch`, `repeater-lock`, `early-window` |
+| comparator | input change | 2 | scheduled; HIGH if it feeds a diode, else NORMAL | output recomputed in its tick: a change undone before then is swallowed | - |
+| redstone torch | input change | 2 | scheduled | burnout: 8 toggles in 60 gt -> off 160 gt (`RedstoneTorchBlock` 74, 87) | - |
+| observer | shape update from its face | on +2, off +2 more | scheduled | ignores changes while powered; sees 0-ticks | `observer-delay`, `zero-tick-observer`, `odd-observer` |
+| redstone lamp | power | on 0, off +4 | off scheduled | visible to observers | `lamp-fall-delay` |
+| copper bulb (waxed) | rising edge | toggles 0 | in the update | comparator reads 15/0 | `bulb-toggle`, `bulb-pulse` |
+| note block | rising edge | `powered` 0, sound = block event (same tick) | block-event phase | vibration for sculk | `odd-pulse`, `note-watch` |
+| target block | projectile hit | power, off +8 (arrow) / +20 | scheduled | weak power; dust next to it bends into it | `target-tap` |
+| lectern | page turn | 2 gt pulse | scheduled | `LecternBlock` 152 | - |
+| daylight detector | time of day | updated every 20 gt (game time % 20 == 0) | block-entity phase | locked to absolute time; constant with `advance_time` off | - |
+| bell | rising edge | rings at once, no redstone output | in the update | vibration | - |
+| sculk sensor | vibration | active after floor(distance), 30 gt (calibrated 10), cooldown 10 | block-entity phase | category sculk | `sculk-hold`, `sculk-delay-line` |
+| piston | power | see section 2: event this tick if powered by the lever or by anything in phases 3-5, next tick if powered in phase 8 or between... (lever: tick 1) | block-event phase | | all |
+| persistent leaves | neighbor change | 1 | scheduled | the only clean 1 gt element without a block that breaks | `leaves-delay` |
+
+"1-tick" in the redstone community usually means one REDSTONE tick (2 gt, an observer pulse);
+this study uses game ticks throughout.
+
+### Pulse generators
+
+* **0-tick pulse on a piston** (extend and retract in one phase): power it, and have its own move
+  update a silently armed partner that moves its power source away (`zero-tick`; the speed
+  doors' "F 0-ticks" is the same pattern with landed redstone blocks). Variants: `-normal`,
+  `-reach`, `-onplace`, `double-move`.
+* **0 gt power edges**: `instant-off` (moved source), `instant-on` (conductor off a dust step).
+* **2 gt pulse**: an observer (`dual-edge`, `spit`); **20/30 gt**: buttons; **any 2d**: repeater.
+* **Odd pulses**: k3..k5 from an observer on a k1 piston (`odd-observer`); k5..k7 / k7..k9 from a
+  repeater reading a k1-moved redstone block + note block + observer (`odd-pulse`); parity flip by
+  persistent leaves (`leaves-delay`).
+
+## 6. Floors for the 3x3 door
+
+Cells: opening x, y in {0,1,2} in the plane z = 0; the walkway is the same x, y for |z| <= 3.
+C = center (1,1); T = an edge cell next to it (say (1,2)); E = the cell outside T ((1,3)). A
+door is open when no cell of the opening or walkway blocks (moving blocks block) from that tick
+on; closed when the 9 cells hold their rest blocks (placed) from that tick on.
+
+### Open >= 4 (proof)
+
+1. Nothing moves before tick 1: the flip only queues events, they run in tick 1's block-event
+   phase (section 1).
+2. C is 2 cells from the outside of the 3x3 x 7 box in every direction (4 along z), and a piston
+   moves a block 1 cell per move: C needs 2 moves, the second one taking it out.
+3. A cell a block moves out of is air at once (section 2), so "open" is the tick in which C's
+   last move STARTS (if everything else is out by then).
+4. C can only move again once it is a placed block. After a pull, a drag or a plain push it is
+   placed in the block-entity phase of t+2, so the next move is at t+3. The only early placement
+   is `finalTick` by a sticky piston retracting while C is the block two ahead of it, i.e. C was
+   the FIRST block of that piston's push: the piston's base is adjacent to C's start cell, and
+   all six cells next to the center are in the opening or the walkway. That base is a
+   `moving_piston` for 2 gt after the retract (t' >= t) and can be moved out at t'+3 at the
+   earliest; the door is not open before.
+5. Either way open >= t + 3 with t >= 1: **open >= 4**.
+
+### An open-4 schedule (every step is a gadget)
+
+The edge block T must leave T's cell before C's first move, and NOT through E (C's puller sits
+there): it goes sideways through its corner, which costs it 2 moves too (k1 into the corner, k4
+out), in parallel with C.
+
+| tick | moves | gadget |
+|---|---|---|
+| k1 | the lever's piston shoves the redstone block feeding the pullers' dust line: the 6 side/bottom pullers (extended at rest, heads touching their blocks) retract in the same phase: ML, BL, MR, BR, TR, B out; TL pulled up into (0,3) | `instant-off` |
+| k1 | TL's departure updates P_T at (-1,2) (armed by the flip): it extends into TL's empty cell and is 0-ticked by its partner: reach-through, T pulled into (0,2) (lands k3) | `zero-tick-reach`, `center-exit` (tick 1) |
+| k1 | T's departure updates A' at E (armed by the flip): 0-tick reach-through, C pulled into T's cell (lands k3) | `center-exit` (tick 1) |
+| k4 | an observer chain off the lever (2 observers: k4) unpowers the aside pullers: A' pulled out of E, TL pulled out of (0,3) | `observer-delay`, `center-exit` (Y) |
+| k4 | E's emptying updates F (above E, armed silently since k1): F extends into E, its partner shoves its quasi source, F retracts: reach-through, C pulled into E: **C out** | `center-exit` (tick 4) |
+| k4 | the same at (0,4): TL's puller reach-pulls T out of the corner into (0,3): **T out, open at 4** | `center-exit` (tick 4) |
+
+What it takes: 4 0-tick pullers (each a sticky piston + a partner + a silent arming path), 2
+aside pullers, 7 plain pullers. Not built as a door here (the tick-door track applies the study);
+`center-exit` runs its critical path (C: k1 and k4) in the simulator and in vanilla.
+
+The speed track's topology (T pulled into E at k1, lands k3; a pusher shoves [A', T] at k4 so a
+puller takes E; C into T's cell at k4, out at k7) has floor 7; the best wired door opens at 10.
+
+### Close >= 1, and what each schedule costs
+
+Close is measured on placed blocks, so a 0-tick placement counts in the tick it happens. Trivially
+close >= 1 (nothing moves before tick 1). C needs 2 moves in (E -> T's cell -> center) and T must
+enter its cell after C went through:
+
+* **close 1-2 (in principle)**: C pushed E -> T's cell by a 0-ticked piston above E (C placed:
+  `zero-tick`), a piston carried into E by a 0-tick fires in the same phase (`zero-tick-onplace`)
+  and 0-ticks C into the center (`double-move` shows two placed moves of one block in one tick);
+  T comes back through its corner: pushed into the corner from the side cell R by a 0-tick, a
+  piston carried into R fires and 0-ticks T into its cell, the corner block enters from the other
+  side cell U. The carried pistons must be ordered AFTER the cell they enter is emptied, which a
+  2-cell-away pusher cannot see directly: a relay (a piston next to the cell that pushes a
+  conductor off a dust step feeding the pusher: `instant-on`) does it. Not built end to end.
+* **close 4 (no instantly carried pistons)**: the same with the pistons for E and R carried there
+  at k1 by plain pushes (relay-ordered): they land at k3 and fire at k4 (onPlace): C placed at k4
+  by a 0-tick, then T, then the corner block, all at k4. Without relays (carried at k2 by an
+  observer pulse instead): close 5.
+* **close 6**: the speed track's: C pushed into T's cell at k1 (spit), T pushed into E, F
+  re-extends at k4 pushing [T, C] together; C is the second block, not finalized: lands k6 (the
+  boards: 7).
+
+Open + close >= 5.
+
+## 7. Notes for door builders
+
+* Pistons react to a landing one tick late (landing = block-entity phase): spit (2 gt pulse) or
+  0-tick to place blocks in the block-event phase instead.
+* A reach-through puller (sticky piston, empty front, 0-ticked) moves a block two cells away
+  without ever having its head next to it at rest: the cheapest way to pull C or T out of a
+  cell that was full at rest.
+* Arm 0-tick partners after the flip (section 3's constraint), and give each one a power source
+  it can shove away.
+* Use one update to order several pistons (W,E,D,U,N,S), or chain them through their own moves:
+  every piston action updates its base's and front cell's neighbors.
+
+## 8. Vanilla confirmation
+
+`mctas door vanilla-gadget designs/gadgets/<g>.drive` (crates/piston-door/src/vanilla_gadget.rs):
+places the gadget's rest state in the official 26.3 server (`setblock ... strict`), replays the
+script (`use` by a bot player, `setblock` = the game's own command in both worlds) and compares
+the watch box after every action and every tick until the simulator is idle, at the judge's 4
+positions. Logs: `designs/piston-door-3x3/tracks/tick-study/logs/`.
+
+| gadget | result |
+|---|---|
+| zero-tick, zero-tick-normal, zero-tick-reach, zero-tick-onplace, zero-tick-observer | PASS, identical at 4 positions |
+| instant-off, instant-on | PASS, identical at 4 positions |
+| landing-next-tick, spit-saves-tick, leaves-delay, odd-observer | PASS, identical at 4 positions |
+| center-exit, double-move | PASS, identical at 4 positions |
+| event-order, button-pulse | PASS, identical at 4 positions |
