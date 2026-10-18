@@ -18,6 +18,7 @@
 pub mod cli;
 pub mod mechsynth;
 pub mod archive;
+pub mod buildable;
 pub mod designs;
 pub mod designs_history;
 pub mod designs_fresh_b;
@@ -31,6 +32,7 @@ pub mod drive;
 pub mod harvest;
 pub mod ideal;
 pub mod route;
+pub mod route2;
 pub mod minimize;
 pub mod patch;
 pub mod place;
@@ -178,6 +180,13 @@ pub fn is_gravity_block(state: &str) -> bool {
 /// True when the design uses no slime and no honey blocks anywhere (its own leaderboard).
 pub fn slime_free(d: &Design) -> bool {
     !d.blocks.values().any(|s| s.contains("slime_block") || s.contains("honey_block"))
+}
+
+/// True when every block of the design lies in the door's plane (z = door.z): the whole machine
+/// is one block thick ("flat"; its own leaderboard together with slime-free).
+pub fn single_layer(d: &Design) -> bool {
+    let Some(door) = d.ports.get("door") else { return false };
+    d.blocks.keys().all(|p| p[2] == door[2])
 }
 
 /// Blocks standing in the walkway at rest. The rules allow non-colliding blocks there (dust,
@@ -382,11 +391,16 @@ fn verify_at(
     }
     let (wlo, whi) = watch_box(d, spec);
     let rest = w.get_region(sb, wlo, whi)?;
-    // Survival-buildability: nothing may float (levers, torches, dust, repeaters on air...).
-    let floating = w.unsupported(sb, wlo, whi)?;
+    // Survival-buildability: nothing may float (levers, torches, dust, repeaters on air...), and
+    // nothing may change by itself over time (random ticks: unwaxed copper oxidizes...).
+    let (floating, ticking) = w.static_problems(sb, wlo, whi)?;
     if !floating.is_empty() {
         let list: Vec<String> = floating.iter().map(|p| format!("{p:?} {}", rest.get(*p).unwrap_or("?"))).collect();
         bail!("unsupported blocks (they could not stand there in survival): {}", list.join("; "));
+    }
+    if !ticking.is_empty() {
+        let list: Vec<String> = ticking.iter().map(|p| format!("{p:?} {}", rest.get(*p).unwrap_or("?"))).collect();
+        bail!("blocks that change by themselves over time (random ticks, e.g. unwaxed copper oxidizes; use waxed): {}", list.join("; "));
     }
     for (p, s) in &blocks {
         if rest.get(*p) != Some(s.as_str()) && first_position {

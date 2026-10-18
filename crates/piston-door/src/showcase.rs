@@ -240,9 +240,15 @@ fn total_ticks(a: &Archived) -> u32 {
 }
 
 /// The block-count boards: key, title, rule, membership.
-pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 4] = [
+pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 5] = [
     ("solid", "Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", |f| f.category == "solid"),
     ("slime-free", "Solid, no slime or honey", "not a single slime or honey block anywhere", |f| f.category == "solid" && f.slime_free),
+    (
+        "flat",
+        "Solid, flat (one z layer), no slime or honey",
+        "slime-free, and every block in the door's plane: the whole machine is one block thick",
+        |f| f.category == "solid" && f.slime_free && f.flat,
+    ),
     ("sculk", "Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", |f| f.category == "sculk"),
     ("gravity", "Gravity", "the 9 door blocks are sand, gravel or concrete powder", |f| f.category == "gravity"),
 ];
@@ -562,7 +568,7 @@ fn minutes_of(ts: &str) -> Option<i64> {
 /// A chart of the night: the record of each block-count board over time (from the archive
 /// headers), as step lines in the boards' colors, in the game's font.
 pub fn timeline_chart(look: &Look, all: &[Archived], out: &Path) -> Result<()> {
-    let colors: [[u8; 3]; 4] = [YELLOW, GREEN, AQUA, [255, 170, 0]];
+    let colors: [[u8; 3]; 5] = [YELLOW, GREEN, [255, 255, 255], AQUA, [255, 170, 0]];
     let mut series: Vec<(&str, [u8; 3], Vec<(i64, usize)>)> = Vec::new();
     for ((key, _, _, keep), color) in BLOCK_BOARDS.iter().zip(colors) {
         let mut pts: Vec<(i64, usize)> = all.iter().filter(|a| keep(&a.facts)).filter_map(|a| Some((minutes_of(&archived_at(&a.path))?, a.facts.blocks))).collect();
@@ -726,7 +732,7 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     let all = archived(version, &o.archive, o.workers)?;
     let caps = captions(&o.archive);
     let Some(&(board, board_title, board_rule, keep)) = BLOCK_BOARDS.iter().find(|b| b.0 == o.board) else {
-        bail!("unknown --board {} (solid, slime-free, sculk, gravity)", o.board);
+        bail!("unknown --board {} (solid, slime-free, flat, sculk, gravity)", o.board);
     };
     let mut rows = if board == "solid" { progression(&o.archive) } else { timeline_progression(&all, keep, &caps) };
     // A newer record than the last row joins at the end.

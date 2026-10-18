@@ -1,6 +1,6 @@
 # Track speed / wire: real (lever-only) versions of ideal-6
 
-Best: `wire/BEST.txt` = `wire/o3.txt` (open 11 / close 7, 135 blocks: o2 minus the 2 dead reach-through observers; see "o2" below). Before: `wire/w6.txt`, 161 blocks,
+Best: `wire/BEST.txt` = `wire/o6.txt` (open 11 / close 7, 120 blocks; o2/o3 = 137/135; see "o2" and "o4..o6" below). Before: `wire/w6.txt`, 161 blocks,
 category solid, slime-free, **open 12 / close 7**. Chain of verified steps: w1 (12/19),
 w2 (12/14), w4 (12/13), w5 (12/11), w6 (12/7; w6 = w5 + w6b.patch + w6c.patch + w6d.patch).
 Each wN.txt = w(N-1).txt + wN.patch (`door patch`).
@@ -71,6 +71,40 @@ slime-free, open 11 / close 7). Validated first with scripted parts (o0.drive, o
 * The k6 pulse (both edges): O1 (4,5,-2) watches lever-net dust (3,5,-2) (k2) -> O2 (5,5,-2)
   (k4) -> O3 (5,5,-1) (k6) into stone (5,5,0) -> dust (5,6,0),(5,6,1), up to y=7, west along z=3
   to (0,7,2); floor (1,6,3) powers P_D below it, floor (0,6,2) powers P_V.
+
+## Open 10: VALIDATED with scripted inputs (p0.drive), NOT wired
+`p0.txt` = o6 minus Q's silent hold (repeater (-2,4,-1) + stone (-2,4,0)), O_A, P_V and R_Z.
+`door drive wire/p0.drive` (scripted: redstone block at (1,3,1) after k4..k6 = A' power k5..k7;
+R_Z at (1,6,1) after k8; Q power at (-1,4,0) after k8, removed after k9):
+* k4 Q pushes [A', T]; k6 O_Q's pulse ends in the scheduled phase -> Q's retract is type 2
+  (isHandlingTick) -> Q SPITS A': A' placed at E in k6's block-event phase and, powered, extends
+  in the same phase (onPlace -> checkIfExtend -> event runs in the same runBlockEvents loop).
+* k7 A' unpowered -> retracts, pulls C into N1 (lands k9 BE, A' base lands k9 BE).
+* Q's base lands k8 BE; powered then -> Q extends into (0,3,0) at k9; unpowered + updated
+  before k10 -> Q retracts at k10 and pulls A' out of E (reach-through).
+* k10 F 0-ticks (R_X armed since k8 BE, R_Z landed by k9 BE): C pulled from N1: OPEN 10.
+  Close unchanged (7).
+Missing to wire it: (1) A' power ON at k6 block events, OFF at k7: an ODD pulse (k5..k7). Parity
+only changes through piston events: the k1 moves (S_F, R_F A->B, F, T) are the roots; observers
+on A/B/S_F/F fire k3..5, a second observer k5..7. No rotation fits: the only cells whose output
+reaches A' at E are (1,3,-1) facing north and (1,3,1) facing south (or F's QC neighbors
+(1,4,1)/(0,4,0)/(2,4,0) with the back toward F), and none of them is next to a k3-changing
+observer (O_B's spot (1,3,-2) facing up/east lands its output in the lever floor; an observer
+watching E itself fires again k8..10 off A's k6 placement, which would power F at k10 and kill
+the 0-tick). (2) Q's second pulse k8..10 (one more observer after a k6 one into Q's QC cell).
+(3) P_V's pulse moved to k5..7 so R_Z lands k9 BE (also odd).
+
+## Size at equal speed (11/7): o4..o6 (each = previous + oN.patch)
+* o5 122: the k6 pulse = O1 (1,7,-2) watching R_s's input dust (1,6,-2) (k2), O2 (1,7,-1)
+  (k4), O3 (1,7,0) (k6) -> stone (1,7,1); P_V moved to (2,6,1) facing west (R_Z rests at
+  (0,6,1)); dusts to P_V's side and P_D's floor. (o4, dust ON P_V, failed: an extended piston's
+  top face is not sturdy, the dust breaks.)
+* o6 120: chain moved to x=2 (O1 (2,7,-2) watches dust (2,6,-2)): its output stone (2,7,1) sits
+  directly on P_V; dust (2,7,2) on (2,6,2) steps down to dust (2,6,3) on (2,5,3) beside P_D.
+Looked at, not done: east torch line (every shorter feed puts dust next to the torch's
+strongly powered block above it, a latch); lock chain via R_Z (R_s's free sides cannot be
+reached from R_Z's rest spot by a diode); dropping the s3 F-k2 dusts (TR cannot push T into E
+before F's spit; P_X's retraction would give the update only if R_Z left (1,6,1) at close k2).
 
 ## Size at equal speed (12/7): s1..s4 (each = previous + sN.patch; s1 from ../w6-134b.txt)
 * s1 128: TR's second hold = observer (3,4,0) (in TR's QC cell, facing north) watching S_R,

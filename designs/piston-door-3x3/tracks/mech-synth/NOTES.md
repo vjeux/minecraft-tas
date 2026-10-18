@@ -126,6 +126,17 @@ pulsed at two places on the open run). Notable:
 * `--edges start` (side/M pulses forced first): no pulse-only symmetric sequence <= 10 core pulses
   for abpt21r; m10/m11 put M early but their T-mover rides a side structure.
 
+### Next ideas
+* Wire abpt21r (B as one window, fc2's D-repeater + observer-on-D for A2/A3) with an observer
+  chain whose tail runs down the side to M's piston: the ~16 gt of travel IS the required delay
+  (M >= A3); the other agent `wire21` is on it.
+* A control-cost objective for mech-synth (merged steps x distance from the lever, late pulses far
+  from the elevator) instead of "fewest events"; then rerun k = 4..5.
+* Model fc2's coupled signals (a shuttle: A off then X on, X off then A on) in the macro model to
+  search mechanisms around fc2 with its control topology fixed.
+* Faster search (occupancy grid instead of linear scans, partial-order reduction of independent
+  pulses) to reach k = 5 additions or bases with fewer fixed parts.
+
 ### What failed / caveats
 * `fc2like22` (pulse-driven P_R dragging T) has no symmetric sequence: dragging T needs the
   order "A then P_R" on open and "P_R then A" on close: an order reversal, which is what fc2's
