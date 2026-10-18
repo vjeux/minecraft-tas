@@ -1,0 +1,4 @@
+# w3 = w2 + TR at k=8: (3,3,-2) now watches X2 (3,3,-3) (k4) -> k6, OT (3,3,-1) -> k8.
+# T is spit into E at k=10; F (base landed k=8) extends then on O5's pulse (k10..12), R_F holds.
+clear 2 3 -2
+set 3 3 -2 minecraft:observer[facing=north,powered=false]
