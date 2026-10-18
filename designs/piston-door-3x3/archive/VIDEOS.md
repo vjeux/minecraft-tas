@@ -32,6 +32,7 @@ Rendered by the real Minecraft client (`mctas door video-all`).
 | 52 | solid | [slime-free-tlup-52b](slime-free-tlup-52b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-tlup-52b.mp4) |
 | 53 | solid | [logic-min-slime-free-53b](logic-min-slime-free-53b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/logic-min-slime-free-53b.mp4) |
 | 53 | solid | [mechanics-rb2-hold-53b](mechanics-rb2-hold-53b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/mechanics-rb2-hold-53b.mp4) |
+| 53 | solid | [piston-door-3x3-fresh-b-pd3d-53b](piston-door-3x3-fresh-b-pd3d-53b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-pd3d-53b.mp4) |
 | 53 | solid | [piston-door-3x3-lm1-53b](piston-door-3x3-lm1-53b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-lm1-53b.mp4) |
 | 54 | solid | [piston-door-3x3-fresh-b-pd3c-54b](piston-door-3x3-fresh-b-pd3c-54b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-fresh-b-pd3c-54b.mp4) |
 | 54 | solid | [piston-door-3x3-lm1-54b](piston-door-3x3-lm1-54b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/piston-door-3x3-lm1-54b.mp4) |

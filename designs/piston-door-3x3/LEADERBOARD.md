@@ -123,7 +123,7 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 | 3 | 17 | 16 | 17 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-71b.txt` |
 | 4 | 18 | 34 | 18 | 89 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s1-89b.txt` |
 | 5 | 19 | 16 | 19 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt` |
-| 6 | 22 | 22 | 22 | 53 | solid | `origin/explore/fresh-b:designs/piston-door-3x3/tracks/fresh-b/BEST.txt` |
+| 6 | 22 | 22 | 22 | 53 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3d-53b.txt` |
 | 7 | 22 | 33 | 22 | 58 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s6-58b.txt` |
 | 8 | 22 | 22 | 22 | 59 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3b-59b.txt` |
 | 9 | 22 | 22 | 22 | 61 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3-61b.txt` |
@@ -151,7 +151,7 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 | 2 | 33 | 16 | 17 | 69 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-69b.txt` |
 | 3 | 33 | 16 | 17 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-71b.txt` |
 | 4 | 35 | 16 | 19 | 71 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt` |
-| 5 | 44 | 22 | 22 | 53 | solid | `origin/explore/fresh-b:designs/piston-door-3x3/tracks/fresh-b/BEST.txt` |
+| 5 | 44 | 22 | 22 | 53 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3d-53b.txt` |
 | 6 | 44 | 22 | 22 | 59 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3b-59b.txt` |
 | 7 | 44 | 22 | 22 | 61 | solid | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3-61b.txt` |
 | 8 | 47 | 22 | 25 | 47 | solid | `HEAD:designs/piston-door-3x3/archive/m48-bmobs-47b.txt` |
@@ -179,8 +179,8 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 | 15 | 52 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-tlup-52b.txt` |
 | 16 | 53 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-53b.txt` |
 | 17 | 53 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb2-hold-53b.txt` |
-| 18 | 53 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-53b.txt` |
-| 19 | 53 | solid |  | WORKS | `origin/explore/fresh-b:designs/piston-door-3x3/tracks/fresh-b/BEST.txt` |
+| 18 | 53 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3d-53b.txt` |
+| 19 | 53 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-53b.txt` |
 | 20 | 54 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3c-54b.txt` |
 | 21 | 54 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-54b.txt` |
 | 22 | 55 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-55b.txt` |
