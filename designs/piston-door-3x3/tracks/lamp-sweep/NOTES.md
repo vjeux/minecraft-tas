@@ -17,6 +17,9 @@ league.
 | `w41.txt` | 41 | slime-free (best at 06:28; sf-holdA reached 40 and 38 since) | 42 (wire19sf-w42) | 28 / 26 |
 | `fb44.txt` | 44 | flat (superseded by flat43) | 45 (flat-b-v6) | 30 / 26 |
 
+All five re-verified at 16:25Z with main's verifier (main as of 15:51Z merged in): 32 positions x 3
+cycles, and rotation-safe (they also work turned 90, 180 and 270 degrees).
+
 No change on the solid 40s (fc2, fx1, m05), the new 38 (sf-holdA-b38), sculk s4 (36) or gravity
 (g42; gravity-2's g33 has 5 removable blocks).
 
@@ -44,16 +47,19 @@ wiring blocks is already minimal with lamps, bulbs, note blocks and targets too.
   signal source), a plain block is not.
 * `synth`: the enumeration stops (the group is skipped) after 200 x `--max-cands` visited sets, so
   a search tree that explodes while few sets are finished circuits no longer runs for hours.
+* `grow`/`regrow --states`: `bulb` and `target` (lamp and note were there).
 
-## Inputs (board leaders at 13:20Z)
+## Inputs (board leaders at 13:20Z, plus the ones that appeared later)
 | board | design | blocks |
 |---|---|---|
-| solid | archive/fc2-40b, riders-fx1-40b, m05-21b-sym-40b | 40 |
+| solid | archive/fc2-40b, riders-fx1-40b, m05-21b-sym-40b; from 15:28Z sf-holdA-b38 (explore/sf-holdA BEST.txt) | 40, 38 |
 | slime-free | archive/wire19sf-w42-42b | 42 |
-| flat | inputs/flat-b-best.txt (flat-b-v6), inputs/flat-best.txt (flat-v8) | 45, 49 |
-| sculk | inputs/sculk2-best.txt (sculk2-s4) | 36 |
-| gravity | archive/synth-g42-42b | 42 |
-| speed | archive/speed-wire-o6-119b (open 11 / close 7) | 119 |
+| flat | explore/flat-b BEST.txt (flat-b-v6), explore/flat BEST.txt (flat-v8) | 45, 49 |
+| sculk | explore/sculk-2 BEST.txt (sculk2-s4) | 36 |
+| gravity | archive/synth-g42-42b; gravity-2's g33 (5 removable blocks: skipped) | 42, 33 |
+| speed | archive/speed-wire-o6-119b (open 11 / close 7); explore/speed-2 BEST.txt (speed-2-a1m, open 10 / close 7) | 119, 123 |
+
+(Copies used as run inputs were deleted so the leaderboard does not list them twice.)
 
 Palette for every resynth: `block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,note` (size 5:
 without `torch,cmp` unless `--require-any` limits the count).
@@ -86,6 +92,9 @@ without `torch,cmp` unless `--require-any` limits the count).
 | a1-107 | 107 | speed | - | `door minimize --moves all --plateau --max-open 10 --max-close 7`: nothing (1.95M swaps, 20.7k removals, 9.5k compounds; 218 neutral designs, then 21k removals + 7.8k reroutes) | |
 | sf-holdA-b38 | 38 | solid + slime-free | - | `door regrow --size 2 --any` with lamp, bulb, note, target added to the states (cut any 2 control blocks, add 1 near either; 153 pairs, 82k candidates): nothing | |
 | fc2, fx1, m05 | 40 | solid | - | the same `regrow --size 2 --any` with the new states (276 pairs each, 139k-162k candidates): nothing | |
+| flat43 | 43 | flat | - | the same `regrow --size 2 --any` (253 pairs, 142k candidates): nothing | |
+| sf-holdA-b38 | 38 | solid + slime-free | - | `door regrow --size 3` with the new states (21 connected triples re-grown with 2 blocks, 3.15M candidates): nothing | |
+| fc2, m05, fx1 | 40 | solid | - | the same `regrow --size 3` (23 / 22 / 25 triples, 3.0M / 3.8M / 3.3M candidates): nothing | |
 
 ## What did not work, and why
 * **The record designs have almost nothing left to re-synthesize.** fc2/fx1/m05 have 11-17

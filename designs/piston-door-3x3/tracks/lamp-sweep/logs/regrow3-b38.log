@@ -10,3 +10,8 @@
 [  262.8s] batch of 433921 candidates (2220638 so far)
 [  319.1s]   433921 candidates: 1312 seen, 432609 screened in 56.3s, 0 passed the screen, 0 judged, 0 passed the judge (56.3s)
 [  320.7s] batch of 446917 candidates (2667555 so far)
+[  401.0s]   446917 candidates: 1541 seen, 445376 screened in 80.3s, 0 passed the screen, 0 judged, 0 passed the judge (80.3s)
+[  402.6s] batch of 482246 candidates (3149801 so far)
+[  474.1s]   482246 candidates: 3069 seen, 479177 screened in 71.5s, 0 passed the screen, 0 judged, 0 passed the judge (71.5s)
+[  474.2s] 21 groups of 3; 3149801 candidates judged
+nothing found

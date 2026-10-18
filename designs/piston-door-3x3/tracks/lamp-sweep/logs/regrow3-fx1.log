@@ -1,0 +1,17 @@
+[    0.0s] 25 groups of 3
+[    1.9s] batch of 449126 candidates (449126 so far)
+[   47.5s]   449126 candidates: 0 seen, 449126 screened in 45.6s, 0 passed the screen, 0 judged, 0 passed the judge (45.6s)
+[   49.5s] batch of 545730 candidates (994856 so far)
+[   83.9s]   545730 candidates: 0 seen, 545730 screened in 34.4s, 0 passed the screen, 0 judged, 0 passed the judge (34.4s)
+[   85.5s] batch of 428336 candidates (1423192 so far)
+[  118.7s]   428336 candidates: 799 seen, 427537 screened in 33.2s, 0 passed the screen, 0 judged, 0 passed the judge (33.2s)
+[  120.2s] batch of 437754 candidates (1860946 so far)
+[  154.9s]   437754 candidates: 979 seen, 436775 screened in 34.7s, 0 passed the screen, 0 judged, 0 passed the judge (34.7s)
+[  156.8s] batch of 535655 candidates (2396601 so far)
+[  199.9s]   535655 candidates: 1706 seen, 533949 screened in 43.0s, 0 passed the screen, 0 judged, 0 passed the judge (43.0s)
+[  201.4s] batch of 417401 candidates (2814002 so far)
+[  232.6s]   417401 candidates: 937 seen, 416464 screened in 31.2s, 0 passed the screen, 0 judged, 0 passed the judge (31.2s)
+[  234.9s] batch of 514084 candidates (3328086 so far)
+[  290.2s]   514084 candidates: 0 seen, 514084 screened in 55.3s, 0 passed the screen, 0 judged, 0 passed the judge (55.3s)
+[  290.4s] 25 groups of 3; 3328086 candidates judged
+nothing found
