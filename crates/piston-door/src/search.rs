@@ -539,37 +539,32 @@ fn reserved_cells(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> HashSet<Pos> {
 }
 
 /// Sort an edit into improving / neutral by its block-count change; drops no-ops and repeats.
-fn classify(d: &Design, e: Edit, seen: &mut HashSet<u64>, better: &mut Vec<Edit>, neutral: &mut Vec<Edit>) {
+fn classify(d: &Design, mut e: Edit, seen: &mut HashSet<u64>, better: &mut Vec<Edit>, neutral: &mut Vec<Edit>) {
     let new = e.apply(d);
     if new.blocks == d.blocks || !seen.insert(design_hash(&new)) {
         return;
     }
-    match block_count(&new) as i64 - block_count(d) as i64 {
+    let delta = block_count(&new) as i64 - block_count(d) as i64;
+    e.desc = format!("{} [{delta:+}]", e.desc);
+    match delta {
         x if x < 0 => better.push(e),
         0 => neutral.push(e),
         _ => {}
     }
 }
 
-/// Net re-synthesis: for each dust net with 2+ terminals, rip every non-terminal dust cell with
-/// its floor and reconnect the terminals with the router (greedy Steiner tree: from each
-/// terminal as the root, repeatedly route the tree to the cheapest remaining terminal).
-fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>) {
-    let g = dust_graph(d);
-    let (lo, hi) = router_box(d);
-    let reserved = reserved_cells(ctx, d, swept);
-    let (mut better, mut neutral) = (Vec::new(), Vec::new());
-    let mut seen: HashSet<u64> = HashSet::new();
+/// Dust nets: the connected components of the dust graph.
+fn nets(g: &HashMap<Pos, Vec<Pos>>) -> Vec<Vec<Pos>> {
     let mut done: HashSet<Pos> = HashSet::new();
     let mut cells: Vec<Pos> = g.keys().copied().collect();
     cells.sort();
+    let mut out = Vec::new();
     for &c0 in &cells {
-        if done.contains(&c0) {
+        if !done.insert(c0) {
             continue;
         }
         let mut net = vec![c0];
         let mut q = VecDeque::from([c0]);
-        done.insert(c0);
         while let Some(c) = q.pop_front() {
             for n in &g[&c] {
                 if done.insert(*n) {
@@ -578,22 +573,88 @@ fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)
                 }
             }
         }
+        out.push(net);
+    }
+    out
+}
+
+/// The edit that turns `d` into `new`.
+fn diff_edit(d: &Design, new: &Design, desc: String) -> Edit {
+    let remove = d.blocks.keys().filter(|p| !new.blocks.contains_key(*p)).copied().collect();
+    let set = new.blocks.iter().filter(|(p, s)| d.blocks.get(*p) != Some(*s)).map(|(p, s)| (*p, s.clone())).collect();
+    Edit { remove, set, desc }
+}
+
+/// Net re-synthesis candidates: (improving, neutral). For each dust net with 2+ terminals: the
+/// terminals reconnected from scratch ([`resynth`]), the same with one terminal dropped, and for
+/// each repeater, the repeater turned into dust and its merged net re-synthesized.
+fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>) {
+    let reserved = reserved_cells(ctx, d, swept);
+    let (mut better, mut neutral) = (Vec::new(), Vec::new());
+    let mut seen: HashSet<u64> = HashSet::new();
+    let g = dust_graph(d);
+    for net in nets(&g) {
         let terminals: Vec<Pos> = net.iter().copied().filter(|c| is_terminal(d, *c)).collect();
-        let wiring: Vec<Pos> = net.iter().copied().filter(|c| !is_terminal(d, *c)).collect();
-        if terminals.len() < 2 || wiring.is_empty() {
+        if terminals.len() < 2 {
             continue;
         }
-        let mut rip = Vec::new();
-        for c in &wiring {
-            rip.push(*c);
-            rip.push(add(*c, [0, -1, 0]));
+        let mut sets = vec![(terminals.clone(), String::new())];
+        for t in &terminals {
+            sets.push((terminals.iter().copied().filter(|x| x != t).collect(), format!(" without {}", fmt_pos(*t))));
         }
+        for (ts, note) in sets {
+            for (new, desc) in resynth(d, &g, &net, &ts, &reserved) {
+                classify(d, diff_edit(d, &new, format!("{desc}{note}")), &mut seen, &mut better, &mut neutral);
+            }
+        }
+    }
+    for (&p, s) in &d.blocks {
+        if kind(s) != "repeater" || ctx.keep.contains(&p) {
+            continue;
+        }
+        let mut d2 = d.clone();
+        d2.blocks.insert(p, WIRE.to_string());
+        let g2 = dust_graph(&d2);
+        let Some(net) = nets(&g2).into_iter().find(|n| n.contains(&p)) else { continue };
+        let terminals: Vec<Pos> = net.iter().copied().filter(|c| is_terminal(&d2, *c)).collect();
+        if terminals.len() < 2 {
+            continue;
+        }
+        for (new, desc) in resynth(&d2, &g2, &net, &terminals, &reserved) {
+            classify(d, diff_edit(d, &new, format!("repeater {} to dust, {desc}", fmt_pos(p))), &mut seen, &mut better, &mut neutral);
+        }
+    }
+    (better, neutral)
+}
+
+/// Rip every cell of `net` but `terminals` (with the floors of plain wiring) and reconnect the
+/// terminals with the router as a greedy Steiner tree, once from each terminal as the root
+/// (each step routes the tree to the cheapest remaining terminal).
+fn resynth(d: &Design, g: &HashMap<Pos, Vec<Pos>>, net: &[Pos], terminals: &[Pos], reserved: &HashSet<Pos>) -> Vec<(Design, String)> {
+    let (lo, hi) = router_box(d);
+    let tset: HashSet<Pos> = terminals.iter().copied().collect();
+    let mut rip = Vec::new();
+    for &c in net {
+        if tset.contains(&c) {
+            continue;
+        }
+        rip.push(c);
+        if !is_terminal(d, c) {
+            rip.push(add(c, [0, -1, 0]));
+        }
+    }
+    let mut out = Vec::new();
+    if rip.is_empty() {
+        return out;
+    }
+    let wiring = net.len() - terminals.len();
+    {
         let mut after = d.clone();
         for p in &rip {
             after.blocks.remove(p);
         }
         let mut base_allow: HashSet<Pos> = HashSet::new();
-        for c in &net {
+        for c in net {
             for f in FACES {
                 base_allow.insert(add(*c, f));
                 base_allow.insert(add(add(*c, [0, -1, 0]), f));
@@ -602,7 +663,6 @@ fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)
         for p in &rip {
             base_allow.remove(p);
         }
-        let tset: HashSet<Pos> = terminals.iter().copied().collect();
         // Terminals still connected to `t` through terminals.
         let group = |t: Pos| -> Vec<Pos> {
             let mut out = vec![t];
@@ -618,7 +678,7 @@ fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)
             }
             out
         };
-        for &root in &terminals {
+        for &root in terminals {
             let mut blocks = after.blocks.clone();
             let mut tree = group(root);
             let mut remaining: Vec<Pos> = terminals.iter().copied().filter(|t| !tree.contains(t)).collect();
@@ -667,16 +727,14 @@ fn renets(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)
             if !ok {
                 continue;
             }
-            let delta = added.len() as i64 - rip.len() as i64;
-            let e = Edit {
-                remove: rip.clone(),
-                set: added,
-                desc: format!("renet from {} ({} terminals, {} wiring dust ripped, {delta:+})", fmt_pos(root), terminals.len(), wiring.len()),
-            };
-            classify(d, e, &mut seen, &mut better, &mut neutral);
+            let mut new = after.clone();
+            for (p, s) in added {
+                new.blocks.insert(p, s);
+            }
+            out.push((new, format!("renet from {} ({} terminals, {wiring} ripped)", fmt_pos(root), terminals.len())));
         }
     }
-    (better, neutral)
+    out
 }
 
 /// Rip-up-and-reroute candidates: (improving, neutral).
@@ -732,8 +790,7 @@ fn reroutes(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit
                 let s = if kind(s) == "redstone_wire" { WIRE.to_string() } else { s.clone() };
                 e.set.push((*p, s));
             }
-            let delta = path.len() as i64 - rip.len() as i64;
-            e.desc = format!("reroute {} -> {} ({} inner dust, {} new blocks, {delta:+})", fmt_pos(keep), fmt_pos(goal), inner.len(), path.len());
+            e.desc = format!("reroute {} -> {} ({} inner dust, {} new blocks)", fmt_pos(keep), fmt_pos(goal), inner.len(), path.len());
             classify(d, e, &mut seen, &mut better, &mut neutral);
         }
     }
@@ -744,6 +801,41 @@ fn reroutes(ctx: &Ctx, d: &Design, swept: &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit
 struct Cand {
     base: usize,
     edit: Edit,
+}
+
+/// Router-based candidates (reroute, renet) of each design, (improving, neutral), on threads.
+fn routed(opts: &SearchOptions, designs: &[Design], swept: &[HashSet<Pos>]) -> Vec<(Vec<Edit>, Vec<Edit>)> {
+    let n = designs.len();
+    let results: Mutex<Vec<Option<(Vec<Edit>, Vec<Edit>)>>> = Mutex::new((0..n).map(|_| None).collect());
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|s| {
+        for _ in 0..n.min(16) {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= n {
+                        break;
+                    }
+                    let d = &designs[i];
+                    let (mut b, mut nn) = (Vec::new(), Vec::new());
+                    if let Ok(ctx) = Ctx::new(d) {
+                        if opts.has(Family::Reroute) {
+                            let (x, y) = reroutes(&ctx, d, &swept[i]);
+                            b.extend(x);
+                            nn.extend(y);
+                        }
+                        if opts.has(Family::Renet) {
+                            let (x, y) = renets(&ctx, d, &swept[i]);
+                            b.extend(x);
+                            nn.extend(y);
+                        }
+                    }
+                    results.lock().unwrap()[i] = Some((b, nn));
+                }
+            });
+        }
+    });
+    results.into_inner().unwrap().into_iter().map(|r| r.unwrap_or_default()).collect()
 }
 
 enum Screen {
@@ -910,15 +1002,10 @@ pub fn search(
                 crate::route::swept_cells(&mut w, &cur, &ctx.spec)?
             };
             let tr = Instant::now();
-            for (fam, generate) in [(Family::Reroute, reroutes as fn(&Ctx, &Design, &HashSet<Pos>) -> (Vec<Edit>, Vec<Edit>)), (Family::Renet, renets)] {
-                if opts.has(fam) {
-                    let (b, n) = generate(&ctx, &cur, &swept);
-                    n_reroute.0 += b.len();
-                    n_reroute.1 += n.len();
-                    improving.extend(b);
-                    neutral_all.extend(n);
-                }
-            }
+            let (b, n) = routed(opts, std::slice::from_ref(&cur), std::slice::from_ref(&swept)).remove(0);
+            n_reroute = (b.len(), n.len());
+            improving.extend(b);
+            neutral_all.extend(n);
             if tr.elapsed().as_secs_f64() > 5.0 {
                 log(&format!("  routing took {:.1}s", tr.elapsed().as_secs_f64()));
             }
@@ -987,7 +1074,27 @@ pub fn search(
                 cands.push(Cand { base: i, edit });
             }
         }
-        log(&format!("  plateau: {} verified neutral designs, {} removals after them", pbases.len(), cands.len()));
+        let n_removals = cands.len();
+        if opts.has(Family::Reroute) || opts.has(Family::Renet) {
+            let tr = Instant::now();
+            let spec = ctx.spec;
+            let swept: Vec<HashSet<Pos>> = pool
+                .map((0..pbases.len()).collect(), |w, _, i| crate::route::swept_cells(w, &pbases[i], &spec))
+                .into_iter()
+                .map(|r| r.unwrap_or_default())
+                .collect();
+            for (i, (b, _)) in routed(opts, &pbases, &swept).into_iter().enumerate() {
+                for edit in b {
+                    cands.push(Cand { base: i, edit });
+                }
+            }
+            log(&format!("  plateau: routing took {:.1}s", tr.elapsed().as_secs_f64()));
+        }
+        log(&format!(
+            "  plateau: {} verified neutral designs, {n_removals} removals and {} reroutes after them",
+            pbases.len(),
+            cands.len() - n_removals
+        ));
         let found = evaluate(pool, &sandboxes, &pbases, cands, opts, &failed, 1, log);
         if let Some((bi, best, desc)) = found.into_iter().next() {
             let desc = format!("{} then {desc}", plateau[bi].2);
