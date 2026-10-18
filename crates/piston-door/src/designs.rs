@@ -64,6 +64,9 @@ pub fn build(name: &str) -> Option<Design> {
     match name {
         "v1" => Some(v1()),
         "v2" => Some(v2()),
+        "v2-133" => Some(crate::designs_history::v2_133()),
+        "v2-135" => Some(crate::designs_history::v2_135()),
+        "v2-143" => Some(crate::designs_history::v2_143()),
         _ => None,
     }
 }
@@ -207,14 +210,14 @@ pub fn v2() -> Design {
     // Lever and the B pulse chain: W -> O2 (both edges) -> R_ext (stretch to 8gt) -> R_B, which
     // QC-powers B through (1,6,0) and is watched by O, whose pulse lights the X dust that powers
     // A in both of its positions (directly at (1,4), through the (2,3,0) block at (1,3)).
-    b.set([6, 5, 0], FLOOR);
-    b.set([6, 6, 0], "lever[face=floor,facing=west,powered=false]");
-    b.port("lever", [6, 6, 0]);
-    b.repeater([5, 6, 0], "west", 1); // W
-    b.set([4, 6, 0], "observer[facing=east,powered=false]"); // O2
-    b.repeater([3, 6, 0], "west", 4); // R_ext
+    b.set([5, 5, 0], FLOOR);
+    b.set([5, 6, 0], "lever[face=floor,facing=west,powered=false]");
+    b.port("lever", [5, 6, 0]);
+    b.repeater([4, 6, 0], "west", 1); // W
+    b.set([3, 6, 0], "observer[facing=east,powered=false]"); // O2
     b.set([2, 5, 0], "observer[facing=up,powered=false]"); // O
-    b.set([2, 6, 0], "repeater[facing=east,delay=1]"); // R_B (floor = O)
+    b.set([2, 6, 0], "repeater[facing=east,delay=4]"); // R_B: stretches the O2 pulse to 8gt (floor = O)
+    b.dust([5, 4, 0]); // under the lever block: feeds the sides line
     b.set([2, 3, 0], stone);
     b.set([2, 4, 0], "redstone_wire[north=side,east=side,south=side,west=side]"); // X
 
@@ -268,21 +271,15 @@ pub fn v2() -> Design {
     b.dust([5, 4, 2]);
     b.repeater([4, 4, 2], "west", 4);
     // Late chain: L_6 + 22gt = L_28 into the P_T net, + 8gt more into the A net.
-    b.repeater([6, 4, 3], "south", 4);
-    b.repeater([6, 4, 4], "south", 4);
-    b.repeater([6, 4, 5], "south", 4);
-    b.dust_run([6, 4, 6], [3, 4, 6]);
-    b.dust([3, 4, 5]);
-    b.dust([3, 4, 4]);
-    b.repeater([3, 4, 3], "north", 2);
-    // A's late input: the P_T late net (L_28) through a 6gt repeater into the A net's end.
-    for (p, s) in [
-        ([2, 3, 4], FLOOR), ([2, 4, 4], "redstone_wire"), ([1, 3, 4], FLOOR), ([1, 4, 4], "redstone_wire"),
-        ([0, 3, 4], FLOOR), ([0, 4, 4], "redstone_wire"), ([-1, 2, 4], FLOOR), ([-1, 3, 4], "redstone_wire"),
-        ([-1, 3, 3], FLOOR), ([-1, 4, 3], "redstone_wire"), ([-1, 4, 2], FLOOR), ([-1, 5, 2], "redstone_wire"),
-    ] {
-        b.set(p, s);
-    }
-    b.repeater([-1, 4, 1], "north", 4);
+    b.dust([7, 4, 2]);
+    b.dust([7, 4, 3]);
+    b.repeater([6, 4, 3], "west", 4);
+    b.repeater([5, 4, 3], "west", 4);
+    b.repeater([4, 4, 3], "west", 4);
+    b.dust([3, 4, 3]); // joins the P_T net
+    // A late: the P_T net through a repeater, routed to the repeater into the A torch attachment.
+    b.repeater([2, 4, 3], "west", 1);
+    // @AL4
+    b.repeater([-1, 4, 1], "north", 2);
     b.d
 }
