@@ -1,0 +1,17 @@
+# o6 = o5 with the pulse chain shifted to x=2: O1 (2,7,-2) watches dust (2,6,-2), O2 (2,7,-1),
+# O3 (2,7,0) -> stone (2,7,1) directly above P_V; dust (2,7,2) -> step down to dust (2,6,3) on
+# floor (2,5,3) next to P_D. The x=1 chain, (1,7,1), dusts (1,7,2),(1,7,3) and floors go.
+clear 1 7 -2
+clear 1 7 -1
+clear 1 7 0
+clear 1 7 1
+clear 1 7 2
+clear 1 6 2
+clear 1 7 3
+clear 1 6 3
+set 2 7 -2 minecraft:observer[facing=down,powered=false]
+set 2 7 -1 minecraft:observer[facing=north,powered=false]
+set 2 7 0 minecraft:observer[facing=north,powered=false]
+set 2 7 1 minecraft:stone
+set 2 5 3 minecraft:smooth_stone
+set 2 6 3 minecraft:redstone_wire

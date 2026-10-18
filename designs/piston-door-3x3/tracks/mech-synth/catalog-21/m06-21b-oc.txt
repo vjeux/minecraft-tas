@@ -1,0 +1,43 @@
+name: m06-21b-oc
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:stone
+  S minecraft:slime_block
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ....C
+  .
+  .
+layer -1:
+  .
+  .
+  .
+layer 0:
+  ..SEEES
+  .
+  .
+layer 1:
+  A.SEEES.D
+  .
+  .
+layer 2:
+  ..SEEES
+  .
+  .
+layer 3:
+  .
+  .
+  ....B
+layer 4:
+  ....s
+  .
+  .
+layer 5:
+  ....s
+  .
+  .

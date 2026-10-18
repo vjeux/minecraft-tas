@@ -25,6 +25,8 @@
   bedrock, headless pistons...). Any other block or mechanic in the game is allowed. Every block must be
   able to stand where it is (no floating levers, torches, dust or repeaters: the judge checks
   `canSurvive`).
+- Boards besides the main one: "Solid, no slime or honey" (verify prints `, slime-free`) and "Solid, flat
+  (one z layer), no slime or honey" (every block in the door's plane z = door.z, verify prints `, flat`).
 - Category: doors whose 9 blocks are gravity blocks (sand, gravel, concrete powder) are ranked
   separately (`category gravity` in the verify output), and so are doors using sculk sensors
   (`category sculk`: a player's footsteps or a mob nearby can trigger them); everything else is
@@ -45,6 +47,12 @@
   Default `--moves singles` is the old greedy removal.
 - `harvest --out-dir <dir> --moves all --plateau [--every 20]`: runs that search on the best
   working designs of every branch and league not harvested yet (harvest.rs).
+- `mech-synth <base> [--add k --lo --hi --kinds --require] [--pulses-only] [--just-base]
+  [--verify N --out-dir <dir>]`: mechanism synthesis (mechsynth.rs). A macro piston model (port
+  of `PistonStructureResolver`, level/pulse actions) solves every mechanism of a base design plus
+  up to k pistons/slime/... (cheapest open + close paths, and ONE symmetric event sequence for
+  both lever edges), and writes ideal-input designs + `door ideal` schedules that it replays in
+  the simulator. Results and catalogs: `designs/piston-door-3x3/tracks/mech-synth/NOTES.md`.
 - `gen <name> --out <file>`: canonicalize a design built in `crates/piston-door/src/designs.rs`.
 - `vanilla-check <design>... [--extra-offsets 28]`: run designs in an UNMODIFIED
   vanilla 26.3 server (official jar, RCON, a bot player clicks the lever, region-file readback)

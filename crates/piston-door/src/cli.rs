@@ -338,6 +338,71 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
+    /// Mechanism synthesis (mechsynth.rs): enumerate up to --add blocks (pistons, slime...) on a
+    /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
+    /// schedules), rank by (blocks, control events), write ideal-input designs + schedules and
+    /// replay the best in the simulator (`--verify N`).
+    MechSynth {
+        /// Base design (its mechanism blocks; wiring is dropped). Door port = min corner.
+        base: PathBuf,
+        #[arg(long, default_value_t = 3)]
+        add: usize,
+        /// Candidate box corners "x,y,z" relative to the door port.
+        #[arg(long, default_value = "-4,-4,0")]
+        lo: String,
+        #[arg(long, default_value = "6,6,0")]
+        hi: String,
+        /// Candidate kinds: slime,honey,obsidian,gt,stone,sticky,normal.
+        #[arg(long, default_value = "slime,sticky")]
+        kinds: String,
+        /// Also try pistons extended at rest.
+        #[arg(long, default_value_t = true)]
+        ext: bool,
+        /// State-graph cap per mechanism.
+        #[arg(long, default_value_t = 3000)]
+        cap: usize,
+        #[arg(long, default_value_t = 32)]
+        threads: usize,
+        /// Skip mechanisms with more blocks than this (door included).
+        #[arg(long, default_value_t = 25)]
+        max_blocks: usize,
+        /// Longest symmetric (same on both edges) sequence to look for.
+        #[arg(long, default_value_t = 9)]
+        sym_len: usize,
+        /// Open states tried per mechanism by the symmetric search.
+        #[arg(long, default_value_t = 6)]
+        sym_tries: usize,
+        /// Write the best N as ideal designs + schedules here.
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 20)]
+        top: usize,
+        /// Replay the best N in the simulator with ideal inputs (4 + --extra-offsets positions).
+        #[arg(long, default_value_t = 0)]
+        verify: usize,
+        #[arg(long, default_value_t = 4)]
+        extra_offsets: u32,
+        /// Ticks between macro steps in the ideal schedules.
+        #[arg(long, default_value_t = 6)]
+        gap: u32,
+        #[arg(long, default_value_t = 16)]
+        workers: usize,
+        /// Only solve the base itself and print its paths.
+        #[arg(long)]
+        just_base: bool,
+        /// Requirement "kinds:x0,y0,z0:x1,y1,z1" (repeatable): some block of these kinds in the box.
+        #[arg(long)]
+        require: Vec<String>,
+        /// Pulse-driven pistons only (no level signals) for pistons retracted at rest.
+        #[arg(long)]
+        pulses_only: bool,
+        /// Split symmetric search: put the edge pistons' pulses at the start, end or both.
+        #[arg(long, default_value = "both")]
+        edges: String,
+        /// Only the split symmetric search (edges block + searched core), not the graph one.
+        #[arg(long)]
+        split_only: bool,
+    },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
     /// only if the full judge passes; every improvement is written to --out.
@@ -525,6 +590,38 @@ pub enum DoorCmd {
         #[arg(long, default_value = "designs/piston-door-3x3/tracks/vanilla-check/fuzz")]
         out_dir: PathBuf,
     },
+    /// Can a survival player build it? Search for a build program (placement order with real
+    /// player placements and normal updates, the lever state while building, temporary helper
+    /// blocks) that ends exactly in the judge's rest state, then run the judge's cycles from the
+    /// built state (see buildable.rs). Designs: files, `@builtin`, or `<git ref>:<path>`.
+    Buildable {
+        designs: Vec<String>,
+        /// Search time per design, in seconds.
+        #[arg(long, default_value_t = 300)]
+        budget: u64,
+        /// Worker JVMs.
+        #[arg(long, default_value_t = 16)]
+        workers: usize,
+        /// Allow temporary helper blocks in the search.
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+        helpers: bool,
+        /// Re-check a found program at this many positions (the judge's default four first).
+        #[arg(long, default_value_t = 4)]
+        positions: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Write each design's build script / diagnosis here (one file per design).
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// Append one markdown table row per design here.
+        #[arg(long)]
+        table: Option<PathBuf>,
+        /// Lever state while building: `both` (search both), `off`, `on`.
+        #[arg(long, default_value = "both")]
+        lever: String,
+        #[arg(long)]
+        verbose: bool,
+    },
     /// Check that a design is a working 3x3 piston door; print timings and block count.
     Verify {
         design: PathBuf,
@@ -620,6 +717,40 @@ pub enum DoorCmd {
         screen_ticks: u32,
         #[arg(long, default_value_t = 50_000_000)]
         max_cands: usize,
+    },
+    /// Large-neighborhood search by exact synthesis (see synth.rs `resynth`): every connected
+    /// group of 2..--max-size removable blocks (wiring, still plain blocks) is cleared and every
+    /// circuit of fewer blocks that could reconnect its surroundings is screened and judged; an
+    /// accepted replacement is applied and the search restarts. Writes the best design to --out.
+    Resynth {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        min_size: usize,
+        #[arg(long, default_value_t = 4)]
+        max_size: usize,
+        #[arg(long, default_value = "block,dust,dot,rep,obs,torch")]
+        palette: String,
+        #[arg(long, default_value = "block")]
+        floors: String,
+        /// The search box is the group's bounding box grown by this.
+        #[arg(long, default_value_t = 1)]
+        margin: i32,
+        /// Skip groups with more candidate circuits than this.
+        #[arg(long, default_value_t = 300_000)]
+        max_cands: usize,
+        #[arg(long)]
+        loose: bool,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        screen_offsets: usize,
+        /// Settle cap while screening (the door settles in < 60 ticks; clocks hit the cap).
+        #[arg(long, default_value_t = 100)]
+        screen_ticks: u32,
     },
 }
 
@@ -832,6 +963,31 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only } => {
+            crate::mechsynth::PULSES_ONLY.store(pulses_only, std::sync::atomic::Ordering::Relaxed);
+            crate::mechsynth::SPLIT_ONLY.store(split_only, std::sync::atomic::Ordering::Relaxed);
+            let e = match edges.as_str() {
+                "both" => 0,
+                "start" => 1,
+                "end" => 2,
+                other => anyhow::bail!("--edges start|end|both, got {other}"),
+            };
+            crate::mechsynth::EDGES.store(e, std::sync::atomic::Ordering::Relaxed);
+            let o = crate::mechsynth::EnumOptions {
+                require: require.iter().map(|r| crate::mechsynth::Require::parse(r)).collect::<Result<_>>()?,
+                add,
+                lo: crate::mechsynth::parse_p(&lo)?,
+                hi: crate::mechsynth::parse_p(&hi)?,
+                kinds: kinds.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                ext,
+                cap,
+                threads,
+                max_blocks,
+                sym_len,
+                sym_tries,
+            };
+            crate::mechsynth::cli(version, &base, &o, out_dir.as_deref(), top, verify, extra_offsets, gap, workers, just_base)?;
+        }
         DoorCmd::Grow { design, out, lo, hi, states, k, want, search } => {
             let d = load_design(&design)?;
             let pos = |s: &str| -> Result<mctas::sim::Pos> {
@@ -958,6 +1114,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
         }
+        DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
+            let lever = match lever.as_str() {
+                "both" => None,
+                "off" => Some(false),
+                "on" => Some(true),
+                other => anyhow::bail!("--lever {other}: expected both, off or on"),
+            };
+            let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
+            crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
+        }
         DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir } => {
             let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
@@ -966,7 +1132,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             opts.offsets.extend(crate::extra_offsets(extra_offsets));
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
-                    println!("WORKS: {} ({} blocks, {}x{}x{}, category {}{})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d), if crate::slime_free(&d) { ", slime-free" } else { "" });
+                    println!(
+                        "WORKS: {} ({} blocks, {}x{}x{}, category {}{}{})",
+                        d.name,
+                        r.blocks,
+                        r.size[0],
+                        r.size[1],
+                        r.size[2],
+                        crate::category(&d),
+                        if crate::slime_free(&d) { ", slime-free" } else { "" },
+                        if crate::single_layer(&d) { ", flat" } else { "" }
+                    );
                     if archive {
                         let note = format!("verified WORKS: {} blocks, open after {} ticks, closed after {} ticks", r.blocks, r.cycles[0].open_ticks, r.cycles[0].close_ticks);
                         match crate::archive::save(&design, &d, r.blocks, &note, archive_dir.as_deref())? {
@@ -1076,7 +1252,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
                 },
             };
-            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
             log(&format!("{} workers", pool.len()));
             let found = synth(&pool, &base, &en, &buckets, &target, min_k, all_sizes, want, &log)?;
             if found.is_empty() {
@@ -1087,12 +1263,51 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 if let Some(dir) = &out_dir {
                     std::fs::create_dir_all(dir)?;
                     let mut w = pool.worker(0);
-                    let canon = crate::canonicalize(&mut w, d).unwrap_or_else(|_| d.clone());
+                    let canon = match crate::canonicalize(&mut w, d) {
+                        Ok(c) if spec.is_some() || crate::verify(&mut w, &c, &VerifyOptions::default()).is_ok() => c,
+                        _ => d.clone(),
+                    };
                     let path = dir.join(format!("synth-{}-{i}.txt", set.len()));
                     canon.save(&path)?;
                     println!("  written to {}", path.display());
                 }
             }
+        }
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks } => {
+            use crate::synth::*;
+            let d = load_design(&design)?;
+            let o = ResynthOptions { min_size, max_size, palette: palette_states(&palette)?, floors: palette_states(&floors)?, margin, max_cands, loose };
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
+            let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false };
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            {
+                let mut w = pool.worker(0);
+                crate::verify(&mut w, &d, &judge).map_err(|e| anyhow::anyhow!("the start design does not pass the judge: {e:#}"))?;
+            }
+            let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
+            // Keep the canonical rest state only if it still passes the judge (a design written
+            // with stale redstone states can settle into another machine).
+            let canon = {
+                let mut w = pool.worker(0);
+                match crate::canonicalize(&mut w, &best) {
+                    Ok(c) if crate::verify(&mut w, &c, &judge).is_ok() => c,
+                    _ => match settled_design(&mut w, &best) {
+                        Ok(s) if crate::verify(&mut w, &s, &judge).is_ok() => {
+                            println!("the design moves while it settles: writing its settled state");
+                            s
+                        }
+                        _ => {
+                            println!("canonical and settled forms fail the judge: writing the design as found");
+                            best.clone()
+                        }
+                    },
+                }
+            };
+            canon.save(&out)?;
+            println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
         }
     }
     Ok(())

@@ -1,0 +1,26 @@
+name: base-sym
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:stone
+  S minecraft:slime_block
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ....B
+layer -1:
+  .
+layer 0:
+  ..SDDDS
+layer 1:
+  A.SDDDS.C
+layer 2:
+  ..SDDDS
+layer 3:
+  ...A
+layer 4:
+  ....s
+layer 5:
+  ....s

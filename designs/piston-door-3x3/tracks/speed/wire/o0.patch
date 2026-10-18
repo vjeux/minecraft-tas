@@ -1,0 +1,7 @@
+# o0 (open-11 test base) = s4 + P_X normal piston (1,5,0) facing south (F's QC cell; pistons do not
+# block QC) + R_X redstone block at rest at R2 (1,5,2); O5 and its chain observer replaced by stone
+# (floors of R_s and its dust). R_X arming (R2 -> R1) and P_X's silent power (1,6,1) scripted.
+set 1 5 -1 minecraft:stone
+set 1 5 -2 minecraft:stone
+set 1 5 0 minecraft:piston[extended=false,facing=south]
+set 1 5 2 minecraft:redstone_block
