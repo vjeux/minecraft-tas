@@ -1,0 +1,10 @@
+# A sticky piston given a 2gt observer pulse pushes its stone one cell and leaves it there.
+design designs/gadgets/spit.txt
+probe obs 1 1 0
+probe piston 2 1 0
+probe a 3 1 0
+probe b 4 1 0
+use 0 1 0
+expect_trace piston rEE~~rr
+expect a .
+expect b #

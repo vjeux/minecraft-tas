@@ -1,0 +1,13 @@
+name: gadget-dual-edge
+# Dual-edge detector: an observer watching the lever itself fires a 2gt pulse on BOTH flips.
+# lever L on stone, observer O facing west (watches L), output dust D on the observer's back.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  D minecraft:redstone_wire[east=side,north=none,south=none,west=side,power=0]
+layer 0:
+  S.S
+layer 1:
+  LOD

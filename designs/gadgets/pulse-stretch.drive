@@ -1,0 +1,8 @@
+# A delay-4 repeater turns the observer's 2gt pulse into exactly 8gt (on at t+10, off at t+18),
+# for both lever edges. A second pulse arriving while the output is still on is swallowed.
+design designs/gadgets/pulse-stretch.txt
+probe out 3 1 0
+use 0 1 0
+expect_trace out 000000000++++++++000000
+use 0 1 0
+expect_trace out 000000000++++++++000000

@@ -1,0 +1,16 @@
+name: gadget-spit
+# Block spitting: a sticky piston given a 2gt observer pulse pushes its block and leaves it
+# there (the retract event is type 2 because the pulse ends during the scheduled-tick phase
+# while the pushed block is still moving). Lever L, observer O facing west, sticky piston P
+# facing east, stone K in front.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:stone
+layer 0:
+  S
+layer 1:
+  LOPK

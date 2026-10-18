@@ -1,0 +1,14 @@
+# Retracting P pulls the slime and the stone stuck to it; the glazed terracotta beside it and the
+# obsidian above it stay where they are.
+design designs/gadgets/slime-nonstick.txt
+probe P 1 0 1
+probe G 3 0 0
+probe O 3 1 1
+probe K_old 3 0 2
+probe K_new 2 0 2
+clear 0 0 1
+expect_trace P ~~rr
+expect K_old .
+expect K_new #
+expect G #
+expect O #
