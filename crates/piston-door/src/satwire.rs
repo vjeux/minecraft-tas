@@ -499,8 +499,11 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             for (et, p, st) in &evs {
                 if *et == t {
                     if st.as_deref() == Some("@use") {
-                        bail!("schedule `use` events are not supported");
+                        w.use_block(sb, *p)?;
+                        continue;
                     }
+
+
                     let state = st.clone().unwrap_or_else(|| "minecraft:air".to_string());
                     if p[2] == z {
                         held.insert((p[0], p[1]), state.clone());
@@ -520,11 +523,37 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         phases[ph].trim();
     }
     let _ = w.drop_sandbox(sb);
+    // wiring already in the design (a partly wired plan with `use` of its real lever): those
+    // cells are not mechanism; they are kept as they are (`--fixed` is implied)
+    let door_cells: HashSet<C2> = (0..3).flat_map(|i| (0..3).map(move |j| (door[0] + i, door[1] + j))).collect();
+    let mut wiring = BTreeMap::new();
+    let mut lever = None;
+    for (p, st) in &d.blocks {
+        if short(st) == "lever" {
+            lever = Some((*p, st.clone()));
+            continue;
+        }
+        if p[2] != z || short(st) == "redstone_block" {
+            continue;
+        }
+        let c = (p[0], p[1]);
+        let stat = phases.iter().all(|ph| ph.frames.iter().all(|f| f.get(&c).map(|s| short(s)) == Some(short(st))));
+        let plain = matches!(mk(st), MK::Cond | MK::Solid) && !door_cells.contains(&c) && !matches!(short(st), "stone") ;
+        if is_wiring_state(st) || (plain && stat) {
+            wiring.insert(c, st.clone());
+        }
+    }
+    for ph in phases.iter_mut() {
+        for fr in ph.frames.iter_mut() {
+            fr.retain(|c, _| !wiring.contains_key(c));
+        }
+        ph.trim();
+    }
     let mut rest = BTreeMap::new();
     for (c, st) in &phases[0].frames[0] {
         rest.insert([c.0, c.1, z], st.clone());
     }
-    Ok(Rec { z, door: spec.door, rest, phases, wiring: BTreeMap::new(), lever: None, src_box: None })
+    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: None })
 }
 
 // ---------------------------------------------------------------- the SAT encoder
@@ -706,6 +735,7 @@ pub struct Prob {
     pub kinds: HashMap<C2, Vec<Kind>>,
     pub mech: HashSet<C2>,
     pub static_sturdy: HashSet<C2>,
+    pub sturdy_up: HashSet<C2>,
     pub levers: Vec<LeverCand>,
     /// Most stalls (recorded static ticks replayed) per trace before any tick.
     pub dmax: i32,
@@ -801,6 +831,24 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         .iter()
         .filter_map(|(c, v)| v.as_ref().and_then(|s| matches!(mk(s), MK::Cond | MK::Solid | MK::Piston { ext: false, .. }).then_some(*c)))
         .collect();
+    // top face sturdy at every recorded tick (a retracted piston, or an extended one facing down:
+    // its back is its top): dust, repeaters, comparators and torches can stand on it
+    let sturdy_up: HashSet<C2> = mech
+        .iter()
+        .copied()
+        .filter(|c| {
+            rec.phases.iter().all(|ph| {
+                ph.frames.iter().all(|f| match f.get(c).map(|s| mk(s)) {
+                    Some(MK::Cond | MK::Solid | MK::Piston { ext: false, .. }) => true,
+                    Some(MK::Piston { ext: true, f: fc, .. }) => fc == DN,
+                    // a retracting base is a moving piston for 2 gt (placed without shape
+                    // updates: what stands on it stays)
+                    Some(MK::Other) => rec.phases.iter().all(|p| p.frames[0].get(c).is_some_and(|s| matches!(mk(s), MK::Piston { .. }))),
+                    _ => false,
+                })
+            })
+        })
+        .collect();
     let bx = match o.bx {
         Some(b) => b,
         None if rec.src_box.is_some() => rec.src_box.unwrap(),
@@ -867,7 +915,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     }
     // lever candidates
     let mut levers = Vec::new();
-    let sturdy_possible = |c: C2| static_sturdy.contains(&c) || kinds.get(&c).is_some_and(|ks| ks.iter().any(|k| k.sturdy()));
+    let sturdy_possible = |c: C2| static_sturdy.contains(&c) || sturdy_up.contains(&c) || kinds.get(&c).is_some_and(|ks| ks.iter().any(|k| k.sturdy()));
     let lever_state = |face: &str, facing: &str| format!("minecraft:lever[face={face},facing={facing},powered=false]");
     let mut cand_cells: Vec<C2> = Vec::new();
     match &o.levers {
@@ -931,7 +979,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     }
     let kmax = rec.phases.iter().map(|p| p.k()).max().unwrap_or(0);
     let h = kmax + o.dmax + o.settle;
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, fixed: HashMap::new(), fixed_lever: None, fixed_only: false })
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, fixed: HashMap::new(), fixed_lever: None, fixed_only: false })
 }
 
 // ---------------------------------------------------------------- the model
@@ -1107,11 +1155,12 @@ impl<'a> Model<'a> {
             self.e.f()
         }
     }
-    fn sturdy_static(&mut self, c: C2) -> Lit {
+    /// A static block at c offers a sturdy face (`up`: its top face) at every tick.
+    fn sturdy_static(&mut self, c: C2, up: bool) -> Lit {
         if self.p.is_free(c) {
             self.pred(c, P_STURDY)
         } else {
-            self.e.konst(self.p.static_sturdy.contains(&c))
+            self.e.konst(self.p.static_sturdy.contains(&c) || (up && self.p.sturdy_up.contains(&c)))
         }
     }
     fn lever_on_lits(&mut self, tr: usize, k: i32, pred: impl Fn(&LeverCand) -> bool) -> Lit {
@@ -1304,7 +1353,11 @@ impl<'a> Model<'a> {
 }
 
 /// Build the whole encoding.
+/// `--diag`: guard constraint groups with selectors (UNSAT cores name the groups).
+pub static DIAG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
+    let diag = check_mode || DIAG.load(std::sync::atomic::Ordering::Relaxed);
     let mut e = Enc::new();
     let mut kl = HashMap::new();
     for c in &p.free {
@@ -1383,7 +1436,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     };
     let h = p.h;
     let lo = m.lo();
-    if check_mode {
+    if diag {
         let g = m.gsel("supports, lever, fixed cells");
         m.e.guard.push(g);
     }
@@ -1392,7 +1445,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         for k in p.kinds[&c].clone() {
             let l = m.kl[&(c, k)];
             if let Some(sd) = k.support() {
-                let s = m.sturdy_static(add(c, sd));
+                let s = m.sturdy_static(add(c, sd), sd == DN);
                 m.e.add(&[!l, s]);
             }
             if let Kind::Cmp(f) = k {
@@ -1412,7 +1465,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     for (i, lc) in p.levers.iter().enumerate() {
         let l = m.lever[i];
         let att = (lc.att[0], lc.att[1]);
-        let s = m.sturdy_static(att);
+        let s = m.sturdy_static(att, lc.pos[1] > lc.att[1]);
         m.e.add(&[!l, s]);
         if lc.pos[2] == p.z {
             let c = (lc.pos[0], lc.pos[1]);
@@ -1477,7 +1530,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             for c in p.free.clone() {
                 let ks = p.kinds[&c].clone();
                 m.e.guard.clear();
-                if check_mode {
+                if diag {
                     let g = m.gsel(&format!("cell ({},{})", c.0, c.1));
                     m.e.guard.push(g);
                 }
@@ -1760,7 +1813,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         }
     }
     m.e.guard.clear();
-    if check_mode {
+    if diag {
         let g = m.gsel("scheduled ticks / nothing pending at the end");
         m.e.guard.push(g);
     }
@@ -1788,7 +1841,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         }
     }
     m.e.guard.clear();
-    if check_mode {
+    if diag {
         let g = m.gsel("each trace ends where the other starts");
         m.e.guard.push(g);
     }
@@ -2000,6 +2053,7 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
     let mut fails = 0usize;
     for it in 0..o.iters {
         let mut assumps: Vec<Lit> = if bound < tot.len() { vec![!tot[bound]] } else { vec![] };
+        assumps.extend(m.gsels.iter().map(|g| g.1));
         let nb = assumps.len();
         assumps.extend(m.sels.iter().map(|s| s.2));
         let ts = std::time::Instant::now();
@@ -2038,6 +2092,26 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
                         log("  core: no piston requirement needed (the wiring/stability constraints alone are UNSAT)".into());
                     } else {
                         log(format!("  core (pistons whose recorded power cannot be produced together): {}", names.join(", ")));
+                    }
+                    if !m.gsels.is_empty() {
+                        // which constraint groups conflict (with every piston requirement on)
+                        let bound_a: Vec<Lit> = assumps[..nb - m.gsels.len()].to_vec();
+                        let sel_a: Vec<Lit> = m.sels.iter().map(|s| s.2).collect();
+                        let mut gs: Vec<(String, Lit)> = m.gsels.clone();
+                        let mut i = 0;
+                        let mut tries = 0;
+                        while i < gs.len() && tries < 80 {
+                            tries += 1;
+                            let mut a = bound_a.clone();
+                            a.extend(sel_a.iter().copied());
+                            a.extend(gs.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, g)| g.1));
+                            if m.e.s.solve_assumps(&a).ok() == Some(SolverResult::Unsat) {
+                                gs.remove(i);
+                            } else {
+                                i += 1;
+                            }
+                        }
+                        log(format!("  conflicting constraint groups (with all piston requirements): {}", gs.iter().map(|g| g.0.clone()).collect::<Vec<_>>().join(" | ")));
                     }
                 }
                 Some((_, b)) => log(format!("[{:6.1}s] no wiring with <= {bound} blocks (solve {dt:.1}s): {b} wiring blocks is minimal in this model", t0.elapsed().as_secs_f64())),
@@ -2148,6 +2222,15 @@ pub fn fix_wiring(p: &mut Prob) -> Result<()> {
     let i = p.levers.iter().position(|l| l.pos == lp && short(&l.state) == short(&ls) && prop(&l.state, "face") == prop(&ls, "face") && (prop(&ls, "face") != Some("wall") || prop(&l.state, "facing") == prop(&ls, "facing")));
     p.fixed_lever = Some(i.with_context(|| format!("lever {ls} at {lp:?} is not a candidate"))?);
     p.fixed_only = true;
+    for (c, k) in p.fixed.clone() {
+        if let Some(sd) = k.support() {
+            let s = add(c, sd);
+            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy()) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
+            if !ok {
+                println!("check: {k:?} at {c:?} has no static sturdy support at {s:?} ({:?})", p.rec.phases[0].frames[0].get(&s));
+            }
+        }
+    }
     Ok(())
 }
 
