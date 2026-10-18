@@ -22,6 +22,7 @@ pub mod designs_history;
 pub mod drive;
 pub mod route;
 pub mod minimize;
+pub mod search;
 pub mod video;
 
 use anyhow::{Context, Result, bail};
