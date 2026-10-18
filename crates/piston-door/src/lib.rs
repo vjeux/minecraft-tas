@@ -23,6 +23,7 @@ pub mod leaderboard;
 pub mod drive;
 pub mod route;
 pub mod minimize;
+pub mod patch;
 pub mod search;
 pub mod video;
 
