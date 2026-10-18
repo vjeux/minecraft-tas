@@ -135,11 +135,12 @@ pub fn write(version: &str, o: &CatalogOptions) -> Result<PathBuf> {
          `door buildable`'s scripts in [../tracks/buildable/scripts](../tracks/buildable/scripts) (the buildable column: a survival build \
          order that ends in the judge's rest state, at how many of the 32 positions). Videos: `door video-all` (release `{tag}`). Ticks: \
          worst of 3 cycles after each lever flip.\n\n\
-         {} designs: {} solid, {} gravity, {} sculk; {} invalid ones kept for history.\n\n",
+         {} designs: {} solid, {} gravity, {} sculk, {} entity; {} invalid ones kept for history.\n\n",
         entries.len(),
         n("solid"),
         n("gravity"),
         n("sculk"),
+        n("entity"),
         invalid.len()
     );
 
@@ -149,8 +150,21 @@ pub fn write(version: &str, o: &CatalogOptions) -> Result<PathBuf> {
     }
     md.push('\n');
 
-    for (cat, title) in [("solid", "Solid"), ("gravity", "Gravity"), ("sculk", "Sculk")] {
+    // One section per category (a category the list does not know yet gets its own section too).
+    let mut cats: Vec<(String, String)> = [("solid", "Solid"), ("gravity", "Gravity"), ("sculk", "Sculk"), ("entity", "Entity (uses entities)")]
+        .iter()
+        .map(|(c, t)| (c.to_string(), t.to_string()))
+        .collect();
+    for e in &entries {
+        if !cats.iter().any(|(c, _)| c == e.category) {
+            cats.push((e.category.to_string(), format!("Category {}", e.category)));
+        }
+    }
+    for (cat, title) in &cats {
         let mut rows: Vec<&crate::leaderboard::Entry> = entries.iter().filter(|e| e.category == cat).collect();
+        if rows.is_empty() {
+            continue;
+        }
         rows.sort_by_key(|e| (e.blocks, e.source.clone()));
         md.push_str(&format!(
             "## {title} ({} designs)\n\n| blocks | design | boards | open / close | rotations | buildable | video | how |\n|---|---|---|---|---|---|---|---|\n",
