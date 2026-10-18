@@ -125,10 +125,13 @@ pub struct SearchOptions {
 }
 
 /// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk; and within
-/// the `--shape` limits when set.
+/// the `--shape` limits when set. A shape limit replaces the "a flat base stays flat" rule (the
+/// shape decides which layers the machine may use: `--shape wall` lets a flat design grow into
+/// the layers next to the door plane).
 fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
-    if opts.shape.is_some_and(|l| !l.allows_design(d)) {
-        return false;
+    if let Some(l) = &opts.shape {
+        let slimy = |x: &Design| x.blocks.values().any(|s| matches!(kind(s), "slime_block" | "honey_block"));
+        return l.allows_design(d) && crate::category(base) == crate::category(d) && (slimy(base) || !slimy(d));
     }
     if same_league(base, d) {
         return true;

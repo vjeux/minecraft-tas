@@ -33,6 +33,9 @@
   rank rotation-safe designs and list the others on their own board, "Not rotation-safe".
 - Boards besides the main one: "Solid, no slime or honey" (verify prints `, slime-free`) and "Solid, flat
   (one z layer), no slime or honey" (every block in the door's plane z = door.z, verify prints `, flat`).
+- Shape boards (the space a door needs at rest and while it moves, `door shapes`): "Solid, in a 3-thick
+  wall" (z = door.z-1..door.z+1), "Solid, on the ground (nothing below the door)" (also judged on a
+  stone floor) and "Solid, smallest box" (bounding-box volume). Searches take `--shape <rule>`.
 - Category: doors whose 9 blocks are gravity blocks (sand, gravel, concrete powder) are ranked
   separately (`category gravity` in the verify output), and so are doors using sculk sensors
   (`category sculk`: a player's footsteps or a mob nearby can trigger them); everything else is
