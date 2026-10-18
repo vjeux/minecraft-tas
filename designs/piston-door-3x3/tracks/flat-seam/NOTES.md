@@ -37,6 +37,34 @@ right bottom piston had no feed. e89 fixes it with three local changes (the rest
    (4,-2) and (4,-1) facing down -> (4,0), t10.
 Open state ring: left wall TL ML BL, right wall TR MR BR, ceiling T at (1,3) ((0,3), (2,3) air, never
 swept), floor M (0,-1), C (1,-1), X stone (2,-1): FULL, dentless, props-dyn hallway yes.
+e89b (49): resynth found that the T puller's feed needs no merger (its input is one clean pulse:
+observers (-3,4)D, (-2,4)W, (-1,4)W, (0,4)W) and that the relay's merger can be smooth stone (3,4)
++ repeater delay 2 (4,4) facing west, watched by the observer (4,3) that was already there.
+Searches that found nothing below 49 (all `--fit=-3,-4,0:4,4,0 --seamless full+hall`, rotation-safe):
+minimize `--moves all --plateau`, regrow size 3, resynth groups 2-4 (rich palette: lamp, note,
+target, bulb) and groups 5-6.
+
+**Lamp lever (e89el, 50, record-eligible):** a design whose lever is watched by observers fails the
+repeater-input check (powering the support changes nothing an observer sees). Hang the lever on a
+redstone lamp that the same observers watch: the lever (or a repeater) powers the lamp, the lamp
+lights, the observers fire as before; the close comes 4 gt later (the lamp's fall delay). Agent
+eligible's fl72m does the same with a note block in the lever cell (no close delay); the lamp is
+the alternative when the lever cell has no room.
+
+## Smaller boxes: why they are blocked (for box64 / box72)
+- **7 wide (x -2..4)**: no outer column, so row y = 1 is blocked end to end (ML's piston, ML's gap,
+  the door, MR's gap, MR's piston). Each side's top and middle pistons can only be fed from above
+  the door ((-2,3), (4,3), QC through the cell above), each bottom piston only from below; the two
+  regions touch only through door blocks arriving where the other side can watch, and in both
+  families every arrival cell (the wall parks, the floor and ceiling ring) is watched only from its
+  own side (BL's park by the bottom corner, TL's park by the top corner). So one region has no
+  trigger. A 7-wide door needs a family where a middle-row block does not leave sideways, or a
+  watcher that sees a door block driven from the other region.
+- **8 x 8 (cd19)**: e89's row -4 is its only crossing of column x = 1 (lever -> (1,-4) -> (2,-4)
+  under B', which also floors R_B and the dust that feeds the right bottom piston). Without it the
+  bottom-right (X's a2 = b1+2 / a3 = b2+4 and the right bottom piston, fed only from (4,-1)) has no
+  trigger; the T puller relay reaches only the top-right (column x = 4 is the right stack).
+- **9 x 8 (cd19)**: same split, see "cd19 at 9x8" below.
 
 ## h45: flat43 made FULL (9 x 9) in three edits
 flat43 (lamp-sweep, 43, QUART) had two open-state blockers: the BL flag observer (0,-1) (fires P_M
