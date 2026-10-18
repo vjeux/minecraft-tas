@@ -1,0 +1,12 @@
+[    0.0s] 21 groups of 3
+[    1.7s] batch of 464281 candidates (464281 so far)
+[   69.4s]   464281 candidates: 896 seen, 463385 screened in 67.8s, 0 passed the screen, 0 judged, 0 passed the judge (67.8s)
+[   70.8s] batch of 435730 candidates (900011 so far)
+[  144.0s]   435730 candidates: 1207 seen, 434523 screened in 73.1s, 0 passed the screen, 0 judged, 0 passed the judge (73.1s)
+[  145.4s] batch of 474076 candidates (1374087 so far)
+[  210.8s]   474076 candidates: 2517 seen, 471559 screened in 65.5s, 0 passed the screen, 0 judged, 0 passed the judge (65.5s)
+[  212.3s] batch of 412630 candidates (1786717 so far)
+[  261.5s]   412630 candidates: 3008 seen, 409622 screened in 49.3s, 0 passed the screen, 0 judged, 0 passed the judge (49.3s)
+[  262.8s] batch of 433921 candidates (2220638 so far)
+[  319.1s]   433921 candidates: 1312 seen, 432609 screened in 56.3s, 0 passed the screen, 0 judged, 0 passed the judge (56.3s)
+[  320.7s] batch of 446917 candidates (2667555 so far)

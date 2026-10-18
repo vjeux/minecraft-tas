@@ -8,6 +8,24 @@ blocks or targets. This track re-runs `door resynth` (and targeted `door synth` 
 control groups) on every board leader with those blocks in the palette, keeping each design in its
 league.
 
+## Summary (verified with `door verify --extra-offsets 28`, archived in `archive/`)
+| file | blocks | board | was | open / close |
+|---|---|---|---|---|
+| `flat43.txt` | **43** | flat (one z layer, slime-free): best on the board | 45 (flat-b-v6), 49 (flat-v8, its source) | 46 / 44 |
+| `a1-107.txt` | **107** | speed: the fastest-open solid door, 16 blocks smaller | 123 (speed-2-a1m) | 10 / 7 |
+| `o6-107.txt` | **107** | speed: open 11 / close 7, 12 blocks smaller | 119 (speed-wire-o6) | 11 / 7 |
+| `w41.txt` | 41 | slime-free (best at 06:28; sf-holdA reached 40 and 38 since) | 42 (wire19sf-w42) | 28 / 26 |
+| `fb44.txt` | 44 | flat (superseded by flat43) | 45 (flat-b-v6) | 30 / 26 |
+
+No change on the solid 40s (fc2, fx1, m05), the new 38 (sf-holdA-b38), sculk s4 (36) or gravity
+(g42; gravity-2's g33 has 5 removable blocks).
+
+What the sweep says: the new blocks paid off where a design had never been re-synthesized at all
+(flat-v8, flat-b-v6, wire19sf-w42, the two speed doors), and there they mostly enabled plain
+dust/stone collapses: a redstone lamp started flat43's 6-step cascade, torch-on-target taps and a
+lamp + observer shrank the speed doors. On the record designs every connected group of up to 5
+wiring blocks is already minimal with lamps, bulbs, note blocks and targets too.
+
 ## Tool changes (own commit)
 * `synth`: note blocks in the static model (`note` palette entry): a conductor whose `powered`
   state follows its power in the same tick (NoteBlock.neighborChanged, setBlockAndUpdate: it also
@@ -24,6 +42,8 @@ league.
   cluster, 7 blocks -> k <= 6: 440k circuits instead of millions).
 * Gadget `target-tap`: a target beside a dust line is powered by it (the dust bends into the
   signal source), a plain block is not.
+* `synth`: the enumeration stops (the group is skipped) after 200 x `--max-cands` visited sets, so
+  a search tree that explodes while few sets are finished circuits no longer runs for hours.
 
 ## Inputs (board leaders at 13:20Z)
 | board | design | blocks |
@@ -35,7 +55,8 @@ league.
 | gravity | archive/synth-g42-42b | 42 |
 | speed | archive/speed-wire-o6-119b (open 11 / close 7) | 119 |
 
-Palette for every resynth: `block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,note`.
+Palette for every resynth: `block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,note` (size 5:
+without `torch,cmp` unless `--require-any` limits the count).
 
 ## Runs
 
@@ -55,3 +76,36 @@ Palette for every resynth: `block,dust,dot,rep,obs,torch,cmp,lamp,bulb,target,no
 | m05-21b-sym-40b | 40 | solid | - | wire21's top-left synth again (O_a, A driver, O_b, J, O_c, O_d, P_L observer: 7 blocks, k <= 6) with bulb/note/target added and `--require-any`: 835k circuits, none passes | |
 | flat43 | 43 | flat | - | resynth size 5 (173 groups, full palette, up to 666k circuits per group, 70 min): nothing | |
 | sculk2-s4 | 36 | sculk | - | only 6 removable blocks, no connected group of 5 or 6: resynth exhausted | |
+| flat-b's fb44 | 44 | flat | - | resynth size 5 (30 groups): nothing | |
+| m05-21b-sym-40b | 40 | solid | - | resynth size 5 (52 groups, full palette, `--require-any lamp,bulb,note,target`): nothing | |
+| fc2, fx1, m05 | 40 | solid | - | resynth 2..4 with special floors (`--palette ...,gt,glass,obsidian --floors block,gt,glass,obsidian --require-any glazed,glass,obsidian`: floors slime never drags, non-conducting glass, immovable obsidian): nothing | |
+| fc2-40b | 40 | solid | - | resynth size 5 (75 groups, full palette, `--require-any lamp,bulb,note,target`, up to 285k circuits per group, 45 min): nothing | |
+| w41, flat43 | 41, 43 | slime-free, flat | - | resynth 2..4 with glass/obsidian floors (`--require-any glass,obsidian`): nothing | |
+| sf-holdA-b38 (the new record, 08:06) | 38 | solid + slime-free | - | resynth 2..4 (115 groups, full palette): nothing; resynth size 5 (93 groups, palette without torch/cmp): nothing; `door minimize --moves all --plateau`: nothing (25 neutral designs, 700 removals after them); size 6 in the control cluster with `--require-any`: the k=5 enumeration explodes (no group finished in 3 min; hence the visit cap) | |
+| flat43 | 43 | flat | - | `door minimize --moves all --plateau`: nothing (14 neutral designs, 462 removals + 30 reroutes after them) | |
+| a1-107 | 107 | speed | - | `door minimize --moves all --plateau --max-open 10 --max-close 7`: nothing (1.95M swaps, 20.7k removals, 9.5k compounds; 218 neutral designs, then 21k removals + 7.8k reroutes) | |
+| sf-holdA-b38 | 38 | solid + slime-free | - | `door regrow --size 2 --any` with lamp, bulb, note, target added to the states (cut any 2 control blocks, add 1 near either; 153 pairs, 82k candidates): nothing | |
+| fc2, fx1, m05 | 40 | solid | - | the same `regrow --size 2 --any` with the new states (276 pairs each, 139k-162k candidates): nothing | |
+
+## What did not work, and why
+* **The record designs have almost nothing left to re-synthesize.** fc2/fx1/m05 have 11-17
+  removable blocks, b38 17, s4 6, g33 5; their connected groups up to size 5 are minimal with every
+  palette tried (lamps, bulbs, note blocks, targets, comparators, torches, glass, obsidian, glazed
+  terracotta floors). Their remaining slack is in the lever placement and the mechanism, which
+  resynth cannot move (the lever, its support and every piston are fixed).
+* **Copper bulbs never appeared in a winning circuit.** A bulb toggles on rising edges only; every
+  door here needs the same response on both lever edges, which pulses already give. The bulb ->
+  comparator level (now in the static model) was never needed either.
+* **Size 6 does not scale**: with k = 5 the enumerator visits hundreds of millions of sets per
+  group even when `--require-any` keeps few of them (the new visit cap skips such groups).
+* **Size-4 groups on the 107-119 block speed doors**: ~1200 groups at 10-15 s each on a loaded box
+  (stopped; both speed doors had every size-2/3 group searched).
+
+## Next ideas
+* A lever-move repair search: move the lever (and drop its support), then re-synthesize the
+  groups around it with a budget of group size + saved blocks - 1 (fc2's lever block K and R_q's
+  floor are its most likely savings; sf-holdA's b38 got its last block from a lever move).
+* Size-4 resynth on a1-107 / o6-107 with `--require-any` or `--only` slices (each improvement
+  there is a speed-board tie-break).
+* A smarter enumerator for k >= 5: one sink at a time (a circuit per function), and symmetry
+  reduction (dust vs dot, floor types that nothing watches).
