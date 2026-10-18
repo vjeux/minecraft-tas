@@ -434,6 +434,32 @@ pub enum DoorCmd {
         #[arg(long)]
         close: bool,
     },
+    /// Learn edits from pairs of designs (a -> b, b a smaller variant of a) and try each on the
+    /// best designs of every league (see harvest.rs); improvements are archived and polished.
+    Transplant {
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long)]
+        fetch: bool,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        /// Targets per league.
+        #[arg(long, default_value_t = 4)]
+        top: usize,
+        /// Targets within this many blocks of their league's best.
+        #[arg(long, default_value_t = 4)]
+        within: usize,
+        /// Largest patch (cells changed) to learn.
+        #[arg(long, default_value_t = 12)]
+        max_cells: usize,
+        /// Local search after each improvement, minutes.
+        #[arg(long, default_value_t = 5.0)]
+        minutes: f64,
+        #[arg(long)]
+        out_dir: PathBuf,
+        #[command(flatten)]
+        search: SearchArgs,
+    },
     /// Verify a design many times in ONE reused sandbox (as the search does) and count passes:
     /// shows state that leaks across `clear` (e.g. redstone torch burnout memory).
     ReuseCheck {
@@ -828,6 +854,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 log(&format!("pass done; next in {:.1} min", wait / 60.0));
                 std::thread::sleep(std::time::Duration::from_secs_f64(wait));
             }
+        }
+        DoorCmd::Transplant { refs, fetch, max_blocks, top, within, max_cells, minutes, out_dir, search } => {
+            if fetch {
+                let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
+                anyhow::ensure!(st.success(), "git fetch failed");
+            }
+            let pool = search.pool(version)?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let hopts = crate::harvest::HarvestOptions { refs, max_blocks, top, minutes, out_dir, moves: search.moves.clone(), within };
+            crate::harvest::transplant(&pool, std::path::Path::new("."), &hopts, &search.options()?, max_cells, &log)?;
         }
         DoorCmd::ReuseCheck { design, times, cycles, fresh } => {
             let d = load_design(&design)?;
