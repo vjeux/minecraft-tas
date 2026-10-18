@@ -90,3 +90,11 @@ judge, boards) and searched it.
 * A rail riding a slime structure under a parked cart is a power source that is on only at rest
   (instant on/off: the rail is re-checked when it lands): a redstone-block rider that does not
   power anything at the moved position, for one block more.
+
+## Judge integration test with a moving entity
+`test-lift-stand.txt` (41, category entity): b38 + a sticky piston facing up next to the lever
+(1,5,-4) with a smooth stone on it and an armor stand on the stone. Lever on: the stand is lifted to
+y 8 (8.01 mid-push, then 8.0); lever off: the stone is pulled down and the stand falls back to
+exactly y 7 four ticks later (`door drive`: etrace). WORKS at 32 positions, rotation-safe: the
+judge's moving-entity path (escape and foreign checks per tick, return within 1e-6, a living
+entity at rest with -0.0784 vertical motion on the ground, flip waits) on a real door.
