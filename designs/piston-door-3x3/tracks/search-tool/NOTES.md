@@ -62,6 +62,7 @@ improvement in `<dir>/archive/`.
 | 67 | gravity | gravity g1 (69) | reroute (-2) |
 | 46 | sculk | main archive rb2-sculk-48 | swap twice: a dust + its floor became one smooth stone (observer/repeater fed through a powered block), -1 each |
 | **43** | sculk | top-control sculk BEST (48) | swap (-1), then a hold repeater with both its floors removed, plus a merge (-4) |
+| **46** | gravity | fresh-b gravity-g6 (49) | swap: obsidian + repeater -> one observer, then removals (-3) |
 
 Speed (`--objective total`): the 88 gets (4,4,3) delay 4->1: close 31 -> 25 ticks at 88 blocks.
 The speed leaders (gravity g4: open 5, close 11) are local minima for speed too.
