@@ -107,3 +107,16 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `silent-hold` | block + repeater | a quasi-powered piston ignores its source switching on and off until a neighbor update |
 | `pulse-bridge` | block, cross dust, block | an observer pulse moved one cell sideways into a repeater's back with 4 blocks (mech-50) |
 | `lever-tap` | repeater | a repeater reading the lever feeds a net that the lever's block cannot back-feed (mech-89) |
+* **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
+  source that later turns off WITHOUT updating it stays extended, unpowered, until any later
+  neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
+  to the head counts). A repeater switching a solid block only updates that block's neighbors:
+  feed the piston's quasi cell through such a block to drop the hold silently.
+* **Slime drags:** blocks with PushReaction DESTROY (dust, repeaters, levers, torches) next to a
+  moving slime block are left in place, not dragged or broken (only a DESTROY block in the
+  movement path breaks); their floors are normal blocks and do get dragged (glazed terracotta
+  never is).
+* **Redstone block shuttle:** a sticky piston pushing a redstone block from next to piston A to
+  next to piston B switches A off at once (the block becomes a moving piston that tick) and B
+  on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
+  then A on".
