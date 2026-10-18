@@ -34,6 +34,7 @@ pub mod patch;
 pub mod search;
 pub mod showcase;
 pub mod video;
+pub mod vanilla_check;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
@@ -339,7 +340,7 @@ pub(crate) fn open_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
 }
 
 /// First index from which `ok(frame)` holds for every remaining frame (1-based tick count).
-fn settled_from(frames: &[Region], ok: impl Fn(&Region) -> bool) -> Option<u32> {
+pub(crate) fn settled_from(frames: &[Region], ok: impl Fn(&Region) -> bool) -> Option<u32> {
     let mut first = None;
     for (i, f) in frames.iter().enumerate() {
         if ok(f) {

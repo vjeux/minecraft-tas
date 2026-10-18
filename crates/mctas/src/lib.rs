@@ -15,6 +15,7 @@ pub mod paths;
 pub mod setup;
 pub mod sim;
 pub mod source;
+pub mod vanilla;
 pub mod video;
 
 /// The Minecraft version everything defaults to.
