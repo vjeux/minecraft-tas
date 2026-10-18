@@ -339,6 +339,7 @@ dependencies = [
  "base64",
  "clap",
  "mctas",
+ "redsim",
  "serde_json",
 ]
 
@@ -359,6 +360,10 @@ checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "redsim"
+version = "0.1.0"
 
 [[package]]
 name = "regex"
