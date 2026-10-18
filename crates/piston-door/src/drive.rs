@@ -195,6 +195,10 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
         match parts[0] {
             "design" => {
                 let d: Design = crate::cli::load_design(std::path::Path::new(parts[1]))?;
+                // Optional world offset (`design <path> dx dy dz`): reproduce position-dependent
+                // behavior seen by the verifier; script coordinates stay design-relative only if
+                // you add the offset yourself.
+                let d = if parts.len() >= 5 { d.translated([int(2)?, int(3)?, int(4)?]) } else { d };
                 crate::video::place(w, sb, &d)?;
                 if let Some((lo, hi)) = d.bounds() {
                     bx = Some(([lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3]));
@@ -237,6 +241,15 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                     w.step(sb, n)?;
                 }
                 tick += n;
+            }
+            // `settle [max]`: step until nothing is pending (like the verifier between flips).
+            "settle" => {
+                let max = if parts.len() > 1 { int(1)? as u32 } else { 400 };
+                let r = w.step_until_idle(sb, max)?;
+                tick += r.ticked;
+                if verbose {
+                    println!("-- settled after {} ticks (t={tick})", r.ticked);
+                }
             }
             "print" => {
                 if verbose {
