@@ -9,6 +9,19 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum DoorCmd {
+    /// Route a dust path in a design (prints the blocks to add).
+    Route {
+        design: PathBuf,
+        /// Start cells (existing dust of the net), "x,y,z;x,y,z".
+        #[arg(long)]
+        start: String,
+        /// Goal cell (becomes dust).
+        #[arg(long)]
+        goal: String,
+        /// Extra cells the path may touch, "x,y,z;...".
+        #[arg(long, default_value = "")]
+        allow: String,
+    },
     /// Drive a design by hand from a script (see drive.rs) and print the z=0 plane per tick.
     Drive { script: PathBuf },
     /// Greedily remove blocks while the door keeps working; writes the result.
@@ -64,6 +77,30 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::Route { design, start, goal, allow } => {
+            let d = load_design(&design)?;
+            let cells = |s: &str| -> Vec<[i32; 3]> {
+                s.split(';').filter(|x| !x.trim().is_empty()).map(|c| {
+                    let v: Vec<i32> = c.split(',').map(|n| n.trim().parse().unwrap()).collect();
+                    [v[0], v[1], v[2]]
+                }).collect()
+            };
+            let mut reserved = std::collections::HashSet::new();
+            for x in -5..=7 { for y in -4..=7 { reserved.insert([x, y, 0]); } }
+            for x in 0..=2 { for y in 0..=2 { for z in [-2, -1, 1, 2] { reserved.insert([x, y, z]); } } }
+            reserved.insert([1, 3, 1]);
+            let r = crate::route::Router { blocks: &d.blocks, reserved, allow: cells(&allow).into_iter().collect(), lo: [-12, -6, -8], hi: [12, 12, 10] };
+            let goal = cells(&goal)[0];
+            match r.route(&cells(&start), goal) {
+                Some(path) => {
+                    for (p, s) in path.iter().rev() {
+                        println!("    b.set([{}, {}, {}], \"{}\");", p[0], p[1], p[2], s);
+                    }
+                    println!("    // {} new blocks", path.len());
+                }
+                None => anyhow::bail!("no route"),
+            }
+        }
         DoorCmd::Drive { script } => {
             let text = std::fs::read_to_string(&script)?;
             let mut w = Worker::spawn(&cfg)?;

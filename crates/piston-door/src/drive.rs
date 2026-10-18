@@ -61,7 +61,7 @@ pub fn run(w: &mut Worker, script: &str) -> Result<()> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let mut plane = (0, -6, -5, 8, 9);
     let mut tick = 0u32;
-    let mut show = |w: &mut Worker, label: &str, plane: (i32, i32, i32, i32, i32)| -> Result<()> {
+    let show = |w: &mut Worker, label: &str, plane: (i32, i32, i32, i32, i32)| -> Result<()> {
         let (z, x0, y0, x1, y1) = plane;
         let r = w.get_region(sb, [x0, y0, z], [x1, y1, z])?;
         println!("-- {label}\n{}", render(&r, z, x0, y0, x1, y1));
