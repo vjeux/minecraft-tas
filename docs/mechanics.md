@@ -170,3 +170,11 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 * **OR of two repeaters in one dust:** a dust sandwiched between the output block of one
   repeater (above it) and of another (below it, its floor) is lit by either, and a cross dust
   powers the block it points into: a 2-input OR feeding a torch with 1 dust (logic-min P_T).
+* **Sticky retract during a push finalizes, never pulls (seen in rb9):** if a sticky piston
+  retracts while the block two in front is still a moving piston it pushed (any progress, as long
+  as it has not landed), that block is placed at its destination at once and the piston retracts
+  alone. rb9's B pushes A down at t4 and retracts at t6: A stays down, the dance goes on.
+* **Early window (gadget `designs/gadgets/early-window`):** a delay-1 repeater reading a block
+  fed by an observer pulse and by a delay-2 repeater from a SECOND observer gives a window at
+  t+4..6 and t+8..12 (a 2gt hole: a repeater's turn-off tick outranks another's turn-on tick),
+  vs t+10..18 for the plain pulse stretcher.
