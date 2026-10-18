@@ -1,0 +1,22 @@
+name: gadget-double-move
+# One block, two moves, one tick: two 0-ticked sticky pistons in a row inside one block-event
+# phase (the close floor of 1 gt needs exactly this for the center). T0 pushes C north and is
+# 0-ticked as in zero-tick (C finalTick'd at (-1,1,-2)). C's placement (finalTick ->
+# setBlockAndUpdate) updates T1, quasi-powered silently by R1 through its quasi cell, where
+# piston X1 sits: T1 pushes C east; T1 setting itself extended updates X1 (armed by (-2,4,-2)),
+# X1 shoves R1 away and, setting itself extended, updates T1 unpowered: T1 retracts with C still
+# moving two ahead (type 2) and finalTicks it at (0,1,-2). Both pushes and both placements are
+# in tick 1.
+origin: -2 0 -2
+palette:
+  T minecraft:sticky_piston[extended=false,facing=north]
+  X minecraft:piston[extended=false,facing=south]
+  U minecraft:sticky_piston[extended=false,facing=east]
+  Y minecraft:piston[extended=false,facing=east]
+  K minecraft:stone
+layer 1:
+  U..
+  .KX
+  .T.
+layer 2:
+  Y

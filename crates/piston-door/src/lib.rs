@@ -42,6 +42,7 @@ pub mod synth;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
+pub mod vanilla_gadget;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
