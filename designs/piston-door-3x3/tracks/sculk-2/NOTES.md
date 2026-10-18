@@ -85,3 +85,39 @@ Q at (0,5,-1). Patch from s1: `s4.patch`. Variants with the hold sensor at (-1,4
   the default positions). The calibrated sensor behaves the same in vanilla.
 * `door minimize --moves all --plateau` on s4: local minimum. `regrow --size 2 --any` and
   `--size 3` with both sensor kinds, observers, blocks, dust, repeaters, redstone blocks: nothing.
+* `door verify --cycles 20`: fine. `door buildable`: BUILDABLE (36 actions, lever off while
+  building, 6 placements against a temporary dirt block; the built door opens 20 / closes 37);
+  build script `s4-36b.build.txt`. The plain order fails (placing R_B fires B early).
+* `door minimize --moves all --plateau-pairs --depth 2 --walk 60` on s4: nothing.
+
+## Budget of s4 (36)
+door 9; left: P_L + 4 slime; right: P_R + 6 slime; center: A, B, Q, RB, P_M; sensors 2 (hold
+next to Q, calibrated delay line at R_B's input); control 8: lever + K, R_B, O', X' dust + floor,
+P_M's observer + block.
+
+## Ideas that did not work (and why)
+* A sensor next to a pull-type pulse piston (fc2's P_L, P_M): a 30 gt (or 10 gt) window makes it
+  push on the close edge and PULL BACK at the window's end; the toggle needs a 2 gt pulse (spit).
+* An observer on a sensor: 3 pulses per flip (wake, cooldown, inactive); the third comes after the
+  sensor is listening again, so whatever it moves wakes it again (s1-era test: fc2 with its B chain
+  on a sensor "still moving 400 ticks after opening").
+* Sensor-driven B in fc2's geometry: every cell next to B or its quasi cell is 3-4.5 blocks from
+  the lever, so the window starts before T is aside; B's blocked tries are never retried.
+* fc2/riders + hold + calibrated B: 39 at best. The K-direct Q (which saves Q's repeater and its
+  floor) needs the lever next to Q, and then fc2's P_L observer chain or riders' p0 observer cannot
+  reach it.
+* Silent Q (no early pull at all): no lever/K placement quasi-powers Q and P_L without updating
+  one of them (P_L's head or base touches Q's neighbours).
+* One sensor for both the hold and B's window: a normal window makes B retract after Q's hold
+  ends (T returns while A is down); a calibrated hold ends before the dance.
+* X' as one block (no dust): A at (1,3,0) is only quasi-powered and not updated when the pulse
+  ends, so it does not spit C on close; C comes back up and the last pull parks it on T's path.
+
+## Next ideas
+* A Q-less center: RB riding the left structure to power A at rest, P_R on a sensor window whose
+  open-edge pull-back fails against P_L's extended base (it does: C pushed into it). Blocker: A
+  gets RB back too early on close unless P_L holds, which needs a delayed K path.
+* Frequency filter for free: a calibrated sensor whose back touches K hears nothing while the lever
+  is on (filter 15), i.e. a close-only window. Not needed by s4, but it gives asymmetric control.
+* P_M's trigger (2 blocks) is the last non-shared control pair; an inverted P_M (extended at rest)
+  powered by a block riding a structure costs the same or more here.
