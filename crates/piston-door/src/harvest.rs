@@ -24,6 +24,8 @@ pub struct HarvestOptions {
     pub minutes: f64,
     pub out_dir: PathBuf,
     pub moves: String,
+    /// Only designs within this many blocks of their league's best.
+    pub within: usize,
 }
 
 /// `origin/explore/center-mech:designs/.../tracks/center-mech/BEST.txt` -> `center-mech-BEST`.
@@ -41,24 +43,33 @@ pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &Search
     let seen_text = std::fs::read_to_string(&seen_path).unwrap_or_default();
     let seen: HashSet<u64> = seen_text.lines().filter_map(|l| u64::from_str_radix(l.split_whitespace().next()?, 16).ok()).collect();
     let mine = opts.out_dir.to_string_lossy().to_string();
+    log(&format!("{} designs; judging them", cands.len()));
+    let verdicts = pool.map(cands.clone(), |w, _, (_, d)| Ok(verify(w, &d, &search_opts.judge).is_ok()));
+    let all_working: Vec<(String, Design)> =
+        cands.into_iter().zip(verdicts).filter(|(_, v)| matches!(v, Ok(true))).map(|(c, _)| c).collect();
+    let all_best: Vec<(Design, usize)> = all_working.iter().map(|(_, d)| (d.clone(), block_count(d))).collect();
     // Our own results (named search-tool-*, or under the out dir) are local minima already.
-    let fresh: Vec<(String, Design)> = cands
+    let mut working: Vec<(String, Design)> = all_working
         .into_iter()
         .filter(|(s, d)| !seen.contains(&design_hash(d)) && !s.contains(mine.as_str()) && !d.name.starts_with("search-tool"))
         .collect();
-    log(&format!("{} designs not harvested yet; judging them", fresh.len()));
-    let verdicts = pool.map(fresh.clone(), |w, _, (_, d)| Ok(verify(w, &d, &search_opts.judge).is_ok()));
-    let mut working: Vec<(String, Design)> =
-        fresh.into_iter().zip(verdicts).filter(|(_, v)| matches!(v, Ok(true))).map(|(c, _)| c).collect();
+    log(&format!("{} working designs not harvested yet", working.len()));
     working.sort_by_key(|(s, d)| (category(d), block_count(d), s.clone()));
     let mut picked: Vec<(String, Design)> = Vec::new();
     let mut cats: Vec<&'static str> = working.iter().map(|(_, d)| category(d)).collect();
     cats.dedup();
+    // Only designs that could plausibly beat their league: within `within` blocks of its best
+    // (judged over every design, harvested or not).
+    let best_of = |f: &dyn Fn(&Design) -> bool| all_best.iter().filter(|(d, _)| f(d)).map(|(_, b)| *b).min().unwrap_or(usize::MAX);
     for cat in cats {
-        picked.extend(working.iter().filter(|(_, d)| category(d) == cat).take(opts.top).cloned());
+        let best = best_of(&|d: &Design| category(d) == cat);
+        picked.extend(
+            working.iter().filter(|(_, d)| category(d) == cat && block_count(d) <= best.saturating_add(opts.within)).take(opts.top).cloned(),
+        );
     }
     // The slime-free league too.
-    for c in working.iter().filter(|(_, d)| crate::slime_free(d)).take(opts.top) {
+    let best = best_of(&|d: &Design| crate::slime_free(d) && category(d) == "solid");
+    for c in working.iter().filter(|(_, d)| crate::slime_free(d) && block_count(d) <= best.saturating_add(opts.within)).take(opts.top) {
         if !picked.iter().any(|(s, _)| *s == c.0) {
             picked.push(c.clone());
         }

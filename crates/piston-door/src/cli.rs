@@ -176,6 +176,9 @@ pub enum DoorCmd {
         /// Designs per category.
         #[arg(long, default_value_t = 2)]
         top: usize,
+        /// Only designs within this many blocks of their league's best.
+        #[arg(long, default_value_t = 8)]
+        within: usize,
         /// Search time per design.
         #[arg(long, default_value_t = 15.0)]
         minutes: f64,
@@ -363,7 +366,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
         }
-        DoorCmd::Harvest { refs, fetch, max_blocks, top, minutes, out_dir, search } => {
+        DoorCmd::Harvest { refs, fetch, max_blocks, top, within, minutes, out_dir, search } => {
             if fetch {
                 let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
                 anyhow::ensure!(st.success(), "git fetch failed");
@@ -371,7 +374,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let pool = search.pool(version)?;
             let t = std::time::Instant::now();
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
-            let hopts = crate::harvest::HarvestOptions { refs, max_blocks, top, minutes, out_dir, moves: search.moves.clone() };
+            let hopts = crate::harvest::HarvestOptions { refs, max_blocks, top, minutes, out_dir, moves: search.moves.clone(), within };
             crate::harvest::run(&pool, std::path::Path::new("."), &hopts, &search.options()?, &log)?;
         }
         DoorCmd::Video { design, out, tps, upload } => {
