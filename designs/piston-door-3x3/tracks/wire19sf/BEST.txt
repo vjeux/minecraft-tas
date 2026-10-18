@@ -49,8 +49,8 @@ layer 3:
   B..S
   .E
 layer 4:
-  .ooL
-  .A.AC
+  ...L
+  .ooAC
   BA.RA
   ...ss
 layer 5:
