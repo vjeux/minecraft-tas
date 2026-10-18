@@ -1417,7 +1417,7 @@ pub fn parse_p(s: &str) -> Result<P> {
 pub fn verify_plan(w: &mut mctas::sim::Worker, plan: &IdealPlan, extra: u32) -> Result<()> {
     let s = crate::ideal::Schedule::from_events(plan.design.clone(), &plan.events);
     let opts = crate::ideal::IdealOptions { cycles: 2, offsets: crate::ideal::offsets(extra), trace: None };
-    crate::ideal::run(w, &s, &Default::default(), &opts)
+    crate::ideal::run(w, &s, &Default::default(), &opts).map(|_| ())
 }
 
 /// Wiring traits of a symmetric sequence: step of the bottom-middle piston's first pulse (the one

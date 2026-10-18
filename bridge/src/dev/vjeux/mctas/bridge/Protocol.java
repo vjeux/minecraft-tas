@@ -154,6 +154,7 @@ public final class Protocol {
             case "status" -> status(sandbox(r));
             case "entities" -> entities(r);
             case "update" -> update(r);
+            case "build" -> build(r);
             case "signals" -> signals(r);
             case "exec" -> exec(r);
             case "viewers" -> viewers();
@@ -487,6 +488,67 @@ public final class Protocol {
         }
         JsonObject o = new JsonObject();
         o.addProperty("changed", changed);
+        return o;
+    }
+
+    /**
+     * Survival building: run player actions one by one, letting the world settle after each (a
+     * player is slow): {@code place} (a real item placement: click a neighbouring block's face with
+     * the look direction that gives the wanted orientation, then right-click until click-set
+     * properties match; see Sandbox#placeLikePlayer), {@code use} (right-click), {@code break}
+     * (break like a player, no drops). After each action: at least {@code min_ticks} ticks, then
+     * until idle (at most {@code settle}). Stops at the first failed action unless
+     * {@code stop_on_fail} is false.
+     */
+    private JsonObject build(JsonObject r) throws CommandSyntaxException {
+        Sandbox sb = sandbox(r);
+        int settle = r.has("settle") ? r.get("settle").getAsInt() : 200;
+        int minTicks = r.has("min_ticks") ? r.get("min_ticks").getAsInt() : 4;
+        boolean stopOnFail = !r.has("stop_on_fail") || r.get("stop_on_fail").getAsBoolean();
+        JsonArray results = new JsonArray();
+        int failedAt = -1;
+        int i = 0;
+        for (JsonElement e : r.getAsJsonArray("steps")) {
+            JsonObject st = e.getAsJsonObject();
+            String what = st.get("do").getAsString();
+            int[] p = ints(st.getAsJsonArray("pos"));
+            BlockPos pos = new BlockPos(p[0], p[1], p[2]);
+            checkInside(sb, pos);
+            JsonObject res;
+            switch (what) {
+                case "place" -> res = sb.placeLikePlayer(this.server, pos, parse(st.get("state").getAsString()), this::serialize, settle);
+                case "use" -> {
+                    res = new JsonObject();
+                    res.addProperty("ok", true);
+                    res.addProperty("result", sb.use(pos, Direction.UP));
+                }
+                case "break" -> {
+                    sb.breakLikePlayer(pos);
+                    res = new JsonObject();
+                    res.addProperty("ok", true);
+                }
+                default -> throw new IllegalArgumentException("unknown build action '" + what + "'");
+            }
+            int ticked = 0;
+            int min = st.has("min_ticks") ? st.get("min_ticks").getAsInt() : minTicks;
+            while (ticked < min || (ticked < settle && !sb.idle())) {
+                sb.tick(this.server);
+                ticked++;
+            }
+            res.addProperty("ticks", ticked);
+            res.addProperty("idle", sb.idle());
+            results.add(res);
+            if (!res.get("ok").getAsBoolean() && failedAt < 0) {
+                failedAt = i;
+                if (stopOnFail) {
+                    break;
+                }
+            }
+            i++;
+        }
+        JsonObject o = new JsonObject();
+        o.add("results", results);
+        o.addProperty("failed_at", failedAt);
         return o;
     }
 
