@@ -101,6 +101,24 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// Try every combination of alternative patch groups (see place.rs): for wiring a mechanism
+    /// whose part placements are a 3D puzzle. Screened at one position, judged at the default
+    /// positions; every working combination is written next to --out.
+    Place {
+        design: PathBuf,
+        #[arg(long)]
+        groups: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Stop after this many working designs (0 = all).
+        #[arg(long, default_value_t = 0)]
+        want: usize,
+        /// Extra pseudo-random judge positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+    },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
     /// only if the full judge passes; every improvement is written to --out.
@@ -317,6 +335,22 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             if failed > 0 {
                 anyhow::bail!("{failed} of {} scripts failed", scripts.len());
             }
+        }
+        DoorCmd::Place { design, groups, out, workers, want, extra_offsets } => {
+            let d = load_design(&design)?;
+            let text = std::fs::read_to_string(&groups)?;
+            let gs = crate::place::parse_groups(&text)?;
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let opts = crate::place::PlaceOptions {
+                screen: VerifyOptions { cycles: 1, offsets: offsets.iter().take(1).copied().collect(), ..Default::default() },
+                judge: VerifyOptions { offsets, ..Default::default() },
+                want,
+            };
+            let found = crate::place::place(&pool, &d, &gs, &opts, &out, &log)?;
+            println!("{} working combinations", found.len());
         }
         DoorCmd::Minimize {
             design,
