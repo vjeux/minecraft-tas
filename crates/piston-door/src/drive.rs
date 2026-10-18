@@ -7,7 +7,9 @@
 //! (update mode, like a player), `clear x y z`, `use x y z`, `step <n>` (prints each tick),
 //! `quiet <n>` (steps without printing), `print`.
 //!
-//! Probes: `probe <name> x y z` watches a block; `trace <n>` steps n ticks printing one line per
+//! Probes: `probe <name> x y z` watches a block (`probe_signal <name> x y z` watches the best
+//! signal the cell's neighbors give into it: what a piston or lamp there would see, shown as its
+//! level, 0/+ in `expect_trace`); `trace <n>` steps n ticks printing one line per
 //! tick with every probe's compact value (see [`probe_value`]: dust power, 1/0 for powered or lit
 //! components, E/r for extended/retracted pistons, ~ moving, . air, # other solid);
 //! `expect <name> <value>` checks a probe now; `expect_state x y z <text>` checks that the block
@@ -177,7 +179,7 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
     let mut tick = 0u32;
     let mut watch: Option<(Pos, Pos)> = None;
     let mut prev: Option<Region> = None;
-    let mut probes: Vec<(String, Pos)> = Vec::new();
+    let mut probes: Vec<(String, Pos, bool)> = Vec::new();
     let mut out = DriveOutcome::default();
     let show = |w: &mut Worker, label: &str, plane: (i32, i32, i32, i32, i32), plane_x: Option<(i32, i32, i32, i32, i32)>| -> Result<()> {
         if let Some((x, z0, y0, z1, y1)) = plane_x {
@@ -194,10 +196,19 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
         let r = w.get_region(sb, p, p)?;
         Ok(r.get(p).unwrap_or("?").to_string())
     };
-    let trace_line = |w: &mut Worker, probes: &[(String, Pos)], tick: u32| -> Result<String> {
+    // A probe's value: the block's probe value, or for a `probe_signal` the best signal the
+    // cell's neighbors give into it (0-15: what a piston or lamp there would see).
+    let value = |w: &mut Worker, p: Pos, signal: bool| -> Result<String> {
+        if signal {
+            Ok(w.signals(sb, &[p])?.first().map(|s| s.0).unwrap_or(0).to_string())
+        } else {
+            Ok(probe_value(&read(w, p)?))
+        }
+    };
+    let trace_line = |w: &mut Worker, probes: &[(String, Pos, bool)], tick: u32| -> Result<String> {
         let mut line = format!("t={tick:<4}");
-        for (name, p) in probes {
-            line.push_str(&format!(" {name}={}", probe_value(&read(w, *p)?)));
+        for (name, p, signal) in probes {
+            line.push_str(&format!(" {name}={}", value(w, *p, *signal)?));
         }
         Ok(line)
     };
@@ -281,9 +292,9 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                     show(w, &format!("t={tick}"), plane, plane_x)?
                 }
             }
-            "probe" => {
+            "probe" | "probe_signal" => {
                 let name = parts.get(1).context("probe needs a name")?.to_string();
-                probes.push((name, pos(2)?));
+                probes.push((name, pos(2)?, parts[0] == "probe_signal"));
             }
             "trace" => {
                 if verbose {
@@ -300,8 +311,8 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
             "expect" => {
                 let name = parts.get(1).context("expect needs a probe name")?;
                 let want = parts.get(2).context("expect needs a value")?;
-                let p = probes.iter().find(|(n, _)| n == name).with_context(|| format!("no probe {name}"))?.1;
-                let got = probe_value(&read(w, p)?);
+                let (_, p, signal) = probes.iter().find(|(n, _, _)| n == name).with_context(|| format!("no probe {name}"))?.clone();
+                let got = value(w, p, signal)?;
                 out.checks += 1;
                 if got != *want {
                     out.failures.push(format!("line {}: t={tick} expect {name}={want}, got {got}", lineno + 1));
@@ -318,14 +329,16 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
             "expect_trace" => {
                 let name = parts.get(1).context("expect_trace needs a probe name")?;
                 let want = parts.get(2).context("expect_trace needs values")?;
-                let p = probes.iter().find(|(n, _)| n == name).with_context(|| format!("no probe {name}"))?.1;
+                let (_, p, signal) = probes.iter().find(|(n, _, _)| n == name).with_context(|| format!("no probe {name}"))?.clone();
                 let mut got = String::new();
                 for _ in want.chars() {
                     w.step(sb, 1)?;
                     tick += 1;
-                    let v = probe_value(&read(w, p)?);
-                    // One character per tick: dust is 0 or + (powered), others their probe value.
+                    let v = value(w, p, signal)?;
+                    // One character per tick: dust and signals are 0 or + (powered), others
+                    // their probe value.
                     let c = match v.parse::<u32>() {
+                        Ok(n) if signal => if n > 0 { '+' } else { '0' },
                         Ok(n) if v.len() > 1 || n > 1 => '+',
                         _ => v.chars().next().unwrap_or('?'),
                     };

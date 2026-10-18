@@ -1,0 +1,4 @@
+# the 48 without its TL chain (TL puller unfed): grow candidates
+clear 0 3 2
+clear 0 4 2
+clear 0 4 1

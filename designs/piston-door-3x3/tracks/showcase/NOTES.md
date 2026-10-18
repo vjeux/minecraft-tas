@@ -3,6 +3,14 @@
 Not a door track: tools that turn the archive into things to watch, all rendered by the real
 Minecraft client (`door video` pipeline) and cut with the static ffmpeg build, in Rust.
 
+## Results (release `videos`)
+* [GALLERY.md](../../GALLERY.md): the best of each board as looping GIFs (`<design>.gif`).
+* Record progressions, one camera per board, game speed, labeled: `solid-progression.mp4`
+  (151 -> 40, 29 records, 3:11), `slime-free-progression.mp4`, `sculk-progression.mp4`
+  (50 -> 42), `gravity-progression.mp4` (69 -> 45), each with a poster `<board>-progression.jpg`.
+* Every archived design's video in the new `card` style: the coordinator re-renders them with
+  `door video-all --redo`.
+
 ## Commands (branch explore/showcase)
 * `mctas door gallery --videos ~/videos/gallery --upload videos`: picks the best design of
   each board from the archive (verdicts and worst-cycle timings from the leaderboard cache,
@@ -22,6 +30,9 @@ Minecraft client (`door video` pipeline) and cut with the static ffmpeg build, i
   (`solid-progression.jpg`: every record's frame with the door open, in a grid with its block
   count), embedded at the top of GALLERY.md and linking to the video. Clips are cached per
   camera in `<videos>/clips-<hash>/` (only new records get rendered next time).
+  `--board slime-free|sculk|gravity` does the same for another board, its records taken from the
+  archive in archive order (each design with fewer blocks than every one archived before it);
+  assets `<board>-progression.mp4/.jpg`, linked from that board's section of GALLERY.md.
 * `mctas door video` (and `door video-all`) default style `card`: a 2 s title card (block
   count, category, timings from one verify cycle, design name) drawn in the game's font on the
   darkened dirt background, fading into the clip; the door camera; a corner label.

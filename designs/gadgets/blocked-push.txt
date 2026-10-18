@@ -1,0 +1,25 @@
+name: gadget-blocked-push
+# An extended piston is immovable, so a piston whose push line starts with it does nothing
+# (fresh-c's fc1/fc2: the B window fires on BOTH lever edges; on close A is already extended
+# again and B's push fails, while the observer's two A pulses are swallowed because A is
+# powered anyway: no open-only gating needed). Once A retracts, the same B pushes it.
+# B sticky facing down with a lever on top, A sticky facing down extended (powered by the
+# redstone block R), stone K under A's head.
+origin: 0 0 0
+palette:
+  K minecraft:stone
+  H minecraft:piston_head[facing=down,short=false,type=sticky]
+  A minecraft:sticky_piston[extended=true,facing=down]
+  R minecraft:redstone_block
+  B minecraft:sticky_piston[extended=false,facing=down]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer 1:
+  K
+layer 2:
+  H
+layer 3:
+  AR
+layer 4:
+  B
+layer 5:
+  L

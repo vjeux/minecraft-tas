@@ -1,0 +1,4 @@
+# ideal-asteady with P_T RETRACTED at rest (pulse-driven: open pull T (1,3,0)->(1,3,1), close push back)
+clear 1 3 2
+set 1 3 2 minecraft:sticky_piston[extended=false,facing=north]
+clear 1 3 3
