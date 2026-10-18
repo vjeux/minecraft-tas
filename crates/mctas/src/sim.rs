@@ -249,6 +249,9 @@ pub struct EntityInfo {
     pub collides: bool,
     #[serde(default)]
     pub on_ground: bool,
+    /// Its box overlaps a block's collision shape (stuck inside a block).
+    #[serde(default)]
+    pub embedded: bool,
     /// Bounding box `[min x, min y, min z, max x, max y, max z]`.
     #[serde(default, rename = "box")]
     pub bbox: [f64; 6],
@@ -452,14 +455,6 @@ impl Worker {
         Ok((region, moving))
     }
 
-    /// Emit a vanilla game event (`step`, `hit_ground`, ...: anything in the game's GameEvent
-    /// registry) at each position (the bottom center of the cell), as a player standing there
-    /// would: sculk sensors and other vibration listeners hear it.
-    pub fn game_event(&mut self, sandbox: u32, event: &str, positions: &[Pos]) -> Result<()> {
-        self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions}))?;
-        Ok(())
-    }
-
     /// Positions in the box whose block cannot survive where it stands (`canSurvive` false):
     /// floating levers, torches, dust, repeaters... (raw placement keeps them).
     pub fn unsupported(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<Vec<Pos>> {
@@ -591,6 +586,13 @@ impl Worker {
     pub fn exec(&mut self, sandbox: u32, command: &str) -> Result<()> {
         self.call(json!({"op": "exec", "sandbox": sandbox, "command": command}))?;
         Ok(())
+    }
+
+    /// Emit a game event (`step`: a player's footstep) at each position's bottom center, no
+    /// source entity (sculk sensors in range hear it). Returns how many were emitted.
+    pub fn game_event(&mut self, sandbox: u32, event: &str, positions: &[Pos]) -> Result<u32> {
+        let v = self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions}))?;
+        Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
     }
 
     /// Number of connected game clients.

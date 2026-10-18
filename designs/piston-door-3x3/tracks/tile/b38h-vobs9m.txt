@@ -1,4 +1,5 @@
 name: b38h-vobs9m
+tiling: vperiod:9:3
 relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
 port door: 0 0 0
 port lever: 1 5 -3

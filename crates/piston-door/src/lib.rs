@@ -5,11 +5,11 @@
 //!   plane `z = door.z` covering `x in door.x..door.x+3`, `y in door.y..door.y+3`.
 //! * `lever`: a lever. On opens the door, off closes it.
 //!
-//! What "works" means (see docs/piston-door-3x3.md):
-//! * at rest with the lever off, the 9 door cells hold full-cube blocks and the cells right in
-//!   front of and behind the door (z-1 and z+1) are walkable (no collision);
-//! * after the lever is switched on and everything settles, the 9 door cells and those 18
-//!   corridor cells are all walkable;
+//! What "works" means (the full rules: docs/rules.md):
+//! * at rest with the lever off, the 9 door cells hold 9 identical plain full blocks and the
+//!   walkway (the opening extended 3 blocks in front and behind) is walkable (no collision);
+//! * after the lever is switched on and everything settles, the 9 door cells and the walkway
+//!   are all walkable;
 //! * after the lever is switched off and everything settles, every block of the build is back
 //!   exactly where it started (so the door is the same blocks, and it can cycle forever);
 //! * no item entity appears (nothing was broken), repeated for several cycles, at several
@@ -20,6 +20,7 @@ pub mod mechsynth;
 pub mod mechwire;
 pub mod archive;
 pub mod buildable;
+pub mod catalog;
 pub mod designs;
 pub mod designs_history;
 pub mod designs_fresh_b;
@@ -29,6 +30,7 @@ pub mod observer_seq;
 pub mod leaderboard;
 pub mod designs_gravity;
 pub mod lm;
+pub mod properties_dyn;
 pub mod drive;
 pub mod harvest;
 pub mod ideal;
@@ -303,10 +305,16 @@ pub fn verify(w: &mut Worker, design: &Design, opts: &VerifyOptions) -> Result<R
     r
 }
 
-/// Count of placed blocks: every non-air block except piston heads (part of their piston), plus one
-/// per entity (a minecart, an armor stand... counts as a block).
+/// Count of placed blocks: every non-air block except piston heads (part of their piston).
+/// Entities are not blocks: they are counted on their own ([`entity_count`]; vjeux 2026-10-18:
+/// fewer blocks with more entities is fine), and the Entities board ranks by blocks, then entities.
 pub fn block_count(d: &Design) -> usize {
-    d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count() + d.entities.len()
+    d.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count()
+}
+
+/// Count of the design's entities (minecarts, armor stands...), scored apart from blocks.
+pub fn entity_count(d: &Design) -> usize {
+    d.entities.len()
 }
 
 /// `n` deterministic pseudo-random extra test positions, on top of the default four.
@@ -344,15 +352,16 @@ pub fn slime_free(d: &Design) -> bool {
 /// True when every block of the design lies in the door's plane (z = door.z): the whole machine
 /// is one block thick ("flat"; its own leaderboard together with slime-free).
 pub fn single_layer(d: &Design) -> bool {
-    let Ok(spec) = DoorSpec::from_design(d) else { return false };
-    // The door's plane: z = door.z, or x = door.x for an east/west-facing door.
-    let axis = if spec.along_z { 0 } else { 2 };
-    d.blocks.keys().all(|p| p[axis] == spec.door[axis])
+    let Some(door) = d.ports.get("door") else { return false };
+    // The door's plane: z = door.z, or x = door.x for an east/west-facing door (`door-axis: z`).
+    let axis = if d.meta.get("door-axis").is_some_and(|v| v.trim() == "z") { 0 } else { 2 };
+    d.blocks.keys().all(|p| p[axis] == door[axis])
 }
 
-/// How far a design reaches beyond its 3x3 opening on every side, at rest (piston heads
-/// included; design files always have the door in a z plane). Builders care: a door that fits a
-/// thin wall, needs no digging or stays narrow is easier to place than a smaller block count.
+/// How far a design reaches beyond its 3x3 opening on every side (piston heads included), along
+/// the door's own axes: depth through the door (z, or x for a `door-axis: z` design), height, and
+/// width along the opening. Builders care: a door that fits a thin wall, needs no digging or
+/// stays narrow is easier to place than a smaller block count.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct Shape {
     /// Layers in front of the door plane (z < door.z) and behind it (z > door.z).
@@ -399,8 +408,11 @@ pub fn shape(d: &Design) -> Option<Shape> {
 }
 
 /// The [`Shape`] of a set of occupied cells around `door` (blocks below / above counted from the
-/// design's own blocks at rest).
+/// design's own blocks at rest). A `door-axis: z` design (an east/west-facing door) has its width
+/// along z and its depth along x.
 fn shape_of_cells<'a>(d: &Design, door: Pos, cells: impl IntoIterator<Item = &'a Pos>) -> Option<Shape> {
+    let along_z = d.meta.get("door-axis").is_some_and(|v| v.trim() == "z");
+    let (wi, di) = if along_z { (2, 0) } else { (0, 2) };
     let mut it = cells.into_iter();
     let first = *it.next()?;
     let (mut lo, mut hi) = (first, first);
@@ -412,12 +424,12 @@ fn shape_of_cells<'a>(d: &Design, door: Pos, cells: impl IntoIterator<Item = &'a
     }
     let counted = |p: &&Pos| !d.blocks[*p].starts_with("minecraft:piston_head");
     Some(Shape {
-        front: (door[2] - lo[2]).max(0),
-        behind: (hi[2] - door[2]).max(0),
+        front: (door[di] - lo[di]).max(0),
+        behind: (hi[di] - door[di]).max(0),
         below: (door[1] - lo[1]).max(0),
         above: (hi[1] - (door[1] + 2)).max(0),
-        left: (door[0] - lo[0]).max(0),
-        right: (hi[0] - (door[0] + 2)).max(0),
+        left: (door[wi] - lo[wi]).max(0),
+        right: (hi[wi] - (door[wi] + 2)).max(0),
         blocks_below: d.blocks.keys().filter(|p| p[1] < door[1]).filter(counted).count(),
         blocks_above: d.blocks.keys().filter(|p| p[1] > door[1] + 2).filter(counted).count(),
     })
@@ -802,6 +814,10 @@ pub fn verify_in_spec(w: &mut Worker, sb: u32, design: &Design, spec: DoorSpec, 
     Ok(report)
 }
 
+/// How far (blocks, per axis) an entity may come back from its rest position after a cycle: float
+/// noise of piston pushes only (see the close check in `verify_at`).
+pub const ENTITY_POS_TOLERANCE: f64 = 1e-6;
+
 /// The box the verifier watches: the design (its entities' cells included) plus a margin (blocks
 /// can move out of it).
 pub(crate) fn watch_box(d: &Design, spec: &DoorSpec) -> (Pos, Pos) {
@@ -879,6 +895,9 @@ fn entity_rest(
     for e in &ents {
         if !e.still {
             bail!("entity not at rest after placement: {}", entity_line(e));
+        }
+        if e.embedded {
+            bail!("entity inside a block at rest (a survival player cannot place it there): {}", entity_line(e));
         }
         if !(0..3).all(|i| e.bbox[i] >= watch.0[i] as f64 && e.bbox[i + 3] <= (watch.1[i] + 1) as f64) {
             bail!("entity outside the watch box at rest: {}", entity_line(e));
@@ -1085,6 +1104,14 @@ fn verify_at(
     let watch = mctas::sim::EntityWatch { watch: (wlo, whi), walk: walk_box(spec) };
 
     for cycle in 0..opts.cycles {
+        // Designs with entities: wait 0-20 extra ticks before each flip (a different count per
+        // position, cycle and edge). A sensor held by an entity (a detector rail under a cart, a
+        // pressure plate) re-checks every 10 or 20 ticks whatever the lever does, so a door must
+        // not depend on where in that period the player flips the lever.
+        let phase = |edge: i32| (spec.door[0] * 7 + spec.door[1] * 3 + spec.door[2] * 5 + cycle as i32 * 11 + edge * 13).rem_euclid(21) as u32;
+        if has_entities && phase(0) > 0 {
+            w.step(sb, phase(0))?;
+        }
         // Open.
         w.use_block(sb, spec.lever)?;
         let open = if has_entities { w.step_record_watch(sb, opts.max_ticks, true, wlo, whi, &watch)? } else { w.step_record(sb, opts.max_ticks, true, wlo, whi)? };
@@ -1113,6 +1140,9 @@ fn verify_at(
         };
         if !has_entities && !w.entities(sb)?.is_empty() {
             bail!("cycle {cycle}: entities appeared while opening (something broke): {:?}", w.entities(sb)?);
+        }
+        if has_entities && phase(1) > 0 {
+            w.step(sb, phase(1))?;
         }
         // Close.
         w.use_block(sb, spec.lever)?;
@@ -1146,16 +1176,18 @@ fn verify_at(
             }
         }
         if has_entities {
-            // Every entity back exactly as it was at rest: same position (exactly: rails put a
-            // cart back on the rail's center line at the rail's height + 1/16, piston moves are
-            // exact half-block steps; nothing in the source jitters a resting entity), at rest, same
-            // state (rail, contents, pose...).
+            // Every entity back where it rested (to 1e-6 block: a piston push leaves an entity at
+            // the moving face + PUSH_OFFSET 0.01 + its half-width, a float (0.49F for a minecart
+            // = 0.49000000953674316), computed in doubles (PistonMovingBlockEntity
+            // .moveCollidedEntities), so a cart stated at x.5 comes back 1e-8 off it, then exactly
+            // the same every cycle; any real displacement is at least 0.01), at rest, same state
+            // (rail, contents, pose...).
             let now = entity_cycle_checks(w, sb, d, &close, "closing").with_context(|| format!("cycle {cycle}"))?;
             for r in &rest_entities {
                 let Some(e) = now.iter().find(|e| e.uuid == r.uuid) else {
                     bail!("cycle {cycle}: the design's {} that rested at {:?} is gone after closing", r.kind, r.pos);
                 };
-                if e.pos != r.pos {
+                if (0..3).any(|i| (e.pos[i] - r.pos[i]).abs() > ENTITY_POS_TOLERANCE) {
                     bail!("cycle {cycle}: {} not back after closing: at {:?}, rested at {:?}", e.kind, e.pos, r.pos);
                 }
                 if !e.still {

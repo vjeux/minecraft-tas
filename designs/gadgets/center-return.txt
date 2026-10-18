@@ -1,5 +1,5 @@
 name: gadget-center-return
-# The center's two-move RETURN with both moves placed (close side, docs/ticks.md section 6): C
+# The center's two-move RETURN with both moves placed (close side, docs/mechanics.md section 9): C
 # goes E (0,2,0) -> N1 (0,1,0) -> center (0,0,0) and is placed in the center at tick 2.
 # * Tick 1: redstone block R at (-1,3,0) reaches G (sticky, above E) before its partner X: G
 #   pushes C down, X shoves R away, G retracts while C moves: C finalTick'd in N1, E empty.

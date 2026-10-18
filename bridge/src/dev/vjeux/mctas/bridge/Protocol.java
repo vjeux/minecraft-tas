@@ -41,7 +41,7 @@ import net.minecraft.world.phys.Vec3;
  * Line-delimited JSON protocol. Requests are read on a background thread and executed in order on
  * the server thread; each request gets exactly one response line carrying the same {@code id}.
  *
- * <p>See docs/protocol.md for the full reference.
+ * <p>See docs/internals.md (bridge protocol) for the full reference.
  */
 public final class Protocol {
     private static final JsonObject EOF = new JsonObject();
@@ -510,6 +510,8 @@ public final class Protocol {
         j.addProperty("collides", Sandbox.collides(e));
         j.addProperty("on_ground", e.onGround());
         net.minecraft.world.phys.AABB bb = e.getBoundingBox();
+        // Overlaps a block's collision shape (stuck inside a block: a player cannot place it so).
+        j.addProperty("embedded", !sb.level.noBlockCollision(e, bb.deflate(1.0E-7)));
         JsonArray box = new JsonArray();
         box.add(bb.minX);
         box.add(bb.minY);
@@ -675,22 +677,27 @@ public final class Protocol {
     }
 
     /**
-     * Emit a game event ({@code event}: a GameEvent registry name such as {@code step} or
-     * {@code hit_ground}) at the bottom center of each position, from no entity: what a player's
-     * footsteps or landing there make vibration listeners (sculk sensors) hear.
+     * Emit a game event at block positions, at each cell's bottom center (where a player's feet
+     * are): {@code event} is {@code step} (a player's footstep, GameEvent.STEP; the default). No
+     * source entity, no affected state, as {@code level.gameEvent} gets from a walking player
+     * minus the entity (sculk sensors hear it the same way).
      */
     private JsonObject gameEvent(JsonObject r) {
         Sandbox sb = sandbox(r);
-        String name = r.get("event").getAsString();
-        net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.withDefaultNamespace(name);
-        var holder = BuiltInRegistries.GAME_EVENT.get(id).orElseThrow(() -> new IllegalArgumentException("no game event " + name));
+        String name = r.has("event") ? r.get("event").getAsString() : "step";
+        net.minecraft.core.Holder<net.minecraft.world.level.gameevent.GameEvent> ev = switch (name) {
+            case "step", "minecraft:step" -> net.minecraft.world.level.gameevent.GameEvent.STEP;
+            default -> throw new IllegalArgumentException("unsupported game event " + name);
+        };
+        int n = 0;
         for (JsonElement e : r.getAsJsonArray("positions")) {
             int[] p = ints(e.getAsJsonArray());
-            BlockPos pos = new BlockPos(p[0], p[1], p[2]);
-            checkInside(sb, pos);
-            sb.level.gameEvent(holder, Vec3.atBottomCenterOf(pos), net.minecraft.world.level.gameevent.GameEvent.Context.of((Entity) null));
+            sb.level.gameEvent(ev, new Vec3(p[0] + 0.5, p[1], p[2] + 0.5), net.minecraft.world.level.gameevent.GameEvent.Context.of((Entity) null, (BlockState) null));
+            n++;
         }
-        return new JsonObject();
+        JsonObject o = new JsonObject();
+        o.addProperty("emitted", n);
+        return o;
     }
 
     private JsonObject viewers() {

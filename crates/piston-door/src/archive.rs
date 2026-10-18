@@ -8,13 +8,19 @@ use mctas::design::Design;
 
 /// Archive `d` (loaded from `source`) unless an identical design is already there. Returns
 /// the new file, or None when it was already archived.
-pub fn save(source: &Path, d: &Design, blocks: usize, note: &str, into: Option<&Path>) -> Result<Option<PathBuf>> {
+/// The archive folder for `source` (`into` when given; `designs/piston-door-3x3/archive` for a
+/// built-in `@name`; else `archive/` next to the design file).
+pub fn dir_for(source: &Path, into: Option<&Path>) -> PathBuf {
     let dir = match source.to_str() {
         _ if into.is_some() => into.unwrap().to_path_buf(),
         Some(s) if s.starts_with('@') => PathBuf::from("designs/piston-door-3x3/archive"),
         _ => source.parent().unwrap_or(Path::new(".")).join("archive"),
     };
-    let dir = if dir.ends_with("archive/archive") { dir.parent().unwrap().to_path_buf() } else { dir };
+    if dir.ends_with("archive/archive") { dir.parent().unwrap().to_path_buf() } else { dir }
+}
+
+pub fn save(source: &Path, d: &Design, blocks: usize, note: &str, into: Option<&Path>) -> Result<Option<PathBuf>> {
+    let dir = dir_for(source, into);
     std::fs::create_dir_all(&dir)?;
     let body = d.to_text();
     for e in std::fs::read_dir(&dir)? {

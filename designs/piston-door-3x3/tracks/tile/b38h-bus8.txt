@@ -4,6 +4,7 @@
 # powers the block it stands on, and a strongly powered note block (a conductor) quasi-powered
 # the south piston E through observer A; a hopper is not a conductor.
 name: b38h-bus8
+tiling: period:8:3
 relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
 port door: 0 0 0
 port lever: 1 5 -3

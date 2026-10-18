@@ -1,0 +1,6 @@
+WORKS: pareto-mid-mp7-repU (50 blocks, 6x10x4, category solid)
+archived designs/piston-door-3x3/tracks/pareto-mid/archive/pareto-mid-mp7-repU-50b.txt
+  cycle 0: open after 14 ticks (idle at 16), closed after 12 ticks (idle at 14)
+  cycle 1: open after 14 ticks (idle at 16), closed after 12 ticks (idle at 14)
+  cycle 2: open after 14 ticks (idle at 16), closed after 12 ticks (idle at 14)
+rotation-safe: also works turned 90, 180 and 270 degrees (32 positions each)

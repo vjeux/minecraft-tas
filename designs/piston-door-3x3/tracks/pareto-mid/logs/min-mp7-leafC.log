@@ -1,0 +1,11 @@
+8 workers; moves all; judge 32 positions
+[    1.7s] start: 46 blocks, open 15 close 13 ticks, passes the judge (32 positions x 3 cycles)
+[    7.6s]   391680 swaps (two blocks out, one block in nearby)
+[    7.7s] 46 blocks: 1799 removals, 0 reroutes (+0 neutral), 2009 compounds, 179 neutral edits
+[  159.5s]   395488 candidates: 734 seen, 394754 screened in 151.8s, 0 passed the screen, 0 judged, 0 passed the judge (151.8s)
+[  159.7s]   no improving move; plateau: judging 36948 neutral edits
+[  177.3s]   36948 candidates: 68 seen, 36880 screened in 14.2s, 54 passed the screen, 54 judged, 54 passed the judge (17.6s)
+[  219.2s]   plateau: routing took 41.9s
+[  219.2s]   plateau: 54 verified neutral designs, 1944 removals and 0 reroutes after them
+[  219.7s]   1944 candidates: 691 seen, 1253 screened in 0.5s, 0 passed the screen, 0 judged, 0 passed the judge (0.5s)
+46 -> 46 blocks, written to designs/piston-door-3x3/tracks/pareto-mid/min-mp7-leafC.txt

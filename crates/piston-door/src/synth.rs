@@ -165,6 +165,8 @@ pub fn exotic_states(tok: &str) -> Option<Vec<String>> {
         "shelf" => vec!["minecraft:oak_shelf[facing=north,powered=false,side_chain=unconnected,waterlogged=false]".into()],
         "rail" => rail("powered_rail"),
         "arail" => rail("activator_rail"),
+        // Flat powered rails only (both axes): the sweeps' cheap rail palette.
+        "railf" => ["north_south", "east_west"].iter().map(|s| format!("minecraft:powered_rail[powered=false,shape={s},waterlogged=false]")).collect(),
         "disp" => vec!["minecraft:dispenser[facing=up,triggered=false]".into()],
         "dropper" => vec!["minecraft:dropper[facing=up,triggered=false]".into()],
         "crafter" => vec!["minecraft:crafter[crafting=false,orientation=north_up,triggered=false]".into()],
@@ -1154,7 +1156,7 @@ pub enum Target {
     /// The door: screen at a few positions, then the full judge. `max_open` / `max_close`
     /// (speed boards) reject a door that opens (closes) later than that many ticks in any
     /// cycle at the first position, as the leaderboard measures it.
-    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, seamless: Option<crate::properties::SeamReq> },
+    Door { screen: VerifyOptions, judge: VerifyOptions, max_open: Option<u32>, max_close: Option<u32>, rotations: bool, seamless: Option<crate::properties::SeamReq> },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
 }
@@ -1180,7 +1182,7 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, seamless, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, seamless, .. } => {
             if let Some(t) = seamless {
                 t.check(w, sb, d)?;
             }
@@ -1194,6 +1196,11 @@ fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String>
             }
             if let Some(m) = max_close.filter(|m| c > *m) {
                 bail!("too slow: closes after {c} ticks (max {m})");
+            }
+            if *rotations {
+                if let Some((turns, why)) = crate::rotation_check(w, d, judge)? {
+                    bail!("not rotation-safe: turned {} degrees: {why}", turns as u32 * 90);
+                }
             }
             Ok(format!("door works at {} positions, open {o} / close {c}", judge.offsets.len()))
         }
@@ -1434,6 +1441,8 @@ pub struct ResynthOptions {
     /// Repair mode: while the design is below `seamless`, cut only groups through an offending
     /// cell (single blocks too) and let them grow back with up to this many more blocks.
     pub extra: usize,
+    /// Accept only rotation-safe replacements (set when the start design is rotation-safe).
+    pub keep_rotations: bool,
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
@@ -1631,7 +1640,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 }
             };
             let n: usize = buckets.iter().map(|b| b.len()).sum();
-            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, seamless: seam_req };
+            let target = Target::Door { screen: screen_opts.clone(), judge: judge_opts.clone(), max_open: o.max_open, max_close: o.max_close, rotations: o.keep_rotations, seamless: seam_req };
             let t = Instant::now();
             let inner = |m: &str| {
                 if m.contains("VERIFIED") || (m.contains("passed the screen") && !m.ends_with(" 0 passed the screen")) {

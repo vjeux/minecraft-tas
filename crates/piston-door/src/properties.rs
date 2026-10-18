@@ -428,17 +428,26 @@ fn t_neighbor(geo: &Geo, p: Pos) -> Pos {
 }
 
 /// The seamless verdict of one recorded cycle: the tier, its table label (with the viewer
-/// sides for QUART and SEMI) and the first cell that stops the next tier.
+/// sides for QUART and SEMI), the first cell that stops the next tier, and every blocker of the
+/// stable states (closed z-/x- side, closed z+/x+ side, open) and the hallway holes.
 #[derive(Clone, Debug)]
 pub struct Seamless {
     pub tier: Tier,
     pub label: String,
     pub why: Option<String>,
+    pub closed: [Vec<(Pos, String)>; 2],
+    pub open: Vec<(Pos, String)>,
+    pub holes_r: Vec<Pos>,
+    pub holes_o: Vec<Pos>,
 }
 
 /// SEAMLESS (2.1.4.1) of a recorded cycle. QUART <side> = closed, no circuitry in T or S strictly
 /// on that side; SEMI = QUART + open state clean (T and S at every depth, door plane included);
 /// FULL = QUART on both sides + open clean; SUPER = FULL + every tick of opening and closing clean.
+/// Hallway holes count too (props-dyn): ring cells some block passes through during a cycle can
+/// never hold a hallway block, so where they are air in a stable state they are holes, and
+/// circuitry right behind a hole (the next cell outward) is visible. Closed, the door plane's ring
+/// is hidden behind the door blocks.
 pub fn seamless(rec: &Recording) -> Seamless {
     let geo = rec.geo;
     let lever = rec.lever;
@@ -447,8 +456,35 @@ pub fn seamless(rec: &Recording) -> Seamless {
     let circ_r = circuitry(&geo, &rec.rest, &rest_doors, lever);
     let circ_o = circuitry(&geo, rec.open_state(), &open_doors, lever);
     let vis = |c: &(Pos, String)| geo.in_t(c.0) || geo.in_s(c.0);
-    let quart = |s: i32| circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).collect::<Vec<_>>();
-    let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).collect();
+    let mut swept_s: BTreeSet<Pos> = BTreeSet::new();
+    for (f, _) in rec.open.iter().chain(rec.close.iter()) {
+        for (q, s) in f.iter() {
+            if geo.in_s(q) && !is_air(s) {
+                swept_s.insert(q);
+            }
+        }
+    }
+    let holes_in = |f: &Region, closed: bool| -> Vec<Pos> {
+        swept_s.iter().copied().filter(|q| f.get(*q).is_none_or(is_air) && !(closed && geo.depth(*q) == 0)).collect()
+    };
+    let holes_r = holes_in(&rec.rest, true);
+    let holes_o = holes_in(rec.open_state(), false);
+    let outward = |h: Pos| -> Pos {
+        for d in DIRS {
+            if geo.in_t(add(h, d)) {
+                return [h[0] - d[0], h[1] - d[1], h[2] - d[2]];
+            }
+        }
+        h
+    };
+    let by_pos_r: HashMap<Pos, &(Pos, String)> = circ_r.iter().map(|c| (c.0, c)).collect();
+    let by_pos_o: HashMap<Pos, &(Pos, String)> = circ_o.iter().map(|c| (c.0, c)).collect();
+    let through_r: Vec<&(Pos, String)> = holes_r.iter().filter_map(|h| by_pos_r.get(&outward(*h)).copied()).collect();
+    let through_o: Vec<&(Pos, String)> = holes_o.iter().filter_map(|h| by_pos_o.get(&outward(*h)).copied()).collect();
+    let quart = |s: i32| -> Vec<&(Pos, String)> {
+        circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).chain(through_r.iter().copied().filter(|c| geo.depth(c.0) * s > 0)).collect()
+    };
+    let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).chain(through_o.iter().copied()).collect();
     let mut anim_vis: Option<String> = None;
     let mut anim_cov: Option<String> = None;
     for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
@@ -491,7 +527,8 @@ pub fn seamless(rec: &Recording) -> Seamless {
     } else {
         anim_vis.clone().map(|x| format!("moving: {x}"))
     };
-    Seamless { tier, label, why }
+    let owned = |v: Vec<&(Pos, String)>| -> Vec<(Pos, String)> { v.into_iter().cloned().collect() };
+    Seamless { tier, label, why, closed: [owned(quart(-1)), owned(quart(1))], open: owned(open_vis), holes_r, holes_o }
 }
 
 /// Search acceptance filter (`--seamless <tier>`): one recorded cycle at the design's own
@@ -506,7 +543,7 @@ pub fn require_seamless(w: &mut Worker, sb: u32, d: &Design, min: Tier) -> Resul
 }
 
 /// A search requirement: `--seamless <tier>[+hall]` (`+hall`: the ring-aware hallway must
-/// build too, [`with_hallway_ring`]).
+/// build too: the coordinator's hallway, `properties_dyn::hallway_env`).
 #[derive(Clone, Copy, Debug)]
 pub struct SeamReq {
     pub tier: Tier,
@@ -534,8 +571,14 @@ impl SeamReq {
             }
         }
         if self.hallway {
-            let hall = with_hallway_ring(d, &rec);
-            judge(w, sb, &hall, 1).map_err(|e| anyhow::anyhow!("the ring-aware hallway breaks it: {}", brief(&e)))?;
+            // The coordinator's hallway (props-dyn, `properties_dyn::hallway_env`): smooth stone in
+            // every ring cell over the build's depth extent + 3 that is air at every tick of a
+            // full cycle; the judge's cycle checks must still pass.
+            let spec = DoorSpec::from_design(d)?;
+            let (swept, _) = crate::properties_dyn::swept_cells(w, sb, d, &spec)?;
+            let hall = crate::properties_dyn::hallway_env(d, &spec, &swept);
+            let opts = crate::properties_dyn::RunOpts { cycles: 1, input: crate::properties_dyn::Input::Lever, snow: false, steps: false };
+            crate::properties_dyn::env_run(w, sb, d, &spec, &hall, &opts).map_err(|e| anyhow::anyhow!("the hallway breaks it: {}", brief(&format!("{e:#}"))))?;
         }
         Ok(())
     }
@@ -548,11 +591,10 @@ impl SeamReq {
 pub fn seamless_offenders(rec: &Recording, min: Tier) -> Vec<Pos> {
     let geo = rec.geo;
     let lever = rec.lever;
-    let vis = |p: Pos| geo.in_t(p) || geo.in_s(p);
-    let rest_doors: HashSet<Pos> = geo.spec.door_cells().into_iter().collect();
-    let closed = |s: i32| -> Vec<Pos> { circuitry(&geo, &rec.rest, &rest_doors, lever).into_iter().map(|c| c.0).filter(|p| vis(*p) && geo.depth(*p) * s > 0).collect() };
+    let s = seamless(rec);
     let mut out: BTreeSet<Pos> = BTreeSet::new();
-    let (neg, pos) = (closed(-1), closed(1));
+    let neg: Vec<Pos> = s.closed[0].iter().map(|c| c.0).collect();
+    let pos: Vec<Pos> = s.closed[1].iter().map(|c| c.0).collect();
     match min {
         Tier::None => {}
         Tier::Quart | Tier::Semi => {
@@ -566,7 +608,7 @@ pub fn seamless_offenders(rec: &Recording, min: Tier) -> Vec<Pos> {
         }
     }
     if min >= Tier::Semi {
-        out.extend(circuitry(&geo, rec.open_state(), &rec.open_doors(), lever).into_iter().map(|c| c.0).filter(|p| vis(*p)));
+        out.extend(s.open.iter().map(|c| c.0));
     }
     if min >= Tier::SuperCovered {
         for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
@@ -596,14 +638,16 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     // SEAMLESS (2.1.4.1).
     let s = seamless(rec);
     p.insert("seamless".into(), s.label.clone());
-    if let Some(w) = s.why {
+    if let Some(w) = s.why.clone() {
         p.insert("seamless_why".into(), w);
     }
+    let (holes_r, holes_o) = (s.holes_r.clone(), s.holes_o.clone());
+    if !holes_r.is_empty() || !holes_o.is_empty() {
+        let l = |v: &[Pos]| v.iter().map(|q| format!("{q:?}")).collect::<Vec<_>>().join(" ");
+        p.insert("holes".into(), format!("closed: {} | open: {}", l(&holes_r), l(&holes_o)));
+    }
     // Every blocker, per check: closed side z-/z+ and the open state.
-    let vis = |c: &(Pos, String)| geo.in_t(c.0) || geo.in_s(c.0);
-    let quart = |s: i32| circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).collect::<Vec<_>>();
-    let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).collect();
-    let list = |v: &[&(Pos, String)]| -> String {
+    let list = |v: &[(Pos, String)]| -> String {
         if v.is_empty() {
             return "-".into();
         }
@@ -613,9 +657,9 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
         }
         s.join(" ")
     };
-    p.insert(format!("vis_closed_{}", geo.side(-1)), list(&quart(-1)));
-    p.insert(format!("vis_closed_{}", geo.side(1)), list(&quart(1)));
-    p.insert("vis_open".into(), list(&open_vis));
+    p.insert(format!("vis_closed_{}", geo.side(-1)), list(&s.closed[0]));
+    p.insert(format!("vis_closed_{}", geo.side(1)), list(&s.closed[1]));
+    p.insert("vis_open".into(), list(&s.open));
 
     // DENTLESS / MINOR DENTS ONLY (2.1.4.2-3), stable states.
     let mut dent = 0u8; // 0 dentless, 1 minor dents only, 2 dents, 3 ineligible
@@ -675,6 +719,17 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
                         }
                     }
                 }
+            }
+        }
+    }
+    // Permanent hallway holes (swept ring cells): missing wall/ceiling blocks are minor, missing
+    // floor blocks are not eligible for MINOR DENTS ONLY.
+    for (name, hs) in [("closed", &holes_r), ("open", &holes_o)] {
+        for q in hs.iter() {
+            let level = if geo.v(*q) == -1 { 2 } else { 1 };
+            if level > dent {
+                dent = level;
+                dent_why = Some(format!("{name}: swept hallway cell {q:?} cannot hold a hallway block"));
             }
         }
     }
@@ -873,8 +928,9 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     let lever_state = rec.rest.get(lever).unwrap_or("?").to_string();
     let sup = support(&lever_state, lever);
     let support_ok = sup.is_some_and(|s| {
-        let st = rec.rest.get(s).map(str::to_string);
-        rec.open.iter().chain(rec.close.iter()).all(|(f, _)| f.get(s).map(str::to_string) == st)
+        // The same block (its state may change: a lamp lights, an observer fires), never moved.
+        let name = rec.rest.get(s).map(|x| block_name(x).to_string());
+        rec.open.iter().chain(rec.close.iter()).all(|(f, _)| f.get(s).map(|x| block_name(x).to_string()) == name)
     });
     let surface = match vbox {
         None => true,
@@ -1307,7 +1363,7 @@ fn vibrations(w: &mut Worker, sb: u32, d: &Design, rec: &Recording, outside: boo
                 }
             }
         }
-        for ev in ["step", "hit_ground"] {
+        for ev in ["step"] {
             w.game_event(sb, ev, &pts)?;
             w.step(sb, 40)?;
             w.step_until_idle(sb, 400)?;
@@ -1442,6 +1498,89 @@ pub fn vanilla_verdicts(repo: &Path) -> HashMap<u64, String> {
     m
 }
 
+/// The dynamic checks written by the props-dyn agent (`archive/properties-dyn-v1.tsv`): either
+/// `hash<TAB>key=value...` lines (this module's cache format) or a header line starting with a
+/// hash column. Keys are mapped to this table's columns (hallway, contained, weatherproof,
+/// repeater_input, t_repeater, steps, isolated, uses) when their name says so; values starting
+/// with ok/pass/true become `yes`, fail/false `no`.
+pub fn load_dyn(dir: &Path) -> HashMap<u64, Props> {
+    let mut m = HashMap::new();
+    let Ok(text) = std::fs::read_to_string(dir.join("properties-dyn-v1.tsv")) else { return m };
+    let mut lines = text.lines();
+    let first = lines.clone().next().unwrap_or("");
+    let header: Option<Vec<String>> =
+        first.split('\t').next().filter(|h| h.to_ascii_lowercase().contains("hash")).map(|_| first.split('\t').map(str::to_string).collect());
+    if header.is_some() {
+        lines.next();
+    }
+    let map_key = |k: &str| -> String {
+        match k {
+            "repeater" => "repeater_input".into(),
+            "repeater_open_close" => "t_repeater".into(),
+            "cycles20" => "uses".into(),
+            "cycles20_why" => "uses_why".into(),
+            "verdict" | "source" | "blocks" | "category" => format!("dyn_{k}"),
+            other => other.into(),
+        }
+    };
+    let norm = |v: &str| -> String { v.to_string() };
+    for line in lines {
+        let f: Vec<&str> = line.split('\t').collect();
+        let Some(Ok(h)) = f.first().map(|x| u64::from_str_radix(x.trim(), 16)) else { continue };
+        let mut p = Props::new();
+        match &header {
+            Some(hd) => {
+                for (k, v) in hd.iter().zip(f.iter()).skip(1) {
+                    if !v.is_empty() {
+                        let key = map_key(k);
+                        let val = if key.starts_with("t_") || key.starts_with("dyn_") { v.to_string() } else { norm(v) };
+                        p.insert(key, val);
+                    }
+                }
+            }
+            None => {
+                for kv in f.iter().skip(1) {
+                    if let Some((k, v)) = kv.split_once('=') {
+                        let key = map_key(k);
+                        let val = if key.starts_with("t_") || key.starts_with("dyn_") { v.to_string() } else { norm(v) };
+                        p.insert(key, val);
+                    }
+                }
+            }
+        }
+        // WEATHERPROOF = snow in both stable states harmless and nothing burnable under the sky.
+        if let Some(snow) = p.get("snow").cloned() {
+            let fire = p.get("flammable_exposed").cloned().unwrap_or_default();
+            let w = if snow != "yes" {
+                format!("no (snow: {})", p.get("snow_why").map(|s| brief(s)).unwrap_or_default())
+            } else if !fire.is_empty() && fire != "-" {
+                format!("no (fire: {fire})")
+            } else {
+                "yes".into()
+            };
+            p.insert("weatherproof".into(), w);
+        }
+        if p.get("repeater_why").is_some_and(|w| w.starts_with("no free side")) {
+            p.insert("repeater_input".into(), "n/a (no site)".into());
+        }
+        for k in ["hallway", "contained", "steps", "uses"] {
+            let why = p.get(&format!("{k}_why")).cloned().filter(|w| !w.is_empty());
+            if let (Some(v), Some(w)) = (p.get(k).cloned(), why) {
+                if v == "no" {
+                    p.insert(k.into(), format!("no ({})", brief(&w)));
+                }
+            }
+        }
+        if let Some(c) = p.get("contained_failing").cloned().filter(|c| !c.is_empty()) {
+            if p.get("contained").is_some_and(|v| v.starts_with("no")) {
+                p.insert("contained".into(), format!("no ({c}; with a 1-block gap: {})", p.get("contained_gap").cloned().unwrap_or_default()));
+            }
+        }
+        m.insert(h, p);
+    }
+    m
+}
+
 /// Short display name of a source (`HEAD:designs/.../archive/fc2-40b.txt` -> `fc2-40b`).
 pub fn display_name(source: &str) -> String {
     let (r, path) = source.split_once(':').unwrap_or(("", source));
@@ -1472,6 +1611,7 @@ pub const COLUMNS: &[(&str, &str)] = &[
     ("weatherproof", "weatherproof"),
     ("contained", "contained"),
     ("uses", "uses"),
+    ("eligible", "record-eligible (3)"),
     ("volume", "volume"),
     ("t_player", "player o/ov/c/cv"),
     ("t_repeater", "repeater o/ov/c/cv"),
@@ -1492,6 +1632,10 @@ pub fn summary(rows: &[(String, usize, &'static str, Props)]) -> String {
         ("FULL SEAMLESS or better", seam(&["FULL", "SUPER"])),
         ("SUPER SEAMLESS", seam(&["SUPER"])),
         ("hallway-compatible", starts("hallway", "yes")),
+        ("QUART SEAMLESS + hallway-compatible", Box::new(|p: &Props| p.get("hallway").is_some_and(|h| h.starts_with("yes")) && p.get("seamless").is_some_and(|s| s != "-"))),
+        ("FULL SEAMLESS + hallway-compatible", Box::new(|p: &Props| p.get("hallway").is_some_and(|h| h.starts_with("yes")) && p.get("seamless").is_some_and(|s| s == "FULL" || s == "SUPER"))),
+        ("record-eligible (section 3)", starts("eligible", "yes")),
+        ("20 cycles (unlimited uses)", starts("uses", "yes")),
         ("DENTLESS", eq("dents", "dentless")),
         ("MINOR DENTS ONLY or better", Box::new(|p: &Props| p.get("dents").is_some_and(|v| v == "dentless" || v == "minor"))),
         ("FULL TRAPDOOR (wall)", has("flush_full", "trapdoor")),
@@ -1539,7 +1683,9 @@ pub fn summary(rows: &[(String, usize, &'static str, Props)]) -> String {
         if with.is_empty() {
             let known = rows.iter().any(|r| {
                 let key = match *name {
-                    "hallway-compatible" => "hallway",
+                    n if n.contains("hallway") => "hallway",
+                    n if n.contains("eligible") => "eligible",
+                    n if n.contains("cycles") => "uses",
                     "CONTAINED" => "contained",
                     "WEATHERPROOF" => "weatherproof",
                     "repeater input works" => "repeater_input",

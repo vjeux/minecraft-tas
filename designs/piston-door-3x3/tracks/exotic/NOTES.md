@@ -29,4 +29,110 @@ and rejects note block / lamp / stone / dispenser (they conduct into the piston 
 
 ## Searches
 
-(see the table below; filled in as runs finish)
+Palettes: `exotic` = iron trapdoor, oak fence gate, flat powered rails (2), dispenser, crafter,
+skeleton skull; size-2 regrows use every exotic state (trapdoor, gate, skull, shelf, rail incl.
+slopes, disp, crafter, scaffold, slab, stairs). `--require-any` keeps only candidates with at least
+one exotic block (the old palettes were already exhausted on these designs).
+
+| design | search | candidates | result |
+|---|---|---|---|
+| sf-holdA-b38 (38) | regrow --size 2, all exotic states | 5.3k | nothing |
+| sf-holdA-b38 | regrow --size 2 --any --margin 2, all exotic states | 288k | nothing |
+| sf-holdA-b38 | resynth --max-size 4, block,dust,dot,rep,obs,torch,note,exotic, --require-any | ~60 groups | nothing |
+| fc2 (40) | regrow --size 2, all exotic states | 6.6k | nothing |
+| fc2 | regrow --size 2 --any --margin 2, all exotic states | 523k | nothing |
+| fc2 | resynth --max-size 4 (as above) | ~80 groups | nothing |
+| mp8 (43) | resynth --max-size 4 (as above) | | nothing |
+| lamp-sweep-flat43 (43, flat) | resynth --max-size 4 (as above) | | nothing |
+| gravity2-g33 (33) | resynth --max-size 4 (as above) | 5 removable blocks | nothing |
+| pareto-mid BEST (mp8-leafU 43, 15/17) | resynth --max-size 4 (as above) | | nothing |
+| **pareto-mid 46 (14/14)** | resynth --max-size 4 (as above) | | **45** (pm45-trap, below) |
+| flat-b-v7 (44, smallest box) | resynth --max-size 4 (as above) | | nothing |
+| pm45-trap (45) | resynth --max-size 4, full palette + exotic, no filter; minimize --moves all --plateau (36k neutral edits) | | nothing |
+| sf-holdA-b38 | regrow --size 3, obs,block,dust,rep,torch,glass,note + trapdoor,gate,disp,crafter,skull,railf, --require-any | 2.61M | nothing passes the screen |
+| fc2 | regrow --size 3 (as above) | 2.76M | nothing passes the screen |
+| glass-door b38, fc2, mp8, flat43, pm43, flat-b-v7, pm45 | resynth --max-size 4 --only around the doorway, block,dust,dot,rep,obs,torch,note,lamp,target,exotic (no filter) | | nothing |
+| 39 more archived designs (solid, sculk, gravity, 33..46 blocks) | resynth sweep --max-size 4, exotic + shelf, --require-any | | fc2f 41 -> 40 (= fc2's count and timing), wire19sf-w45 45 -> 44 (open 26 / close 24), gravity-g10 45 -> 44 (NOT rotation-safe, open 24: useless); the other 36 nothing |
+
+## Report (exotic track)
+
+**Best:** `pm45-trap.txt` (= BEST.txt): **45 blocks, solid, open 14 / close 14, rotation-safe**, a
+new point on the Pareto frontier (pareto-mid's 46 at the same 14 / 14). Variants:
+`fc2f-40-trap.txt` (40, = fc2's count and timing), `w45-44-trap.txt` (44, slime-free, 26 / 24).
+No new record on the main boards: b38 (38), fc2 (40), flat43 (43, flat/wall), flat-b-v7 (44,
+smallest box), g33 (33, gravity) resist every exotic sweep (table above).
+
+**Which components helped, and why**
+* **Iron trapdoor (also fence gate, skull): yes, as a zero-delay, non-conducting watchable
+  relay.** It turns a power edge (the lever, an observer's output, a powered block) into a state
+  change in its own cell, so an observer can read it from a cell whose output lands straight on
+  the target. All three finds are this pattern: pm46 -> 45 (stone + repeater + floor -> trapdoor +
+  observer), fc2f -> 40 (the observer watching the lever for P_L -> a trapdoor beside the lever:
+  P_L fires at t2 instead of t4), w45 -> 44 (three observers of a lever chain -> trapdoor +
+  observer). sf-holdA had found the same relay with a note block (b38); a note block also works in
+  pm45. The trapdoor adds non-conduction (a note block next to a strongly powered source powers
+  the pistons beside it: `designs/gadgets/synth/indicator.spec` is exactly that case) and no
+  neighbor updates (flag 2): it never BUDs a quasi-armed piston.
+* **Powered / activator rails: no.** A rail line costs a floor per cell like dust, powers nothing,
+  and only an observer reads it (2 gt). The records have no long transport, and no spot where
+  "passes next to a piston without powering it" saves a block; for one-cell hops a trapdoor or a
+  note block is cheaper.
+* **Dispensers / droppers / crafters: no.** A dispenser is a note block with quasi-connectivity
+  and immovability. No record needs to read power into a cell above, or an immovable relay next to
+  slime at a spot that also needs a watcher.
+* **Scaffolding: no (for blocks).** A 1 gt-per-block distance line triggered by its floor moving:
+  the leaves trick (pareto-mid) with any sturdy moving block instead of a log, but each sensor
+  needs a second scaffold on a fixed floor (distance 7 breaks it into drops) and pistons pop it.
+  Only a timing tool (odd delays) for the speed boards.
+* **Glass / tinted glass / waxed copper grate doors: accepted, no gain.** main's judge takes all
+  three as the 9 door blocks (category solid); fc2 and b38 run unchanged with them (no record
+  relies on its door conducting); the door-adjacent resynth on 7 glass-door records found nothing.
+* **Slabs / stairs: nothing new.** A top slab or upside-down stairs is redstone-wise exactly glass
+  (a non-conducting floor with a sturdy top), already in every palette.
+* **Others read in the source:** iron/copper doors (a 2-cell trapdoor that needs a floor and that
+  pistons pop: costlier), shelves (non-conducting indicator that DOES update neighbors, immovable;
+  in the sweeps, nothing), podzol under snow blocks (gadget `podzol-snow`: a zero-delay shape relay
+  with an asymmetric delay, snow blocks being valid door blocks), walls/fences/panes (connections
+  follow neighbors). Shape relays cost as much as the observer or flag they would replace (relay +
+  observer = 2, like observer + observer or flag + observer), and slime drags them.
+
+**Why the main records resist:** their control is pinned by geometry and timing (sf-holdA's
+analysis of b38's x = 1 cube, side followers and M trigger; fresh-c's of fc2's lever cluster).
+There the exotic relays are alternatives at the same count: b38 already relays its lever with a
+note block; fc2's P_L chain becomes a trapdoor + observer (fc2-trapL), still 2 blocks.
+
+**Tools (separate commits):** synth model kinds `Indicator` and `Rail`; palette / grow shorthands
+`trapdoor, ctrap, gate, skull, shelf, rail, arail, railf, disp, dropper, crafter, scaffold, grate,
+tinted, slab, stairs, exotic`; `regrow --require-any`; `resynth A B C ... --out DIR` (sweep);
+minimize substitutions observer <-> trapdoor / note block, stone -> note block; drive probes for
+gates, skulls, shelves, dispensers, scaffolding; gadgets `trapdoor-watch`, `indicators`,
+`rail-line`, `dispenser-qc`, `scaffold-delay`, `podzol-snow` and the synth spec `indicator.spec`.
+
+**Next ideas**
+* Speed: an observer whose only job is to relay a lever/observer edge to the next observer can be
+  a trapdoor (0 gt instead of 2): same blocks, 2 gt earlier (fc2-trapL's P_L). Worth a
+  `minimize --objective open|close|total` pass over the Pareto doors with the new substitutions.
+* Trapdoor relays in the big speed doors (loose wiring, many lever watchers).
+* Asymmetric relays (podzol: arrival read 2 gt after a departure; scaffolding / leaves: 1 gt) for
+  the open/close balance of the Pareto doors.
+
+## The variants
+
+* `fc2f-40-trap.txt` (exotic-fc2-trapL, 40, open 24 / close 9, rotation-safe): fc2 with P_L fed by
+  an iron trapdoor beside the lever and the observer under it (P_L fires at t2 instead of t4).
+  Same count and timing as fc2: a tie.
+* `w45-44-trap.txt` (exotic-w45-44-trap, 44, slime-free, open 26 / close 24, rotation-safe):
+  wire19sf's w45 with three observers of its lever chain replaced by a trapdoor + one observer;
+  2 ticks faster than wire19sf's own 44 (28 / 26). Not a board best (slime-free leader: b38, 38).
+
+## pm45-trap: 45 blocks, open 14 / close 14 (Pareto frontier), rotation-safe
+
+`pm45-trap.txt` (= BEST.txt, archived). pareto-mid's 46 fired its bottom puller (1,-3,0) from the
+flag observer o (3,-2,0) (watching a stone glued under the right structure) through stone
+(3,-3,0) (o's output block) and a delay-1 repeater (2,-3,0) on a floor (2,-4,0). resynth replaced
+those 3 blocks by 2: an iron trapdoor at (3,-3,0) (o's output opens it in the same tick) and an
+observer (2,-3,0) watching it, firing into the puller. Same timing (the repeater turned o's 2 gt
+pulse into a 2 gt pulse 2 gt later; the observer does the same off the trapdoor's flip).
+A note block in the trapdoor's cell works too (verified at 4 positions): the saving is the
+"watchable relay" pattern (sf-holdA's note-block trick) applied where nobody had tried it; the
+trapdoor's non-conduction is not needed there.

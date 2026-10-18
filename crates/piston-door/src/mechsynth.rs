@@ -903,6 +903,100 @@ pub fn fmt_seq(w: &World, s: &[Ev]) -> String {
     s.iter().map(|e| fmt_ev(w, e)).collect::<Vec<_>>().join(" ")
 }
 
+/// A state with interchangeable non-piston blocks (the door's 9 identical blocks may trade
+/// places): pistons by identity, every other block as a sorted set, plus the level bits.
+fn canon(w: &World) -> (Vec<(P, Kind)>, Vec<(P, Kind)>, u64) {
+    let mut pistons = Vec::new();
+    let mut rest = Vec::new();
+    for (p, k) in &w.b {
+        if matches!(k, Kind::Piston { .. }) {
+            pistons.push((*p, *k));
+        } else {
+            rest.push((*p, *k));
+        }
+    }
+    rest.sort_by_key(|(p, k)| (*p, format!("{k:?}")));
+    (pistons, rest, w.pow)
+}
+
+/// Parse "P:x,y,z L:x,y,z ..." (pistons named by their rest position) into events of `rest`.
+pub fn parse_seq(rest: &World, text: &str) -> Result<Vec<Ev>> {
+    text.split_whitespace()
+        .map(|tok| {
+            let (act, pos) = tok.split_once(':').with_context(|| format!("event {tok:?}: expected P:x,y,z or L:x,y,z"))?;
+            let act = match act {
+                "P" => Act::P,
+                "L" => Act::L,
+                a => bail!("event {tok:?}: unknown action {a:?} (P = 2 gt pulse, L = level toggle)"),
+            };
+            let p = parse_p(pos)?;
+            let id = rest
+                .b
+                .iter()
+                .position(|(q, k)| *q == p && matches!(k, Kind::Piston { .. }))
+                .with_context(|| format!("event {tok:?}: no piston at {pos} at rest"))?;
+            Ok(Ev { id: id as u8, act })
+        })
+        .collect()
+}
+
+/// Symmetric control by product BFS: one event sequence S with S(rest) = `open` and S(open) =
+/// rest, found by searching pairs of states (the run from rest, the run from open) under the
+/// same events, shortest first. An event that changes nothing in one run (a swallowed pulse, a
+/// blocked push, a pull of air) leaves that run's state as it is. `levels` also allows level
+/// toggles. Interchangeable door blocks count as equal. None when no S exists within `cap` pairs.
+pub fn sym_bfs(rest: &World, open: &World, levels: bool, cap: usize) -> Option<Vec<Ev>> {
+    let evs: Vec<Ev> = rest
+        .pistons()
+        .into_iter()
+        .flat_map(|i| {
+            let mut v = vec![Ev { id: i as u8, act: Act::P }];
+            if levels {
+                v.push(Ev { id: i as u8, act: Act::L });
+            }
+            v
+        })
+        .collect();
+    let goal = (canon(open), canon(rest));
+    type Key = ((Vec<(P, Kind)>, Vec<(P, Kind)>, u64), (Vec<(P, Kind)>, Vec<(P, Kind)>, u64));
+    let mut parent: HashMap<Key, (Key, Ev)> = HashMap::new();
+    let start_key: Key = (canon(rest), canon(open));
+    let mut seen: HashSet<Key> = HashSet::from([start_key.clone()]);
+    let mut layer: Vec<(World, World, Key)> = vec![(rest.clone(), open.clone(), start_key.clone())];
+    while !layer.is_empty() && seen.len() < cap {
+        let mut next = Vec::new();
+        for (a, b, k) in &layer {
+            for e in &evs {
+                let na = a.apply(*e);
+                let nb = b.apply(*e);
+                if na.is_none() && nb.is_none() {
+                    continue;
+                }
+                let na = na.unwrap_or_else(|| a.clone());
+                let nb = nb.unwrap_or_else(|| b.clone());
+                let nk: Key = (canon(&na), canon(&nb));
+                if !seen.insert(nk.clone()) {
+                    continue;
+                }
+                parent.insert(nk.clone(), (k.clone(), *e));
+                if nk.0 == goal.0 && nk.1 == goal.1 {
+                    let mut seq = Vec::new();
+                    let mut cur = nk;
+                    while let Some((pk, ev)) = parent.get(&cur) {
+                        seq.push(*ev);
+                        cur = pk.clone();
+                    }
+                    seq.reverse();
+                    return Some(seq);
+                }
+                next.push((na, nb, nk));
+            }
+        }
+        layer = next;
+    }
+    None
+}
+
 // ---------------------------------------------------------------- enumeration
 
 #[derive(Clone, Debug)]
@@ -1477,6 +1571,137 @@ fn describe(f: &Found) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
+/// `mech-synth <base> --sym-bfs "<open sequence>"`: the open state reached by the given events,
+/// then [`sym_bfs`] for one sequence on both lever edges; prints it, writes `sym.ideal` (+ the
+/// design) into `out_dir` and replays it in the simulator when `verify` > 0.
+pub fn sym_cli(version: &str, base: &std::path::Path, open_seq: &str, levels: bool, cap: usize, out_dir: Option<&std::path::Path>, verify: usize, extra: u32, gap: u32) -> Result<()> {
+    let d = crate::cli::load_design(base)?;
+    let rest = world_of_design(&d)?;
+    if open_seq.trim() == "auto" {
+        // Every open state reachable from rest (by the same events), each tried as O.
+        let evs: Vec<Ev> = rest.pistons().into_iter().flat_map(|i| {
+            let mut v = vec![Ev { id: i as u8, act: Act::P }];
+            if levels {
+                v.push(Ev { id: i as u8, act: Act::L });
+            }
+            v
+        }).collect();
+        let mut seen: HashSet<_> = HashSet::from([canon(&rest)]);
+        let mut layer = vec![(rest.clone(), Vec::<Ev>::new())];
+        let mut opens: Vec<(World, Vec<Ev>)> = Vec::new();
+        while !layer.is_empty() && seen.len() < cap {
+            let mut next = Vec::new();
+            for (w, path) in &layer {
+                for e in &evs {
+                    let Some(n) = w.apply(*e) else { continue };
+                    if !seen.insert(canon(&n)) {
+                        continue;
+                    }
+                    let mut p = path.clone();
+                    p.push(*e);
+                    if n.is_open() {
+                        opens.push((n.clone(), p.clone()));
+                    }
+                    next.push((n, p));
+                }
+            }
+            layer = next;
+        }
+        println!("{} open states reachable ({} states)", opens.len(), seen.len());
+        let mut best: Option<(Vec<Ev>, Vec<Ev>)> = None;
+        for (o, path) in &opens {
+            let limit = best.as_ref().map_or(usize::MAX, |b| b.0.len());
+            if let Some(s) = sym_bfs(&rest, o, levels, cap / 4) {
+                if s.len() < limit {
+                    println!("  {} events via open state reached by: {}", s.len(), fmt_seq(&rest, path));
+                    best = Some((s, path.clone()));
+                }
+            }
+        }
+        let Some((_, path)) = best else {
+            println!("no symmetric sequence for any open state");
+            return Ok(());
+        };
+        let text: Vec<String> = path.iter().map(|e| {
+            let p = rest.b[e.id as usize].0;
+            format!("{}:{},{},{}", if e.act == Act::P { "P" } else { "L" }, p[0], p[1], p[2])
+        }).collect();
+        return sym_cli(version, base, &text.join(" "), levels, cap, out_dir, verify, extra, gap);
+    }
+    let seq = parse_seq(&rest, open_seq)?;
+    let mut open = rest.clone();
+    for e in &seq {
+        open = open.apply(*e).with_context(|| format!("open sequence: {} changes nothing", fmt_ev(&rest, e)))?;
+    }
+    anyhow::ensure!(open.is_open(), "the open sequence does not open the door (corridor not clear)");
+    let t0 = std::time::Instant::now();
+    let Some(sym) = sym_bfs(&rest, &open, levels, cap) else {
+        println!("no symmetric sequence within {cap} state pairs ({:.1} s)", t0.elapsed().as_secs_f64());
+        return Ok(());
+    };
+    println!("symmetric sequence, {} events ({:.1} s):\n    {}", sym.len(), t0.elapsed().as_secs_f64(), fmt_seq(&rest, &sym));
+    // Where each pulsed piston stands in the two runs (its power cell must reach it there), and
+    // which cells change at each step in each run (what an observer could watch).
+    let occ_map = |w: &World| -> HashMap<P, String> {
+        let mut m = HashMap::new();
+        for (i, (p, k)) in w.b.iter().enumerate() {
+            m.insert(*p, format!("{i}:{k:?}"));
+            if let Kind::Piston { ext: true, f, .. } = k {
+                m.insert(add(*p, D[*f as usize]), format!("{i}:head"));
+            }
+        }
+        m
+    };
+    let changed = |a: &World, b: &World| -> Vec<P> {
+        let (ma, mb) = (occ_map(a), occ_map(b));
+        let mut cells: Vec<P> = ma.keys().chain(mb.keys()).copied().filter(|p| ma.get(p) != mb.get(p)).collect();
+        cells.sort();
+        cells.dedup();
+        cells
+    };
+    let (mut a, mut b) = (rest.clone(), open.clone());
+    for (i, e) in sym.iter().enumerate() {
+        let (pa, pb) = (a.b[e.id as usize].0, b.b[e.id as usize].0);
+        let na = a.apply(*e);
+        let nb = b.apply(*e);
+        println!(
+            "  {:>2} {:<18} from rest: at {:?}{}   from open: at {:?}{}",
+            i + 1,
+            fmt_ev(&rest, e),
+            pa,
+            if na.is_some() { "" } else { " (no-op)" },
+            pb,
+            if nb.is_some() { "" } else { " (no-op)" }
+        );
+        let na = na.unwrap_or_else(|| a.clone());
+        let nb = nb.unwrap_or_else(|| b.clone());
+        let fmt = |v: Vec<P>| v.iter().map(|p| format!("({},{},{})", p[0], p[1], p[2])).collect::<Vec<_>>().join(" ");
+        println!("       changed from rest: {}   from open: {}", fmt(changed(&a, &na)), fmt(changed(&b, &nb)));
+        a = na;
+        b = nb;
+    }
+    let sol = Solution { open: sym.clone(), close: sym.clone(), sym: Some(sym), states: 0 };
+    let plan = ideal_plan(&rest, &sol, true, gap, "sym")?;
+    if let Some(dir) = out_dir {
+        std::fs::create_dir_all(dir)?;
+        let mut dd = plan.design.clone();
+        dd.name = "sym".into();
+        dd.save(&dir.join("sym.txt"))?;
+        let text = plan.text.replace("design sym.txt", &format!("design {}", dir.join("sym.txt").display()));
+        std::fs::write(dir.join("sym.ideal"), text)?;
+        println!("wrote {}", dir.join("sym.ideal").display());
+    }
+    if verify > 0 {
+        let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() };
+        let mut wk = mctas::sim::Worker::spawn(&cfg)?;
+        match verify_plan(&mut wk, &plan, extra) {
+            Ok(()) => println!("  sim symmetric: WORKS"),
+            Err(e) => println!("  sim symmetric: BROKEN {e:#}"),
+        }
+    }
+    Ok(())
+}
+
 pub fn cli(version: &str, base: &std::path::Path, o: &EnumOptions, out_dir: Option<&std::path::Path>, top: usize, verify: usize, extra: u32, gap: u32, workers: usize, just_base: bool) -> Result<()> {
     let d = crate::cli::load_design(base)?;
     let w = world_of_design(&d)?;

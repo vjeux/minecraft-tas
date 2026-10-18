@@ -1,0 +1,16 @@
+# (category entity) A minecart rolling over a detector rail gives a pulse of exactly 20 gt,
+# whatever its speed: the rail turns on when the cart's box enters it (entityInside ->
+# checkPressed) and schedules its re-check 20 gt later (DetectorRailBlock.PRESSED_CHECK_PERIOD),
+# which finds the cart gone. The cart then stops against the wall at exactly 9 - 0.49 (its float
+# half-width): a block stop is exact, an unpowered powered rail stops a cart wherever its speed
+# runs out.
+design designs/gadgets/entity-rail-pass.txt
+probe d 4 1 0
+settle
+use 1 1 1
+expect_trace d 00000000000
+expect_trace d 11111111111111111111
+expect_trace d 0
+settle 200
+expect_entity minecart 8.51 1.0625 0.5
+expect_entities 1
