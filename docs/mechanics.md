@@ -86,6 +86,12 @@ Neighbor updates go out in the fixed order `WEST, EAST, DOWN, UP, NORTH, SOUTH`
 * **Lamp, copper bulb:** a redstone lamp lights in the tick it is powered and goes dark 4 gt
   after (asymmetric delay, visible to observers). A copper bulb toggles `lit` on every rising
   edge of its power in the same tick (`checkAndFlip`) and a comparator reads it as 15/0.
+* **Note block, target:** a note block is a plain conductor whose `powered` state follows
+  `hasNeighborSignal` in the same tick (`NoteBlock.neighborChanged`, `setBlockAndUpdate`: it also
+  updates its neighbors), so an observer watching it pulses on both edges of its power, with no
+  lamp-style fall delay; its `instrument` follows the block below (an observer sees that change
+  too). A target is a conductor and a signal source (power 0 unless hit), so dust always connects
+  to it (gadget `target-tap`).
 * **Walkway rule:** the judge asks the walkway for *no collision*, so collision-free blocks
   (dust, torches, levers, buttons, rails) may sit in it (dust at the door's bottom level on
   floors one lower). The router still keeps out of it.
@@ -151,6 +157,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `open-4` | 9 door blocks + 13 pistons + 4 partners (ideal inputs) | (tick-study) a whole 3x3 opening clear at tick 4, the open floor (docs/ticks.md section 6): 7 plain pullers at k1; T reach-pulled into its corner cell and C into T's cell at k1 by 0-ticked pullers; at k4 the pullers in the exit cells are pulled aside and two 0-ticked reach-through pullers take T and C out. `open-4-cycle.drive` closes the same machine in 4 (k1 C and T into the top-row cells, k2 C home via A' carried back into E, k3 T home via P_T carried back, k4 TL; one carried-piston chain per tick, two started together interleave in the FIFO queue). `open-4-close3.drive` closes it in 3: T's chain padded by one piston so it runs after C's inside tick 2 |
 | `center-return` | 4 pistons + 3 partners (ideal inputs) | (tick-study) the center's two-move return with both moves placed: C 0-ticked from E into the edge cell at k1; at k2 a parked sticky piston is 0-ticked into E, fires the moment it is placed (onPlace) and 0-ticks C into the center: C placed at k2 (the close side's carried-piston step) |
 | `corner-return` | 4 pistons + 4 partners (ideal inputs) | (tick-study) the edge block's return through its corner, every move placed: T 0-ticked from the side cell into the corner (k1), a piston 0-ticked into the side cell fires and 0-ticks T into its cell (k2), the corner block 0-ticked in from above (k3) |
+| `target-tap` | target block | a target beside a straight dust line is powered by it, a plain block there is not: a target is a signal source, so the dust bends into it and powers it; a torch on the target then reads the line (lamp-sweep: `door resynth` put a torch on a target in place of stone + dust + floor, twice in the speed doors o6 and a1) |
 * **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
   piston holds it 30 gt after a lever click (weak power on every side, strong power into the
   block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a

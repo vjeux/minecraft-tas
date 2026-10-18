@@ -304,8 +304,27 @@ pub struct SynthOptions {
     pub forbid: HashSet<Pos>,
     pub require: Vec<(String, usize)>,
     pub limit: Vec<(String, usize)>,
+    /// Keep only circuits with at least one block whose state contains one of these
+    /// (see [`require_any_names`]): sweep new palette entries on designs the old palette
+    /// already exhausted.
+    pub require_any: Vec<String>,
     pub loose: bool,
     pub max_cands: usize,
+}
+
+/// Expand `--require-any` shorthands (lamp, bulb, note, target, or any state substring).
+pub fn require_any_names(spec: &str) -> Vec<String> {
+    spec.split(',')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| match t {
+            "lamp" => "redstone_lamp".to_string(),
+            "bulb" => "copper_bulb".to_string(),
+            "note" => "note_block".to_string(),
+            "target" => "minecraft:target".to_string(),
+            s => s.to_string(),
+        })
+        .collect()
 }
 
 fn kind_name(k: Kind) -> &'static str {
@@ -340,6 +359,7 @@ pub struct Gen {
     k: usize,
     require: Vec<(Kind, usize)>,
     limit: Vec<(Kind, usize)>,
+    require_any: Vec<String>,
     loose: bool,
     max_cands: usize,
 }
@@ -463,6 +483,7 @@ impl Gen {
             k: o.k,
             require,
             limit,
+            require_any: o.require_any.clone(),
             loose: o.loose,
             max_cands: o.max_cands,
         })
@@ -523,6 +544,9 @@ impl Gen {
         let reached = set.iter().enumerate().any(|(i, &a)| fa[i] && self.reaches_sink(&self.atoms[a as usize]))
             || self.relays.iter().enumerate().any(|(j, r)| fr[j] && self.reaches_sink(r));
         if !reached {
+            return false;
+        }
+        if !self.require_any.is_empty() && !set.iter().any(|&a| self.require_any.iter().any(|s| self.atoms[a as usize].state.contains(s.as_str()))) {
             return false;
         }
         for (k, n) in &self.require {
@@ -615,6 +639,10 @@ impl Gen {
         let t = Instant::now();
         let shards: Vec<Mutex<HashSet<u64>>> = (0..256).map(|_| Mutex::new(HashSet::new())).collect();
         let total = AtomicUsize::new(0);
+        // Sets visited by all threads: capped at 200 x max_cands, so a box/palette/k whose
+        // search tree explodes (while few of its sets are finished circuits, e.g. with
+        // --require-any) is skipped instead of enumerating for hours.
+        let visits = AtomicUsize::new(0);
         let (fa, fr) = self.fed(&[]);
         let roots = self.expansions(&[], &fa, &fr);
         let next = AtomicUsize::new(0);
@@ -634,7 +662,7 @@ impl Gen {
                         if set.len() > self.k {
                             continue;
                         }
-                        if let Err(e) = self.visit(&mut set, &shards, &mut out, &total) {
+                        if let Err(e) = self.visit(&mut set, &shards, &mut out, &total, &visits) {
                             *failure.lock().unwrap() = Some(e);
                             break;
                         }
@@ -716,10 +744,14 @@ impl Gen {
     }
 
     /// `set` was just grown: record it if it is a finished circuit, then grow it further.
-    fn visit(&self, set: &mut Vec<u32>, shards: &[Mutex<HashSet<u64>>], out: &mut Vec<Vec<Vec<u32>>>, total: &AtomicUsize) -> Result<()> {
+    fn visit(&self, set: &mut Vec<u32>, shards: &[Mutex<HashSet<u64>>], out: &mut Vec<Vec<Vec<u32>>>, total: &AtomicUsize, visits: &AtomicUsize) -> Result<()> {
         let key = Self::key(set);
         if !shards[(key % shards.len() as u64) as usize].lock().unwrap().insert(key) {
             return Ok(());
+        }
+        let cap = self.max_cands.saturating_mul(200);
+        if visits.fetch_add(1, Ordering::Relaxed) >= cap {
+            bail!("more than {cap} sets visited (200 x --max-cands): shrink the box, palette or k");
         }
         let count = |k: Kind| set.iter().filter(|&&x| self.atoms[x as usize].kind == k).count();
         if !self.limit.iter().all(|(k, n)| count(*k) <= *n) {
@@ -747,7 +779,7 @@ impl Gen {
             }
             let before = set.len();
             set.extend(&add_ids);
-            self.visit(set, shards, out, total)?;
+            self.visit(set, shards, out, total, visits)?;
             set.truncate(before);
         }
         Ok(())
@@ -1228,6 +1260,8 @@ pub struct ResynthOptions {
     /// After an improvement, search every group again (default: only groups whose
     /// neighborhood changed).
     pub global_retry: bool,
+    /// See [`SynthOptions::require_any`].
+    pub require_any: Vec<String>,
     /// Only groups whose blocks all lie in this box (inclusive corners): focus a large-group
     /// run on one region.
     pub only: Option<(Pos, Pos)>,
@@ -1377,10 +1411,13 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 forbid: swept.clone(),
                 require: Vec::new(),
                 limit: Vec::new(),
+                require_any: o.require_any.clone(),
                 loose: o.loose,
                 max_cands: o.max_cands,
             };
-            let desc = g.iter().map(|p| format!("{}{}", fmt_pos(*p), short(mctas::blockstate::block_name(&cur.blocks[p])).chars().take(4).collect::<String>())).collect::<Vec<_>>().join(" ");
+            // 4-letter tags; "redstone_" stripped so wire / lamp / torch / block stay distinct.
+            let tag = |s: &str| short(mctas::blockstate::block_name(s)).trim_start_matches("redstone_").chars().take(4).collect::<String>();
+            let desc = g.iter().map(|p| format!("{}{}", fmt_pos(*p), tag(&cur.blocks[p]))).collect::<Vec<_>>().join(" ");
             let en = match Gen::new(&base, &so) {
                 Ok(e) => e,
                 Err(e) => {

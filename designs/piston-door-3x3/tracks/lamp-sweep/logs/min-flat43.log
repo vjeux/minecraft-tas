@@ -1,0 +1,11 @@
+12 workers; moves all; judge 32 positions
+[    3.7s] start: 43 blocks, open 46 close 44 ticks, passes the judge (32 positions x 3 cycles)
+[   10.0s]   356057 swaps (two blocks out, one block in nearby)
+[   10.0s] 43 blocks: 1393 removals, 2 reroutes (+0 neutral), 1821 compounds, 192 neutral edits
+[   30.8s]   359273 candidates: 301730 seen, 57543 screened in 20.7s, 0 passed the screen, 0 judged, 0 passed the judge (20.7s)
+[   30.9s]   no improving move; plateau: judging 36719 neutral edits
+[   36.3s]   36719 candidates: 31234 seen, 5485 screened in 1.8s, 14 passed the screen, 14 judged, 14 passed the judge (5.4s)
+[   48.2s]   plateau: routing took 11.8s
+[   48.2s]   plateau: 14 verified neutral designs, 462 removals and 30 reroutes after them
+[   48.3s]   492 candidates: 144 seen, 348 screened in 0.1s, 0 passed the screen, 0 judged, 0 passed the judge (0.1s)
+43 -> 43 blocks, written to designs/piston-door-3x3/tracks/lamp-sweep/min-flat43.txt
