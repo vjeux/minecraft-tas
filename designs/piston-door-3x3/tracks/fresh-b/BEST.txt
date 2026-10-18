@@ -1,4 +1,4 @@
-name: piston-door-3x3-fresh-b-pd3c
+name: piston-door-3x3-fresh-b-pd3d
 port door: 0 0 0
 port lever: 1 -2 -2
 origin: -1 0 -4
@@ -77,13 +77,13 @@ layer 4:
   ..G
 layer 5:
   .
-  .BO
-  .A
-  .A
+  ..O
+  .
+  .
   .G
 layer 6:
   .
   .oO
-  .
-  .
+  .A
+  .A
   .

@@ -1,0 +1,7 @@
+# pd3c -> pd3d: U is quasi-powered through (0,6,0) by an observer at (0,6,-1) (its back into the
+# cell above U), which shortens U's chain by one observer.
+clear 0 5 -3
+clear 0 5 -2
+clear 0 5 -1
+set 0 6 -2 minecraft:observer[facing=north]
+set 0 6 -1 minecraft:observer[facing=north]
