@@ -141,3 +141,14 @@ F 0-ticks at k8 (R_X lands k4 BE, R_Z k6 BE in the 107 family: already early eno
   subtraction off R_F (tick-study `comparator-odd`: output back at k3) is the other lead.
   (2) Q's second pulse k6..k8 (even) through Q's back or south side only: every QC route now
   ends in P. (3) Recheck the close with P, R_Q and the new pulses.
+
+## New rule (main f3c5884): the 3x3 columns in front of/behind the door must be empty
+* n3 broke it only through the lever-net staircase at z=-4 (6 blocks in x 0..2, y 0..2).
+* **`c1.txt` = BEST: 112 blocks, open 9 / close 7, compliant, solid, slime-free,
+  rotation-safe** (`door verify --extra-offsets 28` from merged main: WORKS). `c1.patch`: the line
+  is re-laid over the top at y=4/5 (S (-1,3,-3) -> (-1,4,-4) -> (0,4,-4) -> (1,5,-4), one step up
+  to stay off the repeater-powered stone (1,4,-3), whose back-feed would latch the lever net ->
+  (2,4,-4) -> M (3,3,-4)); same dust lengths, same block count.
+* Tool: `door route2` now treats the columns at any distance as forbidden (it routed into them
+  before and the judge threw every such candidate away). Its rip of the 6 cells still found no
+  route (the hand route needs a step up over a powered block).
