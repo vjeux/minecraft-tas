@@ -25,3 +25,16 @@ Files: `l1.patch`/`l1-mech.txt`/`l1.sched`, `l2.patch`/`l2-mech.txt`/`l2.sched`/
 P_L's pulse and P_M's pulse each work at ANY tick 0..30 on both edges, independently (open stays
 24 while pl <= 21; close 9-11). So both only need ONE 2 gt pulse per edge (or an odd count) from
 anywhere: the problem is purely geometric (no once-per-edge source sits next to them).
+
+## Other seeds tried
+* `pmleft.txt` (40, verified): fc2 with P_M fired by the LEFT column (observer (0,-1,0) facing up
+  under the bottom-left door block + smooth stone (0,-2,0)) instead of the right column. Same
+  count; `door minimize --moves all --plateau --depth 2` from it: 282 level-2 neutral designs, no
+  removal (`pmleft-min.log`).
+* `m05x` (wire21's 21-block mechanism): P_L fed X-style 3 pulses (t2/t14/t22) + M fired by the left
+  column + an early single P_R pulse: BROKEN for every P_R tick 0..30 with ideal inputs (the close
+  needs M's push to carry M, C, T home after A3; the left column's 3 moves give M the wrong last
+  move).
+* Merged explore/riders into this branch for `door grow --glue --k 2 --changed --then-search`
+  (the riders track's unexplored "2-block riders" search) and ran it on fc2's left and right
+  structures (results below).
