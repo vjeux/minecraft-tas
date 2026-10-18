@@ -1,0 +1,35 @@
+name: flat-m19
+port door: 0 0 0
+port lever: -3 4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ....C
+layer -1:
+  .
+layer 0:
+  .s.EEE.D
+layer 1:
+  Es.EEE.D
+layer 2:
+  rs.EEE.D
+layer 3:
+  o..E..D
+layer 4:
+  LAARS
+layer 5:
+  ..OoS
+layer 6:
+  ..EB
