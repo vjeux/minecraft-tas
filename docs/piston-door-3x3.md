@@ -51,7 +51,7 @@ lies in the plane `z = door.z` and spans x and y from that corner to +2. The che
 
 ## Categories and boards
 
-`door verify` prints `category solid|gravity|sculk`, plus `, slime-free` and `, flat` when they apply.
+`door verify` prints `category solid|gravity|sculk|entity`, plus `, slime-free` and `, flat` when they apply.
 `mctas door leaderboard` verifies every design on main and on the agents' `explore/*` branches with
 main's verifier and writes the boards.
 
@@ -60,6 +60,30 @@ main's verifier and writes the boards.
   powder. Such a door can fall, so it ranks separately.
 * **sculk**: the design contains a sculk sensor. Footsteps or mobs nearby can trigger one, so it
   ranks separately. Gravity wins if both apply.
+* **entity** (since 2026-10-18, vjeux): the design declares entities, as `entity:` lines in the file
+  (`entity: minecraft:minecart 0.5 1.0625 3.5 [{snbt}]`: type, world position as decimals, optional
+  data). Every other board bans entities; "Entities allowed" ranks these together with the solid
+  designs (a gravity or sculk door with entities ranks nowhere). The judge, only for such designs:
+  * each entity counts as one block;
+  * allowed types: minecarts (not command block or spawner minecarts), boats and rafts, armor
+    stands, item frames, paintings: what a survival player places and what never acts on its own
+    (no mobs: their AI is random; no items or arrows: they despawn); allowed data keys: `Rotation`,
+    `Items`, `equipment`, `Item`, `ItemRotation`, `Facing`, `variant` (no `NoGravity`, `Tags`,
+    passengers, poses: only commands set those);
+  * the entities are summoned after the blocks (deterministic UUIDs and entity randoms); settling
+    waits until each is at rest (the last tick did not move it, no motion left: a rolling minecart
+    only slows by 0.96 per tick, so it must stop on an unpowered powered rail or against a block);
+  * at rest: exactly the declared entities, none in front of or behind the door (the same 3x3
+    columns at any distance as blocks), none with collision (boats, pushable minecarts) in the
+    walkway;
+  * open: no entity with collision in the opening or the walkway (the open tick counts it), the same
+    entity set (nothing dropped, nothing broke);
+  * close: every entity back EXACTLY at its rest position (rails put a cart back on the rail's center
+    line at the rail's height + 1/16 and pistons move entities by exact half-block steps: nothing in
+    the source jitters a resting entity, so no tolerance), at rest, with the same state (its saved data
+    without position and motion: rail, contents, pose...); no other entity at any tick, and no entity
+    ever outside the watch box.
+  Designs without entities are judged exactly as before.
 * **Nothing in front of or behind the door** (since 2026-10-18 16:40Z): at rest, the 3x3 columns in front
   of and behind the opening, at any distance, hold no block at all (no machine parts, dust, torches,
   rails or levers). Designs judged before the rule keep their verdicts for now.

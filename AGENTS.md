@@ -36,7 +36,10 @@
 - Category: doors whose 9 blocks are gravity blocks (sand, gravel, concrete powder) are ranked
   separately (`category gravity` in the verify output), and so are doors using sculk sensors
   (`category sculk`: a player's footsteps or a mob nearby can trigger them); everything else is
-  `category solid`, the main ranking.
+  `category solid`, the main ranking. Doors that declare entities (`entity: <type> x y z [snbt]`
+  lines: minecarts, boats, armor stands...) are `category entity`, ranked only on "Entities allowed"
+  (each entity counts as a block; every entity back exactly where it rested after each close, at
+  rest; nothing else may appear; rules in `docs/piston-door-3x3.md`).
 
 ## Tools (all `./target/release/mctas door ...`)
 - `verify <design> [--extra-offsets N] [--timeline] [--archive]`: the judge. `--archive` keeps a

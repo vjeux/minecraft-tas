@@ -1,0 +1,21 @@
+design designs/piston-door-3x3/tracks/entities/gadgets/cart-wall.txt
+settle
+entities
+use 1 1 1
+settle 200
+entities
+use 1 1 1
+settle
+use 6 1 1
+settle 200
+entities
+use 6 1 1
+settle
+use 1 1 1
+settle 200
+entities
+use 1 1 1
+settle
+use 6 1 1
+settle 200
+entities

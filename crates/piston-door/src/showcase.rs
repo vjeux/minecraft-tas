@@ -241,7 +241,7 @@ fn total_ticks(a: &Archived) -> u32 {
 }
 
 /// The block-count boards: key, title, rule, membership.
-pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 6] = [
+pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 7] = [
     ("solid", "Solid (main ranking)", "9 identical plain door blocks, no sculk sensors, rotation-safe", |f| f.category == "solid" && f.rotation_safe),
     ("slime-free", "Solid, no slime or honey", "not a single slime or honey block anywhere", |f| f.category == "solid" && f.slime_free && f.rotation_safe),
     (
@@ -258,6 +258,12 @@ pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 6] = [
         |f| f.category == "sculk" && !f.rotation_safe,
     ),
     ("gravity", "Gravity", "the 9 door blocks are sand, gravel or concrete powder", |f| f.category == "gravity" && f.rotation_safe),
+    (
+        "entities",
+        "Entities",
+        "a solid door that also uses entities (minecarts, armor stands, boats...; each counts as a block, all back where they rested after each close)",
+        |f| f.category == "entity" && f.rotation_safe,
+    ),
 ];
 
 /// The best design of each board: solid, slime-free, sculk, gravity (fewest blocks; ties go to
@@ -575,7 +581,7 @@ fn minutes_of(ts: &str) -> Option<i64> {
 /// A chart of the night: the record of each block-count board over time (from the archive
 /// headers), as step lines in the boards' colors, in the game's font.
 pub fn timeline_chart(look: &Look, all: &[Archived], out: &Path) -> Result<()> {
-    let colors: [[u8; 3]; 6] = [YELLOW, GREEN, [255, 255, 255], AQUA, [85, 170, 170], [255, 170, 0]];
+    let colors: [[u8; 3]; 7] = [YELLOW, GREEN, [255, 255, 255], AQUA, [85, 170, 170], [255, 170, 0], [255, 85, 255]];
     let mut series: Vec<(&str, [u8; 3], Vec<(i64, usize)>)> = Vec::new();
     for ((key, _, _, keep), color) in BLOCK_BOARDS.iter().zip(colors) {
         let mut pts: Vec<(i64, usize)> = all.iter().filter(|a| keep(&a.facts)).filter_map(|a| Some((minutes_of(&archived_at(&a.path))?, a.facts.blocks))).collect();

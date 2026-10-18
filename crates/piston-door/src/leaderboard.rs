@@ -59,7 +59,7 @@ pub fn collect(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<
             if !d.ports.contains_key("door") || !d.ports.contains_key("lever") || block_count(&d) > max_blocks {
                 continue;
             }
-            let key = format!("{:?}|{:?}", d.blocks, d.ports);
+            let key = d.content_key();
             if seen.insert(key) {
                 out.push((format!("{r}:{f}"), d));
             }
@@ -70,7 +70,7 @@ pub fn collect(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<
 
 /// Content hash of a design (blocks + ports), stable across runs (FNV-1a 64).
 pub fn design_hash(d: &Design) -> u64 {
-    let key = format!("{:?}|{:?}", d.blocks, d.ports);
+    let key = d.content_key();
     let mut h: u64 = 0xcbf29ce484222325;
     for b in key.bytes() {
         h ^= b as u64;
@@ -174,6 +174,14 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
     Ok(entries)
 }
 
+/// Scopes of the Pareto and speed boards: every category but entity (entities are banned
+/// everywhere but their own board), solid only, and solid with entities allowed.
+const SCOPES: [(&str, fn(&Entry) -> bool); 3] = [
+    ("any category", |e: &Entry| e.category != "entity"),
+    ("solid only", |e: &Entry| e.category == "solid"),
+    ("entities allowed", |e: &Entry| crate::entities_allowed_board(&e.design)),
+];
+
 /// Markdown table of the entries.
 pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
     let mut s = format!(
@@ -185,7 +193,7 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
          others are not disqualified, they are listed on their own board, [Not rotation-safe](#not-rotation-safe).\n\n",
         4 + extra_offsets
     );
-    let boards: [(&str, &str, Box<dyn Fn(&Entry) -> bool>); 5] = [
+    let boards: [(&str, &str, Box<dyn Fn(&Entry) -> bool>); 6] = [
         ("Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", Box::new(|e: &Entry| e.category == "solid")),
         ("Solid, no slime or honey", "same, and not a single slime or honey block anywhere", Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design))),
         (
@@ -195,9 +203,17 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ),
         ("Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", Box::new(|e: &Entry| e.category == "sculk")),
         ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
+        (
+            "Entities allowed",
+            "solid doors that may also use entities (minecarts, armor stands, boats...; category `entity`, each entity counts as a block; every \
+             entity must be back exactly where it rested, at rest, after each close, and nothing else may appear): every other board bans entities. \
+             Solid designs compete here too (0 entities)",
+            Box::new(|e: &Entry| crate::entities_allowed_board(&e.design)),
+        ),
     ];
     for (title, rule, keep) in &boards {
         s.push_str(&format!("## {title}\n\n{rule}; rotation-safe.\n\n"));
+        let entities_col = title.starts_with("Entities");
         let rows: Vec<String> = entries
             .iter()
             .filter(|e| e.verdict.is_ok() && e.rotation_safe() && keep(e))
@@ -206,10 +222,23 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
             .map(|(i, e)| {
                 let clutter = crate::walkway_clutter(&e.design);
                 let walkway = if clutter == 0 { "clean".to_string() } else { format!("{clutter} blocks in it") };
-                format!("| {} | {} | {walkway} | `{}` |\n", i + 1, e.blocks, e.source)
+                if entities_col {
+                    let ticks = match (e.open_ticks, e.close_ticks) {
+                        (Some(o), Some(c)) => format!("{o} / {c}"),
+                        _ => "-".to_string(),
+                    };
+                    format!("| {} | {} | {} | {ticks} | {walkway} | `{}` |\n", i + 1, e.blocks, e.design.entities.len(), e.source)
+                } else {
+                    format!("| {} | {} | {walkway} | `{}` |\n", i + 1, e.blocks, e.source)
+                }
             })
             .collect();
-        push_collapsed(&mut s, "| # | blocks | walkway | source |\n|---|---|---|---|\n", &rows, "| - | - | no entry yet |\n");
+        let header = if entities_col {
+            "| # | blocks | entities | open / close | walkway | source |\n|---|---|---|---|---|---|\n"
+        } else {
+            "| # | blocks | walkway | source |\n|---|---|---|---|\n"
+        };
+        push_collapsed(&mut s, header, &rows, "| - | - | no entry yet |\n");
     }
     // Working designs that break when turned: their own board, every category.
     s.push_str(
@@ -245,12 +274,10 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         "| - | - | none |\n",
     );
     // Pareto frontier over (open ticks, close ticks, blocks): the doors no other door beats on
-    // all three at once (as good on each, better on one).
-    for (scope, solid_only) in [("any category", false), ("solid only", true)] {
-        let cands: Vec<&Entry> = entries
-            .iter()
-            .filter(|e| e.verdict.is_ok() && e.open_ticks.is_some() && e.close_ticks.is_some() && (!solid_only || e.category == "solid"))
-            .collect();
+    // all three at once (as good on each, better on one). Designs with entities only count when
+    // entities are allowed (category entity has its own scope; every other board bans them).
+    for (scope, in_scope) in SCOPES {
+        let cands: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && e.open_ticks.is_some() && e.close_ticks.is_some() && in_scope(e)).collect();
         let key = |e: &Entry| (e.open_ticks.unwrap(), e.close_ticks.unwrap(), e.blocks);
         let dominated = |a: &Entry| {
             let (ao, ac, ab) = key(a);
@@ -291,12 +318,10 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Fastest open + close", Box::new(|e: &Entry| Some(e.open_ticks? + e.close_ticks?))),
     ];
     for (title, ticks) in &speed {
-        for (scope, solid_only) in [("any category", false), ("solid only", true)] {
+        for (scope, in_scope) in SCOPES {
+            let solid_only = scope == "solid only";
             s.push_str(&format!("## {title} ({scope})\n\nGame ticks after the lever flip (worst of the cycles); ties by block count.\n\n"));
-            let mut sorted: Vec<&Entry> = entries
-                .iter()
-                .filter(|e| e.verdict.is_ok() && e.rotation_safe() && ticks(e).is_some() && (!solid_only || e.category == "solid"))
-                .collect();
+            let mut sorted: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && e.rotation_safe() && ticks(e).is_some() && in_scope(e)).collect();
             sorted.sort_by_key(|e| (ticks(e), e.blocks));
             let rows: Vec<String> = sorted
                 .iter()
@@ -449,7 +474,7 @@ pub fn archived_keys(dir: &Path) -> HashSet<String> {
                 continue;
             }
             if let Ok(d) = Design::load(&e.path()) {
-                keys.insert(format!("{:?}|{:?}", d.blocks, d.ports));
+                keys.insert(d.content_key());
             }
         }
     }
