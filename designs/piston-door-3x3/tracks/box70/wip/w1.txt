@@ -1,0 +1,41 @@
+name: box70-w1
+port door: 0 0 0
+port lever: 3 4 0
+origin: -2 0 0
+palette:
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  S minecraft:stone
+  H minecraft:stone
+  U minecraft:observer[facing=up,powered=false]
+  v minecraft:observer[facing=down,powered=false]
+  e minecraft:observer[facing=east,powered=false]
+  w minecraft:observer[facing=west,powered=false]
+  q minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  d minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:redstone_wall_torch[facing=east,lit=true]
+  G minecraft:sticky_piston[extended=true,facing=west]
+  h minecraft:piston_head[facing=west,short=false,type=sticky]
+  u minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer -3:
+  eeeCeeU
+layer -2:
+  UwuuueU
+layer -1:
+  ......U
+layer 0:
+  ..HHH.U
+layer 1:
+  E.HHHhG
+layer 2:
+  E.HHHhG
+layer 3:
+  SE...ST
+layer 4:
+  rqwdeL.
+layer 5:
+  SSqdv..
+layer 6:
+  rreev..
