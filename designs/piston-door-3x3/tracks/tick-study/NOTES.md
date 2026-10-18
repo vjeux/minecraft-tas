@@ -20,8 +20,9 @@ and identical in the official server at 4 positions (`door vanilla-gadget`, logs
 zero-tick, zero-tick-normal, zero-tick-reach, zero-tick-onplace, zero-tick-observer,
 zero-tick-pulse, double-move, instant-off, instant-on, event-order, landing-next-tick,
 spit-saves-tick, leaves-delay, odd-observer, comparator-odd, button-pulse, torch-delay,
-center-exit, open-4 (+ open-4-cycle), center-return, corner-return. The 25 older use-only gadgets were also run
-through `door vanilla-gadget`: all identical.
+center-exit, open-4 (+ open-4-cycle), center-return, corner-return. The rest of the library
+(40 older gadgets; `set`/`clear` replayed as the game's /setblock) was also run through `door
+vanilla-gadget`: all identical, so the whole library matches the official server.
 
 ## Findings worth knowing
 * A BUD-armed piston cannot be part of a rest state (the judge's placement updates every block):

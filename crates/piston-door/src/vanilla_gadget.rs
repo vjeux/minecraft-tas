@@ -13,8 +13,10 @@
 //! * every stepping command (`step`, `quiet`, `trace`, `expect_trace`, `changes`, `settle`)
 //!   steps both worlds one tick at a time; the watch box (the design's bounds + 3, plus every
 //!   action cell) is read back after every tick and after every action and compared cell by cell.
-//! `set`/`clear` (the simulator's own placement call, no vanilla twin) are refused: write the
-//! gadget's ideal inputs with `setblock`. The script's `expect`s are checked by `door drive` itself
+//! `set`/`clear` (the simulator's own placement call, no vanilla twin) are rewritten as the game's
+//! `/setblock` in both worlds, and the rewritten script's `expect`s are checked by `door drive`
+//! (the two placements differ only in the order of shape and neighbor updates; the result line
+//! says so). The script's `expect`s are checked by `door drive` itself
 //! (run here once at the script's own position); this tool proves vanilla does the same thing at
 //! every position.
 
@@ -255,13 +257,41 @@ fn run_at(w: &mut Worker, v: &mut VanillaServer, oracle: &mut Oracle, s: &Script
     result
 }
 
+/// The script with the simulator-only `set`/`clear` lines rewritten as the game's `/setblock`
+/// (`set x y z s` -> `setblock x y z s`, `clear x y z` -> `setblock x y z minecraft:air`), so both
+/// worlds run the same command; `None` when there was nothing to rewrite. The rewritten script's
+/// own `expect`s are checked by `door drive` too (the two placements differ only in the order of
+/// shape and neighbor updates).
+fn rewrite_set(script: &str) -> Option<String> {
+    let mut changed = false;
+    let out: Vec<String> = script
+        .lines()
+        .map(|raw| {
+            let t = raw.trim_start();
+            if let Some(rest) = t.strip_prefix("set ") {
+                changed = true;
+                format!("setblock {rest}")
+            } else if let Some(rest) = t.strip_prefix("clear ") {
+                changed = true;
+                let coords: Vec<&str> = rest.split_whitespace().take(3).collect();
+                format!("setblock {} minecraft:air", coords.join(" "))
+            } else {
+                raw.to_string()
+            }
+        })
+        .collect();
+    changed.then(|| out.join("\n"))
+}
+
 /// `door vanilla-gadget`: every script at every offset; prints one line per script.
 pub fn run_cli(w: &mut Worker, v: &mut VanillaServer, scripts: &[std::path::PathBuf], offsets: &[Pos], verbose: bool) -> Result<bool> {
     let mut oracle = Oracle::default();
     let mut all_ok = true;
     for path in scripts {
         let t0 = std::time::Instant::now();
-        let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let original = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let rewritten = rewrite_set(&original);
+        let text = rewritten.clone().unwrap_or(original);
         let line = (|| -> Result<String> {
             let s = parse(&text)?;
             let drive = crate::drive::run_opts(w, &text, false)?;
@@ -276,6 +306,7 @@ pub fn run_cli(w: &mut Worker, v: &mut VanillaServer, scripts: &[std::path::Path
                 }
             }
             let gadget = if drive.failures.is_empty() { format!("drive PASS ({} checks)", drive.checks) } else { format!("drive FAIL: {}", drive.failures.join("; ")) };
+            let gadget = if rewritten.is_some() { format!("{gadget}, set/clear replayed as /setblock") } else { gadget };
             if bad.is_empty() && drive.failures.is_empty() {
                 Ok(format!("PASS: identical in vanilla at {} positions ({ticks} ticks compared); {gadget}", offsets.len()))
             } else {

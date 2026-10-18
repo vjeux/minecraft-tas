@@ -189,6 +189,9 @@ on; closed when the 9 cells hold their rest blocks (placed) from that tick on.
    earliest; the door is not open before.
 5. Either way open >= t + 3 with t >= 1: **open >= 4**.
 
+(Solid doors only: gravity door blocks leave their cell as falling-block entities, which no
+piston has to move twice; the gravity board's g10 opens in 3 at some positions.)
+
 ### An open-4 schedule (every step is a gadget)
 
 The edge block T must leave T's cell before C's first move, and NOT through E (C's puller sits
@@ -316,5 +319,9 @@ older gadgets whose scripts only `use` levers (bulb-pulse, bulb-toggle, dual-edg
 early-window, flag-observer, head-qc, hold-2rep, lamp-fall-delay, landing-fire, lever-observer,
 note-watch, observer-delay, odd-pulse, order-flip, pulse-bridge, pulse-stretch, pulse-toggle,
 pump, repeater-lock, sculk-delay-line, sculk-hold-cm, slime-rider, spit, target-tap) are all PASS,
-identical at 4 positions. The other 15 use the simulator's own `set`/`clear` placement (no vanilla
-twin); rewriting their inputs with `setblock` would let the tool check them too.
+identical at 4 positions. The other 15 use the simulator's own `set`/`clear` placement; the tool
+replays those as the game's `/setblock` in both worlds and checks the rewritten script's
+expectations (logs/vanilla-gadget-library-set.log): blocked-push, dust-reach, head-forward,
+honey-slime, lever-tap, no-retry, qc-bud, rider-hold, rider-observer, sand-drop-tower, sculk-hold,
+silent-hold, silent-hold-rb, slime-nonstick, stack-feed are all PASS too. **The whole gadget
+library behaves identically in the official server.**
