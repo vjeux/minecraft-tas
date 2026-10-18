@@ -77,6 +77,21 @@ Timing (game ticks after the lever flip):
 * `mctas door video` renders the build with the real client, auto-framed so the machine
   fills the frame.
 
+### What the local search finds (and what it does not)
+
+* Wiring nets re-synthesized from their terminals (renet) are usually shorter than hand/router
+  nets laid one connection at a time (v2: 113 -> 109; v2u2: 96 -> 88 with a repeater dissolved
+  into dust once the merged net was short enough).
+* "Dust + its floor -> one block" (swap): an observer's or repeater's output strongly powers a
+  plain block, and that block feeds the next repeater or dust directly (sculk 48 -> 46 -> 43,
+  gravity 49 -> 46 with obsidian + repeater -> one observer).
+* Floors next to moving slime must not be dragged: glazed terracotta (the router uses it).
+* Reused sandboxes must forget redstone torch burnout history (bridge `clear()`), or torch
+  designs fail after a few runs in the same sandbox (`door reuse-check`).
+* It does not invent mechanisms: every record design (fc2 40, rb6-bmobs 47, st43-bmobs 42, g10
+  45) is a local minimum for removals of 1-3 blocks, swaps within radius 3, moves,
+  substitutions, renets and two levels of neutral edits.
+
 ## Block count history
 
 | design | blocks | note |
