@@ -18,10 +18,15 @@ Every check runs ONCE: the design as written (offset 0), as built (no turn), 1 o
 (snow 2, endurance 20). The judge's own pass criteria are reused (`closed_problems`,
 `open_problems`, rest state restored over the whole watch box, no entities); the surroundings are
 part of the rest state (a hallway or shell block that gets dragged away is a failure).
+Surroundings are raw-placed with the design, then the design blocks next to them whose state
+follows their neighbors' shapes (note block instrument, fences, walls, panes, stairs; never
+observers, whose shape update fires them) are shape-updated once, as if built there: without it
+b38's note block re-derived its instrument (harp -> basedrum) from the hallway stone mid-cycle and
+failed "not back to its rest state" for a reason that has nothing to do with the door.
 
 | column | what | pass |
 |---|---|---|
-| hallway | smooth stone in every empty cell face-adjacent to the 3x3 tunnel (columns left/right/below/above the opening, door plane included) over the build's depth extent + 3 each way, raw-placed before the build settles | the judge's cycle checks pass |
+| hallway | smooth stone in every cell face-adjacent to the 3x3 tunnel (columns left/right/below/above the opening, door plane included) over the build's depth extent + 3 each way that is air at EVERY tick of a full open/close cycle (coordinator 19:23Z: the cells the machine or the door blocks use are the build's own wall cells and stay as they are; no gap variant), raw-placed before the build settles | the judge's cycle checks pass |
 | contained | a shell flush around the swept bounding box (every cell held at rest or at any tick of a cycle, plus opening and walkway), the tunnel's 3x3 columns left open: air, smooth stone, slime, honey, obsidian, one seeded random mix | works with all 6 (the `gap` variant puts the same shells one block further out) |
 | snow | a snow layer (setBlock with updates, as weather: observers see it) on every sky-exposed top face that can hold one (`canSurvive`), in each stable state, 2 cycles | opens and closes, no entity appears, nothing but snow ever changes; `flammable_exposed` lists burnable blocks with a sky-exposed top |
 | repeater | lever left off; a delay-1 repeater points into the lever's support block, a redstone block placed/removed behind it (outside the build, its swept cells and the tunnel); input changes in the scheduled-tick phase | opens and closes; ticks counted from the tick before the repeater's output changes (= a lever flip's tick 0) |
