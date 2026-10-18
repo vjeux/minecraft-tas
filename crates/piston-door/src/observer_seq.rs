@@ -155,17 +155,13 @@ pub fn s1() -> Design {
             ([-3, 1, 0], FLOOR),
             ([5, 2, 0], WIRE),
             ([5, 1, 0], FLOOR),
-            // P_T: (0,4,0) -> rep (0,4,1) S -> rep (0,4,2) S -> dust (0,4,3),(1,4,3) -> rep (1,4,2) N
-            ([0, 4, 1], &repeater("south", 1)),
-            ([0, 3, 1], FLOOR),
-            ([0, 4, 2], &repeater("south", 1)),
-            ([0, 3, 2], FLOOR),
-            ([0, 4, 3], WIRE),
-            ([0, 3, 3], FLOOR),
-            ([1, 4, 3], WIRE),
-            ([1, 3, 3], FLOOR),
-            ([1, 4, 2], &repeater("north", 1)),
-            ([1, 3, 2], FLOOR),
+            // P_T: Otl -> O (0,3,1) N -> O (0,3,2) N -> O (0,3,3) N -> O (1,3,3) W -> O (1,3,2) S
+            // -> P_T (+10gt). (1,3,3) also powers (2,3,3), the right stack route's first floor.
+            ([0, 3, 1], &observer("north")),
+            ([0, 3, 2], &observer("north")),
+            ([0, 3, 3], &observer("north")),
+            ([1, 3, 3], &observer("west")),
+            ([1, 3, 2], &observer("south")),
             // OL watches the lever, outputs west into the start dust
             ([-3, 6, -1], &observer("east")),
             ([-4, 6, -1], WIRE),
