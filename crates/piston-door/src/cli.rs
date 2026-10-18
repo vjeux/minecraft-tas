@@ -301,6 +301,9 @@ pub enum DoorCmd {
         margin: i32,
         #[arg(long, default_value = "obs,block,dust,rep,rep2,rep3,rep4,torch,glass")]
         states: String,
+        /// Only cut groups inside this box, "x0,y0,z0:x1,y1,z1".
+        #[arg(long)]
+        only: Option<String>,
         #[arg(long, default_value_t = 1)]
         want: usize,
         /// Cut any group of --size control blocks, connected or not (new blocks go within
@@ -894,14 +897,27 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
         }
-        DoorCmd::Regrow { design, out, size, margin, states, want, any, search } => {
+        DoorCmd::Regrow { design, out, size, margin, states, only, want, any, search } => {
             let d = load_design(&design)?;
+            let pos = |s: &str| -> Result<mctas::sim::Pos> {
+                let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                anyhow::ensure!(v.len() == 3, "expected x,y,z, got {s:?}");
+                Ok([v[0], v[1], v[2]])
+            };
+            let only = match only {
+                Some(s) => {
+                    let (a, b) = s.split_once(':').ok_or_else(|| anyhow::anyhow!("--only wants x0,y0,z0:x1,y1,z1"))?;
+                    let (a, b) = (pos(a)?, pos(b)?);
+                    Some(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
+                }
+                None => None,
+            };
             let pool = search.pool(version)?;
             let t = std::time::Instant::now();
             let opts = search.options()?;
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
             let st = crate::search::grow_states(&states)?;
-            let found = crate::search::regrow(&pool, &d, size, margin, &st, &opts, want, any, &log)?;
+            let found = crate::search::regrow(&pool, &d, size, margin, &st, only, &opts, want, any, &log)?;
             for (fd, desc) in &found {
                 println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
             }
