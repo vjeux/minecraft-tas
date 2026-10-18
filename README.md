@@ -42,9 +42,11 @@ See [docs/architecture.md](docs/architecture.md) and [docs/protocol.md](docs/pro
 
 ## 3x3 piston door
 
-[![door v1](https://github.com/vjeux/minecraft-tas/releases/download/videos/door-v1.gif)](https://github.com/vjeux/minecraft-tas/releases/download/videos/door-v1.mp4)
+Video of v2, rendered by the real Minecraft client with `mctas door video`:
+https://github.com/vjeux/minecraft-tas/releases/download/videos/door-v2.mp4
 
-`designs/piston-door-3x3/v1.txt`: the first working design (130 blocks). Rendered by the real
-Minecraft client with `mctas door video`. See [docs/piston-door-3x3.md](docs/piston-door-3x3.md)
+`designs/piston-door-3x3/v2-min.txt` is the current best: all nine door blocks are plain
+stone, 126 blocks in total, verified for 3 open/close cycles at 4 positions. (v1 used a slime
+block as the top-middle door block, which is not a real door; the verifier now rejects it.) See [docs/piston-door-3x3.md](docs/piston-door-3x3.md)
 for the rules, the mechanism and the block-count work, and [docs/mechanics.md](docs/mechanics.md)
 for the mechanics read from the source.
