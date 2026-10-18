@@ -1,7 +1,7 @@
 # w19-pt: real lever, s7q's north cluster and a 4-observer chain into P_T's quasi cell
 # (lever -> (0,4,-3) -> (-1,4,-3) -> (-1,4,-2) -> (-1,4,-1) -> air (-1,4,0), t8); the side
 # columns and M by ideal inputs.
-design designs/piston-door-3x3/tracks/wire19sf/w19-pt.txt
+design designs/piston-door-3x3/tracks/wire19sf/wip/w19-pt.txt
 let pl = 5
 let pr = 5
 let m = 21

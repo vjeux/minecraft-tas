@@ -117,6 +117,10 @@ control:
   retraction); watching a door block's rest cell fires once.
 
 ## Tools (this track)
+* Files: `pist19r-mech.txt` + `pist19r-window.ideal` / `pist19r-bwin.ideal` (timing sweeps),
+  `w19-cluster.txt` + `.ideal` (the real A/B cluster with ideal P_T, sides and M), `*.patch`
+  (each design step, applied with `door patch`; `synth-*.patch` = the contexts the synth runs
+  used), `wip/` = drafts (option-E/P_T-pusher experiments, the first partial wirings).
 * `door obs-path <design> --from x,y,z --to x,y,z [--len k] [--forbid ...]`: every shortest (or
   exact-length) observer chain from a changing cell to the cell the last observer's back points
   into; static safety rules (free cells, outside the walkway, outputs only into air that is not a

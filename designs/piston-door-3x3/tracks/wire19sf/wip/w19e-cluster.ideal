@@ -1,12 +1,17 @@
-# w19-pt: real lever, s7q's north cluster and a 4-observer chain into P_T's quasi cell
-# (lever -> (0,4,-3) -> (-1,4,-3) -> (-1,4,-2) -> (-1,4,-1) -> air (-1,4,0), t8); the side
-# columns and M by ideal inputs.
-design designs/piston-door-3x3/tracks/wire19sf/w19e-pt.txt
+# w19-cluster: the real lever + s7q's north cluster drive A and B; P_T, the side columns and M by
+# ideal inputs (redstone blocks), times after the flip (an ideal set at t ~ an observer firing at
+# t+1).
+design designs/piston-door-3x3/tracks/wire19sf/wip/w19e-cluster.txt
+let pt = 5
 let pl = 5
 let pr = 5
 let m = 21
 open 0 use 1 4 -3
 close 0 use 1 4 -3
+open pt set -1 3 0 minecraft:redstone_block
+open pt+2 clear -1 3 0
+close pt set -1 3 0 minecraft:redstone_block
+close pt+2 clear -1 3 0
 open pl set -2 -1 0 minecraft:redstone_block
 open pl set -3 1 0 minecraft:redstone_block
 open pl set -3 2 0 minecraft:redstone_block
