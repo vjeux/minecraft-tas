@@ -1,0 +1,25 @@
+name: gadget-rail-line
+# Powered rails as a zero-delay wire that powers nothing (PoweredRailBlock.updateState: a rail is
+# powered by any neighbor signal, or by a powered rail of its line that is itself fed, searching
+# at most 8 rails away; setBlockAndUpdate, so the next rail re-checks in the same tick).
+# Lever L powers rail 1; rails 1..9 (the fed one + 8) light in the click's own tick, up the slope
+# (rail 2 ascends east); rail 10 stays dark. Observer O above rail 9 pulses 2 gt after each
+# edge. Piston Q is rail 5's floor: a powered rail standing on it, and in its quasi-connectivity
+# cell, never powers it. Every rail needs a rigid floor (a slope also its high side), so a line
+# costs 2 blocks per cell like dust, but it can pass next to pistons without powering them.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  F minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]
+  A minecraft:powered_rail[powered=false,shape=ascending_east,waterlogged=false]
+  Q minecraft:piston[extended=false,facing=south]
+  O minecraft:observer[facing=down,powered=false]
+layer 0:
+  SSS
+layer 1:
+  LFASSQSSSSS
+layer 2:
+  ...FFFFFFFF
+layer 3:
+  .........O

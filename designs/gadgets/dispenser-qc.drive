@@ -1,0 +1,28 @@
+# Dispenser D triggers through quasi-connectivity at tick 2 on both edges (observer O pulses
+# 2 gt later) and cannot be pushed; crafter C ignores the same signal; crafter E, powered
+# directly, triggers like D.
+design designs/gadgets/dispenser-qc.txt
+probe D 1 1 0
+probe O 0 1 0
+probe K 1 1 1
+probe C 1 1 2
+probe P 0 1 2
+probe E 1 1 4
+probe W 0 1 4
+use 3 2 0
+use 3 2 2
+use 3 1 4
+expect_trace D 01
+expect C 0
+expect E 1
+expect_trace O 0110
+expect P 0
+expect W 0
+expect C 0
+use 3 2 0
+expect_trace D 10
+expect_trace O 0110
+set 1 0 1 minecraft:redstone_block
+quiet 4
+expect K r
+expect_state 1 1 0 minecraft:dispenser

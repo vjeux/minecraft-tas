@@ -1,0 +1,17 @@
+# Trapdoor T flips the tick the repeater's output reaches it (tick 2), on both lever edges;
+# observer O pulses 2 gt later; piston Q above T is never powered through it.
+design designs/gadgets/trapdoor-watch.txt
+probe T 2 1 0
+probe O 3 1 0
+probe Q 2 2 0
+use 0 1 0
+expect_trace T 01
+expect_state 2 1 0 open=true
+expect Q r
+expect_trace O 0110
+expect Q r
+use 0 1 0
+expect_trace T 10
+expect_state 2 1 0 open=false
+expect_trace O 0110
+expect Q r

@@ -1,0 +1,34 @@
+name: gadget-indicators
+# Every block that shows its power in its own state at once, without conducting it, around one
+# floor lever L (a lever gives a weak signal to all six neighbors; hasNeighborSignal counts it):
+# oak fence gate G (FenceGateBlock: POWERED and OPEN, flag 2), skeleton skull K
+# (AbstractSkullBlock: POWERED, flag 2; pistons pop skulls), waxed copper trapdoor C, and an iron
+# door D standing on a floor (DoorBlock: either half's signal opens both halves; pistons pop
+# doors). All flip in the tick of the click (before any game tick); observer O watching the
+# skull pulses at ticks 2..3, so every one of them is a watchable, non-conducting power spot.
+# None needs support except the door (canSurvive: a sturdy floor under its lower half).
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  G minecraft:oak_fence_gate[facing=north,in_wall=false,open=false,powered=false]
+  K minecraft:skeleton_skull[powered=false,rotation=0]
+  C minecraft:waxed_copper_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  D minecraft:iron_door[facing=north,half=lower,hinge=left,open=false,powered=false]
+  U minecraft:iron_door[facing=north,half=upper,hinge=left,open=false,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+layer 0:
+  .
+  .
+  ..S
+  ..S
+layer 1:
+  .
+  ..C
+  .GLKO
+  ..D
+layer 2:
+  .
+  .
+  .
+  ..U

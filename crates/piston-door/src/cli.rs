@@ -533,6 +533,12 @@ pub enum DoorCmd {
         /// --margin of any cut block).
         #[arg(long)]
         any: bool,
+        /// Keep only candidates that add at least one block whose state contains one of these
+        /// (comma list; shorthands as `resynth --require-any`, plus trapdoor, gate, rail, disp,
+        /// crafter, skull, shelf, scaffold, grate, tinted, slab, stairs): sweep new states on a
+        /// design the old ones already exhausted.
+        #[arg(long, default_value = "")]
+        require_any: String,
         #[command(flatten)]
         search: SearchArgs,
     },
@@ -1733,7 +1739,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             let _ = &schedule;
         }
-        DoorCmd::Regrow { design, out, size, margin, states, only, want, any, search } => {
+        DoorCmd::Regrow { design, out, size, margin, states, only, want, any, require_any, search } => {
             let d = load_design(&design)?;
             let pos = |s: &str| -> Result<mctas::sim::Pos> {
                 let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
@@ -1753,7 +1759,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let opts = search.options()?;
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
             let st = crate::search::grow_states(&states)?;
-            let found = crate::search::regrow(&pool, &d, size, margin, &st, only, &opts, want, any, &log)?;
+            let req = crate::synth::require_any_names(&require_any);
+            let found = crate::search::regrow(&pool, &d, size, margin, &st, only, &opts, want, any, &req, &log)?;
             for (fd, desc) in &found {
                 println!("WORKS: {} blocks: {desc}", crate::block_count(fd));
             }

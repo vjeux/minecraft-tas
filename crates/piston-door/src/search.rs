@@ -230,10 +230,12 @@ fn kind(s: &str) -> &str {
 }
 /// Can hold dust or a torch (roughly: a full block).
 fn is_support(s: &str) -> bool {
+    let k = kind(s);
     !matches!(
-        kind(s),
-        "redstone_wire" | "repeater" | "comparator" | "redstone_torch" | "redstone_wall_torch" | "lever" | "piston_head" | "moving_piston"
-    )
+        k,
+        "redstone_wire" | "repeater" | "comparator" | "redstone_torch" | "redstone_wall_torch" | "lever" | "piston_head" | "moving_piston" | "scaffolding"
+    ) && !(k.ends_with("trapdoor") || k.ends_with("fence_gate") || k.ends_with("_rail") || k == "rail" || k.ends_with("_skull") || k.ends_with("_head") || k.ends_with("_door") || k.ends_with("_shelf"))
+        && !((k.contains("slab") && !s.contains("type=top") && !s.contains("type=double")) || (k.contains("stairs") && !s.contains("half=top")))
 }
 /// Plain building blocks: full blocks with no behavior of their own besides holding things up
 /// and conducting (a name-based denylist of mechanism, partial and gravity blocks).
@@ -252,7 +254,12 @@ fn is_plain(s: &str) -> bool {
 }
 /// Approximation of `isRedstoneConductor` (cuts dust steps).
 fn is_conductor(s: &str) -> bool {
-    is_support(s) && !matches!(kind(s), "glass" | "observer" | "piston" | "sticky_piston" | "slime_block" | "honey_block" | "redstone_block")
+    let k = kind(s);
+    is_support(s)
+        && !matches!(k, "glass" | "tinted_glass" | "observer" | "piston" | "sticky_piston" | "slime_block" | "honey_block" | "redstone_block")
+        && !k.ends_with("copper_grate")
+        && !k.contains("slab")
+        && !k.contains("stairs")
 }
 fn movable(k: &str) -> bool {
     !matches!(k, "piston_head" | "moving_piston" | "lever")
@@ -283,7 +290,8 @@ fn attachment(p: Pos, s: &str) -> Option<Pos> {
     let b = BlockState::parse(s).ok()?;
     match b.short_name() {
         "redstone_wall_torch" => Some(sub(p, dir(b.get("facing")?)?)),
-        "redstone_torch" | "redstone_wire" | "repeater" | "comparator" => Some(add(p, [0, -1, 0])),
+        "redstone_torch" | "redstone_wire" | "repeater" | "comparator" | "powered_rail" | "activator_rail" | "rail" | "detector_rail" => Some(add(p, [0, -1, 0])),
+        n if n.ends_with("_door") && b.get("half") == Some("lower") => Some(add(p, [0, -1, 0])),
         "lever" => match b.get("face") {
             Some("floor") => Some(add(p, [0, -1, 0])),
             Some("ceiling") => Some(add(p, [0, 1, 0])),
@@ -1780,7 +1788,9 @@ pub fn search(
 /// either). `only` restricts the cut blocks to a box. Returns the verified designs, fewest blocks
 /// first.
 #[allow(clippy::too_many_arguments)]
-pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], only: Option<(Pos, Pos)>, opts: &SearchOptions, want: usize, any: bool, log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[String], only: Option<(Pos, Pos)>, opts: &SearchOptions, want: usize, any: bool, require_any: &[String], log: &dyn Fn(&str)) -> Result<Vec<(Design, String)>> {
+    // `require_any`: a candidate must add one block whose state names one of these.
+    let wanted = |s: &str| require_any.is_empty() || require_any.iter().any(|r| s.contains(r.as_str()));
     let sandboxes = Sandboxes::new(pool);
     let ctx = Ctx::new(base)?;
     let inside = |p: &Pos| only.is_none_or(|(lo, hi)| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]));
@@ -1895,7 +1905,7 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
         let one = |p: Pos, s: &String| format!("+{} {}", fmt_pos(p), short(s));
         for (i, (p, s)) in singles.iter().enumerate() {
             if size == 2 {
-                if stands(*p, s, None) {
+                if stands(*p, s, None) && wanted(s) {
                     let mut e = cut.clone();
                     e.set.push((*p, s.clone()));
                     e.desc = format!("{} {}", cut.desc, one(*p, s));
@@ -1904,7 +1914,7 @@ pub fn regrow(pool: &Pool, base: &Design, size: usize, margin: i32, states: &[St
                 continue;
             }
             for (q, t) in singles.iter().skip(i + 1) {
-                if q == p || !stands(*p, s, Some((*q, t))) || !stands(*q, t, Some((*p, s))) {
+                if q == p || !stands(*p, s, Some((*q, t))) || !stands(*q, t, Some((*p, s))) || !(wanted(s) || wanted(t)) {
                     continue;
                 }
                 let mut e = cut.clone();
@@ -1965,8 +1975,11 @@ pub fn grow_states(spec: &str) -> Result<Vec<String>> {
             "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             "bulb" => out.push("minecraft:waxed_copper_bulb[lit=false,powered=false]".into()),
             "target" => out.push("minecraft:target[power=0]".into()),
-            s if s.starts_with("minecraft:") => out.push(s.to_string()),
-            s => return Err(anyhow!("unknown grow state {s:?}")),
+            s => match crate::synth::exotic_states(s) {
+                Some(v) => out.extend(v),
+                None if s.starts_with("minecraft:") => out.push(s.to_string()),
+                None => return Err(anyhow!("unknown grow state {s:?}")),
+            },
         }
     }
     Ok(out)

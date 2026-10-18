@@ -1,0 +1,25 @@
+name: gadget-scaffold-delay
+# Scaffolding as a 1 gt-per-block delay line (ScaffoldingBlock: any shape update schedules a
+# tick 1 gt later, the tick recomputes DISTANCE (0 on a sturdy floor, else the scaffold below's
+# distance, else 1 + the nearest scaffold beside it) and setBlockAndUpdate, which shape-updates
+# its neighbors in turn). Scaffold A stands on stone W, scaffold B beside it on a fixed floor,
+# scaffold C on top of A, observer O watches C. W is broken (a player's update): A turns
+# distance 1 at tick 1 (B holds it up), C follows at tick 2, O pulses ticks 4..5. W placed again:
+# A back to 0 at tick 1, C at tick 2. Pistons pop scaffolding, and a scaffold that reaches
+# distance 7 breaks (or falls: an entity), so every scaffold needs a scaffold neighbor within 6
+# of a sturdy floor. It is the leaves trick (persistent leaves next to a log, pareto-mid) with any
+# sturdy block as the moving part, at the price of a second scaffold.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  W minecraft:stone
+  A minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+  O minecraft:observer[facing=down,powered=false]
+layer 0:
+  WS
+layer 1:
+  AA
+layer 2:
+  A
+layer 3:
+  O
