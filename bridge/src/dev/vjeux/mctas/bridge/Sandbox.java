@@ -27,6 +27,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.RedstoneTorchBlock;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.ChunkPos;
@@ -256,6 +257,25 @@ final class Sandbox {
         }
         this.data.setGameTime(0L);
         this.level.getRandom().setSeed(this.seed);
+        forgetTorchToggles();
+    }
+
+    /**
+     * Redstone torches remember their recent toggles per level (burnout: 8 toggles at one
+     * position within 60 game ticks, {@code RedstoneTorchBlock.RECENT_TOGGLES}) and only forget
+     * them when a torch ticks 60 ticks later. {@link #clear} rewinds the clock to 0, so without
+     * this a reused sandbox keeps old toggles forever and a torch at a reused position burns out
+     * after a few runs (a design then fails only because the sandbox was reused).
+     */
+    @SuppressWarnings("unchecked")
+    private void forgetTorchToggles() {
+        try {
+            Field f = RedstoneTorchBlock.class.getDeclaredField("RECENT_TOGGLES");
+            f.setAccessible(true);
+            ((java.util.Map<Object, ?>) f.get(null)).remove(this.level);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("cannot reset the redstone torch burnout memory", e);
+        }
     }
 
     void drop(SimServer server) {
