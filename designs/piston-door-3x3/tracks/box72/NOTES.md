@@ -73,3 +73,17 @@ the box on a region boundary).
   watching mechanism cells (`mchg`), so the UNSAT is real for those exact schedules; but every
   piston's power must match the schedule tick for tick (only a global offset), so a link +
   merger chain has to land on the scheduled ticks exactly.
+
+## Bottom parity breakers tried on paper for m2 in 7x10 (23:20Z), none fits in rows -3..-1
+* delay-2 repeater merger: every repeater spot on the left half outputs into BL's puller or its
+  gap (a 4 gt pulse breaks a pull-type piston on close); on the right half (reached only along
+  row -3) the merged pulse can fire BR's puller (repeater (4,-2) facing west fed by an observer
+  (3,-2) watching an observer (2,-2) that watches the row -3 chain, merger observer (4,-1) facing
+  down) but cannot get back west to BL's puller and P_M (row -3 is the only lane).
+* bulb + comparator + bulb + comparator (2 -> 1 events): comparators need a floor, row -3 has none.
+* making both bottom corners leave DOWN (P_M then fed from (1,-3)) frees (4,0) too, but the
+  merger has the same output problem on the right.
+* a 0/1 gt pulse on ML's puller would make its watcher fire once (all base changes inside the
+  observer's busy window), but needs 0-tick machinery.
+=> next: satwire with the hand-wired top frozen (`--fixed`, in progress by agent satwire) and
+   time-warp, or a 7x11 = 77 build of m2 (row -4 gives the merger a floor; not better than 72).
