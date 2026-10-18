@@ -140,8 +140,12 @@ Traced with probes (`trace`), lever flip = t0, w = tick B extends (R_B turns on)
   ticks first), so T is pushed into (1,3,0) right after B lifts A out of it; A, T and RB_A all
   land at t14, A pushes T down at t15 => closed at t17. Same block count as rb7's hold.
 * rb9 (61, open 16 / close 17, FAST.txt): `door minimize --max-open 16 --max-close 17` (new
-  flags) removed Rb: R_B (delay 1) bridges the t4..6 gap between O2's pulse and Rc's (it is
-  still on when Rc's output arrives), so K needs only O2 + Rc. Then Rc moved to K's east side
+  flags) removed Rb. R_B does NOT bridge the t4..6 gap (its turn-off tick outranks Rc's
+  turn-on): R_B is on t4..6 and t8..12 (gadget `early-window`). In the door that still works,
+  and is as fast: B pushes A down at t4, retracts at t6 while A is still moving (a sticky
+  retract whose block two ahead is a moving piston finalizes it in place, no pull), A's first
+  pulse pulls C at t8, B re-extends at t8 so its head is beside A again, and lifts A at t12.
+  Then Rc moved to K's east side
   (2,6,2), next to the start of O3's dust line (`rb9.patch`): -8 blocks. Local minimum for the
   speed-constrained search (plateau too).
 * Why not faster: open = w+12 and close = w+13 with w = 4 (B's window t4..12). Every redstone
