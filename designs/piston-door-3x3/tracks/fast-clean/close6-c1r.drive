@@ -1,0 +1,49 @@
+# Close 6 on c1r-108 (open 9): only the ARMING is scripted; every moving part is physical, R_F included.
+# Open state edited by script (each arming block placed after the piston it arms, touching only its
+# quasi cell or blocked at placement, so nothing fires):
+#  * F's killer P_X re-armed: repeater f (1,6,-1) removed, R_Z off (P_X retracts through its head),
+#    R_X back at (1,5,1) (arms F and Xa through their quasi cells), R_Z back at (1,6,1) (arms P_X);
+#  * padding pistons Xa (1,3,1) east, Xb (2,4,1) east (armed by (2,5,2)), Xc (3,4,0) up (armed by
+#    (4,4,0), which also arms D through its quasi cell; a temporary obsidian at (3,6,0) blocks Xc
+#    while it is armed); P_D armed by (4,4,-1).
+# At c1: S_F retracts (its head removal updates F); F extends (C from E into N1), P_X shoves R_X, F
+# retracts in the same phase (C placed in N1, E air); F's extension updated Xa, whose head updated Xb,
+# whose head updated Xc, whose base updates D and P_D after F's retraction: D pushes T into E and
+# P_D pushes R_F back to (1,4,-1). c3 BE: T, R_F and F's base land; F pushes [T, C] at c4: the
+# 9 door cells are placed at c6 (close 6, against 7 for every wired door).
+design designs/piston-door-3x3/tracks/fast-clean/c1r-108.txt
+probe T 1 2 0
+probe C 1 1 0
+probe E 1 3 0
+probe F 1 4 0
+probe D 3 3 0
+probe Xa 1 3 1
+probe Xb 2 4 1
+probe Xc 3 4 0
+probe TL 0 2 0
+probe TR 2 2 0
+probe M 1 0 0
+use 0 4 -2
+quiet 24
+clear 1 6 -1
+clear 1 6 1
+quiet 4
+clear 1 5 2
+set 1 3 1 minecraft:piston[facing=east,extended=false]
+set 2 4 1 minecraft:piston[facing=east,extended=false]
+set 3 6 0 minecraft:obsidian
+set 3 4 0 minecraft:piston[facing=up,extended=false]
+set 1 5 1 minecraft:redstone_block
+set 1 6 1 minecraft:redstone_block
+set 2 5 2 minecraft:redstone_block
+set 4 4 0 minecraft:redstone_block
+set 4 4 -1 minecraft:redstone_block
+clear 3 6 0
+quiet 4
+plane 0 -4 -2 6 8
+print
+box -1 -1 -2 4 7 3
+mark close
+use 0 4 -2
+changes 1
+trace 9

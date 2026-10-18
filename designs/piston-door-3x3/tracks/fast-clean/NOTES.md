@@ -70,6 +70,10 @@ P_D pushes R_F back at c2; c4 F's base, T and R_F land; c5 F extends.
   pushes [T, C] at c4: closed at c6. Rule learned: a piston only queues an extend if its push
   resolves WHEN IT IS UPDATED, so D must be updated after F's retraction, not just run after it;
   a 3-piston chain from E's free neighbor does that.
+* **`close6-c1r.drive`: the same on c1r-108 (open 9) with R_F's return physical too**: an armed
+  P_D (3,4,-1) is updated by Xc's base and pushes R_F back to (1,4,-1) at c1 (lands c3 BE). Only
+  the arming is scripted (R_X/R_Z re-placed, blocks at (2,5,2), (4,4,0), (4,4,-1), the three
+  padding pistons placed). A wired c1r with this would open in 9 and close in 6 (open+close 15).
 * What a real door still needs (none of it built): (a) the P_X re-arm in the open state after t12
   (R_Z off -> P_X retracts; p pushes R_X back; R_Z back), with the repeater (1,6,-1) no longer
   powering (1,6,0) (its lock chain gives t10/t14/t16 signals to time this); (b) silent late arming
