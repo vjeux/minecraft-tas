@@ -28,3 +28,34 @@ A player standing ON a sensor triggers it (stepOn) and can break a door. Every d
 whether a sensor is a cell a player could stand on next to the lever.
 
 ## Log
+
+### 05:45 s1: 38 blocks, sculk (open 19 / close 38), `s1-38b.txt` = BEST.txt
+`st43-bmobs-42b` (the rb family with a sculk hold on Q) fed its B window through a 7-block chain:
+an observer watching the lever, a block, a dust and its floor, a block, then R_B (delay 4) into B's
+quasi cell, and O' (observer watching R_B) pulsing A through the cross dust X' at (1,4,1).
+s1 replaces the first 5 of those with ONE calibrated sculk sensor at R_B's input (1,6,2)
+(`calibrated_sculk_sensor[facing=north]`, its back (1,6,3) empty so it hears every frequency):
+it hears the lever 3 gt after each flip and is active 10 gt, so R_B (now delay 1) powers B over
+t5..15 on both edges and O' still pulses A at t7 and t17 (R_B's two edges). Patch: `s1.patch`.
+
+* Why delay 1: B must push A down after P_R has dragged T out of (1,3,0) (block event at t4), so
+  the window starts at t5. With the normal 30 gt sensor the window would end after Q's hold
+  (t33) and the closing T would hit A still down; the calibrated 10 gt window ends at t15.
+* Loops: a sensor that is inactive again hears the door's own pistons. The calibrated sensor is
+  inactive from t23; the open is done at t19 (no echo). On close Q's hold ends at t33 and wakes
+  it again (t36): R_B re-powers B, but A is extended by then (blocked push) and O''s pulses go
+  into an already powered A, so the echo moves nothing (idle at 56).
+* Sensors and players: the hold sensor (0,3,-1) sits under Q (no headroom, nobody stands on
+  it). The calibrated sensor (1,6,2) is 3 blocks from the lever with open air above it: a
+  player could step on it, and like every calibrated sensor it hears footsteps within 16
+  blocks; flip the lever from the west/north side, sneaking.
+* `door minimize --moves all --plateau`: local minimum at 38 (28k neutral edits, 644 removals).
+* Tried: dust+floor X' -> one block at (1,4,1) (A at (1,3,0) is then only quasi-powered and is
+  never updated when the pulse ends: it stays extended and B cannot lift it); removing (0,3,0)
+  (that block rides the left structure and, moving back at t1 of the close, is what makes the
+  right structure's early pull fail).
+* Before s1: `regrow --size 2 --any` (cut any 2 control blocks, add 1 sensor) on fc2, fc2-2,
+  fc2-min, riders-fx1, m05-21b-sym: 1.2M candidates, nothing. `regrow --size 3` on fc2 with
+  sensors + obs/block/dust/repeaters: 2.8M, nothing. fc2 with its B chain replaced by a sensor
+  echoes forever (an observer on a sensor fires 3 times; the 3rd, at cooldown end, moves A,
+  which the sensor hears again).
