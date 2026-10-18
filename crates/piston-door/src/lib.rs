@@ -37,6 +37,7 @@ pub mod minimize;
 pub mod patch;
 pub mod place;
 pub mod search;
+pub mod shapes;
 pub mod showcase;
 pub mod synth;
 pub mod tickvideo;
@@ -280,6 +281,172 @@ pub fn slime_free(d: &Design) -> bool {
 pub fn single_layer(d: &Design) -> bool {
     let Some(door) = d.ports.get("door") else { return false };
     d.blocks.keys().all(|p| p[2] == door[2])
+}
+
+/// How far a design reaches beyond its 3x3 opening on every side, at rest (piston heads
+/// included; design files always have the door in a z plane). Builders care: a door that fits a
+/// thin wall, needs no digging or stays narrow is easier to place than a smaller block count.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Shape {
+    /// Layers in front of the door plane (z < door.z) and behind it (z > door.z).
+    pub front: i32,
+    pub behind: i32,
+    /// Rows below the door's bottom row (y < door.y) and above its top row (y > door.y + 2).
+    pub below: i32,
+    pub above: i32,
+    /// Columns left of the opening (x < door.x) and right of it (x > door.x + 2).
+    pub left: i32,
+    pub right: i32,
+    /// Blocks below the bottom row and above the top row (counted like the score).
+    pub blocks_below: usize,
+    pub blocks_above: usize,
+}
+
+impl Shape {
+    /// Layers along the door's depth axis (the door plane included): 1 = flat.
+    pub fn thickness(&self) -> i32 {
+        1 + self.front + self.behind
+    }
+    /// Columns across (the opening's 3 included).
+    pub fn width(&self) -> i32 {
+        3 + self.left + self.right
+    }
+    /// Rows (the opening's 3 included).
+    pub fn height(&self) -> i32 {
+        3 + self.below + self.above
+    }
+    /// Bounding-box volume, the door included.
+    pub fn volume(&self) -> i32 {
+        self.thickness() * self.width() * self.height()
+    }
+    /// The wider of the two sides of the opening (columns).
+    pub fn side(&self) -> i32 {
+        self.left.max(self.right)
+    }
+}
+
+/// The [`Shape`] of a design relative to its door (`None` without a door port or blocks).
+pub fn shape(d: &Design) -> Option<Shape> {
+    let door = *d.ports.get("door")?;
+    let (lo, hi) = d.bounds()?;
+    let counted = |p: &&Pos| !d.blocks[*p].starts_with("minecraft:piston_head");
+    Some(Shape {
+        front: (door[2] - lo[2]).max(0),
+        behind: (hi[2] - door[2]).max(0),
+        below: (door[1] - lo[1]).max(0),
+        above: (hi[1] - (door[1] + 2)).max(0),
+        left: (door[0] - lo[0]).max(0),
+        right: (hi[0] - (door[0] + 2)).max(0),
+        blocks_below: d.blocks.keys().filter(|p| p[1] < door[1]).filter(counted).count(),
+        blocks_above: d.blocks.keys().filter(|p| p[1] > door[1] + 2).filter(counted).count(),
+    })
+}
+
+/// Shape limits (a board's rule, or a search constraint): every set bound must hold. Written
+/// as a comma list of `key<=n` (`front behind thick below above left right side volume`; `key=0`
+/// is `key<=0`) or a named preset ([`ShapeLimits::PRESETS`]: `wall`, `wall2`, `ground`...).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct ShapeLimits {
+    pub front: Option<i32>,
+    pub behind: Option<i32>,
+    pub thick: Option<i32>,
+    pub below: Option<i32>,
+    pub above: Option<i32>,
+    pub left: Option<i32>,
+    pub right: Option<i32>,
+    pub side: Option<i32>,
+    pub volume: Option<i32>,
+}
+
+impl ShapeLimits {
+    /// Named shape rules: (name, limits as `key<=n` terms, what it means for a builder).
+    pub const PRESETS: &'static [(&'static str, &'static str, &'static str)] = &[
+        ("wall", "front<=1,behind<=1", "the whole machine inside a 3-thick wall centered on the door (z = door.z-1..door.z+1)"),
+        ("wall2", "thick<=2", "the whole machine inside a 2-thick wall: the door plane and one layer on one side"),
+        ("flat", "thick<=1", "one block thick (slime allowed): every block in the door's plane"),
+        ("ground", "below=0", "nothing below the door's bottom row: it stands on the ground, no digging"),
+        ("no-above", "above=0", "nothing above the door's top row: no ceiling machinery"),
+        ("narrow1", "side<=1", "at most 1 column beside the opening on each side (5 wide)"),
+        ("narrow2", "side<=2", "at most 2 columns beside the opening on each side (7 wide)"),
+        ("wall-ground", "front<=1,behind<=1,below=0", "inside a 3-thick wall and nothing below the door"),
+    ];
+
+    pub fn parse(spec: &str) -> anyhow::Result<ShapeLimits> {
+        let spec = spec.trim();
+        if let Some((_, terms, _)) = Self::PRESETS.iter().find(|(n, _, _)| *n == spec) {
+            return Self::parse(terms);
+        }
+        let mut l = ShapeLimits::default();
+        for term in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+            let (key, n) = term
+                .split_once("<=")
+                .or_else(|| term.split_once('='))
+                .ok_or_else(|| anyhow::anyhow!("shape term {term:?}: expected key<=n or key=0, or a preset ({})", Self::preset_names()))?;
+            let n: i32 = n.trim().parse().with_context(|| format!("shape term {term:?}"))?;
+            let slot = match key.trim() {
+                "front" => &mut l.front,
+                "behind" => &mut l.behind,
+                "thick" => &mut l.thick,
+                "below" => &mut l.below,
+                "above" => &mut l.above,
+                "left" => &mut l.left,
+                "right" => &mut l.right,
+                "side" => &mut l.side,
+                "volume" => &mut l.volume,
+                k => bail!("unknown shape key {k:?} (front behind thick below above left right side volume, or a preset: {})", Self::preset_names()),
+            };
+            *slot = Some(n);
+        }
+        Ok(l)
+    }
+
+    fn preset_names() -> String {
+        Self::PRESETS.iter().map(|(n, _, _)| *n).collect::<Vec<_>>().join(" ")
+    }
+
+    pub fn allows(&self, s: &Shape) -> bool {
+        let ok = |lim: Option<i32>, v: i32| lim.is_none_or(|m| v <= m);
+        ok(self.front, s.front)
+            && ok(self.behind, s.behind)
+            && ok(self.thick, s.thickness())
+            && ok(self.below, s.below)
+            && ok(self.above, s.above)
+            && ok(self.left, s.left)
+            && ok(self.right, s.right)
+            && ok(self.side, s.side())
+            && ok(self.volume, s.volume())
+    }
+
+    /// Does the design (at rest, as written) keep within these limits?
+    pub fn allows_design(&self, d: &Design) -> bool {
+        shape(d).is_some_and(|s| self.allows(&s))
+    }
+}
+
+/// True when the whole machine fits a 3-thick wall centered on the door: every block within one
+/// layer of the door plane (z = door.z-1..door.z+1). The "wall" board.
+pub fn in_wall(d: &Design) -> bool {
+    shape(d).is_some_and(|s| s.front <= 1 && s.behind <= 1)
+}
+
+/// True when the whole machine fits a 2-thick wall (the door plane and one layer on one side).
+pub fn in_wall2(d: &Design) -> bool {
+    shape(d).is_some_and(|s| s.thickness() <= 2)
+}
+
+/// True when nothing lies below the door's bottom row: the door stands on the ground, no digging.
+pub fn on_ground(d: &Design) -> bool {
+    shape(d).is_some_and(|s| s.below == 0)
+}
+
+/// True when nothing lies above the door's top row.
+pub fn nothing_above(d: &Design) -> bool {
+    shape(d).is_some_and(|s| s.above == 0)
+}
+
+/// True when at most `k` columns of the machine stand beside the opening on each side.
+pub fn narrow(d: &Design, k: i32) -> bool {
+    shape(d).is_some_and(|s| s.side() <= k)
 }
 
 /// Blocks standing in the walkway at rest. The rules allow non-colliding blocks there (dust,

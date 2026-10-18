@@ -227,6 +227,44 @@ pub enum DoorCmd {
         #[arg(long)]
         all: bool,
     },
+    /// The shape of every working design relative to its door: layers in front of and behind the
+    /// door plane (thickness), rows below and above the opening, columns left and right of it,
+    /// bounding box; then for each shape rule (wall, wall2, flat, ground, no-above, narrow1,
+    /// narrow2, wall-ground, plus --rule) the best rotation-safe design today per league, and the
+    /// (volume, blocks) frontier. Verdicts come from the leaderboard cache (uncached designs are
+    /// verified with the judge).
+    Shapes {
+        /// Design files to measure besides the folder.
+        designs: Vec<PathBuf>,
+        /// Folder of designs to measure (default: the archive).
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        dir: PathBuf,
+        /// Also measure every design on HEAD and the explore/* branches (as the leaderboard does).
+        #[arg(long)]
+        branches: bool,
+        /// Ref prefix scanned with --branches besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 4)]
+        workers: usize,
+        /// Verdict cache folder (read; new verdicts are written back).
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        cache_dir: PathBuf,
+        /// Extra shape rules: a preset or a comma list of key<=n (front behind thick below above
+        /// left right side volume).
+        #[arg(long)]
+        rule: Vec<String>,
+        /// The table lists designs of at most this many blocks (the rules still see all).
+        #[arg(long, default_value_t = 200)]
+        table_max: usize,
+        /// Skip the table (rules and frontier only).
+        #[arg(long)]
+        no_table: bool,
+    },
     /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
     Leaderboard {
         /// Ref prefix to scan besides HEAD.
@@ -1039,6 +1077,24 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let (board, checks): (Vec<_>, Vec<_>) = entries.into_iter().partition(|e| !e.source.starts_with("check:"));
             let _ = n_board;
             print!("{}", crate::leaderboard::frontier_report(&board, &checks, !any_category, all));
+        }
+        DoorCmd::Shapes { designs, dir, branches, refs, extra_offsets, max_blocks, workers, cache_dir, rule, table_max, no_table } => {
+            let repo = std::path::Path::new(".");
+            let mut cands = crate::shapes::collect_dir(&dir, max_blocks)?;
+            if branches {
+                cands.extend(crate::leaderboard::collect(repo, &refs, max_blocks)?);
+            }
+            for p in &designs {
+                cands.push((p.display().to_string(), load_design(p)?));
+            }
+            let mut seen = std::collections::HashSet::new();
+            cands.retain(|(_, d)| seen.insert(crate::leaderboard::design_hash(d)));
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, Some(&cache_dir))?;
+            let rules = crate::shapes::rules(&rule)?;
+            if !no_table {
+                print!("{}", crate::shapes::table(&entries, &rules, table_max));
+            }
+            print!("{}", crate::shapes::best_report(&entries, &rules));
         }
         DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
             let repo = std::path::Path::new(".");
