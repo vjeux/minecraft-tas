@@ -21,6 +21,7 @@ pub mod designs;
 pub mod designs_history;
 pub mod leaderboard;
 pub mod drive;
+pub mod harvest;
 pub mod route;
 pub mod minimize;
 pub mod patch;

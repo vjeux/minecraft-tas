@@ -81,6 +81,7 @@ pub fn parse_families(s: &str) -> Result<Vec<Family>> {
         .collect()
 }
 
+#[derive(Clone)]
 pub struct SearchOptions {
     pub families: Vec<Family>,
     /// Cheap first pass (a few positions, fewer cycles).

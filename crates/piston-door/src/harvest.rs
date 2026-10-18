@@ -1,0 +1,83 @@
+//! `mctas door harvest`: run the local search on the best designs of every branch.
+//!
+//! Gathers designs like `door leaderboard` (every `.txt` under designs/piston-door-3x3 on HEAD
+//! and on the `explore/*` branches), judges them, and for each category takes the `top` smallest
+//! working designs that were not harvested yet (by block hash, listed in
+//! `<out-dir>/harvested.txt`). Each gets [`crate::search::search`] for `minutes`; the result goes
+//! to `<out-dir>/from-<label>.txt` and every improvement is archived in `<out-dir>/archive/`.
+
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+
+use anyhow::Result;
+use mctas::design::Design;
+use mctas::sim::Pool;
+
+use crate::search::{SearchOptions, design_hash, search};
+use crate::{block_count, category, verify};
+
+pub struct HarvestOptions {
+    pub refs: String,
+    pub max_blocks: usize,
+    pub top: usize,
+    pub minutes: f64,
+    pub out_dir: PathBuf,
+    pub moves: String,
+}
+
+/// `origin/explore/center-mech:designs/.../tracks/center-mech/BEST.txt` -> `center-mech-BEST`.
+fn label(source: &str) -> String {
+    let (r, f) = source.split_once(':').unwrap_or(("", source));
+    let branch = r.rsplit('/').next().unwrap_or(r);
+    let stem = Path::new(f).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    format!("{branch}-{stem}").replace(|c: char| !c.is_ascii_alphanumeric() && c != '-', "-")
+}
+
+pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &SearchOptions, log: &dyn Fn(&str)) -> Result<()> {
+    let cands = crate::leaderboard::collect(repo, &opts.refs, opts.max_blocks)?;
+    std::fs::create_dir_all(&opts.out_dir)?;
+    let seen_path = opts.out_dir.join("harvested.txt");
+    let seen_text = std::fs::read_to_string(&seen_path).unwrap_or_default();
+    let seen: HashSet<u64> = seen_text.lines().filter_map(|l| u64::from_str_radix(l.split_whitespace().next()?, 16).ok()).collect();
+    let fresh: Vec<(String, Design)> = cands.into_iter().filter(|(_, d)| !seen.contains(&design_hash(d))).collect();
+    log(&format!("{} designs not harvested yet; judging them", fresh.len()));
+    let verdicts = pool.map(fresh.clone(), |w, _, (_, d)| Ok(verify(w, &d, &search_opts.judge).is_ok()));
+    let mut working: Vec<(String, Design)> =
+        fresh.into_iter().zip(verdicts).filter(|(_, v)| matches!(v, Ok(true))).map(|(c, _)| c).collect();
+    working.sort_by_key(|(s, d)| (category(d), block_count(d), s.clone()));
+    let mut picked = Vec::new();
+    for cat in ["solid", "gravity"] {
+        picked.extend(working.iter().filter(|(_, d)| category(d) == cat).take(opts.top).cloned());
+    }
+    for (source, d0) in picked {
+        let name = label(&source);
+        let out = opts.out_dir.join(format!("from-{name}.txt"));
+        let mut d = d0.clone();
+        d.name = format!("search-tool-from-{name}");
+        log(&format!("== {source}: {} blocks, {}", block_count(&d), category(&d)));
+        let mut o = SearchOptions { deadline: Some(Instant::now() + Duration::from_secs_f64(opts.minutes * 60.0)), ..search_opts.clone() };
+        o.seed = search_opts.seed;
+        let judge_n = o.judge.offsets.len();
+        let moves = opts.moves.clone();
+        let mut on_improve = |best: &Design, desc: &str| -> Result<()> {
+            best.save(&out)?;
+            log(&format!("improved: {} blocks ({desc}), written to {}", block_count(best), out.display()));
+            let note = format!(
+                "verified WORKS: {} blocks (judge: {judge_n} positions x 3 cycles); door harvest (minimize --moves {moves}) from {source}",
+                block_count(best)
+            );
+            if let Some(p) = crate::archive::save(&out, best, block_count(best), &note)? {
+                log(&format!("archived {}", p.display()));
+            }
+            Ok(())
+        };
+        let best = search(pool, &d, &o, log, &mut on_improve)?;
+        let line = format!("{:016x} {source} {} -> {}\n", design_hash(&d0), block_count(&d0), block_count(&best));
+        let mut text = std::fs::read_to_string(&seen_path).unwrap_or_default();
+        text.push_str(&line);
+        std::fs::write(&seen_path, text)?;
+        log(&format!("== {source}: {} -> {} blocks", block_count(&d0), block_count(&best)));
+    }
+    Ok(())
+}

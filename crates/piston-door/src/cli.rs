@@ -7,6 +7,72 @@ use mctas::design::Design;
 use mctas::sim::{Worker, WorkerConfig};
 use std::path::PathBuf;
 
+/// Local-search knobs shared by `minimize` and `harvest` (see search.rs).
+#[derive(clap::Args, Clone)]
+pub struct SearchArgs {
+    /// Worker JVMs (capped by MCTAS_MAX_WORKERS).
+    #[arg(long, default_value_t = 32)]
+    pub workers: usize,
+    /// Move families: a comma list of singles,pairs,triples,delays,moves,subs,reroute,renet, or all.
+    #[arg(long, default_value = "singles")]
+    pub moves: String,
+    /// Acceptance: the judge's four positions plus this many (as `door verify --extra-offsets`).
+    #[arg(long, default_value_t = 28)]
+    pub extra_offsets: u32,
+    /// Screen candidates at the first N judge positions before judging them.
+    #[arg(long, default_value_t = 2)]
+    pub screen_offsets: usize,
+    /// Open/close cycles per screening position.
+    #[arg(long, default_value_t = 1)]
+    pub screen_cycles: u32,
+    /// Settle cap (ticks) while screening.
+    #[arg(long, default_value_t = 200)]
+    pub screen_ticks: u32,
+    /// Neighborhood radius of compounds (neutral edit + one removal) and triples.
+    #[arg(long, default_value_t = 2)]
+    pub radius: i32,
+    /// When nothing improves, try every verified neutral edit followed by removals and re-routes.
+    #[arg(long)]
+    pub plateau: bool,
+    /// With --plateau, also try pair removals after each verified neutral edit.
+    #[arg(long)]
+    pub plateau_pairs: bool,
+    /// Plateau depth (2 implies --plateau): also a second neutral edit after each first.
+    #[arg(long, default_value_t = 1)]
+    pub depth: usize,
+    /// Random-walk steps over verified neutral designs without improving (implies --plateau).
+    #[arg(long, default_value_t = 0)]
+    pub walk: usize,
+    #[arg(long, default_value_t = 1)]
+    pub seed: u64,
+}
+
+impl SearchArgs {
+    pub fn options(&self) -> Result<crate::search::SearchOptions> {
+        let offsets = crate::search::judge_offsets(self.extra_offsets);
+        Ok(crate::search::SearchOptions {
+            families: crate::search::parse_families(&self.moves)?,
+            screen: VerifyOptions {
+                cycles: self.screen_cycles,
+                max_ticks: self.screen_ticks,
+                offsets: offsets.iter().take(self.screen_offsets.max(1)).copied().collect(),
+                keep_frames: false,
+            },
+            judge: VerifyOptions { offsets, ..Default::default() },
+            radius: self.radius,
+            plateau: self.plateau || self.plateau_pairs || self.walk > 0 || self.depth > 1,
+            plateau_pairs: self.plateau_pairs,
+            depth: self.depth,
+            walk: self.walk,
+            deadline: None,
+            seed: self.seed,
+        })
+    }
+
+    pub fn pool(&self, version: &str) -> Result<mctas::sim::Pool> {
+        mctas::sim::Pool::spawn(self.workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })
+    }
+}
 #[derive(Subcommand)]
 pub enum DoorCmd {
     /// Record a video of every design in a folder (several at once), upload each, write VIDEOS.md.
@@ -76,39 +142,8 @@ pub enum DoorCmd {
         design: PathBuf,
         #[arg(long)]
         out: PathBuf,
-        /// Worker JVMs (capped by MCTAS_MAX_WORKERS).
-        #[arg(long, default_value_t = 32)]
-        workers: usize,
-        /// Move families: a comma list of singles,pairs,triples,delays,moves,subs,reroute, or all.
-        #[arg(long, default_value = "singles")]
-        moves: String,
-        /// Acceptance: the judge's four positions plus this many (as `door verify --extra-offsets`).
-        #[arg(long, default_value_t = 28)]
-        extra_offsets: u32,
-        /// Screen candidates at the first N judge positions before judging them.
-        #[arg(long, default_value_t = 2)]
-        screen_offsets: usize,
-        /// Open/close cycles per screening position.
-        #[arg(long, default_value_t = 1)]
-        screen_cycles: u32,
-        /// Settle cap (ticks) while screening.
-        #[arg(long, default_value_t = 200)]
-        screen_ticks: u32,
-        /// Neighborhood radius of compounds (neutral edit + one removal) and triples.
-        #[arg(long, default_value_t = 2)]
-        radius: i32,
-        /// When nothing improves, try every verified neutral edit followed by single removals.
-        #[arg(long)]
-        plateau: bool,
-        /// With --plateau, also try pair removals after each verified neutral edit.
-        #[arg(long)]
-        plateau_pairs: bool,
-        /// Plateau depth (implies --plateau when 2): also a second neutral edit after each first.
-        #[arg(long, default_value_t = 1)]
-        depth: usize,
-        /// Random-walk steps over verified neutral designs without improving (implies --plateau).
-        #[arg(long, default_value_t = 0)]
-        walk: usize,
+        #[command(flatten)]
+        search: SearchArgs,
         /// Stop after this many minutes.
         #[arg(long)]
         minutes: Option<f64>,
@@ -118,8 +153,29 @@ pub enum DoorCmd {
         /// Rename the design (used for archive file names).
         #[arg(long)]
         name: Option<String>,
-        #[arg(long, default_value_t = 1)]
-        seed: u64,
+    },
+    /// Run the local search on the best designs of every branch (see harvest.rs): the `top`
+    /// smallest working designs per category not harvested yet, `minutes` each.
+    Harvest {
+        /// Ref prefix to scan besides HEAD.
+        #[arg(long, default_value = "refs/remotes/origin/explore/")]
+        refs: String,
+        /// Run `git fetch origin` first.
+        #[arg(long)]
+        fetch: bool,
+        #[arg(long, default_value_t = 200)]
+        max_blocks: usize,
+        /// Designs per category.
+        #[arg(long, default_value_t = 2)]
+        top: usize,
+        /// Search time per design.
+        #[arg(long, default_value_t = 15.0)]
+        minutes: f64,
+        /// Results (from-<label>.txt), archive/ and harvested.txt go here.
+        #[arg(long)]
+        out_dir: PathBuf,
+        #[command(flatten)]
+        search: SearchArgs,
     },
     /// Record the door opening and closing with the real Minecraft client (needs Xvfb).
     Video {
@@ -267,50 +323,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 anyhow::bail!("{failed} of {} scripts failed", scripts.len());
             }
         }
-        DoorCmd::Minimize {
-            design,
-            out,
-            workers,
-            moves,
-            extra_offsets,
-            screen_offsets,
-            screen_cycles,
-            screen_ticks,
-            radius,
-            plateau,
-            plateau_pairs,
-            depth,
-            walk,
-            minutes,
-            archive,
-            name,
-            seed,
-        } => {
+        DoorCmd::Minimize { design, out, search, minutes, archive, name } => {
             let mut d = load_design(&design)?;
             if let Some(n) = name {
                 d.name = n;
             }
-            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let pool = search.pool(version)?;
             let t = std::time::Instant::now();
-            let offsets = crate::search::judge_offsets(extra_offsets);
-            let opts = crate::search::SearchOptions {
-                families: crate::search::parse_families(&moves)?,
-                screen: VerifyOptions {
-                    cycles: screen_cycles,
-                    max_ticks: screen_ticks,
-                    offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
-                    keep_frames: false,
-                },
-                judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
-                radius,
-                plateau: plateau || plateau_pairs || walk > 0 || depth > 1,
-                plateau_pairs,
-                depth,
-                walk,
-                deadline: minutes.map(|m| t + std::time::Duration::from_secs_f64(m * 60.0)),
-                seed,
-            };
-            println!("{} workers; moves {moves}; judge {} positions", pool.len(), offsets.len());
+            let mut opts = search.options()?;
+            opts.deadline = minutes.map(|m| t + std::time::Duration::from_secs_f64(m * 60.0));
+            let moves = search.moves.clone();
+            let judge_n = opts.judge.offsets.len();
+            println!("{} workers; moves {moves}; judge {judge_n} positions", pool.len());
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
             let source = design.display().to_string();
             let mut on_improve = |best: &mctas::design::Design, desc: &str| -> Result<()> {
@@ -318,9 +342,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 log(&format!("improved: {} blocks ({desc}), written to {}", crate::block_count(best), out.display()));
                 if archive {
                     let note = format!(
-                        "verified WORKS: {} blocks (judge: {} positions x 3 cycles); door minimize --moves {moves} from {source}",
+                        "verified WORKS: {} blocks (judge: {judge_n} positions x 3 cycles); door minimize --moves {moves} from {source}",
                         crate::block_count(best),
-                        offsets.len()
                     );
                     if let Some(p) = crate::archive::save(&out, best, crate::block_count(best), &note, None)? {
                         log(&format!("archived {}", p.display()));
@@ -331,6 +354,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let best = crate::search::search(&pool, &d, &opts, &log, &mut on_improve)?;
             best.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&best), out.display());
+        }
+        DoorCmd::Harvest { refs, fetch, max_blocks, top, minutes, out_dir, search } => {
+            if fetch {
+                let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
+                anyhow::ensure!(st.success(), "git fetch failed");
+            }
+            let pool = search.pool(version)?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            let hopts = crate::harvest::HarvestOptions { refs, max_blocks, top, minutes, out_dir, moves: search.moves.clone() };
+            crate::harvest::run(&pool, std::path::Path::new("."), &hopts, &search.options()?, &log)?;
         }
         DoorCmd::Video { design, out, tps, upload } => {
             let d = load_design(&design)?;
