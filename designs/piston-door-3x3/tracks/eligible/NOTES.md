@@ -14,7 +14,9 @@ must be SEAMLESS, target FULL + hallway.
 
 | design | volume | blocks | seamless | lever open/close | repeater open/close | what |
 |---|---|---|---|---|---|---|
-| **[fl72n](fl72n.txt)** (BEST) | **72 (8x9x1)** | 52 | FULL + hallway | 36/36 | 37/37 | flat-seam's e89 + note block in the lever cell, lever on its west face (in-plane): flat, slime-free, rotation-safe |
+| **[fl72m](fl72m.txt)** (BEST) | **72 (8x9x1)** | **50** | FULL + hallway | 34/34 | 35/35 | flat-seam's 49-block e89b + note block in the lever cell, lever on its west face (in-plane): flat, slime-free, rotation-safe |
+| [fl72f](fl72f.txt) | 72 (8x9x1) | 52 | FULL + hallway | 34/34 | 35/35 | fl72n sped up: an observer -> iron trapdoor (`--objective total`) |
+| [fl72n](fl72n.txt) | 72 (8x9x1) | 52 | FULL + hallway | 36/36 | 37/37 | flat-seam's 51-block e89 + note block in the lever cell, lever on its west face (in-plane) |
 | [fl80m](fl80m.txt) | 80 (8x10x1) | 48 | FULL + hallway | 34/34 | 35/35 | seamless's 47-block flat-b-v7-full + note block in the lever cell, lever on its west face (in-plane) |
 | [fl80f](fl80f.txt) | 80 (8x10x1) | 51 | FULL + hallway | 30/30 | 31/31 | fl80n sped up: an observer -> iron trapdoor (`--objective total`) |
 | [fl80n](fl80n.txt) | 80 (8x10x1) | 51 | FULL + hallway | 32/32 | 33/33 | seamless's 50-block flat-b-v7-full + note block, lever on its west face |
@@ -131,4 +133,5 @@ the wrong one the judge fails "not back to its rest state").
 - 20:40Z fl81m (81, 44 blocks). 20:56Z fl81f (81, 48/44). 21:00Z fl80n (volume 80, FULL, 32/32):
   the smallest eligible door. 21:02Z s4ff (24/18): the fastest eligible FULL door. 21:06Z fl80f
   (80, 30/30). 21:09Z fl80m (80, 48 blocks: seamless's 47-block flat-b-v7-full + note block).
-  21:37Z fl72n (72, 8x9x1: flat-seam's e89 + note block).
+  21:37Z fl72n (72, 8x9x1: flat-seam's e89 + note block). 21:40Z fl72f (72, 34/34). 21:44Z fl72m
+  (72, 50 blocks: flat-seam's 49-block e89b + note block).
