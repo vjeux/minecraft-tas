@@ -1,42 +1,42 @@
-name: eligible-fl81f
+name: eligible-fl80n
 port door: 0 0 0
-port lever: 6 4 0
+port lever: -1 -4 0
 origin: -3 0 0
 palette:
   A minecraft:observer[facing=up,powered=false]
   B minecraft:observer[facing=west,powered=false]
-  C minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  C minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
   D minecraft:dropper[facing=up,triggered=false]
   E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
   F minecraft:sticky_piston[extended=false,facing=east]
   G minecraft:sticky_piston[extended=false,facing=up]
   H minecraft:sticky_piston[extended=false,facing=west]
-  I minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
-  J minecraft:stone
-  L minecraft:lever[face=wall,facing=east,powered=false]
-  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  I minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
   O minecraft:observer[facing=down,powered=false]
-  R minecraft:redstone_lamp[lit=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   S minecraft:smooth_stone
-  n minecraft:note_block[instrument=harp,note=0,powered=false]
   o minecraft:observer[facing=east,powered=false]
-  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  ..LNBBI
+layer -3:
+  ..oOGER
 layer -2:
-  ..RBG
+  ooOIGO
 layer -1:
-  ..A
+  O.F..S
 layer 0:
-  .F.JJJ.H
+  OF.III.H
 layer 1:
-  SF.JJJ.HS
+  IF.III.H
 layer 2:
-  AF.JJJ.HC
+  rF.III.S
 layer 3:
-  DoRS..H.A
+  .SO....A
 layer 4:
-  ...CsnoINL
+  .CS.ssDB
 layer 5:
-  ...AsOA
-layer 6:
-  ...rErB
+  .OBDBS
