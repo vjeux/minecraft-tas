@@ -68,6 +68,7 @@ pub fn build(name: &str) -> Option<Design> {
         "rb2" => Some(rb2()),
         "rb3" => Some(rb3()),
         "rb5" => Some(rb5()),
+        "rb6" => Some(rb6()),
         "rb4-bench" => Some(rb4_bench()),
         "rb1-base" => Some(rb1_route_base()),
         "v2-133" => Some(crate::designs_history::v2_133()),
@@ -463,5 +464,33 @@ pub fn rb5() -> Design {
     b.dust([0, 6, -3]);
     b.dust([-1, 5, -3]);
     b.repeater([-1, 5, -2], "south", 4); // rep2 into H
+    b.d
+}
+
+/// rb6: rb5 with a 7-block silent hold and mechanics' 5-block O2 -> R_B link.
+/// Hold: lever -> repeater (-1,6,-1) (its floor is H) -> block (-2,6,-1) -> dust (-3,6,-1) ->
+/// its floor powers repeater (-2,5,-1) -> H (-1,5,-1), next to Q's quasi cell. The repeater's
+/// floor (-2,4,-1) touches the open left backbone: glazed terracotta, which slime never drags.
+/// O2 link (from mechanics' 51): O2 strongly powers (0,6,1), which lights the cross dust (0,6,2),
+/// which strongly powers (1,6,2) behind R_B.
+pub fn rb6() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-rb6".into();
+    rb1_mech(&mut b);
+    b.d.blocks.remove(&[1, 6, 2]);
+    b.set([0, 5, -1], FLOOR); // X_L
+    b.set([0, 6, -1], "lever[face=floor,facing=west,powered=false]");
+    b.port("lever", [0, 6, -1]);
+    b.set([0, 6, 0], "observer[facing=north]"); // O2 watches the lever
+    b.set([0, 6, 1], FLOOR);
+    b.set([0, 5, 2], FLOOR);
+    b.set([0, 6, 2], "redstone_wire[north=side,east=side,south=side,west=side]");
+    b.set([1, 6, 2], FLOOR);
+    // silent hold
+    b.repeater([-1, 6, -1], "west", 4); // floor (-1,5,-1) = H
+    b.set([-2, 6, -1], FLOOR);
+    b.dust([-3, 6, -1]);
+    b.set([-2, 5, -1], "repeater[facing=west,delay=4]");
+    b.set([-2, 4, -1], "white_glazed_terracotta[facing=north]");
     b.d
 }
