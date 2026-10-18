@@ -66,13 +66,20 @@ mctas door mech-wire designs/piston-door-3x3/tracks/mech-synth/catalog-21/m05-21
 ```
 
 ## Results (all verified by the judge, 32 positions x 3 cycles)
-| mechanism | schedule | wired | after minimize | file |
+| mechanism | schedule | wired | after polish | file |
 |---|---|---|---|---|
-| abpt21r (wire21 chain.ideal) | natural chain ticks | 53 (54 first) | 51 | `wired/abpt21r-chain-53b.txt`, `wired/abpt21r-chain-min.txt` |
+| abpt21r (wire21 chain.ideal) | natural chain ticks | 53-56 (depends on the causality rule) | 53 (`--polish-secs`: route2 rip-up 56 -> 53), 51 (`door minimize --moves all` from 54) | `wired/abpt21r-chain-polished-53b.txt`, `wired/abpt21r-chain-min.txt` |
 | m05 (catalog-21) | --windows --retime: steps [1,5,11,13,19,21,23] = wire21's hand timing, found by the grid | 53 | | `wired/m05-natural-53b.txt` |
+| m02 (catalog-21) | --windows --retime: [1,5,9,11,17,19,21] (open 24 / close 24) | 52 | | `wired/m02-52b.txt` |
 
-Ranking runs over catalog-21 (m00-m11) and the M-first catalog-22 entries (#355-#378): see the
-log below.
+For comparison the hand wirings of these mechanisms: m05 = 40 (wire21), abpt21r ~41-43.
+
+Not wired: m00 (T-mover extended at rest: a NOT-lever level, no torch in the default palette: no
+lever spot reaches every receiver); m01 (lever spots and candidates exist, none of 16 passes
+the judge: not diagnosed further); catalog-22 #355/#356 (no working retiming with gaps 2/4/6
+up to tick 25: they need level inputs on extended pistons), #357 (one working retiming, no
+lever spot reaches every receiver). Compressed schedules (`--compress`, no slack): 0 of 8-20
+candidates passed the judge for m01/m02/#1-#4; natural timings (`--windows --retime`) pass.
 
 ## Why the router loses to hand wiring (m05: 53 vs 40)
 * **No sharing by construction.** Each receiver is connected by its own cheapest path from the
@@ -88,8 +95,13 @@ log below.
   `--retime` grid with `--windows` finds the natural timing (m05: wire21's exact hand timing).
 * **Free events and motion triggers.** A free event (P_R) can be routed at a time different
   from the measured one; a motion trigger watching it (O_m for M) then fires at another time
-  than the router assumed. The judge catches it; a second measure-and-route pass with the
-  realized times would fix it.
+  than the router assumed. Worse, the router fired free side pistons by watching their OWN
+  column (a causality loop the static model accepts). Fixed in two steps: `own_motion` replays
+  the schedule without a free receiver's events and collects every cell whose motion changes;
+  no receiver may watch those cells, tap a node fed by an observer on them
+  (`Model::downstream`), or pick one up as context (m02: 0 of 16 candidates passed the judge
+  before, the first one after). The price: fewer cheap triggers (abpt21r 53 -> 56 before
+  polish). A second measure-and-route pass with the realized times would give them back.
 
 ## Next ideas
 * Sharing-aware routing: after the router's first full routing, rip each net in the context of
@@ -106,3 +118,9 @@ log below.
   fix for router-placed observers. First automatic door: abpt21r 54 (verified), minimize 51.
 - 06:30-07:20 lever-spot screen, per-schedule ranking, --windows + --retime (m05 53 with the
   hand timing found by the grid). Batches over catalog-21 and catalog-22 M-first entries.
+- 07:20-08:00 the judge rejected almost every candidate: free side pistons watched their own
+  column. Causality rule for free receivers; m02 52 verified. --polish-secs (route2 rip-up +
+  local search). Final batches: catalog-21 m01/m03/m04/m06/m10, catalog-22 #357/#358/#359/#361.
+- 08:00-08:25 exact causality (`own_motion` + taint through `Model::downstream`); re-runs:
+  m02 52, abpt21r 56 -> 53 with `--polish-secs`. Ran out of time for the catalog batches
+  (each mechanism costs ~3 min of retime grid + 1-2 min of routing on a loaded box).
