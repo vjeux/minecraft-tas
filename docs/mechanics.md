@@ -60,6 +60,91 @@ Neighbor updates go out in the fixed order `WEST, EAST, DOWN, UP, NORTH, SOUTH`
 * **Torch:** 2 gt delay; powers every neighbor except its attachment, strongly the block above;
   a lit/unlit change also updates the neighbors of its neighbors.
 
+## More facts read in the source (mechanics track)
+
+* **Dust shape:** the default `redstone_wire` state is a dot, and a dot stays a dot
+  (`getConnectionState`: `wasDot && isDot`), powering only the block below. Write an isolated
+  dust as a cross (`east=side,north=side,south=side,west=side`) when it must point sideways; a
+  dust with one connection becomes a line through it and points both ways.
+* **Lever as a source:** a lever is a signal source for adjacent *components* (dust connects to
+  it, a repeater whose back faces it reads it), but an adjacent solid block other than its
+  attachment is not powered. A repeater reading the lever is a one-way tap.
+* **Strong power back-feeds dust:** a block strongly powered by a repeater (or a lever, an
+  observer, a torch below it) powers every dust touching it, including dust *on top* of it. A
+  dust only *weakly* powers the blocks it points into or sits on (they power components, never
+  other dust).
+* **Repeaters update quietly:** a repeater switching a solid block in front of it updates that
+  block's neighbors only (`updateNeighborsInFront`), not their neighbors. A piston powered
+  through that block by quasi-connectivity is not updated: it neither extends nor retracts
+  until something next to it changes (silent hold, rb5).
+* **Piston heads forward updates:** `PistonHeadBlock.neighborChanged` passes every neighbor
+  update to its base, so an extended piston also re-checks when a cell next to its head changes.
+* **Slime ignores fragile blocks:** a dragged neighbor with push reaction DESTROY (dust,
+  torches, repeaters) is skipped, neither moved nor broken, unless it is in the push line; a
+  PUSH_ONLY (glazed terracotta) or immovable (obsidian) neighbor stays too. Floors and wiring can
+  hug a slime backbone if they are glazed terracotta.
+* **Lamp, copper bulb:** a redstone lamp lights in the tick it is powered and goes dark 4 gt
+  after (asymmetric delay, visible to observers). A copper bulb toggles `lit` on every rising
+  edge of its power in the same tick (`checkAndFlip`) and a comparator reads it as 15/0.
+* **Walkway rule:** the judge asks the walkway for *no collision*, so collision-free blocks
+  (dust, torches, levers, buttons, rails) may sit in it (dust at the door's bottom level on
+  floors one lower). The router still keeps out of it.
+
+## Gadget library (`designs/gadgets/`)
+
+Each gadget is a small design plus a drive script whose `expect`s prove the behavior:
+`mctas door drive --quiet designs/gadgets/*.drive` prints PASS/FAIL per gadget.
+
+| gadget | blocks | what it proves |
+|---|---|---|
+| `dual-edge` | observer | an observer watching a lever pulses 2 gt, 2 gt after *both* flips |
+| `pulse-stretch` | repeater | a pulse shorter than a repeater's delay comes out exactly that long (2 gt -> 8 gt); a second pulse while it is on is swallowed |
+| `spit` | observer + sticky piston | a 2 gt pulse makes a sticky piston push its block and leave it (retract event type 2) |
+| `qc-bud` | repeater, piston | a piston is powered by anything powering the cell above it, but only acts when updated (BUD) |
+| `lamp-fall-delay` | lamp + observer | lamp: rise 0 gt, fall 4 gt |
+| `bulb-toggle` | copper bulb + comparator | T flip-flop: toggles on rising edges only, no delay |
+| `slime-nonstick` | slime, glazed terracotta, obsidian | slime drags stone but not glazed terracotta or obsidian |
+| `silent-hold` | block + repeater | a quasi-powered piston ignores its source switching on and off until a neighbor update |
+| `pulse-bridge` | block, cross dust, block | an observer pulse moved one cell sideways into a repeater's back with 4 blocks (mech-50) |
+| `lever-tap` | repeater | a repeater reading the lever feeds a net that the lever's block cannot back-feed (mech-89) |
+| `pulse-toggle` | observer + retracted sticky piston | one 2 gt pulse per lever edge drives a piston that is retracted at rest: the on pulse pulls its block (still: normal pull), the off pulse pushes it back and spits it (no torch, no steady line; logic-min) |
+| `stack-feed` | cross dust + floor + observer | one pulse fires a stack of 3 retracted sticky pistons: a cross dust behind the stack at the top level points into the top piston, its floor powers the middle one and quasi-powers the bottom one (observer-seq s6: a whole slime-free side column per dust) |
+| `sculk-hold` | sculk sensor | (category sculk) a lever click or piston move within 8 blocks wakes it floor(distance) gt later; active 30 gt, then 10 gt deaf |
+* **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
+  piston holds it 30 gt after a lever click (weak power on every side, strong power into the
+  block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a
+  piston whose source is the lever directly retracts at tick 1 before the sensor can hold it:
+  cover the first ticks with a 4 gt repeater from the lever. The door's own late pistons move
+  inside the 10 gt cooldown, so they do not re-trigger it (rb2s2 50, m51s 48). Doors using it
+  rank in the `sculk` category.
+| `sculk-hold` | sculk sensor + repeater | a sculk sensor next to a piston holds it 30 gt after a lever flip (each flip is a vibration), then cools down 10 gt; the repeater bridges the sensor's 2 gt latency (category `sculk`; center-mech) |
+* **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
+  source that later turns off WITHOUT updating it stays extended, unpowered, until any later
+  neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
+  to the head counts). A repeater switching a solid block only updates that block's neighbors:
+  feed the piston's quasi cell through such a block to drop the hold silently.
+* **Slime drags:** blocks with PushReaction DESTROY (dust, repeaters, levers, torches) next to a
+  moving slime block are left in place, not dragged or broken (only a DESTROY block in the
+  movement path breaks); their floors are normal blocks and do get dragged (glazed terracotta
+  never is).
+* **Redstone block shuttle:** a sticky piston pushing a redstone block from next to piston A to
+  next to piston B switches A off at once (the block becomes a moving piston that tick) and B
+  on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
+  then A on".
+* **Redstone block riding a structure (center-mech):** a redstone block carried by a slime
+  structure powers a piston at rest and lets it go when the structure moves. It must touch the
+  piston itself: in a quasi-only position its return never updates the piston, which then stays
+  retracted. Two pushers can share one powered block between them (v2u2: both side structures
+  pushed out from under the walkway off one obsidian block).
+* **Sculk sensor (center-mech, gadget `sculk-hold`):** a lever flip is a vibration
+  (BLOCK_ACTIVATE/DEACTIVATE); a sensor within 8 blocks goes ACTIVE after `floor(distance)` gt
+  plus its block-entity tick (after the block-event phase), stays active 30 gt (power by
+  distance, all directions, strongly into the block below it), then COOLDOWN 10 gt during which
+  it ignores the door's own piston vibrations. One block = a 30 gt monostable on both lever
+  edges; a piston that would see the lever's fall first needs a short bridge.
+* **Dust does not pick up a block powered only by other dust** (wire signals are off while a
+  wire computes its input): to tap a dust net one-way into another, put a repeater (or a block
+  strongly powered by a repeater) between them.
 ## Gravity blocks (`FallingBlock`, `FallingBlockEntity`) — track gravity
 
 * Sand/gravel/concrete powder schedule a tick 2 gt after being placed (pistons place them at the
@@ -73,3 +158,15 @@ Neighbor updates go out in the fixed order `WEST, EAST, DOWN, UP, NORTH, SOUTH`
 * An isolated redstone dust is a dot and powers nothing sideways; written as a cross
   (`redstone_wire[north=side,east=side,south=side,west=side]`) it stays a cross after the shape
   update and powers all four neighbors.
+* **Pulse-driven pistons (logic-min, gadget `pulse-toggle`):** any door piston that only has to
+  move its block once per lever edge can be retracted at rest and fired by a 2 gt observer pulse
+  (pull on open, push + spit on close): v2's six pistons all work that way except P_T. The
+  measured windows (`door ideal`): side/bottom pistons accept the pulse at any tick on both
+  edges; A needs one pulse 0..4 gt after the flip plus the two B-edge pulses.
+* **Observers on pistons fire twice:** a piston (or its head cell) changes state at the event,
+  2 gt later and again 2 gt after that, so an observer watching it pulses twice per motion (a
+  pulse-toggled column then moves out and back). Watch a block that moves once, the lever, or
+  another observer instead.
+* **OR of two repeaters in one dust:** a dust sandwiched between the output block of one
+  repeater (above it) and of another (below it, its floor) is lit by either, and a cross dust
+  powers the block it points into: a 2-input OR feeding a torch with 1 dust (logic-min P_T).

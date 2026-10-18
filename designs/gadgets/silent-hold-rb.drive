@@ -1,0 +1,14 @@
+# The lever extends P at once; after the lever goes off P stays extended while the 16gt delay
+# still powers H, and keeps extended after H drops (R goes 0 at +16) because nothing updates
+# it; a block placed next to P retracts it.
+design designs/gadgets/silent-hold-rb.txt
+probe P 2 1 0
+probe R 0 2 0
+use 2 3 0
+expect_trace P E
+quiet 19
+use 2 3 0
+expect_trace P EEEEEEEEEEEEEEEEEEEEEEEE
+expect R 0
+set 2 1 1 minecraft:stone
+expect_trace P ~~r

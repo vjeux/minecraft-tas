@@ -1,0 +1,54 @@
+design designs/piston-door-3x3/tracks/center-mech/wip/nf-mech.txt
+quiet 2
+print
+# open: every puller loses power
+clear 0 4 -1
+clear 1 4 -1
+clear 2 4 -1
+clear 0 -2 -1
+clear 1 -2 -1
+clear 2 -2 -1
+clear -3 1 0
+clear 5 1 0
+quiet 4
+print
+# P_T pulls T aside
+clear 1 3 3
+quiet 4
+# B pushes A down, pulse 1
+set 1 6 0 minecraft:redstone_block
+quiet 3
+set 1 3 -1 minecraft:redstone_block
+quiet 3
+clear 1 3 -1
+quiet 4
+# B lifts A, pulse 2
+clear 1 6 0
+quiet 3
+set 1 4 1 minecraft:redstone_block
+quiet 3
+clear 1 4 1
+quiet 3
+print
+# ---- close ----
+set 1 6 0 minecraft:redstone_block
+quiet 3
+set 1 3 -1 minecraft:redstone_block
+quiet 1
+clear 1 3 -1
+quiet 4
+clear 1 6 0
+quiet 4
+print
+set 1 3 3 minecraft:redstone_block
+quiet 4
+set 1 4 -1 minecraft:redstone_block
+set 0 4 -1 minecraft:redstone_block
+set 2 4 -1 minecraft:redstone_block
+set 0 -2 -1 minecraft:redstone_block
+set 1 -2 -1 minecraft:redstone_block
+set 2 -2 -1 minecraft:redstone_block
+set -3 1 0 minecraft:redstone_block
+set 5 1 0 minecraft:redstone_block
+quiet 6
+print

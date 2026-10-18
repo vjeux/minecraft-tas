@@ -1,0 +1,9 @@
+# P_BM pulse-driven (top-control's trick): retracted at rest, fired by an observer watching the
+# bottom-right door block (moves once per edge with the right structure) through block (2,-2,0);
+# the left backbone no longer carries a redstone block down to y=-2.
+clear 0 -2 0
+clear -1 -2 0
+clear -1 -1 0
+set 1 -2 0 minecraft:sticky_piston[facing=up,extended=false]
+set 2 -1 0 minecraft:observer[facing=up]
+set 2 -2 0 minecraft:smooth_stone

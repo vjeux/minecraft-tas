@@ -1,0 +1,58 @@
+name: nfd-mech: slime-free, C goes down; top row pulled up (3 pullers), side stacks of 2 (edge + bottom corner), bottom elevator P_M on B_M, P_MA pulls M aside
+port door: 0 0 0
+port lever: 9 9 9
+origin: -3 0 -3
+palette:
+  S minecraft:stone
+  R minecraft:redstone_block
+  D minecraft:sticky_piston[facing=down,extended=true]
+  d minecraft:piston_head[facing=down,type=sticky,short=false]
+  U minecraft:sticky_piston[facing=up,extended=true]
+  u minecraft:piston_head[facing=up,type=sticky,short=false]
+  E minecraft:sticky_piston[facing=east,extended=true]
+  e minecraft:piston_head[facing=east,type=sticky,short=false]
+  W minecraft:sticky_piston[facing=west,extended=true]
+  w minecraft:piston_head[facing=west,type=sticky,short=false]
+  N minecraft:sticky_piston[facing=south,extended=true]
+  n minecraft:piston_head[facing=south,type=sticky,short=false]
+  B minecraft:sticky_piston[facing=up,extended=false]
+layer -3:
+  .
+  .
+  .
+  ....B
+layer -2:
+  .
+  .
+  ....R
+  ....U
+layer -1:
+  ....R
+  ....N
+  ....n
+  ....u
+layer 0:
+  .
+  .
+  .
+  .EeSSSwW
+layer 1:
+  .
+  .
+  .
+  REeSSSwWR
+layer 2:
+  .
+  .
+  .
+  ...SSS
+layer 3:
+  .
+  .
+  .
+  ...ddd
+layer 4:
+  .
+  .
+  ...RRR
+  ...DDD

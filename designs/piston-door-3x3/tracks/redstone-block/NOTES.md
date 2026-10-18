@@ -61,3 +61,67 @@ router (two routes: lever net -> late chain input, lever net -> O2's watched dus
   through Q's head at the first A pulse: off at L+12) and drop before A lands back (L+18): 14gt
   failed (H dropped in the same tick as the first pulse ended), 16gt works.
 `door minimize --moves all`: no further removal.
+
+## rb6: 48 blocks, category solid (BEST.txt)
+`mctas door gen rb6`. rb5 with two shorter nets:
+* Silent hold in 7 blocks: lever -> repeater (-1,6,-1) whose floor IS H (-1,5,-1) -> block
+  (-2,6,-1) -> dot dust (-3,6,-1) -> its floor powers repeater (-2,5,-1) (facing west) -> H.
+  The repeater's floor (-2,4,-1) touches the open left backbone, so it is glazed terracotta
+  (slime never drags it). Note: dust/repeaters (PushReaction DESTROY) next to slime are not
+  dragged either (only their floors are a problem).
+* O2 -> R_B in 5 blocks, borrowed from mechanics' 51: O2 strongly powers (0,6,1), which lights
+  the cross dust (0,6,2) (shape must be written as a cross; a lone dust canonicalizes to a dot
+  that powers nothing sideways), which strongly powers (1,6,2) behind R_B.
+
+## What did not work / dead ends
+* RB_BM at (0,-1,0) (quasi-powering BM through its head cell, saving a slime): opens, but on
+  close BM is never updated (the block landing next to the head cell finds M there, and M does
+  not forward updates), so M stays down.
+* A 14gt silent hold: H dropped in the same tick as the first A pulse's second-order update
+  reached Q (through Q's head), so Q released mid-dance. 16gt works; 8gt can't (P_L's
+  retraction and the A pulses update Q until ~L+12).
+* rb4 bench: the hold repeater's floor next to the open left backbone was dragged and the
+  repeater popped (fixed by moving it / glazed terracotta).
+* Slime-free attempt (sf1: v2 with 3 pullers per side column): one wall torch at y=1 beside
+  the column plus a block above it powers all three pullers (direct, quasi, through the block),
+  but feeding that torch with dust on top of its attachment makes a clock (the dust also
+  touches the block the torch powers) and the torch burns out; v2's L line at (5,4,0) also
+  quasi-powers a right puller at (4,2,0). Not pursued further.
+
+## Ideas not tried yet
+* Shorten S1 (7 slimes): BM's redstone block costs 3 blocks; a cheaper BM power source that
+  drops when the door opens (and updates BM when it comes back) would save 1-2.
+* P_L at (0,3,0) (one slime less) with the lever block at (0,3,-1) powering both Q and P_L
+  directly; needs the lever, O2 and the hold re-laid around y=3 (floors at y=2 are corridor).
+* Trigger the B window from something already moving instead of O2 (no candidate found: the
+  close dance must start right after the lever, and only the lever moves then).
+
+## Speed analysis (session 2): why rb6 opens in 22 and closes in 25
+Traced with probes (`trace`), lever flip = t0, w = tick B extends (R_B turns on):
+* Open: A retracts t1 (T up), P_R drags T out of (1,3,0) at t4 (it must wait for T to land at
+  t3: a moving block is not dragged). B pushes A down at w; A lands w+2 (X pulse aligned);
+  A extends w+3, retracts w+4 pulling C; A is solid again only at w+6 (BE phase), so B can
+  retract at w+7 at the earliest (B retracting earlier finds A moving and does not lift it:
+  verified, R_B delay 3 breaks the door); A lands w+9, second pulse, C leaves (1,2,0) at w+11.
+  rb6 has w = 10 (O2 pulse at t2 + R_B's 8 gt), window 8 => open 22 (w+12).
+* Close: B at w = 10, the dance ends with A landing at w+9; that landing releases Q (silent
+  hold), P_R pushes T back (w+12) and A pushes it down => close 25 (w+15).
+* So the dance gives open = w+11 and close = w+15, with w >= 4 in open (T leaves (1,3,0) at
+  t4; P_R's block event is queued before B's, FIFO, so B at t4 would still find (1,3,0) air).
+  The only lever is the B window: it must start early (t4..6) and last 7-8 ticks on BOTH lever
+  edges. A repeater can't start earlier than its input + delay, and the earliest dual-edge
+  signal is the observer at t2: an 8-tick window from t4 needs an input lasting t2..t10, i.e.
+  OR(O2, O2 delayed 2, O2 delayed 4) into R_B (delay 1). Every compact layout tried on paper
+  either back-feeds K (the block behind R_B is strongly powered, lights the dust that feeds
+  the extra repeaters: latch) or needs ~12 extra blocks. A silent hold for B (kick + silent
+  source released by A's completion update, like Q's) fails on timing: the silent source must
+  drop in (w+4, w+6], which no O2-fed repeater does, and at w+6 the kick repeater's falling
+  edge (VERY_HIGH priority) runs before the hold repeater's rising edge.
+* Expected payoff if built: open 16, close ~20 (solid bests today: 22 open, 18 close). Solid
+  can't reach the gravity door's 5/11 with this dance: C needs two sequential moves whose
+  pullers both sit in T's waypoint (1,3,0) (or BM's/a side block's), so ~4 sequential piston
+  actions (>= 12 ticks) before C clears; a ~16-tick z-swap scheme (P1 pushed into (1,3,0) from
+  (1,3,-1) after T leaves to (1,3,1)) was sketched, not built.
+* Fast close idea (not built): if the open state stacks T ABOVE C in the column with A a
+  normal piston above them, the close is two line pushes (B pushes A+T+C, then A pushes T+C)
+  => ~6 ticks; the open for that layout needs C to pass T, which pulls can't do (pull = 1 block).

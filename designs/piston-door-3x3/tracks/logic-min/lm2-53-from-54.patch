@@ -1,0 +1,7 @@
+# from lm2-54: the OR net extends one dust west so the P_T torch can sit right next to P_T.
+clear 3 4 2
+clear 2 4 2
+set 2 3 2 minecraft:redstone_wall_torch[facing=west,lit=true]
+set 3 3 2 minecraft:smooth_stone
+set 4 3 2 minecraft:redstone_wire[north=side,east=side,south=side,west=side]
+set 4 2 2 minecraft:smooth_stone

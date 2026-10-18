@@ -19,9 +19,14 @@ pub mod cli;
 pub mod archive;
 pub mod designs;
 pub mod designs_history;
+pub mod designs_top;
+pub mod designs_center_mech;
+pub mod observer_seq;
 pub mod leaderboard;
 pub mod designs_gravity;
+pub mod lm;
 pub mod drive;
+pub mod ideal;
 pub mod route;
 pub mod minimize;
 pub mod patch;
@@ -163,6 +168,11 @@ pub fn is_gravity_block(state: &str) -> bool {
     n.ends_with("concrete_powder") || matches!(n, "sand" | "red_sand" | "gravel" | "suspicious_sand" | "suspicious_gravel")
 }
 
+/// True when the design uses no slime and no honey blocks anywhere (its own leaderboard).
+pub fn slime_free(d: &Design) -> bool {
+    !d.blocks.values().any(|s| s.contains("slime_block") || s.contains("honey_block"))
+}
+
 /// The door category of a design: "solid" (normal blocks), "gravity" (sand-like door blocks),
 /// or "sculk" (uses sculk sensors: vibrations from players or mobs nearby can trigger them, so
 /// those doors are ranked separately).
@@ -252,7 +262,7 @@ pub fn verify_in(w: &mut Worker, sb: u32, design: &Design, opts: &VerifyOptions)
 }
 
 /// The box the verifier watches: the design plus a margin (blocks can move out of it).
-fn watch_box(d: &Design, spec: &DoorSpec) -> (Pos, Pos) {
+pub(crate) fn watch_box(d: &Design, spec: &DoorSpec) -> (Pos, Pos) {
     let (mut lo, mut hi) = d.bounds().unwrap();
     for p in spec.door_cells().iter().chain(spec.corridor_cells().iter()) {
         for i in 0..3 {
@@ -280,7 +290,7 @@ fn is_mechanism_block(state: &str) -> bool {
 }
 
 /// Door cells hold 9 identical full plain blocks; corridor is walkable.
-fn closed_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
+pub(crate) fn closed_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
     let mut out = Vec::new();
     let first = r.get(spec.door_cells()[0]).unwrap_or("?").to_string();
     for p in spec.door_cells() {
@@ -308,7 +318,7 @@ fn closed_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
 }
 
 /// Door and corridor cells are all walkable.
-fn open_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
+pub(crate) fn open_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
     let mut out = Vec::new();
     for p in spec.door_cells().into_iter().chain(spec.corridor_cells()) {
         let s = r.get(p).unwrap_or("?");
@@ -478,6 +488,37 @@ pub fn timeline(frames: &[Region], spec: &DoorSpec) -> String {
 /// The design with every block replaced by the exact state it has once placed and settled
 /// (wire connections, repeater flags...), so the file is the true rest state.
 pub fn canonicalize(w: &mut Worker, d: &Design) -> Result<Design> {
+    // A design written with stale redstone states (dust at power 0, a repeater off) can let a
+    // piston fire before its signal settles, so the "rest" read back is a half-moved machine.
+    // Settle, copy back only the redstone parts' states, and retry until the machine stays put.
+    let is_redstone = |s: &str| {
+        let n = mctas::blockstate::block_name(s);
+        ["redstone_wire", "repeater", "comparator", "redstone_torch", "redstone_wall_torch", "observer", "redstone_lamp"]
+            .iter()
+            .any(|k| n == format!("minecraft:{k}"))
+    };
+    let mut cur = d.clone();
+    for _ in 0..6 {
+        let settled = canonicalize_once(w, &cur)?;
+        let moved = cur.blocks.iter().any(|(p, s)| !is_redstone(s) && settled.blocks.get(p) != Some(s));
+        if !moved {
+            return Ok(settled);
+        }
+        let mut next = d.clone();
+        for (p, s) in next.blocks.iter_mut() {
+            if is_redstone(s) {
+                *s = settled.blocks[p].clone();
+            }
+        }
+        if next == cur {
+            return Ok(settled);
+        }
+        cur = next;
+    }
+    canonicalize_once(w, &cur)
+}
+
+fn canonicalize_once(w: &mut Worker, d: &Design) -> Result<Design> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let blocks = d.block_list();
     w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
