@@ -1496,6 +1496,13 @@ pub enum DoorCmd {
         /// key<=n terms, e.g. `thick<=1,volume<=81`; see `door shapes`).
         #[arg(long)]
         shape: Option<String>,
+        /// Compaction (the volume boards): keep every replacement circuit inside this box,
+        /// "x0,y0,z0:x1,y1,z1" (inclusive); while removable blocks lie outside it, cut only
+        /// groups through them and let each grow back inside the box with up to --extra more
+        /// blocks than it had (every accepted replacement leaves fewer blocks outside). Pistons,
+        /// the lever and its support are never moved: they must already lie inside.
+        #[arg(long)]
+        fit: Option<String>,
     },
 }
 
@@ -3016,20 +3023,19 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, repeater_input, eligible, shape } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, repeater_input, eligible, shape, fit } => {
             let shape = shape.as_deref().map(crate::ShapeLimits::parse).transpose()?;
             use crate::synth::*;
             let seamless = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
-            let only = match only {
-                Some(s) => {
-                    let (a, b) = s.split_once(':').ok_or_else(|| anyhow::anyhow!("--only wants x0,y0,z0:x1,y1,z1"))?;
-                    let a = parse_cells(a)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --only corner {a:?}"))?;
-                    let b = parse_cells(b)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --only corner {b:?}"))?;
-                    Some(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
-                }
-                None => None,
+            let parse_box = |flag: &str, s: &str| -> Result<(mctas::sim::Pos, mctas::sim::Pos)> {
+                let (a, b) = s.split_once(':').ok_or_else(|| anyhow::anyhow!("--{flag} wants x0,y0,z0:x1,y1,z1"))?;
+                let a = parse_cells(a)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --{flag} corner {a:?}"))?;
+                let b = parse_cells(b)?.first().copied().ok_or_else(|| anyhow::anyhow!("bad --{flag} corner {b:?}"))?;
+                Ok(([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])], [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])]))
             };
+            let only = only.as_deref().map(|s| parse_box("only", s)).transpose()?;
+            let fit = fit.as_deref().map(|s| parse_box("fit", s)).transpose()?;
             let sweep = designs.len() > 1;
             if sweep {
                 std::fs::create_dir_all(&out)?;
@@ -3067,6 +3073,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     repeater_input: repeater_input || eligible,
                     eligible,
                     shape,
+                    fit,
                 };
                 let start = {
                     let mut w = pool.worker(0);
