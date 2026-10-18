@@ -775,6 +775,17 @@ pub enum DoorCmd {
     /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
     /// schedules), rank by (blocks, control events), write ideal-input designs + schedules and
     /// replay the best in the simulator (`--verify N`).
+    /// Wiring topology (topology.rs) of every mechanism in agent families' catalog TSV, each in its
+    /// own box: wiring components, piston links, pulse parity; WIRABLE or not (strict / permissive)
+    Topology {
+        tsv: PathBuf,
+        /// Only ids starting with one of these (e.g. `7x8,8x7`)
+        #[arg(long, value_delimiter = ',')]
+        only: Vec<String>,
+        /// Print each mechanism's full report
+        #[arg(long)]
+        verbose: bool,
+    },
     MechSynth {
         /// Base design (its mechanism blocks; wiring is dropped). Door port = min corner.
         base: PathBuf,
@@ -850,6 +861,12 @@ pub enum DoorCmd {
         /// With --sym-bfs: also allow level toggles (default: 2 gt pulses only).
         #[arg(long)]
         sym_levels: bool,
+        /// Wiring topology in a volume box of the door plane, "x0,y0:x1,y1" (relative to the door
+        /// port): can each mechanism be wired inside it with FULL seamless (topology.rs: wiring
+        /// components, piston links, pulse parity)? With --just-base prints the full report; in an
+        /// enumeration keeps only the wirable mechanisms.
+        #[arg(long)]
+        topology: Option<String>,
     },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
@@ -2296,7 +2313,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             crate::families::run(version, &o)?;
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels } => {
+        DoorCmd::Topology { tsv, only, verbose } => {
+            crate::topology::catalog_cli(&tsv, &only, verbose)?;
+        }
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels, topology } => {
             crate::mechsynth::SEAMLESS.store(seamless, std::sync::atomic::Ordering::Relaxed);
             crate::mechsynth::NO_RING_FIRE.store(no_ring_fire, std::sync::atomic::Ordering::Relaxed);
             if let Some(seq) = &sym_bfs {
@@ -2323,6 +2343,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 max_blocks,
                 sym_len,
                 sym_tries,
+                topology: match topology.as_deref() {
+                    None => None,
+                    Some(s) => {
+                        let v: Vec<i8> = s.split([',', ':']).map(|t| t.trim().parse::<i8>()).collect::<std::result::Result<_, _>>().map_err(|e| anyhow::anyhow!("--topology x0,y0:x1,y1: {e}"))?;
+                        anyhow::ensure!(v.len() == 4, "--topology x0,y0:x1,y1, got {s:?}");
+                        Some(([v[0].min(v[2]), v[1].min(v[3])], [v[0].max(v[2]), v[1].max(v[3])]))
+                    }
+                },
             };
             crate::mechsynth::cli(version, &base, &o, out_dir.as_deref(), top, verify, extra_offsets, gap, workers, just_base)?;
         }
