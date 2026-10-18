@@ -220,3 +220,57 @@ pub fn g4() -> Design {
     b.repeater([0, -6, -1], "east", 4);
     b.d
 }
+
+/// sf1: slime-free gravity door. Sides: 3 sticky pullers per side (one per row), powered by A
+/// through one dust standing on a block next to the middle puller (the block powers the middle
+/// puller, quasi-powers the bottom one, the dust points into the top one). Middle: the sand drop
+/// tower without the slime chain: S1 pulls only S2, so S2 gets a second pulse (observer O
+/// watching S1's slow repeater RS1) that pulls R3 down the last cell.
+pub fn sf1() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "gravity-sf1".into();
+    let sand = "minecraft:sand";
+    for y in 0..3 {
+        for x in 0..3 {
+            b.set([x, y, 0], sand);
+        }
+        b.set([-2, y, 0], "sticky_piston[facing=east,extended=true]");
+        b.set([-1, y, 0], "piston_head[facing=east,type=sticky,short=false]");
+        b.set([4, y, 0], "sticky_piston[facing=west,extended=true]");
+        b.set([3, y, 0], "piston_head[facing=west,type=sticky,short=false]");
+    }
+    for x in [-1, 0, 2, 3] {
+        b.set([x, -1, 0], FLOOR);
+    }
+    b.set([1, -2, 0], "piston[facing=up,extended=true]"); // R3
+    b.set([1, -1, 0], "piston_head[facing=up,type=normal,short=false]");
+    b.set([1, -4, 0], "sticky_piston[facing=up,extended=true]"); // S2
+    b.set([1, -3, 0], "piston_head[facing=up,type=sticky,short=false]");
+    b.set([1, -6, 0], "sticky_piston[facing=up,extended=true]"); // S1
+    b.set([1, -5, 0], "piston_head[facing=up,type=sticky,short=false]");
+    b.port("door", [0, 0, 0]);
+    b.set([1, -1, -2], FLOOR); // LB
+    b.set([1, 0, -2], "lever[face=floor,facing=north,powered=false]");
+    b.port("lever", [1, 0, -2]);
+    b.set([1, -1, -1], "redstone_wall_torch[facing=south,lit=true]"); // T_A: R3 by QC + A net
+    for p in [
+        // left pullers
+        [0, -1, -1], [-1, 0, -1], [-1, 1, -2], [-2, 2, -2], [-2, 2, -1],
+        // right pullers
+        [2, -1, -1], [3, 0, -1], [3, 1, -2], [4, 2, -2], [4, 2, -1],
+        // down to RS2
+        [0, -2, -2], [0, -3, -3], [1, -4, -3],
+        // on to RS1 and S1 fast
+        [2, -5, -3], [2, -6, -2], [1, -6, -2], [0, -6, -2], [0, -6, -1],
+    ] {
+        b.dust(p);
+    }
+    b.set([0, -6, 0], FLOOR); // S1 fast block
+    b.set([1, -4, -2], "repeater[facing=north,delay=2]"); // RS2
+    b.set([1, -5, -2], FLOOR);
+    b.set([1, -4, -1], FLOOR); // B2: S2's source (RS2, and O's pulse)
+    b.set([1, -5, -1], "observer[facing=down]"); // O watches RS1
+    b.set([1, -6, -1], "repeater[facing=north,delay=4]"); // RS1: S1 slow
+    b.set([1, -7, -1], FLOOR);
+    b.d
+}

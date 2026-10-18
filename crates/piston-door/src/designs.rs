@@ -70,6 +70,7 @@ pub fn build(name: &str) -> Option<Design> {
         "g1" => Some(crate::designs_gravity::g1()),
         "g3" => Some(crate::designs_gravity::g3()),
         "g4" => Some(crate::designs_gravity::g4()),
+        "sf1" => Some(crate::designs_gravity::sf1()),
         _ => None,
     }
 }
