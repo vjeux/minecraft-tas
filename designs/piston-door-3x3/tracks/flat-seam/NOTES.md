@@ -12,7 +12,8 @@ door), blocks as the tie-break. flat-v2-57b (the only FULL + hallway flat door a
 
 | file | volume | blocks | seamless | hallway | open/close | how |
 |---|---|---|---|---|---|---|
-| [h45.txt](h45.txt) (archive/flat-seam-h45-45b.txt) = BEST | **9x9 = 81** | 45 | FULL | yes | 56 / 54 | lamp-sweep-flat43 made FULL in its own box: BL flag -> corner watcher, X floor obsidian -> stone (early P_T pulse removed with s55's right cluster) |
+| [h44.txt](h44.txt) (archive/flat-seam-h44-44b.txt) = BEST | **9x9 = 81** | 44 | FULL | yes | 52 / 48 | h45 + `door minimize --shape thick<=1,volume<=81 --seamless full+hall`: the delay-2 repeater (-3,3) -> dust, the dust (-1,4) gone |
+| [h45.txt](h45.txt) (archive/flat-seam-h45-45b.txt) | 9x9 = 81 | 45 | FULL | yes | 56 / 54 | lamp-sweep-flat43 made FULL in its own box: BL flag -> corner watcher, X floor obsidian -> stone (early P_T pulse removed with s55's right cluster) |
 | [s55.txt](s55.txt) (archive/flat-seam-s55-55b.txt) | 9x10 = 90 | 55 | FULL | yes | 40 / 40 | flat-v2-57b compacted by `resynth --fit` (x >= -3): the M chain's 4 blocks in column x = -4 regrown inside, then one block less |
 
 ## h45: flat43 made FULL (9 x 9) in three edits
