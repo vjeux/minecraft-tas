@@ -15,7 +15,8 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [fast-clean](fast-clean/NOTES.md) | the fastest solid doors under the "nothing in front of or behind" rule | every fast door broke it in the same six cells (the lever net's staircase); re-laid over the top: a1c 107 (10 / 7), s4c 101 (12 / 7), n3c 116 (9 / 7), c1r 108 (9 / 7) |
 | [flat](flat/NOTES.md) | the flat board (every block in the door's plane, no slime) | 60 -> 49 (flat-v8): observer chains, `synth` and `resynth` on the late chains |
 | [flat-b](flat-b/NOTES.md) | the flat board with a different mechanism | the 19-block mechanism upside down: 48 -> 44 (flat-b-v7) |
-| [flat-seam](flat-seam/NOTES.md) | the smallest-VOLUME flat + FULL seamless + hallway door (slime-free) | `resynth --fit` compaction; s55 9x10 = 90 (55 blocks, FULL + hallway) |
+| [flat-seam](flat-seam/NOTES.md) | the smallest-VOLUME flat + FULL seamless + hallway door (slime-free) | `resynth --fit` compaction, gadget `pulse-merge`; **e89b 8x9 = 72** (49 blocks, cd19 without row 5, the flat seamless record), h44 9x9 = 81 (pist19r floor), s55 9x10 = 90 |
+| [families](families/NOTES.md) | the complete catalog of flat seamless MECHANISMS per box | `door families`: exit-plan generator + exact macro solve; [CATALOG.md](families/CATALOG.md) |
 | [fresh-a](fresh-a/NOTES.md) | a door from first principles | slime-free 122 (a side group drags the top-middle out) |
 | [fresh-b](fresh-b/NOTES.md) | a fresh design, minimum blocks | the mirrored pump family: mp6 46 (solid record), mp8 43, opens and closes in 16 |
 | [fresh-c](fresh-c/NOTES.md) | symmetric control: the same signals on both lever edges | fc1 42, **fc2 40** (solid record 08:10-15:15), fc2f 41 (22 / 9) |

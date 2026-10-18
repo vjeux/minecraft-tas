@@ -732,6 +732,116 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
+    /// SAT synthesis of a flat door's WIRING for a fixed mechanism (satwire.rs): the mechanism
+    /// and each piston's power per tick come from an ideal schedule (`.ideal`) or a wired design
+    /// (`--from-wired`, wiring stripped); placement one-hot per free cell of the box, two traces
+    /// (lever on from rest, off from open), time-unrolled redstone semantics; every model is
+    /// judged by the real simulator (CEGAR) and the wiring is minimized.
+    Satwire {
+        /// An ideal schedule (`.ideal`) or a design (with --from-wired).
+        mechanism: PathBuf,
+        /// The mechanism is a wired design: record its pistons' real power, strip its wiring.
+        #[arg(long)]
+        from_wired: bool,
+        /// Wiring box "x0,y0,z0:x1,y1,z1" (default: the mechanism's bounding box).
+        #[arg(long = "box")]
+        bx: Option<String>,
+        /// Ring cells (and the cells behind hallway holes) hold only plain blocks.
+        #[arg(long)]
+        forbid_ring: bool,
+        /// Lever candidate cells "x,y,z;..." (default: free cells and the cells around the box).
+        #[arg(long)]
+        lever: Option<String>,
+        /// Also offer levers in front of / behind wiring blocks (out of the plane).
+        #[arg(long)]
+        lever_oop: bool,
+        /// Palette: block,dust,rep (rep1..rep4),obs,torch,note,bulb,cmp.
+        #[arg(long, default_value = "block,dust,rep,obs,torch")]
+        palette: String,
+        #[arg(long)]
+        max_blocks: Option<usize>,
+        /// Largest delay (ticks) of the whole schedule after each flip (per trace, solver's pick).
+        #[arg(long, default_value_t = 8)]
+        dmax: i32,
+        /// Ticks after the mechanism settles that the wiring must also settle in.
+        #[arg(long, default_value_t = 6)]
+        settle: i32,
+        /// Ticks recorded per flip.
+        #[arg(long, default_value_t = 80)]
+        rec_ticks: u32,
+        /// Forbid quasi-connected power as a piston's wanted power.
+        #[arg(long)]
+        no_qc: bool,
+        /// Dust levels modeled (15 = exact; fewer = conservative, shorter dust runs).
+        #[arg(long, default_value_t = 15)]
+        levels: u8,
+        /// Fix the source design's own wiring and report where the model disagrees with it.
+        #[arg(long)]
+        check: bool,
+        /// CEGAR iterations.
+        #[arg(long, default_value_t = 300)]
+        iters: usize,
+        /// Stop at the first judged design (no minimization).
+        #[arg(long)]
+        first: bool,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// The catalog of flat (1-wide) seamless mechanisms per box (families.rs): every door block
+    /// leaves the 3x3 in 1-2 unit moves (center 2), each move provided by a pull or push piston
+    /// (reused, or lifted by one elevator piston); every candidate solved exactly in the macro
+    /// piston model with the FULL seamless open test, reduced to minimal mechanisms, mirror
+    /// images merged; writes CATALOG.md + CATALOG.tsv; `--verify` replays each in the simulator.
+    Families {
+        /// Boxes "WxH,..." (sorted by volume).
+        #[arg(long, default_value = "7x7,7x8,8x7,8x8,7x9,9x7,8x9,9x8,8x10,10x8,9x9")]
+        boxes: String,
+        /// Most pistons per mechanism.
+        #[arg(long, default_value_t = 10)]
+        pistons: usize,
+        /// State cap of the exact solve.
+        #[arg(long, default_value_t = 200000)]
+        cap: usize,
+        /// Pair cap of the symmetric-train product BFS.
+        #[arg(long, default_value_t = 200000)]
+        sym_cap: usize,
+        #[arg(long, default_value_t = 48)]
+        threads: usize,
+        /// No lifted (elevator) providers.
+        #[arg(long)]
+        no_lifts: bool,
+        /// No push providers (pulls only).
+        #[arg(long)]
+        no_pushes: bool,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/families")]
+        out_dir: PathBuf,
+        /// Replay every catalog entry in the simulator with ideal inputs.
+        #[arg(long)]
+        verify: bool,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        /// Ticks between macro steps in the ideal schedules.
+        #[arg(long, default_value_t = 6)]
+        gap: u32,
+        /// Solve at most this many candidates per box (0 = all; for testing).
+        #[arg(long, default_value_t = 0)]
+        limit: usize,
+        /// Non-core perimeter blocks that may take a 2-move path (each costs a provider).
+        #[arg(long, default_value_t = 1)]
+        two: usize,
+        /// Solve one design's mechanism instead (its bounding box grown by --check-margin).
+        #[arg(long)]
+        check: Option<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        check_margin: i8,
+        /// Also search with level events (A*, capped) when the exact pulse model fails.
+        #[arg(long)]
+        levels: bool,
+    },
     /// Mechanism synthesis (mechsynth.rs): enumerate up to --add blocks (pistons, slime...) on a
     /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
     /// schedules), rank by (blocks, control events), write ideal-input designs + schedules and
@@ -796,6 +906,13 @@ pub enum DoorCmd {
         /// Only the split symmetric search (edges block + searched core), not the graph one.
         #[arg(long)]
         split_only: bool,
+        /// FULL seamless + hallway in the macro model: nothing ever enters the hallway surface S
+        /// off the door plane, no candidate there, the open state holds only door blocks in S.
+        #[arg(long)]
+        seamless: bool,
+        /// A piston standing in the hallway ring S cannot be fired (bottom row: no power cell).
+        #[arg(long)]
+        no_ring_fire: bool,
         /// Symmetric control by product BFS for the base itself: the open state reached by these
         /// events ("P:x,y,z L:x,y,z ...", pistons named by their rest position), then the
         /// shortest single sequence S with S(rest) = open and S(open) = rest (`--cap` pairs).
@@ -2257,7 +2374,72 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, sym_bfs, sym_levels } => {
+        DoorCmd::Satwire { mechanism, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, settle, rec_ticks, no_qc, levels, check, iters, first, extra_offsets, out } => {
+            use crate::satwire as sw;
+            let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
+            let rec = {
+                let mut w = Worker::spawn(&cfg)?;
+                if from_wired || check {
+                    let d = load_design(&mechanism)?;
+                    sw::record_wired(&mut w, &d, rec_ticks)?
+                } else {
+                    let text = std::fs::read_to_string(&mechanism)?;
+                    let s = crate::ideal::Schedule::parse(&text)?;
+                    sw::record_ideal(&mut w, &s, rec_ticks)?
+                }
+            };
+            for (i, ph) in rec.phases.iter().enumerate() {
+                let on: Vec<String> = (1..ph.power.len())
+                    .flat_map(|j| ph.power[j].iter().filter(|(_, v)| **v).map(move |(c, _)| format!("t{j}:{},{}", c.0, c.1)))
+                    .collect();
+                println!("{}: {} frames, powered piston-ticks {}", ["open", "close"][i], ph.frames.len(), on.join(" "));
+            }
+            let po = sw::ProbOpts {
+                bx: bx.as_deref().map(sw::parse_box).transpose()?,
+                palette: sw::palette(&palette)?,
+                forbid_ring,
+                levers: lever.as_deref().map(crate::synth::parse_cells).transpose()?,
+                lever_oop,
+                dmax: if check { 0 } else { dmax },
+                settle,
+                qc: !no_qc,
+                levels,
+            };
+            let mut p = sw::build_prob(rec, &po)?;
+            if check {
+                sw::fix_wiring(&mut p)?;
+                return sw::check(&p);
+            }
+            let name = format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default());
+            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
+            sw::run(&p, &o)?;
+        }
+        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels } => {
+            if let Some(p) = check {
+                return crate::families::check(&p, check_margin, cap, sym_cap);
+            }
+            let o = crate::families::Opts {
+                boxes: crate::families::parse_boxes(&boxes)?,
+                pmax: pistons,
+                cap,
+                sym_cap,
+                threads,
+                lifts: !no_lifts,
+                pushes: !no_pushes,
+                out_dir,
+                verify,
+                workers,
+                extra: extra_offsets,
+                gap,
+                limit,
+                two,
+                levels,
+            };
+            crate::families::run(version, &o)?;
+        }
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels } => {
+            crate::mechsynth::SEAMLESS.store(seamless, std::sync::atomic::Ordering::Relaxed);
+            crate::mechsynth::NO_RING_FIRE.store(no_ring_fire, std::sync::atomic::Ordering::Relaxed);
             if let Some(seq) = &sym_bfs {
                 return crate::mechsynth::sym_cli(version, &base, seq, sym_levels, cap, out_dir.as_deref(), verify, extra_offsets, gap);
             }
