@@ -49,6 +49,19 @@ one exotic block (the old palettes were already exhausted on these designs).
 | **pareto-mid 46 (14/14)** | resynth --max-size 4 (as above) | | **45** (pm45-trap, below) |
 | flat-b-v7 (44, smallest box) | resynth --max-size 4 (as above) | | nothing |
 | pm45-trap (45) | resynth --max-size 4, full palette + exotic, no filter; minimize --moves all --plateau (36k neutral edits) | | nothing |
+| sf-holdA-b38 | regrow --size 3, obs,block,dust,rep,torch,glass,note + trapdoor,gate,disp,crafter,skull,railf, --require-any | 2.61M | nothing passes the screen |
+| fc2 | regrow --size 3 (as above) | 2.76M | nothing passes the screen |
+| glass-door b38, fc2, mp8, flat43, pm43, flat-b-v7, pm45 | resynth --max-size 4 --only around the doorway, block,dust,dot,rep,obs,torch,note,lamp,target,exotic (no filter) | | nothing |
+| 39 more archived designs (solid, sculk, gravity, 33..46 blocks) | resynth sweep --max-size 4, exotic + shelf, --require-any | | fc2f 41 -> 40 (= fc2's count and timing), wire19sf-w45 45 -> 44 (open 26 / close 24), gravity-g10 45 -> 44 (NOT rotation-safe, open 24: useless); the other 36 nothing |
+
+## The variants
+
+* `fc2f-40-trap.txt` (exotic-fc2-trapL, 40, open 24 / close 9, rotation-safe): fc2 with P_L fed by
+  an iron trapdoor beside the lever and the observer under it (P_L fires at t2 instead of t4).
+  Same count and timing as fc2: a tie.
+* `w45-44-trap.txt` (exotic-w45-44-trap, 44, slime-free, open 26 / close 24, rotation-safe):
+  wire19sf's w45 with three observers of its lever chain replaced by a trapdoor + one observer;
+  2 ticks faster than wire19sf's own 44 (28 / 26). Not a board best (slime-free leader: b38, 38).
 
 ## pm45-trap: 45 blocks, open 14 / close 14 (Pareto frontier), rotation-safe
 
