@@ -19,18 +19,23 @@ pub mod cli;
 pub mod archive;
 pub mod designs;
 pub mod designs_history;
+pub mod designs_fresh_b;
 pub mod designs_top;
 pub mod designs_center_mech;
+pub mod observer_seq;
 pub mod leaderboard;
 pub mod designs_gravity;
 pub mod lm;
 pub mod drive;
+pub mod harvest;
 pub mod ideal;
 pub mod route;
 pub mod minimize;
 pub mod patch;
 pub mod search;
+pub mod showcase;
 pub mod video;
+pub mod vanilla_check;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
@@ -170,6 +175,13 @@ pub fn is_gravity_block(state: &str) -> bool {
 /// True when the design uses no slime and no honey blocks anywhere (its own leaderboard).
 pub fn slime_free(d: &Design) -> bool {
     !d.blocks.values().any(|s| s.contains("slime_block") || s.contains("honey_block"))
+}
+
+/// Blocks standing in the walkway at rest. The rules allow non-colliding blocks there (dust,
+/// torches, levers), but a clean doorway has none, so the leaderboards show the count.
+pub fn walkway_clutter(d: &Design) -> usize {
+    let Ok(spec) = DoorSpec::from_design(d) else { return 0 };
+    spec.corridor_cells().iter().filter(|p| d.blocks.get(*p).is_some_and(|s| !mctas::blockstate::is_air(s))).count()
 }
 
 /// The door category of a design: "solid" (normal blocks), "gravity" (sand-like door blocks),

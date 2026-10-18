@@ -1,0 +1,26 @@
+# pd3b -> pd3c: observer chains instead of level lines.
+# 1. Sides: O_A1 -> O2 -> O3 -> O_S (2 gt each) replaces dust, dust, R6 (+3 floors).
+clear 1 -3 -2
+clear 1 -4 -2
+clear 1 -3 -1
+clear 1 -4 -1
+clear 2 -3 -1
+clear 2 -4 -1
+set 1 -3 -1 minecraft:observer[facing=up]
+set 2 -3 -1 minecraft:observer[facing=west]
+# 2. A's second pulse: O_S -> E1 -> E2 -> E3 -> E4 -> O_A2 (under A) replaces block, dust, R14 (+floor).
+clear 3 -3 -1
+clear 3 -2 -1
+clear 3 -2 0
+clear 3 -3 0
+clear 2 -2 0
+set 2 -2 0 minecraft:observer[facing=north]
+set 2 -3 0 minecraft:observer[facing=up]
+set 2 -4 0 minecraft:observer[facing=up]
+set 1 -4 0 minecraft:observer[facing=east]
+set 1 -3 0 minecraft:observer[facing=down]
+# 3. U chain branches off O_T instead of the tower top (tower loses its last block + torch).
+clear 1 5 -4
+clear 1 6 -4
+set 1 5 -3 minecraft:observer[facing=down]
+set 1 6 -3 minecraft:observer[facing=down]

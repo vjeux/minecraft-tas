@@ -1,5 +1,15 @@
 # center-mech: new middle-column mechanisms
 
+## Results (all verified `door verify --extra-offsets 28`)
+| file | blocks | category | what |
+|---|---|---|---|
+| `v2u2.txt` | 96 | solid | sides pushed out from under the walkway off one block, honey bottom-middle, R_A/R_M redstone blocks riding the side groups (record at the time) |
+| `v2u2-min.txt` | 88 | solid | `door minimize --moves all` on the 96 |
+| `rb2-sculk.txt` | 50 | sculk | rb2 (57) with its late hold replaced by a sculk sensor + 1-repeater bridge |
+| `rb2-sculk2.txt` = `BEST.txt` | 48 | sculk | lever on its own block, one repeater lights X_L |
+| `nf2-slime-free-133.txt` | 133 | solid, slime-free | v2-min with sticky-puller stacks (not competitive: logic-min 55) |
+Gadget: `designs/gadgets/sculk-hold` (PASS). Tool: `door route --patch FILE`.
+
 ## Facts read from the source (PistonStructureResolver / PistonBaseBlock, 26.3)
 - A slime-dragged neighbour that is immovable (extended piston, piston head) is SKIPPED (branch
   returns true); only an immovable block in the PUSH line aborts the move.
@@ -101,6 +111,10 @@ right under Q.
   at the bottom); with rb6's tricks it costs the same.
 - Shortening the hold to 16gt on mechanics' 51 (one repeater less + faster R_B): the closing
   dance no longer finishes in time (wip/m51-hold16*.txt).
+- Replacing rb6's 16gt hold by "Q quasi-powered by the lever only (silent) + R_B's window in
+  Q's QC zone": needs a lever position that is a neighbour of Q's QC cell (0,5,-1) but not of Q,
+  not attached to a neighbour of Q (a lever updates its attachment's neighbours), and that still
+  powers P_L; the only candidate, (0,5,0), touches B. Dead end for the solid category.
 
 ## Tool
 - `door route --patch FILE`: appends the routed path as `door patch` lines.

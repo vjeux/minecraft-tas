@@ -1,0 +1,14 @@
+# from sf-50: left column back on the bottom chain from O_m (single pulse, never re-fires),
+# so the door does not move again while closing.
+clear 0 3 2
+clear -1 3 2
+clear -2 3 2
+clear -2 3 1
+clear -2 2 1
+set 2 -1 1 minecraft:observer[facing=north]
+set 1 -1 1 minecraft:observer[facing=east]
+set 0 -1 1 minecraft:observer[facing=east]
+set -1 -1 1 minecraft:observer[facing=east]
+set -2 -1 1 minecraft:observer[facing=east]
+set -2 0 1 minecraft:observer[facing=down]
+set -2 2 1 minecraft:redstone_wire[north=side,east=side,south=side,west=side]

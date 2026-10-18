@@ -1,0 +1,14 @@
+# Lever on: P powered but not updated (stays r); a block next to P: P extends. Lever off: H goes
+# dark silently, P stays extended. A block next to the head at (-1,1,-1): P retracts.
+design designs/gadgets/head-forward.txt
+probe P 0 1 0
+use 3 2 0
+quiet 4
+expect P r
+set -1 1 0 minecraft:stone
+expect_trace P EEE
+use 3 2 0
+quiet 4
+expect P E
+set -1 1 -1 minecraft:stone
+expect_trace P ~~r

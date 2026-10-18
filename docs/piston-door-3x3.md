@@ -65,10 +65,23 @@ Timing (game ticks after the lever flip):
   cells, following the wiring rules: every dust needs a floor, steps need clearance, no new
   block may touch a component it shouldn't power, and nothing goes into a cell the machine
   sweeps while it runs (simulated) or into the walkway.
-* `mctas door minimize` removes single blocks greedily, in parallel, while the door still
-  verifies.
-* `mctas door video` renders the build with the real client, auto-framed so the machine
-  fills the frame.
+* `mctas door minimize` is a local search (crates/piston-door/src/search.rs): removals of one to
+  three blocks, repeater delays, moving a block (or a piston with its head, or the lever) to a
+  neighbor cell, substitutions (dust/repeater, torch/observer, slime/honey, floors), swaps (a
+  pair or a connected triple out, one block in nearby: e.g. a dust and its floor become one
+  powered block), rip-up-and-reroute of dust segments, and net re-synthesis (every dust net's
+  terminals reconnected as a Steiner tree by the router, also with a terminal dropped or a
+  repeater dissolved). Candidates are screened at two positions, accepted only when the full
+  judge passes; `--plateau`/`--depth 2` explore count-neutral edits first. `door harvest` runs it
+  on the best designs of every branch.
+* `mctas door video` renders the build with the real client: a 2 s title card (block count,
+  category, timings) in the game's font, then a camera aimed between the build's center and
+  the 3x3 opening, from the side that hides the opening least, swinging +-20 degrees around it
+  (it ends where it started, so clips loop), with a block-count label (`--style clean` without
+  card/label, `--style classic` for the original still camera on the whole build).
+  `door video-all` does it for a whole folder (VIDEOS.md), `door gallery` makes a looping GIF
+  of each board's best (GALLERY.md), `door montage` films the solid record progression with
+  one camera and cuts it into one labeled video plus a poster of every record.
 
 ## Block count history
 

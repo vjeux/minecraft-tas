@@ -1,0 +1,12 @@
+# pd3 -> pd3b: U's late pulse from a 4-observer chain off the top tower torch (NOT L @10)
+# instead of dust, dust, repeater (+3 floors).
+clear 0 6 -4
+clear 0 5 -4
+clear 0 5 -3
+clear 0 4 -3
+clear 0 5 -2
+clear 0 4 -2
+set 1 6 -3 minecraft:observer[facing=north]
+set 0 6 -3 minecraft:observer[facing=east]
+set 0 5 -3 minecraft:observer[facing=up]
+set 0 5 -2 minecraft:observer[facing=north]

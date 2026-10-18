@@ -1,0 +1,13 @@
+# rb6-bmobs-47 without the 7-block silent hold; Q held instead by a redstone block riding the
+# left structure: slimes (0,3,0)+(0,3,-1) and rider RB (1,3,-1), which sits under Q at (0,3,-1)
+# while the left structure is open (open t1 .. close t10).
+clear -1 6 -1
+clear -1 5 -1
+clear -2 6 -1
+clear -3 6 -1
+clear -3 5 -1
+clear -2 5 -1
+clear -2 4 -1
+set 0 3 0 minecraft:slime_block
+set 0 3 -1 minecraft:slime_block
+set 1 3 -1 minecraft:redstone_block

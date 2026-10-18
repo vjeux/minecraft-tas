@@ -69,6 +69,8 @@ pub fn build(name: &str) -> Option<Design> {
         "rb3" => Some(rb3()),
         "rb5" => Some(rb5()),
         "rb6" => Some(rb6()),
+        "rb7" => Some(rb7()),
+        "rb8" => Some(rb8()),
         "rb4-bench" => Some(rb4_bench()),
         "rb1-base" => Some(rb1_route_base()),
         "v2u" => Some(crate::designs_center_mech::v2u()),
@@ -77,10 +79,19 @@ pub fn build(name: &str) -> Option<Design> {
         "v2-133" => Some(crate::designs_history::v2_133()),
         "v2-135" => Some(crate::designs_history::v2_135()),
         "v2-143" => Some(crate::designs_history::v2_143()),
+        "sf1" => Some(crate::designs_fresh_b::sf1()),
+        "pd3" => Some(crate::designs_fresh_b::pd3()),
+        "mp-mech" => Some(crate::designs_fresh_b::mp_mech()),
+        "mp1-top" => Some(crate::designs_fresh_b::mp1_top()),
+        "mp2" => Some(crate::designs_fresh_b::mp2()),
+        "mp5-mech" => Some(crate::designs_fresh_b::mp5_mech()),
+        "mp6" => Some(crate::designs_fresh_b::mp6()),
         "g1" => Some(crate::designs_gravity::g1()),
         "g3" => Some(crate::designs_gravity::g3()),
         "g4" => Some(crate::designs_gravity::g4()),
-        other => crate::lm::build(other).or_else(|| crate::designs_top::build(other)),
+        other => crate::lm::build(other)
+            .or_else(|| crate::designs_top::build(other))
+            .or_else(|| crate::observer_seq::build(other)),
     }
 }
 
@@ -498,5 +509,47 @@ pub fn rb6() -> Design {
     b.dust([-3, 6, -1]);
     b.set([-2, 5, -1], "repeater[facing=west,delay=4]");
     b.set([-2, 4, -1], "white_glazed_terracotta[facing=north]");
+    b.d
+}
+
+/// rb7 (speed): rb6 with the B window moved from t10..18 to t4..12. R_B (delay 1) reads K
+/// (1,6,2), which is powered by O2's pulse (t2..4, via the cross dust), by Rb (delay 1, t4..6) and
+/// by Rc (delay 2, t6..10); Rb and Rc are fed by a second observer O3 watching the lever, through
+/// their own dust line (a line shared with O2 would latch: K is strongly powered and lights the
+/// cross dust). The silent hold is shortened to 12 gt so A's landing at t14 releases Q.
+pub fn rb7() -> Design {
+    let mut b = Builder { d: rb6() };
+    b.d.name = "piston-door-3x3-rb7".into();
+    b.set([1, 6, 1], "repeater[facing=south,delay=1]"); // R_B
+    b.set([-2, 5, -1], "repeater[facing=west,delay=2]"); // hold: 8 + 4 gt
+    b.set([1, 6, -1], "observer[facing=west]"); // O3 watches the lever
+    b.dust([2, 6, -1]);
+    b.dust([3, 6, -1]);
+    b.set([3, 5, 0], "white_glazed_terracotta[facing=north]");
+    b.set([3, 6, 0], "redstone_wire");
+    b.dust([3, 6, 1]);
+    b.dust([3, 6, 2]);
+    b.dust([3, 6, 3]);
+    b.dust([3, 6, 4]);
+    b.dust([2, 6, 4]);
+    b.dust([1, 6, 4]);
+    b.repeater([2, 6, 2], "west", 1); // Rb into K
+    b.repeater([1, 6, 3], "north", 2); // Rc into K
+    b.d
+}
+
+/// rb8 (speed): rb7 with a timed, non-silent release of Q at t12 in the close (instead of the
+/// silent hold released by A landing at t14): the 12 gt hold repeater Rr (-1,4,-1) now powers Q
+/// directly from behind, so its falling edge updates Q. Q's retraction unpowers P_R, whose event
+/// is queued after B's (FIFO), so T is pushed into (1,3,0) right after B lifts A out of it.
+pub fn rb8() -> Design {
+    let mut b = Builder { d: rb7() };
+    b.d.name = "piston-door-3x3-rb8".into();
+    for p in [[-3, 6, -1], [-3, 5, -1]] {
+        b.d.blocks.remove(&p);
+    }
+    b.set([-2, 5, -1], "redstone_wire"); // under the strongly powered (-2,6,-1), on the GT floor
+    b.set([-1, 4, -1], "repeater[facing=west,delay=2]"); // Rr into Q's back
+    b.set([-1, 3, -1], "white_glazed_terracotta[facing=north]");
     b.d
 }

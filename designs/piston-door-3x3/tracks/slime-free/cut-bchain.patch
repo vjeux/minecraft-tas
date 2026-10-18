@@ -1,0 +1,4 @@
+# B chain without its stone/dust/floor between O_b (4,5,0) and R_B (2,6,0): grow candidates
+clear 4 6 0
+clear 3 6 0
+clear 3 5 0

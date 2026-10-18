@@ -156,6 +156,7 @@ public final class Protocol {
             case "exec" -> exec(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
+            case "view" -> view(r);
             case "play" -> play(r);
             case "hold" -> hold(r);
             case "__invalid" -> throw new IllegalArgumentException(r.get("error").getAsString());
@@ -453,6 +454,13 @@ public final class Protocol {
         JsonObject o = new JsonObject();
         o.addProperty("moved", n);
         return o;
+    }
+
+    /** Chunk radius the sandbox's level sends to viewers (the level is made with 2). */
+    private JsonObject view(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        sb.level.getChunkSource().setViewDistance(r.get("chunks").getAsInt());
+        return new JsonObject();
     }
 
     /** Step a sandbox at a wall-clock pace (for viewers), with network work between ticks. */

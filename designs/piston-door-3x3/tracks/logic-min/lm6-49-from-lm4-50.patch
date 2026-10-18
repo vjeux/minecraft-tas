@@ -1,0 +1,3 @@
+# from lm4-50: no relay block: O_R's back faces the air cell (5,2,0), which is P_R's QC cell
+# (P_R at (5,1,0) gets the pulse and the update through it).
+clear 5 2 0

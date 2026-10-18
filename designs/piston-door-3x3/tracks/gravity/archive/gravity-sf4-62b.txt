@@ -1,0 +1,83 @@
+# verified WORKS: 62 blocks, open after 19 ticks, closed after 11 ticks
+# archived 2026-10-18 07:12Z from designs/piston-door-3x3/tracks/gravity/sf4.txt (repo at 6a1c7a7)
+name: gravity-sf4
+port door: 0 0 0
+port lever: 1 0 -2
+origin: -2 0 -3
+palette:
+  A minecraft:piston_head[facing=up,short=false,type=normal]
+  B minecraft:piston_head[facing=up,short=false,type=sticky]
+  C minecraft:piston_head[facing=west,short=false,type=sticky]
+  D minecraft:redstone_wire[east=none,north=side,power=14,south=up,west=none]
+  E minecraft:redstone_wire[east=none,north=side,power=15,south=side,west=none]
+  F minecraft:redstone_wire[east=none,north=side,power=9,south=side,west=none]
+  G minecraft:redstone_wire[east=none,north=up,power=10,south=side,west=side]
+  H minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  I minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  J minecraft:redstone_wire[east=side,north=none,power=12,south=side,west=side]
+  K minecraft:redstone_wire[east=side,north=none,power=13,south=up,west=none]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  M minecraft:redstone_wire[east=side,north=none,power=9,south=side,west=none]
+  N minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=true,facing=up]
+  Q minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
+  R minecraft:redstone_wall_torch[facing=south,lit=true]
+  S minecraft:repeater[delay=4,facing=north,locked=false,powered=true]
+  T minecraft:smooth_stone
+  U minecraft:sticky_piston[extended=true,facing=east]
+  V minecraft:sticky_piston[extended=true,facing=up]
+  W minecraft:sticky_piston[extended=true,facing=west]
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=none,power=11,south=side,west=up]
+  s minecraft:sand
+layer -7:
+  .
+  ...TT
+  ...TT
+  .
+layer -6:
+  ....T
+  ...MG
+  ...SF
+  ...VT
+layer -5:
+  ..TTr
+  ...T
+  ...O
+  ...B
+layer -4:
+  ..KJ
+  ..TQ
+  ...T
+  ...V
+layer -3:
+  .
+  ..D
+  ..T
+  ...B
+layer -2:
+  .
+  .
+  ..E
+  ..PPP
+layer -1:
+  .
+  ..TTT
+  ..RRR
+  ..AAA
+layer 0:
+  .
+  .TILNT
+  .
+  .TsssT
+layer 1:
+  .
+  TH...HT
+  R.....R
+  UpsssCW
+layer 2:
+  .
+  .
+  T.....T
+  UpsssCW

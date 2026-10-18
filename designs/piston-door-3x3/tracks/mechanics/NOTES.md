@@ -2,10 +2,11 @@
 
 ## Gadget library (designs/gadgets/, each proven by a drive script)
 
-`mctas door drive --quiet designs/gadgets/*.drive` runs them all (PASS/FAIL); the table and the
-source facts behind them are in docs/mechanics.md. Ten gadgets: dual-edge, pulse-stretch, spit,
-qc-bud, lamp-fall-delay, bulb-toggle, slime-nonstick, silent-hold (rb5's trick), pulse-bridge,
-lever-tap.
+`mctas door drive --quiet designs/gadgets/*.drive` runs them all (PASS/FAIL, 24 scripts); the
+table and the source facts behind them are in docs/mechanics.md. Mine (18): dual-edge,
+pulse-stretch, spit, qc-bud, lamp-fall-delay, bulb-toggle, slime-nonstick, silent-hold (rb5's
+trick), pulse-bridge, lever-tap, lever-observer and pulse-toggle (logic-min's tricks),
+head-forward, dust-reach, observer-delay, repeater-lock, honey-slime, landing-fire.
 
 Tools added: `door drive` probes/trace/expect assertions and a multi-script PASS/FAIL runner;
 `door patch` (a design variant as a short edit script: set/clear/port). Every design below is a
@@ -23,7 +24,9 @@ patch file in this folder applied to its parent.
 | 50 | solid | mech-50.txt | rb5 52 + rb2-bchain.patch | same bridge on rb5's silent hold |
 | **48** | solid | mech-48.txt | 50 + rb5-hold.patch | silent-hold block on the floor of the lever's repeater |
 | **47** | solid | mech-47.txt = BEST.txt | 48 + bm-obs.patch | top-control's trick: P_BM pulse-driven by an observer on the bottom-right door block (no redstone block, backbone 2 shorter) |
-| 104 | solid, slime-free | sf-104.txt = BEST-slime-free.txt | mech-90 + sf2.patch | side columns on individual pullers |
+| **42** | sculk | sculk-42.txt = BEST-sculk.txt | search-tool's sculk 43 + bm-obs.patch | same P_BM trick on the sculk-hold design (which already used the pulse bridge) |
+| 104 -> 99 | solid, slime-free | sf-104.txt, sf-99.txt = BEST-slime-free.txt | mech-90 + sf2.patch, then `door minimize` | side columns on individual pullers |
+| 60 -> **57** | solid, open 16 / close 17 (fastest solid) | fast-60.txt, fast-57.txt = BEST-fast.txt | redstone-block's rb9 61 + bm-obs.patch, then `door minimize --moves all --max-open 16 --max-close 17` (swaps) | rb9's split B window (t4..6 + t8..12) on the mech-47 base; three dust+floor -> block swaps |
 
 ### 91 / 89: the A torch (v2 family)
 
@@ -63,3 +66,63 @@ the right. The right top puller's quasi cell (4,3,0) must not touch a powered bl
 * Removing the B pulse stretch or shortening the 16gt silent hold: the hold must outlast the
   2nd-order updates X sends through Q's head at the first A pulse (L+12..14) and end before A
   lands back (L+18).
+
+## Next ideas
+
+* The silent hold (7 blocks) exists only because the lever's off-update and X's 2nd-order updates
+  (through Q's head, L+12..14) reach Q. If Q were quasi-powered by the lever's block from two
+  cells away (silent at the off edge) and P_L were not Q's neighbor, R_B's own window (10..18)
+  could cover the X updates through a silent path: no delay line at all (needs a P_L
+  relocation; not tried).
+* B chain (9 in the rb family): R_B, O and X are pinned by A's neighbors; only O2's 4-block
+  bridge is negotiable and needs the lever (pinned by X_L) closer to R_B's back.
+* Slime-free: logic-min's pulse-driven side columns (53) beat individual torches (104 here) by
+  50 blocks; the remaining cost there is P_T's asymmetric net.
+
+## Hold removal study (round 2, mech-47): measured, then shown not to pay
+
+* Only the full 16gt hold passes: all 15 shorter combinations of the two repeater delays fail
+  (`door patch` sweep of (0,6,-2) and (0,5,-3) delays 1..4).
+* Q's updates during the close (drive trace): t=0 the lever (Q sits under the lever block X_L),
+  t=10 P_L released by B's push on A, t=12 and t=14 X's second-order updates (X -> B's head at
+  (1,4,0) -> Q's head at (1,4,-1) -> Q), t=20 A lands back next to Q's head = the release.
+* R_B is on t=10..17, so one extra repeater R_Q at (0,5,1) reading the bridge floor (0,5,2),
+  pointing into a block F=(0,5,0), would cover t=10..14 silently (F touches Q's quasi cell
+  (0,5,-1) but not Q; F also powers B in the same window and holds P_L until t=18): 3 blocks.
+* What breaks it is t=0. Every source that gives Q its open update (the lever, O2, anything the
+  lever moves) fires at close t=0..4 too, so Q needs a delayed copy of the lever there. A silent
+  delayed copy is a repeater whose front H touches Q's quasi cell (0,5,-1) but not Q
+  (H in {(-1,5,-1), (0,6,-1), (0,5,-2)}; (1,5,-1) and (0,5,0) touch B) and whose input is the lever
+  or its block. That input is always 2 cells from H in a straight line, i.e. 4 away from Q, while
+  the lever must be within 2 of Q to update it: no single-repeater geometry exists. With a relay
+  dust the short hold costs 4-5 blocks, plus 3 for R_Q: 7-8 >= the current 7.
+* Moving power from a structure (a redstone block riding the left structure, "left open" =
+  open t=2 .. close t=10) cannot reach Q: the left structure moves away from Q.
+
+## Fast solid (speed boards)
+
+* **fast-60** (`fast-60.txt` = `BEST-fast.txt`, open 16 / close 17, 60 blocks): redstone-block's
+  rb9 (61, the fastest solid) + `bm-obs.patch`. fast-60 is exactly mech-47 + rb9's 13-block
+  second-pulse route (an observer on the lever, 5 dust + 5 floors, a delay-2 repeater into R_B's
+  input), which splits B's window into t4..6 + t8..12.
+* Tried: a repeater R2 on top of B (in B's quasi cell) reading R_B, delay 2, pointing into a
+  block next to that cell (`rb9-r2.patch`, 50 blocks): B does get its second window t8..12
+  for 2 blocks, but B is not updated when R2 turns off (R2's off only updates its front block's
+  neighbors) and O (watching R_B) never sees the t12 edge, so neither B's retraction at t12 nor
+  A's second pulse at t14 happen: the door stays half open.
+* **fast-57** (`fast-57.txt` = `BEST-fast.txt`): `door minimize --moves all` (with the new swaps
+  family: two blocks out, one in) on fast-60 found three dust+floor -> block swaps: the X dust
+  and its floor become ONE block that O's back powers (A at (1,4,0) directly; A at (1,3,0)
+  quasi-connected, and in the fast dance it gets its update from B's own retraction at t6), and
+  two dust cells of the second-pulse route become blocks. The same X swap fails in the slow
+  dance (mech-47, sculk-42): there nothing next to A moves at the first pulse, so A at (1,3,0)
+  needs the dust's second-order update. mech-47 stays a local minimum for the full search
+  (swaps + plateau).
+* Fast-dance requirements, measured with ideal inputs (`fast-ideal.sched` on
+  `fast-ideal-mech.txt`, fast-57's machine with B, X, Q and X_L driven by redstone blocks):
+  B's early pulse must be exactly [4,6); the first X pulse exactly t6; the second B window
+  starts at 7..9 and ends at 12..17 with the second X pulse 2 ticks after its end (q_off ~20).
+  rb9's single repeater R_B (delay 1) with two input pulses gives B [4,6)+[8,12) and lets O
+  ignore the middle edges (it is still on), which is why the second pulse route is worth its
+  11 blocks: an observer-chain early pulse or a second repeater into B's quasi cell each break
+  either the t6 X pulse or B's t12 update.

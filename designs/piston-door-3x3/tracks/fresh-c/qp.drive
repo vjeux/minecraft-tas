@@ -1,0 +1,12 @@
+design designs/piston-door-3x3/tracks/fresh-c/ideal-mech.txt
+box -2 -2 -2 4 6 2
+use -6 1 -6
+set 0 4 1 minecraft:redstone_block
+quiet 2
+set 1 4 1 minecraft:redstone_block
+quiet 2
+clear 1 4 1
+set 0 4 -2 minecraft:redstone_block
+changes 2
+clear 0 4 -2
+changes 12

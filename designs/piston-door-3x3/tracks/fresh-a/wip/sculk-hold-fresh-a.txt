@@ -1,0 +1,19 @@
+name: gadget-sculk-hold
+# Late hold from one block: a sculk sensor K sitting on the lever's block Y hears the lever flip
+# and strongly powers the block UNDER it (Y) for 30gt, then cools down 10gt. So Y = L OR
+# (30gt after any flip). The repeater R off Y (delay 2) filters the short gap at lever-off; the
+# piston P stays out ~30gt after the lever goes off.
+origin: -1 0 0
+palette:
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  Y minecraft:stone
+  K minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  S minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  ..S
+layer 1:
+  LYRP
+layer 2:
+  .K

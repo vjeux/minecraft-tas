@@ -1,0 +1,17 @@
+name: gadget-lever-observer
+# A lever placed on top of an observer that faces up: the observer is the lever's support AND a
+# dual-edge detector watching it, firing its 2gt pulse out of its back into the block below
+# (logic-min's right side: one block for support + pulse source). Here the pulse powers the
+# obsidian Q under the observer, which powers piston P next to it (P extends for the pulse).
+origin: 0 0 0
+palette:
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=up,powered=false]
+  Q minecraft:obsidian
+  P minecraft:piston[extended=false,facing=north]
+layer 0:
+  QP
+layer 1:
+  O
+layer 2:
+  L

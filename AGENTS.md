@@ -36,8 +36,19 @@
   (redstone blocks placed by hand) before wiring them.
 - `route <design> --start='x,y,z;..' --goal='x,y,z' [--allow=..]`: dust auto-router (fewest new
   blocks; avoids cells the machine sweeps, the walkway, and touching other components).
-- `minimize <design> --out <file>`: greedy parallel single-block removal.
+- `minimize <design> --out <file> --moves all [--plateau] [--depth 2] [--archive]`: local search
+  (search.rs): removals of 1-3 blocks, repeater delays, moves, substitutions, swaps (2-3 blocks
+  out, 1 in), dust re-routing and net re-synthesis; candidates screened at 2 positions, accepted
+  only by the full judge (32 positions). `--objective open|close|total` optimizes speed instead.
+  Default `--moves singles` is the old greedy removal.
+- `harvest --out-dir <dir> --moves all --plateau [--every 20]`: runs that search on the best
+  working designs of every branch and league not harvested yet (harvest.rs).
 - `gen <name> --out <file>`: canonicalize a design built in `crates/piston-door/src/designs.rs`.
+- `vanilla-check <design>... [--extra-offsets 28]`: run designs in an UNMODIFIED
+  vanilla 26.3 server (official jar, RCON, a bot player clicks the lever, region-file readback)
+  and compare every tick with the simulator under the judge's rules, plus one real-time cycle.
+  PASS = identical tick for tick; DIVERGES names the first differing tick and cells (`--trace`
+  prints pending ticks of both worlds). Method: `designs/piston-door-3x3/tracks/vanilla-check/NOTES.md`.
 - `mctas src grep|find|show`: read the decompiled Minecraft 26.3 source (the ground truth for
   mechanics; see `docs/mechanics.md`).
 - Design files: layer text format (see any file in `designs/`); `@name` loads a built-in.

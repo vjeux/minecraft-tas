@@ -15,6 +15,9 @@
 //! `<values>` and checks the probe after each (one character per tick: dust 0 or +, others their
 //! probe value, `?` = any).
 //! A failed expectation makes the command exit non-zero.
+//!
+//! Change log: `box x0 y0 z0 x1 y1 z1` sets a 3D watch box, `changes <n>` steps n ticks printing
+//! every block change inside it per tick, `mark <label>` prints a label and re-baselines the log.
 
 use anyhow::{Context, Result, bail};
 use mctas::blockstate::BlockState;
@@ -172,6 +175,8 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
     // `planex <x> <z0> <y0> <z1> <y1>`: show a side view (an x plane, z left to right) instead.
     let mut plane_x: Option<(i32, i32, i32, i32, i32)> = None;
     let mut tick = 0u32;
+    let mut watch: Option<(Pos, Pos)> = None;
+    let mut prev: Option<Region> = None;
     let mut probes: Vec<(String, Pos)> = Vec::new();
     let mut out = DriveOutcome::default();
     let show = |w: &mut Worker, label: &str, plane: (i32, i32, i32, i32, i32), plane_x: Option<(i32, i32, i32, i32, i32)>| -> Result<()> {
@@ -211,6 +216,10 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
         match parts[0] {
             "design" => {
                 let d: Design = crate::cli::load_design(std::path::Path::new(parts[1]))?;
+                // Optional world offset (`design <path> dx dy dz`): reproduce position-dependent
+                // behavior seen by the verifier; script coordinates stay design-relative only if
+                // you add the offset yourself.
+                let d = if parts.len() >= 5 { d.translated([int(2)?, int(3)?, int(4)?]) } else { d };
                 crate::video::place(w, sb, &d)?;
                 if let Some((lo, hi)) = d.bounds() {
                     bx = Some(([lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3]));
@@ -257,6 +266,15 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                     w.step(sb, n)?;
                 }
                 tick += n;
+            }
+            // `settle [max]`: step until nothing is pending (like the verifier between flips).
+            "settle" => {
+                let max = if parts.len() > 1 { int(1)? as u32 } else { 400 };
+                let r = w.step_until_idle(sb, max)?;
+                tick += r.ticked;
+                if verbose {
+                    println!("-- settled after {} ticks (t={tick})", r.ticked);
+                }
             }
             "print" => {
                 if verbose {
@@ -320,6 +338,42 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                 let ok = want.chars().zip(got.chars()).all(|(a, b)| a == '?' || a == b);
                 if !ok {
                     out.failures.push(format!("line {}: t={tick} expect_trace {name} {want}, got {got}", lineno + 1));
+                }
+            }
+            "box" => {
+                watch = Some((pos(1)?, pos(4)?));
+                prev = None;
+            }
+            "changes" => {
+                // Steps n ticks, printing every block change inside the `box` per tick (3D).
+                let (lo, hi) = watch.context("`changes` needs a `box x0 y0 z0 x1 y1 z1` first")?;
+                if prev.is_none() {
+                    prev = Some(w.get_region(sb, lo, hi)?);
+                }
+                for _ in 0..int(1)? {
+                    w.step(sb, 1)?;
+                    tick += 1;
+                    let now = w.get_region(sb, lo, hi)?;
+                    let before = prev.as_ref().unwrap();
+                    let short = |s: &str| s.strip_prefix("minecraft:").unwrap_or(s).to_string();
+                    let diffs: Vec<String> = now
+                        .iter()
+                        .filter(|(p, s)| before.get(*p) != Some(*s))
+                        .map(|(p, s)| format!("{p:?} {} -> {}", short(before.get(p).unwrap_or("?")), short(s)))
+                        .collect();
+                    if verbose && !diffs.is_empty() {
+                        println!("t={tick:<3} {}", diffs.join("\n      "));
+                    }
+                    prev = Some(now);
+                }
+            }
+            "mark" => {
+                // Re-baseline the change log (hides scripted edits) and print a label.
+                if let Some((lo, hi)) = watch {
+                    prev = Some(w.get_region(sb, lo, hi)?);
+                }
+                if verbose {
+                    println!("== {} (t={tick})", parts[1..].join(" "));
                 }
             }
             other => bail!("line {}: unknown script command {other}", lineno + 1),
