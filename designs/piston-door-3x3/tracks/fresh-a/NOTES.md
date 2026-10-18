@@ -76,3 +76,17 @@ Pushers instead of pullers: the side pistons are powered by the lever itself (no
   not see each other (a later step-down was cut by an earlier floor) and ignore signal decay;
   (3) `b.dust` twice in a column overwrites the upper dust's floor (chain dust vanished).
   Not competitive: pulse-driven side pistons (logic-min, 53-55) beat steady pullers + torches.
+
+## Final status (23:52)
+* Best: slime-free 122 blocks (`BEST-slime-free.txt`, verified 32 positions x 3 cycles,
+  archive/fresh-a-sf1-w2-122b.txt). 126 as wired, 122 after `door minimize --moves all` (renet).
+* Mechanism lessons that held up: the center must be pulled twice by one moving piston (A on B);
+  a middle-edge block can vacate the center's exit by capture into a side slime group (C-up:
+  TM into the left group via (0,3)); pulse-driven pistons (spit on push, pull on reach) remove
+  steady power; sculk sensor = 1-block 30gt hold (own category).
+* What failed: a single fixed pulse train for open and close (orders differ); the sculk hold
+  grafted on rb2 (lever update reaches P_L through its head); steady side pullers in a
+  slime-free door (NOT-L wiring to both sides costs ~40 blocks).
+* Next: pulse-drive the six side pullers from one observer per side (logic-min style S block +
+  dust trick), drop the NOT-L networks; or move P_T/A's NOR torches next to the lever so the
+  22-block fast-L route disappears.
