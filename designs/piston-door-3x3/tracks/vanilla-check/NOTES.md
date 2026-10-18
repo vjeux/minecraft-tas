@@ -6,7 +6,8 @@ Goal: prove the simulator's verdicts match REAL vanilla Minecraft 26.3, not desi
 
 ```
 ./target/release/mctas door vanilla-check designs/piston-door-3x3/archive/rb6-bmobs-47b.txt \
-    [--extra-offsets 4] [--positions N] [--cycles 3] [--verbose] [--keep-world]
+    [--extra-offsets 28] [--positions N | --offset=x,y,z] [--cycles 3] [--trace] [--keep-world]
+./target/release/mctas door vanilla-fuzz [--count 50] [--seed 1]    # random contraptions
 ```
 
 * Starts the OFFICIAL server jar unmodified (`java -jar server-bundle-26.3.jar nogui`, the jar
@@ -142,8 +143,11 @@ copper bulbs, note blocks, slime, honey, glazed terracotta, obsidian, sand), set
 simulator to a true rest state, a lever on a stone block touching a component, compared tick for
 tick (2 cycles, one judge offset per seed): seeds 100-159 50 identical (10 never settle), seeds
 1000-1029 29 identical + fuzz-1034 (the lever pops; the old harness waited for it forever, now
-identical), seeds 2000+ see logs/G-fuzz3.log. No divergence. Most cases are small (5-20 ticks of
-activity), so this is a smoke test of the wider vocabulary, not a proof.
+identical), seeds 2000-2079 59 identical + fuzz-2061 (a block pops, the bot standing nearby
+PICKED UP the item so vanilla counted 0 entities vs 1: items in the bot's inventory now count as
+entities, then identical; repro `door vanilla-check fuzz/fuzz-2061.txt --offset=-3,4,-11
+--cycles 2 --max-ticks 120`), 20 never settle. No simulator divergence. Most cases are small
+(5-20 ticks of activity), so this is a smoke test of the wider vocabulary, not a proof.
 
 ## Next ideas
 

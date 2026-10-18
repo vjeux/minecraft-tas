@@ -484,6 +484,9 @@ pub enum DoorCmd {
         /// Only the first N positions (quick runs).
         #[arg(long)]
         positions: Option<usize>,
+        /// Check at this one position only, "x,y,z" (reproduce a fuzz case or one judge offset).
+        #[arg(long)]
+        offset: Option<String>,
         #[arg(long, default_value_t = 400)]
         max_ticks: u32,
         /// Print every position, not only divergences and failures.
@@ -933,8 +936,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::VanillaCheck { designs, cycles, extra_offsets, positions, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace } => {
-            vanilla_check_cmd(version, &cfg, &designs, cycles, extra_offsets, positions, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace)?;
+        DoorCmd::VanillaCheck { designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace } => {
+            vanilla_check_cmd(version, &cfg, &designs, cycles, extra_offsets, positions, offset, max_ticks, verbose, keep_world, tick_rate, no_free_run, trace)?;
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
@@ -1099,6 +1102,7 @@ fn vanilla_check_cmd(
     cycles: u32,
     extra_offsets: u32,
     positions: Option<usize>,
+    offset: Option<String>,
     max_ticks: u32,
     verbose: bool,
     keep_world: bool,
@@ -1111,6 +1115,11 @@ fn vanilla_check_cmd(
     offsets.extend(crate::extra_offsets(extra_offsets));
     if let Some(n) = positions {
         offsets.truncate(n.max(1));
+    }
+    if let Some(o) = offset {
+        let v: Vec<i32> = o.split(',').map(|t| t.trim().parse()).collect::<std::result::Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "--offset wants x,y,z");
+        offsets = vec![[v[0], v[1], v[2]]];
     }
     let opts = CheckOptions { cycles, offsets, max_ticks, verbose, free_run: !no_free_run, trace };
     let mut w = Worker::spawn(cfg)?;

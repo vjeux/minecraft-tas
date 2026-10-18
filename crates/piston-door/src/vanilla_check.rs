@@ -257,6 +257,18 @@ fn bot_spot(d: &Design, spec: &DoorSpec, wlo: Pos, whi: Pos) -> [f64; 3] {
     [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5]
 }
 
+/// Entities the judge would see: every non-player entity, plus anything the bot picked up (a
+/// player near a broken build collects the dropped items; the judge's sandbox has no player).
+fn vanilla_entities(v: &mut VanillaServer) -> Result<u32> {
+    let mut n = v.count_entities("@e[type=!minecraft:player]")?;
+    let name = v.bot.as_ref().map(|b| b.name.clone()).unwrap_or_default();
+    if v.cmd(&format!("execute if data entity {name} Inventory[0]"))?.contains("Test passed") {
+        n += 1;
+        v.cmd(&format!("clear {name}"))?;
+    }
+    Ok(n)
+}
+
 /// Right-click the lever with the bot and wait until it shows the new state.
 fn flip(v: &mut VanillaServer, lever: Pos, on: bool) -> Result<()> {
     if !v.test_block(lever, "minecraft:lever")? {
@@ -368,11 +380,11 @@ fn vanilla_run(v: &mut VanillaServer, placed: &[(Pos, String)], d: &Design, spec
         }
         let t = s.and_then(|s| target(&s.open, s.open_idle));
         (c.open, c.open_idle, c.open_pending) = vanilla_record(v, wlo, whi, opts.max_ticks, t)?;
-        c.open_entities = v.count_entities("@e[type=!minecraft:player]")?;
+        c.open_entities = vanilla_entities(v)?;
         flip(v, spec.lever, false)?;
         let t = s.and_then(|s| target(&s.close, s.close_idle));
         (c.close, c.close_idle, c.close_pending) = vanilla_record(v, wlo, whi, opts.max_ticks, t)?;
-        c.close_entities = v.count_entities("@e[type=!minecraft:player]")?;
+        c.close_entities = vanilla_entities(v)?;
         cycles.push(c);
     }
     Ok(Run { settle, settle_idle, rest, cycles, settle_pending })
@@ -541,7 +553,7 @@ fn vanilla_free_run(v: &mut VanillaServer, oracle: &mut Oracle, w: &mut Worker, 
         }
         let snap = v.snapshot(wlo, whi)?;
         let busy = !snap.block_ticks.is_empty() || snap.fluid_ticks > 0 || snap.moving_pistons() > 0;
-        let entities = v.count_entities("@e[type=!minecraft:player]")?;
+        let entities = vanilla_entities(v)?;
         Ok((snap.region, entities, !busy))
     };
     let (mut open, open_entities, open_idle) = run_until(v, true, c0.open.len() + 20)?;
