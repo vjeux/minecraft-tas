@@ -12,7 +12,9 @@ door), blocks as the tie-break. flat-v2-57b (the only FULL + hallway flat door a
 
 | file | volume | blocks | seamless | hallway | open/close | how |
 |---|---|---|---|---|---|---|
-| [e89.txt](e89.txt) (archive/flat-seam-e89-51b.txt) = BEST | **8x9 = 72** | 51 | FULL | yes (dentless) | 36 / 36 | cd19 (flat-b, center down) without row 5: seamless's hand variant fbv7-89m completed with two pulse mergers and a bottom feed for the right bottom piston ([e89.patch](e89.patch)) |
+| [e89b.txt](e89b.txt) (archive/flat-seam-e89b-49b.txt) = BEST | **8x9 = 72** | 49 | FULL | yes (dentless) | 34 / 34 | e89 shrunk by `resynth --fit=-3,-4,0:4,4,0 --seamless full+hall`: the T feed needs no merger (3 observers), the relay merger became stone (3,4) + repeater (4,4) watched by (4,3) |
+| [e89el.txt](e89el.txt) (archive/flat-seam-e89el-50b.txt) | **8x9 = 72** | 50 | FULL | yes (dentless) | 34 / 38 | **record-eligible** (repeater input yes 35/39, lever on the surface with steady support, uses, footsteps): e89b with the lever's support turned into a redstone lamp (0,-4) and the lever moved to its west face (-1,-4); both lever watchers now see the lamp, so a repeater powering the support drives the door too (the close is 4 gt later: the lamp's fall delay) |
+| [e89.txt](e89.txt) (archive/flat-seam-e89-51b.txt) | 8x9 = 72 | 51 | FULL | yes (dentless) | 36 / 36 | cd19 (flat-b, center down) without row 5: seamless's hand variant fbv7-89m completed with two pulse mergers and a bottom feed for the right bottom piston ([e89.patch](e89.patch)) |
 | [h44.txt](h44.txt) (archive/flat-seam-h44-44b.txt) | 9x9 = 81 | 44 | FULL | yes | 52 / 48 | h45 + `door minimize --shape thick<=1,volume<=81 --seamless full+hall`: the delay-2 repeater (-3,3) -> dust, the dust (-1,4) gone |
 | [h45.txt](h45.txt) (archive/flat-seam-h45-45b.txt) | 9x9 = 81 | 45 | FULL | yes | 56 / 54 | lamp-sweep-flat43 made FULL in its own box: BL flag -> corner watcher, X floor obsidian -> stone (early P_T pulse removed with s55's right cluster) |
 | [s55.txt](s55.txt) (archive/flat-seam-s55-55b.txt) | 9x10 = 90 | 55 | FULL | yes | 40 / 40 | flat-v2-57b compacted by `resynth --fit` (x >= -3): the M chain's 4 blocks in column x = -4 regrown inside, then one block less |
@@ -35,6 +37,35 @@ right bottom piston had no feed. e89 fixes it with three local changes (the rest
    (4,-2) and (4,-1) facing down -> (4,0), t10.
 Open state ring: left wall TL ML BL, right wall TR MR BR, ceiling T at (1,3) ((0,3), (2,3) air, never
 swept), floor M (0,-1), C (1,-1), X stone (2,-1): FULL, dentless, props-dyn hallway yes.
+e89b (49): resynth found that the T puller's feed needs no merger (its input is one clean pulse:
+observers (-3,4)D, (-2,4)W, (-1,4)W, (0,4)W) and that the relay's merger can be smooth stone (3,4)
++ repeater delay 2 (4,4) facing west, watched by the observer (4,3) that was already there.
+Searches that found nothing below 49 (all `--fit=-3,-4,0:4,4,0 --seamless full+hall`, rotation-safe):
+minimize `--moves all --plateau`, regrow size 3, resynth groups 2-4 (rich palette: lamp, note,
+target, bulb) and groups 5-6.
+
+**Lamp lever (e89el, 50, record-eligible):** a design whose lever is watched by observers fails the
+repeater-input check (powering the support changes nothing an observer sees). Hang the lever on a
+redstone lamp that the same observers watch: the lever (or a repeater) powers the lamp, the lamp
+lights, the observers fire as before; the close comes 4 gt later (the lamp's fall delay). Agent
+eligible's fl72m does the same with a note block in the lever cell (no close delay); the lamp is
+the alternative when the lever cell has no room.
+
+## Smaller boxes: why they are blocked (for box64 / box72)
+- **7 wide (x -2..4)**: no outer column, so row y = 1 is blocked end to end (ML's piston, ML's gap,
+  the door, MR's gap, MR's piston). Each side's top and middle pistons can only be fed from above
+  the door ((-2,3), (4,3), QC through the cell above), each bottom piston only from below; the two
+  regions touch only through door blocks arriving where the other side can watch, and in both
+  families every arrival cell (the wall parks, the floor and ceiling ring) is watched only from its
+  own side (BL's park by the bottom corner, TL's park by the top corner). So one region has no
+  trigger. A 7-wide door needs a family where a middle-row block does not leave sideways, or a
+  watcher that sees a door block driven from the other region.
+- **8 x 8 (cd19)**: e89's row -4 is its only crossing of column x = 1 (lever -> (1,-4) -> (2,-4)
+  under B', which also floors R_B and the dust that feeds the right bottom piston). Without it the
+  right bottom piston (fed only from (4,-1)) has no single-pulse trigger (X itself can watch B', see
+  box64's correction below); the T puller relay reaches only the top-right (column x = 4 is the
+  right stack).
+- **9 x 8 (cd19)**: same split, see "cd19 at 9x8" below.
 
 ## h45: flat43 made FULL (9 x 9) in three edits
 flat43 (lamp-sweep, 43, QUART) had two open-state blockers: the BL flag observer (0,-1) (fires P_M
@@ -63,12 +94,16 @@ the shrinking search that follows keeps the design inside. Pistons, the lever an
 never moved (they must already be inside). Combine with `--seamless full+hall` to keep the tier.
 57b -> s55 took 78 s (4 out-of-box blocks: 57 -> 57 -> 58 -> 57 -> 56, then 55).
 
-## Why the pist19r family (flat43, h44, s55, 57b) cannot go below 9 x 9
-- **Height >= 9 (rows y -2..6).** M's puller sits at y = -2 (pull-type, gap (1,-1)). A (1,4) faces down
-  and its quasi cell is B's own cell (1,5): every signal that powers B from its sides (0,5)/(2,5), or
-  from (1,6) itself, is the same query that quasi-powers A (identical position and direction). So B
-  can only be fed through the neighbours of (1,6): row y = 6 (flat43/h44: the repeater on top of B ->
-  dust (0,6); 57b/s55: a repeater at (0,6) pointing into (1,6)).
+## Why I could not take the pist19r family (flat43, h44, s55, 57b) below 9 x 9
+- **Height >= 9 (rows y -2..6) — WRONG, corrected by box64.** I argued: M's puller sits at y = -2,
+  A (1,4) faces down and its quasi cell is B's own cell (1,5), so anything powering B from
+  (0,5)/(2,5) also quasi-powers A, hence B only through row 6. That holds for observer/repeater feeds
+  next to B, NOT for a conductor feed: a strongly powered plain block at (2,5) (or (0,5)) arms A by
+  quasi-connectivity but its power source updates only that block's neighbours (B, (2,4), (2,6)),
+  never A, so B pushes A as usual (box64: explore/box64
+  designs/piston-door-3x3/tracks/box64/ideal/m19-88.ideal, flat m19 with every input inside
+  x -2..5, y -2..5, B from a redstone block at (2,5): WORKS 32 positions x 2 cycles). So the family
+  is not limited to 9 rows by B's feed.
 - **Width >= 9.** Each side column's bottom piston ((-2,0), (4,0)) can only be fed from (x,-1) or
   from the outer column (x = -3 / x = 5, directly or by quasi-connectivity through the middle
   piston). With the side columns, their ring gaps and M's column in the way, the bottom region is cut
@@ -77,7 +112,9 @@ never moved (they must already be inside). Combine with `--seamless full+hall` t
   fires twice per action: wrong parity) or by a repeater merger (needs a floor on row y = -3:
   outside the 9 rows). Tried in r1 (column x = 5 dropped, right bottom fed from M's watcher chain):
   BROKEN, the right bottom toggled twice per M pulse.
-- So 9 x 9 = 81 (h44) is this family's floor. cd19 (center DOWN, flat-b) has neither constraint:
+- So 9 x 9 = 81 (h44) was this family's floor in my wiring; the width argument (one outer column
+  reaches one bottom corner) still stands for wired doors, the height one does not (above).
+- cd19 (center DOWN, flat-b) has neither constraint:
   B' (1,-3) can be fed from (0,-3)/(2,-3) without touching A's quasi cell (1,-1), and the 8-row box
   y -3..4 needs only: B' driven by two 2 gt pulses instead of an 8 gt window (no repeater floor on
   y = -4), the top pullers fed from (0,4)/(3,4).
@@ -110,6 +147,80 @@ never moved (they must already be inside). Combine with `--seamless full+hall` t
   watch B's left driver: b1+2 and b2+2, the forbidden pulse), or P_M moves right (cd19.txt's
   (3,-1), M parks at (2,-1), X at (0,-1)) and then P_M (pm at a1+3..7) is the right-half job with no
   trigger. I stopped here: 9x8 needs a one-shot or a cleverer crossing.
+- **Correction (box64, explore/box64 tracks/box64/ideal/m5p.ideal):** with B's two pulses (or a
+  9..12 window) spaced 7..10 apart, a2 = b1+4 and a3 = b2+4 both work with IDEAL X pulses (my cd8
+  agrees: a2 anywhere in b1+2..b2-3, a3 = b2+4, for gaps >= 7). But a REAL watcher does not deliver
+  them: in [cd8-bw.ideal](cd8-bw.ideal) (cd8 + observer (2,-3) facing west watching B', observer (2,-2) facing down, X
+  smooth stone (2,-1), B' pulsed from (0,-3) at b1 = 12, b2 = 17..24) every run fails. Trace at
+  b2 = 20: B's watcher fires at b1+3, b1+7, b2+3, b2+7 (B' changes state when it starts extending
+  and again when its spit retraction finishes), so X also fires at b1+9 = b2+1, inside the fatal
+  window: A' high pushes C back up. Merging the pair (repeater + observer) makes X far too late.
+  So in 9 x 8 the X problem stays open.
+
+## Strip doors, 13 x 5 (thin-strip family, started 10-18 15:15)
+Target from the coordinator: 13x5 = 65 (fallback 14x5 = 70) with agent families' row mechanisms
+(explore/families tracks/families/ROWS.md: in a box <= 5 tall each door row slides sideways on
+its own); agent strip does 12x5 / 11x5.
+- **Tool `door rows-fire <ROWS.tsv> [--wirable] [--only ids]`** (crates/piston-door/src/rowsfire.rs):
+  replays every row mechanism in the same 1-D macro model as families.rs and prints the cell each
+  piston FIRES from (schedules name pistons by their rest cell; walkers fire from where they were
+  moved). Output for families' 433 rows: [strip/ROWS-FIRE.md](strip/ROWS-FIRE.md).
+- **Every row mechanism fires from the door columns.** None of the 433 avoids x 0..2. 222 fire
+  there exactly twice, both at x = 2 (or x = 0 in the mirror image), never at x = 1, as a push
+  then a pull of the same walker (r046: C pushes the door line west at step 3, pulls D2 back at
+  step 4). The other 211 fire 6 times there, twice at x = 1. In a 5-tall box the cells above and
+  below the door columns are the ceiling / floor ring (door or plain blocks only in the stable
+  states), so these firings need a trick:
+  - the push-then-pull pair is ONE level input (extend = push, release = sticky pull);
+  - row 2 can take it by quasi-connectivity through the ceiling ring cell from the corner, row 1
+    by quasi-connectivity through row 2's cell (x,2) when (x,3) carries power;
+  - row 0 only from the floor ring cell (2,-1) itself (QC looks up, never down).
+- **r046 x 3 rows passes with ideal inputs** ([strip/r046x3.txt](strip/r046x3.txt), mechanism
+  NE(-4) NE(-2) SW(4) SW(5) SW(6) in every row, 15 pistons, row width 11):
+  [strip/r046x3.ideal](strip/r046x3.ideal) (inputs behind the plane) and, more to the point,
+  [strip/r046x3-qc.ideal](strip/r046x3-qc.ideal) with every input IN THE PLANE where a 5-tall box
+  has room: rows 1 and 2 run the same train from the top row (a block powering (x,3) fires row 2's
+  piston at (x,2) directly and row 1's at (x,1) by quasi-connectivity), row 0 from the bottom row,
+  and the inner pair is a block held in the ring cell (2,3) / (2,-1) from step 3 to step 4. Both
+  WORK, 4 positions x 2 cycles, open 51 / close 15 (6 gt per step, not tuned).
+  Train (x = firing cell): open 6, 4, [2 held], 4, 3, 6, 5, 4; close -4, -2, 4.
+- **Not wired yet.** What the wiring has to solve: each of the top and bottom rows is ONE cell high
+  and must power, at the right ticks, the cells above / below the firing cells -4, -2, 3, 4, 5, 6
+  (x 4 four times per cycle, x 6 twice) plus the ring cell (2,3) / (2,-1) as a 6 gt level, with
+  only the columns x = -5 and x = 7 free in the door rows. An observer in row 3 cannot power the
+  piston below it (its output is horizontal or needs row 4), dust in row 3 would stand on walking
+  pistons, a repeater needs a floor; so the firing cells of row 3 must be conductor blocks
+  strongly powered sideways (observers/repeaters in the neighbouring row-3 cells), which leaves no
+  room for a sequencer inside the row: the timing has to come up the x = -5 / x = 7 columns or
+  ride in the rows (redstone blocks pushed along row 3 power the piston under them; a plain stone
+  parked in the ceiling ring cell (2,3) is legal in both stable states and can carry the level by
+- **Wiring attempt (15:25-15:35, analysis only, nothing placed).** What I established for the
+  13 x 5 box (mechanism at x -4..6, free columns x = -5 and x = 7, wiring rows y = -1 and 3):
+  - the static end pistons are the easy part: E (x = 6, fires s1 and s7) and A (x = -4, c1) of
+    every row can be powered IN THE ROW from a strongly powered block at (7,y) / (-5,y) (the free
+    columns), so row 3 / row -1 need not reach x = 6 and x = -4;
+  - what is left per row: B at -2 (c2), C at 3 (s6), x = 4 (s2 D, s5 D, s9 C, c3 C), D at 5 (s8)
+    and the level at 2 (s3..s4). In row 3 (and row -1) the only parts that power the cell below
+    are a redstone block or a strongly powered conductor in (x,3) (an observer would have to face
+    up and watch row 4, a repeater or dust needs a floor that walks away). A conductor must be fed
+    sideways from a row-3 neighbour, so the consecutive firing cells 3, 4, 5 cannot all be
+    conductors: (4,3) has no free neighbour. Feeding (4,3) from an observer at (3,3) (facing west,
+    watching a block moved into the ring cell (2,3)) makes (4,3) quasi-power the row-2 piston
+    at (3,2) whenever it fires, and at s2 C stands there (it would push too): broken;
+  - the mirror family (r075/r079: SE(-4) SE(-3) SE(-2) + NW/SW(4) + SW(6)) fires at -4, -3, -2,
+    -1, 0 (open, all on the left) and -2, 6, 4 (close): four consecutive cells, worse;
+  - all 433 rows fire from >= 7 distinct cells (rows-fire), the best sets being
+    {-4,-2,2,3,4,5,6} (65 rows, r046's) and {-4,-3,-2,-1,0,4,6} (43, r075's).
+  So static row-3/row-(-1) conductors cannot drive a strip door; it needs MOVING power: redstone
+  blocks pushed along row 3 / row -1 by pistons there (a redstone block in (x,3) fires row 2 and
+  row 1 together, as in r046x3-plane.ideal), or a 6th row. Handed to satwire / strip with
+  r046x3-plane as the target.
+  - **Levels help:** a sticky push followed later by a pull of the block in front of the same head
+    is ONE level: E (x 6) held s1..s7, D (x 4) held s2..s5, C (x 2) held s3..s4, the nested
+    intervals E > D > C; then only C x 3 (s6), D x 5 (s8), C x 4 (s9) and the close A -4, B -2,
+    C 4 (c3 must stay a 2 gt spit) are pulses. [r046x3-plane-levels.ideal](r046x3-plane-levels.ideal)
+    WORKS (51 / 15). Long levels make moving redstone blocks (which power while they sit) a better
+    fit, and E's level can come in-row from (7,y) for all three rows.
 
 ## Log
 - `door minimize --moves all --plateau --shape flat --seamless full+hall` on 57b: nothing (48
