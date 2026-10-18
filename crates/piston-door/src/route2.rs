@@ -1251,8 +1251,13 @@ impl Problem<'_> {
         // cells from the receiver can already reach it.
         let hk = |p: Pos| -> u32 { if opts.astar { (manhattan(p, r.pos) - 2).max(0) as u32 } else { 0 } };
         // Taps: every powered node, and observers watching any cell the machine changes.
+        // (A free receiver skips taps that turn on only at or after its own action: see the
+        // watch taps below.)
+        let first_on = |x: u64| if x == 0 { 64 } else { x.trailing_zeros() };
+        let own_w = Wave([r.want.0[0] & r.mask.0[0], r.want.0[1] & r.mask.0[1]]);
+        let late = |w: Wave| r.free.is_some() && (0..2).any(|ph| own_w.0[ph] != 0 && first_on(w.0[ph]) >= first_on(own_w.0[ph]));
         for (i, n) in m.nodes.iter().enumerate() {
-            if m.any[i].is_off() || matches!(n.kind, Kind::Inert | Kind::Other) {
+            if m.any[i].is_off() || matches!(n.kind, Kind::Inert | Kind::Other) || (n.kind != Kind::Lever && late(m.any[i])) {
                 continue;
             }
             if !opts.taps.is_empty() && !opts.taps.contains(&n.pos) {
@@ -1274,8 +1279,16 @@ impl Problem<'_> {
         };
         // Watch taps: an observer watching a cell the machine changes.
         if opts.watch {
+            // A free receiver (its time is the router's choice) must not watch a motion that
+            // comes at or after its own action in the measured run: that motion may be its own
+            // (a side piston fired by watching its own column never fires).
+            let first = |x: u64| if x == 0 { 64 } else { x.trailing_zeros() };
+            let own = Wave([r.want.0[0] & r.mask.0[0], r.want.0[1] & r.mask.0[1]]);
+            let causal = |wv: Wave| -> bool {
+                r.free.is_none() || (0..2).all(|ph| own.0[ph] == 0 || first(wv.0[ph]) < first(own.0[ph]))
+            };
             for (&c, &wv) in &self.meas.watch {
-                if wv.is_off() || (!opts.taps.is_empty() && !opts.taps.contains(&c)) {
+                if wv.is_off() || (!opts.taps.is_empty() && !opts.taps.contains(&c)) || !causal(wv) {
                     continue;
                 }
                 for f in FACES {
