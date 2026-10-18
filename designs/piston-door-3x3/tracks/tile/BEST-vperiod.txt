@@ -1,8 +1,4 @@
-# b38 vperiod-9 tile module (one door every 9 blocks up, ONE lever): observers (0,6,-3) and
-# (-1,6,-3) relay O's pulse west, a tower of observers (-1,7..13,-3) carries it up beside the
-# next opening into smooth stone (-1,5,-3) of the copy above, which powers dust (0,5,-3) and the
-# relay dust in that copy's lever cell (on its hopper).
-name: b38h-vobs9
+name: b38h-vobs9m
 relay: minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
 port door: 0 0 0
 port lever: 1 5 -3
@@ -11,24 +7,26 @@ palette:
   A minecraft:observer[facing=north,powered=false]
   B minecraft:observer[facing=up,powered=false]
   C minecraft:observer[facing=west,powered=false]
-  D minecraft:sticky_piston[extended=false,facing=east]
-  E minecraft:sticky_piston[extended=false,facing=south]
-  F minecraft:sticky_piston[extended=false,facing=up]
-  G minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=south]
   H minecraft:hopper[enabled=true,facing=down]
-  I minecraft:stone
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:stone
   L minecraft:lever[face=wall,facing=north,powered=false]
   O minecraft:observer[facing=down,powered=false]
-  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   S minecraft:smooth_stone
   o minecraft:observer[facing=east,powered=false]
-  r minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
   s minecraft:sticky_piston[extended=false,facing=down]
 layer -2:
   .
   .
   .
-  ...F
+  ...I
 layer -1:
   .
   .
@@ -38,48 +36,69 @@ layer 0:
   .
   .
   .
-  D.III.G
+  F.KKK.J
 layer 1:
   .
   .
   .
-  D.III.G
+  F.KKK.J
 layer 2:
   .
   .
   .
-  SoIIICS
+  SoKKKCS
 layer 3:
   .
-  ...E
+  ...G
   ..S.S
   .
 layer 4:
   ..SH
   ...A
-  ..RSR
+  ..DSD
   ..sss
 layer 5:
-  .SRL
+  .SrL
   ...B
   ...B
   ...s
 layer 6:
-  .ooO
+  .R.O
   ...A
-  ...r
+  ...E
   .
 layer 7:
   .O
+  .
+  .
+  .
 layer 8:
   .O
+  .
+  .
+  .
 layer 9:
   .O
+  .
+  .
+  .
 layer 10:
   .O
+  .
+  .
+  .
 layer 11:
   .O
+  .
+  .
+  .
 layer 12:
   .O
+  .
+  .
+  .
 layer 13:
   .O
+  .
+  .
+  .
