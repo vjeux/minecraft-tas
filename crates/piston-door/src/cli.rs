@@ -757,6 +757,63 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
+    /// SAT synthesis of a flat door's WIRING for a fixed mechanism (satwire.rs): the mechanism
+    /// and each piston's power per tick come from an ideal schedule (`.ideal`) or a wired design
+    /// (`--from-wired`, wiring stripped); placement one-hot per free cell of the box, two traces
+    /// (lever on from rest, off from open), time-unrolled redstone semantics; every model is
+    /// judged by the real simulator (CEGAR) and the wiring is minimized.
+    Satwire {
+        /// An ideal schedule (`.ideal`) or a design (with --from-wired).
+        mechanism: PathBuf,
+        /// The mechanism is a wired design: record its pistons' real power, strip its wiring.
+        #[arg(long)]
+        from_wired: bool,
+        /// Wiring box "x0,y0,z0:x1,y1,z1" (default: the mechanism's bounding box).
+        #[arg(long = "box")]
+        bx: Option<String>,
+        /// Ring cells (and the cells behind hallway holes) hold only plain blocks.
+        #[arg(long)]
+        forbid_ring: bool,
+        /// Lever candidate cells "x,y,z;..." (default: free cells and the cells around the box).
+        #[arg(long)]
+        lever: Option<String>,
+        /// Also offer levers in front of / behind wiring blocks (out of the plane).
+        #[arg(long)]
+        lever_oop: bool,
+        /// Palette: block,dust,rep (rep1..rep4),obs,torch,note,bulb,cmp.
+        #[arg(long, default_value = "block,dust,rep,obs,torch")]
+        palette: String,
+        #[arg(long)]
+        max_blocks: Option<usize>,
+        /// Largest delay (ticks) of the whole schedule after each flip (per trace, solver's pick).
+        #[arg(long, default_value_t = 8)]
+        dmax: i32,
+        /// Ticks after the mechanism settles that the wiring must also settle in.
+        #[arg(long, default_value_t = 6)]
+        settle: i32,
+        /// Ticks recorded per flip.
+        #[arg(long, default_value_t = 80)]
+        rec_ticks: u32,
+        /// Forbid quasi-connected power as a piston's wanted power.
+        #[arg(long)]
+        no_qc: bool,
+        /// Dust levels modeled (15 = exact; fewer = conservative, shorter dust runs).
+        #[arg(long, default_value_t = 15)]
+        levels: u8,
+        /// Fix the source design's own wiring and report where the model disagrees with it.
+        #[arg(long)]
+        check: bool,
+        /// CEGAR iterations.
+        #[arg(long, default_value_t = 300)]
+        iters: usize,
+        /// Stop at the first judged design (no minimization).
+        #[arg(long)]
+        first: bool,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// The catalog of flat (1-wide) seamless mechanisms per box (families.rs): every door block
     /// leaves the 3x3 in 1-2 unit moves (center 2), each move provided by a pull or push piston
     /// (reused, or lifted by one elevator piston); every candidate solved exactly in the macro
@@ -1085,6 +1142,51 @@ pub enum DoorCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Differential fuzzing of the redsim model (crates/redsim) against the real game: random
+    /// circuits run in both, every block state compared after placement and every tick and flip;
+    /// mismatches are shrunk and saved as case files (`door redsim-case` replays one).
+    RedsimFuzz {
+        /// Random circuits to run.
+        #[arg(long, default_value_t = 1000)]
+        n: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Box size x,y,z.
+        #[arg(long, default_value = "6,3,6")]
+        size: String,
+        /// Chance that a cell of the box gets a component.
+        #[arg(long, default_value_t = 0.45)]
+        density: f64,
+        /// Families with weights: `core`, `extra`, `all`, or `<family>[:w],...` (dust, repeater,
+        /// comparator, torch, walltorch, observer, rblock, lamp, bulb, note, target, lever, button,
+        /// stone, glass, simple, trapdoor, gate, skull, rail, dispenser, crafter, hopper, slab,
+        /// leaves, log, analog, door).
+        #[arg(long, default_value = "core")]
+        palette: String,
+        /// Where shrunk mismatch cases go.
+        #[arg(long, default_value = "designs/redsim/fails")]
+        out: PathBuf,
+        /// Do not shrink mismatches.
+        #[arg(long)]
+        no_shrink: bool,
+        /// Shrink and save at most this many mismatches.
+        #[arg(long, default_value_t = 8)]
+        max_report: usize,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
+    /// Replay a redsim case file in the game and in redsim; print the differing frames.
+    RedsimCase {
+        case: PathBuf,
+        #[arg(long, default_value_t = 3)]
+        max: usize,
+        /// Write it as a redsim regression fixture (the game's trace as the expectation).
+        #[arg(long)]
+        fixture: Option<PathBuf>,
+        /// One-line description for the fixture.
+        #[arg(long, default_value = "")]
+        note: String,
+    },
     /// Apply an edit script to a design and write the (canonicalized) result. Script lines:
     /// `set x y z <state>` (an extended piston gets its head too), `clear x y z` (a piston
     /// takes its head along), `port <name> x y z`; `#` starts a comment line.
@@ -1349,6 +1451,47 @@ pub enum DoorCmd {
         keep_world: bool,
         #[arg(long, default_value_t = 100)]
         tick_rate: u32,
+    },
+    /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
+    /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
+    /// queue size compared after every tick against the bridge; failures shrunk and saved.
+    Pistfuzz {
+        #[arg(long, default_value_t = 100)]
+        count: u64,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// flat, box or mix.
+        #[arg(long, default_value = "mix")]
+        mode: String,
+        /// Slime and honey in the palette.
+        #[arg(long)]
+        slime: bool,
+        /// Sand, gravel, red sand in the palette.
+        #[arg(long)]
+        gravity: bool,
+        /// Observers in the palette.
+        #[arg(long)]
+        observers: bool,
+        /// What the bridge is compared with: `model` (redsim) or `bridge` (a second run: the
+        /// harness's own determinism).
+        #[arg(long, default_value = "model")]
+        against: String,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Shrink every failure to a minimal scenario.
+        #[arg(long)]
+        shrink: bool,
+        /// Replay scenario files instead of generating.
+        #[arg(long, num_args = 1..)]
+        replay: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/pistmodel/fuzz")]
+        out_dir: PathBuf,
+        /// Stop after this many failures.
+        #[arg(long, default_value_t = 20)]
+        max_fail: usize,
+        /// Print every tick's block changes of the bridge run (for single replays).
+        #[arg(long)]
+        trace: bool,
     },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
@@ -2445,6 +2588,46 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
+        DoorCmd::Satwire { mechanism, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, settle, rec_ticks, no_qc, levels, check, iters, first, extra_offsets, out } => {
+            use crate::satwire as sw;
+            let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
+            let rec = {
+                let mut w = Worker::spawn(&cfg)?;
+                if from_wired || check {
+                    let d = load_design(&mechanism)?;
+                    sw::record_wired(&mut w, &d, rec_ticks)?
+                } else {
+                    let text = std::fs::read_to_string(&mechanism)?;
+                    let s = crate::ideal::Schedule::parse(&text)?;
+                    sw::record_ideal(&mut w, &s, rec_ticks)?
+                }
+            };
+            for (i, ph) in rec.phases.iter().enumerate() {
+                let on: Vec<String> = (1..ph.power.len())
+                    .flat_map(|j| ph.power[j].iter().filter(|(_, v)| **v).map(move |(c, _)| format!("t{j}:{},{}", c.0, c.1)))
+                    .collect();
+                println!("{}: {} frames, powered piston-ticks {}", ["open", "close"][i], ph.frames.len(), on.join(" "));
+            }
+            let po = sw::ProbOpts {
+                bx: bx.as_deref().map(sw::parse_box).transpose()?,
+                palette: sw::palette(&palette)?,
+                forbid_ring,
+                levers: lever.as_deref().map(crate::synth::parse_cells).transpose()?,
+                lever_oop,
+                dmax: if check { 0 } else { dmax },
+                settle,
+                qc: !no_qc,
+                levels,
+            };
+            let mut p = sw::build_prob(rec, &po)?;
+            if check {
+                sw::fix_wiring(&mut p)?;
+                return sw::check(&p);
+            }
+            let name = format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default());
+            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
+            sw::run(&p, &o)?;
+        }
         DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve } => {
             if let Some(f) = resolve {
                 let b = crate::families::parse_boxes(&boxes)?;
@@ -2760,6 +2943,33 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("{} {} {} {}", p[0], p[1], p[2], s.strip_prefix("minecraft:").unwrap_or(s));
             }
         }
+        DoorCmd::RedsimFuzz { n, seed, size, density, palette, out, no_shrink, max_report, workers } => {
+            let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+            anyhow::ensure!(sz.len() == 3, "--size x,y,z");
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let o = redsim_fuzz::FuzzOptions {
+                n,
+                seed,
+                size: [sz[0], sz[1], sz[2]],
+                density,
+                palette: redsim_fuzz::palette(&palette)?,
+                out,
+                shrink: !no_shrink,
+                max_report,
+            };
+            redsim_fuzz::fuzz(&pool, &o, &|s| eprintln!("{s}"))?;
+        }
+        DoorCmd::RedsimCase { case, max, fixture, note } => {
+            let mut w = Worker::spawn(&cfg)?;
+            let same = redsim_fuzz::replay(&mut w, &case, max)?;
+            if let Some(path) = fixture {
+                anyhow::ensure!(same || !note.is_empty(), "writing a fixture of a mismatching case needs a --note");
+                let c = redsim_fuzz::Case::parse(&std::fs::read_to_string(&case)?)?;
+                let text = redsim_fuzz::fixture(&mut w, &c, &note)?;
+                std::fs::write(&path, text)?;
+                eprintln!("fixture written to {}", path.display());
+            }
+        }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;
             let mut w = Worker::spawn(&cfg)?;
@@ -2993,6 +3203,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
+        }
+        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, against, workers, shrink, replay, out_dir, max_fail, trace } => {
+            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, against, workers, shrink, replay, out_dir, max_fail, trace };
+            crate::pistfuzz::cli(version, &o)?;
         }
         DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
             let lever = match lever.as_str() {

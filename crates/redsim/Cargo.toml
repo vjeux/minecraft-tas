@@ -1,0 +1,9 @@
+[package]
+name = "redsim"
+description = "Exact tick-level redstone simulator (a Rust model of Minecraft 26.3's redstone and engine queues), checked against the real game by differential fuzzing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]

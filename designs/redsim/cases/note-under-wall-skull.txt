@@ -1,0 +1,6 @@
+box -3 2 -1 -1 5 2
+block -2 3 1 minecraft:note_block[instrument=harp,note=17,powered=false]
+block -2 4 1 minecraft:skeleton_wall_skull[facing=north,powered=false]
+block -2 4 0 minecraft:lever[face=floor,facing=north,powered=false]
+use -2 4 0
+run 2
