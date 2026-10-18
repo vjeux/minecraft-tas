@@ -1,0 +1,7 @@
+# The dust lights 6gt after each flip for 2gt (three observers, 2gt each).
+design designs/gadgets/observer-delay.txt
+probe D 2 -1 0
+use 0 1 0
+expect_trace D 00000++00
+use 0 1 0
+expect_trace D 00000++00

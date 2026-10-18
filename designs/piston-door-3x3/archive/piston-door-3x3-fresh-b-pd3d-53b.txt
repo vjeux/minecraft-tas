@@ -1,0 +1,91 @@
+# verified WORKS by door leaderboard: 53 blocks, category solid
+# archived 2026-10-18 07:19Z from origin/explore/fresh-b:designs/piston-door-3x3/tracks/fresh-b/BEST.txt (repo at 4036e92)
+name: piston-door-3x3-fresh-b-pd3d
+port door: 0 0 0
+port lever: 1 -2 -2
+origin: -1 0 -4
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:obsidian
+  E minecraft:redstone_wall_torch[facing=north,lit=true]
+  F minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+  H minecraft:sticky_piston[extended=false,facing=east]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=wall,facing=south,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_torch[lit=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_torch[lit=true]
+  s minecraft:smooth_stone
+layer -4:
+  .
+  .
+  .
+  .
+  ..oB
+layer -3:
+  .
+  .
+  .
+  ..BC
+  ..OB
+layer -2:
+  ..E
+  ..K
+  ..L
+  ..AO
+  ..IA
+layer -1:
+  ..K
+  .
+  .
+  .SJK
+  SS.HS
+layer 0:
+  ..R
+  .
+  .
+  .
+  SKKKS
+layer 1:
+  ..K
+  .
+  .
+  .
+  SKKKS
+layer 2:
+  ..r
+  .
+  .
+  .
+  .KKK
+layer 3:
+  ..K
+  .
+  ..s
+  .
+  .SSS
+layer 4:
+  ..R
+  ..A
+  ..F
+  ..D
+  ..G
+layer 5:
+  .
+  ..O
+  .
+  .
+  .G
+layer 6:
+  .
+  .oO
+  .A
+  .A
+  .

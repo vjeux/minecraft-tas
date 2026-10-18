@@ -1,0 +1,13 @@
+# The slime column comes back one cell west; both honey blocks stay.
+design designs/gadgets/honey-slime.txt
+probe S0 3 0 0
+probe S1 3 1 0
+probe Y0 4 0 0
+probe Y1 4 1 0
+probe N1 2 1 0
+clear 0 0 0
+quiet 4
+expect Y0 y
+expect Y1 y
+expect S0 .
+expect N1 s

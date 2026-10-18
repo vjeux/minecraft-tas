@@ -36,7 +36,13 @@
   (redstone blocks placed by hand) before wiring them.
 - `route <design> --start='x,y,z;..' --goal='x,y,z' [--allow=..]`: dust auto-router (fewest new
   blocks; avoids cells the machine sweeps, the walkway, and touching other components).
-- `minimize <design> --out <file>`: greedy parallel single-block removal.
+- `minimize <design> --out <file> --moves all [--plateau] [--depth 2] [--archive]`: local search
+  (search.rs): removals of 1-3 blocks, repeater delays, moves, substitutions, swaps (2-3 blocks
+  out, 1 in), dust re-routing and net re-synthesis; candidates screened at 2 positions, accepted
+  only by the full judge (32 positions). `--objective open|close|total` optimizes speed instead.
+  Default `--moves singles` is the old greedy removal.
+- `harvest --out-dir <dir> --moves all --plateau [--every 20]`: runs that search on the best
+  working designs of every branch and league not harvested yet (harvest.rs).
 - `gen <name> --out <file>`: canonicalize a design built in `crates/piston-door/src/designs.rs`.
 - `mctas src grep|find|show`: read the decompiled Minecraft 26.3 source (the ground truth for
   mechanics; see `docs/mechanics.md`).

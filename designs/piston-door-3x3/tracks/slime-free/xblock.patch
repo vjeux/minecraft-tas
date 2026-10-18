@@ -1,0 +1,6 @@
+# X dust -> a block strongly powered by observers: O (2,5,0) from above (B-edge pulses) and a new
+# observer at (3,4,0) watching O_a (first pulse at t=4). A gets it directly when up and by QC
+# (through B's head cell) when down, so X's floor goes.
+set 2 4 0 minecraft:smooth_stone
+clear 2 3 0
+set 3 4 0 minecraft:observer[facing=east,powered=false]

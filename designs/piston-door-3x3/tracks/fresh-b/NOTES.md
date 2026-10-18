@@ -91,3 +91,15 @@
   pushers at the top; only the pump and the bottom-row lowering stay below.
 * sf1 (slime-free top pump) with the BUD-safe upper-spot source above is buildable now; it needs ~6
   side pullers so it will not beat 53 either.
+
+## 07:20Z pd3 61 -> 53 (pd3b 59, pd3c 54, pd3d 53 = BEST.txt), all verified at 32 positions
+Patches (apply with `door patch`): pd3b-from-pd3.patch, pd3c-from-pd3b.patch, pd3d-from-pd3c.patch.
+* Every lever-to-piston delay is now an OBSERVER CHAIN (1 block per 2 gt, no floors, the pulse stays
+  2 gt) instead of a repeater/dust level line (2 blocks per cell): sides = O_A1 -> O2 -> O3 -> O_S;
+  A's second pulse = O_S -> 4 observers -> observer under A; U = O_T -> 4 observers -> observer whose
+  back points into the cell ABOVE U (quasi-power: one observer less than reaching U's side).
+* Chain lengths are parity-bound (Manhattan distance between the source and the target cell), and
+  every event lands on an even tick, so "one tick too early" costs two observers, not one.
+* `door minimize --moves all --plateau` finds nothing on pd3 / pd3c / pd3d.
+* pd3d control (28): lever + block, O_A1, O2, O3, O_S, P, 4 + 1 observers for A's 2nd pulse,
+  torch tower 7 (to y=4), O_T + 4gt repeater + floor + block next to T, 4 + 1 observers for U.

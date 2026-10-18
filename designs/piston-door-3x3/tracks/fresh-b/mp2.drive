@@ -1,0 +1,34 @@
+design designs/piston-door-3x3/tracks/fresh-b/mp2.txt
+probe TM 1 2 0
+probe C 1 1 0
+probe c3 1 3 0
+probe A 1 4 0
+probe H 0 3 0
+probe F 2 4 0
+probe L1 -1 1 0
+probe R1 3 1 0
+probe car 2 3 0
+probe Fs 2 4 -1
+probe As 1 4 -1
+quiet 4
+use 1 5 -2
+trace 13
+set 1 -2 -1 minecraft:redstone_block
+trace 4
+clear 1 -2 -1
+trace 6
+set 0 -3 -1 minecraft:redstone_block
+trace 2
+clear 0 -3 -1
+trace 10
+# CLOSE
+use 1 5 -2
+trace 13
+set 1 -2 -1 minecraft:redstone_block
+trace 4
+clear 1 -2 -1
+trace 6
+set 0 -3 -1 minecraft:redstone_block
+trace 2
+clear 0 -3 -1
+trace 10
