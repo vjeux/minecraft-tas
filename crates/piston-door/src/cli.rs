@@ -42,7 +42,14 @@ pub enum DoorCmd {
         allow: String,
     },
     /// Drive a design by hand from a script (see drive.rs) and print the z=0 plane per tick.
-    Drive { script: PathBuf },
+    /// Several scripts run one after the other; any failed `expect` makes the command fail.
+    Drive {
+        #[arg(required = true)]
+        scripts: Vec<PathBuf>,
+        /// Print only one PASS/FAIL line per script (a gadget test run).
+        #[arg(long)]
+        quiet: bool,
+    },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
     /// only if the full judge passes; every improvement is written to --out.
@@ -183,10 +190,33 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => anyhow::bail!("no route"),
             }
         }
-        DoorCmd::Drive { script } => {
-            let text = std::fs::read_to_string(&script)?;
+        DoorCmd::Drive { scripts, quiet } => {
             let mut w = Worker::spawn(&cfg)?;
-            crate::drive::run(&mut w, &text)?;
+            let mut failed = 0;
+            for script in &scripts {
+                let text = std::fs::read_to_string(script)?;
+                match crate::drive::run_opts(&mut w, &text, !quiet) {
+                    Ok(o) if o.failures.is_empty() => {
+                        if quiet || o.checks > 0 {
+                            println!("PASS {} ({} checks)", script.display(), o.checks);
+                        }
+                    }
+                    Ok(o) => {
+                        failed += 1;
+                        println!("FAIL {} ({} of {} checks failed)", script.display(), o.failures.len(), o.checks);
+                        for f in &o.failures {
+                            println!("  {f}");
+                        }
+                    }
+                    Err(e) => {
+                        failed += 1;
+                        println!("FAIL {}: {e:#}", script.display());
+                    }
+                }
+            }
+            if failed > 0 {
+                anyhow::bail!("{failed} of {} scripts failed", scripts.len());
+            }
         }
         DoorCmd::Minimize {
             design,

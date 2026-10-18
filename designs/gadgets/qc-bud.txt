@@ -1,0 +1,17 @@
+name: gadget-qc-bud
+# Quasi-connectivity: a piston is powered by anything that powers the cell ABOVE it. Repeater R
+# points into the air over sticky piston P, so the lever extends P. A piston only re-checks
+# when it gets an update: the script puts a redstone block two cells above piston Q, which
+# powers Q through the same rule but sends it no update, so Q stays retracted (BUD) until a
+# neighbor changes.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  R minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=north]
+  Q minecraft:piston[extended=false,facing=south]
+layer 1:
+  SSP.Q
+layer 2:
+  LR
