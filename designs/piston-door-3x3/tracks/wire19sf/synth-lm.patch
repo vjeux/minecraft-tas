@@ -1,0 +1,7 @@
+# synth context: w42 without the left column's 2-observer chain and M's 4-block trigger
+clear -2 4 -1
+clear -2 3 -1
+clear -1 -2 0
+clear -1 -1 0
+clear 0 -2 0
+clear 0 -1 0

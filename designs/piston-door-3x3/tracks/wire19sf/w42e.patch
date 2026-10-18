@@ -1,0 +1,11 @@
+# w43e -> w42e: M's trigger mirrored from w42 (observer on RP0's head cell (3,0,0), lamp under it,
+# observers into M's quasi cell and M's piston)
+clear 2 -1 0
+clear 2 -1 -1
+clear 2 -1 -2
+clear 1 -1 -2
+clear 1 -1 -1
+set 3 -2 0 minecraft:redstone_lamp[lit=false]
+set 3 -1 0 minecraft:observer[facing=up,powered=false]
+set 2 -2 0 minecraft:observer[facing=east,powered=false]
+set 2 -1 0 minecraft:observer[facing=east,powered=false]
