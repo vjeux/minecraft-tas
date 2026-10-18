@@ -149,6 +149,12 @@ pub enum DoorCmd {
         name: Option<String>,
         #[arg(long, default_value_t = 1)]
         seed: u64,
+        /// Speed boards: only accept designs that open within this many ticks (every cycle).
+        #[arg(long)]
+        max_open: Option<u32>,
+        /// Speed boards: only accept designs that close within this many ticks (every cycle).
+        #[arg(long)]
+        max_close: Option<u32>,
     },
     /// Record the door opening and closing with the real Minecraft client (needs Xvfb).
     Video {
@@ -329,6 +335,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             archive,
             name,
             seed,
+            max_open,
+            max_close,
         } => {
             let mut d = load_design(&design)?;
             if let Some(n) = name {
@@ -352,6 +360,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 walk,
                 deadline: minutes.map(|m| t + std::time::Duration::from_secs_f64(m * 60.0)),
                 seed,
+                max_open,
+                max_close,
             };
             println!("{} workers; moves {moves}; judge {} positions", pool.len(), offsets.len());
             let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
