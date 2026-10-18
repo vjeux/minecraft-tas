@@ -68,3 +68,16 @@ buildable at 32/32 ([script](tracks/buildable/scripts/fresh-d-s4-waxed.build.txt
 `tracks/buildable/selftest-observer-pair.txt` (two observers facing each other: quiet in the
 judge's rest state, a clock as soon as a player places the second): NOT FOUND, the build never
 comes to rest, blocking: observer.
+
+## Later leaders (checked 2026-10-18 13:16Z by the coordinator with `mctas door buildable --positions 32`)
+
+| design | blocks | buildable | build script |
+|---|---|---|---|
+| `archive/riders-fx1-40b.txt` | 40 | **yes**, 32/32 (40 actions, lever off, 9 dirt supports) | [fx1](tracks/buildable/scripts/riders-fx1-40b.build.txt) |
+| `archive/m05-21b-sym-40b.txt` | 40 | **yes**, 32/32 (40 actions, lever off, 7 dirt supports) | [m05](tracks/buildable/scripts/m05-21b-sym-40b.build.txt) |
+| `archive/wire19sf-w42-42b.txt` | 42 | **yes**, 32/32 (42 actions, lever off, 7 dirt supports) | [w42](tracks/buildable/scripts/wire19sf-w42-42b.build.txt) |
+| `archive/flat-b-v3-47b.txt` | 47 | **yes**, 32/32 (47 actions, lever off, 7 dirt supports) | [flat-b 47](tracks/buildable/scripts/flat-b-v3-47b.build.txt) |
+| `archive/sculk2-s1-38b.txt` | 38 | **yes**, 32/32 (39 actions, lever ON while building, 6 dirt supports) | [sculk 38](tracks/buildable/scripts/sculk2-s1-38b.build.txt) |
+
+Note: `fresh-d-s4-45b-2` is the waxed-bulb version (it passes 10+ cycles); only the unwaxed
+`fresh-d-s4-45b` / `fresh-d-s3-47b` (now `*-invalid.txt`) had the oxidation hazard.

@@ -36,6 +36,8 @@ Slime-free, and every block in the door's plane: the whole machine is one block 
 
 **47 blocks**, solid, slime-free, flat, opens in 32 ticks, closes in 30 (worst cycle): [flat-b-v3-47b](archive/flat-b-v3-47b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v3-47b.mp4)). From agent flat-b; see [tracks/flat-b/NOTES.md](tracks/flat-b/NOTES.md).
 
+Every record of this board in one video: [flat-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.jpg)).
+
 ## Sculk: 38 blocks
 
 Uses sculk sensors (footsteps or mobs nearby can trigger them).
