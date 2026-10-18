@@ -109,6 +109,21 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `lever-tap` | repeater | a repeater reading the lever feeds a net that the lever's block cannot back-feed (mech-89) |
 | `pulse-toggle` | observer + retracted sticky piston | one 2 gt pulse per lever edge drives a piston that is retracted at rest: the on pulse pulls its block (still: normal pull), the off pulse pushes it back and spits it (no torch, no steady line; logic-min) |
 | `lever-observer` | observer under the lever | the lever's support is an observer facing up that watches it and fires out of its back (logic-min) |
+| `stack-feed` | cross dust + floor + observer | one pulse fires a stack of 3 retracted sticky pistons: a cross dust behind the stack at the top level points into the top piston, its floor powers the middle one and quasi-powers the bottom one (observer-seq s6: a whole slime-free side column per dust) |
+| `sculk-hold` | sculk sensor + repeater | a sculk sensor next to a piston holds it 30 gt after a lever flip (each flip is a vibration), then cools down 10 gt; the repeater bridges the sensor's 2 gt latency (category `sculk`; center-mech) |
+| `head-forward` | piston head | an extended piston held unpowered (silent hold) retracts when a block is placed next to its HEAD: heads forward neighbor updates to the base (the rb doors' Q release) |
+| `dust-reach` | dust | a dust changing power updates the neighbors of its neighbors: a held piston two cells away (dust, block, piston) re-checks and retracts |
+| `observer-delay` | 3 observers | a chain of observers watching each other delays a pulse 2 gt per observer, with no floors and around corners |
+| `repeater-lock` | 2 repeaters | a latch: a repeater locked by another repeater pointing into its side keeps its output whatever its input does, and follows the input again once unlocked |
+| `honey-slime` | slime + honey | slime and honey never stick to each other: two touching structures move independently |
+
+* **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
+  piston holds it 30 gt after a lever click (weak power on every side, strong power into the
+  block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a
+  piston whose source is the lever directly retracts at tick 1 before the sensor can hold it:
+  cover the first ticks with a 4 gt repeater from the lever. The door's own late pistons move
+  inside the 10 gt cooldown, so they do not re-trigger it (rb2s2 50, m51s 48). Doors using it
+  rank in the `sculk` category.
 * **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
   source that later turns off WITHOUT updating it stays extended, unpowered, until any later
   neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
@@ -122,6 +137,20 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   next to piston B switches A off at once (the block becomes a moving piston that tick) and B
   on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
   then A on".
+* **Redstone block riding a structure (center-mech):** a redstone block carried by a slime
+  structure powers a piston at rest and lets it go when the structure moves. It must touch the
+  piston itself: in a quasi-only position its return never updates the piston, which then stays
+  retracted. Two pushers can share one powered block between them (v2u2: both side structures
+  pushed out from under the walkway off one obsidian block).
+* **Sculk sensor (center-mech, gadget `sculk-hold`):** a lever flip is a vibration
+  (BLOCK_ACTIVATE/DEACTIVATE); a sensor within 8 blocks goes ACTIVE after `floor(distance)` gt
+  plus its block-entity tick (after the block-event phase), stays active 30 gt (power by
+  distance, all directions, strongly into the block below it), then COOLDOWN 10 gt during which
+  it ignores the door's own piston vibrations. One block = a 30 gt monostable on both lever
+  edges; a piston that would see the lever's fall first needs a short bridge.
+* **Dust does not pick up a block powered only by other dust** (wire signals are off while a
+  wire computes its input): to tap a dust net one-way into another, put a repeater (or a block
+  strongly powered by a repeater) between them.
 ## Gravity blocks (`FallingBlock`, `FallingBlockEntity`) — track gravity
 
 * Sand/gravel/concrete powder schedule a tick 2 gt after being placed (pistons place them at the
@@ -147,3 +176,11 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 * **OR of two repeaters in one dust:** a dust sandwiched between the output block of one
   repeater (above it) and of another (below it, its floor) is lit by either, and a cross dust
   powers the block it points into: a 2-input OR feeding a torch with 1 dust (logic-min P_T).
+* **Sticky retract during a push finalizes, never pulls (seen in rb9):** if a sticky piston
+  retracts while the block two in front is still a moving piston it pushed (any progress, as long
+  as it has not landed), that block is placed at its destination at once and the piston retracts
+  alone. rb9's B pushes A down at t4 and retracts at t6: A stays down, the dance goes on.
+* **Early window (gadget `designs/gadgets/early-window`):** a delay-1 repeater reading a block
+  fed by an observer pulse and by a delay-2 repeater from a SECOND observer gives a window at
+  t+4..6 and t+8..12 (a 2gt hole: a repeater's turn-off tick outranks another's turn-on tick),
+  vs t+10..18 for the plain pulse stretcher.

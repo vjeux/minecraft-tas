@@ -68,3 +68,53 @@ from a broken falling block still fails the door).
   first pull it hangs over air). The UP dance cannot work with sand.
 * Middle column lifted by pistons from above: sand falls back 2 gt later.
 * Tower collapse with 6/12 gt spacing: the falling sand hits moving pistons and breaks.
+
+## Slime-free gravity: sf3, 64 blocks (`sf3.txt`; `mctas door gen sf1` + the two patches below)
+
+No slime or honey anywhere (`door verify` prints slime-free). Mechanism:
+* **Sides**: the bottom sand of each side column drops 1 cell onto a vertical piston (VL at
+  (0,-2,0), VR at (2,-2,0), heads are the doorway floor; powered for free by the floor of the A
+  dust next to T_A). The middle and top sands are pulled out by two sticky pullers per side
+  ((-2,1..2,0) facing east, (4,1..2,0) facing west) and land on a block at (-1,0,0)/(3,0,0).
+  Each pair of pullers is powered by ONE dust standing on a block beside the middle puller: the
+  block powers it, the dust points into the top one (the dust climbs from the A net: 4 steps).
+* **Middle**: the drop tower without the chain. S1 can only pull S2, so S2 gets a second pulse:
+  observer O (1,-5,-1) watches S1's slow repeater RS1 (1,-6,-1); when RS1 turns off (S1 pulls),
+  O pulses into B2 (1,-4,-1), the block that also carries S2's normal A+4 signal (RS2). B2 sits
+  next to S2's top cell and quasi-powers S2 in its bottom cell, so S2 extends and retracts once
+  more and pulls R3 down the last cell. On close the pulse lands while S2 is already on.
+* sf1 (68): three pullers per side. sf2 (66): bottom side sands drop onto vertical pistons.
+  sf3 (64): S1's fast input is a dust pointing into a block beside S1.
+
+## g6: 49 blocks, category gravity (current BEST.txt)
+g4 with T_A (the torch that starts the A net) hung on the floor of the left cross dust instead of
+on the lever block: a dust's floor is a strongly powered block, and this one is one level lower,
+so the torch's first dust step and its floor disappear (-2). Verified at 124 positions.
+
+## What did not pan out (materials, solid category)
+* Glazed terracotta door blocks: they can be pushed but never pulled or dragged, so every door
+  block would need a pusher on both sides of its travel; the side columns can only be pushed
+  outward from inside the door. No useful solid design came out of it. GT (or obsidian) is
+  still the right floor next to a moving slime structure (g1 used obsidian floors).
+* Honey instead of slime: same block counts here (honey drags sand like slime does, and honey
+  is not a redstone conductor while slime is).
+* A slime platform lifting two columns at once: slime does not fall when the piston under it
+  retracts, and the 12-block push limit is hit immediately.
+* Moving power sources (redstone blocks riding the chain) cannot reach S2: no cell is next to
+  both a chain slime and S2.
+* Chain top/bottom as a powered conductor (slime conducts): a repeater into the chain bottom
+  powers S2 and quasi-powers S1, but none of the repeater positions that point into it have a
+  cheap input in the current layout.
+
+## sf4: 62 blocks, slime-free gravity (`sf4.txt`; `door gen sf4-base` + the A-net patch)
+sf3's mechanism with cheaper side control: each side's two pullers hang off ONE torch beside the
+middle puller (T_L at (-2,1,-1) facing south: it powers the middle puller, and the block above it
+(-2,2,-1), which it strongly powers, powers the top puller). The torch's block is fed by an L dust
+that runs ON THE WALKWAY FLOOR from the lever ((0,0,-2), then a step up to (-1,1,-2) pointing into
+the torch block): the walkway check is "no collision", so dust/torches/levers may sit there.
+VL/VR are QC-powered by torches T_AL/T_AR hanging on those walkway dusts' floors (they sit next
+to VL's/VR's head cells). The A net for the tower starts under T_AL.
+
+## Router
+`door route` now widens its search box to the design bounds + a margin (the old fixed box stopped
+at y=-6, the gravity towers go to y=-8).

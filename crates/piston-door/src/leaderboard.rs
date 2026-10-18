@@ -58,24 +58,90 @@ pub fn collect(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<
     Ok(out)
 }
 
-/// Verify every candidate in parallel (always: the speed boards need each design's timings).
-/// `trusted` is kept for callers but no longer skips verification.
-pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, workers: usize, _trusted: &HashSet<String>) -> Result<Vec<Entry>> {
-    let pool = Pool::spawn(workers.min(cands.len()).max(1), &WorkerConfig { version: version.to_string(), ..Default::default() })?;
-    let mut opts = VerifyOptions::default();
-    opts.offsets.extend(crate::extra_offsets(extra_offsets));
-    let results = pool.map(cands, |w, _, (source, d)| {
-        let (verdict, open_ticks, close_ticks) = match crate::verify(w, &d, &opts) {
-            Ok(r) => (
-                Ok(()),
-                r.cycles.iter().map(|c| c.open_ticks).max(),
-                r.cycles.iter().map(|c| c.close_ticks).max(),
-            ),
-            Err(e) => (Err(format!("{e:#}")), None, None),
-        };
-        Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks })
-    });
-    let mut entries: Vec<Entry> = results.into_iter().collect::<Result<_>>()?;
+/// Content hash of a design (blocks + ports), stable across runs (FNV-1a 64).
+pub fn design_hash(d: &Design) -> u64 {
+    let key = format!("{:?}|{:?}", d.blocks, d.ports);
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in key.bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
+/// Verdict cache: design hash -> (verdict, open ticks, close ticks). Bump the file name when the
+/// rules change so old verdicts are dropped.
+const CACHE_FILE: &str = "verdicts-v2.tsv";
+type Cached = (std::result::Result<(), String>, Option<u32>, Option<u32>);
+
+fn load_cache(dir: &Path) -> std::collections::HashMap<u64, Cached> {
+    let mut m = std::collections::HashMap::new();
+    let Ok(text) = std::fs::read_to_string(dir.join(CACHE_FILE)) else { return m };
+    for line in text.lines() {
+        let f: Vec<&str> = line.splitn(5, '\t').collect();
+        if f.len() < 5 {
+            continue;
+        }
+        let Ok(h) = u64::from_str_radix(f[0], 16) else { continue };
+        let verdict = if f[1] == "ok" { Ok(()) } else { Err(f[4].to_string()) };
+        m.insert(h, (verdict, f[2].parse().ok(), f[3].parse().ok()));
+    }
+    m
+}
+
+fn save_cache(dir: &Path, m: &std::collections::HashMap<u64, Cached>) -> Result<()> {
+    let mut lines: Vec<String> = m
+        .iter()
+        .map(|(h, (v, o, c))| {
+            let (tag, err) = match v {
+                Ok(()) => ("ok", String::new()),
+                Err(e) => ("broken", e.replace(['\t', '\n'], " ")),
+            };
+            let num = |x: &Option<u32>| x.map(|n| n.to_string()).unwrap_or_else(|| "-".into());
+            format!("{h:016x}\t{tag}\t{}\t{}\t{err}", num(o), num(c))
+        })
+        .collect();
+    lines.sort();
+    std::fs::write(dir.join(CACHE_FILE), lines.join("\n") + "\n")?;
+    Ok(())
+}
+
+/// Verify every candidate in parallel. With `cache_dir`, verdicts and timings are cached by
+/// design content (main's verifier is deterministic), so only new designs are simulated.
+pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, workers: usize, cache_dir: Option<&Path>) -> Result<Vec<Entry>> {
+    let mut cache = cache_dir.map(load_cache).unwrap_or_default();
+    let (hit, miss): (Vec<_>, Vec<_>) = cands.into_iter().partition(|(_, d)| cache.contains_key(&design_hash(d)));
+    eprintln!("{} cached verdicts, {} designs to verify", hit.len(), miss.len());
+    let mut entries: Vec<Entry> = hit
+        .into_iter()
+        .map(|(source, d)| {
+            let (verdict, open_ticks, close_ticks) = cache[&design_hash(&d)].clone();
+            Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks }
+        })
+        .collect();
+    if !miss.is_empty() {
+        let pool = Pool::spawn(workers.min(miss.len()).max(1), &WorkerConfig { version: version.to_string(), ..Default::default() })?;
+        let mut opts = VerifyOptions::default();
+        opts.offsets.extend(crate::extra_offsets(extra_offsets));
+        let results = pool.map(miss, |w, _, (source, d)| {
+            let (verdict, open_ticks, close_ticks) = match crate::verify(w, &d, &opts) {
+                Ok(r) => (
+                    Ok(()),
+                    r.cycles.iter().map(|c| c.open_ticks).max(),
+                    r.cycles.iter().map(|c| c.close_ticks).max(),
+                ),
+                Err(e) => (Err(format!("{e:#}")), None, None),
+            };
+            Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks })
+        });
+        for e in results.into_iter().collect::<Result<Vec<Entry>>>()? {
+            cache.insert(design_hash(&e.design), (e.verdict.clone(), e.open_ticks, e.close_ticks));
+            entries.push(e);
+        }
+    }
+    if let Some(dir) = cache_dir {
+        save_cache(dir, &cache)?;
+    }
     entries.sort_by(|a, b| {
         let rank = |e: &Entry| (e.verdict.is_err(), e.category != "solid", e.blocks);
         (rank(a), a.source.as_str()).cmp(&(rank(b), b.source.as_str()))
@@ -86,7 +152,7 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
 /// Markdown table of the entries.
 pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
     let mut s = format!(
-        "# 3x3 piston door leaderboards\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
+        "# 3x3 piston door leaderboards\n\nWalkway: the rules allow non-colliding blocks (dust, torches, levers) in the walkway; \"clean\" means none at rest.\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
          (3 cycles at {} positions). Videos of every archived design: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n",
         4 + extra_offsets
     );
@@ -97,14 +163,16 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
     ];
     for (title, rule, keep) in &boards {
-        s.push_str(&format!("## {title}\n\n{rule}.\n\n| # | blocks | source |\n|---|---|---|\n"));
+        s.push_str(&format!("## {title}\n\n{rule}.\n\n| # | blocks | walkway | source |\n|---|---|---|---|\n"));
         let mut n = 0;
         for e in entries.iter().filter(|e| e.verdict.is_ok() && keep(e)) {
             n += 1;
             if n > 10 {
                 break;
             }
-            s.push_str(&format!("| {n} | {} | `{}` |\n", e.blocks, e.source));
+            let clutter = crate::walkway_clutter(&e.design);
+            let walkway = if clutter == 0 { "clean".to_string() } else { format!("{clutter} blocks in it") };
+            s.push_str(&format!("| {n} | {} | {walkway} | `{}` |\n", e.blocks, e.source));
         }
         if n == 0 {
             s.push_str("| - | - | no entry yet |\n");
@@ -118,25 +186,30 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         ("Fastest open + close", Box::new(|e: &Entry| Some(e.open_ticks? + e.close_ticks?))),
     ];
     for (title, ticks) in &speed {
-        s.push_str(&format!(
-            "## {title}\n\nGame ticks after the lever flip (worst of the cycles), any category; ties by block count.\n\n\
-             | # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n"
-        ));
-        let mut rows: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && ticks(e).is_some()).collect();
-        rows.sort_by_key(|e| (ticks(e), e.blocks));
-        for (i, e) in rows.iter().take(10).enumerate() {
+        for (scope, solid_only) in [("any category", false), ("solid only", true)] {
             s.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | `{}` |\n",
-                i + 1,
-                ticks(e).unwrap(),
-                e.open_ticks.unwrap_or(0),
-                e.close_ticks.unwrap_or(0),
-                e.blocks,
-                e.category,
-                e.source
+                "## {title} ({scope})\n\nGame ticks after the lever flip (worst of the cycles); ties by block count.\n\n\
+                 | # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n"
             ));
+            let mut rows: Vec<&Entry> = entries
+                .iter()
+                .filter(|e| e.verdict.is_ok() && ticks(e).is_some() && (!solid_only || e.category == "solid"))
+                .collect();
+            rows.sort_by_key(|e| (ticks(e), e.blocks));
+            for (i, e) in rows.iter().take(if solid_only { 10 } else { 5 }).enumerate() {
+                s.push_str(&format!(
+                    "| {} | {} | {} | {} | {} | {} | `{}` |\n",
+                    i + 1,
+                    ticks(e).unwrap(),
+                    e.open_ticks.unwrap_or(0),
+                    e.close_ticks.unwrap_or(0),
+                    e.blocks,
+                    e.category,
+                    e.source
+                ));
+            }
+            s.push('\n');
         }
-        s.push('\n');
     }
     s.push_str("## Everything\n\n| # | blocks | category | slime-free | verdict | source |\n|---|---|---|---|---|---|\n");
     for (i, e) in entries.iter().enumerate() {

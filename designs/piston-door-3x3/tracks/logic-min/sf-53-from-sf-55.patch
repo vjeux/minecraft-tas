@@ -1,0 +1,14 @@
+# from sf-55: the left column is fired by an observer chain watching P_T instead of the long
+# bottom chain: (0,3,2) -> (-1,3,2) -> (-2,3,2) -> (-2,3,1) [back into (-2,3,0): L2 by QC]
+# -> (-2,2,1) [back into block (-2,1,1): L1 direct, L0 by QC].
+clear 2 -1 1
+clear 1 -1 1
+clear 0 -1 1
+clear -1 -1 1
+clear -2 -1 1
+clear -2 0 1
+set 0 3 2 minecraft:observer[facing=east]
+set -1 3 2 minecraft:observer[facing=east]
+set -2 3 2 minecraft:observer[facing=east]
+set -2 3 1 minecraft:observer[facing=south]
+set -2 2 1 minecraft:observer[facing=up]

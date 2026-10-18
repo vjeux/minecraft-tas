@@ -1,0 +1,8 @@
+# left: block (-3,1,1) cuts the diagonal step so (-4,1,1) is a N-S line pointing into (-4,1,0)
+set -3 1 1 minecraft:smooth_stone
+# lever entry moved off (5,4,0): its floor (5,3,0) quasi-powered the right top puller
+clear 5 4 0
+clear 5 3 0
+clear 6 3 0
+set 6 4 0 minecraft:smooth_stone
+set 6 5 0 minecraft:redstone_wire

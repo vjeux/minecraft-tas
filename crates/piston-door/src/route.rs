@@ -28,7 +28,13 @@ pub struct Router<'a> {
     pub allow: HashSet<Pos>,
     pub lo: Pos,
     pub hi: Pos,
+    /// Cells where a new floor may go but no dust (e.g. next to moving slime): such floors are
+    /// glazed terracotta, which slime never drags.
+    pub floor_only: HashSet<Pos>,
 }
+
+/// The floor used in `floor_only` cells.
+pub const NONSTICK_FLOOR: &str = "minecraft:white_glazed_terracotta[facing=north]";
 
 impl Router<'_> {
     fn name(&self, p: Pos) -> Option<String> {
@@ -136,7 +142,7 @@ impl Router<'_> {
                     if dy == -1 && self.blocks.contains_key(&add(c, h)) {
                         continue;
                     }
-                    if banned.contains(&n) || !(n == goal || self.free(n, &none)) || !self.clean(n, &[c].into_iter().collect()) {
+                    if banned.contains(&n) || !(n == goal || (self.free(n, &none) && !self.floor_only.contains(&n))) || !self.clean(n, &[c].into_iter().collect()) {
                         continue;
                     }
                     let Some(fc) = floor_cost(n) else { continue };
@@ -158,7 +164,7 @@ impl Router<'_> {
             out.push((c, "minecraft:redstone_wire".to_string()));
             let f = add(c, [0, -1, 0]);
             if !self.blocks.contains_key(&f) {
-                out.push((f, FLOOR.to_string()));
+                out.push((f, if self.floor_only.contains(&f) { NONSTICK_FLOOR } else { FLOOR }.to_string()));
             }
             c = prev[&c];
         }

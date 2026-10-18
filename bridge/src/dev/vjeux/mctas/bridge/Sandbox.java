@@ -217,7 +217,23 @@ final class Sandbox {
     }
 
     /** Back to an empty void: no blocks, entities, pending ticks or block events; time 0; reseeded. */
+    /**
+     * Redstone torch burnout history is a static map keyed by level (RedstoneTorchBlock
+     * .RECENT_TOGGLES). clear() resets this level's game time, so entries stamped later than the
+     * new time would never expire and would fake burnouts in the next run: forget them.
+     */
+    private void forgetTorchToggles() {
+        try {
+            java.lang.reflect.Field f = net.minecraft.world.level.block.RedstoneTorchBlock.class.getDeclaredField("RECENT_TOGGLES");
+            f.setAccessible(true);
+            ((java.util.Map<?, ?>) f.get(null)).remove(this.level);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     void clear() {
+        forgetTorchToggles();
         for (Entity e : entities()) {
             e.discard();
         }

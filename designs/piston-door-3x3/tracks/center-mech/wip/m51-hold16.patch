@@ -1,0 +1,12 @@
+# mechanics-rb2-hold-51b with a 16gt hold (one repeater less): C (-1,6,-1) lights a block
+# (-2,6,-1); the dust under it (-2,5,-1) powers glazed terracotta (-2,4,-1) (never dragged by
+# the left structure's slime), which feeds the last repeater into Q.
+clear -2 4 -1
+set -2 4 -1 minecraft:white_glazed_terracotta[facing=north]
+clear -2 3 -1
+clear -3 5 -1
+clear -3 4 -1
+clear -2 6 -1
+set -2 6 -1 minecraft:smooth_stone
+clear -2 5 -1
+set -2 5 -1 minecraft:redstone_wire

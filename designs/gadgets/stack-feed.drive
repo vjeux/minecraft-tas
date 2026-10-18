@@ -1,0 +1,28 @@
+# One pulse into the stack feed pulls all three stones; the next pulse pushes them back and
+# spits them (all three pistons retracted again).
+design designs/gadgets/stack-feed.txt
+probe top 0 2 0
+probe mid 0 1 0
+probe bot 0 0 0
+set 0 4 -1 minecraft:obsidian
+quiet 10
+expect_state 1 2 0 stone
+expect_state 1 1 0 stone
+expect_state 1 0 0 stone
+expect_state 2 2 0 air
+expect_state 2 1 0 air
+expect_state 2 0 0 air
+expect top r
+expect mid r
+expect bot r
+set 0 4 -1 minecraft:crying_obsidian
+quiet 10
+expect_state 2 2 0 stone
+expect_state 2 1 0 stone
+expect_state 2 0 0 stone
+expect_state 1 2 0 air
+expect_state 1 1 0 air
+expect_state 1 0 0 air
+expect top r
+expect mid r
+expect bot r

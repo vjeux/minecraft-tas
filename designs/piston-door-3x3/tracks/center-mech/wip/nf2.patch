@@ -1,0 +1,33 @@
+# v2-min made slime-free: each side block gets its own sticky puller (stacks of three at x=-2 and
+# x=4); one torch per stack at y=1 (direct to the middle puller, quasi-connected to the bottom one)
+# and the block above the torch (strongly powered) drives the top puller. Torches hang off the
+# old sides line through new dust.
+clear -1 0 0
+clear -1 1 0
+clear -1 2 0
+clear 3 0 0
+clear 3 1 0
+clear 3 2 0
+clear -3 0 0
+clear 5 0 0
+clear -3 -1 0
+clear 5 -1 0
+set -2 0 0 minecraft:sticky_piston[facing=east,extended=true]
+set -2 1 0 minecraft:sticky_piston[facing=east,extended=true]
+set -2 2 0 minecraft:sticky_piston[facing=east,extended=true]
+set 4 0 0 minecraft:sticky_piston[facing=west,extended=true]
+set 4 1 0 minecraft:sticky_piston[facing=west,extended=true]
+set 4 2 0 minecraft:sticky_piston[facing=west,extended=true]
+set -3 1 0 minecraft:redstone_wall_torch[facing=east,lit=true]
+set -4 1 0 minecraft:smooth_stone
+set -3 2 0 minecraft:smooth_stone
+set 5 1 0 minecraft:redstone_wall_torch[facing=west,lit=true]
+set 6 1 0 minecraft:smooth_stone
+set 5 2 0 minecraft:smooth_stone
+# left feed: sides line (-3,0,1) -> (-3,0,2) -> (-4,1,2) -> (-4,1,1) pointing into (-4,1,0)
+set -3 -1 2 minecraft:smooth_stone
+set -3 0 2 minecraft:redstone_wire
+set -4 0 2 minecraft:smooth_stone
+set -4 1 2 minecraft:redstone_wire
+set -4 0 1 minecraft:smooth_stone
+set -4 1 1 minecraft:redstone_wire

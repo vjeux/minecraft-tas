@@ -1,0 +1,94 @@
+# verified WORKS by door leaderboard: 59 blocks, category solid
+# archived 2026-10-18 07:16Z from origin/explore/fresh-b:designs/piston-door-3x3/tracks/fresh-b/archive/piston-door-3x3-fresh-b-pd3b-59b.txt (repo at 72c074f)
+name: piston-door-3x3-fresh-b-pd3b
+port door: 0 0 0
+port lever: 1 -2 -2
+origin: -1 0 -4
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:obsidian
+  D minecraft:redstone_wall_torch[facing=north,lit=true]
+  E minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  F minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  G minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  H minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  I minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  J minecraft:sticky_piston[extended=false,facing=down]
+  K minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=wall,facing=south,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:stone
+  R minecraft:redstone_torch[lit=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_torch[lit=true]
+  s minecraft:smooth_stone
+layer -4:
+  .
+  .
+  ..s
+  ..ss
+  .
+layer -3:
+  .
+  .
+  ..E
+  ..FHP
+  ....s
+layer -2:
+  ..D
+  ..P
+  ..L
+  ..AOE
+  ..MoI
+layer -1:
+  ..P
+  .
+  .
+  .SNP
+  SS.KS
+layer 0:
+  ..R
+  .
+  .
+  .
+  SPPPS
+layer 1:
+  ..P
+  .
+  .
+  .
+  SPPPS
+layer 2:
+  ..r
+  .
+  .
+  .
+  .PPP
+layer 3:
+  ..P
+  .
+  ..s
+  .
+  .SSS
+layer 4:
+  ..R
+  ..A
+  ..G
+  ..C
+  ..J
+layer 5:
+  ..P
+  .B
+  .A
+  .A
+  .J
+layer 6:
+  ..r
+  .oA
+  .
+  .
+  .

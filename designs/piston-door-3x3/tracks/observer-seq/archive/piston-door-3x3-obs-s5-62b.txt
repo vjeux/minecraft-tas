@@ -1,0 +1,80 @@
+# verified WORKS: 62 blocks, open after 37 ticks, closed after 32 ticks
+# archived 2026-10-18 06:37Z from designs/piston-door-3x3/tracks/observer-seq/s5.txt (repo at 606c094)
+name: piston-door-3x3-obs-s5
+port door: 0 0 0
+port lever: -2 5 0
+origin: -3 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+  F minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
+  G minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  H minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=none]
+  I minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  J minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  K minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  L minecraft:lever[face=wall,facing=south,powered=false]
+  M minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  N minecraft:repeater[delay=4,facing=north,locked=true,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  Q minecraft:sticky_piston[extended=false,facing=north]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:smooth_stone
+  T minecraft:sticky_piston[extended=false,facing=up]
+  U minecraft:sticky_piston[extended=false,facing=west]
+  V minecraft:stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  .
+  ...VT
+  .
+layer -1:
+  .
+  .
+  .
+  ...C
+  .
+layer 0:
+  .
+  .
+  .
+  .P.VVV.U
+  .
+layer 1:
+  .
+  .
+  .
+  SP.VVV.US
+  .
+layer 2:
+  .
+  .
+  .
+  IP.VVV.UI
+  .
+layer 3:
+  ....S
+  ....B
+  .
+  C..O.V..C
+  ADDDQ
+layer 4:
+  ....F
+  ....SSS
+  ...SS.S.C
+  C..VsJS.A
+  .
+layer 5:
+  .
+  ....HGr
+  .SRMN.KDD
+  oL..sDE
+  .

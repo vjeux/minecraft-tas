@@ -1,0 +1,17 @@
+name: gadget-sculk-hold
+# Sculk hold: a sculk sensor next to a piston keeps it powered 30gt after EVERY lever flip (each
+# flip is a vibration), then ignores vibrations for its 10gt cooldown. The repeater bridges the
+# sensor's latency (the vibration travels, and the sensor's block entity ticks after the
+# block-event phase), so the piston never sees the lever's falling edge directly.
+# Category note: designs using sculk sensors are ranked separately (footsteps/mobs trigger them).
+origin: 0 0 0
+palette:
+  X minecraft:smooth_stone
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  P minecraft:sticky_piston[facing=east,extended=false]
+  S minecraft:sculk_sensor
+layer 0:
+  XXS
+layer 1:
+  LRP

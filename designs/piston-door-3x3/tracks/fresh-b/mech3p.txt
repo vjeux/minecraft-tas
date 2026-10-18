@@ -1,0 +1,39 @@
+name: fresh-b-mech3p
+port door: 0 0 0
+port lever: 9 9 9
+origin: -1 0 -1
+palette:
+  S minecraft:stone
+  s minecraft:slime_block
+  a minecraft:sticky_piston[facing=up,extended=false]
+  l minecraft:sticky_piston[facing=west,extended=false]
+  r minecraft:sticky_piston[facing=east,extended=false]
+  D minecraft:sticky_piston[facing=down,extended=true]
+  d minecraft:piston_head[facing=down,type=sticky,short=false]
+  T minecraft:sticky_piston[facing=down,extended=false]
+  p minecraft:sticky_piston[facing=down,extended=false]
+  R minecraft:redstone_block
+layer -2:
+  .
+  ..a
+layer -1:
+  .sl
+  ss.rs
+layer 0:
+  .
+  sSSSs
+layer 1:
+  .
+  sSSSs
+layer 2:
+  .
+  .SSS
+layer 3:
+  .
+  .sss
+layer 4:
+  .
+  ..T
+layer 5:
+  .
+  .p

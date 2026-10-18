@@ -1,0 +1,17 @@
+name: gadget-head-forward
+# A piston head forwards every neighbor update to its base (PistonHeadBlock.neighborChanged).
+# Sticky piston P (facing north) is powered only through its quasi cell (0,2,0) by block H, which
+# repeater R (reading lever L) switches silently (gadget silent-hold). Once P is extended and H
+# has gone dark, P sits extended and unpowered; a block placed next to its HEAD (not next to P)
+# makes it retract.
+origin: 0 0 0
+palette:
+  P minecraft:sticky_piston[extended=false,facing=north]
+  H minecraft:stone
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  S minecraft:smooth_stone
+layer 1:
+  P.SS
+layer 2:
+  .HRL

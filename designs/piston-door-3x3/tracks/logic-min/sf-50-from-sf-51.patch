@@ -1,0 +1,5 @@
+# from sf-51: K_R only relayed O_R's pulse (R_P reads J_X), so O_R fires straight into a dust
+# (5,2,0) (R2 direct) on floor (5,1,0) (R1 direct, R0 by QC); old dust (5,1,0) + floor (5,0,0) go.
+clear 5 0 0
+set 5 1 0 minecraft:smooth_stone
+set 5 2 0 minecraft:redstone_wire[north=side,east=side,south=side,west=side]
