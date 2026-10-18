@@ -29,6 +29,7 @@ Checked 2026-10-18 on main at f39c5c5. Build scripts: `tracks/buildable/scripts/
 | fastest open, open+close (solid) | [speed-wire-o6-119b](tracks/buildable/scripts/speed-wire-o6-119b.build.txt) | 119 | **yes**, 32/32 | 15 | step 115/119: the floor lever can no longer be placed facing north (every face that gives that orientation is covered by then) |
 | fastest close (solid) | [speed-wire-s4-108b](tracks/buildable/scripts/speed-wire-s4-108b.build.txt) | 108 | **yes**, 32/32 | 13 | step 106/108: same (the lever) |
 | fastest solid before o6/s4 | [speed-wire-w6-109b](tracks/buildable/scripts/speed-wire-w6-109b.build.txt) | 109 | **yes**, 32/32 | 12 | step 97/109: an observer can no longer be placed facing north |
+| flat, slime-free #1 | [flat-v2-60b](tracks/buildable/scripts/flat-v2-60b.build.txt) (`origin/explore/flat:.../tracks/flat/BEST.txt`) | 60 | **yes**, 32/32 | 10 | step 30/55: the observer on the right side pistons must face up; its only face is a temporary block in the cell it watches; breaking it fires the right sticky pistons with the door half built |
 
 Every leader is buildable with the lever off while building and no helper block, but only in the
 right order: pistons must not fire while the door is half placed (observers see their neighbours

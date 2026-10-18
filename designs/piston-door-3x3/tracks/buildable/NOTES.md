@@ -48,7 +48,7 @@ See [BUILDABILITY.md](../../BUILDABILITY.md) (the table) and `scripts/<design fi
 build scripts, one line per action, design coordinates; the `# note:` lines say where the plain
 order first goes wrong, with a tick trace of that step).
 
-Every board leader (12 designs) is BUILDABLE at 32/32 judge positions with the lever off while
+Every board leader (13 designs, the flat board's 60-block flat-v2 included) is BUILDABLE at 32/32 judge positions with the lever off while
 building and no helper block (only temporary dirt supports, because the sandbox is a void); so
 are the next rows, except fresh-d-s4-45b (31/32, the copper bulb below). None is buildable with
 the plain order (mechanism, pistons, wiring, observers, power
