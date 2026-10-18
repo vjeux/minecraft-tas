@@ -352,6 +352,144 @@ fn timings(rec: &Recording, t0: u32) -> [i64; 4] {
     [o - t0, ov - t0, c - t0, cv - t0]
 }
 
+/// The SEAMLESS tiers (2.1.4.1), weakest first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Tier {
+    None,
+    Quart,
+    Semi,
+    Full,
+    Super,
+}
+
+impl Tier {
+    pub fn parse(s: &str) -> Result<Tier> {
+        Ok(match s.to_ascii_lowercase().as_str() {
+            "quart" => Tier::Quart,
+            "semi" => Tier::Semi,
+            "full" => Tier::Full,
+            "super" => Tier::Super,
+            _ => bail!("unknown seamless tier {s:?} (quart, semi, full, super)"),
+        })
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Tier::None => "-",
+            Tier::Quart => "QUART",
+            Tier::Semi => "SEMI",
+            Tier::Full => "FULL",
+            Tier::Super => "SUPER",
+        }
+    }
+}
+
+/// The seamless verdict of one recorded cycle: the tier, its table label (with the viewer
+/// sides for QUART and SEMI) and the first cell that stops the next tier.
+#[derive(Clone, Debug)]
+pub struct Seamless {
+    pub tier: Tier,
+    pub label: String,
+    pub why: Option<String>,
+}
+
+/// SEAMLESS (2.1.4.1) of a recorded cycle. QUART <side> = closed, no circuitry in T or S strictly
+/// on that side; SEMI = QUART + open state clean (T and S at every depth, door plane included);
+/// FULL = QUART on both sides + open clean; SUPER = FULL + every tick of opening and closing clean.
+pub fn seamless(rec: &Recording) -> Seamless {
+    let geo = rec.geo;
+    let lever = rec.lever;
+    let rest_doors: HashSet<Pos> = geo.spec.door_cells().into_iter().collect();
+    let open_doors = rec.open_doors();
+    let circ_r = circuitry(&geo, &rec.rest, &rest_doors, lever);
+    let circ_o = circuitry(&geo, rec.open_state(), &open_doors, lever);
+    let vis = |c: &(Pos, String)| geo.in_t(c.0) || geo.in_s(c.0);
+    let quart = |s: i32| circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).collect::<Vec<_>>();
+    let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).collect();
+    let mut anim_vis: Option<String> = None;
+    for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
+        for (i, (f, _)) in frames.iter().enumerate() {
+            let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
+            let c = circuitry(&geo, f, &doors, lever);
+            if let Some(x) = first(c.iter().filter(|c| vis(c))) {
+                anim_vis.get_or_insert(format!("{} t{}: {x}", if std::ptr::eq(frames, &rec.open) { "opening" } else { "closing" }, i + 1));
+            }
+        }
+    }
+    let qs: Vec<i32> = [-1, 1].into_iter().filter(|s| quart(*s).is_empty()).collect();
+    let full = qs.len() == 2 && open_vis.is_empty();
+    let sides = || qs.iter().map(|s| geo.side(*s)).collect::<Vec<_>>().join(",");
+    let (tier, label) = if full && anim_vis.is_none() {
+        (Tier::Super, "SUPER".to_string())
+    } else if full {
+        (Tier::Full, "FULL".to_string())
+    } else if !qs.is_empty() && open_vis.is_empty() {
+        (Tier::Semi, format!("SEMI {}", sides()))
+    } else if !qs.is_empty() {
+        (Tier::Quart, format!("QUART {}", sides()))
+    } else {
+        (Tier::None, "-".to_string())
+    };
+    let why = if qs.is_empty() {
+        first(quart(-1)).map(|x| format!("closed: {x}"))
+    } else if !open_vis.is_empty() {
+        first(open_vis.iter().copied()).map(|x| format!("open: {x}"))
+    } else if qs.len() < 2 {
+        first(quart(-qs[0])).map(|x| format!("closed other side: {x}"))
+    } else {
+        anim_vis.clone().map(|x| format!("moving: {x}"))
+    };
+    Seamless { tier, label, why }
+}
+
+/// Search acceptance filter (`--seamless <tier>`): one recorded cycle at the design's own
+/// position must reach `min`.
+pub fn require_seamless(w: &mut Worker, sb: u32, d: &Design, min: Tier) -> Result<()> {
+    let rec = record(w, sb, d)?;
+    let s = seamless(&rec);
+    if s.tier < min {
+        bail!("seamless {} below {}: {}", s.label, min.name(), s.why.unwrap_or_default());
+    }
+    Ok(())
+}
+
+/// The cells whose blocks stop a design from reaching `min`: visible circuitry in the open state
+/// (SEMI and up), in the closed state on the sides `min` needs (the cleaner side for SEMI, both
+/// for FULL), and in every frame of the animation (SUPER). Repair searches cut groups through
+/// these.
+pub fn seamless_offenders(rec: &Recording, min: Tier) -> Vec<Pos> {
+    let geo = rec.geo;
+    let lever = rec.lever;
+    let vis = |p: Pos| geo.in_t(p) || geo.in_s(p);
+    let rest_doors: HashSet<Pos> = geo.spec.door_cells().into_iter().collect();
+    let closed = |s: i32| -> Vec<Pos> { circuitry(&geo, &rec.rest, &rest_doors, lever).into_iter().map(|c| c.0).filter(|p| vis(*p) && geo.depth(*p) * s > 0).collect() };
+    let mut out: BTreeSet<Pos> = BTreeSet::new();
+    let (neg, pos) = (closed(-1), closed(1));
+    match min {
+        Tier::None => {}
+        Tier::Quart | Tier::Semi => {
+            if !neg.is_empty() && !pos.is_empty() {
+                out.extend(if neg.len() <= pos.len() { neg } else { pos });
+            }
+        }
+        Tier::Full | Tier::Super => {
+            out.extend(neg);
+            out.extend(pos);
+        }
+    }
+    if min >= Tier::Semi {
+        out.extend(circuitry(&geo, rec.open_state(), &rec.open_doors(), lever).into_iter().map(|c| c.0).filter(|p| vis(*p)));
+    }
+    if min == Tier::Super {
+        for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
+            for (i, (f, _)) in frames.iter().enumerate() {
+                let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
+                out.extend(circuitry(&geo, f, &doors, lever).into_iter().map(|c| c.0).filter(|p| vis(*p)));
+            }
+        }
+    }
+    out.into_iter().collect()
+}
+
 /// The cheap properties: everything read from the recording and the design file.
 pub fn cheap(rec: &Recording, d: &Design) -> Props {
     let mut p = Props::new();
@@ -366,43 +504,9 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     }
 
     // SEAMLESS (2.1.4.1).
-    let vis = |c: &(Pos, String)| geo.in_t(c.0) || geo.in_s(c.0);
-    let quart = |s: i32| circ_r.iter().filter(|c| vis(c) && geo.depth(c.0) * s > 0).collect::<Vec<_>>();
-    let open_vis: Vec<&(Pos, String)> = circ_o.iter().filter(|c| vis(c)).collect();
-    let mut anim_vis: Option<String> = None;
-    for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
-        for (i, (f, _)) in frames.iter().enumerate() {
-            let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
-            let c = circuitry(&geo, f, &doors, lever);
-            if let Some(x) = first(c.iter().filter(|c| vis(c))) {
-                anim_vis.get_or_insert(x);
-            }
-        }
-    }
-    let qs: Vec<i32> = [-1, 1].into_iter().filter(|s| quart(*s).is_empty()).collect();
-    let full = qs.len() == 2 && open_vis.is_empty();
-    let tier = if full && anim_vis.is_none() {
-        "SUPER".to_string()
-    } else if full {
-        "FULL".to_string()
-    } else if !qs.is_empty() && open_vis.is_empty() {
-        format!("SEMI {}", qs.iter().map(|s| geo.side(*s)).collect::<Vec<_>>().join(","))
-    } else if !qs.is_empty() {
-        format!("QUART {}", qs.iter().map(|s| geo.side(*s)).collect::<Vec<_>>().join(","))
-    } else {
-        "-".to_string()
-    };
-    p.insert("seamless".into(), tier);
-    let why = if qs.is_empty() {
-        first(quart(-1)).map(|x| format!("closed: {x}"))
-    } else if !open_vis.is_empty() {
-        first(open_vis.iter().copied()).map(|x| format!("open: {x}"))
-    } else if qs.len() < 2 {
-        first(quart(-qs[0])).map(|x| format!("closed other side: {x}"))
-    } else {
-        anim_vis.clone().map(|x| format!("moving: {x}"))
-    };
-    if let Some(w) = why {
+    let s = seamless(rec);
+    p.insert("seamless".into(), s.label.clone());
+    if let Some(w) = s.why {
         p.insert("seamless_why".into(), w);
     }
 

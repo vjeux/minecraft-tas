@@ -77,6 +77,10 @@ pub struct SearchArgs {
     /// the boards rank rotation-safe designs). The start design must be rotation-safe too.
     #[arg(long)]
     pub rotation_safe: bool,
+    /// Accept only designs at least this seamless (quart, semi, full, super; `door properties`'
+    /// definition, one recorded cycle at the design's own position).
+    #[arg(long)]
+    pub seamless: Option<String>,
 }
 
 impl SearchArgs {
@@ -109,6 +113,7 @@ impl SearchArgs {
             to_sculk: self.to_sculk,
             shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
             rotation_safe: self.rotation_safe,
+            seamless: self.seamless.as_deref().map(crate::properties::Tier::parse).transpose()?,
         })
     }
 
@@ -1287,6 +1292,15 @@ pub enum DoorCmd {
         /// Judge every candidate as a tile module (tile.rs; see `door verify --tile`).
         #[arg(long)]
         tile: Option<String>,
+        /// Accept only replacements at least this seamless (quart, semi, full, super; `door
+        /// properties`' definition, one recorded cycle at the design's own position).
+        #[arg(long)]
+        seamless: Option<String>,
+        /// With --seamless, repair mode: while the design is below the tier, cut only groups
+        /// through an offending cell (single blocks too) and let each grow back with up to this
+        /// many MORE blocks than it had; once it reaches the tier, the usual shrinking search.
+        #[arg(long, default_value_t = 0)]
+        extra: usize,
     },
 }
 
@@ -2483,6 +2497,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     judge: VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() },
                     max_open,
                     max_close,
+                    seamless: None,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -2506,8 +2521,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, seamless, extra } => {
             use crate::synth::*;
+            let seamless = seamless.as_deref().map(crate::properties::Tier::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
             let d = load_design(&design)?;
             let only = match only {
@@ -2533,6 +2549,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 global_retry,
                 require_any: require_any_names(&require_any),
                 only,
+                seamless,
+                extra,
             };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), tile: tile.clone(), ..Default::default() };
