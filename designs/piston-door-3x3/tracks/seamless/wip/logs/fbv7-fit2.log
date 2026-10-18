@@ -1,0 +1,37 @@
+[    7.8s] start: 47 blocks, open 30 / close 28
+[   16.6s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   27.7s] seamless QUART z-,z+ below FULL: repairing groups through (0,3,0) (2,-1,0)
+[   27.7s] 47 blocks: 26 removable, 4 groups of 2..2
+[   40.8s]   group [(0,3,0)obse] -> <= 6 blocks: 21780 circuits in 12.8s
+[   40.8s]     size 1: 5 candidates screened in 0.0s, 1 passed the screen
+[   40.9s]     size 2: 10 candidates screened in 0.0s, 1 passed the screen
+[   40.9s]     size 3: 45 candidates screened in 0.0s, 8 passed the screen
+[   41.0s]     size 4: 151 candidates screened in 0.1s, 10 passed the screen
+[   41.5s]     size 5: 968 candidates screened in 0.4s, 67 passed the screen
+[   42.3s]     size 6: 1220 candidates screened in 0.6s, 24 passed the screen
+[   42.5s]   group [(2,-1,0)wire] -> <= 6 blocks: 2399 circuits in 1.7s
+[  152.9s]   group [(0,3,0)obse (0,4,0)obse] -> <= 7 blocks: 359267 circuits in 107.1s
+[  153.8s]     size 2: 44 candidates screened in 0.0s, 1 passed the screen
+[  153.9s]     size 3: 221 candidates screened in 0.1s, 2 passed the screen
+[  154.3s]     size 4: 1483 candidates screened in 0.4s, 21 passed the screen
+[  156.5s]     size 5: 7090 candidates screened in 2.1s, 46 passed the screen
+[  168.2s]     size 6: 33988 candidates screened in 11.5s, 291 passed the screen
+[  208.6s]     size 7: 104442 candidates screened in 39.4s, 545 passed the screen
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(4,-3,0) smooth_stone +(4,-2,0) redstone_lamp[lit=false] +(4,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] [2 block, 2 dust, 1 lamp, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(4,-3,0) smooth_stone +(4,-2,0) redstone_lamp[lit=false] +(4,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] [2 block, 2 dust, 1 lamp, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(4,-3,0) smooth_stone +(4,-2,0) dropper[facing=up,triggered=false] +(4,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] [2 block, 2 dust, 1 indicator, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(4,-3,0) smooth_stone +(4,-2,0) dropper[facing=up,triggered=false] +(4,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] [2 block, 2 dust, 1 indicator, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(4,-3,0) smooth_stone +(4,-2,0) dispenser[facing=up,triggered=false] +(4,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] [2 block, 2 dust, 1 indicator, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(4,-3,0) smooth_stone +(4,-2,0) dispenser[facing=up,triggered=false] +(4,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] [2 block, 2 dust, 1 indicator, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] +(4,-3,0) smooth_stone +(4,-2,0) redstone_lamp[lit=false] +(4,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] [2 block, 2 dust, 1 lamp, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] +(4,-3,0) smooth_stone +(4,-2,0) redstone_lamp[lit=false] +(4,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] [2 block, 2 dust, 1 lamp, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] +(4,-3,0) smooth_stone +(4,-2,0) dropper[facing=up,triggered=false] +(4,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] [2 block, 2 dust, 1 indicator, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]     VERIFIED size 7: +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] +(4,-3,0) smooth_stone +(4,-2,0) dropper[facing=up,triggered=false] +(4,-1,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] [2 block, 2 dust, 1 indicator, 2 observer] -- door works at 32 positions, open 30 / close 28
+[  219.2s]   group [(2,-2,0)obse (2,-1,0)wire] -> <= 7 blocks: 147272 circuits in 65.5s FOUND
+[  219.2s] REPAIRED 47 -> 52 blocks: [(2,-2,0)obse (2,-1,0)wire] replaced by +(2,-2,0) observer[facing=down,powered=false] +(2,-1,0) smooth_stone +(3,-2,0) observer[facing=east,powered=false] +(3,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(4,-3,0) smooth_stone +(4,-2,0) redstone_lamp[lit=false] +(4,-1,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] -- door works at 32 positions, open 30 / close 28
+[  219.2s]   saved to designs/piston-door-3x3/tracks/seamless/wip/fbv7-fit2.txt
+[  229.3s] seamless QUART z-,z+ below FULL: repairing groups through (0,3,0)
+[  229.3s] 52 blocks: 31 removable, 2 groups of 2..2
+[  236.2s]   group [(0,3,0)obse] -> <= 6 blocks: 21780 circuits in 6.7s
+[  340.9s]   group [(0,3,0)obse (0,4,0)obse] -> <= 7 blocks: 359267 circuits in 101.6s
+47 -> 52 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/fbv7-fit2.txt
