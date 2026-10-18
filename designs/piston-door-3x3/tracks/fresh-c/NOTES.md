@@ -3,7 +3,12 @@
 ## Results (all `door verify --extra-offsets 28`: 32 positions x 3 cycles, category solid)
 | file | blocks | open / close ticks | what |
 |---|---|---|---|
-| `fc1.txt` = `BEST.txt` | **42** | 24 / 14 | symmetric control: no hold, B blocked on close by the re-extended A |
+| `fc2.txt` = `BEST.txt` | **40** | 24 / 9 | fc1 with P_L a pull-type pulse piston WEST of the backbone (-3,2,0), fired by two observers off the lever (backbone 3 slimes) |
+| `fc1.txt` | 42 | 24 / 14 | symmetric control: no hold, B blocked on close by the re-extended A |
+
+fc2 block budget: door 9, left 3 slimes + P_L, right 6 slimes + P_R, A, B, P_M, Q, RB (25
+mechanism); lever + its wall block 2, R_q + floor 2, O_a 1, X + floor 2, O_b + J 2, R_B + O 2,
+P_L's two observers 2, BM observer + block 2 (15 control).
 
 ## The idea (sidesteps "Q's hold needs >= 10 gt")
 rb6 (47) keeps the shuttle piston Q extended for 16 gt after the lever goes off (a 7-block silent
