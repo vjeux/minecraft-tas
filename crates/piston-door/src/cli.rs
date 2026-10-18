@@ -1472,6 +1472,18 @@ pub enum DoorCmd {
         /// Observers in the palette.
         #[arg(long)]
         observers: bool,
+        /// Redstone components next to the pistons (dust, torches, repeaters, comparators,
+        /// levers, lamps, note blocks, targets), placed like the judge does.
+        #[arg(long)]
+        mixed: bool,
+        /// Replay every gadget drive script of designs/gadgets (entity gadgets skipped).
+        #[arg(long)]
+        gadgets: bool,
+        /// Replay door designs: placement, settle, then lever flips (`--cycles`).
+        #[arg(long, num_args = 1..)]
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 2)]
+        cycles: u32,
         /// What the bridge is compared with: `model` (redsim) or `bridge` (a second run: the
         /// harness's own determinism).
         #[arg(long, default_value = "model")]
@@ -3204,8 +3216,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
         }
-        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, against, workers, shrink, replay, out_dir, max_fail, trace } => {
-            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, against, workers, shrink, replay, out_dir, max_fail, trace };
+        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace } => {
+            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace };
             crate::pistfuzz::cli(version, &o)?;
         }
         DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
