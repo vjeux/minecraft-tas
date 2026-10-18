@@ -1,0 +1,7 @@
+# Window t+4..6 and t+8..12 after each lever flip (both edges), vs pulse-stretch's t+10..18.
+design designs/gadgets/early-window.txt
+probe out 4 1 0
+use 0 1 0
+expect_trace out 000++00++++000
+use 0 1 0
+expect_trace out 000++00++++000

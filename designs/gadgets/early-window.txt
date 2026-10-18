@@ -1,0 +1,30 @@
+name: gadget-early-window
+# Early window on both lever edges (pulse-stretch's window starts at t+10; this one at t+4):
+# observer O1 (watching lever L) strongly powers block K for 2gt; repeater R (delay 1) reads K.
+# A second observer O2 watching the lever feeds repeater C (delay 2) through its own dust line;
+# C powers K again for t+6..10. Output D: on t+4..6, off t+6..8 (R's turn-off tick has a higher
+# priority than C's turn-on tick), on t+8..12. C needs its own observer: on a line shared with
+# O1, K (strongly powered by C) would light that line and latch.
+# In the redstone-block fast door (rb9: open 16, close 17) R QC-powers B: B pushes A down at
+# t4, the hole makes B retract at t6 while A is still moving (a sticky retract whose block two
+# ahead is a moving piston finalizes it in place instead of pulling it), A's first pulse pulls
+# the center at t8, B re-extends at t8 (head beside A again) and lifts A at t12.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  s minecraft:smooth_stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:observer[facing=north,powered=false]
+  R minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  C minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  D minecraft:redstone_wire[east=none,north=none,south=none,west=side,power=0]
+  w minecraft:redstone_wire[east=side,north=none,south=none,west=side,power=0]
+layer 0:
+  S..ss
+  ..s
+  sss
+layer 1:
+  LOSRD
+  P.C
+  www
