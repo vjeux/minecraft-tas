@@ -142,6 +142,15 @@ pub fn tick_block_entities(w: &mut World) {
     moving::tick_all(w);
 }
 
+/// Mechanism search: switch the ideal input of tracked piston `id` (it re-checks its power at
+/// once, as when a neighbor's signal changes).
+pub fn set_input(w: &mut World, id: usize, on: bool) {
+    w.piston.tracked[id].1 = on;
+    let p = w.piston.tracked[id].0;
+    let k = w.get(p).kind();
+    w.neighbor_changed(p, k);
+}
+
 /// `isRedstoneConductor` of the piston blocks: never.
 pub fn is_conductor(_state: &Block) -> bool {
     false
