@@ -351,6 +351,83 @@ pub enum DoorCmd {
         #[arg(long)]
         archive_dir: Option<PathBuf>,
     },
+    /// Circuit synthesis by exhaustive simulation (see synth.rs): every circuit of up to --k
+    /// blocks from --palette in the free cells of --lo..--hi that carries a signal from the
+    /// --from cells to the --to cells is simulated against a target (the door judge by default,
+    /// or a --spec behavior script); the smallest verified circuits are reported and written.
+    Synth {
+        /// The context: a door design or a gadget harness (cells in --clear are emptied first).
+        context: PathBuf,
+        #[arg(long)]
+        lo: String,
+        #[arg(long)]
+        hi: String,
+        /// Circuit blocks (see synth::palette_states): block,gt,glass,dust,dot,rep,rep1..4,cmp,obs,torch,rblock,lamp,...
+        #[arg(long, default_value = "block,dust,rep4")]
+        palette: String,
+        /// Blocks added under parts that need support (they count).
+        #[arg(long, default_value = "block")]
+        floors: String,
+        /// Most blocks per circuit.
+        #[arg(long, default_value_t = 4)]
+        k: usize,
+        /// Skip circuits smaller than this.
+        #[arg(long, default_value_t = 1)]
+        min_k: usize,
+        /// Source cells of the context, "x,y,z;...": the lever, a powered block, an observer...
+        #[arg(long)]
+        from: String,
+        /// Cells that change while the machine runs (moving blocks, pistons; air allowed):
+        /// observers may watch them.
+        #[arg(long, default_value = "")]
+        watch: String,
+        /// Sink cells: some circuit block must drive one of them.
+        #[arg(long)]
+        to: String,
+        /// Context cells to empty first (the old circuit), "x,y,z;...".
+        #[arg(long, default_value = "")]
+        clear: String,
+        /// Cells the circuit may not use, "x,y,z;...".
+        #[arg(long, default_value = "")]
+        forbid: String,
+        /// Parts constraints: at least n of a kind, "repeater:2,observer:1".
+        #[arg(long, default_value = "")]
+        require: String,
+        /// Parts constraints: at most n of a kind, "repeater:1".
+        #[arg(long, default_value = "")]
+        limit: String,
+        /// Behavior spec (see synth.rs); without it the target is the door judge.
+        #[arg(long)]
+        spec: Option<PathBuf>,
+        /// World offsets a spec is checked at (the judge's list).
+        #[arg(long, default_value_t = 2)]
+        spec_offsets: usize,
+        /// Keep circuits with blocks that are on no source-to-sink path.
+        #[arg(long)]
+        loose: bool,
+        /// Only count the candidates.
+        #[arg(long)]
+        count: bool,
+        /// Keep going after the first size with a verified circuit.
+        #[arg(long)]
+        all_sizes: bool,
+        /// Stop after this many verified circuits (0 = every one of the smallest size).
+        #[arg(long, default_value_t = 0)]
+        want: usize,
+        /// Write every verified circuit here (synth-<size>-<i>.txt).
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        screen_offsets: usize,
+        #[arg(long, default_value_t = 200)]
+        screen_ticks: u32,
+        #[arg(long, default_value_t = 50_000_000)]
+        max_cands: usize,
+    },
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
@@ -652,6 +729,104 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 Err(e) => {
                     println!("BROKEN: {}: {e:#}", d.name);
                     std::process::exit(1);
+                }
+            }
+        }
+        DoorCmd::Synth {
+            context,
+            lo,
+            hi,
+            palette,
+            floors,
+            k,
+            min_k,
+            from,
+            watch,
+            to,
+            clear,
+            forbid,
+            require,
+            limit,
+            spec,
+            spec_offsets,
+            loose,
+            count,
+            all_sizes,
+            want,
+            out_dir,
+            workers,
+            extra_offsets,
+            screen_offsets,
+            screen_ticks,
+            max_cands,
+        } => {
+            use crate::synth::*;
+            let mut base = load_design(&context)?;
+            for p in parse_cells(&clear)? {
+                anyhow::ensure!(base.blocks.remove(&p).is_some(), "--clear {} is already air", fmt_pos(p));
+            }
+            let cell = |s: &str| -> Result<mctas::sim::Pos> {
+                let v = parse_cells(s)?;
+                anyhow::ensure!(v.len() == 1, "expected one x,y,z, got {s:?}");
+                Ok(v[0])
+            };
+            let (a, b) = (cell(&lo)?, cell(&hi)?);
+            let o = SynthOptions {
+                lo: [a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])],
+                hi: [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])],
+                palette: palette_states(&palette)?,
+                floors: palette_states(&floors)?,
+                k,
+                min_k,
+                sources: parse_cells(&from)?,
+                watch: parse_cells(&watch)?,
+                sinks: parse_cells(&to)?,
+                forbid: parse_cells(&forbid)?.into_iter().collect(),
+                require: parse_counts(&require)?,
+                limit: parse_counts(&limit)?,
+                loose,
+                max_cands,
+            };
+            let en = Gen::new(&base, &o)?;
+            let t = std::time::Instant::now();
+            let log = |m: &str| println!("[{:7.1}s] {m}", t.elapsed().as_secs_f64());
+            log(&format!("{} atoms ({} palette states, {} floors) in the box", en.atoms.len(), o.palette.len(), o.floors.len()));
+            // Enumerate before starting the JVMs (they would sit idle meanwhile).
+            let buckets = en.enumerate(&log)?;
+            if count {
+                return Ok(());
+            }
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let target = match &spec {
+                Some(path) => Target::Spec {
+                    spec: Spec::parse(&std::fs::read_to_string(path)?)?,
+                    offsets: offsets.iter().take(spec_offsets.max(1)).copied().collect(),
+                },
+                None => Target::Door {
+                    screen: VerifyOptions {
+                        cycles: 1,
+                        max_ticks: screen_ticks,
+                        offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(),
+                        keep_frames: false,
+                    },
+                    judge: VerifyOptions { offsets: offsets.clone(), ..Default::default() },
+                },
+            };
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            log(&format!("{} workers", pool.len()));
+            let found = synth(&pool, &base, &en, &buckets, &target, min_k, all_sizes, want, &log)?;
+            if found.is_empty() {
+                println!("nothing found");
+            }
+            for (i, (set, d, msg)) in found.iter().enumerate() {
+                println!("FOUND {} blocks: {} [{}] -- {msg}", set.len(), en.describe(set), en.kinds(set));
+                if let Some(dir) = &out_dir {
+                    std::fs::create_dir_all(dir)?;
+                    let mut w = pool.worker(0);
+                    let canon = crate::canonicalize(&mut w, d).unwrap_or_else(|_| d.clone());
+                    let path = dir.join(format!("synth-{}-{i}.txt", set.len()));
+                    canon.save(&path)?;
+                    println!("  written to {}", path.display());
                 }
             }
         }

@@ -165,6 +165,9 @@ pub struct StepResult {
     pub idle: Option<bool>,
     /// With `record`: the recorded region after every tick.
     pub frames: Vec<Region>,
+    /// With `signals`: after every tick, `[best, direct]` per probed position (flattened): the
+    /// best signal the position's neighbors give into it and the strong signal into it.
+    pub signals: Vec<Vec<u8>>,
 }
 
 /// What is still pending in a sandbox.
@@ -388,6 +391,17 @@ impl Worker {
         parse_steps(&v)
     }
 
+    /// Advance `ticks` (or until idle, capped) recording, after every tick, the signal into each
+    /// of `probes` (see [`StepResult::signals`]) and optionally a region.
+    pub fn step_probe(&mut self, sandbox: u32, ticks: u32, until_idle: bool, probes: &[Pos], record: Option<(Pos, Pos)>) -> Result<StepResult> {
+        let mut req = json!({"op": "step", "sandbox": sandbox, "ticks": ticks, "until_idle": until_idle, "signals": probes});
+        if let Some((from, to)) = record {
+            req["record"] = json!({"from": from, "to": to});
+        }
+        let v = self.call(req)?;
+        Ok(parse_steps(&v)?.remove(0))
+    }
+
     pub fn status(&mut self, sandbox: u32) -> Result<Status> {
         let v = self.call(json!({"op": "status", "sandbox": sandbox}))?;
         Ok(serde_json::from_value(v)?)
@@ -464,12 +478,19 @@ fn parse_steps(v: &Value) -> Result<Vec<StepResult>> {
                 frames.push(parse_region(r, f)?);
             }
         }
+        let mut signals = Vec::new();
+        if let Some(rows) = r["signals"].as_array() {
+            for row in rows {
+                signals.push(row.as_array().map(|a| a.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect()).unwrap_or_default());
+            }
+        }
         out.push(StepResult {
             sandbox: r["sandbox"].as_u64().unwrap_or(0) as u32,
             ticked: r["ticked"].as_u64().unwrap_or(0) as u32,
             time: r["time"].as_i64().unwrap_or(0),
             idle: r["idle"].as_bool(),
             frames,
+            signals,
         });
     }
     Ok(out)

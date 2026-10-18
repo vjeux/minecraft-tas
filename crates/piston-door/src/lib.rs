@@ -32,6 +32,7 @@ pub mod route;
 pub mod minimize;
 pub mod patch;
 pub mod search;
+pub mod synth;
 pub mod video;
 
 use anyhow::{Context, Result, bail};
