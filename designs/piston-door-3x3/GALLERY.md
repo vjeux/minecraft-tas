@@ -6,6 +6,10 @@ The whole solid record progression in one video (151 -> 40 blocks, `mctas door m
 
 [![every solid record](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4)
 
+The night, board by board (records from the archive):
+
+![records over the night](https://github.com/vjeux/minecraft-tas/releases/download/videos/night-timeline.png)
+
 ## Solid (main ranking): 40 blocks
 
 9 identical plain door blocks, no sculk sensors.

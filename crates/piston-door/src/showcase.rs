@@ -470,6 +470,11 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
         }
     }
     let tag = o.upload.clone().unwrap_or_else(|| "videos".into());
+    let timeline = o.videos.join(TIMELINE_ASSET);
+    timeline_chart(&look, &all, &timeline)?;
+    if o.upload.is_some() {
+        println!("uploaded {}", mctas::video::upload_release_asset(REPO, &tag, &timeline)?);
+    }
     let assets = release_assets(&tag);
     // The page.
     let rel = |p: &Path| -> String {
@@ -480,10 +485,12 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
     md.push_str(&format!(
         "Looping GIFs rendered by the real Minecraft client (`mctas door gallery`, 1.5x the recording's 10 ticks/s). \
          Rankings: [LEADERBOARD.md](LEADERBOARD.md). Every archived design has its own video: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n\
-         The whole solid record progression in one video ({}, `mctas door montage`; click the poster):\n\n[![every solid record]({})]({})\n\n",
+         The whole solid record progression in one video ({}, `mctas door montage`; click the poster):\n\n[![every solid record]({})]({})\n\n\
+         The night, board by board (records from the archive):\n\n![records over the night]({})\n\n",
         progression_title(&o.archive, &all),
         asset_url(&tag, POSTER_ASSET),
-        asset_url(&tag, MONTAGE_ASSET)
+        asset_url(&tag, MONTAGE_ASSET),
+        asset_url(&tag, TIMELINE_ASSET)
     ));
     for b in &boards {
         let a = &b.best;
@@ -533,10 +540,104 @@ fn release_assets(tag: &str) -> std::collections::HashSet<String> {
         .unwrap_or_default()
 }
 
+// ---- night timeline -------------------------------------------------------------------------
+
+/// Minutes since 1970 of "YYYY-MM-DD HH:MMZ".
+fn minutes_of(ts: &str) -> Option<i64> {
+    let (date, time) = ts.trim().trim_end_matches('Z').split_once(' ')?;
+    let d: Vec<i64> = date.split('-').map(|x| x.parse().ok()).collect::<Option<_>>()?;
+    let t: Vec<i64> = time.split(':').map(|x| x.parse().ok()).collect::<Option<_>>()?;
+    if d.len() != 3 || t.len() < 2 {
+        return None;
+    }
+    // Days from the civil date (Howard Hinnant's algorithm).
+    let (y, m, day) = (if d[1] <= 2 { d[0] - 1 } else { d[0] }, d[1], d[2]);
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    Some((era * 146097 + doe - 719468) * 1440 + t[0] * 60 + t[1])
+}
+
+/// A chart of the night: the record of each block-count board over time (from the archive
+/// headers), as step lines in the boards' colors, in the game's font.
+pub fn timeline_chart(look: &Look, all: &[Archived], out: &Path) -> Result<()> {
+    let colors: [[u8; 3]; 4] = [YELLOW, GREEN, AQUA, [255, 170, 0]];
+    let mut series: Vec<(&str, [u8; 3], Vec<(i64, usize)>)> = Vec::new();
+    for ((key, _, _, keep), color) in BLOCK_BOARDS.iter().zip(colors) {
+        let mut pts: Vec<(i64, usize)> = all.iter().filter(|a| keep(&a.facts)).filter_map(|a| Some((minutes_of(&archived_at(&a.path))?, a.facts.blocks))).collect();
+        pts.sort();
+        let mut best = usize::MAX;
+        let steps: Vec<(i64, usize)> = pts.into_iter().filter(|&(_, b)| if b < best { best = b; true } else { false }).collect();
+        if !steps.is_empty() {
+            series.push((key, color, steps));
+        }
+    }
+    let t0 = series.iter().flat_map(|s| s.2.iter().map(|p| p.0)).min().context("no timestamps")?;
+    let t1 = series.iter().flat_map(|s| s.2.iter().map(|p| p.0)).max().unwrap().max(t0 + 60);
+    let bmax = series.iter().flat_map(|s| s.2.iter().map(|p| p.1)).max().unwrap();
+    let bmin = series.iter().flat_map(|s| s.2.iter().map(|p| p.1)).min().unwrap();
+    let (lo, hi) = ((bmin / 10 * 10).saturating_sub(5).max(1), bmax.div_ceil(10) * 10);
+    let (w, h) = (1280u32, 640u32);
+    let mut img = Image::new(w, h, [0, 0, 0, 255]);
+    img.tile(&look.dirt, 4, 0.25);
+    let (px0, px1, py0, py1) = (110i64, w as i64 - 190, 90i64, h as i64 - 70);
+    let x_of = |t: i64| px0 + (t - t0) * (px1 - px0) / (t1 - t0);
+    // Log scale: the last few blocks matter as much as the first hundred.
+    let (llo, lhi) = ((lo as f64).ln(), (hi as f64).ln());
+    let y_of = |b: usize| py1 - (((b as f64).ln() - llo) / (lhi - llo) * (py1 - py0) as f64).round() as i64;
+    look.font.draw_centered(&mut img, w as i64 / 2, 16, "One night of agents: the record of each board (blocks, log scale; UTC)", 3, YELLOW, true);
+    for b in [20, 30, 40, 50, 60, 70, 80, 100, 120, 150, 200, 250, 300] {
+        if b < lo || b > hi {
+            continue;
+        }
+        let y = y_of(b);
+        img.fill_rect(px0, y, px1 - px0, 1, [255, 255, 255, 40]);
+        let label = b.to_string();
+        look.font.draw(&mut img, px0 - 14 - look.font.width(&label, 2) as i64, y - 8, &label, 2, GRAY, true);
+    }
+    let mut hour = (t0 / 60 + 1) * 60;
+    while hour <= t1 {
+        let x = x_of(hour);
+        img.fill_rect(x, py0, 1, py1 - py0, [255, 255, 255, 40]);
+        let label = format!("{:02}:00", (hour / 60).rem_euclid(24));
+        look.font.draw_centered(&mut img, x, py1 + 12, &label, 2, GRAY, true);
+        hour += 60;
+    }
+    img.fill_rect(px0, py1, px1 - px0, 2, [200, 200, 200, 255]);
+    img.fill_rect(px0 - 2, py0, 2, py1 - py0 + 2, [200, 200, 200, 255]);
+    // Step lines, then the final value of each board at the right end (labels kept apart).
+    let mut labels: Vec<(i64, String, [u8; 3])> = Vec::new();
+    for (key, color, steps) in &series {
+        let c = [color[0], color[1], color[2], 255];
+        for (i, &(t, b)) in steps.iter().enumerate() {
+            let (x, y) = (x_of(t), y_of(b));
+            let x_next = steps.get(i + 1).map(|p| x_of(p.0)).unwrap_or(px1);
+            img.fill_rect(x, y - 1, (x_next - x).max(1), 4, c);
+            if let Some(&(_, nb)) = steps.get(i + 1) {
+                let yn = y_of(nb);
+                img.fill_rect(x_next - 1, y.min(yn), 4, (y - yn).abs() + 3, c);
+            }
+            img.fill_rect(x - 3, y - 4, 8, 10, c);
+        }
+        let last = steps.last().unwrap();
+        labels.push((y_of(last.1) - 8, format!("{} {key}", last.1), *color));
+    }
+    labels.sort_by_key(|l| l.0);
+    for i in 1..labels.len() {
+        labels[i].0 = labels[i].0.max(labels[i - 1].0 + 20);
+    }
+    for (y, text, color) in &labels {
+        look.font.draw(&mut img, px1 + 12, *y, text, 2, *color, true);
+    }
+    img.save(out)
+}
+
 // ---- montage --------------------------------------------------------------------------------
 
 pub const MONTAGE_ASSET: &str = "solid-progression.mp4";
 pub const POSTER_ASSET: &str = "solid-progression.jpg";
+pub const TIMELINE_ASSET: &str = "night-timeline.png";
 
 /// A poster of a progression: one frame of each clip (`at` seconds in, the door open) in a
 /// grid, labeled with its block count, under a title.
