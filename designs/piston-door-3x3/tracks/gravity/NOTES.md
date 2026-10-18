@@ -68,3 +68,20 @@ from a broken falling block still fails the door).
   first pull it hangs over air). The UP dance cannot work with sand.
 * Middle column lifted by pistons from above: sand falls back 2 gt later.
 * Tower collapse with 6/12 gt spacing: the falling sand hits moving pistons and breaks.
+
+## Slime-free gravity: sf3, 64 blocks (`sf3.txt`; `mctas door gen sf1` + the two patches below)
+
+No slime or honey anywhere (`door verify` prints slime-free). Mechanism:
+* **Sides**: the bottom sand of each side column drops 1 cell onto a vertical piston (VL at
+  (0,-2,0), VR at (2,-2,0), heads are the doorway floor; powered for free by the floor of the A
+  dust next to T_A). The middle and top sands are pulled out by two sticky pullers per side
+  ((-2,1..2,0) facing east, (4,1..2,0) facing west) and land on a block at (-1,0,0)/(3,0,0).
+  Each pair of pullers is powered by ONE dust standing on a block beside the middle puller: the
+  block powers it, the dust points into the top one (the dust climbs from the A net: 4 steps).
+* **Middle**: the drop tower without the chain. S1 can only pull S2, so S2 gets a second pulse:
+  observer O (1,-5,-1) watches S1's slow repeater RS1 (1,-6,-1); when RS1 turns off (S1 pulls),
+  O pulses into B2 (1,-4,-1), the block that also carries S2's normal A+4 signal (RS2). B2 sits
+  next to S2's top cell and quasi-powers S2 in its bottom cell, so S2 extends and retracts once
+  more and pulls R3 down the last cell. On close the pulse lands while S2 is already on.
+* sf1 (68): three pullers per side. sf2 (66): bottom side sands drop onto vertical pistons.
+  sf3 (64): S1's fast input is a dust pointing into a block beside S1.

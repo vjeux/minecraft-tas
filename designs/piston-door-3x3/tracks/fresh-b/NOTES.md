@@ -28,3 +28,16 @@
   (1,0,0). A (bottom, facing up) pulls BM down, P_B pulls BM away in z (y=-1), A extend+retract pulls
   C to (1,-1,0). U (sticky at (0,5,0), head on slime (0,3,0)) lifts slime row + top row + T.
   Close: U+sides back, A 1-tick spit (C up 1), P_B returns BM, A extends (BM+C up). Works.
+- 06:05Z mech3 (mech3.txt/.drive): top pump + PUSH-open sides (LP (1,-1,-1) west, RP (2,-1,0) east,
+  one block P (2,-1,-1) powers both) + the LEFT structure carries BM sideways at y=-1 (carrier slime
+  (0,-1,0), needs connector (-1,-1,0) or the backbone is left behind on the return pull) + A is
+  pulse-only (retracted at rest). Validated with ideal inputs. All signals are the SAME order on open
+  and close: A pulse (lever observer) -> sides (L8) -> T pump (>=4gt) -> A pulse (~L14) -> U lift (NOT L18).
+  Mechanism = 25 blocks (9 door, 11 slime, 5 pistons): too heavy to beat the 48-51 record.
+- 06:20Z slime-free sf1 (sf1-mech.txt/.drive): 6 side pullers, T pumps the middle column (TM ram, BM
+  and C down 1), P_B takes BM aside, A pulses grab C, B lifts T, T grabs TM. Validated with ideal
+  inputs (opens t=28, closes t=54). Wiring blocker: any source that powers T's upper spot (1,4,0)
+  also quasi-powers T in its lower spot (QC cell = (1,4,0)), so the open-time grab pulse also fires
+  on close after B pushed T down and pumps the closed column. Needs asymmetric B (NOT(L18 OR L26)
+  via a locked repeater) or an open-only pulse. Also: an observer in a piston's QC cell watching
+  that piston, outputting upward, makes it oscillate (seen with RP2).

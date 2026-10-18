@@ -1,4 +1,4 @@
-name: piston-door-3x3-obs-s4
+name: piston-door-3x3-obs-s5
 port door: 0 0 0
 port lever: -2 5 0
 origin: -3 0 -3
@@ -34,15 +34,11 @@ layer -2:
   .
   ...VT
   .
-  .
-  .
 layer -1:
   .
   .
   .
   ...C
-  .
-  .
   .
 layer 0:
   .
@@ -50,15 +46,11 @@ layer 0:
   .
   .P.VVV.U
   .
-  .
-  .
 layer 1:
   .
   .
   .
   SP.VVV.US
-  .
-  .
   .
 layer 2:
   .
@@ -66,29 +58,21 @@ layer 2:
   .
   IP.VVV.UI
   .
-  .
-  .
 layer 3:
   ....S
   ....B
   .
-  C..O.V..V
-  ...AQ...B
-  ...AB...B
-  ...ADDDDD
+  C..O.V..C
+  ADDDQ
 layer 4:
   ....F
   ....SSS
-  ...SS.S
-  C..VsJS
-  .
-  .
+  ...SS.S.C
+  C..VsJS.A
   .
 layer 5:
   .
   ....HGr
-  .SRMN.K
+  .SRMN.KDD
   oL..sDE
-  .
-  .
   .
