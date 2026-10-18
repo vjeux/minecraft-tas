@@ -9,6 +9,19 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum DoorCmd {
+    /// Record a video of every design in a folder (several at once), upload each, write VIDEOS.md.
+    VideoAll {
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        dir: PathBuf,
+        /// Local folder for the videos (existing ones are skipped).
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 4)]
+        jobs: usize,
+        /// GitHub release tag to upload each new video to.
+        #[arg(long)]
+        upload: Option<String>,
+    },
     /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
     Leaderboard {
         /// Ref prefix to scan besides HEAD.
@@ -167,6 +180,9 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::VideoAll { dir, out, jobs, upload } => {
+            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref())?;
+        }
         DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
             let repo = std::path::Path::new(".");
             if fetch {
@@ -352,7 +368,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             opts.offsets.extend(crate::extra_offsets(extra_offsets));
             match verify(&mut w, &d, &opts) {
                 Ok(r) => {
-                    println!("WORKS: {} ({} blocks, {}x{}x{}, category {})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d));
+                    println!("WORKS: {} ({} blocks, {}x{}x{}, category {}{})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d), if crate::slime_free(&d) { ", slime-free" } else { "" });
                     if archive {
                         let note = format!("verified WORKS: {} blocks, open after {} ticks, closed after {} ticks", r.blocks, r.cycles[0].open_ticks, r.cycles[0].close_ticks);
                         match crate::archive::save(&design, &d, r.blocks, &note, archive_dir.as_deref())? {

@@ -162,6 +162,11 @@ pub fn is_gravity_block(state: &str) -> bool {
     n.ends_with("concrete_powder") || matches!(n, "sand" | "red_sand" | "gravel" | "suspicious_sand" | "suspicious_gravel")
 }
 
+/// True when the design uses no slime and no honey blocks anywhere (its own leaderboard).
+pub fn slime_free(d: &Design) -> bool {
+    !d.blocks.values().any(|s| s.contains("slime_block") || s.contains("honey_block"))
+}
+
 /// The door category of a design: "solid" (normal blocks), "gravity" (sand-like door blocks),
 /// or "sculk" (uses sculk sensors: vibrations from players or mobs nearby can trigger them, so
 /// those doors are ranked separately).

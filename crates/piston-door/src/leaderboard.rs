@@ -81,17 +81,39 @@ pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, wo
 /// Markdown table of the entries.
 pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
     let mut s = format!(
-        "# 3x3 piston door leaderboard\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
-         (3 cycles at {} positions). Working designs first, by category then block count.\n\n\
-         | # | blocks | category | verdict | source |\n|---|---|---|---|---|\n",
+        "# 3x3 piston door leaderboards\n\nEvery design on main and on the `explore/*` branches, verified with main's verifier \
+         (3 cycles at {} positions). Videos of every archived design: [archive/VIDEOS.md](archive/VIDEOS.md).\n\n",
         4 + extra_offsets
     );
+    let boards: [(&str, &str, Box<dyn Fn(&Entry) -> bool>); 4] = [
+        ("Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", Box::new(|e: &Entry| e.category == "solid")),
+        ("Solid, no slime or honey", "same, and not a single slime or honey block anywhere", Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design))),
+        ("Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", Box::new(|e: &Entry| e.category == "sculk")),
+        ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|e: &Entry| e.category == "gravity")),
+    ];
+    for (title, rule, keep) in &boards {
+        s.push_str(&format!("## {title}\n\n{rule}.\n\n| # | blocks | source |\n|---|---|---|\n"));
+        let mut n = 0;
+        for e in entries.iter().filter(|e| e.verdict.is_ok() && keep(e)) {
+            n += 1;
+            if n > 10 {
+                break;
+            }
+            s.push_str(&format!("| {n} | {} | `{}` |\n", e.blocks, e.source));
+        }
+        if n == 0 {
+            s.push_str("| - | - | no entry yet |\n");
+        }
+        s.push('\n');
+    }
+    s.push_str("## Everything\n\n| # | blocks | category | slime-free | verdict | source |\n|---|---|---|---|---|---|\n");
     for (i, e) in entries.iter().enumerate() {
         let verdict = match &e.verdict {
             Ok(()) => "WORKS".to_string(),
             Err(m) => format!("broken: {}", m.chars().take(90).collect::<String>().replace('|', "/")),
         };
-        s.push_str(&format!("| {} | {} | {} | {} | `{}` |\n", i + 1, e.blocks, e.category, verdict, e.source));
+        let sf = if crate::slime_free(&e.design) { "yes" } else { "" };
+        s.push_str(&format!("| {} | {} | {} | {sf} | {} | `{}` |\n", i + 1, e.blocks, e.category, verdict, e.source));
     }
     s
 }

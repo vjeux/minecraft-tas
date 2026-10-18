@@ -61,3 +61,14 @@ router (two routes: lever net -> late chain input, lever net -> O2's watched dus
   through Q's head at the first A pulse: off at L+12) and drop before A lands back (L+18): 14gt
   failed (H dropped in the same tick as the first pulse ended), 16gt works.
 `door minimize --moves all`: no further removal.
+
+## rb6: 48 blocks, category solid (BEST.txt)
+`mctas door gen rb6`. rb5 with two shorter nets:
+* Silent hold in 7 blocks: lever -> repeater (-1,6,-1) whose floor IS H (-1,5,-1) -> block
+  (-2,6,-1) -> dot dust (-3,6,-1) -> its floor powers repeater (-2,5,-1) (facing west) -> H.
+  The repeater's floor (-2,4,-1) touches the open left backbone, so it is glazed terracotta
+  (slime never drags it). Note: dust/repeaters (PushReaction DESTROY) next to slime are not
+  dragged either (only their floors are a problem).
+* O2 -> R_B in 5 blocks, borrowed from mechanics' 51: O2 strongly powers (0,6,1), which lights
+  the cross dust (0,6,2) (shape must be written as a cross; a lone dust canonicalizes to a dot
+  that powers nothing sideways), which strongly powers (1,6,2) behind R_B.
