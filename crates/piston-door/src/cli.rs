@@ -152,6 +152,9 @@ pub enum DoorCmd {
         /// If it works, keep a copy in the archive folder next to the design (archive/<name>-<blocks>b.txt), unless an identical design is already archived.
         #[arg(long)]
         archive: bool,
+        /// Archive into this folder instead (e.g. the main designs/piston-door-3x3/archive).
+        #[arg(long)]
+        archive_dir: Option<PathBuf>,
     },
 }
 
@@ -280,7 +283,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         crate::block_count(best),
                         offsets.len()
                     );
-                    if let Some(p) = crate::archive::save(&out, best, crate::block_count(best), &note)? {
+                    if let Some(p) = crate::archive::save(&out, best, crate::block_count(best), &note, None)? {
                         log(&format!("archived {}", p.display()));
                     }
                 }
@@ -323,7 +326,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir } => {
             let d = load_design(&design)?;
             let spec = DoorSpec::from_design(&d)?;
             let mut w = Worker::spawn(&cfg)?;
@@ -334,7 +337,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     println!("WORKS: {} ({} blocks, {}x{}x{}, category {})", d.name, r.blocks, r.size[0], r.size[1], r.size[2], crate::category(&d));
                     if archive {
                         let note = format!("verified WORKS: {} blocks, open after {} ticks, closed after {} ticks", r.blocks, r.cycles[0].open_ticks, r.cycles[0].close_ticks);
-                        match crate::archive::save(&design, &d, r.blocks, &note)? {
+                        match crate::archive::save(&design, &d, r.blocks, &note, archive_dir.as_deref())? {
                             Some(p) => println!("archived {}", p.display()),
                             None => println!("already archived"),
                         }

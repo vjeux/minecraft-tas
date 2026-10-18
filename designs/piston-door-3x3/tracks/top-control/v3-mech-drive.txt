@@ -1,0 +1,32 @@
+# v3 mechanism with ideal inputs: P_L held by RB (-4,2,0), P_R by RB (6,2,0), B pulse by RB (3,6,0).
+design @v3-mech
+plane 0 -4 -3 6 7
+quiet 2
+print
+# ---- open ----
+clear -4 4 0
+step 6
+clear 6 2 0
+step 6
+set 3 6 0 minecraft:redstone_block
+step 8
+clear 3 6 0
+step 8
+plane 2 -4 -3 6 7
+print
+plane 1 -4 -3 6 7
+print
+plane 0 -4 -3 6 7
+# ---- close ----
+set 3 6 0 minecraft:redstone_block
+step 8
+clear 3 6 0
+step 8
+set 6 2 0 minecraft:redstone_block
+step 6
+set -4 4 0 minecraft:redstone_block
+step 8
+plane 2 -4 -3 6 7
+print
+plane 1 -4 -3 6 7
+print

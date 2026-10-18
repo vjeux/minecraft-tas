@@ -74,7 +74,7 @@ layer 2:
 layer 3:
   ....Pgw
   ....A.....Z
-  ....drZZZZZG
+  ....drZ.ZZZG
   ......ZZZZZ
 layer 4:
   ....bKM...Z
