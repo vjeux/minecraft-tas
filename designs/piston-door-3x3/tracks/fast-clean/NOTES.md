@@ -80,4 +80,14 @@ P_D pushes R_F back at c2; c4 F's base, T and R_F land; c5 F extends.
   of Xa (R_X arms it through (1,4,1) during t4..t10, when E changes 5 times: rotate P_X west so R_X
   sits at (0,5,0) instead), Xb (the observer o at (2,4,0) points into it: o looks dead weight), Xc
   (the observer (3,5,-1) updates it at t2/t4 through (3,5,0)), D and P_D; (c) R_F back by c3 BE:
-  Xc's base update also reaches P_D (3,4,-1), so an armed P_D pushes R_F at c1.
+  Xc's base update also reaches P_D (3,4,-1), so an armed P_D pushes R_F at c1 (done in close6-c1r).
+* Arming facts checked after that: with close 6 the observer o (2,4,0) is not needed (close6-c1r
+  still closes in 6 with o replaced by smooth stone, J's floor; o only served the old close), so Xb
+  is safe once o is gone. D and P_D may be armed for the whole open state (every update they get
+  meets a blocked push: T moving or A' extended in E for D, S_F's head for P_D), Xc from t6 (after
+  the observer (3,5,-1)'s t4 update), Xb any time (silently), Xa only after t12 (E changes until
+  t12). A simpler P_X re-arm: make P_X STICKY. Losing R_Z's power it retracts and pulls R_X back to
+  (1,5,1) by itself (F stays silent: P_X's base lands before R_X), so p's push is not needed; but
+  then R_Z must go out at t2 and t12 and come back at ~t6 and ~t16 (k pulses on the OPEN edge only,
+  e.g. A AND NOT B with B a longer delay of the same lever signal: no pulse on the falling edge),
+  and P_X stays extended at rest. Not built: about ten new parts, all silent, in a full volume.
