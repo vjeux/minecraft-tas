@@ -97,7 +97,9 @@ wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile` on `minimize`/`harv
   Replacing the hopper by an observer watching the lever cell (so the relay could be an observer)
   breaks b38: its top-row pull then comes 2 ticks late against the B window.
 * Tile-aware minimize from 45 (`--moves all --plateau`, 11 min, 12 workers): no improvement;
-  resynth runs on both bests (see the end).
+  `door resynth --tile` on both bests (every 2-4 block wiring group re-synthesized): no
+  improvement; `--depth 2 --walk 40` neutral walks (35 min each): none. 45 (period 8) and 49
+  (vperiod 9) are local minima of every search move.
 * P = 7 stays broken with any delayed bus (the side smooth stones of neighbor copies quasi-power
   each other's side pistons; with every copy fired in the same tick it works, see the scan). A
   pure-dust bus (no delay) would make the copies run together, but dust reaches 15 blocks: 3
@@ -118,6 +120,12 @@ dust instead (2 blocks per cell).
   repeater locked by the level). Wiring rule: in a period-3 module, dust at (0,y,z) or (2,y,z),
   not both; B must be powered through the air cell above it (dust on top of B also
   quasi-powers A through B's cell).
+* WIDE with glued rows: a two-door unit (step 6: a slime copy then a honey copy) can glue each
+  copy's top row (3 slime or 3 honey above it; slime and honey do not stick, so copies stay
+  apart) and move it with ONE piston, so each piston group is one piston per opening instead of
+  three and the control fan-out disappears. Careful: a glue row also grabs any retracted piston
+  sitting on it. The C row still has no free neighbor at rest (it can only be glued after the T
+  row has left).
 * PERIODIC P = 7: needs side pistons whose quasi-connectivity cells do not touch the neighbor
   copy's strongly powered blocks (b38's side smooth stones do).
 * Other edge-triggered doors (m05, the sf-holdA family) take the same observer bus; b38 is the

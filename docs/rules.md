@@ -132,6 +132,12 @@ translation). Copy 0 keeps the lever; every other copy gets the module's `relay:
 lever's cell, so the module carries its own bus. Every check of the single-door judge runs on every
 opening at once; it reports blocks total, per opening and per extra copy. `door tile-scan` tries
 designs under many tilings. Definitions and results: `designs/piston-door-3x3/tracks/tile/NOTES.md`.
+Bests: **45 blocks per opening** at `period:8` (b38h-obs8b: b38 with a hopper for its note block plus
+7 observers watching the lever's cell; copy k opens 14k ticks after copy 0) and **49** at
+`vperiod:9` (b38h-vobs9m, an observer tower beside the openings); both pass `door vanilla-check` as
+3 copies. `wide` / `stack`: none yet (the space above and below a periodic wide row share no cell,
+so it needs a shared end piece: `--tile-extra`). `door tile-board` ranks designs with a `tiling:`
+header.
 
 ## The boards (`mctas door leaderboard`, LEADERBOARD.md)
 
