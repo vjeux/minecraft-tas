@@ -1426,6 +1426,10 @@ pub enum DoorCmd {
         /// design only accepts rotation-safe replacements (the boards rank rotation-safe doors).
         #[arg(long)]
         any_rotation: bool,
+        /// Shape limits on every accepted replacement, measured on the swept shape (a preset or
+        /// key<=n terms, e.g. `thick<=1,volume<=81`; see `door shapes`).
+        #[arg(long)]
+        shape: Option<String>,
     },
 }
 
@@ -2830,6 +2834,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     max_close,
                     rotations: false,
                     seamless: None,
+                    shape: None,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -2853,7 +2858,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, shape } => {
+            let shape = shape.as_deref().map(crate::ShapeLimits::parse).transpose()?;
             use crate::synth::*;
             let seamless = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
@@ -2900,6 +2906,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     keep_rotations: false,
                     seamless,
                     extra,
+                    shape,
                 };
                 let start = {
                     let mut w = pool.worker(0);
