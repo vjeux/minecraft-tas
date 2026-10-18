@@ -87,9 +87,10 @@ P4 three times (s1, s4, s6), PT once, P5 twice, PTR+PMR (K3's only input) an odd
 - satwire agrees on the exact plans: families' m028 plans (P4 recorded correctly after the z=1
   fix) and t2's K2 plan restricted to the K2 box: UNSAT.
 - 7x8-029 (= 028 with PT level-driven, extended at rest) has the same P4 / PTR chain through (4,4)
-  plus a level feed for PT in the same cells: same contradiction. 038/039 have no symmetric train
-  (14 open / 25 close events, pistons fired up to 4x on close): edge-dependent control in 8-cell
-  regions, not attempted.
+  plus a level feed for PT in the same cells: same contradiction. 038/039 have no symmetric train:
+  in families' paths five pistons need different counts on the two edges ((0,4) 2 vs 3, (1,4) 3 vs
+  2, (-1,3) 1 vs 4, (1,-2) 1 vs 4, (4,1) 1 vs 4), i.e. edge-state memory (the 7-cell double
+  flip-flop) in 5-8 cell regions: not attempted.
 - Side finding: an immovable block at the ring corner (-1,3) (obsidian) makes PT's push a no-op
   whenever the top ring row is T, C, TL (the open state), so extra PT pulses become harmless before
   s1 on both edges and after TL parks: PT does not need to be the bottleneck.
