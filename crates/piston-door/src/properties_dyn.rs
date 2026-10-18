@@ -485,9 +485,20 @@ pub fn lever_support(state: &str, lever: Pos) -> Option<Pos> {
 /// blocks nor swept cells), smooth stone under the repeater when nothing holds it. Outside the
 /// build, its swept cells and the tunnel.
 pub fn repeater_site(d: &Design, spec: &DoorSpec, swept: &HashSet<Pos>) -> Option<(Env, Input, Pos)> {
-    // Strict first (nothing of the build next to the redstone block), then letting it touch
-    // blocks that ignore power (no redstone component, no piston, no sculk...).
-    repeater_site_tier(d, spec, swept, false).or_else(|| repeater_site_tier(d, spec, swept, true))
+    repeater_sites(d, spec, swept).into_iter().next()
+}
+
+/// Every repeater site, strict ones first (nothing of the build next to the redstone block), then
+/// the ones letting it touch blocks that ignore power (no redstone component, no piston, no
+/// sculk...).
+pub fn repeater_sites(d: &Design, spec: &DoorSpec, swept: &HashSet<Pos>) -> Vec<(Env, Input, Pos)> {
+    let mut out = repeater_site_tier(d, spec, swept, false);
+    for s in repeater_site_tier(d, spec, swept, true) {
+        if !out.iter().any(|o: &(Env, Input, Pos)| o.1 == s.1) {
+            out.push(s);
+        }
+    }
+    out
 }
 
 /// Blocks a redstone block next to them could switch or update.
@@ -501,8 +512,9 @@ fn power_sensitive(state: &str) -> bool {
     .any(|k| n.contains(k))
 }
 
-fn repeater_site_tier(d: &Design, spec: &DoorSpec, swept: &HashSet<Pos>, loose: bool) -> Option<(Env, Input, Pos)> {
-    let s = lever_support(d.blocks.get(&spec.lever)?, spec.lever)?;
+fn repeater_site_tier(d: &Design, spec: &DoorSpec, swept: &HashSet<Pos>, loose: bool) -> Vec<(Env, Input, Pos)> {
+    let mut out = Vec::new();
+    let Some(s) = d.blocks.get(&spec.lever).and_then(|st| lever_support(st, spec.lever)) else { return out };
     let tunnel: HashSet<Pos> = spec.door_cells().into_iter().chain(spec.in_front_and_behind(96)).collect();
     let solid = |p: &Pos| d.blocks.contains_key(p) || swept.contains(p) || *p == spec.lever;
     let busy = |p: &Pos| solid(p) || tunnel.contains(p);
@@ -531,9 +543,9 @@ fn repeater_site_tier(d: &Design, spec: &DoorSpec, swept: &HashSet<Pos>, loose: 
             env.push((below, "minecraft:smooth_stone".to_string()));
         }
         env.push((p, format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", dir_name(dir))));
-        return Some((Env { blocks: env }, Input::Repeater { source: q, repeater: p }, s));
+        out.push((Env { blocks: env }, Input::Repeater { source: q, repeater: p }, s));
     }
-    None
+    out
 }
 
 /// Burnable blocks (FireBlock's flammable list, by name): wood, leaves, wool, carpets...
@@ -625,14 +637,27 @@ pub fn check_design(w: &mut Worker, source: &str, d: &Design, verdict: &str) -> 
         let snow_cells = snow_run.as_ref().map(|r| r.snow_cells).unwrap_or(0);
         let snow = snow_run.map(|_| ()).map_err(err_text);
         let flammable = exposed_flammables(&rest);
-        // Repeater input.
-        let (repeater, repeater_ticks) = match repeater_site(d, &spec, &swept) {
-            None => (Err("no free side of the lever's support block for a repeater".to_string()), None),
-            Some((env, input, _)) => match env_run(w, sb, d, &spec, &env, &RunOpts { cycles: 1, input, snow: false, steps: false }) {
-                Ok(rr) => (Ok(()), Some((rr.open_ticks[0], rr.close_ticks[0]))),
-                Err(e) => (Err(err_text(e)), None),
-            },
-        };
+        // Repeater input: the first site whose rig stands (a repeater on a non-sturdy design block
+        // pops; that is the rig's fault, not the door's: try the next site).
+        let mut repeater: Check = Err("no free side of the lever's support block for a repeater".to_string());
+        let mut repeater_ticks = None;
+        for (env, input, _) in repeater_sites(d, &spec, &swept) {
+            match env_run(w, sb, d, &spec, &env, &RunOpts { cycles: 1, input, snow: false, steps: false }) {
+                Ok(rr) => {
+                    repeater = Ok(());
+                    repeater_ticks = Some((rr.open_ticks[0], rr.close_ticks[0]));
+                    break;
+                }
+                Err(e) => {
+                    let e = err_text(e);
+                    let rig = e.starts_with("an entity appeared at rest") || e.starts_with("unsupported blocks") || e.starts_with("not closed at rest");
+                    if !rig {
+                        repeater = Err(e);
+                        break;
+                    }
+                }
+            }
+        }
         // Footsteps.
         let steps = env_run(w, sb, d, &spec, &Env::default(), &RunOpts { cycles: 1, input: Input::Lever, snow: false, steps: true })
             .map(|_| ())
@@ -771,4 +796,79 @@ pub fn load_verdicts(path: &Path) -> HashMap<String, bool> {
         }
     }
     m
+}
+
+/// Every design `.txt` under designs/piston-door-3x3 on HEAD and on every ref under `refs_prefix`
+/// (what [`crate::leaderboard::collect`] gathers: door + lever ports, at most `max_blocks`,
+/// deduplicated by content), read with one `git cat-file --batch` over the unique blobs instead of
+/// a `git show` per file and ref (~50k processes, ~15 min on a busy box).
+pub fn collect_refs(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<(String, Design)>> {
+    use std::io::{BufRead, Read, Write};
+    use std::process::{Command, Stdio};
+    let git = |args: &[&str]| -> Result<String> {
+        let out = Command::new("git").arg("-C").arg(repo).args(args).output()?;
+        if !out.status.success() {
+            bail!("git {}: {}", args.join(" "), String::from_utf8_lossy(&out.stderr).trim());
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    let mut refs = vec!["HEAD".to_string()];
+    for line in git(&["for-each-ref", "--format=%(refname:short)", refs_prefix])?.lines() {
+        refs.push(line.trim().to_string());
+    }
+    // (label, blob) in ref order; blobs read once.
+    let mut files: Vec<(String, String)> = Vec::new();
+    let mut blobs: Vec<String> = Vec::new();
+    let mut seen_blob = HashSet::new();
+    for r in &refs {
+        let Ok(list) = git(&["ls-tree", "-r", r, "designs/piston-door-3x3"]) else { continue };
+        for line in list.lines() {
+            // "<mode> blob <hash>\t<path>"
+            let Some((meta, path)) = line.split_once('\t') else { continue };
+            if !path.ends_with(".txt") {
+                continue;
+            }
+            let Some(hash) = meta.split_whitespace().nth(2) else { continue };
+            files.push((format!("{r}:{path}"), hash.to_string()));
+            if seen_blob.insert(hash.to_string()) {
+                blobs.push(hash.to_string());
+            }
+        }
+    }
+    let mut child = Command::new("git").arg("-C").arg(repo).args(["cat-file", "--batch"]).stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?;
+    let mut stdin = child.stdin.take().context("git stdin")?;
+    let input: String = blobs.iter().map(|b| format!("{b}\n")).collect();
+    let writer = std::thread::spawn(move || {
+        let _ = stdin.write_all(input.as_bytes());
+    });
+    let mut out = std::io::BufReader::new(child.stdout.take().context("git stdout")?);
+    let mut text: HashMap<String, String> = HashMap::new();
+    for b in &blobs {
+        let mut header = String::new();
+        out.read_line(&mut header)?;
+        let f: Vec<&str> = header.split_whitespace().collect();
+        if f.len() < 3 || f[1] == "missing" {
+            continue;
+        }
+        let size: usize = f[2].parse()?;
+        let mut buf = vec![0u8; size + 1];
+        out.read_exact(&mut buf)?;
+        buf.pop();
+        text.insert(b.clone(), String::from_utf8_lossy(&buf).into_owned());
+    }
+    let _ = writer.join();
+    let _ = child.wait();
+    let mut seen = HashSet::new();
+    let mut res = Vec::new();
+    for (label, blob) in files {
+        let Some(t) = text.get(&blob) else { continue };
+        let Ok(d) = Design::parse(t) else { continue };
+        if !d.ports.contains_key("door") || !d.ports.contains_key("lever") || crate::block_count(&d) > max_blocks {
+            continue;
+        }
+        if seen.insert(d.content_key()) {
+            res.push((label, d));
+        }
+    }
+    Ok(res)
 }

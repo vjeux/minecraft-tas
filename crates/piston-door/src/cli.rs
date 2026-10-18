@@ -2209,7 +2209,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 cands.extend(crate::shapes::collect_dir(dir, max_blocks)?.into_iter().map(|(s, d)| (s, d, false)));
             }
             if branches {
-                cands.extend(crate::leaderboard::collect(std::path::Path::new("."), &refs, max_blocks)?.into_iter().map(|(s, d)| (s, d, false)));
+                cands.extend(pd::collect_refs(std::path::Path::new("."), &refs, max_blocks)?.into_iter().map(|(s, d)| (s, d, false)));
             }
             let mut seen = std::collections::HashSet::new();
             let mut jobs: Vec<(String, Design, String)> = Vec::new();

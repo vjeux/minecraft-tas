@@ -29,6 +29,13 @@ part of the rest state (a hallway or shell block that gets dragged away is a fai
 | 20 cycles | `crate::verify` with 20 cycles at offset 0 (walkway-clutter rule off, as older verdicts) | passes |
 
 ## Findings so far
+- First full run (2026-10-18 19:22Z, 240 working designs = every `ok` in verdicts-v5 across the
+  archive, HEAD and the explore/* branches; 126 s on 24 workers): hallway 4 yes / 236 no;
+  contained (flush) 146 yes / 94 no (all failures: smooth stone + slime (+ mix)), with a 1-block gap
+  240 yes; snow 206 yes / 34 no (13 designs have a flammable block on top: targets, leaves);
+  repeater input 14 yes / 148 no / 78 no site; footsteps 220 yes / 20 no (exactly the sculk
+  designs); 20 cycles 240 yes. The air shell (= no surroundings) passes for all 240, so the
+  harness agrees with the judge.
 - Repeater input fails for every door that reads the LEVER BLOCK itself (observers watching the
   lever: fc2's O_a / P_L pair, logic-min's pulse observer) or the lever's weak power into a
   non-support neighbor: the lever never changes state, only its support block gets powered.
