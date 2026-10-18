@@ -94,7 +94,9 @@ pub fn design_hash(d: &Design) -> u64 {
 }
 
 /// Verdict cache: design hash -> (verdict, open ticks, close ticks, rotation result). Bump the
-/// file name when the rules change so old verdicts are dropped.
+/// file name when the rules change so old verdicts are dropped. Only the coordinator's
+/// leaderboard writes it: each design is verified once, by main's verifier (agents' own runs are
+/// not trusted), and every later run reuses the verdict.
 const CACHE_FILE: &str = "verdicts-v5.tsv";
 type Rotation = Option<std::result::Result<(), (u32, String)>>;
 type Cached = (std::result::Result<(), String>, Option<u32>, Option<u32>, Rotation);
