@@ -52,9 +52,10 @@ pub enum Family {
     Subs,
     Reroute,
     Renet,
+    Swap,
 }
 
-const FAMILIES: [(Family, &str); 8] = [
+const FAMILIES: [(Family, &str); 9] = [
     (Family::Singles, "singles"),
     (Family::Pairs, "pairs"),
     (Family::Triples, "triples"),
@@ -63,6 +64,7 @@ const FAMILIES: [(Family, &str); 8] = [
     (Family::Subs, "subs"),
     (Family::Reroute, "reroute"),
     (Family::Renet, "renet"),
+    (Family::Swap, "swap"),
 ];
 
 /// `all` or a comma list of family names.
@@ -479,6 +481,75 @@ fn lever_moves(ctx: &Ctx, d: &Design) -> Vec<Edit> {
                 ports: vec![("lever".to_string(), q)],
                 desc: format!("lever {} -> {} {}", fmt_pos(lp), fmt_pos(q), short(&st)),
             });
+        }
+    }
+    out
+}
+
+/// Block states a swap may put in: floors, dust, repeaters, observers, torches, power blocks.
+fn swap_vocabulary() -> Vec<String> {
+    let mut v = vec![
+        "minecraft:smooth_stone".to_string(),
+        crate::route::NONSTICK_FLOOR.to_string(),
+        "minecraft:obsidian".to_string(),
+        "minecraft:redstone_block".to_string(),
+        WIRE.to_string(),
+        "minecraft:redstone_torch[lit=true]".to_string(),
+    ];
+    for f in HORIZONTAL {
+        for dl in ["1", "4"] {
+            v.push(format!("minecraft:repeater[delay={dl},facing={f},locked=false,powered=false]"));
+        }
+        v.push(format!("minecraft:redstone_wall_torch[facing={f},lit=true]"));
+    }
+    for f in ALL_DIRS {
+        v.push(format!("minecraft:observer[facing={f},powered=false]"));
+    }
+    v
+}
+
+/// Swaps: two removable blocks within `radius` of each other out, one block of the vocabulary in
+/// a free cell within `radius` of either (it must stand: dust, repeaters and torches need their
+/// support). A move to any nearby cell plus a removal, a 2-for-1 replacement, and so on.
+fn swaps(ctx: &Ctx, d: &Design, radius: i32) -> Vec<Edit> {
+    let r = ctx.removable(d);
+    let vocab = swap_vocabulary();
+    let mut out = Vec::new();
+    for i in 0..r.len() {
+        for j in i + 1..r.len() {
+            let (a, b) = (r[i], r[j]);
+            if cheb(a, b) > radius {
+                continue;
+            }
+            let base = Edit::removal(&[a, b], d);
+            let after = base.apply(d);
+            let mut cells: Vec<Pos> = Vec::new();
+            for c in [a, b] {
+                for dx in -radius..=radius {
+                    for dy in -radius..=radius {
+                        for dz in -radius..=radius {
+                            let q = add(c, [dx, dy, dz]);
+                            if !after.blocks.contains_key(&q) && !ctx.forbidden.contains(&q) && !cells.contains(&q) {
+                                cells.push(q);
+                            }
+                        }
+                    }
+                }
+            }
+            for q in cells {
+                for s in &vocab {
+                    if (q == a && d.blocks[&a] == *s) || (q == b && d.blocks[&b] == *s) {
+                        continue;
+                    }
+                    if !support_ok(&after, q, s) {
+                        continue;
+                    }
+                    let mut e = base.clone();
+                    e.set.push((q, s.clone()));
+                    e.desc = format!("{} +{} {}", base.desc, fmt_pos(q), short(s));
+                    out.push(e);
+                }
+            }
         }
     }
     out
@@ -1185,6 +1256,11 @@ pub fn search(
         let comp = compounds(&ctx, &cur, &neutral, opts.radius);
         let n_comp = comp.len();
         improving.extend(comp);
+        if opts.has(Family::Swap) {
+            let s = swaps(&ctx, &cur, opts.radius);
+            log(&format!("  {} swaps (two blocks out, one block in nearby)", s.len()));
+            improving.extend(s);
+        }
         log(&format!(
             "{} blocks: {} removals, {} reroutes (+{} neutral), {} compounds, {} neutral edits",
             block_count(&cur),

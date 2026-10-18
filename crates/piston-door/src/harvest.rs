@@ -40,7 +40,12 @@ pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &Search
     let seen_path = opts.out_dir.join("harvested.txt");
     let seen_text = std::fs::read_to_string(&seen_path).unwrap_or_default();
     let seen: HashSet<u64> = seen_text.lines().filter_map(|l| u64::from_str_radix(l.split_whitespace().next()?, 16).ok()).collect();
-    let fresh: Vec<(String, Design)> = cands.into_iter().filter(|(_, d)| !seen.contains(&design_hash(d))).collect();
+    let mine = opts.out_dir.to_string_lossy().to_string();
+    // Our own results (named search-tool-*, or under the out dir) are local minima already.
+    let fresh: Vec<(String, Design)> = cands
+        .into_iter()
+        .filter(|(s, d)| !seen.contains(&design_hash(d)) && !s.contains(mine.as_str()) && !d.name.starts_with("search-tool"))
+        .collect();
     log(&format!("{} designs not harvested yet; judging them", fresh.len()));
     let verdicts = pool.map(fresh.clone(), |w, _, (_, d)| Ok(verify(w, &d, &search_opts.judge).is_ok()));
     let mut working: Vec<(String, Design)> =
@@ -75,7 +80,11 @@ pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &Search
             Ok(())
         };
         let best = search(pool, &d, &o, log, &mut on_improve)?;
-        let line = format!("{:016x} {source} {} -> {}\n", design_hash(&d0), block_count(&d0), block_count(&best));
+        // The result is a local minimum too: never harvest it again.
+        let mut line = format!("{:016x} {source} {} -> {}\n", design_hash(&d0), block_count(&d0), block_count(&best));
+        if best.blocks != d0.blocks {
+            line.push_str(&format!("{:016x} result of {source} {}\n", design_hash(&best), block_count(&best)));
+        }
         let mut text = std::fs::read_to_string(&seen_path).unwrap_or_default();
         text.push_str(&line);
         std::fs::write(&seen_path, text)?;
