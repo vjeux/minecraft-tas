@@ -86,8 +86,10 @@ mechanism without the pattern. A static SAT wiring model of a 5-tall strip hits 
   7-tall box (11 x 7 = 77) is worse than the record. With two rows below, row 1's x = 3 firing can
   come from row 0's door block standing on a torch at (3,-1) (row 0 opened first, its right block
   parks at (3,0)), but row 1's x = 4..6 firings still need the run below.
-- **Run lemma (1-high wiring rows)**: a run of k adjacent firing columns (r046's x = 2..6; every
-  catalog row has one of length >= 5: 222 rows 5, 132 rows 6, 79 rows 7) needs k adjacent row-3 cells that send power DOWN
+- **Run lemma (1-high wiring rows)**, an obstacle rather than a proof (columns may SHARE a driver
+  when no walker stands under the other column at that tick): a run of k adjacent firing columns
+  (r046's x = 2..6; every catalog row has one of length >= 5: 222 rows 5, 132 rows 6, 79 rows 7)
+  needs k adjacent row-3 cells that send power DOWN
   for row 1 (a strongly powered conductor, a wall torch, a redstone block) and k row -1 cells that
   send power UP for row 0. A conductor needs a horizontal neighbour that strongly powers it (an
   observer facing away, which sends nothing vertically; repeaters and comparators have no floor in
@@ -97,6 +99,13 @@ mechanism without the pattern. A static SAT wiring model of a 5-tall strip hits 
   (each end next to an outside observer) work. With 2 rows on a side (torches under the row -1
   conductors, dust on the row 3 conductors) adjacent columns still share their drivers (adjacent
   dust merges into one net; a torch's attachment block is shared with its neighbour's torch).
+- 11 x 6 = 66 (the coordinator's fallback) with fixed parts, checked by hand on r046 rows: rows
+  -1..4 (one row below) keep row 0's absolute corner conflict; rows -2..3 (two below) free row 0's
+  corner and row 1's x = 3 firing (row 0's door block on a torch at (3,-1), row 0 opened first),
+  but row 1's x = 4, 5, 6 firings must come DOWN from the 1-high top row, where (3,3) is already
+  the east-facing observer for the inner cell and (6,3) is the box edge: (4,3)..(6,3) cannot all be
+  driven (a conductor needs an observer neighbour facing it, a torch an attachment block, and the
+  only free neighbours are each other). A spare column (12 x 6 = 72) only ties the record.
 - Vertical strips (5 x 11): the middle COLUMN's pistons have only door-column cells around them
   and around their quasi cell (QC looks up, along the column), so it is unreachable outright.
 
