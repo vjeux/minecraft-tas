@@ -60,6 +60,11 @@
   and compare every tick with the simulator under the judge's rules, plus one real-time cycle.
   PASS = identical tick for tick; DIVERGES names the first differing tick and cells (`--trace`
   prints pending ticks of both worlds). Method: `designs/piston-door-3x3/tracks/vanilla-check/NOTES.md`.
+- `vanilla-build <script.build.txt>... [--extra-offsets 28] [--real-time] [--slow N]`: replay a
+  `door buildable` script in the unmodified server with a bot player (item in hand, the script's
+  look, sneaking, a right-click on the given face; temporary dirt placed and broken by clicks),
+  compare with the simulator after every action, the built world with the judge's rest state,
+  then run the judge's cycles with the bot. Method: `designs/piston-door-3x3/tracks/vanilla-build/NOTES.md`.
 - `mctas src grep|find|show`: read the decompiled Minecraft 26.3 source (the ground truth for
   mechanics; see `docs/mechanics.md`).
 - Design files: layer text format (see any file in `designs/`); `@name` loads a built-in.
