@@ -1,7 +1,7 @@
 # open-4's machine, open AND close: open at tick 4 (as open-4.drive), then, door open and idle,
 # the partners are disarmed, and the lever-off inputs close it: every door cell holds its stone at
-# tick 3 of the close (C and T placed at k2 by pistons carried in by 0-ticks, TL at k3, the 6
-# plain pushes land at k3).
+# tick 4 of the close (C placed at k2 and T at k3 by pistons carried in by 0-ticks, one chain per
+# tick, TL at k4, the 6 plain pushes land at k3). open-4-close3.drive shares k2 between C and T.
 design designs/gadgets/open-4.txt
 probe TL 0 2 0
 probe T 1 2 0

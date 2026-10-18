@@ -15,9 +15,10 @@ flip (the flip happens between ticks, so the first tick after it is k1).
   center start moving in tick 1, which is what makes 4 possible. On the close side, pistons
   carried into place by a 0-tick fire in the same tick: the center and the edge block come home
   with every move placed (`center-return`, `corner-return`). **The same machine opens in 4 and
-  closes in 4 (`open-4-cycle`, ideal inputs, vanilla-identical)**: one carried-piston chain per
-  tick (two chains started at one tick boundary interleave in the FIFO queue); same-tick relays
-  would bring the close to 1-3.
+  closes in 3 (`open-4-close3`, ideal inputs, vanilla-identical; boards: 10 / 7)**: two
+  carried-piston chains started at one tick boundary interleave in the FIFO queue, one event per
+  chain per round, so the chain that must act second (T's) is padded with one extra piston;
+  without the padding the close is 4 (`open-4-cycle`).
 * **The open floor is exactly the center**: it needs two moves; a pull (or drag, or plain push)
   lands 2 gt after it starts and can move again 1 gt later, so the second move is >= 3 gt after
   the first; a push can be finalized at once (0-tick), but its pusher then sits inside the
@@ -241,9 +242,9 @@ enter its cell after C went through:
   a same-tick relay from the end of C's chain to the start of T's gives close 3 (2 if the corner
   follows by relay too, 1 with relays everywhere and 0-ticks for the plain pushes). The 6 other
   blocks only need plain pushes at k1 (landing k3).
-  **Caveat found when assembling (next bullet): two carried-piston chains started by the same tick
-  boundary interleave in the FIFO block-event queue, so C's and T's chains need a same-tick
-  relay to share k2; with tick boundaries only, the assembled machine closes in 4.**
+  **Caveat found when assembling (next bullets): two carried-piston chains started by the same tick
+  boundary interleave in the FIFO block-event queue, so C's and T's chains share k2 only with a
+  relay or with T's chain padded (built: close 3); with tick boundaries only, close 4.**
 * **close 6**: the speed track's: C pushed into T's cell at k1 (spit), T pushed into E, F
   re-extends at k4 pushing [T, C] together; C is the second block, not finalized: lands k6 (the
   boards: 7).
@@ -256,10 +257,16 @@ enter its cell after C went through:
   0-ticks A' back into E, A' fires as it is placed and 0-ticks C into the center; k3 Y_P 0-ticks
   P_T back, P_T fires and 0-ticks T into its cell; k4 TL's puller 0-ticks TL home. Started in the
   same tick, the A' and P_T chains interleave (FIFO: P_T fired while A''s head was still in T's
-  cell, and a failed push never retries), hence one chain per tick; a relay from the end of one
-  chain to the start of the next would give close 2 (k2: C then T, TL at k3 or k2).
+  cell, and a failed push never retries), hence one chain per tick there.
+* **close 3 on the same machine: built** (`open-4-close3.drive`). Both chains start at the k1/k2
+  boundary, A''s first; the queue runs them one event per chain per round (Y_A, X_Y2 | Y_A's
+  retract places A' | A' pushes C | X_A | A' retracts: C placed), so T's chain is made one event
+  longer: Y_P is fired by the update of a padding piston D1 and 0-ticked by a partner in its own
+  quasi cell, which puts P_T's push one round after A' left T's cell: C and T both placed at k2,
+  TL at k3 (its puller cannot see T leave, so it waits for the boundary; 5 more padding pistons
+  would bring it into k2: close 2).
 
-Open + close >= 5; **the open-4 machine does open 4 + close 4 = 8 (built, `open-4-cycle`)**
+Open + close >= 5; **the open-4 machine does open 4 + close 3 = 7 (built, `open-4-close3`)**
 against the boards' 10 + 7; wiring it to a lever (instant-off line, arming after the flip, an
 observer chain for k4 and for each close tick) is the next step (tick-door track).
 
@@ -277,6 +284,9 @@ observer chain for k4 and for each close tick) is the next step (tick-door track
 | close k1->k2 | R_A3 + X_A arming, Y_A 0-tick | A' carried back into E, fires, C home at k2 | an observer pulse at k2 off the lever-off edge |
 | close k2->k3 | R_T4 + X_T arming, Y_P 0-tick | P_T carried back, fires, T home at k3 | a k2 observer + 1 more link (odd: k3 comes from a k1 piston's observer, `odd-observer`) |
 | close k3->k4 | R_TL3, X_TL arming, a poke next to TL's puller | TL home at k4 | an observer pair at k4 |
+
+(`open-4-close3`: the k2->k3 row moves into k1->k2, T's chain started by a padding piston D1
+fired at the same boundary; TL's row moves to k2->k3.)
 
 Observers fire on both lever edges, so every observer-driven input of the open also fires on the
 close (and vice versa): the wired door must make those runs no-ops (`blocked-push`, `order-flip`
@@ -296,8 +306,9 @@ patterns) or route the two edges apart (a copper bulb toggles once per rising ed
 * Two chains of events started together interleave in the FIFO queue (each event appends its
   follow-ups at the end): if chain B needs chain A's result, start B from A's last action (a
   relay) or one tick later. A piston whose push fails when its event runs never retries.
-  (Interleaving goes roughly one event per chain per round, so a chain that must act second can
-  also be made longer: e.g. padded with BUD pistons that update each other; not tried here.)
+  (Interleaving goes one event per chain per round, so a chain that must act second can also be
+  made longer: `open-4-close3` pads T's chain with one piston to run it after C's in the same
+  tick.)
 
 ## 8. Vanilla confirmation
 
@@ -313,7 +324,7 @@ positions. Logs: `designs/piston-door-3x3/tracks/tick-study/logs/`.
 | instant-off, instant-on | PASS, identical at 4 positions |
 | landing-next-tick, spit-saves-tick, leaves-delay, odd-observer, comparator-odd | PASS, identical at 4 positions |
 | center-exit, double-move | PASS, identical at 4 positions |
-| open-4, open-4-cycle, center-return, corner-return | PASS, identical at 4 positions |
+| open-4, open-4-cycle, open-4-close3, center-return, corner-return | PASS, identical at 4 positions |
 | event-order, button-pulse, torch-delay | PASS, identical at 4 positions |
 
 The rest of the library was run through the same tool (logs/vanilla-gadget-library.log): the 25

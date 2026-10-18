@@ -32,6 +32,7 @@ palette:
   q minecraft:piston[extended=false,facing=up]
   v minecraft:piston[extended=false,facing=down]
   n minecraft:piston[extended=false,facing=north]
+  g minecraft:piston[extended=false,facing=west]
 layer -3:
   ...
   ...
@@ -59,12 +60,12 @@ layer 1:
   ReESSSWwR
 layer 2:
   ..R
-  ..s
+  .gs
   x.Z
   .ppSSSWwR
 layer 3:
   ....R
-  .v..s
+  .vn.s
   ....Zn
   .xxDa
   ....q

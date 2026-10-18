@@ -8,11 +8,11 @@ and identical in the official server at 4 positions (`door vanilla-gadget`, logs
 * Floors (solid): **open >= 4**, **close >= 1** (open + close >= 5). Boards: 10 / 7.
 * **`open-4`**: a whole 3x3 opening clear at tick 4 (ideal inputs), the open floor. Critical path
   alone: `center-exit`.
-* **Close 4 on the same machine** (`open-4-cycle.drive`): k1 C and T into the top-row cells,
-  k2 C home (A' carried back into E fires as it lands), k3 T home (P_T carried back), k4 TL.
-  Pieces: `center-return`, `corner-return`. Two carried-piston chains started at one tick boundary
-  interleave in the FIFO block-event queue (a failed push never retries), so without same-tick
-  relays it is one chain per tick; relays would give close 1-3.
+* **Close 3 on the same machine** (`open-4-close3.drive`): C and T both placed at k2, TL at k3.
+  Two carried-piston chains started at one tick boundary interleave in the FIFO block-event queue
+  one event per chain per round (a failed push never retries), so T's chain is padded with one
+  piston (D1 fires Y_P, whose partner sits in its quasi cell) to run after C's. Without the
+  padding: close 4 (`open-4-cycle.drive`). Pieces: `center-return`, `corner-return`.
 * New tool: `mctas door vanilla-gadget <drive>...` (crates/piston-door/src/vanilla_gadget.rs) and
   the drive command `setblock` (the game's /setblock, identical in both worlds).
 
@@ -20,7 +20,7 @@ and identical in the official server at 4 positions (`door vanilla-gadget`, logs
 zero-tick, zero-tick-normal, zero-tick-reach, zero-tick-onplace, zero-tick-observer,
 zero-tick-pulse, double-move, instant-off, instant-on, event-order, landing-next-tick,
 spit-saves-tick, leaves-delay, odd-observer, comparator-odd, button-pulse, torch-delay,
-center-exit, open-4 (+ open-4-cycle), center-return, corner-return. The rest of the library
+center-exit, open-4 (+ open-4-cycle, open-4-close3), center-return, corner-return. The rest of the library
 (40 older gadgets; `set`/`clear` replayed as the game's /setblock) was also run through `door
 vanilla-gadget`: all identical, so the whole library matches the official server.
 
@@ -38,6 +38,7 @@ vanilla-gadget`: all identical, so the whole library matches the official server
   the same phase: put the piston that must go first west of the redstone block.
 
 ## Not done / next
-* Wiring open-4 into a door (lever, instant-off line, arming after the flip, a k4 observer chain)
-  and its close; the open-4 topology's own close is serialized (~8, ticks.md section 6).
-* Close 1-2 end to end (relays instead of tick boundaries).
+* Wiring open-4 into a lever-driven door (ticks.md section 6 has the input table: which input at
+  which tick and what can provide it).
+* Close 2: TL's chain padded by ~5 BUD pistons so TL's puller fires after T left its cell inside
+  tick 2; close 1 needs C's first move and the carried pistons in the same tick too (relays).
