@@ -15,6 +15,8 @@ pub fn build(name: &str) -> Option<Design> {
         "obs-d3" => Some(d3()),
         "obs-e1m" => Some(e1_mech()),
         "obs-s1" => Some(s1()),
+        "obs-s3" => Some(s3()),
+        "obs-s4" => Some(s4()),
         _ => None,
     }
 }
@@ -228,6 +230,62 @@ fn put(b: &mut Builder, blocks: &[(Pos, &str)]) {
     for (p, s) in blocks {
         b.set(*p, s);
     }
+}
+
+/// `base` renamed, minus `remove`, plus `add`.
+fn variant(base: Design, name: &str, remove: &[Pos], add: &[(Pos, &str)]) -> Design {
+    let mut b = Builder { d: base };
+    b.d.name = format!("piston-door-3x3-{name}");
+    for p in remove {
+        b.d.blocks.remove(p);
+    }
+    for (p, s) in add {
+        b.set(*p, s);
+    }
+    b.d
+}
+
+/// s3: s1 with the late A from an observer on P_T's base (2,3,1): its first pulse is blocked by
+/// the moving T (closing) or harmless (opening), its second pushes T+C home. Replaces the park
+/// line's 2-dust + repeater branch.
+pub fn s3() -> Design {
+    variant(
+        s1(),
+        "obs-s3",
+        &[[2, 5, -2], [2, 4, -2], [3, 5, -2], [3, 4, -2], [3, 5, -1], [3, 4, -1]],
+        &[([2, 3, 1], &observer("west")), ([3, 3, 1], FLOOR), ([3, 4, 1], WIRE)],
+    )
+}
+
+/// s4: s2 with observer chains instead of routed dust: the lever moves to K's south face
+/// (-2,5,0) and is watched by O (-3,5,0) -> O (-3,4,0) -> O (-3,3,0), which lights the left stack
+/// feed as a dot; the P_T chain's (1,3,3) continues east along z=3 and down z to (5,3,1), which
+/// strongly powers (5,3,0) above the right stack feed.
+pub fn s4() -> Design {
+    let mut remove: Vec<Pos> = vec![[-3, 6, -1], [-4, 6, -1], [-4, 5, -1], [-2, 6, -1]];
+    remove.extend(S1_ROUTES.iter().map(|(p, _)| *p));
+    let mut d = variant(
+        s1(),
+        "obs-s4",
+        &remove,
+        &[
+            ([-2, 5, 0], "minecraft:lever[face=wall,facing=south,powered=false]"),
+            ([-3, 5, 0], &observer("east")),
+            ([-3, 4, 0], &observer("up")),
+            ([-3, 3, 0], &observer("up")),
+            ([2, 3, 3], &observer("west")),
+            ([3, 3, 3], &observer("west")),
+            ([4, 3, 3], &observer("west")),
+            ([5, 3, 3], &observer("west")),
+            ([5, 3, 2], &observer("south")),
+            ([5, 3, 1], &observer("south")),
+            ([5, 3, 0], STONE),
+            ([-3, 2, 0], "minecraft:redstone_wire[north=side,east=side,south=side,west=side]"),
+            ([5, 2, 0], "minecraft:redstone_wire[north=side,east=side,south=side,west=side]"),
+        ],
+    );
+    d.ports.insert("lever".into(), [-2, 5, 0]);
+    d
 }
 
 /// The toggle mechanism with inner side pistons under the door (bottom row y=-1).
