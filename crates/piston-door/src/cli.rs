@@ -244,6 +244,10 @@ pub enum DoorCmd {
         /// --k 2 through an added slime/honey stuck to one).
         #[arg(long)]
         glue: bool,
+        /// With --then-search: skip seeds whose open/close ticks (screen positions) equal the
+        /// start design's, i.e. blocks that most likely change nothing.
+        #[arg(long)]
+        changed: bool,
         #[command(flatten)]
         search: SearchArgs,
     },
@@ -525,7 +529,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Grow { design, out, lo, hi, states, k, want, then_search, seed_minutes, seed_from, glue, search } => {
+        DoorCmd::Grow { design, out, lo, hi, states, k, want, then_search, seed_minutes, seed_from, glue, changed, search } => {
             let d = load_design(&design)?;
             let pos = |s: &str| -> Result<mctas::sim::Pos> {
                 let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
@@ -552,9 +556,24 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             if then_search {
                 let base_n = crate::block_count(&d);
                 let mut best: Option<(Design, String)> = None;
+                let screen = opts.screen.clone();
+                let base_ticks = if changed {
+                    let mut w = pool.worker(0);
+                    Some(crate::search::worst_ticks(&crate::verify(&mut w, &d, &screen)?))
+                } else {
+                    None
+                };
                 for (i, (fd, desc)) in found.iter().enumerate() {
                     if i + 1 < seed_from {
                         continue;
+                    }
+                    if let Some(bt) = base_ticks {
+                        let mut w = pool.worker(0);
+                        if let Ok(r) = crate::verify(&mut w, fd, &screen)
+                            && crate::search::worst_ticks(&r) == bt
+                        {
+                            continue;
+                        }
                     }
                     log(&format!("seed {}/{}: {desc}", i + 1, found.len()));
                     let mut sopts = search.options()?;
