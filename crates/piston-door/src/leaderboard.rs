@@ -412,6 +412,136 @@ fn source_link(source: &str) -> String {
 /// The leader of a board, above its table: the GIF of the first of `tied` (the leader and the
 /// designs tied with it) that has one, then one line about that design (blocks, kind, ticks,
 /// file, video, how it works) and the board's record progression video when there is one.
+/// The community regulation's volume of a design (a door labeled "140b" is 10 x 14 x 1): `door
+/// properties`'s `volume` (W x H x D of the build over every state) when cached, else the swept
+/// bounding box (at rest and while it moves, the door included).
+fn volume_of(e: &Entry, props: &HashMap<u64, crate::properties::Props>) -> String {
+    if let Some(p) = props.get(&design_hash(&e.design)) {
+        if let Some(v) = p.get("volume").filter(|v| !v.is_empty() && v.as_str() != "-") {
+            return match p.get("volume_dims") {
+                Some(d) => format!("{v} ({d})"),
+                None => v.clone(),
+            };
+        }
+    }
+    match e.swept {
+        Some(s) => format!("{} ({}x{}x{})", s.volume(), s.width(), s.height(), s.thickness()),
+        None => "-".into(),
+    }
+}
+
+fn volume_num(e: &Entry, props: &HashMap<u64, crate::properties::Props>) -> i64 {
+    props
+        .get(&design_hash(&e.design))
+        .and_then(|p| p.get("volume"))
+        .and_then(|v| v.parse().ok())
+        .or_else(|| e.swept.map(|s| s.volume() as i64))
+        .unwrap_or(i64::MAX)
+}
+
+/// Seamless tier rank from props' `seamless` value ("QUART z-,z+", "FULL"...): SUPER 4, FULL 3,
+/// SEMI 2, QUART 1, none 0.
+pub fn tier_rank(t: &str) -> u8 {
+    match t.split_whitespace().next().unwrap_or("") {
+        "SUPER" => 4,
+        "FULL" => 3,
+        "SEMI" => 2,
+        "QUART" => 1,
+        _ => 0,
+    }
+}
+
+/// The boards that follow the piston door community's regulation (vjeux: seamless is what the
+/// community cares about most; sizes are volumes): "Seamless", "Seamless, flat, no slime or
+/// honey" (ranked by tier, then hallway-compatible first, then volume, then blocks) and
+/// "Record-eligible" (ranked by volume, then blocks). Facts come from the `door properties` /
+/// `door properties-dyn` caches; designs not measured yet are left out.
+fn seamless_boards(
+    s: &mut String,
+    x: &Extras,
+    entries: &[Entry],
+    props: &HashMap<u64, crate::properties::Props>,
+    dyn_props: &HashMap<u64, crate::properties::Props>,
+    shown: &mut HashMap<u64, String>,
+) {
+    let get = |e: &Entry, k: &str| -> String {
+        let h = design_hash(&e.design);
+        dyn_props.get(&h).and_then(|p| p.get(k)).or_else(|| props.get(&h).and_then(|p| p.get(k))).cloned().unwrap_or_default()
+    };
+    let yes = |v: String| v.starts_with("yes");
+    let tier = |e: &Entry| get(e, "seamless");
+    let hallway = |e: &Entry| yes(get(e, "hallway"));
+    let eligible = |e: &Entry| {
+        tier_rank(&tier(e)) > 0
+            && yes(get(e, "lever_surface"))
+            && yes(get(e, "lever_support"))
+            && yes(get(e, "repeater_input"))
+            && yes(get(e, "uses"))
+            && yes(get(e, "steps"))
+            && hallway(e)
+    };
+    let working = |e: &&Entry| e.verdict.is_ok() && e.rotation_safe();
+    let seamless_rows = |list: &[&Entry]| -> Vec<String> {
+        list.iter()
+            .take(10)
+            .enumerate()
+            .map(|(i, e)| {
+                let t = tier(e);
+                let hall = if hallway(e) { "yes" } else { "no" };
+                format!("| {} | {} | {hall} | {} | {} | `{}` |\n", i + 1, if t.is_empty() { "-".into() } else { t }, volume_of(e, props), e.blocks, e.source)
+            })
+            .collect()
+    };
+    let boards: [(&str, &str, Box<dyn Fn(&Entry) -> bool>); 2] = [
+        (
+            "Seamless",
+            "solid doors with a SEAMLESS tier of the community regulation (QUART: nothing visible on the front side when closed; SEMI: also \
+             nothing in the hallway when open; FULL: also clean from the back when closed; SUPER: also clean at every tick while moving), \
+             ranked by tier, then whether the hallway can be built around it, then volume (the community's size: the bounding box over every \
+             state), then blocks",
+            Box::new(|e: &Entry| e.category == "solid"),
+        ),
+        (
+            "Seamless, flat (one block thick), no slime or honey",
+            "the same ranking for flat, slime-free doors (every block in the door's plane)",
+            Box::new(|e: &Entry| e.category == "solid" && crate::slime_free(&e.design) && crate::single_layer(&e.design)),
+        ),
+    ];
+    for (title, rule, keep) in &boards {
+        s.push_str(&format!("## {title}\n\n{rule}; rotation-safe.\n\n"));
+        let mut list: Vec<&Entry> = entries.iter().filter(working).filter(|e| keep(e) && tier_rank(&tier(e)) > 0).collect();
+        list.sort_by_key(|e| (std::cmp::Reverse(tier_rank(&tier(e))), !hallway(e), volume_num(e, props), e.blocks));
+        if let Some(first) = list.first() {
+            push_leader(s, x, &[*first], None, title, shown);
+        }
+        push_collapsed(s, "| # | seamless | hallway | volume | blocks | source |\n|---|---|---|---|---|---|\n", &seamless_rows(&list), "| - | - | no entry yet |\n");
+    }
+    let title = "Record-eligible (community regulation)";
+    s.push_str(&format!(
+        "## {title}\n\ndoors that meet the regulation's record eligibility (section 3): a SEAMLESS tier, the hallway can be built around \
+         them, the lever on the surface with steady support, works with repeater input too, unlimited uses, footsteps in the hallway \
+         harmless; ranked by volume, then blocks; rotation-safe.\n\n"
+    ));
+    let mut list: Vec<&Entry> = entries.iter().filter(working).filter(|e| e.category != "entity" && eligible(e)).collect();
+    list.sort_by_key(|e| (volume_num(e, props), e.blocks));
+    if let Some(first) = list.first() {
+        push_leader(s, x, &[*first], None, title, shown);
+    }
+    let rows: Vec<String> = list
+        .iter()
+        .take(10)
+        .enumerate()
+        .map(|(i, e)| {
+            let ticks = match (e.open_ticks, e.close_ticks) {
+                (Some(o), Some(c)) => format!("{o} / {c}"),
+                _ => "-".into(),
+            };
+            format!("| {} | {} | {} | {} | {ticks} | `{}` |\n", i + 1, volume_of(e, props), e.blocks, tier(e), e.source)
+        })
+        .collect();
+    push_collapsed(s, "| # | volume | blocks | seamless | open / close | source |\n|---|---|---|---|---|---|\n", &rows, "| - | - | no entry yet |\n");
+}
+
 /// GitHub's anchor for a markdown heading (lowercase, spaces to hyphens, other punctuation dropped).
 fn anchor(title: &str) -> String {
     title
@@ -501,6 +631,10 @@ const SCOPES: [(&str, fn(&Entry) -> bool); 3] = [
 pub fn render(entries: &[Entry], extra_offsets: u32, x: &Extras) -> String {
     // Design hash -> the first board it leads: a door leading several boards shows its GIF once.
     let mut shown: HashMap<u64, String> = HashMap::new();
+    // The community regulation's properties (`door properties` / `door properties-dyn` caches next
+    // to the archive): seamless tiers, their volume, hallway, record eligibility.
+    let props = crate::properties::load_cache(&x.archive);
+    let dyn_props = crate::properties::load_dyn(&x.archive);
     let mut s = format!(
         "# 3x3 piston door leaderboards\n\nGenerated by `mctas door leaderboard`; never edit it by hand. Every design on main and on the `explore/*` \
          branches, judged once by main's verifier (3 open/close cycles; new designs at {} positions, older verdicts at up to 32). Each board shows its leader (GIF from `door gallery`, \
@@ -578,21 +712,22 @@ pub fn render(entries: &[Entry], extra_offsets: u32, x: &Extras) -> String {
             .map(|(i, e)| {
                 let clutter = crate::walkway_clutter(&e.design);
                 let walkway = if clutter == 0 { "clean".to_string() } else { format!("{clutter} blocks in it") };
+                let vol = volume_of(e, &props);
                 if entities_col {
                     let ticks = match (e.open_ticks, e.close_ticks) {
                         (Some(o), Some(c)) => format!("{o} / {c}"),
                         _ => "-".to_string(),
                     };
-                    format!("| {} | {} | {} | {ticks} | {walkway} | `{}` |\n", i + 1, e.blocks, e.design.entities.len(), e.source)
+                    format!("| {} | {} | {} | {vol} | {ticks} | {walkway} | `{}` |\n", i + 1, e.blocks, e.design.entities.len(), e.source)
                 } else {
-                    format!("| {} | {} | {walkway} | `{}` |\n", i + 1, e.blocks, e.source)
+                    format!("| {} | {} | {vol} | {walkway} | `{}` |\n", i + 1, e.blocks, e.source)
                 }
             })
             .collect();
         let header = if entities_col {
-            "| # | blocks | entities | open / close | walkway | source |\n|---|---|---|---|---|---|\n"
+            "| # | blocks | entities | volume | open / close | walkway | source |\n|---|---|---|---|---|---|---|\n"
         } else {
-            "| # | blocks | walkway | source |\n|---|---|---|---|\n"
+            "| # | blocks | volume | walkway | source |\n|---|---|---|---|---|\n"
         };
         push_collapsed(&mut s, header, &rows, "| - | - | no entry yet |\n");
         if entities_col {
@@ -615,6 +750,7 @@ pub fn render(entries: &[Entry], extra_offsets: u32, x: &Extras) -> String {
             push_collapsed(&mut s, "| # | blocks | entities | open / close | source |\n|---|---|---|---|---|\n", &ent_rows, "| - | - | no entry yet |\n");
         }
     }
+    seamless_boards(&mut s, x, entries, &props, &dyn_props, &mut shown);
     // Smallest box: the bounding-box volume of the space the build needs (at rest and while it
     // moves, the door included), ties by blocks.
     s.push_str(

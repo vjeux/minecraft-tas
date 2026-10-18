@@ -40,6 +40,7 @@ pub mod minimize;
 pub mod patch;
 pub mod place;
 pub mod properties;
+pub mod relever;
 pub mod search;
 pub mod shapes;
 pub mod showcase;

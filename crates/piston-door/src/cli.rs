@@ -93,6 +93,15 @@ pub struct SearchArgs {
     /// With --tile: a shared end piece (see `door verify --tile-extra`).
     #[arg(long)]
     pub tile_extra: Option<PathBuf>,
+    /// Record eligibility (Squid regulation 3.1.3): accept only designs that also work with
+    /// repeater input (the lever's support block powered by a delay-1 repeater, both edges; the
+    /// props-dyn check) at every judge position. The start design must pass it too.
+    #[arg(long)]
+    pub repeater_input: bool,
+    /// --repeater-input plus props-dyn's hallway check, footsteps (sculk designs) and QUART
+    /// SEAMLESS or better: every record-eligibility check a search can keep.
+    #[arg(long)]
+    pub eligible: bool,
 }
 
 impl SearchArgs {
@@ -131,6 +140,8 @@ impl SearchArgs {
             seamless: self.seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?,
             to_entity: self.to_entity,
             keep_rotations: !self.any_rotation,
+            repeater_input: self.repeater_input || self.eligible,
+            eligible: self.eligible,
         })
     }
 
@@ -636,7 +647,9 @@ pub enum DoorCmd {
         size: usize,
         #[arg(long, default_value_t = 1)]
         margin: i32,
-        #[arg(long, default_value = "obs,block,dust,rep,rep2,rep3,rep4,torch,glass")]
+        /// Block states to re-grow with (see search.rs `grow_states`; `trapdoor`: the watchable
+        /// relay that shortened six doors on the exotic track).
+        #[arg(long, default_value = "obs,block,dust,rep,rep2,rep3,rep4,torch,glass,trapdoor")]
         states: String,
         /// Only cut groups inside this box, "x0,y0,z0:x1,y1,z1".
         #[arg(long)]
@@ -941,6 +954,49 @@ pub enum DoorCmd {
         /// Also flip the lever back and trace the closing.
         #[arg(long)]
         close: bool,
+    },
+    /// Make working doors record-eligible for repeater input (relever.rs): the lever's cell becomes
+    /// a note block (or --subs dropper,dispenser,lamp,bulb) with the lever hung on each of its free
+    /// faces. Every variant (and the design as it is) is judged like a record (positions, cycles,
+    /// rotation check) and must pass the --eligible checks (repeater input at every position,
+    /// hallway, footsteps for sculk, QUART SEAMLESS+, lever place). Prints the passing variants
+    /// per design and writes them to --out-dir.
+    Relever {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "note")]
+        subs: String,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 16)]
+        workers: usize,
+        /// Skip designs this verdict cache (verdicts-v5.tsv) marks broken.
+        #[arg(long)]
+        verdicts: Option<PathBuf>,
+        #[arg(long, default_value_t = 400)]
+        max_blocks: usize,
+        /// Also accept variants that are not rotation-safe.
+        #[arg(long)]
+        any_rotation: bool,
+        /// Write the result table (markdown) here too.
+        #[arg(long)]
+        table: Option<PathBuf>,
+        /// Also print why each failing variant fails.
+        #[arg(long)]
+        why: bool,
+    },
+    /// Record eligibility of designs, one line each (what `--eligible` searches keep): the judge
+    /// (the lever, every judge position) and the rotation check, repeater input at every judge
+    /// position (props-dyn's rig: the lever left off, a delay-1 repeater into its support block,
+    /// both edges; worst open/close ticks after the input), the hallway check, footsteps (sculk
+    /// designs only) and the SEAMLESS tier (props).
+    Eligible {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
     },
     /// Dynamic properties of working designs (properties_dyn.rs): hallway-compatible, contained
     /// (shells of air, smooth stone, slime, honey, obsidian, a mix), snow-proof (+ flammable
@@ -1370,7 +1426,10 @@ pub enum DoorCmd {
         min_size: usize,
         #[arg(long, default_value_t = 4)]
         max_size: usize,
-        #[arg(long, default_value = "block,dust,dot,rep,obs,torch")]
+        /// Circuit blocks (see synth.rs `palette_states`); `trapdoor` (an iron trapdoor: a
+        /// non-conducting power indicator an observer can watch) shortened six doors on the
+        /// exotic track.
+        #[arg(long, default_value = "block,dust,dot,rep,obs,torch,trapdoor")]
         palette: String,
         #[arg(long, default_value = "block")]
         floors: String,
@@ -1426,6 +1485,13 @@ pub enum DoorCmd {
         /// design only accepts rotation-safe replacements (the boards rank rotation-safe doors).
         #[arg(long)]
         any_rotation: bool,
+        /// Record eligibility: accept only designs that also work with repeater input (see
+        /// `door minimize --repeater-input`).
+        #[arg(long)]
+        repeater_input: bool,
+        /// --repeater-input plus the hallway check, footsteps (sculk) and QUART SEAMLESS or better.
+        #[arg(long)]
+        eligible: bool,
         /// Compaction (the volume boards): keep every replacement circuit inside this box,
         /// "x0,y0,z0:x1,y1,z1" (inclusive); while removable blocks lie outside it, cut only
         /// groups through them and let each grow back inside the box with up to --extra more
@@ -2388,6 +2454,96 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
+        DoorCmd::Relever { designs, subs, out_dir, extra_offsets, workers, verdicts, max_blocks, any_rotation, table, why } => {
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
+            let screen = VerifyOptions { cycles: 1, max_ticks: 200, offsets: offsets.iter().take(2).copied().collect(), keep_frames: false, empty_walkway: true, tile: None };
+            let known = verdicts.as_deref().map(crate::properties_dyn::load_verdicts).unwrap_or_default();
+            let subs: Vec<String> = subs.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            let mut seen = std::collections::HashSet::new();
+            let mut loaded: Vec<(String, Design)> = Vec::new();
+            for p in &designs {
+                let d = match load_design(p) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        eprintln!("{}: {e:#}", p.display());
+                        continue;
+                    }
+                };
+                let h = format!("{:016x}", crate::leaderboard::design_hash(&d));
+                if crate::block_count(&d) > max_blocks || known.get(&h) == Some(&false) || !seen.insert(d.content_key()) {
+                    continue;
+                }
+                loaded.push((p.display().to_string(), d));
+            }
+            let mut jobs: Vec<(usize, crate::relever::Variant)> = Vec::new();
+            for (i, (_, d)) in loaded.iter().enumerate() {
+                match crate::relever::variants(d, &subs) {
+                    Ok(vs) => jobs.extend(vs.into_iter().map(|v| (i, v))),
+                    Err(e) => eprintln!("{}: {e:#}", loaded[i].0),
+                }
+            }
+            eprintln!("{} designs, {} variants (as-is included), {} positions", loaded.len(), jobs.len(), offsets.len());
+            let pool = mctas::sim::Pool::spawn(workers.min(jobs.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let results = pool.map(jobs, |w, _, (i, v)| Ok((i, crate::relever::judge_variant(w, v, &judge, &screen, !any_rotation)?)));
+            let mut per: Vec<Vec<crate::relever::Outcome>> = vec![Vec::new(); loaded.len()];
+            for r in results {
+                match r {
+                    Ok((i, o)) => per[i].push(o),
+                    Err(e) => eprintln!("worker error: {e:#}"),
+                }
+            }
+            let mut order: Vec<usize> = (0..loaded.len()).collect();
+            order.sort_by_key(|&i| (crate::category(&loaded[i].1) != "solid", crate::category(&loaded[i].1), crate::block_count(&loaded[i].1), loaded[i].0.clone()));
+            let mut md = String::from("| design | blocks | category | as-is | eligible variants (blocks, lever open/close, repeater open/close, seamless) |\n|---|---|---|---|---|\n");
+            if let Some(dir) = &out_dir {
+                std::fs::create_dir_all(dir)?;
+            }
+            for i in order {
+                let (src, d) = &loaded[i];
+                let stem = std::path::Path::new(src).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                let mut asis = String::from("-");
+                let mut good = Vec::new();
+                for o in &per[i] {
+                    match (&o.verdict, o.label.as_str()) {
+                        (Ok((lo, lc, ro, rc, t)), "as-is") => asis = format!("ELIGIBLE ({lo}/{lc}, rep {ro}/{rc}, {t})"),
+                        (Err(why), "as-is") => asis = format!("no: {}", why.chars().take(90).collect::<String>()),
+                        (Ok((lo, lc, ro, rc, t)), label) => {
+                            good.push(format!("{label} ({}, {lo}/{lc}, rep {ro}/{rc}, {t})", crate::block_count(&o.design)));
+                            if let Some(dir) = &out_dir {
+                                let mut nd = o.design.clone();
+                                nd.name = format!("{}-rl-{label}", d.name);
+                                nd.save(&dir.join(format!("{stem}-rl-{label}.txt")))?;
+                            }
+                        }
+                        (Err(reason), label) if why => println!("  {stem} {label}: {}", reason.chars().take(300).collect::<String>()),
+                        _ => {}
+                    }
+                }
+                let line = format!("| {stem} | {} | {} | {asis} | {} |", crate::block_count(d), crate::category(d), if good.is_empty() { "-".to_string() } else { good.join("; ") });
+                println!("{line}");
+                md.push_str(&line);
+                md.push('\n');
+            }
+            if let Some(p) = table {
+                std::fs::write(p, md)?;
+            }
+        }
+        DoorCmd::Eligible { designs, extra_offsets, workers } => {
+            let offsets = crate::search::judge_offsets(extra_offsets);
+            let loaded: Vec<(String, Design)> = designs.iter().map(|p| Ok((p.display().to_string(), load_design(p)?))).collect::<Result<_>>()?;
+            let pool = mctas::sim::Pool::spawn(workers.min(loaded.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+            let lines = pool.map(loaded, |w, _, (name, d)| Ok(crate::properties_dyn::eligibility_line(w, &name, &d, &offsets)));
+            let mut all_ok = true;
+            for l in lines {
+                let (ok, line) = l?;
+                all_ok &= ok;
+                println!("{line}");
+            }
+            if !all_ok {
+                std::process::exit(1);
+            }
+        }
         DoorCmd::PropertiesDyn { designs, archive_dir, branches, refs, verdicts, uncached, max_blocks, workers, out_tsv } => {
             use crate::properties_dyn as pd;
             let cache = pd::load_verdicts(&verdicts);
@@ -2837,6 +2993,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     max_close,
                     rotations: false,
                     seamless: None,
+                    repeater_input: false,
+                    eligible: false,
                 },
             };
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1536, ..Default::default() })?;
@@ -2860,7 +3018,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, fit } => {
+        DoorCmd::Resynth { designs, out, min_size, max_size, palette, floors, margin, max_cands, loose, only, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry, require_any, tile, any_rotation, seamless, extra, repeater_input, eligible, fit } => {
             use crate::synth::*;
             let seamless = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let tile = tile.as_deref().map(crate::tile::Tile::parse).transpose()?;
@@ -2906,6 +3064,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     keep_rotations: false,
                     seamless,
                     extra,
+                    repeater_input: repeater_input || eligible,
+                    eligible,
                     fit,
                 };
                 let start = {
@@ -2915,7 +3075,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                             let (o, c) = crate::search::worst_ticks(&r);
                             log(&format!("start: {} blocks, open {o} / close {c}", crate::block_count(&d)));
                             if max_open.is_none_or(|m| o <= m) && max_close.is_none_or(|m| c <= m) {
-                                Ok(())
+                                if repeater_input || eligible {
+                                    // The record-eligibility filter must hold for the start design too.
+                                    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+                                    let r = crate::search::eligibility(&mut w, sb, &d, true, eligible, &judge.offsets);
+                                    let _ = w.drop_sandbox(sb);
+                                    match r {
+                                        Ok(()) => {
+                                            log("the start design passes the eligibility filter (repeater input everywhere)");
+                                            Ok(())
+                                        }
+                                        Err(e) => Err(format!("the start design fails the eligibility filter: {e:#}")),
+                                    }
+                                } else {
+                                    Ok(())
+                                }
                             } else {
                                 Err(format!("the start design misses the speed bounds (open {o} / close {c})"))
                             }
