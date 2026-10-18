@@ -473,6 +473,34 @@ pub enum DoorCmd {
         #[arg(long, default_value = "1280x720")]
         size: String,
     },
+    /// Observer chains (obspath.rs): every shortest (or --len k) chain of observers from a cell
+    /// that changes (--from: lever, observer, moving block) to a cell the last observer's back
+    /// points into (--to: piston, quasi cell, block, stack-feed dust); k observers = 2k gt.
+    ObsPath {
+        design: PathBuf,
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+        /// Exact chain length (default: the shortest).
+        #[arg(long)]
+        len: Option<usize>,
+        #[arg(long, default_value_t = 8)]
+        max_len: usize,
+        /// Cells the chain may not use, "x,y,z;x,y,z" (swept cells, reserved cells).
+        #[arg(long, default_value = "")]
+        forbid: String,
+        /// Optional box the chain must stay in.
+        #[arg(long)]
+        lo: Option<String>,
+        #[arg(long)]
+        hi: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        /// Write the design with each chain added (name-<i>.txt when several).
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
         name: String,
@@ -1011,6 +1039,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let d = crate::canonicalize(&mut w, &d1)?;
             d.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d0), crate::block_count(&d), out.display());
+        }
+        DoorCmd::ObsPath { design, from, to, len, max_len, forbid, lo, hi, limit, out } => {
+            let p = crate::obspath::parse_pos;
+            let forbid: Vec<_> = forbid.split(';').map(str::trim).filter(|t| !t.is_empty()).map(p).collect::<Result<_>>()?;
+            let o = crate::obspath::Opts {
+                from: p(&from)?,
+                to: p(&to)?,
+                len,
+                max_len,
+                forbid,
+                lo: lo.as_deref().map(p).transpose()?,
+                hi: hi.as_deref().map(p).transpose()?,
+                limit,
+            };
+            crate::obspath::cli(&design, &o, out.as_deref())?;
         }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;

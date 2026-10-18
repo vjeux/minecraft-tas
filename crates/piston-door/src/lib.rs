@@ -17,6 +17,7 @@
 
 pub mod cli;
 pub mod mechsynth;
+pub mod obspath;
 pub mod archive;
 pub mod designs;
 pub mod designs_history;
