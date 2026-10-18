@@ -1412,10 +1412,11 @@ pub fn route_net(pb: &Problem, receivers: &[Receiver], budget: u32, opts: &Route
 
 // ---- rip-up and re-route ------------------------------------------------------------------
 
-/// Where nothing new goes: a door design's door cells and walkway (none without a door port).
+/// Where nothing new goes: a door design's door cells and the 3x3 columns in front of and behind
+/// it, at any distance (none without a door port).
 fn forbidden_cells(d: &Design) -> Result<HashSet<Pos>> {
     Ok(match DoorSpec::from_design(d) {
-        Ok(spec) => spec.door_cells().into_iter().chain(spec.corridor_cells()).collect(),
+        Ok(spec) => crate::route::keep_clear(&spec).into_iter().collect(),
         Err(_) => HashSet::new(),
     })
 }
