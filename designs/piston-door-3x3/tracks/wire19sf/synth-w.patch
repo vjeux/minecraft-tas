@@ -1,0 +1,6 @@
+# synth context: w43 without its P_T chain and left-column chain (stack-feed dust + floor kept)
+clear 0 4 -2
+clear -1 4 -2
+clear -1 4 -1
+clear -2 4 -1
+clear -2 3 -1

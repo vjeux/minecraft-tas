@@ -18,23 +18,23 @@ The night, board by board (records from the archive):
 
 **40 blocks**, solid, opens in 24 ticks, closes in 9 (worst cycle): [fc2-40b](archive/fc2-40b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/fc2-40b.mp4)). Agent fresh-c, "symmetric control": open and close run the SAME signal chain at the same delays, so there is no hold at all: an observer on the lever pulses the center piston A 2 ticks after each flip (swallowed on open, it pushes the center down on close), the shuttle piston Q is the lever through one repeater (its redstone block powers A at rest, then the right piston, which drags the top-middle block out), and the B window fires on both edges but is harmlessly blocked on close; fc2 makes the left pusher a pull-type pulse piston west of its backbone, fired by two observers off the lever (opens in 24 ticks, closes in 9).
 
-## Solid, no slime or honey: 43 blocks
+## Solid, no slime or honey: 42 blocks
 
 Not a single slime or honey block anywhere.
 
-![wire19sf-w43-43b](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w43-43b.gif)
+![wire19sf-w42-42b](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w42-42b.gif)
 
-**43 blocks**, solid, slime-free, opens in 26 ticks, closes in 24 (worst cycle): [wire19sf-w43-43b](archive/wire19sf-w43-43b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w43-43b.mp4)). From agent wire19sf; see [tracks/wire19sf/NOTES.md](tracks/wire19sf/NOTES.md).
+**42 blocks**, solid, slime-free, opens in 28 ticks, closes in 24 (worst cycle): [wire19sf-w42-42b](archive/wire19sf-w42-42b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/wire19sf-w42-42b.mp4)). From agent wire19sf; see [tracks/wire19sf/NOTES.md](tracks/wire19sf/NOTES.md).
 
 Every record of this board in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
-## Solid, flat (one z layer), no slime or honey: 54 blocks
+## Solid, flat (one z layer), no slime or honey: 47 blocks
 
 Slime-free, and every block in the door's plane: the whole machine is one block thick.
 
-![flat-v2-54b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-54b.gif)
+![flat-b-v3-47b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v3-47b.gif)
 
-**54 blocks**, solid, slime-free, flat, opens in 36 ticks, closes in 34 (worst cycle): [flat-v2-54b](archive/flat-v2-54b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-54b.mp4)). From agent flat; see [tracks/flat/NOTES.md](tracks/flat/NOTES.md).
+**47 blocks**, solid, slime-free, flat, opens in 32 ticks, closes in 30 (worst cycle): [flat-b-v3-47b](archive/flat-b-v3-47b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v3-47b.mp4)). From agent flat-b; see [tracks/flat-b/NOTES.md](tracks/flat-b/NOTES.md).
 
 ## Sculk: 38 blocks
 
