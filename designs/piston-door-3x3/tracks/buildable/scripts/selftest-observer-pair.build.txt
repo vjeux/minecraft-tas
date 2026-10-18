@@ -1,0 +1,12 @@
+# selftest-observer-pair: NOT FOUND (best program leaves 0 cells wrong, 0 failed placements, 0 entities, the build never comes to rest (a clock); blocking: observer)
+# source: designs/piston-door-3x3/tracks/buildable/selftest-observer-pair.txt
+# searched 57602 simulated builds in 109s; best by anneal (chain 2, iteration 1)
+# Cells the best program gets wrong:
+#   observer: never stops changing at 4 0 4; 5 0 4
+# Best program:
+  1. place stone at 0 -1 4: put a temporary dirt block at 0 -2 4, click its up face, looking down, then break the dirt
+  2. place observer[facing=east,powered=false] at 4 0 4: put a temporary dirt block at 4 -1 4, click its up face, facing east looking down 30, then break the dirt
+  3. place observer[facing=west,powered=false] at 5 0 4: click the east face of 4 0 4, facing west [things move for 200 ticks]
+  4. place stone at 0 0 5: put a temporary dirt block at 0 -1 5, click its up face, looking down, then break the dirt (temporary) [things move for 200 ticks]
+  5. place lever[face=floor,facing=north,powered=false] at 0 0 4: click the up face of 0 -1 4, looking down [things move for 200 ticks]
+  6. break 0 0 5 (remove the temporary block) [things move for 200 ticks]
