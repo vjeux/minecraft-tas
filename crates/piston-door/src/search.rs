@@ -115,10 +115,17 @@ pub struct SearchOptions {
     /// Also accept candidates that turn a solid design into a sculk one (they add a sculk
     /// sensor): searches for the sculk board starting from solid designs.
     pub to_sculk: bool,
+    /// Shape boards: reject candidates outside these shape limits (`--shape wall`, `ground`,
+    /// `side<=1`...; see [`crate::ShapeLimits`]).
+    pub shape: Option<crate::ShapeLimits>,
 }
 
-/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk.
+/// [`same_league`], or (with `to_sculk`) a solid base whose candidate became sculk; and within
+/// the `--shape` limits when set.
 fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
+    if opts.shape.is_some_and(|l| !l.allows_design(d)) {
+        return false;
+    }
     if same_league(base, d) {
         return true;
     }
@@ -132,7 +139,15 @@ fn league_ok(base: &Design, d: &Design, opts: &SearchOptions) -> bool {
 
 /// [`verify_in`] plus the search's speed constraints.
 fn judge_in(w: &mut mctas::sim::Worker, sb: u32, d: &Design, v: &VerifyOptions, opts: &SearchOptions) -> Result<crate::Report> {
-    speed_check(verify_in(w, sb, d, v)?, opts)
+    let r = speed_check(verify_in(w, sb, d, v)?, opts)?;
+    // Shape boards measure the space a door needs while it moves too: check the swept shape.
+    if let Some(l) = &opts.shape {
+        let s = crate::swept_shape_in(w, sb, d)?;
+        if !l.allows(&s) {
+            anyhow::bail!("outside the --shape limits while it moves: {s:?}");
+        }
+    }
+    Ok(r)
 }
 
 /// The speed constraints (`max_open`, `max_close`) on a judge report.
@@ -327,7 +342,7 @@ impl Ctx {
                 keep.insert(*p);
             }
         }
-        let forbidden = spec.door_cells().into_iter().chain(spec.corridor_cells()).collect();
+        let forbidden = crate::route::keep_clear(&spec).into_iter().collect();
         Ok(Ctx { keep, forbidden, spec })
     }
 
@@ -1191,6 +1206,9 @@ fn reroutes(ctx: &Ctx, d: &Design, space: &Space) -> (Vec<Edit>, Vec<Edit>) {
 pub(crate) fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<()> {
     use anyhow::bail;
     use mctas::sim::{PlaceMode, Region};
+    if let Some(t) = &opts.tile {
+        return crate::tile::verify_tiled_in(w, sb, design, t, opts).map(|_| ());
+    }
     let illegal = crate::legality_problems(design);
     if !illegal.is_empty() {
         bail!("illegal design: {}", illegal.join("; "));
@@ -1965,6 +1983,10 @@ pub fn grow_states(spec: &str) -> Result<Vec<String>> {
             "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             "bulb" => out.push("minecraft:waxed_copper_bulb[lit=false,powered=false]".into()),
             "target" => out.push("minecraft:target[power=0]".into()),
+            // Persistent leaves (never random-tick): re-read their distance 1 gt after a neighbor
+            // changes, so next to a moving log they are an asymmetric 1 gt delay (pareto-mid).
+            "leaves" => out.push("minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]".into()),
+            "log" => out.extend(["x", "y", "z"].iter().map(|a| format!("minecraft:oak_log[axis={a}]"))),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => return Err(anyhow!("unknown grow state {s:?}")),
         }

@@ -36,6 +36,17 @@ pub struct Router<'a> {
 /// The floor used in `floor_only` cells.
 pub const NONSTICK_FLOOR: &str = "minecraft:white_glazed_terracotta[facing=north]";
 
+/// How far in front of and behind the door the routers and searches keep the 3x3 columns empty:
+/// further than any routing box reaches.
+pub const KEEP_CLEAR_DEPTH: i32 = 32;
+
+/// Cells where no new block may go: the door cells and the 3x3 columns in front of and behind
+/// the opening at any distance (the judge rejects anything there at rest: vjeux's rule since
+/// 2026-10-18 16:40Z). The walkway (3 deep) is part of it.
+pub fn keep_clear(spec: &crate::DoorSpec) -> Vec<Pos> {
+    spec.door_cells().into_iter().chain(spec.in_front_and_behind(KEEP_CLEAR_DEPTH)).collect()
+}
+
 impl Router<'_> {
     fn name(&self, p: Pos) -> Option<String> {
         self.blocks.get(&p).map(|s| {
@@ -170,6 +181,48 @@ impl Router<'_> {
         }
         Some(out)
     }
+}
+
+/// Like [`swept_cells`], but only the cells the design's MOVING parts visit: cells that hold a
+/// different block (by name) than at rest at some tick of one open/close cycle, plus every cell
+/// next to slime or a moving block at any tick. Static blocks (wiring, floors) are not swept, so
+/// a net cut out of the design leaves its cells free for a re-route (`door route --swept-design`).
+pub fn swept_moving_cells(w: &mut mctas::sim::Worker, d: &mctas::design::Design, spec: &crate::DoorSpec) -> anyhow::Result<HashSet<Pos>> {
+    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    crate::video::place(w, sb, d)?;
+    let (lo, hi) = d.bounds().context("empty design")?;
+    let lo = [lo[0] - 3, lo[1] - 3, lo[2] - 3];
+    let hi = [hi[0] + 3, hi[1] + 3, hi[2] + 3];
+    let name = |s: Option<&str>| -> String { s.map(|s| mctas::blockstate::block_name(s).to_string()).unwrap_or_default() };
+    w.step(sb, 2)?;
+    let rest = w.get_region(sb, lo, hi)?;
+    let mut out = HashSet::new();
+    for _ in 0..2 {
+        w.use_block(sb, spec.lever)?;
+        for _ in 0..70 {
+            w.step(sb, 1)?;
+            let r = w.get_region(sb, lo, hi)?;
+            for x in lo[0]..=hi[0] {
+                for y in lo[1]..=hi[1] {
+                    for z in lo[2]..=hi[2] {
+                        let p = [x, y, z];
+                        let Some(s) = r.get(p) else { continue };
+                        if s.starts_with("minecraft:slime_block") || s.starts_with("minecraft:honey_block") || s.contains("moving_piston") {
+                            out.insert(p);
+                            for f in FACES {
+                                out.insert(add(p, f));
+                            }
+                        }
+                        if name(Some(s)) != name(rest.get(p)) {
+                            out.insert(p);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    w.drop_sandbox(sb)?;
+    Ok(out)
 }
 
 /// Cells a design touches while it runs: every cell that is non-air at any tick of one

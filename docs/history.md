@@ -94,7 +94,7 @@ The full solid progression from 151 (with the v2 steps) is
 | Flat (opened 10:56 by vjeux) | 60 (11:36) -> 57 -> 55 -> 54 (12:10) -> 49 -> 48 (12:47) -> 47 (12:49) -> 46 -> 45 -> 44 -> 43 | flat: the 19-block mechanism in one plane, `minimize`, R_B fed by a dust under a powered block, `synth`/`resynth` on the late chains (49). flat-b: the mechanism upside down, the lever hung under the observer that watches it (47), then 44. lamp-sweep: flat's 49 re-synthesized with a lamp (43) |
 | Sculk | 50, 48 (center-mech) -> 43 (search-tool) -> 42 (st43, top-control) -> 38 (12:46, sculk-2) -> 36 (13:30) | a sculk sensor as Q's hold (top-control, center-mech); sculk-2: one calibrated sculk sensor (active 10 gt) replaces st43's 5-block lever-to-R_B chain (38), then a moved pusher whose retracting base blocks an early pull (36). The rotation check (15:51) moved sculk-2's doors to the Not rotation-safe board: the sculk leader is st43 again |
 | Gravity | 51 (g4) -> 49 (g6) -> 46, 45 (search-tool, g10) -> 42 (09:47, `door resynth`) -> 36 -> 35 -> 33 (15:36, gravity-2) | the sand drop tower: sand side columns pushed open by the doorway-floor pistons, the sand middle column dropping into a shaft on a collapsing 3-piston tower |
-| Fastest solid | 16 / 17 (rb8, mechanics-fast-57b) -> mp8 16 / 16 -> w6 12 / 7 at 161 blocks -> s4 12 / 7 at 109 -> o2 11 / 7 at 137 -> o7 11 / 7 at 119 -> speed-2 a1 10 / 7 at 125 -> lamp-sweep a1-107 10 / 7 at 107 | a one-repeater silent hold; open 11 from a 0-tick inside one block-event phase; open 10 from an odd-tick pulse (a repeater reading a moved redstone block + a note block + an observer) |
+| Fastest solid | 16 / 17 (rb8, mechanics-fast-57b) -> mp8 16 / 16 -> w6 12 / 7 at 161 blocks -> s4 12 / 7 at 109 -> o2 11 / 7 at 137 -> o7 11 / 7 at 119 -> speed-2 a1 10 / 7 at 125 -> lamp-sweep a1-107 10 / 7 at 107 -> speed-2 n2 9 / 7 at 113 -> c1 112, c2 109 (9 / 7) | a one-repeater silent hold; open 11 from a 0-tick inside one block-event phase; open 10 from an odd-tick pulse (a repeater reading a moved redstone block + a note block + an observer); open 9 with Q spitting A' at k5 off an odd pulse. After the 16:40 rule every fast door had to re-lay the lever net's staircase that crossed in front of the door (fast-clean, speed-2's c1/c2). **Open 4**, the proven floor, is wired to a lever in tick-door's w14 (229 blocks, closes in 15) |
 
 ### Rule changes during the night
 
@@ -106,7 +106,14 @@ The full solid progression from 151 (with the v2 steps) is
   board. Re-judged: solid 38, gravity 33, sculk-2's doors not rotation-safe (they work facing north
   or south only; the sculk-ew track builds east/west variants).
 * **16:40** nothing may stand in front of or behind the door, at any distance (designs judged
-  before keep their verdicts for now).
+  before keep their verdicts for now). The routers and searches learned to keep those columns clear.
+* **After 17:00** three shape boards (in a 3-thick wall, on the ground, smallest box: the shapes
+  track's swept shapes and ground check), the tile judge for tileable doors (one module, one lever:
+  the tile track's b38h-bus8 opens a door every 8 blocks at 52 blocks per opening), and east/west
+  variants for doors that only work facing one way (`door turn`, `door-axis: z`; the sculk-ew track).
+  pareto-mid filled the solid frontier's middle with new delay elements (a log and persistent leaves,
+  a redstone block and a lamp: gadgets `log-leaves`, `rb-lamp`): 43 at 15 / 17, 44 at 14 / 16, 46 at
+  15 / 13 and 14 / 14.
 
 ## The door families
 
@@ -358,8 +365,9 @@ Read in the 26.3 source, each proven by a [gadget](../designs/gadgets/) or a jud
   left chain is geometrically minimal (9 observers), and every flat slime-free pulse-only mechanism
   mech-synth found needs one late piston (66k combinations, 103 symmetric): the others need a piston
   riding a slime column.
-* **Faster.** The wired solid doors open in 10 and close in 7; the proven floor is open 4 / close 1,
-  and an ideal-input machine does 4 / 3. The symmetric family's open floor is 22 (fc2f).
+* **Faster.** The wired solid doors open in 9 and close in 7; tick-door's w14 opens in 4, the proven
+  floor, but closes in 15 at 229 blocks; open 8 works with scripted inputs (speed-2). An
+  ideal-input machine does 4 / 3 (close floor: 1). The symmetric family's open floor is 22 (fc2f).
 
 ## Tools built that night
 

@@ -9,7 +9,9 @@ live in `crates/piston-door/src/lib.rs`; the boards in `crates/piston-door/src/l
 A design file (format: [tools.md](tools.md#design-files)) names two ports:
 
 * `door`: the minimum corner of the 3x3 opening. The opening lies in the plane `z = door.z` and
-  spans x and y from that corner to +2.
+  spans x and y from that corner to +2. A design marked `door-axis: z` faces east/west instead
+  (the opening spans z and y in the plane `x = door.x`; `door turn` writes one), and every tool
+  judges it in that orientation.
 * `lever`: a lever, unpowered at rest. Switching it on opens the door, switching it off closes it.
 
 The **walkway** is the opening extended 3 blocks in front of and 3 behind the door (54 cells).
@@ -74,7 +76,31 @@ Every working design is also run turned 90, 180 and 270 degrees at the same posi
 own `BlockState.rotate` turns every block). Redstone updates neighbors in a fixed direction order,
 so a door can work facing one way only. This is not part of the judge: the boards rank
 **rotation-safe** designs, and the others are listed on their own board, "Not rotation-safe", with
-the first turn that breaks them (sculk-2's 36-block doors work facing north or south only).
+the first turn that breaks them (sculk-2's 36-block doors work facing north or south only). A door
+that works facing one way only can get its own variant built for the other direction: `door turn`
+writes the design turned (and/or mirrored) with `door-axis: z`, which is judged facing east/west.
+`door verify --orientations` prints which of all 8 orientations (4 turns, each as built and
+mirrored) work.
+
+## Shapes
+
+`door shapes` measures each working design relative to its door: layers in front of and behind
+the door plane, rows below and above the opening, columns left and right of it, its bounding box.
+The **swept shape** is the same over every cell the door occupies at rest AND at any tick of an
+open/close cycle: the space a builder must keep free (cached in `archive/shapes-v1.tsv`). Three
+boards use it (below): in a 3-thick wall, on the ground, smallest box. The **ground check** runs the
+judge's checks with the door standing on a stone floor one below its bottom row: slime must not
+drag the ground, nothing may push or power through it.
+
+## Tileable doors (`door verify --tile`)
+
+A separate judge mode for one module design copied N times with ONE lever: `wide:N` (copies every
+3 blocks along the wall: one 3 x 3N opening), `period:P:N` (an opening every P blocks), `stack:N`
+(a 3N x 3 opening), `vperiod:Q:N` (a door every Q blocks up), `step:dx,dy,dz:N` (any other
+translation). Copy 0 keeps the lever; every other copy gets the module's `relay:` block in the
+lever's cell, so the module carries its own bus. Every check of the single-door judge runs on every
+opening at once; it reports blocks total, per opening and per extra copy. `door tile-scan` tries
+designs under many tilings. Definitions and results: `designs/piston-door-3x3/tracks/tile/NOTES.md`.
 
 ## The boards (`mctas door leaderboard`, LEADERBOARD.md)
 
@@ -88,11 +114,16 @@ collapsed.
 | **Solid** (main ranking) | category solid, rotation-safe | blocks |
 | Solid, no slime or honey | solid, no slime or honey block anywhere (`, slime-free`) | blocks |
 | Solid, flat (one z layer), no slime or honey | slime-free solid designs whose every block (door, pistons, wiring, lever) lies in the door's plane, one block thick (`, flat`) | blocks |
+| Solid, in a 3-thick wall | solid designs whose swept shape stays within one layer of the door's plane (z = door.z-1..door.z+1): the machine hides in a wall 3 blocks thick | blocks |
+| Solid, on the ground (nothing below the door) | solid designs with no block below the door's bottom row, at rest or while moving, that pass the ground check: it stands on flat ground, no digging | blocks |
+| Solid, smallest box | solid designs | cells in the bounding box of the swept shape (the door included), ties by blocks |
 | Sculk | category sculk, rotation-safe | blocks |
 | Gravity | category gravity, rotation-safe | blocks |
 | Not rotation-safe | working designs of any category that break when turned | blocks |
 | Pareto frontier: open, close, blocks (any category / solid only) | every door that no other door beats on open ticks, close ticks and blocks at once | - |
 | Fastest open / close / open + close (any category / solid only) | rotation-safe | ticks, ties by blocks |
+
+Every board except "Not rotation-safe" ranks rotation-safe designs only.
 
 * **Ticks** are game ticks after the lever flip, the worst of the 3 cycles at the first position
   (the design as written). Other positions can differ by a few ticks (gravity g10 opens in 3 to 7

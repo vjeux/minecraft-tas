@@ -645,9 +645,14 @@ public final class Protocol {
      */
     private JsonObject rotate(JsonObject r) throws CommandSyntaxException {
         int turns = Math.floorMod(r.get("turns").getAsInt(), 4);
+        // Optional mirror image first (x -> -x, the game's Mirror.FRONT_BACK), then the turns.
+        boolean mirror = r.has("mirror") && r.get("mirror").getAsBoolean();
         JsonArray out = new JsonArray();
         for (JsonElement e : r.getAsJsonArray("states")) {
             BlockState s = parse(e.getAsString());
+            if (mirror) {
+                s = s.mirror(net.minecraft.world.level.block.Mirror.FRONT_BACK);
+            }
             for (int i = 0; i < turns; i++) {
                 s = s.rotate(net.minecraft.world.level.block.Rotation.CLOCKWISE_90);
             }

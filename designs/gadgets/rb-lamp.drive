@@ -1,0 +1,14 @@
+# Redstone block + lamp (pareto-mid): DB (lamp at the cell the block moves into) pulses k5..k7 on
+# the on flip and k7..k9 on the off flip; DA (lamp at its rest cell) the other way round. Same
+# +-2 asymmetry as log-leaves, on even offsets (used by mp8-lampU: U at t12 open, t14 close).
+design designs/gadgets/rb-lamp.txt
+probe DA 2 1 -3
+probe DB 3 1 3
+use 0 1 0
+expect_trace DB 0000++0000
+use 0 1 0
+expect_trace DB 000000++00
+use 0 1 0
+expect_trace DA 000000++00
+use 0 1 0
+expect_trace DA 0000++0000

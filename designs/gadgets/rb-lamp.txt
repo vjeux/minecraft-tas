@@ -1,0 +1,35 @@
+name: gadget-rb-lamp
+# Asymmetric even delay (pareto-mid): a redstone lamp lights the moment it is powered but goes dark
+# 4 gt after its power goes away. Lever L powers sticky piston P, which moves redstone block R one
+# cell east at k1 (back at k1 on the off flip). Lamp A (2,1,-1) touches only R's REST cell: dark at
+# k5 on the on flip (R leaves at k1, power cut at once), lit at k3 on the off flip (R lands). Lamp B
+# (3,1,1) touches only the cell R moves INTO: lit at k3 on the on flip, dark at k5 on the off flip.
+# Observers OA / OB watching them light dust DA / DB 2 gt later.
+origin: 0 0 -3
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  A minecraft:redstone_lamp[lit=true]
+  B minecraft:redstone_lamp[lit=false]
+  N minecraft:observer[facing=south,powered=false]
+  M minecraft:observer[facing=north,powered=false]
+  D minecraft:redstone_wire[east=none,north=none,south=none,west=none,power=0]
+  F minecraft:smooth_stone
+layer 0:
+  ..F.
+  ....
+  ....
+  S...
+  ....
+  ....
+  ...F
+layer 1:
+  ..D.
+  ..N.
+  ..A.
+  LPR.
+  ...B
+  ...M
+  ...D

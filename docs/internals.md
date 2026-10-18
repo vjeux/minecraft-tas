@@ -99,10 +99,12 @@ order, echoing `id`. Errors: `{"id":..,"ok":false,"error":"..."}`. On startup th
 `crate::verify` (`crates/piston-door/src/lib.rs`) places a design the way the judge does (raw
 paste, wire shapes, one self update per block, settle: `video.rs::place` does the same for
 videos), then runs the checks of [rules.md](rules.md) at every position, each in a cleared
-sandbox. `door leaderboard`, `door frontier`, `door catalog` and `door gallery` share a verdict
-cache keyed by design content (blocks + ports, FNV-1a): `designs/piston-door-3x3/archive/verdicts-v5.tsv`
-(verdict, worst open/close ticks, rotation result). The file name is bumped when the rules change,
-so old verdicts are dropped (v5: the rotation check).
+sandbox. `door leaderboard`, `door frontier`, `door shapes`, `door catalog` and `door gallery` share a
+verdict cache keyed by design content (blocks + ports, FNV-1a): `designs/piston-door-3x3/archive/verdicts-v5.tsv`
+(verdict, worst open/close ticks, rotation result), and a shape cache, `archive/shapes-v1.tsv`
+(the swept shape: every cell the door occupies at rest and during one open/close cycle, and the
+ground check). The file names are bumped when the rules change, so old entries are dropped (v5:
+the rotation check).
 
 ## Videos
 

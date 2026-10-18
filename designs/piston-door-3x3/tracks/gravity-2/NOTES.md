@@ -143,3 +143,6 @@ Board: gravity (the 9 door blocks are sand). Start: synth-g42 (42 blocks, open 5
 ### Flat: nothing to port
 The flat board has no slime, so there are no backbones for top side pistons to push, and the flat
 leaders already hang the lever on an existing observer (no support block to save).
+
+### Re-check under main's front/back rule (f3c5884: the 3x3 columns in front of and behind the opening must be air at rest)
+g33, g35, g36 still verify at 32 positions (rotation-safe). sz2's mechanism has nothing at x 0..2, y 0..2 off the door plane (P_M2 is at y=-1, the lever row at y=3) and still passes its ideal schedule at 32 positions.

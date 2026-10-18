@@ -1,0 +1,22 @@
+# mp8 with the pump driven through its real repeater R_P (turned to delay 1: output = input + 2,
+# at least 2 long) so the close-edge pump trip (R_P powers the slime above the lowered pump) is
+# modelled; U driven by a redstone block where its last observer was. Everything else real.
+design designs/piston-door-3x3/tracks/pareto-mid/mp8-ideal-PUr.txt
+let a = 4
+let al = 4
+let ac = 4
+let acl = 4
+let u = 13
+let ul = 2
+let uc = 13
+let ucl = 2
+open 0 use 0 3 -1
+open a set -2 -2 0 minecraft:redstone_block
+open a+al clear -2 -2 0
+open u set 2 -3 0 minecraft:redstone_block
+open u+ul clear 2 -3 0
+close 0 use 0 3 -1
+close ac set -2 -2 0 minecraft:redstone_block
+close ac+acl clear -2 -2 0
+close uc set 2 -3 0 minecraft:redstone_block
+close uc+ucl clear 2 -3 0

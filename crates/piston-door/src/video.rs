@@ -311,6 +311,12 @@ pub struct Facts {
     /// Ticks after the lever flip until open / closed (first cycle), when the door works.
     pub open_ticks: Option<u32>,
     pub close_ticks: Option<u32>,
+    /// The build's shape around its door ([`crate::shape`] at rest; the boards' swept shape,
+    /// [`crate::swept_shape`], when it comes from the leaderboard cache).
+    pub shape: Option<crate::Shape>,
+    /// Nothing below the door and it works standing on a stone floor (from the leaderboard's
+    /// ground check; false when unknown).
+    pub ground_safe: bool,
 }
 
 impl Facts {
@@ -324,6 +330,8 @@ impl Facts {
             rotation_safe: true,
             open_ticks: None,
             close_ticks: None,
+            shape: crate::shape(d),
+            ground_safe: false,
         }
     }
 
