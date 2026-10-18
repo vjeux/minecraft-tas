@@ -317,6 +317,8 @@ pub struct Gen {
     relays: Vec<Node>,
     context: BTreeMap<Pos, String>,
     sinks: Vec<Pos>,
+    /// Free cells a context observer watches: a block there that changes drives that observer.
+    watched: Vec<Pos>,
     free: HashSet<Pos>,
     k: usize,
     require: Vec<(Kind, usize)>,
@@ -433,6 +435,13 @@ impl Gen {
             relays,
             context: context.blocks.clone(),
             sinks: o.sinks.clone(),
+            watched: context
+                .blocks
+                .iter()
+                .filter(|(_, s)| s.starts_with("minecraft:observer"))
+                .map(|(p, s)| add(*p, Node::new(*p, s).facing))
+                .filter(|w| free.contains(w))
+                .collect(),
             free,
             k: o.k,
             require,
@@ -488,7 +497,7 @@ impl Gen {
     }
 
     fn reaches_sink(&self, n: &Node) -> bool {
-        self.sinks.iter().any(|s| n.em.contains(s))
+        self.sinks.iter().any(|s| n.em.contains(s)) || (n.changes && self.watched.contains(&n.pos))
     }
 
     /// A finished circuit: some driven block drives a sink, every block is on a source-to-sink
@@ -1256,6 +1265,19 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
             let near = |p: &Pos, r: i32| g.iter().any(|c| (0..3).all(|i| (p[i] - c[i]).abs() <= r));
             let mut ctx_cells: Vec<Pos> = base.blocks.keys().filter(|p| near(p, 1)).copied().collect();
             ctx_cells.sort();
+            // Sinks also: pistons near the group and the cells above them (quasi-connectivity
+            // through an air cell, e.g. a repeater pointing into the cell above B).
+            let mut sinks = ctx_cells.clone();
+            for (p, s) in &base.blocks {
+                let n = short(mctas::blockstate::block_name(s));
+                if (n == "piston" || n == "sticky_piston") && near(p, 3) {
+                    for c in [*p, add(*p, [0, 1, 0])] {
+                        if !sinks.contains(&c) {
+                            sinks.push(c);
+                        }
+                    }
+                }
+            }
             let watch: Vec<Pos> = changing.iter().filter(|p| near(p, 2) && !base.blocks.contains_key(*p)).copied().collect();
             let mut lo = g[0];
             let mut hi = g[0];
@@ -1274,7 +1296,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 min_k: 1,
                 sources: ctx_cells.clone(),
                 watch,
-                sinks: ctx_cells,
+                sinks,
                 forbid: swept.clone(),
                 require: Vec::new(),
                 limit: Vec::new(),
