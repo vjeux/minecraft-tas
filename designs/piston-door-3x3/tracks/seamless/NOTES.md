@@ -53,12 +53,34 @@ thick<=1,volume<=80`. No run on flat43-full here.
 | [flat-b-v7-full.txt](flat-b-v7-full.txt) (archive/flat-b-v7-full-50b) | 50 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 32/32 | FLAT, slime-free, 8x10x1 = volume 80 (flat seamless record by volume). flat-b-v7-44b repaired in its own box: `resynth --seamless full+hall --extra 4 --shape thick<=1,volume<=80` (right-ring observer -> corner dropper/observer chain, +3), then `--extra 5 --fit=-3,-4,0:4,5,0` (ceiling-ring observer chain moved to x=-2/-1, +4; floor-ring dust -> smooth stone: a strongly powered block QC-powers the bottom piston through the empty cell above it), then shrunk 51 -> 50 under the filter |
 | [flat43-full.txt](flat43-full.txt) (archive/flat43-full-44b) | 44 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 52/48 | FLAT, slime-free, 9x9x1 = volume 81. lamp-sweep-flat43 + (1) P_M's floor-ring observer replaced in-box: observer (-1,-1,0) watching the left ring cell -> lamp (-1,-2,0) -> observer (0,-2,0) into P_M (+1); (2) the obsidian at (0,3,0) was the dust floor AND the stopper that makes the corner piston's early close pulse fail (its row push T, C, ... must not move while C still sits at (1,3,0)): smooth stone there, the stopper moved to the far end of that row: the left trigger chain's repeater (-3,3,0) became an immovable dropper (block entities cannot be pushed; same pulse, 2 gt earlier) |
 | [flat-v7-full.txt](flat-v7-full.txt) (archive/flat-v7-full-54b) | 54 | FULL | yes (props-dyn) | 64/64 | FLAT, slime-free, 9x11x1 = 99. flat-v7-50b repaired by resynth (+4, one row more below) |
+| [fast-hA-full.txt](fast-hA-full.txt) (archive/hA-full-48b) | 48 | FULL | yes (props-dyn) | 24/24 | slime-free, 7x10x4; the FASTEST FULL + hallway door here (goal 3). sf-holdA-hA-43b repaired (+7) and shrunk under the filter. Fastest FULL without the hallway requirement stays rb9-61b (16/17, slime columns: no hallway) |
 | design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
 |---|---|---|---|---|---|
 | [semi-fc2L.txt](semi-fc2L.txt) (archive/fc2-seamL-41b) | 41 | FULL geometry | no | 24/9 | fc2 + O_m moved out of the floor ring: P_M fired by an observer (0,-2,0) watching a stone carried by a slime (-1,-1,0) glued under the left structure. SEMI claim (hallway optional for SEMI) |
 | [full-e41.txt](full-e41.txt) (archive/e41-full-44b) | 44 | FULL | yes | 36/28 | sf-holdA-e41 (41, slime-free) repaired: `resynth --seamless full+hall --extra 3/5 --margin 2` moved the floor-ring observer (P_M's trigger) and the wall-ring observer (left pistons' trigger) out of S (+5), then shrank to 44 under the filter. Contained, dentless, weatherproof, repeater input OK |
 
+## 8x9 from flat-b-v7-full (open)
+
+flat-b-v7-full uses rows -4..5. The bottom row holds the lever (and `--fit` never moves the lever
+or pistons); the top row (5 blocks: O(-2,5) B(-1,5) D(0,5) B(1,5) S(2,5)) carries the signal from
+the top-left door block's arrival (observer (-1,3,0)) over the two ceiling pullers s(1,4,0) (T)
+and s(2,4,0) (TR) to S(2,5,0), which powers s(2,4,0) and QC-triggers the dropper (3,4,0) that
+starts the right column. Inside rows <= 4 nothing can cross column x=1: (1,3,0) is T's
+destination, (1,4,0) its puller, (2,4,0) TR's puller, and s(2,4,0)'s only in-box free side is
+(3,4,0). `resynth --fit=-3,-4,0:4,4,0 --seamless full+hall --extra 3..6` (groups through the top
+row, also restricted with --only to rows 2..5) found nothing.
+
+Hand variant [wip/fbv7-89m.txt](wip/fbv7-89m.txt) (8x9): T's puller fed by a delay-4 repeater at
+(0,4,0) (on a smooth stone ring block at (0,3,0)); TR goes RIGHT (H at (4,2,0) replaces the stone)
+so (2,4,0) is free for an observer relay watching T's puller: observers (2,4)(3,4)(4,4) facing
+west -> observer (4,3,0) -> the right pistons. T, TL and TR/R move, but the relay sees the puller
+twice (extend and retract: the second pulse spits the right blocks back) and the bottom-right
+piston (4,0,0) has no power left (it was QC-powered through the stone (4,2,0)). Next: a one-shot
+relay (watch T arriving, or a dropper in the chain) and a feed for (4,0,0) from below
+((4,-1,0) and the corner (3,-1,0) are free).
+
 ## SUPER is impossible under props' definition (proof)
+
 
 SUPER needs every frame of opening and closing free of circuitry in T and S, where circuitry
 includes moving blocks (moving_piston cells) and piston heads, and every S cell counts, the door
