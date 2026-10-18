@@ -102,6 +102,30 @@ Working designs (they pass the judge as built) that break when turned 90, 180 or
 | 3 | 36 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s4c-36b.txt` |
 | 4 | 38 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s1-38b.txt` |
 
+## Pareto frontier: open, close, blocks (any category)
+
+Every door that no other door beats on open ticks, close ticks and blocks at once (worst cycle; one door per identical triple).
+
+| blocks | open | close | category | slime-free | rotations | source |
+|---|---|---|---|---|---|---|
+| 33 | 5 | 16 | gravity |  | safe | `origin/explore/gravity-2:designs/piston-door-3x3/tracks/gravity-2/BEST.txt` |
+| 40 | 24 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2-40b-2.txt` |
+| 41 | 22 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
+| 48 | 5 | 11 | gravity |  | safe | `HEAD:designs/piston-door-3x3/archive/gravity-g8-48b.txt` |
+| 107 | 10 | 7 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-a1-107-107b.txt` |
+
+## Pareto frontier: open, close, blocks (solid only)
+
+Every door that no other door beats on open ticks, close ticks and blocks at once (worst cycle; one door per identical triple).
+
+| blocks | open | close | category | slime-free | rotations | source |
+|---|---|---|---|---|---|---|
+| 38 | 36 | 32 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b38-38b.txt` |
+| 40 | 24 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2-40b-2.txt` |
+| 41 | 22 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
+| 43 | 16 | 16 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp8-43b.txt` |
+| 107 | 10 | 7 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-a1-107-107b.txt` |
+
 ## Fastest open (any category)
 
 Game ticks after the lever flip (worst of the cycles); ties by block count.

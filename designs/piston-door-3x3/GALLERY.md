@@ -12,7 +12,7 @@ The night, board by board (records from the archive):
 
 ## Solid (main ranking): 38 blocks
 
-9 identical plain door blocks, no sculk sensors.
+9 identical plain door blocks, no sculk sensors, rotation-safe.
 
 ![sf-holdA-b38-38b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sf-holdA-b38-38b.gif)
 
@@ -38,15 +38,23 @@ Slime-free, and every block in the door's plane: the whole machine is one block 
 
 Every record of this board in one video: [flat-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.jpg)).
 
-## Sculk: 36 blocks
+## Sculk: 42 blocks
 
 Uses sculk sensors (footsteps or mobs nearby can trigger them).
+
+![st43-bmobs-42b](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.gif)
+
+**42 blocks**, sculk, opens in 22 ticks, closes in 38 (worst cycle): [st43-bmobs-42b](archive/st43-bmobs-42b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/st43-bmobs-42b.mp4)). Agent top-control on search-tool's 43: the redstone-block family with a sculk sensor and one repeater as the late hold, and the bottom-middle piston retracted at rest, fired by an observer watching the bottom-right door block.
+
+Every record of this board in one video: [sculk-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.jpg)).
+
+## Sculk, not rotation-safe: 36 blocks
+
+Uses sculk sensors; works as built but breaks when the whole door is turned 90 degrees.
 
 ![sculk2-s4b-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.gif)
 
 **36 blocks**, sculk, opens in 20 ticks, closes in 36 (worst cycle): [sculk2-s4b-36b](archive/sculk2-s4b-36b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.mp4)). From agent sculk-2; see [tracks/sculk-2/NOTES.md](tracks/sculk-2/NOTES.md).
-
-Every record of this board in one video: [sculk-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.jpg)).
 
 ## Gravity: 33 blocks
 
