@@ -78,8 +78,8 @@ pub fn parse_cells(s: &str) -> Result<Vec<Pos>> {
 /// Expand palette shorthands: `block` (smooth_stone), `gt` (glazed terracotta: a floor slime
 /// never drags), `glass`, `obsidian`, `dust` (cross wire), `dot` (dot wire), `rep` (every delay)
 /// or `rep1`..`rep4` (4 facings each), `cmp` (comparator, both modes, 4 facings), `obs`
-/// (observer, 6 facings), `torch` (standing + 4 wall torches), `rblock`, `lamp`, `target`, or a
-/// full `minecraft:...` state.
+/// (observer, 6 facings), `torch` (standing + 4 wall torches), `rblock`, `lamp`, `bulb` (waxed
+/// copper bulb, a T flip-flop), `target`, or a full `minecraft:...` state.
 pub fn palette_states(spec: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -111,6 +111,7 @@ pub fn palette_states(spec: &str) -> Result<Vec<String>> {
             }
             "rblock" => out.push("minecraft:redstone_block".into()),
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
+            "bulb" => out.push("minecraft:waxed_copper_bulb[lit=false,powered=false]".into()),
             "target" => out.push("minecraft:target[power=0]".into()),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => bail!("unknown palette entry {s:?}"),
@@ -171,6 +172,9 @@ impl Node {
             "redstone_torch" => (Kind::Torch, below, false, true),
             "redstone_wall_torch" => (Kind::Torch, Some(add(pos, neg(facing))), false, true),
             "redstone_lamp" => (Kind::Lamp, None, true, true),
+            // A copper bulb takes power like a lamp and shows it only to observers (and
+            // comparators): it toggles `lit` on each rising edge.
+            n if n.ends_with("copper_bulb") => (Kind::Lamp, None, true, true),
             "redstone_block" => (Kind::RBlock, None, true, false),
             "lever" => {
                 let s = match get("face").as_deref() {
