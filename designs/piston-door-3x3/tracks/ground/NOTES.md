@@ -34,3 +34,13 @@ inputs: `ground20.ideal` per edge, `ground-sym.ideal` one 24-pulse train for bot
   (-2,3,0) P home, (-1,3,0) P shifted, (-1,3,-1) Z, (-3,3,0) Q, (-3,0,0) LP0; right: (4,0,-1),
   (3,1,-1) (+glass door blocks or the shifted P's QC power makes R1 power RP1), (3,1,1)/(3,0,2),
   (5,1,0), (4,3,0). A 7-step observer/repeater chain from one lever.
+- 20:37Z tool: `mech-synth --seamless` (macro model: nothing ever enters the hallway ring S off
+  the door plane, no candidate there, the open state holds only door blocks in S). On one row
+  (`bases/row-seam.txt`, `--add 3 --lo=-6,0,-2 --hi=6,0,2 --kinds sticky,normal --pulses-only`):
+  seamless row mechanisms with a 10-step symmetric train, e.g. Q (-3,0,0) E, Zs (-2,0,-2) S,
+  Zn (-2,0,2) N: SYM = P Zs Zn Q Zs Q P Q P RP (the puller P itself is moved in z at x=-2, outside
+  S, so the side block can pass the ring and park at x=-2). Open: side block at x=-2, middle block
+  in the ring x=-1, far block in the ring x=3.
+  Open problem for the 3x3: the BOTTOM row's shifted puller (in the ring at x=-1 or 3, y=0) has
+  no seamless power cell: its z neighbours are S, below is the floor, above is the row-1 ring cell
+  (quasi-power needs a source next to (x,1,0): S, the door, row 1's piston home or row 2's ring).

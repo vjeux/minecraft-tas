@@ -212,7 +212,11 @@ impl World {
 
     /// Apply an event; None when nothing changes (a no-op).
     pub fn apply(&self, e: Ev) -> Option<World> {
-        self.apply_mode(e, false)
+        let w = self.apply_mode(e, false)?;
+        if SEAMLESS.load(Ordering::Relaxed) && s_off_plane(&w) {
+            return None;
+        }
+        Some(w)
     }
 
     /// `strict`: a level-on that cannot extend is refused (no powered-but-blocked states).
@@ -263,12 +267,19 @@ impl World {
     }
 
     pub fn is_open(&self) -> bool {
+        let seamless = SEAMLESS.load(Ordering::Relaxed);
         for (p, k) in &self.b {
             if in_corridor(*p) {
                 return false;
             }
+            if seamless && in_s(*p) && (*k != Kind::Door || p[2] != 0) {
+                return false;
+            }
             if let Kind::Piston { ext: true, f, .. } = k {
                 if in_corridor(add(*p, D[*f as usize])) {
+                    return false;
+                }
+                if seamless && in_s(add(*p, D[*f as usize])) {
                     return false;
                 }
             }
@@ -412,6 +423,23 @@ pub static PULSES_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::Atomi
 pub static EDGES: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 /// `--split-only`: skip the graph symmetric search (use the edge/core split search).
 pub static SPLIT_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--seamless`: FULL seamless + hallway in the macro model. S = the cells face-adjacent to the
+/// tunnel (the 3x3 columns through the opening, any depth). No block ever enters S off the door
+/// plane (the hallway's walls stand there), candidates are not placed there, and the open state
+/// holds nothing but door blocks in S (door plane included).
+pub static SEAMLESS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// In the hallway surface S (face-adjacent to the tunnel, any depth).
+pub fn in_s(p: P) -> bool {
+    ((p[0] == -1 || p[0] == 3) && (0..=2).contains(&p[1])) || ((p[1] == -1 || p[1] == 3) && (0..=2).contains(&p[0]))
+}
+
+/// Some block (or piston head) in S off the door plane.
+fn s_off_plane(w: &World) -> bool {
+    w.b.iter().any(|(p, k)| {
+        (in_s(*p) && p[2] != 0) || matches!(k, Kind::Piston { ext: true, f, .. } if { let h = add(*p, D[*f as usize]); in_s(h) && h[2] != 0 })
+    })
+}
 
 pub fn events(w: &World) -> Vec<Ev> {
     let po = PULSES_ONLY.load(Ordering::Relaxed);
@@ -1064,7 +1092,7 @@ pub fn candidates(base: &World, o: &EnumOptions) -> Vec<(P, Kind)> {
         for y in o.lo[1]..=o.hi[1] {
             for z in o.lo[2]..=o.hi[2] {
                 let p = [x, y, z];
-                if occupied(p) || in_corridor(p) {
+                if occupied(p) || in_corridor(p) || (SEAMLESS.load(Ordering::Relaxed) && in_s(p) && p[2] != 0) {
                     continue;
                 }
                 let near = D.iter().any(|d| active(add(p, *d)));

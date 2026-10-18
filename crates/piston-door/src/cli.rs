@@ -779,6 +779,10 @@ pub enum DoorCmd {
         /// Only the split symmetric search (edges block + searched core), not the graph one.
         #[arg(long)]
         split_only: bool,
+        /// FULL seamless + hallway in the macro model: nothing ever enters the hallway surface S
+        /// off the door plane, no candidate there, the open state holds only door blocks in S.
+        #[arg(long)]
+        seamless: bool,
         /// Symmetric control by product BFS for the base itself: the open state reached by these
         /// events ("P:x,y,z L:x,y,z ...", pistons named by their rest position), then the
         /// shortest single sequence S with S(rest) = open and S(open) = rest (`--cap` pairs).
@@ -2189,7 +2193,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, sym_bfs, sym_levels } => {
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, sym_bfs, sym_levels } => {
+            crate::mechsynth::SEAMLESS.store(seamless, std::sync::atomic::Ordering::Relaxed);
             if let Some(seq) = &sym_bfs {
                 return crate::mechsynth::sym_cli(version, &base, seq, sym_levels, cap, out_dir.as_deref(), verify, extra_offsets, gap);
             }
