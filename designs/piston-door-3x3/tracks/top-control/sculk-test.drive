@@ -1,0 +1,12 @@
+design designs/piston-door-3x3/tracks/top-control/sculk-test.txt
+probe S 3 1 0
+probe T 4 0 0
+probe P 6 0 0
+quiet 5
+trace 1
+use 0 1 0
+trace 48
+use 0 1 0
+trace 48
+set 6 0 1 minecraft:redstone_block
+trace 45
