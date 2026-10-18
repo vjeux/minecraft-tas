@@ -378,18 +378,19 @@ fn timings(rec: &Recording, t0: u32) -> [i64; 4] {
     [o - t0, ov - t0, c - t0, cv - t0]
 }
 
-/// The SEAMLESS tiers (2.1.4.1), weakest first. `SuperCovered` = FULL + every tick of the
-/// animation clean when an S cell counts as seen only while its face toward T is open (its one T
-/// neighbor holds no door block, resting or moving: a piston head in the door plane's ring behind
-/// a door block is not seen). SUPER (every S cell counts) implies it.
+/// The SEAMLESS tiers (2.1.4.1), weakest first. `Super` (THE definition, coordinator 2026-10-18
+/// 21:22Z) = FULL + every tick of the animation clean when an S cell counts as seen only while its
+/// face toward T is open (its one T neighbor holds no door block, resting or moving: a piston head
+/// in the door plane's ring behind a door block is not seen). `SuperStrict` (props' first reading:
+/// every S cell counts) implies it and is unreachable for any door (tracks/seamless/NOTES.md).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
     None,
     Quart,
     Semi,
     Full,
-    SuperCovered,
     Super,
+    SuperStrict,
 }
 
 impl Tier {
@@ -398,9 +399,9 @@ impl Tier {
             "quart" => Tier::Quart,
             "semi" => Tier::Semi,
             "full" => Tier::Full,
-            "supercov" | "super-covered" => Tier::SuperCovered,
-            "super" => Tier::Super,
-            _ => bail!("unknown seamless tier {s:?} (quart, semi, full, supercov, super)"),
+            "super" | "supercov" | "super-covered" => Tier::Super,
+            "super-strict" | "superstrict" | "strict" => Tier::SuperStrict,
+            _ => bail!("unknown seamless tier {s:?} (quart, semi, full, super, super-strict)"),
         })
     }
     pub fn name(self) -> &'static str {
@@ -409,8 +410,8 @@ impl Tier {
             Tier::Quart => "QUART",
             Tier::Semi => "SEMI",
             Tier::Full => "FULL",
-            Tier::SuperCovered => "SUPER (covered)",
             Tier::Super => "SUPER",
+            Tier::SuperStrict => "SUPER (strict)",
         }
     }
 }
@@ -504,9 +505,9 @@ pub fn seamless(rec: &Recording) -> Seamless {
     let full = qs.len() == 2 && open_vis.is_empty();
     let sides = || qs.iter().map(|s| geo.side(*s)).collect::<Vec<_>>().join(",");
     let (tier, label) = if full && anim_vis.is_none() {
-        (Tier::Super, "SUPER".to_string())
+        (Tier::SuperStrict, "SUPER".to_string())
     } else if full && anim_cov.is_none() {
-        (Tier::SuperCovered, "FULL, SUPER (covered)".to_string())
+        (Tier::Super, "SUPER".to_string())
     } else if full {
         (Tier::Full, "FULL".to_string())
     } else if !qs.is_empty() && open_vis.is_empty() {
@@ -523,9 +524,9 @@ pub fn seamless(rec: &Recording) -> Seamless {
     } else if qs.len() < 2 {
         first(quart(-qs[0])).map(|x| format!("closed other side: {x}"))
     } else if anim_cov.is_some() {
-        anim_cov.clone().map(|x| format!("moving (covered): {x}"))
+        anim_cov.clone().map(|x| format!("moving: {x}"))
     } else {
-        anim_vis.clone().map(|x| format!("moving: {x}"))
+        anim_vis.clone().map(|x| format!("moving (strict reading only): {x}"))
     };
     let owned = |v: Vec<&(Pos, String)>| -> Vec<(Pos, String)> { v.into_iter().cloned().collect() };
     Seamless { tier, label, why, closed: [owned(quart(-1)), owned(quart(1))], open: owned(open_vis), holes_r, holes_o }
@@ -628,7 +629,7 @@ pub fn seamless_offenders(rec: &Recording, min: Tier) -> Vec<Pos> {
                 out.extend(if neg.len() <= pos.len() { neg } else { pos });
             }
         }
-        Tier::Full | Tier::SuperCovered | Tier::Super => {
+        Tier::Full | Tier::Super | Tier::SuperStrict => {
             out.extend(neg);
             out.extend(pos);
         }
@@ -636,11 +637,11 @@ pub fn seamless_offenders(rec: &Recording, min: Tier) -> Vec<Pos> {
     if min >= Tier::Semi {
         out.extend(s.open.iter().map(|c| c.0));
     }
-    if min >= Tier::SuperCovered {
+    if min >= Tier::Super {
         for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
             for (i, (f, _)) in frames.iter().enumerate() {
                 let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
-                let seen = |p: &Pos| geo.in_t(*p) || (geo.in_s(*p) && (min == Tier::Super || !doors.contains(&t_neighbor(&geo, *p))));
+                let seen = |p: &Pos| geo.in_t(*p) || (geo.in_s(*p) && (min == Tier::SuperStrict || !doors.contains(&t_neighbor(&geo, *p))));
                 out.extend(circuitry(&geo, f, &doors, lever).into_iter().map(|c| c.0).filter(|p| seen(p)));
             }
         }
@@ -664,6 +665,9 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     // SEAMLESS (2.1.4.1).
     let s = seamless(rec);
     p.insert("seamless".into(), s.label.clone());
+    // props' first SUPER reading (every ring cell counts, even behind a door block): kept as an
+    // extra column; no door can reach it.
+    p.insert("seamless_strict".into(), if s.tier == Tier::SuperStrict { "yes".into() } else { "no".into() });
     if let Some(w) = s.why.clone() {
         p.insert("seamless_why".into(), w);
     }
@@ -1728,6 +1732,7 @@ pub fn display_name(source: &str) -> String {
 
 pub const COLUMNS: &[(&str, &str)] = &[
     ("seamless", "seamless"),
+    ("seamless_strict", "SUPER strict"),
     ("hallway", "hall"),
     ("hallway_ring", "hall (ring-aware)"),
     ("dents", "dents"),
