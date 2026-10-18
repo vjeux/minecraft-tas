@@ -71,30 +71,34 @@ Speed designs: pass `--max-open/--max-close` to keep their timings at the judge.
   and a re-route must keep their inputs (g42: 9 false candidates).
 - Repeater locking (w6's locked repeater): a diode into a repeater's side freezes it; the state
   at rest is the cyclic steady state.
-- Quasi-connectivity from a powered block diagonal to a piston goes unnoticed in the game
-  (nothing updates the piston two cells away; st43's 38 model-accepted candidates all failed the
-  screen for that reason): QC counts only from emitters whose change updates the piston.
+- Quasi-connectivity from a powered block diagonal to a piston is noticed only when something
+  else updates the piston (st43's 38 model-accepted candidates failed because nothing did; s7q's
+  bottom piston relies on its neighbor piston's update): noticed QC counts only emitters whose
+  own change updates the piston, and the QC power from powered blocks is a separate "latent"
+  pseudo-receiver that a re-route must keep exactly.
 - Lamps go dark 4 gt after losing power.
+- Power a retracted piston gets while it stays retracted (blocked, like fc2's B against the
+  extended A in the close phase) is don't-care.
 
 Calibration now (every control component, every tick of a cycle): fc2 10/10, mp8 9/9, s7 16/16,
 s7q 17/17, st43 8/8, g10 10/10, synth-g42 10/10, speed w6-109b 48/48.
 
-## Results
-| design | rip sets routed (support-closed) | cheaper routings | model-accepted | judge | result |
-|---|---|---|---|---|---|
-| fc2 40 | 537 (max 7, pairs); 1388 (max 8, pairs, beam 10); 881 at tolerance 2 | 0 | 0 | - | local minimum |
-| mp8 43 | 145 (max 8, pairs) | 0 | 0 | - | local minimum |
-| s7 45 | 283 (max 6) + 1825 of 3735 (max 6, pairs) | 0 | 0 | - | local minimum so far |
-| s7q 44 | (see log) | | | | |
-| st43 42 | 397 (max 7, pairs); 492 at tolerance 2 | 0 (38 before the QC fix) | 0 | - | local minimum |
-| g10 45 | 1454 (max 7, pairs); 3646 at tolerance 2 | 0 | 0 | - | local minimum |
-| synth-g42 42 | 674 (max 7, pairs) | 9 | 0 (after the mover fix) | 0 of 4 before it | local minimum |
-| speed w6 109 (open 12 / close 7 kept) | 543 (max 6) | 685 | 589 | 0 of 482 pass the screen | the model misses a trick (below) |
+## Results (final model; every candidate the model accepted went to the judge)
+| design | rip sets routed (support-closed) | result |
+|---|---|---|
+| fc2 40 | 537 (max 7, pairs); 1388 (max 8, pairs, beam 10, 6 hits); 881 at tolerance 2; `--polish`: 5 equal-size re-routes pass the judge, 60 s of local search each | local minimum |
+| mp8 43 | 145 (max 8, pairs) | local minimum |
+| s7 45 | 168 (max 6) | local minimum |
+| s7q 44 | 1877 (max 6, pairs) | local minimum (1 false candidate before the latent-QC fix) |
+| st43 42 | 397 (max 7, pairs); 492 at tolerance 2 | local minimum (38 false candidates before the QC fix) |
+| g10 45 | 1454 (max 7, pairs); 3646 at tolerance 2 | local minimum |
+| synth-g42 42 | 674 (max 7, pairs); `--polish`: 4 equal-size re-routes | local minimum (9 false candidates before the mover fix) |
+| speed w6 109 (open 12 / close 7 kept) | 522 (max 6) | 118 model-accepted candidates (589 with the earlier model), none passes the screen (below) |
 
-The records are local minima for whole-net re-routing too: up to 7-8 ripped control blocks,
-two nets at once, any taps (including observers on any moving block), any entries,
-dust/repeaters/observers/conductor blocks, exact timing on the ticks each piston is there.
-Their remaining slack is in the mechanism, not in the wiring.
+No block saving on any record. They are local minima for whole-net re-routing too: up to 7-8
+ripped control blocks, two nets at once, any taps (including observers on any moving block),
+any entries, dust/repeaters/observers/conductor blocks, exact timing on the ticks each piston
+is there. Their remaining slack is in the mechanism, not in the wiring.
 
 **w6-109b**: its locked repeater g (1,6,-1) only drives an isolated stone (1,6,0), yet removing
 its lock (torch I, repeater i and its floor: "rip -> nothing", the model sees no receiver
@@ -113,4 +117,5 @@ BUD), so the simulator rejects all of w6's candidates, as it should.
 
 ## Log
 - 02:50 route2 module (static model, router, rip-up), sanity re-derivations on fc2.
-- 03:00-04:10 runs on the records; each calibration miss became a model fix (above).
+- 03:00-04:30 runs on the records; each calibration miss or false candidate became a model fix
+  (above). 04:30-04:50 final pass with the final model on every record: no saving.
