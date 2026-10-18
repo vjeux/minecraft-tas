@@ -38,6 +38,21 @@ honey_block anywhere.
 - Why the layout: RB's rest/open cells must touch nothing that a level would break (X dust, the
   top pullers, B, A's lower position), and P_T's park cell must not be quasi-powered by RB at rest
   (so RB rests WEST of A, and TL cannot go up: the left column needs 3 pistons).
+- Searches on the 44 that found nothing: minimize --moves all --plateau (incl. swaps), regrow
+  size 2 (margin 2, every state), size 3 (2M candidates, 8 min), size 2 --any, size 3 restricted
+  to the left side; grow 2 blocks for the left column after cutting its 3-observer chain (267k).
+- Dead ends examined on paper: TL up needs RB elsewhere, but every other cell next to A is taken
+  (X north, TR puller east) or quasi-powers P_T's park (south); an observer watching RB/Q always
+  outputs AWAY from the shuttle, so P_T (south) cannot be fed by one observer off the shuttle
+  (it watches TR landing instead); replacing X by an observer facing A (no floor) loses p0 and the
+  dance pulses (one observer watches one cell).
+
+## Next ideas (after 44)
+- A cheaper left column: it costs 5 control blocks for 3 pistons (3 observers + dust + floor); a
+  pair + TL-up costs 4 but needs the cell west of A, which holds RB.
+- Hold A with RB south of A (1,4,1) pulled by a pulse-driven Q at (1,4,3) (so both TL and TR go
+  up), with P_T's park on the north (1,3,-1): needs X without a floor at (1,3,-1) (an observer at
+  (1,4,-1) facing north powers A in both positions with updates) and p0 from elsewhere.
 
 ## Tools (this track)
 - `door grow <design> --lo x,y,z --hi x,y,z --states obs,block,dust,... --k 2`: add 1-2 blocks
