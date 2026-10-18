@@ -4,7 +4,8 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 
 | file | blocks | open/close | note |
 |---|---|---|---|
-| v6.txt = BEST.txt (archive/flat-b-v6-45b.txt) | 45 | 32 / 28 | v5 with the bottom cluster mirrored: lever, a1, P_M (pusher side) on the LEFT, R_B/O/X on the right; the left feed starts at the pm observer (4 observers instead of 5) |
+| v7.txt = BEST.txt (archive/flat-b-v7-44b.txt) | 44 | 30 / 26 | `door resynth` on v6: the top chain is (0,3), (0,4), (0,5) down, (1,5) west -> smooth stone (2,5): TR's puller directly below it, T's puller by QC through (1,5) |
+| v6.txt (archive/flat-b-v6-45b.txt) | 45 | 32 / 28 | v5 with the bottom cluster mirrored: lever, a1, P_M (pusher side) on the LEFT, R_B/O/X on the right; the left feed starts at the pm observer (4 observers instead of 5) |
 | v5.txt (archive/flat-b-v5-46b.txt) | 46 | 32 / 28 | the top pair fired from TL's rest-cell watcher (0,3) (5 observers + stone) instead of the long chain over the left stack |
 | v3.txt (archive/flat-b-min-47b.txt) | 47 | 32 / 30 | v2 with the lever hanging under the observer that watches it (no floor) |
 | v2.txt (archive/flat-b-v2-48b.txt) | 48 | 32 / 30 | center goes DOWN (elevator below the door), top pair up, one observer chain |
@@ -31,7 +32,7 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
   under B': emits east only), (2,-4) west (t4) powers stone (3,-4): R_B window t12..t20, O t14/t22.
 - Left feed (6): (-2,-2) east watches the pm observer (-1,-2) (t8), (-3,-2) east, (-3,-1) down,
   (-3,0) down (t14) -> stone (-3,1) + dust (-3,2): the left 3-stack.
-- Top (6) and right pair (2): as v5.
+- Top (6) and right pair (2): as v5. (v7: top = 5, see the table.)
 
 ## Control of v5 (27 blocks)
 - Bottom cluster (12): as v2 below, but the lever hangs under the observer (2,-3) (face=ceiling).
@@ -64,6 +65,15 @@ Right pair (2): observer (3,2) facing west watches TR (2,2) and strongly powers 
 (4,1) directly, (4,0) by QC.
 
 ## Lessons
+- Watch a door block's REST cell (the block leaves it, or comes back while the watcher is still
+  on): one pulse per edge. Watching a pull-type piston's gap cell double-fires (the head goes in,
+  then the block): v4 tried ML's park cell (-1,1) as the top's trigger and the top went up and
+  back down.
+- The bottom cluster always splits: X (a2/a3, next to A' high) and P_M sit on opposite sides of
+  (1,-1), and a1 must come from P_M's side (O occupies X's side under X). R_B's input then needs a
+  3-block cross under B' (observer under B' emitting sideways, R_B's floor as an observer, stone +
+  dust on the far side). Putting the lever on P_M's side costs less than crossing pm (pm has a
+  tight window a1+4..7).
 - A pull-type piston facing down at y=4 next to an observer whose back points at its quasi cell
   (0,5) is quasi-powered by that observer (first try v1: D0 got the chain's pulse AND the (1,5)
   block's: a 4 gt pulse, so on close it pushed TL home and pulled it back out).
