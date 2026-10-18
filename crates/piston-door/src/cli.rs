@@ -27,6 +27,12 @@ pub enum DoorCmd {
         /// Write the markdown table here (also printed).
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Copy every explore branch's tracks/<track> folder into the working tree first.
+        #[arg(long)]
+        sync_tracks: bool,
+        /// Archive every working design into this folder; designs already there are trusted.
+        #[arg(long)]
+        archive_dir: Option<PathBuf>,
     },
     /// Route a dust path in a design (prints the blocks to add).
     Route {
@@ -161,15 +167,27 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
-        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out } => {
+        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
             let repo = std::path::Path::new(".");
             if fetch {
                 let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
                 anyhow::ensure!(st.success(), "git fetch failed");
             }
+            if sync_tracks {
+                eprintln!("synced tracks: {:?}", crate::leaderboard::sync_tracks(repo, &refs)?);
+            }
+            let trusted = archive_dir.as_deref().map(crate::leaderboard::archived_keys).unwrap_or_default();
             let cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
-            eprintln!("verifying {} designs", cands.len());
-            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers)?;
+            eprintln!("verifying {} designs ({} archived designs trusted)", cands.len(), trusted.len());
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, &trusted)?;
+            if let Some(dir) = &archive_dir {
+                for e in entries.iter().filter(|e| e.verdict.is_ok()) {
+                    let note = format!("verified WORKS by door leaderboard: {} blocks, category {}", e.blocks, e.category);
+                    if let Some(p) = crate::archive::save(std::path::Path::new(&e.source), &e.design, e.blocks, &note, Some(dir))? {
+                        eprintln!("archived {}", p.display());
+                    }
+                }
+            }
             let table = crate::leaderboard::render(&entries, extra_offsets);
             print!("{table}");
             if let Some(p) = out {

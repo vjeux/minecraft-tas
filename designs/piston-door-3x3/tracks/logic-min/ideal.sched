@@ -1,0 +1,44 @@
+# Ideal inputs for the v2 mechanism (ideal-mech.txt). Redstone blocks stand in for the control:
+#   S  (P_L, P_R, P_BM):  (-4,0,0) (6,0,0) (1,-3,0)   powered at rest
+#   A  steady:            (1,4,-1)  (next to A's rest cell; QC-powers A when B pushes it down)
+#   P_T steady:           (1,3,3)   (behind P_T)
+#   B:                    (1,6,0)   (above B)
+#   X  (A pulses):        (3,4,0)   next to the X dust (2,4,0) (not touching B, unlike the observer cell)
+# The B chain is the real one: B on for bw ticks starting b ticks after each flip, and an
+# X pulse (xw ticks) dx ticks after each B edge (the observer O watching R_B).
+# Nominal timing = v2-min's real timing (frame n of `door trace` = event at n-1 here).
+design designs/piston-door-3x3/tracks/logic-min/ideal-mech.txt
+let s_off = 1
+let a_off = 5
+let pt_off = 9
+let b = 11
+let bw = 8
+let dx = 2
+let xw = 2
+let s_on = 1
+let pt_on = 25
+let a_on = 33
+
+open s_off clear -4 0 0
+open s_off clear 6 0 0
+open s_off clear 1 -3 0
+open a_off clear 1 4 -1
+open pt_off clear 1 3 3
+open b set 1 6 0 minecraft:redstone_block
+open b+bw clear 1 6 0
+open b+dx set 3 4 0 minecraft:redstone_block
+open b+dx+xw clear 3 4 0
+open b+bw+dx set 3 4 0 minecraft:redstone_block
+open b+bw+dx+xw clear 3 4 0
+
+close s_on set -4 0 0 minecraft:redstone_block
+close s_on set 6 0 0 minecraft:redstone_block
+close s_on set 1 -3 0 minecraft:redstone_block
+close b set 1 6 0 minecraft:redstone_block
+close b+bw clear 1 6 0
+close b+dx set 3 4 0 minecraft:redstone_block
+close b+dx+xw clear 3 4 0
+close b+bw+dx set 3 4 0 minecraft:redstone_block
+close b+bw+dx+xw clear 3 4 0
+close pt_on set 1 3 3 minecraft:redstone_block
+close a_on set 1 4 -1 minecraft:redstone_block
