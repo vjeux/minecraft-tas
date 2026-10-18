@@ -1,0 +1,733 @@
+//! `mctas door redsim-fuzz`: differential fuzzing of the redsim model against the real game.
+//!
+//! Random small circuits (a box of random components from a palette, levers as inputs) are run
+//! in the bridge sandbox (Minecraft 26.3's own code) and in `redsim`, the same way the judge
+//! places designs (raw writes, a shape update of every wire, a `self` update of every block),
+//! then ticked with lever flips in between. EVERY block state of the box is compared after
+//! placement and after every tick and every flip. A mismatching circuit is shrunk (one block or
+//! one step at a time, as long as some mismatch remains) and saved as a case file; `door
+//! redsim-case` replays one, `--fixture` writes it as a redsim regression test (the bridge's
+//! trace as the expectation, see `crates/redsim/tests/`).
+
+use anyhow::{Context, Result, bail};
+use mctas::sim::{PlaceMode, Pool, Pos, SandboxOptions, Worker};
+use redsim::{Block, BlockPos, World};
+use std::collections::HashMap;
+use std::fmt::Write as _;
+use std::path::Path;
+use std::sync::Mutex;
+
+/// splitmix64.
+#[derive(Clone)]
+pub struct Rng(u64);
+impl Rng {
+    pub fn new(seed: u64) -> Rng {
+        Rng(seed ^ 0x9E37_79B9_7F4A_7C15)
+    }
+    pub fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+    pub fn below(&mut self, n: u64) -> u64 {
+        if n == 0 { 0 } else { self.next() % n }
+    }
+    pub fn range(&mut self, lo: i32, hi: i32) -> i32 {
+        lo + self.below((hi - lo + 1) as u64) as i32
+    }
+    pub fn chance(&mut self, p: f64) -> bool {
+        (self.next() >> 11) as f64 / (1u64 << 53) as f64 * 1.0 < p
+    }
+    pub fn pick<'a, T>(&mut self, v: &'a [T]) -> &'a T {
+        &v[self.below(v.len() as u64) as usize]
+    }
+}
+
+/// One step after placement.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Step {
+    /// Tick n times (a frame after each).
+    Run(u32),
+    /// Right-click a lever/button between ticks (a frame after it).
+    Use(Pos),
+}
+
+/// A circuit and its inputs.
+#[derive(Clone, Debug)]
+pub struct Case {
+    pub blocks: Vec<(Pos, String)>,
+    pub steps: Vec<Step>,
+    /// Compared box (inclusive).
+    pub lo: Pos,
+    pub hi: Pos,
+}
+
+impl Case {
+    pub fn to_text(&self) -> String {
+        let mut s = String::new();
+        let _ = writeln!(s, "box {} {} {} {} {} {}", self.lo[0], self.lo[1], self.lo[2], self.hi[0], self.hi[1], self.hi[2]);
+        for (p, b) in &self.blocks {
+            let _ = writeln!(s, "block {} {} {} {}", p[0], p[1], p[2], b);
+        }
+        for st in &self.steps {
+            match st {
+                Step::Run(n) => {
+                    let _ = writeln!(s, "run {n}");
+                }
+                Step::Use(p) => {
+                    let _ = writeln!(s, "use {} {} {}", p[0], p[1], p[2]);
+                }
+            }
+        }
+        s
+    }
+
+    pub fn parse(text: &str) -> Result<Case> {
+        let mut c = Case { blocks: Vec::new(), steps: Vec::new(), lo: [0; 3], hi: [0; 3] };
+        for line in text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
+            let t: Vec<&str> = line.split_whitespace().collect();
+            let int = |i: usize| -> Result<i32> { t.get(i).context("missing field")?.parse::<i32>().with_context(|| format!("bad number in {line:?}")) };
+            match t[0] {
+                "box" => {
+                    c.lo = [int(1)?, int(2)?, int(3)?];
+                    c.hi = [int(4)?, int(5)?, int(6)?];
+                }
+                "block" => c.blocks.push(([int(1)?, int(2)?, int(3)?], t.get(4).context("missing state")?.to_string())),
+                "run" => c.steps.push(Step::Run(int(1)? as u32)),
+                "use" => c.steps.push(Step::Use([int(1)?, int(2)?, int(3)?])),
+                // fixture expectations are read by the redsim test, not here
+                "frame" | "cell" => {}
+                _ => bail!("bad case line {line:?}"),
+            }
+        }
+        Ok(c)
+    }
+
+    fn cells(&self) -> Vec<Pos> {
+        let mut v = Vec::new();
+        for y in self.lo[1]..=self.hi[1] {
+            for z in self.lo[2]..=self.hi[2] {
+                for x in self.lo[0]..=self.hi[0] {
+                    v.push([x, y, z]);
+                }
+            }
+        }
+        v
+    }
+}
+
+/// One frame: the state of every cell of the box (x fastest, then z, then y), canonical strings.
+pub type Frame = Vec<String>;
+
+/// The bridge's state strings, canonicalized through redsim's parser when it knows the block
+/// (so formatting differences never count), as-is otherwise.
+fn canon(cache: &mut HashMap<String, String>, s: &str) -> String {
+    if let Some(c) = cache.get(s) {
+        return c.clone();
+    }
+    let c = match Block::parse(s) {
+        Ok(b) => b.to_string(),
+        Err(_) => format!("?{s}"),
+    };
+    cache.insert(s.to_string(), c.clone());
+    c
+}
+
+fn region_frame(r: &mctas::sim::Region, cache: &mut HashMap<String, String>) -> Frame {
+    r.data.iter().map(|&i| canon(cache, &r.palette[i as usize])).collect()
+}
+
+/// Run a case in the real game.
+pub fn run_bridge(w: &mut Worker, sb: u32, c: &Case) -> Result<Vec<Frame>> {
+    let mut cache = HashMap::new();
+    w.clear(sb)?;
+    if !c.blocks.is_empty() {
+        w.set_blocks(sb, &c.blocks, PlaceMode::Raw)?;
+    }
+    let wires: Vec<Pos> = c.blocks.iter().filter(|(_, s)| s.contains("redstone_wire")).map(|(p, _)| *p).collect();
+    if !wires.is_empty() {
+        w.update(sb, &wires, "shape")?;
+    }
+    let all: Vec<Pos> = c.blocks.iter().map(|(p, _)| *p).collect();
+    if !all.is_empty() {
+        w.update(sb, &all, "self")?;
+    }
+    let mut frames = vec![region_frame(&w.get_region(sb, c.lo, c.hi)?, &mut cache)];
+    for st in &c.steps {
+        match st {
+            Step::Run(n) => {
+                let r = w.step_record(sb, *n, false, c.lo, c.hi)?;
+                if r.frames.len() != *n as usize {
+                    bail!("bridge recorded {} frames for {n} ticks", r.frames.len());
+                }
+                for f in &r.frames {
+                    frames.push(region_frame(f, &mut cache));
+                }
+            }
+            Step::Use(p) => {
+                w.use_block(sb, *p)?;
+                frames.push(region_frame(&w.get_region(sb, c.lo, c.hi)?, &mut cache));
+            }
+        }
+    }
+    Ok(frames)
+}
+
+fn bp(p: Pos) -> BlockPos {
+    BlockPos::new(p[0], p[1], p[2])
+}
+
+fn sim_frame(w: &World, cells: &[Pos]) -> Frame {
+    cells.iter().map(|p| w.get(bp(*p)).to_string()).collect()
+}
+
+/// Run a case in redsim; also returns the model's own error notes.
+pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
+    let margin = 6;
+    let min = BlockPos::new(c.lo[0] - margin, c.lo[1] - margin, c.lo[2] - margin);
+    let size = [c.hi[0] - c.lo[0] + 1 + 2 * margin, c.hi[1] - c.lo[1] + 1 + 2 * margin, c.hi[2] - c.lo[2] + 1 + 2 * margin];
+    let mut w = World::new(min, size);
+    let mut blocks = Vec::new();
+    for (p, s) in &c.blocks {
+        blocks.push((bp(*p), Block::parse(s).map_err(|e| anyhow::anyhow!(e))?));
+    }
+    w.place_like_judge(&blocks);
+    let cells = c.cells();
+    let mut frames = vec![sim_frame(&w, &cells)];
+    for st in &c.steps {
+        match st {
+            Step::Run(n) => {
+                for _ in 0..*n {
+                    w.tick();
+                    frames.push(sim_frame(&w, &cells));
+                }
+            }
+            Step::Use(p) => {
+                w.use_block(bp(*p));
+                frames.push(sim_frame(&w, &cells));
+            }
+        }
+    }
+    Ok((frames, w.errors.clone()))
+}
+
+/// Where the two traces first differ: (frame index, [(cell, redsim, game)]).
+pub fn first_diff(c: &Case, sim: &[Frame], game: &[Frame]) -> Option<(usize, Vec<(Pos, String, String)>)> {
+    let cells = c.cells();
+    for (i, (a, b)) in sim.iter().zip(game.iter()).enumerate() {
+        if a != b {
+            let d = cells.iter().zip(a.iter().zip(b.iter())).filter(|(_, (x, y))| x != y).map(|(p, (x, y))| (*p, x.clone(), y.clone())).collect();
+            return Some((i, d));
+        }
+    }
+    if sim.len() != game.len() {
+        return Some((sim.len().min(game.len()), Vec::new()));
+    }
+    None
+}
+
+/// What frame `i` is: "placed", "tick k of run j", "after use x y z".
+pub fn frame_label(c: &Case, i: usize) -> String {
+    if i == 0 {
+        return "after placement".into();
+    }
+    let mut k = 1;
+    let mut t = 0;
+    for st in &c.steps {
+        match st {
+            Step::Run(n) => {
+                for j in 0..*n {
+                    t += 1;
+                    if k == i {
+                        return format!("tick {t} (run step tick {})", j + 1);
+                    }
+                    k += 1;
+                }
+            }
+            Step::Use(p) => {
+                if k == i {
+                    return format!("right after use {} {} {} (after tick {t})", p[0], p[1], p[2]);
+                }
+                k += 1;
+            }
+        }
+    }
+    format!("frame {i}")
+}
+
+// ---------------------------------------------------------------------- generator
+
+fn hdir(r: &mut Rng) -> &'static str {
+    *r.pick(&["north", "east", "south", "west"])
+}
+fn anydir(r: &mut Rng) -> &'static str {
+    *r.pick(&["north", "east", "south", "west", "up", "down"])
+}
+fn tf(r: &mut Rng, p: f64) -> &'static str {
+    if r.chance(p) { "true" } else { "false" }
+}
+
+/// Palette families and weights (`--palette core|all|<name>:w,...`).
+pub fn palette(spec: &str) -> Result<Vec<(String, u32)>> {
+    let core: &[(&str, u32)] = &[
+        ("stone", 12),
+        ("glass", 3),
+        ("simple", 3),
+        ("dust", 16),
+        ("repeater", 7),
+        ("comparator", 5),
+        ("torch", 4),
+        ("walltorch", 4),
+        ("observer", 5),
+        ("rblock", 2),
+        ("lamp", 2),
+        ("bulb", 2),
+        ("note", 2),
+        ("target", 2),
+        ("lever", 1),
+        ("button", 1),
+    ];
+    let extra: &[(&str, u32)] = &[
+        ("trapdoor", 2),
+        ("gate", 1),
+        ("skull", 1),
+        ("rail", 2),
+        ("dispenser", 2),
+        ("crafter", 1),
+        ("hopper", 1),
+        ("slab", 2),
+        ("leaves", 1),
+        ("log", 1),
+        ("analog", 2),
+        ("door", 1),
+    ];
+    let mut out: Vec<(String, u32)> = Vec::new();
+    for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+        match tok {
+            "core" => out.extend(core.iter().map(|(n, w)| (n.to_string(), *w))),
+            "extra" => out.extend(extra.iter().map(|(n, w)| (n.to_string(), *w))),
+            "all" => {
+                out.extend(core.iter().map(|(n, w)| (n.to_string(), *w)));
+                out.extend(extra.iter().map(|(n, w)| (n.to_string(), *w)));
+            }
+            t => {
+                let (n, w) = match t.split_once(':') {
+                    Some((n, w)) => (n, w.parse::<u32>().context("bad weight")?),
+                    None => (t, 1),
+                };
+                if !core.iter().chain(extra.iter()).any(|(m, _)| *m == n) {
+                    bail!("unknown palette family {n:?}");
+                }
+                out.retain(|(m, _)| m != n);
+                out.push((n.to_string(), w));
+            }
+        }
+    }
+    out.retain(|(_, w)| *w > 0);
+    if out.is_empty() {
+        bail!("empty palette");
+    }
+    Ok(out)
+}
+
+/// One random state of a family (None: the family places nothing here).
+fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
+    let st = |s: String| vec![format!("minecraft:{s}")];
+    match fam {
+        "stone" => st("stone".into()),
+        "glass" => st("glass".into()),
+        "simple" => st(r
+            .pick(&["white_wool", "oak_planks", "gold_block", "soul_sand", "slime_block", "honey_block", "waxed_copper_grate[waterlogged=false]", "glowstone", "obsidian", "smooth_stone", "packed_ice", "clay", "sea_lantern", "tinted_glass", "iron_block", "emerald_block"])
+            .to_string()),
+        "dust" => {
+            let side = |r: &mut Rng| *r.pick(&["none", "side", "side", "up"]);
+            let (n, e, s, w) = match r.below(4) {
+                0 => ("side", "side", "side", "side"),
+                1 => ("none", "none", "none", "none"),
+                _ => (side(r), side(r), side(r), side(r)),
+            };
+            let p = if r.chance(0.15) { r.range(0, 15) } else { 0 };
+            st(format!("redstone_wire[east={e},north={n},power={p},south={s},west={w}]"))
+        }
+        "repeater" => {
+            let d = r.range(1, 4);
+            st(format!("repeater[delay={d},facing={},locked={},powered={}]", hdir(r), tf(r, 0.1), tf(r, 0.15)))
+        }
+        "comparator" => st(format!("comparator[facing={},mode={},powered={}]", hdir(r), if r.chance(0.5) { "subtract" } else { "compare" }, tf(r, 0.15))),
+        "torch" => st(format!("redstone_torch[lit={}]", tf(r, 0.8))),
+        "walltorch" => st(format!("redstone_wall_torch[facing={},lit={}]", hdir(r), tf(r, 0.8))),
+        "observer" => st(format!("observer[facing={},powered={}]", anydir(r), tf(r, 0.1))),
+        "rblock" => st("redstone_block".into()),
+        "lamp" => st(format!("redstone_lamp[lit={}]", tf(r, 0.2))),
+        "bulb" => {
+            let n = *r.pick(&["waxed_copper_bulb", "waxed_exposed_copper_bulb", "waxed_weathered_copper_bulb", "waxed_oxidized_copper_bulb"]);
+            st(format!("{n}[lit={},powered={}]", tf(r, 0.3), tf(r, 0.2)))
+        }
+        "note" => st(format!("note_block[instrument=harp,note={},powered={}]", r.range(0, 24), tf(r, 0.15))),
+        "target" => st(format!("target[power={}]", if r.chance(0.1) { r.range(1, 15) } else { 0 })),
+        "lever" | "button" => {
+            let face = *r.pick(&["floor", "wall", "wall", "ceiling"]);
+            let n = if fam == "lever" { "lever" } else if r.chance(0.5) { "stone_button" } else { "oak_button" };
+            st(format!("{n}[face={face},facing={},powered={}]", hdir(r), tf(r, 0.2)))
+        }
+        "trapdoor" => st(format!(
+            "{}[facing={},half={},open={},powered={},waterlogged=false]",
+            if r.chance(0.5) { "iron_trapdoor" } else { "oak_trapdoor" },
+            hdir(r),
+            if r.chance(0.5) { "top" } else { "bottom" },
+            tf(r, 0.2),
+            tf(r, 0.15)
+        )),
+        "gate" => st(format!("oak_fence_gate[facing={},in_wall=false,open={},powered={}]", hdir(r), tf(r, 0.2), tf(r, 0.15))),
+        "skull" => {
+            if r.chance(0.5) {
+                st(format!("skeleton_skull[powered={},rotation={}]", tf(r, 0.2), r.range(0, 15)))
+            } else {
+                st(format!("skeleton_wall_skull[facing={},powered={}]", hdir(r), tf(r, 0.2)))
+            }
+        }
+        "rail" => {
+            let shape = *r.pick(&["north_south", "east_west", "north_south", "east_west", "ascending_east", "ascending_west", "ascending_north", "ascending_south"]);
+            st(format!("{}[powered={},shape={shape},waterlogged=false]", if r.chance(0.7) { "powered_rail" } else { "activator_rail" }, tf(r, 0.2)))
+        }
+        "dispenser" => st(format!("{}[facing={},triggered={}]", if r.chance(0.5) { "dispenser" } else { "dropper" }, anydir(r), tf(r, 0.15))),
+        "crafter" => st(format!("crafter[crafting=false,orientation={},triggered={}]", r.pick(&redsim::block::ORIENTATIONS), tf(r, 0.15))),
+        "hopper" => st(format!("hopper[enabled={},facing={}]", tf(r, 0.8), r.pick(&["down", "north", "east", "south", "west"]))),
+        "slab" => st(format!("smooth_stone_slab[type={},waterlogged=false]", r.pick(&["bottom", "top", "top", "double"]))),
+        "leaves" => st(format!("oak_leaves[distance={},persistent=true,waterlogged=false]", r.range(1, 7))),
+        "log" => st(format!("oak_log[axis={}]", r.pick(&["x", "y", "z"]))),
+        "analog" => match r.below(4) {
+            0 => st(format!("cake[bites={}]", r.range(0, 6))),
+            1 => st(format!("end_portal_frame[eye={},facing={}]", tf(r, 0.5), hdir(r))),
+            2 => st(format!("composter[level={}]", r.range(0, 8))),
+            _ => st(format!("respawn_anchor[charges={}]", r.range(0, 4))),
+        },
+        "door" => {
+            let iron = if r.chance(0.5) { "iron_door" } else { "oak_door" };
+            let (f, h, o, p) = (hdir(r), if r.chance(0.5) { "left" } else { "right" }, tf(r, 0.2), tf(r, 0.15));
+            vec![
+                format!("minecraft:{iron}[facing={f},half=lower,hinge={h},open={o},powered={p}]"),
+                format!("minecraft:{iron}[facing={f},half=upper,hinge={h},open={o},powered={p}]"),
+            ]
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// A random case: a box of random components, 1-2 input levers on solid blocks, flips.
+pub fn random_case(r: &mut Rng, pal: &[(String, u32)], size: [i32; 3], density: f64) -> Case {
+    let total: u32 = pal.iter().map(|(_, w)| *w).sum();
+    let ox = r.range(-14, 15 - size[0]);
+    let oz = r.range(-14, 15 - size[2]);
+    let oy = r.range(0, 3);
+    let lo = [ox, oy, oz];
+    let hi = [ox + size[0] - 1, oy + size[1] - 1, oz + size[2] - 1];
+    let mut grid: HashMap<Pos, String> = HashMap::new();
+    let mut order: Vec<Pos> = Vec::new();
+    for y in lo[1]..=hi[1] {
+        for z in lo[2]..=hi[2] {
+            for x in lo[0]..=hi[0] {
+                let p = [x, y, z];
+                if grid.contains_key(&p) || !r.chance(density) {
+                    continue;
+                }
+                let mut k = r.below(total as u64) as u32;
+                let mut fam = pal[0].0.as_str();
+                for (n, w) in pal {
+                    if k < *w {
+                        fam = n;
+                        break;
+                    }
+                    k -= w;
+                }
+                let states = random_state(r, fam);
+                if states.len() == 2 {
+                    let up = [x, y + 1, z];
+                    if y + 1 > hi[1] || grid.contains_key(&up) {
+                        continue;
+                    }
+                    grid.insert(p, states[0].clone());
+                    grid.insert(up, states[1].clone());
+                    order.push(p);
+                    order.push(up);
+                } else if let Some(s) = states.into_iter().next() {
+                    grid.insert(p, s);
+                    order.push(p);
+                }
+            }
+        }
+    }
+    // Input levers: on a stone block's face, in an empty cell of the box.
+    let mut inputs = Vec::new();
+    let n_inputs = r.range(1, 2);
+    for _ in 0..40 {
+        if inputs.len() >= n_inputs as usize {
+            break;
+        }
+        let p = [r.range(lo[0], hi[0]), r.range(lo[1], hi[1]), r.range(lo[2], hi[2])];
+        if grid.contains_key(&p) {
+            continue;
+        }
+        let faces: [(&str, &str, Pos); 6] = [
+            ("floor", "north", [0, -1, 0]),
+            ("ceiling", "north", [0, 1, 0]),
+            ("wall", "south", [0, 0, -1]),
+            ("wall", "north", [0, 0, 1]),
+            ("wall", "east", [-1, 0, 0]),
+            ("wall", "west", [1, 0, 0]),
+        ];
+        let (face, facing, off) = *r.pick(&faces);
+        let sup = [p[0] + off[0], p[1] + off[1], p[2] + off[2]];
+        let ok = match grid.get(&sup) {
+            Some(s) => s == "minecraft:stone",
+            None => {
+                // put a stone there if the cell is free and inside the box
+                if (0..3).all(|i| sup[i] >= lo[i] && sup[i] <= hi[i]) {
+                    grid.insert(sup, "minecraft:stone".into());
+                    order.push(sup);
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+        if !ok {
+            continue;
+        }
+        let facing = if face == "floor" || face == "ceiling" { hdir(r) } else { facing };
+        grid.insert(p, format!("minecraft:lever[face={face},facing={facing},powered=false]"));
+        order.push(p);
+        inputs.push(p);
+    }
+    let blocks: Vec<(Pos, String)> = order.iter().map(|p| (*p, grid[p].clone())).collect();
+    let mut steps = vec![Step::Run(r.range(10, 30) as u32)];
+    let flips = r.range(2, 5);
+    for _ in 0..flips {
+        if inputs.is_empty() {
+            break;
+        }
+        steps.push(Step::Use(*r.pick(&inputs)));
+        steps.push(Step::Run(r.range(1, 24) as u32));
+    }
+    steps.push(Step::Run(16));
+    Case { blocks, steps, lo: [lo[0] - 1, lo[1] - 1, lo[2] - 1], hi: [hi[0] + 1, hi[1] + 1, hi[2] + 1] }
+}
+
+// ---------------------------------------------------------------------- driver
+
+pub struct Outcome {
+    pub diff: Option<(usize, Vec<(Pos, String, String)>)>,
+    pub sim_errors: Vec<String>,
+}
+
+pub fn check(w: &mut Worker, sb: u32, c: &Case) -> Result<Outcome> {
+    let game = run_bridge(w, sb, c)?;
+    let (sim, sim_errors) = run_sim(c)?;
+    Ok(Outcome { diff: first_diff(c, &sim, &game), sim_errors })
+}
+
+/// Greedy shrink: drop blocks, then steps, while the case still mismatches.
+pub fn shrink(w: &mut Worker, sb: u32, mut c: Case) -> Result<Case> {
+    loop {
+        let mut better = false;
+        let mut i = c.blocks.len();
+        while i > 0 {
+            i -= 1;
+            let mut t = c.clone();
+            let (p, _) = t.blocks.remove(i);
+            t.steps.retain(|s| *s != Step::Use(p));
+            if check(w, sb, &t)?.diff.is_some() {
+                c = t;
+                better = true;
+            }
+        }
+        let mut j = c.steps.len();
+        while j > 0 {
+            j -= 1;
+            let mut t = c.clone();
+            match t.steps[j] {
+                Step::Run(n) if n > 1 => t.steps[j] = Step::Run(n / 2),
+                _ => {
+                    t.steps.remove(j);
+                }
+            }
+            if check(w, sb, &t)?.diff.is_some() {
+                c = t;
+                better = true;
+            }
+        }
+        if !better {
+            break;
+        }
+    }
+    // tighten the box to the remaining blocks + 1
+    if !c.blocks.is_empty() {
+        let mut lo = [i32::MAX; 3];
+        let mut hi = [i32::MIN; 3];
+        for (p, _) in &c.blocks {
+            for k in 0..3 {
+                lo[k] = lo[k].min(p[k] - 1);
+                hi[k] = hi[k].max(p[k] + 1);
+            }
+        }
+        let mut t = c.clone();
+        t.lo = lo;
+        t.hi = hi;
+        if check(w, sb, &t)?.diff.is_some() {
+            c = t;
+        }
+    }
+    Ok(c)
+}
+
+pub struct FuzzOptions {
+    pub n: usize,
+    pub seed: u64,
+    pub size: [i32; 3],
+    pub density: f64,
+    pub palette: Vec<(String, u32)>,
+    pub out: std::path::PathBuf,
+    pub shrink: bool,
+    pub max_report: usize,
+}
+
+/// Run `n` random cases; returns (cases, mismatches).
+pub fn fuzz(pool: &Pool, o: &FuzzOptions, log: &dyn Fn(&str)) -> Result<(usize, usize)> {
+    std::fs::create_dir_all(&o.out)?;
+    let sandboxes: Vec<Mutex<Option<u32>>> = (0..pool.len()).map(|_| Mutex::new(None)).collect();
+    let sb_for = |w: &mut Worker, wi: usize| -> Result<u32> {
+        let mut s = sandboxes[wi].lock().unwrap();
+        if let Some(sb) = *s {
+            return Ok(sb);
+        }
+        let sb = w.create(&SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+        *s = Some(sb);
+        Ok(sb)
+    };
+    let mut rng = Rng::new(o.seed);
+    let cases: Vec<(usize, Case)> = (0..o.n).map(|i| (i, random_case(&mut rng, &o.palette, o.size, o.density))).collect();
+    let t0 = std::time::Instant::now();
+    let results = pool.map(cases, |w, wi, (i, c)| {
+        let sb = sb_for(w, wi)?;
+        let out = check(w, sb, &c)?;
+        Ok((i, c, out))
+    });
+    let mut bad: Vec<(usize, Case, usize, Vec<(Pos, String, String)>)> = Vec::new();
+    let mut errors = 0;
+    let mut sim_err_cases = 0;
+    for r in results {
+        match r {
+            Ok((i, c, out)) => {
+                if !out.sim_errors.is_empty() {
+                    sim_err_cases += 1;
+                }
+                if let Some((f, d)) = out.diff {
+                    bad.push((i, c, f, d));
+                }
+            }
+            Err(e) => {
+                if errors < 3 {
+                    log(&format!("error: {e:#}"));
+                }
+                errors += 1;
+            }
+        }
+    }
+    log(&format!(
+        "{} cases in {:.1}s: {} mismatches ({:.3}%), {errors} errors, {sim_err_cases} with model notes",
+        o.n,
+        t0.elapsed().as_secs_f64(),
+        bad.len(),
+        100.0 * bad.len() as f64 / o.n.max(1) as f64
+    ));
+    // group by the first mismatching game state's block name
+    let mut by: HashMap<String, usize> = HashMap::new();
+    for (_, _, _, d) in &bad {
+        let k = d.first().map(|(_, _, g)| g.split('[').next().unwrap_or("").to_string()).unwrap_or_default();
+        *by.entry(k).or_default() += 1;
+    }
+    let mut byv: Vec<_> = by.into_iter().collect();
+    byv.sort_by(|a, b| b.1.cmp(&a.1));
+    for (k, n) in &byv {
+        log(&format!("  {n:6} first mismatch at a {k}"));
+    }
+    if o.shrink && !bad.is_empty() {
+        let mut w = pool.worker(0);
+        let sb = sb_for(&mut w, 0)?;
+        for (i, c, f, d) in bad.iter().take(o.max_report) {
+            let small = shrink(&mut w, sb, c.clone())?;
+            let out = check(&mut w, sb, &small)?;
+            let path = o.out.join(format!("case-{}-{i}.txt", o.seed));
+            let mut text = format!("# redsim-fuzz seed {} case {i}: first mismatch {} ({} cells)\n", o.seed, frame_label(c, *f), d.len());
+            if let Some((f2, d2)) = &out.diff {
+                let _ = writeln!(text, "# shrunk: first mismatch {}", frame_label(&small, *f2));
+                for (p, s, g) in d2.iter().take(6) {
+                    let _ = writeln!(text, "#   {} {} {}: redsim {s} / game {g}", p[0], p[1], p[2]);
+                }
+            }
+            text.push_str(&small.to_text());
+            std::fs::write(&path, &text)?;
+            log(&format!("  shrunk case {i}: {} blocks -> {}", c.blocks.len(), path.display()));
+        }
+    }
+    Ok((o.n, bad.len()))
+}
+
+/// Replay one case file on both sides and print every differing frame (up to `max`).
+pub fn replay(w: &mut Worker, path: &Path, max: usize) -> Result<bool> {
+    let c = Case::parse(&std::fs::read_to_string(path)?)?;
+    let sb = w.create(&SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+    let game = run_bridge(w, sb, &c)?;
+    let (sim, errs) = run_sim(&c)?;
+    for e in &errs {
+        println!("model note: {e}");
+    }
+    let cells = c.cells();
+    let mut shown = 0;
+    for (i, (a, b)) in sim.iter().zip(game.iter()).enumerate() {
+        if a != b {
+            println!("frame {i} ({}):", frame_label(&c, i));
+            for (p, (x, y)) in cells.iter().zip(a.iter().zip(b.iter())) {
+                if x != y {
+                    println!("  {} {} {}: redsim {x}\n            game   {y}", p[0], p[1], p[2]);
+                }
+            }
+            shown += 1;
+            if shown >= max {
+                break;
+            }
+        }
+    }
+    if shown == 0 {
+        println!("identical ({} frames)", sim.len());
+    }
+    Ok(shown == 0)
+}
+
+/// The fixture text of a case: the case plus the game's trace (frame 0 in full, then the cells
+/// that changed per frame), for `crates/redsim/tests/fixtures.rs`.
+pub fn fixture(w: &mut Worker, c: &Case, note: &str) -> Result<String> {
+    let sb = w.create(&SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+    let game = run_bridge(w, sb, c)?;
+    let cells = c.cells();
+    let mut s = String::new();
+    for l in note.lines() {
+        let _ = writeln!(s, "# {l}");
+    }
+    s.push_str(&c.to_text());
+    let air = "minecraft:air".to_string();
+    let mut prev: Vec<String> = vec![air; cells.len()];
+    for (i, f) in game.iter().enumerate() {
+        let _ = writeln!(s, "frame {i}");
+        for (k, st) in f.iter().enumerate() {
+            if *st != prev[k] {
+                let p = cells[k];
+                let _ = writeln!(s, "cell {} {} {} {st}", p[0], p[1], p[2]);
+            }
+        }
+        prev = f.clone();
+    }
+    Ok(s)
+}
