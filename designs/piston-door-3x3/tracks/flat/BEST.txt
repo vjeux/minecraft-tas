@@ -32,8 +32,8 @@ layer 3:
 layer 4:
   ABB..rsooAB
 layer 5:
-  A...GAs.AL
+  ooooAAs.AL
 layer 6:
-  ooooRC..AO
+  ....RC..AO
 layer 7:
   ....GooooO
