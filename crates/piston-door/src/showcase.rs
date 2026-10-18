@@ -230,6 +230,8 @@ pub fn archived(version: &str, dir: &Path, workers: usize) -> Result<Vec<Archive
 pub struct Board {
     pub title: &'static str,
     pub rule: &'static str,
+    /// Name of its record progression (`door montage --board <key>`), if it has one.
+    pub key: Option<&'static str>,
     pub best: Archived,
 }
 
@@ -237,33 +239,64 @@ fn total_ticks(a: &Archived) -> u32 {
     a.facts.open_ticks.unwrap_or(999) + a.facts.close_ticks.unwrap_or(999)
 }
 
+/// The block-count boards: key, title, rule, membership.
+pub const BLOCK_BOARDS: [(&str, &str, &str, fn(&Facts) -> bool); 4] = [
+    ("solid", "Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", |f| f.category == "solid"),
+    ("slime-free", "Solid, no slime or honey", "not a single slime or honey block anywhere", |f| f.category == "solid" && f.slime_free),
+    ("sculk", "Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", |f| f.category == "sculk"),
+    ("gravity", "Gravity", "the 9 door blocks are sand, gravel or concrete powder", |f| f.category == "gravity"),
+];
+
 /// The best design of each board: solid, slime-free, sculk, gravity (fewest blocks; ties go to
 /// a design of the record progression, then the faster one, then by name) and fastest solid
 /// (fewest open + close ticks, ties by blocks).
 pub fn boards(all: &[Archived], records: &HashMap<String, String>) -> Vec<Board> {
-    let by_blocks = |keep: &dyn Fn(&Archived) -> bool| -> Option<Archived> {
-        all.iter()
-            .filter(|a| keep(a))
-            .min_by_key(|a| (a.facts.blocks, !records.contains_key(&a.stem), total_ticks(a), a.stem.clone()))
-            .cloned()
-    };
     let mut out = Vec::new();
-    let mut push = |title, rule, best: Option<Archived>| {
+    for (key, title, rule, keep) in BLOCK_BOARDS {
+        let best = all
+            .iter()
+            .filter(|a| keep(&a.facts))
+            .min_by_key(|a| (a.facts.blocks, !records.contains_key(&a.stem), total_ticks(a), a.stem.clone()))
+            .cloned();
         if let Some(best) = best {
-            out.push(Board { title, rule, best });
+            out.push(Board { title, rule, key: Some(key), best });
         }
-    };
-    push("Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", by_blocks(&|a| a.facts.category == "solid"));
-    push("Solid, no slime or honey", "not a single slime or honey block anywhere", by_blocks(&|a| a.facts.category == "solid" && a.facts.slime_free));
-    push("Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", by_blocks(&|a| a.facts.category == "sculk"));
-    push("Gravity", "the 9 door blocks are sand, gravel or concrete powder", by_blocks(&|a| a.facts.category == "gravity"));
+    }
     let fastest = all
         .iter()
         .filter(|a| a.facts.category == "solid" && a.facts.open_ticks.is_some())
         .min_by_key(|a| (total_ticks(a), a.facts.blocks, a.stem.clone()))
         .cloned();
-    push("Fastest solid", "fewest game ticks to open plus close (worst cycle), ties by blocks", fastest);
+    if let Some(best) = fastest {
+        out.push(Board { title: "Fastest solid", rule: "fewest game ticks to open plus close (worst cycle), ties by blocks", key: None, best });
+    }
     out
+}
+
+/// "YYYY-MM-DD HH:MMZ" from an archive file's "# archived ..." header line ("" if none).
+fn archived_at(path: &Path) -> String {
+    let Ok(text) = std::fs::read_to_string(path) else { return String::new() };
+    text.lines()
+        .take(4)
+        .find_map(|l| l.strip_prefix("# archived ").map(|r| r.split(" from ").next().unwrap_or("").to_string()))
+        .unwrap_or_default()
+}
+
+/// The records of a board in archive order: every design that has fewer blocks than all the
+/// designs of the board archived before it (designs archived together: largest first).
+pub fn timeline_progression(all: &[Archived], keep: fn(&Facts) -> bool, caps: &HashMap<String, String>) -> Vec<(usize, String, String)> {
+    let mut list: Vec<(String, usize, &Archived)> = all.iter().filter(|a| keep(&a.facts)).map(|a| (archived_at(&a.path), a.facts.blocks, a)).collect();
+    list.sort_by(|a, b| (&a.0, std::cmp::Reverse(a.1), &a.2.stem).cmp(&(&b.0, std::cmp::Reverse(b.1), &b.2.stem)));
+    let mut rows = Vec::new();
+    let mut best = usize::MAX;
+    for (_, blocks, a) in list {
+        if blocks < best {
+            best = blocks;
+            let how = caps.get(&a.stem).cloned().or_else(|| track_of(&a.path).map(|t| format!("agent {t}"))).unwrap_or_default();
+            rows.push((blocks, a.stem.clone(), how));
+        }
+    }
+    rows
 }
 
 // ---- captions -------------------------------------------------------------------------------
@@ -437,6 +470,7 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
         }
     }
     let tag = o.upload.clone().unwrap_or_else(|| "videos".into());
+    let assets = release_assets(&tag);
     // The page.
     let rel = |p: &Path| -> String {
         let base = o.out.parent().unwrap_or(Path::new("."));
@@ -475,10 +509,28 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
             asset_url(&tag, &format!("{}.mp4", a.stem)),
             sentence(&how)
         ));
+        if let Some(k) = b.key.filter(|k| *k != "solid" && assets.contains(&format!("{k}-progression.mp4"))) {
+            md.push_str(&format!(
+                "Every record of this board in one video: [{k}-progression.mp4]({}) ([poster]({})).\n\n",
+                asset_url(&tag, &format!("{k}-progression.mp4")),
+                asset_url(&tag, &format!("{k}-progression.jpg"))
+            ));
+        }
     }
     std::fs::write(&o.out, md)?;
     eprintln!("wrote {}", o.out.display());
     Ok(())
+}
+
+/// Names of the assets of a release of the repository (empty when `gh` cannot tell).
+fn release_assets(tag: &str) -> std::collections::HashSet<String> {
+    Command::new("gh")
+        .args(["release", "view", tag, "--repo", REPO, "--json", "assets", "--jq", ".assets[].name"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).lines().map(|l| l.trim().to_string()).collect())
+        .unwrap_or_default()
 }
 
 // ---- montage --------------------------------------------------------------------------------
@@ -486,9 +538,9 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
 pub const MONTAGE_ASSET: &str = "solid-progression.mp4";
 pub const POSTER_ASSET: &str = "solid-progression.jpg";
 
-/// A poster of the progression: one frame of each clip (`at` seconds in, the door open) in a
+/// A poster of a progression: one frame of each clip (`at` seconds in, the door open) in a
 /// grid, labeled with its block count, under a title.
-fn poster(look: &Look, clips: &Path, rows: &[(usize, String, String)], out: &Path, at: f64) -> Result<()> {
+fn poster(look: &Look, clips: &Path, rows: &[(usize, String, String)], out: &Path, at: f64, board_title: &str) -> Result<()> {
     let n = rows.len().max(1);
     let cols = ((n as f64).sqrt().ceil() as usize).max(1);
     let grid_rows = n.div_ceil(cols);
@@ -498,8 +550,11 @@ fn poster(look: &Look, clips: &Path, rows: &[(usize, String, String)], out: &Pat
     let mut img = Image::new(w, header + th * grid_rows as u32, [0, 0, 0, 255]);
     img.tile(&look.dirt, 4, 0.25);
     let (first, last) = (rows.first().map(|r| r.0).unwrap_or(0), rows.last().map(|r| r.0).unwrap_or(0));
-    look.font.draw_centered(&mut img, w as i64 / 2, 12, &format!("The smallest 3x3 piston door: {first} -> {last} blocks"), 4, YELLOW, true);
-    look.font.draw_centered(&mut img, w as i64 / 2, 54, &format!("every solid record of one night of agents, same camera, door open ({} records)", rows.len()), 2, GRAY, true);
+    let title = format!("The smallest 3x3 piston door: {first} -> {last} blocks");
+    let scale = if look.font.width(&title, 4) + 40 <= w { 4 } else { 3 };
+    look.font.draw_centered(&mut img, w as i64 / 2, 12, &title, scale, YELLOW, true);
+    let sub = format!("{}: every record of one night of agents, same camera, door open ({} records)", board_title.to_lowercase(), rows.len());
+    look.font.draw_centered(&mut img, w as i64 / 2, 54, &sub, 2, GRAY, true);
     for (i, (blocks, stem, _)) in rows.iter().enumerate() {
         let frame = clips.join(format!("{stem}.poster.png"));
         ffmpeg_run(&[
@@ -545,6 +600,9 @@ pub struct MontageOptions {
     /// Playback speed of the clips (2 = real game speed: clips are recorded at 10 ticks/s).
     pub speed: f64,
     pub redo: bool,
+    /// Which board: solid (the archive README's curated progression), slime-free, sculk or
+    /// gravity (records in archive order).
+    pub board: String,
 }
 
 /// One camera for every clip: the door shot of all designs together (each moved so its door
@@ -566,18 +624,22 @@ fn montage_shot(designs: &[&Design], aspect: f64) -> Result<(Shot, i32)> {
 pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     let all = archived(version, &o.archive, o.workers)?;
     let caps = captions(&o.archive);
-    let mut rows = progression(&o.archive);
-    // A newer record than the README's last row joins at the end.
+    let Some(&(board, board_title, board_rule, keep)) = BLOCK_BOARDS.iter().find(|b| b.0 == o.board) else {
+        bail!("unknown --board {} (solid, slime-free, sculk, gravity)", o.board);
+    };
+    let mut rows = if board == "solid" { progression(&o.archive) } else { timeline_progression(&all, keep, &caps) };
+    // A newer record than the last row joins at the end.
     let records: HashMap<String, String> = rows.iter().map(|(_, s, h)| (s.clone(), h.clone())).collect();
-    if let Some(best) = boards(&all, &records).into_iter().find(|b| b.title.starts_with("Solid (")) {
+    if let Some(best) = boards(&all, &records).into_iter().find(|b| b.key == Some(board)) {
         if rows.last().is_none_or(|r| best.best.facts.blocks < r.0) {
             let how = caps.get(&best.best.stem).cloned().unwrap_or_else(|| "the current record".into());
             rows.push((best.best.facts.blocks, best.best.stem.clone(), how));
         }
     }
     if rows.is_empty() {
-        bail!("no record progression found in {}/README.md", o.archive.display());
+        bail!("no record progression found for board {board}");
     }
+    let asset = format!("{board}-progression.mp4");
     let designs: Vec<Design> = rows.iter().map(|(_, s, _)| Design::load(&o.archive.join(format!("{s}.txt")))).collect::<Result<_>>()?;
     let base = VideoOptions::clean(0.0);
     let aspect = base.width as f64 / base.height as f64;
@@ -605,11 +667,11 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     }
     // Segments: intro card, each clip sped up with its label, outro card; same encoding.
     let look = Look::load(version)?;
-    let poster_path = o.out.with_file_name(POSTER_ASSET);
-    poster(&look, &clips, &rows, &poster_path, 6.0)?;
+    let poster_path = o.out.with_file_name(asset.replace(".mp4", ".jpg"));
+    poster(&look, &clips, &rows, &poster_path, 6.0, board_title)?;
     eprintln!("poster {} ({} KB)", poster_path.display(), std::fs::metadata(&poster_path)?.len() / 1024);
     let (w, h, fps) = (base.width, base.height, base.fps);
-    let seg_dir = o.videos.join("segments");
+    let seg_dir = o.videos.join(format!("segments-{board}"));
     std::fs::create_dir_all(&seg_dir)?;
     let enc = |args: &mut Vec<String>, out: &Path| {
         args.extend(["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-r", &fps.to_string(), "-video_track_timescale", "15360"].map(String::from));
@@ -630,11 +692,12 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     let mut segments = vec![still(
         &look.card(w, h, &[
             ("The smallest 3x3 piston door".into(), 5, YELLOW),
+            (format!("board: {}", board_title.to_lowercase()), 3, AQUA),
             ("".into(), 2, WHITE),
             (format!("{first} -> {last} blocks"), 10, WHITE),
             ("".into(), 2, WHITE),
             (format!("{} records in one night of agents", rows.len()), 3, GRAY),
-            ("category solid: 9 identical plain door blocks".into(), 2, GRAY),
+            (sentence(board_rule), 2, GRAY),
             ("same camera for every door, played at game speed".into(), 2, GRAY),
         ]),
         4.0,
@@ -643,7 +706,7 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     for (i, (blocks, stem, how)) in rows.iter().enumerate() {
         let clip = clips.join(format!("{stem}.mp4"));
         let label = seg_dir.join(format!("{i:02}-{stem}.label.png"));
-        let delta = if i == 0 { "first valid design".to_string() } else { format!("-{} blocks", rows[i - 1].0 - blocks) };
+        let delta = if i == 0 { "first on this board".to_string() } else { format!("-{} blocks", rows[i - 1].0 - blocks) };
         let mut overlay = Image::new(w, h, [0, 0, 0, 0]);
         look.draw_box(&mut overlay, &[(format!("{blocks} blocks"), 6, YELLOW), (format!("{delta}  ({}/{})", i + 1, rows.len()), 2, GREEN)], false, 0.5, false);
         look.draw_box(&mut overlay, &[(sentence(how), 2, WHITE), (stem.clone(), 2, GRAY)], true, 1.0, true);
@@ -683,7 +746,7 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
     ffmpeg_run(&args)?;
     eprintln!("montage {} ({:.0}s, {} KB)", o.out.display(), duration(&o.out)?, std::fs::metadata(&o.out)?.len() / 1024);
     if let Some(tag) = &o.upload {
-        let named = o.out.with_file_name(MONTAGE_ASSET);
+        let named = o.out.with_file_name(&asset);
         if named != o.out {
             std::fs::copy(&o.out, &named)?;
         }
