@@ -1191,6 +1191,9 @@ fn reroutes(ctx: &Ctx, d: &Design, space: &Space) -> (Vec<Edit>, Vec<Edit>) {
 pub(crate) fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<()> {
     use anyhow::bail;
     use mctas::sim::{PlaceMode, Region};
+    if let Some(t) = &opts.tile {
+        return crate::tile::verify_tiled_in(w, sb, design, t, opts).map(|_| ());
+    }
     let illegal = crate::legality_problems(design);
     if !illegal.is_empty() {
         bail!("illegal design: {}", illegal.join("; "));

@@ -40,6 +40,7 @@ pub mod search;
 pub mod showcase;
 pub mod synth;
 pub mod tickvideo;
+pub mod tile;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;
@@ -191,6 +192,9 @@ pub struct VerifyOptions {
     /// levers...). vjeux's rule since 2026-10-18 16:40Z; designs judged before keep their cached
     /// verdicts for now.
     pub empty_walkway: bool,
+    /// Judge the design as a tile module instead ([`tile`]): copies of it side by side or
+    /// stacked, one lever, every check on every opening. `None` = the single door (the judge).
+    pub tile: Option<tile::Tile>,
 }
 
 impl Default for VerifyOptions {
@@ -201,6 +205,7 @@ impl Default for VerifyOptions {
             offsets: vec![[0, 0, 0], [-7, 3, 5], [5, -11, -6], [-3, 40, 2]],
             keep_frames: false,
             empty_walkway: true,
+            tile: None,
         }
     }
 }
@@ -232,6 +237,9 @@ pub struct Report {
 
 /// Verdict: Ok(report) when the door works everywhere, Err(reason) otherwise.
 pub fn verify(w: &mut Worker, design: &Design, opts: &VerifyOptions) -> Result<Report> {
+    if let Some(t) = &opts.tile {
+        return tile::verify_tiled(w, design, t, opts).map(|(r, _, _)| r);
+    }
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let r = verify_in(w, sb, design, opts);
     let _ = w.drop_sandbox(sb);
@@ -349,6 +357,9 @@ impl BlockStateLite {
 
 /// [`verify`] in an existing sandbox (it is cleared first; reuse saves creating levels).
 pub fn verify_in(w: &mut Worker, sb: u32, design: &Design, opts: &VerifyOptions) -> Result<Report> {
+    if let Some(t) = &opts.tile {
+        return tile::verify_tiled_in(w, sb, design, t, opts).map(|(r, _)| r);
+    }
     let spec = DoorSpec::from_design(design)?;
     verify_in_spec(w, sb, design, spec, opts)
 }
