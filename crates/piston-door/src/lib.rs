@@ -26,6 +26,7 @@ pub mod leaderboard;
 pub mod designs_gravity;
 pub mod lm;
 pub mod drive;
+pub mod harvest;
 pub mod ideal;
 pub mod route;
 pub mod minimize;
