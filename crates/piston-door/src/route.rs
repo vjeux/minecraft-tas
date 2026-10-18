@@ -41,12 +41,16 @@ impl Router<'_> {
     fn free(&self, p: Pos, placed: &HashSet<Pos>) -> bool {
         (0..3).all(|i| p[i] >= self.lo[i] && p[i] <= self.hi[i]) && !self.blocks.contains_key(&p) && !self.reserved.contains(&p) && !placed.contains(&p)
     }
-    /// A new block at `p` must not touch components (anything but plain floors) unless allowed.
+    /// A new block at `p` must not touch components (anything but plain floors) unless allowed,
+    /// nor the cell above a piston (a powered block there quasi-connects the piston).
     fn clean(&self, p: Pos, path_dust: &HashSet<Pos>) -> bool {
         FACES.iter().all(|f| {
             let n = add(p, *f);
             if self.allow.contains(&n) || path_dust.contains(&n) {
                 return true;
+            }
+            if n != p && matches!(self.name(add(n, [0, -1, 0])).as_deref(), Some("piston" | "sticky_piston")) && !self.allow.contains(&add(n, [0, -1, 0])) {
+                return false;
             }
             match self.name(n) {
                 None => true,

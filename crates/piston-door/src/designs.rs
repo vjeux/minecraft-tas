@@ -278,8 +278,15 @@ pub fn v2() -> Design {
     b.repeater([4, 4, 3], "west", 4);
     b.dust([3, 4, 3]); // joins the P_T net
     // A late: the P_T net through a repeater, routed to the repeater into the A torch attachment.
+    // Two repeaters: a powered block or a dust floor at (1,4,3)/(1,3,3) would power P_T.
     b.repeater([2, 4, 3], "west", 1);
-    // @AL4
+    b.repeater([1, 4, 3], "west", 1);
+    for (p, s) in [
+        ([0, 3, 3], FLOOR), ([0, 4, 3], "redstone_wire"), ([-1, 2, 3], FLOOR), ([-1, 3, 3], "redstone_wire"),
+        ([-1, 3, 2], FLOOR), ([-1, 4, 2], "redstone_wire"),
+    ] {
+        b.set(p, s);
+    }
     b.repeater([-1, 4, 1], "north", 2);
     b.d
 }
