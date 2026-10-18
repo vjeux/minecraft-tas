@@ -1,0 +1,22 @@
+# R3 is placed and moved away inside tick 1's block-event phase: the lamp is lit at ticks 1..4,
+# the repeater on at 3..4 (stretched to its 2 gt delay), the comparator never.
+design designs/gadgets/zero-tick-pulse.txt
+probe T -1 1 0
+probe R3 -1 0 -2
+probe Q 0 1 -2
+probe C -1 1 -3
+probe L -2 1 -2
+setblock 0 3 -1 minecraft:redstone_block
+setblock -1 4 -2 minecraft:redstone_block
+setblock 0 1 0 minecraft:redstone_block
+expect_trace L 11
+expect Q 0
+expect C 0
+expect_trace Q 11
+expect L 1
+expect C 0
+expect R3 R
+expect_trace L 0
+expect Q 0
+expect C 0
+expect T r

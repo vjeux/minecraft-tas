@@ -94,6 +94,7 @@ keep the fixed W,E,D,U,N,S order and the position-dependent dust order.
 | power GAIN without a moved source: a conductor pushed (or pulled) off a dust step connects the step at once | `RedstoneWireBlock` 150 (`canConnectUp = !above.isRedstoneConductor`) | `instant-on` | PASS |
 | power GAIN from a placed source: a redstone block finalTick'd by a sticky retract powers its neighbors in the block-event phase (their events run in the same phase) | 180-190 + `finalTick` 276 | `zero-tick-onplace` (a piston instead of a redstone block), `spit-saves-tick` | PASS |
 | an observer SEES a 0-tick (the cell changed twice inside the phase): one pulse 2 gt later | `ObserverBlock.updateShape` 67-68 | `zero-tick-observer` | PASS |
+| a 0-tick POWER pulse (source placed and removed inside one phase): lamp lit 0..4 gt, repeater stretches it to its delay (on 2 gt later), comparator swallows it; a piston next to the source moves only if its event is queued before the one that removes the source (it is then 0-ticked itself) | `DiodeBlock.tick` 50-63, `ComparatorBlock` 145-146, `RedstoneLampBlock` 36 | `zero-tick-pulse` | PASS |
 | event order = update order (W,E,D,U,N,S), FIFO; a piston whose front became a moving block meanwhile does nothing | `runBlockEvents` 1270-1271, `moveBlocks` returns false | `event-order` | PASS |
 | a powered piston carried onto a powered spot by a LANDING fires next tick (landing is in the block-entity phase) | `onPlace` | `landing-fire` (existing) | (vanilla-check of doors) |
 | a quasi-powered piston ignores its source until any neighbor update (BUD); arming one silently is how 0-tick partners wait | `getNeighborSignal` 116-136 | `qc-bud`, `silent-hold` (existing), every 0-tick gadget | PASS |
@@ -127,8 +128,8 @@ next to the quasi cell (its updates reach only its own neighbors).
 | stone / wood button | click -> on, then off | on 0, off +20 / +30 | scheduled | `ButtonBlock` 97 | `button-pulse` |
 | pressure plate | entity -> on, off | +20 (weighted +10) re-check | scheduled | `BasePressurePlateBlock` 116 | - |
 | redstone dust | any change | 0 | where the change happens | updates 2 cells deep, `HashSet` order | `instant-off`, `dust-reach` |
-| repeater | input change | 2 x delay | scheduled; EXTREMELY_HIGH if it feeds another diode, VERY_HIGH when turning off, HIGH when turning on | a pulse shorter than the delay is stretched to it; locking is instant (side input) | `pulse-stretch`, `repeater-lock`, `early-window` |
-| comparator | input change | 2 | scheduled; HIGH if it feeds a diode, else NORMAL | output recomputed in its tick: a change undone before then is swallowed | - |
+| repeater | input change | 2 x delay | scheduled; EXTREMELY_HIGH if it feeds another diode, VERY_HIGH when turning off, HIGH when turning on | a pulse shorter than the delay, even a 0-tick one, is stretched to it; locking is instant (side input) | `pulse-stretch`, `zero-tick-pulse`, `repeater-lock`, `early-window` |
+| comparator | input change | 2 | scheduled; HIGH if it feeds a diode, else NORMAL | output recomputed in its tick: a change undone before then (a 0-tick pulse) is swallowed | `zero-tick-pulse` |
 | redstone torch | input change | 2 | scheduled | burnout: 8 toggles in 60 gt -> off 160 gt (`RedstoneTorchBlock` 74, 87) | - |
 | observer | shape update from its face | on +2, off +2 more | scheduled | ignores changes while powered; sees 0-ticks | `observer-delay`, `zero-tick-observer`, `odd-observer` |
 | redstone lamp | power | on 0, off +4 | off scheduled | visible to observers | `lamp-fall-delay` |
@@ -151,7 +152,8 @@ this study uses game ticks throughout.
   update a silently armed partner that moves its power source away (`zero-tick`; the speed
   doors' "F 0-ticks" is the same pattern with landed redstone blocks). Variants: `-normal`,
   `-reach`, `-onplace`, `double-move`.
-* **0 gt power edges**: `instant-off` (moved source), `instant-on` (conductor off a dust step).
+* **0 gt power edges**: `instant-off` (moved source), `instant-on` (conductor off a dust step);
+  **0 gt power pulse**: `zero-tick-pulse` (a redstone block placed and shoved away in one phase).
 * **2 gt pulse**: an observer (`dual-edge`, `spit`); **20/30 gt**: buttons; **any 2d**: repeater.
 * **Odd pulses**: k3..k5 from an observer on a k1 piston (`odd-observer`); k5..k7 / k7..k9 from a
   repeater reading a k1-moved redstone block + note block + observer (`odd-pulse`); parity flip by
@@ -274,7 +276,7 @@ positions. Logs: `designs/piston-door-3x3/tracks/tick-study/logs/`.
 
 | gadget | result |
 |---|---|
-| zero-tick, zero-tick-normal, zero-tick-reach, zero-tick-onplace, zero-tick-observer | PASS, identical at 4 positions |
+| zero-tick, zero-tick-normal, zero-tick-reach, zero-tick-onplace, zero-tick-observer, zero-tick-pulse | PASS, identical at 4 positions |
 | instant-off, instant-on | PASS, identical at 4 positions |
 | landing-next-tick, spit-saves-tick, leaves-delay, odd-observer | PASS, identical at 4 positions |
 | center-exit, double-move | PASS, identical at 4 positions |
