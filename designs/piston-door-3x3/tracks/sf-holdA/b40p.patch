@@ -1,0 +1,5 @@
+# P_T feed: observer (0,5,-2) watching O (the B chain's first observer, t6) -> observer (0,4,-2)
+# facing up (t10) -> block (0,3,-2) next to P_T (1,3,-2)
+set 0 5 -2 minecraft:observer[facing=east,powered=false]
+set 0 4 -2 minecraft:observer[facing=up,powered=false]
+set 0 3 -2 minecraft:smooth_stone
