@@ -130,3 +130,9 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 - search.rs `same_league`: a flat design stays flat (candidates with a block off the door
   plane are rejected); synth.rs resynth clamps its box to the door plane for flat designs
   (merged to main).
+- `door resynth --only x0,y0,z0:x1,y1,z1` (commit d8b42b7): only groups inside a box, so groups
+  of 6-8 can be tried on one region (all groups of 5-6 on a 50-block design take ~2 h).
+- Gadget `dust-below` (observer -> stone -> the dust under it lights).
+- Searched and empty on v8: regrow --size 2 --any (162k), synth k<=9 on the cut a1+crossing+P_T
+  region (10 blocks, 193k circuits), synth k<=6 on the left late part + BL flag (7),
+  resynth --only on the right region (groups of 5-7, 27 groups).
