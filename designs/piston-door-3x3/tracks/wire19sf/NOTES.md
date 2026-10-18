@@ -9,6 +9,7 @@ elevator, P_T), driven by ONE pulse train identical on both lever edges.
 | w45.txt | 45 | first wired pist19r: open 28 / close 26, 32 positions |
 | w44.txt | 44 | P_T chain off O_a (3 observers) instead of off the lever (4); regrow --size 3 finds it too |
 | **w43.txt = BEST.txt** | **43** | M's chain ends in M's QUASI cell (1,-1,0) instead of M's piston: the other cell parity, so the left column fires at t12 (2 observers) and M at t22 on close with 4 observers after BL's watcher. Open 26 / close 24. `w43b.txt` = its mirror (chain south) |
+| w43e.txt | 43 | the mirrored structure: P_T east at (3,3,0) (park (2,3,0)), TL pulled UP (puller (0,4,0), chain (0,4,-2) -> (0,4,-1) off O_a) + left pair fired by an observer (-1,2,0) watching TL + block (-2,2,0); P_T chain (2,4,-2) -> (3,4,-2) -> (3,4,-1) into its quasi cell (3,4,0); right column on a stack-feed (dust (4,2,-1), floor (4,1,-1)) fed by (4,4,-1) -> (4,3,-1) off the P_T chain (t12); M via BR's watcher (2,-1,0) + 4 observers into M's quasi cell (t22 on close) |
 
 ## Timing windows of pist19r (ideal inputs, `door ideal --independent --sweep`)
 `pist19r-window.ideal` (B on two pulses) and `pist19r-bwin.ideal` (B on one level window), ticks
@@ -51,6 +52,26 @@ control:
   chain continuing the P_T chain: t16.
 * M: observer (0,-1,0) watching BL + 3 observers into M's piston: t22 on close (t24 open).
 * Budget: 19 mechanism + 26 control.
+
+## Searches on w43 that found nothing smaller
+* `door minimize --moves all --plateau` (436k swaps), a 60-step plateau walk with pairs;
+* `door regrow --size 2` (7k) and `--size 3` (2.1M candidates, obs/block/dust/rep1-4);
+* `door synth` for M's trigger alone (k <= 6, observers/blocks/dust/repeaters/comparators/
+  torches/lamps/copper bulbs, box x -3..3 y -4..0 z -2..2): with the left column at t12 the
+  smallest are 6 blocks aimed at M's piston, and with it at t16 exactly my 4-observer chain.
+* Notes from the walk: X's floor (1,3,-1) is only a support: X alone powers A in its lower
+  position (it points into (1,4,0), A-low's quasi cell, and dust updates two cells away), so the
+  floor can be any full block (an observer works too).
+
+## Ideas examined (no saving found)
+* Odd pulse counts: a pull-type toggle piston accepts 1 or 3 pulses per edge (3 toggles end in
+  the right place), so X (pulses at t2, t14, t22) or an observer watching X (t4, t16, t24) can
+  fire any "anytime" piston (TR puller, side columns) -- but nothing anytime sits next to X, and
+  the side M depends on must move exactly once.
+* A3 earlier (B window fed at t2 instead of t4) would let M fire at t20 (one observer less) but
+  needs a second observer on the lever plus a relay to B's quasi cell (+2).
+* P_T + L2 + L1 from one block at (-2,3,0) (above L2, beside P_T): unreachable by t9; BL down
+  instead of L0 loses the BL link M's timing relies on.
 
 ## Lessons
 * **Door-block watchers are asymmetric**: a pull-type piston fired at t moves its block at t+2 on
