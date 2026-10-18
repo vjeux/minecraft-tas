@@ -35,3 +35,11 @@ w42: + Q + RB (2 mechanism blocks) + Q's feed (2 observers off the lever) - M's 
   RB's level retracts at once (before T lands).
 * RB cannot double as a level source for a level-type edge piston: no cell is next to both A and
   an edge puller; next to X it changes X's shape.
+
+## e41 (41): the same trick on wire19sf's mirrored w42e
+`e41.patch` on w42e: X dust + floor + the TL chain ((0,4,-2), (0,4,-1)) -> block X' (1,4,-1) +
+cross dust (0,4,-1) on floor (0,3,-1) pointing into the TL puller (0,4,0). Open 28 / close 26,
+32 positions. **General lesson: X (A's pulse hub) fires three times per lever edge (p0, A2, A3);
+any "anytime" pull-type piston that X can reach through one dust (+ floor) costs 2 blocks and no
+chain.** A solid block X' in place of the X dust powers A-high directly and A-low by
+quasi-connectivity (through B's head), and needs no floor, which frees (1,3,-1).
