@@ -48,3 +48,12 @@ Vulkan on Mesa llvmpipe) on an Xvfb display. A worker started with `--listen <po
 as a spectator; `play` steps the sandbox at a fixed ticks-per-second while serving the
 connection, and ffmpeg records the display. The client is unmodified except for a launcher
 class that hides the HUD.
+
+The camera is the spectator's pose (`camera` teleports every viewer). For a moving camera the
+recording loop in `piston-door/src/video.rs` ticks one tick at a time (`play 1`) on a
+wall-clock schedule and, between ticks, re-poses the camera about every 25 ms (`camera` +
+`hold`): an absolute teleport snaps the client's position (no interpolation), so the motion is
+as smooth as the teleport rate. Title cards and labels are drawn in Rust with the client jar's
+bitmap font (`mctas::mcfont`) and overlaid by ffmpeg: the static ffmpeg build has no
+`drawtext` (ffmpeg 7 needs harfbuzz for it). Xvfb is stopped with SIGTERM so it removes its
+`/tmp/.X<n>-lock`; locks of dead servers are reclaimed.

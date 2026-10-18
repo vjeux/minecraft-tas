@@ -1,0 +1,29 @@
+# mp5-mech: H steady from h, A pulses a1 and a2, pump t (tl long), F steady from s, U pulse u.
+design designs/piston-door-3x3/tracks/fresh-b/mp5-mech.txt
+let h = 0
+let a1 = 0
+let t = 6
+let tl = 4
+let s = 8
+let a2 = 10
+let u = 14
+open h set 0 3 -1 minecraft:redstone_block
+open a1 set 1 4 -1 minecraft:redstone_block
+open a1+2 clear 1 4 -1
+open t set 1 -2 -1 minecraft:redstone_block
+open t+tl clear 1 -2 -1
+open s set 2 4 -1 minecraft:redstone_block
+open a2 set 1 4 -1 minecraft:redstone_block
+open a2+2 clear 1 4 -1
+open u set 0 -3 -1 minecraft:redstone_block
+open u+2 clear 0 -3 -1
+close h clear 0 3 -1
+close a1 set 1 4 -1 minecraft:redstone_block
+close a1+2 clear 1 4 -1
+close t set 1 -2 -1 minecraft:redstone_block
+close t+tl clear 1 -2 -1
+close s clear 2 4 -1
+close a2 set 1 4 -1 minecraft:redstone_block
+close a2+2 clear 1 4 -1
+close u set 0 -3 -1 minecraft:redstone_block
+close u+2 clear 0 -3 -1

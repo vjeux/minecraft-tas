@@ -1,0 +1,62 @@
+name: speed-ideal-7
+# ideal-6 + real F reach-through pulse: observer branch off O_B: (1,4,2) down -> (1,5,2) down ->
+# (1,5,1) south, which powers F's QC cell (1,5,0) (air) at k=10..12 (both edges).
+port door: 0 0 0
+port lever: 1 3 4
+origin: -3 0 -1
+palette:
+  s minecraft:stone
+  R minecraft:redstone_block
+  e minecraft:sticky_piston[extended=true,facing=east]
+  h minecraft:piston_head[facing=east,short=false,type=sticky]
+  w minecraft:sticky_piston[extended=true,facing=west]
+  g minecraft:piston_head[facing=west,short=false,type=sticky]
+  u minecraft:sticky_piston[extended=true,facing=up]
+  i minecraft:piston_head[facing=up,short=false,type=sticky]
+  d minecraft:sticky_piston[extended=true,facing=down]
+  j minecraft:piston_head[facing=down,short=false,type=sticky]
+  a minecraft:sticky_piston[extended=false,facing=down]
+  q minecraft:sticky_piston[extended=false,facing=east]
+  t minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:observer[facing=south,powered=false]
+  o minecraft:observer[facing=down,powered=false]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+layer -3:
+  .
+  ....R
+layer -2:
+  .
+  ....u
+layer -1:
+  .
+  ....i
+layer 0:
+  .
+  RehsssgwR
+layer 1:
+  .
+  RehsssgwR
+layer 2:
+  .
+  RehsssgwR
+  .
+  .
+  .
+  ....s
+layer 3:
+  .
+  ..qaj.t
+  ....O
+  ....O
+  ....O
+  ....L
+layer 4:
+  ....R
+  ....d
+  .
+  ....o
+layer 5:
+  .
+  .
+  ....O
+  ....o

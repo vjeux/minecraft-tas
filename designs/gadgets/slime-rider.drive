@@ -1,0 +1,14 @@
+# U's pulse on the lever-on edge pulls the slime row down and pushes the rider R down with it;
+# the lever-off pulse pushes the row back up (spit) and drags R back to its place.
+design designs/gadgets/slime-rider.txt
+probe R_up 0 2 0
+probe R_down 0 1 0
+probe row 0 3 0
+use 3 1 0
+expect_trace R_down ...~~rrrrr
+expect R_up s
+expect row .
+use 3 1 0
+expect_trace R_down r.........
+expect R_up r
+expect row s

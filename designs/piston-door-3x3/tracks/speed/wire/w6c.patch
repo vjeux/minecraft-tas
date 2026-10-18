@@ -1,0 +1,9 @@
+# w6c = w6b + a second silent TR source k4..6 so TR is still powered when T lands in E (k4 BE)
+# and does not pull it back: W-net dust extended east (2,4,3),(3,4,3); OT2 (3,4,2) watches
+# (3,4,3) and powers stone (3,4,1) (next to TR's QC cell, not next to TR).
+set 2 3 3 minecraft:smooth_stone
+set 2 4 3 minecraft:redstone_wire
+set 3 3 3 minecraft:smooth_stone
+set 3 4 3 minecraft:redstone_wire
+set 3 4 2 minecraft:observer[facing=south,powered=false]
+set 3 4 1 minecraft:stone

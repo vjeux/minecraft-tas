@@ -1,0 +1,23 @@
+name: gadget-no-retry
+# A powered piston only queues its extension if the push resolves at that moment: a moving block
+# in its push line cancels the attempt, and nothing retries it when that block lands (unless the
+# landing cell touches the piston). Lever L fires M, which pushes S2 into the cell two in front of
+# piston P; P gets the lever 2gt later through repeater R (dust D reads the lever), while S2 is
+# still moving: P stays retracted although powered, until a neighbor update (the script places a
+# block next to P) makes it push S1 and S2.
+origin: -1 0 -2
+palette:
+  F minecraft:smooth_stone
+  D minecraft:redstone_wire[east=side,north=side,south=side,west=side,power=0]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  M minecraft:piston[extended=false,facing=south]
+  R minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  T minecraft:stone
+  P minecraft:piston[extended=false,facing=east]
+layer 0:
+  .FF
+  .F
+layer 1:
+  .DLM
+  .R.T
+  .PT

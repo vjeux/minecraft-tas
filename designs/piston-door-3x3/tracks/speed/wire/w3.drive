@@ -1,0 +1,20 @@
+design designs/piston-door-3x3/tracks/speed/wire/w3.txt
+probe F 1 4 0
+probe E 1 3 0
+probe N1 1 2 0
+probe C 1 1 0
+probe Ap 0 3 0
+probe T2 2 3 0
+probe TR 3 3 0
+probe O41 1 4 1
+probe O5 1 5 -1
+probe OT 3 3 -1
+probe RA 1 4 -1
+probe RB 2 4 -1
+probe SR 3 4 -1
+probe SB 0 2 0
+quiet 2
+use 0 4 -2
+quiet 20
+use 0 4 -2
+trace 16

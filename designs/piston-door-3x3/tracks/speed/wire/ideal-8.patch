@@ -1,0 +1,45 @@
+# ideal-8 = ideal-7 with the lever + observer chains moved north, real Q (O_Q noisy + X_Q silent
+# hold), real TR pulse, close spit by O_A powering C at E, obsidian blockers. Still scripted:
+# F rest/steady power (R at 1 4 -1), sides and M redstone blocks.
+clear 1 3 1
+clear 1 3 2
+clear 1 3 3
+clear 1 3 4
+clear 1 2 4
+clear 1 4 2
+clear 1 5 2
+clear 1 5 1
+port lever 0 4 -2
+set 0 3 -2 minecraft:stone
+set 0 4 -2 minecraft:lever[face=floor,facing=north,powered=false]
+# main chain: O_L k2, O_B k4, O_A k6 -> E
+set 1 4 -2 minecraft:observer[facing=west,powered=false]
+set 1 3 -2 minecraft:observer[facing=up,powered=false]
+set 1 3 -1 minecraft:observer[facing=north,powered=false]
+# F reach-through: k4, k6, k8, k10 -> (1,5,0)
+set 1 4 -3 minecraft:observer[facing=south,powered=false]
+set 1 5 -3 minecraft:observer[facing=down,powered=false]
+set 1 5 -2 minecraft:observer[facing=north,powered=false]
+set 1 5 -1 minecraft:observer[facing=north,powered=false]
+# TR: k6, k8, k10 -> TR
+set 2 3 -2 minecraft:observer[facing=west,powered=false]
+set 3 3 -2 minecraft:observer[facing=west,powered=false]
+set 3 3 -1 minecraft:observer[facing=north,powered=false]
+# blockers
+set 4 3 0 minecraft:obsidian
+set 0 -1 0 minecraft:obsidian
+# Q: W watches the lever (k2) into G; O_Q watches W (k4) into Q's QC cell
+set -1 4 -2 minecraft:observer[facing=east,powered=false]
+set -2 4 -2 minecraft:stone
+set -1 4 -1 minecraft:observer[facing=north,powered=false]
+# X_Q silent hold: dust from G to repeater RQ (delay 2) into X_Q (-1,5,0)
+set -2 5 -2 minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=side]
+set -3 4 -2 minecraft:stone
+set -3 5 -2 minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
+set -3 4 -1 minecraft:stone
+set -3 5 -1 minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+set -3 4 0 minecraft:stone
+set -3 5 0 minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+set -2 4 0 minecraft:stone
+set -2 5 0 minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+set -1 5 0 minecraft:stone
