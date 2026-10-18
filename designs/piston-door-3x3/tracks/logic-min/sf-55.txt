@@ -1,4 +1,4 @@
-name: piston-door-3x3-lm1
+name: logic-min-slime-free
 port door: 0 0 0
 port lever: 5 4 0
 origin: -2 0 0
