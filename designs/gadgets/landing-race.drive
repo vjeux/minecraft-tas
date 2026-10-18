@@ -1,0 +1,17 @@
+# Q (west of R's landing cell) beats A (south of it): R's landing updates its neighbours W,E,D,U,N,S
+# and Q's push, blocked until then by the moving R, is queued first. At t4 Q takes R away and A's
+# event is dropped: A never moves, X stays. Turned 90 degrees, A wins (landing-race-turned.drive).
+design designs/gadgets/landing-race.txt
+probe Q 0 2 0
+probe A 1 2 1
+probe X 1 1 1
+probe Xlow 1 0 1
+quiet 50
+use -1 1 0
+expect_trace Q ~~rEEE
+expect A r
+expect X #
+expect Xlow .
+quiet 4
+expect_trace A rrrr
+expect X #
