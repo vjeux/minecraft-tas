@@ -109,6 +109,8 @@ pub enum Kind {
     Dropper,
     /// obsidian: conductor that pistons cannot move.
     Obsid,
+    /// glass: a full block that is NOT a conductor (holds dust, repeaters, torches; never powered).
+    Glass,
 }
 
 impl Kind {
@@ -116,10 +118,10 @@ impl Kind {
         matches!(self, Kind::Block | Kind::Note | Kind::Lamp | Kind::Dropper | Kind::Obsid)
     }
     pub fn sturdy(self) -> bool {
-        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Dropper | Kind::Obsid)
+        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Dropper | Kind::Obsid | Kind::Glass)
     }
     pub fn movable(self) -> bool {
-        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Trap)
+        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Trap | Kind::Glass)
     }
     pub fn has_out(self) -> bool {
         matches!(self, Kind::Rep(..) | Kind::Obs(_) | Kind::Torch | Kind::WTorch(_) | Kind::Cmp(_) | Kind::Lamp)
@@ -166,6 +168,7 @@ impl Kind {
             Kind::Trap => format!("minecraft:iron_trapdoor[facing=north,half=bottom,open={b},powered={b},waterlogged=false]"),
             Kind::Dropper => format!("minecraft:dropper[facing=up,triggered={b}]"),
             Kind::Obsid => "minecraft:obsidian".into(),
+            Kind::Glass => "minecraft:glass".into(),
         }
     }
     /// The kind of a wiring block state (None: not wiring).
@@ -185,6 +188,7 @@ impl Kind {
             "iron_trapdoor" => Kind::Trap,
             "dropper" | "dispenser" => Kind::Dropper,
             "obsidian" => Kind::Obsid,
+            "glass" => Kind::Glass,
             _ => return None,
         })
     }
@@ -217,7 +221,8 @@ pub fn palette(spec: &str) -> Result<Vec<Kind>> {
             "trapdoor" => v.push(Kind::Trap),
             "dropper" => v.push(Kind::Dropper),
             "obsidian" => v.push(Kind::Obsid),
-            _ => bail!("unknown palette entry {t:?} (block,dust,rep,rep1..4,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian)"),
+            "glass" => v.push(Kind::Glass),
+            _ => bail!("unknown palette entry {t:?} (block,dust,rep,rep1..4,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian,glass)"),
         }
     }
     v.sort();
@@ -1958,6 +1963,7 @@ pub fn render(p: &Prob, s: &Sol) -> String {
                     Kind::Trap => 't',
                     Kind::Dropper => 'D',
                     Kind::Obsid => 'X',
+                    Kind::Glass => 'g',
                     Kind::Empty => '.',
                 }
             } else if let Some(st) = p.rec.phases[0].frames[0].get(&c) {
@@ -2121,7 +2127,13 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
         let mut s = decode(&m, &o.name);
         normalize_notes(&mut w, &mut s.design)?;
         log(format!("[{:6.1}s] iter {it}: SAT (solve {dt:.1}s): {} wiring blocks; timing open: {}; close: {}\n{}", t0.elapsed().as_secs_f64(), s.wiring, s.warp[0], s.warp[1], render(p, &s)));
-        match judge(&mut w, sb, &s.design, 0) {
+        // redsim (the judge's checks on the game-verified fast simulator) screens first
+        let offs = crate::VerifyOptions::default().offsets;
+        let screened = match crate::redsim_screen::screen(&s.design, &offs, 3, 400, true) {
+            crate::redsim_screen::Screen::Fail(msg) => Err(format!("redsim: {msg}")),
+            _ => judge(&mut w, sb, &s.design, 0),
+        };
+        match screened {
             Ok(rep) => {
                 log(format!("  JUDGE OK (4 positions): {rep}"));
                 if let Some(path) = &o.out {
