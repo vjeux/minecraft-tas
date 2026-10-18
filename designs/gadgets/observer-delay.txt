@@ -1,0 +1,21 @@
+name: gadget-observer-delay
+# Observer chain as a delay line: each observer watching the previous one adds 2gt, needs no
+# floor and can turn corners. O1 watches lever L, O2 watches O1, O3 (facing up, a corner)
+# watches O2; dust D behind O3 shows the pulse 6gt after each flip.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:redstone_wire[east=side,north=side,south=side,west=side,power=0]
+  F minecraft:smooth_stone
+layer -2:
+  ..F
+layer -1:
+  ..D
+layer 0:
+  S.C
+layer 1:
+  LAB

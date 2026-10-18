@@ -62,6 +62,7 @@ improvement in `<dir>/archive/`.
 | 67 | gravity | gravity g1 (69) | reroute (-2) |
 | 46 | sculk | main archive rb2-sculk-48 | swap twice: a dust + its floor became one smooth stone (observer/repeater fed through a powered block), -1 each |
 | **43** | sculk | top-control sculk BEST (48) | swap (-1), then a hold repeater with both its floors removed, plus a merge (-4) |
+| **46** | gravity | fresh-b gravity-g6 (49) | swap: obsidian + repeater -> one observer, then removals (-3) |
 
 Speed (`--objective total`): the 88 gets (4,4,3) delay 4->1: close 31 -> 25 ticks at 88 blocks.
 The speed leaders (gravity g4: open 5, close 11) are local minima for speed too.
@@ -71,6 +72,16 @@ center-mech 88, sculk 50s, gravity g4 51. The current records are hand-tight: th
 slack is in mechanism choices, not in wiring the local moves can see.
 
 ## Log
+
+- Bug found and fixed (bridge, 9e8c60d): reused sandboxes leaked redstone torch burnout memory
+  (`RedstoneTorchBlock.RECENT_TOGGLES` is per level and only forgets toggles 60 game ticks later;
+  `clear()` rewinds the clock to 0). On logic-min's slime-free 50, a torch at a reused position
+  burnt out after 8 runs: every later screen/judge in that worker's sandbox failed (`door
+  reuse-check`: 8/30 before, 30/30 after). The official judge is not affected (distinct position
+  per offset), but every search reusing sandboxes could miss improvements on torch designs. All
+  designs are re-harvested after the fix (old list in harvest/harvested-before-torch-fix.txt).
+- Frame-less screening (screen_in): the judge's checks on the final state of each phase without
+  per-tick regions; identical pass counts, 1.5-3x faster (~8000 candidates/s with 24 workers).
 
 - v2-min: singles and pairs: no removal passes even the 2-position screen (115 is pair-minimal).
 - v2-min, all families: round 1 found the reroute above (113). Round 2 at 113: nothing improving

@@ -1,0 +1,4 @@
+# TL puller fired by an observer chain watching P_T: (0,3,2)E -> (0,4,2)D -> (0,4,1)S -> puller
+set 0 3 2 minecraft:observer[facing=east,powered=false]
+set 0 4 2 minecraft:observer[facing=down,powered=false]
+set 0 4 1 minecraft:observer[facing=south,powered=false]

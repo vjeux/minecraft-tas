@@ -108,8 +108,15 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `pulse-bridge` | block, cross dust, block | an observer pulse moved one cell sideways into a repeater's back with 4 blocks (mech-50) |
 | `lever-tap` | repeater | a repeater reading the lever feeds a net that the lever's block cannot back-feed (mech-89) |
 | `pulse-toggle` | observer + retracted sticky piston | one 2 gt pulse per lever edge drives a piston that is retracted at rest: the on pulse pulls its block (still: normal pull), the off pulse pushes it back and spits it (no torch, no steady line; logic-min) |
+| `lever-observer` | observer under the lever | the lever's support is an observer facing up that watches it and fires out of its back (logic-min) |
 | `stack-feed` | cross dust + floor + observer | one pulse fires a stack of 3 retracted sticky pistons: a cross dust behind the stack at the top level points into the top piston, its floor powers the middle one and quasi-powers the bottom one (observer-seq s6: a whole slime-free side column per dust) |
-| `sculk-hold` | sculk sensor | (category sculk) a lever click or piston move within 8 blocks wakes it floor(distance) gt later; active 30 gt, then 10 gt deaf |
+| `sculk-hold` | sculk sensor + repeater | a sculk sensor next to a piston holds it 30 gt after a lever flip (each flip is a vibration), then cools down 10 gt; the repeater bridges the sensor's 2 gt latency (category `sculk`; center-mech) |
+| `head-forward` | piston head | an extended piston held unpowered (silent hold) retracts when a block is placed next to its HEAD: heads forward neighbor updates to the base (the rb doors' Q release) |
+| `dust-reach` | dust | a dust changing power updates the neighbors of its neighbors: a held piston two cells away (dust, block, piston) re-checks and retracts |
+| `observer-delay` | 3 observers | a chain of observers watching each other delays a pulse 2 gt per observer, with no floors and around corners |
+| `repeater-lock` | 2 repeaters | a latch: a repeater locked by another repeater pointing into its side keeps its output whatever its input does, and follows the input again once unlocked |
+| `honey-slime` | slime + honey | slime and honey never stick to each other: two touching structures move independently |
+
 * **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
   piston holds it 30 gt after a lever click (weak power on every side, strong power into the
   block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a
@@ -117,7 +124,6 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   cover the first ticks with a 4 gt repeater from the lever. The door's own late pistons move
   inside the 10 gt cooldown, so they do not re-trigger it (rb2s2 50, m51s 48). Doors using it
   rank in the `sculk` category.
-| `sculk-hold` | sculk sensor + repeater | a sculk sensor next to a piston holds it 30 gt after a lever flip (each flip is a vibration), then cools down 10 gt; the repeater bridges the sensor's 2 gt latency (category `sculk`; center-mech) |
 * **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
   source that later turns off WITHOUT updating it stays extended, unpowered, until any later
   neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
@@ -178,3 +184,11 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   empty cell and then a piston above it; a 2 gt pulse on the way down pulls the upper piston down one
   cell (it is 2 ahead and still), and on the way up pushes it and spits it (the pulse ends while it is
   still moving), so the piston is back to retracted with the gap restored.
+* **Sticky retract during a push finalizes, never pulls (seen in rb9):** if a sticky piston
+  retracts while the block two in front is still a moving piston it pushed (any progress, as long
+  as it has not landed), that block is placed at its destination at once and the piston retracts
+  alone. rb9's B pushes A down at t4 and retracts at t6: A stays down, the dance goes on.
+* **Early window (gadget `designs/gadgets/early-window`):** a delay-1 repeater reading a block
+  fed by an observer pulse and by a delay-2 repeater from a SECOND observer gives a window at
+  t+4..6 and t+8..12 (a 2gt hole: a repeater's turn-off tick outranks another's turn-on tick),
+  vs t+10..18 for the plain pulse stretcher.

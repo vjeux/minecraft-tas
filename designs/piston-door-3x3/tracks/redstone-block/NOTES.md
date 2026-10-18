@@ -125,3 +125,29 @@ Traced with probes (`trace`), lever flip = t0, w = tick B extends (R_B turns on)
 * Fast close idea (not built): if the open state stacks T ABOVE C in the column with A a
   normal piston above them, the close is two line pushes (B pushes A+T+C, then A pushes T+C)
   => ~6 ticks; the open for that layout needs C to pass T, which pulls can't do (pull = 1 block).
+
+## rb7 / rb8: fastest solid door (FAST.txt = rb8: 71 blocks, open 16, close 17)
+* rb7 (71, open 16 / close 19): the B window moved from t10..18 to t4..12. R_B is delay 1 and
+  reads K (1,6,2), powered by O2's pulse through the cross dust (t2..4), by Rb (delay 1, t4..6)
+  and Rc (delay 2, t6..10). Rb/Rc are fed by a SECOND observer O3 (1,6,-1) watching the lever,
+  through their own dust line (one line shared with O2 latches: K is strongly powered and
+  lights the cross dust). B at t4 is safe in the open: P_R's block event (queued at t3 when
+  RB_A lands) runs before B's (FIFO), so (1,3,0) is already air. The silent hold had to drop
+  to 12 gt so A's landing (t14 in the close) still releases Q.
+* rb8 (71, open 16 / close 17): the hold's last repeater Rr (-1,4,-1) powers Q directly from
+  behind, so its falling edge at t12 UPDATES Q (no more waiting for A's landing). Q's retract
+  unpowers P_R, whose event is appended to the block-event queue after B's (whichever of Rr/R_B
+  ticks first), so T is pushed into (1,3,0) right after B lifts A out of it; A, T and RB_A all
+  land at t14, A pushes T down at t15 => closed at t17. Same block count as rb7's hold.
+* rb9 (61, open 16 / close 17, FAST.txt): `door minimize --max-open 16 --max-close 17` (new
+  flags) removed Rb. R_B does NOT bridge the t4..6 gap (its turn-off tick outranks Rc's
+  turn-on): R_B is on t4..6 and t8..12 (gadget `early-window`). In the door that still works,
+  and is as fast: B pushes A down at t4, retracts at t6 while A is still moving (a sticky
+  retract whose block two ahead is a moving piston finalizes it in place, no pull), A's first
+  pulse pulls C at t8, B re-extends at t8 so its head is beside A again, and lifts A at t12.
+  Then Rc moved to K's east side
+  (2,6,2), next to the start of O3's dust line (`rb9.patch`): -8 blocks. Local minimum for the
+  speed-constrained search (plateau too).
+* Why not faster: open = w+12 and close = w+13 with w = 4 (B's window t4..12). Every redstone
+  delay is even (observer, repeater, torch, comparator), so the window can't end at t11; B
+  can't start before t4 (O2 at t2 + R_B's 2 gt; in the open T only leaves (1,3,0) at t4).

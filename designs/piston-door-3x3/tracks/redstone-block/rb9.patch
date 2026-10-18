@@ -1,0 +1,13 @@
+# rb9: Rc moves to K's east side (2,6,2), fed by the short end of O3's dust line
+clear 1 6 3
+clear 1 5 3
+clear 3 6 3
+clear 3 5 3
+clear 3 6 4
+clear 3 5 4
+clear 2 6 4
+clear 2 5 4
+clear 1 6 4
+clear 1 5 4
+set 2 5 2 minecraft:smooth_stone
+set 2 6 2 minecraft:repeater[facing=east,delay=2]
