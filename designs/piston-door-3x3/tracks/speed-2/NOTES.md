@@ -152,3 +152,6 @@ F 0-ticks at k8 (R_X lands k4 BE, R_Z k6 BE in the 107 family: already early eno
 * Tool: `door route2` now treats the columns at any distance as forbidden (it routed into them
   before and the judge threw every such candidate away). Its rip of the 6 cells still found no
   route (the hand route needs a step up over a powered block).
+* **`c2-109b.txt` = BEST: 109 blocks, open 9 / close 7, compliant** (minimize on c1): X's pulse
+  (k4..k6) comes from the observer (0,3,-1) watching S_a, so the repeater + stones that fed the
+  old note-block chain are dead weight.
