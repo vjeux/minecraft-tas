@@ -86,8 +86,14 @@ impl Schedule {
     }
 
     pub fn parse(text: &str) -> Result<Schedule> {
+        Self::parse_with(text, &BTreeMap::new())
+    }
+
+    /// [`Schedule::parse`] with variables set from outside (`--set`): a `let` of an overridden
+    /// name keeps the override, and later `let`s built from it see it.
+    pub fn parse_with(text: &str, overrides: &BTreeMap<String, i64>) -> Result<Schedule> {
         let mut design = None;
-        let mut vars = BTreeMap::new();
+        let mut vars = overrides.clone();
         let mut events = Vec::new();
         for (i, raw) in text.lines().enumerate() {
             let line = raw.split('#').next().unwrap().trim();
@@ -99,10 +105,13 @@ impl Schedule {
             match p[0] {
                 "design" => design = Some(crate::cli::load_design(std::path::Path::new(p[1])).with_context(ctx)?),
                 "let" => {
-                    // let name = value
+                    // let name = value (an integer, or a sum/difference of earlier variables)
                     let rest = line[3..].trim();
                     let (k, v) = rest.split_once('=').with_context(ctx)?;
-                    vars.insert(k.trim().to_string(), v.trim().parse::<i64>().with_context(ctx)?);
+                    if !overrides.contains_key(k.trim()) {
+                        let v = eval(v.trim(), &vars).with_context(ctx)?;
+                        vars.insert(k.trim().to_string(), v);
+                    }
                 }
                 "open" | "close" => {
                     if p.len() < 6 {
@@ -301,12 +310,13 @@ pub fn offsets(extra: u32) -> Vec<Pos> {
 /// CLI entry: run once, or sweep variables (`name=lo..hi`, several = grid).
 pub fn cli(version: &str, path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: Option<String>, workers: usize) -> Result<()> {
     let text = std::fs::read_to_string(path)?;
-    let s = Schedule::parse(&text)?;
-    let mut vars = s.vars.clone();
+    let mut overrides = BTreeMap::new();
     for kv in set {
         let (k, v) = kv.split_once('=').context("--set name=value")?;
-        vars.insert(k.to_string(), v.parse()?);
+        overrides.insert(k.to_string(), v.parse::<i64>()?);
     }
+    let s = Schedule::parse_with(&text, &overrides)?;
+    let vars = s.vars.clone();
     let trace = match trace {
         Some(t) => {
             let v: Vec<i32> = t.split(',').map(|n| n.trim().parse()).collect::<Result<_, _>>()?;

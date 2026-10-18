@@ -73,6 +73,22 @@ main's verifier and writes the boards.
 * **Solid, flat (one z layer), no slime or honey**: a board. Slime-free solid designs whose every
   block (door, pistons, wiring, lever) lies in the door's plane `z = door.z`, so the whole machine is
   one block thick. `door verify` prints `, flat` when every block is in that plane.
+* **Shape boards** (for builders: where the machine fits matters as much as its block count).
+  They measure the space a door needs at rest AND while it moves (`swept_shape` in lib.rs: every
+  cell occupied at any tick of an open/close cycle), relative to the door; `mctas door shapes`
+  prints every working design's shape (layers in front of / behind the door plane, rows below /
+  above, columns left / right, bounding box) and the best design per shape rule. Search commands
+  take `--shape wall|ground|...|key<=n,...` to stay within a shape.
+  * **Solid, in a 3-thick wall**: every cell within one layer of the door's plane
+    (`z = door.z-1..door.z+1`), so the whole machine hides in a wall 3 blocks thick.
+  * **Solid, on the ground (nothing below the door)**: no cell below the door's bottom row, so it
+    stands on flat ground with no digging; it must also pass the judge standing on a stone floor
+    one below the door (`ground_check`: slime may not drag the ground, nothing may push or power
+    through it). No design yet: the bottom-middle block has to leave upwards (three cells) or two
+    cells sideways; `tracks/shapes/ground20.txt` + `ground-sym.ideal` is a working mechanism with
+    ideal inputs.
+  * **Solid, smallest box**: the fewest cells in that space's bounding box (width x height x
+    thickness, the door included), ties by blocks.
 * **Walkway clutter**: blocks without collision (dust, torches, levers, rails...) may stand in the
   walkway. The boards show how many do at rest; "clean" means none.
 * **Speed boards**: fastest open, fastest close and fastest open + close, for any category and for
