@@ -65,6 +65,7 @@ pub fn build(name: &str) -> Option<Design> {
         "v1" => Some(v1()),
         "v2" => Some(v2()),
         "rb1" => Some(rb1()),
+        "rb2" => Some(rb2()),
         "rb1-base" => Some(rb1_route_base()),
         "v2-133" => Some(crate::designs_history::v2_133()),
         "v2-135" => Some(crate::designs_history::v2_135()),
@@ -385,5 +386,32 @@ pub fn rb1() -> Design {
     b.set([-1, 4, -5], "minecraft:redstone_wire");
     b.set([0, 4, -5], "minecraft:smooth_stone");
     b.set([0, 5, -5], "minecraft:redstone_wire");
+    b.d
+}
+
+/// rb2: rb1 with short nets. O2 sits next to the lever (watching it) and feeds R_B through three
+/// dust; Q's late hold is a 3-repeater chain into Q from the north, fed by dust from the lever.
+pub fn rb2() -> Design {
+    let mut b = Builder::default();
+    b.d.name = "piston-door-3x3-rb2".into();
+    rb1_mech(&mut b);
+    b.d.blocks.remove(&[1, 6, 2]); // O2 moves next to the lever
+    b.set([0, 5, -1], FLOOR); // X_L
+    b.set([0, 6, -1], "lever[face=floor,facing=west,powered=false]");
+    b.port("lever", [0, 6, -1]);
+    // B trigger: O2 watches the lever, its back lights (0,6,1) -> (0,6,2) -> (1,6,2) -> R_B.
+    b.set([0, 6, 0], "observer[facing=north]");
+    b.dust([0, 6, 1]);
+    b.dust([0, 6, 2]);
+    b.dust([1, 6, 2]);
+    // Q late hold: 3 x 4-tick repeaters into Q from the north, fed from the lever by dust.
+    for z in [-2, -3, -4] {
+        b.set([0, 3, z], FLOOR);
+        b.set([0, 4, z], "repeater[facing=north,delay=4]");
+    }
+    b.dust([0, 6, -2]);
+    b.dust([0, 6, -3]);
+    b.dust([0, 6, -4]);
+    b.dust([0, 5, -5]);
     b.d
 }
