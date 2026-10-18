@@ -531,6 +531,32 @@ pub fn seamless(rec: &Recording) -> Seamless {
     Seamless { tier, label, why, closed: [owned(quart(-1)), owned(quart(1))], open: owned(open_vis), holes_r, holes_o }
 }
 
+/// Every animation frame that breaks SUPER: per tick, the circuitry seen in T or S (strict, props'
+/// reading) and, marked `*`, the part still seen when an S cell counts only while its T neighbour
+/// holds no door block (the covered reading).
+pub fn super_report(rec: &Recording) -> Vec<String> {
+    let geo = rec.geo;
+    let lever = rec.lever;
+    let mut out = Vec::new();
+    for (name, frames, tr) in [("opening", &rec.open, &rec.track_open), ("closing", &rec.close, &rec.track_close)] {
+        for (i, (f, _)) in frames.iter().enumerate() {
+            let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
+            let seen: Vec<String> = circuitry(&geo, f, &doors, lever)
+                .into_iter()
+                .filter(|c| geo.in_t(c.0) || geo.in_s(c.0))
+                .map(|(p, s)| {
+                    let covered = geo.in_s(p) && doors.contains(&t_neighbor(&geo, p));
+                    format!("{}{}{:?}", if covered { "" } else { "*" }, short(&s), p)
+                })
+                .collect();
+            if !seen.is_empty() {
+                out.push(format!("{name} t{}: {}", i + 1, seen.join(" ")));
+            }
+        }
+    }
+    out
+}
+
 /// Search acceptance filter (`--seamless <tier>`): one recorded cycle at the design's own
 /// position must reach `min`.
 pub fn require_seamless(w: &mut Worker, sb: u32, d: &Design, min: Tier) -> Result<()> {
