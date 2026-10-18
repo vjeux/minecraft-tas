@@ -108,3 +108,22 @@ Simulator findings (not yet a working ideal replay):
   last L1 pulse edge-dependent. Next step for whoever takes 8x8-102: feed the lifted L1 through
   ML (-1,2) (observer at (-2,2) facing west) and the resting L1 from the same cell's other use...
   they conflict, so find a second rest input (none in the plane) or drop the 6th step on close.
+- Correction after `/tmp` test f102c (close with a real lifted-L1 pulse at s4): the sym train IS
+  realizable on close: the lifted L1's push shoves ML/C one cell east, and the R1 toggle at the end
+  pushes MR, C, ML back west into place (only my emulation's extra L0 pulse broke that run). So the
+  lifted L1 needs an input on BOTH edges. Plan that satisfies every coupling found so far:
+  * lifted L1 (s4): observer (-2,2) FACING WEST (emits east into (-1,2)): open it strongly powers
+    ML there (direct), close (-1,2) holds PD's head and L1 is quasi-powered through (-1,2)'s
+    neighbour (-2,2); the observer's 2-level update reaches L1 both times. It does not touch the
+    resting L1, L0 or E3 (wrong facing for their quasi queries).
+  * resting L1 (s1, s6): observer (-2,3) facing up (emits down into (-2,2)): quasi-powers L1
+    through its quasi cell (-2,2) and updates it; watches (-2,4), which must change at s1-2, s6-2.
+  * PD rest holder: wall torch at (-1,5) on (-2,5) (facing east): quasi-powers PD through (-1,4),
+    touches neither (0,4) nor its quasi cell; turned off by a DELAYED lever level into (-2,5).
+  * E3 (s3, s5): observer (-3,2) facing up (watching (-3,3)) emits down into E3; a lamp at (-3,3)
+    powered 2 gt gives two changes 6 gt apart = s3 and s5; (-2,2) watches (-3,2), so the lifted-L1
+    pulse comes 2 gt after each E3 pulse (s4 = s3+2 lands on L1's arrival; the s5+2 one is
+    harmless: L1 is back at rest, ML/PD-head cannot fire anything).
+  * L0 (own toggle) and M's puller (1,-2) from the bottom-left (K0), PB (2,-2) from the bottom-right
+    (K2): both regions only see E3 / L0 / R1 moving, which double-fires, so each needs a merger
+    (delay-2 repeater + observer) or bulb, and K2 has 5 cells.
