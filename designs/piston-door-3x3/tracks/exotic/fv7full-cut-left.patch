@@ -1,0 +1,5 @@
+# flat-v7-full (seamless track, FULL+hall, 99 = 9x11x1) without its left column x = -3: smooth
+# stone (-3,1,0), observer (-3,2,0), repeater (-3,3,0).
+clear -3 1 0
+clear -3 2 0
+clear -3 3 0

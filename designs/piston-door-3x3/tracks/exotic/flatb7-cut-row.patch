@@ -1,0 +1,5 @@
+# flat-b-v7 without the three non-lever blocks of its bottom row y = -4 (the volume excludes the
+# lever, so a bottom row holding only the lever costs nothing): A (1,-4,0), A (2,-4,0), F (3,-4,0).
+clear 1 -4 0
+clear 2 -4 0
+clear 3 -4 0

@@ -43,6 +43,16 @@ So a FULL door that keeps its hallway must not have slime next to S cells: slime
 
 ## Results
 
+Coordination (flat goal, 2026-10-18 20:30Z): box64 (session a1454b9b) squeezes flat43 toward 8x8;
+seamless (this track) repairs flat-b-v7-44b (8x10) to FULL+hall in its own box, then 8x9 with
+`resynth --fit`. Runs here: `resynth flat-b-v7-44b --seamless full+hall --extra 4/6 --shape
+thick<=1,volume<=80`. No run on flat43-full here.
+
+| design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
+|---|---|---|---|---|---|
+| [flat-b-v7-full.txt](flat-b-v7-full.txt) (archive/flat-b-v7-full-50b) | 50 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 32/32 | FLAT, slime-free, 8x10x1 = volume 80 (flat seamless record by volume). flat-b-v7-44b repaired in its own box: `resynth --seamless full+hall --extra 4 --shape thick<=1,volume<=80` (right-ring observer -> corner dropper/observer chain, +3), then `--extra 5 --fit=-3,-4,0:4,5,0` (ceiling-ring observer chain moved to x=-2/-1, +4; floor-ring dust -> smooth stone: a strongly powered block QC-powers the bottom piston through the empty cell above it), then shrunk 51 -> 50 under the filter |
+| [flat43-full.txt](flat43-full.txt) (archive/flat43-full-44b) | 44 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 52/48 | FLAT, slime-free, 9x9x1 = volume 81. lamp-sweep-flat43 + (1) P_M's floor-ring observer replaced in-box: observer (-1,-1,0) watching the left ring cell -> lamp (-1,-2,0) -> observer (0,-2,0) into P_M (+1); (2) the obsidian at (0,3,0) was the dust floor AND the stopper that makes the corner piston's early close pulse fail (its row push T, C, ... must not move while C still sits at (1,3,0)): smooth stone there, the stopper moved to the far end of that row: the left trigger chain's repeater (-3,3,0) became an immovable dropper (block entities cannot be pushed; same pulse, 2 gt earlier) |
+| [flat-v7-full.txt](flat-v7-full.txt) (archive/flat-v7-full-54b) | 54 | FULL | yes (props-dyn) | 64/64 | FLAT, slime-free, 9x11x1 = 99. flat-v7-50b repaired by resynth (+4, one row more below) |
 | design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
 |---|---|---|---|---|---|
 | [semi-fc2L.txt](semi-fc2L.txt) (archive/fc2-seamL-41b) | 41 | FULL geometry | no | 24/9 | fc2 + O_m moved out of the floor ring: P_M fired by an observer (0,-2,0) watching a stone carried by a slime (-1,-1,0) glued under the left structure. SEMI claim (hallway optional for SEMI) |

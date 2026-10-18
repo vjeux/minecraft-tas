@@ -1,0 +1,53 @@
+[    9.2s] start: 44 blocks, open 52 / close 48
+[   20.0s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   26.8s] 44 blocks: 23 removable, 205 groups of 2..4
+[   26.8s]   group [(-3,1,0)smoo (-3,2,0)obse] -> <= 1 blocks: 0 circuits in 0.0s
+[   27.3s]   group [(-3,2,0)obse (-3,3,0)drop] -> <= 1 blocks: 5 circuits in 0.5s
+[   27.9s]   group [(-3,2,0)obse (-2,3,0)obse] -> <= 1 blocks: 9 circuits in 0.5s
+[   27.9s]   group [(-3,3,0)drop (-2,3,0)obse] -> <= 1 blocks: 6 circuits in 0.1s
+[   28.0s]     size 1: 5 candidates screened in 0.0s, 1 passed the screen
+[   39.2s]     VERIFIED size 1: +(-2,3,0) observer[facing=east,powered=false] [1 observer] -- door works at 32 positions, open 52 / close 48
+[   39.2s]   group [(-2,3,0)obse (-1,4,0)wire] -> <= 1 blocks: 5 circuits in 11.2s FOUND
+[   39.2s] IMPROVED 44 -> 43 blocks: [(-2,3,0)obse (-1,4,0)wire] replaced by +(-2,3,0) observer[facing=east,powered=false] -- door works at 32 positions, open 52 / close 48
+[   39.2s]   saved to designs/piston-door-3x3/tracks/seamless/wip/f43full-rs.txt
+[   46.1s] 43 blocks: 22 removable, 155 groups of 2..4
+[   46.1s]   group [(-3,1,0)smoo (-3,2,0)obse] -> <= 1 blocks: 0 circuits in 0.0s
+[   46.1s]   group [(-3,2,0)obse (-3,3,0)drop] -> <= 1 blocks: 5 circuits in 0.0s
+[   46.2s]   group [(-3,2,0)obse (-2,3,0)obse] -> <= 1 blocks: 6 circuits in 0.0s
+[   46.3s]   group [(-3,3,0)drop (-2,3,0)obse] -> <= 1 blocks: 3 circuits in 0.1s
+[   46.3s]   group [(-2,3,0)obse (-1,3,0)lamp] -> <= 1 blocks: 4 circuits in 0.0s
+[   46.4s]   group [(-1,-2,0)lamp (0,-2,0)obse] -> <= 1 blocks: 4 circuits in 0.1s
+[   46.5s]   group [(-1,-2,0)lamp (-1,-1,0)obse] -> <= 1 blocks: 6 circuits in 0.0s
+[   46.6s]   group [(-1,-1,0)obse (0,-2,0)obse] -> <= 1 blocks: 5 circuits in 0.1s
+[   47.0s]   group [(-1,3,0)lamp (0,4,0)wire] -> <= 1 blocks: 10 circuits in 0.4s
+[   47.0s]   group [(-1,3,0)lamp (0,3,0)smoo] -> <= 1 blocks: 8 circuits in 0.0s
+[   47.1s]   group [(0,3,0)smoo (0,4,0)wire] -> <= 1 blocks: 6 circuits in 0.0s
+[   47.1s]   group [(0,4,0)wire (0,5,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[   47.1s]   group [(0,5,0)obse (1,6,0)repe] -> <= 1 blocks: 20 circuits in 0.0s
+[   47.1s]   group [(0,5,0)obse (0,6,0)wire] -> <= 1 blocks: 5 circuits in 0.0s
+[   47.1s]   group [(0,6,0)wire (1,6,0)repe] -> <= 1 blocks: 6 circuits in 0.0s
+[   47.1s]   group [(1,6,0)repe (2,5,0)obse] -> <= 1 blocks: 22 circuits in 0.0s
+[   47.2s]   group [(1,6,0)repe (2,6,0)wire] -> <= 1 blocks: 12 circuits in 0.1s
+[   47.3s]   group [(2,4,0)obse (3,4,0)obse] -> <= 1 blocks: 11 circuits in 0.0s
+[   47.3s]   group [(2,4,0)obse (2,5,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[   47.4s]   group [(2,4,0)obse (3,5,0)obse] -> <= 1 blocks: 13 circuits in 0.1s
+[   47.4s]   group [(2,5,0)obse (3,6,0)obse] -> <= 1 blocks: 18 circuits in 0.0s
+[   47.5s]   group [(2,5,0)obse (3,4,0)obse] -> <= 1 blocks: 22 circuits in 0.0s
+[   47.5s]   group [(2,5,0)obse (2,6,0)wire] -> <= 1 blocks: 6 circuits in 0.0s
+[   47.5s]   group [(2,5,0)obse (3,5,0)obse] -> <= 1 blocks: 11 circuits in 0.0s
+[   47.5s]   group [(2,6,0)wire (3,6,0)obse] -> <= 1 blocks: 6 circuits in 0.0s
+[   47.5s]   group [(2,6,0)wire (3,5,0)obse] -> <= 1 blocks: 11 circuits in 0.0s
+[   47.6s]   group [(3,4,0)obse (4,4,0)obse] -> <= 1 blocks: 14 circuits in 0.0s
+[   47.7s]   group [(3,4,0)obse (3,5,0)obse] -> <= 1 blocks: 17 circuits in 0.1s
+[   47.7s]   group [(3,5,0)obse (3,6,0)obse] -> <= 1 blocks: 4 circuits in 0.0s
+[   47.7s]   group [(3,5,0)obse (4,4,0)obse] -> <= 1 blocks: 12 circuits in 0.0s
+[   47.7s]   group [(5,1,0)smoo (5,2,0)wire] -> <= 1 blocks: 2 circuits in 0.0s
+[   47.9s]   group [(-3,1,0)smoo (-3,2,0)obse (-3,3,0)drop] -> <= 2 blocks: 15 circuits in 0.1s
+[   47.9s]   group [(-3,1,0)smoo (-3,2,0)obse (-2,3,0)obse] -> <= 2 blocks: 11 circuits in 0.0s
+[   48.0s]   group [(-3,2,0)obse (-3,3,0)drop (-2,3,0)obse] -> <= 2 blocks: 29 circuits in 0.1s
+[   48.1s]   group [(-3,2,0)obse (-2,3,0)obse (-1,3,0)lamp] -> <= 2 blocks: 66 circuits in 0.1s
+[   48.2s]   group [(-3,3,0)drop (-2,3,0)obse (-1,3,0)lamp] -> <= 2 blocks: 53 circuits in 0.1s
+[   48.2s]   group [(-2,3,0)obse (-1,3,0)lamp (0,4,0)wire] -> <= 2 blocks: 51 circuits in 0.0s
+[   48.2s]   group [(-2,3,0)obse (-1,3,0)lamp (0,3,0)smoo] -> <= 2 blocks: 50 circuits in 0.0s
+[   48.3s]   group [(-1,-2,0)lamp (-1,-1,0)obse (0,-2,0)obse] -> <= 2 blocks: 19 circuits in 0.0s
+[   48.3s]   group [(-1,3,0)lamp (0,4,0)wire (0,5,0)obse] -> <= 2 blocks: 104 circuits in 0.1s

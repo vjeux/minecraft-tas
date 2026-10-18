@@ -1,8 +1,8 @@
 //! `mctas door video`: the door opening and closing, rendered by the real Minecraft client.
 //!
-//! Default style: a short title card (block count, category, timings), then the door seen by a
-//! camera centered between the 3x3 opening and the machine that swings slowly around it (it
-//! ends where it started, so clips loop), with a block-count label in the corner.
+//! Default style: a short title card (size: the volume, blocks placed, category, timings), then
+//! the door seen by a camera centered between the 3x3 opening and the machine that swings slowly
+//! around it (it ends where it started, so clips loop), with a size label in the corner.
 //! `--style classic` is the original still camera framing the whole build, no card, no label.
 
 use crate::DoorSpec;
@@ -321,7 +321,15 @@ pub struct Facts {
     /// Nothing below the door and it works standing on a stone floor (from the leaderboard's
     /// ground check; false when unknown).
     pub ground_safe: bool,
+    /// The door's size, the piston door community's volume, and its width x height x depth
+    /// ([`crate::properties::volume`]; `None` when not measured).
+    pub volume: Option<usize>,
+    pub volume_dims: Option<String>,
 }
+
+/// The archive folder whose properties cache holds every design's volume (commands run from the
+/// repository root).
+pub const ARCHIVE_DIR: &str = "designs/piston-door-3x3/archive";
 
 impl Facts {
     pub fn of(d: &Design) -> Facts {
@@ -336,6 +344,34 @@ impl Facts {
             close_ticks: None,
             shape: crate::shape(d),
             ground_safe: false,
+            volume: None,
+            volume_dims: None,
+        }
+    }
+
+    /// Fill in the volume from [`crate::properties::volume`] (the archive's cache, else one
+    /// recorded cycle on `w`, saved back to the cache).
+    pub fn measure_volume(&mut self, w: &mut Worker, d: &Design) -> Result<()> {
+        let dir = Path::new(ARCHIVE_DIR);
+        let (v, dims) = crate::properties::volume(w, d, dir.is_dir().then_some(dir))?;
+        self.volume = Some(v);
+        self.volume_dims = Some(dims);
+        Ok(())
+    }
+
+    /// The door's size as shown big: `80b` (the volume; the placed blocks when not measured).
+    pub fn size(&self) -> String {
+        match self.volume {
+            Some(v) => format!("{v}b"),
+            None => format!("{} blocks", self.blocks),
+        }
+    }
+
+    /// The small line under the size: `volume 8x10x1, 44 blocks placed`.
+    pub fn placed(&self) -> String {
+        match (self.volume, self.volume_dims.as_deref()) {
+            (Some(_), Some(d)) if !d.is_empty() => format!("volume {d}, {} blocks placed", self.blocks),
+            _ => format!("{} blocks placed", self.blocks),
         }
     }
 
@@ -380,6 +416,8 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
     };
     let mut w = Worker::spawn(&cfg)?;
     let mut facts = Facts::of(d);
+    // The card's size: the volume (the archive's properties cache, else measured here and saved).
+    facts.measure_volume(&mut w, d).context("the title card needs the door's volume")?;
     // One cycle at the origin (the judge's first position): the card's timings, and how long to
     // play after each flip: at least until nothing moves anymore, so the second flip never comes
     // while the machine is still moving (a fixed 40 ticks cut the slow doors short).

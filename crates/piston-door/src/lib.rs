@@ -17,6 +17,7 @@
 
 pub mod cli;
 pub mod mechsynth;
+pub mod families;
 pub mod mechwire;
 pub mod archive;
 pub mod buildable;

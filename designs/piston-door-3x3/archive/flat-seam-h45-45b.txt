@@ -1,0 +1,40 @@
+# verified WORKS by door leaderboard: 45 blocks, category solid
+# archived 2026-10-18 20:49Z from origin/explore/flat-seam:designs/piston-door-3x3/tracks/flat-seam/archive/flat-seam-h45-45b.txt (repo at 62643aa)
+name: flat-seam-h45
+port door: 0 0 0
+port lever: 4 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  D minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ..RBF
+layer -1:
+  ..A
+layer 0:
+  .E.HHH.G
+layer 1:
+  SE.HHH.GS
+layer 2:
+  AE.HHH.GA
+layer 3:
+  CoRH..G.A
+layer 4:
+  ..rrsooAB
+layer 5:
+  ...AsOAL
+layer 6:
+  ...rDrB

@@ -165,8 +165,8 @@ pub enum DoorCmd {
         #[arg(long)]
         upload: Option<String>,
         /// Look of the videos: `card` (title card, door camera swinging around the door,
-        /// block-count label), `clean` (the same camera, no card or label) or `classic` (the
-        /// original still camera framing the whole build).
+        /// size label: the volume big, the blocks placed small), `clean` (the same camera, no card
+        /// or label) or `classic` (the original still camera framing the whole build).
         #[arg(long, default_value = "card")]
         style: String,
         /// Orbit amplitude of the door camera in degrees each way (0 = still).
@@ -183,10 +183,11 @@ pub enum DoorCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Write the archive catalog (archive/README.md): every archived design with its blocks,
-    /// boards, open/close ticks, rotations, buildability (`door buildable`'s scripts), video link
-    /// and how it works (archive/captions.tsv, archive/records.tsv). Records nothing; verdicts
-    /// come from the verdict cache. `door video-all` writes it too.
+    /// Write the archive catalog (archive/README.md): every archived design with its size (the
+    /// volume) and blocks placed, boards, open/close ticks, rotations, buildability (`door
+    /// buildable`'s scripts), video link and how it works (archive/captions.tsv,
+    /// archive/records.tsv). Records nothing; verdicts come from the verdict cache, sizes from the
+    /// properties cache. `door video-all` writes it too.
     Catalog {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -210,9 +211,10 @@ pub enum DoorCmd {
         #[arg(long)]
         label: Option<PathBuf>,
     },
-    /// The best design of each board (block-count boards, speed boards) as a looping GIF (door
-    /// camera, real client), uploaded to the release, plus the night's timeline chart. No page of
-    /// its own: `door leaderboard` shows each board leader's GIF.
+    /// The best design of each board (size boards, speed boards) as a looping GIF (door camera,
+    /// real client; labeled with its size, the volume, big and its blocks placed small), uploaded
+    /// to the release, plus the night's timeline chart. No page of its own: `door leaderboard`
+    /// shows each board leader's GIF.
     Gallery {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -242,8 +244,9 @@ pub enum DoorCmd {
         #[arg(long)]
         redo: bool,
     },
-    /// A board's record progression (solid: archive/records.tsv, plus a newer record) as one video:
-    /// every design filmed by the same camera, labeled with its block count and how it got there.
+    /// A board's record progression by blocks placed (solid: archive/records.tsv, plus a newer
+    /// record; the history before sizes were volumes) as one video: every design filmed by the
+    /// same camera, labeled with its blocks placed and how it got there.
     Montage {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -269,10 +272,10 @@ pub enum DoorCmd {
         #[arg(long, default_value = "solid")]
         board: String,
     },
-    /// The Pareto frontier over (open ticks, close ticks, blocks): every working design on HEAD
-    /// and the explore/* branches (verdicts from the leaderboard cache, uncached ones verified),
-    /// then each --check design verified with the judge and placed against it: on the frontier,
-    /// or the doors that dominate it (see leaderboard.rs `frontier_report`).
+    /// The Pareto frontier over (open ticks, close ticks, size: the volume): every working design
+    /// on HEAD and the explore/* branches (verdicts from the leaderboard cache, uncached ones
+    /// verified), then each --check design verified with the judge and placed against it: on the
+    /// frontier, or the doors that dominate it (see leaderboard.rs `frontier_report`).
     Frontier {
         /// Candidate designs to place against the frontier.
         #[arg(long, num_args = 1..)]
@@ -715,6 +718,59 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
+    /// The catalog of flat (1-wide) seamless mechanisms per box (families.rs): every door block
+    /// leaves the 3x3 in 1-2 unit moves (center 2), each move provided by a pull or push piston
+    /// (reused, or lifted by one elevator piston); every candidate solved exactly in the macro
+    /// piston model with the FULL seamless open test, reduced to minimal mechanisms, mirror
+    /// images merged; writes CATALOG.md + CATALOG.tsv; `--verify` replays each in the simulator.
+    Families {
+        /// Boxes "WxH,..." (sorted by volume).
+        #[arg(long, default_value = "7x7,7x8,8x7,8x8,7x9,9x7,8x9,9x8,8x10,10x8,9x9")]
+        boxes: String,
+        /// Most pistons per mechanism.
+        #[arg(long, default_value_t = 10)]
+        pistons: usize,
+        /// State cap of the exact solve.
+        #[arg(long, default_value_t = 200000)]
+        cap: usize,
+        /// Pair cap of the symmetric-train product BFS.
+        #[arg(long, default_value_t = 200000)]
+        sym_cap: usize,
+        #[arg(long, default_value_t = 48)]
+        threads: usize,
+        /// No lifted (elevator) providers.
+        #[arg(long)]
+        no_lifts: bool,
+        /// No push providers (pulls only).
+        #[arg(long)]
+        no_pushes: bool,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/families")]
+        out_dir: PathBuf,
+        /// Replay every catalog entry in the simulator with ideal inputs.
+        #[arg(long)]
+        verify: bool,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        /// Ticks between macro steps in the ideal schedules.
+        #[arg(long, default_value_t = 6)]
+        gap: u32,
+        /// Solve at most this many candidates per box (0 = all; for testing).
+        #[arg(long, default_value_t = 0)]
+        limit: usize,
+        /// Non-core perimeter blocks that may take a 2-move path (each costs a provider).
+        #[arg(long, default_value_t = 1)]
+        two: usize,
+        /// Solve one design's mechanism instead (its bounding box grown by --check-margin).
+        #[arg(long)]
+        check: Option<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        check_margin: i8,
+        /// Also search with level events (A*, capped) when the exact pulse model fails.
+        #[arg(long)]
+        levels: bool,
+    },
     /// Mechanism synthesis (mechsynth.rs): enumerate up to --add blocks (pistons, slime...) on a
     /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
     /// schedules), rank by (blocks, control events), write ideal-input designs + schedules and
@@ -779,6 +835,13 @@ pub enum DoorCmd {
         /// Only the split symmetric search (edges block + searched core), not the graph one.
         #[arg(long)]
         split_only: bool,
+        /// FULL seamless + hallway in the macro model: nothing ever enters the hallway surface S
+        /// off the door plane, no candidate there, the open state holds only door blocks in S.
+        #[arg(long)]
+        seamless: bool,
+        /// A piston standing in the hallway ring S cannot be fired (bottom row: no power cell).
+        #[arg(long)]
+        no_ring_fire: bool,
         /// Symmetric control by product BFS for the base itself: the open state reached by these
         /// events ("P:x,y,z L:x,y,z ...", pistons named by their rest position), then the
         /// shortest single sequence S with S(rest) = open and S(open) = rest (`--cap` pairs).
@@ -850,7 +913,7 @@ pub enum DoorCmd {
         /// Upload to this GitHub release tag of vjeux/minecraft-tas.
         #[arg(long)]
         upload: Option<String>,
-        /// `card` (title card, door camera swinging around the door, block-count label),
+        /// `card` (title card, door camera swinging around the door, size label),
         /// `clean` (same camera, no card or label) or `classic` (still camera, whole build).
         #[arg(long, default_value = "card")]
         style: String,
@@ -882,8 +945,8 @@ pub enum DoorCmd {
         size: String,
     },
     /// One Minecraft world (a save folder for the real game) with every working archived design
-    /// in rows by board, smallest first, the block count above each in red concrete and its name
-    /// on a floating label; built by the official server (see world.rs).
+    /// in rows by board, smallest first, its size (the volume) above each in red concrete and its
+    /// name on a floating label; built by the official server (see world.rs).
     World {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
@@ -985,6 +1048,14 @@ pub enum DoorCmd {
         /// Also print why each failing variant fails.
         #[arg(long)]
         why: bool,
+        /// Also every design on HEAD and on the origin/explore/* branches (as the leaderboard
+        /// collects them, at most --max-blocks).
+        #[arg(long)]
+        branches: bool,
+        /// Only designs at least this seamless as they are (`full`, `semi`, ...: screened first),
+        /// and every eligible variant must meet `<tier>[+hall]` too.
+        #[arg(long)]
+        seamless: Option<String>,
     },
     /// Record eligibility of designs, one line each (what `--eligible` searches keep): the judge
     /// (the lever, every judge position) and the rotation check, repeater input at every judge
@@ -1573,6 +1644,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 facts.open_ticks = r.cycles.first().map(|c| c.open_ticks);
                 facts.close_ticks = r.cycles.first().map(|c| c.close_ticks);
             }
+            // The card's size: the volume (props cache, else measured and saved).
+            facts.measure_volume(&mut w, &d)?;
             let look = crate::showcase::Look::load(version)?;
             look.card(1280, 720, &crate::showcase::title_lines(&facts)).save_png(&out)?;
             if let Some(p) = label {
@@ -2200,7 +2273,32 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, sym_bfs, sym_levels } => {
+        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels } => {
+            if let Some(p) = check {
+                return crate::families::check(&p, check_margin, cap, sym_cap);
+            }
+            let o = crate::families::Opts {
+                boxes: crate::families::parse_boxes(&boxes)?,
+                pmax: pistons,
+                cap,
+                sym_cap,
+                threads,
+                lifts: !no_lifts,
+                pushes: !no_pushes,
+                out_dir,
+                verify,
+                workers,
+                extra: extra_offsets,
+                gap,
+                limit,
+                two,
+                levels,
+            };
+            crate::families::run(version, &o)?;
+        }
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels } => {
+            crate::mechsynth::SEAMLESS.store(seamless, std::sync::atomic::Ordering::Relaxed);
+            crate::mechsynth::NO_RING_FIRE.store(no_ring_fire, std::sync::atomic::Ordering::Relaxed);
             if let Some(seq) = &sym_bfs {
                 return crate::mechsynth::sym_cli(version, &base, seq, sym_levels, cap, out_dir.as_deref(), verify, extra_offsets, gap);
             }
@@ -2458,27 +2556,45 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             trace(&mut w, &d, ticks, close)?;
         }
-        DoorCmd::Relever { designs, subs, out_dir, extra_offsets, workers, verdicts, max_blocks, any_rotation, table, why } => {
+        DoorCmd::Relever { designs, subs, out_dir, extra_offsets, workers, verdicts, max_blocks, any_rotation, table, why, branches, seamless } => {
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
             let screen = VerifyOptions { cycles: 1, max_ticks: 200, offsets: offsets.iter().take(2).copied().collect(), keep_frames: false, empty_walkway: true, tile: None };
             let known = verdicts.as_deref().map(crate::properties_dyn::load_verdicts).unwrap_or_default();
+            let seam = seamless.as_deref().map(crate::properties::SeamReq::parse).transpose()?;
             let subs: Vec<String> = subs.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             let mut seen = std::collections::HashSet::new();
             let mut loaded: Vec<(String, Design)> = Vec::new();
+            let mut sources: Vec<(String, Design)> = Vec::new();
             for p in &designs {
-                let d = match load_design(p) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        eprintln!("{}: {e:#}", p.display());
-                        continue;
-                    }
-                };
+                match load_design(p) {
+                    Ok(d) => sources.push((p.display().to_string(), d)),
+                    Err(e) => eprintln!("{}: {e:#}", p.display()),
+                }
+            }
+            if branches {
+                sources.extend(crate::properties_dyn::collect_refs(std::path::Path::new("."), "refs/remotes/origin/explore/", max_blocks)?);
+            }
+            for (src, d) in sources {
                 let h = format!("{:016x}", crate::leaderboard::design_hash(&d));
                 if crate::block_count(&d) > max_blocks || known.get(&h) == Some(&false) || !seen.insert(d.content_key()) {
                     continue;
                 }
-                loaded.push((p.display().to_string(), d));
+                loaded.push((src, d));
+            }
+            // Seamless pre-screen (the tier only, as the design is).
+            if let Some(req) = seam {
+                let tier_only = crate::properties::SeamReq { hallway: false, ..req };
+                let pool = mctas::sim::Pool::spawn(workers.min(loaded.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+                let keep = pool.map(loaded.clone(), |w, _, (_, d)| {
+                    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+                    let ok = tier_only.check(w, sb, &d).is_ok();
+                    let _ = w.drop_sandbox(sb);
+                    Ok(ok)
+                });
+                let before = loaded.len();
+                loaded = loaded.into_iter().zip(keep).filter(|(_, k)| matches!(k, Ok(true))).map(|(x, _)| x).collect();
+                eprintln!("seamless pre-screen: {} of {before} designs reach the tier", loaded.len());
             }
             let mut jobs: Vec<(usize, crate::relever::Variant)> = Vec::new();
             for (i, (_, d)) in loaded.iter().enumerate() {
@@ -2489,7 +2605,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{} designs, {} variants (as-is included), {} positions", loaded.len(), jobs.len(), offsets.len());
             let pool = mctas::sim::Pool::spawn(workers.min(jobs.len()).max(1), &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
-            let results = pool.map(jobs, |w, _, (i, v)| Ok((i, crate::relever::judge_variant(w, v, &judge, &screen, !any_rotation)?)));
+            let results = pool.map(jobs, |w, _, (i, v)| Ok((i, crate::relever::judge_variant(w, v, &judge, &screen, !any_rotation, seam)?)));
             let mut per: Vec<Vec<crate::relever::Outcome>> = vec![Vec::new(); loaded.len()];
             for r in results {
                 match r {
