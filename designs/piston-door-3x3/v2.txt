@@ -1,14 +1,14 @@
 name: piston-door-3x3-v2
 port door: 0 0 0
 port lever: 6 6 0
-origin: -5 0 0
+origin: -3 0 -3
 palette:
   A minecraft:piston_head[facing=north,short=false,type=sticky]
   B minecraft:piston_head[facing=up,short=false,type=sticky]
   C minecraft:piston_head[facing=west,short=false,type=sticky]
   D minecraft:redstone_wall_torch[facing=west,lit=true]
-  E minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=side]
-  F minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=up]
+  E minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=up]
+  F minecraft:redstone_wire[east=none,north=none,power=0,south=up,west=side]
   G minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
   H minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
   I minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
@@ -21,107 +21,136 @@ palette:
   P minecraft:piston_head[facing=down,short=false,type=sticky]
   Q minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
   R minecraft:redstone_wall_torch[facing=east,lit=true]
-  S minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=side]
-  T minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  S minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=none]
+  T minecraft:redstone_wire[east=side,north=side,power=0,south=none,west=up]
   U minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   V minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=none]
   W minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
   X minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=none]
   Y minecraft:redstone_wire[east=up,north=up,power=0,south=none,west=none]
   Z minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
-  a minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
-  b minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
-  c minecraft:repeater[delay=3,facing=south,locked=false,powered=false]
-  d minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
-  e minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
-  f minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
-  g minecraft:smooth_stone
-  h minecraft:sticky_piston[extended=false,facing=down]
-  i minecraft:sticky_piston[extended=true,facing=down]
-  j minecraft:sticky_piston[extended=true,facing=east]
-  k minecraft:sticky_piston[extended=true,facing=north]
-  l minecraft:sticky_piston[extended=true,facing=up]
-  m minecraft:sticky_piston[extended=true,facing=west]
-  n minecraft:stone
+  a minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  b minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  c minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  d minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  e minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  f minecraft:smooth_stone
+  g minecraft:sticky_piston[extended=false,facing=down]
+  h minecraft:sticky_piston[extended=true,facing=down]
+  i minecraft:sticky_piston[extended=true,facing=east]
+  j minecraft:sticky_piston[extended=true,facing=north]
+  k minecraft:sticky_piston[extended=true,facing=up]
+  l minecraft:sticky_piston[extended=true,facing=west]
+  m minecraft:stone
   o minecraft:observer[facing=up,powered=false]
   p minecraft:piston_head[facing=east,short=false,type=sticky]
   r minecraft:redstone_wall_torch[facing=north,lit=true]
   s minecraft:slime_block
 layer -3:
-  ......r
-  ....ggggg
+  .
+  .
+  .
+  ..f.r
+  ..fffff
   .
   .
   .
   .
   .
 layer -2:
-  ......l
-  ...gNMMZWg
+  .
+  .
+  ..f
+  ..K.k
+  .fTMMZWf
   .
   .
   .
   .
   .
 layer -1:
-  ..r...B...r
-  .ggN.....Wgg
+  .
+  ..f
+  ..K
+  r...B...r
+  fN.....Wff
   .
   .
   .
   .
   .
 layer 0:
-  ..jpsnnnsCm
-  gNM.......MWgg
+  .
+  .fE
+  .
+  ipsmmmsCl
+  M.......MWff
   .
   .
   .
   .
   .
 layer 1:
-  g...snnns....g
-  V...........MJ
+  .f
+  .V
+  .
+  ..smmms....f
+  ..........MJ
   .
   .
   .
   .
   .
 layer 2:
-  Xg..snnns...gF
+  .Xf
+  .
+  .
+  ..smmms...fE
   .
   .
   .
-  ....g
+  ..f
   .
   .
 layer 3:
-  .Wg...Pn...gN
-  ......A
-  ......kDggggg
-  ....g...g..g
-  ....Ygggg..g
-  ........g..g
-  ........gggg
+  ..F
+  ..f
+  ..f
+  ....Pm...fN
+  ..f.A....f
+  ....jDffff
+  ..f...f..f
+  ..Yffff..f
+  ......f..f
+  ......ffff
 layer 4:
-  ..WggRiU...M
-  ....g
-  ....g...QZMSWg
-  ....K...a..f
-  .....MMMI..f
-  ........H..b
-  ........TMMG
+  .
+  ..H
+  ..a
+  ..fRhU...Q
+  ..e......H
+  ..f...QcMI
+  ..K...b..d
+  ...MMMI..d
+  ......H..d
+  ......SMMG
 layer 5:
-  ...ME.hog.gggg
-  ....c........g
-  ....H........J
+  .
+  .
+  .
+  ....gof.ff
+  .
+  ..H
   .
   .
   .
   .
 layer 6:
-  .......ZeOZLdE
-  .............H
+  .
+  .
+  .
+  .....ZcOZL
+  .
   .
   .
   .

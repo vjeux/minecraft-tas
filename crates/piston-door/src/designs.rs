@@ -239,12 +239,23 @@ pub fn v2() -> Design {
     // A steady power: torch (0,4,0) on (-1,4,0), lit = NOR(L, L_late).
     b.set([0, 4, 0], "redstone_wall_torch[facing=east,lit=true]");
     b.set([-1, 4, 0], FLOOR);
-    // A's early input: a branch of the sides line (which carries L), up the left side.
+    // A early: a branch of the sides line ends in a repeater into the A torch attachment.
+    b.repeater([-1, 4, -1], "south", 1);
     for (p, s) in [
-        ([-4, -1, 1], FLOOR), ([-4, 0, 1], "redstone_wire"), ([-5, 0, 1], FLOOR), ([-5, 1, 1], "redstone_wire"),
-        ([-5, 1, 0], FLOOR), ([-5, 2, 0], "redstone_wire"), ([-4, 2, 0], FLOOR), ([-4, 3, 0], "redstone_wire"),
-        ([-3, 3, 0], FLOOR), ([-3, 4, 0], "redstone_wire"), ([-2, 4, 0], FLOOR), ([-2, 5, 0], "redstone_wire"),
-        ([-1, 5, 0], "redstone_wire"),
+        ([-1, -3, 0], "minecraft:smooth_stone"),
+        ([-1, -2, 0], "minecraft:redstone_wire"),
+        ([-1, -2, -1], "minecraft:smooth_stone"),
+        ([-1, -1, -1], "minecraft:redstone_wire"),
+        ([-1, -1, -2], "minecraft:smooth_stone"),
+        ([-1, 0, -2], "minecraft:redstone_wire"),
+        ([-2, 0, -2], "minecraft:smooth_stone"),
+        ([-2, 1, -2], "minecraft:redstone_wire"),
+        ([-2, 1, -3], "minecraft:smooth_stone"),
+        ([-2, 2, -3], "minecraft:redstone_wire"),
+        ([-1, 2, -3], "minecraft:smooth_stone"),
+        ([-1, 3, -3], "minecraft:redstone_wire"),
+        ([-1, 3, -2], "minecraft:smooth_stone"),
+        ([-1, 4, -2], "minecraft:redstone_wire"),
     ] {
         b.set(p, s);
     }
@@ -252,22 +263,18 @@ pub fn v2() -> Design {
     b.set([2, 3, 2], "redstone_wall_torch[facing=west,lit=true]");
     b.dust([3, 4, 2]); // floor (3,3,2) = P_T torch attachment
     // L_6: R1 off the lever, then down to the repeater feeding the P_T net.
-    b.repeater([7, 6, 0], "east", 3);
-    b.dust([8, 6, 0]);
-    b.dust([8, 6, 1]);
-    b.dust([8, 5, 2]);
-    b.dust([7, 4, 2]);
+    b.dust([6, 4, 1]); // joins the sides line: the P_T nets hang off L directly
     b.dust([6, 4, 2]);
     b.dust([5, 4, 2]);
-    b.repeater([4, 4, 2], "west", 1);
+    b.repeater([4, 4, 2], "west", 4);
     // Late chain: L_6 + 22gt = L_28 into the P_T net, + 8gt more into the A net.
     b.repeater([6, 4, 3], "south", 4);
     b.repeater([6, 4, 4], "south", 4);
-    b.repeater([6, 4, 5], "south", 2);
+    b.repeater([6, 4, 5], "south", 4);
     b.dust_run([6, 4, 6], [3, 4, 6]);
     b.dust([3, 4, 5]);
     b.dust([3, 4, 4]);
-    b.repeater([3, 4, 3], "north", 1);
+    b.repeater([3, 4, 3], "north", 2);
     // A's late input: the P_T late net (L_28) through a 6gt repeater into the A net's end.
     for (p, s) in [
         ([2, 3, 4], FLOOR), ([2, 4, 4], "redstone_wire"), ([1, 3, 4], FLOOR), ([1, 4, 4], "redstone_wire"),
@@ -276,6 +283,6 @@ pub fn v2() -> Design {
     ] {
         b.set(p, s);
     }
-    b.repeater([-1, 5, 1], "north", 3);
+    b.repeater([-1, 4, 1], "north", 4);
     b.d
 }

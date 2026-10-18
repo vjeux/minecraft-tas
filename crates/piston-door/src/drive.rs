@@ -32,7 +32,9 @@ fn cell(state: &str) -> char {
         "piston_head" => arrow(b.get("facing")),
         "moving_piston" => '~',
         "observer" => 'O',
-        "repeater" => 'r',
+        "repeater" => {
+            if b.get("powered") == Some("true") { 'Q' } else { 'q' }
+        }
         "redstone_block" => 'R',
         "redstone_torch" | "redstone_wall_torch" => {
             if b.get("lit") == Some("true") { 'T' } else { 't' }

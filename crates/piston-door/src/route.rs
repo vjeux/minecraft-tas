@@ -58,6 +58,39 @@ impl Router<'_> {
     /// Route from any of `start` (existing dust cells of the net) to `goal` (a free cell that
     /// becomes dust). Returns the new blocks (dust + floors) or None.
     pub fn route(&self, start: &[Pos], goal: Pos) -> Option<Vec<(Pos, String)>> {
+        // Dijkstra cannot see that a floor placed later on the path blocks an earlier step
+        // (or the reverse): validate, ban the offending dust cell, and search again.
+        let mut banned: HashSet<Pos> = HashSet::new();
+        for _ in 0..40 {
+            let path = self.route_once(start, goal, &banned)?;
+            let solid: HashSet<Pos> = path.iter().filter(|(_, s)| s != "minecraft:redstone_wire").map(|(p, _)| *p).collect();
+            let mut cells: Vec<Pos> = path.iter().filter(|(_, s)| s == "minecraft:redstone_wire").map(|(p, _)| *p).collect();
+            cells.reverse();
+            let mut bad = None;
+            for w in cells.windows(2) {
+                let (a, b) = (w[0], w[1]);
+                let clear = if b[1] == a[1] + 1 {
+                    Some(add(a, [0, 1, 0]))
+                } else if b[1] + 1 == a[1] {
+                    Some(add(b, [0, 1, 0]))
+                } else {
+                    None
+                };
+                if let Some(c) = clear.filter(|c| solid.contains(c)) {
+                    bad = Some(add(c, [0, 1, 0]));
+                }
+            }
+            match bad {
+                None => return Some(path),
+                Some(cell) => {
+                    banned.insert(cell);
+                }
+            }
+        }
+        None
+    }
+
+    fn route_once(&self, start: &[Pos], goal: Pos, banned: &HashSet<Pos>) -> Option<Vec<(Pos, String)>> {
         let none = HashSet::new();
         // Cost to stand dust at cell c: 1 (dust, 0 if already dust) + 1 if its floor is new.
         let floor_cost = |c: Pos| -> Option<u32> {
@@ -94,7 +127,7 @@ impl Router<'_> {
                     if dy == -1 && self.blocks.contains_key(&add(c, h)) {
                         continue;
                     }
-                    if !(n == goal || self.free(n, &none)) || !self.clean(n, &[c].into_iter().collect()) {
+                    if banned.contains(&n) || !(n == goal || self.free(n, &none)) || !self.clean(n, &[c].into_iter().collect()) {
                         continue;
                     }
                     let Some(fc) = floor_cost(n) else { continue };
