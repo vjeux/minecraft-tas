@@ -1640,7 +1640,25 @@ pub fn sym_cli(version: &str, base: &std::path::Path, open_seq: &str, levels: bo
         return Ok(());
     };
     println!("symmetric sequence, {} events ({:.1} s):\n    {}", sym.len(), t0.elapsed().as_secs_f64(), fmt_seq(&rest, &sym));
-    // Where each pulsed piston stands in the two runs (its power cell must reach it there).
+    // Where each pulsed piston stands in the two runs (its power cell must reach it there), and
+    // which cells change at each step in each run (what an observer could watch).
+    let occ_map = |w: &World| -> HashMap<P, String> {
+        let mut m = HashMap::new();
+        for (i, (p, k)) in w.b.iter().enumerate() {
+            m.insert(*p, format!("{i}:{k:?}"));
+            if let Kind::Piston { ext: true, f, .. } = k {
+                m.insert(add(*p, D[*f as usize]), format!("{i}:head"));
+            }
+        }
+        m
+    };
+    let changed = |a: &World, b: &World| -> Vec<P> {
+        let (ma, mb) = (occ_map(a), occ_map(b));
+        let mut cells: Vec<P> = ma.keys().chain(mb.keys()).copied().filter(|p| ma.get(p) != mb.get(p)).collect();
+        cells.sort();
+        cells.dedup();
+        cells
+    };
     let (mut a, mut b) = (rest.clone(), open.clone());
     for (i, e) in sym.iter().enumerate() {
         let (pa, pb) = (a.b[e.id as usize].0, b.b[e.id as usize].0);
@@ -1655,8 +1673,12 @@ pub fn sym_cli(version: &str, base: &std::path::Path, open_seq: &str, levels: bo
             pb,
             if nb.is_some() { "" } else { " (no-op)" }
         );
-        a = na.unwrap_or(a);
-        b = nb.unwrap_or(b);
+        let na = na.unwrap_or_else(|| a.clone());
+        let nb = nb.unwrap_or_else(|| b.clone());
+        let fmt = |v: Vec<P>| v.iter().map(|p| format!("({},{},{})", p[0], p[1], p[2])).collect::<Vec<_>>().join(" ");
+        println!("       changed from rest: {}   from open: {}", fmt(changed(&a, &na)), fmt(changed(&b, &nb)));
+        a = na;
+        b = nb;
     }
     let sol = Solution { open: sym.clone(), close: sym.clone(), sym: Some(sym), states: 0 };
     let plan = ideal_plan(&rest, &sol, true, gap, "sym")?;

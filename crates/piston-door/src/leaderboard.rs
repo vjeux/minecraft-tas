@@ -122,8 +122,9 @@ fn load_cache(dir: &Path) -> std::collections::HashMap<u64, Cached> {
 /// Shape-facts cache: design hash -> the swept shape ([`crate::swept_shape`]: front behind below
 /// above left right blocks-below blocks-above) and the ground check ([`crate::ground_check`]:
 /// `safe`, `-` when something stands below the door, else the judge's reason), for working
-/// designs. Main's verifier and simulator are deterministic.
-const SHAPES_CACHE_FILE: &str = "shapes-v1.tsv";
+/// designs. Main's verifier and simulator are deterministic. v2: east/west-facing doors
+/// (`door-axis: z`) measured along their own axes.
+const SHAPES_CACHE_FILE: &str = "shapes-v2.tsv";
 type ShapeFacts = (crate::Shape, Option<std::result::Result<(), String>>);
 
 fn load_shapes(dir: &Path) -> std::collections::HashMap<u64, ShapeFacts> {
