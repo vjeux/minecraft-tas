@@ -962,6 +962,13 @@ fn reroutes(ctx: &Ctx, d: &Design, space: &Space) -> (Vec<Edit>, Vec<Edit>) {
     (better, neutral)
 }
 
+/// A candidate stays in its base's leaderboard: same category, and no slime/honey added to a
+/// slime-free design.
+fn same_league(base: &Design, d: &Design) -> bool {
+    let slimy = |x: &Design| x.blocks.values().any(|s| matches!(kind(s), "slime_block" | "honey_block"));
+    crate::category(base) == crate::category(d) && (slimy(base) || !slimy(d))
+}
+
 /// A candidate: an edit of `bases[base]`.
 struct Cand {
     base: usize,
@@ -1029,7 +1036,7 @@ fn evaluate(
         let c = &cands[i];
         let d = c.edit.apply(&bases[c.base]);
         let h = design_hash(&d);
-        if failed.lock().unwrap().contains(&h) || !batch_seen.lock().unwrap().insert(h) {
+        if failed.lock().unwrap().contains(&h) || !batch_seen.lock().unwrap().insert(h) || !same_league(&bases[c.base], &d) {
             return Ok(Screen::Skip);
         }
         let sb = sandboxes.get(w, wi)?;
