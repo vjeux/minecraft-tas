@@ -1,0 +1,10 @@
+vanilla server up in 10.4s (/dev/shm/mctas-vanilla-553869-6d47eb627d7c090e)
+  offset [0, 0, 0]: 40 actions (417 build ticks), 35 clicks on the view ray, 3 off it, temporary dirt 1 against a block / 5 against an anchor | every action identical to the simulator | built = judge rest | sim PASS (open 19, close 38) | vanilla PASS (open 19, close 38) | 318 ticks compared
+    clicked off the view ray (no open standing spot on it within reach 4.5) at steps 25 (body), 28 (body), 33 (sight)
+  offset [-7, 3, 5]: 40 actions (417 build ticks), 35 clicks on the view ray, 3 off it, temporary dirt 1 against a block / 5 against an anchor | every action identical to the simulator | built = judge rest | sim PASS (open 19, close 38) | vanilla PASS (open 19, close 38) | 318 ticks compared
+    clicked off the view ray (no open standing spot on it within reach 4.5) at steps 25 (body), 28 (body), 33 (sight)
+  offset [5, -11, -6]: 40 actions (417 build ticks), 35 clicks on the view ray, 3 off it, temporary dirt 1 against a block / 5 against an anchor | every action identical to the simulator | built = judge rest | sim PASS (open 19, close 38) | vanilla PASS (open 19, close 38) | 318 ticks compared
+    clicked off the view ray (no open standing spot on it within reach 4.5) at steps 25 (body), 28 (body), 33 (sight)
+  offset [-3, 40, 2]: 40 actions (417 build ticks), 35 clicks on the view ray, 3 off it, temporary dirt 1 against a block / 5 against an anchor | every action identical to the simulator | built = judge rest | sim PASS (open 19, close 38) | vanilla PASS (open 19, close 38) | 318 ticks compared
+    clicked off the view ray (no open standing spot on it within reach 4.5) at steps 25 (body), 28 (body), 33 (sight)
+vanilla-build: designs/piston-door-3x3/tracks/vanilla-build/sculk2-s1-38b-lever-split.build.txt PASS (38 blocks, sculk; 40 actions x 4 positions (140 clicks from the view ray, 12 off it, 20 temporary dirt on an anchor)): every action left vanilla identical to the simulator, the built world equals the judge's rest state, cycles identical tick for tick (1272 ticks); PASS (open 19, close 38) [94s]
