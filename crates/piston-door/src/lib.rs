@@ -5,11 +5,11 @@
 //!   plane `z = door.z` covering `x in door.x..door.x+3`, `y in door.y..door.y+3`.
 //! * `lever`: a lever. On opens the door, off closes it.
 //!
-//! What "works" means (see docs/piston-door-3x3.md):
-//! * at rest with the lever off, the 9 door cells hold full-cube blocks and the cells right in
-//!   front of and behind the door (z-1 and z+1) are walkable (no collision);
-//! * after the lever is switched on and everything settles, the 9 door cells and those 18
-//!   corridor cells are all walkable;
+//! What "works" means (the full rules: docs/rules.md):
+//! * at rest with the lever off, the 9 door cells hold 9 identical plain full blocks and the
+//!   walkway (the opening extended 3 blocks in front and behind) is walkable (no collision);
+//! * after the lever is switched on and everything settles, the 9 door cells and the walkway
+//!   are all walkable;
 //! * after the lever is switched off and everything settles, every block of the build is back
 //!   exactly where it started (so the door is the same blocks, and it can cycle forever);
 //! * no item entity appears (nothing was broken), repeated for several cycles, at several
@@ -20,6 +20,7 @@ pub mod mechsynth;
 pub mod mechwire;
 pub mod archive;
 pub mod buildable;
+pub mod catalog;
 pub mod designs;
 pub mod designs_history;
 pub mod designs_fresh_b;

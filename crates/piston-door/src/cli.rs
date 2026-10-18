@@ -118,7 +118,8 @@ impl SearchArgs {
 }
 #[derive(Subcommand)]
 pub enum DoorCmd {
-    /// Record a video of every design in a folder (several at once), upload each, write VIDEOS.md.
+    /// Record a video of every design in a folder (several at once), upload each, then write the
+    /// folder's catalog (README.md, see `door catalog`).
     VideoAll {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         dir: PathBuf,
@@ -145,6 +146,26 @@ pub enum DoorCmd {
         /// after each flip); videos now always play until the door has settled.
         #[arg(long)]
         redo_cut: bool,
+        /// Only list the videos that would be recorded (records and writes nothing).
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Write the archive catalog (archive/README.md): every archived design with its blocks,
+    /// boards, open/close ticks, rotations, buildability (`door buildable`'s scripts), video link
+    /// and how it works (archive/captions.tsv, archive/records.tsv). Records nothing; verdicts
+    /// come from the verdict cache. `door video-all` writes it too.
+    Catalog {
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        archive: PathBuf,
+        /// A local folder of rendered videos (`<stem>.mp4`, video-all's --out): linked too.
+        #[arg(long)]
+        videos: Option<PathBuf>,
+        /// GitHub release whose `<stem>.mp4` assets are linked ("" = none).
+        #[arg(long, default_value = "videos")]
+        release: String,
+        /// Worker JVMs for archived designs missing from the verdict cache.
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
     },
     /// Draw the title card (and the corner label, as a transparent PNG) of a design's video,
     /// without recording anything.
@@ -156,17 +177,15 @@ pub enum DoorCmd {
         #[arg(long)]
         label: Option<PathBuf>,
     },
-    /// The best design of each board (solid, slime-free, sculk, gravity, fastest solid) as a
-    /// looping GIF (door camera, real client) plus a markdown page linking them with one line
-    /// per design (blocks, category, ticks, how it works from CAPTIONS.md / the archive README).
+    /// The best design of each board (block-count boards, speed boards) as a looping GIF (door
+    /// camera, real client), uploaded to the release, plus the night's timeline chart. No page of
+    /// its own: `door leaderboard` shows each board leader's GIF.
     Gallery {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
         /// Folder for the clips and GIFs (rendered when missing).
         #[arg(long)]
         videos: PathBuf,
-        #[arg(long, default_value = "designs/piston-door-3x3/GALLERY.md")]
-        out: PathBuf,
         /// GitHub release tag to upload the GIFs and clips to.
         #[arg(long)]
         upload: Option<String>,
@@ -190,7 +209,7 @@ pub enum DoorCmd {
         #[arg(long)]
         redo: bool,
     },
-    /// The solid record progression (archive README's table, plus a newer record) as one video:
+    /// A board's record progression (solid: archive/records.tsv, plus a newer record) as one video:
     /// every design filmed by the same camera, labeled with its block count and how it got there.
     Montage {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
@@ -212,7 +231,7 @@ pub enum DoorCmd {
         speed: f64,
         #[arg(long)]
         redo: bool,
-        /// solid (the archive README's progression table), slime-free, sculk or gravity (records
+        /// solid (archive/records.tsv), slime-free, flat, sculk, sculk-unrotated or gravity (records
         /// in archive order).
         #[arg(long, default_value = "solid")]
         board: String,
@@ -282,7 +301,8 @@ pub enum DoorCmd {
         #[arg(long)]
         no_table: bool,
     },
-    /// Verify every design on HEAD and on the explore/* branches and write a ranked table.
+    /// Verify every design on HEAD and on the explore/* branches and write the boards
+    /// (LEADERBOARD.md: each board's leader with its GIF, video and caption, the rest collapsed).
     Leaderboard {
         /// Ref prefix to scan besides HEAD.
         #[arg(long, default_value = "refs/remotes/origin/explore/")]
@@ -306,6 +326,18 @@ pub enum DoorCmd {
         /// Archive every working design into this folder; designs already there are trusted.
         #[arg(long)]
         archive_dir: Option<PathBuf>,
+        /// Verdict cache folder (default: --archive-dir; none = verify everything).
+        #[arg(long)]
+        cache_dir: Option<PathBuf>,
+        /// Rank only designs whose verdict is cached (simulate nothing).
+        #[arg(long)]
+        cached_only: bool,
+        /// GitHub release with the GIFs, videos and montages to show ("" = none).
+        #[arg(long, default_value = "videos")]
+        release: String,
+        /// Archive folder whose captions.tsv / records.tsv describe the leaders.
+        #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+        captions: PathBuf,
     },
     /// Route a dust path in a design (prints the blocks to add).
     Route {
@@ -991,8 +1023,6 @@ pub enum DoorCmd {
         #[arg(long)]
         stay: bool,
     },
-    /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
-    /// run in both worlds and compared tick for tick; diverging ones are saved.
     /// Replay gadget drive scripts (designs/gadgets/*.drive) in the UNMODIFIED official server
     /// and compare every tick with the simulator (see vanilla_gadget.rs): the design in its rest
     /// state, `use` by a bot player, `setblock` as the game's command in both worlds, every tick
@@ -1011,6 +1041,8 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 100)]
         tick_rate: u32,
     },
+    /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
+    /// run in both worlds and compared tick for tick; diverging ones are saved.
     VanillaFuzz {
         #[arg(long, default_value_t = 50)]
         count: u64,
@@ -1303,9 +1335,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut } => {
+        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut, dry_run } => {
             let opts = video_style(&style, orbit)?;
-            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut)?;
+            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut, dry_run)?;
+        }
+        DoorCmd::Catalog { archive, videos, release, workers } => {
+            let o = crate::catalog::CatalogOptions { archive: &archive, workers, videos: videos.as_deref(), release: Some(release.as_str()) };
+            crate::catalog::write(version, &o)?;
         }
         DoorCmd::Card { design, out, label } => {
             let d = load_design(&design)?;
@@ -1322,8 +1358,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("wrote {}", out.display());
         }
-        DoorCmd::Gallery { archive, videos, out, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo } => {
-            let o = crate::showcase::GalleryOptions { archive, videos, out, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
+        DoorCmd::Gallery { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo } => {
+            let o = crate::showcase::GalleryOptions { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
             crate::showcase::gallery(version, &o)?;
         }
         DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo, board } => {
@@ -1360,7 +1396,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             print!("{}", crate::shapes::best_report(&entries, &rules));
         }
-        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir } => {
+        DoorCmd::Leaderboard { refs, fetch, extra_offsets, max_blocks, workers, out, sync_tracks, archive_dir, cache_dir, cached_only, release, captions } => {
             let repo = std::path::Path::new(".");
             if fetch {
                 let st = std::process::Command::new("git").args(["fetch", "-q", "origin"]).status()?;
@@ -1370,9 +1406,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 eprintln!("synced tracks: {:?}", crate::leaderboard::sync_tracks(repo, &refs)?);
             }
             let trusted = archive_dir.as_deref().map(crate::leaderboard::archived_keys).unwrap_or_default();
-            let cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
+            let mut cands = crate::leaderboard::collect(repo, &refs, max_blocks)?;
+            let cache = cache_dir.or_else(|| archive_dir.clone());
+            let mut extras = crate::leaderboard::Extras::load(&captions, &release);
+            if cached_only {
+                let dir = cache.as_deref().ok_or_else(|| anyhow::anyhow!("--cached-only needs --cache-dir or --archive-dir"))?;
+                extras.uncached = crate::leaderboard::only_cached(&mut cands, dir);
+                eprintln!("{} designs without a cached verdict left out", extras.uncached);
+            }
             eprintln!("verifying {} designs ({} archived designs trusted)", cands.len(), trusted.len());
-            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, archive_dir.as_deref())?;
+            let entries = crate::leaderboard::judge(version, cands, extra_offsets, workers, cache.as_deref())?;
             if let Some(dir) = &archive_dir {
                 for e in entries.iter().filter(|e| e.verdict.is_ok()) {
                     let note = format!("verified WORKS by door leaderboard: {} blocks, category {}", e.blocks, e.category);
@@ -1381,7 +1424,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     }
                 }
             }
-            let table = crate::leaderboard::render(&entries, extra_offsets);
+            let table = crate::leaderboard::render(&entries, extra_offsets, &extras);
             print!("{table}");
             if let Some(p) = out {
                 std::fs::write(p, &table)?;
