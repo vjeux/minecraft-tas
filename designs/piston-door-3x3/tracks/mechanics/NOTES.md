@@ -96,3 +96,15 @@ the right. The right top puller's quasi cell (4,3,0) must not touch a powered bl
   dust the short hold costs 4-5 blocks, plus 3 for R_Q: 7-8 >= the current 7.
 * Moving power from a structure (a redstone block riding the left structure, "left open" =
   open t=2 .. close t=10) cannot reach Q: the left structure moves away from Q.
+
+## Fast solid (speed boards)
+
+* **fast-60** (`fast-60.txt` = `BEST-fast.txt`, open 16 / close 17, 60 blocks): redstone-block's
+  rb9 (61, the fastest solid) + `bm-obs.patch`. fast-60 is exactly mech-47 + rb9's 13-block
+  second-pulse route (an observer on the lever, 5 dust + 5 floors, a delay-2 repeater into R_B's
+  input), which splits B's window into t4..6 + t8..12.
+* Tried: a repeater R2 on top of B (in B's quasi cell) reading R_B, delay 2, pointing into a
+  block next to that cell (`rb9-r2.patch`, 50 blocks): B does get its second window t8..12
+  for 2 blocks, but B is not updated when R2 turns off (R2's off only updates its front block's
+  neighbors) and O (watching R_B) never sees the t12 edge, so neither B's retraction at t12 nor
+  A's second pulse at t14 happen: the door stays half open.
