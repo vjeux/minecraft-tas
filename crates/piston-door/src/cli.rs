@@ -587,6 +587,9 @@ pub enum DoorCmd {
         /// Seconds each tick stays on screen.
         #[arg(long, default_value_t = 0.35)]
         secs_per_tick: f64,
+        /// Milliseconds the client gets to draw each tick before the screenshot.
+        #[arg(long, default_value_t = 500)]
+        draw_ms: u64,
         /// Upload to this GitHub release tag of vjeux/minecraft-tas.
         #[arg(long)]
         upload: Option<String>,
@@ -1426,10 +1429,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("uploaded {url}");
             }
         }
-        DoorCmd::TickVideo { design, out, secs_per_tick, upload, size } => {
+        DoorCmd::TickVideo { design, out, secs_per_tick, draw_ms, upload, size } => {
             let d = load_design(&design)?;
             let (width, height) = size.split_once('x').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))).ok_or_else(|| anyhow::anyhow!("--size wants WIDTHxHEIGHT"))?;
-            let opts = crate::tickvideo::TickVideoOptions { width, height, secs_per_tick, ..Default::default() };
+            let opts = crate::tickvideo::TickVideoOptions { width, height, secs_per_tick, draw_ms, ..Default::default() };
             crate::tickvideo::record(version, &d, &out, &opts)?;
             println!("recorded {}", out.display());
             if let Some(tag) = upload {

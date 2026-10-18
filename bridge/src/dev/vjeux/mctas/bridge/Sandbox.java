@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Lifecycle;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -14,8 +15,11 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Util;
+import net.minecraft.util.profiling.Profiler;
+import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
@@ -156,9 +160,36 @@ final class Sandbox {
      */
     void tick(SimServer server) {
         this.level.tick(() -> true);
+        // A level sends its block changes to players at the START of its next tick, while block
+        // events (piston moves) go out at once. A real client never notices (the next tick is
+        // 50 ms away), but a client watching a sandbox stepped slowly (tick-by-tick videos) gets a
+        // piston move, finishes its own animation, then receives the late "this cell is a moving
+        // block" (without the moving block's data) and draws nothing there for a whole step. Send
+        // this tick's changes now. Packets only: no game state changes, and nothing at all when no
+        // player is watching (the judge's runs).
+        if (!this.level.players().isEmpty()) {
+            try {
+                BROADCAST_CHANGED_CHUNKS.invoke(this.level.getChunkSource(), Profiler.get());
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
         server.pumpTasks();
         while (this.level.getChunkSource().pollTask()) {
             // drain
+        }
+    }
+
+    /** {@code ServerChunkCache.broadcastChangedChunks(ProfilerFiller)}: see {@link #tick}. */
+    private static final Method BROADCAST_CHANGED_CHUNKS = broadcastMethod();
+
+    private static Method broadcastMethod() {
+        try {
+            Method m = ServerChunkCache.class.getDeclaredMethod("broadcastChangedChunks", ProfilerFiller.class);
+            m.setAccessible(true);
+            return m;
+        } catch (NoSuchMethodException e) {
+            throw new ExceptionInInitializerError(e);
         }
     }
 
