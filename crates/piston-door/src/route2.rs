@@ -301,27 +301,47 @@ fn observer_seq(ch: &[bool]) -> Vec<bool> {
 /// `DiodeBlock` (repeater, delay `k` gt): input changes schedule a tick k later; a pulse shorter
 /// than k is stretched to k.
 fn repeater_seq(s: &[bool], k: usize) -> Vec<bool> {
-    let mut out = vec![false; s.len()];
-    let (mut on, mut pending) = (s[0], None::<usize>);
-    for t in 0..s.len() {
-        let before = if t > 0 { s[t - 1] } else { s[0] };
-        if pending == Some(t) {
-            pending = None;
-            if on && !before {
-                on = false;
-            } else if !on {
-                on = true;
-                if !before {
-                    pending = Some(t + k);
+    repeater_locked_seq(s, k, None)
+}
+
+/// [`repeater_seq`] with a lock (a powered diode pointing into its side): while locked, the
+/// repeater keeps its state (its scheduled tick does nothing, input changes schedule nothing);
+/// the unlock is a neighbor change.
+fn repeater_locked_seq(s: &[bool], k: usize, lock: Option<&[bool]>) -> Vec<bool> {
+    let locked = |t: usize| lock.is_some_and(|l| l[t]);
+    let run = |init: bool| -> Vec<bool> {
+        let mut out = vec![false; s.len()];
+        let (mut on, mut pending) = (init, None::<usize>);
+        for t in 0..s.len() {
+            let before = if t > 0 { s[t - 1] } else { s[0] };
+            let locked_before = t > 0 && locked(t - 1);
+            if pending == Some(t) {
+                pending = None;
+                if !locked_before {
+                    if on && !before {
+                        on = false;
+                    } else if !on {
+                        on = true;
+                        if !before {
+                            pending = Some(t + k);
+                        }
+                    }
                 }
             }
+            let changed = t > 0 && (s[t] != s[t - 1] || locked(t) != locked(t - 1));
+            if changed && !locked(t) && on != s[t] && pending.is_none() {
+                pending = Some(t + k);
+            }
+            out[t] = on;
         }
-        if t > 0 && s[t] != s[t - 1] && on != s[t] && pending.is_none() {
-            pending = Some(t + k);
-        }
-        out[t] = on;
+        out
+    };
+    let first = run(if locked(0) { false } else { s[0] });
+    if lock.is_none() {
+        return first;
     }
-    out
+    // A locked repeater's state at rest is whatever the last cycle left: start from it.
+    run(*first.last().unwrap())
 }
 
 /// `RedstoneTorchBlock`: inverts its block's power 2 gt later.
@@ -551,6 +571,8 @@ pub struct Model {
     inputs: Vec<Vec<(usize, Feed)>>,
     /// For dust: every dust node of its connected net (itself included).
     net: Vec<Vec<usize>>,
+    /// For repeaters: the diodes that lock them.
+    locks: Vec<Vec<usize>>,
     fixed: HashMap<usize, Wave>,
     pub any: Vec<Wave>,
     pub strong: Vec<Wave>,
@@ -648,7 +670,22 @@ impl Model {
             }
         }
         let net: Vec<Vec<usize>> = (0..n).map(|v| if nodes[v].kind == Kind::Dust { members[&root(&mut comp, v)].clone() } else { Vec::new() }).collect();
-        let mut m = Model { blocks: all, nodes, at, pts, inputs, net, fixed: fx, any: vec![Wave::OFF; n], strong: vec![Wave::OFF; n] };
+        // Repeater locks: a repeater or comparator pointing into a repeater's side.
+        let locks: Vec<Vec<usize>> = (0..n)
+            .map(|v| {
+                let r = &nodes[v];
+                if r.kind != Kind::Repeater {
+                    return Vec::new();
+                }
+                let side = [r.facing[2], 0, r.facing[0]];
+                [side, [-side[0], 0, -side[2]]]
+                    .iter()
+                    .filter_map(|d| at.get(&add(r.pos, *d)).copied())
+                    .filter(|&u| matches!(nodes[u].kind, Kind::Repeater | Kind::Comparator) && sub(nodes[u].pos, nodes[u].facing) == r.pos)
+                    .collect()
+            })
+            .collect();
+        let mut m = Model { blocks: all, nodes, at, pts, inputs, net, locks, fixed: fx, any: vec![Wave::OFF; n], strong: vec![Wave::OFF; n] };
         m.evaluate();
         m
     }
@@ -686,6 +723,11 @@ impl Model {
                 let node = &self.nodes[v];
                 let (na, ns) = match node.kind {
                     Kind::Block => (a, s),
+                    Kind::Repeater if !self.locks[v].is_empty() => {
+                        let lock = self.locks[v].iter().fold(Wave::OFF, |w, &l| w.or(self.any[l]));
+                        let w = Wave::from_seq(&repeater_locked_seq(&a.seq(), 2 * repeater_delay(&node.state), Some(&lock.seq())));
+                        (w, w)
+                    }
                     _ => {
                         let w = transfer(node, a);
                         (w, w)
