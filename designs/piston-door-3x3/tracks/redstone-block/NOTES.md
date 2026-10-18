@@ -125,3 +125,17 @@ Traced with probes (`trace`), lever flip = t0, w = tick B extends (R_B turns on)
 * Fast close idea (not built): if the open state stacks T ABOVE C in the column with A a
   normal piston above them, the close is two line pushes (B pushes A+T+C, then A pushes T+C)
   => ~6 ticks; the open for that layout needs C to pass T, which pulls can't do (pull = 1 block).
+
+## rb7 / rb8: fastest solid door (FAST.txt = rb8: 71 blocks, open 16, close 17)
+* rb7 (71, open 16 / close 19): the B window moved from t10..18 to t4..12. R_B is delay 1 and
+  reads K (1,6,2), powered by O2's pulse through the cross dust (t2..4), by Rb (delay 1, t4..6)
+  and Rc (delay 2, t6..10). Rb/Rc are fed by a SECOND observer O3 (1,6,-1) watching the lever,
+  through their own dust line (one line shared with O2 latches: K is strongly powered and
+  lights the cross dust). B at t4 is safe in the open: P_R's block event (queued at t3 when
+  RB_A lands) runs before B's (FIFO), so (1,3,0) is already air. The silent hold had to drop
+  to 12 gt so A's landing (t14 in the close) still releases Q.
+* rb8 (71, open 16 / close 17): the hold's last repeater Rr (-1,4,-1) powers Q directly from
+  behind, so its falling edge at t12 UPDATES Q (no more waiting for A's landing). Q's retract
+  unpowers P_R, whose event is appended to the block-event queue after B's (whichever of Rr/R_B
+  ticks first), so T is pushed into (1,3,0) right after B lifts A out of it; A, T and RB_A all
+  land at t14, A pushes T down at t15 => closed at t17. Same block count as rb7's hold.
