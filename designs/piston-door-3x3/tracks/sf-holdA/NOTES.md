@@ -2,7 +2,8 @@
 
 | file | blocks | note |
 |---|---|---|
-| **b39.txt = BEST.txt** | **39** | b40 with ONE chain off the lever watcher for both the B window and P_T: (1,5,-3) -> (1,6,-3) -> Y (1,6,-2) facing north powers R_B directly (J gone); O (1,5,-2) turned UP watches Y and fires into O_a's cell = P_T's quasi cell (P_T's 3-block feed gone). Open 40 / close 36 |
+| **b38.txt = BEST.txt** | **38** | b39 with the lever at (1,5,-3) hung on O: it weakly powers a NOTE BLOCK (1,4,-3) that O_a watches (p0 t2, nothing passed on to P_T's quasi cell) and (1,6,-3) watches the lever itself (observer (1,5,-3) gone). Open 36 / close 32, BUILDABLE |
+| b39.txt | 39 | b40 with ONE chain off the lever watcher for both the B window and P_T: (1,5,-3) -> (1,6,-3) -> Y (1,6,-2) facing north powers R_B directly (J gone); O (1,5,-2) turned UP watches Y and fires into O_a's cell = P_T's quasi cell (P_T's 3-block feed gone). Open 40 / close 36 |
 | b40.txt | 40 | TL and TR both up on X's three pulses, P_T south at (1,3,-2), 2-observer M trigger (section b40 below). Open 38 / close 34 |
 | r41.txt | 41 | w42 + `door resynth --palette block,dust,dot,rep,rep4,obs,torch,lamp,bulb --max-size 4`: X dust + floor + the TR chain (2 observers) -> a plain block X' (1,4,-1) (O_a and O' strongly power it: A-high directly, A-low by quasi-connectivity through B's head) + a cross dust (2,4,-1) on a floor (2,3,-1) next to it, pointing into the TR puller (2,4,0). The TR puller now gets X's THREE pulses (t2, t14, t22): three toggles end with TR up, and the right pair (watching TR's cell) toggles three times too. Open 28 / close 26, 32 positions |
 | hA.txt | 43 | the A-held wiring of w42 (below) |
@@ -104,3 +105,16 @@ Budget: 19 mechanism + lever 1, lever watcher 1, O_a 1, X 1, two dust + floor 4,
   must cross over B.
 * The side-pair follower blocks: an observer firing into air quasi-powers only the upper piston
   of the pair; the lower one then needs its own feed (>= 2).
+
+## b38 (38) = BEST.txt: a note block as the lever's silent relay
+`b38.patch` on b39. The lever sits at (1,5,-3), hung on O (1,5,-2). Its weak power reaches the
+NOTE BLOCK at (1,4,-3) (powered state flips at once on both edges, no lamp-style delay), which O_a
+watches: p0 at t2. A weakly powered note block passes nothing on, so P_T's quasi cell (1,4,-2)
+(= O_a's cell) stays dark; a lever there (or a block the lever is hung on) would hold P_T
+extended. (1,6,-3) watches the lever itself: Y t4 -> R_B (B window t12-20), O t6 -> P_T, i.e.
+P_T = p0 + 4 (T lands 4 gt after p0). Budget: 19 + lever 1, note block 1, O_a 1, X 1, dusts +
+floors 4, (1,6,-3), Y, O, R_B, O' 5, followers 4, M 2 = 38. Open 36 / close 32, 32 positions,
+`door buildable`: BUILDABLE.
+**Trick worth reusing: a note block (or any block whose state flips on weak power) next to a
+lever is a zero-delay, non-conducting watch target, so an observer can read the lever without
+the lever touching the observer's neighbourhood.**
