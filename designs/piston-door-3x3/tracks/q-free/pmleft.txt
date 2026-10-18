@@ -1,4 +1,5 @@
-name: fc2
+name: q-free-pmleft
+# fc2 with P_M fired by the LEFT column: observer (0,-1,0) under the bottom-left door block + smooth stone (0,-2,0)
 port door: 0 0 0
 port lever: -2 4 0
 origin: -3 0 0
