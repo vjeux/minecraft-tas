@@ -212,6 +212,9 @@ impl World {
 
     /// Apply an event; None when nothing changes (a no-op).
     pub fn apply(&self, e: Ev) -> Option<World> {
+        if NO_RING_FIRE.load(Ordering::Relaxed) && in_s(self.b[e.id as usize].0) {
+            return None;
+        }
         let w = self.apply_mode(e, false)?;
         if SEAMLESS.load(Ordering::Relaxed) && s_off_plane(&w) {
             return None;
@@ -428,6 +431,9 @@ pub static SPLIT_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::Atomic
 /// plane (the hallway's walls stand there), candidates are not placed there, and the open state
 /// holds nothing but door blocks in S (door plane included).
 pub static SEAMLESS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--no-ring-fire`: a piston standing in S cannot be fired (a bottom-row piston in the ring has
+/// no power cell outside S: its sides are S, below is the floor).
+pub static NO_RING_FIRE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// In the hallway surface S (face-adjacent to the tunnel, any depth).
 pub fn in_s(p: P) -> bool {
