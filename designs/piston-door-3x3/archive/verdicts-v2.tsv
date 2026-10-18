@@ -72,6 +72,7 @@
 7cbc45e3755f98a6	broken	-	-	at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever
 7d058b321906046d	ok	22	38	
 7d675a2ecb11fd09	ok	5	11	
+7dd6971cbb2376e0	ok	24	50	
 7e6328e71f41b39f	ok	24	36	
 7fe9f69bf4a52604	broken	-	-	at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 8293f02540a7d4dd	ok	6	11	

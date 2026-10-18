@@ -26,6 +26,7 @@ Rendered by the real Minecraft client (`mctas door video-all`).
 | 48 | gravity | [search-tool-from-HEAD-gravity-g4-51b-48b](search-tool-from-HEAD-gravity-g4-51b-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g4-51b-48b.mp4) |
 | 48 | gravity | [search-tool-from-HEAD-gravity-g6-49b-48b](search-tool-from-HEAD-gravity-g6-49b-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-HEAD-gravity-g6-49b-48b.mp4) |
 | 48 | gravity | [search-tool-from-gravity-BEST-48b](search-tool-from-gravity-BEST-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/search-tool-from-gravity-BEST-48b.mp4) |
+| 48 | solid | [slime-free-combo-48b](slime-free-combo-48b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-combo-48b.mp4) |
 | 49 | gravity | [gravity-g6-49b](gravity-g6-49b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g6-49b.mp4) |
 | 49 | gravity | [gravity-g7-49b](gravity-g7-49b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-g7-49b.mp4) |
 | 49 | solid | [logic-min-v2-49b](logic-min-v2-49b.txt) | [video](https://github.com/vjeux/minecraft-tas/releases/download/videos/logic-min-v2-49b.mp4) |
