@@ -8,7 +8,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | track | goal | result |
 |---|---|---|
 | [buildable](buildable/NOTES.md) | integrity check: can a survival player build the records? | `door buildable`; every board leader buildable at 32/32 positions, none in the naive order; found the unwaxed-copper hazard |
-| [box56](box56/NOTES.md) | a flat FULL-seamless door in volume <= 56 (7x8 / 8x7) | proof sketch: no slime-free elevator family fits (4 wiring quadrants; side links and center links compete for the same 4 cells; B's link is 2 unmergeable pulses); tlup mechanism (19, ideal inputs) |
+| [box56](box56/NOTES.md) | a flat FULL-seamless door in volume <= 56 (7x8 / 8x7) | no door: `door topology` (wiring components, piston links, pulse parity) finds 0 of the 99 7x8/8x7 mechanisms of agent families' catalog wirable (strict parity); 11 asymmetric ones survive only if 3+ pulses chain-merge; gadget merger-gap; tlup mechanism (19, ideal inputs) |
 | [center-mech](center-mech/NOTES.md) | new mechanisms for the middle column | v2u2 96 (solid record: sides pushed out off one shared block), rb2-sculk 48 (sculk) |
 | [entities](entities/) | doors that use entities (minecarts, armor stands, boats...) | the `entity` category and the "Entities allowed" board: entities summoned by the bridge, judged exactly back at rest after each close ([rules.md](../../../docs/rules.md#categories)) |
 | [eligible](eligible/NOTES.md) | doors ELIGIBLE for records under the Squid regulation (section 3: repeater input, hallway, seamless) | `--repeater-input` / `--eligible` on every search, `door eligible`; **b39n 39**: b38 with a note block in the lever's cell (the first eligible solid door) |

@@ -96,4 +96,38 @@ leave by pistons only.
    own wide side, and its R park pushes TR up (kills the U link) or BR down (kills the P_M link).
 Escape hatches left open (not explored): slime flags (vjeux asked for slime-free), sculk
 (category), entities, door blocks parked 2+ cells out to free ring cells for links, and centers
-that are not elevators (none known in 7x8; agent families' catalog will say).
+that are not elevators.
+
+## Machine check against agent families' catalog (22:10Z): `mctas door topology`
+Claim 2 above is too strong: agent families' catalog (explore/families 6b2d389, flat FULL-seamless
+mechanisms, <= 10 pistons, no slime) has 9-piston mechanisms where R leaves through a 2-move path
+and the right side keeps a free cell at (4,1) (7x8-000). So the argument is now checked by a
+tool rather than by hand: `door topology <CATALOG.tsv>` (crates/piston-door/src/topology.rs;
+`door mech-synth <base> --just-base --topology x0,y0:x1,y1` for one design).
+- Model: free cells = box cells of the door plane outside the opening and the ring that no block,
+  head or pulse head ever occupies during the catalog's run (symmetric train, else its open and
+  close paths); unswept ring cells hold stone and join the components they touch. A piston is fed
+  from a component holding a neighbor of any of its positions (not its front) or a neighbor of
+  the cell above it (quasi-connectivity through another piston's cell only when both need the
+  same pulse count, as a side stack does). A component watching a position cell receives one pulse
+  per change of that cell (pulse mergers). Both edges must work with the lever in one component:
+  odd-count pistons need a component reached by an odd link (or the lever's own), even-count ones
+  (B) any reached component. `strict` = a link is odd iff its change count is odd; `permissive` =
+  also when it has >= 3 changes (three close pulses might chain-merge into an odd number).
+- Sanity: the real doors e89 (8x9), h44 (9x9), flat-b-v7(-full) (8x10) are WIRABLE (strict).
+- **7x8: 0 of 50 wirable (strict); 8x7: 0 of 49.** Permissive: 5 + 6 survive (7x8-000/001/003/004/
+  005, 8x7-050..055): all 9-piston mechanisms WITHOUT a symmetric train (asymmetric control: e.g.
+  7x8-000's left bottom puller takes 1 pulse to open and 7 to close in the model's paths), whose
+  links only work if 3+ pulses chain-merge. Every mechanism with a symmetric train (88 of 99)
+  fails even permissively. Other boxes: the first 8x8 entry (8x8-102, symmetric) and 8x9-111 are
+  WIRABLE (strict).
+- box72's torch-held side puller (one observer pulse per edge from a level source) is a side link
+  my model already counts as odd (one change per edge); it needs the same free cell beside the
+  side stack as any watcher, so it adds no crossing in the 99 entries.
+- tlup, pist19r and cd19 in their 7x8 boxes: NOT wirable (strict and permissive).
+
+**Final verdict:** within agent families' bounds (flat, FULL, slime-free, <= 10 pistons, 1-2 unit
+moves, elevator lifts), no 7x8 / 8x7 mechanism can be wired with symmetric pulse control; the only
+candidates left are the 11 asymmetric 9-piston mechanisms, and only if three or more relayed pulses
+merge into an odd count, with open and close trains that differ (up to 44-48 macro events to
+close), which 26 free cells cannot plausibly carry.
