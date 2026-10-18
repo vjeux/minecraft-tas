@@ -135,3 +135,22 @@ INTO (instead of the one it leaves) is as good and frees the observer's back sid
   (-1,0,0) -> O (-2,-1,0) watching (-2,0,0) -> block (-2,-2,0) -> R_P (-1,-2,0, d2 = 4gt pulse) -> P.
 * Right structure moves at 8: top-right flag (3,5,0) -> O_a (2,5,0) -> A's quasi cell (1,5,0) (A2 at
   10); bottom-right flag (3,-1,0) -> O (3,-2,0) -> O (3,-3,0) -> O (2,-3,0) -> U (at 14).
+
+### 08:30Z mp8 = 43 blocks (25 mechanism + 18 control), opens 16 / closes 16, verified at 104 positions
+Control blocks: lever + S' (2), A1 = top-left flag + observer (2), F = repeater + floor + block (3),
+A2 = top-right flag + observer (2), pump = bottom-left flag + observer + block + d2 repeater + floor
+(5), U = bottom-right flag + 3 observers (4). `door minimize --moves all --plateau --plateau-pairs`
+and a 400-step neutral walk find nothing.
+Why each piece is still there:
+* U needs ONE 2 gt pulse after the pump ends (u >= t+tl+1 = 12); the cells next to U that are not
+  next to the lowered slime row are (2,-3,0), (1,-4,0), (1,-3,+-1), and the nearest late event is
+  the right structure's bottom flag at (3,-1,0): 3 observers is the shortest legal chain. An observer
+  watching the pump repeater or P itself would give two pulses (the second one breaks the close).
+* The pump needs >= 3 gt (a 2 gt pulse spits the row up and leaves it there), so a repeater; the
+  observer that sees the flag can only sit under the flag's destination, so its output block Y is
+  needed to feed that repeater from behind.
+* A1 cannot come from an observer on the lever while the lever also powers H directly (no cell is
+  next to the lever and has its back on A), hence the flag on the left structure.
+What fails: mp-mech order (pump after F, full slime row) needs A2 after the pump at the top and U at
+the bottom: ~23 control blocks. The reorder (only BM + the bottom-left corner ride the row, pump
+before F) is what lets F's own motion fire A2 with one observer.
