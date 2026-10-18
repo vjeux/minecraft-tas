@@ -390,6 +390,9 @@ pub enum DoorCmd {
         /// Requirement "kinds:x0,y0,z0:x1,y1,z1" (repeatable): some block of these kinds in the box.
         #[arg(long)]
         require: Vec<String>,
+        /// Pulse-driven pistons only (no level signals) for pistons retracted at rest.
+        #[arg(long)]
+        pulses_only: bool,
     },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
@@ -751,7 +754,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require } => {
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only } => {
+            crate::mechsynth::PULSES_ONLY.store(pulses_only, std::sync::atomic::Ordering::Relaxed);
             let o = crate::mechsynth::EnumOptions {
                 require: require.iter().map(|r| crate::mechsynth::Require::parse(r)).collect::<Result<_>>()?,
                 add,

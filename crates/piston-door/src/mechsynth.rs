@@ -405,10 +405,18 @@ pub struct Graph {
     pub complete: bool,
 }
 
+/// When set, pistons are pulse-driven only (no level events): the cheapest control, one observer
+/// chain from the lever (`--pulses-only`).
+pub static PULSES_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn events(w: &World) -> Vec<Ev> {
+    let po = PULSES_ONLY.load(Ordering::Relaxed);
     let mut out = Vec::new();
     for i in w.pistons() {
-        out.push(Ev { id: i as u8, act: Act::L });
+        let ext = matches!(w.b[i].1, Kind::Piston { ext: true, .. });
+        if !po || ext {
+            out.push(Ev { id: i as u8, act: Act::L });
+        }
         out.push(Ev { id: i as u8, act: Act::P });
     }
     out
@@ -617,7 +625,9 @@ pub fn symmetric_split(rest: &World, sol: &Solution, max_core: usize, cap: usize
         if count(&sol.open, id, Act::P) == 1 && count(&sol.close, id, Act::P) == 1 && used == 2 && rest.apply(Ev { id, act: Act::P }).is_some() {
             edge.push(Ev { id, act: Act::P });
         } else if used > 0 {
-            core.push(Ev { id, act: Act::L });
+            if !PULSES_ONLY.load(Ordering::Relaxed) {
+                core.push(Ev { id, act: Act::L });
+            }
             core.push(Ev { id, act: Act::P });
         }
     }
