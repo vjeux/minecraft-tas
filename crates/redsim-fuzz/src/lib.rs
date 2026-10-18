@@ -52,6 +52,9 @@ pub enum Step {
     Run(u32),
     /// Right-click a lever/button between ticks (a frame after it).
     Use(Pos),
+    /// Place a state (air = remove) between ticks like a player: `setBlock(.., 3)` (a frame
+    /// after it).
+    Set(Pos, String),
 }
 
 /// A circuit and its inputs.
@@ -62,12 +65,18 @@ pub struct Case {
     /// Compared box (inclusive).
     pub lo: Pos,
     pub hi: Pos,
+    /// Place the blocks one by one with updates (`setBlock(.., 3)`, onPlace runs) instead of the
+    /// judge's way.
+    pub update_place: bool,
 }
 
 impl Case {
     pub fn to_text(&self) -> String {
         let mut s = String::new();
         let _ = writeln!(s, "box {} {} {} {} {} {}", self.lo[0], self.lo[1], self.lo[2], self.hi[0], self.hi[1], self.hi[2]);
+        if self.update_place {
+            let _ = writeln!(s, "place update");
+        }
         for (p, b) in &self.blocks {
             let _ = writeln!(s, "block {} {} {} {}", p[0], p[1], p[2], b);
         }
@@ -79,13 +88,16 @@ impl Case {
                 Step::Use(p) => {
                     let _ = writeln!(s, "use {} {} {}", p[0], p[1], p[2]);
                 }
+                Step::Set(p, b) => {
+                    let _ = writeln!(s, "set {} {} {} {b}", p[0], p[1], p[2]);
+                }
             }
         }
         s
     }
 
     pub fn parse(text: &str) -> Result<Case> {
-        let mut c = Case { blocks: Vec::new(), steps: Vec::new(), lo: [0; 3], hi: [0; 3] };
+        let mut c = Case { blocks: Vec::new(), steps: Vec::new(), lo: [0; 3], hi: [0; 3], update_place: false };
         for line in text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
             let t: Vec<&str> = line.split_whitespace().collect();
             let int = |i: usize| -> Result<i32> { t.get(i).context("missing field")?.parse::<i32>().with_context(|| format!("bad number in {line:?}")) };
@@ -94,9 +106,11 @@ impl Case {
                     c.lo = [int(1)?, int(2)?, int(3)?];
                     c.hi = [int(4)?, int(5)?, int(6)?];
                 }
+                "place" => c.update_place = t.get(1) == Some(&"update"),
                 "block" => c.blocks.push(([int(1)?, int(2)?, int(3)?], t.get(4).context("missing state")?.to_string())),
                 "run" => c.steps.push(Step::Run(int(1)? as u32)),
                 "use" => c.steps.push(Step::Use([int(1)?, int(2)?, int(3)?])),
+                "set" => c.steps.push(Step::Set([int(1)?, int(2)?, int(3)?], t.get(4).context("missing state")?.to_string())),
                 // fixture expectations are read by the redsim test, not here
                 "frame" | "cell" => {}
                 _ => bail!("bad case line {line:?}"),
@@ -144,15 +158,17 @@ pub fn run_bridge(w: &mut Worker, sb: u32, c: &Case) -> Result<Vec<Frame>> {
     let mut cache = HashMap::new();
     w.clear(sb)?;
     if !c.blocks.is_empty() {
-        w.set_blocks(sb, &c.blocks, PlaceMode::Raw)?;
+        w.set_blocks(sb, &c.blocks, if c.update_place { PlaceMode::Update } else { PlaceMode::Raw })?;
     }
-    let wires: Vec<Pos> = c.blocks.iter().filter(|(_, s)| s.contains("redstone_wire")).map(|(p, _)| *p).collect();
-    if !wires.is_empty() {
-        w.update(sb, &wires, "shape")?;
-    }
-    let all: Vec<Pos> = c.blocks.iter().map(|(p, _)| *p).collect();
-    if !all.is_empty() {
-        w.update(sb, &all, "self")?;
+    if !c.update_place {
+        let wires: Vec<Pos> = c.blocks.iter().filter(|(_, s)| s.contains("redstone_wire")).map(|(p, _)| *p).collect();
+        if !wires.is_empty() {
+            w.update(sb, &wires, "shape")?;
+        }
+        let all: Vec<Pos> = c.blocks.iter().map(|(p, _)| *p).collect();
+        if !all.is_empty() {
+            w.update(sb, &all, "self")?;
+        }
     }
     let mut frames = vec![region_frame(&w.get_region(sb, c.lo, c.hi)?, &mut cache)];
     for st in &c.steps {
@@ -168,6 +184,10 @@ pub fn run_bridge(w: &mut Worker, sb: u32, c: &Case) -> Result<Vec<Frame>> {
             }
             Step::Use(p) => {
                 w.use_block(sb, *p)?;
+                frames.push(region_frame(&w.get_region(sb, c.lo, c.hi)?, &mut cache));
+            }
+            Step::Set(p, s) => {
+                w.set_blocks(sb, &[(*p, s.clone())], PlaceMode::Update)?;
                 frames.push(region_frame(&w.get_region(sb, c.lo, c.hi)?, &mut cache));
             }
         }
@@ -193,7 +213,13 @@ pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
     for (p, s) in &c.blocks {
         blocks.push((bp(*p), Block::parse(s).map_err(|e| anyhow::anyhow!(e))?));
     }
-    w.place_like_judge(&blocks);
+    if c.update_place {
+        for (p, b) in &blocks {
+            w.set_block(*p, *b, redsim::world::flags::ALL);
+        }
+    } else {
+        w.place_like_judge(&blocks);
+    }
     let cells = c.cells();
     let mut frames = vec![sim_frame(&w, &cells)];
     for st in &c.steps {
@@ -206,6 +232,11 @@ pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
             }
             Step::Use(p) => {
                 w.use_block(bp(*p));
+                frames.push(sim_frame(&w, &cells));
+            }
+            Step::Set(p, s) => {
+                let b = Block::parse(s).map_err(|e| anyhow::anyhow!(e))?;
+                w.set_block(bp(*p), b, redsim::world::flags::ALL);
                 frames.push(sim_frame(&w, &cells));
             }
         }
@@ -249,6 +280,12 @@ pub fn frame_label(c: &Case, i: usize) -> String {
             Step::Use(p) => {
                 if k == i {
                     return format!("right after use {} {} {} (after tick {t})", p[0], p[1], p[2]);
+                }
+                k += 1;
+            }
+            Step::Set(p, s) => {
+                if k == i {
+                    return format!("right after set {} {} {} {s} (after tick {t})", p[0], p[1], p[2]);
                 }
                 k += 1;
             }
@@ -296,7 +333,8 @@ pub fn palette(spec: &str) -> Result<Vec<(String, u32)>> {
         ("rail", 2),
         ("dispenser", 2),
         ("crafter", 1),
-        ("hopper", 1),
+        // hoppers move items (block entities + item entities: out of scope); `hopper:1` adds them
+        ("hopper", 0),
         ("slab", 2),
         ("leaves", 1),
         ("log", 1),
@@ -502,17 +540,46 @@ pub fn random_case(r: &mut Rng, pal: &[(String, u32)], size: [i32; 3], density: 
         inputs.push(p);
     }
     let blocks: Vec<(Pos, String)> = order.iter().map(|p| (*p, grid[p].clone())).collect();
+    let total2 = total;
+    let random_single = |r: &mut Rng| -> String {
+        loop {
+            let mut k = r.below(total2 as u64) as u32;
+            let mut fam = pal[0].0.as_str();
+            for (n, w) in pal {
+                if k < *w {
+                    fam = n;
+                    break;
+                }
+                k -= w;
+            }
+            let v = random_state(r, fam);
+            if v.len() == 1 {
+                return v[0].clone();
+            }
+        }
+    };
+    let edits = r.chance(0.4);
     let mut steps = vec![Step::Run(r.range(10, 30) as u32)];
     let flips = r.range(2, 5);
     for _ in 0..flips {
-        if inputs.is_empty() {
-            break;
+        if !inputs.is_empty() {
+            steps.push(Step::Use(*r.pick(&inputs)));
         }
-        steps.push(Step::Use(*r.pick(&inputs)));
+        if edits {
+            for _ in 0..r.range(0, 2) {
+                let p = [r.range(lo[0], hi[0]), r.range(lo[1], hi[1]), r.range(lo[2], hi[2])];
+                if inputs.contains(&p) {
+                    continue;
+                }
+                let s = if r.chance(0.5) { "minecraft:air".to_string() } else { random_single(r) };
+                steps.push(Step::Set(p, s));
+            }
+        }
         steps.push(Step::Run(r.range(1, 24) as u32));
     }
     steps.push(Step::Run(16));
-    Case { blocks, steps, lo: [lo[0] - 1, lo[1] - 1, lo[2] - 1], hi: [hi[0] + 1, hi[1] + 1, hi[2] + 1] }
+    let update_place = r.chance(0.35);
+    Case { blocks, steps, lo: [lo[0] - 1, lo[1] - 1, lo[2] - 1], hi: [hi[0] + 1, hi[1] + 1, hi[2] + 1], update_place }
 }
 
 // ---------------------------------------------------------------------- driver
@@ -608,6 +675,9 @@ pub fn fuzz(pool: &Pool, o: &FuzzOptions, log: &dyn Fn(&str)) -> Result<(usize, 
     };
     let mut rng = Rng::new(o.seed);
     let cases: Vec<(usize, Case)> = (0..o.n).map(|i| (i, random_case(&mut rng, &o.palette, o.size, o.density))).collect();
+    if let Some((_, c)) = cases.first() {
+        std::fs::write(o.out.join(format!("sample-{}.txt", o.seed)), c.to_text())?;
+    }
     let t0 = std::time::Instant::now();
     let results = pool.map(cases, |w, wi, (i, c)| {
         let sb = sb_for(w, wi)?;
@@ -701,7 +771,9 @@ pub fn replay(w: &mut Worker, path: &Path, max: usize) -> Result<bool> {
         }
     }
     if shown == 0 {
-        println!("identical ({} frames)", sim.len());
+        let changes = game.windows(2).filter(|f| f[0] != f[1]).count();
+        let cells_set = game.first().map(|f| f.iter().filter(|s| *s != "minecraft:air").count()).unwrap_or(0);
+        println!("identical ({} frames, {changes} frames with changes, {cells_set} non-air cells after placement)", sim.len());
     }
     Ok(shown == 0)
 }

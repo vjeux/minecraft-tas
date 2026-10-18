@@ -240,7 +240,9 @@ impl World {
                 }
             }
             if fl & flags::KNOWN_SHAPE == 0 && limit > 0 {
-                let nf = fl & !(flags::CLIENTS | flags::SUPPRESS_DROPS);
+                // `updateFlags & -34`: shape updates never update neighbors (bit 1) nor
+                // suppress drops (bit 32)
+                let nf = fl & !(flags::NEIGHBORS | flags::SUPPRESS_DROPS);
                 bh::update_indirect_neighbour_shapes(self, old, pos, nf, limit - 1);
                 self.update_neighbour_shapes(state, pos, nf, limit - 1);
                 bh::update_indirect_neighbour_shapes(self, state, pos, nf, limit - 1);
@@ -281,7 +283,7 @@ impl World {
         if s.is_air() {
             return false;
         }
-        if drop {
+        if drop && bh::drops_item(&s) {
             self.drops.push((pos, s));
         }
         self.set_block_limit(pos, Block::Air, flags::ALL, limit)

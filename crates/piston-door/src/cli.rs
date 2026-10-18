@@ -2678,25 +2678,25 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
             anyhow::ensure!(sz.len() == 3, "--size x,y,z");
             let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
-            let o = crate::redsim_fuzz::FuzzOptions {
+            let o = redsim_fuzz::FuzzOptions {
                 n,
                 seed,
                 size: [sz[0], sz[1], sz[2]],
                 density,
-                palette: crate::redsim_fuzz::palette(&palette)?,
+                palette: redsim_fuzz::palette(&palette)?,
                 out,
                 shrink: !no_shrink,
                 max_report,
             };
-            crate::redsim_fuzz::fuzz(&pool, &o, &|s| eprintln!("{s}"))?;
+            redsim_fuzz::fuzz(&pool, &o, &|s| eprintln!("{s}"))?;
         }
         DoorCmd::RedsimCase { case, max, fixture, note } => {
             let mut w = Worker::spawn(&cfg)?;
-            let same = crate::redsim_fuzz::replay(&mut w, &case, max)?;
+            let same = redsim_fuzz::replay(&mut w, &case, max)?;
             if let Some(path) = fixture {
                 anyhow::ensure!(same || !note.is_empty(), "writing a fixture of a mismatching case needs a --note");
-                let c = crate::redsim_fuzz::Case::parse(&std::fs::read_to_string(&case)?)?;
-                let text = crate::redsim_fuzz::fixture(&mut w, &c, &note)?;
+                let c = redsim_fuzz::Case::parse(&std::fs::read_to_string(&case)?)?;
+                let text = redsim_fuzz::fixture(&mut w, &c, &note)?;
                 std::fs::write(&path, text)?;
                 eprintln!("fixture written to {}", path.display());
             }

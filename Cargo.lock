@@ -339,6 +339,7 @@ dependencies = [
  "clap",
  "mctas",
  "redsim",
+ "redsim-fuzz",
  "serde_json",
 ]
 
@@ -363,6 +364,16 @@ dependencies = [
 [[package]]
 name = "redsim"
 version = "0.1.0"
+
+[[package]]
+name = "redsim-fuzz"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "redsim",
+]
 
 [[package]]
 name = "regex"
