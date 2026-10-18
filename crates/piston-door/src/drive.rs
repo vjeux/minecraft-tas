@@ -251,6 +251,14 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
             "clear" => {
                 w.set_blocks(sb, &[(pos(1)?, "minecraft:air".to_string())], PlaceMode::Update)?;
             }
+            // `setblock x y z <state>`: the game's own `/setblock` command (shape updates, then
+            // neighbor updates: `SetBlockCommand.setBlock`), so `door vanilla-gadget` can replay the
+            // very same call on the official server. Use it for ideal inputs in gadget scripts.
+            "setblock" => {
+                let state = parts.get(4).context("setblock needs a state")?;
+                let p = pos(1)?;
+                w.exec(sb, &format!("setblock {} {} {} {state}", p[0], p[1], p[2]))?;
+            }
             "use" => {
                 w.use_block(sb, pos(1)?)?;
             }

@@ -1,0 +1,12 @@
+# The piston T spits in tick 1 lands powered and extends in tick 1 too (M moving from tick 1).
+design designs/gadgets/zero-tick-onplace.txt
+probe T -1 1 0
+probe P -1 1 -2
+probe M -3 1 -2
+setblock 0 3 -1 minecraft:redstone_block
+setblock 0 1 0 minecraft:redstone_block
+expect_trace P E
+expect M ~
+expect_trace M ~#
+expect T r
+expect P E

@@ -1,0 +1,19 @@
+name: gadget-zero-tick-onplace
+# A piston placed by a 0-tick acts in the SAME block-event phase: T (sticky, 0-ticked as in
+# zero-tick) pushes piston P (facing west) one cell north; P is finalTick'd onto a cell next to
+# redstone block G, its onPlace (PistonBaseBlock.onPlace -> checkIfExtend) queues an extend
+# event that runs later in the same phase: P is extended at the end of tick 1 and its stone M is
+# moving (lands tick 3). Chains of pistons carried into place and firing at once all happen in
+# one tick this way (the door elevators' "A' extends the tick it is spit").
+origin: -2 0 -3
+palette:
+  T minecraft:sticky_piston[extended=false,facing=north]
+  X minecraft:piston[extended=false,facing=south]
+  P minecraft:piston[extended=false,facing=west]
+  M minecraft:stone
+  G minecraft:redstone_block
+layer 1:
+  .G.
+  M..
+  .PX
+  .T.

@@ -1,0 +1,11 @@
+# O fires once, at ticks 3..5, off the 0-tick in tick 1 (X is armed from (1,2,-1) here, so the
+# arming block does not touch O).
+design designs/gadgets/zero-tick-observer.txt
+probe O -1 2 -1
+probe K -1 1 -2
+probe T -1 1 0
+setblock 1 2 -1 minecraft:redstone_block
+setblock 0 1 0 minecraft:redstone_block
+expect_trace K #
+expect_trace O 0110000
+expect T r

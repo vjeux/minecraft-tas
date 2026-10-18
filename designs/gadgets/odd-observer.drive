@@ -1,0 +1,9 @@
+# O1 (A) on at ticks 3..4, O2 (B) on at 5..6: an odd chain off a k1 piston.
+design designs/gadgets/odd-observer.txt
+probe A 0 1 -1
+probe B -1 1 -1
+use -2 1 0
+expect_trace A 0011
+expect B 0
+expect_trace B 1100
+expect A 0
