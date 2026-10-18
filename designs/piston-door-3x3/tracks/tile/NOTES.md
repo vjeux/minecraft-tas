@@ -38,7 +38,11 @@ on `minimize`/`harvest` (SearchArgs), `synth` and `resynth`.
 
 | tiling | blocks per opening (long row) | open / close (N=3) | module | notes |
 |---|---|---|---|---|
-| period:8 | 52 | 40 / 36 (copy k: 36+2k / 32+2k) | `b38h-bus8.txt` | b38 + 14-block bus, note block -> hopper; slime-free, rotation-safe |
+| period:8 | **46** | 60 / 56 (copy k: 36+12k / 32+12k) | `b38h-obs8.txt` (BEST-period) | b38 + hopper + an 8-block observer bus (found by `door minimize --tile period:8:3` from b38h-bus8); slime-free, rotation-safe, N=3 and N=4 at 32 positions |
+| period:8 | 52 | 40 / 36 (copy k: 36+2k / 32+2k) | `b38h-bus8.txt` | b38 + 14-block dust bus, note block -> hopper |
+| vperiod:9 | **50** | 76 / 72 (copy k: 36+20k / 32+20k) | `b38h-vobs9.txt` (BEST-vperiod) | b38 + hopper + 2 observers on O + a 7-observer tower beside the openings + stone + dust; N=4 at 32 positions, rotation-safe |
+| wide | none yet | | `wide-mech.txt` + `wide-mech.sched` | mechanism works with ideal inputs (open 24 / close 26); wiring blocked, see below |
+| stack | none | | | same obstruction as wide (left and right sides cannot talk) |
 
 ## Archived designs: can they tile? (`door tile-scan`, own-lever diagnostic, 4 positions)
 
@@ -59,3 +63,45 @@ on `minimize`/`harvest` (SearchArgs), `synth` and `resynth`.
   only): copy k's right smooth stone S (strongly powered by observer C) touches copy k+1's left S,
   so it quasi-powers copy k+1's upper left piston D at copy k's time; with own levers fired in the
   same tick this is harmless, with a bus the copies run 2 ticks apart and it breaks. P=8 leaves a gap.
+* Tile-aware minimize (`door minimize b38h-bus8.txt --tile period:8:3 --moves all --plateau`,
+  12 workers, 18 min): 52 -> 46. The dust bus became an observer chain: an observer watches the
+  hopper and strongly powers a smooth stone under one dust; 5 observers carry the pulse to the
+  next copy's relay dust. b38 reacts to EDGES (the hopper and the lever cell are only watched by
+  observers), so one pulse per lever edge is enough, and each copy runs 12 ticks after the
+  previous one.
+* VPERIOD: the observer tower must stand beside the openings (x = -1): a tower above the lever
+  (x = 1) stands in front of the next door. The tower ends in the next copy's smooth stone
+  (-1,5,-3), which powers dust (0,5,-3), which feeds the relay dust.
+
+## WIDE and STACK: why no archived door tiles, and why wiring is hard
+
+Mechanism (proven with ideal inputs, `door ideal wide-mech.sched`, 4 positions x 2 cycles, open 24,
+close 24-26): every column is b38's center column. A_c (c,4,0) pulls T up, E_c (c,3,-2) pulls it
+aside to (c,3,-1), B_c (c,5,0) lowers A_c, A_c pulls C up twice, F_c (c,-2,0) pulls M down. 12
+pistons + 9 door blocks per opening. Waveforms (event ticks): A 1-3, 13-15 (lowered, QC through
+B's head; it must be UPDATED: power it next to its lowered cell), 21-23; E 5-7; B 11-19 (direct
+power from behind, not through the cell above B, which A's quasi-connectivity reads); F: 7-9 on
+both edges, plus 15-17 and 21/23-25 on CLOSE only (no symmetric F works: a sweep of every pair of
+symmetric F pulses 1..34 x 1..34 found none; the close needs the column pushed down by A's
+lowered pulse and pushed back up by F).
+
+Obstruction (topological): in a WIDE row the openings cover x = 0..3N-1, rows y = 0..2; at rest
+nothing may stand in front of or behind them at any distance and the door plane holds only door
+blocks. So for an inner copy the region above the opening (y >= 3) and the region below it
+(y <= -1) share NO cell: no dust, observer or block can carry a signal between them. The bottom
+row's pistons can only learn about a lever flip through the door blocks themselves (a column
+pushed down from the top moves M into the bottom region, where an observer beside (c,-1,0) can
+see it) or through a connection at the END of the row (not periodic). On the close edge the
+opening is empty, so even the column channel is gone. STACK is the same problem turned 90
+degrees: the left side and the right side of a tall opening share no cell. PERIODIC and VPERIOD
+do not have it (the wall between openings connects both sides).
+
+Ways out, not built yet: (1) `door verify --tile-extra <end piece>` (implemented): a shared end
+piece placed once, e.g. the lever plus a riser down to a second bus under the row; each module
+then carries a top bus and a bottom bus. (2) A mechanism whose open state keeps a top-bottom
+channel through the door blocks. (3) Synchronous copies (pure dust buses, no repeaters): adjacent
+copies' wires may then merge, but dust reaches only ~5 copies (15 blocks).
+
+Period-3 wiring rule found on the way: in a period-3 module, dust may stand at x = 1 anywhere, but
+at (0,y,z) and (2,y,z) not both (the copies' dust would touch across the boundary and merge,
+which makes a dot a line and leaks one copy's pulses into the next one, which runs later).
