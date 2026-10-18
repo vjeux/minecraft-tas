@@ -90,10 +90,15 @@ apply, and `rotation-safe` or `NOT rotation-safe`.
     walkway;
   * open: no entity with collision in the opening or the walkway (the open tick counts it), the
     same entity set (nothing dropped, nothing broke);
-  * close: every entity back EXACTLY at its rest position (rails put a cart back on the rail's
-    center line and pistons move entities by exact half-block steps, so no tolerance), at rest,
-    with the same state (its saved data without position and motion: rail, contents, pose...); no
-    other entity at any tick, and no entity ever outside the watch box.
+  * close: every entity back at its rest position (to 1e-6 block: a piston push leaves an entity at
+    the moving face + 0.01 + its float half-width, so a cart stated at x.5 comes back 1e-8 off it,
+    then the same every cycle; any real displacement is at least 0.01), at rest, with the same
+    state (its saved data without position and motion: rail, contents, pose...); no other entity
+    at any tick, and no entity ever outside the watch box;
+  * every lever flip comes 0-20 ticks after the build went idle (a different wait per position,
+    cycle and edge): a detector rail or pressure plate held by an entity re-checks every 10 or 20
+    ticks on its own clock, so a door must not depend on when the player flips the lever. A sensor
+    held by a design entity re-checking (it only reschedules) does not count as pending.
 
 ## Rotations
 

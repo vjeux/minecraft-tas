@@ -509,6 +509,8 @@ public final class Protocol {
         j.addProperty("collides", Sandbox.collides(e));
         j.addProperty("on_ground", e.onGround());
         net.minecraft.world.phys.AABB bb = e.getBoundingBox();
+        // Overlaps a block's collision shape (stuck inside a block: a player cannot place it so).
+        j.addProperty("embedded", !sb.level.noBlockCollision(e, bb.deflate(1.0E-7)));
         JsonArray box = new JsonArray();
         box.add(bb.minX);
         box.add(bb.minY);

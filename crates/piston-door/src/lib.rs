@@ -808,6 +808,10 @@ pub fn verify_in_spec(w: &mut Worker, sb: u32, design: &Design, spec: DoorSpec, 
     Ok(report)
 }
 
+/// How far (blocks, per axis) an entity may come back from its rest position after a cycle: float
+/// noise of piston pushes only (see the close check in `verify_at`).
+pub const ENTITY_POS_TOLERANCE: f64 = 1e-6;
+
 /// The box the verifier watches: the design (its entities' cells included) plus a margin (blocks
 /// can move out of it).
 pub(crate) fn watch_box(d: &Design, spec: &DoorSpec) -> (Pos, Pos) {
@@ -885,6 +889,9 @@ fn entity_rest(
     for e in &ents {
         if !e.still {
             bail!("entity not at rest after placement: {}", entity_line(e));
+        }
+        if e.embedded {
+            bail!("entity inside a block at rest (a survival player cannot place it there): {}", entity_line(e));
         }
         if !(0..3).all(|i| e.bbox[i] >= watch.0[i] as f64 && e.bbox[i + 3] <= (watch.1[i] + 1) as f64) {
             bail!("entity outside the watch box at rest: {}", entity_line(e));
@@ -1091,6 +1098,14 @@ fn verify_at(
     let watch = mctas::sim::EntityWatch { watch: (wlo, whi), walk: walk_box(spec) };
 
     for cycle in 0..opts.cycles {
+        // Designs with entities: wait 0-20 extra ticks before each flip (a different count per
+        // position, cycle and edge). A sensor held by an entity (a detector rail under a cart, a
+        // pressure plate) re-checks every 10 or 20 ticks whatever the lever does, so a door must
+        // not depend on where in that period the player flips the lever.
+        let phase = |edge: i32| (spec.door[0] * 7 + spec.door[1] * 3 + spec.door[2] * 5 + cycle as i32 * 11 + edge * 13).rem_euclid(21) as u32;
+        if has_entities && phase(0) > 0 {
+            w.step(sb, phase(0))?;
+        }
         // Open.
         w.use_block(sb, spec.lever)?;
         let open = if has_entities { w.step_record_watch(sb, opts.max_ticks, true, wlo, whi, &watch)? } else { w.step_record(sb, opts.max_ticks, true, wlo, whi)? };
@@ -1119,6 +1134,9 @@ fn verify_at(
         };
         if !has_entities && !w.entities(sb)?.is_empty() {
             bail!("cycle {cycle}: entities appeared while opening (something broke): {:?}", w.entities(sb)?);
+        }
+        if has_entities && phase(1) > 0 {
+            w.step(sb, phase(1))?;
         }
         // Close.
         w.use_block(sb, spec.lever)?;
@@ -1152,16 +1170,18 @@ fn verify_at(
             }
         }
         if has_entities {
-            // Every entity back exactly as it was at rest: same position (exactly: rails put a
-            // cart back on the rail's center line at the rail's height + 1/16, piston moves are
-            // exact half-block steps; nothing in the source jitters a resting entity), at rest, same
-            // state (rail, contents, pose...).
+            // Every entity back where it rested (to 1e-6 block: a piston push leaves an entity at
+            // the moving face + PUSH_OFFSET 0.01 + its half-width, a float (0.49F for a minecart
+            // = 0.49000000953674316), computed in doubles (PistonMovingBlockEntity
+            // .moveCollidedEntities), so a cart stated at x.5 comes back 1e-8 off it, then exactly
+            // the same every cycle; any real displacement is at least 0.01), at rest, same state
+            // (rail, contents, pose...).
             let now = entity_cycle_checks(w, sb, d, &close, "closing").with_context(|| format!("cycle {cycle}"))?;
             for r in &rest_entities {
                 let Some(e) = now.iter().find(|e| e.uuid == r.uuid) else {
                     bail!("cycle {cycle}: the design's {} that rested at {:?} is gone after closing", r.kind, r.pos);
                 };
-                if e.pos != r.pos {
+                if (0..3).any(|i| (e.pos[i] - r.pos[i]).abs() > ENTITY_POS_TOLERANCE) {
                     bail!("cycle {cycle}: {} not back after closing: at {:?}, rested at {:?}", e.kind, e.pos, r.pos);
                 }
                 if !e.still {

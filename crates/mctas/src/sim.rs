@@ -213,6 +213,9 @@ pub struct EntityInfo {
     pub collides: bool,
     #[serde(default)]
     pub on_ground: bool,
+    /// Its box overlaps a block's collision shape (stuck inside a block).
+    #[serde(default)]
+    pub embedded: bool,
     /// Bounding box `[min x, min y, min z, max x, max y, max z]`.
     #[serde(default, rename = "box")]
     pub bbox: [f64; 6],

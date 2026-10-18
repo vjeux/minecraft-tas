@@ -1,0 +1,38 @@
+# (category entity) Pistons push entities to the moving face + 0.01 (PUSH_OFFSET) + their
+# half-width (PistonMovingBlockEntity.moveCollidedEntities): a minecart (half-width 0.49F) stated
+# at 3.5 is pushed to 4.500000009536743 and back to 3.499999990463257, an armor stand (0.25) to
+# 4.26 and 3.74, then exactly the same every cycle (the judge allows 1e-6 for that float noise).
+design designs/gadgets/entity-push-exact.txt
+settle
+expect_entity minecart 3.5 1 0.5
+setblock 1 1 0 minecraft:redstone_block
+setblock 1 1 2 minecraft:redstone_block
+settle
+clear 1 1 0
+clear 1 1 2
+settle
+expect_entity minecart 4.500000009536743 1 0.5
+expect_entity armor_stand 4.26 1 2.5
+setblock 6 1 0 minecraft:redstone_block
+setblock 6 1 2 minecraft:redstone_block
+settle
+clear 6 1 0
+clear 6 1 2
+settle
+expect_entity minecart 3.499999990463257 1 0.5
+expect_entity armor_stand 3.74 1 2.5
+setblock 1 1 0 minecraft:redstone_block
+setblock 1 1 2 minecraft:redstone_block
+settle
+clear 1 1 0
+clear 1 1 2
+settle
+setblock 6 1 0 minecraft:redstone_block
+setblock 6 1 2 minecraft:redstone_block
+settle
+clear 6 1 0
+clear 6 1 2
+settle
+expect_entity minecart 3.499999990463257 1 0.5
+expect_entity armor_stand 3.74 1 2.5
+expect_entities 2

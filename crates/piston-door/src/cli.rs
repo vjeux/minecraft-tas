@@ -77,6 +77,10 @@ pub struct SearchArgs {
     /// the boards rank rotation-safe designs). The start design must be rotation-safe too.
     #[arg(long)]
     pub rotation_safe: bool,
+    /// Also accept candidates that add entities to a solid design (category entity, the "Entities
+    /// allowed" board): put `cart`, `chestcart` or `stand` in `door grow --states`.
+    #[arg(long)]
+    pub to_entity: bool,
 }
 
 impl SearchArgs {
@@ -109,6 +113,7 @@ impl SearchArgs {
             to_sculk: self.to_sculk,
             shape: self.shape.as_deref().map(crate::ShapeLimits::parse).transpose()?,
             rotation_safe: self.rotation_safe,
+            to_entity: self.to_entity,
         })
     }
 

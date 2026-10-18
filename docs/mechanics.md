@@ -566,3 +566,96 @@ expectations (`logs/vanilla-gadget-library-set.log`): blocked-push, dust-reach, 
 honey-slime, lever-tap, no-retry, qc-bud, rider-hold, rider-observer, sand-drop-tower, sculk-hold,
 silent-hold, silent-hold-rb, slime-nonstick, stack-feed are all PASS too. **The whole gadget library
 behaves identically in the official server.**
+| `entity-cart-detector` | minecart + detector rail | (category entity) a piston pushing a cart onto a detector rail turns the rail on in the block-entity phase of the push tick (`AbstractMinecart.move(PISTON)` -> `applyEffectsFromBlocks` -> `DetectorRailBlock.entityInside`), so a piston next to the rail extends ONE tick after the pusher (an observer watching the pushed cell: two). A cart resting on a powered detector rail keeps re-checking every 20 gt; the judge counts that steady re-check as idle |
+| `entity-rail-pass` | minecart + detector rail | (category entity) a cart rolling over a detector rail gives exactly 20 gt of power whatever its speed (the re-check scheduled when it arrived finds it gone), then stops against the wall at exactly the wall face - 0.49 |
+| `entity-push-exact` | 2 pistons, minecart, armor stand | (category entity) a piston pushes an entity to the moving face + 0.01 + its half-width (`PistonMovingBlockEntity.moveCollidedEntities`, PUSH_OFFSET): a cart stated at x.5 goes to x+1.500000009536743 and back to x+0.499999990463257, then the same every cycle (the judge's 1e-6 position tolerance) |
+| `entity-wall-stop` | minecarts | (category entity) carts sent at different speeds into a block stop at exactly the same spot (the move is clipped at the face, that motion zeroed); on plain rails a cart only slows by 0.96 per tick and never stops, on an unpowered powered rail it stops wherever its speed falls under 0.03 |
+| `entity-plate-stand` | armor stand + stone pressure plate + 2 pistons | (category entity) an armor stand is two cells tall: pistons entering the cell ABOVE a plate shove it off and back without touching the plate (a block entering a rail's or plate's own cell pushes the rail or breaks the plate). Back on: the plate is on in the push tick's block-entity phase. Off: the plate lets go only at its re-check, 20 gt after it was pressed (10 for weighted plates) |
+* **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
+  piston holds it 30 gt after a lever click (weak power on every side, strong power into the
+  block below). It wakes in the block-entity phase floor(distance) ticks after the click, so a
+  piston whose source is the lever directly retracts at tick 1 before the sensor can hold it:
+  cover the first ticks with a 4 gt repeater from the lever. The door's own late pistons move
+  inside the 10 gt cooldown, so they do not re-trigger it (rb2s2 50, m51s 48). Doors using it
+  rank in the `sculk` category.
+* **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
+  source that later turns off WITHOUT updating it stays extended, unpowered, until any later
+  neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
+  to the head counts). A repeater switching a solid block only updates that block's neighbors:
+  feed the piston's quasi cell through such a block to drop the hold silently.
+* **Slime drags:** blocks with PushReaction DESTROY (dust, repeaters, levers, torches) next to a
+  moving slime block are left in place, not dragged or broken (only a DESTROY block in the
+  movement path breaks); their floors are normal blocks and do get dragged (glazed terracotta
+  never is).
+* **Redstone block shuttle:** a sticky piston pushing a redstone block from next to piston A to
+  next to piston B switches A off at once (the block becomes a moving piston that tick) and B
+  on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
+  then A on".
+* **Redstone block riding a structure (center-mech):** a redstone block carried by a slime
+  structure powers a piston at rest and lets it go when the structure moves. It must touch the
+  piston itself: in a quasi-only position its return never updates the piston, which then stays
+  retracted. Two pushers can share one powered block between them (v2u2: both side structures
+  pushed out from under the walkway off one obsidian block).
+* **Sculk sensor (center-mech, gadget `sculk-hold`):** a lever flip is a vibration
+  (BLOCK_ACTIVATE/DEACTIVATE); a sensor within 8 blocks goes ACTIVE after `floor(distance)` gt
+  plus its block-entity tick (after the block-event phase), stays active 30 gt (power by
+  distance, all directions, strongly into the block below it), then COOLDOWN 10 gt during which
+  it ignores the door's own piston vibrations. One block = a 30 gt monostable on both lever
+  edges; a piston that would see the lever's fall first needs a short bridge.
+* **Dust does not pick up a block powered only by other dust** (wire signals are off while a
+  wire computes its input): to tap a dust net one-way into another, put a repeater (or a block
+  strongly powered by a repeater) between them.
+## Gravity blocks (`FallingBlock`, `FallingBlockEntity`) — track gravity
+
+* Sand/gravel/concrete powder schedule a tick 2 gt after being placed (pistons place them at the
+  end of a move) or shape-updated; the tick makes them fall if the block below is air, fire,
+  liquid or replaceable. A `moving_piston` below counts as support. Slime next to sand does not
+  hold it up.
+* A falling block that lands on a moving piston (or anywhere it cannot be placed) breaks into an
+  item. `Sandbox.idle()` waits for falling blocks to land, so the judge sees that item.
+* Gadget `designs/gadgets/sand-drop-tower`: a 3-piston tower lowers/lifts a sand column 3 cells
+  (the slime chain lets the bottom piston pull both upper pistons down). Used by door g4.
+* An isolated redstone dust is a dot and powers nothing sideways; written as a cross
+  (`redstone_wire[north=side,east=side,south=side,west=side]`) it stays a cross after the shape
+  update and powers all four neighbors.
+* **Pulse-driven pistons (logic-min, gadget `pulse-toggle`):** any door piston that only has to
+  move its block once per lever edge can be retracted at rest and fired by a 2 gt observer pulse
+  (pull on open, push + spit on close): v2's six pistons all work that way except P_T. The
+  measured windows (`door ideal`): side/bottom pistons accept the pulse at any tick on both
+  edges; A needs one pulse 0..4 gt after the flip plus the two B-edge pulses.
+* **Observers on pistons fire twice:** a piston (or its head cell) changes state at the event,
+  2 gt later and again 2 gt after that, so an observer watching it pulses twice per motion (a
+  pulse-toggled column then moves out and back). Watch a block that moves once, the lever, or
+  another observer instead.
+* **OR of two repeaters in one dust:** a dust sandwiched between the output block of one
+  repeater (above it) and of another (below it, its floor) is lit by either, and a cross dust
+  powers the block it points into: a 2-input OR feeding a torch with 1 dust (logic-min P_T).
+* **Sticky retract during a push finalizes, never pulls (seen in rb9):** if a sticky piston
+  retracts while the block two in front is still a moving piston it pushed (any progress, as long
+  as it has not landed), that block is placed at its destination at once and the piston retracts
+  alone. rb9's B pushes A down at t4 and retracts at t6: A stays down, the dance goes on.
+* **Early window (gadget `designs/gadgets/early-window`):** a delay-1 repeater reading a block
+  fed by an observer pulse and by a delay-2 repeater from a SECOND observer gives a window at
+  t+4..6 and t+8..12 (a 2gt hole: a repeater's turn-off tick outranks another's turn-on tick),
+  vs t+10..18 for the plain pulse stretcher.
+* **Symmetric door control (fresh-c fc1/fc2):** with an A-on-B elevator, T dragged out by the
+  right structure and one shuttled redstone block (A off then P_R on / P_R off then A on), no
+  hold is needed if (1) A gets one pulse BEFORE the shuttle moves, on both edges (open: A is
+  still powered, the pulse is swallowed; close: A spits C down one cell, freeing T's cell),
+  (2) the shuttle piston is the lever through one repeater (>= 2 gt after that pulse), and
+  (3) the B window comes at the same delay on both edges: on close A is extended again and
+  B's push fails (gadget `blocked-push`). Close = spit C, T back, A pushes T and C home.
+* **Pulse-driven shuttle breaks the drag:** a 2gt pulse on the shuttle piston spits its redstone
+  block, which is then placed in the block-event phase; the piston it powers fires in that same
+  phase, before T (lifted 2 ticks earlier) has landed, so T is not dragged. Keep it steady.
+* **Pull-type pulse piston:** a sticky piston two cells from a structure (one-cell gap) pulls it
+  on the first 2 gt pulse and pushes+spits it back on the second, so a side column can be
+  pulled open from OUTSIDE its backbone (fc2's P_L at (-3,2,0): 3 backbone slimes, no pusher
+  under the walkway).
+* **Calibrated sculk sensor (sculk-2, gadget `sculk-delay-line`):** `CalibratedSculkSensorBlock`
+  is active 10 gt (not 30), hears within 16 blocks, outputs on every side except its back, and a
+  non-zero signal into its back makes it hear only that frequency (lever on / piston extend =
+  10, lever off / piston retract = 9). With nothing behind it, it is a one-block wireless delay
+  line: activation floor(d) gt after each flip, d up to 16. Echo rule for every sensor: once it
+  is INACTIVE again (wake + 20 calibrated, + 40 normal) any piston move within its radius wakes
+  it, so whatever it drives must stop moving before then, or the re-run must be a no-op.

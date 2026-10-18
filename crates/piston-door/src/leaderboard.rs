@@ -501,6 +501,25 @@ pub fn render(entries: &[Entry], extra_offsets: u32, x: &Extras) -> String {
             "| # | blocks | walkway | source |\n|---|---|---|---|\n"
         };
         push_collapsed(&mut s, header, &rows, "| - | - | no entry yet |\n");
+        if entities_col {
+            // The doors that do use entities, even when solid ones beat them.
+            let ent_rows: Vec<String> = entries
+                .iter()
+                .filter(|e| e.verdict.is_ok() && e.rotation_safe() && e.category == "entity" && keep(e))
+                .take(5)
+                .enumerate()
+                .map(|(i, e)| {
+                    let ticks = match (e.open_ticks, e.close_ticks) {
+                        (Some(o), Some(c)) => format!("{o} / {c}"),
+                        _ => "-".to_string(),
+                    };
+                    let kinds: Vec<String> = e.design.entities.iter().map(|x| x.kind.trim_start_matches("minecraft:").to_string()).collect();
+                    format!("| {} | {} | {} | {ticks} | `{}` |\n", i + 1, e.blocks, kinds.join(", "), e.source)
+                })
+                .collect();
+            s.push_str("Doors that use entities (category `entity`):\n\n");
+            push_collapsed(&mut s, "| # | blocks | entities | open / close | source |\n|---|---|---|---|---|\n", &ent_rows, "| - | - | no entry yet |\n");
+        }
     }
     // Smallest box: the bounding-box volume of the space the build needs (at rest and while it
     // moves, the door included), ties by blocks.
