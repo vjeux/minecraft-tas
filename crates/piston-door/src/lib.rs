@@ -16,6 +16,7 @@
 //!   positions in the world (Minecraft has location-dependent update orders).
 
 pub mod cli;
+pub mod mechsynth;
 pub mod archive;
 pub mod designs;
 pub mod designs_history;
