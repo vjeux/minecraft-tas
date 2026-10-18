@@ -73,3 +73,20 @@ judge, boards) and searched it.
 | file | blocks | note |
 |---|---|---|
 | test-static-armor.txt (= BEST.txt) | 39 | sf-holdA b38 + an armor stand standing on its smooth stone: the category's first verified entry (32 positions, rotation-safe); the entity does nothing |
+
+## Tools for the next searcher
+* `door grow --to-entity --states cart,chestcart,stand,detector,rail,plate,wplate,...`: entity tokens
+  go in free cells or share a cell with a rail or plate (with `--k 2` an entity and its sensor
+  together); candidates with entities are screened by the judge's own code. Smoke test: b38 + a
+  stand or a cart on its smooth stone, both verified at 39.
+* `door drive`: `summon`, `entities`, `etrace`, `expect_entity`, `expect_entities`.
+
+## Next ideas (none looked like a win)
+* A door built around slow-OFF signals (every close step waiting >= 20 gt) could use entity
+  sensors as level sources; it would be slow and is unlikely to be small.
+* The block-entity-phase trigger (piston -> cart -> detector rail -> next piston 1 tick later) is a
+  parity tool for the speed doors (an odd tick without the repeater + note block + observer trick),
+  if a use can live with the rail staying on 20 gt.
+* A rail riding a slime structure under a parked cart is a power source that is on only at rest
+  (instant on/off: the rail is re-checked when it lands): a redstone-block rider that does not
+  power anything at the moved position, for one block more.
