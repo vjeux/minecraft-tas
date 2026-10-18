@@ -116,6 +116,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `observer-delay` | 3 observers | a chain of observers watching each other delays a pulse 2 gt per observer, with no floors and around corners |
 | `repeater-lock` | 2 repeaters | a latch: a repeater locked by another repeater pointing into its side keeps its output whatever its input does, and follows the input again once unlocked |
 | `honey-slime` | slime + honey | slime and honey never stick to each other: two touching structures move independently |
+| `blocked-push` | 2 sticky pistons | a piston whose push line starts with an extended piston does nothing; it pushes that piston once it has retracted (fresh-c: the B window fires on both edges and is a no-op on close) |
 
 * **Sculk hold (gadget `designs/gadgets/sculk-hold`, top-control):** one sculk sensor next to a
   piston holds it 30 gt after a lever click (weak power on every side, strong power into the
@@ -184,3 +185,17 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
   fed by an observer pulse and by a delay-2 repeater from a SECOND observer gives a window at
   t+4..6 and t+8..12 (a 2gt hole: a repeater's turn-off tick outranks another's turn-on tick),
   vs t+10..18 for the plain pulse stretcher.
+* **Symmetric door control (fresh-c fc1/fc2):** with an A-on-B elevator, T dragged out by the
+  right structure and one shuttled redstone block (A off then P_R on / P_R off then A on), no
+  hold is needed if (1) A gets one pulse BEFORE the shuttle moves, on both edges (open: A is
+  still powered, the pulse is swallowed; close: A spits C down one cell, freeing T's cell),
+  (2) the shuttle piston is the lever through one repeater (>= 2 gt after that pulse), and
+  (3) the B window comes at the same delay on both edges: on close A is extended again and
+  B's push fails (gadget `blocked-push`). Close = spit C, T back, A pushes T and C home.
+* **Pulse-driven shuttle breaks the drag:** a 2gt pulse on the shuttle piston spits its redstone
+  block, which is then placed in the block-event phase; the piston it powers fires in that same
+  phase, before T (lifted 2 ticks earlier) has landed, so T is not dragged. Keep it steady.
+* **Pull-type pulse piston:** a sticky piston two cells from a structure (one-cell gap) pulls it
+  on the first 2 gt pulse and pushes+spits it back on the second, so a side column can be
+  pulled open from OUTSIDE its backbone (fc2's P_L at (-3,2,0): 3 backbone slimes, no pusher
+  under the walkway).

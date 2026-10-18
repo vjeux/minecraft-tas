@@ -1,0 +1,19 @@
+# B is powered while A is extended: nothing moves. A retracts (its block comes up), then B pushes A down.
+design designs/gadgets/blocked-push.txt
+probe b 0 4 0
+probe a 0 3 0
+probe low 0 2 0
+use 0 5 0
+quiet 6
+expect b r
+expect a E
+use 0 5 0
+quiet 6
+clear 1 3 0
+quiet 6
+expect a r
+expect low #
+use 0 5 0
+quiet 6
+expect b E
+expect low r
