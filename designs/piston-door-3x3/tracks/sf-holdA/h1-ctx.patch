@@ -1,0 +1,11 @@
+# w42 -> A held (h1): A extended, RB (1,4,1), Q (2,4,1) facing west; M's lamp trigger replaced by
+# an observer watching BR + block (M may fire early now). Q left unwired.
+set 1 4 0 minecraft:sticky_piston[extended=true,facing=down]
+set 1 4 1 minecraft:redstone_block
+set 2 4 1 minecraft:sticky_piston[extended=false,facing=west]
+clear -1 -2 0
+clear -1 -1 0
+clear 0 -1 0
+clear 0 -2 0
+set 2 -1 0 minecraft:observer[facing=up,powered=false]
+set 2 -2 0 minecraft:smooth_stone

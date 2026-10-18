@@ -1,0 +1,79 @@
+name: tick-door-o4b-ideal
+# Open-4 mechanism with ideal inputs (scripted redstone blocks; see o4.drive). Corner topology:
+# k1: TR up (P_TR), W 0-tick pulls T into (2,2), A' 0-tick pulls C into N1.
+# k4: P_WN pulls W north, V (4,2) 0-tick pulls T east into (3,2); Q pulls A' to (0,3), F 0-tick pulls C up.
+# 0-tick module: piston quasi-powered by a redstone block with its push blocked; a killer (sticky,
+# facing up/north, next to its base) shoves the block away when it extends.
+port door: 0 0 0
+port lever: -4 0 2
+origin: -4 0 -2
+palette:
+  S minecraft:stone
+  R minecraft:redstone_block
+  e minecraft:sticky_piston[extended=true,facing=east]
+  E minecraft:piston_head[facing=east,short=false,type=sticky]
+  w minecraft:sticky_piston[extended=true,facing=west]
+  V minecraft:piston_head[facing=west,short=false,type=sticky]
+  u minecraft:sticky_piston[extended=true,facing=up]
+  U minecraft:piston_head[facing=up,short=false,type=sticky]
+  d minecraft:sticky_piston[extended=true,facing=down]
+  D minecraft:piston_head[facing=down,short=false,type=sticky]
+  n minecraft:piston[extended=true,facing=down]
+  N minecraft:piston_head[facing=down,short=false,type=normal]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  k minecraft:sticky_piston[extended=false,facing=up]
+  a minecraft:sticky_piston[extended=false,facing=down]
+  q minecraft:sticky_piston[extended=false,facing=east]
+  t minecraft:sticky_piston[extended=false,facing=south]
+  o minecraft:sticky_piston[extended=false,facing=north]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer -3:
+  .
+  .
+  .....RR
+layer -2:
+  .
+  .
+  .....uu
+layer -1:
+  .
+  .
+  .....UU
+  .
+  S
+layer 0:
+  .
+  .
+  .ReESSS.R
+  .
+  L
+layer 1:
+  .
+  .
+  .ReESSSVw
+layer 2:
+  .......t
+  .
+  .ReESSSWWk
+  .......k
+layer 3:
+  .
+  .....k
+  ...q.aD..R
+  .......R
+layer 4:
+  .
+  .....R
+  .....ad
+  ......RN
+layer 5:
+  .
+  .....N
+  .....o
+  ......anR
+layer 6:
+  .
+  .....n
+layer 7:
+  .
+  .....R

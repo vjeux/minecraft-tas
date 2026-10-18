@@ -1,0 +1,74 @@
+# verified WORKS by door leaderboard: 54 blocks, category solid
+# archived 2026-10-18 14:22Z from origin/explore/mech-wire:designs/piston-door-3x3/tracks/mech-wire/wired/abpt21r-chain-54b.txt (repo at 6fbb264)
+name: wired00-54b
+port door: 0 0 0
+port lever: -2 4 0
+origin: -3 0 -1
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:slime_block
+  W minecraft:white_glazed_terracotta[facing=north]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=3,facing=south,locked=false,powered=false]
+  s minecraft:smooth_stone
+layer -4:
+  .
+  .....s
+  .
+  .
+layer -3:
+  .
+  ....sR
+  .
+  .
+layer -2:
+  .
+  ....GB
+  .
+  .
+layer -1:
+  .
+  .....B
+  .
+  .
+layer 0:
+  .
+  ..SIIIS
+  .
+  .
+layer 1:
+  .
+  F.SIIIS.H
+  .
+  .
+layer 2:
+  ..W
+  ..SIIIS
+  .
+  .
+layer 3:
+  .srCs
+  B.WF....B
+  ....s
+  .
+layer 4:
+  .RCRs
+  oLBsEOCCC
+  ....R
+  ....s
+layer 5:
+  .
+  .OCDE
+  ....A
+  ....R

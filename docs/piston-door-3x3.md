@@ -60,6 +60,11 @@ main's verifier and writes the boards.
   powder. Such a door can fall, so it ranks separately.
 * **sculk**: the design contains a sculk sensor. Footsteps or mobs nearby can trigger one, so it
   ranks separately. Gravity wins if both apply.
+* **Rotations** (not a rule): every working design is also run turned 90, 180 and 270 degrees at the
+  same positions (`door verify` prints `rotation-safe` or `NOT rotation-safe`; the game's own
+  `BlockState.rotate` turns every block). Redstone updates neighbors in a fixed direction order, so a door
+  can work facing one way only. The boards rank rotation-safe designs; the others are listed on their
+  own board, "Not rotation-safe", with the first turn that breaks them.
 * **Solid, no slime or honey**: a board, not a category. It lists solid designs with no slime or
   honey block anywhere.
 * **Solid, flat (one z layer), no slime or honey**: a board. Slime-free solid designs whose every

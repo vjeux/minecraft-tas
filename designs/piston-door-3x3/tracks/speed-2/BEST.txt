@@ -1,4 +1,4 @@
-name: speed-2-a1
+name: speed-2-a1m
 port door: 0 0 0
 port lever: 0 4 -2
 origin: -4 0 -4
@@ -36,30 +36,29 @@ palette:
   e minecraft:redstone_wire[east=side,north=up,power=0,south=none,west=none]
   f minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
   g minecraft:redstone_wire[east=up,north=none,power=0,south=side,west=none]
-  h minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
-  i minecraft:repeater[delay=1,facing=north,locked=true,powered=false]
-  j minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
-  k minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
-  l minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
-  m minecraft:sticky_piston[extended=false,facing=down]
+  h minecraft:repeater[delay=1,facing=north,locked=true,powered=false]
+  i minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  j minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
+  k minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  l minecraft:sticky_piston[extended=false,facing=down]
+  m minecraft:sticky_piston[extended=false,facing=east]
   n minecraft:note_block[instrument=harp,note=0,powered=true]
   o minecraft:observer[facing=east,powered=false]
   p minecraft:piston[extended=false,facing=north]
-  q minecraft:sticky_piston[extended=false,facing=east]
+  q minecraft:sticky_piston[extended=false,facing=west]
   r minecraft:redstone_wall_torch[facing=east,lit=true]
   s minecraft:smooth_stone
-  t minecraft:sticky_piston[extended=false,facing=west]
-  u minecraft:sticky_piston[extended=true,facing=down]
-  v minecraft:sticky_piston[extended=true,facing=east]
-  w minecraft:sticky_piston[extended=true,facing=up]
-  x minecraft:sticky_piston[extended=true,facing=west]
-  y minecraft:stone
+  t minecraft:sticky_piston[extended=true,facing=down]
+  u minecraft:sticky_piston[extended=true,facing=east]
+  v minecraft:sticky_piston[extended=true,facing=up]
+  w minecraft:sticky_piston[extended=true,facing=west]
+  x minecraft:stone
 layer -2:
   .
   .
   .
   ..s
-  ..yyrw
+  ..xxrv
   .
   .
   .
@@ -77,7 +76,7 @@ layer 0:
   .s
   .sK......sQ
   s.........s
-  ..vFyyyHx
+  ..uFxxxHw
   .
   .
   .
@@ -86,7 +85,7 @@ layer 1:
   .gs
   sc......sX
   V.........T
-  yrvFyyyHxJy
+  xruFxxxHwJx
   .
   .
   .
@@ -95,45 +94,45 @@ layer 2:
   ..fs....s
   Y..s....e
   .
-  .yvFyyyHxy
+  .xuFxxxHwx
   .
   .
   .
 layer 3:
   .......M
-  ...U.n.yK
-  .y.TyA
-  ..s..y
-  ...qmE.D
+  ...U.n.xK
+  ...TxA
+  .....x
+  ...mlE.D
   ......s
   .
   .
 layer 4:
   .
-  .....y.d
-  .hyoLj.A
-  .A.APR.D
-  .NB..u
-  ......fy
+  .....x.d
+  ...oLi.A
+  .soAPR.D
+  .NB..t
+  ......fx
   .
   .
 layer 5:
   .
   .
-  ....sysS
-  ....syyA
-  .....C.y
+  ....sxsS
+  ....sxxA
+  .....C.x
   .......W
   .....R
   .....ps
 layer 6:
   .
   .
-  ...ylZZ
-  ...IkiT
-  .....y
-  ....R.t
-  ......y
+  ...xkZZ
+  ...IjhT
+  .....x
+  ....R.q
+  ......x
   ......V
 layer 7:
   .
@@ -141,6 +140,6 @@ layer 7:
   .
   ......O
   ......A
-  ......y
+  ......x
   ......T
   .

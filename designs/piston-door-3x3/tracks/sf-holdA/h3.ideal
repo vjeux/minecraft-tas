@@ -1,0 +1,57 @@
+# h3: A held by RB (1,4,1) shuttled by Q (0,4,1); the TL puller fires with Q (shared powered block
+# (0,5,1)); left pair, right column of 3, M anytime; P_T (3,3,0) pulse.
+design designs/piston-door-3x3/tracks/sf-holdA/h3-mech.txt
+let a1 = 1
+let q = 5
+let pt = 7
+let bon = 11
+let a2 = 13
+let boff = 19
+let a3 = 21
+let pl = 5
+let m = 5
+let pr = 5
+open a1 set 1 4 -1 minecraft:redstone_block
+open a1+2 clear 1 4 -1
+close a1 set 1 4 -1 minecraft:redstone_block
+close a1+2 clear 1 4 -1
+open q set 0 5 1 minecraft:redstone_block
+open q+2 clear 0 5 1
+close q set 0 5 1 minecraft:redstone_block
+close q+2 clear 0 5 1
+open pt set 3 4 0 minecraft:redstone_block
+open pt+2 clear 3 4 0
+close pt set 3 4 0 minecraft:redstone_block
+close pt+2 clear 3 4 0
+open bon set 1 6 0 minecraft:redstone_block
+open boff clear 1 6 0
+close bon set 1 6 0 minecraft:redstone_block
+close boff clear 1 6 0
+open a2 set 1 3 -1 minecraft:redstone_block
+open a2+2 clear 1 3 -1
+close a2 set 1 3 -1 minecraft:redstone_block
+close a2+2 clear 1 3 -1
+open a3 set 1 4 -1 minecraft:redstone_block
+open a3+2 clear 1 4 -1
+close a3 set 1 4 -1 minecraft:redstone_block
+close a3+2 clear 1 4 -1
+open pl set -2 2 0 minecraft:redstone_block
+open pl+2 clear -2 2 0
+close pl set -2 2 0 minecraft:redstone_block
+close pl+2 clear -2 2 0
+open m set 1 -3 0 minecraft:redstone_block
+open m+2 clear 1 -3 0
+close m set 1 -3 0 minecraft:redstone_block
+close m+2 clear 1 -3 0
+open pr set 5 0 0 minecraft:redstone_block
+open pr set 5 1 0 minecraft:redstone_block
+open pr set 5 2 0 minecraft:redstone_block
+open pr+2 clear 5 0 0
+open pr+2 clear 5 1 0
+open pr+2 clear 5 2 0
+close pr set 5 0 0 minecraft:redstone_block
+close pr set 5 1 0 minecraft:redstone_block
+close pr set 5 2 0 minecraft:redstone_block
+close pr+2 clear 5 0 0
+close pr+2 clear 5 1 0
+close pr+2 clear 5 2 0
