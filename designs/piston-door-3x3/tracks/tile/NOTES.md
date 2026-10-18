@@ -118,6 +118,12 @@ dust instead (2 blocks per cell).
   repeater locked by the level). Wiring rule: in a period-3 module, dust at (0,y,z) or (2,y,z),
   not both; B must be powered through the air cell above it (dust on top of B also
   quasi-powers A through B's cell).
+* WIDE with glued rows: a two-door unit (step 6: a slime copy then a honey copy) can glue each
+  copy's top row (3 slime or 3 honey above it; slime and honey do not stick, so copies stay
+  apart) and move it with ONE piston, so each piston group is one piston per opening instead of
+  three and the control fan-out disappears. Careful: a glue row also grabs any retracted piston
+  sitting on it. The C row still has no free neighbor at rest (it can only be glued after the T
+  row has left).
 * PERIODIC P = 7: needs side pistons whose quasi-connectivity cells do not touch the neighbor
   copy's strongly powered blocks (b38's side smooth stones do).
 * Other edge-triggered doors (m05, the sf-holdA family) take the same observer bus; b38 is the
