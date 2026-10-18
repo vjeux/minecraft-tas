@@ -86,7 +86,30 @@ How it opens (every input comes from the lever):
 * Close 15 -> ~10: the close waits for the torch (c6) because P_WN and Q must not race the F/V
   heads (c4); a separate earlier source for the ring/Q/P_WN, or F/V pulses at c0 (lever-direct
   1-tick pulse), would let everything shift by 2-4 ticks.
-* Blocks: `door minimize --objective total` is running on BEST; the many single-purpose observer
-  chains and the long torch net are the obvious candidates.
+* Blocks: `door minimize --objective total --moves all` ran 45 min on BEST (88723 removals, 105
+  reroutes, 25057 compounds, 827 neutral edits tried) and found nothing: every part is load-bearing
+  at this layout. Savings need a re-layout (share one observer chain between the A', W and K_W
+  close pulses; a shorter torch net once the lever sits on the north side).
 * Slime-free: the slime bottom row can go back to three pullers (P_BL west, P_M, P_BR) on the torch
   net; costs blocks.
+
+## Round 2 (coordinator's next ideas)
+* **Slime-free, 218 blocks (BEST.txt = sf1.txt), open 4 / close 15, verified, rotation-safe**: the slime
+  row + P_S + its long feed are replaced by three sticky pullers under the bottom row ((0..2,-2,0),
+  facing up), powered through blocks (0..2,-2,-1) under a y=-1 dust row fed from the torch dust
+  (4,1,-2) via (5,0,-2), (5,-1,-1). Slime-free AND 11 blocks fewer.
+* **Faster close (not achieved).** Close-time critical path of BEST: c2 F/V push C into N1 and T into
+  the corner (observer pulses) -> c4 spit -> c6 torch: Q puts A' back in E, P_WN puts W back -> c8 land
+  -> c9 A' pushes C home -> c10 spit (N1 clear) -> c12 W 0-ticks T into N1 -> c13 P_TR -> c15 TR lands.
+  - Torch at c4 (RB2 delay 1) FAILS (`f1`): any scheduled-phase update of Q/P_WN at c4 checks the push
+    before F/V retract (block-event phase), so it sees their heads, and a failed check never retries.
+    Ordering ticks cannot fix it (the check is at update time). Q/P_WN need an update during c4's
+    block-event phase AFTER F/V retract: a relay piston next to F's base (updated by F's retraction)
+    whose head lands next to Q, with Q powered silently from c4 (second torch on RB2' delay 1).
+  - With Q at c4: A' lands c6, extends c7 (3-observer chain), spits c8. W's 0-tick at c10 (5-observer
+    snake + K_W armed by c10) -> P_TR. P_TR cannot follow W in the same phase: nothing next to P_TR
+    changes after W's retraction (K_W's base update reaches (3,4,0), but anything there is updated
+    or powered too early). So TR lands c13: close 13, open+close 17 (ties, does not beat 17).
+  - Floor for this topology with ideal pulses: F/V 0-tick at c1, Q c2, A' c5, W+P_TR c6-7: close ~9.
+    Getting below 13 needs either F/V close 0-ticks (self-cut pulse: geometry blocked at F, since the
+    only free power cell is (1,4,1) and a QC cutter below it sits on S_A) or a same-phase P_TR trigger.

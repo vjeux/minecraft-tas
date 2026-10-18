@@ -74,6 +74,14 @@ The 9 door blocks are sand, gravel or concrete powder.
 
 Every record of this board in one video: [gravity-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.jpg)).
 
+## Entities: 39 blocks
+
+A solid door that also uses entities (minecarts, armor stands, boats...; each counts as a block, all back where they rested after each close).
+
+![test-static-armor-39b](https://github.com/vjeux/minecraft-tas/releases/download/videos/test-static-armor-39b.gif)
+
+**39 blocks**, entity, slime-free, opens in 36 ticks, closes in 32 (worst cycle): [test-static-armor-39b](archive/test-static-armor-39b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/test-static-armor-39b.mp4)). 
+
 ## Fastest solid: 108 blocks
 
 Fewest game ticks to open plus close (worst cycle), ties by blocks.

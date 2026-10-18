@@ -18,6 +18,9 @@ Frontier after these (solid): 38 (36/32), 40 (24/9), 41 (22/9), 43 (15/17), 43 (
 46 (14/14), 46 (15/13), 107 (10/7). For a new door with 47..106 blocks to count it now needs open
 <= 13, or close <= 12 (with open <= 21), or 14/13.
 
+All four also pass `door vanilla-check` (the unmodified 26.3 server, tick for tick at 4 positions x
+3 cycles, plus a real-time 20 tps cycle): the leaves and lamp timings are vanilla's.
+
 ## The mp family (fresh-b's mirrored pump) and its timing
 Mechanism (mp5..mp8): H (lever, t1) pushes the left side west; A1 (A's first pulse, t3, observer on
 the left structure's top flag) lifts TM into E (1,3,0); the pump P under a 2-slime row (BM + corner)
