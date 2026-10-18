@@ -91,7 +91,7 @@ pub fn probe_value(state: &str) -> String {
     }
 }
 
-fn render(r: &Region, z: i32, x0: i32, y0: i32, x1: i32, y1: i32) -> String {
+pub(crate) fn render(r: &Region, z: i32, x0: i32, y0: i32, x1: i32, y1: i32) -> String {
     let mut out = String::new();
     for y in (y0..=y1).rev() {
         out.push_str(&format!("{y:>4} "));
