@@ -1,0 +1,25 @@
+design designs/piston-door-3x3/tracks/speed/wire/w6c.txt
+# BUD close with real TR/S_R; S2 = RB2 at (1,6,0) scripted (placed late in the open, gone k2).
+probe F 1 4 0
+probe E 1 3 0
+probe N1 1 2 0
+probe C 1 1 0
+probe Ap 0 3 0
+probe Q -1 3 0
+probe T2 2 3 0
+probe TR 3 3 0
+probe TT 4 3 0
+probe ET 4 2 0
+probe RA 1 4 -1
+probe RB 2 4 -1
+probe SR 3 4 -1
+probe SL 0 2 0
+quiet 2
+use 0 4 -2
+trace 16
+set 1 6 0 minecraft:redstone_block
+quiet 4
+use 0 4 -2
+trace 1
+clear 1 6 0
+trace 12

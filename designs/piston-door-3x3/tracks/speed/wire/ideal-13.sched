@@ -1,0 +1,16 @@
+design designs/piston-door-3x3/tracks/speed/wire/ideal-13.txt
+# BUD close: F silently QC-powered in the open state by RB2 at (1,6,0) (not adjacent to F).
+# Close: S_F's head leaving A (k1) updates F -> F pushes C at k1; RB2 gone before k2; the W-net
+# dust (1,4,2) updates F at k2 -> spit. TR and R_F scripted.
+let s_on = 16
+let s_off = 1
+let tr = 2
+let rf = 2
+open 0 set 0 4 -2 minecraft:lever[face=floor,facing=north,powered=true]
+open s_on set 1 6 0 minecraft:redstone_block
+close 0 set 0 4 -2 minecraft:lever[face=floor,facing=north,powered=false]
+close s_off clear 1 6 0
+close tr set 3 3 1 minecraft:redstone_block
+close tr+1 clear 3 3 1
+close rf clear 2 4 -1
+close rf set 1 4 -1 minecraft:redstone_block

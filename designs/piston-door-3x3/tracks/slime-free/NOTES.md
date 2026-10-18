@@ -8,7 +8,36 @@ honey_block anywhere.
 | base53.txt | 53 | logic-min's slime-free 53, the starting point |
 | tl-up-b.txt | 52 | TL goes UP (puller at (0,4,0)); the left column keeps only L1/BL pistons, fired by an observer watching TL's cell |
 | sf51.txt | 51 | `door grow` re-laid the B chain's link: O_b -> cross dust standing ON O_b -> block (3,6,0) -> R_B (3 blocks -> 2) |
-| combo.txt = BEST.txt | **48** | logic-min's slime-free 50 (right column = O_R + dust + floor; R_P reads O_a's stone; torch QC-powers P_T) + this track's TL-up left side and grown B-chain link (patches tl-up, tl-up-b, bchain-grow on lm50.txt) |
+| combo.txt | 48 | logic-min's slime-free 50 (right column = O_R + dust + floor; R_P reads O_a's stone; torch QC-powers P_T) + this track's TL-up left side and grown B-chain link (patches tl-up, tl-up-b, bchain-grow on lm50.txt) |
+| s7-45.txt | 45 | NEW ARCHITECTURE (s7): fresh-c's symmetric close without slime (below) |
+| s7-44.txt = BEST.txt | **44** | `door regrow` made the shuttle piston Q pulse-driven: 2 observers off the lever replace R_q, its floor and the lever's block |
+
+## s7 (44): fresh-c's close in a slime-free door
+- A (1,4,0) is EXTENDED at rest, held by a redstone block RB at (0,4,0). Q (0,4,-1) (sticky, facing
+  south, retracted) gets one 2 gt pulse per lever edge (observer (0,4,-3) watching the lever ->
+  observer (0,4,-2) -> Q, t=4): on open it pushes RB to (0,4,1) and spits it (A loses power: lifts
+  T), on close it pulls RB back (A gets power 2 gt later: pushes T and C home and stays extended,
+  so B's close window cannot move it and the dance pulses are swallowed).
+- P_T (1,3,2) is RETRACTED at rest (pulse-driven): open pulse pulls T (1,3,0) -> park (1,3,1),
+  close pulse pushes it back (spit). Fired by an observer (2,3,1) watching TR's landing cell
+  (2,3,0) + block (2,3,2) (found by `door grow`).
+- TR goes UP: puller (2,4,0) fed by observers (2,4,-2) [watches O_a] -> (2,4,-1). Right pair
+  (4,0..1,0) fired by observer (3,2,0) watching TR's cell + block (4,2,0). P_BM as before
+  (observer watching the bottom-right cell + block).
+- Left column = 3 pistons, fired by a cross dust (-2,2,1) on (-2,1,1) (points north into the top
+  piston, its floor powers the middle one and quasi-powers the bottom one), fed by an observer
+  chain off RB's open cell: (-1,4,1) -> (-2,4,1) -> (-2,3,1).
+- Center cluster in the x=1 plane north of A: X dust (1,4,-1) on (1,3,-1) (line N-S into A),
+  O_a (1,4,-2) watches the lever (1,4,-3); B chain O_b (1,5,-2) -> block (1,6,-2) -> R_B (1,6,-1)
+  d4 -> B's quasi cell (1,6,0); O (1,5,-1) watches R_B -> X.
+- Budget: 9 door + 11 pistons (incl. Q) + RB + lever 1 + Q feed 2 + X 3 + B chain 4 + TR feed 2
+  + right pair 2 + P_BM 2 + left 5 + P_T feed 2 = 44. Open 24 gt, close 14 gt.
+- Ideal-input studies that led there: asteady.sched (A steady + P_T steady), ptpulse.sched
+  (P_T pulse-driven: with the shuttle at d=2, pt must be 4..5 ideal ticks; d=3: 6..7), and
+  s4-core.drive (the first real-lever check).
+- Why the layout: RB's rest/open cells must touch nothing that a level would break (X dust, the
+  top pullers, B, A's lower position), and P_T's park cell must not be quasi-powered by RB at rest
+  (so RB rests WEST of A, and TL cannot go up: the left column needs 3 pistons).
 
 ## Tools (this track)
 - `door grow <design> --lo x,y,z --hi x,y,z --states obs,block,dust,... --k 2`: add 1-2 blocks
@@ -68,7 +97,18 @@ Verified at 32 and at 104 positions. Open 24 gt, close 50 gt.
   level signal from the lever, which then sits far from the top torch.
 
 ## Next ideas
+- fresh-c's close in a slime-free door, VALIDATED with ideal inputs (`door ideal asteady.sched`,
+  mechanism ideal-asteady.txt = the 48 without its control, A extended at rest): A held by a
+  steady source (off on open, on again on close after P_T brought T back above C), P_T steady,
+  X pulses p0 (close: A pushes C down one) + the two B-edge pulses, B window unchanged (on close
+  A is extended, so B cannot push it and the pulses are swallowed). Windows (one at a time):
+  a_off 1..5, pt_off 7..12 (open); pt_on 5..9, a_on 5..12 (close); pt_on = a_on works (6..9,
+  16 positions): A waits for T to land. So P_T = NOT(lever through a d3 repeater) (no OR, no
+  R_P: -2) and A = NOT(lever OR that repeater); the TL puller could then be steady on A's torch
+  (one dust instead of the 3-observer chain). The catch is A's fast-off/slow-on source: a torch
+  attachment fed by both the lever and the repeater does not fit next to A (every cell around
+  A is taken, and a lever cannot be both adjacent to the attachment's dust and behind the
+  repeater); a redstone-block shuttle (fresh-c) gives that asymmetry for free but needs a free
+  cell next to A for the block at rest and another for it when open.
 - A cheaper TL feed: the TL puller needs 1 (or 3) pulses; with the P_T torch moved to (0,4,2)
   one observer at (0,4,1) would do (-2), if the OR net can reach a torch attachment on the west.
-- B blocked on close by an extended A (fresh-c) in a slime-free door: A held extended on close
-  needs an asymmetric source next to A; worth an ideal-input study with `door ideal`.

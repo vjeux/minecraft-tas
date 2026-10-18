@@ -1,0 +1,12 @@
+# The output cell is powered from the lever flip on (by X) and stays powered 15 ticks after the
+# lever goes off (R2 falls 16 ticks after it), twice.
+design designs/gadgets/hold-2rep.txt
+probe_signal out 1 1 0
+use 0 2 0
+expect_trace out ++++++++++++++++++++
+use 0 2 0
+expect_trace out +++++++++++++++000000
+use 0 2 0
+expect_trace out ++++++++++++++++++++
+use 0 2 0
+expect_trace out +++++++++++++++000000

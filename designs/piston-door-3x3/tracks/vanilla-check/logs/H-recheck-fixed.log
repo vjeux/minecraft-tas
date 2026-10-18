@@ -1,0 +1,12 @@
+vanilla server up in 13.1s (/dev/shm/mctas-vanilla-2330647-3020b083042ba261)
+  note: piston-door-3x3-rb2s2 is not at rest as written (2 cells change when the judge settles it); checking its rest state
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-rb2s2-50b.txt (50 blocks, sculk) PASS: vanilla matches the simulator tick for tick (1012 ticks at 4 positions x 3 cycles, plus a real-time 20 tps cycle); PASS (open 22, close 37) [52s]
+vanilla-check: designs/piston-door-3x3/archive/piston-door-3x3-rb2-sculk-50b.txt (50 blocks, sculk) PASS: vanilla matches the simulator tick for tick (1012 ticks at 4 positions x 3 cycles, plus a real-time 20 tps cycle); PASS (open 22, close 37) [45s]
+  note: search-tool-from-HEAD-gravity-g4-51b is not at rest as written (6 cells change when the judge settles it); checking its rest state
+vanilla-check: designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g4-51b-46b.txt (46 blocks, gravity) PASS: vanilla matches the simulator tick for tick (490 ticks at 4 positions x 3 cycles, plus a real-time 20 tps cycle); PASS (open 5, close 19) [38s]
+  note: search-tool-from-HEAD-gravity-g4-51b is not at rest as written (7 cells change when the judge settles it); checking its rest state
+vanilla-check: designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g4-51b-48b.txt (48 blocks, gravity) PASS: vanilla matches the simulator tick for tick (394 ticks at 4 positions x 3 cycles, plus a real-time 20 tps cycle); PASS (open 5, close 11) [38s]
+  note: search-tool-from-HEAD-gravity-g6-49b is not at rest as written (3 cells change when the judge settles it); checking its rest state
+vanilla-check: designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g6-49b-46b.txt (46 blocks, gravity) PASS: vanilla matches the simulator tick for tick (490 ticks at 4 positions x 3 cycles, plus a real-time 20 tps cycle); PASS (open 5, close 19) [38s]
+  note: search-tool-from-HEAD-gravity-g6-49b is not at rest as written (3 cells change when the judge settles it); checking its rest state
+vanilla-check: designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g6-49b-48b.txt (48 blocks, gravity) PASS: vanilla matches the simulator tick for tick (394 ticks at 4 positions x 3 cycles, plus a real-time 20 tps cycle); PASS (open 5, close 11) [32s]

@@ -32,8 +32,10 @@ pub mod ideal;
 pub mod route;
 pub mod minimize;
 pub mod patch;
+pub mod place;
 pub mod search;
 pub mod showcase;
+pub mod synth;
 pub mod video;
 pub mod vanilla_check;
 
@@ -379,6 +381,12 @@ fn verify_at(
     }
     let (wlo, whi) = watch_box(d, spec);
     let rest = w.get_region(sb, wlo, whi)?;
+    // Survival-buildability: nothing may float (levers, torches, dust, repeaters on air...).
+    let floating = w.unsupported(sb, wlo, whi)?;
+    if !floating.is_empty() {
+        let list: Vec<String> = floating.iter().map(|p| format!("{p:?} {}", rest.get(*p).unwrap_or("?"))).collect();
+        bail!("unsupported blocks (they could not stand there in survival): {}", list.join("; "));
+    }
     for (p, s) in &blocks {
         if rest.get(*p) != Some(s.as_str()) && first_position {
             report.warnings.push(format!("not at rest as written: {p:?} {s} became {}", rest.get(*p).unwrap_or("?")));

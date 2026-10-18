@@ -109,3 +109,69 @@ pub fn run(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &Search
     }
     Ok(())
 }
+
+/// `door transplant`: learn edits from pairs of designs (a -> b where b is a's smaller variant,
+/// e.g. a trick some track found) and try every one on the best designs of every league; each
+/// improvement is archived and then polished by the local search for `minutes`.
+pub fn transplant(pool: &Pool, repo: &Path, opts: &HarvestOptions, search_opts: &SearchOptions, max_cells: usize, log: &dyn Fn(&str)) -> Result<()> {
+    let cands = crate::leaderboard::collect(repo, &opts.refs, opts.max_blocks)?;
+    std::fs::create_dir_all(&opts.out_dir)?;
+    log(&format!("{} designs; judging them", cands.len()));
+    let verdicts = pool.map(cands.clone(), |w, _, (_, d)| Ok(verify(w, &d, &search_opts.judge).is_ok()));
+    let mut working: Vec<(String, Design)> =
+        cands.into_iter().zip(verdicts).filter(|(_, v)| matches!(v, Ok(true))).map(|(c, _)| c).collect();
+    working.sort_by_key(|(s, d)| (category(d), block_count(d), s.clone()));
+    let library: Vec<Design> = working.iter().map(|(_, d)| d.clone()).collect();
+    let patches = crate::search::library_patches(&library, max_cells);
+    log(&format!("{} working designs, {} patches of at most {max_cells} cells", working.len(), patches.len()));
+    // Targets: the best designs of each league (ours included: they are the frontier too).
+    let mut targets: Vec<(String, Design)> = Vec::new();
+    let mut cats: Vec<&'static str> = working.iter().map(|(_, d)| category(d)).collect();
+    cats.dedup();
+    for cat in cats {
+        let best = working.iter().filter(|(_, d)| category(d) == cat).map(|(_, d)| block_count(d)).min().unwrap_or(0);
+        targets.extend(working.iter().filter(|(_, d)| category(d) == cat && block_count(d) <= best + opts.within).take(opts.top).cloned());
+    }
+    let sf_best = working.iter().filter(|(_, d)| crate::slime_free(d) && category(d) == "solid").map(|(_, d)| block_count(d)).min();
+    if let Some(best) = sf_best {
+        for c in working.iter().filter(|(_, d)| crate::slime_free(d) && category(d) == "solid" && block_count(d) <= best + opts.within).take(opts.top) {
+            if !targets.iter().any(|(s, _)| *s == c.0) {
+                targets.push(c.clone());
+            }
+        }
+    }
+    for (source, target) in targets {
+        let edits = crate::search::transplants(&target, &patches);
+        log(&format!("== {source}: {} blocks, {}: {} applicable patches", block_count(&target), category(&target), edits.len()));
+        if edits.is_empty() {
+            continue;
+        }
+        let found = crate::search::try_edits(pool, &target, edits, search_opts, log);
+        let Some((d, desc)) = found.into_iter().next() else { continue };
+        let mut w = pool.worker(0);
+        if let Err(e) = verify(&mut w, &d, &search_opts.judge) {
+            log(&format!("  {desc}: fails the judge in a fresh sandbox ({e:#})"));
+            continue;
+        }
+        drop(w);
+        let name = label(&source);
+        let out = opts.out_dir.join(format!("transplant-{name}.txt"));
+        let mut d = d;
+        d.name = format!("search-tool-transplant-{name}");
+        log(&format!("  improved: {} -> {} blocks by {desc}", block_count(&target), block_count(&d)));
+        let save = |best: &Design, how: &str| -> Result<()> {
+            best.save(&out)?;
+            let note = format!("verified WORKS: {} blocks; door transplant ({how}) from {source}", block_count(best));
+            if let Some(p) = crate::archive::save(&out, best, block_count(best), &note, None)? {
+                log(&format!("  archived {}", p.display()));
+            }
+            Ok(())
+        };
+        save(&d, &desc)?;
+        let o = SearchOptions { deadline: Some(Instant::now() + Duration::from_secs_f64(opts.minutes * 60.0)), ..search_opts.clone() };
+        let mut on_improve = |best: &Design, how: &str| save(best, &format!("{desc}, then {how}"));
+        let best = search(pool, &d, &o, log, &mut on_improve)?;
+        log(&format!("== {source}: {} -> {} blocks", block_count(&target), block_count(&best)));
+    }
+    Ok(())
+}

@@ -1,0 +1,10 @@
+# The lever extends M, which pushes P onto the powered spot: P extends as it lands.
+design designs/gadgets/landing-fire.txt
+probe P_old 1 1 0
+probe P_new 2 1 0
+probe head 2 2 0
+use -1 1 0
+quiet 6
+expect P_old h
+expect P_new E
+expect head h
