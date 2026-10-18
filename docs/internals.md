@@ -138,17 +138,31 @@ needs harfbuzz for it). Xvfb is stopped with SIGTERM so it removes its `/tmp/.X<
 dead servers are reclaimed. The X displays are shared by everything on a box, so only the
 coordinator records.
 
-* **Archive videos** (`door video-all`): one video per archived design, uploaded to the GitHub
-  release `videos` as `<stem>.mp4`; then the catalog (`archive/README.md`) links them.
+**One recording per design** (`clips.rs`): every door is recorded once, as a clean clip (still
+door camera, no card, no label; 1280x720 with the build framed for a centered 4:3 crop, x264 crf
+16) in the clips folder (`~/videos/clips/<design hash>.clip.mp4`, its first frame `.clip.png`, its
+sidecar `.clip.txt`: the design hash, the recording settings, the ticks played after each flip, the
+first cycle's open/close ticks). A clip is recorded again only when the design (blocks, ports,
+entities) or the recording settings change (bump `LOOK` in `clips.rs` when the recording itself
+changes), or with `--redo`. Every published product is cut from it with ffmpeg, without starting
+Minecraft, and carries a `.stamp` (a hash of its clip's sidecar and its card and label lines) so it
+is rebuilt exactly when one of them changed: a new volume relabels a door in seconds.
+
+* **Archive videos** (`door video` / `door video-all`): the title card (a still drawn in Rust,
+  fading into the clip) then the clip with the corner label (the size `80b` big, `volume WxHxD, N
+  blocks placed` small, the name), H.264 yuv420p, uploaded to the GitHub release `videos` as
+  `<stem>.mp4`; then the catalog (`archive/README.md`) links them. `--relabel` cuts every video
+  that has a clip again and records nothing.
 * **Tick videos** (`door tick-video`, `tickvideo.rs`): one open/close cycle tick by tick, filmed
   with a still camera. Captions say when the lever is flipped, count the ticks after the flip until
   nothing moves anymore (the state the judge checks), and mark the second flip and the settled
   closed state. A 3x3 map shows the doorway as the server sees it after each tick, and a strip
   under the picture shows the whole phase (doorway clear, door closed, or in between) with a
   cursor on the current tick.
-* **GIFs** (`door gallery`, `showcase.rs`): a clean still-camera clip of each board's best (4:3; an
-  orbiting camera makes GIFs ~10x larger), cut into a looping GIF with a small label (palette per
-  clip, 1.5x speed), uploaded as `<stem>.gif`. `door leaderboard` shows the GIF of each board's
+* **GIFs** (`door gallery`, `showcase.rs`): each board's best cut from its clip (the centered 4:3
+  crop; a still camera: an orbiting one makes GIFs ~10x larger) into a looping GIF with a small
+  label (palette per clip, 1.5x speed), uploaded as `<stem>.gif`; a leader without a clip is
+  recorded first, `--gif-only` records nothing. `door leaderboard` shows the GIF of each board's
   leader (or of a design tied with it) when the release has one. The gallery also draws the night's
   timeline chart (`night-timeline.png`: the record of each board over time, from the archive headers).
 * **Montages** (`door montage`): a board's record progression (solid: `archive/records.tsv`; other

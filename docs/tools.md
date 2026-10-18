@@ -93,11 +93,11 @@ plus the hallway check, footsteps for sculk designs, QUART SEAMLESS or better an
 
 | command | when to use it |
 |---|---|
-| `door video <design> --out <f.mp4>` | record the door opening and closing with the real Minecraft client (title card, door camera, corner label: the size `80b` big, the blocks placed small; each flip plays until the door has settled) |
-| `door video-all --out DIR [--upload videos] [--dry-run]` | record every archived design that has no video yet, upload each to the `videos` release, then write the archive catalog; `--dry-run` lists what it would record |
+| `door video <design> --out <f.mp4> [--redo] [--relabel]` | the door opening and closing in the real Minecraft client: title card, then the design's one clip (still door camera; each flip plays until the door has settled) with the corner label (the size `80b` big, the blocks placed small). The clip is recorded only when missing or stale ([internals](internals.md#videos)); `--relabel` never records |
+| `door video-all --out DIR [--upload videos] [--relabel] [--dry-run]` | every archived design's video cut from its clip: clips missing or stale are recorded first, a video is cut again (seconds, no Minecraft) when its clip, card or label changed, uploaded to the `videos` release, then the archive catalog; `--relabel` records nothing and cuts every video again; `--dry-run` lists the work |
 | `door tick-video <design> --out <f.mp4>` | one open/close cycle tick by tick: still camera, captions for the flips and the settled states, a 3x3 map of the doorway per tick and a strip of the whole phase |
 | `door card <design> --out <png>` | draw just a video's title card (and its corner label) |
-| `door gallery --videos DIR [--upload videos]` | a looping GIF of the best design of every board, uploaded to the release (LEADERBOARD.md shows them), plus the night's timeline chart |
+| `door gallery --videos DIR [--upload videos] [--gif-only]` | a looping GIF of the best design of every board cut from its clip (the same clips as the videos; a leader without one is recorded first, `--gif-only` records nothing), uploaded to the release (LEADERBOARD.md shows them), plus the night's timeline chart |
 | `door montage --videos DIR --out <f.mp4> [--board solid] [--upload videos]` | a board's record progression by blocks placed (the history before sizes were volumes) as one video: every record filmed by the same camera, labeled with its blocks placed and how it got there (solid: `archive/records.tsv`) |
 | `door world --out DIR` | one Minecraft world (a save folder for the real game) with every working archived design in rows by board, smallest volume first, its size in red concrete above it, to try them by hand |
 
