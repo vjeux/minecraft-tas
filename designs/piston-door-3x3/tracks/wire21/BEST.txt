@@ -13,7 +13,7 @@ palette:
   H minecraft:sticky_piston[extended=false,facing=up]
   I minecraft:sticky_piston[extended=false,facing=west]
   J minecraft:stone
-  L minecraft:lever[face=wall,facing=north,powered=false]
+  L minecraft:lever[face=wall,facing=east,powered=false]
   O minecraft:observer[facing=down,powered=false]
   R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   S minecraft:slime_block
@@ -40,7 +40,7 @@ layer 3:
   ....G
 layer 4:
   oLDRE...B
-  .JADDDDDD
+  ..ADDDDDD
 layer 5:
   ..OCE
   .
