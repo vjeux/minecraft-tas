@@ -98,3 +98,13 @@ Simulator findings (not yet a working ideal replay):
   facing west), which conflicts with the rest-position driver at (-2,2) facing up.
 - Ideal emulation needs care: a redstone block placed next to a piston's quasi cell arms it but
   does not update it; placing/removing a glass block next to the piston gives the update.
+- `f102/f102b.ideal` (in-plane inputs emulating that wiring: L1 from (-2,2) with L0 coupled + one own
+  L0 pulse, PD held by QC from (-2,4) and released with the torch's update, the lifted L1 fed through
+  the BL door block at (-1,0)): **OPENS** (BL, ML, C, TL, T, TR, M, BR, MR all out) but does not
+  close: on close the lifted L1 gets no input (BL is back at (0,0)), so the sym train's 4th step is
+  a no-op and the 6th (L1 at rest) pulls ML out of (0,1) again. The macro model's separate close
+  schedule is L0, L1, PD, L1 + toggles (no E3): a working control must either reproduce the sym
+  train exactly on close (the lifted L1 needs a real input on both edges) or make E3's and the
+  last L1 pulse edge-dependent. Next step for whoever takes 8x8-102: feed the lifted L1 through
+  ML (-1,2) (observer at (-2,2) facing west) and the resting L1 from the same cell's other use...
+  they conflict, so find a second rest input (none in the plane) or drop the 6th step on close.
