@@ -47,3 +47,11 @@ Verified `--extra-offsets 28`. 21 mechanism + 26 control.
   floor is a COPPER BULB (4,2,1); the bulb toggles once per lever edge (rising edges only), so an
   observer (4,1,1) watching it fires exactly once per edge, into a block (4,0,1) next to the
   bottom-right puller (fires at 10; the side pullers take any tick).
+
+## 09:40Z s4 = 45 blocks, slime-free (BEST.txt; archive/fresh-d-s4-45b.txt), opens 26 / closes 14
+* `door minimize --moves all` dropped the dot dust (4,4,0): the cross dust (4,3,1) under the
+  observer's block already points into (4,3,0) (P_T + top-right + middle-right).
+* It also dropped the lever's wall block, which leaves a FLOATING lever (not survival-placeable,
+  the verifier does not check supports): rejected. Legit equivalent: the lever hangs on V's front
+  face (lever[face=wall,facing=south] at (-2,4,1) on the observer V (-2,4,0) that watches it).
+* Note for everyone: the minimizer can remove a lever's support; check `face`/`facing` by hand.
