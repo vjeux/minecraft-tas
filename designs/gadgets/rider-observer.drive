@@ -1,0 +1,9 @@
+# P extends at t1, the structure lands at t3, O (now at (2,2,0)) pulses t5..6. P retracts at
+# t11, O lands back at (1,2,0) at t13 and pulses t15..16.
+design designs/gadgets/rider-observer.txt
+probe O 1 2 0
+probe O2 2 2 0
+set -1 1 0 minecraft:redstone_block
+expect_trace O2 ~~00110000
+clear -1 1 0
+expect_trace O ~~00110000
