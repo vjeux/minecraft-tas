@@ -107,5 +107,43 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `silent-hold` | block + repeater | a quasi-powered piston ignores its source switching on and off until a neighbor update |
 | `pulse-bridge` | block, cross dust, block | an observer pulse moved one cell sideways into a repeater's back with 4 blocks (mech-50) |
 | `lever-tap` | repeater | a repeater reading the lever feeds a net that the lever's block cannot back-feed (mech-89) |
-| `pulse-toggle` | observer + retracted sticky piston | one 2gt pulse grabs a block two cells ahead, the next pushes it back and spits it: pistons with no steady power (logic-min) |
+| `pulse-toggle` | observer + retracted sticky piston | one 2 gt pulse per lever edge drives a piston that is retracted at rest: the on pulse pulls its block (still: normal pull), the off pulse pushes it back and spits it (no torch, no steady line; logic-min) |
 | `lever-observer` | observer under the lever | the lever's support is an observer facing up that watches it and fires out of its back (logic-min) |
+* **Silent hold (gadget `designs/gadgets/silent-hold`):** a piston kept extended by a quasi
+  source that later turns off WITHOUT updating it stays extended, unpowered, until any later
+  neighbor update (a piston head forwards neighbor updates to its base, so a block landing next
+  to the head counts). A repeater switching a solid block only updates that block's neighbors:
+  feed the piston's quasi cell through such a block to drop the hold silently.
+* **Slime drags:** blocks with PushReaction DESTROY (dust, repeaters, levers, torches) next to a
+  moving slime block are left in place, not dragged or broken (only a DESTROY block in the
+  movement path breaks); their floors are normal blocks and do get dragged (glazed terracotta
+  never is).
+* **Redstone block shuttle:** a sticky piston pushing a redstone block from next to piston A to
+  next to piston B switches A off at once (the block becomes a moving piston that tick) and B
+  on 2 gt later (when it lands): one actuator, ordered "A then B"; pulled back it gives "B off
+  then A on".
+## Gravity blocks (`FallingBlock`, `FallingBlockEntity`) — track gravity
+
+* Sand/gravel/concrete powder schedule a tick 2 gt after being placed (pistons place them at the
+  end of a move) or shape-updated; the tick makes them fall if the block below is air, fire,
+  liquid or replaceable. A `moving_piston` below counts as support. Slime next to sand does not
+  hold it up.
+* A falling block that lands on a moving piston (or anywhere it cannot be placed) breaks into an
+  item. `Sandbox.idle()` waits for falling blocks to land, so the judge sees that item.
+* Gadget `designs/gadgets/sand-drop-tower`: a 3-piston tower lowers/lifts a sand column 3 cells
+  (the slime chain lets the bottom piston pull both upper pistons down). Used by door g4.
+* An isolated redstone dust is a dot and powers nothing sideways; written as a cross
+  (`redstone_wire[north=side,east=side,south=side,west=side]`) it stays a cross after the shape
+  update and powers all four neighbors.
+* **Pulse-driven pistons (logic-min, gadget `pulse-toggle`):** any door piston that only has to
+  move its block once per lever edge can be retracted at rest and fired by a 2 gt observer pulse
+  (pull on open, push + spit on close): v2's six pistons all work that way except P_T. The
+  measured windows (`door ideal`): side/bottom pistons accept the pulse at any tick on both
+  edges; A needs one pulse 0..4 gt after the flip plus the two B-edge pulses.
+* **Observers on pistons fire twice:** a piston (or its head cell) changes state at the event,
+  2 gt later and again 2 gt after that, so an observer watching it pulses twice per motion (a
+  pulse-toggled column then moves out and back). Watch a block that moves once, the lever, or
+  another observer instead.
+* **OR of two repeaters in one dust:** a dust sandwiched between the output block of one
+  repeater (above it) and of another (below it, its floor) is lit by either, and a cross dust
+  powers the block it points into: a 2-input OR feeding a torch with 1 dust (logic-min P_T).

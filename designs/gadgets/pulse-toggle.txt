@@ -1,10 +1,12 @@
 name: gadget-pulse-toggle
-# Pulse-driven puller (found by the logic-min track): a RETRACTED sticky piston P with an empty
-# cell in front and the block K two cells ahead. A 2gt pulse makes it extend into the empty
-# cell and retract normally, pulling K one cell toward it ("grab"); the next 2gt pulse pushes K
-# back and, the pulse ending while K is still moving, spits it (retract event type 2). One
-# observer on the lever gives one pulse per flip, so the piston needs no steady (inverted)
-# power at all. Lever L, observer O watching it, P powered by O's back.
+# Pulse-toggled sticky piston (logic-min): a RETRACTED sticky piston with its block two cells
+# ahead, fired by a dual-edge observer, needs no steady power: the lever-on pulse pulls the
+# block one cell toward the piston (the block 2 ahead is still, so the retract is a normal
+# sticky pull) and the lever-off pulse pushes it back and spits it (the block is still moving
+# when the 2 gt pulse ends). This is how every door piston but P_T works in logic-min's v2
+# door: no torch, no steady line, any pulse source works (S pistons in v2 accept the pulse at
+# any time). Lever L on stone, observer O facing west (watches L), sticky piston P facing
+# east, air, stone K.
 origin: 0 0 0
 palette:
   S minecraft:stone

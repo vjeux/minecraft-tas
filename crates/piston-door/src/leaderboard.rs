@@ -19,6 +19,9 @@ pub struct Entry {
     pub blocks: usize,
     pub category: &'static str,
     pub verdict: std::result::Result<(), String>,
+    /// Worst-case ticks after the lever flip until open / closed (over the reported cycles).
+    pub open_ticks: Option<u32>,
+    pub close_ticks: Option<u32>,
 }
 
 fn git(repo: &Path, args: &[&str]) -> Result<String> {
@@ -55,20 +58,22 @@ pub fn collect(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<
     Ok(out)
 }
 
-/// Verify every candidate in parallel; designs whose key is in `trusted` (already archived,
-/// hence verified when archived) are not re-verified.
-pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, workers: usize, trusted: &HashSet<String>) -> Result<Vec<Entry>> {
+/// Verify every candidate in parallel (always: the speed boards need each design's timings).
+/// `trusted` is kept for callers but no longer skips verification.
+pub fn judge(version: &str, cands: Vec<(String, Design)>, extra_offsets: u32, workers: usize, _trusted: &HashSet<String>) -> Result<Vec<Entry>> {
     let pool = Pool::spawn(workers.min(cands.len()).max(1), &WorkerConfig { version: version.to_string(), ..Default::default() })?;
     let mut opts = VerifyOptions::default();
     opts.offsets.extend(crate::extra_offsets(extra_offsets));
     let results = pool.map(cands, |w, _, (source, d)| {
-        let key = format!("{:?}|{:?}", d.blocks, d.ports);
-        let verdict = if trusted.contains(&key) {
-            Ok(())
-        } else {
-            crate::verify(w, &d, &opts).map(|_| ()).map_err(|e| format!("{e:#}"))
+        let (verdict, open_ticks, close_ticks) = match crate::verify(w, &d, &opts) {
+            Ok(r) => (
+                Ok(()),
+                r.cycles.iter().map(|c| c.open_ticks).max(),
+                r.cycles.iter().map(|c| c.close_ticks).max(),
+            ),
+            Err(e) => (Err(format!("{e:#}")), None, None),
         };
-        Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d })
+        Ok(Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks })
     });
     let mut entries: Vec<Entry> = results.into_iter().collect::<Result<_>>()?;
     entries.sort_by(|a, b| {
@@ -103,6 +108,33 @@ pub fn render(entries: &[Entry], extra_offsets: u32) -> String {
         }
         if n == 0 {
             s.push_str("| - | - | no entry yet |\n");
+        }
+        s.push('\n');
+    }
+    // Speed boards: ticks after the lever flip (worst cycle), ties broken by block count.
+    let speed: [(&str, Box<dyn Fn(&Entry) -> Option<u32>>); 3] = [
+        ("Fastest open", Box::new(|e: &Entry| e.open_ticks)),
+        ("Fastest close", Box::new(|e: &Entry| e.close_ticks)),
+        ("Fastest open + close", Box::new(|e: &Entry| Some(e.open_ticks? + e.close_ticks?))),
+    ];
+    for (title, ticks) in &speed {
+        s.push_str(&format!(
+            "## {title}\n\nGame ticks after the lever flip (worst of the cycles), any category; ties by block count.\n\n\
+             | # | ticks | open | close | blocks | category | source |\n|---|---|---|---|---|---|---|\n"
+        ));
+        let mut rows: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok() && ticks(e).is_some()).collect();
+        rows.sort_by_key(|e| (ticks(e), e.blocks));
+        for (i, e) in rows.iter().take(10).enumerate() {
+            s.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | `{}` |\n",
+                i + 1,
+                ticks(e).unwrap(),
+                e.open_ticks.unwrap_or(0),
+                e.close_ticks.unwrap_or(0),
+                e.blocks,
+                e.category,
+                e.source
+            ));
         }
         s.push('\n');
     }

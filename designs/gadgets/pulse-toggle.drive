@@ -1,15 +1,19 @@
-# First flip: K comes from (4,1,0) to (3,1,0); second flip: K goes back to (4,1,0).
+# Lever on: the observer pulse pulls K one cell toward the retracted piston; lever off: the
+# pulse pushes K back and spits it, the piston ends retracted (rest state restored).
 design designs/gadgets/pulse-toggle.txt
-probe P 2 1 0
-probe near 3 1 0
-probe far 4 1 0
+probe piston 2 1 0
+probe a 3 1 0
+probe b 4 1 0
+expect piston r
+expect a .
+expect b #
 use 0 1 0
 quiet 10
-expect near #
-expect far .
-expect P r
+expect piston r
+expect a #
+expect b .
 use 0 1 0
 quiet 10
-expect near .
-expect far #
-expect P r
+expect piston r
+expect a .
+expect b #
