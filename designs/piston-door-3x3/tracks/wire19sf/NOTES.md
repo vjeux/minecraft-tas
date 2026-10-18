@@ -6,7 +6,9 @@ elevator, P_T), driven by ONE pulse train identical on both lever edges.
 
 | file | blocks | note |
 |---|---|---|
-| w45.txt = BEST.txt | 45 | first wired pist19r: open 28 / close 26, 32 positions |
+| w45.txt | 45 | first wired pist19r: open 28 / close 26, 32 positions |
+| w44.txt | 44 | P_T chain off O_a (3 observers) instead of off the lever (4); regrow --size 3 finds it too |
+| **w43.txt = BEST.txt** | **43** | M's chain ends in M's QUASI cell (1,-1,0) instead of M's piston: the other cell parity, so the left column fires at t12 (2 observers) and M at t22 on close with 4 observers after BL's watcher. Open 26 / close 24. `w43b.txt` = its mirror (chain south) |
 
 ## Timing windows of pist19r (ideal inputs, `door ideal --independent --sweep`)
 `pist19r-window.ideal` (B on two pulses) and `pist19r-bwin.ideal` (B on one level window), ticks
@@ -20,7 +22,26 @@ after the first A pulse (a1 = 0):
   R_B d4 -> B's quasi cell, O on R_B -> X): A1 t2, B window t12-20, A2 t14, A3 t22 (real ticks);
   P_T must fire at real t5..9 and **M at real t >= 22** (`w19-cluster.ideal` sweeps).
 
-## w45 (45 blocks): the wiring
+## w43 (43 blocks, slime-free): the wiring
+19 mechanism (pist19r with TR pulled UP: door 9, left column (-2,0..2,0) on 3 pull-type sticky
+pistons facing east, TR puller (2,4,0) facing down, right pair (4,0..1,0) facing west, M's
+puller (1,-2,0) facing up, A (1,4,0) and B (1,5,0) facing down, P_T (-1,3,0) facing east) + 24
+control:
+* A/B (8, s7q's north cluster): lever (1,4,-3) hung on O_a (1,4,-2) facing north (A1 at t2
+  through X dust (1,4,-1) on (1,3,-1): X powers A up top, its floor powers A one cell lower),
+  O_b (1,5,-2) watching O_a -> block J (1,6,-2) -> repeater R_B d4 (1,6,-1) into B's quasi cell
+  (B window t12-20), O (1,5,-1) watching R_B -> X (A2 t14, A3 t22).
+* P_T (3): O_a -> (0,4,-2) -> (-1,4,-2) -> (-1,4,-1), whose back points into P_T's quasi cell
+  (-1,4,0): t8.
+* Right side (4, s7q's): (2,4,-2) watching O_a -> (2,4,-1) -> TR puller (t6); observer (3,2,0)
+  watching TR's cell -> block (4,2,0) above the pair (direct + quasi).
+* Left column (4): (-2,4,-1) watching (-1,4,-1) -> (-2,3,-1) -> cross dust (-2,2,-1) on
+  (-2,1,-1) (stack-feed): t12.
+* M (5): observer (0,-1,0) watching BL -> (0,-1,-1) -> (0,-1,-2) -> (1,-1,-2) -> (1,-1,-1),
+  whose back points into M's quasi cell (1,-1,0) (= M's head cell, the piston faces up): t22 on
+  close (BL is pushed home at t12, watched at t14), t24 on open.
+
+## w45 (45 blocks): the first wiring
 * A/B: s7q's north cluster, 8 blocks with the lever.
 * P_T (-1,3,0): 4-observer chain off the lever into its quasi cell (-1,4,0): t8.
 * Right side = s7q's: TR goes UP (puller (2,4,0), fed off O_a by (2,4,-2) -> (2,4,-1)), the right
@@ -38,7 +59,12 @@ after the first A pulse (a1 = 0):
   than the open timing suggests (w43 attempt: M at t20 on close, A3 then lifted T).
 * **Observer-chain parity**: along a chain, (cell parity + t/2) is invariant, so the time at
   which a chain can fire a given cell is fixed mod 4; a stack-feed dust reached at t12 cannot be
-  reached at t14 by observers (a repeater or a different target cell flips it).
+  reached at t14 by observers (a repeater or a different target cell flips it). **Fix used in
+  w43: aim at the piston's quasi cell instead of the piston** (opposite parity); for a piston
+  facing up the quasi cell is its own head cell.
+* `door synth` with the door judge finds the same M triggers (5 observers + block, or lamp
+  tricks) at 6 blocks when the left column fires at t12, and nothing of <= 5 in x -3..3,
+  y -4..0, z -2..2 aimed at the piston itself (`synth-m.patch`, `synth-m16.patch` contexts).
 * An observer pointing into the cell above A (from (1,4,-1)) powers A in both positions (A low
   through B's head, by quasi-connectivity, and it updates A); unused so far.
 * Watching a pulse-driven piston double-fires (t+2 and t+6: extension, then the end of the

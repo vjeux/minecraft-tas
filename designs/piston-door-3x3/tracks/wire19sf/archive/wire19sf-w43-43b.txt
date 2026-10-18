@@ -1,0 +1,68 @@
+# verified WORKS: 43 blocks, open after 26 ticks, closed after 24 ticks
+# archived 2026-10-18 11:55Z from designs/piston-door-3x3/tracks/wire19sf/w43.txt (repo at 65d9f79)
+name: wire19sf-w43
+port door: 0 0 0
+port lever: 1 4 -3
+origin: -2 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:stone
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  .
+  ...G
+layer -1:
+  .
+  ..BD
+  ..BA
+  ..C
+layer 0:
+  .
+  .
+  .
+  F.III.H
+layer 1:
+  .
+  .
+  S
+  F.III.H
+layer 2:
+  .
+  .
+  r
+  F.IIIDS
+layer 3:
+  .
+  .
+  C..S
+  .F
+layer 4:
+  ...L
+  .ooAD
+  oA.RA
+  ...ss
+layer 5:
+  .
+  ...O
+  ...C
+  ...s
+layer 6:
+  .
+  ...S
+  ...E
+  .
