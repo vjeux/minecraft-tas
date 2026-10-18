@@ -236,6 +236,18 @@ pub enum DoorCmd {
         #[arg(long)]
         close: bool,
     },
+    /// Verify a design many times in ONE reused sandbox (as the search does) and count passes:
+    /// shows state that leaks across `clear` (e.g. redstone torch burnout memory).
+    ReuseCheck {
+        design: PathBuf,
+        #[arg(long, default_value_t = 30)]
+        times: u32,
+        #[arg(long, default_value_t = 1)]
+        cycles: u32,
+        /// Recreate the sandbox before every run instead of reusing it.
+        #[arg(long)]
+        fresh: bool,
+    },
     /// Check that a design is a working 3x3 piston door; print timings and block count.
     Verify {
         design: PathBuf,
@@ -399,6 +411,24 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 log(&format!("pass done; next in {:.1} min", wait / 60.0));
                 std::thread::sleep(std::time::Duration::from_secs_f64(wait));
             }
+        }
+        DoorCmd::ReuseCheck { design, times, cycles, fresh } => {
+            let d = load_design(&design)?;
+            let mut w = Worker::spawn(&cfg)?;
+            let opts = VerifyOptions { cycles, offsets: vec![[0, 0, 0]], ..Default::default() };
+            let mut sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+            let mut line = String::new();
+            let mut passes = 0;
+            for _ in 0..times {
+                if fresh {
+                    w.drop_sandbox(sb)?;
+                    sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+                }
+                let ok = crate::verify_in(&mut w, sb, &d, &opts).is_ok();
+                passes += ok as u32;
+                line.push(if ok { '+' } else { '.' });
+            }
+            println!("{line}\n{passes}/{times} passed in {} sandbox(es)", if fresh { "fresh" } else { "one reused" });
         }
         DoorCmd::Video { design, out, tps, upload } => {
             let d = load_design(&design)?;
