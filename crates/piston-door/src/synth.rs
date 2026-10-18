@@ -79,7 +79,8 @@ pub fn parse_cells(s: &str) -> Result<Vec<Pos>> {
 /// never drags), `glass`, `obsidian`, `dust` (cross wire), `dot` (dot wire), `rep` (every delay)
 /// or `rep1`..`rep4` (4 facings each), `cmp` (comparator, both modes, 4 facings), `obs`
 /// (observer, 6 facings), `torch` (standing + 4 wall torches), `rblock`, `lamp`, `bulb` (waxed
-/// copper bulb, a T flip-flop), `target`, or a full `minecraft:...` state.
+/// copper bulb, a T flip-flop), `note` (note block: shows weak power to observers, passes none
+/// on), `target`, or a full `minecraft:...` state.
 pub fn palette_states(spec: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -112,6 +113,9 @@ pub fn palette_states(spec: &str) -> Result<Vec<String>> {
             "rblock" => out.push("minecraft:redstone_block".into()),
             "lamp" => out.push("minecraft:redstone_lamp[lit=false]".into()),
             "bulb" => out.push("minecraft:waxed_copper_bulb[lit=false,powered=false]".into()),
+            // A note block flips `powered` at once on weak power (a lever next to it) and passes
+            // nothing on: an observer can read a lever through it (sf-holdA's b38).
+            "note" => out.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             "target" => out.push("minecraft:target[power=0]".into()),
             s if s.starts_with("minecraft:") => out.push(s.to_string()),
             s => bail!("unknown palette entry {s:?}"),
@@ -175,6 +179,8 @@ impl Node {
             // A copper bulb takes power like a lamp and shows it only to observers (and
             // comparators): it toggles `lit` on each rising edge.
             n if n.ends_with("copper_bulb") => (Kind::Lamp, None, true, true),
+            // A note block likewise shows weak power to observers (its `powered` state).
+            "note_block" => (Kind::Lamp, None, true, true),
             "redstone_block" => (Kind::RBlock, None, true, false),
             "lever" => {
                 let s = match get("face").as_deref() {
