@@ -12,13 +12,17 @@ flip (the flip happens between ticks, so the first tick after it is k1).
 * **Floors (solid doors): open >= 4 gt, close >= 1 gt** (section 6). The boards are at 10 / 7.
   The speed track's bound (7 / 6) is for one topology (the edge block above the center leaves
   through the center's exit cell); routing that edge block out through its corner instead lets the
-  center start moving in tick 1, which is what makes 4 possible.
+  center start moving in tick 1, which is what makes 4 possible. On the close side, pistons
+  carried into place by a 0-tick fire in the same tick: the center and the edge block come home
+  with every move placed (`center-return`, `corner-return`): **close 3** with the moves ordered by
+  tick boundaries, close 1 with same-tick relays.
 * **The open floor is exactly the center**: it needs two moves; a pull (or drag, or plain push)
   lands 2 gt after it starts and can move again 1 gt later, so the second move is >= 3 gt after
   the first; a push can be finalized at once (0-tick), but its pusher then sits inside the
   opening and is stuck for 2 gt. Either way the center is out at k1 + 3 = **k4** at best. Gadget
   `center-exit` performs exactly that critical path (out of the center at k1, out of the opening
-  at k4) and matches vanilla at every position.
+  at k4), and gadget **`open-4` clears a whole 3x3 opening at tick 4** (ideal inputs; the edge
+  block above the center leaves through its corner); both match vanilla at every position.
 * **0 gt** = inside one block-event phase. Block events (piston moves) run FIFO until the queue
   is empty, so any number of piston actions can chain in one tick as long as every link is
   triggered by something that happens inside the phase: a block a sticky piston finalTicks
@@ -183,15 +187,18 @@ out), in parallel with C.
 | tick | moves | gadget |
 |---|---|---|
 | k1 | the lever's piston shoves the redstone block feeding the pullers' dust line: the 6 side/bottom pullers (extended at rest, heads touching their blocks) retract in the same phase: ML, BL, MR, BR, TR, B out; TL pulled up into (0,3) | `instant-off` |
-| k1 | TL's departure updates P_T at (-1,2) (armed by the flip): it extends into TL's empty cell and is 0-ticked by its partner: reach-through, T pulled into (0,2) (lands k3) | `zero-tick-reach`, `center-exit` (tick 1) |
-| k1 | T's departure updates A' at E (armed by the flip): 0-tick reach-through, C pulled into T's cell (lands k3) | `center-exit` (tick 1) |
-| k4 | an observer chain off the lever (2 observers: k4) unpowers the aside pullers: A' pulled out of E, TL pulled out of (0,3) | `observer-delay`, `center-exit` (Y) |
-| k4 | E's emptying updates F (above E, armed silently since k1): F extends into E, its partner shoves its quasi source, F retracts: reach-through, C pulled into E: **C out** | `center-exit` (tick 4) |
-| k4 | the same at (0,4): TL's puller reach-pulls T out of the corner into (0,3): **T out, open at 4** | `center-exit` (tick 4) |
+| k1 | TL's departure updates P_T at (-1,2) (armed after the flip): it extends into TL's empty cell and is 0-ticked by its partner X_T (in P_T's quasi cell): reach-through, T pulled into (0,2) (lands k3) | `zero-tick-reach` |
+| k1 | T's departure updates A' at E (quasi-powered through F's cell): it extends into T's cell, its partner X_A shoves that source up and updates it: reach-through, C pulled into T's cell (lands k3); the shoved redstone block lands next to F's quasi cell at k3 and arms F silently | `center-exit` (tick 1) |
+| k4 | an observer chain off the lever (2 observers: k4) unpowers the two aside pullers: A' pulled out of E, P_T pulled out of (-1,2) | `observer-delay`, `center-exit` (Y) |
+| k4 | E's emptying updates F (above E): F extends into E, its partner X_F shoves its quasi source, F retracts: reach-through, C pulled into E: **C out** | `center-exit` (tick 4) |
+| k4 | the same at (-2,2): G_T reach-pulls T out of TL's cell into (-1,2): **T out, open at 4** | `center-exit` (tick 4) |
 
-What it takes: 4 0-tick pullers (each a sticky piston + a partner + a silent arming path), 2
-aside pullers, 7 plain pullers. Not built as a door here (the tick-door track applies the study);
-`center-exit` runs its critical path (C: k1 and k4) in the simulator and in vanilla.
+**Built: gadget `open-4`** (ideal inputs: the scripted redstone blocks stand for the lever flip at
+k0 and an observer chain at k4): 9 stone door blocks, 7 plain pullers, the 4 reach-through
+pullers with their partners and the 2 aside pullers. The opening is full at k3 (T and C sit in
+the top edge cells) and clear from k4 on; vanilla: section 8. What remains for a real door: wire
+the inputs (lever, instant-off line, arming paths after the flip, the k4 observer chain) and
+build the close (next section).
 
 The speed track's topology (T pulled into E at k1, lands k3; a pusher shoves [A', T] at k4 so a
 puller takes E; C into T's cell at k4, out at k7) has floor 7; the best wired door opens at 10.
@@ -204,12 +211,20 @@ enter its cell after C went through:
 
 * **close 1-2 (in principle)**: C pushed E -> T's cell by a 0-ticked piston above E (C placed:
   `zero-tick`), a piston carried into E by a 0-tick fires in the same phase (`zero-tick-onplace`)
-  and 0-ticks C into the center (`double-move` shows two placed moves of one block in one tick);
-  T comes back through its corner: pushed into the corner from the side cell R by a 0-tick, a
-  piston carried into R fires and 0-ticks T into its cell, the corner block enters from the other
-  side cell U. The carried pistons must be ordered AFTER the cell they enter is emptied, which a
-  2-cell-away pusher cannot see directly: a relay (a piston next to the cell that pushes a
-  conductor off a dust step feeding the pusher: `instant-on`) does it. Not built end to end.
+  and 0-ticks C into the center; **gadget `center-return` does this for the center: C placed in
+  the edge cell at k1 and in the center at k2** (the carried piston is ordered after E emptied by
+  the tick boundary; a relay would put it in k1, `double-move` shows two placed moves of one
+  block inside one tick). T comes back through its corner: pushed into the corner from the side
+  cell R by a 0-tick, a piston carried into R fires and 0-ticks T into its cell, the corner block
+  enters from the other side cell U. The carried pistons must be ordered AFTER the cell they
+  enter is emptied, which a 2-cell-away pusher cannot see directly: a relay (a piston next to the
+  cell that pushes a conductor off a dust step feeding the pusher: `instant-on`) does it in the
+  same tick, the tick boundary in the next. **Gadget `corner-return` does T's part: T placed in
+  the corner at k1 and in its own cell at k2 (pushed by a piston carried into R at k2), the corner
+  block placed at k3.** With tick-boundary ordering the top row is therefore home at k3 (C k2,
+  T k2, corner k3) while every other block is 0-ticked home at k1: **close 3 is built piecewise**
+  (`center-return` + `corner-return`, both vanilla-identical); relays instead of tick boundaries
+  would give close 1.
 * **close 4 (no instantly carried pistons)**: the same with the pistons for E and R carried there
   at k1 by plain pushes (relay-ordered): they land at k3 and fire at k4 (onPlace): C placed at k4
   by a 0-tick, then T, then the corner block, all at k4. Without relays (carried at k2 by an
@@ -217,6 +232,12 @@ enter its cell after C went through:
 * **close 6**: the speed track's: C pushed into T's cell at k1 (spit), T pushed into E, F
   re-extends at k4 pushing [T, C] together; C is the second block, not finalized: lands k6 (the
   boards: 7).
+* **close of the open-4 geometry** (T parked left of TL's cell, C in E, TL above its cell): the
+  return is serialized C -> T -> TL through T's and TL's cells: F 0-ticks C into T's cell and G_T
+  0-ticks T into TL's cell at k1; Y_A / Y_P push A' and P_T back next to them (k2, landing k4,
+  firing k5: A' 0-ticks C into the center, then P_T 0-ticks T into its cell); TL's puller pushes
+  TL home at k6 (lands k8). About 8 with tick-boundary ordering, ~5 with relays; the fast-open
+  topology costs close time, the fast-close one (corner route with carried pistons) costs open.
 
 Open + close >= 5.
 
@@ -246,4 +267,6 @@ positions. Logs: `designs/piston-door-3x3/tracks/tick-study/logs/`.
 | instant-off, instant-on | PASS, identical at 4 positions |
 | landing-next-tick, spit-saves-tick, leaves-delay, odd-observer | PASS, identical at 4 positions |
 | center-exit, double-move | PASS, identical at 4 positions |
+| open-4, center-return | PASS, identical at 4 positions |
+| corner-return | see logs/vanilla-gadget-corner-return.log |
 | event-order, button-pulse | PASS, identical at 4 positions |

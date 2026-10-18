@@ -1,0 +1,31 @@
+name: gadget-corner-return
+# The edge block's return through its corner with every move placed (close side, docs/ticks.md
+# section 6). T's cell N1 = (1,2,0) (empty: the center already went through), corner K = (2,2,0),
+# side cells R = (3,2,0) (T parked) and U = (2,3,0) (the corner block TR parked).
+# * Tick 1: A (sticky, behind R) is 0-ticked by the R_A / X_A pair: T placed in K.
+# * Tick 2: Q3 0-ticks the parked sticky piston P3 (facing west) into R; P3 fires the moment it is
+#   placed (quasi-powered through X3's cell by R_P) and pushes T into N1; that push updates X3,
+#   which shoves R_P and updates P3 unpowered: T placed in N1.
+# * Tick 3: B (above U) is 0-ticked: TR placed in K.
+# Every move is ordered by the tick boundary; relays (instant-on) would put all three in tick 1.
+origin: 1 0 -1
+palette:
+  T minecraft:stone
+  K minecraft:stone
+  A minecraft:sticky_piston[extended=false,facing=west]
+  P minecraft:sticky_piston[extended=false,facing=west]
+  Q minecraft:sticky_piston[extended=false,facing=north]
+  B minecraft:sticky_piston[extended=false,facing=down]
+  x minecraft:piston[extended=false,facing=south]
+  n minecraft:piston[extended=false,facing=north]
+layer 2:
+  ....x
+  ..TA
+  ..Px
+  ..Q
+layer 3:
+  .
+  .Kn
+layer 4:
+  x
+  .B
