@@ -648,12 +648,23 @@ fn resynth(d: &Design, g: &HashMap<Pos, Vec<Pos>>, net: &[Pos], terminals: &[Pos
         return out;
     }
     let wiring = net.len() - terminals.len();
-    {
+    // Strict: new wiring may touch only what the old net touched; relaxed: anything (most such
+    // candidates fail, but screening is cheap).
+    for relaxed in [false, true] {
         let mut after = d.clone();
         for p in &rip {
             after.blocks.remove(p);
         }
         let mut base_allow: HashSet<Pos> = HashSet::new();
+        if relaxed {
+            for x in lo[0]..=hi[0] {
+                for y in lo[1]..=hi[1] {
+                    for z in lo[2]..=hi[2] {
+                        base_allow.insert([x, y, z]);
+                    }
+                }
+            }
+        }
         for c in net {
             for f in FACES {
                 base_allow.insert(add(*c, f));
@@ -731,7 +742,7 @@ fn resynth(d: &Design, g: &HashMap<Pos, Vec<Pos>>, net: &[Pos], terminals: &[Pos
             for (p, s) in added {
                 new.blocks.insert(p, s);
             }
-            out.push((new, format!("renet from {} ({} terminals, {wiring} ripped)", fmt_pos(root), terminals.len())));
+            out.push((new, format!("renet{} from {} ({} terminals, {wiring} ripped)", if relaxed { " (relaxed)" } else { "" }, fmt_pos(root), terminals.len())));
         }
     }
     out
