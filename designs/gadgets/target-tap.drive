@@ -1,0 +1,19 @@
+# A target beside a dust line taps it (the dust bends into the target); a plain block beside a
+# straight line gets nothing.
+design designs/gadgets/target-tap.txt
+probe D 2 1 2
+probe N 2 1 0
+probe U 2 1 4
+expect N 1
+expect U 1
+use 0 1 2
+expect_trace D +
+expect_trace U 0
+expect N 1
+quiet 4
+expect N 1
+expect U 0
+use 0 1 2
+quiet 4
+expect U 1
+expect N 1
