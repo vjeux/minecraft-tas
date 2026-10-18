@@ -148,3 +148,34 @@ regrow --size 2 --any --margin 2 (254k, with note).
 * `door synth --palette ...,note` now knows the relay; resynth/regrow accept `note` too.
 * Hold variants (h1/h3 ideal schedules) give a 13-14 gt close; a fast-close slime-free door
   could start from hA (43, close 14) if a speed board for slime-free doors appears.
+
+## Round 2 (after the 38): looking for 37
+Ideal-input studies (all WORK, none wired below 38):
+* `sb-ideal.patch` / `sb.ideal` (SOLID board): the bottom row BL, M, BR glued to a slime row
+  (0..2,-1,0) and pulled down by ONE pull-type piston (1,-3,0); L1 and R1 become single pistons
+  fired by O_L / O_R alone (an observer firing into the air cell above a piston quasi-powers it and
+  updates it). 35 blocks without the bottom feed; works for any bottom pulse at m >= 21. But the
+  bottom piston sits 4 rows below the nearest changing cell (L1's gap), every cell beside the slime
+  row drags whatever stands there, and `door synth` finds no feed of <= 3 blocks (static model
+  finds no path): 38 at best.
+* `bld-ideal.patch` / `bld.ideal`: BL pulled DOWN by (0,-2,0) instead of left (L0 and the follower
+  block gone, O_L fires L1 alone): 35 blocks without feeds, BL works at any tick, M at >= 21. BL's
+  puller and M's piston are horizontal neighbours, so no single observer or block powers both
+  (an observer powers at most two VERTICALLY stacked pistons: the one it points into and, by
+  quasi-connectivity, the one below); `door synth` k <= 3 for BL + M: nothing.
+* The bottom row of three down-pullers (BL, M, BR) has the same problem: horizontal neighbours need
+  a dust line (6 blocks with floors).
+Searches on b38, all nothing: `door synth` k = 1 for the TL feed (dust + floor; 13-state palette
+incl. note, lamp, bulb, target, comparator) and for the left follower (--loose: only 2-block
+followers exist, the current one and its note/lamp/target variants); k = 3 for {TL feed + left
+follower}, {left follower + M}, {right follower + M}, {both TL/TR feeds}; `minimize --moves all
+--depth 2 --plateau-pairs`; `regrow --size 3 --any` (obs/block/dust/note, ran for 90 min);
+`resynth --margin 2 --max-size 3` (with torches, comparators, note blocks).
+Why the cube (x = 1, 9 blocks) is pinned: P_T must fire >= 4 gt after p0 (T lands 4 gt after A's
+pull) and B >= 4 gt after P_T; R_B (delay 4 = 8 gt) is the only one-block window, so its input must
+come at t4 = two observer hops after the lever (W, Y), and P_T at t6 = three hops (O watching Y).
+O_a must sit at (1,4,-2) (the only free cell outputting into X), which is P_T's quasi cell, so the
+lever cannot touch it (hence the note block); O' must watch R_B from (1,5,-1).
+Note-block relay on other clusters: `resynth --palette ...,note --max-size 3` on fc2 (40) and on
+flat-b v7 (44): nothing. Their lever neighbourhoods are already full of watchers (fc2: K feeds R_q;
+flat-b hangs the lever on the observer that watches it), so the relay has nothing to replace.
