@@ -98,6 +98,26 @@ wide:3,stack:3,period:4..12:3,vperiod:4..10:3`, and `--tile` on `minimize`/`harv
   pure-dust bus (no delay) would make the copies run together, but dust reaches 15 blocks: 3
   copies at most.
 
+## Speed vs blocks in a row
+
+The bus sets how late the far copies open: copy k opens 2k ticks after copy 0 with the dust bus
+(b38h-bus8, 52 per opening: one repeater per copy), 12k with the 8-observer bus (46), 14k with
+the 7-observer bus (45); 20k / 14k for the vertical towers (50 / 49). A row of 10 openings with
+b38h-obs8b opens after 36 + 126 = 162 ticks (8 s). A 2-tick-per-copy observer bus would need
+dust instead (2 blocks per cell).
+
+## Next ideas
+
+* WIDE with an end piece (`--tile-extra`): top bus (observer chain, edge pulses) for A/B/E and a
+  bottom bus carrying the lever's LEVEL (F needs one close-only pulse pair: gate it with a
+  repeater locked by the level). Wiring rule: in a period-3 module, dust at (0,y,z) or (2,y,z),
+  not both; B must be powered through the air cell above it (dust on top of B also
+  quasi-powers A through B's cell).
+* PERIODIC P = 7: needs side pistons whose quasi-connectivity cells do not touch the neighbor
+  copy's strongly powered blocks (b38's side smooth stones do).
+* Other edge-triggered doors (m05, the sf-holdA family) take the same observer bus; b38 is the
+  smallest so far.
+
 ## WIDE and STACK: why no archived door tiles, and why wiring is hard
 
 Mechanism (proven with ideal inputs, `door ideal wide-mech.sched`, 4 positions x 2 cycles, open 24,
