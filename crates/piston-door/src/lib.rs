@@ -39,6 +39,7 @@ pub mod place;
 pub mod search;
 pub mod showcase;
 pub mod synth;
+pub mod tickvideo;
 pub mod video;
 pub mod vanilla_check;
 pub mod vanilla_build;

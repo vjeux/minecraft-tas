@@ -123,6 +123,10 @@ pub enum DoorCmd {
         /// Re-record videos that already exist.
         #[arg(long)]
         redo: bool,
+        /// Re-record existing videos of doors still moving when the clip used to stop (40 ticks
+        /// after each flip); videos now always play until the door has settled.
+        #[arg(long)]
+        redo_cut: bool,
     },
     /// Draw the title card (and the corner label, as a transparent PNG) of a design's video,
     /// without recording anything.
@@ -573,6 +577,23 @@ pub enum DoorCmd {
         #[arg(long, default_value = "1280x720")]
         size: String,
     },
+    /// One open/close cycle tick by tick, still camera, with captions: the lever flips, every
+    /// tick after each flip until nothing moves anymore (the state the judge checks), a 3x3 map
+    /// of the doorway as the server sees it, and a strip of the whole phase (see tickvideo.rs).
+    TickVideo {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Seconds each tick stays on screen.
+        #[arg(long, default_value_t = 0.35)]
+        secs_per_tick: f64,
+        /// Upload to this GitHub release tag of vjeux/minecraft-tas.
+        #[arg(long)]
+        upload: Option<String>,
+        /// Frame size, WIDTHxHEIGHT.
+        #[arg(long, default_value = "1280x720")]
+        size: String,
+    },
     /// Print a built-in design (see designs.rs) in the text format.
     Gen {
         name: String,
@@ -919,9 +940,9 @@ pub enum DoorCmd {
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
-        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo } => {
+        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut } => {
             let opts = video_style(&style, orbit)?;
-            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo)?;
+            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut)?;
         }
         DoorCmd::Card { design, out, label } => {
             let d = load_design(&design)?;
@@ -1399,6 +1420,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let (width, height) = size.split_once('x').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))).ok_or_else(|| anyhow::anyhow!("--size wants WIDTHxHEIGHT"))?;
             let opts = crate::video::VideoOptions { tps, width, height, ..video_style(&style, orbit)? };
             crate::video::record(version, &d, &out, &opts)?;
+            println!("recorded {}", out.display());
+            if let Some(tag) = upload {
+                let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
+                println!("uploaded {url}");
+            }
+        }
+        DoorCmd::TickVideo { design, out, secs_per_tick, upload, size } => {
+            let d = load_design(&design)?;
+            let (width, height) = size.split_once('x').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))).ok_or_else(|| anyhow::anyhow!("--size wants WIDTHxHEIGHT"))?;
+            let opts = crate::tickvideo::TickVideoOptions { width, height, secs_per_tick, ..Default::default() };
+            crate::tickvideo::record(version, &d, &out, &opts)?;
             println!("recorded {}", out.display());
             if let Some(tag) = upload {
                 let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
