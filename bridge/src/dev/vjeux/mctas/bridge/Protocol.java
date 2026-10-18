@@ -431,7 +431,7 @@ public final class Protocol {
         JsonObject o = new JsonObject();
         JsonArray names = new JsonArray();
         for (net.minecraft.server.level.ServerPlayer p : this.server.getPlayerList().getPlayers()) {
-            names.add(p.getGameProfile().name());
+            names.add(p.getGameProfile().name() + String.format(" pos=%.2f,%.2f,%.2f yaw=%.1f pitch=%.1f level=%s", p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot(), p.level().dimension().identifier()));
         }
         o.addProperty("count", names.size());
         o.add("names", names);

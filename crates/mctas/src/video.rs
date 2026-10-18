@@ -145,7 +145,7 @@ impl Client {
             game_dir.join("options.txt"),
             "onboardAccessibility:false\nskipMultiplayerWarning:true\njoinedFirstServer:true\ntutorialStep:none\n\
              pauseOnLostFocus:false\nrenderDistance:6\nsimulationDistance:5\nfov:0.0\nnarrator:0\nsoundCategory_master:0.0\n\
-             guiScale:2\nfullscreen:false\nbobView:false\nrenderClouds:\"false\"\nparticles:2\nentityShadows:true\n",
+             guiScale:2\nfovEffectScale:0.0\nfullscreen:false\nbobView:false\nrenderClouds:\"false\"\nparticles:2\nentityShadows:true\n",
         )?;
         let natives = game_dir.join("natives");
         std::fs::create_dir_all(&natives)?;
@@ -276,4 +276,129 @@ pub fn upload_release_asset(repo: &str, tag: &str, file: &Path) -> Result<String
     }
     let name = file.file_name().unwrap().to_string_lossy();
     Ok(format!("https://github.com/{repo}/releases/download/{tag}/{name}"))
+}
+
+/// Camera pose (eye position, yaw, pitch) that frames an axis-aligned box: the camera looks at
+/// the box center from direction `dir` (from the center toward the eye) and backs off until
+/// the projected box fills `fill` of the frame. `vfov_deg` is the vertical field of view.
+pub fn frame_box(lo: [f64; 3], hi: [f64; 3], dir: [f64; 3], vfov_deg: f64, aspect: f64, fill: f64) -> ([f64; 3], f32, f32) {
+    let center = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+    let n = (dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]).sqrt();
+    let d = [dir[0] / n, dir[1] / n, dir[2] / n];
+    let tan_v = (vfov_deg.to_radians() / 2.0).tan();
+    let tan_h = tan_v * aspect;
+    let corners: Vec<[f64; 3]> = (0..8)
+        .map(|i| [if i & 1 == 0 { lo[0] } else { hi[0] }, if i & 2 == 0 { lo[1] } else { hi[1] }, if i & 4 == 0 { lo[2] } else { hi[2] }])
+        .collect();
+    // Camera basis looking along -d.
+    let f = [-d[0], -d[1], -d[2]];
+    let up0 = [0.0, 1.0, 0.0];
+    let cross = |a: [f64; 3], b: [f64; 3]| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let norm = |a: [f64; 3]| {
+        let l = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
+        [a[0] / l, a[1] / l, a[2] / l]
+    };
+    let right = norm(cross(f, up0));
+    let up = cross(right, f);
+    let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let extent = |dist: f64| -> f64 {
+        let eye = [center[0] + d[0] * dist, center[1] + d[1] * dist, center[2] + d[2] * dist];
+        let mut m: f64 = 0.0;
+        for c in &corners {
+            let v = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]];
+            let z = dot(v, f);
+            if z <= 0.1 {
+                return f64::INFINITY;
+            }
+            m = m.max((dot(v, right) / z).abs() / tan_h).max((dot(v, up) / z).abs() / tan_v);
+        }
+        m
+    };
+    // extent() decreases with distance: bisect for extent == fill.
+    let (mut a, mut b) = (0.5, 1000.0);
+    for _ in 0..80 {
+        let mid = (a + b) / 2.0;
+        if extent(mid) > fill { a = mid } else { b = mid }
+    }
+    let eye = [center[0] + d[0] * b, center[1] + d[1] * b, center[2] + d[2] * b];
+    let (yaw, pitch) = look_at(eye, center);
+    (eye, yaw, pitch)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn frame_box_fills() {
+        let (eye, yaw, pitch) = super::frame_box([-4.0, -4.0, -1.0], [14.0, 9.0, 9.0], [-0.55, 0.45, -1.0], 70.0, 16.0 / 9.0, 0.9);
+        println!("eye {eye:?} yaw {yaw} pitch {pitch}");
+        let c = [5.0, 2.5, 4.0];
+        let dist = ((eye[0] - c[0]).powi(2) + (eye[1] - c[1]).powi(2) + (eye[2] - c[2]).powi(2)).sqrt();
+        println!("distance {dist}");
+        assert!(dist < 40.0);
+    }
+}
+
+/// Camera pose framing a set of points (e.g. every block corner of a build) as tightly as
+/// possible: viewing direction `dir` (from the scene toward the eye), the points' screen
+/// bounding box centered and filling `fill` of the frame in its tighter dimension.
+pub fn frame_points(points: &[[f64; 3]], dir: [f64; 3], vfov_deg: f64, aspect: f64, fill: f64) -> ([f64; 3], f32, f32) {
+    let n = (dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]).sqrt();
+    let d = [dir[0] / n, dir[1] / n, dir[2] / n];
+    let f = [-d[0], -d[1], -d[2]];
+    let cross = |a: [f64; 3], b: [f64; 3]| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let r0 = cross(f, [0.0, 1.0, 0.0]);
+    let rl = dot(r0, r0).sqrt();
+    let right = [r0[0] / rl, r0[1] / rl, r0[2] / rl];
+    let up = cross(right, f);
+    let tan_v = (vfov_deg.to_radians() / 2.0).tan();
+    let tan_h = tan_v * aspect;
+    let count = points.len().max(1) as f64;
+    let mut target = [0.0; 3];
+    for p in points {
+        for i in 0..3 {
+            target[i] += p[i] / count;
+        }
+    }
+    // Screen-space bounds (normalized: 1.0 = frame edge) seen from distance `dist`.
+    let bounds = |target: [f64; 3], dist: f64| -> Option<(f64, f64, f64, f64)> {
+        let eye = [target[0] + d[0] * dist, target[1] + d[1] * dist, target[2] + d[2] * dist];
+        let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+        for p in points {
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let z = dot(v, f);
+            if z <= 0.2 {
+                return None;
+            }
+            let (x, y) = (dot(v, right) / z / tan_h, dot(v, up) / z / tan_v);
+            x0 = x0.min(x);
+            x1 = x1.max(x);
+            y0 = y0.min(y);
+            y1 = y1.max(y);
+        }
+        Some((x0, x1, y0, y1))
+    };
+    let mut dist = 20.0;
+    for _ in 0..6 {
+        // Distance so the larger half-extent around the bounds' center is `fill`.
+        let (mut a, mut b) = (0.5, 2000.0);
+        for _ in 0..60 {
+            let mid = (a + b) / 2.0;
+            match bounds(target, mid) {
+                Some((x0, x1, y0, y1)) if ((x1 - x0) / 2.0).max((y1 - y0) / 2.0) <= fill => b = mid,
+                _ => a = mid,
+            }
+        }
+        dist = b;
+        // Re-center: shift the target by the screen offset of the bounds' center.
+        if let Some((x0, x1, y0, y1)) = bounds(target, dist) {
+            let (cx, cy) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+            for i in 0..3 {
+                target[i] += right[i] * cx * dist * tan_h + up[i] * cy * dist * tan_v;
+            }
+        }
+    }
+    let eye = [target[0] + d[0] * dist, target[1] + d[1] * dist, target[2] + d[2] * dist];
+    let (yaw, pitch) = look_at(eye, target);
+    (eye, yaw, pitch)
 }

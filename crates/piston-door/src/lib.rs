@@ -169,9 +169,31 @@ fn is_moving(state: &str) -> bool {
     state.starts_with("minecraft:moving_piston")
 }
 
-/// Door cells hold full, non-moving blocks; corridor is walkable.
+/// Blocks that may not be door blocks: the door must be made of plain building blocks.
+fn is_mechanism_block(state: &str) -> bool {
+    let name = mctas::blockstate::block_name(state);
+    [
+        "slime_block", "honey_block", "piston", "sticky_piston", "piston_head", "moving_piston", "observer",
+        "redstone_block", "redstone_lamp", "target", "repeater", "comparator", "redstone_wire", "redstone_torch",
+        "redstone_wall_torch", "lever", "dispenser", "dropper", "hopper", "note_block", "tnt",
+    ]
+    .iter()
+    .any(|n| name == format!("minecraft:{n}"))
+}
+
+/// Door cells hold 9 identical full plain blocks; corridor is walkable.
 fn closed_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
     let mut out = Vec::new();
+    let first = r.get(spec.door_cells()[0]).unwrap_or("?").to_string();
+    for p in spec.door_cells() {
+        let s = r.get(p).unwrap_or("?");
+        if s != first {
+            out.push(format!("door cell {p:?} is {s}, but the door must be 9 identical blocks ({first})"));
+        }
+        if is_mechanism_block(s) {
+            out.push(format!("door cell {p:?} is {s}, not a plain door block"));
+        }
+    }
     for p in spec.door_cells() {
         let s = r.get(p).unwrap_or("?");
         let full = r.flags_at(p).is_some_and(|f| f.full);

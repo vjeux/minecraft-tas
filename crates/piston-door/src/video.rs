@@ -74,10 +74,20 @@ pub fn record(version: &str, d: &Design, out: &Path, opts: &VideoOptions) -> Res
         }
         w.hold(500)?;
     }
-    let target = [spec.door[0] as f64 + 1.5, spec.door[1] as f64 + 1.5, spec.door[2] as f64 + 0.5];
-    let eye = [target[0] - 7.0, target[1] + 4.5, target[2] - 11.0];
-    let (yaw, pitch) = video::look_at(eye, target);
+    // Frame the whole build (block corners) from the front-left, slightly above. The client
+    // runs with fov 70 (options.txt fov:0.0) at 16:9.
+    let mut corners = Vec::new();
+    for p in d.blocks.keys() {
+        for i in 0..8 {
+            corners.push([(p[0] + (i & 1)) as f64, (p[1] + ((i >> 1) & 1)) as f64, (p[2] + ((i >> 2) & 1)) as f64]);
+        }
+    }
+    let _ = (lo, hi);
+    let (eye, yaw, pitch) = video::frame_points(&corners, [-0.55, 0.45, -1.0], 70.0, opts.width as f64 / opts.height as f64, 0.92);
     w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
+    eprintln!("camera requested eye={eye:?} yaw={yaw} pitch={pitch}");
+    w.hold(3000)?;
+    eprintln!("viewers: {}", w.call(serde_json::json!({"op": "viewers"}))?);
     // Let chunks arrive and the renderer warm up.
     w.hold(12_000)?;
     video::screenshot(&display, opts.width, opts.height, &out.with_extension("png"))?;
