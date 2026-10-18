@@ -1,11 +1,11 @@
-# Close 6 on a1c, partly ideal inputs, S_F kept NORMAL (its head removal BUD-updates F at c1).
-# Open state edited by script (order matters: every arming block is placed after the piston it
-# arms, and lands next to its quasi cell only, so nothing is updated):
-#  * F's killer P_X re-armed: repeater f removed, R_Z off (P_X retracts), R_X back at (1,5,1),
-#    R_Z back at (1,6,1);
-#  * padding pistons Xa (1,3,1) facing east (armed by R_X through its quasi cell) and Xb (3,3,1)
-#    facing south (armed by a block at (3,4,2)), D armed by a block at (4,4,0). FIFO at c1:
-#    S_F | F ext (E's neighbors: Xa) | Xa (head into (2,3,1): Xb) | P_X | Xb (base: D) | F ret | D.
+# Close 6 on a1c, partly ideal inputs (S_F kept normal). Open state edited by script; every
+# arming block is placed after the piston it arms and only touches its quasi cell (silent):
+#  * F's killer P_X re-armed: repeater f removed, R_Z off (P_X retracts), R_X back at (1,5,1)
+#    (arms F, Xa and Xb through their quasi cells), R_Z back at (1,6,1) (arms P_X);
+#  * padding Xa (1,3,1) east, Xb (2,4,1) east, Xc (3,4,0) east (armed by (4,5,0)); D armed by a
+#    block at (3,3,-1) placed while D's push is blocked by a temporary obsidian at (-4,3,0).
+#  FIFO at c1: S_F | F ext -> [Xa, P_X] | Xa (head (2,3,1): Xb) | P_X -> [Xb, F ret] | Xb (head
+#  (3,4,1): Xc) | F ret (C placed in N1, E air) | Xc (base: D) | D pushes T into E.
 #  * R_F is teleported back between c1 and c2 (stands for an early return).
 design designs/piston-door-3x3/tracks/fast-clean/a1c-107.txt
 probe T 1 2 0
@@ -14,7 +14,8 @@ probe E 1 3 0
 probe F 1 4 0
 probe D 3 3 0
 probe Xa 1 3 1
-probe Xb 3 3 1
+probe Xb 2 4 1
+probe Xc 3 4 0
 probe TL 0 2 0
 probe TR 2 2 0
 probe M 1 0 0
@@ -25,11 +26,15 @@ clear 1 6 1
 quiet 4
 clear 1 5 2
 set 1 3 1 minecraft:piston[facing=east,extended=false]
-set 3 3 1 minecraft:piston[facing=south,extended=false]
+set 2 4 1 minecraft:piston[facing=east,extended=false]
+set 3 4 0 minecraft:piston[facing=east,extended=false]
 set 1 5 1 minecraft:redstone_block
 set 1 6 1 minecraft:redstone_block
-set 3 4 2 minecraft:redstone_block
-set 4 4 0 minecraft:redstone_block
+set 4 5 0 minecraft:redstone_block
+set 2 5 2 minecraft:redstone_block
+set -4 3 0 minecraft:obsidian
+set 3 3 -1 minecraft:redstone_block
+clear -4 3 0
 quiet 4
 plane 0 -4 -2 6 8
 print
