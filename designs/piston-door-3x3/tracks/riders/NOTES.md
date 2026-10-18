@@ -96,8 +96,11 @@ block touches a slime/honey block, or with `--k 2` an added slime that touches o
 `--changed` skips seeds whose screen timings equal the start's (inert blocks; checked in
 parallel, ~3 s per seed per worker). Runs so far, all "nothing below the start":
 fc2 single observers/redstone blocks around the left structure (117 seeds) and the right
-structure (223 seeds); fx1 riders (`--glue`, 231 seeds); `door regrow --size 3` on fx1 (1.74M
-candidates, rider states included).
+structure (223 seeds); fx1 riders (`--glue`, 231 seeds: 1-42, 44-85, 87-128 searched; seeds 43,
+86 and 129 made a worker JVM run out of memory and wedged the pool, so the run was restarted
+past them with `--seed-from`); `door regrow --size 3` on fx1 (1.74M candidates, rider states
+included). Caveat for long seed runs: a seed whose machine runs away (a riding observer that
+keeps re-triggering) can OOM a worker and hang the pool; restart with `--seed-from`.
 
 ## What failed and why (summary)
 * rb family below 43: the B window still needs rb6's 6-block bridge (O2 must watch the lever
