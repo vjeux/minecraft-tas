@@ -116,6 +116,8 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `observer-delay` | 3 observers | a chain of observers watching each other delays a pulse 2 gt per observer, with no floors and around corners |
 | `repeater-lock` | 2 repeaters | a latch: a repeater locked by another repeater pointing into its side keeps its output whatever its input does, and follows the input again once unlocked |
 | `honey-slime` | slime + honey | slime and honey never stick to each other: two touching structures move independently |
+| `rider-observer` | observer on a slime structure | an observer carried by a structure fires 2 gt after EVERY landing, out of its back wherever it landed: a structure's landings become pulses (riders r3: the left structure re-fires the shuttle piston) |
+| `rider-hold` | redstone block on a slime structure | a redstone block carried by a structure powers a piston only in one position: the piston ignores every update (its own source going away included) until the structure comes back (riders r2: the left structure holds Q) |
 | `landing-fire` | piston moved onto a powered spot | a piston pushed onto a powered cell extends as it lands (onPlace), no neighbor update needed |
 | `no-retry` | piston, moving block | a powered piston whose push line holds a moving block queues nothing and never retries when that block lands two cells away: it sits powered and retracted until a neighbor update (speed track's gotcha) |
 | `blocked-push` | 2 sticky pistons | a piston whose push line starts with an extended piston does nothing; it pushes that piston once it has retracted (fresh-c: the B window fires on both edges and is a no-op on close) |

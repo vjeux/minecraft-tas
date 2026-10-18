@@ -1,0 +1,15 @@
+name: gadget-rider-observer
+# An observer glued to a slime structure fires 2 gt after EVERY landing of the structure (the
+# landing's shape update), out of its back, at wherever it landed (riders track: r3's OBS turns
+# the left structure's landings into 2 gt pulses for the shuttle piston Q).
+# Sticky piston P (facing east) moves slime S; observer O sits on S facing down (it watches S,
+# which moves with it, so only the landings fire it).
+origin: 0 0 0
+palette:
+  P minecraft:sticky_piston[extended=false,facing=east]
+  S minecraft:slime_block
+  O minecraft:observer[facing=down,powered=false]
+layer 1:
+  PS
+layer 2:
+  .O

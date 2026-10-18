@@ -1,0 +1,15 @@
+name: gadget-note-watch
+# A note block is a conductor whose own state (powered) flips the tick its power changes, on both
+# edges. So an observer can "see" a powered spot through it: here the lever stands on note block
+# N (strongly powering it), observer O watches N and fires P out of its back 2gt after each flip.
+# Any conductor of a design (a lever's wall block, a pulse block) can become a watchable note block.
+origin: 0 0 0
+palette:
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+layer 0:
+  NOP
+layer 1:
+  L
