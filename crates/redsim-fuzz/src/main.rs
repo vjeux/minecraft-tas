@@ -40,6 +40,12 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         batches: usize,
     },
+    /// Replay every case file of a folder (in parallel); one line per case.
+    Cases {
+        dir: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
     /// Replay a case file in both; print differing frames.
     Case {
         case: PathBuf,
@@ -79,6 +85,41 @@ fn main() -> Result<()> {
                     eprintln!("running total: {bad} mismatches in {total} cases ({:.4}%)", 100.0 * bad as f64 / total.max(1) as f64);
                 }
             }
+        }
+        Cmd::Cases { dir, workers } => {
+            let mut paths: Vec<PathBuf> = std::fs::read_dir(&dir)?.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "txt")).collect();
+            paths.sort();
+            let pool = Pool::spawn(workers, &cfg)?;
+            let sbs: Vec<std::sync::Mutex<Option<u32>>> = (0..pool.len()).map(|_| std::sync::Mutex::new(None)).collect();
+            let res = pool.map(paths.clone(), |w, wi, p| {
+                let mut s = sbs[wi].lock().unwrap();
+                let sb = match *s {
+                    Some(sb) => sb,
+                    None => {
+                        let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+                        *s = Some(sb);
+                        sb
+                    }
+                };
+                let c = redsim_fuzz::Case::parse(&std::fs::read_to_string(&p)?)?;
+                let out = redsim_fuzz::check(w, sb, &c)?;
+                Ok(match out.diff {
+                    None => "identical".to_string(),
+                    Some((f, d)) => {
+                        let first = d.first().map(|(p, s, g)| format!("{} {} {}: redsim {s} / game {g}", p[0], p[1], p[2])).unwrap_or_default();
+                        format!("DIFF {} ({} cells): {first}{}", redsim_fuzz::frame_label(&c, f), d.len(), if out.sim_errors.is_empty() { String::new() } else { format!(" [note: {}]", out.sim_errors[0]) })
+                    }
+                })
+            });
+            let mut bad = 0;
+            for (p, r) in paths.iter().zip(res) {
+                let line = r.unwrap_or_else(|e| format!("error: {e:#}"));
+                if !line.starts_with("identical") {
+                    bad += 1;
+                }
+                println!("{}: {line}", p.display());
+            }
+            eprintln!("{bad} of {} cases differ", paths.len());
         }
         Cmd::Case { case, max, fixture, note } => {
             let mut w = Worker::spawn(&cfg)?;
