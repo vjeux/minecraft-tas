@@ -335,6 +335,71 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
+    /// Mechanism synthesis (mechsynth.rs): enumerate up to --add blocks (pistons, slime...) on a
+    /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
+    /// schedules), rank by (blocks, control events), write ideal-input designs + schedules and
+    /// replay the best in the simulator (`--verify N`).
+    MechSynth {
+        /// Base design (its mechanism blocks; wiring is dropped). Door port = min corner.
+        base: PathBuf,
+        #[arg(long, default_value_t = 3)]
+        add: usize,
+        /// Candidate box corners "x,y,z" relative to the door port.
+        #[arg(long, default_value = "-4,-4,0")]
+        lo: String,
+        #[arg(long, default_value = "6,6,0")]
+        hi: String,
+        /// Candidate kinds: slime,honey,obsidian,gt,stone,sticky,normal.
+        #[arg(long, default_value = "slime,sticky")]
+        kinds: String,
+        /// Also try pistons extended at rest.
+        #[arg(long, default_value_t = true)]
+        ext: bool,
+        /// State-graph cap per mechanism.
+        #[arg(long, default_value_t = 3000)]
+        cap: usize,
+        #[arg(long, default_value_t = 32)]
+        threads: usize,
+        /// Skip mechanisms with more blocks than this (door included).
+        #[arg(long, default_value_t = 25)]
+        max_blocks: usize,
+        /// Longest symmetric (same on both edges) sequence to look for.
+        #[arg(long, default_value_t = 9)]
+        sym_len: usize,
+        /// Open states tried per mechanism by the symmetric search.
+        #[arg(long, default_value_t = 6)]
+        sym_tries: usize,
+        /// Write the best N as ideal designs + schedules here.
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 20)]
+        top: usize,
+        /// Replay the best N in the simulator with ideal inputs (4 + --extra-offsets positions).
+        #[arg(long, default_value_t = 0)]
+        verify: usize,
+        #[arg(long, default_value_t = 4)]
+        extra_offsets: u32,
+        /// Ticks between macro steps in the ideal schedules.
+        #[arg(long, default_value_t = 6)]
+        gap: u32,
+        #[arg(long, default_value_t = 16)]
+        workers: usize,
+        /// Only solve the base itself and print its paths.
+        #[arg(long)]
+        just_base: bool,
+        /// Requirement "kinds:x0,y0,z0:x1,y1,z1" (repeatable): some block of these kinds in the box.
+        #[arg(long)]
+        require: Vec<String>,
+        /// Pulse-driven pistons only (no level signals) for pistons retracted at rest.
+        #[arg(long)]
+        pulses_only: bool,
+        /// Split symmetric search: put the edge pistons' pulses at the start, end or both.
+        #[arg(long, default_value = "both")]
+        edges: String,
+        /// Only the split symmetric search (edges block + searched core), not the graph one.
+        #[arg(long)]
+        split_only: bool,
+    },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
     /// only if the full judge passes; every improvement is written to --out.
@@ -849,6 +914,31 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 None => println!("nothing found"),
             }
+        }
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only } => {
+            crate::mechsynth::PULSES_ONLY.store(pulses_only, std::sync::atomic::Ordering::Relaxed);
+            crate::mechsynth::SPLIT_ONLY.store(split_only, std::sync::atomic::Ordering::Relaxed);
+            let e = match edges.as_str() {
+                "both" => 0,
+                "start" => 1,
+                "end" => 2,
+                other => anyhow::bail!("--edges start|end|both, got {other}"),
+            };
+            crate::mechsynth::EDGES.store(e, std::sync::atomic::Ordering::Relaxed);
+            let o = crate::mechsynth::EnumOptions {
+                require: require.iter().map(|r| crate::mechsynth::Require::parse(r)).collect::<Result<_>>()?,
+                add,
+                lo: crate::mechsynth::parse_p(&lo)?,
+                hi: crate::mechsynth::parse_p(&hi)?,
+                kinds: kinds.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                ext,
+                cap,
+                threads,
+                max_blocks,
+                sym_len,
+                sym_tries,
+            };
+            crate::mechsynth::cli(version, &base, &o, out_dir.as_deref(), top, verify, extra_offsets, gap, workers, just_base)?;
         }
         DoorCmd::Grow { design, out, lo, hi, states, k, want, search } => {
             let d = load_design(&design)?;
