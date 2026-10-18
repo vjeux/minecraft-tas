@@ -1,0 +1,9 @@
+# F asymmetric: a sticky piston Pg on lever + delay 1 shuttles a redstone block next to a delay-2 repeater that powers F's stone; F on at t8 (opening: block lands t4, +4), off at t6 (closing: block leaves at t2, instant-off, +4). Replaces R_F (lever + delay 4) and its floor.
+clear 1 4 -1
+clear 1 3 -1
+set 0 4 -2 minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+set 0 3 -2 minecraft:smooth_stone
+set 0 4 -3 minecraft:sticky_piston[extended=false,facing=east]
+set 1 4 -3 minecraft:redstone_block
+set 2 4 -2 minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+set 2 3 -2 minecraft:smooth_stone
