@@ -735,6 +735,7 @@ pub fn eligibility_line(w: &mut Worker, name: &str, d: &Design, offsets: &[Pos])
             } else {
                 out.push((true, format!("seamless {tier}")));
             }
+            out.push((true, format!("volume {} ({})", p.get("volume").map(String::as_str).unwrap_or("?"), p.get("volume_dims").map(String::as_str).unwrap_or("?"))));
             for (k, what) in [("lever_surface", "lever on the surface"), ("lever_support", "lever support fixed")] {
                 if p.get(k).is_some_and(|v| v == "yes") {
                     out.push((true, what.to_string()));

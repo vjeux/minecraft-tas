@@ -56,7 +56,18 @@ design that only passes with a modified verifier does not count.
     door must work wherever it stands. Plain `verify` uses 4 world offsets; a record needs
     `--extra-offsets 28` (32 positions).
 
-**Score**: the number of non-air blocks, piston heads excluded.
+**Score (size)** (vjeux, 2026-10-18): a door's size is its **volume**, as the piston door
+community counts a door's blocks (its regulation, section 4.2): the bounding box of the build over
+every state of a cycle (at rest, every tick of the opening and the closing, open), the input
+device (the lever) excluded. A door listed as `80b (8x10x1)` fits in 8 wide x 10 high x 1 deep; a
+community door labeled "140b" is 10 x 14 x 1 with about 87 placed blocks. `door properties`
+measures it (`volume`, `volume_dims`; exact definition in
+[tracks/props/NOTES.md](../designs/piston-door-3x3/tracks/props/NOTES.md)), cached by design in
+`archive/properties-v1.tsv` (`crate::properties::volume` is the one source every board, label and
+title card reads). **Blocks placed** (the non-air blocks, piston heads excluded; what `door verify`
+prints, and what records counted before 2026-10-18) is secondary: it breaks ties, then open +
+close ticks do. Archive file names keep the placed-block count they were archived with
+(`fc2-40b.txt`): they are IDs, not sizes.
 
 ## Categories
 
@@ -75,8 +86,8 @@ apply, and `rotation-safe` or `NOT rotation-safe`.
   designs (a gravity or sculk door with entities ranks nowhere). The judge, only for such designs
   (designs without entities are judged exactly as before):
   * entities are counted apart from blocks (vjeux, 2026-10-18: fewer blocks with more entities is
-    fine): `verify` prints `N blocks + M entities`, and "Entities allowed" ranks by blocks, then
-    entities;
+    fine): `verify` prints `N blocks + M entities`, and "Entities allowed" ranks by size (the
+    volume), then entities, then blocks placed;
   * allowed types: minecarts (not command block or spawner minecarts), boats and rafts, armor
     stands, item frames, paintings: what a survival player places and what never acts on its own
     (no mobs: their AI is random; no items or arrows: they despawn); allowed data keys: `Rotation`,
@@ -118,8 +129,10 @@ mirrored) work.
 `door shapes` measures each working design relative to its door: layers in front of and behind
 the door plane, rows below and above the opening, columns left and right of it, its bounding box.
 The **swept shape** is the same over every cell the door occupies at rest AND at any tick of an
-open/close cycle: the space a builder must keep free (cached in `archive/shapes-v1.tsv`). Three
-boards use it (below): in a 3-thick wall, on the ground, smallest box. The **ground check** runs the
+open/close cycle: the space a builder must keep free (cached in `archive/shapes-v2.tsv`). Two
+boards use it (below): in a 3-thick wall, on the ground. (Its bounding box once ranked a "smallest
+box" board; since 2026-10-18 every size board ranks by the community's volume instead, see the
+score above.) The **ground check** runs the
 judge's checks with the door standing on a stone floor one below its bottom row: slime must not
 drag the ground, nothing may push or power through it.
 
@@ -144,22 +157,24 @@ header.
 `door leaderboard` judges every design on main and on the agents' `explore/*` branches with main's
 verifier and writes [LEADERBOARD.md](../designs/piston-door-3x3/LEADERBOARD.md) (generated: never
 edit it by hand). Each board shows its leader with a GIF, a video and how it works, the rest
-collapsed.
+collapsed. Tables show the **size** first (`80b (8x10x1)`: the volume, see the score above) and
+the blocks placed next; "size" below means: volume, then blocks placed, then open + close ticks.
 
 | board | who is on it | ranked by |
 |---|---|---|
-| **Solid** (main ranking) | category solid, rotation-safe | blocks |
-| Solid, no slime or honey | solid, no slime or honey block anywhere (`, slime-free`) | blocks |
-| Solid, flat (one z layer), no slime or honey | slime-free solid designs whose every block (door, pistons, wiring, lever) lies in the door's plane, one block thick (`, flat`) | blocks |
-| Solid, in a 3-thick wall | solid designs whose swept shape stays within one layer of the door's plane (z = door.z-1..door.z+1): the machine hides in a wall 3 blocks thick | blocks |
-| Solid, on the ground (nothing below the door) | solid designs with no block below the door's bottom row, at rest or while moving, that pass the ground check: it stands on flat ground, no digging | blocks |
-| Solid, smallest box | solid designs | cells in the bounding box of the swept shape (the door included), ties by blocks |
-| Sculk | category sculk, rotation-safe | blocks |
-| Gravity | category gravity, rotation-safe | blocks |
-| Entities allowed | category entity and solid designs (0 entities): solid doors that may also use entities | blocks (each entity counts as one) |
-| Not rotation-safe | working designs of any category that break when turned | blocks |
-| Pareto frontier: open, close, blocks (any category / solid only / entities allowed) | every door that no other door beats on open ticks, close ticks and blocks at once ("any category" excludes entity doors) | - |
-| Fastest open / close / open + close (any category / solid only / entities allowed) | rotation-safe | ticks, ties by blocks |
+| **Solid** (main ranking) | category solid, rotation-safe | size |
+| Solid, no slime or honey | solid, no slime or honey block anywhere (`, slime-free`) | size |
+| Solid, flat (one z layer), no slime or honey | slime-free solid designs whose every block (door, pistons, wiring, lever) lies in the door's plane, one block thick (`, flat`) | size |
+| Solid, in a 3-thick wall | solid designs whose swept shape stays within one layer of the door's plane (z = door.z-1..door.z+1): the machine hides in a wall 3 blocks thick | size |
+| Solid, on the ground (nothing below the door) | solid designs with no block below the door's bottom row, at rest or while moving, that pass the ground check: it stands on flat ground, no digging | size |
+| Sculk | category sculk, rotation-safe | size |
+| Gravity | category gravity, rotation-safe | size |
+| Entities allowed | category entity and solid designs (0 entities): solid doors that may also use entities | volume, then entities, then blocks placed |
+| Seamless / Seamless, flat (one block thick), no slime or honey | solid designs with a SEAMLESS tier of the community regulation (`door properties`) | tier, then hallway-compatible, then size |
+| Record-eligible (community regulation) | designs meeting the regulation's record eligibility (section 3) | size |
+| Not rotation-safe | working designs of any category that break when turned | size |
+| Pareto frontier: open, close, size (any category / solid only / entities allowed) | every door that no other door beats on open ticks, close ticks and volume at once ("any category" excludes entity doors) | - |
+| Fastest open / close / open + close (any category / solid only / entities allowed) | rotation-safe | ticks, ties by size |
 
 Every board except "Not rotation-safe" ranks rotation-safe designs only.
 
