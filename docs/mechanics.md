@@ -119,6 +119,7 @@ Each gadget is a small design plus a drive script whose `expect`s prove the beha
 | `landing-fire` | piston moved onto a powered spot | a piston pushed onto a powered cell extends as it lands (onPlace), no neighbor update needed |
 | `no-retry` | piston, moving block | a powered piston whose push line holds a moving block queues nothing and never retries when that block lands two cells away: it sits powered and retracted until a neighbor update (speed track's gotcha) |
 | `blocked-push` | 2 sticky pistons | a piston whose push line starts with an extended piston does nothing; it pushes that piston once it has retracted (fresh-c: the B window fires on both edges and is a no-op on close) |
+| `dust-below` | observer + stone + dust | a dust directly UNDER a block strongly powered by an observer lights (dust reads all six neighbors): a one-way tap from an observer chain into a dust net (flat track: the top chain hands its pulse to R_B's input dust) |
 
 | `sculk-hold` | sculk sensor | (category sculk) a lever click or piston move within 8 blocks wakes it floor(distance) gt later; active 30 gt, then 10 gt deaf |
 | `flag-observer` | stone + observer | motion trigger (fresh-b mp6..mp8): a plain block glued to a moving slime structure, watched by an observer that touches no slime (so it is never dragged), gives one 2 gt pulse after each move, out and back; watching the cell the flag moves INTO works as well as the one it leaves |
