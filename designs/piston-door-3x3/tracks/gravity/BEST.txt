@@ -1,6 +1,6 @@
-name: gravity-g6
+name: gravity-g7
 port door: 0 0 0
-port lever: 1 0 -2
+port lever: 1 -1 -3
 origin: -1 0 -3
 palette:
   A minecraft:piston_head[facing=up,short=false,type=sticky]
@@ -14,7 +14,7 @@ palette:
   I minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
   J minecraft:smooth_stone
   K minecraft:sticky_piston[extended=false,facing=east]
-  L minecraft:lever[face=floor,facing=north,powered=false]
+  L minecraft:lever[face=wall,facing=north,powered=false]
   M minecraft:sticky_piston[extended=false,facing=west]
   N minecraft:sticky_piston[extended=true,facing=up]
   O minecraft:obsidian
@@ -55,13 +55,13 @@ layer -2:
   .
   ..P
 layer -1:
-  .
+  ..L
   .DJD
   .JrJ
   sMpKs
 layer 0:
   .
-  ..L
+  .
   .
   sSSSs
 layer 1:
