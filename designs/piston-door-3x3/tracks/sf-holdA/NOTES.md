@@ -2,7 +2,8 @@
 
 | file | blocks | note |
 |---|---|---|
-| **b40.txt = BEST.txt** | **40** | TL and TR both up on X's three pulses, P_T south at (1,3,-2), 2-observer M trigger (section b40 below). Open 38 / close 34 |
+| **b39.txt = BEST.txt** | **39** | b40 with ONE chain off the lever watcher for both the B window and P_T: (1,5,-3) -> (1,6,-3) -> Y (1,6,-2) facing north powers R_B directly (J gone); O (1,5,-2) turned UP watches Y and fires into O_a's cell = P_T's quasi cell (P_T's 3-block feed gone). Open 40 / close 36 |
+| b40.txt | 40 | TL and TR both up on X's three pulses, P_T south at (1,3,-2), 2-observer M trigger (section b40 below). Open 38 / close 34 |
 | r41.txt | 41 | w42 + `door resynth --palette block,dust,dot,rep,rep4,obs,torch,lamp,bulb --max-size 4`: X dust + floor + the TR chain (2 observers) -> a plain block X' (1,4,-1) (O_a and O' strongly power it: A-high directly, A-low by quasi-connectivity through B's head) + a cross dust (2,4,-1) on a floor (2,3,-1) next to it, pointing into the TR puller (2,4,0). The TR puller now gets X's THREE pulses (t2, t14, t22): three toggles end with TR up, and the right pair (watching TR's cell) toggles three times too. Open 28 / close 26, 32 positions |
 | hA.txt | 43 | the A-held wiring of w42 (below) |
 
@@ -65,3 +66,12 @@ Built from r41 (`b40core.patch`, `b40nom.patch`, `b40p.patch`, then `door synth`
   b40r: (3,-1,0) watching RP0's gap -> (2,-1,0) -> M's quasi cell.
 * Budget: 19 mechanism + lever 1, lever watcher 1, O_a 1, X 1, two dust + floor 4, B chain 4
   (O, J, R_B, O'), P_T feed 3, left pair 2, right pair 2, M 2 = 40. Open 38 / close 34.
+
+## b39 (39) = BEST.txt: the B window and P_T on one chain
+`b39.patch` on b40. P_T (1,3,-2) is quasi-powered through O_a's cell (1,4,-2), so an observer
+ABOVE that cell facing up fires straight into it and updates P_T. That observer is O (1,5,-2),
+turned up: it now watches Y (1,6,-2), an observer facing north that powers R_B directly (no J).
+Y is fed by two observers climbing from the lever watcher: (1,5,-3) facing down (t4) -> (1,6,-3)
+facing down (t6) -> Y (t8) -> R_B (B window t16-24, A2 t18, A3 t26) and O (t10) -> P_T.
+Budget: 19 mechanism + lever 1, lever watcher 1, O_a 1, X 1, two dust + floor 4, (1,5,-3),
+(1,6,-3), Y, O, R_B, O' 6, left pair 2, right pair 2, M 2 = 39. Open 40 / close 36, 32 positions.

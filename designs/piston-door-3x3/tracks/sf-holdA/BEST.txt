@@ -1,4 +1,4 @@
-name: sf-holdA-b40
+name: sf-holdA-b39
 port door: 0 0 0
 port lever: 2 4 -3
 origin: -2 0 -3
@@ -45,21 +45,21 @@ layer 2:
   SoHHHCS
 layer 3:
   .
-  ..SE
+  ...E
   ..S.S
   .
 layer 4:
   ...oL
-  ..BA
+  ...A
   ..RSR
   ..sss
 layer 5:
-  .
-  ..oO
+  ...O
+  ...B
   ...B
   ...s
 layer 6:
-  .
-  ...S
+  ...O
+  ...A
   ...r
   .
