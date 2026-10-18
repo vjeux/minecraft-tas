@@ -18,6 +18,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [flat](flat/NOTES.md) | the flat board (every block in the door's plane, no slime) | 60 -> 49 (flat-v8): observer chains, `synth` and `resynth` on the late chains |
 | [flat-b](flat-b/NOTES.md) | the flat board with a different mechanism | the 19-block mechanism upside down: 48 -> 44 (flat-b-v7) |
 | [flat-seam](flat-seam/NOTES.md) | the smallest-VOLUME flat + FULL seamless + hallway door (slime-free) | `resynth --fit` compaction, gadget `pulse-merge`; **e89b 8x9 = 72** (49 blocks, cd19 without row 5, the flat seamless record), h44 9x9 = 81 (pist19r floor), s55 9x10 = 90 |
+| [box72](box72/NOTES.md) | a 7-wide flat FULL seamless door (7x9 = 63, then 7x10 = 70) | gadget `torch-link` (a torch-held side puller: one observer pulse per edge, the parity-clean link); why 7 wide is a wiring-topology problem (3 regions, colliding links); 7x10 mechanisms validated with ideal inputs (m710: flat43 + torch link; m2: pist19r + BL down), m2's top wired in 7 wide (lever outside the box, bulb + comparator one-shot); no complete 7-wide door yet |
 | [families](families/NOTES.md) | the complete catalog of flat seamless MECHANISMS per box | `door families`: exit-plan generator + exact macro solve; [CATALOG.md](families/CATALOG.md) |
 | [fresh-a](fresh-a/NOTES.md) | a door from first principles | slime-free 122 (a side group drags the top-middle out) |
 | [fresh-b](fresh-b/NOTES.md) | a fresh design, minimum blocks | the mirrored pump family: mp6 46 (solid record), mp8 43, opens and closes in 16 |
