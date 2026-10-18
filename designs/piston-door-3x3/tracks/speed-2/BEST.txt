@@ -110,7 +110,7 @@ layer 3:
 layer 4:
   .
   .....x.d
-  ..xoLi.A
+  ...oLi.A
   .soAPR.D
   .NB..t
   ......fx

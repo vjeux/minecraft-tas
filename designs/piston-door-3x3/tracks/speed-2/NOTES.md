@@ -21,7 +21,7 @@ R_X). R_X/R_Z timing: P_D and P_V fired 2 ticks earlier (k4..k6) -> R_X lands k6
 ## Log
 * `o7s.txt` (120, 11/7) = o7 + `shift.patch`: the P_D/P_V chain observer (2,7,-1) watches a new
   lever-net dust (2,6,-1) directly, so P_D/P_V fire at k4 (R_X lands k6 BE, R_Z k8 BE). Same speed.
-* **`a1.txt` = BEST: 125 blocks, open 10 / close 7 (open+close 17), solid, slime-free**
+* **`a1.txt`: 125 blocks, open 10 / close 7 (open+close 17), solid, slime-free**
   (`door verify --extra-offsets 28`: WORKS at 32 positions). a1 = o7s + `a1.patch`:
   * Q's silent hold removed: O_Q's k4..k6 pulse alone -> Q spits A' into E at k6 (block-event
     phase), A' extends in the same phase.
@@ -38,6 +38,10 @@ R_X). R_X/R_Z timing: P_D and P_V fired 2 ticks earlier (k4..k6) -> R_X lands k6
     BE powered -> extends k9 -> retracts k10 pulling A' out of E; F 0-ticks at k10: **open 10**.
 * `door route2 --need` (all four nets at once) found 0 routings in 12 min; the hand design did it.
 * Gadget `designs/gadgets/odd-pulse` (+ mechanics.md row): the odd-pulse trick on its own.
+* **`a3-123b.txt` = BEST: 123 blocks, open 10 / close 7.** `door minimize` on a1 removed the old
+  hold repeater's floor (-2,3,-1) (124); `door regrow --size 3 --max-open 10 --max-close 7` then
+  replaced the re-pulse's repeater + floor + observer by one observer (-2,4,-1) facing east that
+  watches O_Q directly (k6..k8) and a smooth stone (-3,4,-1) next to the note block (123).
 * `o7m-118b.txt` (118, 11/7): `door minimize --moves all --plateau --max-open 11 --max-close 7`
   on o7 (60 min): dust (1,6,-2) + its floor -> one smooth stone (R_s and the lock repeater read the
   block the lever dust points into). The same edit breaks a1 (the shift dust re-shapes (2,6,-2)).

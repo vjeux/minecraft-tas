@@ -1526,3 +1526,12 @@
 [  892.7s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-3,1,-3)reds (-2,-1,-2)smoo] -> <= 3 blocks: 28758 circuits in 20.0s
 [  898.4s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-3,1,-3)reds (-3,1,-2)reds] -> <= 3 blocks: 9867 circuits in 5.7s
 [  919.7s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-3,1,-3)reds (-2,1,-3)smoo] -> <= 3 blocks: 31574 circuits in 21.2s
+[  932.4s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-3,1,-3)reds (-2,0,-2)reds] -> <= 3 blocks: 18425 circuits in 12.6s
+[  946.9s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-2,-2,-1)smoo (-2,-1,-2)smoo] -> <= 3 blocks: 27317 circuits in 14.4s
+[  972.0s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-3,1,-2)reds (-2,-1,-2)smoo] -> <= 3 blocks: 38419 circuits in 25.0s
+[  987.4s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-2,-1,-2)smoo (-2,-1,-1)reds] -> <= 3 blocks: 27315 circuits in 15.3s
+[ 1018.7s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-2,-1,-2)smoo (-2,1,-3)smoo] -> <= 3 blocks: 47579 circuits in 31.1s
+[ 1024.7s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-2,-1,-2)smoo (-2,0,-2)reds] -> <= 3 blocks: 9661 circuits in 5.9s
+[ 1056.6s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-3,1,-2)reds (-2,1,-3)smoo] -> <= 3 blocks: 41955 circuits in 31.8s
+[ 1072.9s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-3,1,-2)reds (-2,0,-2)reds] -> <= 3 blocks: 19508 circuits in 16.2s
+[ 1124.5s]   group [(-3,0,-3)smoo (-3,0,-2)smoo (-2,1,-3)smoo (-1,2,-3)smoo] -> <= 3 blocks: 113240 circuits in 51.1s

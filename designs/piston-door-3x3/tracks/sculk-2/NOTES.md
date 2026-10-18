@@ -121,3 +121,39 @@ P_M's observer + block.
   is on (filter 15), i.e. a close-only window. Not needed by s4, but it gives asymmetric control.
 * P_M's trigger (2 blocks) is the last non-shared control pair; an inverted P_M (extended at rest)
   powered by a block riding a structure costs the same or more here.
+
+## Round 2 (coordinator's ideas, 06:50-)
+
+### (1) Q-less: a redstone block riding the left structure powers A at rest
+Blocked by geometry in this family, and the searches agree:
+* A's free neighbors are (0,4,0) and (1,4,-1). Only (0,4,0) can ride the left structure (with a
+  slime at (-1,4,0)), but it sits right on top of P_L (0,3,0) and powers it at rest. With P_L
+  back at (0,4,0) (s1) A has no free neighbor on the left at all; QC through (1,5,0) puts the
+  block next to B (B fires at rest). A pull-type P_L from the west (fc2 style) frees (0,4,0) but
+  costs its observer pair: about 38.
+* Timing, even with a free spot: with A's power tied to the left structure, P_R must push at
+  least 3 gt after the left structure leaves (open) and pull back no later than it returns
+  (close). Lever-driven or observer-driven delays are the same on both edges, a sensor window
+  makes the close LATER than the open (the window's end pulls), so P_R needs exactly the
+  asymmetry Q's shuttle gives (RB lands 2 gt after Q moves, leaves at once). The close-only
+  calibrated sensor (back on K) gives a close-only window but still a late one.
+* `door grow` on s4 minus {Q, RB, hold sensor} (33 blocks), adding any 2 of: both sensor kinds
+  (4 facings), redstone block, slime, observers, blocks, repeaters 1-2 in x -2..3, y 2..7,
+  z -2..2: 2.2M candidates, none works. So no 35 this way.
+
+### (2) Sharing P_M's 2-block trigger
+* The trigger needs a 2 gt pulse (a sensor window makes P_M pull M back down when it ends) once
+  per edge. The observer must face a cell that moves once per edge and output into P_M or its
+  QC cell (1,-1,0); every cell next to P_M or (1,-1,0) faces only empty cells, so the observer
+  needs its relay block. O' (two pulses per edge) and an observer on a sensor (three) fire
+  P_M too often.
+* `door grow` on s4 minus {P_M, O_m, block} (33), adding any 2 of a sticky piston facing up,
+  observers, blocks, redstone blocks, slime, sensors, repeaters in x -1..3, y -4..-1, z -2..2:
+  1.1M candidates, none works.
+
+### Other round-2 checks
+* `minimize --moves all --plateau-pairs` on the s4b/s4c variants: 36, no gain.
+* Synthesis now knows sculk sensors (tool commit): `door synth`/`resynth` treat a sensor as a
+  wireless source (fed by the lever, weak power on every side, a calibrated one not into its
+  back, strong into the block below; observers can watch it), so sensors can be synthesized
+  into any circuit. `resynth --max-size 4` on s4 with sensors in the palette: nothing (13 groups).
