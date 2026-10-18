@@ -1,0 +1,6 @@
+# synth context: w43 without M's trigger (BL watcher + 4 observers)
+clear 0 -1 0
+clear 0 -1 -1
+clear 0 -1 -2
+clear 1 -1 -2
+clear 1 -1 -1

@@ -8,7 +8,8 @@ elevator, P_T), driven by ONE pulse train identical on both lever edges.
 |---|---|---|
 | w45.txt | 45 | first wired pist19r: open 28 / close 26, 32 positions |
 | w44.txt | 44 | P_T chain off O_a (3 observers) instead of off the lever (4); regrow --size 3 finds it too |
-| **w43.txt = BEST.txt** | **43** | M's chain ends in M's QUASI cell (1,-1,0) instead of M's piston: the other cell parity, so the left column fires at t12 (2 observers) and M at t22 on close with 4 observers after BL's watcher. Open 26 / close 24. `w43b.txt` = its mirror (chain south) |
+| **w42.txt = BEST.txt** | **42** | w43 with M's trigger found by `door synth` (4 blocks instead of 5): observer G (-1,-1,0) watching L0's head/gap cell (-1,0,0) -> redstone lamp (-1,-2,0) under it; observer (0,-1,0) watching G -> M's quasi cell (1,-1,0); observer (0,-2,0) watching the lamp -> M's piston. Close: the t16 pulses are blocked (C is being spat into (1,0,0) by A2), the lamp's fall (4 gt late) gives the t22 pulse. Open: three toggles (t16, t21, t26), M ends down. Open 28 / close 24, 104 positions, buildable |
+| w43.txt | 43 | M's chain ends in M's QUASI cell (1,-1,0) instead of M's piston: the other cell parity, so the left column fires at t12 (2 observers) and M at t22 on close with 4 observers after BL's watcher. Open 26 / close 24. `w43b.txt` = its mirror (chain south) |
 | w43e.txt | 43 | the mirrored structure: P_T east at (3,3,0) (park (2,3,0)), TL pulled UP (puller (0,4,0), chain (0,4,-2) -> (0,4,-1) off O_a) + left pair fired by an observer (-1,2,0) watching TL + block (-2,2,0); P_T chain (2,4,-2) -> (3,4,-2) -> (3,4,-1) into its quasi cell (3,4,0); right column on a stack-feed (dust (4,2,-1), floor (4,1,-1)) fed by (4,4,-1) -> (4,3,-1) off the P_T chain (t12); M via BR's watcher (2,-1,0) + 4 observers into M's quasi cell (t22 on close) |
 
 ## Timing windows of pist19r (ideal inputs, `door ideal --independent --sweep`)
@@ -41,6 +42,8 @@ control:
 * M (5): observer (0,-1,0) watching BL -> (0,-1,-1) -> (0,-1,-2) -> (1,-1,-2) -> (1,-1,-1),
   whose back points into M's quasi cell (1,-1,0) (= M's head cell, the piston faces up): t22 on
   close (BL is pushed home at t12, watched at t14), t24 on open.
+* Verified at 104 positions; `door buildable`: BUILDABLE (43 actions, lever off, 10 placements
+  against a temporary dirt block).
 
 ## w45 (45 blocks): the first wiring
 * A/B: s7q's north cluster, 8 blocks with the lever.
@@ -54,8 +57,10 @@ control:
 * Budget: 19 mechanism + 26 control.
 
 ## Searches on w43 that found nothing smaller
-* `door minimize --moves all --plateau` (436k swaps), a 60-step plateau walk with pairs;
+* `door minimize --moves all --plateau` (436k swaps), a plateau walk with pairs (15 steps);
 * `door regrow --size 2` (7k) and `--size 3` (2.1M candidates, obs/block/dust/rep1-4);
+* `door route2 --max-rip 6` (278 rip sets) and `--pairs --tolerance 2` (1573 rip sets, 28
+  candidates, none passes the judge);
 * `door synth` for M's trigger alone (k <= 6, observers/blocks/dust/repeaters/comparators/
   torches/lamps/copper bulbs, box x -3..3 y -4..0 z -2..2): with the left column at t12 the
   smallest are 6 blocks aimed at M's piston, and with it at t16 exactly my 4-observer chain.
