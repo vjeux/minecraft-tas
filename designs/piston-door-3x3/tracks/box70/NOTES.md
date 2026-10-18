@@ -51,3 +51,19 @@ instead of left (= families' 7x8-031): x = -2..4, rows -2..5 (7x8 before wiring)
   every receiver alone).
 * 22:31Z wip/w0.txt (bigger box, torch-held right pair, bulb-and-comparator delay at the bottom):
   the bottom row's repeaters/comparator pop off (no support).
+
+## satwire (SAT wiring synthesis, explore/satwire) on m7
+
+Tool changes (this branch): satwire now reads ideal inputs placed at z = +-1 (the usual `door ideal`
+placement; it used to see only in-plane redstone blocks, so most pistons were recorded unpowered),
+and takes `--set` / `--sweep name=lo..hi[:step]` over the schedule's variables (stops at the first
+judged design). Timing matters: the solver only shifts the whole schedule, so every relative offset
+must be one a wiring can produce (observer = 2 gt, repeater window 8 gt, P_M's pulse at (1,3) must
+start exactly 2 gt after P2's power, like an observer watching P2's repeater).
+
+| schedule | box | result |
+|---|---|---|
+| m7, right pair at 14/16/18, bottom at 24..30 (sweep/a_*) | 7x10 (-2..4, -3..6) | UNSAT (30 s .. 5 min each) |
+| m7u (TR up, MR held extended at rest = torch link), bottom at 26 | 7x10 | UNSAT (32 s) |
+| top half alone (no bottom pullers), P_M#2 one tick late | 7x4 top (-2..4, 3..6) | UNSAT (4.5 min) |
+
