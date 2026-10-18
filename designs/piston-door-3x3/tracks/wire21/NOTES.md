@@ -41,12 +41,30 @@ m >= 22 (= a3 allowed), pl/pr anywhere (single pulses).
 | synth/synth-6-*.txt | 41 | 40 / 38 | `door synth` (k=6) replaced the 7-chain by a lamp-based 6-block P_R driver |
 | BEST.txt (s60-min) | 40 | 40 / 38 | minimize: X dust + floor -> one smooth stone |
 
-## Searches that found nothing smaller (door synth, door judge as the target)
+## Searches that found nothing smaller (door synth / regrow, the door judge as the target)
 * P_R driver with the rest fixed (40 context minus the 6 driver blocks): k <= 5, palette
   obs,block,dust,rep1-4,cmp,torch,lamp,target,gt,rblock,obsidian (+ copper bulb, added to synth's
   palette as `bulb`), box x -1..7, y 0..8, z -3..3: none. Keeping the B-watcher and (2,4,0):
   only 4-block completions (= 40).
+* O + P_R driver together (O replaced by a plain floor for the repeater; sinks P_R, A, the A
+  driver): k <= 5, none.
+* P_T chain + P_R driver together (sinks P_T, P_R; obs,block,lamp): k <= 7, none.
+* P_R driver + M driver together (sinks P_R, P_M; obs,block,lamp): k <= 7, none.
+* The whole top-left except the lever and its observer (O_a, A driver, O_b, J, O_c, O_d, the
+  P_L observer; sinks P_L, A, the window repeater, P_T; obs,block,dust,rep,lamp): k <= 6, none.
+* `door regrow --size 3` (2.4M candidates) and `--size 2 --any --margin 2` (513k): none.
+* `door minimize --moves all --plateau`: stuck at 40 (13 verified neutral designs).
 * 42-context (X dust) P_R driver: obs-only k <= 6 none; wide palette: first hits at k = 6 (lamp).
+
+## Why each part is pinned (by hand)
+* The (2,4,0) observer does double duty: P_R chain link AND the update that makes A (in its low
+  position, quasi-powered through the smooth stone) retract at t16; without it A retracts at
+  t18 and B cannot pull it back up (the 5-block lamp chain at y=5 fails for that reason).
+* O_b and O_c both fire at t4 and O and the B-watcher both at t14/22, but no single observer can
+  serve both outputs (the window repeater reads J at y=6, P_T sits at y=3; an observer watching B
+  always outputs away from A).
+* P_R needs its first move on close at >= t20 (else O_m pushes M,C,T home before A3), so the
+  chain length after the B-watcher is set by timing, not only distance.
 
 ## What did not work / why
 * m10/m11 (M first, T-mover riding a side structure): the riding T-mover needs both of its
@@ -59,3 +77,14 @@ m >= 22 (= a3 allowed), pl/pr anywhere (single pulses).
 ## Tools
 * `door synth --palette bulb`: waxed copper bulb (T flip-flop), modeled like a lamp.
 EOF
+
+## Next ideas
+* Odd pulse counts generalize: any pull-type pulse piston can take 3 (or 5) pulses per edge, the
+  last one setting the timing. Worth a mech-synth mode that allows k pulses per piston with
+  "net one move" semantics (riders, M) and wiring-aware costs.
+* A 2-observer "dual-output" cell: an observer watching the window repeater from (1,6,0) (B's
+  quasi cell, where the repeater's output already lands) outputs EAST: a different place to start
+  the P_R chain (not tried with the lamp).
+* M first variants (catalog-22-k4 #357/#360/#364) with a riding T-mover: two observers watching
+  one window repeater give the SAME two pulses at both T-mover positions (each observer reaches
+  one position), which is what a riding T-mover needs (both of its pulses at both positions).
