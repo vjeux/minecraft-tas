@@ -811,6 +811,34 @@ impl Model {
         self.at.get(&p).map(|&i| self.any[i])
     }
 
+    /// Nodes fed (directly or not) by any of `roots` (roots included).
+    pub fn downstream(&self, roots: &[usize]) -> HashSet<usize> {
+        let n = self.nodes.len();
+        let mut out: HashSet<usize> = roots.iter().copied().collect();
+        let mut stack: Vec<usize> = roots.to_vec();
+        // Reverse adjacency: who reads whom.
+        let mut readers: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for (v, ins) in self.inputs.iter().enumerate() {
+            for &(u, _) in ins {
+                readers[u].push(v);
+            }
+        }
+        while let Some(u) = stack.pop() {
+            for &v in &readers[u] {
+                if out.insert(v) {
+                    stack.push(v);
+                }
+            }
+            // A dust net is one unit.
+            for &v in &self.net[u] {
+                if out.insert(v) {
+                    stack.push(v);
+                }
+            }
+        }
+        out
+    }
+
     /// The OR of what feeds the node at `p` (for a measured node: what the model would feed it).
     pub fn input_of(&self, p: Pos) -> Option<Wave> {
         let &v = self.at.get(&p)?;
@@ -1047,6 +1075,9 @@ pub struct Receiver {
     /// same on both edges, the last one starting at a tick in lo..=hi (a pulse-driven piston
     /// toggles on every pulse: 3 pulses = one net move timed by the last).
     pub free: Option<(usize, usize, bool)>,
+    /// Cells whose motion depends on this receiver's own action (mech-wire measures them by
+    /// replaying the schedule without it): never watched to drive it.
+    pub forbid_watch: Vec<Pos>,
 }
 
 impl Receiver {
@@ -1251,13 +1282,17 @@ impl Problem<'_> {
         // cells from the receiver can already reach it.
         let hk = |p: Pos| -> u32 { if opts.astar { (manhattan(p, r.pos) - 2).max(0) as u32 } else { 0 } };
         // Taps: every powered node, and observers watching any cell the machine changes.
-        // (A free receiver skips taps that turn on only at or after its own action: see the
-        // watch taps below.)
-        let first_on = |x: u64| if x == 0 { 64 } else { x.trailing_zeros() };
-        let own_w = Wave([r.want.0[0] & r.mask.0[0], r.want.0[1] & r.mask.0[1]]);
-        let late = |w: Wave| r.free.is_some() && (0..2).any(|ph| own_w.0[ph] != 0 && first_on(w.0[ph]) >= first_on(own_w.0[ph]));
+        // (A receiver never taps a node fed by an observer watching a cell whose motion depends
+        // on its own action: `forbid_watch`.)
+        let tainted: HashSet<usize> = if r.forbid_watch.is_empty() {
+            HashSet::new()
+        } else {
+            let roots: Vec<usize> = (0..m.nodes.len()).filter(|&i| m.nodes[i].kind == Kind::Observer && r.forbid_watch.contains(&add(m.nodes[i].pos, m.nodes[i].facing))).collect();
+            m.downstream(&roots)
+        };
+        let late = |i: usize| tainted.contains(&i);
         for (i, n) in m.nodes.iter().enumerate() {
-            if m.any[i].is_off() || matches!(n.kind, Kind::Inert | Kind::Other) || (n.kind != Kind::Lever && late(m.any[i])) {
+            if m.any[i].is_off() || matches!(n.kind, Kind::Inert | Kind::Other) || late(i) {
                 continue;
             }
             if !opts.taps.is_empty() && !opts.taps.contains(&n.pos) {
@@ -1279,16 +1314,11 @@ impl Problem<'_> {
         };
         // Watch taps: an observer watching a cell the machine changes.
         if opts.watch {
-            // A free receiver (its time is the router's choice) must not watch a motion that
-            // comes at or after its own action in the measured run: that motion may be its own
-            // (a side piston fired by watching its own column never fires).
-            let first = |x: u64| if x == 0 { 64 } else { x.trailing_zeros() };
-            let own = Wave([r.want.0[0] & r.mask.0[0], r.want.0[1] & r.mask.0[1]]);
-            let causal = |wv: Wave| -> bool {
-                r.free.is_none() || (0..2).all(|ph| own.0[ph] == 0 || first(wv.0[ph]) < first(own.0[ph]))
-            };
+            // Never watch a motion that depends on this receiver's own action (a side piston
+            // fired by watching its own column never fires): `forbid_watch`.
+            let causal = |c: Pos| !r.forbid_watch.contains(&c);
             for (&c, &wv) in &self.meas.watch {
-                if wv.is_off() || (!opts.taps.is_empty() && !opts.taps.contains(&c)) || !causal(wv) {
+                if wv.is_off() || (!opts.taps.is_empty() && !opts.taps.contains(&c)) || !causal(c) {
                     continue;
                 }
                 for f in FACES {
@@ -1422,6 +1452,7 @@ impl Problem<'_> {
                         }
                     };
                     let (mut a, mut st) = contrib(u.any, u.strong, f);
+                    let mut uses_taint = false;
                     for dx in -1..=1 {
                         for dy in -1..=1 {
                             for dz in -1..=1 {
@@ -1438,10 +1469,14 @@ impl Problem<'_> {
                                         let (x, y) = contrib(m.any[i], m.strong[i], g);
                                         a = a.or(x);
                                         st = st.or(y);
+                                        uses_taint |= tainted.contains(&i);
                                     }
                                 }
                             }
                         }
+                    }
+                    if uses_taint {
+                        continue;
                     }
                     let (na, ns) = if v.kind == Kind::Block { (a, st) } else { (transfer(&v, a), transfer(&v, a)) };
                     if na.is_off() {
@@ -1728,7 +1763,7 @@ fn rip_receivers(pb: &Problem, orig: &[(Pos, Pos, Wave)], ripped: &Model, tol: i
         if (extra.0[0] & mask.0[0] != 0 || extra.0[1] & mask.0[1] != 0) && tol == 0 {
             return None;
         }
-        out.push(Receiver { pos: p, facing: f, want, rest: now, mask, alts: Vec::new(), free: None });
+        out.push(Receiver { pos: p, facing: f, want, rest: now, mask, alts: Vec::new(), free: None, forbid_watch: Vec::new() });
     }
     Some(out)
 }
@@ -1819,7 +1854,7 @@ pub fn route_new(
     let recv: Vec<Receiver> = want
         .iter()
         .filter(|(p, f, w)| !same_masked(m.piston_wave(*p, *f), *w, meas.mask(*p), o.route.tolerance))
-        .map(|&(p, f, w)| Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: meas.mask(p), alts: Vec::new(), free: None })
+        .map(|&(p, f, w)| Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: meas.mask(p), alts: Vec::new(), free: None, forbid_watch: Vec::new() })
         .collect();
     for r in &recv {
         log(&format!("  need {} [{}], has [{}]", fmt_pos(r.pos), r.want.describe(), r.rest.describe()));

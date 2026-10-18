@@ -326,6 +326,8 @@ pub struct WireOptions {
     pub alts: Vec<(Pos, Vec<Wave>)>,
     /// Free receivers also accept 3 pulses per edge (the last in range).
     pub odd: bool,
+    /// Per receiver cell: watched cells whose motion depends on its own action (never tapped).
+    pub forbid: Vec<(Pos, Vec<Pos>)>,
     /// Print what the router finds for each receiver alone.
     pub debug: bool,
     /// Screen every lever spot cheaply first (each receiver alone) and fully route only the
@@ -379,6 +381,7 @@ fn receivers_of(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Option<(Vec<R
     let base = with_lever(mech, spot);
     let free_of = |p: Pos| -> Option<(usize, usize, bool)> { o.free.iter().find(|x| x.0 == p).map(|&(_, a, b)| (a, b, o.odd)) };
     let alts_of = |p: Pos| -> Vec<Wave> { o.alts.iter().find(|x| x.0 == p).map(|x| x.1.clone()).unwrap_or_default() };
+    let forbid_of = |p: Pos| -> Vec<Pos> { o.forbid.iter().find(|x| x.0 == p).map(|x| x.1.clone()).unwrap_or_default() };
     let allowed_of = |p: Pos, w: Wave| -> Wave {
         let w = alts_of(p).into_iter().fold(w, |a, x| a.or(x));
         match free_of(p) {
@@ -398,7 +401,7 @@ fn receivers_of(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Option<(Vec<R
     let m = Model::new(&base.blocks, Some(spot.lever), &mech.meas.fixed, &mech.meas.extra);
     let mut recv = Vec::new();
     for &(p, f, w) in &mech.wants {
-        let r = Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: mech.meas.mask(p), alts: alts_of(p), free: free_of(p) };
+        let r = Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: mech.meas.mask(p), alts: alts_of(p), free: free_of(p), forbid_watch: forbid_of(p) };
         if r.accepts(r.rest, o.route.tolerance) {
             continue;
         }
@@ -430,6 +433,7 @@ pub fn wire_spot(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Result<Vec<W
     // A free receiver accepts 1 (or 3, `o.odd`) 2 gt pulses per edge, the last in its range.
     let free_of = |p: Pos| -> Option<(usize, usize, bool)> { o.free.iter().find(|x| x.0 == p).map(|&(_, a, b)| (a, b, o.odd)) };
     let alts_of = |p: Pos| -> Vec<Wave> { o.alts.iter().find(|x| x.0 == p).map(|x| x.1.clone()).unwrap_or_default() };
+    let forbid_of = |p: Pos| -> Vec<Pos> { o.forbid.iter().find(|x| x.0 == p).map(|x| x.1.clone()).unwrap_or_default() };
     let allowed_of = |p: Pos, w: Wave| -> Wave {
         let w = alts_of(p).into_iter().fold(w, |a, x| a.or(x));
         match free_of(p) {
@@ -458,7 +462,7 @@ pub fn wire_spot(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Result<Vec<W
     let m = pb.model(&base.blocks);
     let mut recv = Vec::new();
     for &(p, f, w) in &mech.wants {
-        let r = Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: mech.meas.mask(p), alts: alts_of(p), free: free_of(p) };
+        let r = Receiver { pos: p, facing: f, want: w, rest: m.piston_wave(p, f), mask: mech.meas.mask(p), alts: alts_of(p), free: free_of(p), forbid_watch: forbid_of(p) };
         if r.accepts(r.rest, o.route.tolerance) {
             continue;
         }
@@ -537,7 +541,7 @@ pub fn wire_spot(mech: &Mech, spot: &LeverSpot, o: &WireOptions) -> Result<Vec<W
             .wants
             .iter()
             .filter(|&&(p, f, w)| {
-                let r = Receiver { pos: p, facing: f, want: w, rest: Wave::OFF, mask: mech.meas.mask(p), alts: alts_of(p), free: free_of(p) };
+                let r = Receiver { pos: p, facing: f, want: w, rest: Wave::OFF, mask: mech.meas.mask(p), alts: alts_of(p), free: free_of(p), forbid_watch: forbid_of(p) };
                 !r.accepts(nm.piston_wave(p, f), o.route.tolerance)
             })
             .map(|&(p, f, w)| format!("{}{} gets [{}] wants [{}]", route2::fmt_pos(p), if f == READ_LATENT { " qc" } else { "" }, nm.piston_wave(p, f).describe(), w.describe()))
@@ -834,6 +838,30 @@ pub fn timing_alts(mech: &Mech, steps: &Steps, at: &[u32], win: &[((Pos, usize),
     out
 }
 
+/// Cells whose motion depends on the receiver cell `p`'s own action: the schedule is replayed
+/// without the events that power `p`, and every cell whose observer wave changes is dependent.
+pub fn own_motion(w: &mut Worker, mech: &Mech, steps: &Steps, at: &[u32], p: Pos) -> Result<Vec<Pos>> {
+    let mine: Vec<(Pos, usize)> = {
+        let mut v: Vec<(Pos, usize)> = steps
+            .events
+            .iter()
+            .filter(|e| manhattan(e.1, p) == 1 || (manhattan(add(p, [0, 1, 0]), e.1) == 1 && e.1 != p))
+            .map(|e| (e.1, e.2))
+            .collect();
+        v.sort();
+        v.dedup();
+        v
+    };
+    if mine.is_empty() {
+        return Ok(Vec::new());
+    }
+    let without = measure_ideal(w, &steps.retimed_without_all(at, &mine), &BTreeMap::new())?;
+    let mut cells: Vec<Pos> = mech.meas.watch.keys().chain(without.meas.watch.keys()).copied().collect();
+    cells.sort();
+    cells.dedup();
+    Ok(cells.into_iter().filter(|c| mech.meas.watch.get(c) != without.meas.watch.get(c)).collect())
+}
+
 /// Receivers whose only power is one 2 gt pulse per edge from an event that may move by at least
 /// `min_width` ticks: (cell, first allowed start bit, last allowed start bit).
 pub fn free_receivers(mech: &Mech, steps: &Steps, at: &[u32], win: &[((Pos, usize), Vec<i32>)], min_width: i32) -> Vec<(Pos, usize, usize)> {
@@ -1028,6 +1056,13 @@ impl Steps {
             })
         });
         v
+    }
+
+    /// [`Steps::retimed`] without several events.
+    pub fn clone_without(&self, drop: &[(Pos, usize)]) -> Steps {
+        let mut s = self.clone();
+        s.events.retain(|e| !drop.contains(&(e.1, e.2)));
+        s
     }
 
     /// [`Steps::retimed`] without several events.

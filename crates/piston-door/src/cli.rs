@@ -1281,6 +1281,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 free: crate::synth::parse_cells(&free)?.into_iter().map(|c| (c, flo.parse().unwrap_or(2), fhi.parse().unwrap_or(40))).collect(),
                 alts: Vec::new(),
                 odd,
+                forbid: Vec::new(),
                 debug,
                 screen_top,
             };
@@ -1416,6 +1417,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     for (c, a, b) in &free {
                         log(&format!("    free: {} any 2 gt pulse starting {a}..{b}", route2::fmt_pos(*c)));
                     }
+                    // What depends on each free receiver's action: its timing is the router's
+                    // choice, so no receiver may watch those motions (their measured times are
+                    // not the real ones).
+                    let mut all_dep: Vec<mctas::sim::Pos> = Vec::new();
+                    for (c, _, _) in &free {
+                        let dep = mechwire::own_motion(&mut pool.worker(0), &mech, &steps.clone_without(&noops), &at, *c).unwrap_or_default();
+                        log(&format!("    {} drives {} watched cells", route2::fmt_pos(*c), dep.len()));
+                        all_dep.extend(dep);
+                    }
+                    all_dep.sort();
+                    all_dep.dedup();
+                    ow.forbid = mech.wants.iter().map(|w| (w.0, all_dep.clone())).collect();
                     if timing {
                         // The other events keep their own (narrower) windows: every receiver
                         // accepts each combination of its events' shifts.
