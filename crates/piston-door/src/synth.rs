@@ -1136,6 +1136,23 @@ pub fn synth_in(
 
 // ---- resynthesis: replace any small sub-circuit of a door with a smaller one ---------------
 
+/// The design as it really rests: placed like the judge does and settled, then every non-air
+/// block of the area read back (unlike `canonicalize`, blocks that moved while settling are
+/// kept at their new place).
+pub fn settled_design(w: &mut Worker, d: &Design) -> Result<Design> {
+    let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    let r = (|| -> Result<Design> {
+        place_settled(w, sb, d, 400)?;
+        let (lo, hi) = d.bounds().context("empty design")?;
+        let r = w.get_region(sb, [lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3])?;
+        let mut out = d.clone();
+        out.blocks = r.blocks().into_iter().collect();
+        Ok(out)
+    })();
+    let _ = w.drop_sandbox(sb);
+    r
+}
+
 /// Cells of a door that change while it cycles (watch candidates for observers) and cells that
 /// are air at rest but filled while it moves (no new block may go there).
 pub fn door_motion(w: &mut Worker, d: &Design) -> Result<(HashSet<Pos>, HashSet<Pos>)> {

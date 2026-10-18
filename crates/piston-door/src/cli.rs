@@ -857,7 +857,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 if let Some(dir) = &out_dir {
                     std::fs::create_dir_all(dir)?;
                     let mut w = pool.worker(0);
-                    let canon = crate::canonicalize(&mut w, d).unwrap_or_else(|_| d.clone());
+                    let canon = match crate::canonicalize(&mut w, d) {
+                        Ok(c) if spec.is_some() || crate::verify(&mut w, &c, &VerifyOptions::default()).is_ok() => c,
+                        _ => d.clone(),
+                    };
                     let path = dir.join(format!("synth-{}-{i}.txt", set.len()));
                     canon.save(&path)?;
                     println!("  written to {}", path.display());
@@ -879,9 +882,23 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 crate::verify(&mut w, &d, &judge).map_err(|e| anyhow::anyhow!("the start design does not pass the judge: {e:#}"))?;
             }
             let best = resynth(&pool, &d, &o, &judge, &screen, &log)?;
+            // Keep the canonical rest state only if it still passes the judge (a design written
+            // with stale redstone states can settle into another machine).
             let canon = {
                 let mut w = pool.worker(0);
-                crate::canonicalize(&mut w, &best).unwrap_or(best.clone())
+                match crate::canonicalize(&mut w, &best) {
+                    Ok(c) if crate::verify(&mut w, &c, &judge).is_ok() => c,
+                    _ => match settled_design(&mut w, &best) {
+                        Ok(s) if crate::verify(&mut w, &s, &judge).is_ok() => {
+                            println!("the design moves while it settles: writing its settled state");
+                            s
+                        }
+                        _ => {
+                            println!("canonical and settled forms fail the judge: writing the design as found");
+                            best.clone()
+                        }
+                    },
+                }
             };
             canon.save(&out)?;
             println!("{} -> {} blocks, written to {}", crate::block_count(&d), crate::block_count(&canon), out.display());
