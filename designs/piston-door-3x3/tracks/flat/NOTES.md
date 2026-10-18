@@ -7,7 +7,9 @@ Every block in the door plane z = 0, no slime/honey (`door verify` prints `, fla
 | v2.txt (archive/flat-v2-60b.txt) | 60 | 48 / 48 | first flat door: pist19r mechanism + observer chains |
 | min-v2.txt (archive/flat-v2-57b.txt) | 57 | 42 / 42 | `door minimize`: a dust step replaces 3 chain observers; observer -> block feeds the right pair |
 | v3.txt (archive/flat-v2-55b.txt) | 55 | 36 / 34 | R_B's input = dust under a block powered by the top chain; M fired by an observer watching the bottom-left door block (BL flag), left stack fired late |
-| v4.txt = BEST.txt (archive/flat-v2-54b.txt) | **54** | 36 / 34 | the R_B-input dust stands on an observer that starts the late left chain |
+| v4.txt (archive/flat-v2-54b.txt) | 54 | 36 / 34 | the R_B-input dust stands on an observer that starts the late left chain |
+| v5.txt (archive/flat-v5-52b.txt) | 52 | 34 / 32 | `door synth` (k=9, obs/dust/block/rep1-4/torch, box x -6..-1, y -1..6) re-laid the late left chain + stack feed in 8 blocks instead of 10 |
+| v6.txt = BEST.txt (archive/flat-v6-51b.txt) | **51** | 34 / 32 | `door resynth --min-size 5 --max-size 6` (palette with rep1-4): a delay-2 repeater replaces two chain observers |
 
 ## Mechanism (19 blocks, mech-synth's `pist19r` with the T-mover on the right)
 - 9 door stones; left column on 3 retracted sticky pistons (-2,0..2) facing east (pull-type,
