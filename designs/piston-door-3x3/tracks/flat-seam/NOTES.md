@@ -157,6 +157,46 @@ never moved (they must already be inside). Combine with `--seamless full+hall` t
   window: A' high pushes C back up. Merging the pair (repeater + observer) makes X far too late.
   So in 9 x 8 the X problem stays open.
 
+## Strip doors, 13 x 5 (thin-strip family, started 10-18 15:15)
+Target from the coordinator: 13x5 = 65 (fallback 14x5 = 70) with agent families' row mechanisms
+(explore/families tracks/families/ROWS.md: in a box <= 5 tall each door row slides sideways on
+its own); agent strip does 12x5 / 11x5.
+- **Tool `door rows-fire <ROWS.tsv> [--wirable] [--only ids]`** (crates/piston-door/src/rowsfire.rs):
+  replays every row mechanism in the same 1-D macro model as families.rs and prints the cell each
+  piston FIRES from (schedules name pistons by their rest cell; walkers fire from where they were
+  moved). Output for families' 433 rows: [strip/ROWS-FIRE.md](strip/ROWS-FIRE.md).
+- **Every row mechanism fires from the door columns.** None of the 433 avoids x 0..2. 222 fire
+  there exactly twice, both at x = 2 (or x = 0 in the mirror image), never at x = 1, as a push
+  then a pull of the same walker (r046: C pushes the door line west at step 3, pulls D2 back at
+  step 4). The other 211 fire 6 times there, twice at x = 1. In a 5-tall box the cells above and
+  below the door columns are the ceiling / floor ring (door or plain blocks only in the stable
+  states), so these firings need a trick:
+  - the push-then-pull pair is ONE level input (extend = push, release = sticky pull);
+  - row 2 can take it by quasi-connectivity through the ceiling ring cell from the corner, row 1
+    by quasi-connectivity through row 2's cell (x,2) when (x,3) carries power;
+  - row 0 only from the floor ring cell (2,-1) itself (QC looks up, never down).
+- **r046 x 3 rows passes with ideal inputs** ([strip/r046x3.txt](strip/r046x3.txt), mechanism
+  NE(-4) NE(-2) SW(4) SW(5) SW(6) in every row, 15 pistons, row width 11):
+  [strip/r046x3.ideal](strip/r046x3.ideal) (inputs behind the plane) and, more to the point,
+  [strip/r046x3-qc.ideal](strip/r046x3-qc.ideal) with every input IN THE PLANE where a 5-tall box
+  has room: rows 1 and 2 run the same train from the top row (a block powering (x,3) fires row 2's
+  piston at (x,2) directly and row 1's at (x,1) by quasi-connectivity), row 0 from the bottom row,
+  and the inner pair is a block held in the ring cell (2,3) / (2,-1) from step 3 to step 4. Both
+  WORK, 4 positions x 2 cycles, open 51 / close 15 (6 gt per step, not tuned).
+  Train (x = firing cell): open 6, 4, [2 held], 4, 3, 6, 5, 4; close -4, -2, 4.
+- **Not wired yet.** What the wiring has to solve: each of the top and bottom rows is ONE cell high
+  and must power, at the right ticks, the cells above / below the firing cells -4, -2, 3, 4, 5, 6
+  (x 4 four times per cycle, x 6 twice) plus the ring cell (2,3) / (2,-1) as a 6 gt level, with
+  only the columns x = -5 and x = 7 free in the door rows. An observer in row 3 cannot power the
+  piston below it (its output is horizontal or needs row 4), dust in row 3 would stand on walking
+  pistons, a repeater needs a floor; so the firing cells of row 3 must be conductor blocks
+  strongly powered sideways (observers/repeaters in the neighbouring row-3 cells), which leaves no
+  room for a sequencer inside the row: the timing has to come up the x = -5 / x = 7 columns or
+  ride in the rows (redstone blocks pushed along row 3 power the piston under them; a plain stone
+  parked in the ceiling ring cell (2,3) is legal in both stable states and can carry the level by
+  being powered from the corner (3,3)). A redstone block parked at the corner (3,3) is NOT safe:
+  it quasi-powers the row-2 piston under (4,3) all the time.
+
 ## Log
 - `door minimize --moves all --plateau --shape flat --seamless full+hall` on 57b: nothing (48
   neutral designs, no removal after them). `door resynth --max-size 5` with lamps/notes/targets
