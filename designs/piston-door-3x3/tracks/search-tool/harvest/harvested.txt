@@ -1,0 +1,5 @@
+9605b06b94dcbb9a HEAD:designs/piston-door-3x3/archive/gravity-g6-49b.txt 49 -> 46
+e3cbac258b1aaa4b result of HEAD:designs/piston-door-3x3/archive/gravity-g6-49b.txt 46
+812e42bd0cbfa286 HEAD:designs/piston-door-3x3/archive/gravity-g4-51b.txt 51 -> 46
+ce7ea046f6221807 result of HEAD:designs/piston-door-3x3/archive/gravity-g4-51b.txt 46
+e968985ea43ae3b1 HEAD:designs/piston-door-3x3/archive/st43-bmobs-42b.txt 42 -> 42
