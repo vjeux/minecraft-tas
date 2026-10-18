@@ -77,3 +77,9 @@ seamless (the ground board does not need it: vjeux via the coordinator, 20:48Z).
   the observer count. Spec: `wire/shift2.chain` (`--shift 11`). Chain observers may output
   into the ground check's floor (harmless: only the observer stands on that floor block).
 * `door verify --ground` (new): swept shape below + ground check at the judge's positions.
+- 21:45Z **v225** (`v225.txt` = BEST, archive/ground-v225-108b.txt): **volume 225 (9x5x5)**, 108
+  blocks, 54/54, rotation-safe, ground check at 32 positions. Same mechanism, obs-chain inside
+  box x -3..5, y 0..4, z -2..2, lever (1,3,-1) on the side of (1,3,0), root (1,3,-2).
+  Boxes that fail: y <= 3 (PS4's only driver (-1,3,0) faces up: its watched cell is y = 4),
+  z -1..1 (P0-home's drivers (4,0,+-1) watch z = +-2), z -2..1 (R1H and R6H both need
+  (4,0,-1)). Next: conductor options (an observer powering a solid block next to the piston).
