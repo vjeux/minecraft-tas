@@ -2,9 +2,10 @@
 //! game's own font (a door's size, the volume, big; its placed blocks small), `door gallery` (a
 //! looping GIF of the best design of every board, uploaded for LEADERBOARD.md, which shows each
 //! board leader's GIF) and `door montage` (a board's record progression by blocks placed as one
-//! labeled video). Everything is rendered by the real client (`door video`) and cut with the
-//! static ffmpeg. The hand-edited inputs live next to the archive: `records.tsv` (the solid record
-//! progression, in blocks placed) and `captions.tsv` (how each design works).
+//! labeled video). Everything is rendered by the real client and cut with the static ffmpeg: the
+//! gallery's GIFs and the published videos come from the same clip of each design
+//! ([`crate::clips`]). The hand-edited inputs live next to the archive: `records.tsv` (the solid
+//! record progression, in blocks placed) and `captions.tsv` (how each design works).
 
 use crate::video::{self as dv, Camera, Facts, Shot, VideoOptions};
 use anyhow::{Context, Result, bail};
@@ -131,54 +132,45 @@ pub fn label_lines(f: &Facts) -> Vec<(String, u32, [u8; 3])> {
     vec![(f.size(), 4, YELLOW), (f.placed(), 2, WHITE), (format!("{} - {}", f.name, f.kind()), 2, WHITE)]
 }
 
-/// Final encode of a recording: title card (fading into the clip) and corner label as asked by
-/// `opts`. Falls back to the plain encode when the card cannot be drawn.
-pub fn finish_video(version: &str, raw: &Path, out: &Path, facts: &Facts, opts: &VideoOptions) -> Result<()> {
-    let dir = raw.parent().unwrap_or(Path::new("."));
-    let look = match Look::load(version) {
-        Ok(l) => l,
-        Err(e) => {
-            eprintln!("warning: no title card ({e:#}); plain video");
-            return mctas::video::encode(raw, out, 1.0);
-        }
-    };
-    let (w, h) = (opts.width, opts.height);
-    let mut args: Vec<String> = Vec::new();
-    let title = opts.title_secs > 0.0;
-    if title {
-        let card = dir.join("card.png");
-        look.card(w, h, &title_lines(facts)).save_png(&card)?;
-        args.extend(["-loop", "1", "-framerate", &opts.fps.to_string(), "-t", &format!("{:.3}", opts.title_secs), "-i"].map(String::from));
-        args.push(card.display().to_string());
-    }
-    args.push("-i".into());
-    args.push(raw.display().to_string());
-    let clip_in = if title { 1 } else { 0 };
-    let mut graph = format!("[{clip_in}:v]setpts=PTS-STARTPTS,fps={}", opts.fps);
-    if opts.label {
-        let label = dir.join("label.png");
-        look.label(w, h, &label_lines(facts), true, 0.6).save_png(&label)?;
-        args.push("-i".into());
-        args.push(label.display().to_string());
-        graph.push_str(&format!("[clip];[clip][{}:v]overlay=0:0", clip_in + 1));
-    }
-    graph.push_str(",setsar=1,format=yuv420p");
-    if title {
-        let fade = 0.35_f64.min(opts.title_secs / 2.0);
-        graph.push_str(&format!(",fade=t=in:st=0:d={fade:.2}[v];[0:v]setsar=1,format=yuv420p,fade=t=out:st={:.3}:d={fade:.2}[c];[c][v]concat=n=2:v=1:a=0", opts.title_secs - fade));
-    }
-    graph.push_str("[o]");
+/// Corner label of a board leader's GIF: the size big, the placed blocks and the kind small.
+pub fn gif_label_lines(f: &Facts) -> Vec<(String, u32, [u8; 3])> {
+    vec![(f.size(), 5, YELLOW), (f.placed(), 2, WHITE), (f.kind(), 3, WHITE)]
+}
+
+/// The published video cut from a clip (`w`x`h` at `fps`): the title card, a still of
+/// `title_secs` fading into the clip, then the clip with the corner label over it; H.264 yuv420p
+/// (browser-playable). Its two images are drawn next to `out`, then removed.
+#[allow(clippy::too_many_arguments)]
+pub fn compose_video(look: &Look, clip: &Path, out: &Path, facts: &Facts, w: u32, h: u32, fps: u32, title_secs: f64) -> Result<()> {
+    let card = out.with_extension("card.png");
+    let label = out.with_extension("label.png");
+    look.card(w, h, &title_lines(facts)).save_png(&card)?;
+    look.label(w, h, &label_lines(facts), true, 0.6).save_png(&label)?;
+    let mut args: Vec<String> = ["-loop", "1", "-framerate", &fps.to_string(), "-t", &format!("{title_secs:.3}"), "-i"].map(String::from).to_vec();
+    args.push(card.display().to_string());
+    args.extend(["-i".to_string(), clip.display().to_string(), "-i".to_string(), label.display().to_string()]);
+    let fade = 0.35_f64.min(title_secs / 2.0);
+    let graph = format!(
+        "[1:v]setpts=PTS-STARTPTS,fps={fps}[clip];[clip][2:v]overlay=0:0,setsar=1,format=yuv420p,fade=t=in:st=0:d={fade:.2}[v];\
+         [0:v]setsar=1,format=yuv420p,fade=t=out:st={:.3}:d={fade:.2}[c];[c][v]concat=n=2:v=1:a=0[o]",
+        title_secs - fade
+    );
     args.extend(["-filter_complex".to_string(), graph, "-map".into(), "[o]".into()]);
     args.extend(["-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart"].map(String::from));
     args.push(out.display().to_string());
-    ffmpeg_run(&args)
+    let r = ffmpeg_run(&args);
+    let _ = std::fs::remove_file(&card);
+    let _ = std::fs::remove_file(&label);
+    r
 }
 
-/// A looping GIF of a clip: `speed` times faster, `width` px wide, `fps` frames per second,
-/// palette built for the clip, with an optional overlay image of the GIF's size.
-pub fn make_gif(clip: &Path, overlay: Option<&Path>, out: &Path, width: u32, fps: u32, speed: f64) -> Result<()> {
+/// A looping GIF of a clip: its centered `crop` (an aspect, e.g. 4:3 of a 16:9 clip; None = the
+/// whole frame), `speed` times faster, `width` px wide, `fps` frames per second, palette built for
+/// the clip, with an optional overlay image of the GIF's size.
+pub fn make_gif(clip: &Path, crop: Option<(u32, u32)>, overlay: Option<&Path>, out: &Path, width: u32, fps: u32, speed: f64) -> Result<()> {
     let mut args: Vec<String> = vec!["-i".into(), clip.display().to_string()];
-    let mut graph = format!("[0:v]setpts=(PTS-STARTPTS)/{speed},fps={fps},scale={width}:-2:flags=lanczos");
+    let crop = crop.map(|(a, b)| format!("crop=trunc(ih*{a}/{b}/2)*2:ih,")).unwrap_or_default();
+    let mut graph = format!("[0:v]{crop}setpts=(PTS-STARTPTS)/{speed},fps={fps},scale={width}:-2:flags=lanczos");
     if let Some(o) = overlay {
         args.extend(["-i".to_string(), o.display().to_string()]);
         graph.push_str("[s];[s][1:v]overlay=0:0");
@@ -485,8 +477,10 @@ pub fn sentence(s: &str) -> String {
 
 pub struct GalleryOptions {
     pub archive: PathBuf,
-    /// Clean door-camera clips and GIFs (rendered when missing).
+    /// The GIFs (and their label images).
     pub videos: PathBuf,
+    /// The clips folder shared with `door video` / `video-all` ([`crate::clips`]).
+    pub clips: PathBuf,
     pub upload: Option<String>,
     pub jobs: usize,
     pub workers: usize,
@@ -494,8 +488,10 @@ pub struct GalleryOptions {
     pub gif_width: u32,
     pub gif_fps: u32,
     pub speed: f64,
-    /// Re-render clips and GIFs that exist.
+    /// Record the leaders' clips again (and rebuild their GIFs).
     pub redo: bool,
+    /// Record nothing: rebuild every GIF from the clips there are.
+    pub gif_only: bool,
 }
 
 /// Render `todo` (stem, design, options, output) with the real client, `jobs` at a time.
@@ -509,7 +505,7 @@ fn render_all(version: &str, todo: Vec<(String, Design, VideoOptions, PathBuf)>,
                 let tmp = mp4.with_extension("part.mp4");
                 let t = std::time::Instant::now();
                 match dv::record(version, &d, &tmp, &opts) {
-                    Ok(()) => {
+                    Ok(_) => {
                         let _ = std::fs::rename(&tmp, &mp4);
                         let _ = std::fs::rename(tmp.with_extension("png"), mp4.with_extension("png"));
                         eprintln!("rendered {stem} ({:.0}s)", t.elapsed().as_secs_f64());
@@ -531,34 +527,49 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
     let records: HashMap<String, String> = progression(&o.archive).into_iter().map(|(_, s, h)| (s, h)).collect();
     let boards = boards(&all, &records);
     eprintln!("{} working designs; boards: {}", all.len(), boards.iter().map(|b| format!("{} = {}", b.title, b.best.stem)).collect::<Vec<_>>().join(", "));
-    // Clean clips of the bests, 4:3 (door builds are taller than wide); a still camera by
-    // default: every pixel of an orbiting shot changes each frame, which makes GIFs 10x larger.
-    let clip_of = |stem: &str| o.videos.join(format!("{stem}.o{}.mp4", o.orbit));
-    let mut todo = Vec::new();
-    let mut seen = std::collections::HashSet::new();
+    // The leaders' clips are the ones `door video` / `video-all` cut their videos from (one
+    // recording per design, still camera: an orbiting GIF is ~10x larger), recorded here only when
+    // missing or stale (or --redo); --gif-only records nothing.
+    let settings = crate::clips::ClipSettings { orbit: o.orbit, ..Default::default() };
+    let mut leaders: Vec<&Archived> = Vec::new();
     for b in &boards {
-        let mp4 = clip_of(&b.best.stem);
-        if seen.insert(b.best.stem.clone()) && (o.redo || !mp4.exists()) {
-            todo.push((b.best.stem.clone(), b.best.design.clone(), VideoOptions { width: 960, height: 720, ..VideoOptions::clean(o.orbit) }, mp4));
+        if !leaders.iter().any(|a| a.stem == b.best.stem) {
+            leaders.push(&b.best);
         }
     }
-    eprintln!("{} clips to render ({} at a time)", todo.len(), o.jobs);
-    let failed = render_all(version, todo, o.jobs);
-    if !failed.is_empty() {
-        bail!("rendering failed for {failed:?}");
+    let mut todo = Vec::new();
+    let mut missing = Vec::new();
+    for a in &leaders {
+        if o.redo || crate::clips::find(&o.clips, &a.design, &settings).is_none() {
+            if o.gif_only {
+                missing.push(a.stem.clone());
+            } else {
+                todo.push((a.stem.clone(), a.design.clone()));
+            }
+        }
     }
-    // GIFs with a small label, uploaded.
+    eprintln!("{} leaders, {} clips to record ({} at a time), clips in {}", leaders.len(), todo.len(), o.jobs, o.clips.display());
+    let failed = crate::clips::record_many(version, &o.clips, todo, &settings, o.jobs);
+    if !failed.is_empty() {
+        bail!("recording failed for {failed:?}");
+    }
+    // GIFs: the clip's centered 4:3 crop with a small label, rebuilt when the clip or the label
+    // changed; uploaded.
     let look = Look::load(version)?;
-    let gif_h = o.gif_width * 3 / 4;
-    for stem in &seen {
-        let b = boards.iter().find(|b| &b.best.stem == stem).unwrap();
-        let gif = o.videos.join(format!("{stem}.gif"));
-        if o.redo || !gif.exists() {
-            let label = o.videos.join(format!("{stem}.gif-label.png"));
-            let f = &b.best.facts;
-            look.label(o.gif_width, gif_h, &[(f.size(), 5, YELLOW), (f.placed(), 2, WHITE), (f.kind(), 3, WHITE)], true, 0.9).save_png(&label)?;
-            make_gif(&clip_of(stem), Some(&label), &gif, o.gif_width, o.gif_fps, o.speed)?;
-            eprintln!("gif {} ({} KB)", gif.display(), std::fs::metadata(&gif)?.len() / 1024);
+    let gif_h = o.gif_width * settings.frame.1 / settings.frame.0;
+    for a in &leaders {
+        // A leader without a clip (--gif-only) is reported at the end.
+        let Some(clip) = crate::clips::find(&o.clips, &a.design, &settings) else { continue };
+        let gif = o.videos.join(format!("{}.gif", a.stem));
+        let lines = gif_label_lines(&a.facts);
+        let stamp = crate::clips::stamp(&["gif-v1", &clip.text, &format!("{lines:?} {} {} {}", o.gif_width, o.gif_fps, o.speed)]);
+        if o.redo || o.gif_only || !crate::clips::up_to_date(&gif, &stamp) {
+            let t = std::time::Instant::now();
+            let label = o.videos.join(format!("{}.gif-label.png", a.stem));
+            look.label(o.gif_width, gif_h, &lines, true, 0.9).save_png(&label)?;
+            make_gif(&clip.mp4, Some(settings.frame), Some(&label), &gif, o.gif_width, o.gif_fps, o.speed)?;
+            crate::clips::write_stamp(&gif, &stamp)?;
+            eprintln!("gif {} ({} KB, {:.1}s)", gif.display(), std::fs::metadata(&gif)?.len() / 1024, t.elapsed().as_secs_f64());
         }
         if let Some(tag) = &o.upload {
             println!("uploaded {}", mctas::video::upload_release_asset(REPO, tag, &gif)?);
@@ -572,6 +583,9 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
     }
     // No page of its own: `door leaderboard` shows each board leader's GIF from the release.
     eprintln!("GIFs and the timeline chart in {}", o.videos.display());
+    if !missing.is_empty() {
+        bail!("{} board leaders have no clip, their GIFs were not rebuilt (run door gallery without --gif-only to record them): {missing:?}", missing.len());
+    }
     Ok(())
 }
 

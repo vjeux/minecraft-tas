@@ -40,6 +40,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [sf-holdA](sf-holdA/NOTES.md) | the 19-block slime-free mechanism with A held at rest | **b38 38**: the solid and slime-free record |
 | [shapes](shapes/NOTES.md) | door shapes relative to the opening, shape boards | `door shapes`, swept shapes, the ground check, `--shape` on every search; boards "in a 3-thick wall", "on the ground", "smallest box" |
 | [showcase](showcase/NOTES.md) | make the results easy to look at | `door gallery`, `door montage`, title cards, the timeline chart |
+| [onerender](onerender/NOTES.md) | record every door once | one clip per design (`clips.rs`): videos and GIFs cut from it by ffmpeg, a new label in 1.5 s instead of a 60 s recording |
 | [slime-free](slime-free/NOTES.md) | the "no slime or honey" board | combo 48, s7 45, s7q 44 |
 | [speed](speed/NOTES.md) | the fastest door | w6 12 / 7, s4 12 / 7 at 108, o7 11 / 7 at 119 |
 | [speed-2](speed-2/NOTES.md) | open in 10, smaller 11 / 7 | a1 125 opens in 10 (an odd-tick pulse, gadget odd-pulse), n2 113 the first to open in 9; c1 112 and c2 109 at 9 / 7 under the column rule; open 8 validated with scripted inputs |

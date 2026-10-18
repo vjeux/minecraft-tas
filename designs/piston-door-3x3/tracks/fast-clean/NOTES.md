@@ -110,10 +110,18 @@ in power at k7) pushes C down again when C lands at k7 BE.
 * Compliant fast tier (all rotation-safe, 32 positions): **c1r-107 (9 / 7, open + close 16)** and
   **s4c-90 (12 / 7)**; a1c-107 (10 / 7) between them. Every fast door broke the new rule only
   through the lever net's z = -4 staircase; speed-2's hand route (c1.patch) fixes it at equal size
-  on every member of the family, the lamp-palette resynth then shrinks them (s4: 108 -> 93, never
-  resynthesized before; c1: 112 -> 108 -> 107 with a size-4..6 group in Q's second-pulse chain).
+  on every member of the family, the lamp-palette resynth then shrinks them (s4: 108 -> 93 at
+  sizes 2..3, then 91 and 90 at size 4; never resynthesized before; c1: 112 -> 108 -> 107 with a
+  size-4..6 group in Q's second-pulse chain). Local minima now: `door minimize --moves all` finds
+  nothing on s4c-93 (1.7M candidates, also with the close unconstrained) nor on c1r-107 (rotation-
+  safe acceptance); size-4 resynth boxes on c1r-107 and a1c-107 found nothing.
 * Close 6 exists in this family: `close6-c1r.drive` closes c1r in 6 with only the arming scripted
   (F's close 0-tick by a re-armed P_X; a 3-piston padding chain so that D is updated after F
   retracts; an armed P_D brings R_F back at c1). Wiring the arming is the next step (list above).
 * Tools: routers and searches keep the columns clear; `door route --swept-design`; `door blocks`;
   minimize/resynth keep rotation safety (a renet gave a 103 that only works facing one way).
+* Next ideas: wire close 6 on c1r (P_X re-arm with open-edge-only k pulses, silent late arming of
+  the padding chain, see above): 9 / 6 would take the close and open + close boards (15); finish
+  s4c's size-4 resynth over the whole design (only the top box was searched, ~2000 groups, ~10 s
+  each) and run the same on c1r-107 outside the boxes tried; open 8 needs speed-2's two missing
+  sources (A' on k4 / off k5, Q's k6..k8 pulse avoiding P).

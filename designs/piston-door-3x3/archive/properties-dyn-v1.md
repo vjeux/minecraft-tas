@@ -12,14 +12,16 @@
 | sculk2-s4-36b | 36 | sculk | 20/37 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | no | yes |
 | sculk2-s4b-36b | 36 | sculk | 20/36 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | no | yes |
 | sculk2-s4c-36b | 36 | sculk | 20/36 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | no | yes |
+| test-static-armor-39b | 38 | entity | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
 | sculk-ew-s1r-38b | 38 | sculk | 21/38 | no | no: stone, slime, mix (gap ok) | yes | yes (21/37) | no | yes |
 | sculk-ew-s1r-ew-38b | 38 | sculk | 21/38 | no | no: stone, slime, mix (gap ok) | yes | no | no | yes |
 | sculk2-s1-38b | 38 | sculk | 19/38 | no | no: stone, slime, mix (gap ok) | yes | yes (19/37) | no | yes |
 | sf-holdA-b38-38b-2 | 38 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
 | sf-holdA-b38-38b | 38 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
 | sf-holdA-b38r-38b | 38 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
-| test-static-armor-39b | 39 | entity | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
+| eligible-b39n-39b | 39 | solid | 36/32 | yes | yes (gap ok) | yes | yes (37/33) | yes | yes |
 | sf-holdA-b39-39b | 39 | solid | 40/36 | yes | yes (gap ok) | yes | no | yes | yes |
+| exotic-fc2-trapL-40b | 40 | solid | 24/9 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | fc2-40b-2 | 40 | solid | 24/9 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | fc2-40b-3 | 40 | solid | 24/9 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | fc2-40b-4 | 40 | solid | 24/9 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
@@ -33,6 +35,9 @@
 | riders-fx1-40b | 40 | solid | 24/26 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | sf-holdA-b40-40b | 40 | solid | 38/34 | yes | yes (gap ok) | yes | no | yes | yes |
 | sf-holdA-b40r-40b | 40 | solid | 38/34 | yes | yes (gap ok) | yes | no | yes | yes |
+| test-lift-stand-40b | 40 | entity | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
+| fc2-seamL-41b | 41 | solid | 24/9 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
+| fc2-seamR-41b | 41 | solid | 24/9 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | fc2f-41b | 41 | solid | 22/9 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | lamp-sweep-w41-41b | 41 | solid | 28/26 | yes | yes (gap ok) | yes | no | yes | yes |
 | m05-21b-sym-41b-2 | 41 | solid | 42/40 | no | yes (gap ok) | yes | no | yes | yes |
@@ -44,32 +49,46 @@
 | m05-21b-sym-41b-8 | 41 | solid | 40/38 | yes | yes (gap ok) | yes | no | yes | yes |
 | m05-21b-sym-41b | 41 | solid | 40/38 | no | yes (gap ok) | yes | no | yes | yes |
 | sf-holdA-e41-41b | 41 | solid | 28/26 | yes | yes (gap ok) | yes | no | yes | yes |
-| test-lift-stand | 41 | entity | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
 | fc1-42b | 42 | solid | 24/14 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | m05-21b-sym-42b | 42 | solid | 26/24 | yes | yes (gap ok) | no | no | yes | yes |
 | st43-bmobs-42b | 42 | sculk | 22/38 | no | no: stone, slime, mix (gap ok) | yes | no | no | yes |
 | synth-g42-42b | 42 | gravity | 5/17 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
 | wire19sf-w42-42b | 42 | solid | 28/24 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
 | wire19sf-w42e-42b | 42 | solid | 28/24 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
+| eligible-w43n-43b | 43 | solid | 28/24 | yes | yes (gap ok) | yes | yes (29/25) | yes | yes |
+| flat43-full-43b | 43 | solid | 52/48 | yes | yes (gap ok) | yes | no | yes | yes |
 | lamp-sweep-flat43-43b | 43 | solid | 46/44 | yes | yes (gap ok) | yes | no | yes | yes |
+| lamp-sweep-w41-43b | 43 | solid | 28/26 | yes | yes (gap ok) | yes | no | yes | yes |
 | m05-21b-sym-43b | 43 | solid | 26/24 | yes | yes (gap ok) | no | no | yes | yes |
 | pareto-mid-mp8-leafU-43b | 43 | solid | 15/17 | no | no: stone, slime, mix (gap ok) | no | no | yes | yes |
 | piston-door-3x3-fresh-b-mp8-43b | 43 | solid | 16/16 | no | no: stone, slime, mix (gap ok) | no | no | yes | yes |
 | riders-r3-43b | 43 | solid | 22/33 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | search-tool-from-top-control-BEST-43b | 43 | sculk | 22/38 | no | no: stone, slime, mix (gap ok) | yes | no | no | yes |
+| sf-holdA-e41-43b | 43 | solid | 28/26 | yes | yes (gap ok) | yes | no | yes | yes |
 | sf-holdA-hA-43b | 43 | solid | 24/14 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
 | st43-bmobs-43b | 43 | solid | 22/33 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | wire19sf-w43-43b | 43 | solid | 26/24 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
 | wire19sf-w43b-43b | 43 | solid | 26/24 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
 | wire19sf-w43e-43b | 43 | solid | 26/24 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
+| e41-full-44b | 44 | solid | 36/28 | yes | yes (gap ok) | yes | no | yes | yes |
+| eligible-fl81m-44b | 44 | solid | 52/48 | yes | yes (gap ok) | yes | yes (53/49) | yes | yes |
+| exotic-w45-44-trap-44b | 44 | solid | 26/24 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
+| f43-b1-44b | 44 | solid | 56/54 | yes | yes (gap ok) | yes | no | yes | yes |
 | flat-b-v7-44b | 44 | solid | 30/26 | yes | yes (gap ok) | yes | no | yes | yes |
+| flat-seam-h44-44b | 44 | solid | 52/48 | yes | yes (gap ok) | yes | no | yes | yes |
+| flat43-full-44b | 44 | solid | 52/48 | yes | yes (gap ok) | yes | no | yes | yes |
+| lamp-sweep-w41-44b | 44 | solid | 36/28 | yes | yes (gap ok) | yes | no | yes | yes |
 | pareto-mid-mp8-lampU-44b | 44 | solid | 14/16 | no | no: stone, slime, mix (gap ok) | no | no | yes | yes |
 | slime-free-s7q-44b | 44 | solid | 24/14 | yes | yes (gap ok) | yes | no | yes | yes |
+| wire19sf-w42-44b | 44 | solid | 42/38 | yes | yes (gap ok) | yes | no | yes | yes |
 | wire19sf-w45-44b | 44 | solid | 28/26 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
 | b38h-obs7-45b | 45 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
 | b38h-obs8b-45b | 45 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
+| eligible-f45n-45b | 45 | solid | 36/28 | yes | yes (gap ok) | yes | yes (37/29) | yes | yes |
+| eligible-fl81n-45b | 45 | solid | 52/48 | yes | yes (gap ok) | yes | yes (53/49) | yes | yes |
 | exotic-pm45-trap-45b | 45 | solid | 14/14 | no | no: stone, slime, mix (gap ok) | no | no | yes | yes |
 | flat-b-v6-45b | 45 | solid | 32/28 | yes | yes (gap ok) | yes | no | yes | yes |
+| flat-seam-h45-45b | 45 | solid | 56/54 | yes | yes (gap ok) | yes | no | yes | yes |
 | fresh-b-mp6-45b | 45 | solid | 16/16 | no | no: stone, slime, mix (gap ok) | no | no | yes | yes |
 | fresh-d-s4-45b-2 | 45 | solid | 26/14 | yes | yes (gap ok) | yes | no | yes | yes |
 | gravity-g10-45b | 45 | gravity | 5/19 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
@@ -78,6 +97,7 @@
 | slime-free-s7-45b | 45 | solid | 24/14 | yes | yes (gap ok) | yes | no | yes | yes |
 | wire19sf-w45-45b | 45 | solid | 28/26 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
 | b38h-obs8-46b | 46 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
+| exotic-pm46-trap-46b | 46 | solid | 14/13 | no | no: stone, slime, mix (gap ok) | no | no | yes | yes |
 | flat-b-v5-46b | 46 | solid | 32/28 | yes | yes (gap ok) | yes | no | yes | yes |
 | gravity-g9-46b | 46 | gravity | 5/19 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
 | pareto-mid-mp7-leafC-46b | 46 | solid | 15/13 | no | no: stone, slime, mix (gap ok) | no (flammable on top: 1) | no | yes | yes |
@@ -92,11 +112,16 @@
 | search-tool-from-gravity-BEST-46b | 46 | gravity | 5/19 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
 | synth-sf46-46b | 46 | solid | 24/24 | yes | yes (gap ok) | yes | no | yes | yes |
 | flat-b-v3-47b | 47 | solid | 32/30 | yes | yes (gap ok) | yes | no | yes | yes |
+| flat-b-v7-47b | 47 | solid | 30/28 | yes | yes (gap ok) | yes | no | yes | yes |
 | m48-bmobs-47b | 47 | solid | 22/25 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
+| pareto-mid-mp7-dustU-47b | 47 | solid | 14/13 | no | no: stone, slime, mix (gap ok) | no | no | yes | yes |
 | rb6-bmobs-47b | 47 | solid | 22/25 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-47b | 47 | sculk | 30/38 | no | no: stone, slime, mix (gap ok) | yes | no | no | yes |
 | search-tool-from-top-control-BEST-47b | 47 | sculk | 22/38 | no | no: stone, slime, mix (gap ok) | yes | no | no | yes |
+| exotic-fbv7-full-trap-48b | 48 | solid | 36/34 | yes | yes (gap ok) | yes | no | yes | yes |
 | flat-b-v2-48b | 48 | solid | 32/30 | yes | yes (gap ok) | yes | no | yes | yes |
+| flat-b-v7-48b | 48 | solid | 36/34 | yes | yes (gap ok) | yes | no | yes | yes |
+| fresh-d-s4-48b | 48 | solid | 26/20 | yes | yes (gap ok) | yes | no | yes | yes |
 | gravity-g8-48b | 48 | gravity | 5/11 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
 | m51-sculk-48b | 48 | sculk | 22/38 | no | no: stone, slime, mix (gap ok) | yes | no | no | yes |
 | mechanics-rb5-hold-48b | 48 | solid | 22/25 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
@@ -105,19 +130,25 @@
 | search-tool-from-HEAD-gravity-g4-51b-48b | 48 | gravity | 5/11 | no | no: stone, slime, mix (gap ok) | yes | yes (9/12) | yes | yes |
 | search-tool-from-HEAD-gravity-g6-49b-48b | 48 | gravity | 5/11 | no | no: stone, slime, mix (gap ok) | yes | yes (9/12) | yes | yes |
 | search-tool-from-gravity-BEST-48b | 48 | gravity | 5/11 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
+| sf-holdA-hA-48b | 48 | solid | 24/24 | yes | yes (gap ok) | yes | n/a (no site) | yes | yes |
 | slime-free-combo-48b | 48 | solid | 24/50 | yes | yes (gap ok) | yes | no | yes | yes |
 | b38h-vobs9m-49b | 49 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
+| exotic-pm49-trap-49b | 49 | solid | 14/12 | no | no: stone, slime, mix (gap ok) | no | n/a (no site) | yes | yes |
 | flat-v8-49b | 49 | solid | 32/30 | yes | yes (gap ok) | yes | no | yes | yes |
 | gravity-g6-49b | 49 | gravity | 5/11 | no | no: stone, slime, mix (gap ok) | yes | yes (9/12) | yes | yes |
 | gravity-g7-49b | 49 | gravity | 5/11 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
 | logic-min-v2-49b | 49 | solid | 24/52 | yes | yes (gap ok) | yes | no | yes | yes |
 | search-tool-transplant-HEAD-logic-min-slime-free-50b-49b | 49 | solid | 24/52 | yes | yes (gap ok) | yes | no | yes | yes |
 | b38h-vobs9-50b | 50 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
+| exotic-pm50-trap-50b | 50 | solid | 14/11 | no | no: stone, slime, mix (gap ok) | no | n/a (no site) | yes | yes |
+| flat-b-v7-full-50b | 50 | solid | 32/32 | yes | yes (gap ok) | yes | no | yes | yes |
 | flat-v7-50b | 50 | solid | 32/30 | yes | yes (gap ok) | yes | no | yes | yes |
 | logic-min-slime-free-50b | 50 | solid | 24/52 | yes | yes (gap ok) | yes | no | yes | yes |
 | logic-min-v2-50b-2 | 50 | solid | 24/24 | yes | yes (gap ok) | yes | no | yes | yes |
 | logic-min-v2-50b | 50 | solid | 24/52 | yes | yes (gap ok) | yes | no | yes | yes |
 | mechanics-rb5-bchain-50b | 50 | solid | 22/25 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
+| pareto-mid-mp7-leafC-pgF-50b | 50 | solid | 15/11 | no | no: stone, slime, mix (gap ok) | no (flammable on top: 1) | n/a (no site) | yes | yes |
+| pareto-mid-mp7-repU-pgF-50b | 50 | solid | 14/12 | no | no: stone, slime, mix (gap ok) | no | n/a (no site) | yes | yes |
 | piston-door-3x3-rb2-sculk-50b | 50 | sculk | 22/37 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | no | yes |
 | piston-door-3x3-rb2s2-50b | 50 | sculk | 22/37 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | no | yes |
 | flat-v6-51b | 51 | solid | 34/32 | yes | yes (gap ok) | yes | no | yes | yes |
@@ -125,9 +156,11 @@
 | logic-min-slime-free-51b | 51 | solid | 24/52 | yes | yes (gap ok) | yes | no | yes | yes |
 | m05-21b-sym_steps__1__5__11__13__19__21__23_-51b-51b | 51 | solid | 26/26 | yes | yes (gap ok) | yes | no | yes | yes |
 | mechanics-rb2-hold-51b | 51 | solid | 22/29 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
+| pareto-mid-mp7-dustU-pgF-51b | 51 | solid | 14/11 | no | no: stone, slime, mix (gap ok) | no | n/a (no site) | yes | yes |
 | slime-free-bgrow-51b | 51 | solid | 24/30 | yes | yes (gap ok) | yes | no | yes | yes |
 | wired00-54b-51b | 51 | solid | 25/24 | yes | yes (gap ok) | yes | no | yes | yes |
 | b38h-bus8-52b | 52 | solid | 36/32 | yes | yes (gap ok) | yes | no | yes | yes |
+| flat-b-v7-52b | 52 | solid | 30/28 | yes | yes (gap ok) | yes | no | yes | yes |
 | flat-v5-52b | 52 | solid | 34/32 | yes | yes (gap ok) | yes | no | yes | yes |
 | logic-min-slime-free-52b | 52 | solid | 24/24 | yes | yes (gap ok) | yes | no | yes | yes |
 | logic-min-v2-52b | 52 | solid | 24/32 | yes | yes (gap ok) | yes | no | yes | yes |
@@ -143,14 +176,17 @@
 | piston-door-3x3-fresh-b-pd3d-53b | 53 | solid | 22/22 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | piston-door-3x3-lm1-53b | 53 | solid | 24/24 | yes | yes (gap ok) | yes | no | yes | yes |
 | flat-v2-54b | 54 | solid | 36/34 | yes | yes (gap ok) | yes | no | yes | yes |
+| flat-v7-full-54b | 54 | solid | 64/64 | yes | yes (gap ok) | yes | no | yes | yes |
 | piston-door-3x3-fresh-b-pd3c-54b | 54 | solid | 24/24 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | piston-door-3x3-lm1-54b | 54 | solid | 24/24 | yes | yes (gap ok) | yes | no | yes | yes |
 | wired00-54b-54b | 54 | solid | 25/24 | yes | yes (gap ok) | yes | no | yes | yes |
+| flat-seam-s55-55b | 55 | solid | 40/40 | yes | yes (gap ok) | yes | no | yes | yes |
 | flat-v2-55b | 55 | solid | 36/34 | yes | yes (gap ok) | yes | no | yes | yes |
 | logic-min-slime-free-55b | 55 | solid | 24/24 | yes | yes (gap ok) | yes | no | yes | yes |
 | flat-v2-57b | 57 | solid | 42/42 | yes | yes (gap ok) | yes | no | yes | yes |
 | mechanics-fast-57b | 57 | solid | 16/17 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | piston-door-3x3-rb2-57b | 57 | solid | 22/29 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
+| eligible-fv58n-58b | 58 | solid | 42/42 | yes | yes (gap ok) | yes | yes (43/43) | yes | yes |
 | piston-door-3x3-obs-s6-58b | 58 | solid | 33/22 | yes | yes (gap ok) | yes | no | yes | yes |
 | search-tool-from-HEAD-gravity-g3-60b-58b | 58 | gravity | 5/11 | no | no: stone, slime, mix (gap ok) | yes | n/a (no site) | yes | yes |
 | piston-door-3x3-fresh-b-pd3b-59b | 59 | solid | 22/22 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
@@ -183,7 +219,9 @@
 | search-tool-center-mech-88b | 88 | solid | 24/31 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
 | mechanics-ta-89b | 89 | solid | 24/34 | no | yes (gap ok) | yes | no | yes | yes |
 | piston-door-3x3-obs-s1-89b | 89 | solid | 34/18 | yes | yes (gap ok) | yes | no | yes | yes |
+| fast-clean-s4c-90b | 90 | solid | 12/7 | yes | yes (gap ok) | no (flammable on top: 5) | n/a (no site) | yes | yes |
 | mechanics-ta-90b | 90 | solid | 22/34 | no | yes (gap ok) | yes | no | yes | yes |
+| fast-clean-s4c-91b | 91 | solid | 12/7 | yes | yes (gap ok) | no (flammable on top: 3) | n/a (no site) | yes | yes |
 | mechanics-ta-91b | 91 | solid | 22/34 | no | yes (gap ok) | yes | no | yes | yes |
 | fast-clean-s4c-93b | 93 | solid | 12/7 | yes | yes (gap ok) | no (flammable on top: 2) | n/a (no site) | yes | yes |
 | piston-door-3x3-v2u2-96b | 96 | solid | 24/31 | no | no: stone, slime, mix (gap ok) | yes | no | yes | yes |
@@ -192,9 +230,9 @@
 | fast-clean-c1r-103b | 103 | solid | 9/7 | yes | yes (gap ok) | yes (flammable on top: 2) | n/a (no site) | yes | yes |
 | mechanics-slime-free-104b | 104 | solid | 22/34 | yes | yes (gap ok) | yes | no | yes | yes |
 | fast-clean-a1c-107b | 107 | solid | 10/7 | yes | yes (gap ok) | no (flammable on top: 3) | n/a (no site) | yes | yes |
+| fast-clean-c1r-107b | 107 | solid | 9/7 | yes | yes (gap ok) | yes (flammable on top: 2) | n/a (no site) | yes | yes |
 | lamp-sweep-a1-107-107b | 107 | solid | 10/7 | no | yes (gap ok) | no (flammable on top: 3) | n/a (no site) | yes | yes |
 | lamp-sweep-o6-107-107b | 107 | solid | 11/7 | no | yes (gap ok) | no (flammable on top: 2) | n/a (no site) | yes | yes |
-| BEST | 107 | solid | 9/7 | yes | yes (gap ok) | yes (flammable on top: 2) | n/a (no site) | yes | yes |
 | fast-clean-c1r-108b | 108 | solid | 9/7 | yes | yes (gap ok) | yes (flammable on top: 2) | n/a (no site) | yes | yes |
 | speed-wire-s4-108b | 108 | solid | 12/7 | no | yes (gap ok) | no | n/a (no site) | yes | yes |
 | search-tool-v2-min-109b | 109 | solid | 24/36 | no | yes (gap ok) | yes | no | yes | yes |
