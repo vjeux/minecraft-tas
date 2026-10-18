@@ -50,15 +50,54 @@ thick<=1,volume<=80`. No run on flat43-full here.
 
 | design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
 |---|---|---|---|---|---|
-| [flat-b-v7-full.txt](flat-b-v7-full.txt) (archive/flat-b-v7-full-50b) | 50 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 32/32 | FLAT, slime-free, 8x10x1 = volume 80 (flat seamless record by volume). flat-b-v7-44b repaired in its own box: `resynth --seamless full+hall --extra 4 --shape thick<=1,volume<=80` (right-ring observer -> corner dropper/observer chain, +3), then `--extra 5 --fit=-3,-4,0:4,5,0` (ceiling-ring observer chain moved to x=-2/-1, +4; floor-ring dust -> smooth stone: a strongly powered block QC-powers the bottom piston through the empty cell above it), then shrunk 51 -> 50 under the filter |
+| [flat-b-v7-full.txt](flat-b-v7-full.txt) (archive/flat-b-v7-full-47b; 50b first) | 47 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 34/34 | FLAT, slime-free, 8x10x1 = volume 80 (flat seamless record by volume). flat-b-v7-44b repaired in its own box: `resynth --seamless full+hall --extra 4 --shape thick<=1,volume<=80` (right-ring observer -> corner dropper/observer chain, +3), then `--extra 5 --fit=-3,-4,0:4,5,0` (ceiling-ring observer chain moved to x=-2/-1, +4; floor-ring dust -> smooth stone: a strongly powered block QC-powers the bottom piston through the empty cell above it), then shrunk 51 -> 47 under the filter (the right column now fires when TR arrives in the ceiling ring, seen by an observer in the corner (3,3,0)) |
 | [flat43-full.txt](flat43-full.txt) (archive/flat43-full-44b) | 44 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 52/48 | FLAT, slime-free, 9x9x1 = volume 81. lamp-sweep-flat43 + (1) P_M's floor-ring observer replaced in-box: observer (-1,-1,0) watching the left ring cell -> lamp (-1,-2,0) -> observer (0,-2,0) into P_M (+1); (2) the obsidian at (0,3,0) was the dust floor AND the stopper that makes the corner piston's early close pulse fail (its row push T, C, ... must not move while C still sits at (1,3,0)): smooth stone there, the stopper moved to the far end of that row: the left trigger chain's repeater (-3,3,0) became an immovable dropper (block entities cannot be pushed; same pulse, 2 gt earlier) |
 | [flat-v7-full.txt](flat-v7-full.txt) (archive/flat-v7-full-54b) | 54 | FULL | yes (props-dyn) | 64/64 | FLAT, slime-free, 9x11x1 = 99. flat-v7-50b repaired by resynth (+4, one row more below) |
+| [fast-hA-full.txt](fast-hA-full.txt) (archive/hA-full-48b) | 48 | FULL | yes (props-dyn) | 24/24 | slime-free, 7x10x4; the FASTEST FULL + hallway door here (goal 3). sf-holdA-hA-43b repaired (+7) and shrunk under the filter. Fastest FULL without the hallway requirement stays rb9-61b (16/17, slime columns: no hallway) |
 | design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
 |---|---|---|---|---|---|
 | [semi-fc2L.txt](semi-fc2L.txt) (archive/fc2-seamL-41b) | 41 | FULL geometry | no | 24/9 | fc2 + O_m moved out of the floor ring: P_M fired by an observer (0,-2,0) watching a stone carried by a slime (-1,-1,0) glued under the left structure. SEMI claim (hallway optional for SEMI) |
 | [full-e41.txt](full-e41.txt) (archive/e41-full-44b) | 44 | FULL | yes | 36/28 | sf-holdA-e41 (41, slime-free) repaired: `resynth --seamless full+hall --extra 3/5 --margin 2` moved the floor-ring observer (P_M's trigger) and the wall-ring observer (left pistons' trigger) out of S (+5), then shrank to 44 under the filter. Contained, dentless, weatherproof, repeater input OK |
 
+## 8x9 from flat-b-v7-full (open)
+
+flat-b-v7-full uses rows -4..5. The bottom row holds the lever (and `--fit` never moves the lever
+or pistons). Why the top row is needed (47-block version): the right ceiling puller s(2,4,0) (TR)
+can be powered only through (3,4,0) inside rows <= 4 (its other sides: the T puller (1,4,0), its
+own head cell, and (2,5,0) whose QC neighbours are all in row 5). (3,4,0) sits in a pocket
+{(3,3),(3,4),(4,2),(4,3),(4,4)} walled off by the ceiling ring, the T puller column and the right
+pistons (4,0),(4,1): signals enter it only through row 5 or through door-block arrivals seen from
+the corner (3,3,0), and the one arrival there (TR into (2,3,0)) is caused by s(2,4,0) itself. So
+an 8x9 version needs a different top (e.g. TR leaving sideways, below).
+ `resynth --fit=-3,-4,0:4,4,0 --seamless full+hall --extra 3..6` (groups through the top
+row, also restricted with --only to rows 2..5) found nothing.
+
+Hand variant [wip/fbv7-89m.txt](wip/fbv7-89m.txt) (8x9): T's puller fed by a delay-4 repeater at
+(0,4,0) (on a smooth stone ring block at (0,3,0)); TR goes RIGHT (H at (4,2,0) replaces the stone)
+so (2,4,0) is free for an observer relay watching T's puller: observers (2,4)(3,4)(4,4) facing
+west -> observer (4,3,0) -> the right pistons. T, TL and TR/R move, but the relay sees the puller
+twice (extend and retract: the second pulse spits the right blocks back) and the bottom-right
+piston (4,0,0) has no power left (it was QC-powered through the stone (4,2,0)). Next: a one-shot
+relay (watch T arriving, or a dropper in the chain) and a feed for (4,0,0) from below
+((4,-1,0) and the corner (3,-1,0) are free).
+
+## 8x9 from flat43-full (one block short) and the 7x9 target
+
+[wip/f43-89.txt](wip/f43-89.txt): flat43-full without its right outer column (x=5): the lever moved
+to (4,5,0) on top of the lever observer, which now faces up and strongly powers a smooth stone at
+(4,3,0); that stone powers the right pullers (4,2,0) directly, (4,1,0) by QC and the corner
+piston (3,3,0) directly. 8 wide x 9 tall, 42 blocks; the left outer column (x=-3) is still there.
+EVERYTHING opens except the bottom-right door block: its puller (4,0,0) was QC-powered through
+the right outer column's stone (5,1,0) and is now in a sealed quadrant {(2,-2),(3,-2),(4,-2),
+(3,-1),(4,-1)} whose only signal source is P_M's own motion (`door grow --k 2` on it: nothing).
+Relaying P_M's motion (observer -> stone -> lamp -> observer) gives the puller TWO pulses per flip
+(lamp on, lamp off): the second one pushes the block back and spits it, the parity problem box56
+describes. Next: a one-shot relay (a copper bulb toggles once per rising edge if P_M's changes fall
+in one observer window), or the bottom-right block leaving DOWN (a puller at (2,-2,0), fed from
+the corner (3,-1,0) by QC) so (4,0,0) is not needed; then the left outer column for 7x9.
+
 ## SUPER is impossible under props' definition (proof)
+
 
 SUPER needs every frame of opening and closing free of circuitry in T and S, where circuitry
 includes moving blocks (moving_piston cells) and piston heads, and every S cell counts, the door
@@ -105,6 +144,18 @@ column falls back down when its support retracts): not built here.
 
 ## Log
 
+* Gravity SUPER (covered), the one open route, sketched (not built): 9 sand; side columns pulled
+  into the side rings by six sticky pistons whose heads rest in the ring behind the sand (covered),
+  each side-ring column standing on a block in the ring CORNER (corners are not in S); the center
+  column (M, C, T) must fall 3 cells into a pit under the floor, so the cell under M (in the floor
+  ring) may only empty DOWNWARD while M still covers it, and the pit must then be clear: e.g. a
+  support K at (1,-1,0) pulled down into (1,-2,0) by a sticky piston at (1,-3,0), then K and that
+  (retracted) piston pulled sideways out of the shaft (cells beside the shaft below the floor are
+  not in S). Closing needs a 3-cell lift of a sand column with support at every tick (sand falls
+  as soon as the cell below empties; pistons do not fall): a pusher under the shaft plus side
+  feeders that slide a new block under the stack after each push, then the feeders' blocks are
+  taken out again on the next opening. Every step can stay covered or below the floor, but it is a
+  large sequential machine; `door seamless-why` and `--seamless supercov` are ready to judge it.
 * fc2's only open blocker is O_m (2,-1,0) (P_M's trigger). P_M's neighbors outside S: (0,-2,0),
   (2,-2,0), (1,-3,0), (1,-2,+-1); an observer there must watch (-1,-2,0) / (3,-2,0) / (1,-4,0) /
   (1,-2,+-2). Cheapest found: glue a slime + stone under one side structure so the stone leaves the
