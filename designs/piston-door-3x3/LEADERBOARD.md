@@ -10,10 +10,10 @@ Every design on main and on the `explore/*` branches, verified with main's verif
 
 | # | blocks | walkway | source |
 |---|---|---|---|
-| 1 | 40 | clean | `HEAD:designs/piston-door-3x3/archive/fc2-40b.txt` |
-| 2 | 40 | clean | `HEAD:designs/piston-door-3x3/archive/fc2-min-40b.txt` |
-| 3 | 40 | clean | `HEAD:designs/piston-door-3x3/archive/riders-fx1-40b.txt` |
-| 4 | 40 | clean | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/fc2-xglass.txt` |
+| 1 | 40 | clean | `HEAD:designs/piston-door-3x3/archive/fc2-40b-2.txt` |
+| 2 | 40 | clean | `HEAD:designs/piston-door-3x3/archive/fc2-40b.txt` |
+| 3 | 40 | clean | `HEAD:designs/piston-door-3x3/archive/fc2-min-40b.txt` |
+| 4 | 40 | clean | `HEAD:designs/piston-door-3x3/archive/riders-fx1-40b.txt` |
 | 5 | 41 | clean | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
 | 6 | 42 | clean | `HEAD:designs/piston-door-3x3/archive/fc1-42b.txt` |
 | 7 | 43 | clean | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp8-43b.txt` |
@@ -90,12 +90,12 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 
 | # | ticks | open | close | blocks | category | source |
 |---|---|---|---|---|---|---|
-| 1 | 11 | 11 | 7 | 119 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/BEST.txt` |
-| 2 | 11 | 11 | 7 | 120 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o6-120b.txt` |
-| 3 | 11 | 11 | 7 | 122 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o5-122b.txt` |
+| 1 | 11 | 11 | 7 | 119 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-119b.txt` |
+| 2 | 11 | 11 | 7 | 120 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b.txt` |
+| 3 | 11 | 11 | 7 | 122 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o5-122b.txt` |
 | 4 | 11 | 11 | 7 | 135 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o2-135b.txt` |
 | 5 | 11 | 11 | 7 | 137 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o2-137b.txt` |
-| 6 | 12 | 12 | 7 | 108 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-s4-108b.txt` |
+| 6 | 12 | 12 | 7 | 108 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-s4-108b.txt` |
 | 7 | 12 | 12 | 7 | 109 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-109b.txt` |
 | 8 | 12 | 12 | 19 | 114 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w1-114b.txt` |
 | 9 | 12 | 12 | 7 | 116 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-116b.txt` |
@@ -107,11 +107,11 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 
 | # | ticks | open | close | blocks | category | source |
 |---|---|---|---|---|---|---|
-| 1 | 7 | 12 | 7 | 108 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-s4-108b.txt` |
+| 1 | 7 | 12 | 7 | 108 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-s4-108b.txt` |
 | 2 | 7 | 12 | 7 | 109 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-109b.txt` |
 | 3 | 7 | 12 | 7 | 116 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-116b.txt` |
-| 4 | 7 | 11 | 7 | 119 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/BEST.txt` |
-| 5 | 7 | 11 | 7 | 120 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o6-120b.txt` |
+| 4 | 7 | 11 | 7 | 119 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-119b.txt` |
+| 5 | 7 | 11 | 7 | 120 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b.txt` |
 
 ## Fastest close (solid only)
 
@@ -119,12 +119,12 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 
 | # | ticks | open | close | blocks | category | source |
 |---|---|---|---|---|---|---|
-| 1 | 7 | 12 | 7 | 108 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-s4-108b.txt` |
+| 1 | 7 | 12 | 7 | 108 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-s4-108b.txt` |
 | 2 | 7 | 12 | 7 | 109 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-109b.txt` |
 | 3 | 7 | 12 | 7 | 116 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-116b.txt` |
-| 4 | 7 | 11 | 7 | 119 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/BEST.txt` |
-| 5 | 7 | 11 | 7 | 120 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o6-120b.txt` |
-| 6 | 7 | 11 | 7 | 122 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o5-122b.txt` |
+| 4 | 7 | 11 | 7 | 119 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-119b.txt` |
+| 5 | 7 | 11 | 7 | 120 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b.txt` |
+| 6 | 7 | 11 | 7 | 122 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o5-122b.txt` |
 | 7 | 7 | 12 | 7 | 125 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-125b.txt` |
 | 8 | 7 | 12 | 7 | 128 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-128b.txt` |
 | 9 | 7 | 12 | 7 | 134 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-134b.txt` |
@@ -148,12 +148,12 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 
 | # | ticks | open | close | blocks | category | source |
 |---|---|---|---|---|---|---|
-| 1 | 18 | 11 | 7 | 119 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/BEST.txt` |
-| 2 | 18 | 11 | 7 | 120 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o6-120b.txt` |
-| 3 | 18 | 11 | 7 | 122 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o5-122b.txt` |
+| 1 | 18 | 11 | 7 | 119 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-119b.txt` |
+| 2 | 18 | 11 | 7 | 120 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b.txt` |
+| 3 | 18 | 11 | 7 | 122 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o5-122b.txt` |
 | 4 | 18 | 11 | 7 | 135 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o2-135b.txt` |
 | 5 | 18 | 11 | 7 | 137 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-o2-137b.txt` |
-| 6 | 19 | 12 | 7 | 108 | solid | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-s4-108b.txt` |
+| 6 | 19 | 12 | 7 | 108 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-s4-108b.txt` |
 | 7 | 19 | 12 | 7 | 109 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-109b.txt` |
 | 8 | 19 | 12 | 7 | 116 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-116b.txt` |
 | 9 | 19 | 12 | 7 | 125 | solid | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-125b.txt` |
@@ -163,10 +163,10 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 
 | # | blocks | category | slime-free | verdict | source |
 |---|---|---|---|---|---|
-| 1 | 40 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b.txt` |
-| 2 | 40 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-min-40b.txt` |
-| 3 | 40 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-fx1-40b.txt` |
-| 4 | 40 | solid |  | WORKS | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/fc2-xglass.txt` |
+| 1 | 40 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-2.txt` |
+| 2 | 40 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b.txt` |
+| 3 | 40 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-min-40b.txt` |
+| 4 | 40 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-fx1-40b.txt` |
 | 5 | 41 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
 | 6 | 42 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/fc1-42b.txt` |
 | 7 | 43 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp8-43b.txt` |
@@ -236,7 +236,7 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 | 71 | 96 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2u2-96b.txt` |
 | 72 | 99 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-slime-free-99b.txt` |
 | 73 | 104 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-slime-free-104b.txt` |
-| 74 | 108 | solid | yes | WORKS | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-s4-108b.txt` |
+| 74 | 108 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-s4-108b.txt` |
 | 75 | 109 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-v2-min-109b.txt` |
 | 76 | 109 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-109b.txt` |
 | 77 | 113 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-v2-min-113b.txt` |
@@ -246,12 +246,12 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 | 81 | 116 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-116b.txt` |
 | 82 | 117 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-117b.txt` |
 | 83 | 118 | solid |  | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-118b.txt` |
-| 84 | 119 | solid | yes | WORKS | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/BEST.txt` |
-| 85 | 120 | solid | yes | WORKS | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o6-120b.txt` |
+| 84 | 119 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-119b.txt` |
+| 85 | 120 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b.txt` |
 | 86 | 121 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-121b.txt` |
 | 87 | 122 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-a-sf1-w2-122b.txt` |
-| 88 | 122 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-122b.txt` |
-| 89 | 122 | solid | yes | WORKS | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-o5-122b.txt` |
+| 88 | 122 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o5-122b.txt` |
+| 89 | 122 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-122b.txt` |
 | 90 | 123 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w1-123b.txt` |
 | 91 | 125 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-125b.txt` |
 | 92 | 126 | solid | yes | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-a-sf1-w2-126b.txt` |
@@ -326,8 +326,8 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 | 161 | 27 | solid | yes | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/sf1-mech.txt` |
 | 162 | 27 | solid | yes | broken: at offset [0, 0, 0]: port lever [5, 5, 1] is minecraft:air, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-1.txt` |
 | 163 | 28 | solid | yes | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf-mech.txt` |
-| 164 | 28 | solid |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/wip/v2-mech.txt` |
-| 165 | 28 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/e1-mech.txt` |
+| 164 | 28 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/e1-mech.txt` |
+| 165 | 28 | solid |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/wip/v2-mech.txt` |
 | 166 | 29 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/mechanics/rb-pulsed-ideal-mech.txt` |
 | 167 | 30 | solid |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/c1-mech.txt` |
 | 168 | 30 | solid |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/redstone-block/m2-mech.txt` |
@@ -344,19 +344,19 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 | 179 | 33 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-3.txt` |
 | 180 | 33 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-6.txt` |
 | 181 | 35 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/c2-mech.txt` |
-| 182 | 35 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-4.txt` |
-| 183 | 35 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/lo2-35.txt` |
+| 182 | 35 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/lo2-35.txt` |
+| 183 | 35 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-4.txt` |
 | 184 | 36 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp2.txt` |
 | 185 | 36 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-7.txt` |
-| 186 | 37 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/lo-37.txt` |
-| 187 | 37 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/pb-37.txt` |
-| 188 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noOb.txt` |
-| 189 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noPL.txt` |
-| 190 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noPM.txt` |
-| 191 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noRq.txt` |
-| 192 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/e2-base.txt` |
-| 193 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/plmove0.txt` |
-| 194 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/fresh-e:designs/piston-door-3x3/tracks/fresh-e/plmove1.txt` |
+| 186 | 37 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/lo-37.txt` |
+| 187 | 37 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/pb-37.txt` |
+| 188 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/e2-base.txt` |
+| 189 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/plmove0.txt` |
+| 190 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/plmove1.txt` |
+| 191 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noOb.txt` |
+| 192 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noPL.txt` |
+| 193 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noPM.txt` |
+| 194 | 38 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noRq.txt` |
 | 195 | 39 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-c/fc1-nopl.txt` |
 | 196 | 39 | solid |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/mechanics/fc2-split-ideal-mech.txt` |
 | 197 | 39 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-base.txt` |
@@ -403,10 +403,10 @@ Game ticks after the lever flip (worst of the cycles); ties by block count.
 | 238 | 103 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2nf-1.txt` |
 | 239 | 111 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o0.txt` |
 | 240 | 114 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o1.txt` |
-| 241 | 115 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/wire/p0.txt` |
+| 241 | 115 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/p0.txt` |
 | 242 | 117 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/top-control/sf-skel.txt` |
 | 243 | 121 | solid |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:slime_block, but | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v1-min-invalid.txt` |
-| 244 | 121 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/speed:designs/piston-door-3x3/tracks/speed/wire/o4.txt` |
+| 244 | 121 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o4.txt` |
 | 245 | 122 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-2.txt` |
 | 246 | 123 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-0.txt` |
 | 247 | 123 | solid | yes | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-3.txt` |
