@@ -1223,6 +1223,9 @@ pub struct ResynthOptions {
     pub max_close: Option<u32>,
     /// Write every improvement here as soon as it is found (the design as judged).
     pub save_to: Option<std::path::PathBuf>,
+    /// After an improvement, search every group again (default: only groups whose
+    /// neighborhood changed).
+    pub global_retry: bool,
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
@@ -1292,6 +1295,17 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
     let mut cur = design.clone();
     let mut tried: HashSet<(u64, Vec<Pos>)> = HashSet::new();
     let sandboxes = Sandboxes::new(pool);
+    // A group's candidate circuits depend only on the blocks around it (box = bounding box +
+    // margin, sinks = pistons within 3): after an improvement elsewhere, a group whose
+    // neighborhood is unchanged is not searched again (unless --global-retry).
+    let local_key = |d: &Design, g: &[Pos]| -> u64 {
+        let r = o.margin + 3;
+        let mut near: Vec<(&Pos, &String)> = d.blocks.iter().filter(|(p, _)| g.iter().any(|c| (0..3).all(|i| (p[i] - c[i]).abs() <= r))).collect();
+        near.sort();
+        let mut hs = DefaultHasher::new();
+        near.hash(&mut hs);
+        hs.finish()
+    };
     'outer: loop {
         let (changing, swept) = {
             let mut w = pool.worker(0);
@@ -1302,7 +1316,8 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
         let h = crate::search::design_hash(&cur);
         log(&format!("{} blocks: {} removable, {} groups of {}..{}", crate::block_count(&cur), rem.len(), gs.len(), o.min_size, o.max_size));
         for g in gs {
-            if !tried.insert((h, g.clone())) {
+            let key = if o.global_retry { h } else { local_key(&cur, &g) };
+            if !tried.insert((key, g.clone())) {
                 continue;
             }
             let mut base = cur.clone();

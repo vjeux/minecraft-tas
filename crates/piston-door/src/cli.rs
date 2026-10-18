@@ -840,6 +840,10 @@ pub enum DoorCmd {
         /// Speed bounds: reject doors that close later than this many ticks.
         #[arg(long)]
         max_close: Option<u32>,
+        /// After an improvement, search every group again (default: only the groups whose
+        /// neighborhood, the blocks within margin + 3, changed).
+        #[arg(long)]
+        global_retry: bool,
     },
 }
 
@@ -1459,10 +1463,22 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close } => {
+        DoorCmd::Resynth { design, out, min_size, max_size, palette, floors, margin, max_cands, loose, workers, extra_offsets, screen_offsets, screen_ticks, max_open, max_close, global_retry } => {
             use crate::synth::*;
             let d = load_design(&design)?;
-            let o = ResynthOptions { min_size, max_size, palette: palette_states(&palette)?, floors: palette_states(&floors)?, margin, max_cands, loose, max_open, max_close, save_to: Some(out.clone()) };
+            let o = ResynthOptions {
+                min_size,
+                max_size,
+                palette: palette_states(&palette)?,
+                floors: palette_states(&floors)?,
+                margin,
+                max_cands,
+                loose,
+                max_open,
+                max_close,
+                save_to: Some(out.clone()),
+                global_retry,
+            };
             let offsets = crate::search::judge_offsets(extra_offsets);
             let judge = VerifyOptions { offsets: offsets.clone(), ..Default::default() };
             let screen = VerifyOptions { cycles: 1, max_ticks: screen_ticks, offsets: offsets.iter().take(screen_offsets.max(1)).copied().collect(), keep_frames: false };
