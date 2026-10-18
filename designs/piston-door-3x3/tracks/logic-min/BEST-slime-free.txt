@@ -36,20 +36,20 @@ layer 0:
   .
 layer 1:
   G.KKK.ID
-  S......S
+  S
   .
 layer 2:
   G.KKK.IC
-  B......F
-  ......SS
+  B
+  .
 layer 3:
   ....K..B
-  A..P...S
-  oooJRSrr
+  A..P.S.S
+  oooJ..S
 layer 4:
   ...sDKoL
-  .......F
-  .......S
+  .....F.F
+  ....RSDS
 layer 5:
   ...sBSO
   .

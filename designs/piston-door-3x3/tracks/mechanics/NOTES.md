@@ -23,6 +23,7 @@ patch file in this folder applied to its parent.
 | 50 | solid | mech-50.txt | rb5 52 + rb2-bchain.patch | same bridge on rb5's silent hold |
 | **48** | solid | mech-48.txt | 50 + rb5-hold.patch | silent-hold block on the floor of the lever's repeater |
 | **47** | solid | mech-47.txt = BEST.txt | 48 + bm-obs.patch | top-control's trick: P_BM pulse-driven by an observer on the bottom-right door block (no redstone block, backbone 2 shorter) |
+| **42** | sculk | sculk-42.txt = BEST-sculk.txt | search-tool's sculk 43 + bm-obs.patch | same P_BM trick on the sculk-hold design (which already used the pulse bridge) |
 | 104 | solid, slime-free | sf-104.txt = BEST-slime-free.txt | mech-90 + sf2.patch | side columns on individual pullers |
 
 ### 91 / 89: the A torch (v2 family)
@@ -63,3 +64,15 @@ the right. The right top puller's quasi cell (4,3,0) must not touch a powered bl
 * Removing the B pulse stretch or shortening the 16gt silent hold: the hold must outlast the
   2nd-order updates X sends through Q's head at the first A pulse (L+12..14) and end before A
   lands back (L+18).
+
+## Next ideas
+
+* The silent hold (7 blocks) exists only because the lever's off-update and X's 2nd-order updates
+  (through Q's head, L+12..14) reach Q. If Q were quasi-powered by the lever's block from two
+  cells away (silent at the off edge) and P_L were not Q's neighbor, R_B's own window (10..18)
+  could cover the X updates through a silent path: no delay line at all (needs a P_L
+  relocation; not tried).
+* B chain (9 in the rb family): R_B, O and X are pinned by A's neighbors; only O2's 4-block
+  bridge is negotiable and needs the lever (pinned by X_L) closer to R_B's back.
+* Slime-free: logic-min's pulse-driven side columns (53) beat individual torches (104 here) by
+  50 blocks; the remaining cost there is P_T's asymmetric net.
