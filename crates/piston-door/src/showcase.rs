@@ -329,6 +329,50 @@ pub fn boards(all: &[Archived], records: &HashMap<String, String>) -> Vec<Board>
     if let Some(best) = smallest {
         out.push(Board { title: "Smallest box (solid)", rule: "fewest cells in the build's bounding box (door included), ties by blocks", key: None, best });
     }
+    // The community regulation's boards (leaderboard.rs `seamless_boards`): seamless tier,
+    // hallway, volume and record eligibility from the `door properties` / `properties-dyn`
+    // caches next to the archive.
+    if let Some(dir) = all.first().and_then(|a| a.path.parent()) {
+        let props = crate::properties::load_cache(dir);
+        let dynp = crate::properties::load_dyn(dir);
+        let get = |a: &Archived, k: &str| -> String {
+            let h = crate::leaderboard::design_hash(&a.design);
+            dynp.get(&h).and_then(|p| p.get(k)).or_else(|| props.get(&h).and_then(|p| p.get(k))).cloned().unwrap_or_default()
+        };
+        let yes = |v: String| v.starts_with("yes");
+        let tier = |a: &Archived| crate::leaderboard::tier_rank(&get(a, "seamless"));
+        let vol = |a: &Archived| get(a, "volume").parse::<i64>().ok().or_else(|| a.facts.shape.map(|s| s.volume() as i64)).unwrap_or(i64::MAX);
+        let hall = |a: &Archived| yes(get(a, "hallway"));
+        let pick = |flat_only: bool| {
+            all.iter()
+                .filter(|a| a.facts.category == "solid" && a.facts.rotation_safe && tier(a) > 0 && (!flat_only || (a.facts.slime_free && a.facts.flat)))
+                .min_by_key(|a| (std::cmp::Reverse(tier(a)), !hall(a), vol(a), a.facts.blocks, a.stem.clone()))
+                .cloned()
+        };
+        if let Some(best) = pick(false) {
+            out.push(Board { title: "Seamless", rule: "best seamless tier, then hallway-compatible, then volume, then blocks", key: None, best });
+        }
+        if let Some(best) = pick(true) {
+            out.push(Board { title: "Seamless, flat, no slime or honey", rule: "the same for flat, slime-free doors", key: None, best });
+        }
+        let eligible = |a: &Archived| {
+            tier(a) > 0
+                && yes(get(a, "lever_surface"))
+                && yes(get(a, "lever_support"))
+                && yes(get(a, "repeater_input"))
+                && yes(get(a, "uses"))
+                && yes(get(a, "steps"))
+                && hall(a)
+        };
+        let best = all
+            .iter()
+            .filter(|a| a.facts.rotation_safe && a.facts.category != "entity" && eligible(a))
+            .min_by_key(|a| (vol(a), a.facts.blocks, a.stem.clone()))
+            .cloned();
+        if let Some(best) = best {
+            out.push(Board { title: "Record-eligible (community regulation)", rule: "eligible for records, smallest volume, then blocks", key: None, best });
+        }
+    }
     out
 }
 
