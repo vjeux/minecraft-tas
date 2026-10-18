@@ -357,6 +357,20 @@ impl Worker {
         parse_region(&v, &v["data"])
     }
 
+    /// Positions in the box whose block cannot survive where it stands (`canSurvive` false):
+    /// floating levers, torches, dust, repeaters... (raw placement keeps them).
+    pub fn unsupported(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<Vec<Pos>> {
+        let v = self.call(json!({"op": "unsupported", "sandbox": sandbox, "from": from, "to": to}))?;
+        let mut out = Vec::new();
+        for p in v["positions"].as_array().cloned().unwrap_or_default() {
+            let c: Vec<i32> = p.as_array().map(|a| a.iter().filter_map(|n| n.as_i64()).map(|n| n as i32).collect()).unwrap_or_default();
+            if c.len() == 3 {
+                out.push([c[0], c[1], c[2]]);
+            }
+        }
+        Ok(out)
+    }
+
     /// Right-click a block (levers and buttons are toggled/pressed directly).
     pub fn use_block(&mut self, sandbox: u32, pos: Pos) -> Result<String> {
         let v = self.call(json!({"op": "use", "sandbox": sandbox, "pos": pos}))?;
