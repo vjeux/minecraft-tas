@@ -1,0 +1,190 @@
+[    7.8s] start: 47 blocks, open 30 / close 28
+[   16.4s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   27.4s] seamless QUART z-,z+ below FULL: repairing groups through (0,3,0) (2,-1,0)
+[   27.4s] 47 blocks: 26 removable, 8 groups of 2..3
+[   31.3s]   group [(0,3,0)obse] -> <= 5 blocks: 2610 circuits in 3.8s
+[   31.3s]     size 1: 4 candidates screened in 0.0s, 1 passed the screen
+[   31.3s]     size 2: 6 candidates screened in 0.0s, 1 passed the screen
+[   31.5s]     size 3: 37 candidates screened in 0.1s, 8 passed the screen
+[   31.7s]     size 4: 103 candidates screened in 0.1s, 10 passed the screen
+[   32.4s]     size 5: 701 candidates screened in 0.5s, 56 passed the screen
+[   32.7s]   group [(2,-1,0)wire] -> <= 5 blocks: 851 circuits in 1.4s
+[   44.4s]   group [(0,3,0)obse (0,4,0)obse] -> <= 6 blocks: 34871 circuits in 11.5s
+[   44.5s]     size 2: 38 candidates screened in 0.0s, 1 passed the screen
+[   44.6s]     size 3: 160 candidates screened in 0.0s, 2 passed the screen
+[   44.8s]     size 4: 1080 candidates screened in 0.2s, 19 passed the screen
+[   45.9s]     size 5: 4408 candidates screened in 1.0s, 42 passed the screen
+[   52.1s]     size 6: 20415 candidates screened in 6.1s, 208 passed the screen
+[   52.9s]   group [(2,-2,0)obse (2,-1,0)wire] -> <= 6 blocks: 26104 circuits in 8.4s
+[  131.6s]     size 7: 201013 candidates screened in 62.2s, 27 passed the screen
+[  144.8s]     VERIFIED size 7: +(-2,3,0) smooth_stone +(-2,4,0) repeater[delay=2,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) smooth_stone +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) dropper[facing=up,triggered=false] [2 block, 1 indicator, 3 observer, 1 repeater] -- door works at 32 positions, open 32 / close 32
+[  144.8s]     VERIFIED size 7: +(-2,3,0) smooth_stone +(-2,4,0) repeater[delay=2,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) dropper[facing=up,triggered=false] [1 block, 1 dust, 1 indicator, 3 observer, 1 repeater] -- door works at 32 positions, open 32 / close 32
+[  144.8s]     VERIFIED size 7: +(-2,3,0) smooth_stone +(-2,4,0) repeater[delay=2,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) dropper[facing=up,triggered=false] [1 block, 1 dust, 1 indicator, 3 observer, 1 repeater] -- door works at 32 positions, open 32 / close 32
+[  144.8s]     VERIFIED size 7: +(-2,3,0) smooth_stone +(-2,4,0) repeater[delay=4,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) smooth_stone +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) redstone_lamp[lit=false] [2 block, 1 lamp, 3 observer, 1 repeater] -- door works at 32 positions, open 50 / close 50
+[  144.8s]     VERIFIED size 7: +(-2,3,0) smooth_stone +(-2,4,0) repeater[delay=4,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) redstone_lamp[lit=false] [1 block, 1 dust, 1 lamp, 3 observer, 1 repeater] -- door works at 32 positions, open 50 / close 50
+[  144.8s]     VERIFIED size 7: +(-2,3,0) smooth_stone +(-2,4,0) repeater[delay=4,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) redstone_lamp[lit=false] [1 block, 1 dust, 1 lamp, 3 observer, 1 repeater] -- door works at 32 positions, open 50 / close 50
+[  144.8s]     VERIFIED size 7: +(-2,3,0) observer[facing=east,powered=false] +(-2,4,0) repeater[delay=2,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) smooth_stone +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) dropper[facing=up,triggered=false] [1 block, 1 indicator, 4 observer, 1 repeater] -- door works at 32 positions, open 32 / close 32
+[  144.8s]     VERIFIED size 7: +(-2,3,0) observer[facing=east,powered=false] +(-2,4,0) repeater[delay=2,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) redstone_wire[east=side,north=side,power=0,south=side,west=side] +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) dropper[facing=up,triggered=false] [1 dust, 1 indicator, 4 observer, 1 repeater] -- door works at 32 positions, open 32 / close 32
+[  144.8s]     VERIFIED size 7: +(-2,3,0) observer[facing=east,powered=false] +(-2,4,0) repeater[delay=2,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) redstone_wire[east=none,north=none,power=0,south=none,west=none] +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) dropper[facing=up,triggered=false] [1 dust, 1 indicator, 4 observer, 1 repeater] -- door works at 32 positions, open 32 / close 32
+[  144.8s]     VERIFIED size 7: +(-2,3,0) observer[facing=east,powered=false] +(-2,4,0) repeater[delay=4,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) smooth_stone +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) redstone_lamp[lit=false] [1 block, 1 lamp, 4 observer, 1 repeater] -- door works at 32 positions, open 50 / close 50
+[  144.8s]   group [(0,3,0)obse (0,4,0)obse (0,5,0)obse] -> <= 7 blocks: 259840 circuits in 90.8s FOUND
+[  144.8s] REPAIRED 47 -> 51 blocks: [(0,3,0)obse (0,4,0)obse (0,5,0)obse] replaced by +(-2,3,0) smooth_stone +(-2,4,0) repeater[delay=2,facing=east,locked=false,powered=false] +(-2,5,0) observer[facing=down,powered=false] +(-1,3,0) observer[facing=down,powered=false] +(-1,4,0) smooth_stone +(-1,5,0) observer[facing=west,powered=false] +(0,5,0) dropper[facing=up,triggered=false] -- door works at 32 positions, open 32 / close 32
+[  144.8s]   saved to designs/piston-door-3x3/tracks/seamless/wip/fbv7-fit.txt
+[  156.0s] seamless QUART z-,z+ below FULL: repairing groups through (2,-1,0)
+[  156.0s] 51 blocks: 30 removable, 4 groups of 2..3
+[  156.0s]     size 1: 4 candidates screened in 0.0s, 2 passed the screen
+[  165.7s]     VERIFIED size 1: +(2,-1,0) smooth_stone [1 block] -- door works at 32 positions, open 32 / close 32
+[  165.7s]   group [(2,-1,0)wire] -> <= 5 blocks: 851 circuits in 9.7s FOUND
+[  165.7s] REPAIRED 51 -> 51 blocks: [(2,-1,0)wire] replaced by +(2,-1,0) smooth_stone -- door works at 32 positions, open 32 / close 32
+[  165.7s]   saved to designs/piston-door-3x3/tracks/seamless/wip/fbv7-fit.txt
+[  176.9s] 51 blocks: 30 removable, 120 groups of 2..3
+[  176.9s]   group [(-3,-2,0)obse (-3,-1,0)obse] -> <= 1 blocks: 6 circuits in 0.0s
+[  176.9s]   group [(-3,-2,0)obse (-2,-2,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[  176.9s]   group [(-3,-1,0)obse (-3,0,0)obse] -> <= 1 blocks: 5 circuits in 0.0s
+[  176.9s]   group [(-3,-1,0)obse (-2,-2,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[  176.9s]   group [(-3,0,0)obse (-3,1,0)ston] -> <= 1 blocks: 6 circuits in 0.0s
+[  176.9s]   group [(-3,1,0)ston (-3,2,0)wire] -> <= 1 blocks: 4 circuits in 0.0s
+[  176.9s]   group [(-3,2,0)wire (-2,3,0)smoo] -> <= 1 blocks: 7 circuits in 0.0s
+[  176.9s]   group [(-2,-2,0)obse (-1,-3,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[  176.9s]   group [(-2,-2,0)obse (-1,-2,0)obse] -> <= 1 blocks: 12 circuits in 0.0s
+[  176.9s]   group [(-2,3,0)smoo (-2,4,0)repe] -> <= 1 blocks: 8 circuits in 0.0s
+[  176.9s]   group [(-2,3,0)smoo (-1,4,0)smoo] -> <= 1 blocks: 11 circuits in 0.0s
+[  176.9s]   group [(-2,3,0)smoo (-1,3,0)obse] -> <= 1 blocks: 9 circuits in 0.0s
+[  177.0s]   group [(-2,4,0)repe (-1,5,0)obse] -> <= 1 blocks: 18 circuits in 0.0s
+[  177.0s]   group [(-2,4,0)repe (-1,4,0)smoo] -> <= 1 blocks: 12 circuits in 0.0s
+[  177.0s]   group [(-2,4,0)repe (-2,5,0)obse] -> <= 1 blocks: 8 circuits in 0.0s
+[  177.0s]   group [(-2,4,0)repe (-1,3,0)obse] -> <= 1 blocks: 16 circuits in 0.0s
+[  177.0s]   group [(-2,5,0)obse (-1,5,0)obse] -> <= 1 blocks: 6 circuits in 0.0s
+[  177.0s]   group [(-2,5,0)obse (-1,4,0)smoo] -> <= 1 blocks: 9 circuits in 0.0s
+[  177.0s]   group [(-1,-3,0)obse (-1,-2,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[  177.0s]   group [(-1,-3,0)obse (0,-2,0)ston] -> <= 1 blocks: 9 circuits in 0.0s
+[  177.0s]   group [(-1,-2,0)obse (0,-2,0)ston] -> <= 1 blocks: 10 circuits in 0.0s
+[  177.0s]   group [(-1,3,0)obse (-1,4,0)smoo] -> <= 1 blocks: 4 circuits in 0.0s
+[  177.0s]   group [(-1,4,0)smoo (-1,5,0)obse] -> <= 1 blocks: 8 circuits in 0.0s
+[  177.0s]   group [(-1,4,0)smoo (0,5,0)drop] -> <= 1 blocks: 12 circuits in 0.0s
+[  177.0s]   group [(-1,5,0)obse (0,5,0)drop] -> <= 1 blocks: 9 circuits in 0.0s
+[  177.0s]   group [(0,5,0)drop (1,5,0)obse] -> <= 1 blocks: 11 circuits in 0.0s
+[  177.0s]   group [(1,-4,0)obse (2,-3,0)repe] -> <= 1 blocks: 19 circuits in 0.0s
+[  177.0s]   group [(1,-4,0)obse (2,-4,0)obse] -> <= 1 blocks: 4 circuits in 0.0s
+[  177.0s]   group [(1,5,0)obse (2,5,0)smoo] -> <= 1 blocks: 1 circuits in 0.0s
+[  177.1s]   group [(2,-4,0)obse (3,-3,0)wire] -> <= 1 blocks: 6 circuits in 0.0s
+[  177.1s]   group [(2,-4,0)obse (2,-3,0)repe] -> <= 1 blocks: 11 circuits in 0.0s
+[  177.1s]   group [(2,-4,0)obse (3,-4,0)ston] -> <= 1 blocks: 3 circuits in 0.0s
+[  177.1s]   group [(2,-3,0)repe (3,-3,0)wire] -> <= 1 blocks: 6 circuits in 0.0s
+[  177.1s]   group [(2,-3,0)repe (2,-2,0)obse] -> <= 1 blocks: 12 circuits in 0.0s
+[  177.1s]   group [(2,-3,0)repe (3,-4,0)ston] -> <= 1 blocks: 15 circuits in 0.0s
+[  177.1s]   group [(2,-2,0)obse (2,-1,0)smoo] -> <= 1 blocks: 2 circuits in 0.0s
+[  177.1s]   group [(2,-2,0)obse (3,-3,0)wire] -> <= 1 blocks: 4 circuits in 0.0s
+[  177.1s]   group [(2,5,0)smoo (3,4,0)drop] -> <= 1 blocks: 12 circuits in 0.0s
+[  177.1s]   group [(3,-4,0)ston (3,-3,0)wire] -> <= 1 blocks: 1 circuits in 0.0s
+[  177.1s]   group [(3,3,0)obse (3,4,0)drop] -> <= 1 blocks: 5 circuits in 0.0s
+[  177.1s]     size 1: 7 candidates screened in 0.0s, 1 passed the screen
+[  186.9s]     VERIFIED size 1: +(4,2,0) smooth_stone [1 block] -- door works at 32 positions, open 32 / close 32
+[  186.9s]   group [(3,3,0)obse (4,2,0)ston] -> <= 1 blocks: 7 circuits in 9.8s FOUND
+[  186.9s] IMPROVED 51 -> 50 blocks: [(3,3,0)obse (4,2,0)ston] replaced by +(4,2,0) smooth_stone -- door works at 32 positions, open 32 / close 32
+[  186.9s]   saved to designs/piston-door-3x3/tracks/seamless/wip/fbv7-fit.txt
+[  198.6s] 50 blocks: 29 removable, 109 groups of 2..3
+[  198.6s]   group [(-3,-2,0)obse (-2,-2,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[  198.6s]   group [(-3,-1,0)obse (-2,-2,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[  198.6s]   group [(-3,2,0)wire (-2,3,0)smoo] -> <= 1 blocks: 7 circuits in 0.0s
+[  198.6s]   group [(-2,-2,0)obse (-1,-3,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[  198.6s]   group [(-2,-2,0)obse (-1,-2,0)obse] -> <= 1 blocks: 12 circuits in 0.0s
+[  198.6s]   group [(-2,3,0)smoo (-1,4,0)smoo] -> <= 1 blocks: 11 circuits in 0.0s
+[  198.6s]   group [(-2,3,0)smoo (-2,4,0)repe] -> <= 1 blocks: 8 circuits in 0.0s
+[  198.6s]   group [(-2,3,0)smoo (-1,3,0)obse] -> <= 1 blocks: 9 circuits in 0.0s
+[  198.6s]   group [(-2,4,0)repe (-1,4,0)smoo] -> <= 1 blocks: 12 circuits in 0.0s
+[  198.6s]   group [(-2,4,0)repe (-1,5,0)obse] -> <= 1 blocks: 18 circuits in 0.0s
+[  198.6s]   group [(-2,4,0)repe (-2,5,0)obse] -> <= 1 blocks: 8 circuits in 0.0s
+[  198.6s]   group [(-2,4,0)repe (-1,3,0)obse] -> <= 1 blocks: 16 circuits in 0.0s
+[  198.7s]   group [(-2,5,0)obse (-1,4,0)smoo] -> <= 1 blocks: 9 circuits in 0.0s
+[  198.7s]   group [(-2,5,0)obse (-1,5,0)obse] -> <= 1 blocks: 6 circuits in 0.0s
+[  198.7s]   group [(-1,-3,0)obse (0,-2,0)ston] -> <= 1 blocks: 9 circuits in 0.0s
+[  198.7s]   group [(-1,-3,0)obse (-1,-2,0)obse] -> <= 1 blocks: 7 circuits in 0.0s
+[  198.7s]   group [(-1,-2,0)obse (0,-2,0)ston] -> <= 1 blocks: 10 circuits in 0.0s
+[  198.7s]   group [(-1,3,0)obse (-1,4,0)smoo] -> <= 1 blocks: 4 circuits in 0.0s
+[  198.7s]   group [(-1,4,0)smoo (0,5,0)drop] -> <= 1 blocks: 12 circuits in 0.0s
+[  198.7s]   group [(-1,4,0)smoo (-1,5,0)obse] -> <= 1 blocks: 8 circuits in 0.0s
+[  198.7s]   group [(-1,5,0)obse (0,5,0)drop] -> <= 1 blocks: 9 circuits in 0.0s
+[  198.7s]   group [(0,5,0)drop (1,5,0)obse] -> <= 1 blocks: 11 circuits in 0.0s
+[  198.7s]   group [(1,-4,0)obse (2,-3,0)repe] -> <= 1 blocks: 19 circuits in 0.0s
+[  198.7s]   group [(1,5,0)obse (2,5,0)smoo] -> <= 1 blocks: 1 circuits in 0.0s
+[  198.7s]   group [(2,-4,0)obse (3,-3,0)wire] -> <= 1 blocks: 6 circuits in 0.0s
+[  198.7s]   group [(2,-4,0)obse (2,-3,0)repe] -> <= 1 blocks: 11 circuits in 0.0s
+[  198.7s]   group [(2,-3,0)repe (3,-3,0)wire] -> <= 1 blocks: 6 circuits in 0.0s
+[  198.7s]   group [(2,-3,0)repe (2,-2,0)obse] -> <= 1 blocks: 12 circuits in 0.0s
+[  198.7s]   group [(2,-3,0)repe (3,-4,0)ston] -> <= 1 blocks: 15 circuits in 0.0s
+[  198.7s]   group [(2,-2,0)obse (3,-3,0)wire] -> <= 1 blocks: 4 circuits in 0.0s
+[  198.7s]   group [(2,-2,0)obse (2,-1,0)smoo] -> <= 1 blocks: 2 circuits in 0.0s
+[  198.8s]   group [(2,5,0)smoo (3,4,0)drop] -> <= 1 blocks: 6 circuits in 0.0s
+[  198.8s]   group [(3,-4,0)ston (3,-3,0)wire] -> <= 1 blocks: 1 circuits in 0.0s
+[  198.8s]   group [(3,4,0)drop (4,4,0)obse] -> <= 1 blocks: 4 circuits in 0.0s
+[  198.8s]   group [(3,4,0)drop (4,3,0)obse] -> <= 1 blocks: 6 circuits in 0.0s
+[  198.8s]   group [(4,2,0)smoo (4,3,0)obse] -> <= 1 blocks: 2 circuits in 0.0s
+[  198.8s]   group [(4,3,0)obse (4,4,0)obse] -> <= 1 blocks: 3 circuits in 0.0s
+[  198.8s]   group [(-3,-2,0)obse (-2,-2,0)obse (-1,-3,0)obse] -> <= 2 blocks: 45 circuits in 0.0s
+[  198.8s]   group [(-3,-2,0)obse (-2,-2,0)obse (-1,-2,0)obse] -> <= 2 blocks: 84 circuits in 0.0s
+[  198.8s]   group [(-3,-2,0)obse (-3,-1,0)obse (-2,-2,0)obse] -> <= 2 blocks: 39 circuits in 0.0s
+[  198.8s]   group [(-3,-2,0)obse (-3,-1,0)obse (-3,0,0)obse] -> <= 2 blocks: 31 circuits in 0.0s
+[  198.8s]   group [(-3,-1,0)obse (-2,-2,0)obse (-1,-3,0)obse] -> <= 2 blocks: 62 circuits in 0.0s
+[  198.9s]   group [(-3,-1,0)obse (-3,0,0)obse (-2,-2,0)obse] -> <= 2 blocks: 63 circuits in 0.0s
+[  198.9s]   group [(-3,-1,0)obse (-2,-2,0)obse (-1,-2,0)obse] -> <= 2 blocks: 138 circuits in 0.0s
+[  198.9s]   group [(-3,-1,0)obse (-3,0,0)obse (-3,1,0)ston] -> <= 2 blocks: 35 circuits in 0.0s
+[  198.9s]   group [(-3,0,0)obse (-3,1,0)ston (-3,2,0)wire] -> <= 2 blocks: 32 circuits in 0.0s
+[  198.9s]   group [(-3,1,0)ston (-3,2,0)wire (-2,3,0)smoo] -> <= 2 blocks: 60 circuits in 0.0s
+[  199.0s]   group [(-3,2,0)wire (-2,3,0)smoo (-1,4,0)smoo] -> <= 2 blocks: 105 circuits in 0.0s
+[  199.0s]   group [(-3,2,0)wire (-2,3,0)smoo (-2,4,0)repe] -> <= 2 blocks: 96 circuits in 0.0s
+[  199.0s]   group [(-3,2,0)wire (-2,3,0)smoo (-1,3,0)obse] -> <= 2 blocks: 108 circuits in 0.0s
+[  199.0s]   group [(-2,-2,0)obse (-1,-3,0)obse (0,-2,0)ston] -> <= 2 blocks: 84 circuits in 0.0s
+[  199.0s]   group [(-2,-2,0)obse (-1,-3,0)obse (-1,-2,0)obse] -> <= 2 blocks: 53 circuits in 0.0s
+[  199.1s]   group [(-2,-2,0)obse (-1,-2,0)obse (0,-2,0)ston] -> <= 2 blocks: 118 circuits in 0.0s
+[  199.1s]   group [(-2,3,0)smoo (-1,4,0)smoo (0,5,0)drop] -> <= 2 blocks: 172 circuits in 0.1s
+[  199.1s]   group [(-2,3,0)smoo (-1,4,0)smoo (-1,5,0)obse] -> <= 2 blocks: 108 circuits in 0.0s
+[  199.2s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,4,0)smoo] -> <= 2 blocks: 97 circuits in 0.0s
+[  199.2s]   group [(-2,3,0)smoo (-2,5,0)obse (-1,4,0)smoo] -> <= 2 blocks: 110 circuits in 0.0s
+[  199.2s]   group [(-2,3,0)smoo (-1,3,0)obse (-1,4,0)smoo] -> <= 2 blocks: 78 circuits in 0.0s
+[  199.3s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,5,0)obse] -> <= 2 blocks: 152 circuits in 0.0s
+[  199.3s]   group [(-2,3,0)smoo (-2,4,0)repe (-2,5,0)obse] -> <= 2 blocks: 76 circuits in 0.0s
+[  199.3s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,3,0)obse] -> <= 2 blocks: 142 circuits in 0.0s
+[  199.4s]   group [(-2,4,0)repe (-1,4,0)smoo (0,5,0)drop] -> <= 2 blocks: 184 circuits in 0.0s
+[  199.4s]   group [(-2,4,0)repe (-1,4,0)smoo (-1,5,0)obse] -> <= 2 blocks: 121 circuits in 0.0s
+[  199.5s]   group [(-2,4,0)repe (-2,5,0)obse (-1,4,0)smoo] -> <= 2 blocks: 86 circuits in 0.0s
+[  199.5s]   group [(-2,4,0)repe (-1,3,0)obse (-1,4,0)smoo] -> <= 2 blocks: 75 circuits in 0.0s
+[  199.5s]   group [(-2,4,0)repe (-1,5,0)obse (0,5,0)drop] -> <= 2 blocks: 200 circuits in 0.1s
+[  199.6s]   group [(-2,4,0)repe (-2,5,0)obse (-1,5,0)obse] -> <= 2 blocks: 84 circuits in 0.0s
+[  199.6s]   group [(-2,4,0)repe (-1,3,0)obse (-1,5,0)obse] -> <= 2 blocks: 222 circuits in 0.1s
+[  199.7s]   group [(-2,4,0)repe (-2,5,0)obse (-1,3,0)obse] -> <= 2 blocks: 125 circuits in 0.0s
+[  199.7s]   group [(-2,5,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 2 blocks: 141 circuits in 0.0s
+[  199.7s]   group [(-2,5,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 2 blocks: 63 circuits in 0.0s
+[  199.7s]   group [(-2,5,0)obse (-1,3,0)obse (-1,4,0)smoo] -> <= 2 blocks: 68 circuits in 0.0s
+[  199.8s]   group [(-2,5,0)obse (-1,5,0)obse (0,5,0)drop] -> <= 2 blocks: 73 circuits in 0.0s
+[  199.8s]   group [(-1,-3,0)obse (-1,-2,0)obse (0,-2,0)ston] -> <= 2 blocks: 63 circuits in 0.0s
+[  199.8s]   group [(-1,3,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 2 blocks: 99 circuits in 0.0s
+[  199.8s]   group [(-1,3,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 2 blocks: 60 circuits in 0.0s
+[  199.9s]   group [(-1,4,0)smoo (0,5,0)drop (1,5,0)obse] -> <= 2 blocks: 194 circuits in 0.0s
+[  199.9s]   group [(-1,4,0)smoo (-1,5,0)obse (0,5,0)drop] -> <= 2 blocks: 90 circuits in 0.0s
+[  199.9s]   group [(-1,5,0)obse (0,5,0)drop (1,5,0)obse] -> <= 2 blocks: 139 circuits in 0.0s
+[  200.0s]   group [(0,5,0)drop (1,5,0)obse (2,5,0)smoo] -> <= 2 blocks: 87 circuits in 0.0s
+[  200.0s]   group [(1,-4,0)obse (2,-3,0)repe (3,-3,0)wire] -> <= 2 blocks: 87 circuits in 0.0s
+[  200.0s]   group [(1,-4,0)obse (2,-3,0)repe (2,-2,0)obse] -> <= 2 blocks: 150 circuits in 0.0s
+[  200.0s]   group [(1,-4,0)obse (2,-3,0)repe (3,-4,0)ston] -> <= 2 blocks: 134 circuits in 0.0s
+[  200.1s]   group [(1,-4,0)obse (2,-4,0)obse (2,-3,0)repe] -> <= 2 blocks: 98 circuits in 0.0s
+[  200.1s]   group [(1,-4,0)obse (2,-4,0)obse (3,-3,0)wire] -> <= 2 blocks: 33 circuits in 0.0s
+[  200.1s]   group [(1,-4,0)obse (2,-4,0)obse (3,-4,0)ston] -> <= 2 blocks: 21 circuits in 0.0s
+[  200.1s]   group [(1,5,0)obse (2,5,0)smoo (3,4,0)drop] -> <= 2 blocks: 25 circuits in 0.0s
+[  200.1s]   group [(2,-4,0)obse (2,-2,0)obse (3,-3,0)wire] -> <= 2 blocks: 36 circuits in 0.0s
+[  200.1s]   group [(2,-4,0)obse (3,-4,0)ston (3,-3,0)wire] -> <= 2 blocks: 6 circuits in 0.0s
+[  200.1s]   group [(2,-4,0)obse (2,-3,0)repe (3,-3,0)wire] -> <= 2 blocks: 66 circuits in 0.0s
+[  200.1s]   group [(2,-4,0)obse (2,-3,0)repe (3,-4,0)ston] -> <= 2 blocks: 88 circuits in 0.0s
+[  200.2s]   group [(2,-4,0)obse (2,-3,0)repe (2,-2,0)obse] -> <= 2 blocks: 112 circuits in 0.0s
+[  200.2s]   group [(2,-3,0)repe (2,-2,0)obse (3,-3,0)wire] -> <= 2 blocks: 69 circuits in 0.0s
+[  200.2s]   group [(2,-3,0)repe (3,-4,0)ston (3,-3,0)wire] -> <= 2 blocks: 14 circuits in 0.0s
+[  200.2s]   group [(2,-3,0)repe (2,-2,0)obse (2,-1,0)smoo] -> <= 2 blocks: 84 circuits in 0.0s
+[  200.2s]   group [(2,-3,0)repe (2,-2,0)obse (3,-4,0)ston] -> <= 2 blocks: 93 circuits in 0.0s
+[  200.3s]   group [(2,-2,0)obse (2,-1,0)smoo (3,-3,0)wire] -> <= 2 blocks: 30 circuits in 0.0s
+[  200.3s]   group [(2,-2,0)obse (3,-4,0)ston (3,-3,0)wire] -> <= 2 blocks: 16 circuits in 0.0s
+[  200.3s]   group [(2,5,0)smoo (3,4,0)drop (4,4,0)obse] -> <= 2 blocks: 45 circuits in 0.0s
+[  200.3s]   group [(2,5,0)smoo (3,4,0)drop (4,3,0)obse] -> <= 2 blocks: 56 circuits in 0.0s
+[  200.3s]   group [(3,4,0)drop (4,3,0)obse (4,4,0)obse] -> <= 2 blocks: 26 circuits in 0.0s
+[  200.3s]   group [(3,4,0)drop (4,2,0)smoo (4,3,0)obse] -> <= 2 blocks: 39 circuits in 0.0s
+[  200.3s]   group [(4,2,0)smoo (4,3,0)obse (4,4,0)obse] -> <= 2 blocks: 21 circuits in 0.0s
+47 -> 50 blocks, written to designs/piston-door-3x3/tracks/seamless/wip/fbv7-fit.txt

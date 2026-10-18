@@ -43,6 +43,16 @@ So a FULL door that keeps its hallway must not have slime next to S cells: slime
 
 ## Results
 
+Coordination (flat goal, 2026-10-18 20:30Z): box64 (session a1454b9b) squeezes flat43 toward 8x8;
+seamless (this track) repairs flat-b-v7-44b (8x10) to FULL+hall in its own box, then 8x9 with
+`resynth --fit`. Runs here: `resynth flat-b-v7-44b --seamless full+hall --extra 4/6 --shape
+thick<=1,volume<=80`. No run on flat43-full here.
+
+| design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
+|---|---|---|---|---|---|
+| [flat-b-v7-full.txt](flat-b-v7-full.txt) (archive/flat-b-v7-full-50b) | 50 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 32/32 | FLAT, slime-free, 8x10x1 = volume 80 (flat seamless record by volume). flat-b-v7-44b repaired in its own box: `resynth --seamless full+hall --extra 4 --shape thick<=1,volume<=80` (right-ring observer -> corner dropper/observer chain, +3), then `--extra 5 --fit=-3,-4,0:4,5,0` (ceiling-ring observer chain moved to x=-2/-1, +4; floor-ring dust -> smooth stone: a strongly powered block QC-powers the bottom piston through the empty cell above it), then shrunk 51 -> 50 under the filter |
+| [flat43-full.txt](flat43-full.txt) (archive/flat43-full-44b) | 44 | FULL | yes (props-dyn: hallway, contained, snow, steps, 20 cycles) | 52/48 | FLAT, slime-free, 9x9x1 = volume 81. lamp-sweep-flat43 + (1) P_M's floor-ring observer replaced in-box: observer (-1,-1,0) watching the left ring cell -> lamp (-1,-2,0) -> observer (0,-2,0) into P_M (+1); (2) the obsidian at (0,3,0) was the dust floor AND the stopper that makes the corner piston's early close pulse fail (its row push T, C, ... must not move while C still sits at (1,3,0)): smooth stone there, the stopper moved to the far end of that row: the left trigger chain's repeater (-3,3,0) became an immovable dropper (block entities cannot be pushed; same pulse, 2 gt earlier) |
+| [flat-v7-full.txt](flat-v7-full.txt) (archive/flat-v7-full-54b) | 54 | FULL | yes (props-dyn) | 64/64 | FLAT, slime-free, 9x11x1 = 99. flat-v7-50b repaired by resynth (+4, one row more below) |
 | design | blocks | tier (props) | hallway (ring-aware) | open/close | notes |
 |---|---|---|---|---|---|
 | [semi-fc2L.txt](semi-fc2L.txt) (archive/fc2-seamL-41b) | 41 | FULL geometry | no | 24/9 | fc2 + O_m moved out of the floor ring: P_M fired by an observer (0,-2,0) watching a stone carried by a slime (-1,-1,0) glued under the left structure. SEMI claim (hallway optional for SEMI) |
@@ -80,9 +90,18 @@ The center has no S neighbour. Pulling it needs a sticky face in T (seen). Pushi
 line entering the frame from a ring cell whose block is a door block and that is contiguous up to
 the center; a door block can only be in the ring after it was pulled there, which leaves a gap
 next to the center. A single piston cannot close that gap and push again (its head now fills the
-ring cell; an extended piston cannot be pushed). A SUPER (covered) 3x3 needs a multi-step shuffle
-(door blocks sliding along the ring with pistons in the ring's CORNER cells, which are not in S,
-and two-stage pushers): left as the next idea; no design here.
+ring cell; an extended piston cannot be pushed).
+
+Stronger: for a SOLID door, SUPER (covered) is impossible too. The center cell must end up empty.
+The move that empties it is either a pull (the sticky face is in a T cell next to the center: seen)
+or a push; a push line through the center refills the center with whatever trails it in the line:
+the previous block (so the cell is not emptied) or the piston head (in the center, T: seen), and
+when that head later retracts the center empties with the head seen just before. So at some tick a
+non-door object sits in T next to or at the center. Only GRAVITY door blocks escape this: a sand
+center falls out of the frame when the cell below it is emptied, with no circuitry in T (the moves
+that empty the bottom-middle cell can be hidden behind door blocks). A SUPER (covered) gravity door
+would need slime-free sides (hallway) and a 3-cell lift for the center column on closing (a sand
+column falls back down when its support retracts): not built here.
 
 ## Log
 

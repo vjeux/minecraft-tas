@@ -1165,6 +1165,7 @@ pub enum Target {
         seamless: Option<crate::properties::SeamReq>,
         repeater_input: bool,
         eligible: bool,
+        shape: Option<crate::ShapeLimits>,
     },
     /// A behavior spec at a few world offsets.
     Spec { spec: Spec, offsets: Vec<Pos> },
@@ -1192,9 +1193,16 @@ fn screen(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<bool> 
 
 fn judge(w: &mut Worker, sb: u32, d: &Design, target: &Target) -> Result<String> {
     match target {
-        Target::Door { judge, max_open, max_close, rotations, seamless, repeater_input, eligible, .. } => {
+        Target::Door { judge, max_open, max_close, rotations, seamless, repeater_input, eligible, shape, .. } => {
             if let Some(t) = seamless {
                 t.check(w, sb, d)?;
+            }
+            // Shape boards (volume, flat...): the swept shape, at rest and while it moves.
+            if let Some(l) = shape {
+                let s = crate::swept_shape_in(w, sb, d)?;
+                if !l.allows(&s) {
+                    bail!("outside the --shape limits while it moves: {s:?}");
+                }
             }
             // Fail fast: one cycle at every judge position (frame-less) before the full judge.
             let quick = VerifyOptions { cycles: 1, max_ticks: 200, offsets: judge.offsets.clone(), keep_frames: false, empty_walkway: judge.empty_walkway, tile: judge.tile.clone() };
@@ -1457,6 +1465,12 @@ pub struct ResynthOptions {
     /// Record eligibility: see [`crate::search::SearchOptions::repeater_input`] / `eligible`.
     pub repeater_input: bool,
     pub eligible: bool,
+    /// Shape limits on the swept shape (`--shape`: volume, flat, side...).
+    pub shape: Option<crate::ShapeLimits>,
+    /// Compaction (volume boards): every replacement circuit stays inside this box (inclusive
+    /// corners); while removable blocks lie outside it, only groups through them are cut and they
+    /// grow back inside with up to `extra` more blocks.
+    pub fit: Option<(Pos, Pos)>,
 }
 
 /// Blocks resynthesis may take out: wiring (dust, repeaters, comparators, observers, torches,
@@ -1545,7 +1559,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
         // Repair mode (--seamless with --extra): while the design is below the tier, only groups
         // through an offending cell are cut, and they may grow back with up to --extra more
         // blocks than they had.
-        let offenders: Option<Vec<Pos>> = match o.seamless {
+        let seam_off: Option<Vec<Pos>> = match o.seamless {
             Some(req) if o.extra > 0 => {
                 let t = req.tier;
                 let mut w = pool.worker(0);
@@ -1564,10 +1578,35 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
             }
             _ => None,
         };
+        let rem = removable(&cur, &changing);
+        // Compaction (--fit): removable blocks outside the box are offenders too; they are cut
+        // and grow back inside the box, with up to --extra more blocks.
+        let inside = |p: &Pos| o.fit.is_none_or(|(lo, hi)| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]));
+        let outside: Vec<Pos> = rem.iter().copied().filter(|p| !inside(p)).collect();
+        if o.fit.is_some() {
+            let stuck: Vec<Pos> = cur.blocks.keys().copied().filter(|p| !inside(p) && !rem.contains(p)).collect();
+            if !stuck.is_empty() {
+                log(&format!("--fit: {} blocks outside the box cannot be moved (pistons, lever...): {}", stuck.len(), stuck.iter().map(|p| fmt_pos(*p)).collect::<Vec<_>>().join(" ")));
+            }
+            if !outside.is_empty() {
+                log(&format!("--fit: {} removable blocks outside the box: {}", outside.len(), outside.iter().map(|p| fmt_pos(*p)).collect::<Vec<_>>().join(" ")));
+            }
+        }
+        let offenders: Option<Vec<Pos>> = match (seam_off.clone(), outside.is_empty()) {
+            (None, true) => None,
+            (None, false) => Some(outside.clone()),
+            (Some(mut v), _) => {
+                for p in &outside {
+                    if !v.contains(p) {
+                        v.push(*p);
+                    }
+                }
+                Some(v)
+            }
+        };
         let extra = if offenders.is_some() { o.extra } else { 0 };
         // While repairing, a replacement that removes some offending cells is progress too.
-        let seam_req = o.seamless.map(|r| crate::properties::SeamReq { below: offenders.as_ref().map(|v| v.len()), ..r });
-        let rem = removable(&cur, &changing);
+        let seam_req = o.seamless.map(|r| crate::properties::SeamReq { below: seam_off.as_ref().map(|v| v.len()), ..r });
         let mut gs = groups(&rem, if offenders.is_some() { 1 } else { o.min_size.max(1) }, o.max_size);
         if let Some(off) = &offenders {
             gs.retain(|g| g.iter().any(|p| off.contains(p)));
@@ -1618,6 +1657,16 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                     hi[2] = door[2];
                 }
             }
+            // Compaction: replacements stay inside the --fit box.
+            if let Some((flo, fhi)) = o.fit {
+                for i in 0..3 {
+                    lo[i] = lo[i].max(flo[i]);
+                    hi[i] = hi[i].min(fhi[i]);
+                }
+                if (0..3).any(|i| lo[i] > hi[i]) {
+                    continue;
+                }
+            }
             let so = SynthOptions {
                 lo,
                 hi,
@@ -1663,6 +1712,7 @@ pub fn resynth(pool: &Pool, design: &Design, o: &ResynthOptions, judge_opts: &Ve
                 seamless: seam_req,
                 repeater_input: o.repeater_input || o.eligible,
                 eligible: o.eligible,
+                shape: o.shape,
             };
             let t = Instant::now();
             let inner = |m: &str| {
