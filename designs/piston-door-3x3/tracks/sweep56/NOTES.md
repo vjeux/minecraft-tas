@@ -78,6 +78,33 @@ filter misses such relays, satwire models them.
   only SD(1,4) and each other, the bottom pockets only the elevator column; e89b's x=-3 observer
   column is exactly that missing link.
 
+## Report (20:25Z)
+No door: 0 SAT in ~400 satwire runs (SWEEP.tsv: 335 rows, 314 UNSAT-train, 20 INVALID plans, 1
+ERROR; CALIB.tsv 52 rows; ~10 direct runs), plus the dedicated-box queue still running
+(devvm52946: SWEEP79.tsv = the 7x8 mechanisms in both 7x9 placements with menus, SWEEP-c2e*.tsv =
+mechspace's column-2-elevator mechanisms in 7x8 and 7x9).
+* What is dead and why (timing-independent, by inspection of each pocket's boundary): the v3 7x8
+  C-class (sealed bottom-left pocket; two sealed clusters for the SW(4,0) variants); e89b's
+  mechanism in 7x8 (both side columns are full walls of pullers, so its top and bottom pockets
+  never see each other; e89b's x=-3 observer column is that link); boxed-in pistons (geometric
+  cores like "open piston (1,4)" alone).
+* What is NOT shown: every other UNSAT is a property of the TRAIN, not of the mechanism. The
+  calibration proves it: families' ideal plan for e89b's own mechanism is UNSAT in e89b's own box,
+  with recorded power, with motion requirements, with single-input menus. The real e89b trains
+  hold the elevator, give 1 gt pulses, and split the right column from the top puller.
+* Tools left for the next round: `door satsweep` (plans x boxes x variants base/gap/hold/triple,
+  menus `--menu-core --menu-coshift --menu-shifts --menu-widths --menu-triples`, `--widen/--even`,
+  `--box`, `--recorded-power`), satwire menus (alternative recordings per cell group, composed
+  with satwire's motion requirements), `--hall-ring`, open-state hole-backs, `--core-tries`.
+* Next ideas: (1) satwire's measured windows (per-event tolerance windows from redsim sweeps)
+  inside the menu groups, and the coshift calibration (e89b-sym, own box) as the acceptance test
+  (it was still solving after 50 min, the only long solve of the night); (2) QC-as-BUD in satwire
+  (an armed piston firing on a later update is how real compact wiring sequences pistons; the
+  encoding forbids QC power whenever a piston must be off); (3) mechanisms whose side column has at
+  most 2 pullers, so top and bottom pockets link through a free side cell (h1 does it on the left;
+  its full right column then needs the TR relay); (4) in 7x9, the free row links the top (or
+  bottom) pockets: the dedicated-box queue runs exactly that.
+
 ## Menus (18:00Z): let the solver pick the timing per toggle and the core variant
 `satwire` alternative groups (`Rec.groups`, `add_menu`): a group's cells read their frames and
 piston power from the alternative the solver picks (one selector per alternative, exactly one per

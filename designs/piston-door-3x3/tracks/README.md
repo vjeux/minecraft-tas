@@ -61,5 +61,6 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [vanilla-check](vanilla-check/NOTES.md) | prove the simulator matches vanilla | `door vanilla-check`, `vanilla-fuzz`; no divergence |
 | [wire19sf](wire19sf/NOTES.md) | wire the 19-block slime-free mechanism | w45 -> w42 42 (slime-free record at the time, buildable) |
 | [wire21](wire21/NOTES.md) | wire the 21-block pulse-only mechanism | m05 40 (ties fc2) |
+| [sweep56](sweep56/NOTES.md) | systematic satwire sweep of every 7x8 mechanism (catalogs, pistmodel, vmid, mechspace) for a 56b flat FULL+hall door | no door; `door satsweep`, satwire menus; ideal-plan UNSATs shown to be train-bound (e89b calibration) |
 
 - [box64](box64/NOTES.md): flat FULL-seamless doors in 8x8 / 9x7 boxes (volume <= 64): ideal-input mechanism checks in the box, region/crossing analysis of the wiring
