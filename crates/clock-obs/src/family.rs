@@ -22,6 +22,10 @@ pub struct FamilyArgs {
     /// Check every n from 0 to this with redsim (period and block count against the formula)
     #[arg(long)]
     pub check: Option<u32>,
+    /// Write the family CARD (the base design, n = --n, with `extend` headers: family, period,
+    /// blocks, rule, n range, base, generator) to --out, judged up to this n
+    #[arg(long)]
+    pub card_max_n: Option<u32>,
     /// With `members`: the designs (files or folders) to classify
     pub paths: Vec<PathBuf>,
 }
@@ -237,10 +241,23 @@ pub fn run(a: FamilyArgs) -> Result<()> {
     let r = sim::simulate(&s, &sim::Opts { horizon: (40 * p).max(20000), ..Default::default() });
     println!("{} n={}: P = {} = {p} (formula), redsim {:?} P={}, {} blocks (formula {b})", f.name, a.n, f.period, r.verdict, r.period, s.blocks.len());
     if let Some(out) = &a.out {
-        let text = s.to_text(&format!(
+        let mut text = s.to_text(&format!(
             "Extendable family {} (n = {}): P = {} gt, {} blocks. {}. Extension: {}. Generator: mctas clock obs family {} --n N --out FILE.",
             f.name, a.n, f.period, f.blocks, f.how, f.rule, f.name
         ));
+        if let Some(hi) = a.card_max_n {
+            let period = f.period.replace(" x ", " * ");
+            let header = format!(
+                "extend family: clk-obs-{name}\nextend period: {period}\nextend blocks: {blocks}\nextend rule: {rule}\nextend n: {lo}..{hi}\nextend base: {lo}\nextend generator: mctas clock obs family {name} --n {{n}} --out {{out}}\n",
+                name = f.name,
+                blocks = f.blocks,
+                rule = f.rule,
+                lo = a.n,
+            );
+            let at = text.find("\norigin:").map(|i| i + 1).unwrap_or(0);
+            text.insert_str(at, &header);
+            text = text.replacen(&format!("name: clk-obs-{}-n{}", f.name, a.n), &format!("name: clk-obs-{}", f.name), 1);
+        }
         std::fs::write(out, text)?;
     }
     Ok(())
