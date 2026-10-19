@@ -22,8 +22,8 @@ layer 0:
 layer 1:
   .s.EEE.B
 layer 2:
-  .s.EEE.B
+  ...EEE
 layer 3:
   .
 layer 4:
-  ....S
+  ...SSS

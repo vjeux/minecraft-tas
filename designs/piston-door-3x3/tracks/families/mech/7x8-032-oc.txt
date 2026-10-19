@@ -19,10 +19,10 @@ layer 0:
 layer 1:
   s.DDD.B
 layer 2:
-  s.DDD
+  s.DDD.B
 layer 3:
   .CP
 layer 4:
-  .R.SS
+  .R.S
 layer 5:
   ...S

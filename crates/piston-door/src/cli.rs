@@ -786,6 +786,14 @@ pub enum DoorCmd {
         /// reachability with --cap.
         #[arg(long)]
         resolve: Option<PathBuf>,
+        /// General carrying depth: reused pistons displaced 1-2 cells in ANY direction (sideways
+        /// too) by carriers, carriers carried themselves up to this depth (0 = elevator lifts only).
+        #[arg(long, default_value_t = 0)]
+        carry: usize,
+        /// Middle-row side blocks forced to leave VERTICALLY: `ml`, `mr`, `any` (ML or MR) or
+        /// `both`.
+        #[arg(long)]
+        vmid: Option<String>,
     },
     /// Mechanism synthesis (mechsynth.rs): enumerate up to --add blocks (pistons, slime...) on a
     /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
@@ -2306,7 +2314,15 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve } => {
+        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid } => {
+            let vmid: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {
+                None => Vec::new(),
+                Some("ml") => vec![vec![(0, 1)]],
+                Some("mr") => vec![vec![(2, 1)]],
+                Some("any") => vec![vec![(0, 1)], vec![(2, 1)]],
+                Some("both") => vec![vec![(0, 1), (2, 1)]],
+                Some(x) => anyhow::bail!("--vmid ml|mr|any|both, got {x}"),
+            };
             if let Some(f) = resolve {
                 let b = crate::families::parse_boxes(&boxes)?;
                 anyhow::ensure!(b.len() == 1, "--resolve needs one --boxes WxH");
@@ -2334,6 +2350,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 gap,
                 limit,
                 two,
+                carry,
+                vmid,
                 levels,
             };
             crate::families::run(version, &o)?;

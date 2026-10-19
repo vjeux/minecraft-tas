@@ -22,17 +22,17 @@
 //! (one or three pulses per edge) need an odd-capable component, even-count ones (B's two
 //! pulses) any reached component. `strict`: a link is odd iff changes(q) is odd; `permissive`:
 //! also when changes(q) >= 3 (three events may chain-merge into an odd number); `memory`: also
-//! a MEMORY link (track families, 2026-10-18): in a reached component with >= 2 free cells, a
-//! waxed copper bulb T flip-flop turns any even pulse count into ONE level window. Cell rule (all
-//! in that component, in the door plane): the link observer's output (its back face) powers the
-//! bulb B directly (B is the cell behind the observer) or through dust; a comparator C stands
-//! next to B facing away from it (it reads B through its back: signal 15 while B is lit) and its
-//! output reaches the piston's feed cell (C next to the piston or its quasi-connectivity cell, or
-//! dust from C). B toggles on each rising edge: lit between the 1st and the 2nd pulse, so a
-//! pulse-driven piston gets one long pulse (extend at the 1st, retract with the sticky pull at
-//! the 2nd). B and C cost 2 free cells; an observer watching B would fire twice again (no gain).
-//! Not modeled: whether B and C fit next to the specific watcher and feeder cells (the check only
-//! counts the component's free cells), latches (piston or note block reset on the other edge).
+//! a MEMORY link (track families + wire56, 2026-10-18): in a reached component with at least
+//! [`MEMORY_CELLS`] free cells, two waxed copper bulb T flip-flops turn any even pulse count into
+//! exactly one 2 gt pulse per edge (wire56's gadget designs/gadgets/memory-link.drive on
+//! explore/wire56: bulb B1 -> comparator C1 (a window between the 1st and 2nd pulse) -> bulb B2
+//! (toggles once per edge) -> comparator C2 -> an observer watching C2 = one 2 gt pulse per edge,
+//! 6 gt after the first input; ~7 cells with the comparator floors). A single bulb + comparator
+//! window is NOT enough: on close the long window pushes the block back and the sticky retract
+//! pulls it out again (a pull-type piston needs a short spit pulse). CopperBulbBlock.checkAndFlip
+//! toggles LIT only on a rising edge of hasNeighborSignal; a powered bulb is a solid block that
+//! also powers its neighbors. Not modeled: whether the gadget's exact footprint fits next to the
+//! specific watcher and feeder cells (only the component's free cells are counted), latches.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
@@ -51,6 +51,9 @@ fn in_ring(p: P) -> bool {
 }
 
 const PLANE: [usize; 4] = [0, 1, 2, 3];
+
+/// Free cells a memory link needs in the receiving component (wire56's two-flip-flop gadget).
+pub const MEMORY_CELLS: usize = 7;
 
 /// The run: every state in order, the events between them (state index before the event), and
 /// the number of events of the first (opening) edge.
@@ -75,7 +78,7 @@ fn run(rest: &World, sol: &Solution) -> (Vec<World>, Vec<(usize, Ev)>, usize) {
 pub struct Topo {
     pub strict: bool,
     pub permissive: bool,
-    /// Wirable when T flip-flops (copper bulb + comparator, 2 free cells) may turn an even link
+    /// Wirable when memory links (two copper-bulb T flip-flops, MEMORY_CELLS free cells) may turn an even link
     /// into one window (memory links).
     pub memory: bool,
     pub report: String,
@@ -271,7 +274,7 @@ pub fn analyze(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Topo {
     }
     // Both edges must be wirable with the lever in the same component. mode 0 strict, 1
     // permissive (chain merges), 2 memory: also a T flip-flop (waxed copper bulb + comparator,
-    // 2 free cells) in any reached component turns its even pulse count into one window.
+    // MEMORY_CELLS free cells) in any reached component turns its even pulse count into one pulse.
     let csize: HashMap<usize, usize> = {
         let mut m: HashMap<usize, usize> = HashMap::new();
         let cells: Vec<usize> = comp.values().copied().collect();
@@ -305,7 +308,7 @@ pub fn analyze(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Topo {
                     }
                 }
                 if mode == 2 {
-                    let even_only: Vec<usize> = any.iter().copied().filter(|k| !odd.contains(k) && csize.get(k).copied().unwrap_or(0) >= 2).collect();
+                    let even_only: Vec<usize> = any.iter().copied().filter(|k| !odd.contains(k) && csize.get(k).copied().unwrap_or(0) >= MEMORY_CELLS).collect();
                     for k in even_only {
                         odd.insert(k);
                         grew = true;

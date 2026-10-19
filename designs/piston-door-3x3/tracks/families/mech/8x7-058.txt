@@ -8,16 +8,16 @@ palette:
   S minecraft:sticky_piston[extended=false,facing=down]
   s minecraft:sticky_piston[extended=false,facing=east]
 layer -2:
-  ....AA
+  ...AA
 layer -1:
-  .
+  ..A
 layer 0:
-  .s.CCC
+  ...CCC.B
 layer 1:
   ss.CCC.B
 layer 2:
-  ...CCC.B
+  .s.CCC.B
 layer 3:
-  ..S
+  .
 layer 4:
-  ...SS
+  ....S
