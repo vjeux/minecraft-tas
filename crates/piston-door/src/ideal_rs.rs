@@ -135,15 +135,31 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
     Ok((worst_open, worst_close))
 }
 
+/// One block edit applied to the design before a run (`--vary`): the cell and its new state
+/// (`None` = air).
+pub type Edit = (Pos, Option<String>);
+
 /// Run a schedule with these variables at every offset.
 pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+    run_edited(s, vars, &[], offsets, cycles, trace)
+}
+
+/// `run` on the schedule's design with some cells replaced first (in memory, no JVM).
+pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], offsets: &[Pos], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
     let open_ev = s.events_of(true, vars).map_err(|e| format!("{e:#}"))?;
     let close_ev = s.events_of(false, vars).map_err(|e| format!("{e:#}"))?;
     let d = s.design();
     let door = *d.ports.get("door").ok_or("design has no door port")?;
     let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z") };
+    let mut cells: BTreeMap<Pos, String> = d.blocks.clone();
+    for (p, st) in edits {
+        match st {
+            Some(st) => cells.insert(*p, st.clone()),
+            None => cells.remove(p),
+        };
+    }
     let mut blocks = Vec::new();
-    for (p, st) in d.block_list() {
+    for (p, st) in cells {
         blocks.push((p, cs::convert_state(&st).map_err(|e| format!("{st} at {p:?}: {e}"))?));
     }
     let mut worst = (0u32, 0u32);
@@ -154,10 +170,35 @@ pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: 
     Ok(worst)
 }
 
+/// `--vary` axis: `x,y[,z]=alt|alt|...` (door-plane coordinates of the design; z defaults to 0).
+/// An alternative is a block state (`minecraft:` optional), `air`, or `keep` (the design's own
+/// block). Returns the cell and its alternatives.
+fn parse_vary(v: &str) -> Result<(Pos, Vec<Option<Option<String>>>)> {
+    let (c, alts) = v.split_once('=').context("--vary x,y[,z]=state|state|...")?;
+    let n: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().context("--vary cell")?;
+    let p = match n.as_slice() {
+        [x, y] => [*x, *y, 0],
+        [x, y, z] => [*x, *y, *z],
+        _ => anyhow::bail!("--vary cell must be x,y or x,y,z: {c}"),
+    };
+    let mut out = Vec::new();
+    for a in alts.split('|') {
+        let a = a.trim();
+        out.push(match a {
+            "keep" => None,
+            "air" | "minecraft:air" => Some(None),
+            _ if a.contains(':') => Some(Some(a.to_string())),
+            _ => Some(Some(format!("minecraft:{a}"))),
+        });
+    }
+    Ok((p, out))
+}
+
 /// CLI: run once, or sweep variables (`name=lo..hi`; several = grid, `--independent` = one axis
-/// at a time).
+/// at a time) and/or block variants (`--vary`: every combination of alternatives per cell,
+/// applied in memory before each run: screening hand-built wiring variants in milliseconds).
 #[allow(clippy::too_many_arguments)]
-pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize) -> Result<()> {
+pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize, vary: &[String], ok_only: bool) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut overrides = BTreeMap::new();
     for kv in set {
@@ -167,7 +208,27 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
     let s = Schedule::parse_with(&text, &overrides)?;
     let vars = s.vars().clone();
     let offsets = crate::ideal::offsets(extra_offsets);
-    if sweep.is_empty() {
+    let mut variants: Vec<(Vec<String>, Vec<Edit>)> = vec![(Vec::new(), Vec::new())];
+    for v in vary {
+        let (p, alts) = parse_vary(v)?;
+        let mut next = Vec::new();
+        for (label, edits) in &variants {
+            for a in &alts {
+                let mut l2 = label.clone();
+                let mut e2 = edits.clone();
+                match a {
+                    None => l2.push(format!("{},{}=keep", p[0], p[1])),
+                    Some(st) => {
+                        l2.push(format!("{},{}={}", p[0], p[1], st.as_deref().unwrap_or("air").trim_start_matches("minecraft:")));
+                        e2.push((p, st.clone()));
+                    }
+                }
+                next.push((l2, e2));
+            }
+        }
+        variants = next;
+    }
+    if sweep.is_empty() && vary.is_empty() {
         match run(&s, &vars, &offsets, cycles, trace) {
             Ok((o, c)) => println!("WORKS in redsim ({} positions x {cycles} cycles): open after {o} ticks / closed after {c} ticks", offsets.len()),
             Err(e) => {
@@ -185,7 +246,7 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
         axes.push((k.to_string(), (lo..=hi).collect()));
     }
     let mut combos: Vec<(Vec<String>, BTreeMap<String, i64>)> = vec![(Vec::new(), vars.clone())];
-    if independent {
+    if independent && !axes.is_empty() {
         combos.clear();
         for (k, vals) in &axes {
             for v in vals {
@@ -209,12 +270,31 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
             combos = next;
         }
     }
-    let results = cs::par_map(&combos, threads, |(_, c)| run(&s, c, &offsets, cycles, false));
-    for ((label, _), r) in combos.iter().zip(results) {
-        match r {
-            Ok((o, c)) => println!("{}: ok open {o} close {c}", label.join(" ")),
-            Err(e) => println!("{}: FAIL {}", label.join(" "), e.chars().take(170).collect::<String>()),
+    let mut jobs: Vec<(String, BTreeMap<String, i64>, Vec<Edit>)> = Vec::new();
+    for (vl, edits) in &variants {
+        for (label, c) in &combos {
+            let mut l = vl.clone();
+            l.extend(label.iter().cloned());
+            jobs.push((l.join(" "), c.clone(), edits.clone()));
         }
+    }
+    let results = cs::par_map(&jobs, threads, |(_, c, e)| run_edited(&s, c, e, &offsets, cycles, trace && jobs.len() == 1));
+    let mut n_ok = 0usize;
+    for ((label, _, _), r) in jobs.iter().zip(results) {
+        match r {
+            Ok((o, c)) => {
+                n_ok += 1;
+                println!("{label}: ok open {o} close {c}");
+            }
+            Err(e) => {
+                if !ok_only {
+                    println!("{label}: FAIL {}", e.chars().take(170).collect::<String>());
+                }
+            }
+        }
+    }
+    if ok_only {
+        eprintln!("{n_ok} of {} combinations work", jobs.len());
     }
     Ok(())
 }
