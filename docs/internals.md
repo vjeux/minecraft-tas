@@ -13,6 +13,7 @@ on are in [mechanics.md](mechanics.md).
 | `crates/piston-door` | the 3x3 door project: judge, boards, searches, synthesis, videos, vanilla cross-checks |
 | `crates/door-*` | the `mctas door` commands, one crate per area (judge, search, mech, sat, redsim, vanilla, video): clap definitions and dispatch only ([Build](#build)) |
 | `crates/redsim`, `crates/redsim-fuzz` | the exact Rust redstone model and its differential fuzzing against the game |
+| `crates/clock`, `crates/clock-cli` | the clock study ([clocks.md](clocks.md)): clock designs, the exact redsim period detector, the real-game clock judge; `clock-cli` = the `mctas clock` commands (unoptimized, dispatch only) |
 | `designs/` | contraptions in the layer text format; `designs/gadgets/` (proven circuits), `designs/piston-door-3x3/` (doors, the archive, the agents' tracks) |
 
 Everything downloaded or generated (Java runtime, Minecraft jars, decompiled sources, worlds)
