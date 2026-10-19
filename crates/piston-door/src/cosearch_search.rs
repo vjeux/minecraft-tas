@@ -1908,6 +1908,11 @@ pub struct PocketArgs {
     /// trace and the plan groups it matches, then stop.
     #[arg(long)]
     pub debug_fill: Option<std::path::PathBuf>,
+    /// Save the N cheapest fillings of every (pocket, driven input set) as designs in `--out-dir`
+    /// (`pocket<i>-<inputs>-<j>.txt`: the seed plus that filling, header `assisted:` = the inputs
+    /// it does not drive), to reuse one region's wiring by hand (0 = none).
+    #[arg(long, default_value_t = 0)]
+    pub dump: usize,
 }
 
 /// One plan pulse (on, then off) or level edge of one input in one phase, with its window.
@@ -2443,6 +2448,26 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                 sets.iter().map(|(k, v)| format!("{{{}}} x{} (best {} blocks)", (0..64).filter(|i| (**k >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "), v.len(), v[0].cost())).collect::<Vec<_>>().join(", ")
             }
         );
+        if pa.dump > 0 {
+            std::fs::create_dir_all(&a.out_dir)?;
+            for (set, fills) in &sets {
+                let tag: Vec<String> = (0..64).filter(|i| (**set >> i) & 1 == 1).map(|i| glabels[i].replace(['(', ')'], "").replace(',', "_")).collect();
+                for (j, f) in fills.iter().take(pa.dump).enumerate() {
+                    let mut g = seed.clone();
+                    for (q, b) in &f.blocks {
+                        g.set(q.0, q.1, *b);
+                    }
+                    if let Some((lx, ly)) = f.lever {
+                        g.set(g.lever.0, g.lever.1, Block::Air);
+                        place_lever(&mut g, lx, ly);
+                    }
+                    let name = format!("pocket{pi}-{}-{j}", tag.join("+"));
+                    let mut d = door_of(&g, prob.spec).to_design(&name);
+                    d.meta.insert("driven".into(), tag.join(" "));
+                    d.save(&a.out_dir.join(format!("{name}.txt")))?;
+                }
+            }
+        }
         let mut all: Vec<Filling> = found.into_values().flatten().collect();
         all.sort_by_key(|f| f.cost());
         accepted.push(all);

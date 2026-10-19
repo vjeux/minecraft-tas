@@ -22,3 +22,31 @@ Log: logs/connect-c2e.log.
 FULL FRAME (vjeux 03:36Z): static stone at the 3 empty frame cells (-1,0), (2,-1), (3,2) (unswept hops):
 the oc plan still WORKS (t1/t1-001-oc-f.txt + t1/t1-001-f.ideal, 4 positions x 2 cycles, open 45 /
 close 27), `door sheet`: frame 12/12.
+
+## 3. t1-001 timing windows (door ideal, every event its own variable, frame stones in)
+- oc plan (t1/t1-001-f.ideal, base: se 0, bl 6, bm 12, a1 12, t 18, b1 24, a2 30, b2 36, a3 42, r 42, m/n 42;
+  close se 0, bl 6, bm 12, a1 12, t 18, a2 24, r/m/n 24): FREE 0..60 for SE-left, SU+ level, SU(1,-2), SD(2,4)
+  on both edges; the TL train is pure order with minimum gaps: open a1 <3 t <2 b1 <1 a2 <3 b2 <4 a3, close
+  a1 <3 t <1 a2. SW(4,1)/SW(4,0) only work together (a lone SW(4,1) input QC-fires SW(4,0) too): one stack.
+- sym plan (t1/t1-001-sym-t.ideal, the same a1 t b1 a2 b2 a3 on both edges): close windows a1 0..9, t 9..15,
+  b1 15..22, a2 20..27, b2 27..35/38..40, a3 31..42; SU(1,-2) on close >= 36 (after the last A shot, else it
+  reach-through-pulls TM back up); everything else free.
+- Harmless extras: P_T before a1 (open), A between t and b1 (open); a P_T shot while TM is parked at (0,3) and
+  (1,3) is occupied is blocked only if the push line TM, X, (2,3)... ends on an immovable block.
+
+## 4. cosearch pockets on t1-001 (cosearch2's tool; assist plan with every input off the plane:
+   t1/t1-001-zl-sym.ideal + seed t1/t1-001-zl.txt)
+- k=3, every pocket: BL drives the SU+ level with 3 blocks (but those fillings move the lever into BL: a torch
+  link), BR drives SU(1,-2) with 3 (observer on SW(4,0) -> sticky (4,-2) shuttling an observer onto (2,-2): its
+  landing pulses the frame stone (2,-1) -> QC), TR drives the SW stack with 3. TL (6 cells + lever): only P_T.
+  Nothing drives A, B, SD(2,4) or the left stack. logs/pockets-k3.log.
+- Tool: `door cosearch pockets --dump N` saves the N cheapest fillings of every (pocket, driven set) as designs.
+
+## 5. Why TL is the wall (t1 family, lever in TL, by hand)
+Every t1 mechanism has the same top: A = SD(1,4) x3, B = SD(1,5) x2, P_T = SE(-1,3), plus the left stack, and in
+t1-001..004 TL's 7 cells are the ONLY feeders of A (only (0,4) emitting east drives A at both positions with an
+update), of B ((0,5), or TR's (2,5)), of P_T and of the left stack ((-2,3) emitting down). TR can only wake by
+watching B from (2,5), so TL must fire B too. Inside TL only P_T's motion is observable (an observer at (-1,4)
+facing down): A and B are watched only from their own feeder cells. So TL must produce the whole interleaved
+train a1 t b1 a2 b2 a3 (>= 13 gt long) from one lever event, with no feedback from A or B, in 7 cells: the
+same K1 wall wire64b (8x8-105) and w63top (7x8-014 in 7x9) hit. Not solved.
