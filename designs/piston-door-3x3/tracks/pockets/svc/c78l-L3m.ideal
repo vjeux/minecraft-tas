@@ -1,0 +1,31 @@
+design designs/piston-door-3x3/tracks/pockets/svc/c78l-L3a.txt
+# pockets3 for c78l: L3b (TP (-1,3), L1/L2 via (-2,2) symmetric at t12) + M (1,5) and s2 (s lowered at (1,3)) ASSISTED too
+# M off-plane (1,5,-1): open 15..25, close 13..23 (the comparator (0,5)); s2 = what the observer (0,4) up gives (0,3):
+# 2-gt pulses open 17, 27 / close 15, 25, fed to (0,3) and its neighbors s (1,3) and TP (-1,3): x2 = extra TP pulses
+let a2 = 12
+let l = 12
+let c5 = 12
+let cl = 12
+let x2 = 1
+open 0 use 5 -1 0
+open a2 set -1 3 -1 minecraft:redstone_block
+open a2+2 clear -1 3 -1
+open l set -2 2 -1 minecraft:redstone_block
+open l+2 clear -2 2 -1
+open 15 set 1 5 -1 minecraft:redstone_block
+open 25 clear 1 5 -1
+open 17 set 1 3 -1 minecraft:redstone_block
+open 19 clear 1 3 -1
+open 27 set 1 3 -1 minecraft:redstone_block
+open 29 clear 1 3 -1
+close 0 use 5 -1 0
+close c5 set -1 3 -1 minecraft:redstone_block
+close c5+2 clear -1 3 -1
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1
+close 13 set 1 5 -1 minecraft:redstone_block
+close 23 clear 1 5 -1
+close 15 set 1 3 -1 minecraft:redstone_block
+close 17 clear 1 3 -1
+close 25 set 1 3 -1 minecraft:redstone_block
+close 27 clear 1 3 -1

@@ -1,0 +1,10 @@
+assist designs/piston-door-3x3/tracks/pockets/s26/s26-tlB.ideal: 1 input cells off the plane ([(1, 5)]), 1 / 1 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/s26/s26.txt: 54 blocks in the box, screen 79/79
+seed screen 79/79 with 1 inputs assisted
+windows (2 groups, 0.0 s):
+  input (1,5) open  t16 off: window [-1, +24]
+  input (1,5) close t16 on: window [-1, +24]
+7 pocket cells in 1 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 58 swept cells
+  pocket 0: 7 cells [(-3, 3), (-3, 4), (-3, 5), (-2, 3), (-2, 5), (-1, 5), (0, 5)]
+pocket 0: 7 cells, 4656763 subset/lever items, 17327793163 fillings to screen
+  pocket 0: 3440285 screened (858 of 4656763 items started), 801896 keep the door working, 31 s

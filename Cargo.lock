@@ -234,6 +234,65 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
+name = "clock"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "mctas",
+ "redsim",
+ "serde_json",
+]
+
+[[package]]
+name = "clock-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clock",
+ "clock-item",
+ "clock-obs",
+ "clock-rt",
+ "clock-sculk",
+ "mctas",
+ "serde_json",
+]
+
+[[package]]
+name = "clock-item"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
+]
+
+[[package]]
+name = "clock-obs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
+]
+
+[[package]]
+name = "clock-rt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
+]
+
+[[package]]
+name = "clock-sculk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clock",
+ "mctas",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -622,6 +681,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "clock-cli",
  "door-judge",
  "door-mech",
  "door-redsim",

@@ -1,0 +1,20 @@
+design designs/piston-door-3x3/tracks/pockets/svc/c78l-L3a.txt
+# pockets3: L3b with TP and L widths free (open a2 / wa, l / wl; close c5 / wc, cl / wcl)
+let a2 = 12
+let wa = 2
+let l = 12
+let wl = 2
+let c5 = 12
+let wc = 2
+let cl = 12
+let wcl = 2
+open 0 use 5 -1 0
+open a2 set -1 3 -1 minecraft:redstone_block
+open a2+wa clear -1 3 -1
+open l set -2 2 -1 minecraft:redstone_block
+open l+wl clear -2 2 -1
+close 0 use 5 -1 0
+close c5 set -1 3 -1 minecraft:redstone_block
+close c5+wc clear -1 3 -1
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+wcl clear -2 2 -1

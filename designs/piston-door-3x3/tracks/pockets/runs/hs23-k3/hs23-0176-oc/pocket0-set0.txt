@@ -1,0 +1,32 @@
+name: pocket0-set0
+covers: (1,-4)o6 (1,-4)o24
+port door: 0 0 0
+port lever: 5 5 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=true,facing=west]
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:stone
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:piston_head[facing=west,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  CrOA
+layer -2:
+  ...A
+layer -1:
+  .AD.D.R
+layer 0:
+  s.DDDPB
+layer 1:
+  s.DDDPBR
+layer 2:
+  s.DDDD
+layer 3:
+  .s
+layer 4:
+  ...SS

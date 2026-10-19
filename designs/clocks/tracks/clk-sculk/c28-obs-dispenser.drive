@@ -1,0 +1,9 @@
+mark c28-obs-dispenser
+design designs/clocks/tracks/clk-sculk/c28-obs-dispenser.txt
+probe C 0 0 0
+probe E 2 0 0
+quiet 3
+set 2 0 1 minecraft:redstone_block
+step 1
+clear 2 0 1
+edges C 120
