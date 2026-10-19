@@ -1,0 +1,26 @@
+name: clk-obs-p44-obs-pis-stk-7b-b-7e18dd
+# P44: 3 observers, 1 piston, 3 sticky pistons; changing in place: observer, piston, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 -1
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:piston[extended=false,facing=south]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:observer[facing=north,powered=false]
+layer 0:
+  .
+  A
+  .
+  .
+layer 1:
+  B
+  C
+  C
+  D
+layer 2:
+  .
+  .
+  E
+  D
