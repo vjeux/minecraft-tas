@@ -1,0 +1,3 @@
+fill designs/piston-door-3x3/tracks/shrink/wip/t7b-pw42.txt: 15 region cells (15 free, 0 fixed), base 36 blocks (design 42), k 0..=5, global palette 25 states
+97 subsets pass the connectivity rule; 313195225 fillings to screen in 501121 work items
+done in 64 s: 30104336 screened, 283090889 pruned, 0 passed the screen, 0 finds

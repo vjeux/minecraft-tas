@@ -482,6 +482,18 @@ Notes for builders of fast doors:
 * **Copper bulb + observer counts input EDGES, not pulses**: the bulb's `powered` flips on both
   input edges, so `bulb-pulse` gives one pulse only for inputs <= 2 gt; a 30 gt sculk window into a
   bulb under an observer gives two pulses (c88 s15sk).
+* **A normal piston as a 1-block watched relay** (shrink, archive t7b-pw42-42b): an observer fires
+  a normal piston whose head pops into the cell another observer watches: one block where a
+  conductor + a watched note block took two (t7b's row -4 route: piston (2,-4) facing west into
+  (1,-4), watched by (0,-4)).
+* **A moving observer = merger + router** (shrink, archive t7b-ob40-40b): a double pulse (an
+  observer on a pulse-pulled piston) into a sticky piston that faces an observer: pulse 1 pushes
+  the observer next to target A (2 gt: spit, it stays) and it fires A on landing; pulse 2 pulls it
+  home and it fires again on landing, into a different cell (here the empty quasi cell of a normal
+  piston). One pulse per edge into A plus a second, later signal elsewhere, from 2 blocks (sticky
+  piston + observer) where t7b used a delay-2 repeater merger + support + observer + route.
+* **Search with pistons in the palette** (shrink): `door fill --palette ...,sticky,piston --gaps`
+  found every one of the above; palettes without pistons (pockets defaults, satwire) cannot.
 
 ## 9. Floors for the fastest 3x3 door
 

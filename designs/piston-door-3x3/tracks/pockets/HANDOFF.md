@@ -1,36 +1,45 @@
-# pockets2 HANDOFF (the wiring service; written 2026-10-19 12:36Z, keep current)
+# pockets2 HANDOFF (the wiring service; updated 2026-10-19 13:41Z)
 
 ## State
 - Track best (BEST.txt): `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks, solid, FULL, rotation-safe, open 39 /
-  close 27 (shrink's t7b-nb2 43 at 37/25 is faster now). Solid 8x8: **`finds/s27-trbl51.txt`, 64b, 51 blocks**
-  (verify --extra-offsets 28 WORKS, archived `finds/archive/s27-trbl51-51b.txt`; earlier s27-bl52 52, s26-bl53 53).
+  close 27 (shrink has since taken t7b to 40). 8x8: `finds/s27-bls49.txt`, SCULK 64b, 49 blocks (archived on
+  main; c77's c074-64b-42 leads sculk 8x8, so the 8x8 target is the SOLID 50 s27-tlp50) and
+  **`finds/s27-trbl51.txt`, solid 64b, 51** (shrink -> solid 50 with pistons);
+  all verified `--extra-offsets 28`, archived in `finds/archive/`.
 - Role (vjeux's 12:21Z protocol): wiring service on the live board, Space memory namespace 2034923423883327,
   `minecraft-tas/board/` (README.md rules, roster.md, partials/*.md). Owners message this session directly;
   ping the coordinator (f1a42990-e9ee-4714-8593-b34b64ed175d) only for a verified door or a tool commit.
-
-## Running (devvm49255, ~/agents/pockets/minecraft-tas)
-- `runs/b51-tr-k5` (started 12:35Z, ~40 min): s27-trbl51's top-right, 8 cells incl. the wiring piston (3,5),
-  k=5 x 24 states (pistons included), `--region-pistons --gaps`, plan `s26/b51-tr.ideal`. A FIND = a 50-block
-  solid 8x8: `door verify <find> --extra-offsets 28 --archive`, copy to finds/, ping the coordinator.
-  Check: `grep -c FIND designs/piston-door-3x3/tracks/pockets/runs/b51-tr-k5.log`.
+  Coordinator priority (13:42Z): the 7x8 seeds (e78k's K, c77's e78 stone variant B', c78l's c78z).
+- Tool commits: f7e7023b (tile-phase assists) merged to main as cf9e8bc5; 1e14c397 (`--region-pistons`)
+  waiting.
+- Nothing running on devvm49255.
 
 ## Exact next steps
-1. b51-tr-k5's result (above). Other s27-trbl51 regions are minimal for their palettes: bottom-left 6
-   (k=6 x 16), BR driver 3 (k=4 x 61), B's bulb line 4 (k=3 x 61), B line + its support 7 (k=6 x 16: none);
-   shrink owns the top-left A part (`door fill`).
-2. Answer owners' requests (partials/*.md). Walls found today: e78 (only K: its torch-off must come 1 gt
-   later; pockets k=3 + ideal-rs --vary 83k combos: none), c070x (U + M coupled 3 gt apart), pn31 (P3 needs
-   power 1 gt longer than the observer pulse that also feeds L2), t7b 42 (coupled 13-cell bottom).
+1. s27-bls49 (sculk 49) / s27-tlp50 (solid 50): shrink owns the top-left A part and the left column (lever
+   support + dusts, with sculk); measured minimal with pistons + sculk: BR driver 3, B's bulb line 4,
+   top-right 6, solid bottom-left 6 (sculk bottom-left 5 = the 49). A solid 49 needs another region.
+2. c78l (c78z / lb5, 7x8): only P2 (U open pulse >= 4 gt at 18..28) + M/s left; the 4 bottom-right cells
+   (2,-2) (3,-2) (4,-2) (3,-1) have NO P2 driver (exhaustive k=4 x 61, `runs/t2a-bot-k4`); plan for that
+   region = `svc/c78l-t2a-bot.ideal` (plan-from missed U's close re-hold; c re-hold 8..20 works).
+3. mechspace's z1-s78 top 10 (`svc/ms/z1-s78-*-oc.*`, between-ticks plans): blocked, the designs are not flat
+   (the held stack's z=1 rest blocks are in the design file): ask mechspace for flat designs (rest blocks
+   only in the plan) + a `port lever:` line, then batch with `--between-ticks --gaps --k 3 --fill-palette
+   all,sculk,calibrated,wool`.
+4. Walls (board notes): e78 K (torch-off 1 gt late), c070x U+M (coupled 3 gt), pn31 P3 (power 1 gt longer
+   than the observer pulse feeding L2).
 
 ## How to run a wiring job (recipe)
 1. Copy the owner's design + plan into `tracks/pockets/svc/<owner>-<name>.txt/.ideal`, design line rewritten.
-2. `door ideal-rs <plan>` must WORK (fix coupled defaults, e.g. c070x's m = u+3).
+2. `door ideal-rs <plan>` must WORK (tile phase is the default now; `--between-ticks` for old plans).
 3. `door cosearch pockets <seed> --box=... --assist <plan> --keep-lever --no-hallway --k 3 --gaps
-   --fill-palette all,sculk,calibrated,wool --threads 160 --out-dir runs/<name>`; then k=4/5 with a pruned
-   `--fill-states` on the pocket that drives something; `--pocket-k`/`--pocket-fill` for per-pocket sizes.
+   --fill-palette all,sculk,calibrated,wool --threads 160 --out-dir runs/<name>` (the "all" palette has
+   pistons: a piston popping its head for an observer is a 1-block relay, today's 51/50/42/40 used it);
+   then k=4/5 with a pruned `--fill-states` (include sticky/normal pistons) on the pocket that drives
+   something; `--pocket-k`/`--pocket-fill` for per-pocket sizes.
 4. Region re-wiring: `door cosearch plan-from <door> --region=... --close --out <plan>`; if the erased seed
-   does not screen perfect, sweep the plan's timings with `door ideal-rs --sweep` (s27's top-right close
-   pulse: plan-from said c22, only c0..16 works). `--region-pistons` erases retracted wiring pistons.
+   does not screen perfect, sweep the plan's timings with `door ideal-rs --sweep` or add a missing level edge
+   (s27 top-right close pulse c22 -> c15; c78l's U close re-hold). `--region-pistons` erases retracted wiring
+   pistons; then drop plan-from's events at the erased piston (its z=1 blocks power fillings: fake covers).
 5. Small exhaustive grids: `door ideal-rs <lever-only plan> --vary='x,y=a|b|...' --ok-only` (inputs real).
 6. A partial with fewer inputs ideal: re-run pockets on `pockets-partial-Nas.txt` with `--assist-cells`.
 
