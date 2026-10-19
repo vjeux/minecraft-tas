@@ -126,3 +126,9 @@ see each other, and the bottom cannot reach either: one lever wakes only one top
     A-low's power window is [B1+5, B1+7) (one odd tick: from a landing-powered piston);
   - TR pulled RIGHT in t10 (C2 static): the top-right then reaches A at both heights ((2,4) direct + QC,
     and the static C2 as c79's relay into A-low) and has 8 free cells for the sequencer.
+* `mech/t8L.txt` (+ `t8L.ideal`, windows `t8Lw.ideal`): t8 with the lever ON at rest on the EAST face of
+  TR's puller (TR + MR held), observer (4,3) facing down = one clean pulse into the top-right, which owns
+  every elevator feed (A at both heights from (2,4): direct high, QC + front update low; B from (2,5);
+  the corner W(3,3)). WORKS with ideal inputs at 4 positions. Windows: TL up, the left stack and BR are
+  FREE (0..60); BM >= 36; the elevator may start 0..12 after the flip. Still one piston below the door.
+  The open problem is the same: a 30-tick, 6-tap elevator sequencer from one pulse in ~4 free cells.
