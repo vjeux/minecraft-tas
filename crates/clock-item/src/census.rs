@@ -369,6 +369,65 @@ pub fn run(o: &Opts, progress: bool) -> Vec<Found> {
     all_found
 }
 
+/// The containers on a directed cycle of the item-flow graph (hoppers push into the container
+/// they face and pull from the container above; droppers push into the container they face):
+/// only there can items keep moving forever (outside a cycle every move is one-way, so the
+/// contents end up still).
+fn cycle_containers(blocks: &[(BlockPos, Block)]) -> HashSet<BlockPos> {
+    let at: HashMap<BlockPos, Block> = blocks.iter().copied().collect();
+    let mut edges: HashMap<BlockPos, Vec<BlockPos>> = HashMap::new();
+    for (p, b) in blocks {
+        match b {
+            Block::Hopper { facing, .. } => {
+                let t = p.rel(*facing);
+                if at.get(&t).is_some_and(is_container) {
+                    edges.entry(*p).or_default().push(t);
+                }
+                let up = p.above();
+                if at.get(&up).is_some_and(is_container) {
+                    edges.entry(up).or_default().push(*p);
+                }
+            }
+            Block::Dispenser { dropper: true, facing, .. } => {
+                let t = p.rel(*facing);
+                if at.get(&t).is_some_and(is_container) {
+                    edges.entry(*p).or_default().push(t);
+                }
+            }
+            _ => {}
+        }
+    }
+    // a container is on a cycle iff it can reach itself
+    let mut out = HashSet::new();
+    for (p, _) in blocks.iter().filter(|(_, b)| is_container(b)) {
+        let mut seen = HashSet::new();
+        let mut stack: Vec<BlockPos> = edges.get(p).cloned().unwrap_or_default();
+        while let Some(q) = stack.pop() {
+            if q == *p {
+                out.insert(*p);
+                break;
+            }
+            if seen.insert(q) {
+                stack.extend(edges.get(&q).cloned().unwrap_or_default());
+            }
+        }
+    }
+    out
+}
+
+/// A comparator reading one of `targets` (directly behind it, or behind one conductor).
+fn reads_one_of(blocks: &[(BlockPos, Block)], targets: &HashSet<BlockPos>) -> bool {
+    let at: HashMap<BlockPos, Block> = blocks.iter().copied().collect();
+    blocks.iter().any(|(p, b)| {
+        let Block::Comparator { facing, .. } = b else { return false };
+        let back = p.rel(*facing);
+        if targets.contains(&back) {
+            return true;
+        }
+        at.get(&back).is_some_and(redsim::behavior::conductor_of) && targets.contains(&back.rel(*facing))
+    })
+}
+
 fn dfs(o: &Opts, cells: &[BlockPos], assign: &mut Vec<Block>, tried: &AtomicUsize, found: &Mutex<Vec<Found>>, seen: &Mutex<HashSet<String>>) {
     let i = assign.len();
     if i == cells.len() {
@@ -376,7 +435,13 @@ fn dfs(o: &Opts, cells: &[BlockPos], assign: &mut Vec<Block>, tried: &AtomicUsiz
         if !wall_torches_ok(&blocks) || !has_reader(&blocks) {
             return;
         }
-        let containers: Vec<BlockPos> = blocks.iter().filter(|(_, b)| is_container(b)).map(|(p, _)| *p).collect();
+        // items keep moving only around a cycle of containers, and the clock's signal needs a
+        // comparator reading one of them
+        let cyc = cycle_containers(&blocks);
+        if cyc.is_empty() || !reads_one_of(&blocks, &cyc) {
+            return;
+        }
+        let containers: Vec<BlockPos> = blocks.iter().filter(|(_, b)| is_container(b)).map(|(p, _)| *p).filter(|p| cyc.contains(p)).collect();
         // contents: each container empty or one of the options; at least one filled
         let m = o.contents.len() + 1;
         let combos = m.pow(containers.len() as u32);
@@ -428,33 +493,38 @@ pub fn report(found: &[Found], out_dir: &std::path::Path) -> anyhow::Result<Stri
         by_period.entry(f.ch.period).or_default().push(f);
     }
     let mut summary = String::new();
-    summary.push_str("| period | types | variants | smallest (blocks) | families |\n|---|---|---|---|---|\n");
-    let mut tsv = String::from("period\tblocks\tfamily\ttype\tvariant\ttransient\ton_ticks\trising\tfile\n");
+    summary.push_str("| period | mechanisms | types | variants | smallest (blocks) | families |\n|---|---|---|---|---|---|\n");
+    let mut tsv = String::from("period\tblocks\tfamily\tmechanism\ttype\tvariant\ttransient\ton_ticks\trising\tfile\n");
     for (p, list) in &by_period {
         let mut types: BTreeMap<String, Vec<&Found>> = BTreeMap::new();
+        let mut mechs: HashSet<String> = HashSet::new();
         for f in list {
             types.entry(type_key(&f.spec, false)).or_default().push(f);
+            mechs.insert(mechanism_key(f));
         }
         let smallest = list.iter().map(|f| f.spec.blocks.len()).min().unwrap_or(0);
         let mut fams: Vec<String> = list.iter().map(|f| f.ch.family.clone()).collect();
         fams.sort();
         fams.dedup();
-        summary.push_str(&format!("| {p} | {} | {} | {smallest} | {} |\n", types.len(), list.len(), fams.join(", ")));
+        summary.push_str(&format!("| {p} | {} | {} | {} | {smallest} | {} |\n", mechs.len(), types.len(), list.len(), fams.join(", ")));
         let mut sorted: Vec<&&Found> = list.iter().collect();
         sorted.sort_by_key(|f| (f.spec.blocks.len(), type_key(&f.spec, true)));
         for f in sorted {
             let tk = type_key(&f.spec, false);
             let vk = type_key(&f.spec, true);
+            let mk = mechanism_key(f);
             let file = format!("p{p}-{}b-{}-{}.txt", f.spec.blocks.len(), short_hash(&tk), short_hash(&vk));
             let mut d = f.spec.to_design(&file.trim_end_matches(".txt").to_string(), f.ch.output);
             d.meta.insert("period".into(), p.to_string());
             d.meta.insert("family".into(), f.ch.family.clone());
+            d.meta.insert("mechanism".into(), short_hash(&mk));
             d.meta.insert("waveform".into(), format!("output on {} of {} gt, {} rising edge(s)", f.ch.on_ticks, p, f.ch.rising));
             d.save(&out_dir.join(&file))?;
             tsv.push_str(&format!(
-                "{p}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{file}\n",
+                "{p}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{file}\n",
                 f.spec.blocks.len(),
                 f.ch.family,
+                short_hash(&mk),
                 short_hash(&tk),
                 short_hash(&vk),
                 f.ch.transient,

@@ -99,8 +99,9 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                 match sim::judge(&spec, ticks, output_port(&d)).map_err(|e| anyhow!("{}: {e}", path.display()))? {
                     Ok(ch) => {
                         let kind = if ch.period < 2 || !ch.signal { "STATIC" } else { "CLOCK" };
+                        let hidden = if ch.whole_period != ch.period { format!(", whole state {} gt", ch.whole_period) } else { String::new() };
                         println!(
-                            "{}: {kind} P={} gt (transient {}), {} blocks, family {}, output {:?} on {}/{} gt, {} rising",
+                            "{}: {kind} P={} gt{hidden} (transient {}), {} blocks, family {}, output {:?} on {}/{} gt, {} rising",
                             path.display(),
                             ch.period,
                             ch.transient,
