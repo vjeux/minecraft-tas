@@ -413,6 +413,21 @@ track notes).
   that by QC (it emits into (-2,1)): a level-held 2-stack, switched off by powering the stone.
 * **A level-held piston is a clean link**: it moves once per lever edge, so an observer on its base
   fires exactly one pulse per edge (box72's torch link, c79's (4,0) on MR's puller, u7-m10a's R0).
+* **Sound crosses sealed regions** (m79s, archive m79s-sculk-63b-50-50b / m79s-sculk-8x8-64b-50b): a
+  region that sees nothing the lever moves first (a top-left behind the elevator column, a bottom-left
+  behind U) can hear the lever or the t1 pistons: activation = event tick + floor(distance). A plain
+  sensor (range 8) ignores a lever more than 8 away and hears the t1 pullers instead; a lever behind a
+  wool block is inaudible too. Category sculk.
+* **Wool kills the re-arm echo** (m79s): a sensor re-arms 40 gt (plain) / 20 gt (calibrated) after it
+  wakes and then hears the door's own late moves (an endless loop); put WOOL (a conductor, so it can also
+  be a wire block or the elevator's feed block) on every line from the late movers to the sensor
+  (`sculk::is_occluded`: all 6 nudged lines must cross wool).
+* **Plain sensor -> lamp -> observer = 2 taps, no echo** (m79s 8x8 K): lit at T, dark at T+34: both
+  taps land inside the sensor's 40 gt dead time. **Calibrated sensor -> observer = 3 taps 10 gt apart**
+  (T+2, T+12, T+22): an odd count for a pull-type piston (pull/push/pull on open, push/pull/push on
+  close), and its window can hold another piston meanwhile (the 63's B through dust -> wool).
+* **Glass under a wire dust** (m79s s88h/s88i): a stone under a dust is strongly powered and QC-arms
+  any piston whose quasi cell it touches; glass carries the dust without powering anything.
 
 Notes for builders of fast doors:
 
