@@ -388,6 +388,31 @@ track notes).
 * **Door blocks and ring stones relay power into the opening's quasi cells**: a strongly powered
   plain block in a ring cell gives signal into the opening cell next to it, which QC-powers a piston
   facing up just below that cell (the carried puller above); a parked door block does the same.
+* **Two pulses 8 gt apart from one pull-type puller** (cosearch2 pockets, ring56 s1
+  `runs/pk-s1-k5/pocket0-set1.txt`): observer watching the puller -> stone -> delay-4 repeater ->
+  observer watching the repeater: the puller's extend and pull retract give two output pulses (t13,
+  t21 after a t0 pulse, both edges), here fed into the elevator's lower piston by QC through the
+  empty cell of the upper one.
+* **A redstone lamp mirrors a DE input cell for an observer chain** (cosearch2 f131X): a lamp next
+  to a strongly powered input cell lights at once and goes dark 4 gt after; an observer on the lamp
+  gives one pulse at the window's start and one 4 gt after its end (D1's b and c shots from DE's
+  window).
+* **Lamp merger for A's driver** (w63top lamp plan, ideal/lamp-f.ideal): an observer watching a
+  redstone lamp fires once per lamp edge; a lamp whose power ends exactly 4 gt before a new power
+  pulse turns off and on in ONE tick (its off tick was scheduled first), so the observer fires once.
+  Lamp state changes use flag 2 (no neighbor updates): a lamp next to a piston's quasi cell, fed
+  through a conductor, never updates that piston. B's double watcher pulses then give exactly one
+  A2 and one A3 pulse.
+* **A parked door block as a gate** (w63top u7/m9, m10r): a door block that sits in a frame cell
+  only while open (TL at (0,3), TR at (2,3)) relays a repeater's strong power into the piston next
+  to it only on open; on close the same pulse does nothing. A conductor driving a piston's quasi
+  cell (instead of an emitter) QC-arms it without updating it, so it fires only where something
+  else updates it.
+* **Wall torch on a static frame stone** (w63top NOTES "Pivot"): a torch hung on the outer face of
+  a static frame stone ((-2,2) on (-1,2)) powers the side puller below directly and the one under
+  that by QC (it emits into (-2,1)): a level-held 2-stack, switched off by powering the stone.
+* **A level-held piston is a clean link**: it moves once per lever edge, so an observer on its base
+  fires exactly one pulse per edge (box72's torch link, c79's (4,0) on MR's puller, u7-m10a's R0).
 
 Notes for builders of fast doors:
 

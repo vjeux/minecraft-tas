@@ -436,7 +436,15 @@ fn multi_at(
     let all_closed = |f: &Region| {
         specs.iter().zip(closed.iter()).all(|(s, c)| s.door_cells().iter().zip(c.iter()).all(|(p, st)| f.get(*p) == Some(st.as_str())))
     };
-    for cycle in 0..opts.cycles {
+    // Periodic rest, like the judge (96a62d6, vjeux: internal state doesn't matter as long as the
+    // door works repeatedly): every close restores every opening's door blocks, and some closed
+    // state repeats an earlier one within cycles + MAX_PERIOD_EXTRA.
+    let mut seen_closed: Vec<Region> = vec![rest.clone()];
+    let mut periodic = false;
+    for cycle in 0..opts.cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= opts.cycles && periodic {
+            break;
+        }
         for l in levers {
             w.use_block(sb, *l)?;
         }
@@ -478,12 +486,10 @@ fn multi_at(
                 );
             }
         }
-        if last.data != rest.data || last.palette.len() != rest.palette.len() {
-            let diffs: Vec<String> =
-                rest.iter().filter(|(p, s)| last.get(*p) != Some(*s)).take(8).map(|(p, s)| format!("{p:?} {s} -> {}", last.get(p).unwrap_or("?"))).collect();
-            if !diffs.is_empty() {
-                bail!("cycle {cycle}: the build did not return to its rest state: {}", diffs.join("; "));
-            }
+        if seen_closed.iter().any(|s| crate::same_region(s, last)) {
+            periodic = true;
+        } else {
+            seen_closed.push(last.clone());
         }
         if !w.entities(sb)?.is_empty() {
             bail!("cycle {cycle}: entities appeared while closing (something broke)");
@@ -502,6 +508,9 @@ fn multi_at(
                 report.close_frames = close.frames;
             }
         }
+    }
+    if !periodic {
+        bail!("the build never comes back to a closed state it had before within {} cycles (its internal state drifts, so it may stop working)", opts.cycles + crate::MAX_PERIOD_EXTRA);
     }
     Ok(())
 }

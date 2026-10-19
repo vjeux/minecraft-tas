@@ -61,6 +61,8 @@ pub fn cli(raw: &[String]) -> Result<()> {
         Some("batch") => batch(&a),
         Some("fill-column") => fill_column(&a),
         Some("watch") => watch(&a),
+        Some("replay") => replay(&a),
+        Some("run-list") => run_list(&a),
         _ => bail!("usage: door boxproof fuzz|case|bmc|catalog|batch [--flags]"),
     }
 }
@@ -257,6 +259,85 @@ fn watch(a: &Args) -> Result<()> {
         }
         std::thread::sleep(std::time::Duration::from_secs(every));
     }
+}
+
+/// Replay one design through the model and redsim tick by tick (`--design F --w --h --dx --dy
+/// [--lever-on] [--ticks N]`): the first disagreement, the flags and the violations.
+fn replay(a: &Args) -> Result<()> {
+    let w: i32 = a.get("w", 7);
+    let h: i32 = a.get("h", 8);
+    let dx: i32 = a.get("dx", 2);
+    let dy: i32 = a.get("dy", 2);
+    let t: usize = a.get("ticks", 60);
+    let lr = a.has("lever-on");
+    let path = a.s("design").ok_or_else(|| anyhow::anyhow!("--design"))?;
+    let d = mctas::design::Design::load(std::path::Path::new(path))?;
+    let door = d.ports["door"];
+    let lp = d.ports["lever"];
+    let mut g = state::Geo { w, h, door: (dx, dy), levers: vec![], rounds: 2, split: false };
+    let at = |x: i32, y: i32| -> [i32; 3] { [x - dx + door[0], y - dy + door[1], door[2]] };
+    let mut cells = Vec::new();
+    for i in 0..g.n() {
+        let (x, y) = g.xy(i);
+        cells.push(d.blocks.get(&at(x, y)).cloned().unwrap_or_else(|| "minecraft:air".into()));
+    }
+    let ls = d.blocks.get(&lp).cloned().unwrap_or_default();
+    let pos = (lp[0] - door[0] + dx, lp[1] - door[1] + dy);
+    let prop = |k: &str| ls.split(&format!("{k}=")).nth(1).map(|v| v.split([',', ']']).next().unwrap_or("").to_string()).unwrap_or_default();
+    let sup = match (prop("face").as_str(), prop("facing").as_str()) {
+        ("floor", _) => (pos.0, pos.1 - 1),
+        ("ceiling", _) => (pos.0, pos.1 + 1),
+        (_, "west") => (pos.0 + 1, pos.1),
+        (_, "east") => (pos.0 - 1, pos.1),
+        _ => pos,
+    };
+    let oop = lp[2] != door[2];
+    let lev = if oop { state::LeverCand { pos: sup, oop: true, sup } } else { state::LeverCand { pos, oop: false, sup } };
+    if let Some(li) = g.idx(pos.0, pos.1).filter(|_| !oop) {
+        cells[li] = "LEVER".into();
+    }
+    g.levers = vec![lev.clone()];
+    println!("lever {lev:?}");
+    let o = diff::run_case_pol(&g, &cells, &lev, t, lr);
+    println!("skipped {:?}\nflags {:?}\nviolations {:?}", o.skipped, o.flags, o.violations);
+    match o.mismatch {
+        Some((step, dd)) => {
+            println!("mismatch at step {step}:");
+            for l in dd {
+                println!("  {l}");
+            }
+        }
+        None => println!("match ({t} ticks per edge)"),
+    }
+    Ok(())
+}
+
+/// Run mctas commands from a list, `--jobs N` at a time (default 1, in order): `--list FILE`
+/// with one `name arg arg ...` per line (whitespace-separated, no quoting: values carry no
+/// spaces), each logged to `--logs DIR/name.log`; `#` lines are skipped.
+fn run_list(a: &Args) -> Result<()> {
+    let list = std::fs::read_to_string(a.s("list").ok_or_else(|| anyhow::anyhow!("--list"))?)?;
+    let logs = a.s("logs").unwrap_or("/tmp/boxproof-runs").to_string();
+    std::fs::create_dir_all(&logs)?;
+    let jobs: usize = a.get("jobs", 1);
+    let items: Vec<Vec<String>> = list.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).map(|l| l.split_whitespace().map(String::from).collect()).collect();
+    let exe = std::env::current_exe()?;
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|s| {
+        for _ in 0..jobs.max(1) {
+            s.spawn(|| loop {
+                let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let Some(it) = items.get(k) else { break };
+                let log = format!("{logs}/{}.log", it[0]);
+                let Ok(f) = std::fs::File::create(&log) else { continue };
+                let Ok(f2) = f.try_clone() else { continue };
+                let t0 = std::time::Instant::now();
+                let st = std::process::Command::new(&exe).args(&it[1..]).stdout(f).stderr(f2).status();
+                println!("{} {:.0}s {:?}", it[0], t0.elapsed().as_secs_f64(), st.map(|s| s.code()));
+            });
+        }
+    });
+    Ok(())
 }
 
 /// Random boxes vs redsim, in parallel.

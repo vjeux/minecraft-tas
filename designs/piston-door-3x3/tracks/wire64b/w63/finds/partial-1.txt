@@ -1,0 +1,47 @@
+name: cosearch-partial-1-43of79
+port door: 0 0 0
+port lever: -3 4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:piston[extended=false,facing=west]
+  E minecraft:piston[extended=true,facing=east]
+  F minecraft:piston_head[facing=east,short=false,type=normal]
+  G minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  H minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  I minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  J minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  K minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  Q minecraft:stone
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  S minecraft:smooth_stone
+  T minecraft:target[power=0]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=up]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  ..pNBO
+layer -2:
+  .KsCMMDS
+layer -1:
+  .TsPNTrB
+layer 0:
+  .KRQQQKH
+layer 1:
+  .K.QQQNN
+layer 2:
+  .K.QQQoN
+layer 3:
+  .AMEF.NI
+layer 4:
+  LB.BsBQQ
+layer 5:
+  .NBGsJr

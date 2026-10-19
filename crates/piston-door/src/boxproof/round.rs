@@ -216,8 +216,16 @@ impl<'g, A: Alg> Ctx<'g, A> {
         }
         let mut post = pre.to_vec();
         let mut dchg = vec![fl; n];
+        let dbg = std::env::var("BP_DEBUG").is_ok();
         for i in 0..n {
             let cs = std::mem::take(&mut cands[i]);
+            if dbg {
+                let on: Vec<usize> = cs.iter().enumerate().filter(|(_, c)| self.a.val(c.0) == Some(true)).map(|(j, _)| j).collect();
+                if on.len() > 1 {
+                    let kinds: Vec<String> = on.iter().map(|&j| format!("{}{}", KNAMES[cs[j].1.k.iter().position(|&b| self.a.val(b) == Some(true)).unwrap_or(0)], if self.a.val(cs[j].1.k[MOVING]) == Some(true) { format!("(mk{:?})", cs[j].1.mk.iter().position(|&b| self.a.val(b) == Some(true))) } else { String::new() })).collect();
+                    eprintln!("round write conflict at {:?}: candidates {:?}", self.g.xy(i), kinds);
+                }
+            }
             let (cell, any) = self.combine(&pre[i], &cs);
             post[i] = cell;
             dchg[i] = any;

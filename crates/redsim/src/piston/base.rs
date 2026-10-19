@@ -146,7 +146,7 @@ pub fn move_blocks(w: &mut World, piston: BlockPos, direction: Dir, extending: b
         let state = w.get(q);
         drop_resources(w, state, q);
         w.set_block(q, Block::Air, 18);
-        w.game_event("block_destroy", q);
+        w.game_event_state("block_destroy", q, state);
         to_update.push(state);
     }
     for i in (0..to_push.len()).rev() {
