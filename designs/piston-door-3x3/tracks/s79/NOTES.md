@@ -317,3 +317,17 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   Open frame: bottom BL C BM, top ML TL TM, right BR MR TR, left statics = 12/12. Close = the reverse (spits;
   W pulls TL back with a long pulse). m69b feeds U1 at home in-plane from (2,-2) (which QC-arms MB under it:
   harmless in redsim, MB only tries while U1 is extended); raised U1 still ideal from (1,-1,-1).
+- m69 wiring: satwire (whole box free) on m69b: solid UNSAT in 25 s (core: close W (-1,3) + the lowered s0
+  (0,3)); sculk UNSAT in 352 s (core: 10 pistons). pockets3 k=3 per pocket: U0, R0, s1 + P3t can be driven,
+  never R1/R2, U1, P3b, s0, W, MB, M0; the top-left has only (-1,4) (-1,5) for W + s0 (5 pulses) + M0 (2
+  holds). Why W is hopeless in solid: its only feeds are (-1,4) and QC through (-1,5) / (0,4); (-1,5) touches
+  only M0, so W can only be triggered after M0 moves, but on open W must slide TL east BEFORE M0 lowers s0.
+  m69c/m69d (W replaced by a horizontal elevator P3t + M3 (4,3) on the top row) work ideally but M3's feed
+  (4,4) is also R2's only feed (QC) and R1 loses its feed (satwire UNSAT at once, core R1). The same holds at
+  the bottom-right ((4,-1) is R0's feed). A ring-resting puller at (2,3) lifted out by a piston at (2,5)
+  (c70b's --ring-escape) could replace W from the feedable top-right region (13 pistons, not built yet).
+- **6x8 verdict (no left pistons): NO in every family I can build**: the left frame must be the 3 statics
+  (nothing can move a block west; a piston in a left frame cell can only push ML east); each of columns 0
+  and 1 has 3 blocks for 2 vertical frame cells, so one middle block per column must slide along a frame row;
+  with one piston row on one side, both middle blocks must go the same way (4 blocks for one 3-cell row).
+  Only 2 rows above AND below (9 tall) let ML and C go opposite ways: 6x9 m69.
