@@ -1,0 +1,49 @@
+name: community-7x8-open
+# The community 7x8 (56b) door from vjeux's screenshot (SacredRedstone), OPEN state, lever OFF.
+# Read cell by cell (observer arrows of the screenshot's resource pack point to the observer's
+# output: '<<' = facing east, 'V' = facing up, 'A' = facing down; repeater fixed torch = output
+# end; comparator rear torch pair = input end), plus hidden dust on the two empty non-door cells
+# the low camera cannot see the top of: (3,5) on observer (3,4) and (3,3) on frame block (3,2).
+# The real lever hangs on the front face of the lime block (2,5); here it stands on top of it.
+port door: 0 0 0
+port lever: 2 6 0
+origin: -2 0 0
+palette:
+  W minecraft:white_concrete
+  C minecraft:cyan_wool
+  G minecraft:lime_wool
+  X minecraft:obsidian
+  e minecraft:observer[facing=east,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  d minecraft:observer[facing=down,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  w minecraft:sticky_piston[extended=false,facing=west]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  1 minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  2 minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  3 minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  K minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:dropper[facing=south,triggered=false]
+  M minecraft:redstone_lamp[lit=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+layer -2:
+  MCeUeeM
+layer -1:
+  dEWWWXu
+layer 0:
+  EW...Ww
+layer 1:
+  EW...Ww
+layer 2:
+  EW...Wu
+layer 3:
+  CdWWWrD
+layer 4:
+  uC3ssdu
+layer 5:
+  12esGRK
+layer 6:
+  ....L..
