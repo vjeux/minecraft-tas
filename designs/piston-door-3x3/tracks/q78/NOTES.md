@@ -70,3 +70,8 @@ Frees (0,4) so A can be fed from the LEFT while W keeps the top-right. ideal-rs 
   pullers / A1) let B' spit A' up at t16 when the first sensor ends (B1), and their re-arm hears A2 at t31:
   windows t33..43 hold B' (head up) and its t43 retraction lowers A' (B2). A1 + K real: not found yet (the BL
   watcher gives A' two pulses; pockets2's left A' filling works in the wool door only without my sensors).
+* pockets2's stone partial with only B' ideal (`e78/kb1.txt` = runs/e78s-kb): B' windows (one at a time): open
+  B1 17..21, B2 25, 27..45; close B1 17..21, B2 22/24/26: no common (symmetric) pair, no symmetric hold. But
+  with NO B' on close it works with an open-only hold [17..20, 27] (or [26..30, +17]) (`kb1ha.ideal`):
+  B' must be edge-selective. In a wool door kb1's chains break (sensors hear other events). Screens of the 6 free
+  cells with sensors/wool/observers: 0.
