@@ -251,6 +251,14 @@ impl VideoSession {
     /// Film one clock: built and run through its kick and warmup unseen in the sandbox the camera
     /// is not in, then the camera enters, settles, and `p.ticks` ticks are played and recorded.
     pub fn record(&mut self, c: &Clock, p: &Plan, clip: &Path, o: &ClockVideoOptions) -> Result<()> {
+        // filmed with the clock's lowest cell at y = 72: the camera then stands above the client's
+        // horizon height (63), below which it draws the sky beyond the floor black (as `clock shot`)
+        let dy = 72 - p.lo[1];
+        let c = &c.translated([0, dy, 0]);
+        let mut p2 = p.clone();
+        p2.lo[1] += dy;
+        p2.hi[1] += dy;
+        let p = &p2;
         let w = &mut self.w;
         let sb = if self.cam_in == Some(self.pair[0]) { self.pair[1] } else { self.pair[0] };
         w.clear(sb)?;
