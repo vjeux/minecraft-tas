@@ -597,6 +597,14 @@ impl SeamReq {
                 bail!("seamless {} below {} ({n} offending cells): {}", s.label, self.tier.name(), s.why.unwrap_or_default());
             }
         }
+        // FULL FRAME WHEN OPEN (vjeux 03:36Z): a FULL (or better) requirement also needs the 12
+        // frame cells to hold the door block when open, or searches drop the static frame blocks.
+        if self.tier >= Tier::Full {
+            let n = frame_full_count(&rec);
+            if n < 12 {
+                bail!("frame {n}/12 when open (the 12 frame cells must hold the door block)");
+            }
+        }
         if self.hallway {
             // The coordinator's hallway (props-dyn, `properties_dyn::hallway_env`): smooth stone in
             // every ring cell over the build's depth extent + 3 that is air at every tick of a
@@ -609,6 +617,23 @@ impl SeamReq {
         }
         Ok(())
     }
+}
+
+/// The frame cells (12 around the opening, door plane) that hold the door block in the open
+/// state: FULL FRAME WHEN OPEN needs all 12.
+pub fn frame_full_count(rec: &Recording) -> usize {
+    let open = rec.open_state();
+    let door = block_name(&rec.door_state);
+    let mut n = 0;
+    for i in 0..3 {
+        for (u, v) in [(i, -1), (i, 3), (-1, i), (3, i)] {
+            let p = rec.geo.cell(u, v, 0);
+            if open.get(p).is_some_and(|s| !is_air(s) && block_name(s) == door) {
+                n += 1;
+            }
+        }
+    }
+    n
 }
 
 /// The cells whose blocks stop a design from reaching `min`: visible circuitry in the open state
