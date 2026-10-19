@@ -3006,6 +3006,28 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         }
         o
     };
+    // IN-PLANE assist guard (t78's hs23-0008L, reported via pockets2): a still-assisted input whose
+    // plan block sits IN the door plane powers whatever a filling puts next to it (dust lit by the
+    // assist's redstone block, an observer firing when it appears); the drive check takes the
+    // block out raw but the neighbor's state keeps the power, so such a filling passed for real
+    // wiring (a fake partial). A screen counts only when no filling block is next to an in-plane
+    // cell of an input still assisted in it (a filling that feeds that input itself is screened
+    // again with it released, where its block is gone).
+    let adj_mask: std::collections::HashMap<(i32, i32), u64> = {
+        let mut m: std::collections::HashMap<(i32, i32), u64> = std::collections::HashMap::new();
+        for k in 0..prob.assist_pistons.len() {
+            for q in &prob.assist_pos[k] {
+                if q.z != z {
+                    continue;
+                }
+                for (ddx, ddy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    *m.entry((q.x + ddx, q.y + ddy)).or_default() |= 1u64 << k;
+                }
+            }
+        }
+        m
+    };
+    let taint_of = |cells: &[(i32, i32)]| -> u64 { cells.iter().fold(0u64, |acc, c| acc | adj_mask.get(c).copied().unwrap_or(0)) };
     let mut accepted: Vec<Vec<Filling>> = Vec::new();
     for (pi, pk) in pockets.iter().enumerate() {
         if only.as_ref().is_some_and(|o| !o.contains(&pi)) || pk.len() > pa.max_pocket {
@@ -3139,6 +3161,8 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                         }
                         let (sub, lev, pre) = &items[ii];
                         let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
+                        // inputs with an in-plane plan cell next to this filling (see adj_mask)
+                        let taint = taint_of(&cells);
                         let pals: Vec<&Vec<Block>> = cells.iter().map(|c| if ring.contains(c) { &stone_pal } else { &pal }).collect();
                         if pals.iter().any(|p| p.is_empty()) {
                             continue;
@@ -3196,7 +3220,9 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                             let mut driven: Option<u64> = None;
                             if sc.pts >= max {
                                 ok_door.fetch_add(1, Ordering::Relaxed);
-                                driven = match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).filter(|d| *d != 0);
+                                if taint & seed.assist == 0 {
+                                    driven = match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).filter(|d| *d != 0);
+                                }
                             }
                             if fed != 0 {
                                 // double drive (the plan's block AND the real wiring on the same
@@ -3214,6 +3240,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                                 // pulse, a long pulse for a push/pull pair, ...); only the inputs
                                 // still assisted are matched against their windows
                                 if sc2.pts >= max
+                                    && taint & (seed.assist & !fed) == 0
                                     && let Some(d2) = match_groups(&prob, &groups, seed.assist & !fed, &tr2, pa.width_tol)
                                 {
                                     // every group of a released input counts as covered: the door
@@ -3380,8 +3407,13 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             if g.assist == 0 && !has_lever {
                 continue;
             }
-            let sc = screen(&prob, &g);
-            if sc.pts >= max {
+            // a filling next to an in-plane plan cell of an input still assisted here is not
+            // judged (its drive may come from the plan's block, see adj_mask); the branch goes on:
+            // more fillings may release that input
+            let ctaint = chosen.iter().fold(0u64, |acc, &c| acc | taint_of(&cands[c].blocks.iter().map(|(q, _)| *q).collect::<Vec<_>>()));
+            let tainted = ctaint & g.assist != 0;
+            if tainted {
+            } else if screen(&prob, &g).pts >= max {
                 if g.assist == 0 {
                     let door = door_of(&g, prob.spec);
                     let e = cs::evaluate(&door, &jopts, false);
