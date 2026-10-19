@@ -74,9 +74,9 @@ fn fading(b: &mut B, t: &Xf, k: i32) {
     b.dust(t.p(k + 2, y, 0));
 }
 
-/// One counter level (k comparators per row) with its decrement shaper; its output torch at local
-/// (k + 2, -1) facing east.
-fn counter_level(b: &mut B, t: &Xf, k: i32) {
+/// One counter level (k comparators per row, decrement `dec` levels per inner pulse: count =
+/// ceil(14 / dec)) with its decrement shaper; its output torch at local (k + 2, -1) facing east.
+fn counter_level(b: &mut B, t: &Xf, k: i32, dec: i32) {
     let y = 1;
     b.stone(t.p(0, y, 0));
     b.dust(t.p(0, y, -1));
@@ -90,9 +90,11 @@ fn counter_level(b: &mut B, t: &Xf, k: i32) {
     b.dust(t.p(k + 2, y, 0));
     b.dust(t.p(1, y, 1));
     b.cmp(t.p(1, y, 2), t.f("south"), true, false);
-    b.dust(t.p(0, y, 2));
-    b.dust(t.p(-1, y, 2));
-    b.put(t.p(-2, y, 2), "minecraft:redstone_block");
+    // the side constant 15 - dec: a redstone block and dec + 1 dust (15, 14, ...)
+    for i in 0..=dec {
+        b.dust(t.p(-i, y, 2));
+    }
+    b.put(t.p(-dec - 1, y, 2), "minecraft:redstone_block");
 }
 
 /// The placement of a level whose output torch is at local (k + 2, -1) facing east, so that the
@@ -108,7 +110,7 @@ pub fn build_nested(k_in: usize, ks: &[usize], name: &str) -> B {
     let mut t = Xf::id();
     // outermost first
     for (n, &k) in ks.iter().enumerate().rev() {
-        counter_level(&mut b, &t, k as i32);
+        counter_level(&mut b, &t, k as i32, 1);
         if n == ks.len() - 1 {
             b.port("output", t.p(k as i32 + 2, 1, -1));
         }
@@ -124,4 +126,57 @@ pub fn build_nested(k_in: usize, ks: &[usize], name: &str) -> B {
 
 pub fn build(k_in: usize, k_out: usize, name: &str) -> B {
     build_nested(k_in, &[k_out], name)
+}
+
+/// A counter (k comparators per row, decrement `dec`) over an arbitrary inner clock: the inner
+/// design is turned and moved so that its `tap` cell (a block or torch carrying the inner pulse,
+/// on the design's edge) lands behind the shaper comparator, the rest of it beyond. Returns the
+/// merged design (the inner `port start` kick carried over) or None when no turn fits.
+pub fn over(inner: &mctas::design::Design, tap: Pos, k: usize, dec: usize, name: &str) -> Option<mctas::design::Design> {
+    let mut b = B::new(name);
+    counter_level(&mut b, &Xf::id(), k as i32, dec as i32);
+    b.port("output", [k as i32 + 2, 1, -1]);
+    let mut d = b.design();
+    let counter_cells: Vec<Pos> = d.blocks.keys().copied().collect();
+    for turns in 0..4u8 {
+        // clockwise quarter turns (the game's rotation), then move tap -> (1, 1, 3)
+        let rt = clock::rotate_pos(tap, turns);
+        let off = [1 - rt[0], 1 - rt[1], 3 - rt[2]];
+        let mv = |p: Pos| -> Pos {
+            let q = clock::rotate_pos(p, turns);
+            [q[0] + off[0], q[1] + off[1], q[2] + off[2]]
+        };
+        let placed: Vec<(Pos, String)> = inner.blocks.iter().map(|(p, s)| (mv(*p), clock::canon::rotate_state(s, turns))).collect();
+        // the inner clock lies beyond the shaper: z >= 3, and at z == 3 only east of the
+        // constant dust (x >= 1); no inner cell next to a counter cell except the tap
+        let ok = placed.iter().all(|(p, _)| {
+            let beyond = p[2] > 3 || (p[2] == 3 && p[0] >= 1);
+            let below_tap_row = p[1] < 1 && p[2] >= 3; // floors under the inner clock
+            (beyond || below_tap_row)
+                && !counter_cells.contains(p)
+                && (*p == [1, 1, 3]
+                    || !counter_cells.iter().any(|c| c[1] == 1 && p[1] == 1 && (c[0] - p[0]).abs() + (c[2] - p[2]).abs() == 1))
+        });
+        if !ok {
+            continue;
+        }
+        for (p, s) in placed {
+            d.blocks.insert(p, s);
+        }
+        for (p, s) in &inner.block_entities {
+            d.block_entities.insert(mv(*p), s.clone());
+        }
+        // the kick: `port start: x y z <state> [T] [at N]` moved and turned
+        if let (Some(pp), Some(rest)) = (inner.ports.get("start"), inner.meta.get("port start")) {
+            let words: Vec<&str> = rest.split_whitespace().collect();
+            let turned: Vec<String> = words
+                .iter()
+                .map(|w| if w.contains("minecraft:") || w.contains('[') { clock::canon::rotate_state(w, turns) } else { w.to_string() })
+                .collect();
+            d.ports.insert("start".into(), mv(*pp));
+            d.meta.insert("port start".into(), turned.join(" "));
+        }
+        return Some(d);
+    }
+    None
 }
