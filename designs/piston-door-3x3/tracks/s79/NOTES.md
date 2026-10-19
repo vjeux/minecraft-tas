@@ -178,3 +178,6 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   s's open hold through (2,3) (reaches s only at (1,3), i.e. open) and its close push through (1,4).
   (3) c78t's right side (TR leaving up, (3,2) static, mechspace) frees (4,2): a lever on (4,2)'s east
   face holds BOTH MR's and BR's pullers, so R0 moves at t1 and the bottom-right hears it at t2.
+- `door cosearch search` (annealer, 39M screens in 570 s, `runs/top-anneal.log`) on b2 (U real, L0 + R0
+  pinned ideal, s REAL from c78z's top) over all 16 non-piston top cells with the full palette + sculk +
+  calibrated + wool and lever moves: stuck at 75/79 (the seed's score): no top wiring re-times s.
