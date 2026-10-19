@@ -57,3 +57,26 @@ volume 64 (8x8x1). Box x -3..4, y -2..5 (the lever (1,5) is excluded; row 5 hold
   (4,-1) up; MR + BR: bridge's observer (3,3) W, note block (4,3), observer (4,2) up.
 - Found by: c074 plan with D real -> M by sculk -> D hold sensor -> pockets k=3 in 8x8 (E1+E2, TLc,
   M, BM fillings) -> repeater delay 3 -> 4 (TLc after E1) -> pockets k=4 on the bottom-left (M + BL).
+
+## 8x7-072 (13:28Z-13:40Z): dead in 8x7 (partials/c072.md)
+U (-1,-1) is extended at rest and needs a placement-safe LEVEL source (torch / powered repeater /
+redstone block): a comparator straight into U outputs 0 at placement (block entity), so U drops while
+settling (redsim, wip/c072u.txt). U's feeds are boxed in ((-2,-1) diode from (-3,-1) only; (-1,-2)
+also powers BL's puller; QC via (-2,0) also powers E), row -2 has no floor for diodes, and the free
+top-left cannot pass a level down past D/E/(-1,2). Same for 076 (TLc level-held).
+
+## e78 STONE variant (13:32Z-, coordinator): pockets2's partial with only B' (1,-3) ideal (e78s/kb1.txt)
+- Under main's TILE phase (de6ecbce): B' works with THREE same-tick pulses on both edges {17, 26..32,
+  +5..9} (e78s/kb1p3.ideal, 16 positions x 3 cycles); 2 pulses per edge: open {17..22, 28..60}, close
+  {17, 23..24} / {18, 20..25, 27} / {20, 22..25, 27} (no common pair); pockets3: one hold per edge also
+  works (open [18,28) = a calibrated sensor's 10 gt, or [23,46), [24,44); close any hold from 27..45
+  except 17 gt) - a calibrated sensor waking at t18 on open and t27..45 on close would do it.
+- Why edge-asymmetric: on close, B2 must come before the left calibrated sensor re-arms (t27): its echo
+  fires A' again; on open that echo IS A3.
+- B''s clean feeds: (0,-3) (observer facing west, or a conductor fed from (-1,-3)) and (2,-3) (only an
+  observer facing east: the K-chain observer (3,-3) faces east and outputs into (2,-3), so a conductor
+  there fires B' at t9 with A1 and lifts A' early); (0,-2)/(2,-2) also power A' (only safe while A' is
+  lifted, t22..32).
+- Screens: ideal-rs --vary 15 states^6 on the 6 free cells, B' fully real: 0 of 11.4M; B1 real with B2
+  ideal: 0 of 933k; pockets3: k=4 full palette (62 states) with the 3-pulse plan: 0 of 20.5M; door fill
+  k<=4 (45 states incl. pistons/sculk): 0 of 17.6M; k=5 running (pockets3).
