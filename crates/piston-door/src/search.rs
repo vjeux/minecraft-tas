@@ -641,16 +641,19 @@ fn lever_moves(ctx: &Ctx, d: &Design) -> Vec<Edit> {
             continue;
         }
         let mut states = Vec::new();
+        // keep the design's rest polarity (either counts, vjeux 2026-10-19): a lever-ON door's
+        // moved lever stays on
+        let pw = if ls.contains("powered=true") { "true" } else { "false" };
         let solid = |c: Pos| c != lp && d.blocks.get(&c).is_some_and(|s| is_support(s));
         if solid(add(q, [0, -1, 0])) {
-            states.push("minecraft:lever[face=floor,facing=west,powered=false]".to_string());
+            states.push(format!("minecraft:lever[face=floor,facing=west,powered={pw}]"));
         }
         if solid(add(q, [0, 1, 0])) {
-            states.push("minecraft:lever[face=ceiling,facing=west,powered=false]".to_string());
+            states.push(format!("minecraft:lever[face=ceiling,facing=west,powered={pw}]"));
         }
         for f in HORIZONTAL {
             if solid(sub(q, dir(f).unwrap())) {
-                states.push(format!("minecraft:lever[face=wall,facing={f},powered=false]"));
+                states.push(format!("minecraft:lever[face=wall,facing={f},powered={pw}]"));
             }
         }
         for st in states {
