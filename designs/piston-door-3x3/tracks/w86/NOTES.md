@@ -72,6 +72,17 @@
 5. Vertically stacked pistons are QC-coupled (powering the upper fires the lower); pulse lengths can make the
    coupled firing net zero (long pulse: push + pull back) or useful (m69u's close).
 
+6. (w86 22:50Z, satwire on m73..m78 and c70b's m69g-12) Box A + lever-held top trio: TL TM TR go up, so the
+   6 other blocks fill the 6 wall cells; C leaves by row 1 and BM by row 0, so the side that receives BM via row 0
+   also has its own row-0 block (BR or BL) and one of them must CLIMB from (±,0). The climbers all collide with
+   something: a bottom-corner pusher (W'' (-1,-1) / W' (3,-1)) is fed only from a bottom-row pocket that the
+   row-0 pistons and trajectories cut off (only (x,-1) cells; observers there can only watch row 0 and point out
+   of the box; repeaters/dust have no support) — satwire cores: m73 W'' (8 wide), m69g-12/m77 W' (9 wide), m76
+   RP0's long close pulse (even 10 wide); a carried top puller (V at (3,4) pushing P3t' into (3,2)) takes the
+   crossing cell (3,4), so that half never sees the close flip (m78 core: close P3t'); a ring puller resting in
+   (3,2) must escape through (4,2) and boxes s1. So the remaining options are: a pocket connected upward through
+   free (x,0),(x,1) cells (no carrier/escape pistons in column 5), or a crossing that does not need (3,4).
+
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back
   through a puller inside the opening (a carried piston at y = 1 facing down for the floor).
