@@ -332,6 +332,30 @@ pub fn trace(c: &Clock, o: &SimOptions, ticks: u32) -> Vec<String> {
     out
 }
 
+/// The design's blocks that cannot stand where they are once placed like the judge places them:
+/// the ones the placement removed (a floating dust loses its shape update) and the ones redsim's
+/// `canSurvive` rejects (a floating lever, torch or repeater, which the raw placement keeps but a
+/// player could not build), in the box `from`..=`to`. `Err` when redsim does not model the design.
+pub fn unsupported(c: &Clock, from: Pos, to: Pos) -> Result<Vec<(Pos, String)>, String> {
+    let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
+    blocks.sort_by_key(|(p, _)| *p);
+    let s = start_box(c, &blocks, from, to).map_err(|(_, why)| why)?;
+    let withheld = c.withheld();
+    let mut out = Vec::new();
+    for (p, s0) in &c.design.blocks {
+        if Some(*p) == withheld {
+            continue;
+        }
+        let b = s.world.get(bp(*p));
+        if matches!(b, Block::Air) {
+            out.push((*p, s0.clone()));
+        } else if !redsim::behavior::can_survive(&s.world, &b, bp(*p)) {
+            out.push((*p, b.to_string()));
+        }
+    }
+    Ok(out)
+}
+
 /// One driven run on redsim (the circuit judge's screen, `mctas circuit sim`): what [`drive`]
 /// recorded after every tick 0..=ticks.
 pub struct Driven {

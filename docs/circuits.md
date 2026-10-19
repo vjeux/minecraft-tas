@@ -62,7 +62,9 @@ the game turns every block state, the ports and `travel` turn with it), each in 
 placed exactly like `clock verify` places a clock (raw writes, a shape update of every wire, a
 `self` update of every block), runs the kind's stimulus and records every gt: each input's state
 read from its cell, each output's level, every non-air cell of the watched box (the circuit's box
-plus a 3-cell margin; swept along `travel` for machines). A build fails when anything reaches the
+plus a 3-cell margin; swept along `travel` for machines). A build fails when a design block cannot
+stand where it is (the placement removes a floating dust; a floating lever, torch or repeater
+fails `canSurvive`: a player could not build it), when anything reaches the
 outer layer of the watched box, when an entity appears (a drop, a popped block), or when the
 kind's checker says so. All builds passing with the same metrics: `robust`; passing with
 different metrics: `position-dependent` / `rotation-dependent` (allowed, flagged). One line:
@@ -93,7 +95,8 @@ kick) before the first input.
     must be).
 * **tff**: 8 pulses of 4 gt (A), then two each of 10, 3, 2 and 1 gt (B), then trains of 6 pulses
   (half on, half off) at periods 30, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2 gt (C). Every A pulse must
-  change the output exactly once (steady until the next). `latency`: input edge to output change;
+  change the output exactly once (steady until the next), and so must every longer pulse (a lever
+  held down). `latency`: input edge to output change;
   `edge`: rising when the change keeps its offset as the pulse lengthens, falling when it moves
   with the falling edge; `min-pulse`: the shortest pulse from which every longer one toggles;
   `min-period`: the fastest train period from which every slower one gives exactly 6 changes and a
@@ -142,8 +145,13 @@ kick) before the first input.
 axis value, metrics, blocks, box, family = the kinds of the blocks whose state changes,
 robustness, block kinds, type key) and its caption in `captions.tsv` (default: the design's first
 comment block). Refused: a failing design, or a structure already archived as the same kind (the
-TYPE: up to translation, the 4 rotations and the mirror image, input cells marked whatever drives
-them, output and payload cells marked: `same type as <file>`). A name taken by another structure
+TYPE: up to translation, the 4 rotations and the mirror image, input cells marked with their
+device (a lever, a stone or wooden button, the judge's redstone block: their timings differ; not
+their facing), output and payload cells marked, after the swaps that keep the run identical on redsim under
+the kind's stimulus, as for clocks: sticky pistons that never pull = pistons, inert solids =
+stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind and type in every
+study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,
+without stone"); the catalog shows them as "also found as". A name taken by another structure
 gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
 gates the function, T flip-flops their family, latches the kind, `counter N`, extenders `N = <N>`,
 flying machines their speed (or `two-way`).
