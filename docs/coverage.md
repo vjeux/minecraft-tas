@@ -61,7 +61,7 @@ Flat doors only below; "flat-impossible" marks behaviors that need a block outsi
 | slabs (top/bottom), non-conducting full blocks (glass...) | ✓ (slime conducts, honey/leaves hold nothing: fixtures slime-is-a-conductor, leaves-honey-hold-nothing) | glass ✓, slabs ✗ | — | — | glass ✓, slabs ✗ | glass ✓, slabs ✗ | ? |
 | cake (needs a solid block below: pops off diodes, slabs...) | ✓ (fixture cake-on-unsupported-repeater) | ✓ (judge) | — | — | ✗ | ✗ | ? |
 | leaves + log (a 1 gt delay) | ✓ | ✓ (grow palette) | — | — | ✗ | ✗ | ? |
-| scaffolding (a 1 gt delay per block: distance recomputed 1 gt after any shape update; breaks at 7, falls when placed at 7) | ✓ redstone side (0/30,000 scaffold circuits; fixture scaffold-delay = designs/gadgets/scaffold-delay; link table rows); ~ when pistons move non-full blocks under it or it falls (moving-block and falling-entity shapes: pistmodel wiring `collision_boxes`) | ✓ (judge) | — | — | ✗ | ✗ | ? |
+| scaffolding (a 1 gt delay per block: distance recomputed 1 gt after any shape update; breaks at 7, falls when placed at 7) | ✓ (0/30,000 scaffold circuits; with pistons 0/10,000; falling scaffolds 0/10,000; fixture scaffold-delay = designs/gadgets/scaffold-delay; link table rows); a FALLING scaffold pushed or lifted by a moving piston ✗ (entities moved by pistons, pistmodel's open item: 13/10,000 circuits that have both) | ✓ (judge) | — | — | ✗ | ✗ | ? |
 | buttons; lever | ✓ | lever | — | — | lever | lever | ? |
 | redstone block as static wiring | ✓ | ✓ | — | ✓ (`--reduce`, `--anneal --helpers`) | ✗ | ✓ | ? |
 | **Pistons and moving blocks** | | | | | | | |
