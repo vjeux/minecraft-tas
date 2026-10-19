@@ -1,0 +1,48 @@
+name: c88-s22
+# s22: s11 + top-left re-laid: A's push (observer (-3,3) on the lever dust -> stone (-3,4) -> lamp
+# (-2,4) -> observer (-1,4) west -> stone (0,4): A by QC at t4 and t10) + B LEVEL-held from a T
+# flip-flop (bulb (-3,5) toggled by O1's pulse -> comparator (-2,5) -> repeaters (-1,5), (0,5) -> B);
+# right side = s15's B-watcher net (observer (2,5) -> dust (3,5), (4,4) on (4,3): TR + MR by QC;
+# dust (2,4) on (2,3): A's top pull). BR's puller still ideal.
+port door: 0 0 0
+port lever: -4 1 0
+origin: -4 0 0
+palette:
+  A minecraft:obsidian
+  B minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  C minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
+  D minecraft:dropper[facing=up,triggered=true]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:sticky_piston[extended=true,facing=east]
+  H minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=west,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  W minecraft:waxed_copper_bulb[lit=true,powered=false]
+  c minecraft:comparator[facing=west,mode=compare,powered=true]
+  q minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
+  Q minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
+  t minecraft:sticky_piston[extended=true,facing=down]
+  v minecraft:piston_head[facing=down,short=false,type=sticky]
+layer -2:
+  .DoDoEE
+layer -1:
+  .HCGP..A
+layer 0:
+  .BGPHHHH
+layer 1:
+  LSGPHHH.F
+layer 2:
+  .BGPHHH.F
+layer 3:
+  .O..HsH.H
+layer 4:
+  .HRoHvrHr
+layer 5:
+  .WcqQtor
