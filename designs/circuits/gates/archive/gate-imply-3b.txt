@@ -1,0 +1,19 @@
+# archived 2026-10-19T23:49Z from designs/circuits/gates/tracks/gates/gate-imply-3b.txt by mctas circuit archive
+# CIRCUIT: gate-imply-3b gate imply function imply, latency 0 gt, class instant, 3 blocks, 2x2x1, robust
+# IMPLY gate a -> b, instant (track gates): a dust on a stone, powered by a redstone block east of
+# it, is a straight line pointing west into the output cell (NOT a); input a (north of the dust)
+# bends it into a corner; input b touches the output cell (OR b). Dust redirection: 0 gt.
+name: gate-imply-3b
+circuit: gate imply
+port input.a: 1 1 0
+port input.b: 0 1 0
+port output: 0 1 1
+origin: 1 0 1
+palette:
+  R minecraft:redstone_block
+  S minecraft:stone
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  S
+layer 1:
+  rR

@@ -1,0 +1,12 @@
+file	caption
+delay-rep-1.txt	Repeater line (track delay): 1 repeater(s) with delays 1 redstone ticks in a row, each reading the one before: N = 2 x sum = 2 gt
+delay-cmp-1.txt	Comparator line (track delay): 1 compare-mode comparator(s) in a row: N = 2 gt each = 2 gt
+delay-rep-2.txt	Repeater line (track delay): 1 repeater(s) with delays 2 redstone ticks in a row, each reading the one before: N = 2 x sum = 4 gt
+delay-cmp-2.txt	Comparator line (track delay): 2 compare-mode comparator(s) in a row: N = 2 gt each = 4 gt
+delay-rep-3.txt	Repeater line (track delay): 1 repeater(s) with delays 3 redstone ticks in a row, each reading the one before: N = 2 x sum = 6 gt
+delay-torch-2.txt	Torch tower (track delay): a repeater powers a block, 2 torches climb from it (each powers the block above it): N = 2 + 2 x 2 gt
+delay-rep-4.txt	Repeater line (track delay): 1 repeater(s) with delays 4 redstone ticks in a row, each reading the one before: N = 2 x sum = 8 gt
+delay-rep-41.txt	Repeater line (track delay): 2 repeater(s) with delays 4,1 redstone ticks in a row, each reading the one before: N = 2 x sum = 10 gt
+delay-rep-42.txt	Repeater line (track delay): 2 repeater(s) with delays 4,2 redstone ticks in a row, each reading the one before: N = 2 x sum = 12 gt
+delay-rep-43.txt	Repeater line (track delay): 2 repeater(s) with delays 4,3 redstone ticks in a row, each reading the one before: N = 2 x sum = 14 gt
+delay-rep-44.txt	Repeater line (track delay): 2 repeater(s) with delays 4,4 redstone ticks in a row, each reading the one before: N = 2 x sum = 16 gt

@@ -1,0 +1,15 @@
+# archived 2026-10-19T23:49Z from designs/circuits/delay/tracks/delay/delay-cmp-1.txt by mctas circuit archive
+# CIRCUIT: delay-cmp-1 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1, robust
+# Comparator line (track delay): 1 compare-mode comparator(s) in a row: N = 2 gt each = 2 gt
+name: delay-cmp-1
+circuit: delay
+port input: 0 1 0
+port output: 1 1 0
+origin: 1 0 0
+palette:
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  S minecraft:stone
+layer 0:
+  S
+layer 1:
+  C

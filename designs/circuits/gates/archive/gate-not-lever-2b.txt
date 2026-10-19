@@ -1,0 +1,17 @@
+# archived 2026-10-19T23:47Z from designs/circuits/gates/tracks/gates/gate-not-lever-2b.txt by mctas circuit archive
+# CIRCUIT: gate-not-lever-2b gate not function not, latency 2 gt, 2 blocks, 1x2x1, robust
+# NOT gate with a lever input (track gates): the lever strongly powers the stone it hangs on; a
+# torch on top of that stone inverts it. 2 gt.
+name: gate-not-lever-2b
+circuit: gate not
+port input: -1 1 0 lever
+port output: 0 2 0
+origin: -1 0 0
+palette:
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  S minecraft:stone
+  T minecraft:redstone_torch[lit=true]
+layer 1:
+  LS
+layer 2:
+  .T
