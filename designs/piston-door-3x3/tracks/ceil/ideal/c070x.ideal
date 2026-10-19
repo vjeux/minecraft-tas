@@ -3,9 +3,9 @@
 # on open), E2 both edges. Assisted: U, M, E2, BL/BM down.
 design designs/piston-door-3x3/tracks/ceil/wip/c070x.txt
 let u = 13
-let m = 22
-let e2 = 40
-let e2c = 40
+let m = 16
+let e2 = 30
+let e2c = 30
 let bl = 40
 let bm = 40
 open 0 use 1 5 0

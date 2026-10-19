@@ -58,3 +58,25 @@ Windows (`door ideal-rs --sweep`, real top + t7b's wall chains, c035w / c070w):
   `ideal/c074g.ideal` (an observer (-2,2) facing west, toggled by the plan: WORKS only at gm 18 ge 33),
   but that observer also QC-powers E at (-1,1) directly (M leaks on close), and (-2,2) is again the
   only edge-sensitive cell.
+
+## 4. The blocked-push watcher: D on open only for free (11:30Z)
+- c077w (`wip/c077w.txt`, `ideal/c077w.ideal`): an observer (-2,2) facing EAST watches ML's park
+  (-1,2) and powers the stone (-3,2) on D. Open: S's pull makes 3 changes in (-1,2) -> 2 pulses ->
+  D pushes E (+M) and pulls it back. Close: S's push makes the pulse arrive while ML is still a
+  moving block in D's push line -> D's push is BLOCKED (moving blocks are immovable) -> D never moves
+  on close. M gated by BL parked at (-1,0) (observer (-1,-1) facing down; BL is on its puller's FRONT
+  face, so the puller ignores it). E through an observer (-2,3) facing up (QC + front update of E).
+  `door ideal-rs` WORKS with both-edge ideal inputs only: BL-left [0, s-1], E1 [2, s-2], S at s, the
+  M gate EXACTLY s+4 (E powered on landing at (-1,1)), E2 >= s+11, BM and MR/BR free (s >= 8).
+- c070x (`wip/c070x.txt`, `ideal/c070x.ideal`): the same trick from the bottom (observer (-2,0)
+  facing east on ML's park (-1,0) -> stone (-3,0) under D; U's pull vs push). WORKS with both-edge
+  assists: U at u, M at exactly u+3 (E on landing; ungated since E never reaches (-1,1) on close),
+  E2 >= u+10, BL/BM down free.
+- What is left is timing, not logic: M must be powered on the exact tick E lands at (-1,1) (D's two
+  taps are the watcher's double pulse, 4 gt apart). pockets k=4 on c070x: BL, BM, E2-open drivable;
+  U and M have single-tick windows ([+0,+0]) and no filling. M's feeds: c070x has none left in 8x7
+  ((-1,2)'s free neighbours hold the E1 chain); c077's M gate needs a bottom signal timed to S, and
+  c077's top-left cannot feed both E1 and S in 8x7 (S's only feeds are (-1,4) (a conductor there
+  powers the TL puller) and QC through (-2,4), and E1's observer (-2,3) can only watch (-2,4), so E1
+  always comes 2 gt AFTER S). An 8x8 box with row 5 (y -2..5) frees (-1,4) for an observer facing
+  up (S) and gives a lever watcher at (0,5).
