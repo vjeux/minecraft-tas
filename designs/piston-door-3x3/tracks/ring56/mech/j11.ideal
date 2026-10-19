@@ -1,0 +1,29 @@
+design designs/piston-door-3x3/tracks/ring56/mech/j11.txt
+# same train both edges: A1 (1,-2,1); K double (y, y+4); B' + gate by toggling the note block (3,-3) via (3,-3,1) at t1, t2
+let a = 12
+let y = 18
+let t1 = 20
+let t2 = 30
+let g = 0
+open 0 use -2 6 0
+close 0 use -2 6 0
+open a set 1 -2 1 minecraft:redstone_block
+open a+2 clear 1 -2 1
+open y set 3 -1 1 minecraft:redstone_block
+open y+2 clear 3 -1 1
+open y+4 set 3 -1 1 minecraft:redstone_block
+open y+6 clear 3 -1 1
+open t1 set 3 -3 1 minecraft:redstone_block
+open t1+2 clear 3 -3 1
+open t2 set 3 -3 1 minecraft:redstone_block
+open t2+2 clear 3 -3 1
+close a set 1 -2 1 minecraft:redstone_block
+close a+2 clear 1 -2 1
+close y set 3 -1 1 minecraft:redstone_block
+close y+2 clear 3 -1 1
+close y+4 set 3 -1 1 minecraft:redstone_block
+close y+6 clear 3 -1 1
+close t1 set 3 -3 1 minecraft:redstone_block
+close t1+2 clear 3 -3 1
+close t2 set 3 -3 1 minecraft:redstone_block
+close t2+2 clear 3 -3 1

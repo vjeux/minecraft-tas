@@ -76,13 +76,13 @@ fn run_recorded(w: &mut World, max: u32, lo: Pos, hi: Pos) -> (Vec<Region>, bool
 
 /// Screen one design at these offsets (`cycles` open/close cycles each, at most `max_ticks`
 /// ticks per settle).
-pub fn screen(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, empty_walkway: bool) -> Screen {
-    screen_ext(design, offsets, cycles, max_ticks, empty_walkway, false)
+/// `screen` with boxproof's lever-polarity argument: main's screen accepts either rest polarity
+/// (vjeux 2026-10-19), so the flag is not needed any more.
+pub fn screen_ext(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, empty_walkway: bool, _lever_on_rest: bool) -> Screen {
+    screen(design, offsets, cycles, max_ticks, empty_walkway)
 }
 
-/// `screen` with the lever polarity as an option: `lever_on_rest` = the door rests closed with
-/// the lever ON (the community 7x9's polarity; the judge itself wants the lever off at rest).
-pub fn screen_ext(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, empty_walkway: bool, lever_on_rest: bool) -> Screen {
+pub fn screen(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, empty_walkway: bool) -> Screen {
     if !design.entities.is_empty() {
         return Screen::Unsupported("the design has entities".into());
     }
@@ -98,7 +98,7 @@ pub fn screen_ext(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u3
     for off in offsets {
         let d = design.translated(*off);
         let s = spec.translated(*off);
-        match screen_at(&d, &s, cycles, max_ticks, empty_walkway, lever_on_rest) {
+        match screen_at(&d, &s, cycles, max_ticks, empty_walkway) {
             Screen::Pass { open, close } => worst = (worst.0.max(open), worst.1.max(close)),
             Screen::Fail(m) => return Screen::Fail(format!("at offset {off:?}: {m}")),
             u => return u,
@@ -107,7 +107,7 @@ pub fn screen_ext(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u3
     Screen::Pass { open: worst.0, close: worst.1 }
 }
 
-fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_walkway: bool, lever_on_rest: bool) -> Screen {
+fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_walkway: bool) -> Screen {
     let (wlo, whi) = watch_box(d, spec);
     let m = 14;
     let min = BlockPos::new(wlo[0] - m, wlo[1] - m, wlo[2] - m);
@@ -156,17 +156,15 @@ fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_w
         }
     }
     let lever = rest.get(spec.lever).unwrap_or("?").to_string();
-    // main cc4686d: either lever polarity at rest (the `lever_on_rest` option is kept for callers)
-    let _ = lever_on_rest;
     if !lever.starts_with("minecraft:lever") {
         return Screen::Fail(format!("port lever {:?} is {lever}, expected a lever", spec.lever));
     }
     let closed_door: Vec<String> = spec.door_cells().iter().map(|p| rest.get(*p).unwrap_or("?").to_string()).collect();
     let mut worst = (0, 0);
-    // periodic rest state (main 96a62d6, like `verify` and the redsim judge): every cycle opens
-    // and closes; some closed state must repeat an earlier one (the rest included) within
-    // cycles + MAX_PERIOD_EXTRA cycles
-    let mut seen_closed: Vec<Vec<(Pos, String)>> = vec![rest.iter().map(|(p, s)| (p, s.to_string())).collect()];
+    // Periodic rest, like the judge (96a62d6, vjeux: internal state doesn't matter as long as the
+    // door works repeatedly): some closed state must repeat an earlier one within cycles +
+    // MAX_PERIOD_EXTRA (each close still restores the door blocks).
+    let mut seen_closed: Vec<Region> = vec![rest.clone()];
     let mut periodic = false;
     for cycle in 0..cycles + crate::MAX_PERIOD_EXTRA as usize {
         if cycle >= cycles && periodic {
@@ -202,21 +200,21 @@ fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_w
         if door_now != closed_door {
             return Screen::Fail(format!("cycle {cycle}: door not restored"));
         }
-        let snap: Vec<(Pos, String)> = last.iter().map(|(p, s)| (p, s.to_string())).collect();
-        if seen_closed.iter().any(|s| *s == snap) {
-            periodic = true;
-        } else {
-            seen_closed.push(snap);
-        }
         if !w.drops.is_empty() {
             return Screen::Fail(format!("cycle {cycle}: entities appeared while closing (something broke): {:?}", w.drops));
         }
         let close_ticks = settled_from(&close, |f| spec.door_cells().iter().zip(closed_door.iter()).all(|(p, s)| f.get(*p) == Some(s.as_str()))).unwrap_or(0);
         worst = (worst.0.max(open_ticks), worst.1.max(close_ticks));
+        if seen_closed.iter().any(|s| crate::same_region(s, last)) {
+            periodic = true;
+        } else {
+            seen_closed.push(last.clone());
+        }
     }
     if !periodic {
-        let diffs: Vec<String> = rest.iter().filter(|(p, s)| seen_closed.last().and_then(|l| l.iter().find(|(q, _)| q == p)).map(|(_, t)| t.as_str()) != Some(*s)).take(8).map(|(p, s)| format!("{p:?} {s}")).collect();
-        return Screen::Fail(format!("the build never comes back to a closed state it had before within {} cycles (the build did not return to its rest state: {})", cycles + crate::MAX_PERIOD_EXTRA as usize, diffs.join("; ")));
+        let last = seen_closed.last().unwrap();
+        let diffs: Vec<String> = rest.iter().filter(|(p, s)| last.get(*p) != Some(*s)).take(8).map(|(p, s)| format!("{p:?} {s} -> {}", last.get(p).unwrap_or("?"))).collect();
+        return Screen::Fail(format!("the build never came back to its rest state or an earlier closed state within {} cycles: {}", cycles + crate::MAX_PERIOD_EXTRA as usize, diffs.join("; ")));
     }
     Screen::Pass { open: worst.0, close: worst.1 }
 }

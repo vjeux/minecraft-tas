@@ -1,0 +1,56 @@
+# v1-run: (3,6) pulsed n=6 times, 6 gt apart from x0; B, U, left triple ideal.
+design designs/piston-door-3x3/tracks/w63top/w63t-3.txt
+let x0 = 10
+let b1 = 28
+let b2 = 44
+let u = 60
+let t0 = 70
+let g = 6
+open x0+0 set 3 6 0 minecraft:glass
+open x0+2 clear 3 6 0
+open x0+6 set 3 6 0 minecraft:glass
+open x0+8 clear 3 6 0
+open x0+12 set 3 6 0 minecraft:glass
+open x0+14 clear 3 6 0
+open x0+18 set 3 6 0 minecraft:glass
+open x0+20 clear 3 6 0
+open x0+24 set 3 6 0 minecraft:glass
+open x0+26 clear 3 6 0
+open x0+30 set 3 6 0 minecraft:glass
+open x0+32 clear 3 6 0
+open b1 set 2 5 0 minecraft:redstone_block
+open b1+2 clear 2 5 0
+open b2 set 2 5 0 minecraft:redstone_block
+open b2+2 clear 2 5 0
+open u set -1 4 0 minecraft:redstone_block
+open u+2 clear -1 4 0
+open t0 set -2 2 0 minecraft:redstone_block
+open t0+2 clear -2 2 0
+open t0+g set -2 2 0 minecraft:redstone_block
+open t0+g+2 clear -2 2 0
+open t0+g+g set -2 2 0 minecraft:redstone_block
+open t0+g+g+2 clear -2 2 0
+close x0+0 set 3 6 0 minecraft:glass
+close x0+2 clear 3 6 0
+close x0+6 set 3 6 0 minecraft:glass
+close x0+8 clear 3 6 0
+close x0+12 set 3 6 0 minecraft:glass
+close x0+14 clear 3 6 0
+close x0+18 set 3 6 0 minecraft:glass
+close x0+20 clear 3 6 0
+close x0+24 set 3 6 0 minecraft:glass
+close x0+26 clear 3 6 0
+close x0+30 set 3 6 0 minecraft:glass
+close x0+32 clear 3 6 0
+close b1 set 2 5 0 minecraft:redstone_block
+close b1+2 clear 2 5 0
+close b2 set 2 5 0 minecraft:redstone_block
+close b2+2 clear 2 5 0
+close u set -1 4 0 minecraft:redstone_block
+close u+2 clear -1 4 0
+close t0 set -2 2 0 minecraft:redstone_block
+close t0+2 clear -2 2 0
+close t0+g set -2 2 0 minecraft:redstone_block
+close t0+g+2 clear -2 2 0
+close t0+g+g set -2 2 0 minecraft:redstone_block
+close t0+g+g+2 clear -2 2 0

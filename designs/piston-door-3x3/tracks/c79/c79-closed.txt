@@ -1,4 +1,4 @@
-name: c79-open-b-after-1-flips
+name: c79-community-63b
 port door: 0 0 0
 port lever: 4 6 0
 origin: -2 0 0

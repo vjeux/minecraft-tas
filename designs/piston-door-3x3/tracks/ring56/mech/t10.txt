@@ -1,0 +1,34 @@
+name: ring56-t10
+# 7x8 (x -2..4, y -2..5), lever-ON-at-rest family: TL, ML pullers (-2,2)/(-2,1) are LEVEL pistons held by a
+# lever on the west face of TL's puller (here a redstone block at (-3,2) stands for the lever ON at rest):
+# TL's puller directly, ML's by QC. BL DOWN into F0 (U (0,-2)); BM DOWN into F1 (U (1,-2)); TM up into C1
+# (A (1,4)) then LEFT into C0 (corner pull-type E (-1,3)); C up 2 by the elevator A on B (1,5); TR UP into
+# C2 (D (2,4)); MR, BR right (x=4). Static frame stones L0, R2, F2. Mechanism only.
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  X minecraft:sticky_piston[extended=true,facing=east]
+  h minecraft:piston_head[facing=east,short=false,type=sticky]
+  Q minecraft:smooth_stone
+  R minecraft:redstone_block
+layer -2:
+  ...UU...
+layer -1:
+  .....Q..
+layer 0:
+  ..QSSS.W
+layer 1:
+  .XhSSS.W
+layer 2:
+  RXhSSSQ.
+layer 3:
+  ..E.....
+layer 4:
+  ....DD..
+layer 5:
+  ....D...

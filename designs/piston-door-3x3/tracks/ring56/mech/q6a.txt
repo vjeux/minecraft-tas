@@ -1,0 +1,45 @@
+name: ring56-q6a
+# cosearch run 6 partial (t8L, 05:45Z): elevator, U and TL's puller wired; the left stack (-2,1) and BR's
+# puller (4,0) were still assisted (75/79 on the old exact-rest screen).
+port door: 0 0 0
+port lever: 5 2 0
+origin: -2 0 0
+palette:
+  A minecraft:dropper[facing=west,triggered=false]
+  B minecraft:observer[facing=east,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=down,triggered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston_head[facing=west,short=false,type=sticky]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:smooth_stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  d minecraft:dropper[facing=up,triggered=false]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  s minecraft:smooth_stone_slab[type=bottom,waterlogged=false]
+  w minecraft:white_glazed_terracotta[facing=west]
+layer -2:
+  O..HFKD
+layer -1:
+  r.K.KBd
+layer 0:
+  G.KKK.I
+layer 1:
+  G.KKKPJ
+layer 2:
+  .KKKKPJL
+layer 3:
+  sB...Io
+layer 4:
+  RdFFKWH
+layer 5:
+  ACwFRBE

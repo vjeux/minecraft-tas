@@ -1,0 +1,183 @@
+7x8-c2e-001 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+24 free cells, 4 regions [5, 7, 6, 6], 3 hops (catalog run diverged in this macro model: footprint partial)
+    5 111##33
+    4 111##33
+    3 1####33
+    2 ##ooo##
+    1 #.oooh2
+    0 ##oooh2
+   -1 00h##22
+   -2 000##22
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b1100; pistons never fed from an awake region: Seast@(-2,0) Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5))
+  lever K3: no open state reachable (regions ever awake 0b1100; pistons never fed from an awake region: Seast@(-2,0) Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5))
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+7x8-c2e-002 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+24 free cells, 5 regions [5, 7, 5, 6, 1], 3 hops (catalog run diverged in this macro model: footprint partial)
+    5 111##33
+    4 111##33
+    3 1####33
+    2 ##ooo##
+    1 #.oooh4
+    0 ##ooo##
+   -1 00h#h22
+   -2 000#222
+  lever K0: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b11111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K3: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K4: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+7x8-c2e-003 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+24 free cells, 4 regions [5, 7, 6, 6], 3 hops (catalog run diverged in this macro model: footprint partial)
+    5 111##33
+    4 111##33
+    3 1####33
+    2 ##ooo##
+    1 #.oooh2
+    0 ##oooh2
+   -1 00h##22
+   -2 000##22
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b1100; pistons never fed from an awake region: Seast@(-2,0) Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5))
+  lever K3: no open state reachable (regions ever awake 0b1100; pistons never fed from an awake region: Seast@(-2,0) Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5))
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+7x8-c2e-002 in 7x9 x -2..4 y -3..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+31 free cells, 4 regions [17, 7, 6, 1], 3 hops (catalog run diverged in this macro model: footprint partial)
+    5 111##22
+    4 111##22
+    3 1####22
+    2 ##ooo##
+    1 #.oooh3
+    0 ##ooo##
+   -1 00h#h00
+   -2 000#000
+   -3 0000000
+  lever K0: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K3: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+7x8-c2e-001 in 7x9 x -2..4 y -3..5: NOT wirable: lever K1: opens (2 open states) but cannot close (regions ever awake on close 0b10; pistons never fed on close: Seast@(-2,0) Sup@(1,-2) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+31 free cells, 3 regions [18, 7, 6], 3 hops (catalog run diverged in this macro model: footprint partial)
+    5 111##22
+    4 111##22
+    3 1####22
+    2 ##ooo##
+    1 #.oooh0
+    0 ##oooh0
+   -1 00h##00
+   -2 000##00
+   -3 0000000
+  lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K1: opens (2 open states) but cannot close (regions ever awake on close 0b10; pistons never fed on close: Seast@(-2,0) Sup@(1,-2) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+  lever K2: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  NOT wirable: lever K1: opens (2 open states) but cannot close (regions ever awake on close 0b10; pistons never fed on close: Seast@(-2,0) Sup@(1,-2) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+7x8-c2e-002 in 7x9 x -2..4 y -2..6: WIRABLE (lever K0)
+31 free cells, 4 regions [5, 20, 5, 1], 3 hops (catalog run diverged in this macro model: footprint partial)
+    6 1111111
+    5 111##11
+    4 111##11
+    3 1####11
+    2 ##ooo##
+    1 #.oooh3
+    0 ##ooo##
+   -1 00h#h22
+   -2 000#222
+  open order:  PSeast@(-2,0,0)[awake 1] PSup@(1,-2,0)[awake 1] PSwest@(4,0,0)[awake 101] PSwest@(4,2,0)[awake 1101] PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 1111] PSdown@(1,4,0)[awake 1111] PSeast@(-1,3,0)[awake 1111] PSdown@(1,5,0)[awake 1111] PSdown@(1,3,0)[awake 1111] PSdown@(1,5,0)[awake 1111] PSdown@(1,4,0)[awake 1111] PSdown@(2,3,0)[awake 1111] LSdown+@(2,5,0)[awake 1111] PSdown@(2,4,0)[awake 1111]
+  close order: PSeast@(-2,0,0)[awake 1] PSup@(1,-2,0)[awake 1] PSwest@(4,0,0)[awake 101] PSwest@(4,2,0)[awake 1101] PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 1111] PSwest@(4,2,0)[awake 1111] PSdown@(2,4,0)[awake 1111] PSeast@(-1,3,0)[awake 1111] LSdown@(2,5,0)[awake 1111] PSwest@(4,2,0)[awake 1111] PSdown@(1,4,0)[awake 1111]
+  lever K0: WIRABLE (connectivity + order): 7 open states reachable
+7x8-c2e-004 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+24 free cells, 5 regions [5, 7, 5, 6, 1], 3 hops (catalog run diverged in this macro model: footprint partial)
+    5 111##33
+    4 111##33
+    3 1####33
+    2 ##ooo##
+    1 #.oooh4
+    0 ##ooo##
+   -1 00h#h22
+   -2 000#222
+  lever K0: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b11111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K3: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K4: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b11101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+7x8-c2e-004 in 7x9 x -2..4 y -3..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+31 free cells, 4 regions [17, 7, 6, 1], 3 hops (catalog run diverged in this macro model: footprint partial)
+    5 111##22
+    4 111##22
+    3 1####22
+    2 ##ooo##
+    1 #.oooh3
+    0 ##ooo##
+   -1 00h#h00
+   -2 000#000
+   -3 0000000
+  lever K0: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K3: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+7x8-c2e-003 in 7x9 x -2..4 y -3..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+31 free cells, 3 regions [18, 7, 6], 3 hops (catalog run diverged in this macro model: footprint partial)
+    5 111##22
+    4 111##22
+    3 1####22
+    2 ##ooo##
+    1 #.oooh0
+    0 ##oooh0
+   -1 00h##00
+   -2 000##00
+   -3 0000000
+  lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5))
+7x8-c2e-004 in 7x9 x -2..4 y -2..6: WIRABLE (lever K0)
+31 free cells, 4 regions [5, 20, 5, 1], 3 hops (catalog run diverged in this macro model: footprint partial)
+    6 1111111
+    5 111##11
+    4 111##11
+    3 1####11
+    2 ##ooo##
+    1 #.oooh3
+    0 ##ooo##
+   -1 00h#h22
+   -2 000#222
+  open order:  PSeast@(-2,0,0)[awake 1] PSup@(1,-2,0)[awake 1] PSwest@(4,0,0)[awake 101] PSwest@(4,2,0)[awake 1101] PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 1111] PSdown@(1,4,0)[awake 1111] LSeast+@(-1,3,0)[awake 1111] PSdown@(1,5,0)[awake 1111] PSdown@(1,3,0)[awake 1111] PSdown@(1,5,0)[awake 1111] PSdown@(1,4,0)[awake 1111] PSdown@(2,3,0)[awake 1111] LSdown+@(2,5,0)[awake 1111] PSdown@(2,4,0)[awake 1111]
+  close order: PSeast@(-2,0,0)[awake 1] PSup@(1,-2,0)[awake 1] PSwest@(4,0,0)[awake 101] PSwest@(4,2,0)[awake 1101] PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 1111] PSwest@(4,2,0)[awake 1111] PSdown@(2,4,0)[awake 1111] LSeast@(-1,3,0)[awake 1111] LSdown@(2,5,0)[awake 1111] PSwest@(4,2,0)[awake 1111] PSdown@(1,4,0)[awake 1111]
+  lever K0: WIRABLE (connectivity + order): 6 open states reachable
+7x8-c2e-003 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+31 free cells, 3 regions [5, 20, 6], 3 hops (catalog run diverged in this macro model: footprint partial)
+    6 1111111
+    5 111##11
+    4 111##11
+    3 1####11
+    2 ##ooo##
+    1 #.oooh2
+    0 ##oooh2
+   -1 00h##22
+   -2 000##22
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (cap hit) (regions ever awake 0b111; pistons never fed from an awake region: none)
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+7x8-c2e-001 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K2: opens (2 open states) but cannot close (cap hit) (regions ever awake on close 0b111; pistons never fed on close: none)
+31 free cells, 3 regions [5, 20, 6], 3 hops (catalog run diverged in this macro model: footprint partial)
+    6 1111111
+    5 111##11
+    4 111##11
+    3 1####11
+    2 ##ooo##
+    1 #.oooh2
+    0 ##oooh2
+   -1 00h##22
+   -2 000##22
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,3) Sdown+@(2,5) Swest@(4,2))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b111; pistons never fed from an awake region: none)
+  lever K2: opens (2 open states) but cannot close (cap hit) (regions ever awake on close 0b111; pistons never fed on close: none)
+  UNDECIDED (cap hit somewhere): lever K2: opens (2 open states) but cannot close (cap hit) (regions ever awake on close 0b111; pistons never fed on close: none)
+12 placements checked, 2 wirable (connectivity + order): 7x8-c2e-002 (7x9 x -2..4 y -2..6), 7x8-c2e-004 (7x9 x -2..4 y -2..6)

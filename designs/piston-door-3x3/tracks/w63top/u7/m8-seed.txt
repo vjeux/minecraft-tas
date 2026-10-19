@@ -1,0 +1,29 @@
+name: u7-m8-seed
+# u7-m8 with a lever hung on top of the static frame stone (-1,2) (lever at (-1,3)), for cosearch.
+port door: 0 0 0
+port lever: -1 3 0
+origin: -2 0 0
+palette:
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:stone
+  F minecraft:smooth_stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer -2:
+  ...U
+layer -1:
+  .E..F
+layer 0:
+  E.CCC.W
+layer 1:
+  E.CCC.W
+layer 2:
+  .FCCC.W
+layer 3:
+  .L..F
+layer 4:
+  ..DD
+layer 5:
+  ...D

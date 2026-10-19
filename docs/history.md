@@ -428,11 +428,36 @@ Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and unde
   a 2-cell region under the carrier) must act before the row push that region watches. Freeing row
   y=1 does not by itself make 7x8 wirable: the center's elevator splits its side of the box, the
   bottom pullers split the bottom, and the carrier at (-2,-1) cuts the free left column.
+* **w63's top (7x8-014 in 7x9 rows -2..6) by hand** (w63top NOTES "The wall, stated once"): A's
+  only driver is an observer at (2,4) facing east; P_T's only real driver is an observer at (3,5)
+  facing up; with it, every input of the right column (4,4)-(4,6), which must carry A's late
+  pulses and the right stack's run, is P_T-coupled, and P_T may pulse only before A1 (with
+  obsidian at (-1,3)) or after A3. Plans that do work ideally: A2 as a triple sharing (4,4) with
+  the right stack (t1), P_T + right stack on one conductor as a run of 3 (v2), the lamp plan.
+* **7 wide, 2 bottom rows** (w63top NOTES "Single-U 7x8 mechanisms"): the bottom rows can only
+  watch the bottom side pullers, so one side must be a TOP-fed 2-stack (its top block leaves
+  vertically, or BR leaves down so (4,0) watches row 1 as in c79). With 3-high stacks on both sides
+  (the 9 catalog single-U mechanisms, mechspace's c78) the bottom never learns the lever.
+  Mechanisms that pass this and work ideally at 32 positions with frame 12/12: u7-m8 / m9 / m10
+  (m10 = c79 with BR right and TR up; m10a: its levels real).
 * **No mechanism** (families catalog, <= 11 pistons, in-plane, lifts only, QC model): 6x11 and 11x6
   (so 6x9, 9x6, 6x10, 10x6), 5x14 and 14x5 in 2D (strips only via walking row mechanisms). 7x7:
   none found, 1,639 candidates unresolved. Carrying, helpers and 0-ticks are being added.
 * **SUPER seamless** (covered reading) is impossible for solid doors: emptying the center needs a
   head or sticky face in the tunnel (seamless).
+* **cosearch's "N of M inputs wired at 77/79" partials are broken doors** (cosearch2): with
+  `--assist-weight 4` the annealer traded a door cell (1 point per cycle) for an assist release; in
+  w63-2as the center never opens and the elevator is not wired (`door cosearch trace --assist
+  --grid`). Only full-points partials count (`partial-full-live.txt`, weight < 1).
+* **f131F-b2 / f131N-ff (wire131's 63b, one input left: N's train at the trapdoor (-2,4))**:
+  N has ONE free neighbour, (-2,5); all 47 states of that cell screened with everything else real
+  (`door cosearch pockets --keep-lever`): none gives the train in its windows (cosearch2 NOTES).
+* **ring56 s1 (frame-12/12 7x8) is trigger-isolated at the top** (cosearch2): everything the
+  top-left pocket can watch (ML puller, TL puller, C0) is fed only from top-left cells, everything
+  the top-right pocket can watch (TM puller, TR puller, R2) only from top-right cells, and C1/C2
+  carry no power: both need the lever, which cannot touch both. A mechanism needs a piston both top
+  pockets touch (f131X's DE). Its bottom train is drivable piecewise: B' (both pulses, both edges)
+  by 5 blocks watching BL's puller (`runs/pk-s1-k5/pocket0-set1.txt`).
 
 ## Tools built that night
 

@@ -1,0 +1,5 @@
+assist designs/piston-door-3x3/tracks/cosearch2/c79cal/q79-bm.ideal: 1 input cells off the plane ([(1, -2)]), 2 / 2 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/c79/c79-closed.txt: 51 blocks in the box, screen 37/79
+14 piston cells locked, 40 cells free
+seed screen 35/79 with 1 inputs assisted
+Error: the seed must screen perfect with its assisted inputs

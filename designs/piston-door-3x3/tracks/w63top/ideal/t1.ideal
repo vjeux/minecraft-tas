@@ -1,0 +1,62 @@
+# w63top step 1 test: w63t-1 (A chain + right-stack observer real), (4,4) toggled by ideal glass at
+# c = A-4 for A1 (z), the A2 triple (z+a2, +6, +12) and A3 (z+a3); P_T by a redstone block behind
+# it (3,3,1); B by (2,5,0); U by (-1,4,0); the left triple at (-2,2).
+design designs/piston-door-3x3/tracks/w63top/w63t-1.txt
+let z = 10
+let pt = 6
+let b1 = 10
+let a2 = 14
+let g2 = 6
+let b2 = 32
+let a3 = 38
+let u = 40
+let t0 = 44
+let g = 6
+open z-4 set 4 4 0 minecraft:glass
+open z-2 clear 4 4 0
+open z+a2-4 set 4 4 0 minecraft:glass
+open z+a2-2 clear 4 4 0
+open z+a2+g2-4 set 4 4 0 minecraft:glass
+open z+a2+g2-2 clear 4 4 0
+open z+a2+g2+g2-4 set 4 4 0 minecraft:glass
+open z+a2+g2+g2-2 clear 4 4 0
+open z+a3-4 set 4 4 0 minecraft:glass
+open z+a3-2 clear 4 4 0
+open z+pt set 3 3 1 minecraft:redstone_block
+open z+pt+2 clear 3 3 1
+open z+b1 set 2 5 0 minecraft:redstone_block
+open z+b1+2 clear 2 5 0
+open z+b2 set 2 5 0 minecraft:redstone_block
+open z+b2+2 clear 2 5 0
+open z+u set -1 4 0 minecraft:redstone_block
+open z+u+2 clear -1 4 0
+open z+t0 set -2 2 0 minecraft:redstone_block
+open z+t0+2 clear -2 2 0
+open z+t0+g set -2 2 0 minecraft:redstone_block
+open z+t0+g+2 clear -2 2 0
+open z+t0+g+g set -2 2 0 minecraft:redstone_block
+open z+t0+g+g+2 clear -2 2 0
+close z-4 set 4 4 0 minecraft:glass
+close z-2 clear 4 4 0
+close z+a2-4 set 4 4 0 minecraft:glass
+close z+a2-2 clear 4 4 0
+close z+a2+g2-4 set 4 4 0 minecraft:glass
+close z+a2+g2-2 clear 4 4 0
+close z+a2+g2+g2-4 set 4 4 0 minecraft:glass
+close z+a2+g2+g2-2 clear 4 4 0
+close z+a3-4 set 4 4 0 minecraft:glass
+close z+a3-2 clear 4 4 0
+close z+pt set 3 3 1 minecraft:redstone_block
+close z+pt+2 clear 3 3 1
+close z+b1 set 2 5 0 minecraft:redstone_block
+close z+b1+2 clear 2 5 0
+close z+b2 set 2 5 0 minecraft:redstone_block
+close z+b2+2 clear 2 5 0
+close z+u set -1 4 0 minecraft:redstone_block
+close z+u+2 clear -1 4 0
+close z+t0 set -2 2 0 minecraft:redstone_block
+close z+t0+2 clear -2 2 0
+close z+t0+g set -2 2 0 minecraft:redstone_block
+close z+t0+g+2 clear -2 2 0
+close z+t0+g+g set -2 2 0 minecraft:redstone_block
+close z+t0+g+g+2 clear -2 2 0
