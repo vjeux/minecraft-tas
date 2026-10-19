@@ -129,3 +129,19 @@ observer pulse (a repeater stretches a 2 gt pulse to at most 8 gt and never leng
   through (-1,4) (silent) needs (-2,4) as a conductor, and then PN's head leaving (-1,4) at t4
   extends P3 too early on close, while PN's head entering at t10 comes after DE's push in the same
   block-event phase.
+* Also tried: L1/L2 as one 10 or 30 gt hold (sensor shape) at any start: 0 / 961 (ppn34); P3 with a
+  second pulse later is fine (ppn32), so an observer on a lamp lit at t6 would do (it fires at t8
+  and t14), but every cell next to that lamp is taken (L2, P3, the t6 observer, outside); a
+  calibrated sensor's 10 gt hold cannot end at t9..10 (it starts >= t1) and a sensor in the column
+  hears the lever at d 1.4 (no cell to shield it); a torch next to P3's feeds is lit at rest.
+
+## Next ideas
+
+* P3 needs ONE more 2 gt stage on the left (a power edge at t8..t10 into (-2,3) or (-1,4)); the
+  7x9 column has 3 cells and L1/L2 + the t6 chain fill them. A 7x9 needs either a second source
+  for L1/L2 (so the column can chain three hops into a conductor at (-2,3) for P3), or P3 armed
+  silently through (-1,4) by a 4 gt source (two observers on one conductor at (-2,4)), or a lamp
+  watched by an observer that outputs into (-2,3).
+* An 8x8/7x10 version has room: one more column at x=-3 holds the third hop.
+* DE could start 1 tick after PN (b >= e1 - 1 allows DE at ideal 10): then P3's retraction on PN's
+  head update at t10 comes first; DE would need its update from a block-entity-phase event.
