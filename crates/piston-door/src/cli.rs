@@ -964,6 +964,21 @@ pub enum DoorCmd {
         /// The wirable sub-model: no piston body may enter the 3x3 (heads may).
         #[arg(long)]
         no_door_bodies: bool,
+        /// FULL FRAME 12/12 when open (static stones in the frame cells the cycle leaves air).
+        #[arg(long)]
+        full_frame: bool,
+        /// Generator: non-core 1-move exits may use sticky pullers extended at rest.
+        #[arg(long)]
+        ext_pullers: bool,
+        /// Generator: exactly one piston in the box's bottom row, sticky facing up.
+        #[arg(long)]
+        bottom_su: bool,
+        /// Open = all 9 door blocks in frame cells (3 static stones in the others).
+        #[arg(long)]
+        frame9: bool,
+        /// Only this door offset "dx,dy" (columns left of / rows below the door).
+        #[arg(long)]
+        door_offset: Option<String>,
         /// export: ticks between macro steps of the ideal plans.
         #[arg(long, default_value_t = 6)]
         gap: u32,
@@ -3092,11 +3107,34 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
         }
-        DoorCmd::Mechspace { cmd, boxes, input, pistons, cap, fcap, threads, cap_local, max_group, out_dir, tag, limit, two, carry, vmid, catalog, n, walk, astar, gap, workers, extra_offsets, cap_lean, no_door_bodies } => {
+        DoorCmd::Mechspace { cmd, boxes, input, pistons, cap, fcap, threads, cap_local, max_group, out_dir, tag, limit, two, carry, vmid, catalog, n, walk, astar, gap, workers, extra_offsets, cap_lean, no_door_bodies, full_frame, ext_pullers, bottom_su, frame9, door_offset } => {
             use crate::mechspace as ms;
             if no_door_bodies {
                 ms::NO_DOOR_BODIES.store(true, std::sync::atomic::Ordering::Relaxed);
                 eprintln!("[mechspace] sub-model: no piston body inside the 3x3");
+            }
+            if std::env::var("MECHSPACE_SWEEP").is_ok() {
+                ms::SWEEP.store(true, std::sync::atomic::Ordering::Relaxed);
+                eprintln!("[mechspace] sweep mode: exact on small sets, A* cycle search, exact up to --cap-lean");
+            }
+            if full_frame {
+                ms::FULL_FRAME.store(true, std::sync::atomic::Ordering::Relaxed);
+                eprintln!("[mechspace] FULL FRAME: frame cells air when open stay air on the cycle (static stones there), frame 12/12 checked on the augmented mechanism");
+            }
+            if ext_pullers {
+                crate::families::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            if bottom_su {
+                crate::families::BOTTOM_SU.store(true, std::sync::atomic::Ordering::Relaxed);
+                eprintln!("[mechspace] generator: exactly one piston in the bottom row, sticky facing up");
+            }
+            if frame9 {
+                ms::FRAME9.store(true, std::sync::atomic::Ordering::Relaxed);
+                eprintln!("[mechspace] open = all 9 door blocks in frame cells");
+            }
+            if let Some(o) = &door_offset {
+                let (a, b) = o.split_once(',').ok_or_else(|| anyhow::anyhow!("--door-offset dx,dy"))?;
+                let _ = ms::DOOR_OFFSET.set((a.parse()?, b.parse()?));
             }
             let vm: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {
                 None => Vec::new(),
@@ -3203,6 +3241,29 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let o = mk(t);
                     let found = ms::run_list(&items, &o, false)?;
                     ms::handle_found(&found, &o, &cat)?;
+                }
+                "frame-export" => {
+                    // stone-free candidates (id x0 y0 pieces): solve, add static stones in the
+                    // frame cells the open state leaves air, replay-check, export catalog-style
+                    let f = input.ok_or_else(|| anyhow::anyhow!("frame-export needs --input"))?;
+                    anyhow::ensure!(bxs.len() == 1, "frame-export needs one --boxes WxH");
+                    let items = ms::read_ided(&f, bxs[0].0, bxs[0].1)?;
+                    let mut aug_items = Vec::new();
+                    for (id, bx, v) in &items {
+                        let Some((m, rest)) = crate::families::Mech::new(*bx, v) else { continue };
+                        let cx = ms::Cx::new(&m, &rest);
+                        let (vd, _) = ms::decide_all(&cx, cap.min(500_000), cap_lean.max(cap), 0);
+                        if let ms::Verdict::Found { open, .. } = vd {
+                            match ms::augment_frame(*bx, v, &open, cap, cap_lean) {
+                                Some((aug, _, _)) => aug_items.push((id.clone(), *bx, aug)),
+                                None => eprintln!("[mechspace] {id}: no static-stone frame"),
+                            }
+                        } else {
+                            eprintln!("[mechspace] {id}: {}", vd.tag());
+                        }
+                    }
+                    let t = tag.clone().unwrap_or_else(|| format!("frame-{}x{}", bxs[0].0, bxs[0].1));
+                    ms::export(version, &aug_items, &out_dir, &t, cap, gap, workers, extra_offsets)?;
                 }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }

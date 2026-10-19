@@ -160,6 +160,12 @@ pub struct Mech {
     pub has_r: bool,
 }
 
+/// `--ext-pullers` (mechspace): the 1-move exits of non-core blocks may also use a sticky puller
+/// EXTENDED at rest (its head in the frame cell; the level-off pulls the block into it).
+pub static EXT_PULLERS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--bottom-su` (mechspace): exactly one piston in the box's bottom row, sticky facing up.
+pub static BOTTOM_SU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// `families --rows --forbid-fire`: x columns (door coordinates) no piston may fire from.
 pub static FORBID_X: std::sync::OnceLock<Vec<i8>> = std::sync::OnceLock::new();
 /// `families --rows --rblocks N`: redstone blocks per row candidate.
@@ -1321,6 +1327,13 @@ impl Gen {
                 return None;
             }
         }
+        // `--bottom-su` (mechspace): the box's bottom row holds exactly one piston, sticky,
+        // facing up (vjeux's hint for the community 7x8)
+        if BOTTOM_SU.load(Ordering::Relaxed) && p.y == self.bx.y0 {
+            if !matches!(p.k, K::Piston { sticky: true, f: 2, .. }) || v.iter().any(|q| q.y == self.bx.y0) {
+                return None;
+            }
+        }
         let mut w = v.to_vec();
         w.push(p);
         w.sort();
@@ -1558,8 +1571,13 @@ impl Gen {
                 continue;
             }
             let a = (b.0 + 2 * d.0, b.1 + 2 * d.1);
-            if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext: false } }) {
-                self.others(i + 1, w, two_left);
+            for ext in [false, true] {
+                if ext && !EXT_PULLERS.load(Ordering::Relaxed) {
+                    continue;
+                }
+                if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext } }) {
+                    self.others(i + 1, w, two_left);
+                }
             }
         }
         if two_left > 0 {
