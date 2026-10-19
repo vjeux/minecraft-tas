@@ -303,3 +303,17 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   eastward steps. => no mechanism of this shape; asking c70b's exact generators (families 6x8: 65,664
   candidates) for anything else (e.g. the left frame filled from the top-left corner by a down-pusher,
   blocks entering column -1 through (-1,3)).
+- 6x8 with the left frame as statics: the top row would need 4 up-goers (TL, TM, ML, C) or the bottom row 4
+  down-goers unless one middle block goes up 2 AND the other down 2, which needs 2 piston rows above AND
+  below = 9 tall. A top-left corner pusher W (-1,3) and a top-right corner puller (3,3) do let a column
+  deliver two blocks into the top row (one slides east), but they occupy both corners, so no corner route
+  into a side column remains. => 6x8 NO in this family (left statics, elevators, corner pushers/pullers).
+- **6x9 (54b) mechanism m69 (`c69/m69a.txt`, `m69b.ideal`): WORKS with ideal inputs, redsim 32 positions,
+  JVM `door ideal`, tile phase; open 30 / close 30; 12 pistons.** Box x -1..4, y -3..5, statics (-1,0..2).
+  Right stack R0..R2 (4,0..2) pulls BR/MR/TR. Bottom: U0 (0,-2) pulls BL down; U1 (1,-2) pulls BM down, the
+  corner P3b (3,-1) facing west slides BM to (2,-1), MB (1,-3) lifts U1 to (1,-1) so U1 brings C down 2 into
+  (1,-1). Top: s1 (1,4) pulls TM up, the corner P3t (3,3) facing west slides it to (2,3); s0 (0,4) pulls TL
+  up, the corner W (-1,3) facing east pushes it to (1,3); M0 (0,5) lowers s0 so s0 brings ML up 2 into (0,3).
+  Open frame: bottom BL C BM, top ML TL TM, right BR MR TR, left statics = 12/12. Close = the reverse (spits;
+  W pulls TL back with a long pulse). m69b feeds U1 at home in-plane from (2,-2) (which QC-arms MB under it:
+  harmless in redsim, MB only tries while U1 is extended); raised U1 still ideal from (1,-1,-1).
