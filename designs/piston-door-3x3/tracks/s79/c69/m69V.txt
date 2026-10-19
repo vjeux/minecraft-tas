@@ -1,0 +1,34 @@
+# m69V: 6x9, no top-left corner piston: a RING-RESTING puller Q (2,3) facing west pulls TL (0,3) -> (1,3), escapes
+# RIGHT into (3,3) (pulled by QE (4,3)) and pulls TL on to (2,3); column 0 by the ring pusher P0 (0,-1) + E0 (0,-3);
+# column 1 by the ring pusher RP1 (1,3) + E1 (1,5) (RP1 escapes up first, lifts TM into (1,3) last); s0 (0,4)
+# reach-pulls ML into (0,3); R1/R2 lever-held from the lever on R2's back (5,2); R0, U1, P3b as before.
+name: c78l-m69V
+port door: 0 0 0
+port lever: 5 2 0
+origin: -1 0 0
+palette:
+  Q minecraft:stone
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:sticky_piston[extended=true,facing=west]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+layer -3:
+  .U....
+layer -2:
+  ..U...
+layer -1:
+  .U..T.
+layer 0:
+  QQQQ.T
+layer 1:
+  QQQQpN
+layer 2:
+  QQQQpNL
+layer 3:
+  ..DT.T
+layer 4:
+  .D....
+layer 5:
+  ..D...

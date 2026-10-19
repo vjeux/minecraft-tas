@@ -1,0 +1,19 @@
+[package]
+name = "site"
+description = "REDSTONEPEDIA (docs/site.md): `mctas site build` exports every build (3x3 piston doors, clocks, circuits) with its properties to JSON, one HTML page per build and per extendable family, and the filtering UI (web/site, Rust compiled to WebAssembly); `mctas site deploy` publishes it on the gh-pages branch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+mctas = { path = "../mctas" }
+piston-door = { path = "../piston-door" }
+clock = { path = "../clock" }
+circuit = { path = "../circuit" }
+site-model = { path = "../site-model" }
