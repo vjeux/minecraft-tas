@@ -1,0 +1,47 @@
+name: pocket2-set1
+covers: (2,-2)o24 (2,-2)o32 (2,-2)c24 (2,-2)c32
+port door: 0 0 0
+port lever: -4 1 0
+origin: -4 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=true]
+  D minecraft:obsidian
+  E minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  F minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
+  G minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
+  H minecraft:sticky_piston[extended=false,facing=down]
+  I minecraft:sticky_piston[extended=false,facing=east]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  M minecraft:sticky_piston[extended=true,facing=down]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:sticky_piston[extended=true,facing=east]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  T minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=true,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=none,power=15,south=none,west=none]
+  s minecraft:smooth_stone
+layer -2:
+  .RBNBJJoR
+layer -1:
+  .A.I...DS
+layer 0:
+  .rQpTTTT
+layer 1:
+  LsQpTTT.K
+layer 2:
+  .EQpTTT.K
+layer 3:
+  .O.OTHT.T
+layer 4:
+  .TTRBPToA
+layer 5:
+  .WCFGMBI
