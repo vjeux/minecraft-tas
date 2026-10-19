@@ -1,0 +1,4 @@
+design designs/piston-door-3x3/tracks/q78/e78/e78wsK.txt
+# wool e78: all real (K screened)
+open 0 use 1 5 0
+close 0 use 1 5 0

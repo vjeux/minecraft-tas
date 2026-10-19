@@ -75,3 +75,18 @@ Frees (0,4) so A can be fed from the LEFT while W keeps the top-right. ideal-rs 
   with NO B' on close it works with an open-only hold [17..20, 27] (or [26..30, +17]) (`kb1ha.ideal`):
   B' must be edge-selective. In a wool door kb1's chains break (sensors hear other events). Screens of the 6 free
   cells with sensors/wool/observers: 0.
+* WOOL e78, steps (all ideal-rs WORKS, files in e78/):
+  - `e78wsG.txt` + `e78wsG2.ideal`: + GATE observer (2,-2) facing down watching the (2,-3) sensor: its pulses
+    go into F2, where BM is parked only on open: A2 (A'-high, t21) and A3 (A' landing after B2, t43, via QC).
+    On close F2 is empty, so the close needs one extra A'-low 2 gt push (BM+C home); a symmetric A'-low pulse
+    at almost any tick >= 16 works (on open it is harmless).
+  - `e78wsK.txt` + `e78wsK.ideal`: + LEFT chain: calibrated sensor (-1,-3) facing west (hears BL's puller at t3,
+    active t6) -> lamp (-1,-2) -> observer (0,-2) facing west into A': lamp on = A1 (t8), lamp off = the late
+    push (t22). ONLY K is ideal: K must extend at 8..11 and retract at EXACTLY 12..13.
+  - K is blocked: its feeds are (3,-2) (below), (4,-1) (east, under BR's puller: anything that powers it
+    strongly also fires BR's puller; only dust (not upward) or a west-pointing emitter, which reads outside the
+    box) and its QC cell R0. (3,-2) must stay WOOL (it shields the (2,-3) sensor from BR's/MR's pullers at
+    t3; without it B' lifts A' at t7 before A1). pockets2: exhaustive k=4 on (3,-3) (4,-3) (4,-2) (4,-1) +
+    3 left cells: nothing. Dust at (4,-1) on an observer (4,-2) facing down is a clean K feed, but nothing
+    near (4,-3) changes at t8..9 (the right side is shielded by (3,-2); straight down, BR's puller is heard
+    at t6).
