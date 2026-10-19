@@ -1206,6 +1206,11 @@ pub enum CosearchCmd {
         out: std::path::PathBuf,
         #[arg(long)]
         only: Option<String>,
+        /// Only the piston cells this region of wiring feeds (door coordinates `x,y;...`): at
+        /// every tick a powered piston that loses its power when the region's blocks are taken
+        /// out (raw, put back after) is fed by it; those cells' whole traces go in the plan.
+        #[arg(long)]
+        region: Option<String>,
     },
     /// Print every block change tick by tick in redsim (placement, then `--flips` lever flips):
     /// compare with `door trace` (the real game) to locate a model disagreement.
@@ -1293,44 +1298,95 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
             d.save(&out)?;
             println!("wrote {} ({} blocks)", out.display(), r.block_count());
         }
-        CosearchCmd::PlanFrom { design, out, only } => {
+        CosearchCmd::PlanFrom { design, out, only, region } => {
             let (_, door) = load_door(&design)?;
             let d0 = door.spec.door;
-            let keep: Option<Vec<(i32, i32)>> = only.as_ref().map(|s| {
+            let cells_of = |s: &str| -> Vec<(i32, i32)> {
                 s.split(';')
                     .filter_map(|t| {
                         let v: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
                         (v.len() == 2).then(|| (v[0] + d0[0], v[1] + d0[1]))
                     })
                     .collect()
-            });
+            };
+            let mut keep: Option<Vec<(i32, i32)>> = only.as_ref().map(|s| cells_of(s));
             let (wlo, whi) = watch_box(&door.blocks, &door.spec);
-            let mut w = world_for(wlo, whi);
             let list: Vec<(BlockPos, Block)> = door.blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
-            w.place_like_judge(&list);
-            step_until_idle(&mut w, 400, |_| {});
             let z = d0[2];
-            let powered_cells = |w: &World| -> Vec<(i32, i32)> {
+            let piston_cells = |w: &World| -> Vec<(i32, i32, Dir)> {
                 let mut v = Vec::new();
                 for x in wlo[0]..=whi[0] {
                     for y in wlo[1]..=whi[1] {
-                        let q = BlockPos::new(x, y, z);
-                        if let Block::Piston { facing, .. } = w.get(q)
-                            && redsim::piston::base::neighbor_signal(w, q, facing)
-                            && keep.as_ref().is_none_or(|k| k.contains(&(x, y)))
-                        {
-                            v.push((x, y));
+                        if let Block::Piston { facing, .. } = w.get(BlockPos::new(x, y, z)) {
+                            v.push((x, y, facing));
                         }
                     }
                 }
                 v
             };
+            if let Some(rs) = &region {
+                // pass 1: the piston cells the region feeds
+                let reg: Vec<BlockPos> = cells_of(rs).iter().map(|(x, y)| BlockPos::new(*x, *y, z)).collect();
+                let mut w = world_for(wlo, whi);
+                w.place_like_judge(&list);
+                step_until_idle(&mut w, 400, |_| {});
+                let mut fed: Vec<(i32, i32)> = Vec::new();
+                let mut probe = |w: &mut World, fed: &mut Vec<(i32, i32)>| {
+                    for (x, y, f) in piston_cells(w) {
+                        let q = BlockPos::new(x, y, z);
+                        if !redsim::piston::base::neighbor_signal(w, q, f) {
+                            continue;
+                        }
+                        let saved: Vec<(BlockPos, Block)> = reg.iter().map(|r| (*r, w.get(*r))).collect();
+                        for r in &reg {
+                            w.put(*r, Block::Air);
+                        }
+                        let still = redsim::piston::base::neighbor_signal(w, q, f);
+                        for (r, b) in &saved {
+                            w.put(*r, *b);
+                        }
+                        if !still && !fed.contains(&(x, y)) {
+                            fed.push((x, y));
+                        }
+                    }
+                };
+                probe(&mut w, &mut fed);
+                for _ in 0..2 {
+                    w.use_block(bp(door.spec.lever));
+                    let mut t = 0;
+                    loop {
+                        w.tick();
+                        t += 1;
+                        probe(&mut w, &mut fed);
+                        if (w.idle() && t > 2) || t > 300 {
+                            break;
+                        }
+                    }
+                }
+                println!("region feeds piston cells {:?}", fed.iter().map(|c| (c.0 - d0[0], c.1 - d0[1])).collect::<Vec<_>>());
+                keep = Some(match keep {
+                    Some(k) => k.into_iter().filter(|c| fed.contains(c)).collect(),
+                    None => fed,
+                });
+            }
+            let mut w = world_for(wlo, whi);
+            w.place_like_judge(&list);
+            step_until_idle(&mut w, 400, |_| {});
+            let powered_cells = |w: &World| -> Vec<(i32, i32)> {
+                piston_cells(w)
+                    .into_iter()
+                    .filter(|(x, y, f)| redsim::piston::base::neighbor_signal(w, BlockPos::new(*x, *y, z), *f) && keep.as_ref().is_none_or(|k| k.contains(&(*x, *y))))
+                    .map(|(x, y, _)| (x, y))
+                    .collect()
+            };
             let rest: Vec<(i32, i32)> = powered_cells(&w);
             let mut text = String::new();
-            text.push_str(&format!("# door cosearch plan-from {}: every piston cell's real power per lever edge, as a redstone\n# block behind it (z+1) while powered\n", design.display()));
+            text.push_str(&format!("# door cosearch plan-from {}: every piston cell's real power per lever edge, as a redstone\n# block behind it (z+1) while powered (a cell fed exactly like the one above it is left to that\n# block's quasi-connectivity)\n", design.display()));
             text.push_str(&format!("design {}\n", design.display()));
+            // events per cell: (phase, tick, on)
+            let mut evs: std::collections::BTreeMap<(i32, i32), Vec<(usize, u32, bool)>> = std::collections::BTreeMap::new();
             let mut cur: Vec<(i32, i32)> = rest.clone();
-            for phase in ["open", "close"] {
+            for phase in 0..2usize {
                 w.use_block(bp(door.spec.lever));
                 let mut t = 0u32;
                 loop {
@@ -1338,12 +1394,12 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
                     let now = powered_cells(&w);
                     for c in &now {
                         if !cur.contains(c) {
-                            text.push_str(&format!("{phase} {t} set {} {} {} minecraft:redstone_block\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2]));
+                            evs.entry(*c).or_default().push((phase, t, true));
                         }
                     }
                     for c in &cur {
                         if !now.contains(c) {
-                            text.push_str(&format!("{phase} {t} clear {} {} {}\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2]));
+                            evs.entry(*c).or_default().push((phase, t, false));
                         }
                     }
                     cur = now;
@@ -1353,6 +1409,29 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
                         break;
                     }
                 }
+            }
+            // the block behind (x, y+1) powers (x, y) by quasi-connectivity: a cell whose trace
+            // equals the one above it needs no block of its own (its own block would also
+            // quasi-power the piston below it, which the door does not)
+            let same_above = |c: &(i32, i32)| evs.get(&(c.0, c.1 + 1)).is_some_and(|a| Some(a) == evs.get(c)) && rest.contains(c) == rest.contains(&(c.0, c.1 + 1));
+            let mut lines: Vec<(usize, u32, String)> = Vec::new();
+            for (c, v) in &evs {
+                if same_above(c) {
+                    continue;
+                }
+                for (ph, t, on) in v {
+                    let phase = if *ph == 0 { "open" } else { "close" };
+                    let l = if *on {
+                        format!("{phase} {t} set {} {} {} minecraft:redstone_block\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2])
+                    } else {
+                        format!("{phase} {t} clear {} {} {}\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2])
+                    };
+                    lines.push((*ph, *t, l));
+                }
+            }
+            lines.sort_by_key(|l| (l.0, l.1));
+            for (_, _, l) in lines {
+                text.push_str(&l);
             }
             std::fs::write(&out, text)?;
             println!("wrote {} (powered at rest: {:?})", out.display(), rest.iter().map(|c| (c.0 - d0[0], c.1 - d0[1])).collect::<Vec<_>>());
