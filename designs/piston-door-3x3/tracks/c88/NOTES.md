@@ -85,3 +85,31 @@ the bottom-left gets the lever's LEVEL directly; the price is that the top and t
   5 inputs assisted, and the BR filling does not drive BR when I add it to s11 (s11 + filling: BR stays).
 - satwire on the left-lever designs: UNSAT immediately, core close K (its model does not reproduce K's
   blocked close push under the dropper's QC hold).
+
+## 5. c88b (2026-10-19 09:40Z-): the door works (s26: solid 8x8, 54 blocks)
+`s26.txt` (= BEST.txt): `door verify` WORKS, solid, slime-free, flat, rotation-safe, open 34 / close 34,
+frame 12/12, no ideal input. Built in three screens on top of s11's real bottom/left (lever (-4,1),
+level-held left pullers + K, U's dropper/observer chain):
+- Windows first (ideal-rs sweeps): A's push may fire on BOTH edges (coordinator relay), so one symmetric
+  chain can drive A; with B LEVEL-held (extended at rest) the B-watcher fires once per edge, which is what
+  the right side needs. With pockets2's 2-pulse A (push+spit at t5, re-pull at t11) the B level must drop
+  at ideal >= 14 on open; a symmetric T flip-flop fits (rise 14-15 on close works when the top pull
+  cannot reach A at (1,3) with an update).
+- Top-left (s24, `door ideal-rs --vary` over 10 cells, 15.5M fillings in 8 min, 198 work): observer
+  (-1,3)v on TL's park -> lamp (-1,4) (lit t3, dark t9) -> observer (0,4) W into (1,4): A by QC + UPDATE
+  (A is a neighbor of (1,4); powering (0,4) itself never updates A: s22 failed that way). B: observer
+  (-3,3)v on the lever dust -> stone (-3,4) -> waxed copper bulb (-3,5) (toggles once per edge) ->
+  comparator (-2,5) (on stone (-2,4)) -> repeaters (-1,5) d2 (on the lamp), (0,5) d4 (on the observer)
+  -> B at t16 on both edges. Game `door ideal` WORKS.
+- Right side (s25): B-watcher (2,5) W -> observer (3,5) W (+2 gt) -> stone (4,5) -> dust (4,4) on (4,3):
+  TR direct, MR by QC; dust (3,4) on (3,3) -> stone (2,4): A's top pull at (1,4). The extra stage puts
+  the pulse after A lands at (1,3) on close, and a powered stone at (2,4) only QC-powers A there without
+  updating it (dust (2,4) on (2,3), c79/s15's way, updates A: the close hazard that limited s15).
+- BR (s26, --vary over the bottom-right pocket, 2.77M fillings in 43 s, 1 works): observer (4,0) up on
+  MR's puller (2 pulses) -> air (4,-1) -> NORMAL piston (4,-2) facing up (QC'd through the air cell)
+  -> observer (3,-2) E -> BR's puller: the piston reshapes MR's double pulse into an ODD train (3 pulses
+  on open: pull, push, pull), so BR ends right on both edges.
+- Dead ends this session: a copper bulb + observer double-fires (the bulb's `powered` flips on both
+  input edges, visible to the observer: sculk sensor -> bulb -> observer gave 2 pulses); comparators and
+  repeaters cannot stand on row y=-2 (no support) or on dust; the 3-observer B-watcher alternative
+  ((2,4) watching (1,4): 3 pulses open / 1 close) breaks at some positions.
