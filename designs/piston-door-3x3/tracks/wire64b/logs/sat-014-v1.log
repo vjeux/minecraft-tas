@@ -3,3 +3,4 @@ close: 59 frames, powered piston-ticks t1:4,1 t1:1,4 t1:4,2 t1:0,4 t2:0,4 t2:4,1
 --fixed: 5 wiring cells kept
 [   1.8s] encoded: 31 free cells, 112 lever candidates, offsets 0..=12, horizon 76 ticks, 1149683 vars, 4403500 clauses
 [  32.8s] UNSAT (solve 21.7s): no wiring exists within this palette, box and model (wiring <= 31, 0 judged designs blocked)
+  core (pistons whose recorded power cannot be produced together): close piston (1,5), close piston (3,3), close piston (1,4)

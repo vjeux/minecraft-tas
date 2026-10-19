@@ -182,6 +182,13 @@ for 008 016 031 in rows -2..6 / 7x8 and for the center-down 021-034 group in y -
   solver): the families-timed plan UNSAT (31 s); `--diag` printed no core.
 - satwire on v1, v2, v3 (same settings): all UNSAT (33-37 s). cosearch (35 min each, pistons
   locked, plan-shaped) on 012/016 (y -3..5) and 014 (rows -2..6): 0 finds, best 43/79.
+- **The core** (satwire's deletion-minimized UNSAT core, printed after its UNSAT line; it takes
+  ~25 min, so do not kill a satwire run that has printed UNSAT): v1 = "close piston (1,5), close
+  piston (3,3), close piston (1,4)": B, the T parker and A on the CLOSE edge cannot get their
+  recorded power together. The side triples, U and the bottom pockets are not in the core: the
+  top's wall is the elevator trio's close-edge feeds (on close T and C sit in (2,3)/(1,3) and TL in
+  (0,3), so the cells next to A, B and P_T conduct differently than on open). v2/v3/families-timed
+  cores: see logs/sat-014-{v2,v3,top}.log.
 
 ### 4e. The top of 7x8-014, by hand (where it stands)
 Feeds the cells allow (x -2..4, rows 3..6, plus (-2,2) and (4,3)):
