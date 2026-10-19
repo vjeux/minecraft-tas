@@ -1,0 +1,10 @@
+# O fires once (block placed at (3,2)): P5 extends and pushes P4 from (1,1) to (1,0); P4 never
+# extends (its event finds a moving block at (1,1) and is dropped); after the pulse P5 spits P4.
+design designs/gadgets/qc-shared.txt
+probe p5 1 2 0
+setblock 3 2 0 minecraft:stone
+settle
+expect_state 1 2 0 sticky_piston[extended=false
+expect_state 1 1 0 air
+expect_state 1 0 0 sticky_piston[extended=false
+expect_state 1 -1 0 stone

@@ -409,20 +409,18 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         lo[i] -= 3;
         hi[i] += 3;
     }
-    let snap = |w: &mut Worker| -> Result<HashMap<C2, String>> {
+    // In-plane blocks, plus the redstone blocks one cell in front of / behind the plane: ideal
+    // plans (families' `--check --verify` plans, mech-synth's) put some inputs there, right
+    // behind the piston they fire, and that power must be recorded too.
+    let snap = |w: &mut Worker| -> Result<(HashMap<C2, String>, HashSet<C2>)> {
         let r = w.get_region(sb, lo, hi)?;
-        Ok(r.iter().filter(|(p, s)| p[2] == z && !s.ends_with(":air")).map(|(p, s)| ((p[0], p[1]), s.to_string())).collect())
+        let plane = r.iter().filter(|(p, s)| p[2] == z && !s.ends_with(":air")).map(|(p, s)| ((p[0], p[1]), s.to_string())).collect();
+        let oop = r.iter().filter(|(p, s)| (p[2] - z).abs() == 1 && short(s) == "redstone_block").map(|(p, _)| (p[0], p[1])).collect();
+        Ok((plane, oop))
     };
     let is_input = |s: &str| matches!(short(s), "redstone_block" | "lever");
     let mech = |f: &HashMap<C2, String>| -> HashMap<C2, String> { f.iter().filter(|(_, s)| !is_input(s)).map(|(c, s)| (*c, s.clone())).collect() };
-    // Ideal inputs out of the plane (z-1 / z+1: families' and mech-synth's ideal plans put some
-    // there) are wanted power too: directly behind / in front of a piston, or next to its quasi
-    // cell. Without them the recorded power misses those pulses and every model is UNSAT.
-    let oop_rb = |w: &mut Worker| -> Result<HashSet<C2>> {
-        let r = w.get_region(sb, lo, hi)?;
-        Ok(r.iter().filter(|(p, s)| (p[2] == z - 1 || p[2] == z + 1) && short(s) == "redstone_block").map(|(p, _)| (p[0], p[1])).collect())
-    };
-    let pow_of = |f: &HashMap<C2, String>, oop: &HashSet<C2>| -> HashMap<C2, bool> {
+    let pow_of = |(f, oop): &(HashMap<C2, String>, HashSet<C2>)| -> HashMap<C2, bool> {
         let rb = |c: C2| f.get(&c).is_some_and(|s| short(s) == "redstone_block");
         f.iter()
             .filter_map(|(c, s)| match mk(s) {
@@ -440,9 +438,8 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
     for (ph, open) in [(0usize, true), (1usize, false)] {
         let evs = s.events_of(open, s.vars())?;
         let before = snap(w)?;
-        let before_oop = oop_rb(w)?;
         let mut frames = Vec::new();
-        let mut power = vec![pow_of(&before, &before_oop)];
+        let mut power = vec![pow_of(&before)];
         for t in 0..=ticks {
             for (et, p, st) in &evs {
                 if *et == t {
@@ -454,9 +451,8 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
                 }
             }
             let f = snap(w)?;
-            let oop = oop_rb(w)?;
-            frames.push(mech(&f));
-            power.push(pow_of(&f, &oop));
+            frames.push(mech(&f.0));
+            power.push(pow_of(&f));
             w.step(sb, 1)?;
         }
         power.truncate(frames.len());
