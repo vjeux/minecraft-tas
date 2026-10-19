@@ -227,6 +227,10 @@ pub struct Problem {
     pub assist_rest_all: Vec<(usize, BlockPos, Block)>,
     /// Every position each input's events touch.
     pub assist_pos: Vec<Vec<BlockPos>>,
+    /// Per input, the cells whose blocks its positions feed: (cell, direct) — the in-plane cell
+    /// next to each position (direct) and the one below it (a piston fed by quasi-connectivity),
+    /// a QC cell dropped when it is another input's direct cell (that input owns it).
+    pub assist_recv: Vec<Vec<(BlockPos, bool)>>,
     /// Drive shaping (`--drive-weight`): per assisted input, the plan's on/off edges matched by
     /// what the REAL wiring alone would feed its piston (the assist blocks removed for the check).
     pub drive_weight: f64,
@@ -567,33 +571,22 @@ fn real_drive(p: &Problem, g: &Grid, w: &mut World) -> u64 {
     }
     let mut real = 0u64;
     for k in 0..p.assist_pistons.len() {
-        'k: for q in &p.assist_pos[k] {
-            let ns: Vec<BlockPos> = if q.z != z {
-                vec![BlockPos::new(q.x, q.y, z)]
-            } else {
-                PLANE_DIRS.iter().map(|d| {
-                    let s = d.step();
-                    BlockPos::new(q.x + s[0], q.y + s[1], z)
-                }).collect()
+        for &(c, direct) in &p.assist_recv[k] {
+            let b = w.get(c);
+            let fed = match b {
+                Block::Piston { facing, .. } => redsim::piston::base::neighbor_signal(w, c, facing),
+                // other receivers next to the input (trapdoors, lamps, note blocks, bulbs,
+                // droppers...): their own neighbor-signal check
+                Block::Trapdoor { .. } | Block::Lamp { .. } | Block::Note { .. } | Block::Bulb { .. } | Block::Dispenser { .. } | Block::Door { .. } | Block::FenceGate { .. } | Block::Rail { .. } if direct => w.has_neighbor_signal(c),
+                _ => false,
             };
-            for n in ns {
-                for c in [n, BlockPos::new(n.x, n.y - 1, z)] {
-                    let b = w.get(c);
-                    let fed = match b {
-                        Block::Piston { facing, .. } => redsim::piston::base::neighbor_signal(w, c, facing),
-                        // other receivers next to the input (trapdoors, lamps, note blocks,
-                        // bulbs, droppers...): their own neighbor-signal check
-                        Block::Trapdoor { .. } | Block::Lamp { .. } | Block::Note { .. } | Block::Bulb { .. } | Block::Dispenser { .. } | Block::Door { .. } | Block::FenceGate { .. } | Block::Rail { .. } if c == n => w.has_neighbor_signal(c),
-                        _ => false,
-                    };
-                    if fed {
-                        real |= 1u64 << k;
-                        break 'k;
-                    }
-                }
+            if fed {
+                real |= 1u64 << k;
+                break;
             }
         }
     }
+    let _ = z;
     for (q, b) in saved.iter().rev() {
         w.put(*q, *b);
     }
@@ -1407,6 +1400,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         assist_rest: Vec::new(),
         assist_rest_all: Vec::new(),
         assist_pos: Vec::new(),
+        assist_recv: Vec::new(),
         drive_weight: a.drive_weight,
         drive_slack: a.drive_slack,
         drive_max: Vec::new(),
@@ -1442,6 +1436,42 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         prob.assist_rest_all = asst.rest.clone();
         prob.assist_rest = asst.rest.into_iter().filter(|r| r.1.z != spec0.door[2]).collect();
         prob.assist_pos = asst.pos;
+        {
+            let z = spec0.door[2];
+            let direct: Vec<Vec<BlockPos>> = prob
+                .assist_pos
+                .iter()
+                .map(|ps| {
+                    let mut v: Vec<BlockPos> = Vec::new();
+                    for q in ps {
+                        if q.z != z {
+                            v.push(BlockPos::new(q.x, q.y, z));
+                        } else {
+                            for d in PLANE_DIRS {
+                                let s = d.step();
+                                v.push(BlockPos::new(q.x + s[0], q.y + s[1], z));
+                            }
+                        }
+                    }
+                    v.sort_by_key(|b| (b.x, b.y));
+                    v.dedup();
+                    v
+                })
+                .collect();
+            prob.assist_recv = (0..direct.len())
+                .map(|k| {
+                    let mut r: Vec<(BlockPos, bool)> = direct[k].iter().map(|c| (*c, true)).collect();
+                    for c in &direct[k] {
+                        let below = BlockPos::new(c.x, c.y - 1, z);
+                        let owned = (0..direct.len()).any(|j| j != k && direct[j].contains(&below));
+                        if !owned && !direct[k].contains(&below) {
+                            r.push((below, false));
+                        }
+                    }
+                    r
+                })
+                .collect();
+        }
         prob.drive_max = asst.edges.iter().map(|e| e * a.cycles as i32).collect();
         let skipped = asst.skipped;
         anyhow::ensure!(prob.assist_pistons.len() <= 64, "at most 64 assisted inputs");
