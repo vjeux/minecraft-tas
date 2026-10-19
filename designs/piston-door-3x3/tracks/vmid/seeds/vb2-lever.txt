@@ -1,0 +1,30 @@
+name: vb2-lever
+# vmid's vb2 (mech/vb2.txt) with a lever outside the box at (-3,3) on a glass block (-2,3) in the
+# free left column. 7 wide x 8 tall (x -2..4, y -2..5). Seed for `door cosearch search --assist mech/vb2.ideal`.
+port door: 0 0 0
+port lever: -3 3 0
+origin: -3 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:glass
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer -2:
+  ...UU...
+layer -1:
+  .EU...W.
+layer 0:
+  ...SSS.W
+layer 1:
+  ...SSS.W
+layer 2:
+  ...SSS.W
+layer 3:
+  LG....W.
+layer 4:
+  ...DD...
+layer 5:
+  ....D...

@@ -5,7 +5,7 @@
 use crate::block::{Block, Face, Instrument, Kind, PushReaction, Simple};
 use crate::pos::{BlockPos, Dir};
 use crate::redstone::attach::{attached, button, torch};
-use crate::redstone::blocks::{bulb, composter, dispenser, hopper, indicator, lamp, leaves, note, observer, rail, target};
+use crate::redstone::blocks::{bulb, composter, dispenser, hopper, indicator, lamp, leaves, note, observer, rail, scaffolding, target};
 use crate::redstone::{diode, wire};
 use crate::world::World;
 
@@ -72,7 +72,9 @@ pub fn is_solid(s: &Block) -> bool {
         | Block::Repeater { .. }
         | Block::Comparator { .. }
         | Block::Skull { .. }
-        | Block::WallSkull { .. } => false,
+        | Block::WallSkull { .. }
+        // dynamic shape: no shape cache, so `calculateSolid` says no (NULL_CACHE)
+        | Block::Scaffolding { .. } => false,
         _ => true,
     }
 }
@@ -147,9 +149,12 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Slab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
         Block::Skull { .. } => face == Dir::Down && support == Support::Center,
         Block::WallSkull { facing, .. } => face == facing.opposite() && support == Support::Center,
-        Block::Cake { bites } => face == Dir::Down && support == Support::Center && bites <= 2,
+        Block::Cake { bites } => face == Dir::Down && support == Support::Center && bites <= 3,
         Block::EndPortalFrame { eye, .. } => face == Dir::Down || (eye && face == Dir::Up && support == Support::Center),
         Block::Composter { .. } => face != Dir::Up || support == Support::Rigid,
+        // support shape = collision shape with the empty context = SHAPE_STABLE: the top plate
+        // (14-16 px) and four 2x2 px legs
+        Block::Scaffolding { .. } => face == Dir::Up,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         _ => false,
     }
@@ -280,6 +285,7 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         | Block::WallSkull { .. }
         | Block::Cake { .. }
         | Block::Leaves { .. }
+        | Block::Scaffolding { .. }
         | Block::Door { .. } => PushReaction::Popped,
         Block::RespawnAnchor { .. } => PushReaction::Immoveable,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::push_reaction(s),
@@ -311,6 +317,104 @@ pub fn can_be_replaced(s: &Block) -> bool {
     s.is_air()
 }
 
+/// A box in 1/16 block units, laid out `[x0, x1, y0, y1, z0, z1]` (pistmodel's `B16`).
+pub type Box16 = [i32; 6];
+
+/// A plate `t` px thick against `face`, full on the other two axes.
+fn plate(face: Dir, t: i32) -> Box16 {
+    match face {
+        Dir::Down => [0, 16, 0, t, 0, 16],
+        Dir::Up => [0, 16, 16 - t, 16, 0, 16],
+        Dir::North => [0, 16, 0, 16, 0, t],
+        Dir::South => [0, 16, 0, 16, 16 - t, 16],
+        Dir::West => [0, t, 0, 16, 0, 16],
+        Dir::East => [16 - t, 16, 0, 16, 0, 16],
+    }
+}
+
+/// `getCollisionShape(level, pos, CollisionContext.empty())` of a non-piston block, as boxes
+/// (1/16 units; see [`Box16`]). What a moving block's shape is offset from
+/// (`PistonMovingBlockEntity.getCollisionShape`), and what a falling block collides with
+/// (scaffolding's entity-dependent shape: see `redstone::blocks::scaffolding::entity_boxes`).
+/// Pistons, heads and moving pistons: `piston::shape` (empty here).
+pub fn collision_boxes(s: &Block) -> Vec<Box16> {
+    const FULL: Box16 = [0, 16, 0, 16, 0, 16];
+    match *s {
+        Block::Air
+        | Block::Wire { .. }
+        | Block::Torch { .. }
+        | Block::WallTorch { .. }
+        | Block::Lever { .. }
+        | Block::Button { .. }
+        | Block::Rail { .. } => vec![],
+        Block::Simple(Simple::HoneyBlock) => vec![[1, 15, 0, 15, 1, 15]],
+        Block::Simple(Simple::SoulSand) | Block::Simple(Simple::Mud) => vec![[0, 16, 0, 14, 0, 16]],
+        // DiodeBlock.SHAPE = column(16, 0, 2)
+        Block::Repeater { .. } | Block::Comparator { .. } => vec![[0, 16, 0, 2, 0, 16]],
+        // TrapDoorBlock.SHAPES = rotateAll(boxZ(16, 13, 16)), keyed by facing (open) or DOWN/UP
+        Block::Trapdoor { facing, top, open, .. } => vec![plate(if open { facing.opposite() } else if top { Dir::Up } else { Dir::Down }, 3)],
+        // DoorBlock.SHAPES = rotateHorizontal(boxZ(16, 13, 16))
+        Block::Door { facing, hinge_right, open, .. } => {
+            let d = if open {
+                if hinge_right { facing.counter_clockwise() } else { facing.clockwise() }
+            } else {
+                facing
+            };
+            vec![plate(d.opposite(), 3)]
+        }
+        // FenceGateBlock.SHAPE_COLLISION = column(16, 4, 0, 24) (1.5 blocks tall), empty open
+        Block::FenceGate { facing, open, .. } => {
+            if open {
+                vec![]
+            } else if matches!(facing, Dir::North | Dir::South) {
+                vec![[0, 16, 0, 24, 6, 10]]
+            } else {
+                vec![[6, 10, 0, 24, 0, 16]]
+            }
+        }
+        Block::Slab { kind } => match kind {
+            0 => vec![[0, 16, 0, 8, 0, 16]],
+            1 => vec![[0, 16, 8, 16, 0, 16]],
+            _ => vec![FULL],
+        },
+        // HopperBlock: rim and floor (column(16, 10, 16) minus column(12, 11, 16)), the middle
+        // column(8, 4, 10), and the spout (rotateAll(boxZ(4, 4, 8, 0, 8)) about (8, 6, 8))
+        Block::Hopper { facing, .. } => {
+            let mut v = vec![[0, 16, 10, 11, 0, 16], [0, 2, 11, 16, 0, 16], [14, 16, 11, 16, 0, 16], [2, 14, 11, 16, 0, 2], [2, 14, 11, 16, 14, 16], [4, 12, 4, 10, 4, 12]];
+            v.push(match facing {
+                Dir::North => [6, 10, 4, 8, 0, 8],
+                Dir::South => [6, 10, 4, 8, 8, 16],
+                Dir::West => [0, 8, 4, 8, 6, 10],
+                Dir::East => [8, 16, 4, 8, 6, 10],
+                _ => [6, 10, 0, 6, 6, 10],
+            });
+            v
+        }
+        Block::Skull { .. } => vec![[4, 12, 0, 8, 4, 12]],
+        // WallSkullBlock.SHAPES = rotateHorizontal(boxZ(8, 8, 16)): against the wall behind it
+        Block::WallSkull { facing, .. } => vec![match facing {
+            Dir::North => [4, 12, 4, 12, 8, 16],
+            Dir::South => [4, 12, 4, 12, 0, 8],
+            Dir::West => [8, 16, 4, 12, 4, 12],
+            _ => [0, 8, 4, 12, 4, 12],
+        }],
+        Block::Cake { bites } => vec![[1 + 2 * bites as i32, 15, 0, 8, 1, 15]],
+        Block::EndPortalFrame { eye, .. } => {
+            if eye {
+                vec![[0, 16, 0, 13, 0, 16], [4, 12, 13, 16, 4, 12]]
+            } else {
+                vec![[0, 16, 0, 13, 0, 16]]
+            }
+        }
+        // ComposterBlock.getCollisionShape = SHAPES[0]: the block minus column(12, 2, 16)
+        Block::Composter { .. } => vec![[0, 16, 0, 2, 0, 16], [0, 2, 2, 16, 0, 16], [14, 16, 2, 16, 0, 16], [2, 14, 2, 16, 0, 2], [2, 14, 2, 16, 14, 16]],
+        // ScaffoldingBlock with the empty context: SHAPE_STABLE (top plate + 4 legs)
+        Block::Scaffolding { .. } => vec![[0, 16, 14, 16, 0, 16], [0, 2, 0, 16, 0, 2], [14, 16, 0, 16, 0, 2], [0, 2, 0, 16, 14, 16], [14, 16, 0, 16, 14, 16]],
+        Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => vec![],
+        _ => vec![FULL],
+    }
+}
+
 // ---------------------------------------------------------------------- behavior
 
 pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
@@ -322,6 +426,7 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         Block::Rail { .. } => rail::can_survive(w, p),
         Block::Door { .. } => indicator::door_can_survive(w, s, p),
         Block::Cake { .. } => is_solid(&w.get(p.below())),
+        Block::Scaffolding { .. } => scaffolding::distance(w, p) < 7,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::can_survive(w, *s, p),
         _ => true,
     }
@@ -357,6 +462,10 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::Door { .. } => indicator::door_update_shape(w, s, p, d, ns),
         Block::FenceGate { .. } => indicator::gate_update_shape(s, d),
         Block::Leaves { .. } => leaves::update_shape(w, s, p, ns),
+        Block::Scaffolding { .. } => {
+            scaffolding::schedule(w, p);
+            s
+        }
         // CakeBlock: falls off a non-solid floor
         Block::Cake { .. } => {
             if d == Dir::Down && !is_solid(&w.get(p.below())) {
@@ -394,6 +503,7 @@ pub fn on_place(w: &mut World, s: Block, p: BlockPos, old: Block, moved: bool) {
         Block::Rail { .. } => rail::on_place(w, s, p, old, moved),
         Block::Hopper { .. } => hopper::on_place(w, s, p, old),
         Block::Composter { .. } => composter::on_place(w, s, p),
+        Block::Scaffolding { .. } => scaffolding::schedule(w, p),
         Block::Falling { .. } => crate::gravity::on_place(w, s, p, old, moved), // pistmodel
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::on_place(w, s, p, old, moved),
         _ => {}
@@ -432,6 +542,7 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Lamp { .. } => lamp::tick(w, s, p),
         Block::Target { .. } => target::tick(w, s, p),
         Block::Leaves { .. } => leaves::tick(w, s, p),
+        Block::Scaffolding { .. } => scaffolding::tick(w, s, p),
         Block::Composter { .. } => composter::tick(w, s, p),
         Block::Falling { .. } => crate::gravity::tick(w, s, p), // pistmodel
         // Droppers push one item into a facing container; dispensers with items spawn entities

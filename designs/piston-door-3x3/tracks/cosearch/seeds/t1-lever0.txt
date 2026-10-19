@@ -1,0 +1,37 @@
+name: wire56-t1-lever0
+# wire56's test/t1.txt (7x8-028 mechanism + real K1 / K0 / K3 wiring, explore/wire56) with only a
+# lever outside the box at (5,4) on a stone (4,4): K2 empty. Seed for `door cosearch search
+# --assist seeds/t1.ideal` (K2's six inputs start driven by wire56's ideal plan).
+port door: 0 0 0
+port lever: 5 4 0
+origin: -2 0 0
+palette:
+  H minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  a minecraft:observer[facing=east,powered=false]
+  b minecraft:observer[facing=west,powered=false]
+  c minecraft:observer[facing=up,powered=false]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  M minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  G minecraft:glass
+layer -2:
+  .MbUU..
+layer -1:
+  .c...aM
+layer 0:
+  E.HHH.c
+layer 1:
+  E.HHH.W
+layer 2:
+  c.HHH.W
+layer 3:
+  B....W.
+layer 4:
+  cbDD..GL
+layer 5:
+  NaaD...

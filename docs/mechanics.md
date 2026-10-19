@@ -174,7 +174,17 @@ The rules that set the timing, with their source lines:
   block that lands on a moving piston (or anywhere it cannot be placed) breaks into an item;
   `Sandbox.idle()` waits for falling blocks to land, so the judge sees that item.
 * **Persistent leaves** recompute `distance` in a scheduled tick 1 gt after a neighbor change
-  (`LeavesBlock` 102): the only clean 1 gt element (gadget `leaves-delay`).
+  (`LeavesBlock` 102): a clean 1 gt element (gadget `leaves-delay`).
+* **Scaffolding** (`ScaffoldingBlock`): every shape update (a neighbor changed) and every
+  placement, its own distance changes included, schedules a tick 1 gt later; the tick re-reads
+  `distance` (0 on a block with a sturdy top, else the scaffold below's distance, lowered to 1 +
+  a scaffold beside it) and writes it with `setBlockAndUpdate`, which updates its neighbors: a
+  second 1 gt element that works with ANY sturdy block as the moving part (gadget
+  `scaffold-delay`; a tower on a top iron trapdoor passes the lever's edges up 1 gt per block and
+  swallows pulses shorter than 2 gt, link table in section 12). At distance 7 it breaks (an item)
+  or, if it was placed at 7, falls as an entity. Only its top face is sturdy (dust, torches,
+  repeaters and rails can stand on it), it is not a conductor, pistons pop it, and the judge
+  places a design's scaffolds as written with no tick until something next to them changes.
 * **Walkway rule:** the judge used to ask the walkway only for *no collision*, so collision-free
   blocks (dust, torches, levers, buttons, rails) could sit in it. Since 2026-10-18 16:40Z nothing at
   all may stand in front of or behind the door ([rules.md](rules.md)).
@@ -200,7 +210,8 @@ The rules that set the timing, with their source lines:
 | bell | rising edge | rings at once, no redstone output | in the update | vibration | - |
 | sculk sensor | vibration | active after floor(distance), 30 gt (calibrated 10), cooldown 10 | block-entity phase | category sculk | `sculk-hold`, `sculk-delay-line` |
 | piston | power | powered between ticks (lever) or in the scheduled or block-event phase: acts in that tick's block-event phase (lever: tick 1); powered in the block-entity phase (a landing): next tick | block-event phase | moved blocks: section 2 | all |
-| persistent leaves | neighbor change | 1 | scheduled | the only clean 1 gt element without a block that breaks | `leaves-delay` |
+| persistent leaves | neighbor change | 1 | scheduled | a clean 1 gt element without a block that breaks | `leaves-delay` |
+| scaffolding | any shape update (a neighbor changed) | 1 per block | scheduled (NORMAL) | distance re-read from the floor / the scaffold below / 1 + a scaffold beside; a tower or chain passes an edge on 1 gt per block and swallows pulses < 2 gt; breaks at distance 7 (falls if placed at 7); pistons pop it | `scaffold-delay` |
 
 No gadget for: lectern (its pulse needs a page turn, a menu click), daylight detector (follows the
 time of day, frozen in the judge's worlds; a right-click inverts it at once), bell (no redstone
@@ -365,6 +376,18 @@ track notes).
   every other component delays an even number of ticks.
 * **In-plane limits**: no repeater locking and no comparator side inputs (both need a diode at
   z+-1).
+* **Carried puller: a middle-row side block leaves vertically in 2 rows** (vmid vb2/vb3, ideal
+  plans at 32 positions): a sticky piston facing UP resting in the corner (-1,-1) is pushed into
+  the ring cell (0,-1) by a piston at (-2,-1) (1 gt pulse: spit), pulls ML (pos+2 = (0,1)) to (0,0),
+  is pulled back by the same piston (now a pull-type, its front empty), and a puller at (0,-2)
+  finishes ML to (0,-1); anything already lowered into row -1 (BL, BM) rides one cell right with it.
+  An elevator needs 3 rows, this 2. It is drivable in-plane only facing up: its quasi cell is (0,0),
+  fed by a plain stone in the ring cell (-1,0) that a component at (-2,0) powers strongly. The top
+  mirror (facing down, into (0,3)) has its quasi cell at (0,4), the finishing puller, so it cannot
+  fire without that puller (vc1).
+* **Door blocks and ring stones relay power into the opening's quasi cells**: a strongly powered
+  plain block in a ring cell gives signal into the opening cell next to it, which QC-powers a piston
+  facing up just below that cell (the carried puller above); a parked door block does the same.
 
 Notes for builders of fast doors:
 
@@ -511,6 +534,8 @@ behavior: `mctas door drive --quiet designs/gadgets/*.drive` prints PASS/FAIL pe
 | `pulse-stretch` | repeater | a pulse shorter than a repeater's delay comes out exactly that long (2 gt -> 8 gt); a second pulse while it is on is swallowed |
 | `pulse-merge` | observer + delay-2 repeater + observer | a DOUBLE pulse (two 2 gt pulses up to 4 gt apart, e.g. an observer watching a pull-type piston's gap or a piston that extends and retracts) becomes exactly ONE 2 gt pulse: the repeater is on for exactly 4 gt and its off edge comes while the observer watching it is still on (the repeater's tick has the higher priority). flat-seam e89 (8x9 flat seamless record) uses it twice: the T puller's feed and the relay that watches the T puller |
 | `merger-gap` | delay-2 repeater + observer | the pulse merger (flat-seam e89): two 2 gt pulses 4 gt apart come out of the observer as ONE pulse, but two pulses 8 gt apart (an elevator's B window edges) come out as two (box56's parity argument) |
+| `window-watch` | note block + cross dust + observer | (wire64) a note block under a cross dust carries the dust's WINDOW into the piston below it (a lift piston held extended for the window, its sticky retract pulls the lifted piece back), and an observer watching the note block fires once at each edge of the window, 2 gt later: the first pulse lands on the lifted piece's arrival, the second after the pull started (families 8x8-102's E3 + lifted L1, no race) |
+| `stopper-release` | held-extended sticky piston + observer + puller | (wire64) a piston head held extended at rest is a STOPPER: P's push line ending on it is blocked, so an early pulse does nothing; when a puller takes the block out of P's line during the pulse, its departure updates P, which fires at that tick (8x8-118 + SW+(4,1): L1's shot coupled to D's arming waits until D has pulled ML out) |
 | `spit` | observer + sticky piston | a 2 gt pulse makes a sticky piston push its block and leave it (retract event type 2) |
 | `qc-bud` | repeater, piston | a piston is powered by anything powering the cell above it, but only acts when updated (BUD) |
 | `lamp-fall-delay` | lamp + observer | lamp: rise 0 gt, fall 4 gt |
@@ -750,7 +775,8 @@ verdict on all 263 supported archived designs, and every regression found is a f
 | dropper, dispenser, crafter | `DispenserBlock.neighborChanged` 121, `tick` 135; `CrafterBlock.neighborChanged` 67, `tick` 84 | `blocks.rs` (`dispenser`) | QC (power at the cell above), 4 gt trigger, `triggered` cleared with flags 2 |
 | containers (items) | `DropperBlock.dispenseFrom` 41; `HopperBlockEntity.pushItemsTick` 97, `tryMoveItems` 106, `ejectItems` 143, `suckInItems` 218, `tryMoveInItem` 314, `removeItem` 74; `AbstractContainerMenu.getRedstoneSignalFromContainer` | `redstone/container.rs` | a hopper's `removeItem`/`setItem` do NOT notify comparators, a dropper's do (fixture hopper-remove-no-setchanged); wasEmpty cooldown 8, or 7 when the sender ticked no later; fill level in floats: `floor(14 f) + (f > 0)`; T flip-flop gadget: fixture hopper-t-flip-flop |
 | hopper (lock) | `HopperBlock.checkPoweredState` 118 | `blocks.rs` (`hopper`) | `enabled` follows `!hasNeighborSignal`, flags 2 |
-| leaves | `LeavesBlock.updateShape` 86, `tick` 76, `updateDistance` 108 | `blocks.rs` (`leaves`) | distance from logs (the only 1 gt element) |
+| leaves | `LeavesBlock.updateShape` 86, `tick` 76, `updateDistance` 108 | `blocks.rs` (`leaves`) | distance from logs (a 1 gt element) |
+| scaffolding | `ScaffoldingBlock.onPlace`, `updateShape`, `tick`, `getDistance`, `isBottom`, `getCollisionShape` (`SHAPE_STABLE` with the empty context); `FallingBlockEntity.fall` | `blocks.rs` (`scaffolding`) | onPlace has no same-block check: each of its own changes re-schedules it; only the top face is sturdy; falling at 7 (entity: `gravity.rs`) |
 | analog blocks | `CakeBlock.canSurvive` 123 / `getAnalogOutputSignal` 133, `ComposterBlock.tick` 218 / 231, end portal frame, respawn anchor | `behavior.rs` | a cake needs a SOLID block below (it pops off repeaters: fixture cake-on-unsupported-repeater) |
 | plain blocks | `Blocks.java` properties (conductor, collision, support shape, instrument, push reaction) | `block.rs` (`SIMPLES`), `behavior.rs` | slime conducts and is a floor; honey and leaves conduct nothing and hold nothing (fixtures slime-is-a-conductor, leaves-honey-hold-nothing) |
 | pistons, moving blocks, gravity | section 2; `PistonBaseBlock.checkIfExtend` 93, `getNeighborSignal` 116, `triggerEvent` 139, `isPushable` 215, `moveBlocks` 259; `PistonMovingBlockEntity.finalTick` 262, `tick` 294 | `piston/`, `gravity.rs` (pistmodel) | a retracting base keeps its extended box as support; a head popped by `updateShape` drops nothing |
@@ -764,7 +790,12 @@ are ignored (they matter only directly above/below a note block): stone-like con
 (immovable), glass-like non-conductors, slime, honey, pumpkin (popped by pistons), glazed
 terracotta (push-only), logs (leaf source), soul sand/mud (14 px collision), bottom slab, top slab.
 `redsim-fuzz classfuzz` proves them in the game: 3000 random circuits against the same circuit with
-every plain block replaced by a random member of its class, 0 differ modulo the classes.
+every plain block replaced by a random member of its class, 0 differ modulo the classes. Blocks
+with behavior of their own are each their own class (with their in-plane facings): dust, repeater
+x 4 delays, comparator x 2 modes, torch, wall torch, lever, buttons, observer, lamp, bulbs, note
+block, target, trapdoors, doors, gates, rails, dispenser, dropper, crafter, hopper, leaves,
+scaffolding (another 1 gt element: a non-conductor whose top face alone is sturdy), cake,
+composter, end portal frame, respawn anchor, skulls, pistons, gravity blocks.
 
 **Out of scope** (a model note is recorded, never a silent difference): random ticks, weather and
 time, entities and players (pressure plates, tripwire, item entities: a dropper spitting into the
@@ -774,7 +805,7 @@ copper. Unknown blocks are rejected (`Block::parse`), so a screen answers Unsupp
 guessing.
 
 **Link table** (`redsim::links`, `redsim-fuzz links [--verify]`): what each component does to a
-pulse train, measured in redsim and replayed in the game (`--verify`: 96/96 identical). Input: a
+pulse train, measured in redsim and replayed in the game (`--verify`: 112/112 identical). Input: a
 floor lever toggled between ticks (a pulse k = on before tick 1, off k ticks later); cells: the
 component's output windows, first tick on - first tick off ("1.." = stays on). Pulse COUNTS
 change along a chain: an observer merges changes inside its 4 gt busy window (one pulse for a
@@ -797,11 +828,18 @@ observer) halves the count: 2 input pulses = 1 window, an odd link from an even 
 | observer on a note block | 2-4 | 2-4 | 2-4 6-8 | 2-4 10-12 | 2-4 7-9 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
 | copper bulb | 1.. | 1.. | 1.. | 1.. | 1-4 | 1-5 | 1-7 | 1-11 |
 | observer -> bulb (T flip-flop) | 2.. | 2.. | 2-6 | 2-10 | 2-7 | 2-6 | 2-8 | 2-12 |
+| scaffold (trapdoor floor) | 1-2 | 1-3 | 1-5 | 1-9 | 1-3 4-6 | 1-3 5-7 | 1-3 7-9 | 1-3 11-13 |
+| scaffold tower x3 | - | 3-4 | 3-7 | 3-11 | 3-8 | 3-4 7-8 | 3-4 9-10 | 3-4 13-14 |
 
 (The torch row starts lit: "0-2 4.." = lit, off from tick 2 to 4, lit again. The note block's
 `powered` follows the lever with no delay, so the observer watching it behaves like one watching the
-lever.) A pulse-count planner (`door topology`) should take its link rules from this table (or call
-`links::response` with its own trains) rather than assume every change is one pulse.
+lever. Scaffold rows: a top iron trapdoor opened by the lever is the floor of the first scaffold,
+whose neighbor tower stands on stone; on = distance > 0. A lever edge between ticks t and t+1 shows
+at t+1 for a 1 gt element too, so the single scaffold looks like the note block; the tower shows
+the 1 gt per block (3 blocks: edges at t+3) and swallows the 1 gt pulse: its first scaffold is back
+to distance 0 before the second reads it.) A pulse-count planner (`door topology`) should take its
+link rules from this table (or call `links::response` with its own trains) rather than assume every
+change is one pulse.
 
 **Harness notes:** the bridge's `set`/`fill` used to hand ONE `MutableBlockPos` to every
 `setBlock` of a request, and a block event queued by an `onPlace` (a piston placed with updates)

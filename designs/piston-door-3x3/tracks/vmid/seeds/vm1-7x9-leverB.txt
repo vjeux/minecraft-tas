@@ -1,0 +1,32 @@
+name: vm1-7x9-leverB
+# vm1 (mech/vm1.txt) in a 7x9 box (x -2..4, y -2..6: row 6 joins the two top regions) with the
+# lever outside the box at (-2,-3) under a glass block (-2,-2) (door connect: WIRABLE, lever K0).
+port door: 0 0 0
+port lever: -2 -3 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:glass
+  L minecraft:lever[face=ceiling,facing=west,powered=false]
+layer -3:
+  L......
+layer -2:
+  G..UU..
+layer -1:
+  .......
+layer 0:
+  E.SSS..
+layer 1:
+  ..SSS.W
+layer 2:
+  E.SSS.W
+layer 3:
+  .....W.
+layer 4:
+  ..DD...
+layer 5:
+  ..DD...

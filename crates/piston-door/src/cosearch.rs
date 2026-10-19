@@ -437,8 +437,9 @@ fn judge_at(blocks: &[(Pos, Block)], spec: &DoorSpec, opts: &JudgeOpts, oi: usiz
         }
     }
     match rest.get(spec.lever) {
-        Some(Block::Lever { powered: false, .. }) => {}
-        other => return Err(jfail(oi, None, "lever", format!("port lever {:?} is {}, expected an unpowered lever", spec.lever, other.map(|b| st(&b)).unwrap_or("?".into())))),
+        // Either rest polarity counts (vjeux, 2026-10-19), like `crate::verify`.
+        Some(Block::Lever { .. }) => {}
+        other => return Err(jfail(oi, None, "lever", format!("port lever {:?} is {}, expected a lever", spec.lever, other.map(|b| st(&b)).unwrap_or("?".into())))),
     }
     let door_cells = spec.door_cells();
     let closed_door: Vec<Block> = door_cells.iter().map(|p| rest.get(*p).unwrap()).collect();
@@ -448,7 +449,14 @@ fn judge_at(blocks: &[(Pos, Block)], spec: &DoorSpec, opts: &JudgeOpts, oi: usiz
     let door_bp: Vec<BlockPos> = door_cells.iter().map(|p| bp(*p)).collect();
     let lever = bp(spec.lever);
     let mut cycles = Vec::new();
-    for cycle in 0..opts.cycles {
+    // Periodic rest state (vjeux: internal state doesn't matter as long as the door works
+    // repeatedly), exactly like `crate::verify`.
+    let mut seen_closed: Vec<Snap> = vec![rest.clone()];
+    let mut periodic = false;
+    for cycle in 0..opts.cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= opts.cycles && periodic {
+            break;
+        }
         w.use_block(lever);
         let mut ok = Vec::new();
         let (n, idle) = step_until_idle(&mut w, opts.max_ticks, |w| ok.push(open_ok_world(w, &walk_bp)));
@@ -486,20 +494,28 @@ fn judge_at(blocks: &[(Pos, Block)], spec: &DoorSpec, opts: &JudgeOpts, oi: usiz
             return Err(jfail(oi, Some(cycle), "not-restored", format!("cycle {cycle}: door not restored: {}", bad.join("; "))));
         }
         let snap = Snap::take(&w, wlo, whi);
-        if snap != rest {
-            let diffs: Vec<String> = rest
-                .iter()
-                .filter(|(p, s)| snap.get(*p) != Some(*s))
-                .take(8)
-                .map(|(p, s)| format!("{p:?} {} -> {}", st(&s), snap.get(p).map(|b| st(&b)).unwrap_or("?".into())))
-                .collect();
-            return Err(jfail(oi, Some(cycle), "rest-state", format!("cycle {cycle}: the build did not return to its rest state: {}", diffs.join("; "))));
+        let cp = closed_problems(&snap, &spec);
+        if !cp.is_empty() {
+            return Err(jfail(oi, Some(cycle), "rest-state", format!("cycle {cycle}: not closed after the lever was switched back: {}", cp.join("; "))));
+        }
+        if seen_closed.iter().any(|s| *s == snap) {
+            periodic = true;
+        } else {
+            seen_closed.push(snap);
         }
         if !w.drops.is_empty() {
             return Err(jfail(oi, Some(cycle), "entities-close", format!("cycle {cycle}: entities appeared while closing (something broke)")));
         }
         let close_ticks = settled_from_flags(&ok).unwrap_or(0);
         cycles.push((open_ticks, close_ticks));
+    }
+    if !periodic {
+        return Err(jfail(
+            oi,
+            None,
+            "rest-state",
+            format!("the build never comes back to a closed state it had before within {} cycles (the build did not return to its rest state)", opts.cycles + crate::MAX_PERIOD_EXTRA),
+        ));
     }
     Ok(cycles)
 }
@@ -703,6 +719,31 @@ fn record_until_idle(w: &mut World, lo: Pos, hi: Pos, max: u32) -> std::result::
         }
     }
     Err(format!("still moving {max} ticks after the flip"))
+}
+
+/// `properties::record` on redsim (the door at its own position).
+/// The settled watch-box snapshot after each of `flips` lever flips (index 0 = settled rest), with
+/// the door translated by `offset` (a judge position). Err = never settles / a model error.
+pub fn flip_states(door: &RsDoor, offset: Pos, flips: usize) -> std::result::Result<Vec<Snap>, String> {
+    let blocks: Vec<(Pos, Block)> = door.blocks.iter().map(|(p, b)| (add(*p, offset), *b)).collect();
+    let spec = door.spec.translated(offset);
+    let (mut w, (lo, hi), idle) = place_and_settle(&blocks, &spec, 400);
+    if !idle {
+        return Err("the build never settles after placement".into());
+    }
+    let mut out = vec![Snap::take(&w, lo, hi)];
+    for i in 0..flips {
+        w.use_block(bp(spec.lever));
+        record_until_idle(&mut w, lo, hi, 400).map_err(|e| format!("flip {}: {e}", i + 1))?;
+        if !w.errors.is_empty() {
+            return Err(format!("MODEL: {}", w.errors.join("; ")));
+        }
+        if !w.drops.is_empty() {
+            return Err(format!("flip {}: entities appeared (something broke): {:?}", i + 1, w.drops));
+        }
+        out.push(Snap::take(&w, lo, hi));
+    }
+    Ok(out)
 }
 
 /// `properties::record` on redsim (the door at its own position).
@@ -958,7 +999,8 @@ pub fn hallway_check(door: &RsDoor) -> std::result::Result<(), String> {
     if !problems.is_empty() {
         return Err(format!("not closed at rest: {}", problems.join("; ")));
     }
-    if !matches!(rest.get(spec.lever), Some(Block::Lever { powered: false, .. })) {
+    // Either rest polarity counts (vjeux, 2026-10-19), like `crate::verify`.
+    if !matches!(rest.get(spec.lever), Some(Block::Lever { .. })) {
         return Err("lever".into());
     }
     if !w.drops.is_empty() {

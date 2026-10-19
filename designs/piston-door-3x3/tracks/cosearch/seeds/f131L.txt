@@ -1,0 +1,30 @@
+name: f131L
+# 8x8-131 with ML and TL pulled by LEVEL pistons SE+(-2,1), SE+(-2,2) (extended at rest, heads in the ring) instead of
+# pull pulses: one conductor at (-2,3) holds L2+ (direct), L1+ (quasi, through L2+'s cell) and P3+ (direct) at rest.
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ...A
+layer -1:
+  .
+layer 0:
+  s.DDD.B
+layer 1:
+  CPDDD.B
+layer 2:
+  CPDDD
+layer 3:
+  RCP
+layer 4:
+  ...SS
+layer 5:
+  ...S

@@ -33,18 +33,18 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub const MAXC: usize = 144;
-const AIR: u8 = 0;
-const DOOR: u8 = 1;
-const STONE: u8 = 2;
-const OBS: u8 = 3;
+pub const AIR: u8 = 0;
+pub const DOOR: u8 = 1;
+pub const STONE: u8 = 2;
+pub const OBS: u8 = 3;
 /// A redstone block (strip track): pushable, powers the pistons beside it (not through their front).
-const RB: u8 = 4;
-const BODY: u8 = 16;
-const HEAD: u8 = 48;
+pub const RB: u8 = 4;
+pub const BODY: u8 = 16;
+pub const HEAD: u8 = 48;
 /// East, west, up, down (mechsynth's D indices 0..3).
-const F: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-const FNAME: [&str; 4] = ["E", "W", "U", "D"];
-const MAX_PUSH: usize = 12;
+pub const F: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+pub const FNAME: [&str; 4] = ["E", "W", "U", "D"];
+pub const MAX_PUSH: usize = 12;
 
 fn opp(f: u8) -> u8 {
     f ^ 1
@@ -93,7 +93,7 @@ impl Pc {
             _ => vec![(self.x, self.y)],
         }
     }
-    fn mirror(&self) -> Pc {
+    pub fn mirror(&self) -> Pc {
         let k = match self.k {
             K::Piston { sticky, f, ext } => K::Piston { sticky, f: if f < 2 { opp(f) } else { f }, ext },
             k => k,
@@ -115,13 +115,13 @@ impl Bx {
     pub fn has(&self, x: i8, y: i8) -> bool {
         x >= self.x0 && x < self.x0 + self.w && y >= self.y0 && y < self.y0 + self.h
     }
-    fn idx(&self, x: i8, y: i8) -> usize {
+    pub fn idx(&self, x: i8, y: i8) -> usize {
         ((y - self.y0) as usize) * (self.w as usize) + (x - self.x0) as usize
     }
-    fn xy(&self, i: usize) -> (i8, i8) {
+    pub fn xy(&self, i: usize) -> (i8, i8) {
         (self.x0 + (i % self.w as usize) as i8, self.y0 + (i / self.w as usize) as i8)
     }
-    fn n(&self) -> usize {
+    pub fn n(&self) -> usize {
         (self.w as usize) * (self.h as usize)
     }
 }
@@ -159,6 +159,12 @@ pub struct Mech {
     /// powered, and every state is settled (powered pistons extend, unpowered ones retract).
     pub has_r: bool,
 }
+
+/// `--ext-pullers` (mechspace): the 1-move exits of non-core blocks may also use a sticky puller
+/// EXTENDED at rest (its head in the frame cell; the level-off pulls the block into it).
+pub static EXT_PULLERS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--bottom-su` (mechspace): exactly one piston in the box's bottom row, sticky facing up.
+pub static BOTTOM_SU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// `families --rows --forbid-fire`: x columns (door coordinates) no piston may fire from.
 pub static FORBID_X: std::sync::OnceLock<Vec<i8>> = std::sync::OnceLock::new();
@@ -265,7 +271,7 @@ impl Mech {
         Some((m, st))
     }
 
-    fn step(&self, i: usize, f: u8) -> Option<usize> {
+    pub fn step(&self, i: usize, f: u8) -> Option<usize> {
         let (x, y) = self.bx.xy(i);
         let (dx, dy) = F[f as usize];
         let (nx, ny) = (x + dx, y + dy);
@@ -696,7 +702,7 @@ pub fn ring() -> Vec<(i8, i8)> {
     v
 }
 
-fn outward(x: i8, y: i8) -> (i8, i8) {
+pub fn outward(x: i8, y: i8) -> (i8, i8) {
     if x == -1 {
         (-2, y)
     } else if x == 3 {
@@ -1321,6 +1327,13 @@ impl Gen {
                 return None;
             }
         }
+        // `--bottom-su` (mechspace): the box's bottom row holds exactly one piston, sticky,
+        // facing up (vjeux's hint for the community 7x8)
+        if BOTTOM_SU.load(Ordering::Relaxed) && p.y == self.bx.y0 {
+            if !matches!(p.k, K::Piston { sticky: true, f: 2, .. }) || v.iter().any(|q| q.y == self.bx.y0) {
+                return None;
+            }
+        }
         let mut w = v.to_vec();
         w.push(p);
         w.sort();
@@ -1558,8 +1571,13 @@ impl Gen {
                 continue;
             }
             let a = (b.0 + 2 * d.0, b.1 + 2 * d.1);
-            if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext: false } }) {
-                self.others(i + 1, w, two_left);
+            for ext in [false, true] {
+                if ext && !EXT_PULLERS.load(Ordering::Relaxed) {
+                    continue;
+                }
+                if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext } }) {
+                    self.others(i + 1, w, two_left);
+                }
             }
         }
         if two_left > 0 {
@@ -2192,7 +2210,7 @@ pub fn parse_boxes(s: &str) -> Result<Vec<(i8, i8)>> {
 }
 
 /// Every door offset of a W x H box (door coordinates of the box).
-fn offsets(w: i8, h: i8) -> Vec<Bx> {
+pub fn offsets(w: i8, h: i8) -> Vec<Bx> {
     let mut v = Vec::new();
     for dx in 0..=(w - 3) {
         for dy in 0..=(h - 3) {

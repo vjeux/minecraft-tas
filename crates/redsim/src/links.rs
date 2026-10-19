@@ -38,14 +38,37 @@ pub const GADGETS: &[Gadget] = &[
         blocks: &[((1, 1, 0), "observer[facing=west]"), ((2, 1, 0), "waxed_copper_bulb")],
         probe: (2, 1, 0),
     },
+    // scaffolding: a top iron trapdoor (opened by the lever) is the floor of scaffold S; S's
+    // neighbor stands on stone, so S goes distance 0 -> 1 and back, 1 gt after each edge
+    Gadget {
+        name: "scaffold (trapdoor floor)",
+        blocks: &[((1, 1, 0), "iron_trapdoor[facing=north,half=top]"), ((1, 2, 0), "scaffolding[distance=0]"), ((1, 1, 1), "stone"), ((1, 2, 1), "scaffolding[distance=0]")],
+        probe: (1, 2, 0),
+    },
+    // a tower of 3 on the trapdoor beside a tower of 3 on stone: the change climbs 1 gt per block
+    Gadget {
+        name: "scaffold tower x3",
+        blocks: &[
+            ((1, 1, 0), "iron_trapdoor[facing=north,half=top]"),
+            ((1, 2, 0), "scaffolding[distance=0]"),
+            ((1, 3, 0), "scaffolding[distance=0]"),
+            ((1, 4, 0), "scaffolding[distance=0]"),
+            ((1, 1, 1), "stone"),
+            ((1, 2, 1), "scaffolding[distance=0]"),
+            ((1, 3, 1), "scaffolding[distance=0]"),
+            ((1, 4, 1), "scaffolding[distance=0]"),
+        ],
+        probe: (1, 4, 0),
+    },
 ];
 
-/// Is the probe's output on (powered / lit)?
+/// Is the probe's output on (powered / lit; a scaffold: distance > 0)?
 fn on(b: &Block) -> bool {
     match *b {
         Block::Repeater { powered, .. } | Block::Comparator { powered, .. } | Block::Observer { powered, .. } | Block::Note { powered, .. } => powered,
         Block::Lamp { lit } | Block::Torch { lit } | Block::WallTorch { lit, .. } => lit,
         Block::Bulb { lit, .. } => lit,
+        Block::Scaffolding { distance, .. } => distance > 0,
         _ => false,
     }
 }
@@ -53,7 +76,7 @@ fn on(b: &Block) -> bool {
 /// Output windows (first tick on, first tick off) for lever toggles at the given ticks (a toggle
 /// at t happens between tick t and tick t+1), over `ticks` ticks.
 pub fn response(g: &Gadget, toggles: &[i64], ticks: i64) -> Vec<(i64, i64)> {
-    let mut w = World::new(BlockPos::new(-4, -2, -4), [10, 6, 8]);
+    let mut w = World::new(BlockPos::new(-4, -2, -4), [10, 9, 8]);
     let lever = BlockPos::new(0, 1, 0);
     let mut blocks: Vec<(BlockPos, Block)> = vec![(BlockPos::new(0, 0, 0), Block::parse("stone").unwrap()), (lever, Block::parse("lever[face=floor,facing=north]").unwrap())];
     for ((x, y, z), s) in g.blocks {

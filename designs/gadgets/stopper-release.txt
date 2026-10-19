@@ -1,0 +1,18 @@
+name: gadget-stopper-release
+# A held-extended piston head as a STOPPER (track wire64, 8x8-118 + SW+(4,1)): P's push line X, S-head is blocked
+# while S is extended, so P powered by observer O does nothing; when puller Q pulls X out of P's line during
+# O's pulse, X's departure updates P and P fires at that very tick (a pulse that came "too early" acts
+# exactly when the path clears). Without Q, the same pulse leaves P retracted.
+origin: -2 0 0
+palette:
+  S minecraft:sticky_piston[extended=true,facing=west]
+  h minecraft:piston_head[facing=west,short=false,type=sticky]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  Q minecraft:sticky_piston[extended=false,facing=down]
+  O minecraft:observer[facing=west,powered=false]
+  X minecraft:stone
+  R minecraft:redstone_block
+layer 1:
+  .OPXhSR
+layer 3:
+  ...Q

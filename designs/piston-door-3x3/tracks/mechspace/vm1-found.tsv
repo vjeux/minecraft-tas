@@ -1,0 +1,2 @@
+candidate	minimal	catalog	open	close
+-2 -2 SE(-2,0) SE(-2,2) SD(0,4) SD(0,5) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW(3,3) SW(4,1) SW(4,2)	-2 -2 SE(-2,0) SE(-2,2) SD(0,4) SD(0,5) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW(3,3) SW(4,1) SW(4,2)	NEW	PSW(4,2) PSE(-2,0) PSE(-2,2) PSU(1,-2) PSD(1,4) PSU(2,-2) PSW(3,3) PSD(1,5) PSD(1,4) PSD(1,5) PSD(1,4) PSD(0,5) PSD(0,4) PSD(0,5) PSD(0,4)	PSW(4,2) PSE(-2,0) PSE(-2,2) PSD(0,4) PSU(1,-2) PSD(1,4) PSU(2,-2) PSW(3,3) PSD(1,4)

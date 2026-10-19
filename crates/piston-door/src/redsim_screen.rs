@@ -156,9 +156,10 @@ fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_w
         }
     }
     let lever = rest.get(spec.lever).unwrap_or("?").to_string();
-    let want = if lever_on_rest { "powered=true" } else { "powered=false" };
-    if !lever.starts_with("minecraft:lever") || !lever.contains(want) {
-        return Screen::Fail(format!("port lever {:?} is {lever}, expected a lever with {want}", spec.lever));
+    // main cc4686d: either lever polarity at rest (the `lever_on_rest` option is kept for callers)
+    let _ = lever_on_rest;
+    if !lever.starts_with("minecraft:lever") {
+        return Screen::Fail(format!("port lever {:?} is {lever}, expected a lever", spec.lever));
     }
     let closed_door: Vec<String> = spec.door_cells().iter().map(|p| rest.get(*p).unwrap_or("?").to_string()).collect();
     let mut worst = (0, 0);

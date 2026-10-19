@@ -1,0 +1,2343 @@
+open: 37 frames, powered piston-ticks 
+close: 37 frames, powered piston-ticks 
+[   1.3s] encoded: 36 free cells, 118 lever candidates, offsets 0..=12, horizon 54 ticks, 955845 vars, 3620166 clauses
+[   9.2s] iter 0: SAT (solve 0.3s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......# 
+  4  ...PPP.L 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[   9.5s] iter 1: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......#L
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[   9.7s] iter 2: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6         L 
+  5  .......# 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[   9.9s] iter 3: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......w 
+  4  ...PPP.L 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  10.1s] iter 4: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......wL
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  10.4s] iter 5: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6         L 
+  5  .......w 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  10.6s] iter 6: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......d 
+  4  ...PPP.L 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  10.8s] iter 7: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......dL
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  11.0s] iter 8: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6         L 
+  5  .......d 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  11.3s] iter 9: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......u 
+  4  ...PPP.L 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  11.5s] iter 10: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......uL
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  11.7s] iter 11: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6         L 
+  5  .......u 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  12.0s] iter 12: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......e 
+  4  ...PPP.L 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  12.2s] iter 13: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......eL
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  12.4s] iter 14: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6         L 
+  5  .......e 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  12.6s] iter 15: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......N 
+  4  ...PPP.L 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  12.9s] iter 16: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6           
+  5  .......NL
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  13.1s] iter 17: SAT (solve 0.2s): 1 wiring blocks, offsets open 0 close 0
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ....::.. 
+ -2  ....PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  17.5s] iter 18: SAT (solve 4.4s): 4 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  19.2s] iter 19: SAT (solve 1.6s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  21.0s] iter 20: SAT (solve 1.9s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  22.5s] iter 21: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  24.0s] iter 22: SAT (solve 1.4s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  25.4s] iter 23: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  26.9s] iter 24: SAT (solve 1.5s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  28.4s] iter 25: SAT (solve 1.4s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  29.8s] iter 26: SAT (solve 1.4s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  31.3s] iter 27: SAT (solve 1.5s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  33.0s] iter 28: SAT (solve 1.7s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  34.5s] iter 29: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  35.9s] iter 30: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  37.4s] iter 31: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  38.1s] iter 32: SAT (solve 0.7s): 33 wiring blocks, offsets open 12 close 11
+  6  L        
+  5  BlBBBBBB 
+  4  BNNPPPBN 
+  3  BBP:::BB 
+  2  BBoHHH.B 
+  1  PP:HHH:P 
+  0  BP:HHH.B 
+ -1  BBB.::BB 
+ -2  BBBBPPBN 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  39.5s] iter 33: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  40.2s] iter 34: SAT (solve 0.7s): 33 wiring blocks, offsets open 12 close 11
+  6  L        
+  5  BlBBBBBB 
+  4  BNNPPPBN 
+  3  BBP:::BB 
+  2  BBoHHH.B 
+  1  PP:HHH:P 
+  0  BP:HHH.B 
+ -1  BBB.::BB 
+ -2  BBBBPPBB 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  41.6s] iter 35: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  43.1s] iter 36: SAT (solve 1.4s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  43.8s] iter 37: SAT (solve 0.7s): 33 wiring blocks, offsets open 12 close 11
+  6  L        
+  5  BlBBBBBB 
+  4  BNNPPPBN 
+  3  BBP:::BB 
+  2  BBoHHH.B 
+  1  PP:HHH:P 
+  0  BP:HHH.B 
+ -1  BBB.::BB 
+ -2  NBBBPPBN 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  45.4s] iter 38: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  47.4s] iter 39: SAT (solve 2.0s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  49.0s] iter 40: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  50.6s] iter 41: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  52.1s] iter 42: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  53.6s] iter 43: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  e.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  55.1s] iter 44: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  55.9s] iter 45: SAT (solve 0.7s): 33 wiring blocks, offsets open 12 close 11
+  6  L        
+  5  BlBBBBBB 
+  4  BNNPPPBN 
+  3  BBP:::BB 
+  2  BBoHHH.B 
+  1  PP:HHH:P 
+  0  BP:HHH.B 
+ -1  BBB.::BB 
+ -2  NBBBPPBB 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  57.4s] iter 46: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  59.0s] iter 47: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  60.6s] iter 48: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  62.1s] iter 49: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  63.6s] iter 50: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  65.1s] iter 51: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  e.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  66.6s] iter 52: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  68.2s] iter 53: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  69.9s] iter 54: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  71.4s] iter 55: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  73.0s] iter 56: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  74.6s] iter 57: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  76.1s] iter 58: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  e.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  77.5s] iter 59: SAT (solve 1.4s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  79.0s] iter 60: SAT (solve 1.4s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  80.6s] iter 61: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  82.2s] iter 62: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  83.7s] iter 63: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  85.5s] iter 64: SAT (solve 1.8s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  87.1s] iter 65: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  e.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  88.6s] iter 66: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  90.2s] iter 67: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  91.8s] iter 68: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  93.3s] iter 69: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  94.9s] iter 70: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  96.5s] iter 71: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  98.2s] iter 72: SAT (solve 1.7s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  e.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[  99.9s] iter 73: SAT (solve 1.7s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 101.4s] iter 74: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 102.9s] iter 75: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 104.5s] iter 76: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 106.1s] iter 77: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 107.6s] iter 78: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 109.1s] iter 79: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 110.9s] iter 80: SAT (solve 1.7s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 113.0s] iter 81: SAT (solve 2.0s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 115.2s] iter 82: SAT (solve 2.2s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 117.0s] iter 83: SAT (solve 1.7s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 118.8s] iter 84: SAT (solve 1.8s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 120.9s] iter 85: SAT (solve 2.0s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 122.8s] iter 86: SAT (solve 1.9s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 124.8s] iter 87: SAT (solve 2.0s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 126.4s] iter 88: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 127.9s] iter 89: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 129.4s] iter 90: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 130.9s] iter 91: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  e.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 132.4s] iter 92: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  e.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 134.0s] iter 93: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  e.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 135.5s] iter 94: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  e.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 137.1s] iter 95: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  e.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 138.6s] iter 96: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  e.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 140.0s] iter 97: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  e.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 141.8s] iter 98: SAT (solve 1.7s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  e.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 143.5s] iter 99: SAT (solve 1.7s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  e.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 145.1s] iter 100: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  e.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 146.8s] iter 101: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  e.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 148.4s] iter 102: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 150.5s] iter 103: SAT (solve 2.1s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 152.3s] iter 104: SAT (solve 1.8s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 154.1s] iter 105: SAT (solve 1.8s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 155.7s] iter 106: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 157.0s] iter 107: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B.PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 158.5s] iter 108: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 159.9s] iter 109: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 161.6s] iter 110: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 163.1s] iter 111: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 164.6s] iter 112: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 166.1s] iter 113: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B.PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 167.5s] iter 114: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 169.0s] iter 115: SAT (solve 1.4s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 170.4s] iter 116: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 171.9s] iter 117: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 173.4s] iter 118: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 174.9s] iter 119: SAT (solve 1.4s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 176.6s] iter 120: SAT (solve 1.7s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 178.4s] iter 121: SAT (solve 1.8s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 180.0s] iter 122: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 181.5s] iter 123: SAT (solve 1.5s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 183.0s] iter 124: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 184.4s] iter 125: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 186.0s] iter 126: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 187.6s] iter 127: SAT (solve 1.6s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 189.2s] iter 128: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 190.9s] iter 129: SAT (solve 1.8s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 192.6s] iter 130: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 194.1s] iter 131: SAT (solve 1.6s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 195.8s] iter 132: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 197.4s] iter 133: SAT (solve 1.6s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 198.9s] iter 134: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B.PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 200.4s] iter 135: SAT (solve 1.5s): 5 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B.PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 202.0s] iter 136: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B.PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 203.5s] iter 137: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B.PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 205.0s] iter 138: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 206.5s] iter 139: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 208.1s] iter 140: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 209.6s] iter 141: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 211.1s] iter 142: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 213.0s] iter 143: SAT (solve 1.8s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B.PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 214.7s] iter 144: SAT (solve 1.7s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 216.2s] iter 145: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 217.7s] iter 146: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 219.2s] iter 147: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 220.7s] iter 148: SAT (solve 1.4s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 222.2s] iter 149: SAT (solve 1.5s): 6 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B.PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 223.8s] iter 150: SAT (solve 1.5s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 225.4s] iter 151: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.BBPP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 227.2s] iter 152: SAT (solve 1.7s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.BNPP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 227.9s] iter 153: SAT (solve 0.8s): 33 wiring blocks, offsets open 12 close 11
+  6  L        
+  5  BlBBBBBB 
+  4  BNNPPPBN 
+  3  BBP:::BB 
+  2  BBoHHH.B 
+  1  PP:HHH:P 
+  0  BP:HHH.B 
+ -1  BBB.::BB 
+ -2  NBBNPPBB 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 229.5s] iter 154: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.BuPP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 231.2s] iter 155: SAT (solve 1.7s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.BdPP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 232.9s] iter 156: SAT (solve 1.6s): 7 wiring blocks, offsets open 12 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.BwPP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 234.6s] iter 157: SAT (solve 1.7s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  #.BePP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 236.5s] iter 158: SAT (solve 1.8s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  N.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 238.1s] iter 159: SAT (solve 1.6s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  B.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 239.8s] iter 160: SAT (solve 1.7s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  w.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 241.4s] iter 161: SAT (solve 1.6s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  d.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 243.3s] iter 162: SAT (solve 1.8s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  u.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 244.7s] iter 163: SAT (solve 1.4s): 6 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH.. 
+ -1  ..{#::.. 
+ -2  ..B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 246.2s] iter 164: SAT (solve 1.4s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 247.6s] iter 165: SAT (solve 1.4s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 249.0s] iter 166: SAT (solve 1.4s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  B.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 250.6s] iter 167: SAT (solve 1.5s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  w.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 252.1s] iter 168: SAT (solve 1.5s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  d.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 253.5s] iter 169: SAT (solve 1.4s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  u.B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 254.9s] iter 170: SAT (solve 1.4s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  ..B#PP.d 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 256.4s] iter 171: SAT (solve 1.5s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B#PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 257.8s] iter 172: SAT (solve 1.4s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B#PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 259.3s] iter 173: SAT (solve 1.4s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B#PP.B 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 260.9s] iter 174: SAT (solve 1.6s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B#PP.# 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 262.5s] iter 175: SAT (solve 1.5s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B#PP.w 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 264.0s] iter 176: SAT (solve 1.5s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B#PP.u 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 265.4s] iter 177: SAT (solve 1.4s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  #.B#PP.e 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 266.9s] iter 178: SAT (solve 1.4s): 8 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B#PP.N 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec
+[ 268.3s] iter 179: SAT (solve 1.5s): 7 wiring blocks, offsets open 0 close 12
+  6         L 
+  5  .......N 
+  4  ...PPP.. 
+  3  ..P:::.. 
+  2  ..oHHH.. 
+  1  PP:HHH:P 
+  0  .P:HHH#. 
+ -1  ..{#::.. 
+ -2  N.B#PP.. 
+ -3           
+
+  JUDGE FAILS: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minec

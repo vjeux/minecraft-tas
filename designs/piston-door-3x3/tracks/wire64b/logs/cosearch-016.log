@@ -1,0 +1,12 @@
+ideal reference designs/piston-door-3x3/tracks/wire64b/w63/7x8-016-sym.ideal: 52 piston events per cycle
+seed designs/piston-door-3x3/tracks/wire64b/w63/w63-016-seed.txt: 21 blocks in the box, screen 37/79
+10 piston cells locked, 44 cells free
+box x -2..4, y -3..5 (7x9 = 63), 44 free cells, palette 37 states, 16 threads, 2000 s
+[  120s] 42287266 screens (352337/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 45/79+0ev(56b) 45/79+0ev(57b) 41/79+8ev(58b) 41/79+8ev(59b) 41/79+6ev(54b) 41/79+6ev(55b)
+[  240s] 83242513 screens (346784/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+6ev(56b) 43/79+6ev(57b) 43/79+6ev(58b) 43/79+6ev(59b) 43/79+6ev(60b) 45/79+0ev(56b)
+[  360s] 120665721 screens (335125/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+6ev(55b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(57b) 43/79+6ev(57b) 43/79+6ev(58b)
+[  480s] 157437480 screens (327938/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+6ev(55b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(57b) 43/79+6ev(57b) 43/79+6ev(58b)
+[  600s] 191953771 screens (319868/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+6ev(55b) 43/79+6ev(55b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(57b)
+[  720s] 224742750 screens (312089/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+6ev(55b) 43/79+6ev(55b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(57b)
+[  840s] 255018171 screens (303540/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+6ev(55b) 43/79+6ev(55b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(56b)
+[  960s] 287403016 screens (299326/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+6ev(55b) 43/79+6ev(55b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(56b) 43/79+6ev(56b)

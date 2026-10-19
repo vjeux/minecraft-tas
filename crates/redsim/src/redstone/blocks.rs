@@ -707,6 +707,88 @@ pub mod leaves {
     }
 }
 
+/// `ScaffoldingBlock` (26.3): a 1 gt delay element. Every shape update, and every placement
+/// (its `onPlace` has no same-block check, so each of its own state changes too), schedules a
+/// NORMAL tick 1 gt later. The tick recomputes `distance` (`getDistance`: 0 on a block whose top
+/// is sturdy, else the distance of a scaffold below, lowered to 1 + the distance of a scaffold
+/// beside it, at most 7) and `bottom` (distance > 0 and no scaffold below), then updates
+/// (`setBlockAndUpdate`), or, at distance 7, breaks with a drop (`destroyBlock`) when it was
+/// lower, or falls (`FallingBlockEntity.fall`, a falling-block entity: `gravity.rs`) when it
+/// already was 7. Static properties (`Blocks.SCAFFOLDING`, collision shape with the empty
+/// context = `SHAPE_STABLE`): non-conductor, only its top face sturdy (dust, torches, diodes,
+/// rails can stand on it), collides but not a full cube, not solid (dynamic shape: no cache),
+/// popped by pistons, not replaceable.
+pub mod scaffolding {
+    use super::*;
+    use crate::behavior::Support;
+
+    /// `ScaffoldingBlock.getDistance`.
+    pub fn distance(w: &World, pos: BlockPos) -> u8 {
+        let below = pos.below();
+        let bs = w.get(below);
+        let mut d = 7u8;
+        if let Block::Scaffolding { distance, .. } = bs {
+            d = distance;
+        } else if bh::sturdy(w, &bs, below, Dir::Up, Support::Full) {
+            return 0;
+        }
+        for dir in Dir::HORIZONTAL {
+            if let Block::Scaffolding { distance, .. } = w.get(pos.rel(dir)) {
+                d = d.min(distance + 1);
+                if d == 1 {
+                    break;
+                }
+            }
+        }
+        d
+    }
+
+    /// `ScaffoldingBlock.isBottom`.
+    fn is_bottom(w: &World, pos: BlockPos, d: u8) -> bool {
+        d > 0 && !matches!(w.get(pos.below()), Block::Scaffolding { .. })
+    }
+
+    /// `getCollisionShape` for an entity whose bottom is at `entity_bottom` (not descending, not
+    /// a placement): `SHAPE_STABLE` (top plate + legs, `behavior::collision_boxes`) when it is
+    /// above the cell, the 2 px bottom plate when the scaffold hangs (distance > 0, bottom) and the
+    /// entity is above the cell's floor, else nothing. `isAbove` = bottom > y + max - 1e-5F.
+    pub fn entity_boxes(s: &Block, cell_y: i32, entity_bottom: f64) -> Vec<bh::Box16> {
+        let Block::Scaffolding { distance, bottom } = *s else { return vec![] };
+        let eps = 1.0e-5f32 as f64;
+        if entity_bottom > cell_y as f64 + 1.0 - eps {
+            bh::collision_boxes(s)
+        } else if distance != 0 && bottom && entity_bottom > cell_y as f64 - eps {
+            vec![[0, 16, 0, 2, 0, 16]]
+        } else {
+            vec![]
+        }
+    }
+
+    /// `onPlace` / `updateShape`: a tick 1 gt later.
+    pub fn schedule(w: &mut World, pos: BlockPos) {
+        w.schedule_tick(pos, Kind::Scaffolding, 1, Priority::Normal);
+    }
+
+    pub fn tick(w: &mut World, s: Block, pos: BlockPos) {
+        let Block::Scaffolding { distance: old, .. } = s else { return };
+        let d = distance(w, pos);
+        let ns = Block::Scaffolding { distance: d, bottom: is_bottom(w, pos, d) };
+        if d == 7 {
+            if old == 7 {
+                // FallingBlockEntity.fall: the cell becomes air (flags 3), then the entity
+                // carrying the new state (distance 7) joins the entity list
+                let e = crate::gravity::FallingBlock { block: ns, x: pos.x as f64 + 0.5, y: pos.y as f64, z: pos.z as f64 + 0.5, vy: 0.0, time: 0, removed: false };
+                w.set_block_and_update(pos, Block::Air);
+                w.gravity.entities.push(e);
+            } else {
+                w.destroy_block(pos, true, 512);
+            }
+        } else if ns != s {
+            w.set_block_and_update(pos, ns);
+        }
+    }
+}
+
 pub mod composter {
     use super::*;
 
