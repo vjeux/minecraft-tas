@@ -1617,22 +1617,45 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
     let mut frees: Vec<Vec<Pc>> = Vec::new();
     rec(&free_slots, 0, o.free_max, &mut Vec::new(), &mut frees);
     frees.sort_by_key(|v| v.len());
-    for fr in &frees {
-        for ss in &side_sets {
-            for b in &bottoms {
-                let mut v: Vec<Pc> = ss.clone();
-                v.extend(fr.iter().copied());
-                if let Some(p) = b {
-                    v.push(*p);
-                }
-                if !prune_ok(&bx, &v, &frame) {
-                    continue;
-                }
-                v.sort();
-                out.push(v);
-            }
-        }
+    // pruning in parallel (the reach-matching condition costs ~0.5 ms a set)
+    let nth = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(64);
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let parts: Vec<Vec<Vec<Pc>>> = std::thread::scope(|s| {
+        let hs: Vec<_> = (0..nth)
+            .map(|_| {
+                s.spawn(|| {
+                    let mut mine = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        if i >= frees.len() {
+                            break;
+                        }
+                        let fr = &frees[i];
+                        for ss in &side_sets {
+                            for b in &bottoms {
+                                let mut v: Vec<Pc> = ss.clone();
+                                v.extend(fr.iter().copied());
+                                if let Some(p) = b {
+                                    v.push(*p);
+                                }
+                                if !prune_ok(&bx, &v, &frame) {
+                                    continue;
+                                }
+                                v.sort();
+                                mine.push(v);
+                            }
+                        }
+                    }
+                    mine
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    for p in parts {
+        out.extend(p);
     }
+    out.sort();
     out.sort_by_key(|v| v.len());
     out.dedup();
     // mirror images (x -> 2 - x) are the same mechanism: keep the smaller of each pair when the
