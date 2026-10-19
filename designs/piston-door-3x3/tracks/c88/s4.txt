@@ -1,0 +1,39 @@
+name: c88-s4
+# s4: the community mechanism with its signal sides swapped at the top (all inputs ideal, s4.ideal): the
+# LEFT pullers (L0, ML, TL) are level-held (extended at rest, heads in the left wall; ideal redstone blocks
+# (-3,0..2)), the RIGHT pullers (MR, TR) are retracted at rest and pulsed (pull on open, push+spit on close),
+# BR's puller (2,-2), U, K, A and B are ideal at c79's ticks. The lever (4,6) is a dummy here.
+port door: 0 0 0
+port lever: 4 6 0
+origin: -3 0 0
+palette:
+  E minecraft:sticky_piston[extended=true,facing=east]
+  e minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:sticky_piston[extended=false,facing=up]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:sticky_piston[extended=true,facing=down]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  Q minecraft:stone
+  R minecraft:redstone_block
+  S minecraft:smooth_stone
+layer -2:
+  ....KK..
+layer -1:
+  ..J.....
+layer 0:
+  REeQQQQ.
+layer 1:
+  REeQQQ.W
+layer 2:
+  REeQQQ.W
+layer 3:
+  ...QsQ..
+layer 4:
+  ....p...
+layer 5:
+  ...RM..S
+layer 6:
+  .......L
