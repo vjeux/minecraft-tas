@@ -90,3 +90,12 @@ Frees (0,4) so A can be fed from the LEFT while W keeps the top-right. ideal-rs 
     3 left cells: nothing. Dust at (4,-1) on an observer (4,-2) facing down is a clean K feed, but nothing
     near (4,-3) changes at t8..9 (the right side is shielded by (3,-2); straight down, BR's puller is heard
     at t6).
+  - TORCH FILTER (`e78wsT.txt` + `e78wsT.ideal`, ideal-rs WORKS with only K ideal, (3,-2) = AIR): a wall torch
+    (3,-3) facing west (on (4,-3)), lit at rest, feeds 15 into the calibrated (2,-3) sensor's BACK, so that
+    sensor is deaf (frequency filter 15) while the torch is lit; a plain sensor (4,-2) hears BR's puller at t3
+    (t5) and strongly powers (4,-3): torch off at t7, so (2,-3) still hears A1 at t8. This replaces the (3,-2)
+    wool shield and frees K's feed cell. In this config A1 must be at 8 (a1=7 only) and K must start 7..11 and
+    end 12..13. An observer (3,-2) facing down watching the torch gives K at 9..11: ONE tick early (K retracts
+    while BM is still moving into F1). The torch can only turn off at T+2 where T = when (4,-2) hears BR's
+    puller (t5; MR's puller at d=3 would give t6 but BR's at d=2 wins and both lines pass (4,-1)).
+    Exhaustive right-cell screens (14x14x14x8x5 states on (3,-2) (4,-1) (4,-2) (4,-3) (3,-3)): 0.

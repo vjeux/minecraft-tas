@@ -1,0 +1,20 @@
+design designs/piston-door-3x3/tracks/q78/e78/e78wsT.txt
+# torch config, left chain removed by --vary: A1, K, late A'-low ideal
+let a1 = 7
+let k = 10
+let kl = 2
+let c3 = 50
+open 0 use 1 5 0
+close 0 use 1 5 0
+open a1 set 1 -2 1 minecraft:redstone_block
+open a1+2 clear 1 -2 1
+open k set 3 -1 1 minecraft:redstone_block
+open k+kl clear 3 -1 1
+open c3 set 1 -2 1 minecraft:redstone_block
+open c3+2 clear 1 -2 1
+close a1 set 1 -2 1 minecraft:redstone_block
+close a1+2 clear 1 -2 1
+close k set 3 -1 1 minecraft:redstone_block
+close k+kl clear 3 -1 1
+close c3 set 1 -2 1 minecraft:redstone_block
+close c3+2 clear 1 -2 1
