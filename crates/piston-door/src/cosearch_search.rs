@@ -155,8 +155,17 @@ pub struct Grid {
     pub h: i32,
     pub z: i32,
     pub cells: Vec<Block>,
-    /// The lever's cell (world x, y); it may move (`--lever-moves`).
+    /// The lever's cell (world x, y); it may move (`--lever-moves`). With `lever_dz` != 0 this
+    /// cell holds the lever's SUPPORT (kept: moves never touch it) and the lever hangs on its
+    /// front (-1) or back (+1) face, off the door plane (vjeux 2026-10-19: a lever on a block's
+    /// front face counts as flat; the community 7x9's real lever hangs on (4,5)'s front face).
     pub lever: (i32, i32),
+    /// 0 = the lever is the grid cell `lever`; -1 / +1 = it hangs at z + lever_dz.
+    pub lever_dz: i32,
+    /// The off-plane lever's state (`Block::Air` when `lever_dz` is 0).
+    pub face_lever: Block,
+    /// The seed's lever rests powered (either polarity counts): levers placed or moved keep it.
+    pub lever_on: bool,
     /// Pistons still driven by the `--assist` plan (bit i = the plan's piston i).
     pub assist: u64,
 }
@@ -174,21 +183,46 @@ impl Grid {
             self.cells[i] = b;
         }
     }
+    /// The lever's world cell (off the plane for a lever hung on a block's front or back face).
+    pub fn lever_pos(&self) -> BlockPos {
+        BlockPos::new(self.lever.0, self.lever.1, self.z + self.lever_dz)
+    }
+    pub fn has_lever(&self) -> bool {
+        if self.lever_dz != 0 { matches!(self.face_lever, Block::Lever { .. }) } else { matches!(self.get(self.lever.0, self.lever.1), Block::Lever { .. }) }
+    }
+    /// Take the lever out (an off-plane lever's support stays).
+    pub fn remove_lever(&mut self) {
+        if self.lever_dz != 0 {
+            self.lever_dz = 0;
+            self.face_lever = Block::Air;
+        } else {
+            self.set(self.lever.0, self.lever.1, Block::Air);
+        }
+    }
     /// The judge's placement order: design blocks sorted by (x, y, z).
     pub fn blocks(&self) -> Vec<(Pos, Block)> {
         let mut v = Vec::new();
+        let face = self.lever_dz != 0 && matches!(self.face_lever, Block::Lever { .. });
         for x in self.gx..self.gx + self.w {
             for y in self.gy..self.gy + self.h {
+                let at_lever = face && (x, y) == self.lever;
+                if at_lever && self.lever_dz < 0 {
+                    v.push(([x, y, self.z + self.lever_dz], self.face_lever));
+                }
                 let b = self.get(x, y);
                 if !b.is_air() {
                     v.push(([x, y, self.z], b));
+                }
+                if at_lever && self.lever_dz > 0 {
+                    v.push(([x, y, self.z + self.lever_dz], self.face_lever));
                 }
             }
         }
         v
     }
     pub fn count(&self) -> i32 {
-        self.cells.iter().filter(|b| !b.is_air() && !matches!(b, Block::PistonHead { .. })).count() as i32
+        let face = (self.lever_dz != 0 && matches!(self.face_lever, Block::Lever { .. })) as i32;
+        self.cells.iter().filter(|b| !b.is_air() && !matches!(b, Block::PistonHead { .. })).count() as i32 + face
     }
 }
 
@@ -724,7 +758,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<u6
         }
     }
     pts -= 2 * unsupported;
-    let lever = BlockPos::new(g.lever.0, g.lever.1, g.z);
+    let lever = g.lever_pos();
     if !matches!(w.get(lever), Block::Lever { .. }) && !(p.no_lever && w.get(lever).is_air()) {
         return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
     }
@@ -760,7 +794,8 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<u6
             let clean = p.ring.iter().filter(|(x, y)| cs::frame_filled(&w.get(at(*x, *y)))).count() as i32;
             pts += clean;
             // nothing of the build outside the box
-            let outside = plane_cells(p, z).iter().filter(|q| !in_box(p, q.x, q.y) && *q != &lever && !w.get(**q).is_air()).count() as i32;
+            let support = |q: &BlockPos| g.lever_dz != 0 && (q.x, q.y) == g.lever;
+            let outside = plane_cells(p, z).iter().filter(|q| !in_box(p, q.x, q.y) && *q != &lever && !support(q) && !w.get(**q).is_air()).count() as i32;
             pts -= outside;
         }
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
@@ -1099,11 +1134,29 @@ fn grid_from_door(door: &RsDoor, p: &Problem) -> Result<Grid> {
     let gy = p.lo[1] - 2;
     let w = p.hi[0] - p.lo[0] + 5;
     let h = p.hi[1] - p.lo[1] + 5;
-    let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize], lever: (door.spec.lever[0], door.spec.lever[1]), assist: 0 };
     let lever = door.spec.lever;
+    // an off-plane lever hangs on the front / back face of a door-plane block (counts as flat,
+    // vjeux 2026-10-19): that block is its support, kept in the grid; the lever rides along
+    let (mut lever_dz, mut face_lever, mut lever_on) = (0, Block::Air, false);
     for (q, b) in &door.blocks {
-        anyhow::ensure!(q[2] == z, "not flat: {q:?} (an off-plane lever is not supported by the search grid yet)");
-        let keep = in_box(p, q[0], q[1]) || *q == lever;
+        if *q == lever {
+            lever_on = matches!(b, Block::Lever { powered: true, .. });
+            if q[2] != z {
+                use redsim::block::Face;
+                let facing_ok = matches!(b, Block::Lever { face: Face::Wall, facing, .. } if facing.step() == [0, 0, q[2] - z]);
+                anyhow::ensure!((q[2] - z).abs() == 1 && facing_ok, "not flat: {q:?} (an off-plane lever must hang on the front or back face of a door-plane block)");
+                lever_dz = q[2] - z;
+                face_lever = *b;
+            }
+        }
+    }
+    let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize], lever: (lever[0], lever[1]), lever_dz, face_lever, lever_on, assist: 0 };
+    for (q, b) in &door.blocks {
+        if *q == lever && lever_dz != 0 {
+            continue;
+        }
+        anyhow::ensure!(q[2] == z, "not flat: {q:?}");
+        let keep = in_box(p, q[0], q[1]) || *q == lever || (lever_dz != 0 && (q[0], q[1]) == g.lever);
         if keep {
             g.set(q[0], q[1], *b);
         }
@@ -1129,7 +1182,8 @@ fn grid_from_door(door: &RsDoor, p: &Problem) -> Result<Grid> {
     Ok(g)
 }
 
-/// Re-hang the lever at (x, y): on the first sturdy neighbour (above, below, west, east).
+/// Re-hang the lever at (x, y): on the first sturdy neighbour (above, below, west, east), in the
+/// door plane, keeping the seed's rest polarity.
 fn place_lever(g: &mut Grid, x: i32, y: i32) {
     // keep the rest polarity of the lever being moved (a door may rest with its lever on)
     let powered = matches!(g.get(g.lever.0, g.lever.1), Block::Lever { powered: true, .. });
@@ -1138,6 +1192,7 @@ fn place_lever(g: &mut Grid, x: i32, y: i32) {
 
 fn place_lever_p(g: &mut Grid, x: i32, y: i32, powered: bool) {
     use redsim::block::Face;
+    let powered = g.lever_on;
     let lever = if !g.get(x, y + 1).is_air() {
         Block::Lever { face: Face::Ceiling, facing: Dir::West, powered }
     } else if !g.get(x, y - 1).is_air() {
@@ -1149,12 +1204,23 @@ fn place_lever_p(g: &mut Grid, x: i32, y: i32, powered: bool) {
     };
     g.set(x, y, lever);
     g.lever = (x, y);
+    g.lever_dz = 0;
+    g.face_lever = Block::Air;
 }
 
 /// Move the lever to a random empty cell next to a block (inside the box or around it: the
-/// community volume excludes the lever), hung on that block.
+/// community volume excludes the lever), hung on that block. An off-plane lever moves to the
+/// same face of another full block of the plane.
 fn move_lever(p: &Problem, g: &mut Grid, rng: &mut Rng) -> bool {
     let (x, y) = (rng.below((p.hi[0] - p.lo[0] + 3) as usize) as i32 + p.lo[0] - 1, rng.below((p.hi[1] - p.lo[1] + 3) as usize) as i32 + p.lo[1] - 1);
+    if g.lever_dz != 0 {
+        let b = g.get(x, y);
+        if (x, y) == g.lever || p.door_cells.contains(&(x, y)) || !cs::full_cube(&b) || cs::is_moving(&b) || matches!(b, Block::Piston { .. }) {
+            return false;
+        }
+        g.lever = (x, y);
+        return true;
+    }
     if (x, y) == g.lever || !g.get(x, y).is_air() || p.door_cells.contains(&(x, y)) {
         return false;
     }
@@ -1310,7 +1376,7 @@ fn try_find(p: &Problem, g: &Grid, sh: &Shared, jopts: &cs::JudgeOpts, a: &Searc
 
 fn door_of(g: &Grid, spec: crate::DoorSpec) -> RsDoor {
     let mut spec = spec;
-    spec.lever = [g.lever.0, g.lever.1, g.z];
+    spec.lever = [g.lever.0, g.lever.1, g.z + g.lever_dz];
     RsDoor { spec, blocks: g.blocks() }
 }
 
@@ -1436,7 +1502,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
     if let Some(r) = &a.reference {
         let (_, rd) = cs::load_door(r)?;
         anyhow::ensure!(rd.spec.door == spec0.door, "the reference needs the same door port");
-        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new(), lever: (0, 0), assist: 0 };
+        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new(), lever: (0, 0), lever_dz: 0, face_lever: Block::Air, lever_on: false, assist: 0 };
         let _ = g;
         let ev = piston_events(&prob, &rd.blocks, rd.spec);
         println!("reference {}: {} piston events per cycle", r.display(), ev.len());
@@ -2324,7 +2390,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
     // every input by ticks after the "flip" (`--keep-lever`: the seed's real lever stays)
     if !pa.keep_lever {
         prob.no_lever = true;
-        seed.set(seed.lever.0, seed.lever.1, Block::Air);
+        seed.remove_lever();
     }
     if let Some(rc) = &pa.region_cells {
         for t in rc.split(';').map(str::trim).filter(|t| !t.is_empty()) {
@@ -2410,7 +2476,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                 rest_occ.insert((q.x, q.y));
             }
         }
-        let lever = BlockPos::new(seed.lever.0, seed.lever.1, z);
+        let lever = seed.lever_pos();
         for phase in 0..2 {
             w.use_block(lever);
             run_phase(&prob, &seed, &mut w, phase, None, |w| {
@@ -2594,7 +2660,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                                 g.set(c.0, c.1, pals[j][idx[j]]);
                             }
                             if let Some((lx, ly)) = lev {
-                                g.set(seed.lever.0, seed.lever.1, Block::Air);
+                                g.remove_lever();
                                 place_lever(&mut g, *lx, *ly);
                             }
                             let mut evs = Vec::new();
@@ -2772,7 +2838,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
             }
             // the lever last (hung on whatever block the fillings put next to it)
             if let Some((lx, ly)) = chosen.iter().find_map(|&c| cands[c].lever) {
-                g.set(g.lever.0, g.lever.1, Block::Air);
+                g.remove_lever();
                 place_lever(&mut g, lx, ly);
             }
             g.assist = seed.assist & !released_by(cov);
@@ -2786,7 +2852,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                     }
                 }
             }
-            let has_lever = matches!(g.get(g.lever.0, g.lever.1), Block::Lever { .. });
+            let has_lever = g.has_lever();
             if g.assist == 0 && !has_lever {
                 continue;
             }
