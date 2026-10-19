@@ -135,9 +135,13 @@ pub fn move_blocks(w: &mut World, piston: BlockPos, direction: Dir, extending: b
     let to_destroy = res.to_destroy;
     // deleteAfterMove: a HashMap<BlockPos, BlockState>: every key put first, then removals.
     let shapes: Vec<Block> = to_push.iter().map(|q| w.get(*q)).collect();
+    let push_dir = if extending { direction } else { direction.opposite() };
+    if !w.piston.tracked.is_empty() {
+        let moved: Vec<BlockPos> = to_push.iter().zip(shapes.iter()).filter(|(_, s)| matches!(s, Block::Piston { .. })).map(|(p, _)| *p).collect();
+        w.piston.follow(&moved, push_dir);
+    }
     let mut delete: Vec<(BlockPos, Block)> = to_push.iter().copied().zip(shapes.iter().copied()).collect();
     let mut to_update: Vec<Block> = Vec::with_capacity(to_push.len() + to_destroy.len());
-    let push_dir = if extending { direction } else { direction.opposite() };
     for &q in to_destroy.iter().rev() {
         let state = w.get(q);
         drop_resources(w, state, q);

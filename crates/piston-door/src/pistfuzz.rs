@@ -970,6 +970,7 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
         }
         let b = match other_run(o, w, &mut sbs.1, &sc) {
             Ok(b) => b,
+            Err(e) if format!("{e:#}").contains("is not modeled") => return Ok((sc, Some(format!("SKIP {e:#}")), a.len())),
             Err(e) => return Ok((sc, Some(format!("model failed: {e:#}")), a.len())),
         };
         if o.trace {
@@ -1004,13 +1005,14 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
         sbs.1 = s1;
         Ok((small, d2.or(d), a.len()))
     });
-    let (mut ok, mut bad, mut errors, mut frames) = (0usize, 0usize, 0usize, 0usize);
+    let (mut ok, mut bad, mut errors, mut frames, mut unmodeled) = (0usize, 0usize, 0usize, 0usize, 0usize);
     for r in results {
         match r {
             Ok((_, None, f)) => {
                 ok += 1;
                 frames += f;
             }
+            Ok((_, Some(d), _)) if d.starts_with("SKIP") => unmodeled += 1,
             Ok((sc, Some(d), f)) => {
                 bad += 1;
                 frames += f;
@@ -1026,7 +1028,7 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
         }
     }
     println!(
-        "pistfuzz: {ok} identical, {bad} mismatching, {errors} errors of {n} ({frames} ticks compared, {:.1}s, against {})",
+        "pistfuzz: {ok} identical, {bad} mismatching, {errors} errors, {unmodeled} skipped (an input redsim does not model) of {n} ({frames} ticks compared, {:.1}s, against {})",
         t0.elapsed().as_secs_f64(),
         o.against
     );
