@@ -103,7 +103,16 @@ s88i-50b, cosearch-63b-50-1/-2) releases BR and MR right (SW+(4,0)/(4,1)) and TR
 
 Membership and audits use the default. Catalog sweeps: `--ext-max 1` when the run time matters
 (the community 7x8's mechanism stays IN; c79 needs 2, a lever-held top 3), else the default (26%
-more candidates than `--ext-max 1`). Before the change (main dfe893a): 189
+more candidates than `--ext-max 1`).
+
+Archive recount (main 402a25676, 2026-10-19 19:50Z): 877 designs with a flat mechanism. IN under g1
+(`--no-ext-pullers`, the old catalog): 106; under the defaults g2..g5: 768 (+662: every lever-held
+door, c79, the community 7x8, the e78 / t7b / ring56 lever-held tops); under g6 (bound dropped): 773
+(+ the u7-m10 family). OUT under every flag: 104 — 39 whose core needs a piston that only acts away
+from its rest cell (fast-clean, speed-wire: rule (b) below), 19 whose center move needs a lifted
+EXTENDED-at-rest piston (hA-full-rl-*, fresh-a-sf1, eligible-s4ff: rule (a)), 7 with pieces no exit
+option uses, 16 t7b-nb2 / t7b-p42 doors whose mechanism pistons also move stone, 7 gravity doors, the
+rest gadget rows. Before the change (main dfe893a): 189
 archived designs with a flat mechanism; IN under g1 / g2: 95, under g3..g6: 99 (+ c79, c79-ff and
 the two archived 63b c79 doors); 65 OUT under every flag (the mechanisms below + 2 gadget rows).
 
