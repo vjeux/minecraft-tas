@@ -1679,7 +1679,87 @@ fn prune_ok(bx: &Bx, v: &[Pc], frame: &HashSet<(i8, i8)>) -> bool {
         }
     }
     let recv = frame.iter().filter(|&&c| on_line(c)).count();
-    recv >= 9
+    recv >= 9 && (!REACH_PRUNE.load(Ordering::Relaxed) || reach_ok(bx, v, frame))
+}
+
+/// `MECHSPACE_REACH`: a stronger necessary condition for FRAME9. Relaxed block moves (no blocking,
+/// no timing): a block on a piston's forward line can be pushed one cell along it; a block two
+/// cells ahead of a sticky piston can be pulled into its head cell. Pistons that lie on another
+/// piston's line may be displaced 1-2 cells along it, so their lines are also taken from those
+/// cells. Each door block's reachable cells; the 9 door blocks must be matched to 9 distinct
+/// frame cells they can reach (bipartite matching).
+pub static REACH_PRUNE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn reach_ok(bx: &Bx, v: &[Pc], frame: &HashSet<(i8, i8)>) -> bool {
+    // lines: (x, y, facing, sticky)
+    let mut lines: Vec<(i8, i8, u8, bool)> = Vec::new();
+    let ps: Vec<(i8, i8, u8, bool)> = v.iter().filter_map(|p| if let K::Piston { sticky, f, .. } = p.k { Some((p.x, p.y, f, sticky)) } else { None }).collect();
+    for &(x, y, f, s) in &ps {
+        lines.push((x, y, f, s));
+        for &(px, py, pf, _) in &ps {
+            if (px, py) == (x, y) {
+                continue;
+            }
+            let (dx, dy) = families::F[pf as usize];
+            if (1..=13).any(|k| (px + k * dx, py + k * dy) == (x, y)) {
+                for k in [-2i8, -1, 1, 2] {
+                    lines.push((x + k * dx, y + k * dy, f, s));
+                }
+            }
+        }
+    }
+    let cells: Vec<(i8, i8)> = frame.iter().copied().collect();
+    let mut reach: Vec<Vec<usize>> = Vec::new(); // per door block: indices of reachable frame cells
+    for bxx in 0..3i8 {
+        for byy in 0..3i8 {
+            let mut seen: HashSet<(i8, i8)> = HashSet::new();
+            let mut st = vec![(bxx, byy)];
+            seen.insert((bxx, byy));
+            while let Some(c) = st.pop() {
+                for &(x, y, f, s) in &lines {
+                    let (dx, dy) = families::F[f as usize];
+                    let mut nx = Vec::with_capacity(2);
+                    // push: c on the forward line (k >= 1) moves one cell along it
+                    let (rx, ry) = (c.0 - x, c.1 - y);
+                    let k = if dx != 0 { if ry == 0 && rx * dx > 0 { rx * dx } else { 0 } } else if rx == 0 && ry * dy > 0 { ry * dy } else { 0 };
+                    if k >= 1 {
+                        nx.push((c.0 + dx, c.1 + dy));
+                    }
+                    if s && k == 2 {
+                        nx.push((x + dx, y + dy));
+                    }
+                    for n in nx {
+                        if bx.has(n.0, n.1) && seen.insert(n) {
+                            st.push(n);
+                        }
+                    }
+                }
+            }
+            reach.push(cells.iter().enumerate().filter(|(_, c)| seen.contains(c)).map(|(i, _)| i).collect());
+        }
+    }
+    // Kuhn's matching: 9 blocks -> distinct frame cells
+    fn aug(b: usize, reach: &[Vec<usize>], used: &mut [bool], owner: &mut [Option<usize>]) -> bool {
+        for &c in &reach[b] {
+            if used[c] {
+                continue;
+            }
+            used[c] = true;
+            if owner[c].is_none() || aug(owner[c].unwrap(), reach, used, owner) {
+                owner[c] = Some(b);
+                return true;
+            }
+        }
+        false
+    }
+    let mut owner: Vec<Option<usize>> = vec![None; cells.len()];
+    for b in 0..9 {
+        let mut used = vec![false; cells.len()];
+        if !aug(b, &reach, &mut used, &mut owner) {
+            return false;
+        }
+    }
+    true
 }
 
 // ---------------------------------------------------------------- candidates
@@ -1710,14 +1790,26 @@ pub fn parse_piece(tok: &str) -> Result<Pc> {
 /// Lines "x0 y0 piece piece ..." (families' unresolved/WxH.txt).
 pub fn read_list(path: &std::path::Path, w: i8, h: i8) -> Result<Vec<(Bx, Vec<Pc>)>> {
     let text = std::fs::read_to_string(path)?;
+    parse_lines(&text, w, h)
+}
+
+/// Mechanism lines `x0 y0 pieces...` (one per line).
+pub fn parse_lines(text: &str, w: i8, h: i8) -> Result<Vec<(Bx, Vec<Pc>)>> {
     let mut items = Vec::new();
     for line in text.lines().filter(|l| !l.trim().is_empty()) {
         let t: Vec<&str> = line.split_whitespace().collect();
+        anyhow::ensure!(t.len() >= 2, "short line");
         let bx = Bx { x0: t[0].parse()?, y0: t[1].parse()?, w, h };
         let v: Vec<Pc> = t[2..].iter().map(|s| parse_piece(s)).collect::<Result<_>>()?;
         items.push((bx, v));
     }
     Ok(items)
+}
+
+/// The reach-matching condition alone (see `reach_ok`).
+pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
+    let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();
+    reach_ok(bx, v, &frame)
 }
 
 /// `--door-offset dx,dy`: only this door offset in the box (columns left of / rows below the door).
@@ -2075,14 +2167,17 @@ pub fn decide_sweep(cx: &Cx, cap_lean: usize, astar: usize) -> (Verdict, Stats) 
             return (Verdict::NoOpen, Stats { open_states: n, close_states: 0 });
         }
     }
-    if let Some(r) = main_path(cx, 100_000, 0) {
+    let first = cap_lean.min(100_000);
+    if let Some(r) = main_path(cx, first, 0) {
         return r;
     }
     if let Some((open, close)) = find_cycle(cx, astar) {
         return (Verdict::Found { open, close }, Stats { open_states: 0, close_states: 0 });
     }
-    if let Some(r) = main_path(cx, cap_lean, 0) {
-        return r;
+    if cap_lean > first {
+        if let Some(r) = main_path(cx, cap_lean, 0) {
+            return r;
+        }
     }
     (Verdict::Capped { opens: 0 }, Stats { open_states: cap_lean, close_states: 0 })
 }

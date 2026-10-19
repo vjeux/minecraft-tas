@@ -3078,6 +3078,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let (dx, dy) = ms::DOOR_OFFSET.get().copied().ok_or_else(|| anyhow::anyhow!("enum needs --door-offset"))?;
                     let bx = crate::families::Bx { x0: -dx, y0: -dy, w: bxs[0].0, h: bxs[0].1 };
                     let eo = ms::EnumOpts { side_absent: two, free_max: carry.max(1), free_normal: std::env::var("MECHSPACE_FREE_NORMAL").is_ok(), bottom_su };
+                    if std::env::var("MECHSPACE_REACH").is_ok() {
+                        ms::REACH_PRUNE.store(true, std::sync::atomic::Ordering::Relaxed);
+                        eprintln!("[mechspace enum] reach-matching pruning on");
+                    }
                     let t0 = std::time::Instant::now();
                     let sets = ms::enum_sets(bx, &eo);
                     if let Ok(exp) = std::env::var("MECHSPACE_EXPECT") {
@@ -3128,6 +3132,25 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let t = tag.clone().unwrap_or_else(|| "movable".into());
                     std::fs::write(out_dir.join(format!("{t}.movable.tsv")), found.join("\n") + "\n")?;
                     eprintln!("[mechspace movable] {} of {} candidates cycle with movable extras", found.len(), items.len());
+                }
+                "reachtest" => {
+                    // how the reach-matching condition splits already decided sets (a partial TSV:
+                    // line \t verdict ...); FOUND ones must all pass
+                    let f = input.ok_or_else(|| anyhow::anyhow!("reachtest needs --input"))?;
+                    anyhow::ensure!(bxs.len() == 1, "reachtest needs one --boxes WxH");
+                    let mut tally: std::collections::BTreeMap<(String, bool), usize> = std::collections::BTreeMap::new();
+                    for l in std::fs::read_to_string(&f)?.lines() {
+                        let mut it = l.split('\t');
+                        let (Some(line), Some(vd)) = (it.next(), it.next()) else { continue };
+                        let Ok(items) = ms::parse_lines(line, bxs[0].0, bxs[0].1) else { continue };
+                        for (bx, v) in items {
+                            let ok = ms::reach_test(&bx, &v);
+                            *tally.entry((vd.to_string(), ok)).or_default() += 1;
+                        }
+                    }
+                    for ((vd, ok), n) in tally {
+                        println!("{vd}\t{}\t{n}", if ok { "pass" } else { "PRUNED" });
+                    }
                 }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }
