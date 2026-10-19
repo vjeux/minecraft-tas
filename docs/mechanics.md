@@ -11,8 +11,9 @@ observer pulse); this page uses game ticks throughout.
 
 Sections: 1. one tick, 2. pistons, 3. redstone dust, 4. other blocks, 5. timing of every
 component, 6. what happens in 0 gt, 7. odd ticks, 8. techniques the doors use, 9. floors for the
-fastest 3x3 door, 10. gadget catalog, 11. vanilla confirmation. (Sections 5-9 and 11 are the
-tick-study track's timing study.)
+fastest 3x3 door, 10. gadget catalog, 11. vanilla confirmation, 12. redsim, the exact model
+(where each rule lives in `crates/redsim`, with source lines and evidence). (Sections 5-9 and 11
+are the tick-study track's timing study.)
 
 ## 1. One tick (`ServerLevel.tick`, 358-460)
 
@@ -703,3 +704,76 @@ behaves identically in the official server.**
   line: activation floor(d) gt after each flip, d up to 16. Echo rule for every sensor: once it
   is INACTIVE again (wake + 20 calibrated, + 40 normal) any piston move within its radius wakes
   it, so whatever it drives must stop moving before then, or the re-run must be a no-op.
+
+## 12. redsim: the exact model (track redmodel)
+
+`crates/redsim` is a pure-Rust, dependency-free tick-level copy of the 26.3 code paths above,
+shared by the search tools (`door redsim-verify`, `cosearch`, `fullmech`, satwire's screen). It
+replays every rule of sections 1-7 exactly; this section says where each rule lives and what the
+differential tests found. Evidence: `redsim-fuzz fuzz` compares every block state after every tick
+with the bridge sandbox (0/100,000 random circuits with `--palette all`, 0/20,000 container
+circuits with `--gen containers`), pistmodel's `door pistfuzz` does the same for pistons (0/100,000,
+plus 328/328 archived doors and 72/72 gadgets), `door redsim-verify --judge` gives the judge's
+verdict on all 263 supported archived designs, and every regression found is a fixture in
+`crates/redsim/tests/fixtures/` (`cargo test --release -p redsim --tests`). Owners: redmodel
+(engine, redstone, containers, classes), pistmodel (`piston/`, `gravity.rs`).
+
+**Engine** (`world.rs`, `ticks.rs`, `pos.rs`):
+
+| rule | game source | redsim |
+|---|---|---|
+| `setBlock` side effects: block entity swap, `onPlace`/removal, flag 1 neighbor updates, shape updates with `flags & -34` (changes made by shape updates notify no neighbors), flag 16/512 cuts | `Level.setBlock` 216, `LevelChunk.setBlockState` 267 | `World::set_block_limit` (fixture shape-update-no-neighbor-updates) |
+| neighbor updates W,E,D,U,N,S through a FIFO that runs nested updates after the current one | `CollectingNeighborUpdater.addAndRun` 68, `runUpdates` 87 | `World::add_and_run`, `Nu::{Full, Multi, Shape, Simple}` |
+| scheduled ticks: per-chunk queues merged by (trigger, priority, sub-tick); collected first, then run; `willTickThisTick` | `LevelTicks.tick` 81, `collectTicks` 93, `runCollectedTicks` 182 | `ticks.rs` |
+| block events FIFO with dedup, events added meanwhile run in the same phase | `ServerLevel.runBlockEvents` 1267 | `World::tick` |
+| tick phases: time+1, block ticks, block events, entities (falling blocks), block entities (hoppers, then moving pistons) | `ServerLevel.tick` 358-460 | `World::tick` |
+| comparator notification of a changed container or analog source: horizontal comparators, and the comparator behind one conductor | `Level.updateNeighbourForOutputSignal` 1015 | `World::update_neighbour_for_output_signal` |
+| dust update order = `HashSet<BlockPos>` order, `hash = (y + 31z) * 31 + x`, bucket `(h ^ h >>> 16) & 15` | `DefaultRedstoneWireEvaluator.updatePowerStrength` 18 | `pos::java_hashset_order` |
+| judge placement: raw writes (flags 2\|16\|32\|256\|512), a shape update of every wire, a `self` update of every block | `video.rs::place` | `World::place_like_judge` (`place_raw` + `place_updates`) |
+
+**Components** (`behavior.rs` dispatches by block; one module per component family):
+
+| component | game source | redsim | rules the fuzzer pinned down |
+|---|---|---|---|
+| dust | `RedstoneWireBlock.getConnectionState` 117, `updatePowerStrength` 264, `getSignal` 361; `DefaultRedstoneWireEvaluator.calculateTargetStrength` 40 | `redstone/wire.rs` | dots stay dots, placed crosses stay crosses; step connections cut by a conductor above / beside; wire signals off while computing (no dust-to-dust through blocks) |
+| repeater | `DiodeBlock.tick` 50, `checkTickOnNeighbor` 84, `getInputSignal` 109, `shouldPrioritize` 196; `RepeaterBlock.isLocked` 84 | `redstone/diode.rs` | priorities -3/-2/-1 (section 5), locking read in `updateShape`, pulse stretching |
+| comparator | `ComparatorBlock.calculateOutputSignal` 64, `getInputSignal` 90 (analog through one conductor), `checkTickOnNeighbor` 140, `refreshOutputState` 151 | `redstone/diode.rs` | compare mode updates its front on every tick it runs, even with an unchanged output (a BUD source) |
+| torch, wall torch | `RedstoneTorchBlock.tick` 61, `neighborChanged` 83, `isToggledTooFrequently` 126 | `redstone/attach.rs` (`torch`) | burnout list per position (8 toggles in 60 gt -> 160 gt) |
+| lever, buttons | `LeverBlock.pull` 82, `updateNeighbours` 133; `ButtonBlock.press` 94, `tick` 133 | `redstone/attach.rs` | stone 20 gt, wood 30 gt; the bridge's `use` calls `press` even on a pressed button: the pending release tick is kept (dedup) |
+| observer | `ObserverBlock.updateShape` 57, `tick` 45, `startSignal` 74 | `redstone/blocks.rs` (`observer`) | fires on shape updates only, not while powered or with a tick pending |
+| lamp | `RedstoneLampBlock.neighborChanged` 29, `tick` 45 | `blocks.rs` (`lamp`) | on in the powering update (flags 2), off by a 4 gt NORMAL tick from the first unpowered update, never rescheduled |
+| waxed copper bulb | `CopperBulbBlock.checkAndFlip` 42, `getAnalogOutputSignal` 66 | `blocks.rs` (`bulb`) | toggles on the rising edge seen by a neighbor update; comparator 15/0 |
+| note block | `NoteBlock.neighborChanged` 81, `setInstrument` 47, `triggerEvent` 141 | `blocks.rs` (`note`) | instrument from the block below, or the mob head above (a wall skull is a harp: its state has no `instrument` override; fixture note-under-wall-skull) |
+| target | `TargetBlock` (signal source, power 0 unhit) | `blocks.rs` (`target`) | dust always connects |
+| trapdoors, doors, fence gates | `TrapDoorBlock.neighborChanged` 116, `DoorBlock.updateShape` 78 / `neighborChanged` 215, `FenceGateBlock.neighborChanged` 172 | `blocks.rs` (`indicator`) | a door half copies the other half's state in `updateShape`; oak use = flags 10 / 2 |
+| powered, activator rails | `PoweredRailBlock.findPoweredRailSignal` 23, `updateState` 121; `RailState` | `blocks.rs` (`rail`) | 8-rail search; `RailState` reshapes neighbors on place (found by the fuzzer) |
+| dropper, dispenser, crafter | `DispenserBlock.neighborChanged` 121, `tick` 135; `CrafterBlock.neighborChanged` 67, `tick` 84 | `blocks.rs` (`dispenser`) | QC (power at the cell above), 4 gt trigger, `triggered` cleared with flags 2 |
+| containers (items) | `DropperBlock.dispenseFrom` 41; `HopperBlockEntity.pushItemsTick` 97, `tryMoveItems` 106, `ejectItems` 143, `suckInItems` 218, `tryMoveInItem` 314, `removeItem` 74; `AbstractContainerMenu.getRedstoneSignalFromContainer` | `redstone/container.rs` | a hopper's `removeItem`/`setItem` do NOT notify comparators, a dropper's do (fixture hopper-remove-no-setchanged); wasEmpty cooldown 8, or 7 when the sender ticked no later; fill level in floats: `floor(14 f) + (f > 0)`; T flip-flop gadget: fixture hopper-t-flip-flop |
+| hopper (lock) | `HopperBlock.checkPoweredState` 118 | `blocks.rs` (`hopper`) | `enabled` follows `!hasNeighborSignal`, flags 2 |
+| leaves | `LeavesBlock.updateShape` 86, `tick` 76, `updateDistance` 108 | `blocks.rs` (`leaves`) | distance from logs (the only 1 gt element) |
+| analog blocks | `CakeBlock.canSurvive` 123 / `getAnalogOutputSignal` 133, `ComposterBlock.tick` 218 / 231, end portal frame, respawn anchor | `behavior.rs` | a cake needs a SOLID block below (it pops off repeaters: fixture cake-on-unsupported-repeater) |
+| plain blocks | `Blocks.java` properties (conductor, collision, support shape, instrument, push reaction) | `block.rs` (`SIMPLES`), `behavior.rs` | slime conducts and is a floor; honey and leaves conduct nothing and hold nothing (fixtures slime-is-a-conductor, leaves-honey-hold-nothing) |
+| pistons, moving blocks, gravity | section 2; `PistonBaseBlock.checkIfExtend` 93, `getNeighborSignal` 116, `triggerEvent` 139, `isPushable` 215, `moveBlocks` 259; `PistonMovingBlockEntity.finalTick` 262, `tick` 294 | `piston/`, `gravity.rs` (pistmodel) | a retracting base keeps its extended box as support; a head popped by `updateShape` drops nothing |
+
+**Block equivalence classes** (`redsim::classes`, `redsim-fuzz classes`; list in
+`designs/redsim/CLASSES.txt`): two block states are interchangeable when every property the model
+reads agrees (conductor; `isFaceSturdy` per face for FULL, CENTER and RIGID support; `isSolid`;
+collision; push reaction; slime/honey; block entity; unbreakable; drops; analog output; leaf
+distance source; own behavior). 70 plain states fall in 22 classes, 11 if note-block instruments
+are ignored (they matter only directly above/below a note block): stone-like conductors, obsidian
+(immovable), glass-like non-conductors, slime, honey, pumpkin (popped by pistons), glazed
+terracotta (push-only), logs (leaf source), soul sand/mud (14 px collision), bottom slab, top slab.
+`redsim-fuzz classfuzz` proves them in the game: 3000 random circuits against the same circuit with
+every plain block replaced by a random member of its class, 0 differ modulo the classes.
+
+**Out of scope** (a model note is recorded, never a silent difference): random ticks, weather and
+time, entities and players (pressure plates, tripwire, item entities: a dropper spitting into the
+world, hoppers catching drops), a dropper holding 2+ stacks (random slot), dispensers' item
+behaviors, sculk, fluids and waterlogging, fence-gate `use` (needs the player's facing), unwaxed
+copper. Unknown blocks are rejected (`Block::parse`), so a screen answers Unsupported instead of
+guessing.
+
+**Harness notes:** the bridge's `set`/`fill` used to hand ONE `MutableBlockPos` to every
+`setBlock` of a request, and a block event queued by an `onPlace` (a piston placed with updates)
+kept that object, so it ran at the next block's cell; fixed on main (4a4fd3e), and the fuzzer places
+update-mode blocks one per request anyway.
