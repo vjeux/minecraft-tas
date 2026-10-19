@@ -2466,7 +2466,7 @@ fn subsets_upto(n: usize, k: usize) -> Vec<Vec<usize>> {
     out
 }
 
-pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
+fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     let a = &pa.s;
     let (mut prob, seeds, dx, dy) = setup(a)?;
     let mut seed = seeds[0].clone();
@@ -2570,7 +2570,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
             Some(c) => println!("  released: matched groups: {}", (0..64).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" ")),
             None => println!("  released: rejected: a real edge no group explains"),
         }
-        return Ok(());
+        return Ok(PocketSummary { note: "debug".into(), ..Default::default() });
     }
     println!("windows ({} groups, {:.1} s):", groups.len(), t0.elapsed().as_secs_f64());
     for g in &groups {
@@ -3008,11 +3008,9 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
         println!("groups the seed's own wiring already drives: {}", (0..64).filter(|i| (base_cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
     }
     let coverable = coverable | base_cov;
+    let uncovered: Vec<String> = (0..64).filter(|i| (need >> i) & 1 == 1 && (coverable >> i) & 1 == 0).map(|i| glabels[i].clone()).collect();
     if coverable & need != need {
-        println!(
-            "plan groups no filling drives: {}",
-            (0..64).filter(|i| (need >> i) & 1 == 1 && (coverable >> i) & 1 == 0).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" ")
-        );
+        println!("plan groups no filling drives: {}", uncovered.join(" "));
     }
     // the inputs whose every group is covered by a group set
     let released_by = |cov: u64| -> u64 {
@@ -3150,5 +3148,158 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
         }
     }
     println!("{combos_tried} combinations verified, {finds} finds, {:.0} s total", t0.elapsed().as_secs_f64());
+    Ok(PocketSummary { groups: groups.len(), uncovered, best_left: best_partial.map(|b| b.0), finds, secs: t0.elapsed().as_secs_f64(), note: String::new() })
+}
+
+/// One pockets run's outcome (the batch table).
+#[derive(Clone, Debug, Default)]
+pub struct PocketSummary {
+    pub groups: usize,
+    /// Plan groups no filling drives (labels).
+    pub uncovered: Vec<String>,
+    /// Fewest inputs left assisted in a true partial (None: no perfect combination).
+    pub best_left: Option<u32>,
+    pub finds: usize,
+    pub secs: f64,
+    pub note: String,
+}
+
+/// The mechanism's box (door coordinates `x0,y0:x1,y1`): every plane cell any block occupies at rest
+/// or at any tick of the plan's open and close (the plan's own redstone blocks excluded).
+pub fn auto_box(plan: &std::path::Path) -> Result<String> {
+    let text = std::fs::read_to_string(plan)?;
+    let s = crate::ideal::Schedule::parse(&text)?;
+    let d = s.design();
+    // a mechanism file may have no lever port
+    let door = *d.ports.get("door").context("design has no 'port door: x y z'")?;
+    let spec = crate::DoorSpec { door, lever: d.ports.get("lever").copied().unwrap_or(door), along_z: false };
+    let z = spec.door[2];
+    let mut blocks: Vec<(Pos, Block)> = Vec::new();
+    for (p, st) in &d.blocks {
+        blocks.push((*p, cs::convert_state(st).map_err(|e| anyhow::anyhow!(e))?));
+    }
+    let (wlo, whi) = cs::watch_box(&blocks, &spec);
+    let mut w = World::new(BlockPos::new(wlo[0] - 6, wlo[1] - 6, wlo[2] - 4), [whi[0] - wlo[0] + 13, whi[1] - wlo[1] + 13, whi[2] - wlo[2] + 9]);
+    let list: Vec<(BlockPos, Block)> = blocks.iter().map(|(p, b)| (cs::bp(*p), *b)).collect();
+    w.place_like_judge(&list);
+    // plan input cells (their redstone blocks are not part of the mechanism)
+    let mut inputs: HashSet<(i32, i32)> = HashSet::new();
+    for open in [true, false] {
+        for (_, p, _) in s.events_of(open, s.vars())? {
+            if p[2] == z {
+                inputs.insert((p[0], p[1]));
+            }
+        }
+    }
+    let mut lo = [i32::MAX; 2];
+    let mut hi = [i32::MIN; 2];
+    let mut take = |w: &World| {
+        for x in wlo[0] - 4..=whi[0] + 4 {
+            for y in wlo[1] - 4..=whi[1] + 4 {
+                if inputs.contains(&(x, y)) {
+                    continue;
+                }
+                let b = w.get(BlockPos::new(x, y, z));
+                if !b.is_air() {
+                    lo = [lo[0].min(x), lo[1].min(y)];
+                    hi = [hi[0].max(x), hi[1].max(y)];
+                }
+            }
+        }
+    };
+    cs::step_until_idle(&mut w, 300, |w| take(w));
+    take(&w);
+    for open in [true, false] {
+        let evs = s.events_of(open, s.vars())?;
+        let mut t = 0u32;
+        let mut i = 0;
+        loop {
+            while i < evs.len() && evs[i].0 == t {
+                let (_, p, st) = &evs[i];
+                if st.as_deref() == Some("@use") {
+                    w.use_block(cs::bp(*p));
+                } else {
+                    let b = cs::convert_state(st.as_deref().unwrap_or("minecraft:air")).map_err(|e| anyhow::anyhow!(e))?;
+                    w.set_block_and_update(cs::bp(*p), b);
+                }
+                i += 1;
+            }
+            w.tick();
+            t += 1;
+            take(&w);
+            if (i >= evs.len() && w.idle()) || t > 400 {
+                break;
+            }
+        }
+    }
+    anyhow::ensure!(lo[0] <= hi[0], "{}: empty mechanism", plan.display());
+    Ok(format!("{},{}:{},{}", lo[0] - spec.door[0], lo[1] - spec.door[1], hi[0] - spec.door[0], hi[1] - spec.door[1]))
+}
+
+/// `pockets` on several seeds: each `.ideal` seed is a plan whose `design` line names the mechanism
+/// (it becomes `--assist`), `--box auto` takes each mechanism's own box; every run writes into
+/// `<out-dir>/<plan name>` and one table line sums it up.
+pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
+    let batch = pa.s.seeds.len() > 1 || pa.s.seeds.iter().any(|s| s.extension().is_some_and(|e| e == "ideal")) || pa.s.bx == "auto";
+    if !batch {
+        pockets_one(version, pa)?;
+        return Ok(());
+    }
+    let mut rows: Vec<(String, String, Result<PocketSummary>)> = Vec::new();
+    for seed in &pa.s.seeds {
+        let name = seed.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let mut p2 = pa.clone();
+        let run = (|| -> Result<(String, PocketSummary)> {
+            if seed.extension().is_some_and(|e| e == "ideal") {
+                let text = std::fs::read_to_string(seed)?;
+                let design = text.lines().find_map(|l| l.trim().strip_prefix("design ").map(|p| p.trim().to_string())).with_context(|| format!("{}: no design line", seed.display()))?;
+                p2.s.seeds = vec![std::path::PathBuf::from(design)];
+                p2.s.assist = Some(seed.clone());
+            } else {
+                p2.s.seeds = vec![seed.clone()];
+            }
+            let bx = if pa.s.bx == "auto" {
+                let plan = p2.s.assist.clone().context("--box auto needs a plan (an .ideal seed or --assist)")?;
+                auto_box(&plan)?
+            } else {
+                pa.s.bx.clone()
+            };
+            p2.s.bx = bx.clone();
+            // a mechanism file without a lever port: a lever cell just outside the box (the
+            // fillings place the real lever)
+            if p2.s.lever.is_none() {
+                let d = crate::cli::load_design(&p2.s.seeds[0])?;
+                if !d.ports.contains_key("lever") {
+                    let (_, hi) = parse_box(&bx)?;
+                    p2.s.lever = Some(format!("{},{}", hi[0] + 1, hi[1] + 1));
+                }
+            }
+            p2.s.out_dir = pa.s.out_dir.join(&name);
+            println!("===== {name}: box {bx}");
+            Ok((bx, pockets_one(version, &p2)?))
+        })();
+        match run {
+            Ok((bx, s)) => rows.push((name, bx, Ok(s))),
+            Err(e) => {
+                println!("===== {name}: ERROR {e:#}");
+                rows.push((name, String::new(), Err(e)));
+            }
+        }
+    }
+    println!("\nbatch summary ({} seeds):", rows.len());
+    for (name, bx, r) in &rows {
+        match r {
+            Ok(s) => println!(
+                "  {name} [{bx}]: {} groups, {} undriven{}, best partial {}, {} finds, {:.0} s",
+                s.groups,
+                s.uncovered.len(),
+                if s.uncovered.is_empty() { String::new() } else { format!(" ({})", s.uncovered.join(" ")) },
+                s.best_left.map(|l| format!("{l} inputs left")).unwrap_or_else(|| "-".into()),
+                s.finds,
+                s.secs
+            ),
+            Err(e) => println!("  {name}: ERROR {}", format!("{e:#}").lines().next().unwrap_or("")),
+        }
+    }
     Ok(())
 }
