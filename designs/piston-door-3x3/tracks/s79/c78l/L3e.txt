@@ -38,8 +38,8 @@ layer 1:
 layer 2:
   F.JJJ.G
 layer 3:
-  wF..JRB
+  .F..JRB
 layer 4:
-  BwwEoWc
+  .wwEoWc
 layer 5:
-  C..E.SG
+  ...E.SG

@@ -253,3 +253,13 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   LEVEL-held (extended at closed rest) by ONE in-plane block at (-2,3): open OFF at 12..14, close ON at 8..16
   or 23..29, i.e. the lever delayed 12..14 gt. No in-plane level source found that reaches (-2,3): top-left
   comparators can only point west (out of the box) or east (at s / M).
+- Sensor-shaped TP/L signals (ideal sweeps on L3e/L3f/L3g, (3,3) obsidian helps):
+  * TP with TWO taps (t, t+g) on both edges works for t = 11..12 and g = 4..12 or 26..34 (`L3g.ideal`): a
+    sensor waking t9..10 -> note block / iron trapdoor / lamp -> observer -> TP (gap 10 calibrated, 30 plain,
+    14/34 with a lamp). The second tap is harmless (open: s is lowered in (1,3) and the push of TM, s, (2,3) is
+    stopped by an immovable (3,3); close: TP's head meets s's extended head).
+  * TP + L1/L2 with THREE taps (t, t+10, t+20, one calibrated sensor + observer into (-2,3)) works with
+    t = tc = 11 or 12 only if M is held ~20 gt on open (on 13..14, off 30..36) so the third tap meets a
+    lowered s (`L3f.ideal`, M and s2 ideal).
+  * satwire3: L3b with L3a's top kept is UNSAT (core: close TP + close s; every TP source in the free cells
+    disturbs s's close power).
