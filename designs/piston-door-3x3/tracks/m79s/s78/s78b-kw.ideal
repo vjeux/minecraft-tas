@@ -1,0 +1,25 @@
+# satwire's m79q top (B + A's last pull from TL's arrival) on c2e's 7x8 bottom (U from R0's watcher + lamp);
+# K (-1,-1), L0 (-2,0) and L1/L2 (-2,2) ideal.
+design designs/piston-door-3x3/tracks/m79s/s78/s78b.txt
+let k = 8
+let kw = 2
+let ckw = 2
+let l0 = 11
+let l12 = 10
+let ck = 8
+let cl0 = 11
+let cl12 = 4
+open 0 use 4 5 0
+open k set -1 -1 -1 minecraft:redstone_block
+open k+kw clear -1 -1 -1
+open l0 set -2 0 -1 minecraft:redstone_block
+open l0+2 clear -2 0 -1
+open l12 set -2 2 -1 minecraft:redstone_block
+open l12+2 clear -2 2 -1
+close 0 use 4 5 0
+close ck set -1 -1 -1 minecraft:redstone_block
+close ck+ckw clear -1 -1 -1
+close cl0 set -2 0 -1 minecraft:redstone_block
+close cl0+2 clear -2 0 -1
+close cl12 set -2 2 -1 minecraft:redstone_block
+close cl12+2 clear -2 2 -1

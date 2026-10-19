@@ -1,0 +1,18 @@
+design designs/piston-door-3x3/tracks/bridge/ring56/t8xL-b.txt
+let b1 = 18
+let b2 = 30
+let u = 42
+open 0 use 6 1 0
+close 0 use 6 1 0
+open b1 set 1 5 1 minecraft:redstone_block
+open b1+2 clear 1 5 1
+open b2 set 1 5 1 minecraft:redstone_block
+open b2+2 clear 1 5 1
+open u set 1 -2 1 minecraft:redstone_block
+open u+2 clear 1 -2 1
+close b1 set 1 5 1 minecraft:redstone_block
+close b1+2 clear 1 5 1
+close b2 set 1 5 1 minecraft:redstone_block
+close b2+2 clear 1 5 1
+close u set 1 -2 1 minecraft:redstone_block
+close u+2 clear 1 -2 1
