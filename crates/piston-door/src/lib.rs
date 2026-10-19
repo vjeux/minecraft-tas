@@ -38,6 +38,7 @@ pub mod properties_dyn;
 pub mod drive;
 pub mod harvest;
 pub mod ideal;
+pub mod ideal_rs;
 pub mod route;
 pub mod route2;
 pub mod minimize;

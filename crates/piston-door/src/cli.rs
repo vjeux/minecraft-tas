@@ -496,6 +496,31 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// `door ideal` on redsim (no JVM; ideal_rs.rs): the same schedule file and checks, in
+    /// milliseconds; `--sweep` grids run in parallel (timing windows), `--trace` prints every block
+    /// change of the first cycle at the first position.
+    IdealRs {
+        schedule: PathBuf,
+        /// Override a schedule variable, name=value (repeatable).
+        #[arg(long)]
+        set: Vec<String>,
+        /// Sweep a variable, name=lo..hi (repeatable: every combination).
+        #[arg(long)]
+        sweep: Vec<String>,
+        /// Sweep each --sweep variable on its own (others at their values) instead of the grid.
+        #[arg(long)]
+        independent: bool,
+        /// Extra pseudo-random positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        cycles: u32,
+        /// Print every block change of the first cycle at the first position.
+        #[arg(long)]
+        trace: bool,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+    },
     /// Try every combination of alternative patch groups (see place.rs): for wiring a mechanism
     /// whose part placements are a 3D puzzle. Screened at one position, judged at the default
     /// positions; every working combination is written next to --out.
@@ -2481,6 +2506,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::Ideal { schedule, set, sweep, independent, extra_offsets, cycles, trace, workers } => {
             crate::ideal::cli(version, &schedule, &set, &sweep, independent, extra_offsets, cycles, trace, workers)?;
+        }
+        DoorCmd::IdealRs { schedule, set, sweep, independent, extra_offsets, cycles, trace, threads } => {
+            crate::ideal_rs::cli(&schedule, &set, &sweep, independent, extra_offsets, cycles, trace, threads)?;
         }
         DoorCmd::Drive { scripts, quiet } => {
             let mut w = Worker::spawn(&cfg)?;
