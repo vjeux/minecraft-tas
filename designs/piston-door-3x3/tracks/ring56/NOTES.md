@@ -245,3 +245,9 @@ gets pulses); or a T flip-flop (bulb + comparator) on W_TR's pulse to make B a l
   B2 and A2-close NEVER. No filling covers more than 4 of the 12 groups, and the pocket has 6 cells:
   the t8 top-right in 7x8 cannot drive the elevator (B's only feed (2,5) is also the only cell that
   sees B, the cell every A3 filling uses). k=6 (all six cells) with 22 hand-picked states: running.
+* k=6 (ALL six top-right cells, 22 states: observers x4, sticky x4, pistons x4, note block, stone, dust,
+  repeaters E/W delay 1/4, lamp, sculk, calibrated sculk; 212 M fillings, 72 min): the best single
+  fillings cover 4 groups ({A1,A3} both edges, 4 blocks; {A2o,A3o,A1c,A3c}, 5; {B1 both edges}, 4;
+  {A1o,P_To}, 5; {B1o,A2o}, 6); B2 (both edges) and A2-close are driven by NO filling. So with this
+  palette the 7x8 t8 top-right cannot run the elevator: t8 (lever on TR's puller) is unwirable in 7x8.
+  Next: t9 = the same mechanism in 7x9 (box y -2..6): B fed from above, (2,5) free to watch B.
