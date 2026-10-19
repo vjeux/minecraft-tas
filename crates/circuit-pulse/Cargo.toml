@@ -8,3 +8,8 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clap.workspace = true
+circuit = { path = "../circuit" }
+clock-obs = { path = "../clock-obs" }
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }

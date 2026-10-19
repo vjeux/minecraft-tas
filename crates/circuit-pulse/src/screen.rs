@@ -23,7 +23,7 @@
 //! * `stretch +c d`: one pulse of w + c gt (c > 0);
 //! * `delay d`: one pulse of w gt, d gt late (a delay line, study 3).
 
-use crate::sim::{self, Spec};
+use clock_obs::sim::{self, Spec};
 use anyhow::{Context, Result, bail};
 use clap::Args as ClapArgs;
 use redsim::world::flags;
@@ -88,6 +88,31 @@ pub struct Responses {
     pub pulses: Vec<Vec<Vec<Pulse>>>,
 }
 
+/// The judge's output level at a cell (docs/circuits.md, `circuit::trace::level`): dust its power;
+/// a repeater, observer or torch its own output (15 when on); a comparator its strength; any
+/// other cell the best signal into it.
+pub fn level_at(w: &World, p: BlockPos) -> i32 {
+    match w.get(p) {
+        Block::Wire { power, .. } => power as i32,
+        Block::Repeater { powered, .. } | Block::Observer { powered, .. } => {
+            if powered {
+                15
+            } else {
+                0
+            }
+        }
+        Block::Torch { lit } | Block::WallTorch { lit, .. } => {
+            if lit {
+                15
+            } else {
+                0
+            }
+        }
+        Block::Comparator { .. } => w.comparator_out.get(&p).copied().unwrap_or(0) as i32,
+        _ => w.best_neighbor_signal(p),
+    }
+}
+
 fn pulses_of(levels: &[i32]) -> Vec<Pulse> {
     let mut out = Vec::new();
     let mut i = 0;
@@ -99,7 +124,7 @@ fn pulses_of(levels: &[i32]) -> Vec<Pulse> {
                 peak = peak.max(levels[i]);
                 i += 1;
             }
-            out.push(Pulse { start: s as i32, len: (i - s) as u32, level: peak });
+            out.push(Pulse { start: s as i32 + 1, len: (i - s) as u32, level: peak });
         } else {
             i += 1;
         }
@@ -140,7 +165,7 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
             v
         }
     };
-    let rest: Vec<i32> = cells.iter().map(|p| w.best_neighbor_signal(*p)).collect();
+    let rest: Vec<i32> = cells.iter().map(|p| level_at(&w, *p)).collect();
     let snapshot = w.blocks();
     let rb = Block::RedstoneBlock;
     let mut pulses: Vec<Vec<Vec<Pulse>>> = vec![Vec::new(); cells.len()];
@@ -156,10 +181,10 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
             w.tick();
             t += 1;
             for (i, p) in cells.iter().enumerate() {
-                rec[i].push(w.best_neighbor_signal(*p) - rest[i]);
+                rec[i].push(level_at(&w, *p) - rest[i]);
             }
             if t > wd {
-                let at_rest = cells.iter().enumerate().all(|(i, p)| w.best_neighbor_signal(*p) == rest[i]);
+                let at_rest = cells.iter().enumerate().all(|(i, p)| level_at(&w, *p) == rest[i]);
                 quiet = if w.idle() && at_rest { quiet + 1 } else { 0 };
                 if quiet >= 8 {
                     break;
@@ -187,14 +212,85 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
 /// vocabulary (clockinfra 2026-10-19): `<kind> L=<L> delay=<d> min-pulse=<w0>`, trying the
 /// shortest min-pulse first (the behavior must hold for every tested input from w0 on).
 pub fn classify(per_w: &[Vec<Pulse>], widths: &[u32]) -> Option<String> {
-    for w0 in 0..widths.len().saturating_sub(4) {
-        if let Some(k) = classify_from(&per_w[w0..], &widths[w0..]) {
-            return Some(format!("{k} min-pulse={}", widths[w0]));
-        }
-    }
-    None
+    classify_all(per_w, widths).into_iter().next()
 }
 
+/// Every kind these responses satisfy, each with its smallest min-pulse (the behavior holds for
+/// every tested input from it on; the judge wants at least the 3 longest): a constant-length
+/// monostable is a rising-edge detector, a limiter and an extender at once.
+pub fn classify_all(per_w: &[Vec<Pulse>], widths: &[u32]) -> Vec<String> {
+    let mut best: BTreeMap<String, String> = BTreeMap::new();
+    for w0 in 0..widths.len().saturating_sub(2) {
+        for k in kinds_from(&per_w[w0..], &widths[w0..]) {
+            let name = k.split_whitespace().next().unwrap_or("").to_string();
+            best.entry(name).or_insert_with(|| format!("{k} min-pulse={}", widths[w0]));
+        }
+    }
+    best.into_values().collect()
+}
+
+fn kinds_from(per_w: &[Vec<Pulse>], widths: &[u32]) -> Vec<String> {
+    let mut out = Vec::new();
+    if per_w.iter().any(|p| p.iter().any(|q| q.level < 0)) || per_w.iter().all(|p| p.is_empty()) {
+        return out;
+    }
+    if per_w.iter().all(|p| p.len() == 1) {
+        let s: Vec<i32> = per_w.iter().map(|p| p[0].start).collect();
+        let l: Vec<u32> = per_w.iter().map(|p| p[0].len).collect();
+        let s_const = s.iter().all(|x| *x == s[0]);
+        let l_const = l.iter().all(|x| *x == l[0]);
+        if s_const && l_const {
+            out.push(format!("rising-edge L={} delay={}", l[0], s[0]));
+        }
+        let e: Vec<i32> = s.iter().zip(widths).map(|(x, w)| x - *w as i32).collect();
+        if e.iter().all(|x| *x == e[0]) && l_const {
+            out.push(format!("falling-edge L={} delay={}", l[0], e[0]));
+        }
+        if s_const {
+            let wmax = widths.iter().copied().max().unwrap_or(0);
+            for big_l in 1..wmax {
+                // limiter: L for every input >= L (shorter inputs pass shorter, up to L)
+                if widths.iter().any(|w| *w > big_l) && l.iter().zip(widths).all(|(x, w)| if *w >= big_l { *x == big_l } else { *x <= big_l }) {
+                    out.push(format!("pulse-limiter L={big_l} delay={}", s[0]));
+                    break;
+                }
+            }
+            for big_l in 2..=wmax + 20 {
+                // extender: L for every input shorter than L, never shorter than L
+                if widths.iter().any(|w| *w < big_l) && l.iter().zip(widths).all(|(x, w)| if *w < big_l { *x == big_l } else { *x >= big_l }) {
+                    out.push(format!("pulse-extender L={big_l} delay={}", s[0]));
+                    break;
+                }
+            }
+            if l.iter().zip(widths).all(|(x, w)| x == w) {
+                out.push(format!("delay N={}", s[0]));
+            }
+        }
+        return out;
+    }
+    // dual: one pulse on each edge, for every input of the suffix (the judge's min-pulse counts
+    // an input as handled only when both edges answer)
+    let mut dual: Option<(u32, u32, i32, i32)> = None;
+    for (p, w) in per_w.iter().zip(widths) {
+        match p.len() {
+            2 => {
+                let key = (p[0].len, p[1].len, p[0].start, p[1].start - *w as i32);
+                if dual.is_some_and(|d| d != key) {
+                    return out;
+                }
+                dual = Some(key);
+            }
+            _ => return out,
+        }
+    }
+    let Some((lr, lf, d, e)) = dual else { return out };
+    if per_w.last().is_some_and(|p| p.len() == 2) {
+        out.push(if lr == lf { format!("dual-edge L={lr} delay={d}/{e}") } else { format!("dual-edge L={lr}/{lf} delay={d}/{e}") });
+    }
+    out
+}
+
+#[allow(dead_code)]
 fn classify_from(per_w: &[Vec<Pulse>], widths: &[u32]) -> Option<String> {
     if per_w.iter().any(|p| p.iter().any(|q| q.level < 0)) || per_w.iter().all(|p| p.is_empty()) {
         return None;
@@ -370,7 +466,7 @@ pub fn pulse_palette(spec: &str) -> Result<Vec<Block>> {
                     v.push(Block::parse(&format!("minecraft:redstone_wall_torch[facing={f}]")).map_err(|e| anyhow::anyhow!("{e}"))?);
                 }
             }
-            other => v.extend(crate::census::palette(other)?),
+            other => v.extend(clock_obs::census::palette(other)?),
         }
     }
     Ok(v)
@@ -398,7 +494,7 @@ pub fn census(a: PulseCensusArgs) -> Result<()> {
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
     let pal = pulse_palette(&a.palette)?;
-    let shapes = crate::census::shape_classes(a.k + 1);
+    let shapes = clock_obs::census::shape_classes(a.k + 1);
     // work units: (shape, input cell index, first block state)
     let mut units: Vec<(usize, usize, usize)> = Vec::new();
     for (si, s) in shapes.iter().enumerate() {
@@ -436,13 +532,13 @@ pub fn census(a: PulseCensusArgs) -> Result<()> {
                 idx[0] = b0;
                 loop {
                     let mut blocks: Vec<(BlockPos, Block)> = cells.iter().zip(&idx).map(|(p, i)| (*p, pal[*i])).collect();
-                    crate::census::fix_instruments(&mut blocks);
+                    clock_obs::census::fix_instruments(&mut blocks);
                     let c = Circuit { name: String::new(), blocks, input, output: None };
                     sims.fetch_add(1, Ordering::Relaxed);
                     if let Some(r) = respond(&c, &WIDTHS) {
                         let mut kinds: Vec<(String, BlockPos)> = Vec::new();
                         for (i, p) in r.cells.iter().enumerate() {
-                            if let Some(k) = classify(&r.pulses[i], &WIDTHS) {
+                            for k in classify_all(&r.pulses[i], &WIDTHS) {
                                 if !kinds.iter().any(|(q, _)| *q == k) {
                                     kinds.push((k, *p));
                                 }
@@ -454,7 +550,7 @@ pub fn census(a: PulseCensusArgs) -> Result<()> {
                                 let mut keyed = c.blocks.clone();
                                 keyed.push((c.input, in_marker));
                                 keyed.push((out, out_marker));
-                                let key = crate::census::canon_hash(&keyed);
+                                let key = clock_obs::census::canon_hash(&keyed);
                                 let (group, rank) = group_rank(&k);
                                 let e = f.entry(group).or_default();
                                 if !e.iter().any(|(_, q, _, _)| *q == key) {
@@ -522,7 +618,7 @@ pub fn group_rank(k: &str) -> (String, (u32, i32)) {
 }
 
 pub fn run(a: PulseArgs) -> Result<()> {
-    for f in crate::pick::files_of(&a.designs)? {
+    for f in clock_obs::pick::files_of(&a.designs)? {
         let c = Circuit::load(&f)?;
         let Some(r) = respond(&c, &WIDTHS) else {
             println!("{}: NOT A PULSE CIRCUIT (does not settle, keeps state, or runs away)", f.display());
@@ -530,7 +626,7 @@ pub fn run(a: PulseArgs) -> Result<()> {
         };
         let mut kinds: BTreeMap<String, Vec<BlockPos>> = BTreeMap::new();
         for (i, p) in r.cells.iter().enumerate() {
-            if let Some(k) = classify(&r.pulses[i], &WIDTHS) {
+            for k in classify_all(&r.pulses[i], &WIDTHS) {
                 kinds.entry(k).or_default().push(*p);
             }
             if a.verbose && r.pulses[i].iter().any(|v| !v.is_empty()) {
