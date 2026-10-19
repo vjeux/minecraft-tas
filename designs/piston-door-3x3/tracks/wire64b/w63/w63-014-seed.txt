@@ -1,0 +1,32 @@
+name: w63-014-seed
+# cosearch seed: families v3 7x8-014 (TL up via (0,4), left 2-stack, T parks right via (3,3), BR
+# down via (2,-2), right 2-stack) placed in a 7x9 box x -2..4, y -2..6: row 6 joins the whole top
+# into one 22-cell region holding the lever (outside at (-3,5) on a stone (-2,5)); door connect's
+# witness: the top fires BL+ML (from (-2,2)), TL, A, B, the T parker and TR+MR; the bottom-left
+# (5 cells) wakes on BL's puller and fires P_M; the bottom-right (5 cells) wakes on MR's puller
+# from (4,0) and fires BR's puller.
+port door: 0 0 0
+port lever: -3 5 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  I minecraft:stone
+layer -2:
+  ....AA
+layer 0:
+  .s.CCC
+layer 1:
+  .s.CCC.B
+layer 2:
+  ...CCC.B
+layer 3:
+  ......B
+layer 4:
+  ...SS
+layer 5:
+  LI..S

@@ -142,3 +142,33 @@ Connectivity is not the wall any more: every survivor puts the whole elevator se
 B x2 interleaved, plus the T parker) on one or two 7-8 cell pockets whose inputs are only the
 elevator's own pistons (each link a double or quadruple pulse train), which is the K1 problem of
 section 2b. Parity (mergers, flip-flops) and room are what `door connect` does not model.
+
+Clean re-run (logs/connect-v3-all.log; stack events fixed: two stacked pistons fire together only
+if the first does not move the second; every entry included with its partial footprint; cap 300k):
+the same 24 survivors in 7x9 y -3..5, 014/015 in 7x9 rows -2..6 and in 7x8, NOT 7x8-033 (7x8) and
+033/034 (7x9 y -4..4), everything else cap-undecided at 300k (the 1M first pass decided more: NOT
+for 008 016 031 in rows -2..6 / 7x8 and for the center-down 021-034 group in y -4..4 / 7x8).
+
+### 4d. Wiring attempts on survivors (7x9 = 63)
+- satwire (time warp dmax/skip 12, palette block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,
+  dropper,obsidian, --forbid-ring, families' sym schedules at gap 6): 7x8-014 in rows -2..6 UNSAT
+  (34 s), 7x8-012 in y -3..5 UNSAT (60 s). (oc schedules and 016: see the log.)
+- cosearch (redsim annealing, pistons locked, shaped by families' sym ideal, 16 threads, 35 min
+  each) on 7x8-012 and 7x8-016 (y -3..5) and 7x8-014 (rows -2..6): plateaus at 43-45 / 79 screen
+  points, no perfect screen.
+- 7x8-014 in rows -2..6 is the most natural target: the whole top (22 cells, rows 3..6, TL leaving
+  UP frees (-2,2)) holds the lever and fires BL+ML (observer trick from (-2,2)), TL, A, B, the T
+  parker and TR+MR; the two 5-cell bottom pockets need ONE effective pulse each: P_M (after A3 on
+  close) from watching BL's puller, BR's puller from watching MR's puller at (4,0).
+- **SOLVED: the two bottom pockets, with real wiring, 4 blocks each** (w63/w63-014-bottom.txt +
+  .ideal; `door ideal --extra-offsets 28`: WORKS at 32 positions x 2 cycles, the top by ideal
+  inputs): bottom-left observer (-2,-1) facing up on BL's puller -> stone (-2,-2) -> note block
+  (-1,-2) -> observer (0,-2) facing west -> P_M; bottom-right observer (4,0) facing up on MR's
+  puller -> stone (4,-1) -> cross dust (3,-1) on stone (3,-2) -> BR's puller (quasi through (2,-1),
+  directly through its floor). Parity by the observer BUSY WINDOW, on purpose: the top fires each
+  side stack three times exactly g = 6 or 7 gt apart (g = 4, 5, 8 fail): the stack nets one toggle,
+  its watcher sees 5 pulses (odd), so the bottom piston nets one toggle too. The left trigger may
+  start at t0 = 30..40 (after A3 on close). Ideal-emulation pitfall: feeding the right stack from a
+  redstone block at (4,3) also powers P_T (3,3) beside it (pushes row 3 left); a real observer at
+  (4,3) facing up emits only down; the ideal uses (4,2,1).
+- Next: wire the top (22 cells) to that schedule: satwire with the bottom wiring kept (running).
