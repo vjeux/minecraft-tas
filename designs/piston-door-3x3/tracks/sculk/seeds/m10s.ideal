@@ -1,0 +1,40 @@
+# u7-m10a with ONE symmetric train (track sculk): the same events after both lever flips.
+design designs/piston-door-3x3/tracks/sculk/seeds/m10a.txt
+let h0 = 2
+let hl = 4
+let k = 6
+let l0 = 8
+let l12 = 12
+let u1 = 2
+let u2 = 12
+let af = 12
+open 0 use 4 5 0
+close 0 use 4 5 0
+open h0 set 1 3 -1 minecraft:redstone_block
+open h0+hl clear 1 3 -1
+close h0 set 1 3 -1 minecraft:redstone_block
+close h0+hl clear 1 3 -1
+open k set -1 -1 -1 minecraft:redstone_block
+open k+2 clear -1 -1 -1
+close k set -1 -1 -1 minecraft:redstone_block
+close k+2 clear -1 -1 -1
+open l0 set -2 0 -1 minecraft:redstone_block
+open l0+2 clear -2 0 -1
+close l0 set -2 0 -1 minecraft:redstone_block
+close l0+2 clear -2 0 -1
+open l12 set -2 2 -1 minecraft:redstone_block
+open l12+2 clear -2 2 -1
+close l12 set -2 2 -1 minecraft:redstone_block
+close l12+2 clear -2 2 -1
+open u1 set 1 -2 -1 minecraft:redstone_block
+open u1+2 clear 1 -2 -1
+close u1 set 1 -2 -1 minecraft:redstone_block
+close u1+2 clear 1 -2 -1
+open u2 set 1 -2 -1 minecraft:redstone_block
+open u2+2 clear 1 -2 -1
+close u2 set 1 -2 -1 minecraft:redstone_block
+close u2+2 clear 1 -2 -1
+open af set 1 4 -1 minecraft:redstone_block
+open af+2 clear 1 4 -1
+close af set 1 4 -1 minecraft:redstone_block
+close af+2 clear 1 4 -1

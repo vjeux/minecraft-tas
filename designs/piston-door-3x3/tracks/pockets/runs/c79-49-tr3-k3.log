@@ -1,0 +1,429 @@
+assist designs/piston-door-3x3/tracks/pockets/plans/c79-49-tr4.ideal: 4 input cells off the plane ([(4, 2), (1, 3), (1, 5), (1, 4)]), 4 / 4 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/finds/c79-49-bl5-br3.txt: 49 blocks in the box, screen 79/79
+14 piston cells locked, 40 cells free
+seed screen 79/79 with 4 inputs assisted
+windows (6 groups, 0.0 s):
+  input (4,2) open  t0 off: window [+0, +1]
+  input (1,3) open  t2 pulse 4 gt: window [-1, +1]
+  input (1,5) open  t10 off: window [-10, +24]
+  input (4,2) close t0 on: window [+0, +1]
+  input (1,4) close t4 pulse 2 gt: window [-4, +0]
+  input (1,5) close t10 on: window [-1, +24]
+8 pocket cells in 5 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 56 swept cells
+  pocket 0: 1 cells [(-2, -3)]
+  pocket 1: 1 cells [(-2, 5)]
+  pocket 2: 1 cells [(-1, 3)]
+  pocket 3: 3 cells [(3, 3), (4, 3), (4, 4)]
+  pocket 4: 2 cells [(4, -3), (4, -2)]
+pocket 0: 1 cells, 1 subset/lever items, 60 fillings to screen
+pocket 0: 65 screened, 40 keep the door working, 0.3 s; driven input sets: {(1,5)o10 (1,5)c10} x5 (best 1 blocks)
+pocket 1: 1 cells, 1 subset/lever items, 60 fillings to screen
+pocket 1: 65 screened, 16 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 1 cells, 1 subset/lever items, 60 fillings to screen
+pocket 2: 68 screened, 31 keep the door working, 0.3 s; driven input sets: {(1,5)o10 (1,5)c10} x1 (best 1 blocks)
+pocket 3: 3 cells, 65 subset/lever items, 223380 fillings to screen
+pocket 3: 358426 screened, 64825 keep the door working, 3.5 s; driven input sets: {(4,2)o0 (1,3)o2 (4,2)c0 (1,4)c4} x5 (best 3 blocks), {(1,3)o2 (1,4)c4} x41 (best 3 blocks)
+pocket 4: 2 cells, 2 subset/lever items, 3660 fillings to screen
+pocket 4: 3956 screened, 1849 keep the door working, 2.3 s; driven input sets: {(1,5)o10 (1,5)c10} x128 (best 1 blocks)
+combination 1: true partial, 1 inputs still assisted [1,5] (49 blocks)
+combination 2: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-0.txt
+combination 3: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-1.txt
+combination 4: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-2.txt
+combination 5: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-3.txt
+combination 6: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-4.txt
+combination 7: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-5.txt
+combination 8: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-6.txt
+combination 9: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-7.txt
+combination 10: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-8.txt
+combination 11: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-9.txt
+combination 12: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-10.txt
+combination 13: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-11.txt
+combination 14: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-12.txt
+combination 15: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-13.txt
+combination 16: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-14.txt
+combination 17: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-15.txt
+combination 18: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-16.txt
+combination 19: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-17.txt
+combination 20: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-18.txt
+combination 21: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-19.txt
+combination 22: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-20.txt
+combination 23: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-21.txt
+combination 24: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-22.txt
+combination 25: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-23.txt
+combination 26: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-24.txt
+combination 27: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-25.txt
+combination 28: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-26.txt
+combination 29: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-27.txt
+combination 30: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-28.txt
+combination 31: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-29.txt
+combination 32: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-30.txt
+combination 33: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-31.txt
+combination 34: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-32.txt
+combination 35: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-33.txt
+combination 36: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-34.txt
+combination 37: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-35.txt
+combination 38: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-36.txt
+combination 39: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-37.txt
+combination 40: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-38.txt
+combination 41: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-39.txt
+combination 42: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-40.txt
+combination 43: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-41.txt
+combination 44: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-42.txt
+combination 45: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-43.txt
+combination 46: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-44.txt
+combination 47: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-45.txt
+combination 48: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-46.txt
+combination 49: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-47.txt
+combination 50: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-48.txt
+combination 51: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-49.txt
+combination 52: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-50.txt
+combination 53: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-51.txt
+combination 54: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-52.txt
+combination 55: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-53.txt
+combination 56: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-54.txt
+combination 57: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-55.txt
+combination 58: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-56.txt
+combination 59: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-57.txt
+combination 60: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-58.txt
+combination 61: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-59.txt
+combination 62: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-60.txt
+combination 63: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-61.txt
+combination 64: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-62.txt
+combination 65: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-63.txt
+combination 66: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-64.txt
+combination 67: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-65.txt
+combination 68: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-66.txt
+combination 69: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-67.txt
+combination 70: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-68.txt
+combination 71: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-69.txt
+combination 72: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-70.txt
+combination 73: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-71.txt
+combination 74: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-72.txt
+combination 75: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-73.txt
+combination 76: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-74.txt
+combination 77: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-75.txt
+combination 78: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-76.txt
+combination 79: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-77.txt
+combination 80: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-78.txt
+combination 81: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-79.txt
+combination 82: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-80.txt
+combination 83: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-81.txt
+combination 84: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-82.txt
+combination 85: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-83.txt
+combination 86: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-84.txt
+combination 87: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-85.txt
+combination 88: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-86.txt
+combination 89: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-87.txt
+combination 90: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-88.txt
+combination 91: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-89.txt
+combination 92: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-90.txt
+combination 93: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-91.txt
+combination 94: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-92.txt
+combination 95: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-93.txt
+combination 96: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-94.txt
+combination 97: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-95.txt
+combination 98: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-96.txt
+combination 99: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-97.txt
+combination 100: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-98.txt
+combination 101: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-99.txt
+combination 102: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-100.txt
+combination 103: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-101.txt
+combination 104: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-102.txt
+combination 105: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-103.txt
+combination 106: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-104.txt
+combination 107: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-105.txt
+combination 108: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-106.txt
+combination 109: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-107.txt
+combination 110: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-108.txt
+combination 111: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-109.txt
+combination 112: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-110.txt
+combination 113: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-111.txt
+combination 114: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-112.txt
+combination 115: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-113.txt
+combination 116: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-114.txt
+combination 117: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-115.txt
+combination 118: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-116.txt
+combination 119: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-117.txt
+combination 120: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-118.txt
+combination 121: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-119.txt
+combination 122: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-120.txt
+combination 123: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-121.txt
+combination 124: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-122.txt
+combination 125: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-123.txt
+combination 126: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-124.txt
+combination 127: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-125.txt
+combination 128: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-126.txt
+combination 129: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-127.txt
+combination 130: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-128.txt
+combination 131: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-129.txt
+combination 132: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-130.txt
+combination 133: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-131.txt
+combination 134: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-132.txt
+combination 135: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-133.txt
+combination 137: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-134.txt
+combination 138: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-135.txt
+combination 139: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-136.txt
+combination 140: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-137.txt
+combination 141: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-138.txt
+combination 142: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-139.txt
+combination 143: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 50 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-50-140.txt
+combination 144: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-141.txt
+combination 145: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-142.txt
+combination 146: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-143.txt
+combination 147: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-144.txt
+combination 148: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-145.txt
+combination 149: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-146.txt
+combination 150: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-147.txt
+combination 151: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-148.txt
+combination 152: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-149.txt
+combination 153: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-150.txt
+combination 154: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-151.txt
+combination 155: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-152.txt
+combination 156: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-153.txt
+combination 157: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-154.txt
+combination 158: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-155.txt
+combination 159: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-156.txt
+combination 160: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-157.txt
+combination 161: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-158.txt
+combination 162: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-159.txt
+combination 163: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-160.txt
+combination 164: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-161.txt
+combination 165: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-162.txt
+combination 166: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-163.txt
+combination 167: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-164.txt
+combination 168: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-165.txt
+combination 169: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-166.txt
+combination 170: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-167.txt
+combination 171: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-168.txt
+combination 172: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-169.txt
+combination 173: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-170.txt
+combination 174: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-171.txt
+combination 175: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-172.txt
+combination 176: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-173.txt
+combination 177: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-174.txt
+combination 178: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-175.txt
+combination 179: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-176.txt
+combination 180: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-177.txt
+combination 181: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-178.txt
+combination 182: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-179.txt
+combination 183: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-180.txt
+combination 184: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-181.txt
+combination 185: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-182.txt
+combination 186: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-183.txt
+combination 187: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-184.txt
+combination 188: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-185.txt
+combination 189: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-186.txt
+combination 190: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-187.txt
+combination 191: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-188.txt
+combination 192: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-189.txt
+combination 193: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-190.txt
+combination 194: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-191.txt
+combination 195: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-192.txt
+combination 196: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-193.txt
+combination 197: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-194.txt
+combination 198: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-195.txt
+combination 199: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-196.txt
+combination 200: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-197.txt
+combination 201: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-198.txt
+combination 202: perfect screen; redsim judge: combo: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-63b-51-199.txt
+202 combinations verified, 200 finds, 9 s total

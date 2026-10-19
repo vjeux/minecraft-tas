@@ -1,0 +1,19 @@
+# m79p (m10top bd34158) top-right re-wiring: plan-from --region 2,5;3,5;3,4;3,3 --close (closes with
+# (4,3), (4,2)): A's hold, TRp's drop, the R pair; + m79p's own ideal inputs (B's pulse, A's last pull, L1/L2)
+design designs/piston-door-3x3/tracks/m10top/m79p.txt
+open 3 set 1 3 1 minecraft:redstone_block
+open 8 clear 1 3 1
+open 0 clear 2 4 1
+close 0 set 2 4 1 minecraft:redstone_block
+open 0 clear 4 1 1
+close 0 set 4 1 1 minecraft:redstone_block
+open 10 set 1 5 -1 minecraft:redstone_block
+open 12 clear 1 5 -1
+open 14 set 1 4 -1 minecraft:redstone_block
+open 16 clear 1 4 -1
+open 14 set -2 2 -1 minecraft:redstone_block
+open 16 clear -2 2 -1
+close 2 set 1 5 -1 minecraft:redstone_block
+close 4 clear 1 5 -1
+close 0 set -2 2 -1 minecraft:redstone_block
+close 2 clear -2 2 -1

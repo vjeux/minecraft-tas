@@ -1,0 +1,49 @@
+name: cosearch-partial-0-75of79
+port door: 0 0 0
+port lever: 5 2 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:piston_head[facing=west,short=false,type=sticky]
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:dropper[facing=west,triggered=false]
+  E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  F minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:sticky_piston[extended=true,facing=down]
+  K minecraft:sticky_piston[extended=true,facing=west]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  M minecraft:stone
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:oak_log[axis=y]
+  P minecraft:piston[extended=false,facing=down]
+  Q minecraft:white_glazed_terracotta[facing=south]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:smooth_stone
+  T minecraft:white_glazed_terracotta[facing=west]
+  U minecraft:white_wool
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  c minecraft:comparator[facing=east,mode=subtract,powered=false]
+  o minecraft:observer[facing=up,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  w minecraft:white_glazed_terracotta[facing=north]
+layer -2:
+  PAHHDIC
+layer -1:
+  rU..UcW
+layer 0:
+  oUMMM.I
+layer 1:
+  G.MMMBK
+layer 2:
+  OUMMMSNL
+layer 3:
+  .ROs.IP
+layer 4:
+  .TFpH
+layer 5:
+  .Q.JEwU
