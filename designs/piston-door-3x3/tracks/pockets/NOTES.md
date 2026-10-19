@@ -4,7 +4,10 @@ Brief (coordinator for vjeux, 2026-10-19 05:47Z): run cosearch2's `door cosearch
 mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; first the tool items
 (periodic rest rule, off-plane lever, region closure). Box: devvm49255 (dedicated, 166 cores).
 
-**Result: BEST.txt = `finds/c79-49-bl5-br3.txt`, 63b (7x9x1), 49 blocks, solid, slime-free, FULL seamless,
+**Result (pockets2, 10:34Z): BEST.txt = `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks, solid, FULL
+seamless, rotation-safe, open 39 / close 27, verify at 32 positions** (e88's 43-block record t7b, 43/31,
+with its right wall re-wired: same size, 8 ticks faster; section 8). Earlier (pockets): `finds/c79-49-bl5-br3.txt`,
+63b (7x9x1), 49 blocks, solid, slime-free, FULL seamless,
 15/15, verify at 32 positions** (ties satwire-63b-49-49b; section 6). Plus two more 49s (`finds/c79-49-tl1`,
 `-tl12`), two 50s, and 127 more 51-block wirings of the community 7x9. No 7x8 or 8x8 door: every
 7x8/8x8 mechanism and hot seed tried stays a few inputs short (sections 2, 4, 5, 7).
@@ -191,4 +194,18 @@ Results:
 * mechspace single-U oc plans compacted (`cpt/`, `runs/sl-compact.log`): 63 working plans, last input
   t62..66 -> t12 (sl-025, sl-076), t15 (sl-047), t18..30 for 30 more. pockets k=3 (default palette, lever
   both polarities) on the 12 most compact (`runs/slc-k3.log`): 8..22 of 25..33 groups undriven (sl-076 8,
-  sl-025 9, sl-047 11), best partials 8..13 inputs left; the same plans uncompacted: `runs/slo-k3.log`.
+  sl-025 9, sl-047 11), best partials 8..13 inputs left; the same plans UNCOMPACTED (`runs/slo-k3.log`):
+  5..23 undriven (sl-025 5, sl-076 7, sl-089 7), best partials 9..12 left: compaction does NOT help the
+  pocket search (every compacted group sits at the early edge of its window, many share t0).
+* s79's c78z (7x8, only U and R0 ideal, coordinator 10:23Z; `runs/c78z-k4`, the 4 bottom-right cells,
+  full palette + sculk, k=4): R0 real on both edges with 2 blocks (2000 variants); U's U2 open + U1 close
+  with 3 blocks; never U's 1-gt open pulse nor the close U2: best true partial = only U assisted, 45
+  blocks. ideal-rs: U's first pulse must be exactly 1 gt (2 gt: BM lands at (1,-1) one tick after K's
+  pull starts, K and L0 are slaved to U through the observer (0,-2)).
+* **e88-t7b-43b (the new 43-block record, a 10-piston mechanism) re-wired: `finds/t7b-rwfast-43.txt` =
+  BEST.txt, 63b 43 blocks, solid, FULL, rotation-safe, open 39 / close 27 (t7b: 43 / 31), verify
+  --extra-offsets 28 WORKS**: its right wall becomes observer (3,3) west -> dust (4,3) -> stone (4,2)
+  (MR direct, BR by QC) instead of repeater + observer (4 gt faster). Both walls are minimal at 3
+  blocks (k=3, full palette + sculk; 64 wall variants at 43 blocks in `runs/t7b-lw-k3`, `runs/t7b-rw-k3`).
+  The bottom: BL (7 cells) is a closed region; BR's merger closes into BL (13 cells). `ideal-rs --drop 2`:
+  only the 3 frame stones drop (the frame rule keeps them). BL k=6 x 14 states (708M): `runs/rf-bl-k6`.
