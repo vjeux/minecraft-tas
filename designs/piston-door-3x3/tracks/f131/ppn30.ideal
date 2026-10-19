@@ -1,0 +1,11 @@
+# pn26 (annealer find, seed pn21b, sculk palette on): dust dot (0,6) on glazed terracotta (0,5) gives PN
+# and DE E's window; comparator (1,6) -> bulb (2,6) -> comparator (3,6) -> S_R+. Ideal: P3, L2.
+design designs/piston-door-3x3/tracks/f131/pn26b.txt
+let ol = 8
+let cl = 8
+open 0 use -3 6 0
+close 0 use -3 6 0
+open ol set -2 2 1 minecraft:redstone_block
+open ol+2 clear -2 2 1
+close cl set -2 2 1 minecraft:redstone_block
+close cl+2 clear -2 2 1

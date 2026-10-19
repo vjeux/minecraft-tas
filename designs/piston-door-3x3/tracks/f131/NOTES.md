@@ -90,3 +90,42 @@ observer pulse (a repeater stretches a 2 gt pulse to at most 8 gt and never leng
   hops, then a conductor at (-2,3)); t8 needs a third hop and the column has no room. Ideas:
   P3 armed through its quasi cell (-1,4) (a conductor at (-2,4) powered by an observer does not
   update P3) and retracted by the update of PN's head entering (-1,4) at t10.
+
+### Why P3 resists (pn26b, ideal + traces)
+
+* P3 must pull the top-middle after it lands on (1,3) (shot a: D1 retracts t6, block lands t8 in the
+  block-entity phase) and before DE pushes D1 into (1,3) at t10 (start of the shared window).
+  So on OPEN P3 retracts at t9 (from a block-entity-phase update at t8: its own head finishing, the
+  block landing next to its head, or L2's block landing on (-1,2)) or at t10 before DE.
+  On CLOSE P3 must not touch (1,3) while D1's shot-a head is there (t4..t6) and must stay out until
+  >= t10 (else it pulls the block back): extend at t6..t8, retract >= t10.
+* From W (t2) the only observer hops in the left column are (-2,5) facing up (t4, output into
+  (-2,4)), (-2,4) facing up (t6, output into (-2,3)), (-2,3) facing up (t8, output into L2): the
+  t8 hop can only feed L2/L1, P3 gets t4 (quasi cell via a conductor at (-2,4)) or t6 (conductor
+  (-2,3)); a t6 pulse ends with an update at t8 before the block lands (pn20/pk17h: BROKEN).
+  Watchers of PN fire twice (t4 and t8, and again at t12...), watchers of L2 twice (t_L+2, t_L+6).
+* A conductor at (-2,4) arms P3 through (-1,4) WITHOUT updating it (the observer updates only
+  (-2,4)'s neighbours), so P3 then moves on the next update it gets: PN's head leaving (-1,4) at t4
+  (too early on close: pn28a traces P3 at t4 and back at t7), entering at t10 (after DE's push in
+  the same block-event phase), or L2's moves through (-1,2).
+
+## 5. Best partial: pn31.txt + ppn31.ideal, only P3 ideal (redsim WORKS 4 x 2, open 24 / close 27)
+
+* L1/L2 wired (main's `door ideal-rs --vary`, 4116 variants): observers (-2,5) and (-2,4) facing up
+  (W -> t4 -> t6) and a redstone lamp (-2,3) (a conductor while powered): L2 direct, L1 through its
+  quasi cell, at t6. The lamp also powers P3 at t6..t8; with P3's ideal pulse at ideal 6..7 (open)
+  and 4, 6..9 or 18 (close) on top, the door works.
+* P3 alone (what is missing): it needs power that lasts until real t9..t10 on open (pull after the
+  top-middle lands at t8, before DE's push at t10) and must not reach (1,3) before t5..t6 on close.
+  A second P3 pulse later is harmless (ppn32: open 10..17 or 20..23, close any).
+* Exhaustive `--vary` screens of the left column (-2,3), (-2,4), (-2,5) (the only free cells next
+  to P3's feeds (-2,3) and (-1,4)): with P3 and L1/L2 real, 13,824 variants (24 states incl.
+  observers, dust, lamps, bulbs, note blocks, targets, pistons, wool, sculk and calibrated sensors,
+  torches) -> 0 work; with L1/L2 ideal at any tick 2..12, 3,604,711 variants (31 states incl.
+  repeaters and comparators) -> 0 work; with E's delay varied too, 0. The annealer (two runs, 40
+  min) found no P3 drive either.
+* Why: from W (t2) the column gives t4 (one hop) and t6 (two hops) into P3; the third hop (t8) can
+  only face L2. Any pulse into P3 that ends at t8 retracts it before the block lands; arming P3
+  through (-1,4) (silent) needs (-2,4) as a conductor, and then PN's head leaving (-1,4) at t4
+  extends P3 too early on close, while PN's head entering at t10 comes after DE's push in the same
+  block-event phase.

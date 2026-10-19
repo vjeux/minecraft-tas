@@ -1,0 +1,53 @@
+name: cosearch-full-1as
+assisted: -1,3
+port door: 0 0 0
+port lever: -3 6 0
+origin: -3 0 0
+palette:
+  A minecraft:comparator[facing=west,mode=compare,powered=true]
+  B minecraft:observer[facing=east,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=true]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:obsidian
+  H minecraft:piston_head[facing=up,short=false,type=sticky]
+  I minecraft:piston_head[facing=west,short=false,type=sticky]
+  J minecraft:redstone_wire[east=none,north=none,power=15,south=none,west=none]
+  K minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:oak_log[axis=y]
+  P minecraft:piston[extended=false,facing=down]
+  Q minecraft:sticky_piston[extended=true,facing=down]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:sticky_piston[extended=true,facing=up]
+  U minecraft:sticky_piston[extended=true,facing=west]
+  V minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=true,powered=false]
+  c minecraft:comparator[facing=west,mode=compare,powered=false]
+  o minecraft:observer[facing=down,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  w minecraft:white_glazed_terracotta[facing=north]
+layer -2:
+  .NVBTR.M
+layer -1:
+  .o.VHV.E
+layer 0:
+  .s.VVVIU
+layer 1:
+  .s.VVVIU
+layer 2:
+  .s.VVVVV
+layer 3:
+  .Gs..pwJ
+layer 4:
+  .E.FSQCR
+layer 5:
+  .EPOSDVp
+layer 6:
+  LFKrcWAQ

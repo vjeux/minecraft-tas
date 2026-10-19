@@ -1,0 +1,22 @@
+# pn26b, P3 = two 2-gt pulses (sensor + observer shape), L ideal
+design designs/piston-door-3x3/tracks/f131/pn26b.txt
+let op = 7
+let op2 = 17
+let cp = 7
+let cp2 = 17
+let ol = 8
+let cl = 8
+open 0 use -3 6 0
+close 0 use -3 6 0
+open op set -1 3 1 minecraft:redstone_block
+open op+2 clear -1 3 1
+open op2 set -1 3 1 minecraft:redstone_block
+open op2+2 clear -1 3 1
+close cp set -1 3 1 minecraft:redstone_block
+close cp+2 clear -1 3 1
+close cp2 set -1 3 1 minecraft:redstone_block
+close cp2+2 clear -1 3 1
+open ol set -2 2 1 minecraft:redstone_block
+open ol+2 clear -2 2 1
+close cl set -2 2 1 minecraft:redstone_block
+close cl+2 clear -2 2 1
