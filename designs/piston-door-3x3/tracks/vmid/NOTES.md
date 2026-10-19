@@ -110,8 +110,9 @@ Wiring status (no wired door yet):
   vd1w, vd1s, vd1L (core: close BLp alone). UNSAT is relative to each plan's order and timing.
 * cosearch `--assist` (60 min runs, 34 threads): vm1 7x9 77/79 with TL's + TR's pullers still
   assisted (lever bottom) / 75/79 with BL's + BR's (lever top); vd1w and vd1s 73/79 with TL's
-  puller assisted; ve1 73/79 with 2-3 assisted after 300 s (still running at the end, finds go to
-  tracks/vmid/finds-ve1a, -ve1b on devvm52954). satwire on ve1 (`--dmax 16`): UNSAT.
+  puller assisted; ve1 (two 3600 s runs, lock-pistons / no-mech): 0 finds, best 75/79 with the
+  right-side pullers (4,2), (4,0) still assisted / 73/79 with (4,2), (0,-2). satwire on ve1
+  (`--dmax 16`): UNSAT.
 * Why the links are the problem (simulator traces, `vm1Lw1`): an observer watching a pulse-driven
   puller fires TWICE (extension, then the landing of the retraction, 4 gt apart); a puller fed that
   double pulse pulls on open (the second pulse finds the block still moving) but on close pushes
