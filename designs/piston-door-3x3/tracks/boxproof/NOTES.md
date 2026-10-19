@@ -113,10 +113,16 @@ over the placement space, not yet a theorem about the game.
 * 02:35Z 5x5 all offsets UNSAT (`--nondet`, T=20).
 * 02:51Z find-mode calibration: e89b with 2 bottom wiring cells erased, full palette (pistons
   allowed in the free cells): SAT in 617 s, the solver put back e89b's two observers (screen
-  Pass). 1 erased cell (observer+torch palette): 3.3 s. 3 and 6 erased cells, e89b's mechanism
-  in 7x8 (4 lever cubes + a wiring-only run), vb3 (2 cubes), vb2, vc1, f131L, 8x8-131, w63 top
-  (7x9): no answer by 03:15Z (35-50 min each). f131X stopped (wire131 proved its top link
-  unwirable in the plane).
+  Pass). 1 erased cell (observer+torch palette): 3.3 s. 6 erased cells (wiring palette): first
+  model after 1130 s, then CEGAR: 4 models the redsim screen rejected (the model said open,
+  redsim did not: race outcomes the find mode ignores), each next model in 2-15 s, the 5th
+  passed (open 34 / close 34). 3 erased cells (full palette), e89b's mechanism in 7x8 (4 lever
+  cubes + a wiring-only run), vb3 (2 cubes), vb2, vc1, f131L, 8x8-131, w63 top (7x9): no answer by
+  03:15Z (35-50 min each). f131X stopped (wire131 proved its top link unwirable in the plane).
+* 03:10Z "e89b squeezed into 7x8" (x -2..4, y -3..4: e89b's mechanism and its in-box wiring
+  fixed, its cut column x=-3 and row y=-4 gone, 25 cells next to the cuts plus every air cell
+  free, wiring palette): one run with the lever just outside the box under (0,-3), three lever
+  cubes with the lever free. `door boxproof watch` (background) waits for a screen Pass.
 
 ## Next ideas
 * The solver, not the encoding, is the wall: cost grows steeply with free cells (1 cell
