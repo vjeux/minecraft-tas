@@ -80,6 +80,39 @@ pub enum ClockCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// Exhaustive census on redsim: every filling of an AxBxC box with kmin..=k blocks of the
+    /// palette (every facing), one per class up to translation and the 4 rotations, judged
+    /// self-starting and then with each block placed last; writes <out>/clocks.tsv (every clock:
+    /// period, waveform, family, blocks, box, start, type key, canonical encoding), a design per
+    /// smallest clock of each (period, family) in <out>/designs/, <out>/summary.md. Resumable
+    /// (<out>/parts/, one file per finished chunk). The ground truth of the small clocks.
+    Census {
+        /// Box as AxBxC (x, y, z).
+        #[arg(long = "box")]
+        dims: String,
+        /// Comma list of shorthands (core, stone, glass, rblock, dust, torch, repeater, comparator,
+        /// observer, piston, sticky, lamp, bulb, note, target, slime, sculk, csculk, hopper,
+        /// dropper, trapdoor, leaves, scaffold...) or block states.
+        #[arg(long, default_value = "core")]
+        palette: String,
+        #[arg(long)]
+        k: usize,
+        #[arg(long, default_value_t = 1)]
+        kmin: usize,
+        /// Longest period looked for (sets the horizon: 4 periods + 1000 gt of warmup).
+        #[arg(long, default_value_t = 500)]
+        max_period: u32,
+        #[arg(long, default_value_t = 2)]
+        margin: i32,
+        /// Self-starting only (no block placed last).
+        #[arg(long)]
+        no_kick: bool,
+        /// Threads (default: every core but 4).
+        #[arg(long)]
+        workers: Option<usize>,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Write designs/clocks/CATALOG.md (per period: the distinct types, families and the smallest
     /// of each; the period x family coverage matrix; the impossibility table from
     /// designs/clocks/impossible.tsv) and designs/clocks/coverage.md (the matrix alone, mirrored
@@ -188,6 +221,36 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         ClockCmd::Catalog { dir, out, coverage } => {
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
+        }
+        ClockCmd::Census { dims, palette, k, kmin, max_period, margin, no_kick, workers, out } => {
+            let d: Vec<i32> = dims.split('x').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+            if d.len() != 3 || d.iter().any(|x| *x < 1) {
+                bail!("--box AxBxC, got {dims:?}");
+            }
+            let workers = workers.unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(4).max(1));
+            let o = clock::census::CensusOptions {
+                dims: [d[0], d[1], d[2]],
+                palette: clock::census::expand_palette(&palette)?,
+                k,
+                kmin,
+                horizon: 4 * max_period + 1000,
+                margin,
+                kick_last: !no_kick,
+                workers,
+                out: out.clone(),
+            };
+            println!("census {}x{}x{} k {}..={} palette {} states, {workers} threads -> {}", d[0], d[1], d[2], kmin, k, o.palette.len(), out.display());
+            let t0 = std::time::Instant::now();
+            let last = std::sync::Mutex::new(std::time::Instant::now());
+            let found = clock::census::census(&o, &|done, total, n| {
+                let mut l = last.lock().unwrap();
+                if l.elapsed().as_secs() >= 30 || done == total {
+                    *l = std::time::Instant::now();
+                    eprintln!("  {done}/{total} chunks, {n} clocks, {:.0} s", t0.elapsed().as_secs_f64());
+                }
+            })?;
+            let (n, types, pairs) = clock::census::write_outputs(&o, &found)?;
+            println!("{n} clocks, {types} types, {pairs} (period, family) pairs in {:.1} s: {}/clocks.tsv, summary.md, designs/", t0.elapsed().as_secs_f64(), out.display());
         }
         ClockCmd::Obs { args } => clock_obs::run(args)?,
         ClockCmd::Rt { args } => clock_rt::run(args)?,

@@ -102,10 +102,26 @@ Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives v
 | `mctas clock verify <design>... [--positions 8] [--no-rotations] [--horizon 4000] [--margin 3] [--workers 8] [-v] [--json]` | THE judge, in the real game: every build in a cleared sandbox at the door judge's positions x 4 rotations (the game turns every block state, and a temporary start block), placed and kicked like `clock sim`, every tick of the watched box recorded (block states and block entities); exact periodicity of the visible state for >= 3 periods after warmup, no entity, never reaching the watched box's edge, the same period/output waveform/family everywhere. Prints `CLOCK: <name> period P gt, on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust\|position-dependent\|rotation-dependent`, the builds that differ or fail, and the redsim agreement (`redsim AGREES (period, warmup, output waveform, family, box)` or what redsim says); exits 1 unless it is a clock |
 | `mctas clock archive <design>... [--caption '...'] [--dir designs/clocks/archive]` | (coordinator) the judge, then a copy in the archive (header: date, source, the judge's line), its row in `verdicts-v1.tsv` (period, warmup, output duty and edges, family, blocks, box, robustness, start, type key, chirality) and its caption in `captions.tsv` (default: the design's first comment block); a clock already archived (same blocks, ports, kick, block entities) is skipped |
 | `mctas clock catalog` | (coordinator) writes `designs/clocks/CATALOG.md` from the archive's verdicts (no game): the period x family coverage matrix (fewest blocks, linked), the periods a family cannot reach (`designs/clocks/impossible.tsv`, hand-edited: family, periods, why), and per period every distinct type (the smallest instance of each, the smallest per family in bold) with its box, duty, edges, start, robustness and caption; and `designs/clocks/coverage.md` (the matrix alone, mirrored on the board's `minecraft-tas/clocks/coverage.md`) |
+| `mctas clock census --box AxBxC --k N [--kmin 1] [--palette core] [--max-period 500] [--margin 2] [--no-kick] [--workers W] --out DIR` | the exhaustive census on redsim: every filling of the box with kmin..=k blocks of the palette (every facing of every component: shorthands `core` = stone, glass, rblock, dust, torch (standing + 4 wall), repeater (4 facings x 4 delays), comparator (4 x 2 modes), observer (6), piston (6), sticky (6), lamp, bulb, note, target, slime; also sculk, csculk, hopper, dropper, dispenser, trapdoor, itrapdoor, leaves, scaffold, honey, wool, obsidian, amethyst, or block states), one per class up to translation (it touches the box's low faces) and the 4 rotations (smallest encoding among the rotations that fit), only fillings with a delay element (torch, repeater, comparator, observer, piston, lamp, sculk, hopper, dropper...); judged self-starting, then with each block placed last; a found clock gets the full `clock sim` analysis and a MINIMAL flag (no single block can go with its period kept). Writes `DIR/clocks.tsv` (every clock: period, whole-state period, warmup, family, blocks, box, duty, edges, pulses, start, type key, canonical encoding, minimal), `minimal.tsv`, `designs/` (the smallest clock of each (period, family)), `summary.md`. Resumable: `DIR/parts/` holds one file per finished chunk (a cell set and its first cell's state); a rerun skips them |
 
-Coming next (this track): `clock census` (every filling of a box with <= k blocks of a palette, up
-to translation and rotation, judged by `clock sim`: the ground truth of the small clocks), clock
-checks in `door selftest`, and `clock video` (the coordinator records).
+Coming next (this track): clock checks in `door selftest`, and `clock video` (the coordinator
+records).
+
+## Census results (redsim, `core` palette, self-start or one block placed last)
+
+`designs/clocks/census/<box>-k<k>/`: `summary.md`, `minimal.tsv`, `designs/` (the smallest clock of
+each (period, family); every one of them verified `robust` in the game by `clock verify`).
+
+| box | k | clocks | minimal types | periods: smallest clock per family |
+|---|---|---|---|---|
+| 2x1x1 | 2 | 1 | 1 | P6: observer pair (2) |
+| 3x1x1 | 3 | 33 | 2 | P6: observer pair (2); P12: observer pair + copper bulb (3: the bulb halves the pair's pulses) |
+| 2x2x1 (vertical) | 4 | 3621 | 9 | P6: observer pair (2), sticky piston + slime + redstone block (3: QC power from the block above, dragged away by the slime), + note block / lamp / observer variants (4); P8: 4-observer ring (4); P12: sticky piston + slime + redstone block + copper bulb (4) |
+| 2x1x2 (flat) | 4 | 1073 | 5 | P6: observer pair (2), sticky piston + slime + redstone block flat (4); P8: 4-observer ring (4) |
+
+Every other filling of these boxes with that many blocks is not a clock (on redsim, with these
+starts): with <= 2 blocks the observer pair is the only clock; with <= 3 blocks in a 3x1x1 row, the
+pair alone or with a bulb.
 
 Types: `clock::canon` turns and mirrors block states on their text (facing, axis, the four side
 properties, rotation, rail shapes, crafter orientation, hinge) and drops the dynamic properties

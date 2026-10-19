@@ -125,7 +125,8 @@ pub fn rotated(w: &mut Worker, c: &Clock, turns: u8) -> Result<Clock> {
     d.ports = c.design.ports.iter().map(|(k, p)| (k.clone(), crate::rotate_pos(*p, turns))).collect();
     d.block_entities = c.design.block_entities.iter().map(|(p, s)| (crate::rotate_pos(*p, turns), s.clone())).collect();
     if let Some(Kick::Place { ticks, .. }) = &c.kick {
-        d.meta.insert("port start".into(), format!("{} {ticks}", turned.last().unwrap()));
+        let at = if c.kick_at > 0 { format!(" at {}", c.kick_at) } else { String::new() };
+        d.meta.insert("port start".into(), format!("{} {ticks}{at}", turned.last().unwrap()));
     }
     Clock::from_design(d)
 }
