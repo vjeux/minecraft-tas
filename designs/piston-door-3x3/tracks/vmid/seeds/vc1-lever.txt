@@ -1,0 +1,32 @@
+name: vc1-lever
+# vmid's vc1 (mech/vc1.txt) with a lever outside the box at (-2,-4) under a glass block (-2,-3).
+# 7 wide x 8 tall (x -2..4, y -3..4). Seed for `door cosearch search --assist mech/vc1.ideal`.
+port door: 0 0 0
+port lever: -2 -4 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:glass
+  L minecraft:lever[face=ceiling,facing=west,powered=false]
+layer -4:
+  L......
+layer -3:
+  G..U...
+layer -2:
+  ..UU...
+layer -1:
+  .....W.
+layer 0:
+  ..SSS.W
+layer 1:
+  ..SSS.W
+layer 2:
+  ..SSS.W
+layer 3:
+  ED...W.
+layer 4:
+  ..DD...
