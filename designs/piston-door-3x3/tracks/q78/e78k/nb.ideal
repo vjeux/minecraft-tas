@@ -1,0 +1,18 @@
+design designs/piston-door-3x3/tracks/q78/e78k/nb.txt
+# r2 with (-1,-3) = NOTE BLOCK (watched by the (0,-3) observer -> B'): lamp (-1,-2) ideal [6,16) both edges, note ideal [12..17, 25) OPEN ONLY.
+# WORKS in ideal-rs (open 35 / close 24). Close tolerates note power [5..12, 19..23) or [24, 28+), never [15,25): B' must be edge-selective.
+# two note-block clocks: (-1,-2) note watched by the (0,-2) observer (A1), (-1,-3) note watched by the (0,-3) observer (B')
+let ls = 6
+let le = 16
+let bs = 15
+let be = 25
+let cs = 15
+let ce = 25
+open 0 use 1 5 0
+close 0 use 1 5 0
+open ls set -1 -2 1 minecraft:redstone_block
+open le clear -1 -2 1
+close ls set -1 -2 1 minecraft:redstone_block
+close le clear -1 -2 1
+open bs set -1 -3 1 minecraft:redstone_block
+open be clear -1 -3 1
