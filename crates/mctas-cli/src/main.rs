@@ -45,6 +45,11 @@ enum Cmd {
         #[command(subcommand)]
         command: clock_cli::ClockCmd,
     },
+    /// REDSTONEPEDIA, the website of every build (docs/site.md): build, deploy.
+    Site {
+        #[command(subcommand)]
+        command: site::SiteCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -120,6 +125,7 @@ fn main() -> Result<()> {
         Cmd::Bench(args) => bench::run(&cli.version, args)?,
         Cmd::Door { command } => door::run(&cli.version, command)?,
         Cmd::Clock { command } => clock_cli::run(&cli.version, command)?,
+        Cmd::Site { command } => site::run(command)?,
     }
     Ok(())
 }
