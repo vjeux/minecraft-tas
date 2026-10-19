@@ -354,7 +354,7 @@ pub fn analyze(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Topo {
 }
 
 /// One catalog piece: `SE(-2,0)`, `SE+(-1,3)`, `ND(1,4)` (sticky/normal, facing, extended at rest).
-fn parse_piece(tok: &str) -> anyhow::Result<(P, Kind)> {
+pub(crate) fn parse_piece(tok: &str) -> anyhow::Result<(P, Kind)> {
     let (head, rest) = tok.split_once('(').ok_or_else(|| anyhow::anyhow!("piece {tok:?}"))?;
     let coords = rest.trim_end_matches(')');
     let (x, y) = coords.split_once(',').ok_or_else(|| anyhow::anyhow!("piece {tok:?}"))?;
@@ -377,7 +377,7 @@ fn parse_piece(tok: &str) -> anyhow::Result<(P, Kind)> {
 }
 
 /// One catalog event: `PSD(1,4)` or `LSE+(-1,-1)` (pulse / level on the piston at that rest cell).
-fn parse_event(w: &World, tok: &str) -> anyhow::Result<Ev> {
+pub(crate) fn parse_event(w: &World, tok: &str) -> anyhow::Result<Ev> {
     let act = match tok.chars().next() {
         Some('P') => Act::P,
         Some('L') => Act::L,
