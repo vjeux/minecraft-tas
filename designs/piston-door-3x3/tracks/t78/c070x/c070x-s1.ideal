@@ -1,0 +1,20 @@
+# t78 c070x-s1: U, BL, BM ideal; E's pulses from the sensor X
+design designs/piston-door-3x3/tracks/t78/c070x/c070x-s1.txt
+let u = 12
+let uc = 9
+let bl = 10
+let bm = 10
+open 0 use 1 5 0
+open u set -1 -1 1 minecraft:redstone_block
+open u+2 clear -1 -1 1
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+close 0 use 1 5 0
+close uc set -1 -1 1 minecraft:redstone_block
+close uc+2 clear -1 -1 1
+close bl set 0 -2 1 minecraft:redstone_block
+close bl+2 clear 0 -2 1
+close bm set 1 -2 1 minecraft:redstone_block
+close bm+2 clear 1 -2 1

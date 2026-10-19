@@ -1,0 +1,35 @@
+# t78 c070x-d1: ceil c070x + c77's trick: a PLAIN sensor (-3,2) above D (lever d 5 -> t5) holds D 30 gt, so the watcher pulse only nudges D: D pushes E to (-1,1) and holds it
+name: t78-c070x-d1
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  Q minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=down]
+  D minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -2:
+  ...ss
+layer -1:
+  ..s..D
+layer 0:
+  DO.DDD.B
+layer 1:
+  SS.DDD.B
+layer 2:
+  QoDDDDDo
+layer 3:
+  .ROPPPAr
+layer 4:
+  ...CCC
+layer 5:
+  ....L

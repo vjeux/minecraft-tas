@@ -1,0 +1,19 @@
+design designs/piston-door-3x3/tracks/t78/c070x/c070x-s2.txt
+open 0 use 1 5 0
+open 12 set -1 1 1 minecraft:redstone_block
+open 14 clear -1 1 1
+open 40 set 0 -2 1 minecraft:redstone_block
+open 42 clear 0 -2 1
+open 40 set 1 -2 1 minecraft:redstone_block
+open 42 clear 1 -2 1
+close 0 use 1 5 0
+close 16 set -1 1 1 minecraft:redstone_block
+close 18 clear -1 1 1
+close 40 set 0 -2 1 minecraft:redstone_block
+close 42 clear 0 -2 1
+close 40 set 1 -2 1 minecraft:redstone_block
+close 42 clear 1 -2 1
+open 30 set -2 1 1 minecraft:redstone_block
+open 32 clear -2 1 1
+close 30 set -2 1 1 minecraft:redstone_block
+close 32 clear -2 1 1
