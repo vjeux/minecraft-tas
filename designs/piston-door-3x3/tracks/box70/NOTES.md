@@ -72,6 +72,7 @@ start exactly 2 gt after P2's power, like an observer watching P2's repeater).
 | top half + right pair, a=10, r=14/18/22 | 7x4 top | UNSAT |
 | full m7, a=10, r=16, bottom at b/b+2/b+4 (BR, M_B, BL), b=22..30 | 7x10 | UNSAT x5 |
 | full m7, a=10/12, r=16..22, all bottom at b=24..36 | 7x10 | UNSAT (every timing finished so far) |
+| m7u (TR up, MR level-held), satwire with retiming (`--dmax 12 --skip 12`, palette + lamp, trapdoor, dropper, obsidian, glass) | 7x10 | UNSAT in 39 s; core: P2, P_TL, P_M in the close trace (with TR's puller at (2,4), P_M's only feeds are (0,4), which also quasi-powers P_TL, and P2's own neighbours) |
 
 The satwire top (rows 3..7 shown, x -3..5; P = mechanism pistons, `:` = swept ring cells, `#` block,
 `+` dust, `e/w/u` observers facing east/west/up, `{` delay-2 repeater facing east, `⇒` delay-4
