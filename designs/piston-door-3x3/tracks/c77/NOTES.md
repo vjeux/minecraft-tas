@@ -80,3 +80,20 @@ top-left cannot pass a level down past D/E/(-1,2). Same for 076 (TLc level-held)
 - Screens: ideal-rs --vary 15 states^6 on the 6 free cells, B' fully real: 0 of 11.4M; B1 real with B2
   ideal: 0 of 933k; pockets3: k=4 full palette (62 states) with the 3-pulse plan: 0 of 20.5M; door fill
   k<=4 (45 states incl. pistons/sculk): 0 of 17.6M; k=5 running (pockets3).
+
+## e78 STONE door line (13:32Z-17:05Z): the stone 7x8 and the sensor-by-sensor solid attempt
+- e78-56b-45 (wool, archived) with its wool door + frame turned to stone breaks (sensors hear through stone);
+  `door fill --keep` k=3 over 17 bottom/top cells re-tuned it: **e78st-56b-44** (archived), 51/15. pockets3's
+  row-3 top (observers (-1,3) E / (3,3) W on the ceiling heads; row 4 wiring gone) -> 42; minus the normal piston
+  (-2,-3) and the obsidian (-2,-1) -> **e78st-56b-40**.
+- Solid conversion one sensor at a time (the sensor's cell pre-cleared, `--keep`, 42 non-sculk states incl.
+  pistons, k<=4): S0 (0,-3) -> observer W on a normal piston (-1,-3) facing up (head-pop relay QC-fired by the
+  BL-park observer (-1,-1)) + obsidian (-2,-1) stopping K's push (without it the k<=4 finds were rotation-unsafe:
+  K and A' both powered at t20, event order decides) = **e78st-56b-41-2s**; S4 (4,-3) -> lamp (3,-3) lit by S2 +
+  observer (3,-2) facing down on it = K, the S4 chain removed = **e78st-56b-38-1s** (pockets3: minus the obsidian
+  = 37). The last sensor S2 (2,-3) (B' power [8,18), lamp for K, gate taps, open-only re-wake at t32 = B2): 0 at
+  k<=3 (10 and 13 cells, mine), exactly 4 (28 states) and exactly 5 (24 states, 2.0G) over 10 cells (pockets3).
+- The solid 7x8 came from e78k's h2 (different bottom: a B'-watcher loop wiggles BL through its puller, the
+  BL-park observer relights the lamp, the lamp observer QC-fires B2) -> pockets3's 44 -> 43 (open 29 / close 15).
+- ideal-rs is unreliable on this bottom: it depends on same-tick event order (K's pull vs A''s push at t12), which
+  the plan's torch inputs reorder; screen real wirings instead.
