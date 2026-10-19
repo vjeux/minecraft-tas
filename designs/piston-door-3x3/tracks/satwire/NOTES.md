@@ -218,3 +218,15 @@ lever/observer chains; not diagnosed yet).
   design, the box has no room for the hold source.
 * `--period2` (new): two cycles (open1, close1, open2, close2) share the placement, each with its
   own warp, each ending where the next starts: a copper bulb may toggle once per cycle.
+* `--hint` (new, with `--from-wired`): solve once with the source wiring assumed (it also checks that
+  the model accepts it), keep that assignment as the solver's phases: e88-t7b's 23-wiring model in
+  ~50 s instead of no model after 20 min; the minimization then continues below the source.
+* Unmodeled wiring of a wired source (sculk sensors, target blocks) is dropped (its cells become free)
+  instead of refusing the design: solid re-wirings of the sculk doors and of target-using finds.
+* Re-wirings (all `--from-wired --full-frame --forbid-ring --sound --exact-order --update-order
+  --lever-oop`): e88-t7b (the 43b record) minimizing below 23 wiring (42b) in 7x9 (exact, one-warp
+  4, cluster warps 6, local nogood, period2); e88-t7b's mechanism in 7x8 (its bottom wiring row cut):
+  exact timing UNSAT, warps running; pockets' and c79's mechanisms in 7x8: UNSAT at once; the sculk
+  doors without their sensors (m79s 7x9, m79s8 8x8): exact timing UNSAT (and one-warp 4 for the
+  8x8); c79-49-bl5-br3's timing without its target block: a 49b door at once (ties), 28 wiring
+  minimal with one-warp 4.

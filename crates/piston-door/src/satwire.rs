@@ -2713,6 +2713,10 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                                 up.push(m.e.or(&ls));
                             }
                         }
+                        // a diode/observer whose output block is next to the dropper changing
+                        // (it updates that block's neighbors: the dropper re-reads its QC power at
+                        // once; without it a 2 gt observer loop through a dropper looked settled)
+                        up.push(m.update_at(tr, k, c));
                         let upd = m.e.or(&up);
                         let rd = m.e.or(&[i, qc]);
                         let a1 = m.e.and(&[upd, rd]);
