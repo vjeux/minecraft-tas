@@ -7,7 +7,8 @@ mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; fi
 **Result (pockets2, 2026-10-19 09:24Z-12:30Z): BEST.txt = `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks,
 solid, FULL seamless, rotation-safe, open 39 / close 27, verify at 32 positions** (e88's 43-block record t7b,
 43/31, with its right wall re-wired: same size, 8 ticks faster, so it ranks first by the tie-break), and
-**`finds/s27-bls49.txt`, SCULK 8x8 = 64b, 49 blocks** (record; shrink's s27-tlp50 + a sculk bottom-left) and
+**`finds/s27-bls49.txt`, SCULK 8x8 = 64b, 49 blocks** (archived on main; not the sculk 8x8 leader: c77's
+c074-64b-42 is) and
 **`finds/s27-trbl51.txt`, solid 8x8 = 64b, 51 blocks, FULL, rotation-safe, verify at 32 positions** (c88b's s27
 + a 6-block bottom-left and a piston-popping top-right found by pockets; shrink took it to solid 50; also
 `finds/s27-bl52.txt` 52, `finds/s26-bl53.txt` 53); 40 sculk 7x9 doors at 51 (c79 + a

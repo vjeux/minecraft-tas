@@ -2,14 +2,16 @@
 
 ## State
 - Track best (BEST.txt): `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks, solid, FULL, rotation-safe, open 39 /
-  close 27 (shrink has since taken t7b to 40). 8x8: **`finds/s27-bls49.txt`, SCULK 64b, 49 blocks** (record, on
-  shrink's solid s27-tlp50) and **`finds/s27-trbl51.txt`, solid 64b, 51** (shrink -> solid 50 with pistons);
+  close 27 (shrink has since taken t7b to 40). 8x8: `finds/s27-bls49.txt`, SCULK 64b, 49 blocks (archived on
+  main; c77's c074-64b-42 leads sculk 8x8, so the 8x8 target is the SOLID 50 s27-tlp50) and
+  **`finds/s27-trbl51.txt`, solid 64b, 51** (shrink -> solid 50 with pistons);
   all verified `--extra-offsets 28`, archived in `finds/archive/`.
 - Role (vjeux's 12:21Z protocol): wiring service on the live board, Space memory namespace 2034923423883327,
   `minecraft-tas/board/` (README.md rules, roster.md, partials/*.md). Owners message this session directly;
   ping the coordinator (f1a42990-e9ee-4714-8593-b34b64ed175d) only for a verified door or a tool commit.
-- Tool commits waiting for the coordinator's merge: f7e7023b (search/pockets assists in the TILE-TICK phase
-  by default, `--between-ticks` = old rule; selftest --quick 12/12) and 1e14c397 (`--region-pistons`).
+  Coordinator priority (13:42Z): the 7x8 seeds (e78k's K, c77's e78 stone variant B', c78l's c78z).
+- Tool commits: f7e7023b (tile-phase assists) merged to main as cf9e8bc5; 1e14c397 (`--region-pistons`)
+  waiting.
 - Nothing running on devvm49255.
 
 ## Exact next steps
