@@ -138,7 +138,7 @@ fn run_in(w: &mut Worker, sb: u32, p: &Pext, o: &Options, from: Pos, to: Pos) ->
                 if let Some(e) = on.frames.iter().find_map(|f| edge_problem(f, from, to)) {
                     return Ok(Err(format!("cycle {}: on: {e}", c + 1)));
                 }
-                let at: Vec<bool> = on.frames.iter().map(|f| f.get(target) == Some(payload)).collect();
+                let at: Vec<bool> = on.frames.iter().map(|f| extended(f, target, payload)).collect();
                 if !at.last().copied().unwrap_or(false) {
                     return Ok(Err(format!("cycle {}: on: settled after {} gt without the payload at the target {target:?}", c + 1, at.len())));
                 }
@@ -170,7 +170,7 @@ fn run_in(w: &mut Worker, sb: u32, p: &Pext, o: &Options, from: Pos, to: Pos) ->
                 if let Some(e) = ph.frames.iter().find_map(|f| edge_problem(f, from, to)) {
                     return Ok(Err(format!("cycle {}: {e}", c + 1)));
                 }
-                let at: Vec<bool> = ph.frames.iter().map(|f| f.get(target) == Some(payload)).collect();
+                let at: Vec<bool> = ph.frames.iter().map(|f| extended(f, target, payload)).collect();
                 let Some(first) = at.iter().position(|a| *a) else {
                     return Ok(Err(format!("cycle {}: the payload never reached the target {target:?}", c + 1)));
                 };
@@ -194,6 +194,12 @@ fn run_in(w: &mut Worker, sb: u32, p: &Pext, o: &Options, from: Pos, to: Pos) ->
 
 fn cells_after(f: Option<&Region>) -> Vec<(Pos, String)> {
     f.map(cells).unwrap_or_default()
+}
+
+/// The payload placed at the target with nothing moving (no moving_piston in the frame): the
+/// judge's "extended".
+fn extended(f: &Region, target: Pos, payload: &str) -> bool {
+    f.get(target) == Some(payload) && !f.iter().any(|(_, s)| s.starts_with("minecraft:moving_piston"))
 }
 
 /// The tick (1-based) of the last frame that differs from the one before it (`start` = the state

@@ -1,0 +1,21 @@
+# N=3 rider base: lever on A, A pushes a 5-slime row (under B, C, payload and the payload's +1/+2
+# spots); B, C, payload in line on top. Missing: the pulses for B and C.
+name: base-r3a
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 0 1 1 lever
+port payload: 4 2 1
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+layer 1:
+  ........
+  LASSSSS.
+  ........
+layer 2:
+  ........
+  ..BBG...
+  ........

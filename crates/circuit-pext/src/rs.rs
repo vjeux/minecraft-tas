@@ -187,7 +187,9 @@ fn run_phase(w: &mut World, prep: &Prepared, params: &Params, what: &str, trace:
     for t in 1..=max {
         w.tick();
         check_world(w, t, what)?;
-        ph.at.push(w.get(prep.target) == prep.payload_block);
+        // extended = the payload placed at the target with nothing moving (no moving_piston
+        // anywhere: the judge's definition, docs/circuits.md)
+        ph.at.push(w.get(prep.target) == prep.payload_block && w.piston.all().next().is_none());
         if track {
             let now = w.blocks();
             ph.changed.push(now != prev);
