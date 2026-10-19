@@ -48,6 +48,10 @@ pub enum SiteCmd {
         /// Virtual time each page gets to run its scripts (ms).
         #[arg(long, default_value_t = 20_000)]
         budget: u32,
+        /// Check the deployed site at this URL instead of serving `dir` (e.g.
+        /// https://vjeux.github.io/minecraft-tas/); `dir` still gives the expected answers.
+        #[arg(long)]
+        url: Option<String>,
     },
 }
 
@@ -110,8 +114,8 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         SiteCmd::Build(a) => generate::build(&a),
         SiteCmd::Deploy(a) => deploy::deploy(&a),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Smoke { dir, chrome, budget } => {
-            let fails = serve::smoke(&dir, chrome.as_deref(), budget)?;
+        SiteCmd::Smoke { dir, chrome, budget, url } => {
+            let fails = serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?;
             if fails > 0 {
                 bail!("{fails} smoke check(s) failed");
             }

@@ -224,10 +224,11 @@ pub fn decode_png(bytes: &[u8]) -> Result<(u32, u32, Vec<[u8; 3]>)> {
 /// The probe page of the viewer check: one design filling the window as a thumbnail, over a
 /// flat fallback with no text (one color), so any rendering shows as many colors; a slow request
 /// holds the page open while the viewer compiles and draws.
-fn probe_page(design: &str, kind: &str) -> String {
+fn probe_page(root: &str, design: &str, kind: &str) -> String {
     format!(
-        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>probe</title><style>html,body{{margin:0;background:#808080}}#v{{position:fixed;inset:0}}.fallback{{position:absolute;inset:0;background:#808080}}.mcview-ready>.fallback{{display:none}}img{{position:fixed;width:1px;height:1px}}</style></head><body><div id=\"v\" data-mcview=\"thumb\" data-src=\"{}\" data-kind=\"{kind}\"><div class=\"fallback\"></div></div><img src=\"__slow?ms=15000\" alt=\"\"><script type=\"module\">import init from \"./viewer/mcview.js\"; init();</script></body></html>",
-        site_model::html::esc(design)
+        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>probe</title><style>html,body{{margin:0;background:#808080}}#v{{position:fixed;inset:0}}.fallback{{position:absolute;inset:0;background:#808080}}.mcview-ready>.fallback{{display:none}}img{{position:fixed;width:1px;height:1px}}</style></head><body><div id=\"v\" data-mcview=\"thumb\" data-src=\"{root}{}\" data-kind=\"{kind}\"><div class=\"fallback\"></div></div><img src=\"__slow?ms=15000\" alt=\"\"><script type=\"module\">import init from \"{}viewer/mcview.js\"; init();</script></body></html>",
+        site_model::html::esc(design),
+        if root.is_empty() { "./" } else { root }
     )
 }
 
@@ -241,23 +242,29 @@ fn result_count(dom: &str) -> Option<usize> {
 }
 
 /// Smoke-test a generated site in a headless browser. Returns the number of failed checks.
-pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32) -> Result<usize> {
+/// `remote`: check the deployed site at that URL instead (the pages and the bundles there; the
+/// expected answers still come from `dir`'s data, the build that was deployed).
+pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Option<&str>) -> Result<usize> {
     let chrome = chrome(chrome_path)?;
     let listener = TcpListener::bind(("127.0.0.1", 0))?;
     let port = listener.local_addr()?.port();
     let root = dir.to_path_buf();
     let site: site_model::Site = serde_json::from_str(&std::fs::read_to_string(dir.join("data/site.json"))?)?;
-    // the viewer probes: one door, one clock, each filling the window
+    let remote = remote.map(|r| if r.ends_with('/') { r.to_string() } else { format!("{r}/") });
+    // the viewer probes (served locally, loading the site's bundle and designs): one door, one
+    // clock, each filling the window
     let mut extra = std::collections::HashMap::new();
+    let probe_root = remote.clone().unwrap_or_default();
     let probes: Vec<(String, String)> = ["door", "clock"]
         .iter()
-        .filter_map(|k| site.builds.iter().find(|b| b.kind == *k).map(|b| (format!("/__probe-{k}.html"), probe_page(&b.design, k))))
+        .filter_map(|k| site.builds.iter().find(|b| b.kind == *k).map(|b| (format!("/__probe-{k}.html"), probe_page(&probe_root, &b.design, k))))
         .collect();
     for (p, html) in &probes {
         extra.insert(p.clone(), html.clone());
     }
     std::thread::spawn(move || serve_with(listener, root, extra));
-    let base = format!("http://127.0.0.1:{port}/");
+    let local = format!("http://127.0.0.1:{port}/");
+    let base = remote.clone().unwrap_or_else(|| local.clone());
     let mut fails = 0;
     let mut check = |name: &str, ok: bool, detail: String| {
         println!("{} {name}: {detail}", if ok { "PASS" } else { "FAIL" });
@@ -306,7 +313,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32) -> Result<u
     // design over a one-color fallback; a render has thousands of colors
     if dir.join("viewer/mcview.js").exists() {
         for (path, _) in &probes {
-            let png = screenshot(&chrome, &format!("{base}{}", path.trim_start_matches('/')), budget_ms.max(60_000), 480, 360)?;
+            let png = screenshot(&chrome, &format!("{local}{}", path.trim_start_matches('/')), budget_ms.max(60_000), 480, 360)?;
             let (w, h, px) = decode_png(&png)?;
             let distinct: std::collections::HashSet<[u8; 3]> = px.iter().copied().collect();
             let gray = px.iter().filter(|p| **p == [128, 128, 128]).count();
