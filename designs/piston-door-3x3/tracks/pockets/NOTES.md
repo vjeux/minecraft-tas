@@ -88,7 +88,9 @@ rule: frame cells must hold the door block itself), pistmodel fm-8x8-000..063 (`
   trapdoor, glass; 32M screens): no 5-block cover; top-right with the lever on a block's front face
   ((4,3)/(4,4)/(3,4)) and (4,5) freed, k=7 x 12 states (572M screens, on c79-front): no cover with
   6 blocks + lever; bottom-middle + bottom-left (9 cells) k=7 x 8 states (38M screens): no 7-block cover
-  ({U, K} 6 blocks, L0 3); top-right's (4,3),(4,4),(3,3) x 60 states (k=3, lever kept): 3 is the minimum.
+  ({U, K} 6 blocks, L0 3); top-right's (4,3),(4,4),(3,3) x 60 states (k=3, lever kept): 3 is the minimum;
+  the whole top-right (7 cells, lever kept) k=6 x 16 states (incl. target, note block, lamp, trapdoor,
+  comparator; 168M screens): no 6-block cover ({R, hold, A's close pull} 5 blocks, {B} 4: 7 is the min).
   So 48 needs a cross-region change (no single region of the 49 shrinks at these palettes).
 * 50 blocks: `finds/c79bl50-tl1-63b-50.txt`, `c79bl50-tl12-63b-50.txt` (the 50-block door with the new
   observer-up top-left), verify WORKS 4 positions, rotation-safe.
