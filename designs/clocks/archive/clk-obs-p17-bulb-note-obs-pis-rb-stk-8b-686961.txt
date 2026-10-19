@@ -1,0 +1,32 @@
+# archived 2026-10-19T23:38Z from designs/clocks/tracks/clk-obs/families9/p17-bulb-note-obs-pis-rb-stk-8b-686961.txt by mctas clock archive
+# CLOCK: clk-obs-p17-bulb-note-obs-pis-rb-stk-8b-686961 period 17 gt (0.85 s), on 8/17, edges 4, warmup 46, family copper_bulb+note_block+observer+piston+redstone_block+sticky_piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p17-bulb-note-obs-pis-rb-stk-8b-686961
+# clk-obs grow: P=17 (redsim), family note_block+observer+piston+redstone_block+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 12.
+origin: 0 0 0
+port output: 0 1 0
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:piston[extended=false,facing=down]
+  C minecraft:note_block[instrument=harp,note=0,powered=false]
+  D minecraft:waxed_copper_bulb[lit=false,powered=false]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:observer[facing=up,powered=false]
+  G minecraft:redstone_block
+  H minecraft:sticky_piston[extended=false,facing=south]
+layer -1:
+  .
+  .
+  A
+layer 0:
+  B
+  C
+  D
+layer 1:
+  E
+  F
+  G
+layer 2:
+  H
+  .
+  .
