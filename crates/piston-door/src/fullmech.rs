@@ -1827,6 +1827,8 @@ pub struct CliOpts {
     pub boxes: Vec<(i8, i8)>,
     pub pmax: usize,
     pub two: usize,
+    /// Middle-row side blocks forced to leave vertically (families' `--vmid` variants).
+    pub vmid: Vec<Vec<(i8, i8)>>,
     pub pulses: Vec<u8>,
     pub levels: bool,
     pub cap: usize,
@@ -2084,7 +2086,7 @@ pub fn cli(o: &CliOpts) -> Result<()> {
                     continue;
                 }
                 let bx = Bx { x0: -dx, y0: -dy, w, h };
-                for v in families::generate(bx, o.pmax, true, true, o.two) {
+                for v in families::generate_v(bx, o.pmax, true, true, o.two, 0, &o.vmid) {
                     if seen.insert(families::canon(&v)) {
                         cands.push((bx, v));
                     }
