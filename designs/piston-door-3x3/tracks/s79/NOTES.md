@@ -228,3 +228,13 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   L1/L2 (any). The whole open sequence may shift up to +15 ticks. Open 26 / close 26.
 - Annealer on the 11 free top cells: runs/c78l-L1top1 (the first run used c78L0.ideal, which only works in the
   tile phase: the annealer screens in the old phase, seed 40/79).
+- c78L2 (`c78l/c78L2.txt`): s at home driven by observer (2,4) east watching the R1/R2 bulb (3,4): pulses
+  t8 and t38 on both edges (bulb powered t6..t36 by the sensor (3,5)'s window). With M SYMMETRIC (on 15..25
+  both edges) the close needs TP after M raises s (`c78L2t.ideal`, TP close 28); with TP early on close, M's
+  push shoves s + TM + C down one (the close is then done) but s's late t38 pulse reach-pulls TM back up.
+- **L3a (14:08Z)** (`c78l/L3a.txt` + `L3a.ideal`, annealer runs/c78l-L2ttop1): M real (comparator (0,5)
+  subtract reading the calibrated sensor (-2,5) through wool (-1,5)) and s at (1,3) real (observer (0,4) up
+  on that comparator -> TM parked at (0,3) -> s); only TP and L1/L2 ideal. redsim 32 positions WORKS in both
+  input phases. Its windows allow TP SYMMETRIC (t11..12 both edges) with L1/L2 at t12 (`L3b.ideal`): one
+  2 gt pulse into (-2,3) at t11..12 would drive L2 (direct), L1 (QC) and TP (from behind). Annealing that
+  (runs/c78l-L3top1).
