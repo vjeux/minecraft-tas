@@ -24,11 +24,20 @@ lives in `$MCTAS_HOME` (default `~/.cache/mctas`), never in this repository.
 profile (workspace `Cargo.toml`) keeps the edit-build loop short without slowing the binary:
 * **One crate per door area.** The `mctas door` commands live in `crates/door-{judge,search,mech,
   sat,redsim,vanilla,video}`, each with its own clap `DoorCmd` and its `run`;
-  `crates/mctas-cli/src/door.rs` flattens them into one command list. A new command goes in its
-  area's crate (a variant in `DoorCmd`, an arm in `run`); what several commands share
+  `crates/mctas-cli/src/door.rs` flattens them into one command list. What several commands share
   (`SearchArgs`, `load_design`) is in `crates/piston-door/src/cli.rs`. (They were one 61-command enum
   and one match in piston-door: clap's generated parser alone was one 785 KB function, and every
   build waited ~2.5 minutes for LLVM on it.)
+* **One function per command, one module per family.** A door crate's `src/lib.rs` holds only
+  `DoorCmd` (one variant per command, `Name(cmd::<family>::NameArgs)`, whose doc comment is the
+  command's help) and `run`, one dispatch line per variant. The command itself is in
+  `src/cmd/<family>.rs`: its arguments (`#[derive(clap::Args)] pub struct NameArgs`) and its body
+  (`pub fn cmd_name([version: &str, ]args: NameArgs) -> Result<()>`), which reaches piston-door's
+  modules as `crate::<module>` through lib.rs's `use piston_door::*`. A new command is a variant, a
+  line in `run`, and its `NameArgs` + `cmd_name` in the module of its family (a new family: a new
+  file, listed in `cmd/mod.rs`); a helper of one command stays next to it in its module. No function
+  in `crates/door-*` or `crates/mctas*` may exceed 150 lines (`crates/mctas-cli/tests/fn_length.rs`,
+  part of `cargo test`): split a long command into helpers, and put its real work in piston-door.
 * **The door crates are compiled unoptimized** (`opt-level = 0`): they parse arguments and call
   piston-door, mctas and redsim, which are optimized. Keep any heavy loop in a piston-door function:
   code in a door crate (and generic library code a door crate instantiates with its own closures)
