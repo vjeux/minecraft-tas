@@ -1,6 +1,8 @@
 # 51 blocks, 64b (8x8x1), solid, slime-free, FULL seamless, rotation-safe, open 34 / close 34: s27-bl52 (c88b's s27 + pockets2's
 # 6-block bottom-left) with its top-right re-wired by door cosearch pockets (k=4 x 61 states, --gaps; plan with the close A
-# pulse moved to c15): an observer (4,4) facing up replaces dust (4,4) + stone (4,5)
+# pulse moved to c15): the observer (3,5) became a STICKY PISTON (3,5) facing east, fired by the observer (2,5) on B at t18:
+# its head pops into (4,5) for 2 gt, the observer (4,4) facing up sees it and fires R2 (+ R1 by QC) through the stone (4,3)
+# at t20, and the observer (3,4) facing east sees (4,4) and pushes A through (2,4) at t22 (dust (4,4) + stone (4,5) gone)
 name: s27-trbl51
 port door: 0 0 0
 port lever: -4 1 0

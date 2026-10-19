@@ -237,8 +237,14 @@ Results:
   s27 top-right (one observer (3,4) east instead of stone + dust): **`finds/s27-bl52.txt`, solid 8x8 =
   64b, 52 blocks, FULL, rotation-safe, verify --extra-offsets 28 WORKS** (coordinator 11:12Z).
   s27-bl52's top-right as a plan needs the close A pulse at c0..16 (plan-from said c22: the erased door
-  only works at <= 16, ideal-rs sweep; `s26/b52-tr.ideal`): k=4 x 61 states `runs/b52-tr-k4`; its B line
-  + support (7 cells) k=6 x 16 states `runs/b52-tlb-k6`.
+  only works at <= 16, ideal-rs sweep; `s26/b52-tr.ideal`): k=4 x 61 states (`runs/b52-tr-k4`, 197M):
+  **`finds/s27-trbl51.txt`, solid 8x8 = 64b, 51 blocks, FULL, rotation-safe, verify --extra-offsets 28
+  WORKS** (12:27Z): the observer (3,5) became a STICKY PISTON (3,5) facing east, fired by the observer
+  (2,5) on B at t18; its head pops into (4,5) for 2 gt, the observer (4,4) facing up sees it and fires R2
+  (+ R1 by QC) through the stone (4,3) at t20, and the observer (3,4) east sees (4,4) and pushes A through
+  (2,4) at t22 (dust (4,4) + stone (4,5) gone): a piston as a 1-block "something moved" source for an
+  observer. B line + support (7 cells) k=6 x 16 states on s27-bl52: `runs/b52-tlb-k6`; shrink takes the
+  top-left A part with `door fill`.
 * q78's e78s (7x8, only the bottom ideal: A' x3, K, B' x2; `runs/e78s-k3`, `runs/e78s-k5`, --gaps):
   right pocket (x=2..4): B' all four pulses with 3 blocks (observer (3,-2) up on K -> lamp (3,-3) ->
   observer (2,-3) east), K with 2, never both within 5; left pocket: A' o8, (1,-1)o24, B' o30 alone;
