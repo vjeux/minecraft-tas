@@ -292,6 +292,8 @@ impl Session {
         }
         s.world = world;
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
+        // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
+        s.apply_due();
         Ok(s)
     }
 
@@ -365,6 +367,7 @@ impl Session {
             self.actions = a.clone();
             self.tick = *t;
             self.last_input = None;
+            self.apply_due();
         }
     }
 
@@ -393,7 +396,8 @@ impl Session {
         }
     }
 
-    /// One game tick (the scheduled inputs due before it first).
+    /// One game tick, then the scheduled inputs due at the new tick (so the state shown at tick t
+    /// is what the judge sees between ticks t and t+1).
     pub fn step(&mut self) {
         if !self.simulated() {
             return;
@@ -401,6 +405,7 @@ impl Session {
         self.apply_due();
         self.world.tick();
         self.tick += 1;
+        self.apply_due();
     }
 
     /// Ticks run since the last input (or since rest / placement).
@@ -675,10 +680,10 @@ impl Session {
         Ok(Period { state_warmup: w0, state_period: p, period: full_p as u32, warmup: vis_w as u32 })
     }
 
-    /// A copy back at placement.
+    /// A copy back at placement (the inputs due at its tick applied).
     fn fresh(&self) -> Session {
         let (w, a, t) = self.initial.clone().expect("simulated session");
-        Session {
+        let mut s = Session {
             design: Design::default(),
             mode: self.mode.clone(),
             world: w,
@@ -691,7 +696,9 @@ impl Session {
             inputs: Vec::new(),
             outputs: Vec::new(),
             initial: None,
-        }
+        };
+        s.apply_due();
+        s
     }
 
     /// The clock judge's validity checks between ticks.
@@ -708,24 +715,21 @@ impl Session {
         Ok(())
     }
 
-    /// The still frame a thumbnail shows: a door at rest (the settled closed state); a clock at
-    /// the most active moment of one period (most changing cells on, nothing moving if
-    /// possible), like `mctas clock shot` picks it. Leaves the session at that tick.
-    pub fn go_to_still(&mut self, horizon: u32) -> u32 {
+    /// The clock's (warmup, period) for pictures: the exact detector like `clock::sim::activity`
+    /// (whole-state warmup, visible period), else the archive's judge line.
+    pub fn picture_period(&self, horizon: u32) -> Option<(u32, u32)> {
         if !self.simulated() || self.mode.is_door() {
-            return self.tick;
+            return None;
         }
-        let (w0, p) = match self.design.clock_hint() {
-            Some((w, p)) if w + p <= horizon => (w, p),
-            _ => match self.period(horizon.min(4000)) {
-                Ok(r) => (r.state_warmup.max(r.warmup), r.period),
-                Err(_) => (0, 0),
-            },
-        };
-        if p == 0 {
-            return self.tick;
+        match self.period(horizon) {
+            Ok(r) if r.period > 0 => Some((r.state_warmup.max(r.warmup), r.period)),
+            _ => self.design.clock_hint().filter(|(w, p)| w + p <= horizon && *p > 0),
         }
-        // pass 1: which cells change during one period; pass 2: the busiest moment
+    }
+
+    /// One period from `w0`: every changing cell and its state at each tick (two passes on fresh
+    /// copies; the session is not moved).
+    pub fn period_cells(&self, w0: u32, p: u32) -> Vec<(Pos, Vec<Block>)> {
         let mut s = self.fresh();
         while s.tick < w0 {
             s.step();
@@ -740,28 +744,81 @@ impl Session {
             }
             s.step();
         }
+        let idx: Vec<usize> = (0..first.len()).filter(|&i| changing[i]).collect();
+        let w = &s.world;
+        let pos_of = |i: usize| -> Pos {
+            let (sx, sz) = (w.size[0] as usize, w.size[2] as usize);
+            let (x, z, y) = (i % sx, (i / sx) % sz, i / (sx * sz));
+            [w.min.x + x as i32, w.min.y + y as i32, w.min.z + z as i32]
+        };
+        let mut out: Vec<(Pos, Vec<Block>)> = idx.iter().map(|&i| (pos_of(i), Vec::with_capacity(p as usize))).collect();
         let mut s = self.fresh();
         while s.tick < w0 {
             s.step();
         }
-        let mut best = (0u32, (std::cmp::Reverse(usize::MAX), 0usize));
-        for t in 0..p {
+        for _ in 0..p {
             let cells = cells_of(&s.world);
-            let on = cells.iter().zip(&changing).filter(|(b, c)| **c && active(b)).count();
-            let moving = cells.iter().zip(&changing).filter(|(b, c)| **c && matches!(b, Block::MovingPiston { .. })).count();
-            let score = (std::cmp::Reverse(moving), on);
-            if t == 0 || score > best.1 {
-                best = (t, score);
+            for (k, &i) in idx.iter().enumerate() {
+                out[k].1.push(cells[i]);
             }
             s.step();
         }
-        let best = best.0;
-        let target = w0 + best;
+        out
+    }
+
+    /// The clock judge's output when none is declared: the changing cell with the longest own
+    /// period, then the most rising edges, then the most ticks on (`clock::sim::simulate`).
+    pub fn auto_output(cells: &[(Pos, Vec<Block>)]) -> Option<Pos> {
+        let stat = |seq: &[Block]| {
+            let n = seq.len();
+            let period = (1..=n.max(1)).filter(|d| n % d == 0).find(|&d| (0..n).all(|t| seq[t] == seq[(t + d) % n])).unwrap_or(n.max(1));
+            let on: Vec<bool> = seq.iter().map(active).collect();
+            let edges = (0..n).filter(|&t| on[t] && !on[(t + n - 1) % n]).count();
+            let ons = on.iter().filter(|b| **b).count();
+            (period, edges, ons)
+        };
+        cells.iter().max_by(|a, b| stat(&a.1).cmp(&stat(&b.1)).then(b.0.cmp(&a.0))).map(|(p, _)| *p)
+    }
+
+    /// The still frame a thumbnail shows: a door at rest (the settled closed state); a clock at
+    /// the most active moment of one period (most changing cells on, nothing moving if
+    /// possible), like `mctas clock shot` picks it. Leaves the session at that tick and records the
+    /// clock judge's output when the design declares none.
+    pub fn go_to_still(&mut self, horizon: u32) -> u32 {
+        let Some((w0, p)) = self.picture_period(horizon) else { return self.tick };
+        let cells = self.period_cells(w0, p);
+        if self.outputs.is_empty()
+            && let Some(o) = Session::auto_output(&cells)
+        {
+            self.outputs.push(o);
+        }
+        let mut best = (0u32, (std::cmp::Reverse(usize::MAX), 0usize));
+        for t in 0..p as usize {
+            let on = cells.iter().filter(|(_, seq)| active(&seq[t])).count();
+            let moving = cells.iter().filter(|(_, seq)| matches!(seq[t], Block::MovingPiston { .. })).count();
+            let score = (std::cmp::Reverse(moving), on);
+            if t == 0 || score > best.1 {
+                best = (t as u32, score);
+            }
+        }
+        let target = w0 + best.0;
         self.reset();
         while self.tick < target {
             self.step();
         }
         target
+    }
+
+    /// Find the clock judge's output (no `port output`) without moving the session.
+    pub fn find_auto_output(&mut self, horizon: u32) {
+        if !self.outputs.is_empty() {
+            return;
+        }
+        if let Some((w0, p)) = self.picture_period(horizon)
+            && let Some(o) = Session::auto_output(&self.period_cells(w0, p))
+        {
+            self.outputs.push(o);
+        }
     }
 }
 
@@ -818,4 +875,23 @@ fn is_port_named(name: &str, prefix: &str) -> bool {
 pub fn dir_step(d: Dir) -> [f32; 3] {
     let s = d.step();
     [s[0] as f32, s[1] as f32, s[2] as f32]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const BULB_CLOCK: &str = "name: c\nport start: 0 0 0 last\norigin: 0 0 0\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
+
+    #[test]
+    fn auto_output_is_the_clock_judges() {
+        let s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
+        let (w0, p) = s.picture_period(20_000).unwrap();
+        assert_eq!((w0, p), (0, 12));
+        let cells = s.period_cells(w0, p);
+        for (pos, seq) in &cells {
+            eprintln!("{pos:?}: {} {:?}", seq.iter().map(|b| if active(b) { '#' } else { '.' }).collect::<String>(), seq.iter().map(|b| b.to_string()).collect::<Vec<_>>());
+        }
+        assert_eq!(Session::auto_output(&cells), Some([2, 0, 0]));
+    }
 }

@@ -82,6 +82,7 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     let blocks = s.render_blocks(partial);
     let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
     let mut b = Builder::new(atlas);
+    b.ground = look.ground.map(|y| y.floor() as i32);
     b.blocks(&items);
     if !s.simulated() {
         for e in &s.design.entities {
@@ -124,10 +125,29 @@ pub fn frame_bounds(s: &Session, look: &Look) -> ([f32; 3], [f32; 3]) {
     ([lo[0] as f32 - 0.25, lo[1] as f32 - 0.25, lo[2] as f32 - 0.25], [hi[0] as f32 + 1.25, hi[1] as f32 + 1.25, hi[2] as f32 + 1.25])
 }
 
-/// The real-game pictures' camera for a session at an aspect ratio.
+/// The real-game pictures' camera for a session at an aspect ratio: `mctas clock shot` frames the
+/// box at a vertical FOV of 70 degrees, then keeps the centered 64% of the frame (its ffmpeg
+/// `crop=iw*0.64:ih*0.64`): the same eye with a narrower view. Zoomed out when a block would leave
+/// the view.
 pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
     let (lo, hi) = frame_bounds(s, look);
-    Camera::frame(lo, hi, CAM_DIR, VFOV, aspect, 0.85)
+    let mut cam = Camera::frame(lo, hi, CAM_DIR, VFOV, aspect, 0.85);
+    cam.vfov = 2.0 * (0.64 * (VFOV.to_radians() / 2.0).tan()).atan().to_degrees();
+    // every block inside the view
+    let (blo, bhi) = s.frame_box();
+    let (blo, bhi) = ([blo[0] as f32, blo[1] as f32, blo[2] as f32], [bhi[0] as f32 + 1.0, bhi[1] as f32 + 1.0, bhi[2] as f32 + 1.0]);
+    let m = cam.view_proj(aspect);
+    let inside = (0..8).all(|i| {
+        let c = [if i & 1 == 0 { blo[0] } else { bhi[0] }, if i & 2 == 0 { blo[1] } else { bhi[1] }, if i & 4 == 0 { blo[2] } else { bhi[2] }, 1.0];
+        let clip: Vec<f32> = (0..4).map(|r| (0..4).map(|k| m[k][r] * c[k]).sum()).collect();
+        clip[3] > 0.0 && (clip[0] / clip[3]).abs() <= 0.97 && (clip[1] / clip[3]).abs() <= 0.97
+    });
+    if !inside {
+        let target = cam.target;
+        cam.fit(blo, bhi, aspect, 0.92);
+        cam.target = target;
+    }
+    cam
 }
 
 /// Solid and translucent triangles of a mesh for a camera.

@@ -11,7 +11,10 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
     pub pos: [f32; 3],
+    /// Texture coordinates within the tile (0..1; beyond 1 repeats).
     pub uv: [f32; 2],
+    /// The tile: a layer of the texture array.
+    pub layer: u32,
     /// rgb = tint x shade x ambient occlusion, a = alpha (cutout faces are tested in the shader).
     pub color: [u8; 4],
 }
@@ -112,13 +115,19 @@ pub struct Builder<'a> {
     pub atlas: &'a Atlas,
     /// Cells holding an opaque full block (not moving).
     occ: HashSet<Pos>,
+    /// The ground: every cell below this y counts as an opaque block (culling, AO).
+    pub ground: Option<i32>,
     cache: HashMap<String, Option<Model>>,
     pub mesh: Mesh,
 }
 
 impl<'a> Builder<'a> {
     pub fn new(atlas: &'a Atlas) -> Builder<'a> {
-        Builder { atlas, occ: HashSet::new(), cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() } }
+        Builder { atlas, occ: HashSet::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() } }
+    }
+
+    fn occupied(&self, c: Pos) -> bool {
+        self.occ.contains(&c) || self.ground.is_some_and(|g| c[1] < g)
     }
 
     fn model(&mut self, state: &str) -> Option<Model> {
@@ -235,7 +244,7 @@ impl<'a> Builder<'a> {
         {
             let mut q = c;
             q[axis] += s;
-            if self.occ.contains(&q) {
+            if self.occupied(q) {
                 return;
             }
         }
@@ -257,7 +266,7 @@ impl<'a> Builder<'a> {
                     let mut cc = front;
                     cc[a1] += d1;
                     cc[a2] += d2;
-                    let (o1, o2, o3) = (self.occ.contains(&s1), self.occ.contains(&s2), self.occ.contains(&cc));
+                    let (o1, o2, o3) = (self.occupied(s1), self.occupied(s2), self.occupied(cc));
                     let level = if o1 && o2 { 3 } else { o1 as usize + o2 as usize + o3 as usize };
                     out[k] = AO[level];
                 }
@@ -268,10 +277,6 @@ impl<'a> Builder<'a> {
         let r = f.uv.unwrap_or(auto);
         let tile = self.atlas.tile(f.tile);
         let [u0, v0, u1, v1] = self.atlas.uv(tile, r);
-        // a hair inside the rect: nearest sampling never reads the neighbor tile
-        let e = 0.01 / crate::atlas::SIZE as f32;
-        let (u0, u1) = if u0 < u1 { (u0 + e, u1 - e) } else { (u0 - e, u1 + e) };
-        let (v0, v1) = if v0 < v1 { (v0 + e, v1 - e) } else { (v0 - e, v1 + e) };
         let base_uv = [[u0, v0], [u0, v1], [u1, v1], [u1, v0]];
         let uv: [[f32; 2]; 4] = std::array::from_fn(|k| base_uv[(k + f.rot as usize) % 4]);
         let alpha = 255u8;
@@ -285,7 +290,7 @@ impl<'a> Builder<'a> {
         let v: [Vertex; 4] = std::array::from_fn(|k| {
             let l = sh * ao[k];
             let c = |t: u8| (t as f32 * l).round().clamp(0.0, 255.0) as u8;
-            Vertex { pos: pts[k], uv: uv[k], color: [c(f.tint[0]), c(f.tint[1]), c(f.tint[2]), alpha] }
+            Vertex { pos: pts[k], uv: uv[k], layer: tile as u32, color: [c(f.tint[0]), c(f.tint[1]), c(f.tint[2]), alpha] }
         });
         match p.layer {
             Layer::Translucent => {
@@ -328,27 +333,18 @@ impl Mesh {
 
 /// The ground: a grass plane under the build (top face at `y`), `r` blocks around its box.
 pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<Vertex> {
-    let tile = atlas.tile("grass_top");
-    let [u0, v0, u1, v1] = atlas.uv(tile, [0.0, 0.0, 16.0, 16.0]);
-    let e = 0.01 / crate::atlas::SIZE as f32;
-    let (u0, v0, u1, v1) = (u0 + e, v0 + e, u1 - e, v1 - e);
-    let x0 = (lo[0] - r).floor() as i32;
-    let x1 = (hi[0] + r).ceil() as i32;
-    let z0 = (lo[2] - r).floor() as i32;
-    let z1 = (hi[2] + r).ceil() as i32;
-    let mut out = Vec::new();
+    // one quad, the grass tile repeated once per block
+    let layer = atlas.tile("grass_top") as u32;
+    let x0 = (lo[0] - r).floor();
+    let x1 = (hi[0] + r).ceil();
+    let z0 = (lo[2] - r).floor();
+    let z1 = (hi[2] + r).ceil();
     let c = [255, 255, 255, 255];
-    for x in x0..x1 {
-        for z in z0..z1 {
-            let (xf, zf) = (x as f32, z as f32);
-            let v = [
-                Vertex { pos: [xf, y, zf], uv: [u0, v0], color: c },
-                Vertex { pos: [xf, y, zf + 1.0], uv: [u0, v1], color: c },
-                Vertex { pos: [xf + 1.0, y, zf + 1.0], uv: [u1, v1], color: c },
-                Vertex { pos: [xf + 1.0, y, zf], uv: [u1, v0], color: c },
-            ];
-            out.extend_from_slice(&[v[0], v[1], v[2], v[0], v[2], v[3]]);
-        }
-    }
-    out
+    let v = [
+        Vertex { pos: [x0, y, z0], uv: [x0, z0], layer, color: c },
+        Vertex { pos: [x0, y, z1], uv: [x0, z1], layer, color: c },
+        Vertex { pos: [x1, y, z1], uv: [x1, z1], layer, color: c },
+        Vertex { pos: [x1, y, z0], uv: [x1, z0], layer, color: c },
+    ];
+    vec![v[0], v[1], v[2], v[0], v[2], v[3]]
 }

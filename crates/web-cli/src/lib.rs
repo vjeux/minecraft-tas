@@ -68,6 +68,17 @@ pub enum WebCmd {
         #[arg(long, default_value_t = 8000)]
         port: u16,
     },
+    /// Sanity check against the real game: each design's real-game picture
+    /// (`<img-dir>/<stem>.jpg`, from `mctas clock shot`) next to the viewer's frame of the same
+    /// moment and camera, as `<out>/<stem>.cmp.png`, with the mean RGB difference per pixel and on
+    /// a coarse 32x18 grid.
+    Compare {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/clocks/img")]
+        img_dir: PathBuf,
+        #[arg(long, short)]
+        out: PathBuf,
+    },
 }
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
@@ -77,7 +88,39 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live } => cmd_demo(&designs, &out, &viewer, live),
         WebCmd::Serve { dir, port } => cmd_serve(&dir, port),
+        WebCmd::Compare { designs, img_dir, out } => cmd_compare(&designs, &img_dir, &out),
     }
+}
+
+fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path) -> Result<()> {
+    let atlas = mcview::atlas::Atlas::build();
+    let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
+    std::fs::create_dir_all(out)?;
+    let (mut n, mut sum_px, mut sum_coarse) = (0, 0.0, 0.0);
+    for d in designs {
+        let stem = d.file_stem().unwrap_or_default().to_string_lossy().to_string();
+        let jpg = img_dir.join(format!("{stem}.jpg"));
+        let Ok(bytes) = std::fs::read(&jpg) else {
+            println!("{stem}: no picture at {}", jpg.display());
+            continue;
+        };
+        let text = std::fs::read_to_string(d)?;
+        match mcview::tools::compare(&mut off, &atlas, &text, &bytes) {
+            Ok(c) => {
+                let path = out.join(format!("{stem}.cmp.png"));
+                mcview::render::headless::write_png(&path, c.width, c.height, &c.rgba).map_err(anyhow::Error::msg)?;
+                println!("{stem}: pixel diff {:.1}, coarse diff {:.1} ({}) -> {}", c.pixel_diff, c.coarse_diff, c.note, path.display());
+                n += 1;
+                sum_px += c.pixel_diff;
+                sum_coarse += c.coarse_diff;
+            }
+            Err(e) => println!("{stem}: ERROR {e}"),
+        }
+    }
+    if n > 0 {
+        println!("web compare: {n} pictures, mean pixel diff {:.1}, mean coarse diff {:.1} (0 = identical, 255 = opposite)", sum_px / n as f64, sum_coarse / n as f64);
+    }
+    Ok(())
 }
 
 /// A tool from PATH, else from ~/.cargo/bin.

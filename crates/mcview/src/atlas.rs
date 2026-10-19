@@ -5,9 +5,8 @@
 use std::collections::HashMap;
 
 pub const TILE: usize = 16;
-/// Tiles per atlas row.
-pub const COLS: usize = 32;
-pub const SIZE: usize = TILE * COLS;
+/// WebGL2's guaranteed texture-array depth.
+pub const MAX_LAYERS: usize = 256;
 /// Mip levels: 16, 8, 4, 2, 1 pixels per tile.
 pub const MIPS: usize = 5;
 
@@ -330,7 +329,7 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
         t.fill(rgb(0x866043)).vary(0.08).speckle(rgb(0x6c4c34), 0.15, 1).speckle(rgb(0x9a7354), 0.1, 2);
     });
     add("grass_top", &|t| {
-        t.fill(rgb(0x5e9440)).vary(0.1).speckle(rgb(0x4f8236), 0.2, 1).speckle(rgb(0x6aa64a), 0.12, 2);
+        t.fill(rgb(0x527a3a)).vary(0.07).speckle(rgb(0x456a30), 0.25, 1).speckle(rgb(0x5d8744), 0.18, 2).speckle(rgb(0x3e612b), 0.06, 3);
     });
     // ---- metal / mineral blocks
     add("gold_block", &|t| {
@@ -546,39 +545,59 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
         t.fill(rgb(0x565656)).vary(0.2).speckle(rgb(0x2a2a2a), 0.25, 1).speckle(rgb(0x8a8a8a), 0.1, 2);
     });
     add("observer_front", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(2, 3, 13, 12, rgb(0x3a3a3a)).rect(3, 5, 6, 8, rgb(0x161616)).rect(9, 5, 12, 8, rgb(0x161616)).rect(4, 10, 11, 10, rgb(0x262626));
-        t.rect(4, 6, 5, 7, rgb(0x5a5a5a)).rect(10, 6, 11, 7, rgb(0x5a5a5a));
+        // a dark face: two square eyes and a mouth slot in a stone frame
+        t.fill(rgb(0x6f6f6f)).vary(0.05).grain(rgb(0x5f5f5f), 0.12, 1).outline(0, 0, 15, 15, rgb(0x4a4a4a));
+        t.rect(2, 2, 13, 13, rgb(0x2f2f2f)).outline(2, 2, 13, 13, rgb(0x3c3c3c));
+        t.rect(4, 4, 6, 7, rgb(0x101010)).rect(9, 4, 11, 7, rgb(0x101010)).rect(4, 10, 11, 11, rgb(0x181818));
+        t.rect(5, 5, 5, 5, rgb(0x707070)).rect(10, 5, 10, 5, rgb(0x707070));
     });
     add("observer_back", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(3, 3, 12, 12, rgb(0x404040)).rect(6, 6, 9, 9, rgb(0x241010)).rect(7, 7, 8, 8, rgb(0x501010));
+        t.fill(rgb(0x6f6f6f)).vary(0.05).grain(rgb(0x5f5f5f), 0.12, 1).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(3, 3, 12, 12, rgb(0x353535)).rect(6, 6, 9, 9, rgb(0x1c1010)).rect(7, 7, 8, 8, rgb(0x3a1010));
     });
     add("observer_back_on", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(3, 3, 12, 12, rgb(0x404040)).rect(6, 6, 9, 9, rgb(0xb01810)).rect(7, 7, 8, 8, rgb(0xff5030));
+        t.fill(rgb(0x6f6f6f)).vary(0.05).grain(rgb(0x5f5f5f), 0.12, 1).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(3, 3, 12, 12, rgb(0x353535)).rect(6, 6, 9, 9, rgb(0xc01c10)).rect(7, 7, 8, 8, rgb(0xff6a40));
     });
     add("observer_side", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(1, 6, 14, 9, rgb(0x585858)).rect(1, 7, 14, 8, rgb(0x484848));
-        // arrow head pointing up (toward the face)
-        t.rect(6, 2, 9, 3, rgb(0x5a5a5a)).rect(7, 1, 8, 1, rgb(0x5a5a5a));
+        // light stone bands top and bottom, a dark body with a ridge (the game's look)
+        t.fill(rgb(0x3a3a3a)).vary(0.08);
+        t.rect(0, 0, 15, 3, rgb(0x8c8c8c)).rect(0, 13, 15, 15, rgb(0x8c8c8c));
+        t.map(|x, y, c| if y <= 3 || y >= 13 { scale(c, 0.9 + 0.2 * noise(x, y, 31)) } else { c });
+        t.rect(0, 3, 15, 3, rgb(0x5e5e5e)).rect(0, 13, 15, 13, rgb(0x5e5e5e)).rect(1, 8, 14, 8, rgb(0x4a4a4a)).rect(1, 7, 14, 7, rgb(0x2c2c2c));
     });
     add("observer_top", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(6, 1, 9, 14, rgb(0x585858)).rect(7, 1, 8, 14, rgb(0x484848)).rect(4, 3, 11, 4, rgb(0x5a5a5a)).rect(5, 2, 10, 2, rgb(0x5a5a5a));
+        t.fill(rgb(0x8a8a8a)).vary(0.06).grain(rgb(0x7a7a7a), 0.12, 2).outline(0, 0, 15, 15, rgb(0x5a5a5a));
+        t.rect(2, 6, 13, 9, rgb(0x3a3a3a)).rect(3, 7, 12, 8, rgb(0x262626)).rect(6, 2, 9, 4, rgb(0x6a6a6a)).rect(7, 1, 8, 1, rgb(0x6a6a6a));
     });
     add("lamp_off", &|t| {
-        t.fill(rgb(0x6b4226)).vary(0.06).outline(0, 0, 15, 15, rgb(0x3e2412)).map(|x, y, c| if (x % 5 == 2 || y % 5 == 2) && (1..15).contains(&x) && (1..15).contains(&y) { rgb(0x9a6a3e) } else { c });
+        t.fill(rgb(0x5b3a21)).vary(0.08).outline(0, 0, 15, 15, rgb(0x2e1c0e)).map(|x, y, c| {
+            let d = (x as i32 - 7).abs().min((x as i32 - 8).abs()) + (y as i32 - 7).abs().min((y as i32 - 8).abs());
+            if (1..15).contains(&x) && (1..15).contains(&y) && (d == 5 || d == 2) { rgb(0x8a5a32) } else { c }
+        });
     });
     add("lamp_on", &|t| {
-        t.fill(rgb(0xf6c76a)).vary(0.05).outline(0, 0, 15, 15, rgb(0x8a5a26)).map(|x, y, c| if (x % 5 == 2 || y % 5 == 2) && (1..15).contains(&x) && (1..15).contains(&y) { rgb(0xfff4c8) } else { c });
+        t.fill(rgb(0xc98a3c)).vary(0.06).outline(0, 0, 15, 15, rgb(0x6a4218)).map(|x, y, c| {
+            let d = (x as i32 - 7).abs().min((x as i32 - 8).abs()) + (y as i32 - 7).abs().min((y as i32 - 8).abs());
+            if (1..15).contains(&x) && (1..15).contains(&y) && (d <= 2 || d == 5) { rgb(0xffe6a8) } else if d == 3 || d == 6 { rgb(0xf0b860) } else { c }
+        });
     });
     for (name, base) in [("bulb_0", 0xb4684d_u32), ("bulb_1", 0xa87f68), ("bulb_2", 0x6a9a7c), ("bulb_3", 0x52a28a)] {
         let base = rgb(base);
-        let off: &'static str = Box::leak(format!("{name}").into_boxed_str());
+        let off: &'static str = Box::leak(name.to_string().into_boxed_str());
         let on: &'static str = Box::leak(format!("{name}_lit").into_boxed_str());
-        add(off, &|t| {
-            t.fill(base).vary(0.05).outline(0, 0, 15, 15, scale(base, 0.75)).rect(4, 4, 11, 11, rgb(0x3a2a24)).outline(4, 4, 11, 11, scale(base, 0.6)).rect(6, 6, 9, 9, rgb(0x5a3e30));
-        });
-        add(on, &|t| {
-            t.fill(base).vary(0.05).outline(0, 0, 15, 15, scale(base, 0.75)).rect(4, 4, 11, 11, rgb(0xffe08a)).outline(4, 4, 11, 11, scale(base, 0.6)).rect(6, 6, 9, 9, rgb(0xfff8d8));
-        });
+        // four petals in the quadrants around the filament, a copper frame
+        let petals = move |t: &mut Tile, petal: Rgba, core: Rgba| {
+            t.fill(base).vary(0.06).outline(0, 0, 15, 15, scale(base, 0.7)).rect(2, 2, 13, 13, scale(base, 0.55));
+            for (x0, y0) in [(3, 3), (9, 3), (3, 9), (9, 9)] {
+                t.rect(x0, y0, x0 + 3, y0 + 3, petal).rect(x0 + 1, y0 + 1, x0 + 2, y0 + 2, scale(petal, 1.12));
+            }
+            t.rect(7, 2, 8, 13, scale(base, 0.8)).rect(2, 7, 13, 8, scale(base, 0.8)).rect(7, 7, 8, 8, core);
+        };
+        add(off, &|t| petals(t, rgb(0x6e4a3a), rgb(0x3a2620)));
+        add(on, &|t| petals(t, rgb(0xffd77a), rgb(0xfff4d0)));
+        let off_p: &'static str = Box::leak(format!("{name}_p").into_boxed_str());
+        let on_p: &'static str = Box::leak(format!("{name}_lit_p").into_boxed_str());
+        add(off_p, &|t| petals(t, rgb(0x6e4a3a), rgb(0xd02010)));
+        add(on_p, &|t| petals(t, rgb(0xffd77a), rgb(0xe02810)));
     }
     add("note_block", &|t| {
         t.planks(rgb(0x6a432c));
@@ -805,40 +824,34 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     out
 }
 
-/// The texture atlas: RGBA pixels for each mip level and the tile index of every name.
+/// The textures as an array (one 16x16 layer per tile, so filtering never bleeds between
+/// tiles): RGBA pixels per mip level of every layer, and each name's layer.
 pub struct Atlas {
     pub names: HashMap<&'static str, u16>,
-    /// `mips[k]`: (SIZE >> k)^2 RGBA pixels.
+    /// Number of layers.
+    pub layers: usize,
+    /// `mips[k]`: every layer's (TILE >> k)^2 RGBA pixels, layer after layer.
     pub mips: Vec<Vec<u8>>,
 }
 
 impl Atlas {
     pub fn build() -> Atlas {
         let tiles = paint_all();
-        assert!(tiles.len() <= COLS * COLS, "atlas full");
+        assert!(tiles.len() <= MAX_LAYERS, "too many tiles for a WebGL2 texture array");
         let mut names = HashMap::new();
-        let mut mips: Vec<Vec<u8>> = (0..MIPS).map(|k| vec![0u8; (SIZE >> k) * (SIZE >> k) * 4]).collect();
+        let mut mips: Vec<Vec<u8>> = (0..MIPS).map(|_| Vec::new()).collect();
         for (i, (name, t)) in tiles.iter().enumerate() {
             names.insert(*name, i as u16);
-            let (tx, ty) = (i % COLS, i / COLS);
-            // level 0, then box-filter each tile on its own (premultiplied alpha)
+            // level 0, then box-filter (premultiplied alpha)
             let mut level: Vec<[f32; 4]> = t.px.iter().map(|c| {
                 let a = c[3] as f32 / 255.0;
                 [c[0] as f32 * a, c[1] as f32 * a, c[2] as f32 * a, a]
             }).collect();
             let mut n = TILE;
-            for (k, mip) in mips.iter_mut().enumerate() {
-                let w = SIZE >> k;
-                for y in 0..n {
-                    for x in 0..n {
-                        let p = level[y * n + x];
-                        let (r, g, b) = if p[3] > 0.0 { (p[0] / p[3], p[1] / p[3], p[2] / p[3]) } else { (0.0, 0.0, 0.0) };
-                        let o = ((ty * n + y) * w + tx * n + x) * 4;
-                        mip[o] = r.round().clamp(0.0, 255.0) as u8;
-                        mip[o + 1] = g.round().clamp(0.0, 255.0) as u8;
-                        mip[o + 2] = b.round().clamp(0.0, 255.0) as u8;
-                        mip[o + 3] = (p[3] * 255.0).round().clamp(0.0, 255.0) as u8;
-                    }
+            for mip in mips.iter_mut() {
+                for p in &level {
+                    let (r, g, b) = if p[3] > 0.0 { (p[0] / p[3], p[1] / p[3], p[2] / p[3]) } else { (0.0, 0.0, 0.0) };
+                    mip.extend_from_slice(&[r.round().clamp(0.0, 255.0) as u8, g.round().clamp(0.0, 255.0) as u8, b.round().clamp(0.0, 255.0) as u8, (p[3] * 255.0).round().clamp(0.0, 255.0) as u8]);
                 }
                 if n > 1 {
                     let m = n / 2;
@@ -860,7 +873,7 @@ impl Atlas {
                 }
             }
         }
-        Atlas { names, mips }
+        Atlas { names, layers: tiles.len(), mips }
     }
 
     /// The tile of a name (the generic white tile for unknown names).
@@ -872,11 +885,9 @@ impl Atlas {
         self.names.contains_key(name)
     }
 
-    /// UV rectangle (0..1) of pixel rect (u0, v0, u1, v1) (in 0..16) of a tile.
-    pub fn uv(&self, tile: u16, r: [f32; 4]) -> [f32; 4] {
-        let (tx, ty) = ((tile as usize % COLS) as f32, (tile as usize / COLS) as f32);
-        let s = SIZE as f32;
+    /// UV rectangle (0..1 within its layer) of pixel rect (u0, v0, u1, v1) (in 0..16).
+    pub fn uv(&self, _tile: u16, r: [f32; 4]) -> [f32; 4] {
         let t = TILE as f32;
-        [(tx * t + r[0]) / s, (ty * t + r[1]) / s, (tx * t + r[2]) / s, (ty * t + r[3]) / s]
+        [r[0] / t, r[1] / t, r[2] / t, r[3] / t]
     }
 }

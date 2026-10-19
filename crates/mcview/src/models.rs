@@ -279,16 +279,13 @@ pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
                 0
             };
             let lit = st.b("lit", false);
-            let tile: &'static str = match (k, lit) {
-                (0, false) => "bulb_0",
-                (0, true) => "bulb_0_lit",
-                (1, false) => "bulb_1",
-                (1, true) => "bulb_1_lit",
-                (2, false) => "bulb_2",
-                (2, true) => "bulb_2_lit",
-                (3, false) => "bulb_3",
-                _ => "bulb_3_lit",
-            };
+            const BULB: [[&str; 4]; 4] = [
+                ["bulb_0", "bulb_0_p", "bulb_0_lit", "bulb_0_lit_p"],
+                ["bulb_1", "bulb_1_p", "bulb_1_lit", "bulb_1_lit_p"],
+                ["bulb_2", "bulb_2_p", "bulb_2_lit", "bulb_2_lit_p"],
+                ["bulb_3", "bulb_3_p", "bulb_3_lit", "bulb_3_lit_p"],
+            ];
+            let tile = BULB[k][lit as usize * 2 + st.b("powered", false) as usize];
             let mut m = cube_all(tile);
             m.parts[0] = m.parts[0].clone().emissive(lit);
             m

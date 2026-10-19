@@ -39,6 +39,14 @@ pub(crate) fn log(s: &str) {
     web_sys::console::log_1(&JsValue::from_str(&format!("mcview: {s}")));
 }
 
+/// `?mcview-debug` in the page URL: timings in the console.
+pub(crate) fn debug() -> bool {
+    thread_local! {
+        static DEBUG: bool = web_sys::window().and_then(|w| w.location().search().ok()).is_some_and(|s| s.contains("mcview-debug"));
+    }
+    DEBUG.with(|d| *d)
+}
+
 pub(crate) fn window() -> web_sys::Window {
     web_sys::window().expect("no window")
 }
@@ -102,6 +110,7 @@ pub(crate) struct App {
     io: IntersectionObserver,
     ro: ResizeObserver,
     frame_scheduled: bool,
+    work_scheduled: bool,
 }
 
 #[wasm_bindgen(start)]
@@ -136,6 +145,7 @@ pub fn start() {
         io,
         ro,
         frame_scheduled: false,
+        work_scheduled: false,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
     // the shared thumbnail context, on a canvas that is never shown
@@ -209,22 +219,29 @@ fn scan(root: &Element) {
     }
 }
 
-/// Make sure an animation frame is coming.
+/// Make sure the pending work runs: thumbnails in a task (no vsync needed, so they also draw in
+/// background tabs and headless browsers), live viewers in animation frames.
 pub(crate) fn ensure_frame() {
-    let go = with_app(|a| {
-        if a.frame_scheduled {
-            false
-        } else {
-            a.frame_scheduled = true;
-            true
-        }
-    })
-    .unwrap_or(false);
+    let work = with_app(|a| !std::mem::replace(&mut a.work_scheduled, true)).unwrap_or(false);
+    if work {
+        let cb = Closure::once_into_js(move || {
+            let more = with_app(|a| {
+                a.work_scheduled = false;
+                a.thumbs()
+            })
+            .unwrap_or(false);
+            if more {
+                ensure_frame();
+            }
+        });
+        let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), 0);
+    }
+    let go = with_app(|a| a.views.values().any(|v| v.full) && !std::mem::replace(&mut a.frame_scheduled, true)).unwrap_or(false);
     if go {
         let cb = Closure::once_into_js(move |ts: f64| {
             let more = with_app(|a| {
                 a.frame_scheduled = false;
-                a.frame(ts)
+                a.live_frames(ts)
             })
             .unwrap_or(false);
             if more {
@@ -407,11 +424,14 @@ impl App {
         None
     }
 
-    /// One animation frame: thumbnails within a time budget, then the live viewers. Returns
-    /// whether another frame is needed.
-    fn frame(&mut self, ts: f64) -> bool {
+    /// Thumbnails (and live viewers waiting for their text) within a time budget. Returns whether
+    /// work is left.
+    fn thumbs(&mut self) -> bool {
         let perf = window().performance();
         let t0 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
+        if debug() && !self.queue.is_empty() {
+            log(&format!("work at {t0:.0}: {} queued", self.queue.len()));
+        }
         let mut waiting = VecDeque::new();
         while let Some(id) = self.queue.pop_front() {
             if perf.as_ref().is_some_and(|p| p.now() - t0 > 12.0) {
@@ -454,7 +474,12 @@ impl App {
             }
         }
         self.queue.extend(waiting);
-        let mut more = !self.queue.is_empty() && !matches!(self.thumb, ThumbGpu::Pending);
+        !self.queue.is_empty() && !matches!(self.thumb, ThumbGpu::Pending)
+    }
+
+    /// One animation frame of every live viewer; true while one needs more (playing).
+    fn live_frames(&mut self, ts: f64) -> bool {
+        let mut more = false;
         let ids: Vec<u32> = self.views.iter().filter(|(_, v)| v.full).map(|(id, _)| *id).collect();
         for id in ids {
             more |= live::frame(self, id, ts);
@@ -464,8 +489,12 @@ impl App {
 
     /// Draw a thumbnail (from the cache when it has this source at this size).
     fn thumb(&mut self, id: u32, text: &str) {
+        let t0 = window().performance().map(|p| p.now()).unwrap_or(0.0);
         let Some(v) = self.views.get(&id) else { return };
         let key = v.key();
+        if debug() {
+            log(&format!("thumb {key} start"));
+        }
         let (w, h) = (v.w.max(1), v.h.max(1));
         let ctx: Option<CanvasRenderingContext2d> = v.canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok());
         let Some(ctx) = ctx else { return };
@@ -477,7 +506,10 @@ impl App {
         let picture = (|| -> Result<(), String> {
             let mut s = Session::new(text, &Options::default())?;
             match v.tick {
-                Some(t) => s.run(t),
+                Some(t) => {
+                    s.find_auto_output(20_000);
+                    s.run(t)
+                }
                 None => {
                     s.go_to_still(20_000);
                 }
@@ -505,6 +537,9 @@ impl App {
         })();
         match picture {
             Ok(()) => {
+                if debug() {
+                    log(&format!("thumb {key} done in {:.1} ms", window().performance().map(|p| p.now()).unwrap_or(0.0) - t0));
+                }
                 self.ready(id);
                 let canvas = self.views[&id].canvas.clone();
                 if let Ok(p) = window().create_image_bitmap_with_html_canvas_element(&canvas) {
