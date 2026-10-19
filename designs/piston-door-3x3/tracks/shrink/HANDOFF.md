@@ -34,8 +34,7 @@ k<=4, 8 cells k<=4; nb 7 cells k<=4 (full palette) and k=5 (reduced). Logs: runs
    (sticky piston shuttle) or the moving-observer trick for the gates is the untested direction.
 
 ## Running processes
-box1 devvm55865: `door fill` on e78 r1's right cluster (runs/e78r1R-k5.log, then e78r1R6-k5.log);
-only this track's jobs, safe to kill.
+None (all of this track's door fill jobs finished; box1 devvm55865).
 
 ## Files
 - tracks/shrink/NOTES.md (results, how ob40 works, empty screens, t7b bottom windows), finds/ (all

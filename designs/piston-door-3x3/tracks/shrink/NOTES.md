@@ -66,7 +66,8 @@ e78 (helper for e78k, 7x8 sculk, K ideal): 5 right cells + (-2,-1), k<=4 with pi
 (46 states, --gaps): nothing; 7 free cells k<=4: nothing. e78k's r1.txt (K real via a piston
 relay, one open flaw at t45): left cells k<=5 and + top cells k<=4: nothing. r2.txt (loops after
 the open): 6 cells k<=4, 8 cells k<=4: nothing. nb.txt (7 cells): k<=4 full palette and exactly
-k=5 reduced (316M): nothing. r1 right cluster (relay included) k<=5: runs/e78r1R*.log.
+k=5 reduced (316M): nothing. r1 right cluster (relay included) k<=5 (78M) and + (2,-3) k<=5
+(346M): nothing. e78k handed off at 15:03Z (explore/q78 tracks/q78/HANDOFF.md).
 s27-trbl51 top-left A part: no 5-block solid filling without pistons (k<=5, 32 states, --gaps).
 
 ## t7b's bottom, what it must do (ideal-rs windows on the 14 bottom wiring cells erased)
