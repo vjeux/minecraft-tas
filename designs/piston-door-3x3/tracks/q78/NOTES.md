@@ -39,3 +39,22 @@ Frees (0,4) so A can be fed from the LEFT while W keeps the top-right. ideal-rs 
   and hears A1 instead (t7 -> active t10): W = sensor -> lamp (3,5) -> observer (3,4) up works (W at 12);
   but B's feed (2,5) can only watch the same (3,5) (W and B fire together), B from the left needs (0,5)
   (the shield), and TR+MR's only feed (4,3) needs an odd, echo-free pulse source. Open.
+
+## 3. e78: ring56's jf (p2-sculk-r's mechanism) in 7x8 with a LEVER-HELD TOP ROW (04:08Z)
+* `e78/e78m.txt` + `e78m.ideal`: jf (top row UP, ML+BL left, MR+BR right, C down 2 by A' (1,-2) on B' (1,-3), BM
+  down then into F2 by K (3,-1), static L2 R2 F0) with the top pullers (0,4) (1,4) (2,4) EXTENDED at rest and held
+  by the lever ON at rest on top of (1,4) ((1,4) directly, (0,4)/(2,4) by QC through (0,5)/(2,5)): e88's trick.
+  Row 5 (jf/p2's observer chain) is gone, the lever is outside the volume: x -2..4, y -3..4 = 7x8 = 56.
+  ideal-rs WORKS for EVERY sides time 0..40 x bottom start 0..30 (jf's asymmetric bottom).
+* `e78/e78s.txt` + `e78s.ideal`: top AND sides WIRED (observer (-1,4) facing east on TL's puller -> stone (-2,4) ->
+  dust (-2,3) -> stone (-2,2): ML direct, BL by QC; mirror (3,4) -> (4,4) -> dust (4,3) -> (4,2): MR, BR), both
+  sides at ~t3; only the bottom ideal: WORKS for every bottom start d 0..30. `e78ws.txt`: the same, wool door.
+* Bottom windows (`e78sw.ideal`, d = 8): open A1 0..11, K 11..18 (2..6 gt), B1 16..23, A2 21..27, B2 27..32,
+  A3 >= 34; close A1 0..11, K 11..17, B1 17..22, B2 >= 24. The fully symmetric train fails (A3 on close pulls BM
+  into F1): A2/A3 need p2's gate (F2 powered only while BM is parked there).
+* p2-sculk-r's bottom pasted under it (`e78a.txt`, `e78b.txt` with MR+BR ideal) fails: p2's bottom is tuned to
+  BL at t2, its two calibrated sensors at t9 (the lever 9.2/9.4 away) and BR at t18; here the sensors hear the
+  top pullers at t6..8. With a WOOL door (`e78w.txt`) the top's t0 events are occluded from the bottom: K's
+  sensor fires at t10 = BL+7 as in p2, but B''s sensor (0,-3) hears A' (diagonal neighbour, t7 -> t8) and its
+  echo comes at t31 (ideal holds show B' needs [7..18, +10] and a 2nd hold ending at 44..46). Screens of p2's
+  bottom variants (wool and stone, 300k+): 0. Running: cosearch on the bottom rows of e78s / e78ws, pockets.
