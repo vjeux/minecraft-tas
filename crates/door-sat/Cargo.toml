@@ -1,0 +1,13 @@
+[package]
+name = "door-sat"
+description = "mctas door commands: the SAT tools: satwire, satsweep, boxproof"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+piston-door = { path = "../piston-door" }

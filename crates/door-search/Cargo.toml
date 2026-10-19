@@ -1,0 +1,13 @@
+[package]
+name = "door-search"
+description = "mctas door commands: block-count and speed searches on whole designs: minimize, grow, regrow, harvest, transplant, synth, resynth, route, route2, place"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+piston-door = { path = "../piston-door" }
