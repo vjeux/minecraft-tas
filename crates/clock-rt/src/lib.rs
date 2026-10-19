@@ -12,6 +12,7 @@ pub mod build;
 pub mod divider;
 pub mod families;
 pub mod kick;
+pub mod ring;
 pub mod shrink;
 pub mod sweep;
 
@@ -132,6 +133,29 @@ enum Cmd {
         threads: usize,
         #[arg(long)]
         out_dir: Option<PathBuf>,
+    },
+    /// Rectangle rings (ring.rs): every assignment of a w x h perimeter (straight cells from
+    /// --straight, corners from --corner, at most --max-powered loaded repeaters) judged by clock
+    /// sim; best per period, every waveform, best per (period, family).
+    SweepRing {
+        #[arg(long, default_value_t = 3)]
+        w: i32,
+        #[arg(long, default_value_t = 3)]
+        h: i32,
+        #[arg(long, default_value = "1,2,3,4,1*,2*,3*,4*,b,d,c,T")]
+        straight: String,
+        #[arg(long, default_value = "b,d,T")]
+        corner: String,
+        #[arg(long, default_value_t = 2)]
+        max_powered: usize,
+        #[arg(long, default_value_t = 20000)]
+        horizon: u32,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        #[arg(long)]
+        waves: bool,
     },
     /// Best known design per period over design files / directories (clock sim on each): the
     /// fewest blocks, then the smallest swept volume; with --verify-list, only designs a
@@ -274,6 +298,57 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         dd.name = format!("{}-kick-p{}", d.name, f.period);
                         std::fs::write(path, dd.to_text())?;
                     }
+                }
+            }
+        }
+        Cmd::SweepRing { w, h, straight, corner, max_powered, horizon, threads, out_dir, waves } => {
+            let st = parse_row(&straight)?;
+            let co = parse_row(&corner)?;
+            let all = ring::assignments(w, h, &st, &co, max_powered);
+            let mut caps: std::collections::HashMap<String, String> = Default::default();
+            let cands: Vec<(String, String)> = all
+                .iter()
+                .filter_map(|cells| {
+                    let name = format!("clk-rt-{}", ring::label(w, h, cells));
+                    let b = ring::build(w, h, cells, &name)?;
+                    if b.conflict {
+                        return None;
+                    }
+                    caps.insert(name.clone(), ring::caption(w, h, cells));
+                    Some((name, b.design().to_text()))
+                })
+                .collect();
+            let n = cands.len();
+            let t0 = std::time::Instant::now();
+            let found = sweep::run_all(cands, horizon, threads);
+            eprintln!("{n} rings judged in {:.1} s: {} clocks", t0.elapsed().as_secs_f64(), found.len());
+            let t = sweep::table(&found);
+            println!("| P | blocks | volume | output | family | design |");
+            println!("|---|---|---|---|---|---|");
+            for (p, f) in &t.best {
+                println!("| {p} | {} | {} | {} | {} | {} |", f.blocks, f.volume, f.wave(), f.family, f.label);
+            }
+            if waves {
+                println!();
+                println!("| P | waveform + family | blocks | design |");
+                println!("|---|---|---|---|");
+                for ((p, wv), f) in &t.waves {
+                    println!("| {p} | {wv} | {} | {} |", f.blocks, f.label);
+                }
+            }
+            if let Some(dir) = out_dir {
+                std::fs::create_dir_all(&dir)?;
+                let mut fam: std::collections::BTreeMap<(u32, String), &sweep::Found> = Default::default();
+                for f in &found {
+                    let k = (f.period, f.family.clone());
+                    if fam.get(&k).is_none_or(|o| (f.blocks, f.volume) < (o.blocks, o.volume)) {
+                        fam.insert(k, f);
+                    }
+                }
+                for ((p, family), f) in fam {
+                    let short: String = family.split('+').map(|w| w.split('_').map(|s| &s[..1]).collect::<String>()).collect::<Vec<_>>().join("-");
+                    let cap = caps.get(&f.label).cloned().unwrap_or_default();
+                    write_design(&dir.join(format!("ring{w}x{h}-p{p}-{short}.txt")), &f.design, &format!("clk-rt-ring{w}x{h}-p{p}-{short}-{}b", f.blocks), "", &cap)?;
                 }
             }
         }
