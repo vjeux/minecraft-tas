@@ -80,3 +80,20 @@ Windows (`door ideal-rs --sweep`, real top + t7b's wall chains, c035w / c070w):
   powers the TL puller) and QC through (-2,4), and E1's observer (-2,3) can only watch (-2,4), so E1
   always comes 2 gt AFTER S). An 8x8 box with row 5 (y -2..5) frees (-1,4) for an observer facing
   up (S) and gives a lever watcher at (0,5).
+- Tried after that (all fail in redsim): c070y (M from an observer chain watching D: M lands 2 gt
+  late, D's pull hits E extended); c078w (`ideal/c078w.ideal`, 8x7-078 = c077 with SD+(-1,3)
+  extended at rest, lever-held through a row-5 repeater + dust on glass in an 8x8): S+ moves ONCE
+  per edge, so the ML-park watcher fires once and D gets its push but never its pull-back. In 8x8
+  y -2..5 the E1-before-S order still fails for c077 (every early signal enters at (-1,5), which is
+  S's watched cell, before it can reach (-2,4)).
+
+## 5. Next ideas
+- A 10-gt D hold (bridge: D works as one hold) instead of the watcher's two taps would widen M's
+  window from 1 tick to ~8; it needs a pulse stretcher on one of D's two feed cells ((-3,0) or
+  (-3,2)), which only take observers/conductors from the watcher's side.
+- Feed the bottom-left M gate (c077) and the top-left S from two deterministic chains of matched
+  length (top: TL-puller watcher; bottom: right chain -> BR-puller watcher -> BM-down -> observer
+  (0,-2) east -> note block (-1,-2) -> the gate), once the top-left can order E1 before S.
+- The blocked-push watcher is general: any piston whose job must happen on one edge only can be
+  driven by a watcher whose pulse, on the other edge, arrives while a door block is still moving
+  through its push line.
