@@ -483,7 +483,7 @@ pub fn cli(a: &Args) -> Result<()> {
                 // the design's own lever (if it has one)
                 let d = mctas::design::Design::load(std::path::Path::new(p))?;
                 let door = *d.ports.get("door").context("no door port")?;
-                if let Some(&lp) = d.ports.get("lever") {
+                if let Some(&lp) = d.ports.get("lever").filter(|_| !a.has("free-lever")) {
                 let ls = d.block_list().into_iter().find(|(q, _)| *q == lp).map(|(_, s)| s).context("no lever block")?;
                 let pos = (lp[0] - door[0] + dx, lp[1] - door[1] + dy);
                 let face = ls.split("face=").nth(1).map(|s| s.split([',', ']']).next().unwrap_or("")).unwrap_or("");
@@ -553,6 +553,10 @@ pub fn cli(a: &Args) -> Result<()> {
                 let d = mctas::design::Design::parse(&text)?;
                 let mut offs = crate::VerifyOptions::default().offsets;
                 offs.extend(crate::extra_offsets(28));
+                // screen positions: 1 by default while searching (vjeux 03:02Z: positions and
+                // rotations are checked once a door exists); `--screen-positions 32` for all
+                let np: usize = a.get("screen-positions", 1);
+                offs.truncate(np.max(1));
                 let sc = crate::redsim_screen::screen(&d, &offs, 3, 400, true);
                 println!("SAT in {dt:.1}s (iter {it}): {path}: redsim screen {sc:?}");
                 if sc.passed() {
