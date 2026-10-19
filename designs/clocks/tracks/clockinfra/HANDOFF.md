@@ -49,6 +49,18 @@ coordinator (f1a42990).
   kinds hosts it as a variant) shows ~1565 types + ~806 variants at 2373 clocks.
 - Extendable cards: `### P = a + bn gt` heading, n_low and n_low+1 pictures (the n_low+1 one is
   `img/<base>.n<k>.jpg`, built by `clock shot` with the family's generator).
+- Card groups (vjeux: "can we not have 300 variations of this one?"): `extend group*` headers
+  (`clock group` sets them) make one card per mechanism: dropper ring (14), ring lock (3), lock ring
+  (2), hopper ring (2), observer ring with a relay block (10, its description lists the relays).
+  Families without a header sharing a formula and differing by one block kind share a card too.
+  56 cards -> 29. Name-prefix candidates left to their owners: clk-rt rect-pulse/rect-inv,
+  div/div-fade, clk-obs odd-a/odd-b, clk-sculk racetrack/racetrack-plain.
+- Variants (the dominance fold) live on `gallery/variants.md` only (vjeux found the inline lines
+  unreadable).
+- Pictures: clocks are built with their bottom at y = 72 (below the client's horizon height, y 63,
+  the sky beyond the floor is drawn black); a design with entities runs its last tick with the
+  camera there (a frozen level never sends entities); `clock shot --redo-bad` re-takes missing or
+  bad pictures (dark, uniform, dark top band).
 - Box warning: a 160-thread census on devvm53196 starved the agentcloud node agent twice (the node
   stopped announcing); keep jobs <= ~100 threads / half the RAM. While devvm53196 was down I
   worked in my own clone on box1 (devvm55865, <= 32 threads).
@@ -60,6 +72,6 @@ coordinator (f1a42990).
 - Archive tables: one row per file (read_rows collapses repeated rows from union merges; dedupe
   never removes a file as its own twin): if a merge repeats rows again, `clock archive --dedupe`
   repairs the tables (reports COLLAPSED n).
-- Minecart (entity) clocks: the cart does not show in `clock shot` pictures (frozen level: the
-  entity is not sent to the client); the rails do.
+- Minecart (entity) clocks: pictured since 2026-10-19 (last tick with the viewer); `clock video`
+  plays with the viewer there, so carts show in clips too.
 - P <= 3 at 2x2x2 k5 / 3x3x2 k4 if anyone needs a stronger bound (hours; <= 100 threads).
