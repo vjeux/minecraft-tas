@@ -1,0 +1,19 @@
+# U-loop (clk-rt): a wall torch on block A -> top row [delay-1 repeater (powered at placement)] ->
+# block F -> a wall torch on F (unlit at placement) -> bottom row [delay-3 repeater (powered at
+# placement)] -> A; 2 torches = a pulse ring of loop delay 12 gt
+name: clk-rt-uloop-p12-rt-r-8b
+uloop: T-1*-3*-t
+port output: 0 1 -1
+origin: 0 0 -1
+palette:
+  A minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  B minecraft:repeater[delay=3,facing=east,locked=false,powered=true]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wall_torch[facing=south,lit=false]
+layer 0:
+  .S
+  .S
+layer 1:
+  RAS
+  SBr

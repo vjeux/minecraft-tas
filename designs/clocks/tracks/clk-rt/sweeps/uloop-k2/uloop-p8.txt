@@ -1,3 +1,6 @@
+# U-loop (clk-rt): block A + dust beside it -> top row [delay-2 repeater (powered at placement)] ->
+# block F -> dust beside F -> bottom row [delay-2 repeater] -> A; 0 torches = a pulse ring of loop
+# delay 8 gt
 name: clk-rt-uloop-p8-10b
 uloop: C-2*-2-d
 port output: 0 1 -1

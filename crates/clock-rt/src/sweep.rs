@@ -37,6 +37,8 @@ pub fn judge(name: &str, text: &str, horizon: u32) -> Option<Found> {
         return None;
     }
     let o = r.output.as_ref()?;
+    // the judge's period: the visible state's (hidden state such as the torch memory may cycle
+    // slower: r.state_period is the whole state's)
     Some(Found {
         label: name.to_string(),
         period: r.period,

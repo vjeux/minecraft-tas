@@ -140,6 +140,33 @@ impl ULoop {
         h + t + self.top.iter().chain(&self.bottom).map(|c| c.rt()).sum::<u32>()
     }
 
+    /// One line on how it works (the catalog's caption: the design's leading comment).
+    pub fn caption(&self) -> String {
+        let cell = |c: &Cell| match *c {
+            Cell::Rep { d, on } => format!("delay-{d} repeater{}", if on { " (powered at placement)" } else { "" }),
+            Cell::Cmp => "comparator".into(),
+            Cell::Dust => "dust".into(),
+            Cell::Block => "block".into(),
+            Cell::Torch { lit } => format!("wall torch{}", if lit { "" } else { " (unlit at placement)" }),
+        };
+        let row = |r: &[Cell]| r.iter().map(cell).collect::<Vec<_>>().join(", ");
+        let head = match self.head {
+            Head::Torch { lit } => format!("a wall torch on block A{}", if lit { "" } else { " (unlit at placement)" }),
+            Head::Corner => "block A + dust beside it".into(),
+        };
+        let tail = match self.tail {
+            Tail::Dust => "dust beside F".into(),
+            Tail::Torch { lit } => format!("a wall torch on F{}", if lit { "" } else { " (unlit at placement)" }),
+        };
+        let t = self.torches();
+        let kind = if t % 2 == 1 {
+            format!("{t} torch(es) = an inverter loop of delay {} gt (period 2 x delay)", 2 * self.loop_rt())
+        } else {
+            format!("{t} torches = a pulse ring of loop delay {} gt", 2 * self.loop_rt())
+        };
+        format!("U-loop (clk-rt): {head} -> top row [{}] -> block F -> {tail} -> bottom row [{}] -> A; {kind}", row(&self.top), row(&self.bottom))
+    }
+
     pub fn build(&self, name: &str) -> anyhow::Result<B> {
         let k = self.top.len() as i32;
         anyhow::ensure!(k >= 1 && self.bottom.len() as i32 == k, "the two rows need the same length >= 1");

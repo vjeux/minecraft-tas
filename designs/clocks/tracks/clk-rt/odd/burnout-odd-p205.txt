@@ -1,0 +1,17 @@
+name: clk-rt-odd-p205-8b
+uloop: T-1*-d-T
+port output: 0 1 -1
+port start: 0 0 0 minecraft:redstone_wall_torch[facing=west,lit=true] 2 at 1
+origin: 0 0 -1
+palette:
+  A minecraft:redstone_wire
+  B minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+layer 0:
+  .S
+  .S
+layer 1:
+  RBS
+  SAr

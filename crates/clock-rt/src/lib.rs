@@ -9,6 +9,7 @@
 //! * `shrink <design> [--period P] [--pairs]`: local search for a smaller clock (shrink.rs).
 
 pub mod build;
+pub mod divider;
 pub mod families;
 pub mod kick;
 pub mod shrink;
@@ -109,6 +110,18 @@ enum Cmd {
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
+    /// A divider chain: a base torch-repeater U-loop (period 4 (1 + d1 + d2)) and master-slave
+    /// T flip-flop stages, each doubling the period (divider.rs).
+    Divider {
+        #[arg(long, default_value_t = 2)]
+        d1: u8,
+        #[arg(long, default_value_t = 2)]
+        d2: u8,
+        #[arg(long, default_value_t = 1)]
+        stages: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Judge every U-loop up to a row length with clock sim; best per period + distinct waveforms.
     SweepUloop {
         #[arg(long, default_value_t = 2)]
@@ -133,6 +146,9 @@ enum Cmd {
         /// Print every distinct waveform, not only the best per period.
         #[arg(long)]
         waves: bool,
+        /// Also write the smallest design of every (period, family) pair.
+        #[arg(long)]
+        per_family: bool,
     },
 }
 
@@ -220,38 +236,75 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let heads = [Head::Torch { lit: true }, Head::Corner];
             let tails = [Tail::Torch { lit: true }, Tail::Dust];
             let base = sweep::uloops(kmax, &alpha, &heads, &tails);
-            // one loaded pulse: one repeater powered, or one torch unlit
+            // Every loading (powered repeaters, lit torches) of every base loop with an odd half
+            // loop delay and an even number of torches (a non-inverting ring can hold two
+            // pulses); keep the loadings that run ONE pulse around the loop (period = loop delay,
+            // one edge), the narrowest few per base.
             let mut loops: Vec<ULoop> = Vec::new();
+            let mut pre: Vec<(String, String)> = Vec::new();
+            let mut by_name: std::collections::HashMap<String, ULoop> = Default::default();
             for u in &base {
                 let rt = u.loop_rt();
-                if rt % 2 == 0 {
-                    continue; // loop delay 2 x rt gt: odd rt = 2 x odd gt
-                }
-                // the two-pulse ring needs an even number of torches (a non-inverting loop)
-                if u.torches() % 2 == 1 {
+                if rt % 2 == 0 || u.torches() % 2 == 1 {
                     continue;
                 }
-                let n = u.top.len() + u.bottom.len();
-                for i in 0..n {
-                    let mut v = u.clone();
-                    let c = if i < u.top.len() { &mut v.top[i] } else { &mut v.bottom[i - u.top.len()] };
-                    if let Cell::Rep { d, .. } = *c {
-                        *c = Cell::Rep { d, on: true };
-                        loops.push(v);
+                let mut slots: Vec<usize> = Vec::new(); // indices of repeaters in top ++ bottom
+                for (i, c) in u.top.iter().chain(&u.bottom).enumerate() {
+                    if matches!(c, Cell::Rep { .. }) {
+                        slots.push(i);
                     }
                 }
-                if let Head::Torch { .. } = u.head {
+                let th = matches!(u.head, Head::Torch { .. });
+                let tt = matches!(u.tail, Tail::Torch { .. });
+                let nbits = slots.len() + th as usize + tt as usize;
+                for mask in 0u32..(1 << nbits) {
                     let mut v = u.clone();
-                    v.head = Head::Torch { lit: false };
-                    loops.push(v);
-                }
-                if let Tail::Torch { .. } = u.tail {
-                    let mut v = u.clone();
-                    v.tail = Tail::Torch { lit: false };
-                    loops.push(v);
+                    let k = u.top.len();
+                    for (b, &i) in slots.iter().enumerate() {
+                        let on = mask >> b & 1 == 1;
+                        let c = if i < k { &mut v.top[i] } else { &mut v.bottom[i - k] };
+                        if let Cell::Rep { d, .. } = *c {
+                            *c = Cell::Rep { d, on };
+                        }
+                    }
+                    let mut b = slots.len();
+                    if th {
+                        v.head = Head::Torch { lit: mask >> b & 1 == 1 };
+                        b += 1;
+                    }
+                    if tt {
+                        v.tail = Tail::Torch { lit: mask >> b & 1 == 1 };
+                    }
+                    let name = format!("clk-rt-odd-{}", v.label());
+                    if let Ok(bb) = v.build(&name)
+                        && !bb.conflict
+                    {
+                        pre.push((name.clone(), bb.design().to_text()));
+                        by_name.insert(name, v);
+                    }
                 }
             }
-            eprintln!("{} loaded U-loops with an odd half loop delay", loops.len());
+            eprintln!("{} loadings of {} base loops", pre.len(), base.len());
+            let found = sweep::run_all(pre, horizon, threads);
+            // per base loop (label without loading marks): the narrowest one-pulse loadings
+            let mut per_base: std::collections::BTreeMap<String, Vec<(u32, String)>> = Default::default();
+            for f in &found {
+                let Some(u) = by_name.get(&f.label) else { continue };
+                if f.period != 2 * u.loop_rt() || f.edges != 1 {
+                    continue;
+                }
+                let key = u.label().replace('*', "").replace('t', "T");
+                let pulse = f.on.min(f.period - f.on);
+                per_base.entry(key).or_default().push((pulse, f.label.clone()));
+            }
+            for (_, mut v) in per_base {
+                v.sort();
+                v.dedup_by(|a, b| a.0 == b.0);
+                for (_, name) in v.into_iter().take(3) {
+                    loops.push(by_name[&name].clone());
+                }
+            }
+            eprintln!("{} one-pulse loadings to kick", loops.len());
             let mut best: std::collections::BTreeMap<u32, (sweep::Found, String)> = Default::default();
             let t0 = std::time::Instant::now();
             for u in &loops {
@@ -284,15 +337,29 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             if let Some(dir) = out_dir {
                 std::fs::create_dir_all(&dir)?;
-                for (p, (f, _)) in &best {
-                    let mut d = mctas::design::Design::parse(&f.design)?;
-                    d.meta.insert("uloop".into(), f.label.trim_start_matches("clk-rt-odd-").to_string());
-                    d.name = format!("clk-rt-odd-p{p}-{}b", f.blocks);
-                    std::fs::write(dir.join(format!("odd-p{p}.txt")), d.to_text())?;
+                for (p, (f, how)) in &best {
+                    let label = f.label.trim_start_matches("clk-rt-odd-").to_string();
+                    let cap = loops.iter().find(|u| u.label() == label).map(|u| u.caption()).unwrap_or_default();
+                    let cap = format!("{cap}; ODD period: a second pulse started by a {how} (a second parity class: every redstone-tick delay is even)");
+                    write_design(&dir.join(format!("odd-p{p}.txt")), &f.design, &format!("clk-rt-odd-p{p}-{}b", f.blocks), &label, &cap)?;
                 }
             }
         }
-        Cmd::SweepUloop { kmax, heads, tails, alphabet, powered, horizon, threads, out_dir, waves } => {
+        Cmd::Divider { d1, d2, stages, out } => {
+            let name = format!("clk-rt-div-{d1}{d2}-x{stages}");
+            let Some(b) = divider::chain(d1, d2, stages, &name) else { bail!("stage {stages} collides with the chain") };
+            let base = 4 * (1 + d1 as u32 + d2 as u32);
+            let cap = format!(
+                "Divider chain (clk-rt): a base torch + repeater U-loop (delays {d1}/{d2}: period {base} gt) and {stages} master-slave T flip-flop stage(s); each stage = two latch repeaters (master, slave) locked alternately by repeaters reading the previous stage's torch (not S) and block (S), the slave's block holds a torch whose output runs back (dust) to the master: one toggle per period of the previous stage, period {base} x 2^{stages} = {} gt",
+                base << stages
+            );
+            let text = b.design().to_text();
+            match out {
+                Some(p) => write_design(&p, &text, &name, "", &cap)?,
+                None => print!("{text}"),
+            }
+        }
+        Cmd::SweepUloop { kmax, heads, tails, alphabet, powered, horizon, threads, out_dir, waves, per_family } => {
             let heads: Vec<Head> = heads.split(',').map(parse_head).collect::<Result<_>>()?;
             let tails: Vec<Tail> = tails.split(',').map(parse_tail).collect::<Result<_>>()?;
             let mut alpha: Vec<Cell> = parse_row(&alphabet)?;
@@ -348,14 +415,60 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             if let Some(dir) = out_dir {
                 std::fs::create_dir_all(&dir)?;
+                let cap_of = |label: &str| -> String {
+                    let l = label.trim_start_matches("clk-rt-uloop-");
+                    loops.iter().find(|u| u.label() == l).map(|u| u.caption()).unwrap_or_default()
+                };
                 for (p, f) in &t.best {
-                    let mut d = mctas::design::Design::parse(&f.design)?;
-                    d.name = format!("clk-rt-uloop-p{p}-{}b", f.blocks);
-                    d.meta.insert("uloop".into(), f.label.trim_start_matches("clk-rt-uloop-").to_string());
-                    std::fs::write(dir.join(format!("uloop-p{p}.txt")), d.to_text())?;
+                    let l = f.label.trim_start_matches("clk-rt-uloop-");
+                    write_design(&dir.join(format!("uloop-p{p}.txt")), &f.design, &format!("clk-rt-uloop-p{p}-{}b", f.blocks), l, &cap_of(&f.label))?;
+                }
+                if per_family {
+                    // the smallest design of every (period, family) pair
+                    let mut fam: std::collections::BTreeMap<(u32, String), &sweep::Found> = Default::default();
+                    for f in &found {
+                        let k = (f.period, f.family.clone());
+                        if fam.get(&k).is_none_or(|o| (f.blocks, f.volume) < (o.blocks, o.volume)) {
+                            fam.insert(k, f);
+                        }
+                    }
+                    for ((p, family), f) in fam {
+                        let short: String = family.split('+').map(|w| w.split('_').map(|s| &s[..1]).collect::<String>()).collect::<Vec<_>>().join("-");
+                        let l = f.label.trim_start_matches("clk-rt-uloop-");
+                        write_design(&dir.join(format!("uloop-p{p}-{short}.txt")), &f.design, &format!("clk-rt-uloop-p{p}-{short}-{}b", f.blocks), l, &cap_of(&f.label))?;
+                    }
                 }
             }
         }
     }
+    Ok(())
+}
+
+/// Write a generated design with its name, its `uloop:` spec and a leading comment (the catalog's
+/// "how it works").
+fn write_design(path: &std::path::Path, text: &str, name: &str, spec: &str, caption: &str) -> Result<()> {
+    let mut d = mctas::design::Design::parse(text)?;
+    d.name = name.to_string();
+    if !spec.is_empty() {
+        d.meta.insert("uloop".into(), spec.to_string());
+    }
+    let mut out = String::new();
+    // wrap the caption at ~100 columns
+    let mut line = String::from("#");
+    for w in caption.split_whitespace() {
+        if line.len() + w.len() + 1 > 100 {
+            out.push_str(&line);
+            out.push('\n');
+            line = String::from("#");
+        }
+        line.push(' ');
+        line.push_str(w);
+    }
+    if line.len() > 1 {
+        out.push_str(&line);
+        out.push('\n');
+    }
+    out.push_str(&d.to_text());
+    std::fs::write(path, out)?;
     Ok(())
 }

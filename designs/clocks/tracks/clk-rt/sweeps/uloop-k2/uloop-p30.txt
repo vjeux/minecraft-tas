@@ -1,3 +1,7 @@
+# U-loop (clk-rt): a wall torch on block A -> top row [delay-1 repeater (powered at placement),
+# delay-4 repeater (powered at placement)] -> block F -> a wall torch on F -> bottom row [delay-4
+# repeater (powered at placement), delay-4 repeater (powered at placement)] -> A; 2 torches = a
+# pulse ring of loop delay 30 gt
 name: clk-rt-uloop-p30-12b
 uloop: T-1*,4*-4*,4*-T
 port output: 0 1 -1

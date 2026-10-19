@@ -103,6 +103,6 @@ impl B {
     }
 
     pub fn design(&self) -> Design {
-        Design { name: self.name.clone(), meta: self.meta.clone(), ports: self.ports.clone(), blocks: self.blocks.clone(), entities: Vec::new() }
+        Design { name: self.name.clone(), meta: self.meta.clone(), ports: self.ports.clone(), blocks: self.blocks.clone(), ..Default::default() }
     }
 }

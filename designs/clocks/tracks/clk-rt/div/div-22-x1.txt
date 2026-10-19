@@ -1,0 +1,27 @@
+# Divider chain (clk-rt): a base torch + repeater U-loop (delays 2/2: period 20 gt) and 1
+# master-slave T flip-flop stage(s); each stage = two latch repeaters (master, slave) locked
+# alternately by repeaters reading the previous stage's torch (not S) and block (S), the slave's
+# block holds a torch whose output runs back (dust) to the master: one toggle per period of the
+# previous stage, period 20 x 2^1 = 40 gt
+name: clk-rt-div-22-x1
+port output: -3 1 0
+origin: -3 0 -2
+palette:
+  A minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  B minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  C minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  D minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  T minecraft:target
+  r minecraft:redstone_wire
+layer 0:
+  SS
+  SSS.S
+  .SS.SS
+  .S
+layer 1:
+  rr
+  rBARDS
+  RBASCr
+  Tr
