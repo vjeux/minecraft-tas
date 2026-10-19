@@ -41,3 +41,36 @@ close 24/25/26/30).
   (-2,4) into (-1,4) by a piston at (-3,4)) can only be fed from (-3,3), and any sensor there powers D: strongly
   through a conductor at (-3,2), or by QC (signal into the cell above D) when (-3,2) is air or glass.
 - Every other S feed ((-2,3), QC via (-2,4)) slaves E1 to S (E1 after S), ceil's finding.
+
+# Part 2 (16:43Z, coordinator): a SOLID 7x8 from the t7b family (t7b-ob40 in 8 rows), files in t7b/
+
+## 6. Skeleton and requirements
+- t7b/ob40.txt = archive/t7b-ob40-40b.txt; t7b/t8a.txt = ob40 minus row -4 (the row -4 chain, B's repeater hold
+  (0,-3) on (0,-4), P_M's observer, the head-pop piston (2,-3)) -> x -2..4, y -3..4 = 56. A' pulse 0 stays real
+  (mover (4,-2) + moving observer (3,-2) -> (2,-2), fires t9).
+- t8a.ideal (P_M, B, gate ideal) works under the tile phase only at g1 29/30, g2 37 (pm 21, b 27, bw 8).
+- t8b.ideal (REAL gate observer (0,-2) facing down, the plan toggles its watched cell (0,-3)): the watched cell
+  must change at b or b+1 (A' lands at (1,-1) at b+2, its extend runs at b+3: the gate must still be on) and
+  EXACTLY at b+bw (B's retraction: A' lands at (1,-2) only QC-powered and nothing updates it later).
+
+## 7. B: the hybrid (east lift pulse + redstone-block hold), t8r.txt / t8r2.ideal
+- t8r: sticky X (-2,-3) east, redstone block R (-1,-3): X pushes R into (0,-3) (next to B'), the real gate sees it.
+  R alone (two X pulses) fails at every timing: the gate sees R's moving block 2 gt (spit) before R powers B'
+  (1-gt spits are not reachable by plan inputs; a 0-tick would align it).
+- t8r2 (HYBRID): a 2-gt lift pulse into B' at b (here a plan redstone block behind B'), then R pushed in at
+  sr >= b and pulled out at sr2 >= sr+5: B' re-extends under the lifted A' while R sits there, retracts when R
+  leaves; the gate sees R arrive (gate pulse 1) and leave (pulse 2, aligned). 3175 of 15675 window combos work
+  (b 14..30 with pm 12, sr >= b, sr2 >= sr+5).
+
+## 8. The lift pulse from the right (t8t.txt, ideal-rs --vary over 4 right cells)
+- observers (4,-3) facing up (watches the mover (4,-2)), (3,-3) E, (2,-3) E: B' pulses at t11 (A' moving:
+  blocked), t15 (the lift), t19 (harmless). With X ideal: WORKS for pm = 12 exactly (BM lands at (1,-1) at t13,
+  so P_M's pull needs pm >= 12; the lift at 15 needs pm <= 12), sr 15..18+, sr2 >= sr+5 (156 combos).
+- With a B'-watcher gate (observer (0,-3) E on B' -> gate) instead of R: 0 over the same 4 right cells (t8w).
+
+## 9. P_M from the left (t8p.ideal: B ideal, ideal-rs --vary over 5 left cells, 17 states)
+- 26 (b 18) / 41 (b 22) of 1.4M work, all with (-2,-1) observer facing up on BL's puller (fires t9, t13), e.g.
+  -> (-2,-2) lamp -> (-2,-3) piston east (head into (-1,-3)) -> (-1,-2) observer facing down -> P_M.
+  They use (-2,-3) and (-1,-3), the R shuttle's cells: the combination is the open problem.
+- P_M (-1,-1) can only be fed from (-1,-2) (an observer facing down watching (-1,-3), or a conductor) or
+  (-2,-1) (a conductor there also fires BL's puller (-2,0); an observer facing west there watches outside).
