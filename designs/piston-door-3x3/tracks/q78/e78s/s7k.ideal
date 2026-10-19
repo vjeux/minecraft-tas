@@ -1,0 +1,19 @@
+design designs/piston-door-3x3/tracks/q78/e78s/s7k.txt
+# real left 3-hop chain (lamp -> obs (-2,-2) E -> obs (-2,-3) up -> obs (-1,-3) W -> stone (0,-3) -> B'), K ideal, B2 ideal
+let ks = 11
+let ke = 13
+let q = 33
+open 0 use 1 5 0
+close 0 use 1 5 0
+open 7 set 3 -1 1 minecraft:redstone_block
+open 9 clear 3 -1 1
+close 7 set 3 -1 1 minecraft:redstone_block
+close 9 clear 3 -1 1
+open ks set 3 -1 1 minecraft:redstone_block
+open ke clear 3 -1 1
+close ks set 3 -1 1 minecraft:redstone_block
+close ke clear 3 -1 1
+open q set 1 -3 1 minecraft:redstone_block
+open q+2 clear 1 -3 1
+close q set 1 -3 1 minecraft:redstone_block
+close q+2 clear 1 -3 1
