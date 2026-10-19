@@ -79,6 +79,14 @@ pub struct SearchArgs {
     /// community volume excludes the lever), hung on that block.
     #[arg(long)]
     pub lever_moves: bool,
+    /// Ideal assist: the pistons a `door ideal` plan drives with inputs OFF the door plane start
+    /// driven by the plan; a move releases (or re-assists) one piston; every assisted piston costs
+    /// `--assist-weight` points and a find needs none left. The search wires the door piston by
+    /// piston with the rest of the mechanism still moving as planned.
+    #[arg(long)]
+    pub assist: Option<std::path::PathBuf>,
+    #[arg(long, default_value_t = 4.0)]
+    pub assist_weight: f64,
     /// Shaping: a working door whose piston schedule the candidates should follow (each piston
     /// extension / retraction of the reference, same cell, within `--ref-slack` ticks, earns
     /// `--ref-weight` points; a perfect screen still only needs the door checks).
@@ -130,6 +138,8 @@ pub struct Grid {
     pub cells: Vec<Block>,
     /// The lever's cell (world x, y); it may move (`--lever-moves`).
     pub lever: (i32, i32),
+    /// Pistons still driven by the `--assist` plan (bit i = the plan's piston i).
+    pub assist: u64,
 }
 
 impl Grid {
@@ -184,6 +194,11 @@ pub struct Problem {
     pub ref_slack: u32,
     pub ref_weight: f64,
     pub lever_moves: bool,
+    /// `--assist`: the plan's driven pistons (cells) and its input events per phase (tick,
+    /// piston index, input cell, state set there).
+    pub assist_pistons: Vec<(i32, i32)>,
+    pub assist_events: [Vec<(u32, usize, BlockPos, Block)>; 2],
+    pub assist_weight: f64,
 }
 
 /// A piston starting to extend or retract: (phase, extending, cell, tick).
@@ -398,14 +413,17 @@ pub struct Score {
     /// Reference piston events matched, and their weight.
     pub ev: i32,
     pub ev_w: f64,
+    /// Pistons still driven by the assist plan, and their cost.
+    pub assisted: i32,
+    pub asw: f64,
 }
 
 impl Score {
     fn energy(&self) -> f64 {
-        -(self.pts as f64) - self.ev_w * self.ev as f64 + 0.02 * self.blocks as f64
+        -(self.pts as f64) - self.ev_w * self.ev as f64 + 0.02 * self.blocks as f64 + self.asw * self.assisted as f64
     }
     pub fn perfect(&self) -> bool {
-        self.pts >= self.max
+        self.pts >= self.max && self.assisted == 0
     }
 }
 
@@ -422,7 +440,38 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
         s.ev = match_events(&p.reference, &evs, p.ref_slack) as i32;
         s.ev_w = p.ref_weight;
     }
+    if !p.assist_pistons.is_empty() {
+        s.assisted = g.assist.count_ones() as i32;
+        s.asw = p.assist_weight;
+    }
     s
+}
+
+/// One phase after a flip: the assisted pistons' plan inputs applied at their ticks (before the
+/// tick, like `door ideal`), ticking until idle (at least once) and until every input was
+/// applied; `on_tick` sees the world after every tick. Returns whether it went idle.
+fn run_phase(p: &Problem, g: &Grid, w: &mut World, phase: usize, mut on_tick: impl FnMut(&World)) -> bool {
+    let evs = &p.assist_events[phase];
+    let mut i = 0;
+    let mut t = 0u32;
+    loop {
+        while i < evs.len() && evs[i].0 == t {
+            let (_, k, pos, b) = evs[i];
+            if (g.assist >> k) & 1 == 1 {
+                w.set_block_and_update(pos, b);
+            }
+            i += 1;
+        }
+        w.tick();
+        t += 1;
+        on_tick(w);
+        if i >= evs.len() && w.idle() {
+            return true;
+        }
+        if t >= p.max_ticks {
+            return false;
+        }
+    }
 }
 
 fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
@@ -437,11 +486,11 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
     w.place_like_judge(&placed);
     let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |_| {});
     if !idle || !w.errors.is_empty() {
-        return Score { pts: 0, max, blocks, ev: 0, ev_w: 0.0 };
+        return Score { pts: 0, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     if !w.drops.is_empty() {
         // something popped at placement (a dust or a repeater without a floor...)
-        return Score { pts: 1, max, blocks, ev: 0, ev_w: 0.0 };
+        return Score { pts: 1, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     let z = g.z;
     let at = |x: i32, y: i32| BlockPos::new(x, y, z);
@@ -459,11 +508,11 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
     pts -= 2 * unsupported;
     let lever = BlockPos::new(g.lever.0, g.lever.1, g.z);
     if !matches!(w.get(lever), Block::Lever { powered: false, .. }) {
-        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     pts += 1;
     if door_ok < 9 || unsupported > 0 {
-        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     pts += 1;
     // the plane's cells (the box + 1) compared after each close
@@ -474,7 +523,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
         let rec = cycle == 0 && !rec_cells.is_empty();
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
-        let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |w| {
+        let idle = run_phase(p, g, &mut w, 0, |w| {
             if rec {
                 t += 1;
                 tick_events(&prev, w, 0, t, evs);
@@ -498,13 +547,13 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
             pts -= outside;
         }
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
         }
         pts += 1;
         w.use_block(lever);
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
-        let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |w| {
+        let idle = run_phase(p, g, &mut w, 1, |w| {
             if rec {
                 t += 1;
                 tick_events(&prev, w, 1, t, evs);
@@ -514,7 +563,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
         let back = p.door_cells.iter().filter(|(x, y)| w.get(at(*x, *y)) == p.door_block).count() as i32;
         pts += back;
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
         }
         let now: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
         let same = now.iter().zip(rest.iter()).filter(|(a, b)| a == b).count() as i32;
@@ -523,10 +572,10 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
             pts += 3;
         } else {
             pts -= (n - same).min(3);
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
         }
     }
-    Score { pts, max, blocks, ev: 0, ev_w: 0.0 }
+    Score { pts, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 }
 }
 
 fn plane_cells(p: &Problem, z: i32) -> Vec<BlockPos> {
@@ -615,6 +664,12 @@ fn refaced(b: &Block, rng: &mut Rng) -> Option<Block> {
 
 /// One random move at `at` (or a random focus cell). Returns the cell when something changed.
 fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>) -> Option<(i32, i32)> {
+    if !p.assist_pistons.is_empty() && at.is_none() && rng.below(10) == 0 {
+        // release (or re-assist) one planned input
+        let k = rng.below(p.assist_pistons.len());
+        g.assist ^= 1u64 << k;
+        return Some(p.assist_pistons[k]);
+    }
     if p.lever_moves && at.is_none() && rng.below(25) == 0 {
         return move_lever(p, g, rng).then_some(g.lever);
     }
@@ -756,7 +811,7 @@ fn grid_from_door(door: &RsDoor, p: &Problem) -> Result<Grid> {
     let gy = p.lo[1] - 2;
     let w = p.hi[0] - p.lo[0] + 5;
     let h = p.hi[1] - p.lo[1] + 5;
-    let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize], lever: (door.spec.lever[0], door.spec.lever[1]) };
+    let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize], lever: (door.spec.lever[0], door.spec.lever[1]), assist: 0 };
     let lever = door.spec.lever;
     for (q, b) in &door.blocks {
         anyhow::ensure!(q[2] == z, "not flat: {q:?}");
@@ -1048,12 +1103,15 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         ref_slack: a.ref_slack,
         ref_weight: a.ref_weight,
         lever_moves: a.lever_moves,
+        assist_pistons: Vec::new(),
+        assist_events: [Vec::new(), Vec::new()],
+        assist_weight: a.assist_weight,
     };
     let mut prob = prob;
     if let Some(r) = &a.reference {
         let (_, rd) = cs::load_door(r)?;
         anyhow::ensure!(rd.spec.door == spec0.door, "the reference needs the same door port");
-        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new(), lever: (0, 0) };
+        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new(), lever: (0, 0), assist: 0 };
         let _ = g;
         let ev = piston_events(&prob, &rd.blocks, rd.spec);
         println!("reference {}: {} piston events per cycle", r.display(), ev.len());
@@ -1063,6 +1121,42 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         let ev = ideal_events(&prob, r)?;
         println!("ideal reference {}: {} piston events per cycle", r.display(), ev.len());
         prob.reference = ev;
+    }
+    if let Some(path) = &a.assist {
+        let text = std::fs::read_to_string(path)?;
+        let s = crate::ideal::Schedule::parse(&text)?;
+        let mut skipped = 0;
+        for (ph, open) in [(0usize, true), (1usize, false)] {
+            for (t, pos, st) in s.resolved(open)? {
+                if pos[2] == spec0.door[2] || st.as_deref() == Some("@use") {
+                    skipped += 1;
+                    continue;
+                }
+                let cell = (pos[0], pos[1]);
+                let k = match prob.assist_pistons.iter().position(|c| *c == cell) {
+                    Some(k) => k,
+                    None => {
+                        prob.assist_pistons.push(cell);
+                        prob.assist_pistons.len() - 1
+                    }
+                };
+                let b = match st {
+                    Some(x) => cs::convert_state(&x).map_err(|e| anyhow::anyhow!(e))?,
+                    None => Block::Air,
+                };
+                prob.assist_events[ph].push((t, k, cs::bp(pos), b));
+            }
+            prob.assist_events[ph].sort_by_key(|e| e.0);
+        }
+        anyhow::ensure!(prob.assist_pistons.len() <= 64, "at most 64 assisted inputs");
+        println!(
+            "assist {}: {} input cells off the plane ({:?}), {} / {} events, {skipped} in-plane or `use` events ignored",
+            path.display(),
+            prob.assist_pistons.len(),
+            prob.assist_pistons.iter().map(|(x, y)| (x - dx, y - dy)).collect::<Vec<_>>(),
+            prob.assist_events[0].len(),
+            prob.assist_events[1].len()
+        );
     }
     let mut seeds = Vec::new();
     for (name, _, r) in &doors {
@@ -1076,6 +1170,9 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
             place_lever(&mut g, x, y);
         }
         clean_seed(&prob, &mut g);
+        if !prob.assist_pistons.is_empty() {
+            g.assist = if prob.assist_pistons.len() == 64 { u64::MAX } else { (1u64 << prob.assist_pistons.len()) - 1 };
+        }
         let s = screen(&prob, &g);
         println!("seed {name}: {} blocks in the box, screen {}/{}", g.count(), s.pts, s.max);
         if let Some(dir) = &a.write_seeds {
