@@ -395,3 +395,6 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
     top wires and the bottom-left (ring pusher + escape puller + U1) is the wall.
   w86's m76 (8x6 m73 design, re-timed; solid at 9x6/10x6: core close RP0 (3,0) only): SCULK at 9x6 UNSAT in
   496 s, core close (1,4) (the lever-held top middle) + close RP0 (3,0).
+  w86's m79 / m80 (9x6, column 5 free, RP0 resting at (4,0), left carriers stacked): SCULK UNSAT (490-530 s),
+  cores = the whole LEFT half (carried U0/U1 (-1,0)/(-1,1), MB0/MB1 (-3,0)/(-3,1), (-2,0)/(-2,1), the corner
+  (-1,3)) + the lever-held top (0,4)/(1,4) on close.
