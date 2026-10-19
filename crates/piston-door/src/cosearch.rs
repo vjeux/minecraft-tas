@@ -1113,34 +1113,57 @@ pub fn hallway_check(door: &RsDoor) -> std::result::Result<(), String> {
     let closed_door: Vec<Block> = cells.iter().map(|p| rest.get(*p).unwrap()).collect();
     let mut walk: Vec<Pos> = cells.clone();
     walk.extend(spec.corridor_cells());
-    w.use_block(bp(spec.lever));
-    let (n, idle) = step_until_idle(&mut w, 400, |_| {});
-    if !idle {
-        return Err(format!("still moving {n} ticks after opening"));
+    // Periodic rest (main 96a62d6, like props-dyn's env_run): every cycle opens and closes, the
+    // hallway is back after every close, and some closed state repeats an earlier one (the rest
+    // included) within 2 + MAX_PERIOD_EXTRA cycles (a copper bulb may stay flipped for a cycle).
+    let env_cells: HashSet<Pos> = env.iter().map(|(p, _)| *p).collect();
+    let cycles = 2;
+    let mut seen: Vec<Snap> = vec![rest.clone()];
+    let mut periodic = false;
+    let mut last_snap = rest.clone();
+    for cycle in 0..cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= cycles && periodic {
+            break;
+        }
+        w.use_block(bp(spec.lever));
+        let (n, idle) = step_until_idle(&mut w, 400, |_| {});
+        if !idle {
+            return Err(format!("cycle {cycle}: still moving {n} ticks after opening"));
+        }
+        let p = open_problems(&w, &walk);
+        if !p.is_empty() {
+            return Err(format!("cycle {cycle}: not open: {}", p.join("; ")));
+        }
+        if !w.drops.is_empty() {
+            return Err("an entity appeared while opening".into());
+        }
+        w.use_block(bp(spec.lever));
+        let (n, idle) = step_until_idle(&mut w, 400, |_| {});
+        if !idle {
+            return Err(format!("cycle {cycle}: still moving {n} ticks after closing"));
+        }
+        let now: Vec<Block> = cells.iter().map(|p| w.get(bp(*p))).collect();
+        if now != closed_door {
+            return Err(format!("cycle {cycle}: door not restored"));
+        }
+        let snap = Snap::take(&w, wlo, whi);
+        let env_d: Vec<String> = rest.iter().filter(|(p, s)| env_cells.contains(p) && snap.get(*p) != Some(*s)).take(4).map(|(p, s)| format!("{p:?} {} -> {}", st(&s), snap.get(p).map(|b| st(&b)).unwrap_or("?".into()))).collect();
+        if !env_d.is_empty() {
+            return Err(format!("cycle {cycle}: the hallway is not back: {}", env_d.join("; ")));
+        }
+        if !w.drops.is_empty() {
+            return Err("an entity appeared while closing".into());
+        }
+        if seen.iter().any(|s| *s == snap) {
+            periodic = true;
+        } else {
+            seen.push(snap.clone());
+        }
+        last_snap = snap;
     }
-    let p = open_problems(&w, &walk);
-    if !p.is_empty() {
-        return Err(format!("not open: {}", p.join("; ")));
-    }
-    if !w.drops.is_empty() {
-        return Err("an entity appeared while opening".into());
-    }
-    w.use_block(bp(spec.lever));
-    let (n, idle) = step_until_idle(&mut w, 400, |_| {});
-    if !idle {
-        return Err(format!("still moving {n} ticks after closing"));
-    }
-    let now: Vec<Block> = cells.iter().map(|p| w.get(bp(*p))).collect();
-    if now != closed_door {
-        return Err("door not restored".into());
-    }
-    let snap = Snap::take(&w, wlo, whi);
-    if snap != rest {
-        let d: Vec<String> = rest.iter().filter(|(p, s)| snap.get(*p) != Some(*s)).take(4).map(|(p, s)| format!("{p:?} {} -> {}", st(&s), snap.get(p).map(|b| st(&b)).unwrap_or("?".into()))).collect();
-        return Err(format!("not back to its rest state: {}", d.join("; ")));
-    }
-    if !w.drops.is_empty() {
-        return Err("an entity appeared while closing".into());
+    if !periodic {
+        let d: Vec<String> = rest.iter().filter(|(p, s)| last_snap.get(*p) != Some(*s)).take(4).map(|(p, s)| format!("{p:?} {} -> {}", st(&s), last_snap.get(p).map(|b| st(&b)).unwrap_or("?".into()))).collect();
+        return Err(format!("not back to its rest state, nor to any closed state it had before, within {} cycles: {}", cycles + crate::MAX_PERIOD_EXTRA, d.join("; ")));
     }
     if !w.errors.is_empty() {
         return Err(format!("MODEL: {}", w.errors.join("; ")));

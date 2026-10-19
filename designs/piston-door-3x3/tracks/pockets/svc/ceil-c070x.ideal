@@ -1,0 +1,32 @@
+# ceil c070x: c070w (real top, right chain, E1 chain) + the blocked-push D: an observer (-2,0) facing
+# east watches ML's park (-1,0) and powers the stone (-3,0) under D. M ungated (E only reaches (-1,1)
+# on open), E2 both edges. Assisted: U, M, E2, BL/BM down.
+design designs/piston-door-3x3/tracks/pockets/svc/ceil-c070x.txt
+let u = 13
+let m = u+3
+let e2 = 40
+let e2c = 40
+let bl = 40
+let bm = 40
+open 0 use 1 5 0
+open u set -1 -1 1 minecraft:redstone_block
+open u+2 clear -1 -1 1
+open m set -1 1 1 minecraft:redstone_block
+open m+2 clear -1 1 1
+open e2 set -2 1 1 minecraft:redstone_block
+open e2+2 clear -2 1 1
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+close 0 use 1 5 0
+close u set -1 -1 1 minecraft:redstone_block
+close u+2 clear -1 -1 1
+close m set -1 1 1 minecraft:redstone_block
+close m+2 clear -1 1 1
+close e2c set -2 1 1 minecraft:redstone_block
+close e2c+2 clear -2 1 1
+close bl set 0 -2 1 minecraft:redstone_block
+close bl+2 clear 0 -2 1
+close bm set 1 -2 1 minecraft:redstone_block
+close bm+2 clear 1 -2 1
