@@ -2743,7 +2743,9 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         // --sound: a retracted piston that stays retracted may hold QC power (no block
                         // update reaches it: a BUD); an extended one that retracts may not
                         let stays_retracted = matches!(ph.frame(tau - 1).get(&c).map(|s| mk(s)), Some(MK::Piston { ext: false, .. })) && ph.frame(tau - 1).get(&c) == ph.frame(tau).get(&c);
-                        if !(SOUND.load(std::sync::atomic::Ordering::Relaxed) && stays_retracted) {
+                        // (never at rest: placing the door updates every block, so a QC-armed piston at
+                        // rest fires; vjeux: no QC-armed pistons at rest)
+                        if !(SOUND.load(std::sync::atomic::Ordering::Relaxed) && stays_retracted && k >= 0) {
                             m.e.add(&[!ds, !sel, !qc]);
                         }
                     }
