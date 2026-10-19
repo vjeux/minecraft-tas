@@ -2895,14 +2895,18 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                         }
                     }
                     if front_ok {
-                        // the lever on the front face of one of the filling's own blocks
-                        if pa.lever_cells.is_none() {
-                            for c in &cells {
+                        // the lever on the front face of one of the filling's own blocks (with
+                        // --lever-cells: only on the named cells)
+                        for c in &cells {
+                            if pa.lever_cells.is_none() || lever_front_fixed.contains(c) {
                                 push(&mut items, &sub, Some((c.0, c.1, -1, pw)));
                             }
                         }
                         // or of a static block next to the filling
                         for &l in &static_support {
+                            if cand.contains(&l) {
+                                continue;
+                            }
                             if cells.iter().any(|q| (q.0 - l.0).abs() + (q.1 - l.1).abs() == 1) {
                                 push(&mut items, &sub, Some((l.0, l.1, -1, pw)));
                             }
@@ -3198,6 +3202,25 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                     {
                         let mut d = door.to_design(&format!("pockets-screenpass-{combos_tried}"));
                         d.meta.insert("verdict".into(), cs::eval_line("redsim", &e, 0.0));
+                        // audit item 5: a door working at some of the judge's positions is a
+                        // find to repair, not a failure: count them
+                        if e.judge.is_err() {
+                            let n = jopts.offsets.len();
+                            let k = jopts
+                                .offsets
+                                .iter()
+                                .filter(|off| {
+                                    let mut o1 = jopts.clone();
+                                    o1.offsets = vec![**off];
+                                    cs::evaluate(&door, &o1, false).judge.is_ok()
+                                })
+                                .count();
+                            d.meta.insert("positions".into(), format!("works at {k} of {n}"));
+                            println!("  works at {k} of {n} positions");
+                            if k > 0 {
+                                d.save(&a.out_dir.join(format!("pockets-repair-{k}of{n}-{combos_tried}.txt")))?;
+                            }
+                        }
                         d.save(&a.out_dir.join(format!("pockets-screenpass-{combos_tried}.txt")))?;
                     }
                     if e.record_ok() || (pa.no_hallway && e.judge.is_ok() && matches!(e.full, Some(Ok(()))) && e.frame == Some(12)) {
