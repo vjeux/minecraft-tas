@@ -1,0 +1,24 @@
+assist designs/piston-door-3x3/tracks/e88/ideal/t3n.ideal: 2 input cells off the plane ([(-1, -1), (-2, -3)]), 6 / 6 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/e88/wip/t3n.txt: 39 blocks in the box, screen 79/79
+14 piston cells locked, 41 cells free
+seed screen 79/79 with 2 inputs assisted
+windows (6 groups, 0.0 s):
+  input (-1,-1) open  t18 pulse 2 gt: window [-1, +4]
+  input (-2,-3) open  t26 pulse 2 gt: window [-2, +5]
+  input (-2,-3) open  t36 pulse 2 gt: window [-5, +24]
+  input (-1,-1) close t18 pulse 2 gt: window [-1, +6]
+  input (-2,-3) close t26 pulse 2 gt: window [-11, +6]
+  input (-2,-3) close t36 pulse 2 gt: window [-6, +24]
+16 pocket cells in 3 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 49 swept cells
+  pocket 0: 13 cells [(-3, -3), (-3, -2), (-3, -1), (-3, 0), (-3, 1), (-3, 2), (-3, 3), (-3, 4), (-2, -2), (-2, -1), (-2, 4), (-1, -2), (-1, 4)]
+  pocket 1: 1 cells [(3, -1)]
+  pocket 2: 2 cells [(3, 4), (4, 4)]
+pocket 0: 13 cells, 998 subset/lever items, 3676958 fillings to screen
+pocket 0: 4389373 screened, 1505499 keep the door working, 18.8 s; driven input sets: {(-2,-3)o26 (-2,-3)o36 (-2,-3)c26 (-2,-3)c36} x64 (best 3 blocks), {(-2,-3)o26 (-2,-3)c26 (-2,-3)c36} x64 (best 3 blocks), {(-1,-1)o18 (-1,-1)c18} x64 (best 1 blocks), {(-1,-1)c18} x4 (best 3 blocks)
+pocket 1: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 1: 61 screened, 47 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 2 cells, 3 subset/lever items, 3843 fillings to screen
+pocket 2: 3971 screened, 2490 keep the door working, 1.5 s; driven input sets: none
+combination 65: true partial, 2 inputs still assisted [-1,-1 -2,-3] (42 blocks)
+combination 153: true partial, 1 inputs still assisted [-1,-1] (42 blocks)
+260 combinations verified, 0 finds, 21 s total

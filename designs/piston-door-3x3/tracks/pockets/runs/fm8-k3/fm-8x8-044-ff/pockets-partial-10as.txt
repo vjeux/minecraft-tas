@@ -1,0 +1,27 @@
+name: pockets-partial-10as
+assisted: 4,2;1,4;1,-2;0,4;0,-2;-2,1;3,-1;5,1;3,1;4,1
+port door: 0 0 0
+port lever: 4 -2 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ..AAAOL
+layer -1:
+  .....A
+layer 0:
+  .CCCC
+layer 1:
+  s.CCC.BB
+layer 2:
+  .CCCC.B
+layer 3:
+  ....C
+layer 4:
+  ..SS
