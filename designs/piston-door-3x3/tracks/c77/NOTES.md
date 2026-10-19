@@ -39,3 +39,21 @@ close >= 13: one both-edge pulse works), BL+BM (any tick both edges) ideal.
   palette on the top-left (c074s1 plan, 89M fillings): only E2c; ideal-rs --vary 21 states^5 (4.1M)
   on the top-left with E1 and TLc real (c074d3 plan): 0.
 - Next: the same with an 8th row on top (8x8 = 64, box y -2..5): pockets k=3 running.
+
+## RESULT (13:12Z): c074-64b-42 = 8x8 (64b), 42 blocks, sculk, slime-free, flat, FULL seamless, rotation-safe
+`c074-64b-42.txt` (= BEST.txt, archived in tracks/c77/archive/): `door verify --extra-offsets 28` WORKS
+(32 positions x 3 cycles, all 4 turns), open 42 / close 42; `door properties`: FULL seamless, dentless,
+volume 64 (8x8x1). Box x -3..4, y -2..5 (the lever (1,5) is excluded; row 5 holds the dust and repeater).
+- Top: ceil/e88's lever-held ceiling (lever ON on the TM puller (1,4), QC for TL/TR pullers).
+- TLc (-1,3): the dust (0,5) on the TL puller, lit by the lever, feeds a delay-4 repeater (-1,5) facing
+  west; observer (-1,4) facing up on the repeater fires TLc once per edge (t10).
+- E (-2,1): plain sculk sensor (-3,4) (hears the lever, t4) lights a lamp (-2,4); observer (-2,3) facing
+  up on the lamp QC-fires E through (-2,2) at t6 (E1) and when the lamp goes dark at t40 (E2): 3 blocks.
+- D (-3,1): plain sculk sensor (-3,0) under D (hears the lever, t6) holds D 30 gt; ceil's ML-park
+  watcher (observer (-2,2) facing east -> stone (-3,2)) updates D once TLc lifted ML, so D pushes E to
+  (-1,1) and HOLDS it (no spit), then pulls it back when the sensor ends (t37). On close D's push meets
+  ML moving in its line (ceil's trick). This turns ceil's 1-tick M window into plan 13..30.
+- M + BL: one 4-block pockets filling (bottom-left); BM: observer (3,-2) E, sticky (4,-2) W, observer
+  (4,-1) up; MR + BR: bridge's observer (3,3) W, note block (4,3), observer (4,2) up.
+- Found by: c074 plan with D real -> M by sculk -> D hold sensor -> pockets k=3 in 8x8 (E1+E2, TLc,
+  M, BM fillings) -> repeater delay 3 -> 4 (TLc after E1) -> pockets k=4 on the bottom-left (M + BL).
