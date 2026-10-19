@@ -80,20 +80,34 @@ fn grid(cards: &[String]) -> String {
     format!("<div class=\"grid\">{}</div>\n", cards.concat())
 }
 
-/// The viewer of a build page (a live view when the viewer bundle is there; the fallback text
-/// until then).
-fn viewer(prefix: &str, design: &str, kind: &str, big: &str, small: &str) -> String {
+/// The viewer of a build page (a live view when the viewer bundle is there; the interim picture
+/// or the fallback text until then).
+fn viewer(prefix: &str, b: &Build) -> String {
+    let trace = b.trace.as_ref().map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
+    let (pic, cls) = match &b.picture {
+        Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&b.name)), " has-pic"),
+        None => (String::new(), ""),
+    };
     format!(
-        "<div class=\"viewer k-{kind}\" data-mcview=\"full\" data-src=\"{}\" data-kind=\"{kind}\"><div class=\"fallback\"><span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">3D view loading (or not available in this browser)</span></div></div>\n",
-        esc(&format!("{prefix}{design}")),
-        esc(big),
-        esc(small)
+        "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
+        esc(&b.kind),
+        esc(&format!("{prefix}{}", b.design)),
+        esc(&b.kind),
+        esc(&site_model::html::headline(b)),
+        esc(&b.name),
+        if b.picture.is_some() { "picture from the real game; the live 3D view replaces it when available" } else { "3D view loading (or not available in this browser)" }
     )
 }
 
 /// The page of one build.
+/// The path from a page (`doors/x.html`, `circuits/gates/y.html`) back to the site root.
+pub fn prefix_of(page: &str) -> String {
+    "../".repeat(page.matches('/').count())
+}
+
 pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, scripts: Scripts) -> String {
-    let prefix = "../";
+    let prefix_s = prefix_of(&b.page);
+    let prefix = prefix_s.as_str();
     let mut body = String::new();
     body.push_str(&format!(
         "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}index.html#kind={}\">{}</a> › <a href=\"{prefix}index.html#kind={}&amp;group={}\">{}</a></p>\n",
@@ -109,7 +123,14 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     if !badges.is_empty() {
         body.push_str(&format!("<p class=\"badges\">{}</p>\n", badges.iter().map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect::<String>()));
     }
-    body.push_str(&viewer(prefix, &b.design, &b.kind, &site_model::html::headline(b), &b.name));
+    body.push_str(&viewer(prefix, b));
+    if let Some(v) = b.door.as_ref().and_then(|d| d.video.as_ref()) {
+        body.push_str(&format!(
+            "<section><h2>Video (real game)</h2><video class=\"video\" controls preload=\"none\" src=\"{}\"></video><p><a href=\"{}\">download the video</a></p></section>\n",
+            esc(v),
+            esc(v)
+        ));
+    }
     if !b.caption.is_empty() {
         body.push_str(&format!("<section><h2>How it works</h2><p>{}</p></section>\n", esc(&b.caption)));
     }
@@ -467,6 +488,15 @@ pub fn not_found_page(site: &Site) -> String {
     // GitHub Pages serves this file at any depth: absolute links to the project's root
     let body = "<h1>Not found</h1><p>This page does not exist (any more). Start from <a href=\"/minecraft-tas/index.html\">the index</a>.</p>";
     shell("Not found", "Page not found", "/minecraft-tas/", body, Scripts::default(), site)
+}
+
+/// `<folder>/index.html` for the obvious per-kind URLs (`/clocks/`, `/doors/`, `/circuits/`): a
+/// redirect to the index filtered on that kind, with a plain link for clients without refresh.
+pub fn redirect_page(site: &Site, prefix: &str, title: &str, fragment: &str) -> String {
+    let target = format!("{prefix}index.html#{fragment}");
+    let body = format!("<h1>{}</h1><p>Opening <a href=\"{}\">{} in the index</a>…</p>", esc(title), esc(&target), esc(title));
+    let page = shell(title, &format!("Every {} of REDSTONEPEDIA", title.to_lowercase()), prefix, &body, Scripts::default(), site);
+    page.replacen("</head>", &format!("<meta http-equiv=\"refresh\" content=\"0; url={}\">\n</head>", esc(&target)), 1)
 }
 
 #[cfg(test)]

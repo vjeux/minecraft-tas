@@ -1,7 +1,7 @@
 //! `mctas site build`: everything into one folder.
 
 use crate::pages::{self, Scripts};
-use crate::{BuildArgs, clocks, doors, web};
+use crate::{BuildArgs, circuits, clocks, doors, web};
 use anyhow::{Context, Result, bail};
 use site_model::{DATA_VERSION, Member, Site};
 use std::collections::BTreeMap;
@@ -94,8 +94,26 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     for n in &ce.notes {
         eprintln!("  note: {n}");
     }
+    if repo.join(clocks::TRACES).is_dir() {
+        let n = copy_files(&repo.join(clocks::TRACES), &out.join("designs/clocks/traces"), Some("trace"))?;
+        eprintln!("clock traces: {n} real-game recordings");
+    }
+    // the circuits
+    let (circuit_builds, cnotes) = circuits::export(&repo)?;
+    for b in &circuit_builds {
+        let to = out.join(&b.design);
+        if let Some(p) = to.parent() {
+            std::fs::create_dir_all(p)?;
+        }
+        std::fs::copy(repo.join(circuits::repo_path(b)), &to).with_context(|| format!("copying {}", circuits::repo_path(b)))?;
+    }
+    eprintln!("circuits: {} builds ({:.1}s)", circuit_builds.len(), t0.elapsed().as_secs_f64());
+    for n in &cnotes {
+        eprintln!("  note: {n}");
+    }
     let mut builds = door_builds;
     builds.extend(ce.builds);
+    builds.extend(circuit_builds);
     let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards: ce.cards, members: ce.members };
     // data: the door properties tables live on the build pages only (the UI never reads them)
     let mut slim = site.clone();
@@ -143,20 +161,24 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
     write(&out.join("404.html"), &pages::not_found_page(&site))?;
     for b in &site.builds {
-        let (repo_path, text) = match b.kind.as_str() {
-            "door" => {
-                let p = format!("{}/{}.txt", doors::ARCHIVE, b.name);
-                let t = std::fs::read_to_string(repo.join(&p)).unwrap_or_default();
-                (p, t)
-            }
-            _ => {
-                let file = b.design.rsplit('/').next().unwrap_or("");
-                let p = format!("{}/{file}", clocks::ARCHIVE);
-                let t = std::fs::read_to_string(repo.join(&p)).unwrap_or_default();
-                (p, t)
-            }
+        let repo_path = match b.kind.as_str() {
+            "door" => format!("{}/{}.txt", doors::ARCHIVE, b.name),
+            "circuit" => circuits::repo_path(b),
+            _ => format!("{}/{}", clocks::ARCHIVE, b.design.rsplit('/').next().unwrap_or("")),
         };
+        let text = std::fs::read_to_string(repo.join(&repo_path)).unwrap_or_default();
         write(&out.join(&b.page), &pages::build_page(&site, b, &text, &repo_path, scripts))?;
+    }
+    // the obvious per-kind URLs resolve (/doors/, /clocks/, /circuits/)
+    for (folder, title, kind) in [("doors", "Doors", "door"), ("clocks", "Clocks", "clock"), ("circuits", "Circuits", "circuit")] {
+        write(&out.join(folder).join("index.html"), &pages::redirect_page(&site, "../", title, &format!("kind={kind}")))?;
+    }
+    let mut subs: Vec<(String, String)> = site.builds.iter().filter_map(|b| b.page.strip_prefix("circuits/").and_then(|r| r.split_once('/')).map(|(sub, _)| (sub.to_string(), b.group.clone()))).collect();
+    subs.sort();
+    subs.dedup_by(|a, b| a.0 == b.0);
+    for (sub, _) in &subs {
+        let frag = if sub == "calibration" { "kind=circuit&is=calibration".to_string() } else { format!("kind=circuit&q={sub}") };
+        write(&out.join("circuits").join(sub).join("index.html"), &pages::redirect_page(&site, "../../", &format!("Circuits: {sub}"), &frag))?;
     }
     let mut by_card: BTreeMap<String, Vec<&Member>> = BTreeMap::new();
     for m in &site.members {

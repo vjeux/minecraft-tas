@@ -9,6 +9,7 @@
 //! - `mctas site deploy --dir site/` publishes the folder as the `gh-pages` branch (GitHub
 //!   Pages: https://vjeux.github.io/minecraft-tas/).
 
+pub mod circuits;
 pub mod clocks;
 pub mod deploy;
 pub mod doors;
