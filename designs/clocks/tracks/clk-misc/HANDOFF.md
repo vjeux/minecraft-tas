@@ -25,6 +25,8 @@ bells, leaves, scaffolding, crafters) and clk-item (crafters, chiseled bookshelf
 | item loops with a minecart lift: bookshelf-cart, -b2, hopper-cart | 56, 28, 46 | 20, 20, 17 | chiseled_bookshelf+hopper+hopper_minecart, hopper+hopper_minecart |
 | clk-misc-bubble-flip | 16 | 12 | bubble_column+observer+redstone_wire+sticky_piston |
 | clk-misc-dripleaf-stand | 4 | 8 (7 + an armor stand) | armor_stand+big_dripleaf+observer+redstone_wire |
+| REDSTONE-LESS bouncers: boat-bouncer, -slab, -c3 | 82, 77, 73 | 19, 20, 20 | oak_boat+tripwire+tripwire_hook (a boat launched every 60 gt by a bubble column trips a tripwire; the ceiling height sets P) |
+| boat-bouncer-trapdoor | 73 | 20 | oak_boat+oak_trapdoor+tripwire+tripwire_hook (the hook opens a trapdoor into the boat's path) |
 
 Not archived on purpose (same mechanism, another block; available on request): the boat rings with light / heavy
 weighted pressure plates (P380 like ring4c, new families light_weighted_pressure_plate+oak_boat and
@@ -70,7 +72,9 @@ ListBackedContainer: hoppers fill it, its contents count as its state) in place 
   spread pushes the boat the right way. Minecarts (0.98 wide) cannot cross a 1-cell plate row (no water overlap).
 - Big dripleaf: an entity on top (onGround, y > 0.6875) tilts it: unstable 10 gt, partial 10 gt, full (no collision)
   100 gt, then back; redstone power resets it. Bubble columns update 5 gt after the block below changes (26.3:
-  BubbleColumnBlock.updateShape), not 20.
+  BubbleColumnBlock.updateShape), not 20. A boat floating above an upward column is launched after 60 gt (vy 0.6, about
+  2.8 blocks up): a perpetual vertical bounce; a floating boat sits 0.52 above its water cell's bottom, so a tripwire
+  must be 2 cells above the water (1 above would be pressed for ever).
 - Chiseled bookshelf: a hopper under it can pull a book out in the very tick it arrived (block entity order differs by
   rotation: rotation-dependent); let the hopper minecart under it empty it instead.
 - Leaves / scaffolding: distance updates are 1 gt scheduled ticks; persistent leaves never decay; scaffolding falls at 7.
