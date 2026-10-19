@@ -112,3 +112,19 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   still landing, U2 on close), Z >= 18 (U2 on open, blocked by s + M's head on close): needs an odd
   offset of 3 between two bottom-right pulses (two sensors whose floor-distances differ by 3, one
   hearing U-first itself) and still s's push >= X+2.
+
+## 6. s79b (2026-10-19 10:36Z-): U real from the bottom-right; the 1 gt need was L0's parity
+- `door ideal-rs` with L0 made ideal (`--vary=-2,-1=stone` + an ideal L0 pulse, `s79b/w-l0.ideal`):
+  U's first pulse may be 1..4 gt on open and 1..2 gt on close. The "exactly 1 gt" wall came from the
+  L0 driver (dropper (-2,-2) -> observer (-2,-1)): it fires L0 once per U-watcher pulse, and a >= 2 gt
+  U pulse gives the watcher 2 pulses (extension, landing), so 2 U pulses -> 4 L0 pulses (even). K
+  itself works with 2 gt U pulses on both edges.
+- **U REAL with 3 blocks** (`s79b/b1.txt` + `s79b/b1.ideal`, c78y top with s ideal, L0 + R0 ideal):
+  plain sculk sensor (3,-1) (replaces the obsidian: immovable, still stops K's chain; hears R1's t1
+  move at distance 2.24 -> active t3..t33) -> note block (3,-2) (strongly powered from above) ->
+  observer (2,-2) east -> U: 2 gt pulses at t5 and t35 on both edges. ideal-rs WORKS (open 37 /
+  close 37). Windows with it: s open push plan 7..9 with e + eh <= 12 and a REAL hold >= 3 gt (the
+  ideal's between-tick clear makes a 2 gt pulse pull, a real observer pulse spits); s close any of
+  0..10, 16..18, 20..30; L0 any single 2 gt pulse; R0 any single 2 gt pulse (3 gt fails).
+- With the real dropper L0, U patterns of three >= 2 gt pulses work (`s79b/y3.ideal` sweep, e.g.
+  t5..t9, t12..t14, t16..t20) but not two.
