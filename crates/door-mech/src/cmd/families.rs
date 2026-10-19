@@ -70,11 +70,11 @@ pub struct MechspaceArgs {
     /// Accepted for old command lines: extended-at-rest pullers are the default now.
     #[arg(long, hide = true)]
     ext_pullers: bool,
-    /// Generator: most 1-move exits by a puller EXTENDED at rest per mechanism (c79 has 2, the
-    /// community 7x8 1; each one doubles a block's choices).
-    #[arg(long, default_value_t = 2)]
+    /// Generator: most 1-move exits by a puller EXTENDED at rest per mechanism (a lever-held top
+    /// row has 3, c79 2, the community 7x8 1; each one doubles a block's choices).
+    #[arg(long, default_value_t = 3)]
     ext_max: usize,
-    /// Generator: a second extended-puller exit may sit anywhere (default: next to the first).
+    /// Generator: extended-puller exits may sit anywhere (default: each next to an earlier one).
     #[arg(long)]
     ext_apart: bool,
     /// Generator: exactly one piston in the box's bottom row, sticky facing up.
@@ -528,12 +528,12 @@ pub struct FamiliesArgs {
     /// Accepted for old command lines: extended-at-rest pullers are the default now.
     #[arg(long, hide = true)]
     ext_pullers: bool,
-    /// Most 1-move exits by a puller EXTENDED at rest per mechanism (c79 has 2, the community
-    /// 7x8 1; each one doubles a block's choices).
-    #[arg(long, default_value_t = 2)]
+    /// Most 1-move exits by a puller EXTENDED at rest per mechanism (a lever-held top row has 3,
+    /// c79 2, the community 7x8 1; each one doubles a block's choices).
+    #[arg(long, default_value_t = 3)]
     ext_max: usize,
-    /// A second extended-puller exit may sit anywhere (default: next to the first, as one level
-    /// holds both, like c79's MR/TR pullers; halves the candidates).
+    /// Extended-puller exits may sit anywhere (default: each next to an earlier one, as one level
+    /// holds them all, like c79's MR/TR pullers or a lever-held top row; halves the candidates).
     #[arg(long)]
     ext_apart: bool,
     /// Audit bound (a): a piston extended at rest may be reused as a lifted / carried provider.

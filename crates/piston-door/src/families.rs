@@ -166,14 +166,16 @@ pub struct Mech {
 /// (TR / MR released by the lever), so the retracted-only generator left both out.
 pub static EXT_PULLERS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 /// `--ext-max`: the most 1-move exits by a puller EXTENDED at rest per mechanism (each needs the
-/// level to hold it; c79 has 2: its MR and TR pullers, the community 7x8 1: its TR puller). Bounds
-/// the generator's blow-up: every non-core block's 1-move exit has twice the choices with
-/// extended pullers allowed (7x8, P <= 10, two 1: 124k candidates retracted-only, 690k with 1,
-/// 1.75M with 2 (61 s on 4 threads, 2.3 GB), unbounded > 7 min single-threaded unfinished).
-pub static EXT_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(2);
-/// `--ext-apart` turns this off: by default a second 1-move exit by an extended puller must sit
-/// next to the first (8-neighbourhood), as one level holds both (c79's MR/TR pullers (4,1)/(4,2)
-/// are adjacent). 7x8 (P <= 10, two 1, --ext-max 2): 845k candidates instead of 1.75M.
+/// level to hold it; the lever-held top of e78 / t7b / ring56 has 3: TL/TM/TR's pullers, c79 2:
+/// its MR and TR pullers, the community 7x8 1: its TR puller). Bounds the generator's blow-up:
+/// every non-core block's 1-move exit has twice the choices with extended pullers allowed.
+/// 7x8 (P <= 10, two 1; adjacent pullers, below): 124k candidates retracted-only, 690k with 1,
+/// 845k with 2, 870k with 3; with `--ext-apart` and 2: 1.75M; unbounded and apart, the generator
+/// ran > 7 min single-threaded without finishing.
+pub static EXT_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(3);
+/// `--ext-apart` turns this off: by default every 1-move exit by an extended puller after the
+/// first must sit next to an earlier one (8-neighbourhood), as one level holds them all (c79's
+/// MR/TR pullers (4,1)/(4,2); the lever-held top row (0..2,4)).
 pub static EXT_ADJACENT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 /// `--bottom-su` (mechspace): exactly one piston in the box's bottom row, sticky facing up.
 pub static BOTTOM_SU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -1323,7 +1325,7 @@ struct Gen {
     /// Middle-row side blocks that must leave vertically (`--vmid`).
     vmid: Vec<(i8, i8)>,
     out: HashSet<Vec<Pc>>,
-    memo: HashSet<(usize, (usize, Option<(i8, i8)>), Vec<Pc>)>,
+    memo: HashSet<(usize, Vec<(i8, i8)>, Vec<Pc>)>,
     order: Vec<(i8, i8)>,
     /// `door audit`: only pieces of this set may be added (membership of a known door's
     /// mechanism in the generator's space, without enumerating the whole space).
@@ -1595,9 +1597,10 @@ impl Gen {
     }
 
     /// The other perimeter blocks: a 1-move exit by a pull-type puller (retracted, or extended at
-    /// rest while `ext.0` allows, next to the first such puller `ext.1` under `--ext-adjacent`),
-    /// or, while the budget allows (`two_left`), a 2-move path with any providers.
-    fn others(&mut self, i: usize, v: Vec<Pc>, two_left: usize, ext: (usize, Option<(i8, i8)>)) {
+    /// rest: at most `--ext-max` of those, each next to an earlier one (`ext` = their cells)
+    /// unless `--ext-apart`), or, while the budget allows (`two_left`), a 2-move path with any
+    /// providers.
+    fn others(&mut self, i: usize, v: Vec<Pc>, two_left: usize, ext: Vec<(i8, i8)>) {
         if n_pistons(&v) > self.pmax {
             return;
         }
@@ -1605,7 +1608,7 @@ impl Gen {
             self.out.insert(v);
             return;
         }
-        if !self.memo.insert((i, ext, v.clone())) {
+        if !self.memo.insert((i, ext.clone(), v.clone())) {
             return;
         }
         let b = self.order[i];
@@ -1617,7 +1620,7 @@ impl Gen {
                     continue;
                 }
                 for w in self.provide_path(&v, b, &path) {
-                    self.others(i + 1, w, two_left, ext);
+                    self.others(i + 1, w, two_left, ext.clone());
                 }
             }
             return;
@@ -1630,17 +1633,20 @@ impl Gen {
             let a = (b.0 + 2 * d.0, b.1 + 2 * d.1);
             for is_ext in [false, true] {
                 if is_ext {
-                    if !EXT_PULLERS.load(Ordering::Relaxed) || ext.0 == 0 {
+                    if !EXT_PULLERS.load(Ordering::Relaxed) || ext.len() >= EXT_MAX.load(Ordering::Relaxed) {
                         continue;
                     }
-                    if let Some(f) = ext.1
-                        && EXT_ADJACENT.load(Ordering::Relaxed)
-                        && ((f.0 - a.0).abs() > 1 || (f.1 - a.1).abs() > 1)
-                    {
+                    if EXT_ADJACENT.load(Ordering::Relaxed) && !ext.is_empty() && !ext.iter().any(|f| (f.0 - a.0).abs() <= 1 && (f.1 - a.1).abs() <= 1) {
                         continue;
                     }
                 }
-                let ext2 = if is_ext { (ext.0 - 1, ext.1.or(Some(a))) } else { ext };
+                let ext2 = if is_ext {
+                    let mut e = ext.clone();
+                    e.push(a);
+                    e
+                } else {
+                    ext.clone()
+                };
                 if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext: is_ext } }) {
                     self.others(i + 1, w, two_left, ext2);
                 }
@@ -1652,7 +1658,7 @@ impl Gen {
                     continue;
                 }
                 for w in self.provide_path(&v, b, &path) {
-                    self.others(i + 1, w, two_left - 1, ext);
+                    self.others(i + 1, w, two_left - 1, ext.clone());
                 }
             }
         }
@@ -1721,7 +1727,7 @@ fn generate_one_in(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, c
                         if n_pistons(&c) > pmax {
                             continue;
                         }
-                        g.others(0, c, two, (EXT_MAX.load(Ordering::Relaxed), None));
+                        g.others(0, c, two, Vec::new());
                     }
                     g.out
                 })
@@ -1830,6 +1836,41 @@ pub fn explain_within(bx: Bx, pmax: usize, two: usize, carry: usize, allow: &Has
         }
         if twos > two {
             why.push(format!("{twos} perimeter blocks need a 2-move path (budget --two {two})"));
+        }
+        // the extended-puller exits' bound (--ext-max, adjacency)
+        if EXT_PULLERS.load(Ordering::Relaxed) {
+            let mut cells: Vec<(i8, i8)> = Vec::new();
+            for &b in &order {
+                for dd in F {
+                    let c = (b.0 + dd.0, b.1 + dd.1);
+                    let a = (b.0 + 2 * dd.0, b.1 + 2 * dd.1);
+                    if !in_t(c.0, c.1) && !cells.contains(&a) && target.contains(&Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(dd)), ext: true } }) {
+                        cells.push(a);
+                    }
+                }
+            }
+            let max = EXT_MAX.load(Ordering::Relaxed);
+            if cells.len() > max {
+                why.push(format!("{} 1-move exits by pullers EXTENDED at rest > --ext-max {max}", cells.len()));
+            }
+            // connected in the 8-neighbourhood (the generator adds each next to an earlier one)
+            let mut seen = vec![false; cells.len()];
+            if !cells.is_empty() {
+                seen[0] = true;
+                let mut grew = true;
+                while grew {
+                    grew = false;
+                    for j in 0..cells.len() {
+                        if !seen[j] && (0..cells.len()).any(|k| seen[k] && (cells[k].0 - cells[j].0).abs() <= 1 && (cells[k].1 - cells[j].1).abs() <= 1) {
+                            seen[j] = true;
+                            grew = true;
+                        }
+                    }
+                }
+            }
+            if EXT_ADJACENT.load(Ordering::Relaxed) && seen.iter().any(|s| !s) {
+                why.push("its extended-puller exits are not next to each other (each must touch an earlier one unless --ext-apart)".into());
+            }
         }
         // pieces no option uses
         if why.is_empty() {
