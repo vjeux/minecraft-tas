@@ -1,0 +1,37 @@
+name: fam-8x8-131-lever
+# families v3 8x8-131 (explore/families mech/8x8-131-sym.txt: the level piston (-1,3) held out by a
+# redstone block (-1,4)), which fits 7 wide x 8 tall (x -2..4, y -2..5) over a whole cycle
+# (coordinator 01:21Z), with a lever outside the box at (2,6) on a glass block (2,5). Seed for
+# `door cosearch search --box=-2,-2:4,5` (plan-free, or shaped by fam-8x8-131-sym.ideal).
+port door: 0 0 0
+port lever: 2 6 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:glass
+  L minecraft:lever[face=floor,facing=west,powered=false]
+layer -2:
+  ...A
+layer -1:
+  .
+layer 0:
+  s.DDD.B
+layer 1:
+  s.DDD.B
+layer 2:
+  s.DDD
+layer 3:
+  .CP
+layer 4:
+  .R.SS
+layer 5:
+  ...SG
+layer 6:
+  ....L

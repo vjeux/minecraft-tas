@@ -385,6 +385,12 @@ Read in the 26.3 source, each proven by a [gadget](../designs/gadgets/) or a jud
 exist** (no designs; never look them up). So every "7 wide is blocked" verdict below is an
 artifact of our bounds, not of the box: look for what the bounds exclude.
 
+**Caveat on every satwire verdict below (sweep56, 01:15Z):** a satwire UNSAT is relative to the
+ideal plan it was given; with families' plans even e89b's own mechanism is UNSAT in e89b's own box.
+Treat "satwire UNSAT" lines as "this plan can't be wired", not "this mechanism can't".
+**8x8-131 and 8x8-135 (v3) fit 7 wide x 8 tall** (every mechanism cell stays in x -2..4 over a
+full cycle): the catalog filed them under 8x8, so its 7x8 list is incomplete.
+
 Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and under which bounds
 (every "none" is bounded; tricks that may break a bound are in
 [mechanics.md](mechanics.md#wiring-tricks-for-tight-flat-boxes-found-2026-10-18-evening-below-72-hunt)):
@@ -413,6 +419,15 @@ Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and unde
   gt apart) and R1 (4 gt apart), with no room for a converter (wire64, box64). v2 8x8-118..129:
   the elevator sits above BL's puller, so quasi-connectivity re-fires it (families). 139..142
   blocked by their own close paths (wire64).
+* **7x8 with ML leaving vertically** (vmid, mechanisms only, ideal plans at 32 positions): vm1 (a
+  column-0 elevator beside the center's, 11 pistons, missed by families' `--vmid` run at P <= 10),
+  vc1 (top carried puller, C down: cannot be driven in-plane), vb2 / vb3 (bottom carried puller,
+  mechanics.md section 8). `door connect`: vm1 NOT wirable (the twin elevators split the top: the
+  lever's region opens but cannot close); vb1 / vb2: BM's puller has no feed or acts too late; vb3
+  wakes every region but its order search caps (12 pistons), and by hand BL's puller (fed only from
+  a 2-cell region under the carrier) must act before the row push that region watches. Freeing row
+  y=1 does not by itself make 7x8 wirable: the center's elevator splits its side of the box, the
+  bottom pullers split the bottom, and the carrier at (-2,-1) cuts the free left column.
 * **No mechanism** (families catalog, <= 11 pistons, in-plane, lifts only, QC model): 6x11 and 11x6
   (so 6x9, 9x6, 6x10, 10x6), 5x14 and 14x5 in 2D (strips only via walking row mechanisms). 7x7:
   none found, 1,639 candidates unresolved. Carrying, helpers and 0-ticks are being added.

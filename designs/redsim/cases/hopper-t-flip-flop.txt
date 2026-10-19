@@ -1,0 +1,35 @@
+box -3 -1 -2 3 3 2
+block -2 0 0 minecraft:stone
+block -1 0 0 minecraft:stone
+block 0 0 0 minecraft:stone
+block 1 0 0 minecraft:stone
+block -1 1 0 minecraft:stone
+block 0 1 0 minecraft:redstone_torch[lit=true]
+block 1 1 0 minecraft:redstone_torch[lit=true]
+block 0 2 0 minecraft:hopper[enabled=false,facing=east]
+block 1 2 0 minecraft:hopper[enabled=false,facing=west]
+block -1 2 0 minecraft:comparator[facing=east,mode=compare,powered=false]
+block -2 1 0 minecraft:stone
+block -2 2 0 minecraft:redstone_lamp[lit=false]
+block 0 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+block 1 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+item 0 2 0 0 stone 1
+run 20
+use 0 0 -1
+use 1 0 -1
+run 2
+use 0 0 -1
+use 1 0 -1
+run 20
+use 0 0 -1
+use 1 0 -1
+run 2
+use 0 0 -1
+use 1 0 -1
+run 20
+use 0 0 -1
+use 1 0 -1
+run 2
+use 0 0 -1
+use 1 0 -1
+run 20

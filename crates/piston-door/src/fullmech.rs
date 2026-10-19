@@ -124,6 +124,10 @@ pub enum A {
     /// next-tick interactions (one block pushed by two pistons in one tick, a spit while
     /// another piston moves, killer-piston orders).
     S { a: u8, b: u8, ka: u8, kb: u8, d: u8 },
+    /// One shared input for a group of pistons (bitmask of ids): a level toggle / a k-tick
+    /// pulse switching every member together (input merging: fewer independent signals).
+    GL(u16),
+    GP(u16, u8),
 }
 
 pub struct Ctx {
@@ -269,6 +273,35 @@ impl Ctx {
                     swept |= self.ring_mask(&w);
                 }
             }
+            A::GL(mask) => {
+                let ids: Vec<usize> = (0..16).filter(|i| mask >> i & 1 == 1).collect();
+                let on = key.inp >> ids[0] & 1 == 0;
+                if ids.iter().any(|&i| (key.inp >> i & 1 == 0) != on) {
+                    return None;
+                }
+                for &i in &ids {
+                    redsim::piston::set_input(&mut w, i, on);
+                }
+            }
+            A::GP(mask, k) => {
+                let ids: Vec<usize> = (0..16).filter(|i| mask >> i & 1 == 1).collect();
+                if ids.iter().any(|&i| key.inp >> i & 1 == 1) {
+                    return None;
+                }
+                for &i in &ids {
+                    redsim::piston::set_input(&mut w, i, true);
+                }
+                for _ in 0..k {
+                    w.tick();
+                    if !self.ok(&w) {
+                        return None;
+                    }
+                    swept |= self.ring_mask(&w);
+                }
+                for &i in &ids {
+                    redsim::piston::set_input(&mut w, i, false);
+                }
+            }
         }
         if !self.ok(&w) {
             return None;
@@ -338,10 +371,13 @@ impl Ctx {
             let p = self.pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).nth(i as usize).unwrap();
             p.code()
         };
+        let gid = |m: u16| (0..16u8).filter(|i| m >> i & 1 == 1).map(&pid).collect::<Vec<_>>().join("+");
         match a {
             A::L(i) => format!("L{}", pid(i)),
             A::P(i, k) => format!("P{k}{}", pid(i)),
             A::S { a, b, ka, kb, d } => format!("[P{ka}{} & P{kb}{} +{d}]", pid(a), pid(b)),
+            A::GL(m) => format!("L{{{}}}", gid(m)),
+            A::GP(m, k) => format!("P{k}{{{}}}", gid(m)),
         }
     }
 
@@ -632,10 +668,202 @@ pub fn solve(ctx: &Ctx, rest: &Key, cap: usize) -> Result<Option<Found>, ()> {
                             used[a as usize] = true;
                             used[b as usize] = true;
                         }
+                        A::GL(m) | A::GP(m, _) => {
+                            for (i, u) in used.iter_mut().enumerate() {
+                                if m >> i & 1 == 1 {
+                                    *u = true;
+                                }
+                            }
+                        }
                     }
                 }
                 return Ok(Some(Found { open: open_path, close: close_path, states, used }));
             }
+        }
+    }
+    Ok(None)
+}
+
+fn used_of(n: usize, acts: &[A]) -> Vec<bool> {
+    let mut used = vec![false; n];
+    for a in acts {
+        match *a {
+            A::L(i) | A::P(i, _) => used[i as usize] = true,
+            A::S { a, b, .. } => {
+                used[a as usize] = true;
+                used[b as usize] = true;
+            }
+            A::GL(m) | A::GP(m, _) => {
+                for (i, u) in used.iter_mut().enumerate() {
+                    if m >> i & 1 == 1 {
+                        *u = true;
+                    }
+                }
+            }
+        }
+    }
+    used
+}
+
+/// The whole reachable graph from rest (breadth first, up to `cap` states): every open state
+/// that can get back to rest inside it is a candidate (shortest open + close first, the hole
+/// rule checked on the paths found). Ok(None) is exhaustive for the action set when not capped.
+pub fn solve_full(ctx: &Ctx, rest: &Key, cap: usize) -> Result<Option<Found>, ()> {
+    let mut keys: Vec<Key> = vec![rest.clone()];
+    let mut index: HashMap<Key, usize> = HashMap::new();
+    index.insert(rest.clone(), 0);
+    let mut edges: Vec<Vec<(usize, A, u16)>> = vec![Vec::new()];
+    let mut parent: Vec<Option<(usize, A, u16)>> = vec![None];
+    let mut q = std::collections::VecDeque::new();
+    q.push_back(0usize);
+    let mut capped = false;
+    while let Some(i) = q.pop_front() {
+        let k = keys[i].clone();
+        for &a in &ctx.actions {
+            let Some((nk, sw)) = ctx.step(&k, a) else { continue };
+            let j = match index.get(&nk) {
+                Some(&j) => j,
+                None => {
+                    if keys.len() >= cap {
+                        capped = true;
+                        continue;
+                    }
+                    let j = keys.len();
+                    index.insert(nk.clone(), j);
+                    keys.push(nk);
+                    edges.push(Vec::new());
+                    parent.push(Some((i, a, sw)));
+                    q.push_back(j);
+                    j
+                }
+            };
+            edges[i].push((j, a, sw));
+        }
+    }
+    let n = keys.len();
+    let mut rev: Vec<Vec<(usize, A, u16)>> = vec![Vec::new(); n];
+    for (i, es) in edges.iter().enumerate() {
+        for &(j, a, sw) in es {
+            rev[j].push((i, a, sw));
+        }
+    }
+    let mut to_rest: Vec<Option<(usize, A, u16)>> = vec![None; n];
+    let mut seen = vec![false; n];
+    seen[0] = true;
+    let mut q = std::collections::VecDeque::from([0usize]);
+    while let Some(j) = q.pop_front() {
+        for &(i, a, sw) in &rev[j] {
+            if !seen[i] {
+                seen[i] = true;
+                to_rest[i] = Some((j, a, sw));
+                q.push_back(i);
+            }
+        }
+    }
+    let mut best: Option<Found> = None;
+    for i in 1..n {
+        if !seen[i] || !ctx.is_open(&keys[i]) {
+            continue;
+        }
+        let mut open = Vec::new();
+        let mut osw = 0u16;
+        let mut c = i;
+        while let Some((p, a, sw)) = parent[c] {
+            open.push(a);
+            osw |= sw;
+            c = p;
+        }
+        open.reverse();
+        let mut close = Vec::new();
+        let mut csw = 0u16;
+        let mut c = i;
+        while c != 0 {
+            let Some((nx, a, sw)) = to_rest[c] else { break };
+            close.push(a);
+            csw |= sw;
+            c = nx;
+        }
+        if !ctx.holes_ok(&keys[i], osw | csw) {
+            continue;
+        }
+        if best.as_ref().map(|b| b.open.len() + b.close.len() > open.len() + close.len()).unwrap_or(true) {
+            let mut all = open.clone();
+            all.extend_from_slice(&close);
+            best = Some(Found { used: used_of(ctx.n_pistons, &all), open, close, states: n });
+        }
+    }
+    match best {
+        Some(f) => Ok(Some(f)),
+        None if capped => Err(()),
+        None => Ok(None),
+    }
+}
+
+/// One A* over (state, phase): opening until an open state, then closing back to rest; the hole
+/// rule is checked on each complete path found. Finds closable open states that the
+/// open-first search (`solve`) misses when the nearest open states are dead ends.
+pub fn solve_oc(ctx: &Ctx, rest: &Key, cap: usize) -> Result<Option<Found>, ()> {
+    let diff = |k: &Key| -> u32 { k.g.iter().zip(rest.g.iter()).filter(|(a, b)| a != b).count() as u32 + (k.inp ^ rest.inp).count_ones() };
+    let mut keys: Vec<(Key, bool)> = vec![(rest.clone(), false)];
+    let mut parent: Vec<Option<(usize, Option<A>, u16)>> = vec![None];
+    let mut index: HashMap<(Key, bool), usize> = HashMap::new();
+    index.insert((rest.clone(), false), 0);
+    let mut heap = BinaryHeap::new();
+    heap.push(Node { f: 2 * ctx.h_open(rest) + 2 * 9, g: 0, id: 0 });
+    while let Some(Node { g, id, .. }) = heap.pop() {
+        let (k, closing) = keys[id].clone();
+        if closing && k == *rest {
+            // reconstruct; split at the phase change
+            let mut acts: Vec<(Option<A>, u16, bool)> = Vec::new();
+            let mut c = id;
+            let mut open_key = None;
+            while let Some((p, a, sw)) = parent[c] {
+                if a.is_none() {
+                    open_key = Some(keys[c].0.clone());
+                }
+                acts.push((a, sw, keys[p].1));
+                c = p;
+            }
+            acts.reverse();
+            let open_key = open_key.unwrap();
+            let mut open = Vec::new();
+            let mut close = Vec::new();
+            let mut sw = 0u16;
+            for (a, s, was_closing) in acts {
+                sw |= s;
+                if let Some(a) = a {
+                    if was_closing { close.push(a) } else { open.push(a) }
+                }
+            }
+            if ctx.holes_ok(&open_key, sw) {
+                let mut all = open.clone();
+                all.extend_from_slice(&close);
+                return Ok(Some(Found { used: used_of(ctx.n_pistons, &all), open, close, states: keys.len() }));
+            }
+            continue;
+        }
+        if keys.len() >= cap {
+            return Err(());
+        }
+        let mut succ: Vec<((Key, bool), Option<A>, u16, u32)> = Vec::new();
+        if !closing && id != 0 && ctx.is_open(&k) {
+            succ.push(((k.clone(), true), None, 0, 0));
+        }
+        for &a in &ctx.actions {
+            if let Some((nk, sw)) = ctx.step(&k, a) {
+                succ.push(((nk, closing), Some(a), sw, 1));
+            }
+        }
+        for (nk, a, sw, cost) in succ {
+            if index.contains_key(&nk) {
+                continue;
+            }
+            let h = if nk.1 { diff(&nk.0) } else { ctx.h_open(&nk.0) + 9 };
+            let j = keys.len();
+            index.insert(nk.clone(), j);
+            heap.push(Node { f: g + cost + 2 * h, g: g + cost, id: j });
+            keys.push(nk);
+            parent.push(Some((id, a, sw)));
         }
     }
     Ok(None)
@@ -702,6 +930,24 @@ fn action_ticks(ctx: &Ctx, key: &Key, a: A) -> Option<(Key, u32, Vec<(u32, u8, b
                 }
                 w.tick();
                 t += 1;
+            }
+        }
+        A::GL(m) => {
+            for i in (0..16u8).filter(|i| m >> i & 1 == 1) {
+                let on = key.inp >> i & 1 == 0;
+                switch(&mut w, &mut sw, 0, i, on);
+            }
+        }
+        A::GP(m, k) => {
+            for i in (0..16u8).filter(|i| m >> i & 1 == 1) {
+                switch(&mut w, &mut sw, 0, i, true);
+            }
+            for _ in 0..k {
+                w.tick();
+                t += 1;
+            }
+            for i in (0..16u8).filter(|i| m >> i & 1 == 1) {
+                switch(&mut w, &mut sw, t, i, false);
             }
         }
     }
@@ -775,6 +1021,496 @@ pub fn export(ctx: &Ctx, rest: &Key, f: &Found, name: &str, design_path: &str, g
         }
     }
     Some((d, plan))
+}
+
+/// Input merging on a solution's action order (settled steps): members of a group are switched
+/// together wherever the solution switches any of them; greedy, cheap (no search).
+pub fn merge_on_solution(ctx: &Ctx, rest: &Key, f: &Found) -> (Vec<u16>, Found) {
+    let pist = |a: &A| -> Option<u8> {
+        match *a {
+            A::L(i) | A::P(i, _) => Some(i),
+            _ => None,
+        }
+    };
+    let mut groups: Vec<u16> = Vec::new();
+    for a in f.open.iter().chain(f.close.iter()) {
+        if let Some(i) = pist(a) {
+            if !groups.iter().any(|m| m >> i & 1 == 1) {
+                groups.push(1 << i);
+            }
+        }
+    }
+    let lift = |groups: &[u16], seq: &[A]| -> Vec<A> {
+        seq.iter()
+            .map(|a| match *a {
+                A::L(i) => A::GL(*groups.iter().find(|m| *m >> i & 1 == 1).unwrap()),
+                A::P(i, k) => A::GP(*groups.iter().find(|m| *m >> i & 1 == 1).unwrap(), k),
+                a => a,
+            })
+            .collect()
+    };
+    let works = |groups: &[u16]| -> Option<Found> {
+        let open = lift(groups, &f.open);
+        let close = lift(groups, &f.close);
+        let mut k = rest.clone();
+        let mut sw = 0u16;
+        for &a in &open {
+            let (nk, s) = ctx.step(&k, a)?;
+            k = nk;
+            sw |= s;
+        }
+        if !ctx.is_open(&k) {
+            return None;
+        }
+        let ok_key = k.clone();
+        for &a in &close {
+            let (nk, s) = ctx.step(&k, a)?;
+            k = nk;
+            sw |= s;
+        }
+        if k != *rest || !ctx.holes_ok(&ok_key, sw) {
+            return None;
+        }
+        Some(Found { open, close, states: 0, used: f.used.clone() })
+    };
+    let mut best = works(&groups).unwrap_or_else(|| f.clone());
+    loop {
+        let mut merged = false;
+        'outer: for a in 0..groups.len() {
+            for b in a + 1..groups.len() {
+                let mut g2 = groups.clone();
+                let mb = g2.remove(b);
+                g2[a] |= mb;
+                if let Some(nf) = works(&g2) {
+                    groups = g2;
+                    best = nf;
+                    merged = true;
+                    break 'outer;
+                }
+            }
+        }
+        if !merged {
+            break;
+        }
+    }
+    (groups, best)
+}
+
+/// Greedy input minimization: undrive pistons one at a time (in piece order) while the
+/// mechanism still opens and closes exactly; returns the undriven pistons and the solution.
+pub fn min_inputs(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> Option<(Vec<FPc>, Found)> {
+    let (ctx, rest) = build_driven(bx, pieces, o, &[])?;
+    let mut best = solve(&ctx, &rest, cap).ok()??;
+    let mut undriven: Vec<FPc> = Vec::new();
+    let pistons: Vec<FPc> = {
+        let mut v: Vec<FPc> = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).copied().collect();
+        v.sort();
+        v
+    };
+    // pistons the solution never fires first, then the rest
+    let mut order: Vec<usize> = (0..pistons.len()).collect();
+    order.sort_by_key(|i| best.used.get(*i).copied().unwrap_or(true));
+    for i in order {
+        let mut trial = undriven.clone();
+        trial.push(pistons[i]);
+        if let Some((c2, r2)) = build_driven(bx, pieces, o, &trial) {
+            if let Ok(Some(f)) = solve(&c2, &r2, cap) {
+                undriven = trial;
+                best = f;
+            }
+        }
+    }
+    Some((undriven, best))
+}
+
+/// For one mechanism: its minimal driven inputs, then every single helper (redstone block or
+/// observer, each free cell) that lowers that count further.
+pub fn reduce_greedy(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usize) -> (usize, Vec<(FPc, usize, Vec<FPc>)>) {
+    let n_pistons = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count();
+    let Some((base_und, _)) = min_inputs(bx, pieces, o, cap) else { return (n_pistons, Vec::new()) };
+    let base = n_pistons - base_und.len();
+    let free = free_cells(bx, pieces);
+    let kinds = [FK::RedstoneBlock, FK::Observer { f: 0 }, FK::Observer { f: 1 }, FK::Observer { f: 2 }, FK::Observer { f: 3 }];
+    let mut jobs = Vec::new();
+    for &c in &free {
+        for k in kinds {
+            jobs.push(FPc { x: c.0, y: c.1, k });
+        }
+    }
+    let next = AtomicUsize::new(0);
+    let out: Mutex<Vec<(FPc, usize, Vec<FPc>)>> = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= jobs.len() {
+                    break;
+                }
+                let h = jobs[i];
+                let mut v = pieces.to_vec();
+                v.push(h);
+                if let Some((und, _)) = min_inputs(bx, &v, o, cap) {
+                    let driven = n_pistons - und.len();
+                    if driven < base {
+                        out.lock().unwrap().push((h, driven, und));
+                    }
+                }
+            });
+        }
+    });
+    let mut v = out.into_inner().unwrap();
+    v.sort_by_key(|(h, d, _)| (*d, *h));
+    (base, v)
+}
+
+/// Replace a context's actions by shared-input group actions (bitmasks of piston ids).
+pub fn with_groups(ctx: &mut Ctx, rest: &Key, groups: &[u16], o: &Opts) {
+    let mut acts = Vec::new();
+    for &m in groups {
+        let all_ext = (0..16).filter(|i| m >> i & 1 == 1).all(|i| rest.inp >> i & 1 == 1);
+        if o.levels || all_ext {
+            acts.push(A::GL(m));
+        }
+        for &k in &o.pulses {
+            acts.push(A::GP(m, k));
+        }
+    }
+    ctx.actions = acts;
+}
+
+/// Input merging: after [`min_inputs`], merge driven pistons into groups that share one input
+/// (switched together) while the mechanism still opens and closes exactly. The number of groups
+/// is the number of independent signals the wiring must produce.
+pub fn min_groups(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> Option<(Vec<FPc>, Vec<Vec<FPc>>, Found, Ctx, Key)> {
+    let (und, _) = min_inputs(bx, pieces, o, cap)?;
+    let (mut ctx, rest) = build_driven(bx, pieces, o, &und)?;
+    let mut pistons: Vec<FPc> = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).copied().collect();
+    pistons.sort();
+    let mut groups: Vec<u16> = (0..pistons.len()).filter(|i| !und.contains(&pistons[*i])).map(|i| 1u16 << i).collect();
+    with_groups(&mut ctx, &rest, &groups, o);
+    let mut best = solve(&ctx, &rest, cap).ok()??;
+    loop {
+        let mut merged = false;
+        'outer: for a in 0..groups.len() {
+            for b in a + 1..groups.len() {
+                let mut g2 = groups.clone();
+                let m = g2[a] | g2[b];
+                g2.remove(b);
+                g2[a] = m;
+                with_groups(&mut ctx, &rest, &g2, o);
+                if let Ok(Some(f)) = solve(&ctx, &rest, cap) {
+                    groups = g2;
+                    best = f;
+                    merged = true;
+                    break 'outer;
+                }
+            }
+        }
+        if !merged {
+            break;
+        }
+    }
+    with_groups(&mut ctx, &rest, &groups, o);
+    let gv: Vec<Vec<FPc>> = groups.iter().map(|m| (0..pistons.len()).filter(|i| m >> i & 1 == 1).map(|i| pistons[i]).collect()).collect();
+    Some((und, gv, best, ctx, rest))
+}
+
+/// Piston removal with one repair: for each piston, the mechanism without it, then with one
+/// helper (stone, obsidian, a redstone block, an observer of each in-plane facing) in each free
+/// cell, solved exactly. Returns every working result (one piston fewer than the original):
+/// piece list, solution, what changed.
+pub fn shrink_mech(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usize) -> Vec<(Vec<FPc>, Found, String)> {
+    let pistons: Vec<FPc> = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).copied().collect();
+    let mut kinds: Vec<FK> = vec![FK::Stone, FK::Obsidian, FK::RedstoneBlock];
+    for f in 0..4u8 {
+        kinds.push(FK::Observer { f });
+    }
+    let mut jobs: Vec<(FPc, Option<FPc>)> = Vec::new();
+    for p in &pistons {
+        let rest: Vec<FPc> = pieces.iter().filter(|q| *q != p).copied().collect();
+        jobs.push((*p, None));
+        for c in free_cells(bx, &rest) {
+            for &k in &kinds {
+                jobs.push((*p, Some(FPc { x: c.0, y: c.1, k })));
+            }
+        }
+    }
+    let next = AtomicUsize::new(0);
+    let out: Mutex<Vec<(Vec<FPc>, Found, String)>> = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= jobs.len() {
+                    break;
+                }
+                let (p, add) = jobs[i];
+                let mut v: Vec<FPc> = pieces.iter().filter(|q| **q != p).copied().collect();
+                if let Some(a) = add {
+                    v.push(a);
+                }
+                if let Some((ctx, rest)) = build(bx, &v, o) {
+                    if let Ok(Some(f)) = solve(&ctx, &rest, cap) {
+                        let what = match add {
+                            None => format!("without {}", p.code()),
+                            Some(a) => format!("{} replaced by {}", p.code(), a.code()),
+                        };
+                        out.lock().unwrap().push((v, f, what));
+                    }
+                }
+            });
+        }
+    });
+    out.into_inner().unwrap()
+}
+
+/// One helper (redstone block, or observer of each in-plane facing) in each free cell next to a
+/// piston or to the cell above one; returns the placements whose input merging needs fewer
+/// independent signals than the mechanism alone (`base`).
+pub fn groups_helpers(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usize) -> (usize, Vec<(FPc, usize, String)>) {
+    let Some((_, gv, _, _, _)) = min_groups(bx, pieces, o, cap) else { return (99, Vec::new()) };
+    let base = gv.len();
+    let piston_cells: Vec<(i8, i8)> = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).map(|p| (p.x, p.y)).collect();
+    let near = |c: (i8, i8)| piston_cells.iter().any(|q| (c.0 - q.0).abs() + (c.1 - q.1).abs() == 1 || (c.0 - q.0).abs() + (c.1 - q.1 - 1).abs() == 1);
+    let free: Vec<(i8, i8)> = free_cells(bx, pieces).into_iter().filter(|c| near(*c)).collect();
+    let kinds = [FK::RedstoneBlock, FK::Observer { f: 0 }, FK::Observer { f: 1 }, FK::Observer { f: 2 }, FK::Observer { f: 3 }];
+    let mut jobs = Vec::new();
+    for &c in &free {
+        for k in kinds {
+            jobs.push(FPc { x: c.0, y: c.1, k });
+        }
+    }
+    let next = AtomicUsize::new(0);
+    let out: Mutex<Vec<(FPc, usize, String)>> = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= jobs.len() {
+                    break;
+                }
+                let h = jobs[i];
+                let mut v = pieces.to_vec();
+                v.push(h);
+                if let Some((und, gv, f, ctx, _)) = min_groups(bx, &v, o, cap) {
+                    if gv.len() < base {
+                        let desc = format!(
+                            "undriven {}; groups {}; {}",
+                            und.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                            gv.iter().map(|g| g.iter().map(|p| p.code()).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | "),
+                            describe(&ctx, &f).replace('\n', " ")
+                        );
+                        out.lock().unwrap().push((h, gv.len(), desc));
+                    }
+                }
+            });
+        }
+    });
+    let mut v = out.into_inner().unwrap();
+    v.sort_by_key(|(h, n, _)| (*n, *h));
+    (base, v)
+}
+
+// ---- replay a `door ideal` plan in the solver's world (diagnostics) ----
+
+/// Replays a plan's events (redstone blocks at z = 1 behind pistons) as input switches of the
+/// tracked pistons, tick by tick, and reports what the solver's checks say about each phase.
+pub fn replay_ideal(ctx: &Ctx, rest: &Key, sched: &crate::ideal::Schedule) -> Result<String> {
+    let mut out = String::new();
+    let mut key = rest.clone();
+    let vars = sched.vars().clone();
+    for open in [true, false] {
+        let ev = sched.events_of(open, &vars)?;
+        let mut w = ctx.world_of(&key);
+        let mut swept = 0u16;
+        let last = ev.iter().map(|e| e.0).max().unwrap_or(0);
+        let mut t = 0u32;
+        loop {
+            for (et, pos, st) in ev.iter().filter(|e| e.0 == t) {
+                let _ = et;
+                let (x, y) = (pos[0], pos[1]);
+                if st.is_some() {
+                    match w.piston.tracked.iter().position(|(p, _)| p.x == x && p.y - OY == y) {
+                        Some(id) => redsim::piston::set_input(&mut w, id, true),
+                        None => out.push_str(&format!("  t={t}: no tracked piston at ({x},{y}) for a set\n")),
+                    }
+                } else {
+                    match w.piston.ideal_src.iter().position(|s| s.map(|p| p.x == x && p.y - OY == y).unwrap_or(false)) {
+                        Some(id) => redsim::piston::set_input(&mut w, id, false),
+                        None => out.push_str(&format!("  t={t}: no source at ({x},{y}) to clear\n")),
+                    }
+                }
+            }
+            if t >= last && w.idle() {
+                break;
+            }
+            if t > last + 200 {
+                out.push_str("  never settles\n");
+                break;
+            }
+            w.tick();
+            t += 1;
+            if !ctx.ok(&w) {
+                out.push_str(&format!("  t={t}: drops {:?} errors {:?}\n", w.drops, w.errors));
+                break;
+            }
+            swept |= ctx.ring_mask(&w);
+        }
+        let k = ctx.key_of(&w);
+        out.push_str(&format!("{} phase: {} ticks; ", if open { "open" } else { "close" }, t));
+        if open {
+            out.push_str(&format!("is_open {} holes_ok {}\n", ctx.is_open(&k), ctx.holes_ok(&k, swept)));
+        } else {
+            out.push_str(&format!("back to rest {}\n", k.g == rest.g));
+        }
+        out.push_str(&ctx.render(&k));
+        key = k;
+    }
+    Ok(out)
+}
+
+/// A plan as pulses of tracked pistons: (open phase?, tick on, tick off, piston id).
+pub type Pulses = Vec<(bool, u32, u32, usize)>;
+
+/// Reads a `door ideal` plan as pulses of the tracked pistons (replaying it to follow carried
+/// pistons); None when an event does not match a piston.
+pub fn pulses_of_plan(ctx: &Ctx, rest: &Key, sched: &crate::ideal::Schedule) -> Option<Pulses> {
+    let mut out: Pulses = Vec::new();
+    let mut key = rest.clone();
+    let vars = sched.vars().clone();
+    for open in [true, false] {
+        let ev = sched.events_of(open, &vars).ok()?;
+        let mut w = ctx.world_of(&key);
+        let last = ev.iter().map(|e| e.0).max().unwrap_or(0);
+        let mut on_at: HashMap<usize, u32> = HashMap::new();
+        let mut t = 0u32;
+        loop {
+            for (_, pos, st) in ev.iter().filter(|e| e.0 == t) {
+                let (x, y) = (pos[0], pos[1]);
+                if st.is_some() {
+                    let id = w.piston.tracked.iter().position(|(p, _)| p.x == x && p.y - OY == y)?;
+                    on_at.insert(id, t);
+                    redsim::piston::set_input(&mut w, id, true);
+                } else {
+                    let id = w.piston.ideal_src.iter().position(|s| s.map(|p| p.x == x && p.y - OY == y).unwrap_or(false))?;
+                    out.push((open, on_at.remove(&id)?, t, id));
+                    redsim::piston::set_input(&mut w, id, false);
+                }
+            }
+            if (t >= last && w.idle()) || t > last + 200 {
+                break;
+            }
+            w.tick();
+            t += 1;
+        }
+        key = ctx.key_of(&w);
+    }
+    Some(out)
+}
+
+/// Runs pulses (open phase from rest, then close); true when it opens FULL seamless and closes
+/// back to rest without drops.
+pub fn pulses_work(ctx: &Ctx, rest: &Key, pulses: &Pulses) -> bool {
+    let mut key = rest.clone();
+    for open in [true, false] {
+        let ph: Vec<&(bool, u32, u32, usize)> = pulses.iter().filter(|p| p.0 == open).collect();
+        let last = ph.iter().map(|p| p.2).max().unwrap_or(0);
+        let mut w = ctx.world_of(&key);
+        let mut swept = 0u16;
+        let mut t = 0u32;
+        loop {
+            // offs first, then ons, in pulse order
+            for p in ph.iter().filter(|p| p.2 == t) {
+                if w.piston.tracked[p.3].1 {
+                    redsim::piston::set_input(&mut w, p.3, false);
+                }
+            }
+            for p in ph.iter().filter(|p| p.1 == t) {
+                if !w.piston.tracked[p.3].1 {
+                    redsim::piston::set_input(&mut w, p.3, true);
+                }
+            }
+            if (t >= last && w.idle()) || t > last + 200 {
+                break;
+            }
+            w.tick();
+            t += 1;
+            if !ctx.ok(&w) {
+                return false;
+            }
+            swept |= ctx.ring_mask(&w);
+        }
+        if !w.idle() {
+            return false;
+        }
+        let k = ctx.key_of(&w);
+        if open {
+            if !ctx.is_open(&k) || !ctx.holes_ok(&k, swept) {
+                return false;
+            }
+        } else if k.g != rest.g {
+            return false;
+        }
+        key = k;
+    }
+    true
+}
+
+/// Input merging on a fixed plan: pistons whose pulses can all be dropped (QC-driven or
+/// unneeded) and groups whose members pulse together (each member's pulses given to all) while
+/// the replay still opens and closes. Returns (undriven ids, groups of ids, merged pulses).
+pub fn merge_by_replay(ctx: &Ctx, rest: &Key, base: &Pulses) -> (Vec<usize>, Vec<Vec<usize>>, Pulses) {
+    let mut ids: Vec<usize> = base.iter().map(|p| p.3).collect();
+    ids.sort();
+    ids.dedup();
+    let build = |groups: &[Vec<usize>], dropped: &[usize]| -> Pulses {
+        let mut v: Pulses = Vec::new();
+        for g in groups {
+            let mut times: Vec<(bool, u32, u32)> = base.iter().filter(|p| g.contains(&p.3)).map(|p| (p.0, p.1, p.2)).collect();
+            times.sort();
+            times.dedup();
+            for (o, a, b) in times {
+                for &m in g {
+                    if !dropped.contains(&m) {
+                        v.push((o, a, b, m));
+                    }
+                }
+            }
+        }
+        v.sort();
+        v
+    };
+    let mut groups: Vec<Vec<usize>> = ids.iter().map(|i| vec![*i]).collect();
+    let mut dropped: Vec<usize> = Vec::new();
+    for &i in &ids {
+        let mut d2 = dropped.clone();
+        d2.push(i);
+        let g2: Vec<Vec<usize>> = groups.iter().map(|g| g.iter().copied().filter(|m| !d2.contains(m)).collect::<Vec<_>>()).filter(|g| !g.is_empty()).collect();
+        if pulses_work(ctx, rest, &build(&g2, &d2)) {
+            dropped = d2;
+            groups = g2;
+        }
+    }
+    loop {
+        let mut merged = false;
+        'outer: for a in 0..groups.len() {
+            for b in a + 1..groups.len() {
+                let mut g2 = groups.clone();
+                let mb = g2.remove(b);
+                g2[a].extend(mb);
+                if pulses_work(ctx, rest, &build(&g2, &dropped)) {
+                    groups = g2;
+                    merged = true;
+                    break 'outer;
+                }
+            }
+        }
+        if !merged {
+            break;
+        }
+    }
+    let p = build(&groups, &dropped);
+    (dropped, groups, p)
 }
 
 // ---- input reduction: helpers that replace a piston's wiring ----
@@ -935,6 +1671,13 @@ fn score(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> (f64, Option<Found>) {
                         used[a as usize] = true;
                         used[b as usize] = true;
                     }
+                    A::GL(m) | A::GP(m, _) => {
+                        for (i, u) in used.iter_mut().enumerate() {
+                            if m >> i & 1 == 1 {
+                                *u = true;
+                            }
+                        }
+                    }
                 }
             }
             return (0.3 * np + 0.1 * nh - 100.0, Some(Found { open: path, close, states: 0, used }));
@@ -1084,6 +1827,8 @@ pub struct CliOpts {
     pub boxes: Vec<(i8, i8)>,
     pub pmax: usize,
     pub two: usize,
+    /// Middle-row side blocks forced to leave vertically (families' `--vmid` variants).
+    pub vmid: Vec<Vec<(i8, i8)>>,
     pub pulses: Vec<u8>,
     pub levels: bool,
     pub cap: usize,
@@ -1106,6 +1851,12 @@ pub struct CliOpts {
     pub export: Option<std::path::PathBuf>,
     /// Replay these `door ideal` plans in the real simulator.
     pub verify_ideal: Vec<std::path::PathBuf>,
+    /// Input merging (min_groups) for every solved mechanism.
+    pub groups: bool,
+    /// Piston removal + one helper (shrink_mech) in --check.
+    pub shrink: bool,
+    /// Replay this `door ideal` plan in the solver's world (--check diagnostics).
+    pub replay_ideal: Option<std::path::PathBuf>,
 }
 
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
@@ -1230,13 +1981,83 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             continue;
         };
         print!("{}", ctx.render(&rest));
+        if let Some(rp) = &o.replay_ideal {
+            let text = std::fs::read_to_string(rp)?;
+            let s = crate::ideal::Schedule::parse(&text)?;
+            print!("replay of {} in the solver's world:\n{}", rp.display(), replay_ideal(&ctx, &rest, &s)?);
+            if o.groups {
+                if let Some(base) = pulses_of_plan(&ctx, &rest, &s) {
+                    let pid = |i: usize| ctx.pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).nth(i).map(|p| p.code()).unwrap_or_default();
+                    println!("  plan as pulses works: {}", pulses_work(&ctx, &rest, &base));
+                    let (dropped, groups, merged) = merge_by_replay(&ctx, &rest, &base);
+                    println!(
+                        "  input merging on this plan's timeline: {} independent signals; undriven: {}; groups: {}",
+                        groups.len(),
+                        dropped.iter().map(|i| pid(*i)).collect::<Vec<_>>().join(" "),
+                        groups.iter().map(|g| g.iter().map(|i| pid(*i)).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | ")
+                    );
+                    for g in &groups {
+                        let t: Vec<String> = merged.iter().filter(|p| p.3 == g[0]).map(|p| format!("{}{}-{}", if p.0 { "o" } else { "c" }, p.1, p.2)).collect();
+                        println!("    {}: {}", g.iter().map(|i| pid(*i)).collect::<Vec<_>>().join("+"), t.join(" "));
+                    }
+                }
+            }
+        }
         let t0 = std::time::Instant::now();
-        match solve(&ctx, &rest, o.cap) {
-            Ok(Some(f)) => println!("  {} [{:.1}s]", describe(&ctx, &f), t0.elapsed().as_secs_f64()),
-            Ok(None) => println!("  no FULL seamless open + close (exhausted) [{:.1}s]", t0.elapsed().as_secs_f64()),
+        let r = match solve(&ctx, &rest, o.cap) {
+            Ok(None) => solve_oc(&ctx, &rest, o.cap.max(60000)),
+            r => r,
+        };
+        match r {
+            Ok(Some(f)) => {
+                println!("  {} [{:.1}s]", describe(&ctx, &f), t0.elapsed().as_secs_f64());
+                if o.groups {
+                    let (gs, gf) = merge_on_solution(&ctx, &rest, &f);
+                    let pid = |i: usize| ctx.pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).nth(i).map(|p| p.code()).unwrap_or_default();
+                    println!(
+                        "  merging on this solution's order: {} signals: {}\n  {}",
+                        gs.len(),
+                        gs.iter().map(|m| (0..16).filter(|i| m >> i & 1 == 1).map(pid).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | "),
+                        describe(&ctx, &gf)
+                    );
+                }
+            }
+            Ok(None) => println!("  no FULL seamless open + close (whole reachable graph explored) [{:.1}s]", t0.elapsed().as_secs_f64()),
             Err(()) => println!("  cap hit [{:.1}s]", t0.elapsed().as_secs_f64()),
         }
-        if o.reduce {
+        if o.groups {
+            let t1 = std::time::Instant::now();
+            match min_groups(bx, &pieces, &so, o.cap) {
+                Some((und, gv, f, gctx, _)) => println!(
+                    "  input merging: {} independent signals (undriven: {}; groups: {}) [{:.1}s]\n  {}",
+                    gv.len(),
+                    und.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                    gv.iter().map(|g| g.iter().map(|p| p.code()).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | "),
+                    t1.elapsed().as_secs_f64(),
+                    describe(&gctx, &f)
+                ),
+                None => println!("  input merging: no exact solution"),
+            }
+            if o.reduce {
+                let t2 = std::time::Instant::now();
+                let (base, r) = groups_helpers(bx, &pieces, &so, o.reduce_cap, o.threads);
+                println!("  groups + one helper: {} placements need fewer than {base} signals [{:.0}s]", r.len(), t2.elapsed().as_secs_f64());
+                for (h, n, d) in r.iter().take(8) {
+                    println!("  - helper {} -> {n} signals: {d}", h.code());
+                }
+            }
+        }
+        if o.shrink {
+            let t1 = std::time::Instant::now();
+            let r = shrink_mech(bx, &pieces, &so, o.reduce_cap, o.threads);
+            println!("  piston removal + one helper: {} working variants with one piston fewer [{:.0}s]", r.len(), t1.elapsed().as_secs_f64());
+            for (v, f, what) in r.iter().take(10) {
+                if let Some((c2, _)) = build(bx, v, &so) {
+                    println!("  - {what}: {}", describe(&c2, f).replace('\n', "\n    "));
+                }
+            }
+        }
+        if o.reduce && !o.groups {
             let t1 = std::time::Instant::now();
             let r = reduce(bx, &pieces, &so, o.reduce_cap, o.threads);
             let mut by_piston: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
@@ -1265,7 +2086,7 @@ pub fn cli(o: &CliOpts) -> Result<()> {
                     continue;
                 }
                 let bx = Bx { x0: -dx, y0: -dy, w, h };
-                for v in families::generate(bx, o.pmax, true, true, o.two) {
+                for v in families::generate_v(bx, o.pmax, true, true, o.two, 0, &o.vmid) {
                     if seen.insert(families::canon(&v)) {
                         cands.push((bx, v));
                     }
@@ -1371,17 +2192,75 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             }
             std::fs::write(sub.join("INDEX.tsv"), index)?;
         }
+        if o.groups {
+            // input merging per mechanism, mechanisms in parallel
+            let next = AtomicUsize::new(0);
+            let res: Mutex<Vec<(usize, String, Option<(String, String)>)>> = Mutex::new(Vec::new());
+            std::thread::scope(|s| {
+                for _ in 0..o.threads.max(1).min(found.len().max(1)) {
+                    s.spawn(|| loop {
+                        let n = next.fetch_add(1, Ordering::Relaxed);
+                        if n >= found.len() {
+                            break;
+                        }
+                        let (bx, v, _, _) = &found[n];
+                        let fp: Vec<FPc> = v.iter().map(FPc::from_pc).collect();
+                        let id = format!("fm-{w}x{h}-{n:03}");
+                        let line;
+                        let mut files = None;
+                        match min_groups(*bx, &fp, &so, o.reduce_cap) {
+                            Some((und, gv, f, ctx, rest)) => {
+                                line = format!(
+                                    "{id}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                                    gv.len(),
+                                    und.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                                    gv.iter().map(|g| g.iter().map(|p| p.code()).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | "),
+                                    f.open.iter().map(|a| ctx.fmt_action(*a)).collect::<Vec<_>>().join(" "),
+                                    f.close.iter().map(|a| ctx.fmt_action(*a)).collect::<Vec<_>>().join(" "),
+                                    fp.iter().map(|p| p.code()).collect::<Vec<_>>().join(" ")
+                                );
+                                if let Some(dir) = &o.export {
+                                    let dpath = dir.join(format!("{w}x{h}")).join(format!("{id}.txt"));
+                                    files = export(&ctx, &rest, &f, &format!("{id}-groups"), &dpath.display().to_string(), 2);
+                                }
+                            }
+                            None => line = format!("{id}\t-\t\t(no exact solution with the group search)\t\t\t\n"),
+                        }
+                        res.lock().unwrap().push((n, line, files));
+                    });
+                }
+            });
+            let mut res = res.into_inner().unwrap();
+            res.sort_by_key(|r| r.0);
+            let mut tsv = String::from("id\tsignals\tundriven\tgroups\topen\tclose\tpieces\n");
+            let mut hist: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+            for (n, line, files) in &res {
+                tsv.push_str(line);
+                *hist.entry(line.split('\t').nth(1).unwrap_or("-").to_string()).or_default() += 1;
+                if let (Some(dir), Some((_, plan))) = (&o.export, files) {
+                    std::fs::write(dir.join(format!("{w}x{h}")).join(format!("fm-{w}x{h}-{n:03}-groups.ideal")), plan)?;
+                }
+            }
+            let line = format!("{w}x{h}: independent input signals after merging (mechanisms per count): {hist:?}\n");
+            print!("{line}");
+            report.push_str(&line);
+            if let Some(dir) = &o.export {
+                std::fs::write(dir.join(format!("{w}x{h}")).join("GROUPS.tsv"), tsv)?;
+            }
+        }
         if o.reduce {
             for (bx, v, _, _) in found.iter() {
                 let fp: Vec<FPc> = v.iter().map(FPc::from_pc).collect();
                 let t1 = std::time::Instant::now();
-                let r = reduce(*bx, &fp, &so, o.reduce_cap, o.threads);
+                let (base, r) = reduce_greedy(*bx, &fp, &so, o.reduce_cap, o.threads);
                 let line = format!(
-                    "  reduce {}: {} (undriven piston, helper) pairs work [{:.0}s]{}\n",
+                    "  reduce {}: {} of {} pistons need an input; {} single helpers lower it [{:.0}s]{}\n",
                     fp.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                    base,
+                    fp.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count(),
                     r.len(),
                     t1.elapsed().as_secs_f64(),
-                    r.iter().take(6).map(|(p, h, f)| format!("\n    {} undriven, helper {} ({} + {} actions)", p.code(), h.code(), f.open.len(), f.close.len())).collect::<String>()
+                    r.iter().take(6).map(|(h, d, und)| format!("\n    helper {} -> {d} inputs (undriven: {})", h.code(), und.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "))).collect::<String>()
                 );
                 print!("{line}");
                 report.push_str(&line);

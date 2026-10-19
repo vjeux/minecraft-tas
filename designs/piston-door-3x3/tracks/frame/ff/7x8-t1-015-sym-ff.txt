@@ -1,0 +1,30 @@
+name: 7x8-t1-015-sym
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=up]
+  D minecraft:stone
+  P minecraft:piston_head[facing=up,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  ..R
+layer -2:
+  ..CA
+layer -1:
+  ..P.D
+layer 0:
+  .DDDD.B
+layer 1:
+  s.DDD.B
+layer 2:
+  .DDDD.B
+layer 3:
+  .....B
+layer 4:
+  ..SS
+layer 5:
+  ...S

@@ -1,0 +1,70 @@
+class 0: conductor, sturdy all faces, full cube, solid, push PushPull, note Basedrum
+  rep minecraft:stone
+  members (26): stone, smooth_stone, cobblestone, granite, polished_granite, diorite, andesite, mossy_cobblestone, stone_bricks, tuff, calcite, bricks, sandstone, nether_bricks, end_stone, blackstone, quartz_block, prismarine, purpur_block, terracotta, coal_block, raw_iron_block, mud_bricks, white_concrete, black_concrete, smooth_stone_slab[type=double,waterlogged=false]
+class 1: conductor, sturdy all faces, full cube, solid, push Immoveable, note Basedrum
+  rep minecraft:obsidian
+  members (2): obsidian, crying_obsidian
+class 2: non-conductor, sturdy all faces, full cube, solid, push PushPull, note Hat
+  rep minecraft:glass
+  members (5): glass, tinted_glass, sea_lantern, white_stained_glass, black_stained_glass
+class 3: conductor, sturdy all faces, full cube, solid, push PushPull, note Guitar
+  rep minecraft:white_wool
+  members (3): white_wool, orange_wool, black_wool
+class 4: conductor, sturdy all faces, full cube, solid, push PushPull, note Bass
+  rep minecraft:oak_planks
+  members (4): oak_planks, bookshelf, crafting_table, spruce_planks
+class 5: conductor, sturdy all faces, full cube, solid, push PushPull, note Bell
+  rep minecraft:gold_block
+  members (1): gold_block
+class 6: conductor, sturdy all faces, full cube, solid, push PushPull, note IronXylophone
+  rep minecraft:iron_block
+  members (1): iron_block
+class 7: conductor, sturdy all faces, full cube, solid, push PushPull, note Flute
+  rep minecraft:clay
+  members (1): clay
+class 8: conductor, sturdy all faces, full cube, solid, push PushPull, note Bit
+  rep minecraft:emerald_block
+  members (1): emerald_block
+class 9: non-conductor, sturdy all faces, full cube, solid, push PushPull, note Pling
+  rep minecraft:glowstone
+  members (1): glowstone
+class 10: conductor, sturdy all faces, full cube, solid, push PushPull, note Chime
+  rep minecraft:packed_ice
+  members (1): packed_ice
+class 11: conductor, sturdy all faces, partial collision, solid, push PushPull, note CowBell
+  rep minecraft:soul_sand
+  members (1): soul_sand
+class 12: conductor, sturdy all faces, full cube, solid, push PushPull, slime, note Harp
+  rep minecraft:slime_block
+  members (1): slime_block
+class 13: non-conductor, sturdy d:C, partial collision, solid, push PushPull, honey, note Harp
+  rep minecraft:honey_block
+  members (1): honey_block
+class 14: non-conductor, sturdy all faces, full cube, solid, push PushPull, note Harp
+  rep minecraft:waxed_copper_grate[waterlogged=false]
+  members (1): waxed_copper_grate[waterlogged=false]
+class 15: conductor, sturdy all faces, full cube, solid, push PushPull, note Harp
+  rep minecraft:diamond_block
+  members (9): diamond_block, lapis_block, netherite_block, soul_soil, dried_kelp_block, shroomlight, nether_wart_block, warped_wart_block, amethyst_block
+class 16: conductor, sturdy all faces, full cube, solid, push Popped, note Didgeridoo
+  rep minecraft:pumpkin
+  members (1): pumpkin
+class 17: conductor, sturdy all faces, partial collision, solid, push PushPull, note Harp
+  rep minecraft:mud
+  members (1): mud
+class 18: conductor, sturdy all faces, full cube, solid, push Push, note Basedrum
+  rep minecraft:white_glazed_terracotta[facing=north]
+  members (4): white_glazed_terracotta[facing=north], white_glazed_terracotta[facing=east], white_glazed_terracotta[facing=south], white_glazed_terracotta[facing=west]
+class 19: conductor, sturdy all faces, full cube, solid, push PushPull, note Bass
+  rep minecraft:oak_log[axis=x]
+  members (3): oak_log[axis=x], oak_log[axis=y], oak_log[axis=z]
+class 20: non-conductor, sturdy d:FCR, partial collision, solid, push PushPull, note Basedrum
+  rep minecraft:smooth_stone_slab[type=bottom,waterlogged=false]
+  members (1): smooth_stone_slab[type=bottom,waterlogged=false]
+class 21: non-conductor, sturdy u:FCR, partial collision, solid, push PushPull, note Basedrum
+  rep minecraft:smooth_stone_slab[type=top,waterlogged=false]
+  members (1): smooth_stone_slab[type=top,waterlogged=false]
+same except next to a note block: classes [0, 3, 4, 5, 6, 7, 8, 10, 15]
+same except next to a note block: classes [2, 9, 14]
+same except next to a note block: classes [11, 17]
+70 blocks in 22 classes (11 ignoring note-block instruments)

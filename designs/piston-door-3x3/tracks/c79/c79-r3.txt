@@ -1,0 +1,45 @@
+name: c79-r3-topflip
+# Reconstruction of the community 7x9 door from vjeux's screenshot (open state as seen; rest =
+# door blocks in the opening, every piston retracted). Observer facings read with the screenshot's
+# resource pack: side arrows point toward the OUTPUT; on top textures the arrow points toward the
+# output and the red dot marks the face. Purple blocks = plain conductors (smooth stone here).
+port door: 0 0 0
+port lever: 4 6 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  U minecraft:observer[facing=up,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  n minecraft:piston[extended=false,facing=down]
+  P minecraft:smooth_stone
+  H minecraft:stone
+  D minecraft:dropper[facing=south,triggered=false]
+  q minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  r minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+layer -3:
+  PADPA..
+layer -2:
+  ROBFFnP
+layer -1:
+  OE...PR
+layer 0:
+  E.HHHHU
+layer 1:
+  E.HHH.W
+layer 2:
+  E.HHH.W
+layer 3:
+  P.H.HBD
+layer 4:
+  .P.sBB.
+layer 5:
+  ..BsqrP
+layer 6:
+  ......L

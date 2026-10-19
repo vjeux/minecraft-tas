@@ -178,12 +178,53 @@ pub enum Simple {
     HoneyBlock,
     WaxedCopperGrate,
     SeaLantern,
+    // plain blocks for the equivalence classes (`classes.rs`)
+    Granite,
+    PolishedGranite,
+    Diorite,
+    Andesite,
+    MossyCobblestone,
+    StoneBricks,
+    Tuff,
+    Calcite,
+    Bricks,
+    Sandstone,
+    NetherBricks,
+    EndStone,
+    Blackstone,
+    QuartzBlock,
+    Prismarine,
+    PurpurBlock,
+    Terracotta,
+    CoalBlock,
+    RawIronBlock,
+    MudBricks,
+    WhiteConcrete,
+    BlackConcrete,
+    DiamondBlock,
+    LapisBlock,
+    NetheriteBlock,
+    SoulSoil,
+    DriedKelpBlock,
+    Shroomlight,
+    NetherWartBlock,
+    WarpedWartBlock,
+    AmethystBlock,
+    Bookshelf,
+    CraftingTable,
+    SprucePlanks,
+    OrangeWool,
+    BlackWool,
+    Pumpkin,
+    WhiteStainedGlass,
+    BlackStainedGlass,
+    Mud,
     // ---- pistmodel ----
     CryingObsidian,
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 20] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 60] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -206,11 +247,57 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 20] = [
     (Simple::HoneyBlock, "honey_block", false, false, Instrument::Harp, PushReaction::PushPull),
     (Simple::WaxedCopperGrate, "waxed_copper_grate", false, true, Instrument::Harp, PushReaction::PushPull),
     (Simple::SeaLantern, "sea_lantern", false, true, Instrument::Hat, PushReaction::PushPull),
+    (Simple::Granite, "granite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::PolishedGranite, "polished_granite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Diorite, "diorite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Andesite, "andesite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::MossyCobblestone, "mossy_cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::StoneBricks, "stone_bricks", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Tuff, "tuff", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Calcite, "calcite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Bricks, "bricks", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Sandstone, "sandstone", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::NetherBricks, "nether_bricks", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::EndStone, "end_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Blackstone, "blackstone", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::QuartzBlock, "quartz_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Prismarine, "prismarine", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::PurpurBlock, "purpur_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Terracotta, "terracotta", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::CoalBlock, "coal_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::RawIronBlock, "raw_iron_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::MudBricks, "mud_bricks", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::WhiteConcrete, "white_concrete", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::BlackConcrete, "black_concrete", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::DiamondBlock, "diamond_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::LapisBlock, "lapis_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::NetheriteBlock, "netherite_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::SoulSoil, "soul_soil", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::DriedKelpBlock, "dried_kelp_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::Shroomlight, "shroomlight", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::NetherWartBlock, "nether_wart_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::WarpedWartBlock, "warped_wart_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::AmethystBlock, "amethyst_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::Bookshelf, "bookshelf", true, true, Instrument::Bass, PushReaction::PushPull),
+    (Simple::CraftingTable, "crafting_table", true, true, Instrument::Bass, PushReaction::PushPull),
+    (Simple::SprucePlanks, "spruce_planks", true, true, Instrument::Bass, PushReaction::PushPull),
+    (Simple::OrangeWool, "orange_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::BlackWool, "black_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    // pumpkins break when a piston pushes them (POPPED)
+    (Simple::Pumpkin, "pumpkin", true, true, Instrument::Didgeridoo, PushReaction::Popped),
+    (Simple::WhiteStainedGlass, "white_stained_glass", false, true, Instrument::Hat, PushReaction::PushPull),
+    (Simple::BlackStainedGlass, "black_stained_glass", false, true, Instrument::Hat, PushReaction::PushPull),
+    // mud: like soul sand (always a conductor, 14 px collision, full support), dirt's harp
+    (Simple::Mud, "mud", true, true, Instrument::Harp, PushReaction::PushPull),
     // ---- pistmodel ----
     (Simple::CryingObsidian, "crying_obsidian", true, true, Instrument::Basedrum, PushReaction::Immoveable),
 ];
 
 impl Simple {
+    /// Every plain block's id (what `Block::parse` accepts).
+    pub fn names() -> Vec<&'static str> {
+        SIMPLES.iter().map(|r| r.1).collect()
+    }
     fn row(self) -> &'static (Simple, &'static str, bool, bool, Instrument, PushReaction) {
         SIMPLES.iter().find(|r| r.0 == self).unwrap()
     }
@@ -329,6 +416,9 @@ pub enum Block {
     Slab { kind: u8 },
     /// Persistent oak leaves (`persistent=false` ones decay at random: out of scope).
     Leaves { distance: u8, persistent: bool },
+    /// Scaffolding (`ScaffoldingBlock`): `distance` 0-7 to a sturdy floor, `bottom` = distance > 0
+    /// with no scaffold below.
+    Scaffolding { distance: u8, bottom: bool },
     /// Oak log (a leaves distance source).
     Log { axis: u8 },
     /// Skeleton skull (`powered` follows its neighbor signal; pistons pop it).
@@ -380,6 +470,7 @@ pub enum Kind {
     Hopper,
     Slab,
     Leaves,
+    Scaffolding,
     Log,
     Skull,
     WallSkull,
@@ -425,6 +516,7 @@ impl Block {
             Block::Hopper { .. } => Kind::Hopper,
             Block::Slab { .. } => Kind::Slab,
             Block::Leaves { .. } => Kind::Leaves,
+            Block::Scaffolding { .. } => Kind::Scaffolding,
             Block::Log { .. } => Kind::Log,
             Block::Skull { .. } => Kind::Skull,
             Block::WallSkull { .. } => Kind::WallSkull,
@@ -640,6 +732,10 @@ impl Block {
                 waterlogged_ok()?;
                 Block::Leaves { distance: int_of("distance", 7, 1, 7)?, persistent: bool_of("persistent", false)? }
             }
+            "scaffolding" => {
+                waterlogged_ok()?;
+                Block::Scaffolding { distance: int_of("distance", 7, 0, 7)?, bottom: bool_of("bottom", false)? }
+            }
             "oak_log" => Block::Log {
                 axis: match get("axis") {
                     None | Some("y") => 1,
@@ -757,6 +853,7 @@ impl fmt::Display for Block {
             Block::Hopper { facing, enabled } => write!(f, "minecraft:hopper[enabled={},facing={}]", b(enabled), facing.name()),
             Block::Slab { kind } => write!(f, "minecraft:smooth_stone_slab[type={},waterlogged=false]", ["bottom", "top", "double"][kind as usize]),
             Block::Leaves { distance, persistent } => write!(f, "minecraft:oak_leaves[distance={distance},persistent={},waterlogged=false]", b(persistent)),
+            Block::Scaffolding { distance, bottom } => write!(f, "minecraft:scaffolding[bottom={},distance={distance},waterlogged=false]", b(bottom)),
             Block::Log { axis } => write!(f, "minecraft:oak_log[axis={}]", ["x", "y", "z"][axis as usize]),
             Block::Skull { rotation, powered } => write!(f, "minecraft:skeleton_skull[powered={},rotation={rotation}]", b(powered)),
             Block::WallSkull { facing, powered } => write!(f, "minecraft:skeleton_wall_skull[facing={},powered={}]", facing.name(), b(powered)),
