@@ -1,4 +1,4 @@
-name: clk-obs-p8-crafter-obs-6b-c-8f0d99
+name: clk-misc-p8-crafter-obs-6b-c-8f0d99
 # clk-obs census (k=6, palette obs,stone,minecraft:crafter[orientation=north_up]): P=8 (redsim), family crafter+observer, kick last 0 0 0, swept volume 6.
 origin: 0 0 0
 port output: 0 1 0
