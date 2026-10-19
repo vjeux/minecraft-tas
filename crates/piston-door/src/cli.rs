@@ -778,6 +778,10 @@ pub enum DoorCmd {
         /// Ring cells (and the cells behind hallway holes) hold only plain blocks.
         #[arg(long)]
         forbid_ring: bool,
+        /// Ring cells nothing passes through hold smooth stone (props-dyn's hallway blocks), so
+        /// the wiring is hallway-compatible by construction.
+        #[arg(long)]
+        hall_ring: bool,
         /// Lever candidate cells "x,y,z;..." (default: free cells and the cells around the box).
         #[arg(long)]
         lever: Option<String>,
@@ -810,6 +814,9 @@ pub enum DoorCmd {
         /// Fix the source design's own wiring and report where the model disagrees with it.
         #[arg(long)]
         check: bool,
+        /// Re-solves spent shrinking an UNSAT core to the conflicting pistons (0: the raw core).
+        #[arg(long, default_value_t = 40)]
+        core_tries: usize,
         /// CEGAR iterations.
         #[arg(long, default_value_t = 300)]
         iters: usize,
@@ -817,6 +824,26 @@ pub enum DoorCmd {
         /// trace ends) with selectors and print the conflicting groups.
         #[arg(long)]
         diag: bool,
+        /// A partly wired ideal plan: keep the wiring already in its design (and its lever).
+        #[arg(long)]
+        keep_wiring: bool,
+        /// Exact recorded power everywhere (default: a retracted piston that stays retracted while
+        /// powered, blocked or QC-armed, may get any power at that tick).
+        #[arg(long)]
+        exact: bool,
+        /// Require the RECORDED piston power per tick (old behavior) instead of the power implied
+        /// by the mechanism's motion (on to extend or stay extended, off to retract or to stay
+        /// retracted when it could extend, free when blocked).
+        #[arg(long)]
+        recorded_power: bool,
+        /// Over-approximate the game where cheap: QC-held pistons without an update, repeater and
+        /// torch read orders inside a tick (UNSAT is then stronger evidence; CEGAR rejects the rest).
+        #[arg(long)]
+        sound: bool,
+        /// The mechanism's stone blocks are oak logs (same mechanics): leaves (palette `leaves`) next
+        /// to their paths re-read their distance 1 gt after a log moves (a 1 gt delay).
+        #[arg(long)]
+        log_doors: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -902,6 +929,79 @@ pub enum DoorCmd {
         workers: usize,
         /// export: extra positions of the ideal replay (4 positions + this many).
         #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+    },
+    /// A systematic `door satwire` sweep (satsweep.rs, track sweep56): every ideal plan x every
+    /// placement of a W x H wiring box (`--box-dims`) x every timing variant (`--variants
+    /// base,gap,triple`): each variant is replayed with ideal inputs first (plans the mechanism
+    /// cannot follow are INVALID), then SAT-wired; one TSV row per run (SAT / UNSAT + core / ...).
+    Satsweep {
+        /// Ideal schedules (`.ideal`).
+        #[arg(required = true, num_args = 1..)]
+        plans: Vec<PathBuf>,
+        #[arg(long, default_value_t = 8)]
+        jobs: usize,
+        #[arg(long, default_value = "block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")]
+        palette: String,
+        /// Ring cells (and cells behind open-state holes) hold only plain blocks.
+        #[arg(long)]
+        forbid_ring: bool,
+        /// Ring cells nothing passes through hold smooth stone (props-dyn's hallway blocks).
+        #[arg(long)]
+        hall_ring: bool,
+        #[arg(long)]
+        lever_oop: bool,
+        #[arg(long, default_value_t = 8)]
+        dmax: i32,
+        #[arg(long, default_value_t = 8)]
+        skip: i32,
+        #[arg(long, default_value_t = 6)]
+        settle: i32,
+        #[arg(long, default_value_t = 6)]
+        core_tries: usize,
+        /// Wiring box size "WxH" (every placement around the mechanism); default: its bounding box.
+        #[arg(long)]
+        box_dims: Option<String>,
+        /// base,gap,triple
+        #[arg(long, default_value = "base")]
+        variants: String,
+        /// Gap values (ticks) for the `gap` variants.
+        #[arg(long, default_value = "2,3,4,5")]
+        gaps: String,
+        /// Pulse spacings (ticks) for the `triple` variants.
+        #[arg(long, default_value = "4,6")]
+        triple_gaps: String,
+        /// Stretch pulses shorter than N ticks to N (pistmodel's 1 gt pulses -> 2 gt).
+        #[arg(long, default_value_t = 0)]
+        widen: u32,
+        /// Round every pulse width up to an even number of ticks (3 gt -> 4 gt).
+        #[arg(long)]
+        even: bool,
+        /// Per-toggle timing MENU: every input pulsed once in a phase may also be shifted by each
+        /// of these ticks (e.g. `--menu-shifts=-4,-2,2,4,6,8`); the solver picks per toggle.
+        #[arg(long, default_value = "", allow_hyphen_values = true)]
+        menu_shifts: String,
+        /// The menu also offers each toggle tripled (`--triple-gaps` spacings).
+        #[arg(long)]
+        menu_triples: bool,
+        /// The menu also offers each toggle's pulse at these widths (e.g. `1,2,3,4`).
+        #[arg(long, default_value = "")]
+        menu_widths: String,
+        /// The menu also offers CORE alternatives (one core pulse shifted -3..+6 or re-widthed 1/3/4,
+        /// or two pulses of one input held as one level), the solver picking one.
+        #[arg(long)]
+        menu_core: bool,
+        /// Skip the ideal-input replay of each variant.
+        #[arg(long)]
+        no_validate: bool,
+        /// Minimize the wiring of every SAT model (default: stop at the first judged design).
+        #[arg(long)]
+        minimize: bool,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/sweep56/SWEEP.tsv")]
+        tsv: PathBuf,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/sweep56/runs")]
+        out_dir: PathBuf,
+        #[arg(long, default_value_t = 28)]
         extra_offsets: u32,
     },
     /// The catalog of flat (1-wide) seamless mechanisms per box (families.rs): every door block
@@ -2839,11 +2939,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, diag, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, diag, sound, log_doors, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
+            sw::SOUND.store(sound, std::sync::atomic::Ordering::Relaxed);
+            sw::LOG_DOORS.store(log_doors, std::sync::atomic::Ordering::Relaxed);
             if check && mechanism.len() > 1 {
-                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels };
+                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false, motion: false };
                 let next = std::sync::atomic::AtomicUsize::new(0);
                 let out = std::sync::Mutex::new(Vec::new());
                 std::thread::scope(|sc| {
@@ -2901,6 +3003,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 bx: bx.as_deref().map(sw::parse_box).transpose()?.or(fam_box),
                 palette: sw::palette(&palette)?,
                 forbid_ring,
+                hall_ring: hall_ring && !check,
                 levers: lever.as_deref().map(crate::synth::parse_cells).transpose()?,
                 lever_oop,
                 dmax: if check { 0 } else { dmax },
@@ -2908,12 +3011,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 settle,
                 qc: !no_qc,
                 levels,
+                blocked_dc: !exact && !check,
+                motion: !recorded_power,
             };
             let mut p = sw::build_prob(rec, &po)?;
             if let Some(fp) = &fixed {
                 sw::fix_partial(&mut p, &load_design(fp)?)?;
             }
-            if fixed.is_none() && !from_wired && !check && !p.rec.wiring.is_empty() {
+            if keep_wiring && fixed.is_none() && !from_wired && !check && !p.rec.wiring.is_empty() {
                 let mut d = mctas::design::Design::default();
                 for (cc, st) in &p.rec.wiring {
                     d.blocks.insert([cc.0, cc.1, p.z], st.clone());
@@ -2928,7 +3033,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 return sw::check(&p);
             }
             let name = match &families { Some(id) => format!("satwire-{id}"), None => format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default()) };
-            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
+            let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
         }
         DoorCmd::Mechspace { cmd, boxes, input, pistons, cap, fcap, threads, cap_local, max_group, out_dir, tag, limit, two, carry, vmid, catalog, n, walk, astar, gap, workers, extra_offsets, cap_lean } => {
@@ -3020,6 +3125,44 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }
+        }
+        DoorCmd::Satsweep { plans, jobs, palette, forbid_ring, hall_ring, lever_oop, dmax, skip, settle, core_tries, box_dims, variants, gaps, triple_gaps, widen, even, menu_shifts, menu_triples, menu_widths, menu_core, no_validate, minimize, tsv, out_dir, extra_offsets } => {
+            let nums = |s: &str| -> Result<Vec<u32>> { s.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<u32>().map_err(anyhow::Error::from)).collect() };
+            let box_dims = match box_dims.as_deref() {
+                Some(b) => {
+                    let (w, h) = b.split_once('x').ok_or_else(|| anyhow::anyhow!("--box-dims WxH"))?;
+                    Some((w.parse::<i32>()?, h.parse::<i32>()?))
+                }
+                None => None,
+            };
+            let o = crate::satsweep::SweepOpts {
+                jobs,
+                palette,
+                forbid_ring,
+                hall_ring,
+                lever_oop,
+                dmax,
+                skip,
+                settle,
+                core_tries,
+                box_dims,
+                variants: variants.split(',').map(|s| s.trim().to_string()).collect(),
+                gaps: nums(&gaps)?,
+                triple_gaps: nums(&triple_gaps)?,
+                widen,
+                even,
+                menu_shifts: menu_shifts.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<i64>().map_err(anyhow::Error::from)).collect::<Result<Vec<i64>>>()?,
+                menu_triples,
+                menu_widths: nums(&menu_widths)?,
+                menu_core,
+                no_validate,
+                minimize,
+                tsv,
+                out_dir,
+                version: version.to_string(),
+                extra_offsets,
+            };
+            crate::satsweep::cli(&plans, &o)?;
         }
         DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both } => {
             let vmid: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {

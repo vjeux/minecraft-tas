@@ -1,0 +1,37 @@
+name: satwire-e89b
+port door: 0 0 0
+port lever: 0 -4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:stone
+  L minecraft:lever[face=ceiling,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  ...LBBS
+layer -3:
+  ..oOECRB
+layer -2:
+  ooOSEO.O
+layer -1:
+  O.D..S.O
+layer 0:
+  OD.GGG.F
+layer 1:
+  SD.GGG.F
+layer 2:
+  RD.GGG.F
+layer 3:
+  OBB....A
+layer 4:
+  ..OBsBSr
