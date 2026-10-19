@@ -57,14 +57,17 @@ Code: `crates/piston-door/src/boxproof/` (`mctas door boxproof fuzz|case|bmc|cat
 ## Validation (differential, `door boxproof fuzz`)
 Random 5x5 boxes from the whole palette, settled in redsim, then 30 gt lever on + 30 gt lever
 off, compared after every tick with the bool model: every block state, moving-block entity
-(content, progress), pending scheduled tick and pending block event.
-* 20,000 boxes (seed 11, final palette): 7,691 compared (670 with pistons moving): 7,685
-  identical or flagged, 6 UNFLAGGED mismatches (0.08%): a lamp re-schedule (1), piston events
-  queued in the moving-block phase in a different order (2), a close-phase piston chain (3).
+(content, progress), comparator output, pending scheduled tick and pending block event.
+* With bulbs and comparators (4c73b6b), seeds 11-15, 100,000 boxes: ~42,700 compared (~3,100
+  with pistons moving), 9 UNFLAGGED mismatches (0.02%): piston events queued in the
+  moving-block phase / close-phase piston chains (5), observers seeing a dust transient inside
+  one phase (2), a bulb whose input fell and rose within one phase (1), other (1).
+* Earlier palette (seed 11, 20,000 boxes): 7,691 compared, 6 unflagged.
 * Bugs the fuzz found and fixed: the lever's own update reaches its support; pushed observers'
-  stale ticks; the note-block event kind. A calibration found the worst one: the torch phase
-  dropped an observer's toggle in FREE cells (fixed 02:20Z, 40d9258; fuzz could not see it since
-  its cells are concrete): every whole-box / fixed-pistons result before that commit is void.
+  stale ticks; the note-block event kind; copper bulbs are NOT redstone conductors. A
+  calibration found the worst one: the torch phase dropped an observer's toggle in FREE cells
+  (fixed 02:20Z, 40d9258; fuzz could not see it since its cells are concrete): every whole-box /
+  fixed-pistons result before that commit is void.
 * e89b with its placement given: SAT in 4 s (8x9, t=40/edge, 9.5M vars / 33M clauses), the model's
   door passes the redsim screen (open 34 / close 34). With ONE block-event round e89b is UNSAT:
   it needs events chained within a tick, hence 2 rounds. e89b with one wiring cell erased (palette
@@ -79,11 +82,23 @@ Proofs (`--nondet`, strict ring at rest and open, T=20/edge, palette above, 2 ev
 Even 5x5, where no door can fit, costs the solver minutes per offset: the temporal unrolling is
 the cost, not the encoding size.
 
-Find mode (`sat` config, CEGAR via the redsim screen at 32 positions), all after the fix, on box2:
-e89b's mechanism in 7x8 (x -2..4, y -3..4; 4 lever cubes), vmid vb3 (2 cubes), vb2, vc1,
-wire64 f131L, families 8x8-131 (fits 7x8), wire64b w63 top region in 7x9, whole box 7x8 door
-(2,2), and the calibration "e89b with its 6 bottom wiring cells erased": see the log for what
-came back. Each instance ~13.5M vars / 49M clauses / 12 GB.
+Find mode (`sat` config, CEGAR via the redsim screen, 1 position while searching), all after the
+fix, on box2: e89b's mechanism in 7x8 (x -2..4, y -3..4; 4 lever cubes), vmid vb3 (2 cubes),
+vb2, vc1, wire64 f131L, families 8x8-131 (fits 7x8), wire64b w63 top region in 7x9, whole box
+7x8 door (2,2): no answer in 35-50 min each; stopped at 03:47Z by the frame-12/12 target
+correction (none of those mechanisms is 12/12). Each instance ~13.5M vars / 49M clauses / 12 GB.
+
+wire131 f131F-b2 (7x9, frame 12/12 with 3 static stones, one ideal input left: N's train at
+(-2,4)), exhaustive with the real simulator (`door cosearch search --enum-k K --focus-cells`,
+palette `all` = 56 states, 1-position 2-cycle screen, lever fixed):
+| free cells | max changed | screens | time | result |
+|---|---|---|---|---|
+| the 3 pocket cells (-2,4) (-2,5) (-1,5) | 3 | 175,615 | 2 s | none, best 77/79 |
+| pocket + (-1,4) (-2,3) (0,5) (0,4) (-2,6) (-1,6) | 3 | 14.1M | 33 s | none, best 77/79 |
+| the same 9 | 4 | 1.167 B | 21 min | none, best 77/79 |
+| pocket + (-1,4) (-2,3) (0,5) (0,4), 39-state palette | 5 | ~1.7 B | ~40 min | running |
+and boxproof (bulbs + comparators exact) with all 9 cells free (any number changed), t=48 x 3
+seeds and t=60, plus the 3-cell cross-check: running.
 
 ## Sizes
 ~515k clauses per tick for a free 7x8 box, ~270k with fixed pistons (per-cell round, `round.rs`:
