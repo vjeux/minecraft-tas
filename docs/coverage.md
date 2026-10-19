@@ -15,7 +15,7 @@ modeled / not searched · **—** not applicable · **?** not yet audited.
 | judge (`door verify`) | checks one design | **the real game** (26.3 server code in the bridge) | — | — |
 | redsim (`door redsim-verify`, `cosearch eval`) | checks one design, ~1000x faster | **exact model**: 0/100,000 random redstone circuits, 0/100,000 random piston setups, 263/263 archived doors and 67/67 gadgets identical tick by tick, 0 verdict disagreements on 287 designs, 2049/2049 with near-miss mutants (cosearch agree) | — | — |
 | local search (`minimize`, `harvest`, `grow`, `regrow`, `synth`, `resynth`, `route2`) | improve a working design | candidates judged by the **real judge** | edits of a few blocks near the design; palettes below | no (local) |
-| mechanism catalog (`door families`) | every flat seamless mechanism per box | **~** macro piston model (PistonStructureResolver port; quasi-connectivity coupling since v3; no redstone), then each entry replayed with ideal inputs in the real simulator (`sim` column) | in-plane; <= 11 pistons facing E/W/U/D; no helpers; no slime; each door block 1-2 unit moves (center 2); a mover = a sticky puller 2 ahead or a pusher 1-2 behind; a piston reused at rest or lifted 1 cell along its axis (`--carry N`: 1-2 cells any direction, depth 2, in progress); minimal mechanisms only | within its bounds, except "unresolved" (state-capped) candidates |
+| mechanism catalog (`door families`) | every flat seamless mechanism per box | **~** macro piston model (PistonStructureResolver port: push limit 12, sticky pull of the block two ahead, retracted pistons movable, extended pistons / heads / obsidian immovable; one settled action at a time, a 2 gt pulse = push-and-spit or extend-into-gap-and-pull; quasi-connectivity coupling since v3; no redstone), then each entry replayed with ideal inputs in the real simulator (`sim` column; v3: 85 oc + 44 sym schedules WORK, 68 entries have no ideal plan) | in-plane; <= 11 pistons facing E/W/U/D (sticky/normal, retracted/extended at rest); no helpers; no slime; the center leaves straight in exactly 2 moves, the edge on its line in 2, the 7 others in 1 (`--two N`: N of them in 2); a mover = a sticky puller 2 ahead or a pusher 1-2 behind; a piston reused at rest or lifted 1 cell along its axis by one lift. Run only on some boxes: `--carry N` (a reused piston displaced 1-2 cells in ANY direction by a carrier, carriers carried up to depth N: 9x6/6x9 with N = 1, P <= 12; 7x7 / 7x8 generate 1.9M / 2.6M candidates, not solved) and `--vmid any` (ML or MR leaves vertically: 7x8, P <= 10: 0 found, 13032 unresolved at a 50k cap); minimal mechanisms only | within its bounds, except "unresolved" candidates (pulse graph over 300k states and A* found nothing; 7x7: 1639, of which a 5M-state re-check proved 93 have no open state, 503 reach an open state with no close found, 1043 still over the cap) |
 | fullmech (`door fullmech`, pistmodel) | the catalog re-solved exactly | **✓** redsim with ideal inputs (1/3-tick pulses, levels, same-tick pairs) | families' generator (+ `--reduce`: an input replaced by a carried/static redstone block or observer; `--anneal`) | within the generator's space, state cap 30k |
 | topology (`door topology`) | rank mechanisms by wirability | **~ heuristic, NOT sound**: wiring regions, piston links, pulse parity, memory links >= 7 cells, no-feed filter; its parity premise is false (observer busy window, mechanics.md section 8) | — | no: a ranking only |
 | satwire (`door satwire`) | wiring for a FIXED mechanism | **~** time-unrolled SAT encoding (details in tracks/satwire/NOTES.md "COVERAGE"); every SAT model is screened by redsim and judged by the real judge (CEGAR), so a FOUND door is real; an UNSAT is only relative to the encoding | free cells of a box; palette below; one lever among candidates (outside the box or off-plane allowed); recorded piston power per tick with a time warp (stalls/skips) | yes within palette + box + encoding |
@@ -34,7 +34,7 @@ Flat doors only below; "flat-impossible" marks behaviors that need a block outsi
 | scheduled ticks: priorities, FIFO, dedup (`willTickThisTick`) | ✓ | ✓ | — | ✓ | ~ phases (repeaters, observers, torches); no repeater-priority races; dedup exact | ✓ | ? |
 | block events, same-tick (0-tick) transients | ✓ | ✓ | ✗ | ✓ (pairs) | ✗ observers miss intra-tick transients | ✓ | ? |
 | dust update order (BlockPos hash, position dependent) | ✓ | ✓ | — | ✓ | ✗ (the judge's 32 positions catch it) | ✓ | ? |
-| quasi-connectivity as BUD (armed, fires on the next update) | ✓ | ✓ | ~ coupling only (v3) | ✓ | ~ the firing update is assumed | ✓ | ? |
+| quasi-connectivity as BUD (armed, fires on the next update) | ✓ | ✓ | ~ coupling only (v3): a retracted unpowered piston right below a powered one follows it (pulse while the upper one is out, level held / released); QC from the wiring, and arming without an update, not modeled | ✓ | ~ the firing update is assumed | ✓ | ? |
 | **Components** | | | | | | | |
 | dust (levels, shapes, steps, strong/weak) | ✓ | ✓ | — | — | ✓ (cross dust only) | ✓ | ? |
 | repeater delays 1-4, pulse stretching | ✓ | ✓ | — | — | ✓ | ✓ | ? |
@@ -56,16 +56,16 @@ Flat doors only below; "flat-impossible" marks behaviors that need a block outsi
 | buttons; lever | ✓ | lever | — | — | lever | lever | ? |
 | redstone block as static wiring | ✓ | ✓ | — | ✓ (`--reduce`) | ✗ | ✓ | ? |
 | **Pistons and moving blocks** | | | | | | | |
-| pistons in the mechanism | ✓ | ✓ | ✓ (macro) | ✓ | fixed input | ✓ | ? |
+| pistons in the mechanism | ✓ | ✓ | ✓ (macro, settled actions; replayed in the simulator) | ✓ | fixed input | ✓ | ? |
 | update pistons (push nothing; block updates / observer triggers) | ✓ | ✓ (judge, if a move adds one) | ✗ (minimal mechanisms drop them) | ✗ | ✗ (requested) | ✓ | ? |
-| pistons moving pistons | ✓ | ✓ | ~ lifts 1 cell (`--carry` in progress) | same | — | ✓ | ? |
-| spitting / block dropping on short pulses | ✓ | ✓ | ~ 2 gt pulse action | ✓ | recorded | ✓ | ? |
+| pistons moving pistons | ✓ | ✓ | ~ solver: any push line or sticky pull may move a retracted piston, along or across its axis (the "rider shuffles"); generator: lifts 1 cell along the axis; `--carry N` (1-2 cells any direction, carriers carried to depth N) ran on 9x6/6x9 only | same | — | ✓ | ? |
+| spitting / block dropping on short pulses | ✓ | ✓ | ~ 2 gt pulse action (push and spit; no block dropping) | ✓ | recorded | ✓ | ? |
 | 0-tick pistons | ✓ | ✓ | ✗ | ~ same-tick pairs | ✗ | ✓ | ? |
-| helper blocks (stoppers, line fillers) | ✓ | ✓ | ✗ (next) | ✗ | — | ✓ | ? |
-| carried power sources (redstone block, observer) | ✓ | ✓ | ✗ | ✓ (`--reduce`) | ✗ | ✓ | ? |
-| immovable blocks (obsidian, crying obsidian, block entities) | ✓ | ✓ | obsidian | obsidian | obsidian | ✗ (not in the palette) | ? |
-| push limit 12, glazed terracotta | ✓ | ✓ | ✓ / ✗ | ✓ | — | ✓ / ✗ | ? |
-| slime / honey (excluded from the flat seamless target by vjeux) | ✓ | ✓ | ✗ (off) | ✗ | ✗ | ✗ | — |
+| helper blocks (stoppers, line fillers) | ✓ | ✓ | ✗ (the model has stone / obsidian pieces; the generator places none) | ✗ | — | ✓ | ? |
+| carried power sources (redstone block, observer) | ✓ | ✓ | ✗ (2D catalog); rows: `--rblocks` (strip agent) | ✓ (`--reduce`) | ✗ | ✓ | ? |
+| immovable blocks (obsidian, crying obsidian, block entities) | ✓ | ✓ | obsidian, extended pistons, heads (no other immovable in the palette) | obsidian | obsidian | ✗ (not in the palette) | ? |
+| push limit 12, glazed terracotta | ✓ | ✓ | ✓ / ✗ (mech-synth has it, families' grid model not) | ✓ | — | ✓ / ✗ | ? |
+| slime / honey (excluded from the flat seamless target by vjeux) | ✓ | ✓ | ✗ (not in families' grid model) | ✗ | ✗ | ✗ | — |
 | **Search-space features** | | | | | | | |
 | lever outside the box (not counted in the volume) | — | ✗ | — | — | ✓ | ✓ | ? |
 | lever off the door plane | — | ✓ | — | — | ✓ (`--lever-oop`) | ✗ | ? |
@@ -82,8 +82,10 @@ sculk (its own category), fluids.
    tick), QC-as-BUD, observer transients and repeater races, and lacks update pistons, redstone
    blocks, targets, slabs and leaves. Fix: encode updates exactly or use boxproof; until then an
    UNSAT means "no wiring in this encoding".
-2. **The catalog's mechanism space**: no helpers, carry 1 cell, no 0-ticks, <= 2 moves per block,
-   state-capped candidates (7x8: 1861 unresolved). The community 7x8 may sit outside it.
+2. **The catalog's mechanism space**: no helpers, lifts of 1 cell along the axis (general
+   `--carry` ran on 9x6/6x9 only), no 0-ticks, <= 2 moves per block (non-center blocks 1 unless
+   `--two`), no carried sources, state-capped candidates (7x8: 1861 unresolved; 7x7: 1639, a
+   5M-state re-check proved only 93 of them). The community 7x8 may sit outside it.
 3. **cosearch's palette** lacks obsidian, trapdoors, droppers, slabs, leaves/log, glazed
    terracotta (cheap to add).
 4. **topology** is a heuristic: never cite it as a reason to skip a mechanism.
