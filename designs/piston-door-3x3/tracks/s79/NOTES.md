@@ -15,6 +15,33 @@ BRp (2,-2), U (1,-2), K (-1,-1), L0 (-2,0) ideal at c79's own ticks (plan t = pi
   U2 open >= 10, close 9..11 or >= 14.
 - The symmetric train that fits both edges: U1 @3..5, K @7..8, U2 @10..11 (+ BRp, L0 anywhere).
 
+- Joint sweeps (`--sweep` grids, /tmp): CLOSE is flexible: U1 any, K >= U1 + 3, U2 >= K + 1 (gaps);
+  OPEN: K >= 2, the effective U pull >= K + 2, and every earlier U pulse must fall in plan 2..5
+  (blocked by s's head) or be swallowed by C still moving.
+- `c78m-h3.ideal` (s held on open by an ideal block until plan h, M's repeater (2,5) delay 3 = M at
+  t14): the first U pulse may then come as late as plan 8 (h = 10). M at t16 (delay 4) breaks.
+
+## 2. Pocket search: the 4-cell bottom-left cannot drive U, K, L0 (02:11Z-)
+`door cosearch pockets` (assist c78m.ideal, k = 4 = every cell, fill palette all + sculk +
+calibrated + wool + amethyst, 19M fillings, runs/pk1.log): fillings drive only {L0, U2} (best 4
+blocks, runs/pk1/pocket0-set*.txt); NO filling drives K or U1, and none drives all of U, K, L0 (the
+pocket screen re-runs a feeding filling with those inputs released, so a complete bottom-left would
+have been kept whatever its timing). Why, by hand:
+- feeders: U only from (0,-2) (its QC cell's neighbours are frame cells; (1,-3) is outside); L0 only
+  from (-2,-1) (its QC cell is L1: (-1,1) is ML's park); K from (-2,-1), (-1,-2) or (-1,0) (BL's
+  park: nothing can emit into it).
+- K and L0 both need 1-2 gt pulses (ideal sweep of their pulse width: only 1..2 work; a window on
+  L0 re-pulls BL on close, a window on K needs U2 inside it on close and after it on open).
+- a short pulse INTO K: from (-2,-1) only dust on a powered (-2,-2) (then L0 has no feeder) or a
+  conductor powered from below (no emitter at (-2,-2) can point up but a wall torch: inverted, and
+  L0 shares it); from (-1,-2) only a conductor powered by an observer at (0,-2) facing east (then U
+  has no feeder); observers pointing into K would watch (-3,-1) / (-1,-3), outside the box;
+  repeaters/comparators have no floor there; a sensor gives a 10/30 gt window.
+- and on OPEN nothing the bottom-left can watch moves before K must act (U's first pulse is
+  blocked by s's head, U's pull must follow K): the open edge needs a wireless trigger.
+So c79's mechanism in its own orientation is not wirable in 7x8 with these parts (in-plane or
+sculk). The vertical mirror (corner at the top, floors for dust) keeps the sealed corner.
+
 ## Why the bottom is hard in 2 rows (by hand)
 - The bottom-left (4 cells (-2,-2) (-2,-1) (-1,-2) (0,-2)) sees only U, K, L0, (0,-1), (-1,0); on
   open nothing it can see moves before K must act (U1 is blocked by s's head, U2 must follow K):
