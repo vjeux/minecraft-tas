@@ -1,0 +1,29 @@
+# Hopper ring with two items half a ring apart (clk-item): the state repeats every half turn, 7 L / 2 gt; odd multiples of 7 included (21, 35, 49 ...).
+
+name: clk-item-hopper-ring-2
+extend base: 1
+extend blocks: 4 + 2n
+extend family: clk-item-hopper-ring-2
+extend generator: mctas clock item gen loop --m 2 --n {n} --out {out}
+extend n: 1..12
+extend period: 7 + 7n
+extend rule: lengthen the 2-wide hopper ring by one column (2 hoppers); the two items stay half a ring apart
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: 1 1 1 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 -1
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  S
+  .
+  .
+layer 1:
+  C
+  HA
+  hB

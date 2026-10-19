@@ -1,0 +1,32 @@
+# archived 2026-10-19T19:41Z from designs/clocks/tracks/clk-item/cards/clk-item-ringlock-rows.txt by mctas clock archive
+# CLOCK: clk-item-ringlock-rows period 76 gt (3.8 s), on 39/76, edges 1, warmup 55, family comparator+hopper, 12 blocks, 3x2x4, robust
+# Ring lock with 5 stones (clk-item): a 3-wide hopper ring 3 x (4 + n), the comparator in the inner column (on stone) reads the west hopper of row 1 and points into the east one, locking it while the read hopper holds items; the 5 stones start in the corner hopper and queue in front of the locked hopper: P = 7 L + 8 x 5 - 34.
+
+name: clk-item-ringlock-rows
+extend base: 0
+extend blocks: 12 + 2n
+extend family: clk-item-ringlock-rows
+extend generator: mctas clock item gen ringlockd --n0 5 --n {n} --out {out}
+extend n: 0..12
+extend period: 76 + 14n
+extend rule: lengthen the 3-wide ring by one row (2 hoppers), still 5 stones
+port output: 1 1 1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:5}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  .
+  .S
+  .
+  .
+layer 1:
+  HHA
+  hCA
+  h.A
+  hBB

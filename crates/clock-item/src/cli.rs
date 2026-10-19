@@ -169,8 +169,31 @@ pub enum ItemClockCmd {
         #[arg(long, default_value = "designs/clocks/tracks/clk-item")]
         dir: PathBuf,
     },
-    /// Write one design of an extendable family (gen.rs): `loop` (--n, --m items of --item),
-    /// `dropring` (--w, --one for a single dropper, --delays e.g. 14), `ringlock` (--d, --n stones).
+    /// Remove archived designs that a family card now covers: the design files and their rows in
+    /// verdicts-v1.tsv and captions.tsv (pictures in img/ are left to the coordinator).
+    Unarchive {
+        /// Archived file names (`droprep-p42.txt`).
+        #[arg(required = true)]
+        files: Vec<String>,
+        #[arg(long, default_value = "designs/clocks/archive")]
+        dir: PathBuf,
+    },
+    /// The extendable family cards (extend.rs `cards`): `--check` runs every redsim card's members
+    /// n_lo..=n_hi on redsim (period and blocks against the formulas); `--write DIR` writes each
+    /// card's base design (n = n_lo) with its `extend` headers and caption.
+    Cards {
+        #[arg(long)]
+        check: bool,
+        #[arg(long)]
+        write: Option<PathBuf>,
+        /// Only cards whose id contains this.
+        #[arg(long, default_value = "")]
+        only: String,
+    },
+    /// Write one design of an extendable family (extend.rs), `--n` being the family's step:
+    /// `loop` (ring 2 x (n + 1), --m items of --item), `dropring` (width --w0 + n, --one for a
+    /// single dropper, --delays e.g. 14), `ringlock` (ring 3 x --d, --n0 + n stones), `ringlockd`
+    /// (ring 3 x (--d0 + n), --n0 stones), `snowdisp` / `lockpair` (repeater delay n + 1).
     Gen {
         family: String,
         #[arg(long, default_value_t = 0)]
@@ -180,13 +203,17 @@ pub enum ItemClockCmd {
         #[arg(long, default_value = "stone")]
         item: String,
         #[arg(long, default_value_t = 3)]
-        w: i32,
+        w0: i32,
         #[arg(long)]
         one: bool,
         #[arg(long, default_value = "")]
         delays: String,
         #[arg(long, default_value_t = 3)]
         d: i32,
+        #[arg(long, default_value_t = 4)]
+        d0: i32,
+        #[arg(long, default_value_t = 0)]
+        n0: i32,
         #[arg(long)]
         out: PathBuf,
     },
@@ -748,18 +775,98 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                 promote(&design, &name, &caption, &dir)?;
             }
         }
-        ItemClockCmd::Gen { family, n, m, item, w, one, delays, d, out } => {
+        ItemClockCmd::Unarchive { files, dir } => {
+            let drop: std::collections::HashSet<&str> = files.iter().map(|s| s.as_str()).collect();
+            for f in &files {
+                let p = dir.join(f);
+                if !p.exists() {
+                    bail!("{} is not archived", p.display());
+                }
+            }
+            for table in ["verdicts-v1.tsv", "captions.tsv"] {
+                let path = dir.join(table);
+                let text = std::fs::read_to_string(&path).with_context(|| path.display().to_string())?;
+                let header: Vec<&str> = text.lines().next().unwrap_or("").split('\t').collect();
+                let col = header.iter().position(|h| *h == "file").ok_or_else(|| anyhow!("{table}: no file column"))?;
+                let mut out = String::new();
+                let mut removed = 0;
+                for (i, line) in text.lines().enumerate() {
+                    if i > 0 && line.split('\t').nth(col).is_some_and(|f| drop.contains(f)) {
+                        removed += 1;
+                        continue;
+                    }
+                    out.push_str(line);
+                    out.push('\n');
+                }
+                std::fs::write(&path, out)?;
+                println!("{table}: {removed} rows removed");
+            }
+            for f in &files {
+                std::fs::remove_file(dir.join(f))?;
+            }
+            println!("{} designs removed", files.len());
+        }
+        ItemClockCmd::Cards { check, write, only } => {
+            let tmp = std::env::temp_dir().join(format!("clk-item-card-{}.txt", std::process::id()));
+            let build = |args: &str, n: i64| -> Result<Design> {
+                let mut argv: Vec<String> = vec!["--version".into(), version.to_string(), "gen".into()];
+                for a in args.split(' ') {
+                    argv.push(a.replace("{n}", &n.to_string()).replace("{out}", &tmp.display().to_string()));
+                }
+                crate::run(argv)?;
+                load(&tmp)
+            };
+            for c in crate::extend::cards().iter().filter(|c| c.id.contains(only.as_str())) {
+                if check && c.redsim {
+                    let mut bad = Vec::new();
+                    for n in c.n_lo..=c.n_hi {
+                        let d = build(c.args, n)?;
+                        let want_p = (c.p0 + c.dp * n) as u32;
+                        let want_b = (c.b0 + c.db * n) as usize;
+                        let got = crate::families::measure(&d, 200000).map(|r| r.0);
+                        if got != Ok(want_p) || d.blocks.len() != want_b {
+                            bad.push(format!("n={n}: P {got:?} (formula {want_p}), blocks {} (formula {want_b})", d.blocks.len()));
+                        }
+                    }
+                    println!("{}: n {}..{}: {}", c.id, c.n_lo, c.n_hi, if bad.is_empty() { "all match".to_string() } else { bad.join("; ") });
+                }
+                if let Some(dir) = &write {
+                    let mut d = build(c.args, c.n_lo)?;
+                    d.name = c.id.to_string();
+                    d.meta.remove("period");
+                    let lin = |a: i64, b: i64| if b == 0 { a.to_string() } else { format!("{a} + {b}n") };
+                    d.meta.insert("extend family".into(), c.id.to_string());
+                    d.meta.insert("extend period".into(), lin(c.p0, c.dp));
+                    d.meta.insert("extend blocks".into(), lin(c.b0, c.db));
+                    d.meta.insert("extend rule".into(), c.rule.to_string());
+                    d.meta.insert("extend n".into(), format!("{}..{}", c.n_lo, c.n_hi));
+                    d.meta.insert("extend base".into(), c.n_lo.to_string());
+                    d.meta.insert("extend generator".into(), format!("mctas clock item gen {}", c.args));
+                    std::fs::create_dir_all(dir)?;
+                    let path = dir.join(format!("{}.txt", c.id));
+                    std::fs::write(&path, format!("# {}\n\n{}", c.caption, d.to_text()))?;
+                    println!("{}: wrote {}", c.id, path.display());
+                }
+            }
+            let _ = std::fs::remove_file(&tmp);
+        }
+        ItemClockCmd::Gen { family, n, m, item, w0, one, delays, d, d0, n0, out } => {
             let dl: Vec<u8> = delays.bytes().filter(|b| b.is_ascii_digit()).map(|b| b - b'0').collect();
             let (des, p) = match family.as_str() {
-                "loop" => (crate::extend::loop_ring(n, m, &item), crate::extend::loop_ring_period(n, m)),
-                "dropring" => (crate::extend::dropring(w, one, &dl), crate::extend::dropring_period(w, one, &dl)),
-                "ringlock" => (crate::extend::ringlock(d, n as u32), crate::extend::ringlock_period(d, n as u32)),
-                other => bail!("unknown family {other:?} (loop, dropring, ringlock)"),
+                "loop" => (crate::extend::loop_ring(n, m, &item), Some(crate::extend::loop_ring_period(n, m))),
+                "dropring" => (crate::extend::dropring(w0 + n, one, &dl), Some(crate::extend::dropring_period(w0 + n, one, &dl))),
+                "ringlock" => (crate::extend::ringlock(d, (n0 + n) as u32), Some(crate::extend::ringlock_period(d, (n0 + n) as u32))),
+                "ringlockd" => (crate::extend::ringlock(d0 + n, n0 as u32), Some(crate::extend::ringlock_period(d0 + n, n0 as u32))),
+                "snowdisp" => (crate::extend::snowdisp((n + 1) as u8), Some(12 + 4 * (n as u32 + 1))),
+                "lockpair" => (crate::extend::lockpair((n + 1) as u8), Some(9 + 2 * (n as u32 + 1))),
+                other => bail!("unknown family {other:?} (loop, dropring, ringlock, ringlockd, snowdisp, lockpair)"),
             };
-            let mut des = des.ok_or_else(|| anyhow!("no such {family} design"))?;
-            des.meta.insert("period".into(), p.to_string());
+            let mut des = des.ok_or_else(|| anyhow!("no such {family} design (n = {n})"))?;
+            if let Some(p) = p {
+                des.meta.insert("period".into(), p.to_string());
+            }
             des.save(&out)?;
-            println!("{}: {} blocks, formula P = {p} gt", out.display(), des.blocks.len());
+            println!("{}: {} blocks, formula P = {} gt", out.display(), des.blocks.len(), p.unwrap_or(0));
         }
         ItemClockCmd::GenCheck { family, max, ticks } => {
             use crate::families::measure;
