@@ -46,6 +46,7 @@ pub mod properties;
 pub mod relever;
 pub mod rowsfire;
 pub mod satwire;
+pub mod boxproof;
 pub mod search;
 pub mod shapes;
 pub mod showcase;
