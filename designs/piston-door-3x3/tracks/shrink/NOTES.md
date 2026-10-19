@@ -57,10 +57,15 @@ On t7b-pw42 (42), searching 41: middle 15 cells with pistons k<=5 connected: not
 On t7b-ob40 (40), searching 39: walls k<=2 (pistons, --gaps), left k<=3 (D + gate kept), bottom-right
 k<=3 + BR watcher (pistons, --gaps): nothing. Middle 16 cells k<=5 with pistons (connected, 37
 states): nothing. Left 10 cells with D and gate FREE, pistons, --gaps, k<=5 (311M screened): nothing.
-Middle with --gaps k<=5 (reduced palette with pistons): runs/ob-midg-k5.log.
+Middle with --gaps k<=5 (reduced palette with pistons): nothing (1.2G fillings). Coupled bottom-right
++ (0,-4) (-1,-4) (the route's end and the left chain's first cells), k<=5 free + BR watcher, 15
+states with pistons, --gaps: nothing. Sculk left (10 cells, D/gate free) k<=5 with --require-any
+sculk: nothing.
 s27-tlp50 left column ((-3,0..2), (-2,3), (-3,4), (-2,-1)) k<=2, 46 states with pistons + sculk: nothing.
 e78 (helper for e78k, 7x8 sculk, K ideal): 5 right cells + (-2,-1), k<=4 with pistons + sculk
-(46 states, --gaps): nothing; 7 free cells k<=4 and the right cells k<=5: runs/e78-*.log.
+(46 states, --gaps): nothing; 7 free cells k<=4: nothing. e78k's r1.txt (K real via a piston
+relay, one open flaw at t45): left cells k<=5 and + top cells k<=4: nothing. r2.txt (loops after
+the open): 6 cells k<=4, 8 cells k<=4: nothing. nb.txt: runs/e78nb-*.log.
 s27-trbl51 top-left A part: no 5-block solid filling without pistons (k<=5, 32 states, --gaps).
 
 ## t7b's bottom, what it must do (ideal-rs windows on the 14 bottom wiring cells erased)
