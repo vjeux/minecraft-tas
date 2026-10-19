@@ -137,8 +137,9 @@ mirror-merged. Results (k = pistons per row):
 * Not finished: the exhaustive re-check of 7x7's unresolved candidates (20M states each, 12
   threads) ran out of its 90-minute bound without output (no progress printing: a mistake). The
   v3 re-check at 5M states (with progress) finished: of the 1639 unresolved 7x7 candidates, 93 are
-  PROVEN to reach no open state, 503 reach an open state (of the first 62 checked by A*, 54 are
-  proven unable to close back, 8 unknown), 1043 are still over 5M states. 9x6 / 6x9 with
+  PROVEN to reach no open state, 503 reach an open state (of the first 187 checked by A* before the
+  45-minute bound, 169 are proven unable to close back, 18 unknown, none closes), 1043 are still
+  over 5M states. 9x6 / 6x9 with
   `--carry 1` (QC model, P <= 12): 6x9 141,224 candidates, 0 found, 95,274 unresolved at a 100k
   cap (9x6: 115,756 candidates, 0 found, 72,641 unresolved); with two non-core 2-move blocks (non-QC, P <= 13): timed out
   after 2 h inside 6x9 (1.3M candidates), no result; `--carry 1` on 7x7 / 7x8 generates 1.9M / 2.6M candidates (hours to solve
