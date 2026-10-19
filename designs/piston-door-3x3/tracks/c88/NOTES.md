@@ -139,3 +139,14 @@ level-held left pullers + K, U's dropper/observer chain):
   (4,1)o30 drivable; 20 groups undriven.
 - n88-109 / n88-112 / n88-059 share the split (2-3 left pullers on x=-2) and start with right-side
   events (n88-112 also has ML at t12 mid-train, fed from x=-3): same wall.
+- n88-112 pockets k=4 (box -2,-2:5,5, stopped after 23 min): the bottom-left 4-cell pocket drives ML's
+  two open pulses ((-2,1) o12 + o36, 3 blocks) and SU(-1,-1) (o24 + c12, 2 blocks); TL's and ML's close
+  windows are exact ([+0, +0] at t24), the tightest constraint seen.
+
+## 7. Next ideas
+- The c88 recipe (lever on a free side column + T flip-flop level + QC-only top pull + parity
+  reshaper) needs a free column beside the side-puller wall; layouts whose side pullers do not span
+  y 0..2 on the lever side are the candidates for a smaller 8x8 or a 7x8.
+- c88-s27 itself: blocks are minimal for its region split (screens above); fewer blocks need a
+  cheaper B level than the 7-block T flip-flop (e.g. a bulb toggled by the park observer (-1,3) read
+  by a comparator, if a free comparator cell next to it can be made).
