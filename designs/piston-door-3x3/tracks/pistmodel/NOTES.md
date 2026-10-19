@@ -91,6 +91,20 @@ Families' candidates re-solved exactly (<= 10 pistons, pulses 1/3, cap 30k state
   simulator. With `--levels --pulses 1,2,3,5` the count stays 3 (fm-7x8-000): the center's
   two-piston column needs its own two interleaved signals.
 
+## Vertical-exit mechanisms (vmid's vm1, vc1)
+* Both plans replay correctly in the exact model (`fullmech --check <mech> --replay-ideal <plan>`:
+  open FULL seamless + the hole rule, close back to rest), so redsim agrees with `door ideal`.
+* Signals on each plan's own timeline (`--replay-ideal --groups`: pulse unions that still open and
+  close): vm1b 9 signals (SD(0,4)+SD(1,4) merge, SW(4,1) rides SW(4,2) by QC); vc1 10 (SD(-1,3)+
+  SD(0,4) merge, SW(4,1) rides SW(4,2)). A one-piston-per-slot timeline cannot merge more; merging
+  needs re-timing (the search-based `--groups`).
+* The exact search on vc1 (12 pistons, a carried puller) needs ~170k states: `solve_oc` (one A*
+  over open then close) finds open 15 + close 13 with 11 of 12 inputs; the open-first `solve`
+  misses it (its nearest open states are dead ends) and the whole reachable graph exceeds 60k
+  states. A re-timed group search at that size is slow (~30-60 s per solve).
+* `door connect` reads families' CATALOG.tsv (macro sequences): exact plans are not in that
+  format yet, and the vc1 neighborhood search was not started.
+
 ## What did not work, and why
 * No new door: this track builds models and mechanism tools; the 7x8 wiring problem is open. The
   exact solver finds the same mechanisms as the macro model (families' candidates), plus ones the
