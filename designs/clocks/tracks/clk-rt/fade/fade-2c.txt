@@ -1,0 +1,20 @@
+# Comparator FADING clock (clk-rt): two compare-mode comparators in a ring (C1 -> block A -> dust
+# -> C2 -> dust -> dust -> C1) keep a signal strength and lose one level per lap (one extra dust):
+# 4 gt per lap, the strength runs down 13 -> 0; a wall torch on A lights when the ring is empty
+# and refills it through a dust beside the ring (14 -> 13). Period about 15 laps.
+name: clk-rt-fade-2c
+port output: 2 1 0
+palette:
+  S minecraft:stone
+  A minecraft:stone
+  W minecraft:comparator[facing=west,mode=compare,powered=false]
+  E minecraft:comparator[facing=east,mode=compare,powered=false]
+  T minecraft:redstone_wall_torch[facing=east,lit=true]
+  w minecraft:redstone_wire
+origin: -1 0 0
+layer 0:
+  SS..
+  SSSS
+layer 1:
+  wWAT
+  wEww

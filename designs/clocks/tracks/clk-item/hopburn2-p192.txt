@@ -1,0 +1,30 @@
+# Burnout hybrid with two torches (fill k=5): a two-wall-torch + dust loop north of the comparator flips every 2 gt until it burns out; the 2-sword slosh never stops (one move per 8 gt) and the compare-mode comparator re-ticks on every 1-gt dip, updating the cell in front of it, which relights the loop after the burnout window: P = 192 = 24 moves.
+# redsim: P=192 gt, warmup 95, family hopper+redstone_wall_torch+redstone_wire, 9 blocks, output on 48/192 gt, 24 rising edge(s)
+
+name: hopburn2-p192
+port output: 0 1 -2
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
+origin: 0 0 -3
+palette:
+  A minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=west]
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+layer 0:
+  .
+  .
+  S
+  .
+layer 1:
+  S
+  r
+  C
+  Hh
+layer 2:
+  A
+  SR
+  .
+  .

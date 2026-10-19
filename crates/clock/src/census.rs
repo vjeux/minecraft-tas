@@ -31,6 +31,10 @@ pub fn expand_palette(spec: &str) -> Result<Vec<String>> {
         };
         match item {
             "core" => add(expand_palette("stone,glass,rblock,dust,torch,repeater,comparator,observer,piston,sticky,lamp,bulb,note,target,slime")?),
+            // every modeled component that needs no item or entity (vjeux's P<=3 question)
+            "full" => add(expand_palette("core,honey,obsidian,trapdoor,itrapdoor,rail,gate,dropper,leaves")?),
+            "rail" => add(["powered_rail", "activator_rail"].iter().flat_map(|r| ["north_south", "east_west"].into_iter().map(move |s| format!("minecraft:{r}[shape={s}]"))).collect()),
+            "gate" => add(h4.iter().map(|f| format!("minecraft:oak_fence_gate[facing={f}]")).collect()),
             "stone" => add(vec!["minecraft:stone".into()]),
             "glass" => add(vec!["minecraft:glass".into()]),
             "obsidian" => add(vec!["minecraft:obsidian".into()]),
@@ -65,7 +69,7 @@ pub fn expand_palette(spec: &str) -> Result<Vec<String>> {
             "leaves" => add(vec!["minecraft:oak_leaves[persistent=true]".into()]),
             "scaffold" => add(vec!["minecraft:scaffolding".into()]),
             s if s.contains(':') || s.contains('[') => add(vec![mctas::blockstate::BlockState::parse(s)?.to_string()]),
-            s => bail!("unknown palette entry {s:?} (shorthands: core, stone, glass, obsidian, slime, honey, wool, rblock, dust, torch, repeater, repeater1, comparator, observer, piston, sticky, lamp, bulb, note, target, sculk, csculk, amethyst, hopper, dropper, dispenser, trapdoor, itrapdoor, leaves, scaffold, or a block state)"),
+            s => bail!("unknown palette entry {s:?} (shorthands: core, full, stone, glass, obsidian, slime, honey, wool, rblock, dust, torch, repeater, repeater1, comparator, observer, piston, sticky, lamp, bulb, note, target, sculk, csculk, amethyst, hopper, dropper, dispenser, trapdoor, itrapdoor, rail, gate, leaves, scaffold, or a block state)"),
         }
     }
     // canonical text (the game's property order) through redsim, so rotations map onto entries
@@ -112,6 +116,9 @@ pub struct CensusOptions {
     /// Only fillings with at least this many blocks.
     pub kmin: usize,
     pub horizon: u32,
+    /// Only clocks of period <= this (the screen drops a candidate whose whole state does not
+    /// repeat within 4x it).
+    pub max_period: u32,
     pub margin: i32,
     /// Also try each block placed last (with updates) when the silent placement does not run.
     pub kick_last: bool,
@@ -232,7 +239,7 @@ pub fn census(o: &CensusOptions, progress: &(dyn Fn(usize, usize, usize) + Sync)
     let parts = o.out.join("parts");
     std::fs::create_dir_all(&parts)?;
     // the parameters, so a resumed census is the same census
-    let params = format!("dims {:?}\nk {}..={}\nhorizon {}\nmargin {}\nkick_last {}\npalette {}\n", o.dims, o.kmin, o.k, o.horizon, o.margin, o.kick_last, pal.join(" "));
+    let params = format!("dims {:?}\nk {}..={}\nhorizon {}\nmax_period {}\nmargin {}\nkick_last {}\npalette {}\n", o.dims, o.kmin, o.k, o.horizon, o.max_period, o.margin, o.kick_last, pal.join(" "));
     let pp = o.out.join("params.txt");
     if pp.exists() && std::fs::read_to_string(&pp)? != params {
         bail!("{} holds another census ({}): use another --out", o.out.display(), pp.display());
@@ -354,12 +361,15 @@ fn judge_filling(o: &CensusOptions, positions: &[Pos], idx: &[usize], blocks: &[
         }
     }
     let placed: Vec<(BlockPos, Block)> = cells.iter().map(|(p, s)| (BlockPos::new(p[0], p[1], p[2]), blocks[*s])).collect();
+    // the screen: a whole-state repeat within the horizon (with --max-period, a short one: the
+    // whole state may cycle a few times slower than the visible one, never more than 4x here)
+    let fast = |q: Option<(u32, u32)>| q.is_some_and(|(_, p)| p <= 4 * o.max_period);
     let mut start: Option<Option<usize>> = None;
-    if quick_period(&placed, None, o.margin, o.horizon).is_some() {
+    if fast(quick_period(&placed, None, o.margin, o.horizon)) {
         start = Some(None);
     } else if o.kick_last {
         for i in 0..placed.len() {
-            if quick_period(&placed, Some(i), o.margin, o.horizon).is_some() {
+            if fast(quick_period(&placed, Some(i), o.margin, o.horizon)) {
                 start = Some(Some(i));
                 break;
             }
@@ -378,7 +388,7 @@ fn judge_filling(o: &CensusOptions, positions: &[Pos], idx: &[usize], blocks: &[
     }
     let c = Clock::from_design(d).ok()?;
     let r = simulate(&c, &SimOptions { horizon: o.horizon, margin: o.margin });
-    if r.verdict != Verdict::Clock {
+    if r.verdict != Verdict::Clock || r.period > o.max_period {
         return None;
     }
     let (on, edges, pulses) = r.output.as_ref().map(|w| (w.wave.on, w.wave.edges, format!("{:?}", w.wave.widths))).unwrap_or_default();
@@ -475,12 +485,71 @@ pub fn write_outputs(o: &CensusOptions, found: &[Found]) -> Result<(usize, usize
             let n: BTreeSet<&str> = all.iter().filter(|f| f.period == *p && f.family == *fam).map(|f| f.type_key.as_str()).collect();
             let nm: BTreeSet<&str> = all.iter().filter(|f| f.period == *p && f.family == *fam && f.minimal).map(|f| f.type_key.as_str()).collect();
             if let Some(b) = best.get(&(*p, fam.to_string())) {
-                md.push_str(&format!("| {p} | {fam} | {} | {} | {}, {}x{}x{} | {} |\n", n.len(), nm.len(), b.blocks, b.dims[0], b.dims[1], b.dims[2], b.start));
+                md.push_str(&format!("| {} | {fam} | {} | {} | {}, {}x{}x{} | {} |\n", crate::gt_time(*p), n.len(), nm.len(), b.blocks, b.dims[0], b.dims[1], b.dims[2], b.start));
             }
         }
     }
     std::fs::write(o.out.join("summary.md"), md)?;
     Ok((all.len(), types.len(), best.len()))
+}
+
+/// `clock census-report`: the minimal clocks of several census runs merged (each run's
+/// `minimal.tsv` and `params.txt`): per (period, family) the fewest blocks seen, its box and
+/// census, and how many minimal types; the periods found and the ones never found below the
+/// largest. Markdown.
+pub fn report(dirs: &[PathBuf]) -> Result<String> {
+    struct Best {
+        blocks: usize,
+        dims: [i32; 3],
+        census: String,
+        encoding: String,
+        start: String,
+    }
+    let mut best: BTreeMap<(u32, String), Best> = BTreeMap::new();
+    let mut types: BTreeMap<(u32, String), BTreeSet<String>> = BTreeMap::new();
+    let mut runs: Vec<String> = Vec::new();
+    for d in dirs {
+        let name = d.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let params = std::fs::read_to_string(d.join("params.txt")).unwrap_or_default();
+        let kline = params.lines().find(|l| l.starts_with("k ")).unwrap_or("k ?").to_string();
+        let dline = params.lines().find(|l| l.starts_with("dims ")).unwrap_or("dims ?").to_string();
+        let found = read_parts(&d.join("parts"))?;
+        let minimal: Vec<&Found> = found.iter().filter(|f| f.minimal).collect();
+        runs.push(format!("| {name} | {} | {} | {} | {} |", dline.trim_start_matches("dims "), kline.trim_start_matches("k "), found.len(), minimal.len()));
+        for f in minimal {
+            let key = (f.period, f.family.clone());
+            types.entry(key.clone()).or_default().insert(f.type_key.clone());
+            let better = best.get(&key).is_none_or(|b| (f.blocks, f.dims[0] * f.dims[1] * f.dims[2]) < (b.blocks, b.dims[0] * b.dims[1] * b.dims[2]));
+            if better {
+                best.insert(key, Best { blocks: f.blocks, dims: f.dims, census: name.clone(), encoding: f.encoding.clone(), start: f.start.clone() });
+            }
+        }
+    }
+    let periods: BTreeSet<u32> = best.keys().map(|(p, _)| *p).collect();
+    let max_p = periods.iter().max().copied().unwrap_or(0);
+    let missing: Vec<String> = (1..max_p).filter(|p| !periods.contains(p)).map(|p| p.to_string()).collect();
+    let mut md = String::from("# Census report: every minimal clock found by the exhaustive censuses\n\nGenerated by `mctas clock census-report` (docs/clocks.md#census-results): redsim, `core` palette, self-start or one block placed last; MINIMAL = no single block can go with the period kept. Composite designs (independent sub-clocks) are rejected by the judge.\n\n| census | box | k | clocks | minimal |\n|---|---|---|---|---|\n");
+    md.push_str(&runs.join("\n"));
+    md.push_str(&format!(
+        "\n\nPeriods found: {}. Periods below {max_p} never found (in these boxes, with these blocks): {}.\n\n| P | family | minimal types | fewest blocks | box | census | start | blocks (x,y,z=state) |\n|---|---|---|---|---|---|---|---|\n",
+        periods.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", "),
+        if missing.is_empty() { "none".to_string() } else { missing.join(", ") }
+    ));
+    for ((p, fam), b) in &best {
+        md.push_str(&format!(
+            "| {} | {fam} | {} | {} | {}x{}x{} | {} | {} | `{}` |\n",
+            crate::gt_time(*p),
+            types[&(*p, fam.clone())].len(),
+            b.blocks,
+            b.dims[0],
+            b.dims[1],
+            b.dims[2],
+            b.census,
+            b.start,
+            b.encoding
+        ));
+    }
+    Ok(md)
 }
 
 #[cfg(test)]

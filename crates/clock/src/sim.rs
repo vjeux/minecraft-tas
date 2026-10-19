@@ -128,9 +128,9 @@ impl SimReport {
             Verdict::Clock => {
                 let (on, edges) = self.output.as_ref().map(|o| (o.wave.on, o.wave.edges)).unwrap_or((0, 0));
                 format!(
-                    "CLOCK: {} period {} gt, on {on}/{}, edges {edges}, warmup {}, family {}, {} blocks, {w}x{h}x{d}, {}",
+                    "CLOCK: {} period {}, on {on}/{}, edges {edges}, warmup {}, family {}, {} blocks, {w}x{h}x{d}, {}",
                     self.name,
-                    self.period,
+                    crate::gt_time(self.period),
                     self.period,
                     self.warmup,
                     wave::signature(&self.analysis.family),

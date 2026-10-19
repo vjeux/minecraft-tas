@@ -1,0 +1,14 @@
+# Skeleton for the classic hopper clock search: hoppers A (east) and B (west) facing each other with 4 items in A, comparators CA (reads A, output north) and CB (reads B, output north), floors.
+name: pair2c
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:4}]}
+origin: 0 0 -1
+palette:
+  S minecraft:stone
+  A minecraft:hopper[enabled=true,facing=east]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+layer 0:
+  SS
+layer 1:
+  CC
+  AB

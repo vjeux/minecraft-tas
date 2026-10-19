@@ -34,7 +34,7 @@ pub struct VerifyOptions {
 
 impl Default for VerifyOptions {
     fn default() -> Self {
-        VerifyOptions { positions: 8, rotations: true, horizon: 4000, margin: 3, min_periods: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string() }
+        VerifyOptions { positions: 4, rotations: true, horizon: 4000, margin: 3, min_periods: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string() }
     }
 }
 
@@ -85,16 +85,16 @@ impl VerifyReport {
         self.runs.iter().find(|r| r.turns == 0 && r.offset == [0, 0, 0]).and_then(|r| r.result.as_ref().ok()).or_else(|| self.runs.iter().find_map(|r| r.result.as_ref().ok()))
     }
 
-    /// `CLOCK: <name> period P gt, on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust`.
+    /// `CLOCK: <name> period P gt (T), on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust`.
     pub fn summary(&self) -> String {
         match (self.verdict, self.base()) {
             (Verdict::Clock, Some(b)) => {
                 let (on, edges) = b.output.as_ref().map(|o| (o.wave.on, o.wave.edges)).unwrap_or((0, 0));
                 let [w, h, d] = b.dims;
                 format!(
-                    "CLOCK: {} period {} gt, on {on}/{}, edges {edges}, warmup {}, family {}, {} blocks, {w}x{h}x{d}, {}",
+                    "CLOCK: {} period {}, on {on}/{}, edges {edges}, warmup {}, family {}, {} blocks, {w}x{h}x{d}, {}",
                     self.name,
-                    b.period,
+                    crate::gt_time(b.period),
                     b.period,
                     b.warmup,
                     wave::signature(&b.analysis.family),
@@ -198,18 +198,82 @@ pub fn run_one(w: &mut Worker, c: &Clock, o: &VerifyOptions) -> Result<std::resu
     r
 }
 
+/// The recorded frames of one build, kept sparse: per frame the (cell index in the watched box,
+/// state id) of its non-air cells (big flat clocks over long horizons ran the bridge and this
+/// judge out of memory with whole-box frames: clk-sculk's 60x1x60 sensor rings).
+struct Frames {
+    int: Interner,
+    ids: Vec<u64>,
+    sparse: Vec<Vec<(u32, u32)>>,
+    slo: Pos,
+    shi: Pos,
+    from: Pos,
+    to: Pos,
+    size: [i32; 3],
+}
+
+impl Frames {
+    fn index(&self, p: Pos) -> u32 {
+        (((p[1] - self.from[1]) * self.size[2] + (p[2] - self.from[2])) * self.size[0] + (p[0] - self.from[0])) as u32
+    }
+
+    fn pos_of(&self, i: u32) -> Pos {
+        let i = i as i32;
+        let (sx, sz) = (self.size[0], self.size[2]);
+        [self.from[0] + i % sx, self.from[1] + i / (sx * sz), self.from[2] + (i / sx) % sz]
+    }
+
+    /// Add frame `t` (or replace the last one: the state at t after inputs applied at t). An
+    /// error: a block reached the edge of the watched box.
+    fn ingest(&mut self, f: &Region, extras: &HashMap<Pos, String>, replace_last: bool, t: usize, margin: i32) -> Option<String> {
+        let mut v: Vec<(u32, u32)> = Vec::new();
+        for (p, s) in f.iter() {
+            let extra = extras.get(&p).map(|e| e.as_str());
+            let air = mctas::blockstate::is_air(s);
+            if air && extra.is_none() {
+                continue;
+            }
+            if !air {
+                if (0..3).any(|i| p[i] == self.from[i] || p[i] == self.to[i]) {
+                    return Some(format!("tick {t}: {} at {p:?} reached the edge of the watched box (margin {margin}): rerun with a larger --margin", crate::short(s)));
+                }
+                crate::grow(&mut self.slo, &mut self.shi, p);
+            }
+            // the full cell state (block state + comparator strength + container contents)
+            // decides the period, exactly like clock sim
+            let id = self.int.state(&wave::with_extra(s, extra));
+            v.push((self.index(p), id));
+        }
+        v.sort_unstable();
+        let flat: Vec<u32> = v.iter().flat_map(|(a, b)| [*a, *b]).collect();
+        let id = self.int.frame(&flat);
+        if replace_last {
+            *self.ids.last_mut().unwrap() = id;
+            *self.sparse.last_mut().unwrap() = v;
+        } else {
+            self.ids.push(id);
+            self.sparse.push(v);
+        }
+        None
+    }
+}
+
 fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: Pos) -> Result<std::result::Result<RunOk, String>> {
     place(w, sb, c)?;
     let probes: Vec<Pos> = c.output.into_iter().collect();
+    let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
+    let (slo, shi) = c.bounds();
+    let mut fr = Frames { int: Interner::default(), ids: Vec::new(), sparse: Vec::new(), slo, shi, from, to, size };
     // Frame t = the state after t ticks, with the kick's inputs due at t applied (frame 0: right
     // after placement and the inputs due at 0): exactly what `clock sim` records.
-    let mut frames: Vec<Region> = Vec::new();
     let mut signals: Vec<Vec<u8>> = Vec::new();
-    // the compared block-entity part of every cell, per frame (comparator outputs, containers)
-    let mut extras: Vec<HashMap<Pos, String>> = Vec::new();
     let extras_of = |infos: Vec<mctas::sim::BlockEntityInfo>| -> HashMap<Pos, String> {
         infos.into_iter().filter_map(|b| wave::be_extra_from_nbt(&b.kind, &b.nbt).map(|e| (b.pos, e))).collect()
     };
+    // steps in segments: the bridge returns a segment's frames in one message, so at most ~400k
+    // cells per message (a long horizon or a big box at once ran it out of memory)
+    let volume = (size[0] * size[1] * size[2]).max(1) as u32;
+    let seg = (400_000 / volume).clamp(10, 2000);
     let mut actions = c.actions();
     let mut t = 0u32;
     loop {
@@ -221,69 +285,66 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         let f = w.get_region(sb, from, to)?;
         let sg = probe_now(w, sb, &probes)?;
         let ex = extras_of(w.block_entities(sb, from, to)?);
-        if frames.len() as u32 == t + 1 {
-            *frames.last_mut().unwrap() = f;
-            *signals.last_mut().unwrap() = sg;
-            *extras.last_mut().unwrap() = ex;
-        } else {
-            frames.push(f);
-            signals.push(sg);
-            extras.push(ex);
+        let replace = fr.ids.len() as u32 == t + 1;
+        if let Some(e) = fr.ingest(&f, &ex, replace, t as usize, o.margin) {
+            return Ok(Err(e));
         }
-        let next = actions.first().map(|(at, _)| *at).unwrap_or(o.horizon).min(o.horizon);
+        if replace {
+            *signals.last_mut().unwrap() = sg;
+        } else {
+            signals.push(sg);
+        }
+        let next = actions.first().map(|(at, _)| *at).unwrap_or(o.horizon).min(o.horizon).min(t + seg);
         if next <= t {
             break;
         }
         let st = w.step_probe_be(sb, next - t, false, &probes, Some((from, to)), true)?;
-        frames.extend(st.frames);
-        signals.extend(st.signals);
-        for dump in &st.block_entities {
-            extras.push(extras_of(mctas::sim::parse_block_entities(dump)?));
+        if st.block_entities.len() != st.frames.len() {
+            return Err(anyhow!("block-entity frames ({}) do not match the block frames ({}): the bridge is older than this judge (rebuild it: mctas setup)", st.block_entities.len(), st.frames.len()));
         }
+        for (k, (f, dump)) in st.frames.iter().zip(&st.block_entities).enumerate() {
+            let ex = extras_of(mctas::sim::parse_block_entities(dump)?);
+            if let Some(e) = fr.ingest(f, &ex, false, t as usize + 1 + k, o.margin) {
+                return Ok(Err(e));
+            }
+        }
+        signals.extend(st.signals);
         t = next;
         if t >= o.horizon && actions.is_empty() {
             break;
         }
     }
-    if extras.len() != frames.len() {
-        return Err(anyhow!("block-entity frames ({}) do not match the block frames ({}): the bridge is older than this judge (rebuild it: mctas setup)", extras.len(), frames.len()));
-    }
     let ents = w.entities(sb)?;
     if let Some(e) = ents.first() {
         return Ok(Err(format!("{} entit{} appeared (a drop or a popped block): {} at {:?}", ents.len(), if ents.len() == 1 { "y" } else { "ies" }, e.kind, e.pos)));
     }
-    // Frames to ids; the swept box; the edge check.
-    let mut int = Interner::default();
-    let mut ids: Vec<u64> = Vec::with_capacity(frames.len());
-    let mut cells: Vec<Pos> = Vec::new();
-    let (mut slo, mut shi) = c.bounds();
-    let mut per_frame: Vec<Vec<u32>> = Vec::with_capacity(frames.len());
-    for (t, f) in frames.iter().enumerate() {
-        let mut v = Vec::with_capacity(f.data.len());
-        let first = cells.is_empty();
-        for (p, s) in f.iter() {
-            if first {
-                cells.push(p);
-            }
-            if !mctas::blockstate::is_air(s) {
-                if (0..3).any(|i| p[i] == from[i] || p[i] == to[i]) {
-                    return Ok(Err(format!("tick {t}: {} at {p:?} reached the edge of the watched box (margin {}): rerun with a larger --margin", crate::short(s), o.margin)));
-                }
-                crate::grow(&mut slo, &mut shi, p);
-            }
-            // the full cell state (block state + comparator strength + container contents)
-            // decides the period, exactly like clock sim
-            let extra = extras[t].get(&p).map(|e| e.as_str());
-            v.push(int.state(&wave::with_extra(s, extra)));
-        }
-        ids.push(int.frame(&v));
-        per_frame.push(v);
-    }
+    let (slo, shi) = (fr.slo, fr.shi);
     let end = c.free_from() as usize;
-    let Some((w0, p)) = wave::detect_period(&ids, end, o.min_periods) else {
+    let Some((w0, p)) = wave::detect_period(&fr.ids, end, o.min_periods) else {
         return Ok(Err(format!("not periodic for {} periods within {} gt", o.min_periods, o.horizon)));
     };
-    let states: Vec<Vec<&str>> = (w0..w0 + p).map(|t| per_frame[t].iter().map(|id| int.name(*id)).collect()).collect();
+    // the cells: every cell non-air at some tick of one period, and the output cell; their states
+    // over that period (index t - w0)
+    let mut idxs: std::collections::BTreeSet<u32> = (w0..w0 + p).flat_map(|t| fr.sparse[t].iter().map(|(i, _)| *i)).collect();
+    if let Some(op) = c.output {
+        idxs.insert(fr.index(op));
+    }
+    let idx_vec: Vec<u32> = idxs.into_iter().collect();
+    let cells: Vec<Pos> = idx_vec.iter().map(|i| fr.pos_of(*i)).collect();
+    let air = fr.int.state("minecraft:air");
+    let per_frame: Vec<Vec<u32>> = (w0..w0 + p)
+        .map(|t| {
+            let mut v = vec![air; idx_vec.len()];
+            for (i, id) in &fr.sparse[t] {
+                if let Ok(k) = idx_vec.binary_search(i) {
+                    v[k] = *id;
+                }
+            }
+            v
+        })
+        .collect();
+    let int = &fr.int;
+    let states: Vec<Vec<&str>> = per_frame.iter().map(|v| v.iter().map(|id| int.name(*id)).collect()).collect();
     let analysis = wave::analyze(&cells, &states);
     if analysis.cells.is_empty() {
         return Ok(Err(if p == 1 { format!("goes still at tick {w0}") } else { format!("no block changes in its period ({p} gt)") }));
@@ -299,7 +360,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
             let idx = cells.iter().position(|q| *q == op).ok_or_else(|| anyhow!("output outside the box"))?;
             let seq: Vec<bool> = (w0..w0 + p)
                 .map(|t| {
-                    let s = wave::block_part(int.name(per_frame[t][idx]));
+                    let s = wave::block_part(int.name(per_frame[t - w0][idx]));
                     if wave::family_name(s).is_some() { wave::active(s) } else { signals.get(t).and_then(|v| v.first()).copied().unwrap_or(0) > 0 }
                 })
                 .collect();
@@ -345,10 +406,18 @@ pub fn spawn_pool(o: &VerifyOptions) -> Result<Pool> {
 /// [`verify`] with existing workers.
 pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<VerifyReport> {
     // No `port output`: pick the output cell once (redsim's auto output on the unrotated clock)
-    // and carry it through every rotation and position, so builds compare the same cell.
+    // and carry it through every rotation and position, so builds compare the same cell. The
+    // horizon grows with redsim's period: warmup + 4 periods (capped at 20000 gt; coordinator,
+    // 2026-10-19: a P2304 divider was "not periodic within 4000 gt").
     let mut fixed = c.clone();
+    let r = crate::sim::simulate(c, &crate::sim::SimOptions::default());
+    let mut o = o.clone();
+    if r.verdict == Verdict::Clock {
+        let need = r.warmup.max(r.state_warmup) + (o.min_periods as u32 + 1) * r.period + 100;
+        o.horizon = o.horizon.max(need.min(20_000));
+    }
+    let o = &o;
     if fixed.output.is_none() {
-        let r = crate::sim::simulate(c, &crate::sim::SimOptions::default());
         if let (Verdict::Clock, Some(out)) = (r.verdict, r.output) {
             fixed.design.ports.insert("output".into(), out.pos);
             fixed.output = Some(out.pos);

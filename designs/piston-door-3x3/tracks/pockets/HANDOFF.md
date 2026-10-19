@@ -1,49 +1,51 @@
-# pockets2 HANDOFF (the wiring service; updated 2026-10-19 13:41Z)
+# pockets3 HANDOFF (the wiring service + owner of cosearch*.rs / fill.rs; updated 2026-10-19 16:57Z)
 
 ## State
-- Track best (BEST.txt): `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks, solid, FULL, rotation-safe, open 39 /
-  close 27 (shrink has since taken t7b to 40). 8x8: `finds/s27-bls49.txt`, SCULK 64b, 49 blocks (archived on
-  main; c77's c074-64b-42 leads sculk 8x8, so the 8x8 target is the SOLID 50 s27-tlp50) and
-  **`finds/s27-trbl51.txt`, solid 64b, 51** (shrink -> solid 50 with pistons);
-  all verified `--extra-offsets 28`, archived in `finds/archive/`.
-- Role (vjeux's 12:21Z protocol): wiring service on the live board, Space memory namespace 2034923423883327,
-  `minecraft-tas/board/` (README.md rules, roster.md, partials/*.md). Owners message this session directly;
-  ping the coordinator (f1a42990-e9ee-4714-8593-b34b64ed175d) only for a verified door or a tool commit.
-  Coordinator priority (13:42Z): the 7x8 seeds (e78k's K, c77's e78 stone variant B', c78l's c78z).
-- Tool commits: f7e7023b (tile-phase assists) merged to main as cf9e8bc5; 1e14c397 (`--region-pistons`)
-  waiting.
-- Nothing running on devvm49255.
+- 7x8 = 56 doors now exist in all three lines (all verify --extra-offsets 28, 32 positions + rotations):
+  - SOLID: e78k's h2 (explore/q78 e755e4de, 45, 44/15) -> **`finds/e78s-56b-44.txt` 44 blocks, 44/15** (mine).
+  - SCULK stone (c77's line): e78st-56b-38-1s (one sensor) -> **`finds/e78st-56b-37.txt` 37 blocks, 48/15** (mine).
+  - SCULK wool (mine): **`finds/e78-56b-40.txt` = BEST.txt, 40 blocks, 98/24** (archived on main with 45/42 too).
+  All found/shrunk with `door fill --keep` (+ `--max-blocks N` pre-filter). The wool line is locally minimal (no 39
+  within 4 changes over all 25 wiring cells); the sensors' re-arm cycles are its retry timing (partials/e78.md).
+- Role (vjeux's 12:21Z protocol): live board in Space memory 2034923423883327, `minecraft-tas/board/` (README.md,
+  roster.md, partials/*.md). Owners message this session; ping the coordinator (f1a42990-e9ee-4714-8593-b34b64ed175d)
+  only for a verified door or a tool commit. Door team now: e78k (solid e78), c77 (stone e78, solid attempts), c78l
+  (c78z/c78FR satwire), c70b (8x7 c070x), shrink, pockets3. Ended: t78, ring56, c70, mechspace, satwire3.
+- Tool commits: ba5f30b8 (--keep), 7ddfc5a4 (in-plane guard) merged on main; d4eb7406 (--max-blocks pre-filter,
+  --max-open/--max-close) and 28df017e (summary table) sent (door fill's flags live in
+  crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
+
+## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
+- `h2-shrink43k4`: the solid 44, exactly 4 changed over 25 cells, 42 solid states, --max-blocks 43 (~1 h from 16:54Z).
+- `st37-shrink36k4`: the stone 37, exactly 4 changed, sculk palette, --max-blocks 36.
+- `st38-s2-k5`: for c77, e78st38-s2 (the 38 with its last sensor S2 cleared), 10 cells, exactly 5 changed, 24 solid
+  states (2.0G fillings, from 16:33Z, hours): a find = a SOLID stone 7x8 (verify, ping, tell c77).
 
 ## Exact next steps
-1. s27-bls49 (sculk 49) / s27-tlp50 (solid 50): shrink owns the top-left A part and the left column (lever
-   support + dusts, with sculk); measured minimal with pistons + sculk: BR driver 3, B's bulb line 4,
-   top-right 6, solid bottom-left 6 (sculk bottom-left 5 = the 49). A solid 49 needs another region.
-2. c78l (c78z / lb5, 7x8): only P2 (U open pulse >= 4 gt at 18..28) + M/s left; the 4 bottom-right cells
-   (2,-2) (3,-2) (4,-2) (3,-1) have NO P2 driver (exhaustive k=4 x 61, `runs/t2a-bot-k4`); plan for that
-   region = `svc/c78l-t2a-bot.ideal` (plan-from missed U's close re-hold; c re-hold 8..20 works).
-3. mechspace's z1-s78 top 10 (`svc/ms/z1-s78-*-oc.*`, between-ticks plans): blocked, the designs are not flat
-   (the held stack's z=1 rest blocks are in the design file): ask mechspace for flat designs (rest blocks
-   only in the plan) + a `port lever:` line, then batch with `--between-ticks --gaps --k 3 --fill-palette
-   all,sculk,calibrated,wool`.
-4. Walls (board notes): e78 K (torch-off 1 gt late), c070x U+M (coupled 3 gt), pn31 P3 (power 1 gt longer
-   than the observer pulse feeding L2).
+1. Shrink the solid 44 (k=4 result; then k=5 on e78k's likely-removable cells with a ~15-state palette and the
+   pre-filter: ~4.6G enumerations ~10 min) and the stone 37 the same way.
+2. Answer designers' screen requests first (e78k solid, c77 stone S2, c70b 8x7 m2/m2x, c78l c78FR).
+3. Cross-region --keep (<= 3) is exhausted on: c78l L3a, c70b m2/m2w (+ m2 5-cell k <= 5), f131 pn31 (solid, 136M),
+   e78k s11 (and subsets at k=4). Not yet: c78z p5-0 (stopped), satwire m79q-sat-topright (plans/p79q-sat-L.ideal).
+4. Orphans: t9e top-right k=6 (partials/t8.md), mechspace z1-s78 seeds 0265 0937 0174 0755 (+1255).
 
 ## How to run a wiring job (recipe)
-1. Copy the owner's design + plan into `tracks/pockets/svc/<owner>-<name>.txt/.ideal`, design line rewritten.
-2. `door ideal-rs <plan>` must WORK (tile phase is the default now; `--between-ticks` for old plans).
-3. `door cosearch pockets <seed> --box=... --assist <plan> --keep-lever --no-hallway --k 3 --gaps
-   --fill-palette all,sculk,calibrated,wool --threads 160 --out-dir runs/<name>` (the "all" palette has
-   pistons: a piston popping its head for an observer is a 1-block relay, today's 51/50/42/40 used it);
-   then k=4/5 with a pruned `--fill-states` (include sticky/normal pistons) on the pocket that drives
-   something; `--pocket-k`/`--pocket-fill` for per-pocket sizes.
-4. Region re-wiring: `door cosearch plan-from <door> --region=... --close --out <plan>`; if the erased seed
-   does not screen perfect, sweep the plan's timings with `door ideal-rs --sweep` or add a missing level edge
-   (s27 top-right close pulse c22 -> c15; c78l's U close re-hold). `--region-pistons` erases retracted wiring
-   pistons; then drop plan-from's events at the erased piston (its z=1 blocks power fillings: fake covers).
-5. Small exhaustive grids: `door ideal-rs <lever-only plan> --vary='x,y=a|b|...' --ok-only` (inputs real).
-6. A partial with fewer inputs ideal: re-run pockets on `pockets-partial-Nas.txt` with `--assist-cells`.
+1. Copy the owner's design + plan into `tracks/pockets/svc/<owner>-<name>.txt/.ideal` (design line rewritten), or
+   `git restore --source=origin/explore/<branch> --worktree -- <paths>` (untracked; never commit others' tracks).
+2. `door ideal-rs <plan>` must WORK (tile phase default; `--between-ticks` for old plans).
+3. REAL-door screens first: `door fill <design> --cells=... --keep --k 3 --gaps --allow-pistons --palette '<~37
+   states>' --any-rotation --extra 0` (k = changed cells; add `--max-blocks N` to shrink, `--max-open N` for speed;
+   drop `--any-rotation` when ranking finds). Use CROSS-region cell sets (all wiring cells): e78's door needed 3
+   changes far apart.
+4. Plan-driven screens: `door cosearch pockets <seed> --box=... --assist <plan> --keep-lever --no-hallway --k 3 --gaps
+   --fill-palette all,sculk,calibrated,wool` (+ `--pin-assist`, `--only-pockets`, `--pocket-k`, `--region-cells`,
+   `--region-pistons`). An in-plane plan cell blocks fillings next to it while assisted (the guard).
+5. Exhaustive timing maps: `door ideal-rs <plan with lets> --sweep a=..  --sweep b=.. --ok-only` (hold/pulse shapes).
 
 ## Files
-- NOTES.md section 8 (everything of pockets2), runs/ (logs + set/partial files), svc/ (owners' copies),
-  s26/ (s26/s27 region plans), t7b/, cpt/ (compacted mech-synth plans), finds/ + finds/archive/.
-- Never commit: `tracks/mechspace/mech/*` (untracked copies restored for the cpt plans), archive/properties-v1.tsv.
+- NOTES.md sections 8 (pockets2) and 9 (pockets3), finds/ + finds/archive/, svc/ (owners' copies + shape plans),
+  runs/ (logs + finds of every screen).
+- Never commit: tracks/mechspace/mech/*, tracks/s79/*, tracks/t78/*, tracks/ring56/* (restored untracked copies),
+  archive/properties-v1.tsv (a local cache `door properties` rewrites: `git checkout --` it before merging).
+- Careful: `pkill -f <pattern>` / `pgrep -f` also match the shell running them (killed my own shell twice); anchor:
+  `pgrep -af '^./target/release/mctas door fill .*<out-dir>'`, then `kill <pid>`.
