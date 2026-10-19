@@ -22,7 +22,9 @@ pub struct ObsArgs {
     #[arg(long)]
     conductor: bool,
     /// Also every candidate with ONE more block in any free cell touching the build:
-    /// sticky,piston,observer,stone (every facing). Found the moving-observer hybrids (P 72-216).
+    /// sticky,piston,observer,stone (every facing), sculk / csculk (a second sensor: dividers,
+    /// frequency filters through a calibrated sensor's back), amethyst, wool. Found the
+    /// moving-observer hybrids (P 72-216).
     #[arg(long, default_value = "")]
     extra: String,
     #[command(flatten)]
@@ -43,6 +45,20 @@ fn extra_states(spec: &str) -> Vec<String> {
         }
         if w == "stone" {
             v.push(STONE.to_string());
+        }
+        if w == "sculk" {
+            v.push(Sensor::Plain.state([0, 0, 1]));
+        }
+        if w == "csculk" {
+            for d in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]] {
+                v.push(Sensor::Cal.state(d));
+            }
+        }
+        if w == "amethyst" {
+            v.push("minecraft:amethyst_block".to_string());
+        }
+        if w == "wool" {
+            v.push("minecraft:white_wool".to_string());
         }
     }
     v
