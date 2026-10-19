@@ -22,10 +22,13 @@ section 12; what each tool models: docs/coverage.md. Inventory: [INVENTORY.md](I
   way: 54/50,000 (flags bug + hopper items), 0.249% (RailState missing), then 0.
 * **0/20,000 container circuits** (`--gen containers`: droppers and hoppers with items,
   comparators reading them, floor levers) after item transfer went in; 10,000 random reruns 0.
-* **Judge screen**: `door redsim-verify designs/piston-door-3x3/archive/*.txt --judge`: 211 pass,
-  52 fail, 24 unsupported (sculk, entities, unwaxed copper), 0 verdict disagreements with the real
-  judge on the 263 supported designs; 2.2 s wall for the archive vs 28 s for the judge (68 ms CPU
-  per design vs ~3 s). cosearch built its search on it (2049/2049 agreement).
+* **Judge screen**: `door redsim-verify designs/piston-door-3x3/archive/*.txt --judge`: on the
+  final model, 276 pass, 52 fail, 24 unsupported (sculk, entities, unwaxed copper), 0 verdict
+  disagreements with the real judge on all 328 supported designs (first run: 263/263 at 2.2 s wall
+  vs 28 s for the judge, 68 ms CPU per design vs ~3 s). cosearch built its search on it
+  (2049/2049 agreement).
+* **Final confirmation** (finished model, containers included): 0 mismatches in 100,000 random
+  circuits (seeds 30000-30009, `--palette all`, 7x4x7).
 * **Block equivalence classes** (`redsim::classes`): 70 plain states in 22 classes (11 ignoring
   note-block instruments), proven in the game by `redsim-fuzz classfuzz` (3000 circuits vs
   class-swapped variants: 0 differ). Sent to satwire, boxproof and cosearch.
