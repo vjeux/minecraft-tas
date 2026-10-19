@@ -76,6 +76,15 @@ Why freeing row 1 is not enough in 7x8 (what every layout above ran into):
   model (families' own `--vmid any` run was macro-only, P <= 10, 13k unresolved).
 
 ## Next ideas
+* **A link that fires once per edge between the lever's region and the others** is what every 7x9
+  mechanism here lacks. Ways in: level-held pullers (vm1L, vd1L: the observer on them fires once),
+  a pulse merger (observer, delay-2 repeater, observer) in the receiving region, or a pushed (not
+  pulled) block observed in its parking cell. vd1L + a T flip-flop (waxed bulb + comparator) per
+  region that must hold a level is the most concrete plan; vd1s's symmetric train means each region
+  only has to replay a fixed pulse pattern after its single wake-up pulse.
+* TR region trick (found by hand, untested): TM's puller at 0, (3,3) at +4, TM's puller again at +12
+  moves TM up-and-right on open and back on close (the extra pulse is harmless on each edge), so a
+  region woken by two merged pulses 12 gt apart (E2's two strokes) can drive TM alone.
 * A center exit that needs no elevator (or an elevator whose lifter is outside the split, e.g. the
   lifter carried in sideways) is the real key for 7x8: the vmid exits only remove the row-1 wall.
 * Let the bottom-left region grow: a 7x8 placement with 3 rows below (y -3..4) gives row -3 under the
@@ -101,7 +110,8 @@ Wiring status (no wired door yet):
   vd1w, vd1s, vd1L (core: close BLp alone). UNSAT is relative to each plan's order and timing.
 * cosearch `--assist` (60 min runs, 34 threads): vm1 7x9 77/79 with TL's + TR's pullers still
   assisted (lever bottom) / 75/79 with BL's + BR's (lever top); vd1w and vd1s 73/79 with TL's
-  puller assisted; ve1 running at the end.
+  puller assisted; ve1 73/79 with 2-3 assisted after 300 s (still running at the end, finds go to
+  tracks/vmid/finds-ve1a, -ve1b on devvm52954). satwire on ve1 (`--dmax 16`): UNSAT.
 * Why the links are the problem (simulator traces, `vm1Lw1`): an observer watching a pulse-driven
   puller fires TWICE (extension, then the landing of the retraction, 4 gt apart); a puller fed that
   double pulse pulls on open (the second pulse finds the block still moving) but on close pushes
