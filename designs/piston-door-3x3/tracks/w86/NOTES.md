@@ -83,6 +83,16 @@
    (3,2) must escape through (4,2) and boxes s1. So the remaining options are: a pocket connected upward through
    free (x,0),(x,1) cells (no carrier/escape pistons in column 5), or a crossing that does not need (3,4).
 
+7. (w86 23:55Z, coordinator's idea (1), m82/m83) BR's climb by a down puller P resting at (4,2), carried into
+   (3,2) by K (5,2): works mechanically. P at (3,2) can only be powered by QC through (3,3)'s neighbours (= P3t's
+   direct feeds), which is fine if P is powered ON ARRIVAL (its onPlace event runs before P3t's, and an extended P
+   blocks P3t'). P resting on s1 is safe with obsidian at (4,-1) (its push of s1+RP0 is blocked), which also lets
+   s1 be fed by QC through (4,2) from (4,3) WITHOUT firing RP0 (RP0's QC cell is s1's cell, not (4,2)). Without M1,
+   the only right-side pusher reaching row 1 is s1 at home (head stops at (3,1)): any block pushed through it
+   ends in row 1 and leaves MR displaced at (1,1), out of s1's reach, so C's first step left must come from a
+   carried left puller (U1 into (-1,1), m79's left). satwire m83: core open carried U1; left pair ideal: core
+   close RP0 (its pocket (5,-1),(5,0),(5,1) sees only K's moves, at the wrong times).
+
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back
   through a puller inside the opening (a carried piston at y = 1 facing down for the floor).
