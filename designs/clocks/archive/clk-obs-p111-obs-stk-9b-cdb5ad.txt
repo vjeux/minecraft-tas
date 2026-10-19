@@ -1,0 +1,32 @@
+# archived 2026-10-19T22:38Z from designs/clocks/tracks/clk-obs/smallest9/p111-obs-stk-9b-cdb5ad.txt by mctas clock archive
+# CLOCK: clk-obs-p111-obs-stk-9b-cdb5ad period 111 gt (5.55 s), on 42/111, edges 21, warmup 34, family observer+sticky_piston, 9 blocks, 1x5x3, robust
+name: clk-obs-p111-obs-stk-9b-cdb5ad
+# clk-obs grow: P=111 (redsim), family observer+sticky_piston, kick last 0 1 0, swept volume 15.
+origin: 0 0 0
+port output: 0 2 1
+port start: 0 1 0 last
+palette:
+  A minecraft:observer[facing=down,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=up,powered=false]
+  E minecraft:stone
+  F minecraft:observer[facing=south,powered=false]
+  G minecraft:observer[facing=north,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  A
+  .
+  B
+layer -1:
+  .
+  C
+  D
+layer 0:
+  E
+  F
+  .
+layer 1:
+  C
+  G
+  H
