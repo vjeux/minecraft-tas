@@ -15,7 +15,9 @@ coordinator (f1a42990).
     COMPOSITE = output repeats faster than the whole AND independent spatial groups; families =
     in-place changes + moving redstone blocks; periods printed as `20 gt (1 s)`.
   - `verify`: the real-game judge, 4 positions x 4 rotations by default, horizon = W + 4P from
-    redsim (<= 20000 gt), sparse frames + segmented bridge reads (big boxes, long horizons).
+    redsim (<= 20000 gt), sparse frames + segmented bridge reads (big boxes, long horizons);
+    design entities (`entity:` lines, minecart clocks) summoned after the blocks, turned with the
+    design, checked at the end (no foreign entity, none lost or outside the box).
   - `wave`, `canon` (type key over 4 rotations AND mirror images + nbt; `chiral`), `catalog`
     (archive: SAME TYPE refusal per (period, type), `--dedupe`, aliases.tsv, name collisions ->
     `<name>-<6 hex type hash>`, family judging; CATALOG.md = gallery only + Extendable cards;
