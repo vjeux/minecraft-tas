@@ -1104,6 +1104,8 @@ pub struct CliOpts {
     pub slime: bool,
     /// Write every exact mechanism (design + ideal plan) under this directory, per box.
     pub export: Option<std::path::PathBuf>,
+    /// Replay these `door ideal` plans in the real simulator.
+    pub verify_ideal: Vec<std::path::PathBuf>,
 }
 
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
@@ -1141,6 +1143,31 @@ fn describe(ctx: &Ctx, f: &Found) -> String {
 
 pub fn cli(o: &CliOpts) -> Result<()> {
     let so = Opts { pulses: o.pulses.clone(), levels: o.levels, cap: o.cap, max_ticks: 80, pairs: o.pairs };
+    if !o.verify_ideal.is_empty() {
+        // replay exported plans in the real simulator (`door ideal`, 2 cycles, 4 positions)
+        let cfg = mctas::sim::WorkerConfig { version: mctas::DEFAULT_VERSION.to_string(), heap_mb: 768, ..Default::default() };
+        let pool = mctas::sim::Pool::spawn(o.threads.min(16).min(o.verify_ideal.len()).max(1), &cfg)?;
+        let files = o.verify_ideal.clone();
+        let res = pool.map(files.clone(), |w, _, f| -> Result<(u32, u32)> {
+            let text = std::fs::read_to_string(&f)?;
+            let s = crate::ideal::Schedule::parse(&text)?;
+            let vars = s.vars().clone();
+            let opts = crate::ideal::IdealOptions { cycles: 2, offsets: crate::ideal::offsets(0), trace: None };
+            crate::ideal::run(w, &s, &vars, &opts)
+        });
+        let mut ok = 0;
+        for (f, r) in files.iter().zip(res) {
+            match r {
+                Ok((op, cl)) => {
+                    ok += 1;
+                    println!("OK {} (open {op}, close {cl})", f.display());
+                }
+                Err(e) => println!("BROKEN {}: {e:#}", f.display()),
+            }
+        }
+        println!("verify-ideal: {ok} of {} plans work in the real simulator", files.len());
+        return Ok(());
+    }
     if let Some((w, h)) = o.anneal {
         let mut offs: Vec<(i8, i8)> = Vec::new();
         match o.offsets.as_deref() {

@@ -1,0 +1,25 @@
+name: fm-7x8-028
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  ...A
+layer -2:
+  ...AA
+layer -1:
+  .B
+layer 0:
+  B.CCC
+layer 1:
+  B.CCC.D
+layer 2:
+  ..CCC.D
+layer 3:
+  
+layer 4:
+  ..EE
