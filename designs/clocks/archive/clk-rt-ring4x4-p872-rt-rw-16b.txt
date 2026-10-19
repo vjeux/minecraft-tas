@@ -1,0 +1,25 @@
+# archived 2026-10-19T19:06Z from designs/clocks/tracks/clk-rt/ring/torch-dust/ring4x4-p872-rt-rw.txt by mctas clock archive
+# CLOCK: clk-rt-ring4x4-p872-rt-rw-16b period 872 gt (43.6 s), on 280/872, edges 31, warmup 2, family redstone_torch+redstone_wire, 16 blocks, 4x2x4, robust
+# Rectangle ring (clk-rt): the 4x4 perimeter clockwise from the north-west corner = [b, T, d, b, T,
+# d, b, T, d, b, T, d] (number = repeater delay, * = powered at placement, b = block, d = dust, T =
+# wall torch on the block before it, c = comparator); 4 torches: a pulse ring of loop delay 8 gt
+name: clk-rt-ring4x4-p872-rt-rw-16b
+port output: 1 1 0
+origin: 0 0 0
+palette:
+  A minecraft:redstone_wall_torch[facing=south,lit=true]
+  B minecraft:redstone_wall_torch[facing=west,lit=true]
+  C minecraft:redstone_wire
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wall_torch[facing=north,lit=true]
+layer 0:
+  ..S
+  S
+  ...S
+  .S
+layer 1:
+  SRCS
+  C..A
+  r..C
+  SCBS
