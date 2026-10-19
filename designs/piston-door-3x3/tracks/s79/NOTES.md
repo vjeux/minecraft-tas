@@ -169,3 +169,12 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   ways), and (3,-1) must stay immovable for K's chain (a repeater there is destroyed by K's late
   push); (b) the top loses the lever: R1/R2 need a pulse, M a level (copper bulb + comparator, c88)
   and s its pulses, all from sound (wool door blocks can occlude).
+- JVM `door ideal` (the real game): b1 (U real by sculk), lb1 and lb2 all WORK (4 positions x 2 cycles),
+  same tick counts as redsim.
+- Next ideas (not done): (1) lb2's U needs FAST-OFF / SLOW-ON power with an indestructible (3,-1); a long
+  open U2 pulse avoids K's late chain push (U's retraction seen while C is still moving), which would let
+  a delay repeater sit at (3,-1). (2) The top under a bottom-right lever: R1/R2 from one observer at (4,3)
+  facing up (R2 direct, R1 by QC) on an odd-change source, M from a copper bulb + comparator at (2,5),
+  s's open hold through (2,3) (reaches s only at (1,3), i.e. open) and its close push through (1,4).
+  (3) c78t's right side (TR leaving up, (3,2) static, mechspace) frees (4,2): a lever on (4,2)'s east
+  face holds BOTH MR's and BR's pullers, so R0 moves at t1 and the bottom-right hears it at t2.
