@@ -1642,6 +1642,9 @@ pub enum DoorCmd {
         /// cell, for each --check mechanism: variants with one piston fewer.
         #[arg(long)]
         shrink: bool,
+        /// Replay a `door ideal` plan in the solver's world for each --check design.
+        #[arg(long)]
+        replay_ideal: Option<PathBuf>,
     },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
@@ -3482,7 +3485,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        DoorCmd::Fullmech { check, boxes, pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink } => {
+        DoorCmd::Fullmech { check, boxes, pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink, replay_ideal } => {
             let boxes = match boxes {
                 Some(b) => crate::families::parse_boxes(&b)?,
                 None => Vec::new(),
@@ -3492,7 +3495,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => None,
             };
             let pulses: Vec<u8> = pulses.split(',').filter(|s| !s.is_empty()).map(|s| s.trim().parse::<u8>()).collect::<std::result::Result<_, _>>()?;
-            let o = crate::fullmech::CliOpts { check, boxes, pmax: pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, slime, export, verify_ideal, groups, shrink };
+            let o = crate::fullmech::CliOpts { check, boxes, pmax: pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, slime, export, verify_ideal, groups, shrink, replay_ideal };
             crate::fullmech::cli(&o)?;
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {

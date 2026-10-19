@@ -684,6 +684,191 @@ pub fn solve(ctx: &Ctx, rest: &Key, cap: usize) -> Result<Option<Found>, ()> {
     Ok(None)
 }
 
+fn used_of(n: usize, acts: &[A]) -> Vec<bool> {
+    let mut used = vec![false; n];
+    for a in acts {
+        match *a {
+            A::L(i) | A::P(i, _) => used[i as usize] = true,
+            A::S { a, b, .. } => {
+                used[a as usize] = true;
+                used[b as usize] = true;
+            }
+            A::GL(m) | A::GP(m, _) => {
+                for (i, u) in used.iter_mut().enumerate() {
+                    if m >> i & 1 == 1 {
+                        *u = true;
+                    }
+                }
+            }
+        }
+    }
+    used
+}
+
+/// The whole reachable graph from rest (breadth first, up to `cap` states): every open state
+/// that can get back to rest inside it is a candidate (shortest open + close first, the hole
+/// rule checked on the paths found). Ok(None) is exhaustive for the action set when not capped.
+pub fn solve_full(ctx: &Ctx, rest: &Key, cap: usize) -> Result<Option<Found>, ()> {
+    let mut keys: Vec<Key> = vec![rest.clone()];
+    let mut index: HashMap<Key, usize> = HashMap::new();
+    index.insert(rest.clone(), 0);
+    let mut edges: Vec<Vec<(usize, A, u16)>> = vec![Vec::new()];
+    let mut parent: Vec<Option<(usize, A, u16)>> = vec![None];
+    let mut q = std::collections::VecDeque::new();
+    q.push_back(0usize);
+    let mut capped = false;
+    while let Some(i) = q.pop_front() {
+        let k = keys[i].clone();
+        for &a in &ctx.actions {
+            let Some((nk, sw)) = ctx.step(&k, a) else { continue };
+            let j = match index.get(&nk) {
+                Some(&j) => j,
+                None => {
+                    if keys.len() >= cap {
+                        capped = true;
+                        continue;
+                    }
+                    let j = keys.len();
+                    index.insert(nk.clone(), j);
+                    keys.push(nk);
+                    edges.push(Vec::new());
+                    parent.push(Some((i, a, sw)));
+                    q.push_back(j);
+                    j
+                }
+            };
+            edges[i].push((j, a, sw));
+        }
+    }
+    let n = keys.len();
+    let mut rev: Vec<Vec<(usize, A, u16)>> = vec![Vec::new(); n];
+    for (i, es) in edges.iter().enumerate() {
+        for &(j, a, sw) in es {
+            rev[j].push((i, a, sw));
+        }
+    }
+    let mut to_rest: Vec<Option<(usize, A, u16)>> = vec![None; n];
+    let mut seen = vec![false; n];
+    seen[0] = true;
+    let mut q = std::collections::VecDeque::from([0usize]);
+    while let Some(j) = q.pop_front() {
+        for &(i, a, sw) in &rev[j] {
+            if !seen[i] {
+                seen[i] = true;
+                to_rest[i] = Some((j, a, sw));
+                q.push_back(i);
+            }
+        }
+    }
+    let mut best: Option<Found> = None;
+    for i in 1..n {
+        if !seen[i] || !ctx.is_open(&keys[i]) {
+            continue;
+        }
+        let mut open = Vec::new();
+        let mut osw = 0u16;
+        let mut c = i;
+        while let Some((p, a, sw)) = parent[c] {
+            open.push(a);
+            osw |= sw;
+            c = p;
+        }
+        open.reverse();
+        let mut close = Vec::new();
+        let mut csw = 0u16;
+        let mut c = i;
+        while c != 0 {
+            let Some((nx, a, sw)) = to_rest[c] else { break };
+            close.push(a);
+            csw |= sw;
+            c = nx;
+        }
+        if !ctx.holes_ok(&keys[i], osw | csw) {
+            continue;
+        }
+        if best.as_ref().map(|b| b.open.len() + b.close.len() > open.len() + close.len()).unwrap_or(true) {
+            let mut all = open.clone();
+            all.extend_from_slice(&close);
+            best = Some(Found { used: used_of(ctx.n_pistons, &all), open, close, states: n });
+        }
+    }
+    match best {
+        Some(f) => Ok(Some(f)),
+        None if capped => Err(()),
+        None => Ok(None),
+    }
+}
+
+/// One A* over (state, phase): opening until an open state, then closing back to rest; the hole
+/// rule is checked on each complete path found. Finds closable open states that the
+/// open-first search (`solve`) misses when the nearest open states are dead ends.
+pub fn solve_oc(ctx: &Ctx, rest: &Key, cap: usize) -> Result<Option<Found>, ()> {
+    let diff = |k: &Key| -> u32 { k.g.iter().zip(rest.g.iter()).filter(|(a, b)| a != b).count() as u32 + (k.inp ^ rest.inp).count_ones() };
+    let mut keys: Vec<(Key, bool)> = vec![(rest.clone(), false)];
+    let mut parent: Vec<Option<(usize, Option<A>, u16)>> = vec![None];
+    let mut index: HashMap<(Key, bool), usize> = HashMap::new();
+    index.insert((rest.clone(), false), 0);
+    let mut heap = BinaryHeap::new();
+    heap.push(Node { f: 2 * ctx.h_open(rest) + 2 * 9, g: 0, id: 0 });
+    while let Some(Node { g, id, .. }) = heap.pop() {
+        let (k, closing) = keys[id].clone();
+        if closing && k == *rest {
+            // reconstruct; split at the phase change
+            let mut acts: Vec<(Option<A>, u16, bool)> = Vec::new();
+            let mut c = id;
+            let mut open_key = None;
+            while let Some((p, a, sw)) = parent[c] {
+                if a.is_none() {
+                    open_key = Some(keys[c].0.clone());
+                }
+                acts.push((a, sw, keys[p].1));
+                c = p;
+            }
+            acts.reverse();
+            let open_key = open_key.unwrap();
+            let mut open = Vec::new();
+            let mut close = Vec::new();
+            let mut sw = 0u16;
+            for (a, s, was_closing) in acts {
+                sw |= s;
+                if let Some(a) = a {
+                    if was_closing { close.push(a) } else { open.push(a) }
+                }
+            }
+            if ctx.holes_ok(&open_key, sw) {
+                let mut all = open.clone();
+                all.extend_from_slice(&close);
+                return Ok(Some(Found { used: used_of(ctx.n_pistons, &all), open, close, states: keys.len() }));
+            }
+            continue;
+        }
+        if keys.len() >= cap {
+            return Err(());
+        }
+        let mut succ: Vec<((Key, bool), Option<A>, u16, u32)> = Vec::new();
+        if !closing && id != 0 && ctx.is_open(&k) {
+            succ.push(((k.clone(), true), None, 0, 0));
+        }
+        for &a in &ctx.actions {
+            if let Some((nk, sw)) = ctx.step(&k, a) {
+                succ.push(((nk, closing), Some(a), sw, 1));
+            }
+        }
+        for (nk, a, sw, cost) in succ {
+            if index.contains_key(&nk) {
+                continue;
+            }
+            let h = if nk.1 { diff(&nk.0) } else { ctx.h_open(&nk.0) + 9 };
+            let j = keys.len();
+            index.insert(nk.clone(), j);
+            heap.push(Node { f: g + cost + 2 * h, g: g + cost, id: j });
+            keys.push(nk);
+            parent.push(Some((id, a, sw)));
+        }
+    }
+    Ok(None)
+}
+
 /// The exact verdict for a families candidate (an API for `door families`): Ok(Some) = opens
 /// (FULL seamless) and closes back to rest with ideal inputs on these pistons under the real
 /// game rules; Ok(None) = the reachable space has no such schedule (or the rest state does not
@@ -1053,6 +1238,208 @@ pub fn groups_helpers(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usi
     (base, v)
 }
 
+// ---- replay a `door ideal` plan in the solver's world (diagnostics) ----
+
+/// Replays a plan's events (redstone blocks at z = 1 behind pistons) as input switches of the
+/// tracked pistons, tick by tick, and reports what the solver's checks say about each phase.
+pub fn replay_ideal(ctx: &Ctx, rest: &Key, sched: &crate::ideal::Schedule) -> Result<String> {
+    let mut out = String::new();
+    let mut key = rest.clone();
+    let vars = sched.vars().clone();
+    for open in [true, false] {
+        let ev = sched.events_of(open, &vars)?;
+        let mut w = ctx.world_of(&key);
+        let mut swept = 0u16;
+        let last = ev.iter().map(|e| e.0).max().unwrap_or(0);
+        let mut t = 0u32;
+        loop {
+            for (et, pos, st) in ev.iter().filter(|e| e.0 == t) {
+                let _ = et;
+                let (x, y) = (pos[0], pos[1]);
+                if st.is_some() {
+                    match w.piston.tracked.iter().position(|(p, _)| p.x == x && p.y - OY == y) {
+                        Some(id) => redsim::piston::set_input(&mut w, id, true),
+                        None => out.push_str(&format!("  t={t}: no tracked piston at ({x},{y}) for a set\n")),
+                    }
+                } else {
+                    match w.piston.ideal_src.iter().position(|s| s.map(|p| p.x == x && p.y - OY == y).unwrap_or(false)) {
+                        Some(id) => redsim::piston::set_input(&mut w, id, false),
+                        None => out.push_str(&format!("  t={t}: no source at ({x},{y}) to clear\n")),
+                    }
+                }
+            }
+            if t >= last && w.idle() {
+                break;
+            }
+            if t > last + 200 {
+                out.push_str("  never settles\n");
+                break;
+            }
+            w.tick();
+            t += 1;
+            if !ctx.ok(&w) {
+                out.push_str(&format!("  t={t}: drops {:?} errors {:?}\n", w.drops, w.errors));
+                break;
+            }
+            swept |= ctx.ring_mask(&w);
+        }
+        let k = ctx.key_of(&w);
+        out.push_str(&format!("{} phase: {} ticks; ", if open { "open" } else { "close" }, t));
+        if open {
+            out.push_str(&format!("is_open {} holes_ok {}\n", ctx.is_open(&k), ctx.holes_ok(&k, swept)));
+        } else {
+            out.push_str(&format!("back to rest {}\n", k.g == rest.g));
+        }
+        out.push_str(&ctx.render(&k));
+        key = k;
+    }
+    Ok(out)
+}
+
+/// A plan as pulses of tracked pistons: (open phase?, tick on, tick off, piston id).
+pub type Pulses = Vec<(bool, u32, u32, usize)>;
+
+/// Reads a `door ideal` plan as pulses of the tracked pistons (replaying it to follow carried
+/// pistons); None when an event does not match a piston.
+pub fn pulses_of_plan(ctx: &Ctx, rest: &Key, sched: &crate::ideal::Schedule) -> Option<Pulses> {
+    let mut out: Pulses = Vec::new();
+    let mut key = rest.clone();
+    let vars = sched.vars().clone();
+    for open in [true, false] {
+        let ev = sched.events_of(open, &vars).ok()?;
+        let mut w = ctx.world_of(&key);
+        let last = ev.iter().map(|e| e.0).max().unwrap_or(0);
+        let mut on_at: HashMap<usize, u32> = HashMap::new();
+        let mut t = 0u32;
+        loop {
+            for (_, pos, st) in ev.iter().filter(|e| e.0 == t) {
+                let (x, y) = (pos[0], pos[1]);
+                if st.is_some() {
+                    let id = w.piston.tracked.iter().position(|(p, _)| p.x == x && p.y - OY == y)?;
+                    on_at.insert(id, t);
+                    redsim::piston::set_input(&mut w, id, true);
+                } else {
+                    let id = w.piston.ideal_src.iter().position(|s| s.map(|p| p.x == x && p.y - OY == y).unwrap_or(false))?;
+                    out.push((open, on_at.remove(&id)?, t, id));
+                    redsim::piston::set_input(&mut w, id, false);
+                }
+            }
+            if (t >= last && w.idle()) || t > last + 200 {
+                break;
+            }
+            w.tick();
+            t += 1;
+        }
+        key = ctx.key_of(&w);
+    }
+    Some(out)
+}
+
+/// Runs pulses (open phase from rest, then close); true when it opens FULL seamless and closes
+/// back to rest without drops.
+pub fn pulses_work(ctx: &Ctx, rest: &Key, pulses: &Pulses) -> bool {
+    let mut key = rest.clone();
+    for open in [true, false] {
+        let ph: Vec<&(bool, u32, u32, usize)> = pulses.iter().filter(|p| p.0 == open).collect();
+        let last = ph.iter().map(|p| p.2).max().unwrap_or(0);
+        let mut w = ctx.world_of(&key);
+        let mut swept = 0u16;
+        let mut t = 0u32;
+        loop {
+            // offs first, then ons, in pulse order
+            for p in ph.iter().filter(|p| p.2 == t) {
+                if w.piston.tracked[p.3].1 {
+                    redsim::piston::set_input(&mut w, p.3, false);
+                }
+            }
+            for p in ph.iter().filter(|p| p.1 == t) {
+                if !w.piston.tracked[p.3].1 {
+                    redsim::piston::set_input(&mut w, p.3, true);
+                }
+            }
+            if (t >= last && w.idle()) || t > last + 200 {
+                break;
+            }
+            w.tick();
+            t += 1;
+            if !ctx.ok(&w) {
+                return false;
+            }
+            swept |= ctx.ring_mask(&w);
+        }
+        if !w.idle() {
+            return false;
+        }
+        let k = ctx.key_of(&w);
+        if open {
+            if !ctx.is_open(&k) || !ctx.holes_ok(&k, swept) {
+                return false;
+            }
+        } else if k.g != rest.g {
+            return false;
+        }
+        key = k;
+    }
+    true
+}
+
+/// Input merging on a fixed plan: pistons whose pulses can all be dropped (QC-driven or
+/// unneeded) and groups whose members pulse together (each member's pulses given to all) while
+/// the replay still opens and closes. Returns (undriven ids, groups of ids, merged pulses).
+pub fn merge_by_replay(ctx: &Ctx, rest: &Key, base: &Pulses) -> (Vec<usize>, Vec<Vec<usize>>, Pulses) {
+    let mut ids: Vec<usize> = base.iter().map(|p| p.3).collect();
+    ids.sort();
+    ids.dedup();
+    let build = |groups: &[Vec<usize>], dropped: &[usize]| -> Pulses {
+        let mut v: Pulses = Vec::new();
+        for g in groups {
+            let mut times: Vec<(bool, u32, u32)> = base.iter().filter(|p| g.contains(&p.3)).map(|p| (p.0, p.1, p.2)).collect();
+            times.sort();
+            times.dedup();
+            for (o, a, b) in times {
+                for &m in g {
+                    if !dropped.contains(&m) {
+                        v.push((o, a, b, m));
+                    }
+                }
+            }
+        }
+        v.sort();
+        v
+    };
+    let mut groups: Vec<Vec<usize>> = ids.iter().map(|i| vec![*i]).collect();
+    let mut dropped: Vec<usize> = Vec::new();
+    for &i in &ids {
+        let mut d2 = dropped.clone();
+        d2.push(i);
+        let g2: Vec<Vec<usize>> = groups.iter().map(|g| g.iter().copied().filter(|m| !d2.contains(m)).collect::<Vec<_>>()).filter(|g| !g.is_empty()).collect();
+        if pulses_work(ctx, rest, &build(&g2, &d2)) {
+            dropped = d2;
+            groups = g2;
+        }
+    }
+    loop {
+        let mut merged = false;
+        'outer: for a in 0..groups.len() {
+            for b in a + 1..groups.len() {
+                let mut g2 = groups.clone();
+                let mb = g2.remove(b);
+                g2[a].extend(mb);
+                if pulses_work(ctx, rest, &build(&g2, &dropped)) {
+                    groups = g2;
+                    merged = true;
+                    break 'outer;
+                }
+            }
+        }
+        if !merged {
+            break;
+        }
+    }
+    let p = build(&groups, &dropped);
+    (dropped, groups, p)
+}
+
 // ---- input reduction: helpers that replace a piston's wiring ----
 
 /// For each piston of a working mechanism, try to drop its input: one helper (a redstone block
@@ -1393,6 +1780,8 @@ pub struct CliOpts {
     pub groups: bool,
     /// Piston removal + one helper (shrink_mech) in --check.
     pub shrink: bool,
+    /// Replay this `door ideal` plan in the solver's world (--check diagnostics).
+    pub replay_ideal: Option<std::path::PathBuf>,
 }
 
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
@@ -1517,10 +1906,36 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             continue;
         };
         print!("{}", ctx.render(&rest));
+        if let Some(rp) = &o.replay_ideal {
+            let text = std::fs::read_to_string(rp)?;
+            let s = crate::ideal::Schedule::parse(&text)?;
+            print!("replay of {} in the solver's world:\n{}", rp.display(), replay_ideal(&ctx, &rest, &s)?);
+            if o.groups {
+                if let Some(base) = pulses_of_plan(&ctx, &rest, &s) {
+                    let pid = |i: usize| ctx.pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).nth(i).map(|p| p.code()).unwrap_or_default();
+                    println!("  plan as pulses works: {}", pulses_work(&ctx, &rest, &base));
+                    let (dropped, groups, merged) = merge_by_replay(&ctx, &rest, &base);
+                    println!(
+                        "  input merging on this plan's timeline: {} independent signals; undriven: {}; groups: {}",
+                        groups.len(),
+                        dropped.iter().map(|i| pid(*i)).collect::<Vec<_>>().join(" "),
+                        groups.iter().map(|g| g.iter().map(|i| pid(*i)).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | ")
+                    );
+                    for g in &groups {
+                        let t: Vec<String> = merged.iter().filter(|p| p.3 == g[0]).map(|p| format!("{}{}-{}", if p.0 { "o" } else { "c" }, p.1, p.2)).collect();
+                        println!("    {}: {}", g.iter().map(|i| pid(*i)).collect::<Vec<_>>().join("+"), t.join(" "));
+                    }
+                }
+            }
+        }
         let t0 = std::time::Instant::now();
-        match solve(&ctx, &rest, o.cap) {
+        let r = match solve(&ctx, &rest, o.cap) {
+            Ok(None) => solve_oc(&ctx, &rest, o.cap.max(60000)),
+            r => r,
+        };
+        match r {
             Ok(Some(f)) => println!("  {} [{:.1}s]", describe(&ctx, &f), t0.elapsed().as_secs_f64()),
-            Ok(None) => println!("  no FULL seamless open + close (exhausted) [{:.1}s]", t0.elapsed().as_secs_f64()),
+            Ok(None) => println!("  no FULL seamless open + close (whole reachable graph explored) [{:.1}s]", t0.elapsed().as_secs_f64()),
             Err(()) => println!("  cap hit [{:.1}s]", t0.elapsed().as_secs_f64()),
         }
         if o.groups {
