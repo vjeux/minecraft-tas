@@ -15,6 +15,7 @@ pub mod piston;
 pub mod pos;
 pub mod redstone;
 pub mod sculk;
+pub mod snapshot;
 pub mod ticks;
 pub mod world;
 

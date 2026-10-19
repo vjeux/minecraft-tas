@@ -73,6 +73,36 @@ pub struct State {
 }
 
 impl State {
+    /// Sensor block entities (by position) with the candidate's game time relative to `now`, and
+    /// the ticker order, for [`crate::world::World::state_key`].
+    pub(crate) fn key_into<H: std::hash::Hasher>(&self, now: i64, h: &mut H) {
+        use std::hash::Hash;
+        let vib = |v: &Vib, h: &mut H| (v.event, v.freq, v.dist.to_bits(), v.src).hash(h);
+        let mut bes: Vec<&(BlockPos, SculkBe)> = self.bes.iter().collect();
+        bes.sort_by_key(|(p, _)| *p);
+        for (p, b) in bes {
+            (p, b.last_freq, b.travel).hash(h);
+            match &b.current {
+                Some(v) => {
+                    1u8.hash(h);
+                    vib(v, h);
+                }
+                None => 0u8.hash(h),
+            }
+            match &b.cand {
+                Some((v, t)) => {
+                    1u8.hash(h);
+                    vib(v, h);
+                    (now - t).hash(h);
+                }
+                None => 0u8.hash(h),
+            }
+        }
+        0xfeu8.hash(h);
+        let order: Vec<BlockPos> = self.tickers.iter().chain(self.pending.iter()).filter(|(_, live)| *live).map(|(p, _)| *p).collect();
+        order.hash(h);
+    }
+
     pub fn is_empty(&self) -> bool {
         self.bes.is_empty()
     }
