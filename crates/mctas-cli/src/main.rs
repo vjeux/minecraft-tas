@@ -45,6 +45,13 @@ enum Cmd {
         #[command(subcommand)]
         command: clock_cli::ClockCmd,
     },
+    /// Circuit studies (docs/circuits.md): `mctas circuit <track> <args...>` (temporary hook of
+    /// track tff until clockinfra's dispatch lands).
+    Circuit {
+        track: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -120,6 +127,10 @@ fn main() -> Result<()> {
         Cmd::Bench(args) => bench::run(&cli.version, args)?,
         Cmd::Door { command } => door::run(&cli.version, command)?,
         Cmd::Clock { command } => clock_cli::run(&cli.version, command)?,
+        Cmd::Circuit { track, args } => match track.as_str() {
+            "tff" => circuit_tff::run(args)?,
+            other => anyhow::bail!("unknown circuit track {other:?}"),
+        },
     }
     Ok(())
 }

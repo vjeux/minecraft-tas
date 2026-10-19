@@ -1,0 +1,14 @@
+[package]
+name = "circuit-tff"
+description = "Track tff's circuit commands (mctas circuit tff ...): T flip-flops: a redsim circuit runner (inputs driven between ticks, output levels per gt), the TFF metrics (latency, min-pulse, min-period, edge), hand-built families and the census; owned by track tff, see docs/circuits.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+clock = { path = "../clock" }
+redsim = { path = "../redsim" }
+mctas = { path = "../mctas" }
