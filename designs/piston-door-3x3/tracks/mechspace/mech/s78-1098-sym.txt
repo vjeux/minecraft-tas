@@ -2,27 +2,26 @@ name: s78-1098-sym
 port door: 0 0 0
 origin: -3 0 0
 palette:
-  A minecraft:sticky_piston[extended=false,facing=up]
-  B minecraft:sticky_piston[extended=false,facing=west]
-  C minecraft:sticky_piston[extended=true,facing=east]
-  D minecraft:stone
+  A minecraft:sticky_piston[extended=false,facing=west]
+  B minecraft:sticky_piston[extended=true,facing=east]
+  C minecraft:stone
   P minecraft:piston_head[facing=east,short=false,type=sticky]
   R minecraft:redstone_block
-  S minecraft:smooth_stone
-  s minecraft:sticky_piston[extended=false,facing=down]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=up]
 layer -2:
-  ....AA
+  ....ss
 layer -1:
-  ..AS
+  ..sC
 layer 0:
-  RCPDDDS
+  RBPCCCC
 layer 1:
-  RCPDDD.B
+  RBPCCC.A
 layer 2:
-  RCPDDD.B
+  RBPCCC.A
 layer 3:
-  ...S..B
+  ...C..A
 layer 4:
-  ....s
+  ....S
 layer 5:
-  ....s
+  ....S
