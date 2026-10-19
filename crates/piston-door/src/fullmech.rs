@@ -777,6 +777,73 @@ pub fn export(ctx: &Ctx, rest: &Key, f: &Found, name: &str, design_path: &str, g
     Some((d, plan))
 }
 
+/// Greedy input minimization: undrive pistons one at a time (in piece order) while the
+/// mechanism still opens and closes exactly; returns the undriven pistons and the solution.
+pub fn min_inputs(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> Option<(Vec<FPc>, Found)> {
+    let (ctx, rest) = build_driven(bx, pieces, o, &[])?;
+    let mut best = solve(&ctx, &rest, cap).ok()??;
+    let mut undriven: Vec<FPc> = Vec::new();
+    let pistons: Vec<FPc> = {
+        let mut v: Vec<FPc> = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).copied().collect();
+        v.sort();
+        v
+    };
+    // pistons the solution never fires first, then the rest
+    let mut order: Vec<usize> = (0..pistons.len()).collect();
+    order.sort_by_key(|i| best.used.get(*i).copied().unwrap_or(true));
+    for i in order {
+        let mut trial = undriven.clone();
+        trial.push(pistons[i]);
+        if let Some((c2, r2)) = build_driven(bx, pieces, o, &trial) {
+            if let Ok(Some(f)) = solve(&c2, &r2, cap) {
+                undriven = trial;
+                best = f;
+            }
+        }
+    }
+    Some((undriven, best))
+}
+
+/// For one mechanism: its minimal driven inputs, then every single helper (redstone block or
+/// observer, each free cell) that lowers that count further.
+pub fn reduce_greedy(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usize) -> (usize, Vec<(FPc, usize, Vec<FPc>)>) {
+    let n_pistons = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count();
+    let Some((base_und, _)) = min_inputs(bx, pieces, o, cap) else { return (n_pistons, Vec::new()) };
+    let base = n_pistons - base_und.len();
+    let free = free_cells(bx, pieces);
+    let kinds = [FK::RedstoneBlock, FK::Observer { f: 0 }, FK::Observer { f: 1 }, FK::Observer { f: 2 }, FK::Observer { f: 3 }];
+    let mut jobs = Vec::new();
+    for &c in &free {
+        for k in kinds {
+            jobs.push(FPc { x: c.0, y: c.1, k });
+        }
+    }
+    let next = AtomicUsize::new(0);
+    let out: Mutex<Vec<(FPc, usize, Vec<FPc>)>> = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= jobs.len() {
+                    break;
+                }
+                let h = jobs[i];
+                let mut v = pieces.to_vec();
+                v.push(h);
+                if let Some((und, _)) = min_inputs(bx, &v, o, cap) {
+                    let driven = n_pistons - und.len();
+                    if driven < base {
+                        out.lock().unwrap().push((h, driven, und));
+                    }
+                }
+            });
+        }
+    });
+    let mut v = out.into_inner().unwrap();
+    v.sort_by_key(|(h, d, _)| (*d, *h));
+    (base, v)
+}
+
 // ---- input reduction: helpers that replace a piston's wiring ----
 
 /// For each piston of a working mechanism, try to drop its input: one helper (a redstone block
@@ -1375,13 +1442,15 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             for (bx, v, _, _) in found.iter() {
                 let fp: Vec<FPc> = v.iter().map(FPc::from_pc).collect();
                 let t1 = std::time::Instant::now();
-                let r = reduce(*bx, &fp, &so, o.reduce_cap, o.threads);
+                let (base, r) = reduce_greedy(*bx, &fp, &so, o.reduce_cap, o.threads);
                 let line = format!(
-                    "  reduce {}: {} (undriven piston, helper) pairs work [{:.0}s]{}\n",
+                    "  reduce {}: {} of {} pistons need an input; {} single helpers lower it [{:.0}s]{}\n",
                     fp.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                    base,
+                    fp.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count(),
                     r.len(),
                     t1.elapsed().as_secs_f64(),
-                    r.iter().take(6).map(|(p, h, f)| format!("\n    {} undriven, helper {} ({} + {} actions)", p.code(), h.code(), f.open.len(), f.close.len())).collect::<String>()
+                    r.iter().take(6).map(|(h, d, und)| format!("\n    helper {} -> {d} inputs (undriven: {})", h.code(), und.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "))).collect::<String>()
                 );
                 print!("{line}");
                 report.push_str(&line);
