@@ -1128,20 +1128,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let f = input.ok_or_else(|| anyhow::anyhow!("frame-export needs --input"))?;
                     anyhow::ensure!(bxs.len() == 1, "frame-export needs one --boxes WxH");
                     let items = ms::read_ided(&f, bxs[0].0, bxs[0].1)?;
-                    let mut aug_items = Vec::new();
-                    for (id, bx, v) in &items {
-                        let Some((m, rest)) = crate::families::Mech::new(*bx, v) else { continue };
-                        let cx = ms::Cx::new(&m, &rest);
-                        let (vd, _) = ms::decide_all(&cx, cap.min(500_000), cap_lean.max(cap), 0);
-                        if let ms::Verdict::Found { open, .. } = vd {
-                            match ms::augment_frame(*bx, v, &open, cap, cap_lean) {
-                                Some((aug, _, _)) => aug_items.push((id.clone(), *bx, aug)),
-                                None => eprintln!("[mechspace] {id}: no static-stone frame"),
-                            }
-                        } else {
-                            eprintln!("[mechspace] {id}: {}", vd.tag());
-                        }
-                    }
+                    let aug_items = ms::frame_candidates(&items, cap, cap_lean, threads);
                     let t = tag.clone().unwrap_or_else(|| format!("frame-{}x{}", bxs[0].0, bxs[0].1));
                     ms::export(version, &aug_items, &out_dir, &t, cap, gap, workers, extra_offsets)?;
                 }

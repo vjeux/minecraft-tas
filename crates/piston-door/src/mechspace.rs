@@ -1836,6 +1836,38 @@ pub fn parse_lines(text: &str, w: i8, h: i8) -> Result<Vec<(Bx, Vec<Pc>)>> {
     Ok(items)
 }
 
+/// `frame-export`'s first stage, in parallel: decide each stone-free candidate, add the static
+/// stones of its open state and re-decide (augment_frame); the augmented mechanisms in input order.
+pub fn frame_candidates(items: &[(String, Bx, Vec<Pc>)], cap: usize, cap_lean: usize, threads: usize) -> Vec<(String, Bx, Vec<Pc>)> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let res: std::sync::Mutex<Vec<(usize, String, Bx, Vec<Pc>)>> = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= items.len() {
+                    break;
+                }
+                let (id, bx, v) = &items[i];
+                let Some((m, rest)) = Mech::new(*bx, v) else { continue };
+                let cx = Cx::new(&m, &rest);
+                let (vd, _) = decide_all(&cx, cap.min(500_000), cap_lean.max(cap), 0);
+                if let Verdict::Found { open, .. } = vd {
+                    match augment_frame(*bx, v, &open, cap, cap_lean) {
+                        Some((aug, _, _)) => res.lock().unwrap().push((i, id.clone(), *bx, aug)),
+                        None => eprintln!("[mechspace] {id}: no static-stone frame"),
+                    }
+                } else {
+                    eprintln!("[mechspace] {id}: {}", vd.tag());
+                }
+            });
+        }
+    });
+    let mut r = res.into_inner().unwrap();
+    r.sort_by_key(|x| x.0);
+    r.into_iter().map(|(_, a, b, c)| (a, b, c)).collect()
+}
+
 /// `layouts`: FULL-FRAME finds grouped by layout: key = pistons with extension states dropped,
 /// the smaller of the layout and its mirror image; value = (cycles found, the stone-free
 /// representative with the fewest extended pistons).
@@ -1869,7 +1901,27 @@ pub fn layouts(paths: &[std::path::PathBuf], w: i8, h: i8) -> Result<BTreeMap<St
             }
         }
     }
-    Ok(g.into_iter().map(|(k, (n, r, _))| (k, (n, r))).collect())
+    // keep minimal layouts: drop one whose pistons contain another found layout's (a found set
+    // plus unused pistons)
+    let keys: Vec<(String, Vec<Pc>)> = g.keys().map(|k| (k.clone(), parse_lines(k, w, h).ok().and_then(|v| v.into_iter().next()).map(|(_, v)| v).unwrap_or_default())).collect();
+    let mut drop: HashSet<String> = HashSet::new();
+    for (ka, va) in &keys {
+        let ma: Vec<Pc> = {
+            let mut m: Vec<Pc> = va.iter().map(|p| p.mirror()).collect();
+            m.sort();
+            m
+        };
+        for (kb, vb) in &keys {
+            if ka == kb || vb.len() >= va.len() {
+                continue;
+            }
+            if vb.iter().all(|p| va.contains(p)) || vb.iter().all(|p| ma.contains(p)) {
+                drop.insert(ka.clone());
+                break;
+            }
+        }
+    }
+    Ok(g.into_iter().filter(|(k, _)| !drop.contains(k)).map(|(k, (n, r, _))| (k, (n, r))).collect())
 }
 
 /// `gencheck`: is `v` (its pistons) a generated candidate (mirror included), and how many
