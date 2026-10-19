@@ -1,0 +1,11 @@
+# m79a (c2e 1e02280) top-right re-wiring: plan-from --region 2,5;3,5;3,4;3,3;4,3 --close (closes with the
+# dropper 4,2) + A's hold (the only ideal input of m79a)
+design designs/piston-door-3x3/tracks/c2e/m10/m79a.txt
+open 10 clear 1 5 1
+close 10 set 1 5 1 minecraft:redstone_block
+open 8 clear 2 4 1
+close 8 set 2 4 1 minecraft:redstone_block
+open 0 clear 4 1 1
+close 0 set 4 1 1 minecraft:redstone_block
+open 2 set 1 3 -1 minecraft:redstone_block
+open 6 clear 1 3 -1

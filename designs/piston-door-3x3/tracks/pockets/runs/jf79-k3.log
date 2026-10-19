@@ -1,0 +1,42 @@
+===== jf-ff: box -2,-3:4,5
+assist designs/piston-door-3x3/tracks/pockets/mech/jf-ff.ideal: 9 input cells off the plane ([(-2, 1), (4, 1), (1, -2), (0, 4), (1, 4), (2, 4), (3, -1), (1, -3), (1, -1)]), 22 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/jf-ff.txt: 23 blocks in the box, screen 8/79
+10 piston cells locked, 44 cells free
+seed screen 79/79 with 9 inputs assisted
+windows (20 groups, 0.0 s):
+  input (-2,1) open  t0 pulse 2 gt: window [+0, +24]
+  input (4,1) open  t0 pulse 2 gt: window [+0, +24]
+  input (1,-2) open  t0 pulse 2 gt: window [+0, +3]
+  input (0,4) open  t2 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t2 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t2 pulse 2 gt: window [-2, +24]
+  input (3,-1) open  t6 pulse 2 gt: window [-3, +4]
+  input (1,-3) open  t12 pulse 2 gt: window [-4, +3]
+  input (1,-1) open  t16 pulse 2 gt: window [-3, +3]
+  input (1,-3) open  t22 pulse 2 gt: window [-3, +2]
+  input (1,-2) open  t28 pulse 2 gt: window [-2, +24]
+  input (-2,1) close t0 pulse 2 gt: window [+0, +24]
+  input (4,1) close t0 pulse 2 gt: window [+0, +24]
+  input (1,-2) close t0 pulse 2 gt: window [+0, +3]
+  input (0,4) close t2 pulse 2 gt: window [-2, +24]
+  input (1,4) close t2 pulse 2 gt: window [-2, +24]
+  input (2,4) close t2 pulse 2 gt: window [-2, +24]
+  input (3,-1) close t6 pulse 2 gt: window [-5, +3]
+  input (1,-3) close t12 pulse 2 gt: window [-3, +2]
+  input (1,-3) close t18 pulse 2 gt: window [-2, +24]
+32 pocket cells in 3 pockets; 59 lever candidates in the plane, 3 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 31 swept cells
+  pocket 0: 8 cells [(-2, -3), (-2, -2), (-2, -1), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 17 cells [(-2, 2), (-2, 3), (-2, 4), (-2, 5), (-1, 3), (-1, 4), (-1, 5), (0, 5), (1, 5), (2, 5), (3, 3), (3, 4), (3, 5), (4, 2), (4, 3), (4, 4), (4, 5)]
+  pocket 2: 7 cells [(2, -3), (2, -2), (3, -3), (3, -2), (4, -3), (4, -2), (4, -1)]
+pocket 0: 8 cells, 681 subset/lever items, 743785 fillings to screen
+pocket 0: 843332 screened, 200043 keep the door working, 16.3 s; driven input sets: {(-2,1)c0} x32 (best 2 blocks), {(1,-2)o0} x11 (best 3 blocks)
+pocket 1: skipped
+pocket 2: 7 cells, 559 subset/lever items, 610995 fillings to screen
+pocket 2: 709959 screened, 147259 keep the door working, 13.5 s; driven input sets: {(1,-3)o12 (1,-3)o22 (1,-3)c12 (1,-3)c18} x1 (best 3 blocks), {(3,-1)o6 (3,-1)c6} x7 (best 3 blocks)
+plan groups no filling drives: (-2,1)o0 (4,1)o0 (0,4)o2 (1,4)o2 (2,4)o2 (1,-1)o16 (1,-2)o28 (4,1)c0 (1,-2)c0 (0,4)c2 (1,4)c2 (2,4)c2
+combination 1: true partial, 9 inputs still assisted [-2,1 4,1 1,-2 0,4 1,4 2,4 3,-1 1,-3 1,-1] (25 blocks)
+combination 3: true partial, 8 inputs still assisted [-2,1 4,1 1,-2 0,4 1,4 2,4 1,-3 1,-1] (28 blocks)
+171 combinations verified, 0 finds, 30 s total
+
+batch summary (1 seeds):
+  jf-ff [-2,-3:4,5]: 20 groups, 12 undriven ((-2,1)o0 (4,1)o0 (0,4)o2 (1,4)o2 (2,4)o2 (1,-1)o16 (1,-2)o28 (4,1)c0 (1,-2)c0 (0,4)c2 (1,4)c2 (2,4)c2), best partial 8 inputs left, 0 finds, 30 s

@@ -1,0 +1,16 @@
+# satwire on m79p/m79q (2026-10-19): the whole top-right (lever, R pair, TRp's drop, A's hold, B's
+# 2 gt pulse and its pull) re-synthesized together by `door satwire --keep-ideal "1,4;-2,2"`
+# (per-cluster warps, interacting events keep their order); only A's last pull (1,4) and L1/L2
+# (-2,2) are still ideal.
+design designs/piston-door-3x3/tracks/satwire/m79q-sat-topright.txt
+let af = 14
+let l12 = 14
+let cl = 0
+open 0 use 4 5 0
+open af set 1 4 -1 minecraft:redstone_block
+open af+2 clear 1 4 -1
+open l12 set -2 2 -1 minecraft:redstone_block
+open l12+2 clear -2 2 -1
+close 0 use 4 5 0
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1

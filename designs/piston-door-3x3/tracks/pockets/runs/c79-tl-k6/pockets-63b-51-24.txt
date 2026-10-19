@@ -1,0 +1,51 @@
+name: pockets-63b-51-24
+port door: 0 0 0
+port lever: 4 6 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:piston_head[facing=west,short=false,type=sticky]
+  D minecraft:dropper[facing=south,triggered=false]
+  E minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  F minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  G minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  H minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  I minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  J minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  K minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  Q minecraft:sticky_piston[extended=true,facing=down]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  T minecraft:sticky_piston[extended=true,facing=west]
+  U minecraft:stone
+  d minecraft:dropper[facing=south,triggered=true]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  SoDSo
+layer -2:
+  FOBMMPS
+layer -1:
+  OK...SF
+layer 0:
+  K.UUUUA
+layer 1:
+  K.UUUCT
+layer 2:
+  K.UUUCT
+layer 3:
+  R.UsUod
+layer 4:
+  HNEpooG
+layer 5:
+  .roQIJS
+layer 6:
+  ......L

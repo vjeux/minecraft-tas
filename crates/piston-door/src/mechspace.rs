@@ -1527,6 +1527,9 @@ pub struct EnumOpts {
 }
 
 pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
+    // MECHSPACE_RET_ONLY: every piston retracted at rest (layout discovery; the extended
+    // variants of each found layout are decided afterwards)
+    let ret_only = std::env::var("MECHSPACE_RET_ONLY").is_ok();
     let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();
     let in_t = |x: i8, y: i8| families::in_t(x, y);
     let target = |x: i8, y: i8| in_t(x, y) || frame.contains(&(x, y));
@@ -1555,7 +1558,11 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
         for f in 0..4u8 {
             let (dx, dy) = families::F[f as usize];
             let (h1, h2) = ((x + dx, y + dy), (x + 2 * dx, y + 2 * dy));
-            if !(target(h1.0, h1.1) || target(h2.0, h2.1)) || !bx.has(h1.0, h1.1) {
+            // MECHSPACE_K3: also a piston whose third cell ahead is a frame or door cell (the top
+            // of a 3-piston elevator)
+            let h3 = (x + 3 * dx, y + 3 * dy);
+            let k3 = std::env::var("MECHSPACE_K3").is_ok() && target(h3.0, h3.1);
+            if !(target(h1.0, h1.1) || target(h2.0, h2.1) || k3) || !bx.has(h1.0, h1.1) {
                 continue;
             }
             for sticky in [true, false] {
@@ -1563,7 +1570,7 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
                     continue;
                 }
                 for ext in [false, true] {
-                    if ext && in_t(h1.0, h1.1) {
+                    if ext && (in_t(h1.0, h1.1) || ret_only) {
                         continue;
                     }
                     opts.push(Pc { x, y, k: K::Piston { sticky, f, ext } });
@@ -1586,7 +1593,7 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
         if (ns as u32 - mask.count_ones()) as usize > o.side_absent {
             continue;
         }
-        for exts in 0..4u8 {
+        for exts in 0..(if ret_only { 1u8 } else { 4u8 }) {
             let mut v = Vec::new();
             for (j, &(x, y, f)) in side_cells.iter().enumerate() {
                 if mask & (1 << j) == 0 {
@@ -1617,22 +1624,45 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
     let mut frees: Vec<Vec<Pc>> = Vec::new();
     rec(&free_slots, 0, o.free_max, &mut Vec::new(), &mut frees);
     frees.sort_by_key(|v| v.len());
-    for fr in &frees {
-        for ss in &side_sets {
-            for b in &bottoms {
-                let mut v: Vec<Pc> = ss.clone();
-                v.extend(fr.iter().copied());
-                if let Some(p) = b {
-                    v.push(*p);
-                }
-                if !prune_ok(&bx, &v, &frame) {
-                    continue;
-                }
-                v.sort();
-                out.push(v);
-            }
-        }
+    // pruning in parallel (the reach-matching condition costs ~0.5 ms a set)
+    let nth = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(64);
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let parts: Vec<Vec<Vec<Pc>>> = std::thread::scope(|s| {
+        let hs: Vec<_> = (0..nth)
+            .map(|_| {
+                s.spawn(|| {
+                    let mut mine = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        if i >= frees.len() {
+                            break;
+                        }
+                        let fr = &frees[i];
+                        for ss in &side_sets {
+                            for b in &bottoms {
+                                let mut v: Vec<Pc> = ss.clone();
+                                v.extend(fr.iter().copied());
+                                if let Some(p) = b {
+                                    v.push(*p);
+                                }
+                                if !prune_ok(&bx, &v, &frame) {
+                                    continue;
+                                }
+                                v.sort();
+                                mine.push(v);
+                            }
+                        }
+                    }
+                    mine
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    for p in parts {
+        out.extend(p);
     }
+    out.sort();
     out.sort_by_key(|v| v.len());
     out.dedup();
     // mirror images (x -> 2 - x) are the same mechanism: keep the smaller of each pair when the
@@ -1679,7 +1709,87 @@ fn prune_ok(bx: &Bx, v: &[Pc], frame: &HashSet<(i8, i8)>) -> bool {
         }
     }
     let recv = frame.iter().filter(|&&c| on_line(c)).count();
-    recv >= 9
+    recv >= 9 && (!REACH_PRUNE.load(Ordering::Relaxed) || reach_ok(bx, v, frame))
+}
+
+/// `MECHSPACE_REACH`: a stronger necessary condition for FRAME9. Relaxed block moves (no blocking,
+/// no timing): a block on a piston's forward line can be pushed one cell along it; a block two
+/// cells ahead of a sticky piston can be pulled into its head cell. Pistons that lie on another
+/// piston's line may be displaced 1-2 cells along it, so their lines are also taken from those
+/// cells. Each door block's reachable cells; the 9 door blocks must be matched to 9 distinct
+/// frame cells they can reach (bipartite matching).
+pub static REACH_PRUNE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn reach_ok(bx: &Bx, v: &[Pc], frame: &HashSet<(i8, i8)>) -> bool {
+    // lines: (x, y, facing, sticky)
+    let mut lines: Vec<(i8, i8, u8, bool)> = Vec::new();
+    let ps: Vec<(i8, i8, u8, bool)> = v.iter().filter_map(|p| if let K::Piston { sticky, f, .. } = p.k { Some((p.x, p.y, f, sticky)) } else { None }).collect();
+    for &(x, y, f, s) in &ps {
+        lines.push((x, y, f, s));
+        for &(px, py, pf, _) in &ps {
+            if (px, py) == (x, y) {
+                continue;
+            }
+            let (dx, dy) = families::F[pf as usize];
+            if (1..=13).any(|k| (px + k * dx, py + k * dy) == (x, y)) {
+                for k in [-2i8, -1, 1, 2] {
+                    lines.push((x + k * dx, y + k * dy, f, s));
+                }
+            }
+        }
+    }
+    let cells: Vec<(i8, i8)> = frame.iter().copied().collect();
+    let mut reach: Vec<Vec<usize>> = Vec::new(); // per door block: indices of reachable frame cells
+    for bxx in 0..3i8 {
+        for byy in 0..3i8 {
+            let mut seen: HashSet<(i8, i8)> = HashSet::new();
+            let mut st = vec![(bxx, byy)];
+            seen.insert((bxx, byy));
+            while let Some(c) = st.pop() {
+                for &(x, y, f, s) in &lines {
+                    let (dx, dy) = families::F[f as usize];
+                    let mut nx = Vec::with_capacity(2);
+                    // push: c on the forward line (k >= 1) moves one cell along it
+                    let (rx, ry) = (c.0 - x, c.1 - y);
+                    let k = if dx != 0 { if ry == 0 && rx * dx > 0 { rx * dx } else { 0 } } else if rx == 0 && ry * dy > 0 { ry * dy } else { 0 };
+                    if k >= 1 {
+                        nx.push((c.0 + dx, c.1 + dy));
+                    }
+                    if s && k == 2 {
+                        nx.push((x + dx, y + dy));
+                    }
+                    for n in nx {
+                        if bx.has(n.0, n.1) && seen.insert(n) {
+                            st.push(n);
+                        }
+                    }
+                }
+            }
+            reach.push(cells.iter().enumerate().filter(|(_, c)| seen.contains(c)).map(|(i, _)| i).collect());
+        }
+    }
+    // Kuhn's matching: 9 blocks -> distinct frame cells
+    fn aug(b: usize, reach: &[Vec<usize>], used: &mut [bool], owner: &mut [Option<usize>]) -> bool {
+        for &c in &reach[b] {
+            if used[c] {
+                continue;
+            }
+            used[c] = true;
+            if owner[c].is_none() || aug(owner[c].unwrap(), reach, used, owner) {
+                owner[c] = Some(b);
+                return true;
+            }
+        }
+        false
+    }
+    let mut owner: Vec<Option<usize>> = vec![None; cells.len()];
+    for b in 0..9 {
+        let mut used = vec![false; cells.len()];
+        if !aug(b, &reach, &mut used, &mut owner) {
+            return false;
+        }
+    }
+    true
 }
 
 // ---------------------------------------------------------------- candidates
@@ -1710,14 +1820,125 @@ pub fn parse_piece(tok: &str) -> Result<Pc> {
 /// Lines "x0 y0 piece piece ..." (families' unresolved/WxH.txt).
 pub fn read_list(path: &std::path::Path, w: i8, h: i8) -> Result<Vec<(Bx, Vec<Pc>)>> {
     let text = std::fs::read_to_string(path)?;
+    parse_lines(&text, w, h)
+}
+
+/// Mechanism lines `x0 y0 pieces...` (one per line).
+pub fn parse_lines(text: &str, w: i8, h: i8) -> Result<Vec<(Bx, Vec<Pc>)>> {
     let mut items = Vec::new();
     for line in text.lines().filter(|l| !l.trim().is_empty()) {
         let t: Vec<&str> = line.split_whitespace().collect();
+        anyhow::ensure!(t.len() >= 2, "short line");
         let bx = Bx { x0: t[0].parse()?, y0: t[1].parse()?, w, h };
         let v: Vec<Pc> = t[2..].iter().map(|s| parse_piece(s)).collect::<Result<_>>()?;
         items.push((bx, v));
     }
     Ok(items)
+}
+
+/// `layouts`: FULL-FRAME finds grouped by layout: key = pistons with extension states dropped,
+/// the smaller of the layout and its mirror image; value = (cycles found, the stone-free
+/// representative with the fewest extended pistons).
+pub fn layouts(paths: &[std::path::PathBuf], w: i8, h: i8) -> Result<BTreeMap<String, (usize, String)>> {
+    let mut g: BTreeMap<String, (usize, String, usize)> = BTreeMap::new();
+    for p in paths {
+        for l in std::fs::read_to_string(p)?.lines() {
+            let cols: Vec<&str> = l.split('\t').collect();
+            if cols.len() < 2 {
+                continue;
+            }
+            let Ok(items) = parse_lines(cols[1], w, h) else { continue };
+            let Some((bx, v)) = items.into_iter().next() else { continue };
+            let strip = |v: &[Pc]| -> Vec<Pc> {
+                let mut s: Vec<Pc> = v.iter().map(|p| match p.k {
+                    K::Piston { sticky, f, .. } => Pc { x: p.x, y: p.y, k: K::Piston { sticky, f, ext: false } },
+                    _ => *p,
+                }).collect();
+                s.sort();
+                s
+            };
+            let a = strip(&v);
+            let b = strip(&v.iter().map(|p| p.mirror()).collect::<Vec<_>>());
+            let key = line_of(&bx, if a <= b { &a } else { &b });
+            let next = v.iter().filter(|p| matches!(p.k, K::Piston { ext: true, .. })).count();
+            let e = g.entry(key).or_insert((0, cols[1].to_string(), usize::MAX));
+            e.0 += 1;
+            if next < e.2 {
+                e.1 = cols[1].to_string();
+                e.2 = next;
+            }
+        }
+    }
+    Ok(g.into_iter().map(|(k, (n, r, _))| (k, (n, r))).collect())
+}
+
+/// `gencheck`: is `v` (its pistons) a generated candidate (mirror included), and how many
+/// candidates of the same box contain it?
+pub fn gen_member(cands: &[(Bx, Vec<Pc>)], bx: &Bx, v: &[Pc]) -> (bool, usize) {
+    let pist: Vec<Pc> = v.iter().copied().filter(|p| matches!(p.k, K::Piston { .. })).collect();
+    let c = families::canon(&pist);
+    let mir: Vec<Pc> = pist.iter().map(|p| p.mirror()).collect();
+    let exact = cands.iter().any(|(_, w)| families::canon(w) == c);
+    let sup = cands.iter().filter(|(b, w)| b == bx && (pist.iter().all(|p| w.contains(p)) || mir.iter().all(|p| w.contains(p)))).count();
+    (exact, sup)
+}
+
+/// The reach-matching condition alone (see `reach_ok`).
+pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
+    let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();
+    reach_ok(bx, v, &frame)
+}
+
+/// Every retracted / extended-at-rest combination of a layout's pistons (a head needs a free cell
+/// in the box outside the 3x3), as `x0 y0 pieces` lines; at most `max` of them.
+pub fn ext_variants(bx: &Bx, v: &[Pc], max: usize) -> Vec<Vec<Pc>> {
+    let base: Vec<Pc> = v.iter().map(|p| match p.k {
+        K::Piston { sticky, f, .. } => Pc { x: p.x, y: p.y, k: K::Piston { sticky, f, ext: false } },
+        _ => *p,
+    }).collect();
+    let pist: Vec<usize> = (0..base.len()).filter(|&i| matches!(base[i].k, K::Piston { .. })).collect();
+    let mut out = Vec::new();
+    for mask in 0u32..(1u32 << pist.len().min(20)) {
+        let mut w = base.clone();
+        let mut ok = true;
+        let mut occ: HashSet<(i8, i8)> = w.iter().map(|p| (p.x, p.y)).collect();
+        for (j, &i) in pist.iter().enumerate() {
+            if mask & (1 << j) == 0 {
+                continue;
+            }
+            let K::Piston { sticky, f, .. } = w[i].k else { continue };
+            let (dx, dy) = families::F[f as usize];
+            let h = (w[i].x + dx, w[i].y + dy);
+            if !bx.has(h.0, h.1) || families::in_t(h.0, h.1) || !occ.insert(h) {
+                ok = false;
+                break;
+            }
+            w[i].k = K::Piston { sticky, f, ext: true };
+        }
+        if ok && Mech::new(*bx, &w).is_some() {
+            w.sort();
+            out.push(w);
+            if out.len() >= max {
+                break;
+            }
+        }
+    }
+    out
+}
+
+/// `reachtest`: tally (verdict, passes) over a partial TSV (`line \t verdict ...`).
+pub fn reach_tally(path: &std::path::Path, w: i8, h: i8) -> Result<BTreeMap<(String, bool), usize>> {
+    let mut tally: BTreeMap<(String, bool), usize> = BTreeMap::new();
+    for l in std::fs::read_to_string(path)?.lines() {
+        let mut it = l.split('\t');
+        let (Some(line), Some(vd)) = (it.next(), it.next()) else { continue };
+        let Ok(items) = parse_lines(line, w, h) else { continue };
+        for (bx, v) in items {
+            let ok = reach_test(&bx, &v);
+            *tally.entry((vd.to_string(), ok)).or_default() += 1;
+        }
+    }
+    Ok(tally)
 }
 
 /// `--door-offset dx,dy`: only this door offset in the box (columns left of / rows below the door).
@@ -2027,7 +2248,7 @@ pub fn find_cycle(cx: &Cx, cap: usize) -> Option<(Vec<E>, Vec<E>)> {
     let tcells: Vec<usize> = (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).filter(|&(x, y)| bx.has(x, y)).map(|(x, y)| bx.idx(x, y)).collect();
     let h_open = |s: &St| -> u32 { tcells.iter().map(|&i| if s.g[i] == AIR { 0 } else if i == ci { 2 } else { 1 }).sum() };
     let none = Fp::default();
-    let (opens, _) = astar_sub(cx, &cx.rest, &|s| m.is_open(s), &h_open, cap, 8, &none);
+    let (opens, _) = astar_sub(cx, &cx.rest, &|s| cx.is_goal(&Goal::Open, s), &h_open, cap, 8, &none);
     let rest = cx.rest.clone();
     let n = bx.n();
     let h_close = |s: &St| -> u32 {
@@ -2041,6 +2262,24 @@ pub fn find_cycle(cx: &Cx, cap: usize) -> Option<(Vec<E>, Vec<E>)> {
     };
     for (o, open) in &opens {
         let mask = bad_holes(m, o);
+        // FULL FRAME: the cells kept air must be air on the open path too (static stones go there)
+        if FULL_FRAME.load(Ordering::Relaxed) && !mask.is_empty() {
+            let mut s = rest.clone();
+            let mut ok = mask.ones().all(|i| s.g[i] == AIR);
+            for e in open {
+                if !ok {
+                    break;
+                }
+                match m.apply(&s, *e) {
+                    Out::Ok(nx) => s = nx,
+                    _ => ok = false,
+                }
+                ok = ok && mask.ones().all(|i| s.g[i] == AIR);
+            }
+            if !ok {
+                continue;
+            }
+        }
         let (back, _) = astar_sub(cx, o, &|s| *s == rest, &h_close, cap, 1, &mask);
         if let Some((_, close)) = back.into_iter().next() {
             if replay_ok(m, &rest, open, &close) {
@@ -2075,14 +2314,17 @@ pub fn decide_sweep(cx: &Cx, cap_lean: usize, astar: usize) -> (Verdict, Stats) 
             return (Verdict::NoOpen, Stats { open_states: n, close_states: 0 });
         }
     }
-    if let Some(r) = main_path(cx, 100_000, 0) {
+    let first = cap_lean.min(100_000);
+    if let Some(r) = main_path(cx, first, 0) {
         return r;
     }
     if let Some((open, close)) = find_cycle(cx, astar) {
         return (Verdict::Found { open, close }, Stats { open_states: 0, close_states: 0 });
     }
-    if let Some(r) = main_path(cx, cap_lean, 0) {
-        return r;
+    if cap_lean > first {
+        if let Some(r) = main_path(cx, cap_lean, 0) {
+            return r;
+        }
     }
     (Verdict::Capped { opens: 0 }, Stats { open_states: cap_lean, close_states: 0 })
 }

@@ -1,0 +1,13 @@
+# m79q (m10top a3871e5): B's chain region (2,5;3,5;4,5, plan-from --close) with B's pulse ONE gt later
+# than m79q's real chain (B extends t9, pulls t11) + m79q's ideal A last pull / L1/L2
+design designs/piston-door-3x3/tracks/m10top/m79q.txt
+open 9 set 1 5 1 minecraft:redstone_block
+open 11 clear 1 5 1
+close 4 set 1 5 1 minecraft:redstone_block
+close 6 clear 1 5 1
+open 14 set 1 4 -1 minecraft:redstone_block
+open 16 clear 1 4 -1
+open 14 set -2 2 -1 minecraft:redstone_block
+open 16 clear -2 2 -1
+close 0 set -2 2 -1 minecraft:redstone_block
+close 2 clear -2 2 -1
