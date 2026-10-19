@@ -84,3 +84,22 @@ see each other, and the bottom cannot reach either: one lever wakes only one top
   right half wakes at 20 with j6's top: too late. `mech/j12.txt`: a DUST top (dust on the three top
   pullers, k2; MR+BR at k4) so the right half wakes at 6; its right half must now be re-timed (cosearch
   run 3).
+
+## 7. Lever polarity is free (vjeux 04:50Z): levers hung on a side puller
+
+* A lever hung on the WEST face of a side puller level-holds that puller directly and the one BELOW it by
+  QC (the lever touches the lower puller's QC cell), with zero wiring, ON at rest = closed. Both move
+  once per edge, so an observer watching each gives ONE clean pulse per edge (no doubles, no mergers).
+* `mech/t8.txt` (+ `t8.ideal`): wire64b's 7x8-014 with BR pulled right, so the ONLY piston below the
+  door is U(1,-2). Mechanism WORKS with ideal inputs. Its top has a causality problem for the lever trick:
+  A's high feed (2,4) is in the top-right while a lever on the left side wakes the top-left first, and
+  the two halves only meet through the elevator (B would move before A).
+* `mech/t10.txt` (+ `t10.ideal`, `t10w.ideal` windows): 7x8, the lever on TL's puller (TL + ML held),
+  BL DOWN (U (0,-2)), BM down (U (1,-2)), TM up then LEFT into C0 (corner E(-1,3)), C up 2 (A/B), TR UP,
+  MR/BR right. The top-left owns the whole elevator (A's feed (0,4) is free because TL goes left) and gets
+  the lever's clean pulse from an observer (-2,3) on TL's puller; the bottom-left gets one from (-2,0) on
+  ML's puller. Static L0, R2, F2. WORKS with ideal inputs; windows: TR, MR/BR, BL free (0..60), BM >= 30,
+  the elevator may start 0..12 after the flip. `mech/t10s.txt` = that seed with the real lever and the
+  four observers; cosearch run 5 wires it (assist mode).
+* Tool fix: `cosearch search`'s screen required an unpowered lever at rest (the judge already accepted
+  either polarity): fixed in its own commit.
