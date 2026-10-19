@@ -174,3 +174,47 @@ lever/observer chains; not diagnosed yet).
 * 48b status: exact model (no `--sound`) UNSAT at <= 27 wiring for both c79's and pockets' timing
   (one-warp 0 and 4); `--sound` finds 27-wiring models that all fail the judge so far (thousands of
   CEGAR iterations; pk6/pk8 runs on devvm55676 /tmp/sw-pk6-*.log, /tmp/sw-pk8-ln.log).
+
+## Results 2026-10-19, second shift (satwire2, devvm55676)
+* The first shift's background runs, checked: no door. 48b hunt (pk6-s0/s4/s8/scl, pk8-ln on
+  pockets' timing, `--sound`): ~1600 candidates, every one rejected by the judge; m79 top (`m79gs`,
+  18 window plans with `--sound`): 18/18 UNSAT; all-plans batches (bD, bF): no door; c79s2 (c79's
+  timing, minimizing): its best stays the 52b c79 re-wiring; e89b calibration (cal1w) UNSAT; the 72b
+  re-wirings (ff72) found nothing in 1.5 h.
+* `--explain <candidate>` (new): the candidate's wiring fixed on the target recording (what the
+  solver believed) against its real run. On the 48b failures: the R pair hangs under a ceiling lever
+  on a note block that a dust on top also powers; on the lever flip the upper puller reads its power
+  while the dust still powers the note block (QC through it), the dust then turns off without
+  updating the piston (it is 3 cells away): the puller stays extended (a BUD), the lower one too.
+* `--update-order` (new): which power changes UPDATE the piston (direct power always; QC power
+  through a conductor next to the cell above, powered by a diode into it, a dust on it or a lever on
+  it, never). A retraction needs those non-updating sources off the tick before (or a wiring update,
+  or a justified neighbor mechanism change in the block-event phase); an extension needs an updating
+  source rising (or held power plus an update, a moving block next to it finishing the tick before,
+  or its own placement). Known answer `--check --update-order --sound` over the archive: 66 of 67
+  flat doors accepted (flat-v7-full rejected as before, without the update clauses); all 5 saved
+  48b judge failures rejected.
+* **48b hunt with `--update-order`: UNSAT** for pockets' timing (exact, one-warp 4 and 8, per-cluster
+  warps 6, local nogood) and c79's (exact, one-warp 4): no 48-block re-wiring of the 63b mechanism
+  exists in the encoding (`--sound` QC holds + update order, retiming <= 8). The thousands of
+  `--sound` 48s were all this BUD.
+* `--exact-order` (new, with `--sound`): torches read after the observer ticks (FIFO): a 2 gt observer
+  pulse into a torch's block has ended when the torch's tick reads it (e88-t7b re-wiring candidates
+  used `--sound`'s free read order: torch (3,-4) under dust (4,-3) never turns off in the game).
+* `--retime` (new, ideal plans): touching events of different clusters keep only their order (no
+  3 gt safe gap); each candidate's timing is replayed in redsim with the plan's inputs moved with
+  their pistons' clusters; a timing that breaks the mechanism is blocked for every wiring. Results:
+  m79 top windows (18 plans) still UNSAT with order-only constraints; n79-009 (c79's mechanism, the
+  calibration) UNSAT with and without it (mech-synth's motion pattern, every piston pulse-type and
+  retracted at rest, is not c79's: the R pair lever-held at rest, the elevator sequence).
+* mechspace single-U 7x8 sym plans (sl-027 = c78t, sl-030 = c78, sl-049, sl-053, sl-078, sl-079):
+  UNSAT in seconds with ONE-piston cores (close (-1,-1) in sl-027/030, (-2,0) in 049/053, (3,-1) in
+  078, (4,1) in 079), also without `--full-frame`/`--forbid-ring`: that piston's close pulse cannot
+  come from the 2-3 free cells next to it and its QC cell (no clock source there in a 7x8 box).
+  A layout filter worth adding to mechspace: every piston needs a free cell next to it (or next to
+  its QC cell) that can see a mechanism change at the right time.
+* c2e's m88c (8x8, A's hold the only ideal input): UNSAT, core A (1,3) alone, also with `--period2`;
+  with the hold kept ideal (`--keep-ideal "1,3"`) it is SAT and judged OK: the model agrees with the
+  design, the box has no room for the hold source.
+* `--period2` (new): two cycles (open1, close1, open2, close2) share the placement, each with its
+  own warp, each ending where the next starts: a copper bulb may toggle once per cycle.
