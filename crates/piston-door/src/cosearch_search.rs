@@ -513,7 +513,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
     }
     pts -= 2 * unsupported;
     let lever = BlockPos::new(g.lever.0, g.lever.1, g.z);
-    // Either rest polarity counts (vjeux, 2026-10-19), like the judge: the first flip opens.
+    // either lever polarity at rest (vjeux 2026-10-19)
     if !matches!(w.get(lever), Block::Lever { .. }) {
         return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
@@ -522,10 +522,21 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
         return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     pts += 1;
-    // the plane's cells (the box + 1) compared after each close
+    // the plane's cells (the box + 1): periodic rest state (main 96a62d6, like the judge):
+    // every cycle opens and closes, and some closed state repeats an earlier one (the rest
+    // included) within cycles + MAX_PERIOD_EXTRA cycles
     let rest: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
+    let mut seen_closed: Vec<Vec<Block>> = vec![rest];
+    let mut periodic = false;
     let rec_cells = if p.reference.is_empty() { Vec::new() } else { plane_cells_wide(&w, z) };
-    for cycle in 0..p.cycles {
+    let fail = |pts: i32| Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+    for cycle in 0..p.cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= p.cycles && periodic {
+            break;
+        }
+        // points of this cycle (34 when everything is right); the extra cycles only check
+        let scoring = cycle < p.cycles;
+        let mut cp = 0;
         w.use_block(lever);
         let rec = cycle == 0 && !rec_cells.is_empty();
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
@@ -541,22 +552,22 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
             let s = w.get(at(*x, *y));
             !cs::collides(&s) && !cs::is_moving(&s)
         }).count() as i32;
-        pts += open_n;
+        cp += open_n;
         if open_n >= 7 {
             // the ring: only air, door blocks or quartz-like blocks (FULL seamless, open)
             let clean = p.ring.iter().filter(|(x, y)| {
                 let s = w.get(at(*x, *y));
                 s.is_air() || (cs::quartz_like(&s) && !cs::is_moving(&s))
             }).count() as i32;
-            pts += clean;
+            cp += clean;
             // nothing of the build outside the box
             let outside = plane_cells(p, z).iter().filter(|q| !in_box(p, q.x, q.y) && *q != &lever && !w.get(**q).is_air()).count() as i32;
-            pts -= outside;
+            cp -= outside;
         }
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+            return fail(if scoring { pts + cp } else { pts });
         }
-        pts += 1;
+        cp += 1;
         w.use_block(lever);
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
@@ -568,19 +579,30 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
             }
         });
         let back = p.door_cells.iter().filter(|(x, y)| w.get(at(*x, *y)) == p.door_block).count() as i32;
-        pts += back;
+        cp += back;
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+            return fail(if scoring { pts + cp } else { pts });
+        }
+        if back == 9 {
+            cp += 3;
         }
         let now: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
-        let same = now.iter().zip(rest.iter()).filter(|(a, b)| a == b).count() as i32;
-        let n = rest.len() as i32;
-        if same == n {
-            pts += 3;
+        if seen_closed.iter().any(|s| *s == now) {
+            periodic = true;
         } else {
-            pts -= (n - same).min(3);
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+            seen_closed.push(now);
         }
+        if scoring {
+            pts += cp;
+            if cp < 34 {
+                return fail(pts);
+            }
+        } else if cp < 34 {
+            return fail(pts);
+        }
+    }
+    if !periodic {
+        return fail(pts);
     }
     Score { pts, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 }
 }
