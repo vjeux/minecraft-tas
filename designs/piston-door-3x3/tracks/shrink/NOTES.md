@@ -9,6 +9,7 @@ Box: devvm55865 (shared box1). Tool: `door fill` (new, below).
 |---|---|---|---|---|
 | **archive/t7b-ob40-40b.txt** (= BEST.txt) | 63b (7x9x1) | **40** | 41 / 29 | a MOVING OBSERVER replaces t7b's merger + route (below) |
 | archive/t7b-pw42-42b.txt | 63b | 42 | 37 / 25 | route stone + note block -> one normal piston whose head pops into the watched cell |
+| **archive/t7b-sk40-40b.txt** (SCULK) | 63b | **40** | 47 / 47 | ob40 with the left wall driven by a plain sculk sensor (-2,4) hearing the lever + observer (-2,3) up + wool (-2,2) (sculk board leader was 49) |
 | archive/t7b-p42-42b.txt | 63b | 42 | 53 / 21 | bottom-right re-filled with 3 wiring sticky pistons |
 | archive/t7b-nb2-43b.txt | 63b | 43 | 37 / 25 | route note block + observer -> stone + note block (one stage less) |
 | **archive/s27-tlp50-50b.txt** | 64b (8x8x1) | **50** | 39 / 45 | pockets2's s27-trbl51 (51) + top-left A part: sticky piston (-3,3) up replaces observer + stone |
@@ -53,7 +54,12 @@ On t7b-rwfast / t7b-nb2 (43), searching 42 (no pistons in the palette):
 - sculk: walls k<=2, route k<=2, middle k<=6 (sensors, calibrated, wool): nothing.
 On t7b-pw42 (42), searching 41: middle 15 cells with pistons k<=5 connected: nothing.
 On t7b-ob40 (40), searching 39: walls k<=2 (pistons, --gaps), left k<=3 (D + gate kept), bottom-right
-k<=3 + BR watcher (pistons, --gaps): nothing. Middle k<=5 with pistons: running (runs/ob-mid-k5.log).
+k<=3 + BR watcher (pistons, --gaps): nothing. Middle 16 cells k<=5 with pistons (connected, 37
+states): nothing. Left 10 cells with D and gate FREE, pistons, --gaps, k<=5 (311M screened): nothing.
+Middle with --gaps k<=5 (reduced palette with pistons): runs/ob-midg-k5.log.
+s27-tlp50 left column ((-3,0..2), (-2,3), (-3,4), (-2,-1)) k<=2, 46 states with pistons + sculk: nothing.
+e78 (helper for e78k, 7x8 sculk, K ideal): 5 right cells + (-2,-1), k<=4 with pistons + sculk
+(46 states, --gaps): nothing; 7 free cells k<=4 and the right cells k<=5: runs/e78-*.log.
 s27-trbl51 top-left A part: no 5-block solid filling without pistons (k<=5, 32 states, --gaps).
 
 ## t7b's bottom, what it must do (ideal-rs windows on the 14 bottom wiring cells erased)
