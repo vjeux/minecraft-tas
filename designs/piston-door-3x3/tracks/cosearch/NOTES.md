@@ -112,7 +112,10 @@ port are fixed (the lever may hang OUTSIDE the box: the community volume exclude
     released at 77/79 in 3 min, 5 of 7 after 7 min (the top elevator (1,4) wired; left: the left stack
     (-2,2) and the right stack (4,2), each needing 3 pulses 6-7 gt apart). Restarted from that
     partial with only the stacks assisted and the focus grown to row 2 (the left stack's own feed
-    cell (-2,2) sits in row 2: the first focus, rows 3..6, could never wire it).
+    cell (-2,2) sits in row 2: the first focus, rows 3..6, could never wire it): 15 min, no gain.
+    Exhaustive k <= 3 over the left stack's 6 free neighbour cells ((-2,2..6), (-1,5)) with only the
+    right stack assisted: best 47/79 (3.4 M candidates): the left stack's 3-pulse train does not fit
+    in 3 changes there.
   * fm-7x8-000 with the lever pinned on the left: 7 of 10 released at 77/79 (left: (-2,0), (2,4),
     (4,1)).
   * The update-piston proposal move (vjeux, 01:51Z: a normal / sticky piston facing an empty cell
