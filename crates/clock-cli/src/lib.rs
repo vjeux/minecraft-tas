@@ -38,8 +38,8 @@ pub enum ClockCmd {
     /// the watched box. Prints one CLOCK line, then the redsim agreement check.
     Verify {
         designs: Vec<PathBuf>,
-        /// Test positions (the door judge's offsets).
-        #[arg(long, default_value_t = 8)]
+        /// Test positions (the door judge's offsets; vjeux 2026-10-19: 4 positions x 4 rotations).
+        #[arg(long, default_value_t = 4)]
         positions: usize,
         /// Only as built (default: all 4 rotations).
         #[arg(long)]
@@ -69,9 +69,13 @@ pub enum ClockCmd {
         /// One line: how it works (default: the design's first comment block).
         #[arg(long)]
         caption: Option<String>,
+        /// Keep ONE archived design per type (the earliest archived), remove the others (design,
+        /// pictures, rows) and record them in aliases.tsv; no judging.
+        #[arg(long)]
+        dedupe: bool,
         #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
         dir: PathBuf,
-        #[arg(long, default_value_t = 8)]
+        #[arg(long, default_value_t = 4)]
         positions: usize,
         #[arg(long, default_value_t = 4000)]
         horizon: u32,
@@ -99,9 +103,14 @@ pub enum ClockCmd {
         k: usize,
         #[arg(long, default_value_t = 1)]
         kmin: usize,
-        /// Longest period looked for (sets the horizon: 4 periods + 1000 gt of warmup).
+        /// Longest period looked for (the horizon: 4 periods + --warmup gt); a candidate whose
+        /// whole state does not repeat within 4x it is dropped early (e.g. `--max-period 3
+        /// --warmup 60`: the P <= 3 question).
         #[arg(long, default_value_t = 500)]
         max_period: u32,
+        /// Warmup allowance in the horizon (gt).
+        #[arg(long, default_value_t = 1000)]
+        warmup: u32,
         #[arg(long, default_value_t = 2)]
         margin: i32,
         /// Self-starting only (no block placed last).
@@ -128,12 +137,34 @@ pub enum ClockCmd {
         strip: Option<u32>,
         #[arg(long, default_value_t = 800)]
         width: u32,
-        /// Wait after moving to a clock (ms).
+        /// Wait after moving to a clock (ms; the per-sandbox shooter, used with --strip or
+        /// --one-by-one).
         #[arg(long, default_value_t = 5000)]
         hold_ms: u64,
+        /// One-world shooter: wait after a camera move (ms, plus 15 ms per block moved).
+        #[arg(long, default_value_t = 700)]
+        settle_ms: u64,
+        /// ONE world for all the clocks (clocks frozen at their moments by staggered starts, only
+        /// the camera moves: ~1-4 s a clock instead of ~13); not the default until far clocks stop
+        /// coming out blank. --strip uses the per-sandbox shooter.
+        #[arg(long)]
+        grid: bool,
         /// Take pictures that exist again.
         #[arg(long)]
         redo: bool,
+    },
+    /// (videos: the real client) For each period, every given clock's labeled video (each filmed
+    /// alone, >= 2 periods; clips already filmed are reused) after a title card, concatenated into
+    /// <out-dir>/montage-p<P>.mp4 (the per-clock videos stay in <out-dir>/clips/).
+    Montage {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        out_dir: PathBuf,
+        /// Only these periods (comma list).
+        #[arg(long, value_delimiter = ',')]
+        periods: Vec<u32>,
+        #[arg(long, default_value_t = 6.0)]
+        min_secs: f64,
     },
     /// (COORDINATOR ONLY: the X displays are shared) The clock running in the real client, a
     /// still camera framing its swept box, >= 2 periods (and >= --min-secs of footage) after its
@@ -157,6 +188,14 @@ pub enum ClockCmd {
         relabel: bool,
         #[arg(long)]
         dry_run: bool,
+    },
+    /// Merge census runs (their parts/ and params.txt) into one report: per (period, family) the
+    /// fewest blocks among MINIMAL clocks, its box and census, the minimal type count; the periods
+    /// never found below the largest. Writes Markdown to --out (default: stdout).
+    CensusReport {
+        dirs: Vec<PathBuf>,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Write designs/clocks/CATALOG.md (per period: the distinct types, families and the smallest
     /// of each; the period x family coverage matrix; the impossibility table from
@@ -242,7 +281,14 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        ClockCmd::Archive { designs, caption, dir, positions, horizon, margin, workers } => {
+        ClockCmd::Archive { designs, caption, dedupe, dir, positions, horizon, margin, workers } => {
+            if dedupe {
+                let img = dir.parent().map(|p| p.join("img")).unwrap_or_else(|| PathBuf::from(clock::shot::IMG_DIR));
+                for l in clock::catalog::dedupe(&dir, &img)? {
+                    println!("{l}");
+                }
+                return Ok(());
+            }
             if designs.is_empty() {
                 bail!("clock archive <design>...");
             }
@@ -252,6 +298,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             for path in &designs {
                 match clock::catalog::archive(&pool, path, &o, &dir, caption.as_deref()) {
                     Ok(a) if a.new => println!("ARCHIVED {}: {}", a.file.display(), a.summary),
+                    Ok(a) if a.summary.starts_with("same type") => println!("SAME TYPE {}: {}", path.display(), a.summary),
                     Ok(a) => println!("ALREADY {}: {}", a.file.display(), a.summary),
                     Err(e) => {
                         failed += 1;
@@ -263,14 +310,27 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, redo } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo } => {
             let mut items = Vec::new();
             for p in &designs {
                 let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 items.push((stem, Clock::load(p)?));
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, redo, ..Default::default() };
-            for l in clock::shot::shots(version, &items, &o)? {
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo, ..Default::default() };
+            let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
+            for l in lines {
+                println!("{l}");
+            }
+        }
+        ClockCmd::Montage { designs, out_dir, periods, min_secs } => {
+            let mut items = Vec::new();
+            for p in &designs {
+                let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                items.push((stem, Clock::load(p)?));
+            }
+            let o = clock::video::ClockVideoOptions { min_secs, ..Default::default() };
+            let ps = (!periods.is_empty()).then_some(periods.as_slice());
+            for l in clock::video::montage(version, &items, &out_dir, ps, &o)? {
                 println!("{l}");
             }
         }
@@ -291,11 +351,21 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 if dry_run { format!("; label: {}", out.with_extension("label.png").display()) } else { String::new() }
             );
         }
+        ClockCmd::CensusReport { dirs, out } => {
+            let md = clock::census::report(&dirs)?;
+            match out {
+                Some(p) => {
+                    std::fs::write(&p, &md)?;
+                    println!("{}", p.display());
+                }
+                None => print!("{md}"),
+            }
+        }
         ClockCmd::Catalog { dir, out, coverage } => {
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
         }
-        ClockCmd::Census { dims, palette, k, kmin, max_period, margin, no_kick, workers, out } => {
+        ClockCmd::Census { dims, palette, k, kmin, max_period, warmup, margin, no_kick, workers, out } => {
             let d: Vec<i32> = dims.split('x').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
             if d.len() != 3 || d.iter().any(|x| *x < 1) {
                 bail!("--box AxBxC, got {dims:?}");
@@ -306,7 +376,8 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 palette: clock::census::expand_palette(&palette)?,
                 k,
                 kmin,
-                horizon: 4 * max_period + 1000,
+                horizon: 4 * max_period + warmup,
+                max_period,
                 margin,
                 kick_last: !no_kick,
                 workers,

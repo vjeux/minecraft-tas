@@ -359,14 +359,15 @@ fn checks() -> Vec<Check> {
     // non-clock rejected
     const CAL: &str = "designs/clocks/calibration";
     let cal: Vec<(&str, &str)> = vec![
-        ("observer-pair", "cal-observer-pair period 6 gt, on 2/6, edges 1, warmup 0, family observer, 2 blocks, 2x1x1"),
-        ("comparator-subtract", "cal-comparator-subtract period 4 gt, on 2/4, edges 1, warmup 2, family comparator+redstone_wire, 9 blocks, 3x2x2"),
-        ("torch-repeater", "cal-torch-repeater period 20 gt, on 10/20, edges 1, warmup 0, family redstone_torch+redstone_wire+repeater, 14 blocks, 3x2x3"),
-        ("bulb-observer", "cal-bulb-observer period 28 gt, on 14/28, edges 1, warmup 0, family copper_bulb+observer+redstone_wire+repeater, 13 blocks, 3x2x3"),
-        ("observer-piston", "cal-observer-piston period 8 gt, on 4/8, edges 2, warmup 3, family observer+redstone_wire+sticky_piston, 8 blocks, 3x4x1"),
-        ("sculk-piston", "cal-sculk-piston period 49 gt, on 30/49, edges 1, warmup 5, family repeater+sculk_sensor+sticky_piston, 6 blocks, 5x2x2"),
-        ("hopper-pair", "cal-hopper-pair period 14 gt, on 7/14, edges 1, warmup 3, family comparator+hopper, 4 blocks, 3x2x1"),
-        ("burnout-torch", "cal-burnout-torch period 220 gt, on 32/220, edges 8, warmup 0, family redstone_torch+redstone_wire+repeater, 10 blocks, 3x2x2"),
+        // (periods print with their real time since 2026-10-19, vjeux: "20 gt (1 s)")
+        ("observer-pair", "cal-observer-pair period 6 gt (0.3 s), on 2/6, edges 1, warmup 0, family observer, 2 blocks, 2x1x1"),
+        ("comparator-subtract", "cal-comparator-subtract period 4 gt (0.2 s), on 2/4, edges 1, warmup 2, family comparator+redstone_wire, 9 blocks, 3x2x2"),
+        ("torch-repeater", "cal-torch-repeater period 20 gt (1 s), on 10/20, edges 1, warmup 0, family redstone_torch+redstone_wire+repeater, 14 blocks, 3x2x3"),
+        ("bulb-observer", "cal-bulb-observer period 28 gt (1.4 s), on 14/28, edges 1, warmup 0, family copper_bulb+observer+redstone_wire+repeater, 13 blocks, 3x2x3"),
+        ("observer-piston", "cal-observer-piston period 8 gt (0.4 s), on 4/8, edges 2, warmup 3, family observer+redstone_wire+sticky_piston, 8 blocks, 3x4x1"),
+        ("sculk-piston", "cal-sculk-piston period 49 gt (2.45 s), on 30/49, edges 1, warmup 5, family repeater+sculk_sensor+sticky_piston, 6 blocks, 5x2x2"),
+        ("hopper-pair", "cal-hopper-pair period 14 gt (0.7 s), on 7/14, edges 1, warmup 3, family comparator+hopper, 4 blocks, 3x2x1"),
+        ("burnout-torch", "cal-burnout-torch period 220 gt (11 s), on 32/220, edges 8, warmup 0, family redstone_torch+redstone_wire+repeater, 10 blocks, 3x2x2"),
     ];
     let mut s = args("clock sim -q");
     s.extend(cal.iter().map(|(f, _)| format!("{CAL}/{f}.txt")));
@@ -405,7 +406,7 @@ fn checks() -> Vec<Check> {
         steps: vec![args(&format!("clock verify {CAL}/observer-pair.txt {CAL}/comparator-subtract.txt --positions 2 --horizon 1000 --workers 8"))],
         timeout: 600,
         pred: Box::new(|o| {
-            for want in ["CLOCK: cal-observer-pair period 6 gt", "CLOCK: cal-comparator-subtract period 4 gt"] {
+            for want in ["CLOCK: cal-observer-pair period 6 gt (0.3 s)", "CLOCK: cal-comparator-subtract period 4 gt (0.2 s)"] {
                 let l = o[0].lines().find(|l| l.starts_with(want)).ok_or(format!("no `{want}`: {}", tail(&o[0])))?;
                 if !l.ends_with("robust") {
                     return Err(format!("not robust: {l}"));
