@@ -1533,6 +1533,9 @@ pub enum DoorCmd {
         /// levers, lamps, note blocks, targets), placed like the judge does.
         #[arg(long)]
         mixed: bool,
+        /// Shaped blocks among the solids: slabs, trapdoors, scaffolding, fence gates.
+        #[arg(long)]
+        shapes: bool,
         /// Replay every gadget drive script of designs/gadgets (entity gadgets skipped).
         #[arg(long)]
         gadgets: bool,
@@ -1631,6 +1634,14 @@ pub enum DoorCmd {
         /// Replay exported `door ideal` plans in the real simulator (2 cycles, 4 positions).
         #[arg(long, num_args = 1..)]
         verify_ideal: Vec<PathBuf>,
+        /// Input merging: the fewest independent input signals per solved mechanism (pistons
+        /// switched together), written to GROUPS.tsv + *-groups.ideal with --export.
+        #[arg(long)]
+        groups: bool,
+        /// Piston removal + one helper (stone, obsidian, redstone block, observer) in each free
+        /// cell, for each --check mechanism: variants with one piston fewer.
+        #[arg(long)]
+        shrink: bool,
     },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
@@ -3471,7 +3482,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        DoorCmd::Fullmech { check, boxes, pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal } => {
+        DoorCmd::Fullmech { check, boxes, pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink } => {
             let boxes = match boxes {
                 Some(b) => crate::families::parse_boxes(&b)?,
                 None => Vec::new(),
@@ -3481,14 +3492,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => None,
             };
             let pulses: Vec<u8> = pulses.split(',').filter(|s| !s.is_empty()).map(|s| s.trim().parse::<u8>()).collect::<std::result::Result<_, _>>()?;
-            let o = crate::fullmech::CliOpts { check, boxes, pmax: pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, slime, export, verify_ideal };
+            let o = crate::fullmech::CliOpts { check, boxes, pmax: pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, slime, export, verify_ideal, groups, shrink };
             crate::fullmech::cli(&o)?;
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
         }
-        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace } => {
-            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace };
+        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace } => {
+            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace };
             crate::pistfuzz::cli(version, &o)?;
         }
         DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
