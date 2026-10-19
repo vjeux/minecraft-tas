@@ -23,7 +23,7 @@ pub enum DoorCmd {
     Fill {
         design: PathBuf,
         /// Region cells, door coordinates `x,y;x,y` (ranges `x0..x1,y` allowed).
-        #[arg(long)]
+        #[arg(long, default_value = "")]
         cells: String,
         /// Cells always filled, `x,y=state|state;...` (shorthands as --palette); not counted in --k.
         #[arg(long, default_value = "")]
@@ -37,7 +37,8 @@ pub enum DoorCmd {
         kmin: usize,
         /// Comma list of states or shorthands: stone, glass, obsidian, wool, obs, obsh, obsv, rep,
         /// rep1..rep4, rep12, dust, note, lamp, target, torch, wtorch, cmp, bulb, trap, dropper,
-        /// sculk, calib, redblock.
+        /// sculk, calib, redblock, sticky / piston (retracted, 4 facings; stickyh, stickyv, pistonh,
+        /// pistonv: horizontal / vertical only).
         #[arg(long, default_value = "stone,obs,rep,dust,note,lamp,target,torch,wtorch")]
         palette: String,
         /// Fillings may be several pieces, each touching the build.
@@ -57,6 +58,9 @@ pub enum DoorCmd {
         /// Accept finds with at most this many blocks placed (0: any).
         #[arg(long, default_value_t = 0)]
         max_blocks: usize,
+        /// Accept finds with at most this community volume (0: any).
+        #[arg(long, default_value_t = 0)]
+        max_volume: i32,
         /// Only count the fillings.
         #[arg(long)]
         count: bool,
@@ -65,6 +69,16 @@ pub enum DoorCmd {
         /// Accept doors that pass the judge without FULL seamless / hallway / frame 12/12 too.
         #[arg(long)]
         any_seamless: bool,
+        /// Region cells may hold (wiring) pistons; put piston states in the palette to re-grow them.
+        #[arg(long)]
+        allow_pistons: bool,
+        /// Accept finds that are not rotation-safe (by default each find must also pass the judge
+        /// turned 90/180/270 degrees, on redsim).
+        #[arg(long)]
+        any_rotation: bool,
+        /// Only run the redsim rotation check on these designs and exit (calibration).
+        #[arg(long)]
+        rotation_only: bool,
     },
     /// Flip a design's lever N times in redsim at the judge's 4 positions and check it alternates
     /// between an open state (opening clear, frame 12/12) and a closed one (cycle.rs). Accepts a
@@ -216,6 +230,10 @@ pub enum DoorCmd {
         /// each edge (or none), and print which starts work: which inputs a sensor could drive.
         #[arg(long)]
         holds: Option<i64>,
+        /// The old input rule: plan blocks appear between ticks, after tick t (default: in tick
+        /// t's tile-tick phase, where an observer's output arrives; see ideal.rs).
+        #[arg(long)]
+        between_ticks: bool,
     },
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
@@ -283,7 +301,16 @@ pub enum DoorCmd {
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
-    if let DoorCmd::Fill { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, count, report, any_seamless } = cmd {
+    if let DoorCmd::Fill { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, max_volume, count, report, any_seamless, allow_pistons, any_rotation, rotation_only } = cmd {
+        if rotation_only {
+            let (_, door) = crate::cosearch::load_door(&design)?;
+            let opts = crate::cosearch::JudgeOpts::with_extra(extra);
+            match crate::fill::rotation_check_rs(&door, &opts) {
+                Ok(()) => println!("{}: rotation-safe on redsim (turned 90, 180, 270 degrees, {} positions each)", design.display(), opts.offsets.len()),
+                Err(e) => println!("{}: NOT rotation-safe on redsim: {e}", design.display()),
+            }
+            return Ok(());
+        }
         let o = crate::fill::FillOpts {
             design,
             cells: crate::fill::parse_cells(&cells)?,
@@ -291,7 +318,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             cell_palette: crate::fill::parse_cell_states(&cell_palette)?,
             k,
             kmin,
-            palette: palette.split(',').map(|s| s.trim().to_string()).collect(),
+            palette: crate::fill::split_top(&palette, ','),
             gaps,
             threads,
             screen_cycles,
@@ -299,9 +326,12 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             out_dir,
             max_finds,
             max_blocks,
+            max_volume,
             count,
             report,
             any_seamless,
+            allow_pistons,
+            any_rotation,
         };
         let _ = version;
         return crate::fill::run(&o);
@@ -415,7 +445,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
-        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds } => match compact_dir {
+        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds, between_ticks } => match { crate::ideal::cli_phase(between_ticks); compact_dir } {
             Some(dir) => {
                 std::fs::create_dir_all(&dir)?;
                 for s in &schedule {

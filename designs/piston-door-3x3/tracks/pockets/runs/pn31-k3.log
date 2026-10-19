@@ -1,0 +1,15 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/f131-pn31.ideal: 1 input cells off the plane ([(-1, 3)]), 2 / 2 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/f131-pn31.txt: 50 blocks in the box, screen 79/79
+seed screen 79/79 with 1 inputs assisted
+windows (2 groups, 0.0 s):
+  input (-1,3) open  t7 pulse 2 gt: window [-1, +0]
+  input (-1,3) close t7 pulse 2 gt: window [-1, +2]
+2 pocket cells in 2 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [false]; 62 swept cells
+  pocket 0: 1 cells [(-1, -1)]
+  pocket 1: 1 cells [(3, -1)]
+pocket 0: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 0: 61 screened, 55 keep the door working, 0.3 s; driven input sets: none
+pocket 1: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 1: 63 screened, 36 keep the door working, 0.3 s; driven input sets: none
+groups the seed's own wiring already drives: (-1,3)o7 (-1,3)c7
+0 combinations verified, 0 finds, 1 s total

@@ -1,0 +1,10 @@
+fill designs/piston-door-3x3/tracks/shrink/wip/t7b-rwfast.txt: 12 region cells (11 free, 1 fixed), base 35 blocks (design 43), k 0..=6, global palette 13 states, gaps allowed
+649 subsets pass the connectivity rule; 1409189497 fillings to screen in 641437 work items
+[    60s] 33809409 screened (563248/s), 177534213 pruned, item 96283/641437, 0 pass the 1-position screen, 0 finds
+[   120s] 58941175 screened (490908/s), 394813620 pruned, item 206618/641437, 0 pass the 1-position screen, 0 finds
+[   180s] 84459633 screened (468953/s), 563472940 pruned, item 294992/641437, 0 pass the 1-position screen, 0 finds
+[   240s] 111966375 screened (466274/s), 717315696 pruned, item 377511/641437, 0 pass the 1-position screen, 0 finds
+[   300s] 140032857 screened (466534/s), 845412923 pruned, item 448615/641437, 0 pass the 1-position screen, 0 finds
+[   360s] 168294202 screened (467239/s), 979681109 pruned, item 522583/641437, 0 pass the 1-position screen, 0 finds
+[   420s] 195506373 screened (465232/s), 1106463720 pruned, item 592695/641437, 0 pass the 1-position screen, 0 finds
+done in 466 s: 216400777 screened, 1192788720 pruned, 0 passed the screen, 0 finds
