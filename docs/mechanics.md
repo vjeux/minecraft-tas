@@ -326,6 +326,45 @@ Every redstone component delays by an even number of game ticks. Odd ticks come 
 * **In one plane** (flat): repeaters cannot be locked (their sides face out of the plane), and a
   lever powers its neighbors, so it must stay off every piston and quasi cell.
 
+### Wiring tricks for tight flat boxes (found 2026-10-18 evening, below-72 hunt)
+
+Read these before wiring a flat door in a box smaller than 8x9. Each names its proof (gadget or
+track notes).
+
+* **Pulse merger** (`pulse-merge`, flat-seam e89): observer -> delay-2 repeater -> observer turns a
+  double pulse (two 2 gt pulses up to 4 gt apart) into ONE 2 gt pulse; 8 gt apart stays two
+  (`merger-gap`).
+* **Observer busy window** (wire56 NOTES sec 5): an observer ignores changes while it is powered or
+  has a tick pending, so a piston firing twice exactly 6 gt apart gives its watcher 3 pulses (an
+  odd count), and an observer on a door block's PARKING cell can see 3 changes per edge. Links
+  between wiring regions are therefore not always even (this refutes the parity premise of box56's
+  7x8 proof and of `door topology`).
+* **Memory link** (`memory-link`, wire56): waxed bulb B1 -> comparator C1 -> bulb B2 -> comparator
+  C2 -> observer gives exactly one 2 gt pulse per lever edge from any even input (~7 cells with the
+  comparator floors). A single bulb + comparator window FAILS on close for a pull-type piston
+  (`memory-window`: the long window pushes the block back, the sticky retract pulls it out again).
+* **Torch link** (`torch-link`, box72): a side piston held extended by a torch on the lever's
+  block moves once per flip, so the observer watching it fires once (a parity-clean link). Any
+  LEVEL-held piston is such a link (wire64 on 8x8-118: E3+ and E5+).
+* **Lever outside the box** (box72 m2w): only the lever is excluded from the volume; hang it on a
+  box cell from outside (its support block is inside).
+* **Conductor feeds do not update** (box64): a powered plain block above a piston quasi-arms it
+  without updating it, so pist19r's B can be fed by a conductor at (2,5) without firing A.
+* **Note-block window** (wire64 w102-left): a note block under a cross dust carries a window into a
+  piston; an observer watching the note block fires at both ends of the window.
+* **Pitfall: a real observer next to a pull-type piston fires twice per pulse** (start of the
+  extension and end of the spit retraction), 4 gt apart (flat-seam cd8-bw).
+* **Dropper/dispenser = QC power sensor**: immovable full conductor whose `triggered` follows
+  power including the cell above (QC), re-read on neighbor updates only and set WITHOUT neighbor
+  updates; an observer facing it fires on each flip.
+* **Non-conducting full blocks** (glass, tinted glass, glowstone, sea lantern, waxed copper grate):
+  sturdy (they hold dust, diodes, torches) but never powered, so they stop leaks into neighboring
+  pistons and quasi cells.
+* **The only 1 gt delay**: a scheduled leaves distance update (persistent leaves next to a log);
+  every other component delays an even number of ticks.
+* **In-plane limits**: no repeater locking and no comparator side inputs (both need a diode at
+  z+-1).
+
 Notes for builders of fast doors:
 
 * Pistons react to a landing one tick late (landing = block-entity phase): spit (2 gt pulse) or
@@ -537,6 +576,7 @@ behavior: `mctas door drive --quiet designs/gadgets/*.drive` prints PASS/FAIL pe
 | `rail-line` | powered rails, observer, piston | (exotic) rails 1..9 power up in the click's tick (slope included), rail 10 never; an observer above rail 9 pulses 2 gt after each edge; a piston under rail 5 never moves (rails power nothing) |
 | `dispenser-qc` | dispenser, crafter, observer | (exotic) a dispenser triggers through quasi-connectivity on both edges (observer pulse 2 gt later) and cannot be pushed; a crafter ignores the same quasi signal and triggers only when powered directly |
 | `scaffold-delay` | scaffolding, observer | (exotic) breaking the block under scaffold A: A turns distance 1 one tick later, the scaffold above it one tick after that, an observer watching it pulses 2 gt later; placing it back reverses it (a 1 gt delay chain) |
+| `torch-link` | lever, block, torch, sticky piston (extended at rest), observer | (box72) a LEVEL-driven link piston: a torch on the lever's block holds a sticky piston extended (head stuck to its block); lever on: torch off 2 gt later, the piston retracts and pulls its block; lever off: it pushes it back. It moves once per edge, so an observer watching it pulses exactly ONCE per edge (a pull-type pulse piston gives two: the parity problem). A 7-wide flat door's side middle puller held this way (torch at (-2,0) on the lever's block (-2,-1)) is watched from (-2,2): a parity-clean link from below the side cut at y = 1 to above it, no merger |
 
 The library also holds `hold-2rep`, `note-watch`, `sculk-hold-cm` and `silent-hold-rb` (variants
 used by single tracks; their drive scripts say what they prove).

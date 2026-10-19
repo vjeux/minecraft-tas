@@ -1,0 +1,25 @@
+name: gadget-torch-link
+# Torch link (box72): a level-driven link piston. A sticky piston P held EXTENDED at rest by a
+# redstone torch T (its head H stuck to the block K), the torch standing on a block S that the
+# lever powers. Lever on: the torch turns off (2 gt), P retracts and pulls K one cell; lever off:
+# the torch relights, P extends and pushes K back. P moves exactly once per lever edge, so the
+# observer O watching it pulses exactly ONCE per edge (a pull-type pulse piston gives two). In a
+# 7-wide flat door this is the parity-clean link across the side cut at y = 1: ML's puller
+# torch-held from below (torch at (-2,0) on the lever's block (-2,-1)), watched from (-2,2).
+origin: 0 0 0
+palette:
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  S minecraft:stone
+  T minecraft:redstone_torch[lit=true]
+  P minecraft:sticky_piston[extended=true,facing=east]
+  H minecraft:piston_head[facing=east,short=false,type=sticky]
+  K minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+layer 0:
+  LS
+layer 1:
+  .T
+layer 2:
+  .PHK
+layer 3:
+  .O
