@@ -59,6 +59,7 @@ pub fn cli(raw: &[String]) -> Result<()> {
         Some("bmc") => bmc::cli(&a),
         Some("catalog") => catalog(&a),
         Some("batch") => batch(&a),
+        Some("fill-column") => fill_column(&a),
         _ => bail!("usage: door boxproof fuzz|case|bmc|catalog|batch [--flags]"),
     }
 }
@@ -180,6 +181,36 @@ fn batch(a: &Args) -> Result<()> {
     for h in hs {
         let _ = h.join();
     }
+    Ok(())
+}
+
+/// Fill the LAST cell of markdown table rows: `fill-column --file F --map M` where M has lines
+/// `<row first-cell prefix>\t<new cell>`; a row whose last cell is `?` and whose first cell
+/// starts with a prefix gets the new cell (a doc helper for docs/coverage.md's tool columns).
+fn fill_column(a: &Args) -> Result<()> {
+    let file = a.s("file").ok_or_else(|| anyhow::anyhow!("--file"))?;
+    let map: Vec<(String, String)> = std::fs::read_to_string(a.s("map").ok_or_else(|| anyhow::anyhow!("--map"))?)?
+        .lines()
+        .filter_map(|l| l.split_once('\t').map(|(k, v)| (k.to_string(), v.to_string())))
+        .collect();
+    let text = std::fs::read_to_string(file)?;
+    let mut out = String::new();
+    let mut n = 0;
+    for line in text.lines() {
+        let mut l = line.to_string();
+        if let Some(rest) = line.strip_prefix("| ") {
+            if let Some(stem) = line.strip_suffix(" ? |") {
+                if let Some((_, v)) = map.iter().find(|(k, _)| rest.starts_with(k.as_str())) {
+                    l = format!("{stem} {v} |");
+                    n += 1;
+                }
+            }
+        }
+        out.push_str(&l);
+        out.push('\n');
+    }
+    std::fs::write(file, out)?;
+    println!("{n} rows filled");
     Ok(())
 }
 
