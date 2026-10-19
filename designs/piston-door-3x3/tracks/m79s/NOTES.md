@@ -34,3 +34,8 @@
   no legal cell: (-2,5) powers the dust (-1,5) (B for 30 gt), (-2,4) QC-powers L2, (0,4) powers A.
 - Copper-bulb T flip-flop (1 tap per activation) needs sensor + bulb + comparator + observer: no room
   next to the fixed B/A chain ((-1,3),(-1,4),(-1,5),(0,5)); the comparator can only read through (-1,4).
+
+## 7x8: m10top's m10f (A's hold + L0 ideal) with sculk (08:05Z-)
+- Windows (ideal-rs): A's hold start plan 7..9 for 3..5 gt (start 7: 3-5, 8: 3-4, 9: 3); L0 any 0..40.
+- Only 2 free cells ((-1,3), (3,3)): pockets k=3 with the sculk palette: no filling drives the hold or L0.
+- cosearch search (sculk + wool palette, pistons locked, 56 threads, 25 min): running.
