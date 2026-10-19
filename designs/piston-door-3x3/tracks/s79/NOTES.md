@@ -263,3 +263,13 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
     lowered s (`L3f.ideal`, M and s2 ideal).
   * satwire3: L3b with L3a's top kept is UNSAT (core: close TP + close s; every TP source in the free cells
     disturbs s's close power).
+- 15:33Z: the first 7x8 exists (e78-56b-40-40b wool / e78st-56b-40-40b stone door, 51/15, sculk, by e78 +
+  door fill --keep). New goal from the coordinator: a SOLID 7x8, or a faster/smaller sculk one from c78z.
+  L3a (44 blocks with 2 ideal inputs) opens and closes in 40 ticks.
+- L5a (`c78l/L5a.txt`): TP + L1/L2 + s2 real from a calibrated sensor (0,5) facing west (back to M, so it
+  powers neither M nor s by QC) waking t7 on the lever -> waxed bulb (-1,5) -> comparator (-2,5) facing east ->
+  observer (-2,4) up -> wool (-2,3): TP, L2 and L1 fire at t11 exactly; observer (0,4) up on the sensor -> TM at
+  (0,3) re-drives s lowered (taps t9/t19/t29). Fails on an ECHO: the sensor re-arms at t27 and hears s's late
+  t38 extension (diagonal neighbour, no wool can shield it), toggles the bulb again and L1/L2 push ML/TL back
+  in at t43. M must then come from (2,5) (not solved).
+- satwire runs on the whole top free (bottom kept): c78F (TM up + left) and c78FR (TM up + right, TP2 (3,3)).
