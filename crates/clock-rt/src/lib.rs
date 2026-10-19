@@ -167,6 +167,21 @@ enum Cmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Even periods from..=to on RECTANGLE rings (ring.rs): a 0-torch pulse ring (one loaded
+    /// pulse, repeater delays summing to P / 2) and, for P = 0 mod 4, a 1-torch inverter ring
+    /// (torch on a corner block, a dust corner after it, delays summing to P / 4 - 1); the
+    /// smallest that clock sim confirms is written.
+    EvenRect {
+        #[arg(long, default_value_t = 4)]
+        from: u32,
+        #[arg(long, default_value_t = 100)]
+        to: u32,
+        /// best | pulse (the 0-torch pulse ring only) | inv (the 1-torch inverter only)
+        #[arg(long, default_value = "best")]
+        kind: String,
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
     /// Odd periods from..=to on RECTANGLE rings (ring.rs): 3 x h perimeter, corner blocks, the
     /// straight cells repeaters with delays summing to P (an odd count leaves one relay block or
     /// dust), one pulse loaded at placement, the second started by the best odd-tick kick.
@@ -458,6 +473,75 @@ pub fn run(args: Vec<String>) -> Result<()> {
             match out {
                 Some(p) => write_design(&p, &text, &name, "", &cap)?,
                 None => print!("{text}"),
+            }
+        }
+        Cmd::EvenRect { from, to, kind, out_dir } => {
+            std::fs::create_dir_all(&out_dir)?;
+            for p in (from..=to).filter(|p| p % 2 == 0) {
+                let mut cands: Vec<(String, String, String)> = Vec::new(); // (name, text, caption)
+                // 0-torch pulse ring: one loaded pulse of 2 x dmax gt, delays summing to P / 2
+                if kind != "inv" {
+                    let dmax = ((p / 2 - 1) / 4).clamp(1, 4);
+                    let mut ds: Vec<Cell> = split_delays(p / 2, dmax).into_iter().map(|d| Cell::Rep { d, on: false }).collect();
+                    if let Some(Cell::Rep { d, .. }) = ds.first().copied() {
+                        ds[0] = Cell::Rep { d, on: true };
+                    }
+                    if let Some((w, h, cells)) = rect_cells(&ds, &[]) {
+                        let name = format!("clk-rt-rect{w}x{h}-p{p}");
+                        if let Some(b) = ring::build(w, h, &cells, &name) {
+                            cands.push((name, b.design().to_text(), ring::caption(w, h, &cells)));
+                        }
+                    }
+                }
+                // 1-torch inverter ring (P = 0 mod 4): the torch on the bottom side's straight
+                // cell (hanging on the corner block before it), the next corner dust, repeaters
+                // on the other straight cells (delays summing to P / 4 - 1)
+                if p % 4 == 0 && p >= 12 && kind != "pulse" {
+                    let ds = split_delays(p / 4 - 1, 4);
+                    let w = 3i32;
+                    let mut h = 3i32;
+                    while ((2 * h - 3) as usize) < ds.len() {
+                        h += 1;
+                    }
+                    let per = ring::perimeter(w, h);
+                    let len = per.len();
+                    let is_corner = |i: usize| -> bool {
+                        let (x, z) = per[i];
+                        let a = per[(i + len - 1) % len];
+                        let b = per[(i + 1) % len];
+                        !((a.0 - x) == -(b.0 - x) && (a.1 - z) == -(b.1 - z))
+                    };
+                    let ti = (h + 2) as usize; // the bottom side's straight cell
+                    let mut cells = vec![Cell::Block; len];
+                    cells[ti] = Cell::Torch { lit: true };
+                    cells[(ti + 1) % len] = Cell::Dust;
+                    let mut di = 0;
+                    for i in 0..len {
+                        if is_corner(i) || i == ti {
+                            continue;
+                        }
+                        cells[i] = if di < ds.len() {
+                            di += 1;
+                            Cell::Rep { d: ds[di - 1], on: false }
+                        } else {
+                            Cell::Dust
+                        };
+                    }
+                    let name = format!("clk-rt-rect{w}x{h}-inv-p{p}");
+                    if let Some(b) = ring::build(w, h, &cells, &name) {
+                        cands.push((name, b.design().to_text(), ring::caption(w, h, &cells)));
+                    }
+                }
+                let found = sweep::run_all(cands.iter().map(|(n, t, _)| (n.clone(), t.clone())).collect(), 4 * p + 400, 4);
+                let best = found.iter().filter(|f| f.period == p).min_by_key(|f| (f.blocks, f.volume));
+                match best {
+                    Some(f) => {
+                        let cap = cands.iter().find(|c| c.0 == f.label).map(|c| c.2.clone()).unwrap_or_default();
+                        println!("P={p} {} blocks {} | {}", f.blocks, f.wave(), f.label);
+                        write_design(&out_dir.join(format!("rect-p{p}.txt")), &f.design, &format!("{}-{}b", f.label, f.blocks), "", &cap)?;
+                    }
+                    None => println!("P={p}: none ({})", found.iter().map(|f| format!("{} -> P{}", f.label, f.period)).collect::<Vec<_>>().join(", ")),
+                }
             }
         }
         Cmd::OddRect { from, to, max_len, threads, out_dir } => {
@@ -1049,6 +1133,59 @@ fn loadings(u: &ULoop) -> Vec<ULoop> {
         out.push(v);
     }
     out
+}
+
+/// Delays (1..=dmax each) summing to `sum`, as few as possible, largest first.
+fn split_delays(sum: u32, dmax: u32) -> Vec<u8> {
+    let mut ds = Vec::new();
+    let mut left = sum;
+    while left > 0 {
+        let d = left.min(dmax);
+        ds.push(d as u8);
+        left -= d;
+    }
+    ds
+}
+
+/// A 3 x h rectangle ring: corner blocks, the given straight-cell components in perimeter order
+/// (from the first straight cell after the north-west corner); extra straight cells become relay
+/// blocks (between two diodes on a long side) or dust. `corner_override`: (perimeter index, cell).
+fn rect_cells(straight: &[Cell], corner_override: &[(usize, Cell)]) -> Option<(i32, i32, Vec<Cell>)> {
+    let w = 3i32;
+    let h = (straight.len().div_ceil(2) + 1).max(3) as i32;
+    let per = ring::perimeter(w, h);
+    let len = per.len();
+    let is_corner = |i: usize| -> bool {
+        let (x, z) = per[i];
+        let a = per[(i + len - 1) % len];
+        let b = per[(i + 1) % len];
+        !((a.0 - x) == -(b.0 - x) && (a.1 - z) == -(b.1 - z))
+    };
+    let straights: Vec<usize> = (0..len).filter(|&i| !is_corner(i)).collect();
+    if straights.len() < straight.len() {
+        return None;
+    }
+    let extra = straights.len() - straight.len();
+    let right: Vec<usize> = straights.iter().copied().filter(|&i| i >= w as usize && i < (w + h - 2) as usize).collect();
+    let relay: Vec<usize> = if extra >= 1 && right.len() >= 3 { vec![right[right.len() / 2]] } else { vec![] };
+    let mut cells = vec![Cell::Block; len];
+    let mut si = 0;
+    let mut fill = extra - relay.len();
+    for &i in &straights {
+        if relay.contains(&i) {
+            cells[i] = Cell::Block;
+        } else if si < straight.len() {
+            cells[i] = straight[si];
+            si += 1;
+        } else if fill > 0 {
+            cells[i] = Cell::Dust;
+            fill -= 1;
+        }
+    }
+    for &(i, c) in corner_override {
+        cells[i % len] = c;
+    }
+    Some((w, h, cells))
 }
 
 /// Write a generated design with its name, its `uloop:` spec and a leading comment (the catalog's
