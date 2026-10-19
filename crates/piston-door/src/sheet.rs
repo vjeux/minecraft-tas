@@ -87,9 +87,21 @@ fn filled(b: &Block) -> bool {
     !b.is_air() && full_cube(b) && !crate::cosearch::is_moving(b) && crate::cosearch::quartz_like(b)
 }
 
+/// `filled` for other modules (door cycle).
+pub fn filled_frame(b: &Block) -> bool {
+    filled(b)
+}
+
+/// The sheet glyph of a redsim block.
+pub fn glyph_of(b: &Block) -> char {
+    glyph(&b.to_string())
+}
+
 struct Drawn {
     title: String,
     pistons: usize,
+    /// Pistons below the opening (y < door.y): (position, short state).
+    below: Vec<(Pos, String)>,
     rest: Vec<String>,
     open: Option<std::result::Result<(Vec<String>, usize, Vec<Pos>), String>>,
     /// `--fill`: can static stone in the frame cells left empty when open make it 12/12?
@@ -280,6 +292,12 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
     }
     let (x0, y0, x1, y1) = (x0 - 1, y0 - 1, x1 + 1, y1 + 1);
     let pistons = design.blocks.values().filter(|s| s.contains("piston")).count();
+    let below: Vec<(Pos, String)> = design
+        .blocks
+        .iter()
+        .filter(|(p, s)| p[1] < door[1] && s.contains("piston") && !s.contains("piston_head"))
+        .map(|(p, s)| (*p, s.clone()))
+        .collect();
     let title = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
     let frame = frame_cells(door);
     let count = |get: &dyn Fn(BlockPos) -> Block| -> (usize, Vec<Pos>) {
@@ -302,7 +320,7 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
         } else {
             None
         };
-        return Ok(Drawn { title, pistons, rest, open: Some(Ok((open_lines, n, empty))), fill });
+        return Ok(Drawn { title, pistons, below, rest, open: Some(Ok((open_lines, n, empty))), fill });
     }
     let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false };
     let mut blocks: Vec<(Pos, Block)> = Vec::new();
@@ -329,12 +347,18 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
         (Some(s), Some(Ok((_, _, empty))), true) => Some(fill_test(&design, s, &text, empty, &title, fill_dir)),
         _ => None,
     };
-    Ok(Drawn { title, pistons, rest, open, fill })
+    Ok(Drawn { title, pistons, below, rest, open, fill })
 }
 
 /// CLI entry: draw every file, print (or write) one markdown page.
-pub fn cli(files: &[PathBuf], out: Option<&Path>, heading: Option<&str>, fill: bool, fill_dir: Option<&Path>) -> Result<()> {
-    let drawn: Vec<(PathBuf, Result<Drawn>)> = crate::cosearch::par_map(files, 16, |p| (p.clone(), draw(p, fill, fill_dir)));
+pub fn cli(files: &[PathBuf], out: Option<&Path>, heading: Option<&str>, fill: bool, fill_dir: Option<&Path>, single_up_below: bool) -> Result<()> {
+    let mut drawn: Vec<(PathBuf, Result<Drawn>)> = crate::cosearch::par_map(files, 16, |p| (p.clone(), draw(p, fill, fill_dir)));
+    if single_up_below {
+        // Keep the mechanisms whose only piston below the opening is one sticky piston facing up.
+        drawn.retain(|(_, d)| {
+            d.as_ref().is_ok_and(|d| d.below.len() == 1 && d.below[0].1.contains("sticky_piston") && d.below[0].1.contains("facing=up"))
+        });
+    }
     let mut s = String::new();
     if let Some(h) = heading {
         s.push_str(&format!("# {h}\n\n"));

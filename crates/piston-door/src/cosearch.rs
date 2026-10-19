@@ -706,6 +706,31 @@ fn record_until_idle(w: &mut World, lo: Pos, hi: Pos, max: u32) -> std::result::
 }
 
 /// `properties::record` on redsim (the door at its own position).
+/// The settled watch-box snapshot after each of `flips` lever flips (index 0 = settled rest), with
+/// the door translated by `offset` (a judge position). Err = never settles / a model error.
+pub fn flip_states(door: &RsDoor, offset: Pos, flips: usize) -> std::result::Result<Vec<Snap>, String> {
+    let blocks: Vec<(Pos, Block)> = door.blocks.iter().map(|(p, b)| (add(*p, offset), *b)).collect();
+    let spec = door.spec.translated(offset);
+    let (mut w, (lo, hi), idle) = place_and_settle(&blocks, &spec, 400);
+    if !idle {
+        return Err("the build never settles after placement".into());
+    }
+    let mut out = vec![Snap::take(&w, lo, hi)];
+    for i in 0..flips {
+        w.use_block(bp(spec.lever));
+        record_until_idle(&mut w, lo, hi, 400).map_err(|e| format!("flip {}: {e}", i + 1))?;
+        if !w.errors.is_empty() {
+            return Err(format!("MODEL: {}", w.errors.join("; ")));
+        }
+        if !w.drops.is_empty() {
+            return Err(format!("flip {}: entities appeared (something broke): {:?}", i + 1, w.drops));
+        }
+        out.push(Snap::take(&w, lo, hi));
+    }
+    Ok(out)
+}
+
+/// `properties::record` on redsim (the door at its own position).
 pub fn record(door: &RsDoor) -> std::result::Result<Rec, String> {
     let spec = door.spec;
     let geo = Geo::new(spec);
