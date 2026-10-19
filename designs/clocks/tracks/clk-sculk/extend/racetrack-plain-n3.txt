@@ -1,0 +1,22 @@
+# Extendable sculk clock `racetrack-plain` with n = 3 (P = 16m + 12 = 60, blocks = 4m + 4 = 16); unit: one more plain sculk sensor + amethyst on each straight side (9 apart): +16 gt, +4 blocks; m >= 3 (plain re-arm 40). Built by `mctas clock sculk family racetrack-plain --n 3`.
+name: clk-sculk-racetrack-plain-n3
+family: racetrack-plain n=3: P = 16m + 12 = 60, blocks = 4m + 4 = 16; unit: one more plain sculk sensor + amethyst on each straight side (9 apart): +16 gt, +4 blocks; m >= 3 (plain re-arm 40)
+port output: 0 0 0
+port start: 1 0 0 use
+origin: -6 0 0
+palette:
+  A minecraft:amethyst_block
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  ......SN.......SA.......SA
+  .
+  .
+  .
+  A
+  S.............................S
+  ..............................A
+  .
+  .
+  .
+  .....AS.......AS.......AS

@@ -1,0 +1,20 @@
+# Extendable sculk clock `hairpin-plain` with n = 3 (P = 16n + 3 = 51, blocks = 4n + 7 = 19); unit: one more delay-4 repeater (on a stone) in each arm of the hairpin: +16 gt, +4 blocks; n >= 3 (plain re-arm 40). Built by `mctas clock sculk family hairpin-plain --n 3`.
+name: clk-sculk-hairpin-plain-n3
+family: hairpin-plain n=3: P = 16n + 3 = 51, blocks = 4n + 7 = 19; unit: one more delay-4 repeater (on a stone) in each arm of the hairpin: +16 gt, +4 blocks; n >= 3 (plain re-arm 40)
+port output: 0 1 0
+origin: -1 0 0
+palette:
+  A minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  B minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=side]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  r minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+  s minecraft:stone
+layer 0:
+  ..ssss
+  ..ssss
+layer 1:
+  .SBBBR
+  NOAAAr
