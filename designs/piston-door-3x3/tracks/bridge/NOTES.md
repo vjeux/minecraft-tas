@@ -155,6 +155,23 @@ sensors = calibrated facing W/E/N + plain; ~10-20k combinations/s on 20 threads)
   puller watcher could drive BL / TL corner / P3 / P1' in turn; BM from the left side (it may fire
   at any open tick and >= 15 on close).
 
+## e78: q78's 7x8 (the jf/p2 mechanism with e88's lever-held top row), stone-door bottom (11:12Z-)
+- q78's e78m (all ideal) / e78s (top + both sides wired, bottom ideal) work for any bottom start;
+  the bottom = p2-sculk-r's rows -1..-3 (e78a) does not.
+- `--holds` on e78s (d=8): B' (1,-3) = ONE 10 gt hold from 19..22 (both edges); A' lifted (1,-1) =
+  hold 17..19 or a pulse 21..27 (open); K (3,-1) = a pulse 11..17 (2 taps 12..14, 3 taps 16..17);
+  A' low (1,-2) has no sensor mode (two pulses on open, one on close).
+- Why p2's bottom fails on the stone top: the bottom sensors hear the top at t0/t1 (K sensor (3,-2)
+  at t7, B' sensor (0,-3) at t8), the sides fire BL/BR at ~t4 (TL/TR puller watchers), so the
+  sensors come 3-4 ticks early relative to BL (p2: BL t2, sensors t9) and the right chain 14 ticks
+  early (p2: BR t18). Wool cannot shield the sensors through a stone door (the lines cross TR/MR/BR):
+  q78's wool-door variant fixes the K sensor this way. The K sensor also QC-triggers the dropper
+  (2,-3) whose state change fires the gate observer (2,-2): replacing it with an ideal K hold breaks
+  even p2 itself (0 of 169), so the two jobs cannot be separated in place.
+- e78n (`e78q/e78n.txt`, sides ideal): 0 for every (left, right) side tick 0..40; bottom sensor,
+  dropper and wool variants: 25,600 + 19,200 combos, 0.
+- Annealer on e78a/e78s's bottom rows until ~12:02Z: runs/e78-anneal.log, finds in e78q/finds.
+
 ## Tools (this track)
 
 - `door ideal-rs --vary x,y[,z]=state|state|keep|air` (repeatable: every combination, times the
