@@ -1,0 +1,24 @@
+# Hopper ring of 6 (2x3), one item, 8 blocks (clk-item): one hop every 7 gt, the comparator reading one hopper is on 7 of 42 gt.
+# redsim: P=42 gt, warmup 3, family comparator+hopper, 8 blocks, output on 7/42 gt, 1 rising edge(s)
+
+name: loop6-p42
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 -1
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  S
+  .
+  .
+  .
+layer 1:
+  C
+  HA
+  hA
+  hB
