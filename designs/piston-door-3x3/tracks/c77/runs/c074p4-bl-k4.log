@@ -1,0 +1,26 @@
+assist designs/piston-door-3x3/tracks/c77/ideal/c074p4.ideal: 2 input cells off the plane ([(0, -2), (-1, 1)]), 4 / 2 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/c77/wip/c074p4.txt: 38 blocks in the box, screen 79/79
+seed screen 79/79 with 2 inputs assisted
+windows (3 groups, 0.0 s):
+  input (0,-2) open  t15 pulse 2 gt: window [-15, +24]
+  input (-1,1) open  t20 pulse 2 gt: window [-7, +10]
+  input (0,-2) close t15 pulse 2 gt: window [-15, +24]
+16 pocket cells in 5 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 48 swept cells
+  pocket 0: 7 cells [(-3, -2), (-3, -1), (-2, -2), (-2, -1), (-2, 0), (-1, -2), (-1, -1)]
+  pocket 1: 1 cells [(-3, 3)]
+  pocket 2: 2 cells [(-3, 5), (-2, 5)]
+  pocket 3: 5 cells [(2, 5), (3, 4), (3, 5), (4, 4), (4, 5)]
+  pocket 4: 1 cells [(3, -1)]
+pocket 0: 7 cells, 1211 subset/lever items, 8401141 fillings to screen
+  pocket 0: 2751341 screened (332 of 1211 items started), 835127 keep the door working, 60 s
+  pocket 0: 5408807 screened (599 of 1211 items started), 1642486 keep the door working, 120 s
+  pocket 0: 8173864 screened (1049 of 1211 items started), 2357844 keep the door working, 180 s
+pocket 0: 9166872 screened, 2637023 keep the door working, 214.3 s; driven input sets: {(0,-2)o15 (-1,1)o20 (0,-2)c15} x5 (best 4 blocks), {(0,-2)o15 (0,-2)c15} x24 (best 2 blocks), {(-1,1)o20} x24 (best 2 blocks)
+pocket 1: skipped
+pocket 2: skipped
+pocket 3: skipped
+pocket 4: skipped
+combination 1: true partial, 1 inputs still assisted [-1,1] (40 blocks)
+combination 355: perfect screen; redsim judge: combo: WORKS open 42 close 42 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 42 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/c77/runs/c074p4-bl-k4/pockets-64b-42-0.txt
+387 combinations verified, 1 finds, 215 s total

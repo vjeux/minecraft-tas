@@ -1,0 +1,19 @@
+design designs/piston-door-3x3/tracks/c77/e78s/e78st40-s4.txt
+# S4 (4,-3) removed: K (3,-1) driven by the plan (k1/k2/k3 pulses, both edges; 200 = off)
+let k1 = 10
+let k2 = 20
+let k3 = 30
+open 0 use 1 5 0
+close 0 use 1 5 0
+open k1 set 3 -1 1 minecraft:redstone_block
+open k1+2 clear 3 -1 1
+open k2 set 3 -1 1 minecraft:redstone_block
+open k2+2 clear 3 -1 1
+open k3 set 3 -1 1 minecraft:redstone_block
+open k3+2 clear 3 -1 1
+close k1 set 3 -1 1 minecraft:redstone_block
+close k1+2 clear 3 -1 1
+close k2 set 3 -1 1 minecraft:redstone_block
+close k2+2 clear 3 -1 1
+close k3 set 3 -1 1 minecraft:redstone_block
+close k3+2 clear 3 -1 1

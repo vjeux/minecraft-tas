@@ -292,6 +292,23 @@ fn checks() -> Vec<Check> {
             }),
         });
     }
+    // 6a. the first sub-56 mechanism (7x7 = 49b, c77 w1): ideal inputs must keep working
+    const W1: &str = "designs/piston-door-3x3/tracks/c77/seven/w1.ideal";
+    v.push(Check {
+        name: "ideal:7x7-w1".into(),
+        what: "c77's 7x7 (49b) mechanism w1 (13 sticky pistons: the center emptied by a pull after a column wiggle, ring pistons escaping to the corners) WORKS with ideal inputs (--between-ticks) in 55 / 43",
+        quick: true,
+        jvm: false,
+        steps: vec![args(&format!("?door ideal-rs {W1} --between-ticks"))],
+        timeout: 300,
+        pred: Box::new(|o| {
+            let v = ideal_verdict(&o[0]).ok_or(format!("ideal-rs: no verdict: {}", tail(&o[0])))?;
+            if !v.starts_with("WORKS") || !v.contains("open after 55 ticks / closed after 43 ticks") {
+                return Err(format!("w1 changed: `{v}` (expected WORKS 55 / 43)"));
+            }
+            Ok("WORKS 55 / 43".into())
+        }),
+    });
     // 6b. plan phase: an observer-driven input works at plan t exactly like the wired door at t
     const PH: &str = "designs/piston-door-3x3/selftest/s25-br-observer.ideal";
     v.push(Check {

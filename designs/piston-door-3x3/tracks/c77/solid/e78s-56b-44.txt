@@ -1,0 +1,44 @@
+# 44 blocks, 56b (7x8x1), SOLID (no sculk), slime-free, FULL, rotation-safe, open 44 / close 15 (door verify --extra-offsets 28
+# WORKS, 32 positions + rotations): e78k's h2 (explore/q78 e755e4de tracks/q78/e78s/h2.txt, the first solid 7x8, 45 blocks)
+# shrunk by `door fill --keep --max-blocks 44` (<= 3 changed over 25 wiring cells, 42 solid states): top-left observer
+# (-1,3) facing east into the row-3 dust; the row-4 wiring (-1,4) observer + (-2,4) stone removed. No 43 at <= 3 changes.
+name: e78s-56b-44
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=true,facing=down]
+  F minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=true]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:target[power=0]
+  n minecraft:note_block[instrument=harp,note=0,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -3:
+  noosonF
+layer -2:
+  ORBsOTC
+layer -1:
+  FAF..DA
+layer 0:
+  S.FFF.D
+layer 1:
+  S.FFF.D
+layer 2:
+  FFFFFFA
+layer 3:
+  roPPPBN
+layer 4:
+  ..EEE
+layer 5:
+  ...L

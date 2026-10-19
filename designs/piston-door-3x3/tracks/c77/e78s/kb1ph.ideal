@@ -1,0 +1,14 @@
+design designs/piston-door-3x3/tracks/c77/e78s/kb1.txt
+let p1 = 17
+let x = 28
+let hl = 6
+open 0 use 1 5 0
+close 0 use 1 5 0
+open p1 set 1 -3 1 minecraft:redstone_block
+open p1+2 clear 1 -3 1
+open x set 1 -3 1 minecraft:redstone_block
+open x+hl clear 1 -3 1
+close p1 set 1 -3 1 minecraft:redstone_block
+close p1+2 clear 1 -3 1
+close x set 1 -3 1 minecraft:redstone_block
+close x+hl clear 1 -3 1
