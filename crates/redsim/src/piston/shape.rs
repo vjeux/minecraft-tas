@@ -8,7 +8,7 @@
 //! extended base box.
 
 use crate::behavior::Support;
-use crate::block::{Block, Simple};
+use crate::block::Block;
 use crate::pos::{BlockPos, Dir};
 use crate::world::World;
 
@@ -61,17 +61,15 @@ pub fn head(facing: Dir, short: bool) -> Vec<B16> {
     vec![along(facing, 0, 4, (0, 16)), along(facing, 4, if short { 16 } else { 20 }, (6, 10))]
 }
 
-/// A moved block's own collision shape.
+/// A moved block's own collision shape (the empty collision context).
 fn block_shape(b: Block) -> Vec<B16> {
     match b {
-        Block::Air => vec![],
-        Block::Simple(Simple::HoneyBlock) => vec![B16([1, 15, 0, 15, 1, 15])],
-        Block::Simple(Simple::SoulSand) => vec![B16([0, 16, 0, 14, 0, 16])],
         Block::Piston { extended: false, .. } => vec![B16::full()],
         Block::Piston { facing, extended: true, .. } => base_extended(facing),
         Block::PistonHead { facing, short, .. } => head(facing, short),
-        // everything pistons move in the modeled palette is a full cube
-        _ => vec![B16::full()],
+        // every other block: its collision shape (redmodel's table: honey, soul sand, mud,
+        // trapdoors, slabs, fence gates, scaffolding...; empty for air)
+        _ => crate::behavior::collision_boxes(&b).into_iter().map(B16).collect(),
     }
 }
 

@@ -45,7 +45,9 @@ pub mod place;
 pub mod properties;
 pub mod relever;
 pub mod rowsfire;
+pub mod satsweep;
 pub mod satwire;
+pub mod boxproof;
 pub mod cosearch;
 pub mod cosearch_search;
 pub mod search;
@@ -63,6 +65,7 @@ pub mod vanilla_build;
 pub mod vanilla_gadget;
 pub mod pistfuzz;
 pub mod fullmech;
+pub mod mechspace;
 pub mod world;
 
 use anyhow::{Context, Result, bail};

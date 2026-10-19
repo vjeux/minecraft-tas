@@ -1,0 +1,43 @@
+name: cosearch-live-77of79
+assisted: 1,4;4,2;-2,3;1,-2;3,-1;1,-3
+port door: 0 0 0
+port lever: -3 -2 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=down,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:obsidian
+  F minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  G minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=east]
+  I minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  M minecraft:stone
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  d minecraft:dropper[facing=west,triggered=false]
+  o minecraft:oak_log[axis=y]
+  r minecraft:redstone_torch[lit=true]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  .o.IJCPC
+layer -2:
+  LRDJJABA
+layer -1:
+  .rG...KA
+layer 0:
+  .EFMMM.K
+layer 1:
+  .H.MMM.K
+layer 2:
+  .P.MMM.K
+layer 3:
+  .Hs..MK
+layer 4:
+  .odssOMS

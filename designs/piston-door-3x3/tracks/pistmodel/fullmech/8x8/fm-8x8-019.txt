@@ -1,0 +1,29 @@
+name: fm-8x8-019
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:piston_head[facing=west,short=false,type=sticky]
+  F minecraft:sticky_piston[extended=true,facing=west]
+  G minecraft:redstone_block
+  H minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...AA
+layer -1:
+  
+layer 0:
+  B.CCC
+layer 1:
+  B.CCC.D
+layer 2:
+  ..CCC.D
+layer 3:
+  ....EF
+  .....G
+layer 4:
+  ..HH
+layer 5:
+  ...H

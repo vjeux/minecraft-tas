@@ -42,9 +42,15 @@ regions, feeds, links, every event order):
   By hand (vb2/vb3): U' (BL's down-pull, fed only from the 2-cell region (-2,-2), (-1,-2)) and BM's
   puller (fed only from the bottom-right region) must both act BEFORE H's row push, but the
   bottom-left region can only see H' or P' move (the row push itself) and, in vb2, the bottom-right
-  only sees the row push too. vb2: not wirable. vb3: wirable only with the lever in that 2-cell
-  region, which then has to sequence U', H', U' alone: no room. (A dummy H' stroke to wake it works
-  on open but on close it would shift the parked bottom row.)
+  only sees the row push too. vb2: not wirable. vb3: not wirable from any lever region. Lever in
+  K1/K2/K4: the bottom-left region (U') sleeps until H' moves, and H' must not move before U' acted.
+  Lever in the bottom-left region: the middle-left region (H', the ring-stone feed of P') wakes only
+  from H' (fed from the lever's region: but H' must wait for BM's puller) or from TL's puller (fed
+  from K1 or K2, which need waking first): a cycle. A dummy H' stroke (P' pushed under BL and pulled
+  back) would wake the bottom-left on open, but on close the stroke shifts the parked bottom row
+  (P', ML, BL, BM and the retracted RP all move). Links counted: a region watching a piston or block
+  that moves in a cell next to it; BUD links (a quasi-armed piston fired by a neighbor's motion) give
+  nothing here (U' and BM's puller have no quasi source but door blocks that nothing powers).
 
 Why freeing row 1 is not enough in 7x8 (what every layout above ran into):
 1. A top-bottom crossing on the left needs x = -2 free at y = -1..3 (x = -1 is ring at y = 0..2),
