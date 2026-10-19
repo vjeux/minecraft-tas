@@ -1,0 +1,38 @@
+# archived 2026-10-19T21:38Z from designs/clocks/tracks/clk-misc/cart/cart-loop.txt by mctas clock archive
+# CLOCK: clk-misc-cart-loop-n0 period 26 gt (1.3 s), on 20/26, edges 1, warmup 27, family detector_rail+minecart, 25 blocks, 4x2x4, robust
+name: clk-misc-cart-loop-n0
+# Extendable family clk-misc-cart-loop, P = 26 + 5n gt, 25 + 4n pieces: minecart loop (n = 0): an empty minecart circles a 4 x 4 rail loop; plain rails curve at the corners, powered rails
+# (on redstone blocks, one per short side and 1 per long side) keep it at its 0.4 b/t cap; a detector rail on the east side is
+# powered while the cart is on it and turns off at its next 20 gt check once the cart has left (one off / on per lap).
+extend base: 0
+extend blocks: 25 + 4n
+extend family: clk-misc-cart-loop
+extend generator: mctas clock misc cart-loop --n {n} --period 26+5n --out {out}
+extend n: 0..20
+extend period: 26 + 5n
+extend rule: lengthen both long sides by one powered rail (on a redstone block)
+port output: 3 0 1
+entity: minecraft:minecart 1.5 0.0625 0.5 {Motion:[0.4d,0.0d,0.0d]}
+origin: 0 0 0
+palette:
+  A minecraft:rail[shape=north_south,waterlogged=false]
+  B minecraft:rail[shape=north_west,waterlogged=false]
+  C minecraft:rail[shape=south_east,waterlogged=false]
+  D minecraft:detector_rail[powered=false,shape=north_south,waterlogged=false]
+  E minecraft:rail[shape=south_west,waterlogged=false]
+  F minecraft:redstone_block
+  P minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  R minecraft:rail[shape=east_west,waterlogged=false]
+  S minecraft:stone
+  p minecraft:powered_rail[powered=true,shape=north_south,waterlogged=false]
+  r minecraft:rail[shape=north_east,waterlogged=false]
+layer -1:
+  SFSS
+  S..S
+  F..F
+  SSFS
+layer 0:
+  CPRE
+  A..D
+  p..p
+  rRPB
