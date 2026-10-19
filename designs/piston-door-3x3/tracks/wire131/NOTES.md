@@ -42,3 +42,28 @@ close >= 26):
   (-2,-2) (weakly powered: its `powered` flips) -> observer (-2,-1) facing down -> L0 back to a pull-type pulse
   piston (-2,0) (one pulse per edge).
 Left: TR (D2+ and the R pair's level from DE's motion, the only TL -> TR link) and TL (lever, D1 x3, DE window, X).
+
+## 5. The R pair's level cannot be made in TR: the holder's switch leaks into R1+'s quasi cell (simulated)
+
+R1+ (4,1) and R0+ (4,0) are both held from (4,2) (R1+ direct, R0+ by QC through R1+'s cell): the ONLY
+top -> bottom link of the 131 family in 7x8 (BR can watch only R0, BR's park (3,0), UM, and R0 is the only one TR
+can drive). A level at (4,2) must be ON at rest and OFF when open with NOTHING around (4,2) emitting when open,
+because R1+'s quasi cell is (4,2) (neighbors (3,2), (4,3), (5,2)):
+- wall torch at (4,2) on (3,2): its input (3,2) must be powered when open, and a powered (3,2) quasi-powers R1+.
+  f131X-trtest.txt + p131X-trtest.ideal (torch (4,2) on stone (3,2), cross dust (3,3) fed from behind at open,
+  D2+'s holder moved off-plane): `door ideal`: "not open: [2,1,0] is stone", R1+ never retracts. As predicted.
+- conductor (4,2) + dust (4,3) on it: the dust's source must sit at (4,4) or (3,3); a torch there has its input at
+  (3,4) (next to D2+ (2,4): D2+ powered when open) or (3,2) (the same leak); a redstone block at (4,4)/(3,3) has no
+  free cell to move to; (3,3) and (4,3) themselves are R1+'s quasi neighbors.
+- redstone block at (4,2): it can only leave to (4,3) (quasi-powers R1+; R1+ lands after it and re-extends) or
+  (3,2) (a ring cell: circuitry in S when open, not FULL).
+- comparators in TR output only into x=2 cells (D2+, (2,5), TR's park, TR's door cell).
+So R1+/R0+ as levels are unwirable in 7x8; as pull-type pulse pistons, R0's pulse gives BR's watchers an EVEN count
+(the (4,-1) watcher fires at t+2 and t+6 on both edges; the park watcher (3,-1) fires twice on open, once on close,
+and its output cell (3,-2) cannot feed any flip-flop piston that holds UM+). Same structural leak on the left:
+X's dust (-2,4) needs a source at (-2,5) or (-1,4) whose input ((-1,5), (0,4), the lever's support) quasi-powers P3+
+via (-1,4) or feeds the dust; a comparator reading a lit bulb fits only as (-1,5) -> (-2,5) with the bulb at (0,5),
+whose toggling pulse also powers DE (e1 < px, fails on both edges). This is consistent with satwire's UNSAT cores
+(X / L2+ on the left, wire64). Bound: in-plane palette (dust, torches, repeaters, comparators, observers, bulbs,
+note blocks, redstone blocks moved by pistons), 7x8 box x -2..4, y -2..5, mechanism 8x8-131 with level or pull-type
+side pullers, D2 up, MR/BR right.
