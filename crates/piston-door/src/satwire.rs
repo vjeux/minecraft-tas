@@ -114,6 +114,10 @@ pub enum Kind {
     /// persistent oak leaves: re-read their distance 1 gt after a neighbor changes (a 1 gt
     /// delay when a LOG door block moves next to them, `--log-doors`); observers see it.
     Leaves,
+    /// an UPDATE piston (normal, facing f; its head cell stays free): extends in the tick its
+    /// power arrives and retracts when it goes; observers watching its base see both (the
+    /// block-update side effect on QC-armed pistons is not modeled). Costs 1 block.
+    UPiston(C2),
 }
 
 impl Kind {
@@ -124,10 +128,10 @@ impl Kind {
         matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Dropper | Kind::Obsid | Kind::Glass)
     }
     pub fn movable(self) -> bool {
-        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Trap | Kind::Glass)
+        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Trap | Kind::Glass | Kind::UPiston(_))
     }
     pub fn has_out(self) -> bool {
-        matches!(self, Kind::Rep(..) | Kind::Obs(_) | Kind::Torch | Kind::WTorch(_) | Kind::Cmp(_) | Kind::Lamp)
+        matches!(self, Kind::Rep(..) | Kind::Obs(_) | Kind::Torch | Kind::WTorch(_) | Kind::Cmp(_) | Kind::Lamp | Kind::UPiston(_))
     }
     /// Relative cells the output (any signal) reaches.
     pub fn out_to(self) -> Vec<C2> {
@@ -173,6 +177,7 @@ impl Kind {
             Kind::Obsid => "minecraft:obsidian".into(),
             Kind::Glass => "minecraft:glass".into(),
             Kind::Leaves => format!("minecraft:oak_leaves[distance={lvl},persistent=true,waterlogged=false]"),
+            Kind::UPiston(f) => format!("minecraft:piston[extended=false,facing={}]", dname(f)),
         }
     }
     /// The kind of a wiring block state (None: not wiring).
@@ -194,6 +199,7 @@ impl Kind {
             "obsidian" => Kind::Obsid,
             "glass" => Kind::Glass,
             n if n.ends_with("_leaves") => Kind::Leaves,
+            "piston" => Kind::UPiston(f("facing")?),
             _ => return None,
         })
     }
@@ -228,7 +234,8 @@ pub fn palette(spec: &str) -> Result<Vec<Kind>> {
             "obsidian" => v.push(Kind::Obsid),
             "glass" => v.push(Kind::Glass),
             "leaves" => v.push(Kind::Leaves),
-            _ => bail!("unknown palette entry {t:?} (block,dust,rep,rep1..4,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian,glass)"),
+            "upiston" => v.extend(DIRS.iter().map(|d| Kind::UPiston(*d))),
+            _ => bail!("unknown palette entry {t:?} (block,dust,rep,rep1..4,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian,glass,leaves,upiston)"),
         }
     }
     v.sort();
@@ -925,7 +932,13 @@ impl Prob {
             MK::Piston { ext: true, .. } => {
                 if changed {
                     let _ = after;
-                    Some(false)
+                    // a 1 gt pulse (extension started in the previous tick) may as well be 2 gt:
+                    // both spit; the retraction then starts one tick later
+                    let one_gt = tau >= 2 && ph.frame(tau - 2).get(&c) != ph.frame(tau - 1).get(&c);
+                    // the end of a long pulse (extended >= 3 gt: the retraction pulls) may come one tick
+                    // later (redstone pulse widths are even: a 3 gt pulse is a 4 gt one)
+                    let long = tau >= 4 && (2..=4).all(|j| ph.frame(tau - j).get(&c) == ph.frame(tau - 1).get(&c));
+                    if one_gt || long { None } else { Some(false) }
                 } else {
                     let started = tau >= 2 && ph.frame(tau - 2).get(&c) != ph.frame(tau - 1).get(&c);
                     let ends = ph.frame(tau + 1).get(&c) != ph.frame(tau).get(&c);
@@ -1270,6 +1283,7 @@ const P_LAMP: u8 = 11;
 const P_IND: u8 = 12;
 const P_DROP: u8 = 13;
 const P_LEAVES: u8 = 14;
+const P_UPISTON: u8 = 15;
 
 fn pred_fn(t: u8) -> fn(Kind) -> bool {
     match t {
@@ -1287,6 +1301,7 @@ fn pred_fn(t: u8) -> fn(Kind) -> bool {
         P_IND => |k| matches!(k, Kind::Note | Kind::Trap | Kind::Dropper),
         P_DROP => |k| k == Kind::Dropper,
         P_LEAVES => |k| k == Kind::Leaves,
+        P_UPISTON => |k| matches!(k, Kind::UPiston(_)),
         _ => |k| k.movable(),
     }
 }
@@ -1620,7 +1635,17 @@ impl<'a> Model<'a> {
                 } else {
                     f
                 };
-                self.e.or(&[m, lv, nb])
+                // an update piston's base changes in the block-event phase when it extends or retracts
+                let up = if self.p.is_free(w) && self.p.can(w, |x| matches!(x, Kind::UPiston(_))) {
+                    let isu = self.pred(w, P_UPISTON);
+                    let o1 = self.out(tr, k, w);
+                    let o0 = self.out(tr, k - 1, w);
+                    let x = self.e.xor(o1, o0);
+                    self.e.and(&[isu, x])
+                } else {
+                    f
+                };
+                self.e.or(&[m, lv, nb, up])
             }
             _ if !self.p.is_free(w) || k == 0 && what == 0 => f,
             0 => {
@@ -1809,6 +1834,25 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             if let Some(sd) = k.support() {
                 let s = m.sturdy_static(add(c, sd), sd == DN);
                 m.e.add(&[!l, s]);
+            }
+            if let Kind::UPiston(fd) = k {
+                // retracted at rest (the file writes it retracted, with no head)
+                let o_rest = m.out(0, -1, c);
+                m.e.add(&[!l, !o_rest]);
+                // its head cell stays free (air at rest, never wiring, never the lever)
+                let hc = add(c, fd);
+                if p.is_free(hc) {
+                    let em = m.kl[&(hc, Kind::Empty)];
+                    m.e.add(&[!l, em]);
+                    for (i, lc) in p.levers.iter().enumerate() {
+                        if lc.pos == [hc.0, hc.1, p.z] {
+                            let lv = m.lever[i];
+                            m.e.add(&[!l, !lv]);
+                        }
+                    }
+                } else {
+                    m.e.add(&[!l]);
+                }
             }
             if let Kind::Cmp(f) = k {
                 let d = m.pred(add(c, f), P_DUST);
@@ -2182,6 +2226,20 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             let cs = m.e.and(&[g, mis, !s1]);
                             m.cause(tr, k + 2, c, cs);
                         }
+                        Kind::UPiston(fd) => {
+                            if k != 0 {
+                                let direct = m.any_in(tr, k, c, Some(fd));
+                                let q = add(c, U);
+                                let mut qt = Vec::new();
+                                for dd in [E, W, U] {
+                                    qt.push(m.sig(tr, k, add(q, dd), q, false));
+                                }
+                                qt.push(m.oop(tr, k, q));
+                                let qc = m.e.or(&qt);
+                                let pw = m.e.or(&[direct, qc]);
+                                m.e.eq_if(g, o_k, pw);
+                            }
+                        }
                         Kind::Lamp => {
                             let i_k = m.any_in(tr, k, c, None);
                             if k == -1 {
@@ -2497,6 +2555,7 @@ pub fn render(p: &Prob, s: &Sol) -> String {
                     Kind::Obsid => 'X',
                     Kind::Glass => 'g',
                     Kind::Leaves => '%',
+                    Kind::UPiston(f) => match *f { E => '1', W => '2', U => '3', _ => '4' },
                     Kind::Empty => '.',
                 }
             } else if let Some(st) = p.rec.phases[0].frames[0].get(&c) {
