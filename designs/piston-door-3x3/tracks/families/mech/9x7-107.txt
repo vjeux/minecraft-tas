@@ -1,6 +1,6 @@
 name: 9x7-107
 port door: 0 0 0
-origin: -3 0 0
+origin: -4 0 0
 palette:
   A minecraft:sticky_piston[extended=false,facing=up]
   B minecraft:sticky_piston[extended=false,facing=west]
@@ -10,14 +10,14 @@ palette:
 layer -2:
   ....AA
 layer -1:
-  .
+  ...A
 layer 0:
-  .s.CCC
+  ....CCC.B
 layer 1:
-  ss.CCC.B
+  sss.CCC
 layer 2:
-  ...CCC
+  ..s.CCC.B
 layer 3:
-  ..S
+  .
 layer 4:
-  ....SS
+  .....S

@@ -4,9 +4,7 @@ origin: -3 0 0
 palette:
   A minecraft:sticky_piston[extended=false,facing=up]
   B minecraft:sticky_piston[extended=false,facing=west]
-  C minecraft:sticky_piston[extended=true,facing=down]
-  D minecraft:stone
-  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  C minecraft:stone
   S minecraft:sticky_piston[extended=false,facing=down]
   s minecraft:sticky_piston[extended=false,facing=east]
 layer -2:
@@ -14,12 +12,12 @@ layer -2:
 layer -1:
   .
 layer 0:
-  ...DDD
+  ...CCC
 layer 1:
-  ss.DDD.B
+  ss.CCC.B
 layer 2:
-  ..PDDD
+  ...CCC
 layer 3:
-  ..C
+  ..S
 layer 4:
   ...SSS

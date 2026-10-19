@@ -1,0 +1,89 @@
+8x8-131 in 7x9 x -2..4 y -2..6: WIRABLE (lever K1)
+32 free cells, 3 regions [5, 22, 5], 3 hops
+    6 1111111
+    5 111#111
+    4 111##11
+    3 1####11
+    2 ##oooh1
+    1 ##ooo##
+    0 ##ooo##
+   -1 00h#h22
+   -2 000#222
+  lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sdown@(2,4) Swest@(4,1))
+  open order:  PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] LSeast+@(-1,3,0)[awake 10] PSdown@(1,5,0)[awake 10] PSdown@(1,3,0)[awake 10] PSdown@(1,5,0)[awake 10] PSdown@(1,4,0)[awake 10] PSdown@(2,4,0)[awake 10] PSwest@(4,1,0)+PSwest@(4,0,0)[awake 10] PSup@(1,-2,0)[awake 110] PSeast@(-2,0,0)[awake 111]
+  close order: PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] LSeast@(-1,3,0)[awake 10] PSdown@(1,4,0)[awake 10] PSdown@(2,4,0)[awake 10] PSwest@(4,1,0)+PSwest@(4,0,0)[awake 10] PSup@(1,-2,0)[awake 110] PSeast@(-2,0,0)[awake 111]
+  lever K1: WIRABLE (connectivity + order): 2 open states reachable
+8x8-131 in 7x8 x -2..4 y -2..5: WIRABLE (lever K1)
+25 free cells, 4 regions [5, 7, 5, 8], 3 hops
+    5 111#333
+    4 111##33
+    3 1####33
+    2 ##oooh3
+    1 ##ooo##
+    0 ##ooo##
+   -1 00h#h22
+   -2 000#222
+  lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sdown@(2,4) Swest@(4,1))
+  open order:  PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] LSeast+@(-1,3,0)[awake 10] PSdown@(1,5,0)[awake 10] PSdown@(1,3,0)[awake 1010] PSdown@(1,5,0)[awake 1010] PSdown@(1,4,0)[awake 1010] PSdown@(2,4,0)[awake 1010] PSwest@(4,1,0)+PSwest@(4,0,0)[awake 1010] PSup@(1,-2,0)[awake 1110] PSeast@(-2,0,0)[awake 1111]
+  close order: PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] LSeast@(-1,3,0)[awake 10] PSdown@(1,5,0)[awake 10] PSdown@(1,5,0)[awake 1010] PSdown@(2,4,0)[awake 1010] PSwest@(4,1,0)+PSwest@(4,0,0)[awake 1010] PSup@(1,-2,0)[awake 1110] PSeast@(-2,0,0)[awake 1111]
+  lever K1: WIRABLE (connectivity + order): 2 open states reachable
+8x8-131 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+32 free cells, 3 regions [17, 7, 8], 3 hops
+    5 111#222
+    4 111##22
+    3 1####22
+    2 ##oooh2
+    1 ##ooo##
+    0 ##ooo##
+   -1 00h#h00
+   -2 000#000
+   -3 0000000
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sdown@(2,4) Swest@(4,1))
+  open order:  PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] LSeast+@(-1,3,0)[awake 10] PSdown@(1,5,0)[awake 10] PSdown@(1,3,0)[awake 110] PSdown@(1,5,0)[awake 110] PSdown@(1,4,0)[awake 110] PSdown@(2,4,0)[awake 110] PSwest@(4,1,0)+PSwest@(4,0,0)[awake 110] PSeast@(-2,0,0)[awake 111] PSup@(1,-2,0)[awake 111]
+  close order: PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] LSeast@(-1,3,0)[awake 10] PSdown@(1,5,0)[awake 10] PSdown@(1,5,0)[awake 110] PSdown@(2,4,0)[awake 110] PSwest@(4,1,0)+PSwest@(4,0,0)[awake 110] PSeast@(-2,0,0)[awake 111] PSup@(1,-2,0)[awake 111]
+  lever K1: WIRABLE (connectivity + order): 2 open states reachable
+8x8-135 in 7x9 x -2..4 y -4..4: WIRABLE (lever K1)
+32 free cells, 3 regions [22, 5, 5], 3 hops
+    4 111#222
+    3 11h#h22
+    2 ##ooo##
+    1 ##ooo##
+    0 ##oooh0
+   -1 0####00
+   -2 000##00
+   -3 000#000
+   -4 0000000
+  lever K0: opens (2 open states) but cannot close (regions ever awake on close 0b1; pistons never fed on close: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4) Swest@(4,2))
+  open order:  PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] PSwest@(4,2,0)+PSwest@(4,1,0)[awake 110] PSeast@(-2,0,0)[awake 111] PSup@(1,-2,0)[awake 111] LSeast+@(-1,-1,0)[awake 111] PSup@(1,-3,0)[awake 111] PSup@(1,-1,0)[awake 111] PSup@(1,-3,0)[awake 111] PSup@(1,-2,0)[awake 111] PSup@(2,-2,0)[awake 111]
+  close order: PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] PSwest@(4,2,0)+PSwest@(4,1,0)[awake 110] PSeast@(-2,0,0)[awake 111] PSup@(1,-2,0)[awake 111] LSeast@(-1,-1,0)[awake 111] PSup@(1,-2,0)[awake 111] PSup@(2,-2,0)[awake 111]
+  lever K1: WIRABLE (connectivity + order): 2 open states reachable
+8x8-135 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+32 free cells, 3 regions [7, 17, 8], 3 hops
+    5 1111111
+    4 111#111
+    3 11h#h11
+    2 ##ooo##
+    1 ##ooo##
+    0 ##oooh2
+   -1 0####22
+   -2 000##22
+   -3 000#222
+  lever K0: opens (2 open states) but cannot close (regions ever awake on close 0b101; pistons never fed on close: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4) Swest@(4,2))
+  open order:  PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] PSwest@(4,2,0)+PSwest@(4,1,0)[awake 10] PSup@(1,-3,0)[awake 110] PSeast@(-2,0,0)[awake 111] PSup@(1,-3,0)[awake 111] PSup@(1,-2,0)[awake 111] LSeast+@(-1,-1,0)[awake 111] PSup@(1,-3,0)[awake 111] PSup@(1,-1,0)[awake 111] PSup@(1,-3,0)[awake 111] PSup@(1,-2,0)[awake 111] PSup@(2,-2,0)[awake 111]
+  close order: PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] PSwest@(4,2,0)+PSwest@(4,1,0)[awake 10] PSup@(1,-3,0)[awake 110] PSeast@(-2,0,0)[awake 111] PSup@(1,-3,0)[awake 111] LSeast@(-1,-1,0)[awake 111] PSup@(1,-2,0)[awake 111] PSup@(2,-2,0)[awake 111]
+  lever K1: WIRABLE (connectivity + order): 2 open states reachable
+8x8-135 in 7x8 x -2..4 y -3..4: WIRABLE (lever K1)
+25 free cells, 4 regions [7, 5, 8, 5], 3 hops
+    4 111#333
+    3 11h#h33
+    2 ##ooo##
+    1 ##ooo##
+    0 ##oooh2
+   -1 0####22
+   -2 000##22
+   -3 000#222
+  lever K0: opens (2 open states) but cannot close (regions ever awake on close 0b101; pistons never fed on close: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4) Swest@(4,2))
+  open order:  PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] PSwest@(4,2,0)+PSwest@(4,1,0)[awake 1010] PSup@(1,-3,0)[awake 1110] PSeast@(-2,0,0)[awake 1111] PSup@(1,-3,0)[awake 1111] PSup@(1,-2,0)[awake 1111] LSeast+@(-1,-1,0)[awake 1111] PSup@(1,-3,0)[awake 1111] PSup@(1,-1,0)[awake 1111] PSup@(1,-3,0)[awake 1111] PSup@(1,-2,0)[awake 1111] PSup@(2,-2,0)[awake 1111]
+  close order: PSeast@(-2,2,0)+PSeast@(-2,1,0)[awake 10] PSdown@(1,4,0)[awake 10] PSwest@(4,2,0)+PSwest@(4,1,0)[awake 1010] PSup@(1,-3,0)[awake 1110] PSeast@(-2,0,0)[awake 1111] PSup@(1,-3,0)[awake 1111] LSeast@(-1,-1,0)[awake 1111] PSup@(1,-2,0)[awake 1111] PSup@(2,-2,0)[awake 1111]
+  lever K1: WIRABLE (connectivity + order): 2 open states reachable
+6 placements checked, 6 wirable (connectivity + order): 8x8-131 (7x9 x -2..4 y -2..6), 8x8-131 (7x8 x -2..4 y -2..5), 8x8-131 (7x9 x -2..4 y -3..5), 8x8-135 (7x9 x -2..4 y -4..4), 8x8-135 (7x9 x -2..4 y -3..5), 8x8-135 (7x8 x -2..4 y -3..4)

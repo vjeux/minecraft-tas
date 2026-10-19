@@ -27,11 +27,22 @@ section 12; what each tool models: docs/coverage.md. Inventory: [INVENTORY.md](I
   disagreements with the real judge on all 328 supported designs (first run: 263/263 at 2.2 s wall
   vs 28 s for the judge, 68 ms CPU per design vs ~3 s). cosearch built its search on it
   (2049/2049 agreement).
-* **Final confirmation** (finished model, containers included): 0 mismatches in 100,000 random
-  circuits (seeds 30000-30009, `--palette all`, 7x4x7).
+* **Final confirmation** (finished model with containers, scaffolding and pistmodel's 85d1ac7
+  shapes): 0 mismatches in 100,000 random circuits (seeds 50000-50009, `--palette all`, 7x4x7)
+  and 0/20,000 with pistons added (`all,piston:4`); `redsim-verify --judge` still 0 disagreements
+  on the 328 supported archived designs.
 * **Block equivalence classes** (`redsim::classes`): 70 plain states in 22 classes (11 ignoring
   note-block instruments), proven in the game by `redsim-fuzz classfuzz` (3000 circuits vs
   class-swapped variants: 0 differ). Sent to satwire, boxproof and cosearch.
+* **Scaffolding** (vjeux's ask: a second 1 gt delay element after leaves): distance/bottom in a
+  1 gt tick after any shape update or placement, break at 7, fall when placed at 7; 0/30,000
+  scaffold-heavy circuits (no pistons), the gadget designs/gadgets/scaffold-delay as a fixture,
+  two link-table rows (112/112 identical in the game: a tower passes edges up 1 gt per block and
+  swallows 1 gt pulses). `behavior::collision_boxes` (every block's collision shape) added for
+  pistmodel, which wired it into moving-block shapes and falling-entity collisions (85d1ac7, merged):
+  falling scaffolds 0/10,000, scaffolds + pistons 0/10,000; only a FALLING scaffold moved by a
+  piston still differs (13/10,000 circuits with both: entities pushed by moving pistons, pistmodel's
+  open item).
 * **Hopper T flip-flop** gadget (two hoppers facing each other, each locked by a torch under it,
   one item; a 2 gt pulse on both torch supports moves the item once: the receiver's 7 gt cooldown
   stops it coming back before the relock), identical to the game over 99 frames

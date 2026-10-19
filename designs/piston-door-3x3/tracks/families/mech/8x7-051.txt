@@ -16,8 +16,8 @@ layer 0:
 layer 1:
   ss.CCC.B
 layer 2:
-  .s.CCC
+  ...CCC
 layer 3:
   ..S
 layer 4:
-  .....S
+  ....SS

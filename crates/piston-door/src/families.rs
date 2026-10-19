@@ -132,7 +132,15 @@ pub struct St {
     pub g: [u8; MAXC],
     pub pow: u16,
     pub pp: [u8; 16],
+    /// Pistons held on by quasi-connectivity (the piston right above them is powered).
+    pub qc: u16,
 }
+
+/// Quasi-connectivity coupling (default on): whatever powers a piston X also gives X's cell a
+/// neighbor signal, so a retracted, unpowered piston Y right BELOW X (X's cell is Y's
+/// quasi-connectivity cell) is armed and fires with X's update: Y follows X's pulse, X's level-on
+/// arms Y (held on QC), X's level-off releases a Y held that way.
+pub static QC: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 /// The static part of a mechanism: box + pistons (sticky, facing) by id.
 #[derive(Clone, Debug)]
@@ -225,7 +233,7 @@ impl Mech {
         };
         let has_r = pieces.iter().any(|p| matches!(p.k, K::Redstone));
         let mut m = Mech { bx, pieces, info, pid, ext_rest, forbid, has_r };
-        let mut st = St { g, pow, pp };
+        let mut st = St { g, pow, pp, qc: 0 };
         if has_r {
             // a piston held out at rest by a redstone block beside it is not wired: no level bit
             for id in 0..m.info.len() {
@@ -238,6 +246,20 @@ impl Mech {
             let mut t = st.clone();
             if !m.settle(&mut t) || t != st {
                 return None;
+            }
+        }
+        if QC.load(Ordering::Relaxed) {
+            // a piston held powered at rest QC-arms a retracted piston right below it: unstable
+            for id in 0..m.info.len() {
+                if !m.ext_rest[id] {
+                    continue;
+                }
+                if let Some(b) = m.step(st.pp[id] as usize, 3) {
+                    let c = st.g[b];
+                    if (BODY..HEAD).contains(&c) && !m.ext_rest[(c - BODY) as usize] {
+                        return None;
+                    }
+                }
             }
         }
         Some((m, st))
@@ -308,7 +330,108 @@ impl Mech {
         }
     }
 
+    /// Spell out the quasi-connectivity coupling of a sequence: after each event that also fired
+    /// the piston right below (see [`QC`]), that piston's own event (same act). For tools that
+    /// replay sequences without QC (mech-synth's ideal plans, door topology).
+    pub fn expand(&self, start: &St, seq: &[E]) -> Vec<E> {
+        let mut out = Vec::new();
+        let mut c = start.clone();
+        for &e in seq {
+            out.push(e);
+            let a = self.apply(&c, e);
+            let r = self.apply_raw(&c, e);
+            let (Out::Ok(an), rr) = (a, r) else { continue };
+            let differs = match &rr {
+                Out::Ok(rn) => *rn != an,
+                _ => true,
+            };
+            if differs {
+                let p = c.pp[e.id as usize] as usize;
+                if let Some(b) = self.step(p, 3) {
+                    let v = c.g[b];
+                    if (BODY..HEAD).contains(&v) && (v - BODY) != e.id {
+                        out.push(E { id: v - BODY, act: e.act });
+                    }
+                }
+            }
+            c = an;
+        }
+        out
+    }
+
+    /// One event, with the quasi-connectivity coupling of [`QC`].
     pub fn apply(&self, s: &St, e: E) -> Out {
+        let out = self.apply_raw(s, e);
+        if !QC.load(Ordering::Relaxed) {
+            return out;
+        }
+        let Out::Ok(mut n) = out else { return out };
+        let id = e.id as usize;
+        let p = s.pp[id] as usize;
+        let Some(below) = self.step(p, 3) else { return Out::Ok(n) };
+        let c = n.g[below];
+        if !(BODY..HEAD).contains(&c) {
+            return Out::Ok(n);
+        }
+        let j = (c - BODY) as usize;
+        if j == id {
+            return Out::Ok(n);
+        }
+        let bit = 1u16 << j;
+        let ev = E { id: j as u8, act: e.act };
+        match e.act {
+            Act::P => {
+                // Y fires while X is out (mid-pulse): an extended X cannot be pushed, so a Y
+                // facing up into X is blocked (the elevator's lift under its pulled piston).
+                if self.info[id].1 != 3 && n.pow & bit == 0 && !self.ext(s, j) && s.pow & (1u16 << id) == 0 && !self.ext(s, id) && s.g[below] == BODY + j as u8 {
+                    let (sticky, f) = self.info[id];
+                    let Ok(list) = self.push_list(s, self.step(p, f), f) else { return Out::Ok(n) };
+                    let mut mid = s.clone();
+                    let pull = list.is_empty();
+                    self.move_list(&mut mid, &list, f);
+                    let h = self.step(p, f).unwrap();
+                    mid.g[h] = HEAD + id as u8;
+                    match self.apply_raw(&mid, ev) {
+                        Out::Ok(m) => mid = m,
+                        Out::Noop => {}
+                        Out::Illegal => return Out::Illegal,
+                    }
+                    if mid.g[h] == HEAD + id as u8 {
+                        mid.g[h] = AIR;
+                    }
+                    if pull && sticky {
+                        self.pull(&mut mid, p, f);
+                    }
+                    if mid == *s {
+                        return Out::Noop;
+                    }
+                    n = mid;
+                }
+            }
+            Act::L => {
+                if n.pow & (1 << id) != 0 {
+                    if n.pow & bit == 0 {
+                        match self.apply_raw(&n, ev) {
+                            Out::Ok(m) => {
+                                n = m;
+                                n.qc |= bit;
+                            }
+                            Out::Noop => {}
+                            Out::Illegal => return Out::Illegal,
+                        }
+                    }
+                } else if n.qc & bit != 0 {
+                    if let Out::Ok(m) = self.apply_raw(&n, ev) {
+                        n = m;
+                    }
+                    n.qc &= !bit;
+                }
+            }
+        }
+        Out::Ok(n)
+    }
+
+    pub fn apply_raw(&self, s: &St, e: E) -> Out {
         let id = e.id as usize;
         let (sticky, f) = self.info[id];
         let p = s.pp[id] as usize;
@@ -321,7 +444,7 @@ impl Mech {
         if self.has_r && self.rpow(s, id) {
             return Out::Illegal; // driven by its redstone block, not by wiring
         }
-        let out = self.apply_raw(s, e, id, sticky, f, p, bit, powered, ext);
+        let out = self.apply_inner(s, e, id, sticky, f, p, bit, powered, ext);
         match out {
             Out::Ok(mut n) if self.has_r => {
                 if self.settle(&mut n) { Out::Ok(n) } else { Out::Illegal }
@@ -387,7 +510,7 @@ impl Mech {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn apply_raw(&self, s: &St, e: E, id: usize, sticky: bool, f: u8, p: usize, bit: u16, powered: bool, ext: bool) -> Out {
+    fn apply_inner(&self, s: &St, e: E, id: usize, sticky: bool, f: u8, p: usize, bit: u16, powered: bool, ext: bool) -> Out {
         let mut n = s.clone();
         match e.act {
             Act::L => {
@@ -759,7 +882,12 @@ pub fn resolve_cli(path: &std::path::Path, w: i8, h: i8, cap: usize, threads: us
                 }
                 let (bx, v) = &items[i];
                 let Some((m, rest)) = Mech::new(*bx, v) else { continue };
-                match reach_open(&m, &rest, cap) {
+                let r = reach_open(&m, &rest, cap);
+                let d = i + 1;
+                if d % 50 == 0 {
+                    eprintln!("[families resolve] {d}/{} ({} proven, {} capped, {:.0}s)", items.len(), proven.load(Ordering::Relaxed), capped.load(Ordering::Relaxed), t0.elapsed().as_secs_f64());
+                }
+                match r {
                     Ok(false) => {
                         proven.fetch_add(1, Ordering::Relaxed);
                     }
@@ -1166,6 +1294,10 @@ struct Gen {
     pmax: usize,
     lifts: bool,
     pushes: bool,
+    /// General carrying depth (0 = off): reused pistons displaced 1-2 cells in any direction.
+    carry: usize,
+    /// Middle-row side blocks that must leave vertically (`--vmid`).
+    vmid: Vec<(i8, i8)>,
     out: HashSet<Vec<Pc>>,
     memo: HashSet<(usize, Vec<Pc>)>,
     order: Vec<(i8, i8)>,
@@ -1257,6 +1389,63 @@ impl Gen {
                             out.push(w);
                         }
                     }
+                    // general CARRYING (--carry N): displaced by 1-2 cells in any direction
+                    // (sideways too), moved there by carriers that may be carried themselves
+                    if self.carry > 0 && !ext {
+                        let (dx, dy) = (ax - p.x, ay - p.y);
+                        let k = dx.abs() + dy.abs();
+                        if (dx == 0 || dy == 0) && (1..=2).contains(&k) {
+                            let u = (dx.signum(), dy.signum());
+                            for w in self.carry_by(v, (p.x, p.y), u, k, self.carry) {
+                                out.push(w);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Piece sets that move the movable piece at `r` by `k` (1 or 2) cells along `u`: a pull
+    /// carrier (sticky, 2 cells ahead, retracted or extended at rest with its head between) or a
+    /// push carrier (1 cell behind, sticky or normal); with depth > 1 a carrier may itself rest
+    /// one cell further out and be carried in (stacked lifts). Two cells = two carries in a row.
+    fn carry_by(&self, v: &[Pc], r: (i8, i8), u: (i8, i8), k: i8, depth: usize) -> Vec<Vec<Pc>> {
+        if k == 2 {
+            let mut out = Vec::new();
+            for w in self.carry_by(v, r, u, 1, depth) {
+                out.extend(self.carry_by(&w, (r.0 + u.0, r.1 + u.1), u, 1, depth));
+            }
+            return out;
+        }
+        let fu = fdir(u);
+        let mut out = Vec::new();
+        // pull carrier at r + 2u facing -u
+        let t = (r.0 + 2 * u.0, r.1 + 2 * u.1);
+        for ext in [false, true] {
+            if let Some(w) = self.add(v, Pc { x: t.0, y: t.1, k: K::Piston { sticky: true, f: opp(fu), ext } }) {
+                out.push(w);
+            }
+        }
+        // push carrier at r - u facing u
+        let b = (r.0 - u.0, r.1 - u.1);
+        for sticky in [false, true] {
+            if let Some(w) = self.add(v, Pc { x: b.0, y: b.1, k: K::Piston { sticky, f: fu, ext: false } }) {
+                out.push(w);
+            }
+        }
+        if depth > 1 {
+            // the pull carrier rests one cell further out and is carried in by -u
+            let t2 = (t.0 + u.0, t.1 + u.1);
+            if let Some(w) = self.add(v, Pc { x: t2.0, y: t2.1, k: K::Piston { sticky: true, f: opp(fu), ext: false } }) {
+                out.extend(self.carry_by(&w, t2, (-u.0, -u.1), 1, depth - 1));
+            }
+            // the push carrier rests one cell further back and is carried in by +u
+            let b2 = (b.0 - u.0, b.1 - u.1);
+            for sticky in [false, true] {
+                if let Some(w) = self.add(v, Pc { x: b2.0, y: b2.1, k: K::Piston { sticky, f: fu, ext: false } }) {
+                    out.extend(self.carry_by(&w, b2, u, 1, depth - 1));
                 }
             }
         }
@@ -1350,6 +1539,19 @@ impl Gen {
             return;
         }
         let b = self.order[i];
+        // --vmid: this middle-row side block (ML or MR) must leave VERTICALLY (2 moves, the
+        // first up or down, through the corner cell its column-mate vacated)
+        if self.vmid.contains(&b) {
+            for path in self.paths(b) {
+                if path.len() != 2 || path[0].0 != 0 {
+                    continue;
+                }
+                for w in self.provide_path(&v, b, &path) {
+                    self.others(i + 1, w, two_left);
+                }
+            }
+            return;
+        }
         for d in F {
             let c = (b.0 + d.0, b.1 + d.1);
             if in_t(c.0, c.1) {
@@ -1376,11 +1578,38 @@ impl Gen {
 /// Candidate mechanisms of one box offset: for each center exit direction, every core option
 /// times every exit choice of the 7 other perimeter blocks (`two` of them may take 2 moves).
 pub fn generate(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize) -> Vec<Vec<Pc>> {
+    generate_v(bx, pmax, lifts, pushes, two, 0, &[])
+}
+
+/// [`generate`] with general carrying (`carry` = depth, 0 = elevator lifts only).
+pub fn generate_c(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize) -> Vec<Vec<Pc>> {
+    generate_v(bx, pmax, lifts, pushes, two, carry, &[])
+}
+
+/// [`generate`] with middle-row side blocks forced to leave vertically: `vmid` lists the
+/// variants, each a set of blocks among ML (0,1) and MR (2,1); the union of the variants.
+pub fn generate_v(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize, vmid: &[Vec<(i8, i8)>]) -> Vec<Vec<Pc>> {
+    let variants: Vec<Vec<(i8, i8)>> = if vmid.is_empty() { vec![Vec::new()] } else { vmid.to_vec() };
+    let mut all: HashSet<Vec<Pc>> = HashSet::new();
+    for vm in &variants {
+        for v in generate_one(bx, pmax, lifts, pushes, two, carry, vm) {
+            all.insert(v);
+        }
+    }
+    let mut v: Vec<Vec<Pc>> = all.into_iter().collect();
+    v.sort();
+    v
+}
+
+fn generate_one(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize, vmid: &[(i8, i8)]) -> Vec<Vec<Pc>> {
     let mut all: HashSet<Vec<Pc>> = HashSet::new();
     for d in F {
         let e = (1 + d.0, 1 + d.1);
+        if vmid.contains(&e) {
+            continue; // a forced-vertical block is not the center's line edge
+        }
         let order: Vec<(i8, i8)> = [(1, 0), (1, 2), (0, 1), (2, 1), (0, 0), (2, 0), (0, 2), (2, 2)].into_iter().filter(|&b| b != e).collect();
-        let mut g = Gen { bx, pmax, lifts, pushes, out: HashSet::new(), memo: HashSet::new(), order };
+        let mut g = Gen { bx, pmax, lifts, pushes, carry, vmid: vmid.to_vec(), out: HashSet::new(), memo: HashSet::new(), order };
         for c in g.core(d) {
             if n_pistons(&c) > pmax {
                 continue;
@@ -1729,9 +1958,54 @@ pub fn to_world(m: &Mech) -> (World, Vec<u8>) {
     (w, map)
 }
 
+/// The ideal-input plans of a solution, QC coupling spelled out PER EDGE (the coupling depends
+/// on where the pistons stand, so a train's two runs can differ): ("sym", the train's two runs)
+/// when there is a train, and ("oc", the open and close paths). Each as a mech-synth open/close
+/// solution (ideal_plan with sym = false).
+pub fn ideal_solutions(m: &Mech, rest: &St, sol: &Sol, map: &[u8]) -> Vec<(&'static str, mechsynth::Solution)> {
+    let run = |s: &St, seq: &[E]| -> St {
+        let mut c = s.clone();
+        for e in seq {
+            if let Out::Ok(n) = m.apply(&c, *e) {
+                c = n;
+            }
+        }
+        c
+    };
+    let mut out = Vec::new();
+    if let Some(t) = &sol.sym {
+        let o = run(rest, t);
+        out.push(("sym", mechsynth::Solution { open: ms_seq(map, &m.expand(rest, t)), close: ms_seq(map, &m.expand(&o, t)), sym: None, states: 0 }));
+    }
+    let o = run(rest, &sol.open);
+    out.push(("oc", mechsynth::Solution { open: ms_seq(map, &m.expand(rest, &sol.open)), close: ms_seq(map, &m.expand(&o, &sol.close)), sym: None, states: 0 }));
+    out
+}
+
+/// The solution with its quasi-connectivity coupling spelled out ([`Mech::expand`]): the open
+/// path from rest, the close path from the open state, the train from rest.
+pub fn expanded_sol(m: &Mech, rest: &St, sol: &Sol) -> Sol {
+    let mut o = rest.clone();
+    for e in &sol.open {
+        if let Out::Ok(n) = m.apply(&o, *e) {
+            o = n;
+        }
+    }
+    let mut x = sol.clone();
+    x.open = m.expand(rest, &sol.open);
+    x.close = m.expand(&o, &sol.close);
+    x.sym = sol.sym.as_ref().map(|s| m.expand(rest, s));
+    x
+}
+
 /// Track box56's `door topology` verdict for a solved mechanism in its box.
 pub fn topology_of(m: &Mech, sol: &Sol) -> String {
     let (wld, map) = to_world(m);
+    let rest = Mech::new(m.bx, &m.pieces).map(|(_, r)| r);
+    let sol = match &rest {
+        Some(r) => expanded_sol(m, r, sol),
+        None => sol.clone(),
+    };
     let msol = mechsynth::Solution { open: ms_seq(&map, &sol.open), close: ms_seq(&map, &sol.close), sym: sol.sym.as_ref().map(|s| ms_seq(&map, s)), states: 0 };
     let bx = m.bx;
     let t = crate::topology::analyze(&wld, &msol, [bx.x0, bx.y0], [bx.x0 + bx.w - 1, bx.y0 + bx.h - 1]);
@@ -1758,6 +2032,10 @@ pub struct Opts {
     pub limit: usize,
     /// Non-core perimeter blocks that may take a 2-move path.
     pub two: usize,
+    /// General carrying depth (0 = only the classic elevator lifts).
+    pub carry: usize,
+    /// Variants of middle-row side blocks forced to leave vertically (`--vmid`).
+    pub vmid: Vec<Vec<(i8, i8)>>,
     /// Also search with level events (A*) when the pulse model fails.
     pub levels: bool,
 }
@@ -1876,14 +2154,25 @@ pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize, ver
             println!("  wire {} regions {:?} forced {} riders {}: {}", w.class, w.regions, w.forced, w.riders, w.why);
             println!("  topology: {}", topology_of(&m, &sol));
             let (wld, map) = to_world(&m);
-            let msol = mechsynth::Solution { open: ms_seq(&map, &sol.open), close: ms_seq(&map, &sol.close), sym: sol.sym.as_ref().map(|s| ms_seq(&map, s)), states: 0 };
-            for symq in [true, false] {
-                if symq && msol.sym.is_none() {
-                    continue;
-                }
-                match mechsynth::ideal_plan(&wld, &msol, symq, 6, "check") {
-                    Ok(p) => println!("  ideal plan ({}): {} input events", if symq { "sym" } else { "oc" }, p.events.len()),
-                    Err(e) => println!("  ideal plan ({}): FAILS: {e:#}", if symq { "sym" } else { "oc" }),
+            let xs = expanded_sol(&m, &rest, &sol);
+            if let Some(s) = &xs.sym {
+                println!("  sym with the QC coupling spelled out ({}): {}", s.len(), m.fmt_seq(s));
+            }
+            for (tag, msol) in ideal_solutions(&m, &rest, &sol, &map) {
+                match mechsynth::ideal_plan(&wld, &msol, false, 6, "check") {
+                    Ok(p) => {
+                        println!("  ideal plan ({tag}): {} input events", p.events.len());
+                        if let Ok(dir) = std::env::var("FAMILIES_IDEAL_OUT") {
+                            let dir = std::path::PathBuf::from(dir);
+                            std::fs::create_dir_all(&dir)?;
+                            let dpath = dir.join(format!("check-{tag}.txt"));
+                            let mut dd = p.design.clone();
+                            dd.name = format!("check-{tag}");
+                            dd.save(&dpath)?;
+                            std::fs::write(dir.join(format!("check-{tag}.ideal")), p.text.replace("design check.txt", &format!("design {}", dpath.display())))?;
+                        }
+                    }
+                    Err(e) => println!("  ideal plan ({tag}): FAILS: {e:#}"),
                 }
             }
         }
@@ -1951,7 +2240,7 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
             if dx > (w - 3) - dx {
                 continue;
             }
-            let g = generate(bx, o.pmax, o.lifts, o.pushes, o.two);
+            let g = generate_v(bx, o.pmax, o.lifts, o.pushes, o.two, o.carry, &o.vmid);
             for v in g {
                 let c = canon(&v);
                 if seen_c.insert(c) {
@@ -2126,16 +2415,12 @@ fn verify_entries(version: &str, o: &Opts, entries: &mut BTreeMap<Vec<Pc>, Entry
     let ents: Vec<Entry> = keys.iter().map(|k| entries[k].clone()).collect();
     let res = pool.map(items.clone(), |wk, _, (i, sym)| {
         let e = &ents[i];
-        let (m, _) = Mech::new(e.bx, &e.orient).context("rebuild")?;
+        let (m, mrest) = Mech::new(e.bx, &e.orient).context("rebuild")?;
         let (w, map) = to_world(&m);
-        let sol = mechsynth::Solution {
-            open: ms_seq(&map, &e.sol.open),
-            close: ms_seq(&map, &e.sol.close),
-            sym: e.sol.sym.as_ref().map(|s| ms_seq(&map, s)),
-            states: 0,
-        };
+        let want = if sym { "sym" } else { "oc" };
+        let sol = ideal_solutions(&m, &mrest, &e.sol, &map).into_iter().find(|(t, _)| *t == want).map(|(_, s)| s).context("no such schedule")?;
         let name = format!("{}x{}-{:04}", e.w, e.h, i);
-        let plan = mechsynth::ideal_plan(&w, &sol, sym, o.gap, &name)?;
+        let plan = mechsynth::ideal_plan(&w, &sol, false, o.gap, &name)?;
         Ok(mechsynth::verify_plan(wk, &plan, o.extra).map_err(|e| format!("{e:#}")))
     });
     let mut verdicts: HashMap<usize, Vec<String>> = HashMap::new();
@@ -2174,13 +2459,13 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
     md.push_str("# Flat (1-wide) seamless 3x3 door mechanisms: the catalog per box\n\n");
     md.push_str("Generated by `mctas door families` (crates/piston-door/src/families.rs). Do not edit by hand.\n\n");
     md.push_str(&format!(
-        "Bounds: every block in the door plane; pistons sticky or normal facing E/W/U/D (retracted or extended at rest), at most **{} pistons**, no helpers, no slime/honey; every door block leaves the 3x3 in 1-2 unit moves (the center in exactly 2), each move a pull by a sticky piston 2 cells ahead or a push by a piston 1-2 cells behind, a piston reused from its rest cell or lifted 1 cell along its axis by one lift piston (the elevator){}{}. Each candidate is solved EXACTLY in the macro piston model (whole state graph, cap {} states): FULL seamless open state (3x3 empty, only door blocks / plain blocks in the 12 ring cells, nothing but air or a door block behind a swept ring cell that is empty when open), closing back to the exact rest state, everything inside the box at every state. Only MINIMAL mechanisms (no piston can be dropped), left-right mirror images merged (up/down is not a symmetry: quasi-connectivity and gravity).\n\n",
+        "Bounds: every block in the door plane; pistons sticky or normal facing E/W/U/D (retracted or extended at rest), at most **{} pistons**, no helpers, no slime/honey; every door block leaves the 3x3 in 1-2 unit moves (the center in exactly 2), each move a pull by a sticky piston 2 cells ahead or a push by a piston 1-2 cells behind, a piston reused from its rest cell or lifted 1 cell along its axis by one lift piston (the elevator){}{}. Each candidate is solved EXACTLY in the macro piston model (whole state graph, cap {} states): FULL seamless open state (3x3 empty, only door blocks / plain blocks in the 12 ring cells, nothing but air or a door block behind a swept ring cell that is empty when open), closing back to the exact rest state, everything inside the box at every state. Only MINIMAL mechanisms (no piston can be dropped), left-right mirror images merged (up/down is not a symmetry: quasi-connectivity and gravity). The candidates the pulse graph (cap) and A* (cap) could not decide are counted as UNRESOLVED per box and listed in `unresolved/WxH.txt`.\n\n**Read before wiring:** (1) the macro model ignores quasi-connectivity and redstone: only entries whose `sim` column says WORKS replay with ideal inputs in the simulator (8x8-119's family fails: its elevator piston, pulled back above BL's puller, QC-fires it). (2) RIDER SHUFFLES (a piston dragged sideways to serve two lines, sometimes firing from inside the 3x3; schedules ~20 / 46 events; `wire` X with riders >= 2) are kept for completeness but are not wiring targets, even where `topology` says strict.\n\n",
         o.pmax,
         if o.lifts { "" } else { " (lifts off)" },
         if o.pushes { "" } else { " (pushes off)" },
         o.cap
     ));
-    md.push_str("Columns: box (W x H, door offset = columns left of / rows below the door), pistons (sticky), rest-ring = no piston/head in the ring at rest (the strict reading), topology = track box56's `door topology` (crates/piston-door/src/topology.rs) on the entry in its box: `strict` = wirable with links that carry their exact pulse parity (memoryless observers + pulse mergers); `permissive` = also when 3+ events may chain-merge into an odd count; `memory` = also with MEMORY links (a waxed copper bulb T flip-flop + comparator, 2 free cells, turns an even pulse count into one window); `no` = none of these (link types not modeled: piston/note-block latches reset on the other edge, sculk, entities), sym = one pulse train for both lever edges (P = 2 gt pulse, L = level toggle; `+L` = needs levels), free = box cells the mechanism never touches (room for wiring), rq = pistons whose quasi-connectivity cell (above) is in the ring or the 3x3, wire = wiring feasibility (track box56's quadrant + parity argument, automated: free cells minus the ring, the swept cells and the cells behind open holes split into REGIONS; a piston is fed from a region touching it or the cell above it (QC) at every place it fires; a region with pistons only it can feed but no lever needs a LINK: a changing mechanism cell next to it an observer can watch, whose pulse count per lever edge must be odd where a piston there needs an odd count. Class A = one region feeds every piston; B = links needed, each with the right parity; C = some region only gets even links (needs a pulse merger, designs/gadgets/pulse-merge on explore/flat-seam); X = a piston no free cell feeds, or a region with no link), sim = `door ideal` replay with ideal inputs (oc = separate open/close schedules, sym = the shared train). Within a box, rows are ranked by wire class, forced regions, largest region, pistons, train length.\n\n");
+    md.push_str("Columns: box (W x H, door offset = columns left of / rows below the door), pistons (sticky), rest-ring = no piston/head in the ring at rest (the strict reading), topology = track box56's `door topology` (crates/piston-door/src/topology.rs) on the entry in its box, a HEURISTIC RANKING, NOT A PROOF (its link model does not yet over-approximate every way two regions can talk: trapdoor crossings, a lever outside the box, QC feeds, memory links of other sizes; and its parity rule is not even a valid heuristic for timing-flexible links: an observer ignores changes while powered or with a tick pending, so a piston firing twice exactly 6 gt apart gives its watcher 3 raw pulses, and a door block's parking cell can show 3 changes per edge: wire56 wired 3 of 7x8-013's (v1 028) 4 regions that way, NOTES section 5 on explore/wire56): `strict` = wirable with links that carry their exact pulse parity (memoryless observers + pulse mergers); `permissive` = also when 3+ events may chain-merge into an odd count; `memory` = also with MEMORY links (two waxed copper bulb T flip-flops + comparators + an observer, wire56's memory-link gadget, needing >= 7 free cells in the receiving region, turn an even pulse count into one 2 gt pulse per edge); `no` = none of these (link types not modeled: piston/note-block latches reset on the other edge, sculk, entities), sym = one pulse train for both lever edges (P = 2 gt pulse, L = level toggle; `+L` = needs levels), free = box cells the mechanism never touches (room for wiring), rq = pistons whose quasi-connectivity cell (above) is in the ring or the 3x3, wire = wiring feasibility (track box56's quadrant + parity argument, automated: free cells minus the ring, the swept cells and the cells behind open holes split into REGIONS; a piston is fed from a region touching it or the cell above it (QC) at every place it fires; a region with pistons only it can feed but no lever needs a LINK: a changing mechanism cell next to it an observer can watch, whose pulse count per lever edge must be odd where a piston there needs an odd count. Class A = one region feeds every piston; B = links needed, each with the right parity; C = some region only gets even links (needs a pulse merger, designs/gadgets/pulse-merge on explore/flat-seam); X = a piston no free cell feeds, or a region with no link), sim = `door ideal` replay with ideal inputs (oc = separate open/close schedules, sym = the shared train). Within a box, rows are ranked by wire class, forced regions, largest region, pistons, train length.\n\n");
     md.push_str("| box | candidates | minimal mechanisms that fit | first fitting here | unresolved candidates |\n|---|---|---|---|---|\n");
     for (w, h, c, f, n, unres) in per_box {
         md.push_str(&format!("| {w}x{h} | {c} | {f} | {n} | {} |\n", if *unres == 0 { "0 (exhaustive within the bounds)".to_string() } else { format!("{unres} (pulse graph over the cap, A* found nothing)") }));
@@ -2193,8 +2478,11 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
             cur_box = (e.w, e.h);
             md.push_str(&format!("\n## {}x{} (volume {})\n\n| id | offset | pistons | rest-ring | topology | wire | sym | open/close | free | rq | pieces | sim |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n", e.w, e.h, e.w as i32 * e.h as i32));
         }
-        let (m, _) = Mech::new(e.bx, &e.orient).unwrap();
-        let sym = e.sol.sym.as_ref().map(|s| format!("{}{}: {}", s.len(), if e.sol.sym_levels { "+L" } else { "" }, m.fmt_seq(s))).unwrap_or("-".into());
+        let (m, mrest) = Mech::new(e.bx, &e.orient).unwrap();
+        // sequences as published: the QC coupling spelled out (the coupled piston's own event
+        // follows the event that fires it)
+        let xs = expanded_sol(&m, &mrest, &e.sol);
+        let sym = xs.sym.as_ref().map(|s| format!("{}{}: {}", s.len(), if e.sol.sym_levels { "+L" } else { "" }, m.fmt_seq(s))).unwrap_or("-".into());
         let pieces = m.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" ");
         let id = format!("{}x{}-{:03}", e.w, e.h, i);
         let wire = format!("{} regions {:?}{}: {}", e.wire.class, e.wire.regions, if e.wire.riders > 0 { format!(", {} riders", e.wire.riders) } else { String::new() }, e.wire.why);
@@ -2205,15 +2493,10 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
         let (wld, map) = to_world(&m);
         let md_design = mechsynth::design_of_world(&wld, &id);
         md_design.save(&mdir.join(format!("{id}.txt")))?;
-        let msol = mechsynth::Solution { open: ms_seq(&map, &e.sol.open), close: ms_seq(&map, &e.sol.close), sym: e.sol.sym.as_ref().map(|s| ms_seq(&map, s)), states: 0 };
         let mut files = vec![format!("mech/{id}.txt")];
-        for sym in [true, false] {
-            if sym && msol.sym.is_none() {
-                continue;
-            }
-            match mechsynth::ideal_plan(&wld, &msol, sym, o.gap, &id) {
+        for (tag, msol) in ideal_solutions(&m, &mrest, &e.sol, &map) {
+            match mechsynth::ideal_plan(&wld, &msol, false, o.gap, &id) {
                 Ok(plan) => {
-                    let tag = if sym { "sym" } else { "oc" };
                     let mut dd = plan.design.clone();
                     dd.name = format!("{id}-{tag}");
                     let dpath = mdir.join(format!("{id}-{tag}.txt"));
@@ -2222,7 +2505,7 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
                     std::fs::write(mdir.join(format!("{id}-{tag}.ideal")), text)?;
                     files.push(format!("mech/{id}-{tag}.ideal"));
                 }
-                Err(err) => files.push(format!("(no {} ideal plan: {})", if sym { "sym" } else { "oc" }, format!("{err:#}").replace(['\t', '|'], " "))),
+                Err(err) => files.push(format!("(no {tag} ideal plan: {})", format!("{err:#}").replace(['\t', '|'], " "))),
             }
         }
         let files = files.join(" ");
@@ -2265,9 +2548,9 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
             e.wire.why,
             e.sol.extent,
             pieces,
-            m.fmt_seq(&e.sol.open),
-            m.fmt_seq(&e.sol.close),
-            e.sol.sym.as_ref().map(|s| m.fmt_seq(s)).unwrap_or_default(),
+            m.fmt_seq(&xs.open),
+            m.fmt_seq(&xs.close),
+            xs.sym.as_ref().map(|s| m.fmt_seq(s)).unwrap_or_default(),
             e.verified.clone().unwrap_or_default()
         ));
     }

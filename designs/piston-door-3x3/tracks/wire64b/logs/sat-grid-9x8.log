@@ -1,0 +1,19 @@
+=== grid 1/72: da=2 da3=4 db=3 dbb=7 tl=5
+open: 34 frames, powered piston-ticks t1:1,4 t2:1,4 t6:-1,3 t6:-2,1 t6:-2,2 t7:-2,2 t7:-2,1 t7:-1,3 t9:1,5 t9:1,4 t10:1,5 t12:1,3 t16:1,5 t17:4,0 t17:2,4 t17:1,5 t17:4,1 t18:4,1 t18:2,4 t18:4,0 t21:1,4 t22:1,-2 t23:1,-2 t26:-2,0 t27:-2,0
+close: 34 frames, powered piston-ticks t1:1,4 t2:1,4 t6:-2,1 t6:-2,2 t6:-1,3 t7:-2,2 t7:-2,1 t7:-1,3 t9:1,5 t9:1,4 t10:1,5 t12:1,3 t16:1,5 t17:4,0 t17:4,1 t17:1,5 t17:2,4 t18:4,1 t18:4,0 t18:2,4 t21:1,4 t22:1,-2 t23:1,-2 t26:-2,0 t27:-2,0
+[   2.6s] encoded: 44 free cells, 148 lever candidates, offsets 0..=10, horizon 49 ticks, 1061064 vars, 4020041 clauses
+[  47.7s] UNSAT (solve 33.9s): no wiring exists within this palette, box and model (wiring <= 44, 0 judged designs blocked)
+=== grid 2/72: da=2 da3=5 db=3 dbb=7 tl=5
+open: 35 frames, powered piston-ticks t1:1,4 t2:1,4 t6:-2,2 t6:-2,1 t6:-1,3 t7:-1,3 t7:-2,1 t7:-2,2 t9:1,4 t9:1,5 t10:1,5 t12:1,3 t16:1,5 t17:4,1 t17:1,5 t17:4,0 t17:2,4 t18:4,1 t18:2,4 t18:4,0 t21:1,4 t22:1,4 t23:1,-2 t24:1,-2 t27:-2,0 t28:-2,0
+close: 35 frames, powered piston-ticks t1:1,4 t2:1,4 t6:-1,3 t6:-2,2 t6:-2,1 t7:-1,3 t7:-2,1 t7:-2,2 t9:1,4 t9:1,5 t10:1,5 t12:1,3 t16:1,5 t17:2,4 t17:1,5 t17:4,1 t17:4,0 t18:4,0 t18:4,1 t18:2,4 t21:1,4 t22:1,4 t23:1,-2 t24:1,-2 t27:-2,0 t28:-2,0
+[   2.6s] encoded: 44 free cells, 148 lever candidates, offsets 0..=10, horizon 50 ticks, 1082277 vars, 4100264 clauses
+[  46.5s] UNSAT (solve 31.3s): no wiring exists within this palette, box and model (wiring <= 44, 0 judged designs blocked)
+=== grid 3/72: da=2 da3=4 db=3 dbb=8 tl=5
+open: 35 frames, powered piston-ticks t1:1,4 t2:1,4 t6:-2,1 t6:-1,3 t6:-2,2 t7:-2,1 t7:-2,2 t7:-1,3 t9:1,4 t9:1,5 t10:1,5 t12:1,3 t17:4,0 t17:2,4 t17:1,5 t17:4,1 t18:4,1 t18:4,0 t18:1,5 t18:2,4 t22:1,4 t23:1,-2 t24:1,-2 t27:-2,0 t28:-2,0
+close: 35 frames, powered piston-ticks t1:1,4 t2:1,4 t6:-1,3 t6:-2,1 t6:-2,2 t7:-1,3 t7:-2,2 t7:-2,1 t9:1,5 t9:1,4 t10:1,5 t12:1,3 t17:4,0 t17:4,1 t17:1,5 t17:2,4 t18:2,4 t18:4,0 t18:1,5 t18:4,1 t22:1,4 t23:1,-2 t24:1,-2 t27:-2,0 t28:-2,0
+[   2.2s] encoded: 44 free cells, 148 lever candidates, offsets 0..=10, horizon 50 ticks, 1082269 vars, 4100253 clauses
+[  45.1s] UNSAT (solve 30.3s): no wiring exists within this palette, box and model (wiring <= 44, 0 judged designs blocked)
+=== grid 4/72: da=2 da3=5 db=3 dbb=8 tl=5
+open: 36 frames, powered piston-ticks t1:1,4 t2:1,4 t6:-1,3 t6:-2,2 t6:-2,1 t7:-2,2 t7:-2,1 t7:-1,3 t9:1,4 t9:1,5 t10:1,5 t12:1,3 t17:1,5 t17:4,0 t17:2,4 t17:4,1 t18:4,1 t18:2,4 t18:4,0 t18:1,5 t22:1,4 t23:1,4 t24:1,-2 t25:1,-2 t28:-2,0 t29:-2,0
+close: 36 frames, powered piston-ticks t1:1,4 t2:1,4 t6:-2,1 t6:-2,2 t6:-1,3 t7:-1,3 t7:-2,1 t7:-2,2 t9:1,4 t9:1,5 t10:1,5 t12:1,3 t17:4,1 t17:4,0 t17:1,5 t17:2,4 t18:4,1 t18:4,0 t18:1,5 t18:2,4 t22:1,4 t23:1,4 t24:1,-2 t25:1,-2 t28:-2,0 t29:-2,0
+[   2.1s] encoded: 44 free cells, 148 lever candidates, offsets 0..=10, horizon 51 ticks, 1103482 vars, 4180476 clauses

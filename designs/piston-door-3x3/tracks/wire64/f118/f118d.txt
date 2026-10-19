@@ -1,0 +1,42 @@
+name: f118d
+# 8x8-118 (v2) with MR's puller held extended at rest (SW+(4,1): its head at (3,1) is a STOPPER that blocks
+# the L1 shot coupled to D's arming) + the real top-left core: repeater r (-2,4) -> note block N4 (-1,4)
+# (arms D at (0,3) through its quasi cell (0,4), powers D at (0,4) directly), observer u (-1,3) facing up
+# watching N4 (fires L1 at (-1,1) by quasi-connectivity and L1 at (-2,1) through TL at (-1,2)), observer o
+# (-3,2) facing west = L2's driver. Holders (ideal only, outside the box): E3 (-4,1), R1 (5,1), E5 (0,6).
+port door: 0 0 0
+origin: -4 0 0
+palette:
+  Q minecraft:sticky_piston[extended=true,facing=west]
+  q minecraft:piston_head[facing=west,short=false,type=sticky]
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=down]
+  D minecraft:sticky_piston[extended=true,facing=east]
+  E minecraft:stone
+  J minecraft:stone
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  u minecraft:observer[facing=up,powered=false]
+  o minecraft:observer[facing=west,powered=false]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+layer -2:
+  .....A
+layer 0:
+  ..s.EEE.B
+layer 1:
+  RDpsEEEqQR
+layer 2:
+  .os.EEE
+layer 3:
+  ..JuS
+layer 4:
+  ..rNPSS
+layer 5:
+  ....C
+layer 6:
+  ....R

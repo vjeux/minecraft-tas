@@ -23,11 +23,11 @@ layer 1:
   ss.DDD.B
   .
 layer 2:
-  ..PDDD.B
+  ..PDDD
   .
 layer 3:
   ..C
   ..R
 layer 4:
-  ...SS
+  ...SSS
   .
