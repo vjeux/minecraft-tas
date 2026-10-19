@@ -462,6 +462,9 @@ pub static GROUP_LEVELS: std::sync::atomic::AtomicBool = std::sync::atomic::Atom
 /// Ideal plans in the TILE-TICK phase (main de6ecbce: `door ideal`'s default): the text says
 /// `phase tile` and `verify_plan` replays them that way.
 pub static PLAN_TILE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Ideal plans: no input for a pulse fired in the same step as the piston right above it (it is
+/// quasi-powered by the upper input; a direct input would quasi-power the piston below too).
+pub static QC_QUIET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--seamless-open`: open states must also pass `World::ring_clean`.
 pub static SEAMLESS_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Where the split symmetric search puts the "edge" pulses: 0 both, 1 start, 2 end (`--edges`).
@@ -1574,6 +1577,16 @@ pub fn ideal_plan(rest: &World, sol: &Solution, sym: bool, gap: u32, name: &str)
             continue;
         }
         let (a, b) = step_span(s);
+        // QC_QUIET: a pulse fired in the same step as the piston right above it gets no input of
+        // its own: the upper input quasi-powers it anyway, and a direct input would also quasi-
+        // power the piston below it (satwire3: stacked pullers dragging a static stone)
+        if QC_QUIET.load(Ordering::Relaxed) {
+            let my = traj[a].b[e.id as usize].0;
+            let above = add(my, [0, 1, 0]);
+            if (a..=b).any(|k| k != s && all[k].act == Act::P && traj[a].b[all[k].id as usize].0 == above) {
+                continue;
+            }
+        }
         let span: Vec<&World> = traj[a..=b + 1].iter().collect();
         let cell = input_cell_avoid(&span, e.id as usize, &level_cells).with_context(|| format!("no input cell for pulse {}", fmt_ev(&traj[s], e)))?;
         let (op, t) = step_of(s);

@@ -1935,6 +1935,33 @@ pub fn gen_member(cands: &[(Bx, Vec<Pc>)], bx: &Bx, v: &[Pc]) -> (bool, usize) {
     (exact, sup)
 }
 
+/// pockets2's input form: a FLAT copy of a z1 plan's design (rest-held inputs only in the plan:
+/// blocks off the door plane dropped) with a `port lever:` line at a free corner of the box, and
+/// the plan rewritten to use it. Returns the flat design path.
+pub fn flat_copy(plan: &std::path::Path, bx: &Bx) -> Result<std::path::PathBuf> {
+    let text = std::fs::read_to_string(plan)?;
+    let dline = text.lines().find(|l| l.trim_start().starts_with("design ")).context("plan without a design line")?;
+    let dpath = std::path::PathBuf::from(dline.trim_start().trim_start_matches("design ").trim());
+    let mut d = crate::cli::load_design(&dpath)?;
+    let door = *d.ports.get("door").context("no door port")?;
+    d.blocks.retain(|p, _| p[2] == door[2]);
+    let corners = [(bx.x0 + bx.w - 1, bx.y0 + bx.h - 1), (bx.x0, bx.y0 + bx.h - 1), (bx.x0 + bx.w - 1, bx.y0), (bx.x0, bx.y0)];
+    let lever = corners
+        .iter()
+        .map(|&(x, y)| [door[0] + x as i32, door[1] + y as i32, door[2]])
+        .find(|p| !d.blocks.contains_key(p))
+        .context("no free corner for the lever port")?;
+    d.ports.insert("lever".to_string(), lever);
+    let stem = plan.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let dir = plan.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+    let fpath = dir.join(format!("{stem}-flat.txt"));
+    d.name = format!("{stem}-flat");
+    d.save(&fpath)?;
+    let new: Vec<String> = text.lines().map(|l| if l.trim_start().starts_with("design ") { format!("design {}", fpath.display()) } else { l.to_string() }).collect();
+    std::fs::write(dir.join(format!("{stem}-flat.ideal")), new.join("\n") + "\n")?;
+    Ok(fpath)
+}
+
 /// The reach-matching condition alone (see `reach_ok`).
 pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
     let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();

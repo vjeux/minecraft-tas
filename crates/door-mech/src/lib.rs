@@ -1007,6 +1007,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             if std::env::var("MECHSPACE_BETWEEN").is_err() {
                 crate::mechsynth::PLAN_TILE.store(true, std::sync::atomic::Ordering::Relaxed);
             }
+            if std::env::var("MECHSPACE_QC_QUIET").is_ok() {
+                crate::mechsynth::QC_QUIET.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
             if no_door_bodies {
                 ms::NO_DOOR_BODIES.store(true, std::sync::atomic::Ordering::Relaxed);
                 eprintln!("[mechspace] sub-model: no piston body inside the 3x3");
@@ -1298,6 +1301,19 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let paths: Vec<PathBuf> = f.to_string_lossy().split(',').map(PathBuf::from).collect();
                     let (n, d) = ms::framecheck_tsvs(&paths, threads)?;
                     eprintln!("[mechspace framecheck] {n} WORKS plans checked, {d} demoted to FRAME");
+                }
+                "flat" => {
+                    // pockets2's form: flat copies (+ lever port) of the plans listed in --input
+                    let f = input.ok_or_else(|| anyhow::anyhow!("flat needs --input (plan paths, one per line)"))?;
+                    anyhow::ensure!(bxs.len() == 1, "flat needs one --boxes WxH");
+                    let (dx, dy) = ms::DOOR_OFFSET.get().copied().unwrap_or((2, 2));
+                    let bx = crate::families::Bx { x0: -dx, y0: -dy, w: bxs[0].0, h: bxs[0].1 };
+                    for l in std::fs::read_to_string(&f)?.lines().filter(|l| !l.trim().is_empty()) {
+                        match ms::flat_copy(std::path::Path::new(l.trim()), &bx) {
+                            Ok(p) => println!("{}", p.display()),
+                            Err(e) => eprintln!("{l}: {e:#}"),
+                        }
+                    }
                 }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }
