@@ -1,0 +1,2 @@
+period	state_period	warmup	family	blocks	dims	volume	on	edges	pulses	start	type	encoding	minimal
+6	6	0	observer	2	2x1x1	2	2	1	[2]	last 0,0,0	0,0,0=observer[facing=east];1,0,0=observer[facing=west]	0,0,0=observer[facing=east,powered=false];1,0,0=observer[facing=west,powered=false]	true

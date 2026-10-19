@@ -68,16 +68,18 @@ pub struct SimReport {
     pub verdict: Verdict,
     /// Why it is not a clock (empty for a clock).
     pub why: String,
-    /// The first tick from which the BLOCK STATES repeat (what the real-game judge sees).
+    /// The first tick from which the VISIBLE state repeats (block states + comparator output
+    /// strengths: what the real-game judge sees).
     pub warmup: u32,
     /// The first tick from which the WHOLE state repeats exactly (hidden state included: pending
-    /// ticks, torch memory, block entities): >= `warmup`.
+    /// ticks, torch memory, container contents): >= `warmup`.
     pub state_warmup: u32,
-    /// The exact period: the whole state repeats every `period` gt.
+    /// The clock's period: the visible state repeats every `period` gt (a divisor of
+    /// `state_period`).
     pub period: u32,
-    /// The smallest period of the block states alone (a divisor of `period`; smaller only when
-    /// hidden state cycles slower than the blocks).
-    pub block_period: u32,
+    /// The exact period of the whole state (larger than `period` only when hidden state cycles
+    /// slower than everything visible, e.g. items sloshing in hoppers no comparator reads).
+    pub state_period: u32,
     pub analysis: PeriodAnalysis,
     pub output: Option<Output>,
     pub blocks: usize,
@@ -95,7 +97,7 @@ impl SimReport {
             warmup: 0,
             state_warmup: 0,
             period: 0,
-            block_period: 0,
+            state_period: 0,
             analysis: PeriodAnalysis::default(),
             output: None,
             blocks: c.blocks(),
@@ -222,16 +224,22 @@ fn start(c: &Clock, blocks: &[(BlockPos, Block)], margin: i32) -> Result<Started
     let size = [hi[0] - lo[0] + 1 + 2 * margin, hi[1] - lo[1] + 1 + 2 * margin, hi[2] - lo[2] + 1 + 2 * margin];
     let mut w = World::new(min, size);
     let last = c.withheld().map(bp);
+    let be_lines = |w: &mut World, only: Option<BlockPos>| -> Result<(), (Verdict, String)> {
+        let lines: Vec<(BlockPos, &str)> = c.design.block_entities.iter().map(|(p, s)| (bp(*p), s.as_str())).filter(|(p, _)| if only.is_some() { Some(*p) == only } else { Some(*p) != last }).collect();
+        redsim::redstone::container::apply_block_entities(w, lines).map_err(|e| (Verdict::Unmodeled, format!("nbt: {e}")))
+    };
     match c.placement {
         Placement::Judge => {
             let silent: Vec<(BlockPos, Block)> = blocks.iter().filter(|(p, _)| Some(*p) != last).copied().collect();
             w.place_raw(&silent);
+            be_lines(&mut w, None)?;
             w.place_updates(&silent);
         }
         Placement::Player => {
             for (p, b) in blocks.iter().filter(|(p, _)| Some(*p) != last) {
                 w.set_block(*p, *b, flags::ALL);
             }
+            be_lines(&mut w, None)?;
         }
     }
     Ok(Started { world: w, actions: c.actions() })
@@ -242,9 +250,12 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
     while s.actions.first().is_some_and(|(at, _)| *at == t) {
         let (_, a) = s.actions.remove(0);
         match a {
-            Action::Place { pos, state } => {
+            Action::Place { pos, state, nbt } => {
                 let b = Block::parse(&state).map_err(|e| (Verdict::Unmodeled, e))?;
                 s.world.set_block(bp(pos), b, flags::ALL);
+                if let Some(n) = nbt {
+                    redsim::redstone::container::apply_block_entities(&mut s.world, [(bp(pos), n.as_str())]).map_err(|e| (Verdict::Unmodeled, format!("nbt: {e}")))?;
+                }
             }
             Action::Use { pos } => {
                 if !s.world.use_block(bp(pos)) {
@@ -312,6 +323,46 @@ pub fn trace(c: &Clock, o: &SimOptions, ticks: u32) -> Vec<String> {
     out
 }
 
+/// The census's fast screen (no waveform, no strings): place `blocks` like the judge (raw writes,
+/// wire shapes, self updates), the block at index `last` withheld and placed last with updates
+/// when given, then run until the whole state repeats. `Some((state_warmup, state_period))` for a
+/// state that keeps changing; `None` when it goes still, never repeats within `horizon`, or the
+/// model meets something it does not model exactly (an error, a drop, a write beyond `margin`).
+pub fn quick_period(blocks: &[(BlockPos, Block)], last: Option<usize>, margin: i32, horizon: u32) -> Option<(u32, u32)> {
+    let mut lo = blocks[0].0;
+    let mut hi = blocks[0].0;
+    for (p, _) in blocks {
+        lo = BlockPos::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
+        hi = BlockPos::new(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
+    }
+    let min = BlockPos::new(lo.x - margin, lo.y - margin, lo.z - margin);
+    let size = [hi.x - lo.x + 1 + 2 * margin, hi.y - lo.y + 1 + 2 * margin, hi.z - lo.z + 1 + 2 * margin];
+    let mut w = World::new(min, size);
+    let silent: Vec<(BlockPos, Block)> = blocks.iter().enumerate().filter(|(i, _)| Some(*i) != last).map(|(_, b)| *b).collect();
+    w.place_raw(&silent);
+    w.place_updates(&silent);
+    if let Some(i) = last {
+        w.set_block(blocks[i].0, blocks[i].1, flags::ALL);
+    }
+    let hoppers = blocks.iter().any(|(_, b)| matches!(b, Block::Hopper { .. }));
+    let mut seen: HashMap<u128, u32> = HashMap::new();
+    for t in 0..=horizon {
+        if !w.errors.is_empty() || !w.drops.is_empty() {
+            return None;
+        }
+        if !hoppers && w.idle() && !w.sculk.busy() {
+            return None;
+        }
+        let d = digest(&w);
+        if let Some(&t0) = seen.get(&d) {
+            return if t - t0 > 1 { Some((t0, t - t0)) } else { None };
+        }
+        seen.insert(d, t);
+        w.tick();
+    }
+    None
+}
+
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let blocks = match parse_blocks(c) {
@@ -369,7 +420,9 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             use std::hash::Hash;
             let mut h = H128 { a: 0xcbf29ce484222325, b: 0x84222325cbf29ce4 };
             for q in &cells {
-                s.world.get(bp(*q)).hash(&mut h);
+                let b = s.world.get(bp(*q));
+                b.hash(&mut h);
+                wave::visible_extra(wave::be_extra_redsim(&s.world, bp(*q), &b).as_deref()).hash(&mut h);
             }
             frames.push(((h.a as u128) << 64) | h.b as u128);
         }
@@ -377,7 +430,15 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             key_w = s.world.state_key();
         }
         if t >= w0 && t < w0 + p {
-            period_states.push(cells.iter().map(|q| s.world.get(bp(*q)).to_string()).collect());
+            period_states.push(
+                cells
+                    .iter()
+                    .map(|q| {
+                        let b = s.world.get(bp(*q));
+                        wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, bp(*q), &b).as_deref())
+                    })
+                    .collect(),
+            );
             if let Some(op) = out_pos {
                 let st = s.world.get(bp(op));
                 let on = if self_reporting(&st.to_string()) { wave::active(&st.to_string()) } else { s.world.best_neighbor_signal(bp(op)) > 0 };
@@ -392,15 +453,18 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         }
         s.world.tick();
     }
-    // Visible period: the smallest divisor of P the block states repeat with; visible warmup: the
-    // first tick from which they do (what the real-game judge measures).
+    // The clock's period: the smallest divisor of the whole-state period P over which the VISIBLE
+    // state (block states + comparator output strengths) repeats; its warmup: the first tick from
+    // which it does (both are what the real-game judge measures). Hidden state (container
+    // contents, pending ticks, torch memory) may cycle slower: `state_period`.
     let (w0u, pu) = (w0 as usize, p as usize);
-    let block_period = (1..=pu).filter(|d| pu % d == 0).find(|&d| (w0u..w0u + pu).all(|t| frames[t] == frames[w0u + (t - w0u + d) % pu])).unwrap_or(pu);
+    let vis_p = (1..=pu).filter(|d| pu % d == 0).find(|&d| (w0u..w0u + pu).all(|t| frames[t] == frames[w0u + (t - w0u + d) % pu])).unwrap_or(pu);
     let mut vis_w = w0u;
-    while vis_w > c.free_from() as usize && frames[vis_w - 1] == frames[vis_w - 1 + block_period] {
+    while vis_w > c.free_from() as usize && frames[vis_w - 1] == frames[vis_w - 1 + vis_p] {
         vis_w -= 1;
     }
-    let refs: Vec<Vec<&str>> = period_states.iter().map(|v| v.iter().map(|s| s.as_str()).collect()).collect();
+    let refs: Vec<Vec<&str>> = period_states[..vis_p].iter().map(|v| v.iter().map(|s| s.as_str()).collect()).collect();
+    out_seq.truncate(vis_p);
     let analysis = wave::analyze(&cells, &refs);
     let mut rep = SimReport {
         name: c.name().to_string(),
@@ -408,8 +472,8 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         why: String::new(),
         warmup: vis_w as u32,
         state_warmup: w0,
-        period: p,
-        block_period: block_period as u32,
+        period: vis_p as u32,
+        state_period: p,
         analysis,
         output: None,
         blocks: c.blocks(),

@@ -4,7 +4,7 @@
 use anyhow::{Result, bail};
 use clap::Subcommand;
 use clock::sim::{SimOptions, SimReport, Verdict, simulate};
-use clock::verify::{VerifyOptions, VerifyReport, verify};
+use clock::verify::{VerifyOptions, VerifyReport};
 use clock::{Clock, wave};
 use serde_json::json;
 use std::path::PathBuf;
@@ -61,6 +61,70 @@ pub enum ClockCmd {
         #[arg(long)]
         json: bool,
     },
+    /// The judge, then keep it: a copy in designs/clocks/archive/ (header: date, source, the
+    /// judge's line), its verdict row (verdicts-v1.tsv) and a caption (captions.tsv; default: the
+    /// design's first comment block). A clock already archived is skipped. Then run `clock catalog`.
+    Archive {
+        designs: Vec<PathBuf>,
+        /// One line: how it works (default: the design's first comment block).
+        #[arg(long)]
+        caption: Option<String>,
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        positions: usize,
+        #[arg(long, default_value_t = 4000)]
+        horizon: u32,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
+    /// Exhaustive census on redsim: every filling of an AxBxC box with kmin..=k blocks of the
+    /// palette (every facing), one per class up to translation and the 4 rotations, judged
+    /// self-starting and then with each block placed last; writes <out>/clocks.tsv (every clock:
+    /// period, waveform, family, blocks, box, start, type key, canonical encoding), a design per
+    /// smallest clock of each (period, family) in <out>/designs/, <out>/summary.md. Resumable
+    /// (<out>/parts/, one file per finished chunk). The ground truth of the small clocks.
+    Census {
+        /// Box as AxBxC (x, y, z).
+        #[arg(long = "box")]
+        dims: String,
+        /// Comma list of shorthands (core, stone, glass, rblock, dust, torch, repeater, comparator,
+        /// observer, piston, sticky, lamp, bulb, note, target, slime, sculk, csculk, hopper,
+        /// dropper, trapdoor, leaves, scaffold...) or block states.
+        #[arg(long, default_value = "core")]
+        palette: String,
+        #[arg(long)]
+        k: usize,
+        #[arg(long, default_value_t = 1)]
+        kmin: usize,
+        /// Longest period looked for (sets the horizon: 4 periods + 1000 gt of warmup).
+        #[arg(long, default_value_t = 500)]
+        max_period: u32,
+        #[arg(long, default_value_t = 2)]
+        margin: i32,
+        /// Self-starting only (no block placed last).
+        #[arg(long)]
+        no_kick: bool,
+        /// Threads (default: every core but 4).
+        #[arg(long)]
+        workers: Option<usize>,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Write designs/clocks/CATALOG.md (per period: the distinct types, families and the smallest
+    /// of each; the period x family coverage matrix; the impossibility table from
+    /// designs/clocks/impossible.tsv) and designs/clocks/coverage.md (the matrix alone, mirrored
+    /// on the board) from the archive's verdicts. Runs no game.
+    Catalog {
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long, default_value = clock::catalog::CATALOG)]
+        out: PathBuf,
+        #[arg(long, default_value = clock::catalog::COVERAGE)]
+        coverage: PathBuf,
+    },
     /// Track clk-obs's commands (crates/clock-obs: observer / piston / bulb / note block clocks).
     Obs {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -115,10 +179,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             let o = VerifyOptions { positions, rotations: !no_rotations, horizon, margin, workers, version: version.to_string(), ..Default::default() };
             let mut failed = false;
+            let pool = clock::verify::spawn_pool(&o)?;
             for path in &designs {
                 let c = Clock::load(path)?;
                 let t0 = std::time::Instant::now();
-                let r = verify(&c, &o)?;
+                let r = clock::verify::verify_in_pool(&pool, &c, &o)?;
                 let secs = t0.elapsed().as_secs_f64();
                 let sim = (!no_sim).then(|| simulate(&c, &SimOptions::default()));
                 if json {
@@ -131,6 +196,61 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             if failed {
                 std::process::exit(1);
             }
+        }
+        ClockCmd::Archive { designs, caption, dir, positions, horizon, margin, workers } => {
+            if designs.is_empty() {
+                bail!("clock archive <design>...");
+            }
+            let o = VerifyOptions { positions, rotations: true, horizon, margin, workers, version: version.to_string(), ..Default::default() };
+            let pool = clock::verify::spawn_pool(&o)?;
+            let mut failed = 0;
+            for path in &designs {
+                match clock::catalog::archive(&pool, path, &o, &dir, caption.as_deref()) {
+                    Ok(a) if a.new => println!("ARCHIVED {}: {}", a.file.display(), a.summary),
+                    Ok(a) => println!("ALREADY {}: {}", a.file.display(), a.summary),
+                    Err(e) => {
+                        failed += 1;
+                        println!("NOT ARCHIVED {}: {e:#}", path.display());
+                    }
+                }
+            }
+            if failed > 0 {
+                std::process::exit(1);
+            }
+        }
+        ClockCmd::Catalog { dir, out, coverage } => {
+            let s = clock::catalog::catalog(&dir, &out, &coverage)?;
+            println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
+        }
+        ClockCmd::Census { dims, palette, k, kmin, max_period, margin, no_kick, workers, out } => {
+            let d: Vec<i32> = dims.split('x').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+            if d.len() != 3 || d.iter().any(|x| *x < 1) {
+                bail!("--box AxBxC, got {dims:?}");
+            }
+            let workers = workers.unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(4).max(1));
+            let o = clock::census::CensusOptions {
+                dims: [d[0], d[1], d[2]],
+                palette: clock::census::expand_palette(&palette)?,
+                k,
+                kmin,
+                horizon: 4 * max_period + 1000,
+                margin,
+                kick_last: !no_kick,
+                workers,
+                out: out.clone(),
+            };
+            println!("census {}x{}x{} k {}..={} palette {} states, {workers} threads -> {}", d[0], d[1], d[2], kmin, k, o.palette.len(), out.display());
+            let t0 = std::time::Instant::now();
+            let last = std::sync::Mutex::new(std::time::Instant::now());
+            let found = clock::census::census(&o, &|done, total, n| {
+                let mut l = last.lock().unwrap();
+                if l.elapsed().as_secs() >= 30 || done == total {
+                    *l = std::time::Instant::now();
+                    eprintln!("  {done}/{total} chunks, {n} clocks, {:.0} s", t0.elapsed().as_secs_f64());
+                }
+            })?;
+            let (n, types, pairs) = clock::census::write_outputs(&o, &found)?;
+            println!("{n} clocks, {types} types, {pairs} (period, family) pairs in {:.1} s: {}/clocks.tsv, summary.md, designs/", t0.elapsed().as_secs_f64(), out.display());
         }
         ClockCmd::Obs { args } => clock_obs::run(args)?,
         ClockCmd::Rt { args } => clock_rt::run(args)?,
@@ -147,8 +267,8 @@ fn print_sim(c: &Clock, r: &SimReport, ms: f64) {
     }
     let (lo, hi) = r.swept;
     println!("  start: {}; swept box {:?}..{:?} (volume {}); {:.1} ms", r.start, lo, hi, r.volume(), ms);
-    let hidden = if r.block_period != r.period { format!("; the block states alone repeat every {} gt", r.block_period) } else { String::new() };
-    println!("  the whole state (pending ticks, block entities, torch memory) repeats exactly every {} gt from tick {}{hidden}", r.period, r.state_warmup);
+    let hidden = if r.state_period != r.period { format!(" (hidden state: the visible state repeats every {} gt)", r.period) } else { String::new() };
+    println!("  the whole state (pending ticks, block entities, torch memory) repeats exactly every {} gt from tick {}{hidden}", r.state_period, r.state_warmup);
     if let Some(o) = &r.output {
         println!(
             "  output {:?}{}: {}",
@@ -159,7 +279,8 @@ fn print_sim(c: &Clock, r: &SimReport, ms: f64) {
     }
     println!("  {} changing cells:", r.analysis.cells.len());
     for w in &r.analysis.cells {
-        println!("    {:?} {}: {}", w.pos, w.states.join(" | "), w.describe(r.period));
+        let states = if w.states.len() > 6 { format!("{} | ... ({} states)", w.states[..6].join(" | "), w.states.len()) } else { w.states.join(" | ") };
+        println!("    {:?} {}: {}", w.pos, states, w.describe(r.period));
     }
     let _ = c;
 }
@@ -174,7 +295,7 @@ fn sim_json(c: &Clock, r: &SimReport) -> serde_json::Value {
         "verdict": r.verdict.word(),
         "why": r.why,
         "period": r.period,
-        "block_period": r.block_period,
+        "state_period": r.state_period,
         "warmup": r.warmup,
         "state_warmup": r.state_warmup,
         "family": wave::signature(&r.analysis.family),
@@ -198,7 +319,7 @@ fn agreement(r: &VerifyReport, sim: &SimReport) -> String {
     let (son, sedges) = sim.output.as_ref().map(|o| (o.wave.on, o.wave.edges)).unwrap_or((0, 0));
     let (von, vedges) = b.output.as_ref().map(|o| (o.wave.on, o.wave.edges)).unwrap_or((0, 0));
     let same = sim.verdict == Verdict::Clock
-        && sim.block_period == b.period
+        && sim.period == b.period
         && sim.warmup == b.warmup
         && son == von
         && sedges == vedges

@@ -273,3 +273,44 @@ Results:
   (no west-pointing emitter fits) and its QC cell (3,0).
 * ceil's c070x (8x7 = 56, plan with m = u+3; `runs/c070x-k5`, k=5 x 33 states, --gaps): BL-down and
   BM-down with 3 blocks each, E2's open pulse with 4; never U / M (coupled: windows [0,0]) nor E2 close.
+
+## 9. pockets3 (2026-10-19 13:42Z ->, same box, branch and clone; the wiring service)
+
+Tools (explore/pockets, merged on main):
+* `ba5f30b8` (main 6e74c92a) `door fill --keep`: region cells keep their seed blocks unless the filling
+  changes them; `--k` counts the CHANGED cells (another palette state, or air where a block was) =
+  `ideal-rs --vary` with a `keep` alternative and at most k cells off it, judged as the REAL door (no plan).
+  Re-finds t7b-rwfast's observer (3,3) after removing it (k=1). Palette shorthands `amethyst`, `air`,
+  `calib4` (calibrated sensors facing all 4 ways).
+* `7ddfc5a4` (main b272d3c4) pockets IN-PLANE assist guard (t78's hs23-0008L via pockets2): a filling block
+  4-adjacent to an in-plane plan cell of an input still assisted in a screen does not count there (the
+  plan's redstone block powered the neighbor; real_drive removes it raw, the neighbor keeps its state: fake
+  partials). The released re-screen counts when the filling feeds that input itself; combinations with
+  such a filling are judged only once that input is released. hs23-0008 k=2: the 1-block "(2,-2) both
+  edges" and the single-edge (-1,4) drives disappear. Conservative (`--offplane` frees those cells).
+
+Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-position screen):
+* c77 kb1 (e78 stone, B' (1,-3) the only ideal input; 6 free cells (-2,-3) (-1,-3) (0,-3) (0,-2) (2,-3)
+  (2,-2)): pockets kb1p3 (tile) k=4 x 62 states + gaps: no B' group driven; `door fill` k<=4 x 45 states
+  (pistons, sculk, calibrated): 0 of 17.6M; k=5 x 46 (+ redstone block): 0 of 288M (948M pruned by the
+  support rules); pockets kb1g (c77's pair + open-only gate) k=4: nothing. B' shapes (ideal-rs,
+  svc/c77-kb1-*.ideal): ONE HOLD per edge works (10,062 of 2.17M): open = a hold ENDING AT EXACTLY 28
+  (start 17..21; [18,28) = a calibrated sensor) or [23,46)/[24,44) or 17 gt from 27..45; close = any hold
+  from 27..45 of 4..23 gt (not 17) or short ones at 18..22; TWO 2-gt pulses per edge work (open 17..22 then
+  >= 28; close q1 25..30, q2 >= q1+4); one pulse, open-only holds and the same hold on both edges fail. B'
+  feeds: only (0,-3) and (2,-3) (QC through (1,-2) = A' itself); an observer only from (0,-3) facing west.
+* e78k r1 (K real by the piston relay; flaw at open t45): --keep over the 7 non-shrink cells <= 4 changed
+  (23 states + air): 0 of 10.2M; all 11 cells <= 4: 0 of 94.4M; right cluster (2,-3) (2,-2) (3,-3) (3,-2)
+  (4,-3) (4,-2) (4,-1) + (-2,-1) with repeaters/comparators/torches (41 states) <= 3: 0 of 1.45M, = 4: 0 of
+  54M. r2 (observer (0,-3) on (-1,-3)): left 7 + top 2 <= 4: 0 of 36.3M. nb (note-block B' clock): (-2,-3)
+  (-2,-2) (-2,-1) (-1,-1) (0,-1) (-1,3) (3,3) <= 4 x 29 states: 0 of 19.6M (shrink: k=5).
+* c78l L3a (c78z with only TP (-1,3) + L1/L2 ideal): top-left 7 cells <= 3 changed x 49: 0 of 2.8M, = 4:
+  0 of 119.6M; wool-door L3aw <= 3: 0 of 2.8M. Windows (svc/c78l-L3w.ideal, widths free): TP open = power
+  OFF at exactly t13..14 (on from <= 12), TP close = on at 8..12 then off after 2..14 or >= 26; L open = on
+  9..30 off by ~31; L close = EXACTLY one 2-gt pulse at 6..28. The sensor (-2,5) hears L0 at d 5 (t8 open /
+  t6 close -> t13 / t11). M/s2 cannot be emulated by off-plane inputs: anything powering M's cell (1,5)
+  QC-powers s (1,4) and a plan torch flips the update order (s extends first, M blocked).
+* mechspace z1-s78 flat top 10 (pockets batch, between-ticks, k=3, lever both polarities, `runs/msz1-k3`):
+  0873 / 1281 best partial 8 inputs left, 0667 7 left (the held stack (-2,1)/(-2,2) never real).
+* t78 h8Q (hs23-0008 + real lever/A/BR, 6 inputs off-plane): k<=5 drives SU(0,-2) (2 blocks), SE(-1,3)
+  both edges (3), B o6+o24 (1); top-right pocket 4 (TR+MR exactly t30/t18 + SD(1,4)) at k=5 running.

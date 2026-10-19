@@ -30,6 +30,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
+import net.minecraft.server.commands.data.BlockDataAccessor;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -159,6 +162,7 @@ public final class Protocol {
             case "build" -> build(r);
             case "signals" -> signals(r);
             case "exec" -> exec(r);
+            case "bedata" -> beData(r);
             case "gameevent" -> gameEvent(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
@@ -324,6 +328,39 @@ public final class Protocol {
         if (r.has("moving") && r.get("moving").getAsBoolean()) {
             o.add("moving", moving(sb, region));
         }
+        if (r.has("block_entities") && r.get("block_entities").getAsBoolean()) {
+            o.addProperty("block_entities", region.captureBlockEntities(sb));
+        }
+        return o;
+    }
+
+    /**
+     * {@code bedata}: merge SNBT into the block entity at {@code pos} exactly like
+     * {@code data merge block} ({@code DataCommands.mergeData}: the old data merged with the tag,
+     * written with {@code BlockDataAccessor.setData} = loadWithComponents + setChanged, only when it
+     * changes). Fails when there is no block entity there. Returns {@code changed} and the block
+     * entity's data afterwards ({@code saveWithoutMetadata}).
+     */
+    private JsonObject beData(JsonObject r) throws CommandSyntaxException {
+        Sandbox sb = sandbox(r);
+        int[] p = ints(r.getAsJsonArray("pos"));
+        BlockPos pos = new BlockPos(p[0], p[1], p[2]);
+        checkInside(sb, pos);
+        BlockEntity be = sb.level.getBlockEntity(pos);
+        if (be == null) {
+            throw new IllegalArgumentException("no block entity at " + pos.toShortString() + " (" + serialize(sb.level.getBlockState(pos)) + ")");
+        }
+        CompoundTag tag = TagParser.parseCompoundFully(r.get("nbt").getAsString());
+        BlockDataAccessor accessor = new BlockDataAccessor(be, pos);
+        CompoundTag old = accessor.getData();
+        CompoundTag merged = old.copy().merge(tag);
+        boolean changed = !old.equals(merged);
+        if (changed) {
+            accessor.setData(merged);
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("changed", changed);
+        o.addProperty("nbt", sb.level.getBlockEntity(pos).saveWithoutMetadata(sb.level.registryAccess()).toString());
         return o;
     }
 
@@ -355,9 +392,13 @@ public final class Protocol {
         int ticks = r.has("ticks") ? r.get("ticks").getAsInt() : 1;
         boolean untilIdle = r.has("until_idle") && r.get("until_idle").getAsBoolean();
         Region region = null;
+        // record.block_entities: also capture every block entity of the region after every tick
+        // (Region#captureBlockEntities), deduplicated: be_palette (distinct dumps) + be_frames.
+        boolean recordBlockEntities = false;
         if (r.has("record")) {
             JsonObject rec = r.getAsJsonObject("record");
             region = new Region(ints(rec.getAsJsonArray("from")), ints(rec.getAsJsonArray("to")));
+            recordBlockEntities = rec.has("block_entities") && rec.get("block_entities").getAsBoolean();
         }
         // Optional signal probes: after every tick, for each position, the best signal its
         // neighbors give into it (what a piston or lamp there would see) and the strong (direct)
@@ -385,6 +426,9 @@ public final class Protocol {
         for (Sandbox sb : targets) {
             Palette palette = region == null ? null : new Palette();
             JsonArray frames = region == null ? null : new JsonArray();
+            Map<String, Integer> beIds = recordBlockEntities ? new HashMap<>() : null;
+            JsonArray bePalette = recordBlockEntities ? new JsonArray() : null;
+            JsonArray beFrames = recordBlockEntities ? new JsonArray() : null;
             JsonArray signalFrames = signals == null ? null : new JsonArray();
             JsonArray blocked = watchBox == null ? null : new JsonArray();
             JsonObject escape = null;
@@ -396,6 +440,16 @@ public final class Protocol {
                 ticked++;
                 if (frames != null) {
                     frames.add(region.capture(sb, palette));
+                }
+                if (beFrames != null) {
+                    String dump = region.captureBlockEntities(sb);
+                    Integer beId = beIds.get(dump);
+                    if (beId == null) {
+                        beId = beIds.size();
+                        beIds.put(dump, beId);
+                        bePalette.add(dump);
+                    }
+                    beFrames.add(beId);
                 }
                 if (signalFrames != null) {
                     JsonArray row = new JsonArray();
@@ -441,6 +495,10 @@ public final class Protocol {
                 res.add("palette", palette.toJson());
                 res.add("flags", palette.flagsJson(sb));
                 res.add("frames", frames);
+            }
+            if (beFrames != null) {
+                res.add("be_palette", bePalette);
+                res.add("be_frames", beFrames);
             }
             if (signalFrames != null) {
                 res.add("signals", signalFrames);
@@ -998,6 +1056,34 @@ public final class Protocol {
                 }
             }
             return Base64.getEncoder().encodeToString(bytes);
+        }
+
+        /**
+         * Every block entity of the region in the block order (x fastest, then z, then y), one line
+         * each: {@code x y z <type> <saveWithoutMetadata SNBT>} (keys sorted, so equal states give
+         * equal text: container items, a hopper's TransferCooldown, a comparator's OutputSignal, a
+         * moving piston's progress...); "" when there is none.
+         */
+        String captureBlockEntities(Sandbox sb) {
+            StringBuilder out = new StringBuilder();
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            for (int y = this.y0; y < this.y0 + this.dy; y++) {
+                for (int z = this.z0; z < this.z0 + this.dz; z++) {
+                    for (int x = this.x0; x < this.x0 + this.dx; x++) {
+                        BlockEntity be = sb.level.getBlockEntity(pos.set(x, y, z));
+                        if (be == null) {
+                            continue;
+                        }
+                        if (out.length() > 0) {
+                            out.append('\n');
+                        }
+                        out.append(x).append(' ').append(y).append(' ').append(z).append(' ')
+                                .append(BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(be.getType())).append(' ')
+                                .append(be.saveWithoutMetadata(sb.level.registryAccess()).toString());
+                    }
+                }
+            }
+            return out.toString();
         }
     }
 }

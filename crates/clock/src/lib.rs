@@ -19,6 +19,9 @@
 //! detector and the real-game judge), [`sim`] (`mctas clock sim`: the exact redsim detector),
 //! [`verify`] (`mctas clock verify`: the judge in the real game).
 
+pub mod canon;
+pub mod catalog;
+pub mod census;
 pub mod sim;
 pub mod verify;
 pub mod wave;
@@ -88,8 +91,9 @@ impl Kick {
 /// One input of the start kick, applied between ticks.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
-    /// Place a block with updates (a player placing it).
-    Place { pos: Pos, state: String },
+    /// Place a block with updates (a player placing it), then merge its block-entity data (a
+    /// `last` block's `nbt:` line).
+    Place { pos: Pos, state: String, nbt: Option<String> },
     /// Right-click the block there.
     Use { pos: Pos },
     /// Remove the block there with updates (no drop).
@@ -210,7 +214,7 @@ impl Clock {
         let at = self.kick_at;
         match &self.kick {
             None => Vec::new(),
-            Some(Kick::Last { pos }) => vec![(at, Action::Place { pos: *pos, state: self.design.blocks[pos].clone() })],
+            Some(Kick::Last { pos }) => vec![(at, Action::Place { pos: *pos, state: self.design.blocks[pos].clone(), nbt: self.design.block_entities.get(pos).cloned() })],
             Some(Kick::Use { pos, again }) => {
                 let mut v = vec![(at, Action::Use { pos: *pos })];
                 if let Some(t) = again {
@@ -218,7 +222,7 @@ impl Clock {
                 }
                 v
             }
-            Some(Kick::Place { pos, state, ticks }) => vec![(at, Action::Place { pos: *pos, state: state.clone() }), (at + ticks, Action::Clear { pos: *pos })],
+            Some(Kick::Place { pos, state, ticks }) => vec![(at, Action::Place { pos: *pos, state: state.clone(), nbt: None }), (at + ticks, Action::Clear { pos: *pos })],
         }
     }
 

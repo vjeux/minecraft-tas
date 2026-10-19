@@ -1,0 +1,19 @@
+design designs/piston-door-3x3/tracks/pockets/svc/c77-kb1.txt
+phase tile
+let p1 = 17
+let p2 = 28
+let p3 = 34
+open 0 use 1 5 0
+close 0 use 1 5 0
+open p1 set 1 -3 1 minecraft:redstone_block
+open p1+2 clear 1 -3 1
+open p2 set 1 -3 1 minecraft:redstone_block
+open p2+2 clear 1 -3 1
+open p3 set 1 -3 1 minecraft:redstone_block
+open p3+2 clear 1 -3 1
+close p1 set 1 -3 1 minecraft:redstone_block
+close p1+2 clear 1 -3 1
+close p2 set 1 -3 1 minecraft:redstone_block
+close p2+2 clear 1 -3 1
+close p3 set 1 -3 1 minecraft:redstone_block
+close p3+2 clear 1 -3 1
