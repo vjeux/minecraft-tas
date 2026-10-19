@@ -56,6 +56,11 @@ enum Cmd {
         #[command(subcommand)]
         command: site::SiteCmd,
     },
+    /// The in-browser viewer (docs/webrender.md): offscreen PNG shots, checks, the wasm bundle.
+    Web {
+        #[command(subcommand)]
+        command: web_cli::WebCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -133,6 +138,7 @@ fn main() -> Result<()> {
         Cmd::Clock { command } => clock_cli::run(&cli.version, command)?,
         Cmd::Circuit { command } => circuit_cli::run(&cli.version, command)?,
         Cmd::Site { command } => site::run(command)?,
+        Cmd::Web { command } => web_cli::run(&cli.version, command)?,
     }
     Ok(())
 }
