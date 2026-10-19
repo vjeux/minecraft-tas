@@ -1,0 +1,2 @@
+agreement: 2049/2049 cases identical (100.00%), judge verdict class identical 2049/2049; 678 work in both; 0 disagreements, 0 redsim model limits, 0 JVM errors
+redsim 2.0 s (1044.0 cases/s, 16 threads), JVM 1552.0 s (1.32 cases/s, 8 workers)

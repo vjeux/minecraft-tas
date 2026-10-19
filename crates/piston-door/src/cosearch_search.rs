@@ -65,9 +65,26 @@ pub struct SearchArgs {
     /// comparator, observer, sticky, piston, lamp, note, target, bulb) or `all`.
     #[arg(long, default_value = "all")]
     pub palette: String,
-    /// Allow piston moves (move / re-face / add / remove pistons): the mechanism changes too.
-    #[arg(long, default_value_t = true)]
-    pub mech: bool,
+    /// Lock the mechanism: no piston is added, removed, moved or re-faced (wiring only).
+    #[arg(long)]
+    pub no_mech: bool,
+    /// Keep the seed's pistons where they are (their cells leave the move set); new pistons may
+    /// still be added (moving power sources, relays).
+    #[arg(long)]
+    pub lock_pistons: bool,
+    /// Shaping: a working door whose piston schedule the candidates should follow (each piston
+    /// extension / retraction of the reference, same cell, within `--ref-slack` ticks, earns
+    /// `--ref-weight` points; a perfect screen still only needs the door checks).
+    #[arg(long)]
+    pub reference: Option<std::path::PathBuf>,
+    /// Shaping from a `door ideal` plan instead: its mechanism run in redsim with the plan's
+    /// inputs gives the piston events to follow.
+    #[arg(long)]
+    pub reference_ideal: Option<std::path::PathBuf>,
+    #[arg(long, default_value_t = 3)]
+    pub ref_slack: u32,
+    #[arg(long, default_value_t = 0.5)]
+    pub ref_weight: f64,
     #[arg(long, default_value_t = 1)]
     pub seed: u64,
     /// Where finds go.
@@ -82,6 +99,15 @@ pub struct SearchArgs {
     /// Stop after this many confirmed finds.
     #[arg(long, default_value_t = 4)]
     pub max_finds: usize,
+    /// First enumerate every candidate with up to K changed focus cells (K <= 3), then anneal
+    /// from the best `--enum-keep` of them (0: anneal from the seeds).
+    #[arg(long, default_value_t = 0)]
+    pub enum_k: usize,
+    #[arg(long, default_value_t = 64)]
+    pub enum_keep: usize,
+    /// Write the cleaned seeds (blocks outside the box and blocks that pop dropped) here.
+    #[arg(long)]
+    pub write_seeds: Option<std::path::PathBuf>,
 }
 
 // ---------------------------------------------------------------------- the grid
@@ -144,6 +170,157 @@ pub struct Problem {
     pub mech: bool,
     pub cycles: u32,
     pub max_ticks: u32,
+    /// Reference piston events (phase 0 open / 1 close, extending?, cell, tick after the flip).
+    pub reference: Vec<Event>,
+    pub ref_slack: u32,
+    pub ref_weight: f64,
+}
+
+/// A piston starting to extend or retract: (phase, extending, cell, tick).
+pub type Event = (u8, bool, (i32, i32), u32);
+
+/// Piston events of one tick: a base turning extended (extension starts) or a base cell turning
+/// into a moving block while its piston was extended (retraction starts).
+fn tick_events(prev: &[(BlockPos, Block)], w: &World, phase: u8, t: u32, out: &mut Vec<Event>) {
+    for (q, b) in prev {
+        let now = w.get(*q);
+        match (b, now) {
+            (Block::Piston { extended: false, .. }, Block::Piston { extended: true, .. }) => out.push((phase, true, (q.x, q.y), t)),
+            (Block::Piston { extended: true, .. }, Block::MovingPiston { .. }) | (Block::Piston { extended: true, .. }, Block::Piston { extended: false, .. }) => {
+                out.push((phase, false, (q.x, q.y), t))
+            }
+            _ => {}
+        }
+    }
+}
+
+fn piston_cells(w: &World, cells: &[BlockPos]) -> Vec<(BlockPos, Block)> {
+    cells.iter().filter_map(|q| {
+        let b = w.get(*q);
+        matches!(b, Block::Piston { .. }).then_some((*q, b))
+    }).collect()
+}
+
+/// One lever cycle of a door at its own position: its piston events.
+fn piston_events(p: &Problem, blocks: &[(Pos, Block)], spec: crate::DoorSpec) -> Vec<Event> {
+    let (wlo, whi) = cs::watch_box(blocks, &spec);
+    let mut w = World::new(BlockPos::new(wlo[0] - 3, wlo[1] - 3, wlo[2] - 3), [whi[0] - wlo[0] + 7, whi[1] - wlo[1] + 7, whi[2] - wlo[2] + 7]);
+    let placed: Vec<(BlockPos, Block)> = blocks.iter().map(|(q, b)| (cs::bp(*q), *b)).collect();
+    w.place_like_judge(&placed);
+    cs::step_until_idle(&mut w, p.max_ticks, |_| {});
+    let cells = plane_cells_wide(&w, spec.door[2]);
+    let mut out = Vec::new();
+    for phase in 0..2u8 {
+        w.use_block(cs::bp(spec.lever));
+        let mut t = 0;
+        let mut prev = piston_cells(&w, &cells);
+        cs::step_until_idle(&mut w, p.max_ticks, |w| {
+            t += 1;
+            tick_events(&prev, w, phase, t, &mut out);
+            prev = piston_cells(w, &cells);
+        });
+    }
+    out
+}
+
+/// The piston events of a `door ideal` plan run in redsim (its design at rest, the plan's inputs
+/// applied between ticks like `door ideal` does: setBlock with updates, `use` = right-click).
+fn ideal_events(p: &Problem, path: &std::path::Path) -> Result<Vec<Event>> {
+    let text = std::fs::read_to_string(path)?;
+    let s = crate::ideal::Schedule::parse(&text)?;
+    let d = s.design();
+    let door = RsDoor::from_design(d).map_err(|e| anyhow::anyhow!(e)).or_else(|_| -> Result<RsDoor> {
+        // a mechanism file without a lever port
+        let mut blocks = Vec::new();
+        for (q, st) in d.block_list() {
+            blocks.push((q, cs::convert_state(&st).map_err(|e| anyhow::anyhow!(e))?));
+        }
+        Ok(RsDoor { spec: p.spec, blocks })
+    })?;
+    let mut lo = [i32::MAX; 3];
+    let mut hi = [i32::MIN; 3];
+    let mut all: Vec<Pos> = door.blocks.iter().map(|(q, _)| *q).collect();
+    for open in [true, false] {
+        all.extend(s.resolved(open)?.iter().map(|e| e.1));
+    }
+    all.extend(p.spec.door_cells());
+    for q in &all {
+        for i in 0..3 {
+            lo[i] = lo[i].min(q[i]);
+            hi[i] = hi[i].max(q[i]);
+        }
+    }
+    let mut w = World::new(BlockPos::new(lo[0] - 4, lo[1] - 4, lo[2] - 4), [hi[0] - lo[0] + 9, hi[1] - lo[1] + 9, hi[2] - lo[2] + 9]);
+    let placed: Vec<(BlockPos, Block)> = door.blocks.iter().map(|(q, b)| (cs::bp(*q), *b)).collect();
+    w.place_like_judge(&placed);
+    cs::step_until_idle(&mut w, 400, |_| {});
+    let cells = plane_cells_wide(&w, p.spec.door[2]);
+    let mut out = Vec::new();
+    for (phase, open) in [(0u8, true), (1u8, false)] {
+        let evs = s.resolved(open)?;
+        let mut t = 0u32;
+        let mut i = 0;
+        let mut prev = piston_cells(&w, &cells);
+        loop {
+            while i < evs.len() && evs[i].0 == t {
+                let (_, q, st) = &evs[i];
+                match st.as_deref() {
+                    Some("@use") => {
+                        w.use_block(cs::bp(*q));
+                    }
+                    Some(x) => {
+                        let b = cs::convert_state(x).map_err(|e| anyhow::anyhow!(e))?;
+                        w.set_block_and_update(cs::bp(*q), b);
+                    }
+                    None => {
+                        w.set_block_and_update(cs::bp(*q), Block::Air);
+                    }
+                }
+                i += 1;
+            }
+            w.tick();
+            t += 1;
+            tick_events(&prev, &w, phase, t, &mut out);
+            prev = piston_cells(&w, &cells);
+            if (i >= evs.len() && w.idle()) || t > 600 {
+                break;
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn plane_cells_wide(w: &World, z: i32) -> Vec<BlockPos> {
+    let mut v = Vec::new();
+    for y in w.min.y..w.min.y + w.size[1] {
+        for x in w.min.x..w.min.x + w.size[0] {
+            v.push(BlockPos::new(x, y, z));
+        }
+    }
+    v
+}
+
+/// How many reference events a run's events match (same phase, kind and cell, within slack).
+fn match_events(reference: &[Event], got: &[Event], slack: u32) -> usize {
+    let mut used = vec![false; got.len()];
+    let mut n = 0;
+    for r in reference {
+        let mut best: Option<(usize, u32)> = None;
+        for (i, g) in got.iter().enumerate() {
+            if used[i] || g.0 != r.0 || g.1 != r.1 || g.2 != r.2 {
+                continue;
+            }
+            let d = g.3.abs_diff(r.3);
+            if d <= slack && best.is_none_or(|(_, bd)| d < bd) {
+                best = Some((i, d));
+            }
+        }
+        if let Some((i, _)) = best {
+            used[i] = true;
+            n += 1;
+        }
+    }
+    n
 }
 
 fn parse_box(s: &str) -> Result<([i32; 2], [i32; 2])> {
@@ -189,17 +366,20 @@ pub fn palette(spec: &str) -> Result<Vec<Block>> {
 
 // ---------------------------------------------------------------------- the screen
 
-/// Screen result: points (higher is better), then fewer blocks.
+/// Screen result: points (higher is better), the reference-schedule shaping, then fewer blocks.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Score {
     pub pts: i32,
     pub max: i32,
     pub blocks: i32,
+    /// Reference piston events matched, and their weight.
+    pub ev: i32,
+    pub ev_w: f64,
 }
 
 impl Score {
     fn energy(&self) -> f64 {
-        -(self.pts as f64) + 0.02 * self.blocks as f64
+        -(self.pts as f64) - self.ev_w * self.ev as f64 + 0.02 * self.blocks as f64
     }
     pub fn perfect(&self) -> bool {
         self.pts >= self.max
@@ -210,8 +390,19 @@ fn in_box(p: &Problem, x: i32, y: i32) -> bool {
     x >= p.lo[0] && x <= p.hi[0] && y >= p.lo[1] && y <= p.hi[1]
 }
 
-/// One position (the door as written), `p.cycles` lever cycles: partial credit.
+/// One position (the door as written), `p.cycles` lever cycles: partial credit (+ the
+/// reference-schedule shaping when there is a reference).
 pub fn screen(p: &Problem, g: &Grid) -> Score {
+    let mut evs = Vec::new();
+    let mut s = screen_core(p, g, &mut evs);
+    if !p.reference.is_empty() {
+        s.ev = match_events(&p.reference, &evs, p.ref_slack) as i32;
+        s.ev_w = p.ref_weight;
+    }
+    s
+}
+
+fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
     let max = 11 + p.cycles as i32 * 34;
     let blocks = g.count();
     let mut pts = 0;
@@ -223,7 +414,11 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
     w.place_like_judge(&placed);
     let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |_| {});
     if !idle || !w.errors.is_empty() {
-        return Score { pts: 0, max, blocks };
+        return Score { pts: 0, max, blocks, ev: 0, ev_w: 0.0 };
+    }
+    if !w.drops.is_empty() {
+        // something popped at placement (a dust or a repeater without a floor...)
+        return Score { pts: 1, max, blocks, ev: 0, ev_w: 0.0 };
     }
     let z = g.z;
     let at = |x: i32, y: i32| BlockPos::new(x, y, z);
@@ -241,18 +436,28 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
     pts -= 2 * unsupported;
     let lever = cs::bp(spec.lever);
     if !matches!(w.get(lever), Block::Lever { powered: false, .. }) {
-        return Score { pts: pts.min(max - 1), max, blocks };
+        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
     }
     pts += 1;
     if door_ok < 9 || unsupported > 0 {
-        return Score { pts: pts.min(max - 1), max, blocks };
+        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
     }
     pts += 1;
     // the plane's cells (the box + 1) compared after each close
     let rest: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
-    for _cycle in 0..p.cycles {
+    let rec_cells = if p.reference.is_empty() { Vec::new() } else { plane_cells_wide(&w, z) };
+    for cycle in 0..p.cycles {
         w.use_block(lever);
-        let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |_| {});
+        let rec = cycle == 0 && !rec_cells.is_empty();
+        let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
+        let mut t = 0;
+        let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |w| {
+            if rec {
+                t += 1;
+                tick_events(&prev, w, 0, t, evs);
+                prev = piston_cells(w, &rec_cells);
+            }
+        });
         let open_n = p.door_cells.iter().filter(|(x, y)| {
             let s = w.get(at(*x, *y));
             !cs::collides(&s) && !cs::is_moving(&s)
@@ -270,15 +475,23 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
             pts -= outside;
         }
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
         }
         pts += 1;
         w.use_block(lever);
-        let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |_| {});
+        let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
+        let mut t = 0;
+        let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |w| {
+            if rec {
+                t += 1;
+                tick_events(&prev, w, 1, t, evs);
+                prev = piston_cells(w, &rec_cells);
+            }
+        });
         let back = p.door_cells.iter().filter(|(x, y)| w.get(at(*x, *y)) == p.door_block).count() as i32;
         pts += back;
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
         }
         let now: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
         let same = now.iter().zip(rest.iter()).filter(|(a, b)| a == b).count() as i32;
@@ -287,10 +500,10 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
             pts += 3;
         } else {
             pts -= (n - same).min(3);
-            return Score { pts: pts.min(max - 1), max, blocks };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
         }
     }
-    Score { pts, max, blocks }
+    Score { pts, max, blocks, ev: 0, ev_w: 0.0 }
 }
 
 fn plane_cells(p: &Problem, z: i32) -> Vec<BlockPos> {
@@ -364,9 +577,16 @@ fn refaced(b: &Block, rng: &mut Rng) -> Option<Block> {
     })
 }
 
-/// One random move inside the focus cells. Returns false when nothing changed.
-fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng) -> bool {
-    let (x, y) = p.free[rng.below(p.free.len())];
+/// One random move at `at` (or a random focus cell). Returns the cell when something changed.
+fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>) -> Option<(i32, i32)> {
+    let (x, y) = match at {
+        Some(c) if p.free.contains(&c) => c,
+        _ => p.free[rng.below(p.free.len())],
+    };
+    if mutate_cell(p, g, rng, x, y) { Some((x, y)) } else { None }
+}
+
+fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool {
     let cur = g.get(x, y);
     if matches!(cur, Block::PistonHead { .. }) {
         return false;
@@ -533,6 +753,135 @@ fn place_lever(g: &mut Grid, x: i32, y: i32) {
     g.set(x, y, lever);
 }
 
+/// Drop the blocks that pop at placement (a dust or a repeater whose floor was cut away).
+fn clean_seed(p: &Problem, g: &mut Grid) {
+    for _ in 0..6 {
+        let list = g.blocks();
+        let (wlo, whi) = cs::watch_box(&list, &p.spec);
+        let mut w = World::new(BlockPos::new(wlo[0] - 3, wlo[1] - 3, wlo[2] - 3), [whi[0] - wlo[0] + 7, whi[1] - wlo[1] + 7, whi[2] - wlo[2] + 7]);
+        let placed: Vec<(BlockPos, Block)> = list.iter().map(|(q, b)| (cs::bp(*q), *b)).collect();
+        w.place_like_judge(&placed);
+        cs::step_until_idle(&mut w, p.max_ticks, |_| {});
+        if w.drops.is_empty() {
+            return;
+        }
+        for (q, _) in &w.drops {
+            if q.z == g.z && (q.x, q.y) != (p.spec.lever[0], p.spec.lever[1]) {
+                clear(g, q.x, q.y);
+            }
+        }
+    }
+}
+
+/// Every candidate with at most `k` changed focus cells (each set to a palette block or air),
+/// screened; returns the best `keep` (score, grid), best first.
+fn enumerate(p: &Problem, seed: &Grid, k: usize, keep: usize, threads: usize, sh: &Shared, jopts: &cs::JudgeOpts, a: &SearchArgs) -> Vec<(Score, Grid)> {
+    let cells: Vec<(i32, i32)> = p.free.iter().copied().filter(|(x, y)| !matches!(seed.get(*x, *y), Block::PistonHead { .. })).collect();
+    let pal: Vec<Block> = p.palette.iter().copied().filter(|b| p.mech || !is_piston(b)).collect();
+    let best: Mutex<Vec<(Score, Grid)>> = Mutex::new(Vec::new());
+    let next = AtomicUsize::new(0);
+    let n = cells.len();
+    let consider = |g: &Grid, local: &mut Vec<(Score, Grid)>| {
+        let s = screen(p, g);
+        sh.evals.fetch_add(1, Ordering::Relaxed);
+        if s.perfect() {
+            sh.perfect.fetch_add(1, Ordering::Relaxed);
+            try_find(p, g, sh, jopts, a, None);
+        }
+        local.push((s, g.clone()));
+        if local.len() > 4 * keep {
+            local.sort_by(|x, y| x.0.energy().partial_cmp(&y.0.energy()).unwrap());
+            local.truncate(keep);
+        }
+    };
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| {
+                let mut local: Vec<(Score, Grid)> = Vec::new();
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    if i >= n || sh.stop.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let (x1, y1) = cells[i];
+                    for b1 in &pal {
+                        let mut g1 = seed.clone();
+                        if g1.get(x1, y1) == *b1 || !clear(&mut g1, x1, y1) {
+                            continue;
+                        }
+                        g1.set(x1, y1, *b1);
+                        consider(&g1, &mut local);
+                        if k < 2 {
+                            continue;
+                        }
+                        for &(x2, y2) in &cells[i + 1..] {
+                            for b2 in &pal {
+                                let mut g2 = g1.clone();
+                                if g2.get(x2, y2) == *b2 || matches!(g2.get(x2, y2), Block::PistonHead { .. }) || !clear(&mut g2, x2, y2) {
+                                    continue;
+                                }
+                                g2.set(x2, y2, *b2);
+                                consider(&g2, &mut local);
+                                if k < 3 {
+                                    continue;
+                                }
+                                let j = cells.iter().position(|c| *c == (x2, y2)).unwrap();
+                                for &(x3, y3) in &cells[j + 1..] {
+                                    if sh.stop.load(Ordering::Relaxed) {
+                                        break;
+                                    }
+                                    for b3 in &pal {
+                                        let mut g3 = g2.clone();
+                                        if g3.get(x3, y3) == *b3 || matches!(g3.get(x3, y3), Block::PistonHead { .. }) || !clear(&mut g3, x3, y3) {
+                                            continue;
+                                        }
+                                        g3.set(x3, y3, *b3);
+                                        consider(&g3, &mut local);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                let mut b = best.lock().unwrap();
+                b.extend(local);
+                b.sort_by(|x, y| x.0.energy().partial_cmp(&y.0.energy()).unwrap());
+                b.dedup_by(|x, y| x.1 == y.1);
+                b.truncate(keep);
+            });
+        }
+    });
+    best.into_inner().unwrap()
+}
+
+/// A perfect screen: judge it in redsim (32 positions, FULL, hallway); a pass is a find.
+fn try_find(p: &Problem, g: &Grid, sh: &Shared, jopts: &cs::JudgeOpts, a: &SearchArgs, tx: Option<&std::sync::mpsc::Sender<(std::path::PathBuf, mctas::design::Design)>>) {
+    let h = grid_hash(g);
+    if !sh.seen.lock().unwrap().insert(h) {
+        return;
+    }
+    sh.full_evals.fetch_add(1, Ordering::Relaxed);
+    let door = door_of(g, p.spec);
+    let e = cs::evaluate(&door, jopts, false);
+    if e.record_ok() {
+        let k = sh.finds.fetch_add(1, Ordering::Relaxed);
+        let vol = e.volume.map(|v| v.0).unwrap_or(0);
+        let name = format!("cosearch-{vol}b-{}-{k}", door.block_count());
+        let d = door.to_design(&name);
+        let path = a.out_dir.join(format!("{name}.txt"));
+        let _ = d.save(&path);
+        let msg = format!("redsim find: {}", cs::eval_line(&name, &e, 0.0));
+        println!("{msg}");
+        sh.log.lock().unwrap().push(msg);
+        if let Some(tx) = tx {
+            let _ = tx.send((path, d));
+        }
+        if k + 1 >= a.max_finds {
+            sh.stop.store(true, Ordering::Relaxed);
+        }
+    }
+}
+
 fn door_of(g: &Grid, spec: crate::DoorSpec) -> RsDoor {
     RsDoor { spec, blocks: g.blocks() }
 }
@@ -608,7 +957,37 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
     let door_block = doors[0].2.blocks.iter().find(|(q, _)| q == &spec0.door).map(|(_, b)| *b).unwrap_or(Block::Simple(Simple::Stone));
     let mut spec = spec0;
     spec.lever = lever_pos;
-    let prob = Problem { spec, lo, hi, free, door_cells, ring, door_block, palette: palette(&a.palette)?, mech: a.mech, cycles: a.cycles, max_ticks: a.max_ticks };
+    let prob = Problem {
+        spec,
+        lo,
+        hi,
+        free,
+        door_cells,
+        ring,
+        door_block,
+        palette: palette(&a.palette)?,
+        mech: !a.no_mech,
+        cycles: a.cycles,
+        max_ticks: a.max_ticks,
+        reference: Vec::new(),
+        ref_slack: a.ref_slack,
+        ref_weight: a.ref_weight,
+    };
+    let mut prob = prob;
+    if let Some(r) = &a.reference {
+        let (_, rd) = cs::load_door(r)?;
+        anyhow::ensure!(rd.spec.door == spec0.door, "the reference needs the same door port");
+        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new() };
+        let _ = g;
+        let ev = piston_events(&prob, &rd.blocks, rd.spec);
+        println!("reference {}: {} piston events per cycle", r.display(), ev.len());
+        prob.reference = ev;
+    }
+    if let Some(r) = &a.reference_ideal {
+        let ev = ideal_events(&prob, r)?;
+        println!("ideal reference {}: {} piston events per cycle", r.display(), ev.len());
+        prob.reference = ev;
+    }
     let mut seeds = Vec::new();
     for (name, _, r) in &doors {
         anyhow::ensure!(r.spec.door == spec0.door, "{name}: every seed needs the same door port");
@@ -620,9 +999,30 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
             }
             place_lever(&mut g, x, y);
         }
+        clean_seed(&prob, &mut g);
         let s = screen(&prob, &g);
         println!("seed {name}: {} blocks in the box, screen {}/{}", g.count(), s.pts, s.max);
+        if let Some(dir) = &a.write_seeds {
+            std::fs::create_dir_all(dir)?;
+            let stem = std::path::Path::new(name).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            door_of(&g, prob.spec).to_design(&format!("{stem}-cut")).save(&dir.join(format!("{stem}-cut.txt")))?;
+        }
         seeds.push(g);
+    }
+    if a.lock_pistons {
+        // the seed pistons (and their heads) stay put: their cells leave the move set
+        let mut locked: HashSet<(i32, i32)> = HashSet::new();
+        for g in &seeds {
+            for x in g.gx..g.gx + g.w {
+                for y in g.gy..g.gy + g.h {
+                    if matches!(g.get(x, y), Block::Piston { .. } | Block::PistonHead { .. }) {
+                        locked.insert((x, y));
+                    }
+                }
+            }
+        }
+        prob.free.retain(|c| !locked.contains(c));
+        println!("{} piston cells locked, {} cells free", locked.len(), prob.free.len());
     }
     std::fs::create_dir_all(&a.out_dir)?;
     println!(
@@ -651,6 +1051,30 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
     };
     let jopts = cs::JudgeOpts::with_extra(28);
     let t0 = std::time::Instant::now();
+    let mut seeds = seeds;
+    if a.enum_k > 0 {
+        let mut pool: Vec<(Score, Grid)> = Vec::new();
+        for (i, g) in seeds.iter().enumerate() {
+            let te = std::time::Instant::now();
+            let r = enumerate(&prob, g, a.enum_k.min(3), a.enum_keep, a.threads, &sh, &jopts, a);
+            println!(
+                "enumeration from seed {i} (k = {}): {} screens in {:.1} s; best {}",
+                a.enum_k,
+                sh.evals.load(Ordering::Relaxed),
+                te.elapsed().as_secs_f64(),
+                r.iter().take(8).map(|(s, g)| format!("{}/{}+{}ev({}b)", s.pts, s.max, s.ev, g.count())).collect::<Vec<_>>().join(" ")
+            );
+            pool.extend(r);
+        }
+        pool.sort_by(|x, y| x.0.energy().partial_cmp(&y.0.energy()).unwrap());
+        for (i, (s, g)) in pool.iter().take(3).enumerate() {
+            let path = a.out_dir.join(format!("enum-best-{i}.txt"));
+            door_of(g, prob.spec).to_design(&format!("cosearch-enum-{i}-{}of{}", s.pts, s.max)).save(&path)?;
+        }
+        if !pool.is_empty() {
+            seeds = pool.into_iter().take(a.enum_keep.max(1)).map(|(_, g)| g).collect();
+        }
+    }
     let (tx, rx) = std::sync::mpsc::channel::<(std::path::PathBuf, mctas::design::Design)>();
     std::thread::scope(|s| {
         for ti in 0..a.threads {
@@ -684,7 +1108,7 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
             if el >= last + a.report {
                 last = el;
                 let best = sh.best.lock().unwrap();
-                let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}({}b)", s.pts, s.max, g.count())).collect();
+                let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}+{}ev({}b)", s.pts, s.max, s.ev, g.count())).collect();
                 println!(
                     "[{el:>5}s] {} screens ({:.0}/s), {} perfect screens, {} redsim judge runs, {} finds; best {}",
                     sh.evals.load(Ordering::Relaxed),
@@ -749,10 +1173,22 @@ fn anneal(
             let frac = it as f64 / a.iters as f64;
             let temp = a.t0 * (a.t1 / a.t0).powf(frac);
             let mut cand = cur.clone();
-            let nm = 1 + rng.below(2);
+            let nm = 1 + rng.below(3);
             let mut changed = false;
+            let mut last: Option<(i32, i32)> = None;
             for _ in 0..nm {
-                changed |= mutate(p, &mut cand, &mut rng);
+                // the next move is next to the previous one half of the time (local pairs)
+                let at = match last {
+                    Some((lx, ly)) if rng.below(2) == 0 => {
+                        let d = PLANE_DIRS[rng.below(4)].step();
+                        Some((lx + d[0], ly + d[1]))
+                    }
+                    _ => None,
+                };
+                if let Some(c) = mutate(p, &mut cand, &mut rng, at) {
+                    changed = true;
+                    last = Some(c);
+                }
             }
             if !changed {
                 continue;
@@ -763,35 +1199,17 @@ fn anneal(
             if de <= 0.0 || rng.f64() < (-de / temp).exp() {
                 cur = cand;
                 cs_ = s;
-                if s.pts > best_local.pts || (s.pts == best_local.pts && s.blocks < best_local.blocks) {
+                if s.energy() < best_local.energy() {
                     best_local = s;
                     let mut best = sh.best.lock().unwrap();
                     best.push((s, cur.clone()));
-                    best.sort_by(|x, y| y.0.pts.cmp(&x.0.pts).then(x.0.blocks.cmp(&y.0.blocks)));
+                    best.sort_by(|x, y| x.0.energy().partial_cmp(&y.0.energy()).unwrap());
                     best.dedup_by(|x, y| x.1 == y.1);
                     best.truncate(32);
                 }
                 if s.perfect() {
                     sh.perfect.fetch_add(1, Ordering::Relaxed);
-                    let h = grid_hash(&cur);
-                    if sh.seen.lock().unwrap().insert(h) {
-                        sh.full_evals.fetch_add(1, Ordering::Relaxed);
-                        let door = door_of(&cur, p.spec);
-                        let e = cs::evaluate(&door, jopts, false);
-                        if e.record_ok() {
-                            let k = sh.finds.fetch_add(1, Ordering::Relaxed);
-                            let vol = e.volume.map(|v| v.0).unwrap_or(0);
-                            let name = format!("cosearch-{vol}b-{}-{k}", door.block_count());
-                            let d = door.to_design(&name);
-                            let path = a.out_dir.join(format!("{name}.txt"));
-                            let _ = d.save(&path);
-                            println!("redsim find: {}", cs::eval_line(&name, &e, 0.0));
-                            let _ = tx.send((path, d));
-                            if k + 1 >= a.max_finds {
-                                sh.stop.store(true, Ordering::Relaxed);
-                            }
-                        }
-                    }
+                    try_find(p, &cur, sh, jopts, a, Some(&tx));
                 }
             }
         }
