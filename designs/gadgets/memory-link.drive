@@ -1,0 +1,36 @@
+# Two 2 gt pulses per edge (12 gt apart): the observer fires exactly once per edge, 6 gt after the
+# FIRST pulse (C1 +2, B2 0, C2 +2, O +2), on both edges; P pulls K in on the first edge and pushes
+# it back (spit) on the second. The second pulse of each pair changes nothing downstream of C1.
+design designs/gadgets/memory-link.txt
+probe b1 1 1 0
+probe b2 3 1 0
+probe c2 4 1 0
+probe o 5 1 0
+setblock 0 1 0 minecraft:redstone_block
+expect b1 1
+quiet 2
+setblock 0 1 0 minecraft:air
+expect_trace o 00011000000
+setblock 0 1 0 minecraft:redstone_block
+expect b1 0
+quiet 2
+setblock 0 1 0 minecraft:air
+expect_trace o 0000000000000000
+settle
+expect b2 1
+expect c2 1
+expect_state 7 1 0 stone
+expect_state 8 1 0 air
+setblock 0 1 0 minecraft:redstone_block
+quiet 2
+setblock 0 1 0 minecraft:air
+expect_trace o 00011000000
+setblock 0 1 0 minecraft:redstone_block
+quiet 2
+setblock 0 1 0 minecraft:air
+expect_trace o 0000000000000000
+settle
+expect b2 0
+expect c2 0
+expect_state 8 1 0 stone
+expect_state 7 1 0 air
