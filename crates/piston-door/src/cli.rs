@@ -4777,7 +4777,7 @@ fn vanilla_fuzz_cmd(version: &str, cfg: &WorkerConfig, count: u64, seed: u64, cy
             continue;
         };
         let lever = canon.ports["lever"];
-        if !canon.blocks.get(&lever).is_some_and(|b| b.starts_with("minecraft:lever") && b.contains("powered=false")) {
+        if !canon.blocks.get(&lever).is_some_and(|b| b.starts_with("minecraft:lever")) {
             skipped += 1;
             continue;
         }

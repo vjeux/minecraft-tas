@@ -984,7 +984,8 @@ pub fn hallway_check(door: &RsDoor) -> std::result::Result<(), String> {
     if !problems.is_empty() {
         return Err(format!("not closed at rest: {}", problems.join("; ")));
     }
-    if !matches!(rest.get(spec.lever), Some(Block::Lever { powered: false, .. })) {
+    // Either rest polarity counts (vjeux, 2026-10-19), like `crate::verify`.
+    if !matches!(rest.get(spec.lever), Some(Block::Lever { .. })) {
         return Err("lever".into());
     }
     if !w.drops.is_empty() {
