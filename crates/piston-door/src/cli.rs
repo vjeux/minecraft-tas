@@ -3070,6 +3070,31 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let t = tag.clone().unwrap_or_else(|| format!("frame-{}x{}", bxs[0].0, bxs[0].1));
                     ms::export(version, &aug_items, &out_dir, &t, cap, gap, workers, extra_offsets)?;
                 }
+                "enum" => {
+                    // piston-set enumeration around the door, fewest pistons first, every survivor
+                    // decided exactly
+                    let cat = ms::catalog_set(&catalog)?;
+                    anyhow::ensure!(bxs.len() == 1, "enum needs one --boxes WxH");
+                    let (dx, dy) = ms::DOOR_OFFSET.get().copied().ok_or_else(|| anyhow::anyhow!("enum needs --door-offset"))?;
+                    let bx = crate::families::Bx { x0: -dx, y0: -dy, w: bxs[0].0, h: bxs[0].1 };
+                    let eo = ms::EnumOpts { side_absent: two, free_max: carry.max(1), free_normal: std::env::var("MECHSPACE_FREE_NORMAL").is_ok(), bottom_su };
+                    let t0 = std::time::Instant::now();
+                    let sets = ms::enum_sets(bx, &eo);
+                    if let Ok(exp) = std::env::var("MECHSPACE_EXPECT") {
+                        let mut want: Vec<crate::families::Pc> = exp.split_whitespace().map(ms::parse_piece).collect::<anyhow::Result<_>>()?;
+                        want.sort();
+                        println!("[mechspace enum] expected set {} generated: {}", exp, sets.iter().any(|v| *v == want));
+                    }
+                    let mut items: Vec<(crate::families::Bx, Vec<crate::families::Pc>)> = sets.into_iter().map(|v| (bx, v)).collect();
+                    eprintln!("[mechspace enum] {} piston sets survive pruning ({:.1}s)", items.len(), t0.elapsed().as_secs_f64());
+                    if limit > 0 && items.len() > limit {
+                        items.truncate(limit);
+                    }
+                    let t = tag.clone().unwrap_or_else(|| format!("enum-{}x{}", bxs[0].0, bxs[0].1));
+                    let o = mk(t);
+                    let found = ms::run_list(&items, &o, false)?;
+                    ms::handle_found(&found, &o, &cat)?;
+                }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }
         }

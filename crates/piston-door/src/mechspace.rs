@@ -1450,6 +1450,167 @@ pub fn pretest(w: i8, h: i8, pmax: usize, n_cands: usize, walk: usize, threads: 
     Ok(())
 }
 
+// ---------------------------------------------------------------- piston-set enumeration
+
+/// Piston-set enumeration (coordinator 04:53Z): pistons in the cells around the door (the side
+/// columns, the rows above / below, the 4 diagonal corners), facing toward the door or along the
+/// frame (the head cell or the one after it is a frame or door cell), sticky or normal, retracted
+/// or extended at rest; necessary-condition pruning; every survivor is then decided exactly.
+/// Structure kept to make it tractable: the 6 side pullers (rows 0..2 at the two side columns,
+/// sticky, facing the door) with at most `side_absent` missing and one extension state per side;
+/// `bottom_su`: the box's bottom row holds exactly one piston, sticky facing up; at most
+/// `free_max` other pistons (sticky only unless `free_normal`).
+pub struct EnumOpts {
+    pub side_absent: usize,
+    pub free_max: usize,
+    pub free_normal: bool,
+    pub bottom_su: bool,
+}
+
+pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
+    let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();
+    let in_t = |x: i8, y: i8| families::in_t(x, y);
+    let target = |x: i8, y: i8| in_t(x, y) || frame.contains(&(x, y));
+    let side_x = [-2i8, 4];
+    let mut side_cells: Vec<(i8, i8, u8)> = Vec::new(); // (x, y, facing)
+    for (k, &sx) in side_x.iter().enumerate() {
+        for y in 0..3 {
+            if bx.has(sx, y) {
+                side_cells.push((sx, y, if k == 0 { 0 } else { 1 }));
+            }
+        }
+    }
+    // free slots: every other cell outside the 3x3 and the frame with a facing toward the door
+    // or along the frame
+    let mut free_slots: Vec<Vec<Pc>> = Vec::new(); // per cell, its piston options
+    let mut bottom_opts: Vec<Pc> = Vec::new();
+    for i in 0..bx.n() {
+        let (x, y) = bx.xy(i);
+        if in_t(x, y) || frame.contains(&(x, y)) || side_cells.iter().any(|&(a, b, _)| a == x && b == y) {
+            continue;
+        }
+        let mut opts = Vec::new();
+        for f in 0..4u8 {
+            let (dx, dy) = families::F[f as usize];
+            let (h1, h2) = ((x + dx, y + dy), (x + 2 * dx, y + 2 * dy));
+            if !(target(h1.0, h1.1) || target(h2.0, h2.1)) || !bx.has(h1.0, h1.1) {
+                continue;
+            }
+            for sticky in [true, false] {
+                if !sticky && !o.free_normal {
+                    continue;
+                }
+                for ext in [false, true] {
+                    if ext && in_t(h1.0, h1.1) {
+                        continue;
+                    }
+                    opts.push(Pc { x, y, k: K::Piston { sticky, f, ext } });
+                }
+            }
+        }
+        if o.bottom_su && y == bx.y0 {
+            bottom_opts.extend(opts.into_iter().filter(|p| matches!(p.k, K::Piston { sticky: true, f: 2, .. })));
+            continue;
+        }
+        if !opts.is_empty() {
+            free_slots.push(opts);
+        }
+    }
+    let mut out = Vec::new();
+    // side combos: presence (at most side_absent missing) x one extension state per side
+    let ns = side_cells.len();
+    let mut side_sets: Vec<Vec<Pc>> = Vec::new();
+    for mask in 0u32..(1 << ns) {
+        if (ns as u32 - mask.count_ones()) as usize > o.side_absent {
+            continue;
+        }
+        for exts in 0..4u8 {
+            let mut v = Vec::new();
+            for (j, &(x, y, f)) in side_cells.iter().enumerate() {
+                if mask & (1 << j) == 0 {
+                    continue;
+                }
+                let ext = if x < 0 { exts & 1 == 1 } else { exts & 2 == 2 };
+                v.push(Pc { x, y, k: K::Piston { sticky: true, f, ext } });
+            }
+            side_sets.push(v);
+        }
+    }
+    let bottoms: Vec<Option<Pc>> = if o.bottom_su { bottom_opts.iter().map(|p| Some(*p)).collect() } else { vec![None] };
+    // free subsets, fewest first
+    fn rec(slots: &[Vec<Pc>], start: usize, left: usize, cur: &mut Vec<Pc>, out: &mut Vec<Vec<Pc>>) {
+        out.push(cur.clone());
+        if left == 0 {
+            return;
+        }
+        for s in start..slots.len() {
+            for &p in &slots[s] {
+                // a head cell may not hold another piece
+                cur.push(p);
+                rec(slots, s + 1, left - 1, cur, out);
+                cur.pop();
+            }
+        }
+    }
+    let mut frees: Vec<Vec<Pc>> = Vec::new();
+    rec(&free_slots, 0, o.free_max, &mut Vec::new(), &mut frees);
+    frees.sort_by_key(|v| v.len());
+    for fr in &frees {
+        for ss in &side_sets {
+            for b in &bottoms {
+                let mut v: Vec<Pc> = ss.clone();
+                v.extend(fr.iter().copied());
+                if let Some(p) = b {
+                    v.push(*p);
+                }
+                if !prune_ok(&bx, &v, &frame) {
+                    continue;
+                }
+                v.sort();
+                out.push(v);
+            }
+        }
+    }
+    out.sort_by_key(|v| v.len());
+    out.dedup();
+    out
+}
+
+/// Necessary conditions: pieces fit (heads included) and are a valid rest state; every door cell
+/// lies on the forward line of some piston; at least 9 frame cells can receive a block (on a
+/// piston's forward line).
+fn prune_ok(bx: &Bx, v: &[Pc], frame: &HashSet<(i8, i8)>) -> bool {
+    let mut occ: HashSet<(i8, i8)> = HashSet::new();
+    for p in v {
+        let K::Piston { f, ext, .. } = p.k else { continue };
+        if !occ.insert((p.x, p.y)) {
+            return false;
+        }
+        if ext {
+            let (dx, dy) = families::F[f as usize];
+            if !bx.has(p.x + dx, p.y + dy) || !occ.insert((p.x + dx, p.y + dy)) {
+                return false;
+            }
+        }
+    }
+    let on_line = |c: (i8, i8)| -> bool {
+        v.iter().any(|p| {
+            let K::Piston { f, .. } = p.k else { return false };
+            let (dx, dy) = families::F[f as usize];
+            (1..=13).any(|k| (p.x + k * dx, p.y + k * dy) == c)
+        })
+    };
+    for x in 0..3 {
+        for y in 0..3 {
+            if !on_line((x, y)) {
+                return false;
+            }
+        }
+    }
+    let recv = frame.iter().filter(|&&c| on_line(c)).count();
+    recv >= 9
+}
+
 // ---------------------------------------------------------------- candidates
 
 pub fn parse_piece(tok: &str) -> Result<Pc> {
@@ -1945,12 +2106,10 @@ pub fn run_list(items_all: &[(Bx, Vec<Pc>)], o: &RunOpts, families_cmp: bool) ->
     } else {
         HashSet::new()
     };
-    let items: Vec<(Bx, Vec<Pc>)> = items_all.iter().filter(|(b, v)| !done_before.contains(&line_of(b, v))).cloned().collect();
-    // MECHSPACE_SHARD="k/n": only every n-th candidate starting at k (split a sweep across boxes)
-    let items: Vec<(Bx, Vec<Pc>)> = match std::env::var("MECHSPACE_SHARD").ok().and_then(|s| s.split_once('/').map(|(a, b)| (a.parse::<usize>().ok(), b.parse::<usize>().ok()))) {
-        Some((Some(k), Some(n))) if n > 0 => items.into_iter().enumerate().filter(|(i, _)| i % n == k).map(|(_, x)| x).collect(),
-        _ => items,
-    };
+    // MECHSPACE_SHARD="k/n": only every n-th candidate of the FULL list starting at k (split a
+    // sweep across boxes; applied before the resume filter so shards stay consistent)
+    let shard: Option<(usize, usize)> = std::env::var("MECHSPACE_SHARD").ok().and_then(|s| s.split_once('/').and_then(|(a, b)| Some((a.parse::<usize>().ok()?, b.parse::<usize>().ok()?)))).filter(|&(_, n)| n > 0);
+    let items: Vec<(Bx, Vec<Pc>)> = items_all.iter().enumerate().filter(|(i, _)| shard.is_none_or(|(k, n)| i % n == k)).map(|(_, x)| x).filter(|(b, v)| !done_before.contains(&line_of(b, v))).cloned().collect();
     if !done_before.is_empty() {
         eprintln!("[mechspace {}] resume: {} already decided, {} left", o.tag, items_all.len() - items.len(), items.len());
     }
