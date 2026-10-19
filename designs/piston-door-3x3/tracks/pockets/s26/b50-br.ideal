@@ -1,0 +1,23 @@
+# door cosearch plan-from designs/piston-door-3x3/tracks/pockets/svc/shrink-s27-tlp50.txt --region 4,0;4,-1;4,-2;3,-2: a redstone block behind each piston cell
+# (z+1) at exactly the ticks the region alone feeds it
+design designs/piston-door-3x3/tracks/pockets/svc/shrink-s27-tlp50.txt
+open 29 set 2 -2 1 minecraft:redstone_block
+open 31 clear 2 -2 1
+open 33 set 2 -2 1 minecraft:redstone_block
+open 35 clear 2 -2 1
+open 37 set 2 -2 1 minecraft:redstone_block
+open 39 clear 2 -2 1
+close 35 set 2 -2 1 minecraft:redstone_block
+close 37 clear 2 -2 1
+close 39 set 2 -2 1 minecraft:redstone_block
+close 41 clear 2 -2 1
+close 43 set 2 -2 1 minecraft:redstone_block
+close 45 clear 2 -2 1
+open 27 set 4 -2 1 minecraft:redstone_block
+open 29 clear 4 -2 1
+open 31 set 4 -2 1 minecraft:redstone_block
+open 33 clear 4 -2 1
+close 33 set 4 -2 1 minecraft:redstone_block
+close 35 clear 4 -2 1
+close 37 set 4 -2 1 minecraft:redstone_block
+close 39 clear 4 -2 1

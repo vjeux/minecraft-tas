@@ -1,0 +1,84 @@
+assist designs/piston-door-3x3/tracks/pockets/s26/b50-bl.ideal: 2 input cells off the plane ([(-1, -1), (1, -2)]), 8 / 8 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/shrink-s27-tlp50.txt: 50 blocks in the box, screen 37/79
+seed screen 79/79 with 2 inputs assisted
+windows (8 groups, 0.0 s):
+  input (-1,-1) open  t4 pulse 2 gt: window [-4, +0]
+  input (1,-2) open  t6 pulse 2 gt: window [-1, +0]
+  input (-1,-1) open  t10 pulse 2 gt: window [-2, +1]
+  input (1,-2) open  t12 pulse 2 gt: window [-1, +24]
+  input (-1,-1) close t4 pulse 2 gt: window [-4, +24]
+  input (1,-2) close t6 pulse 2 gt: window [-4, +1]
+  input (-1,-1) close t10 pulse 2 gt: window [-1, +1]
+  input (1,-2) close t12 pulse 2 gt: window [-1, +24]
+9 pocket cells in 3 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 56 swept cells
+  pocket 0: 7 cells [(-3, -2), (-3, -1), (-3, 0), (-2, -2), (-2, -1), (-1, -2), (0, -2)]
+  pocket 1: 1 cells [(-2, 3)]
+  pocket 2: 1 cells [(3, 3)]
+pocket 0: 7 cells, 12614 subset/lever items, 168147168 fillings to screen
+  pocket 0: 5807652 screened (396 of 12614 items started), 1505021 keep the door working, 30 s
+  pocket 0: 11727918 screened (708 of 12614 items started), 2741329 keep the door working, 60 s
+  pocket 0: 17538032 screened (965 of 12614 items started), 4179241 keep the door working, 90 s
+  pocket 0: 23798534 screened (1286 of 12614 items started), 5505942 keep the door working, 120 s
+  pocket 0: 29666974 screened (1577 of 12614 items started), 6967603 keep the door working, 150 s
+  pocket 0: 35726354 screened (1884 of 12614 items started), 8365993 keep the door working, 180 s
+  pocket 0: 41569109 screened (2159 of 12614 items started), 9569074 keep the door working, 210 s
+  pocket 0: 47813789 screened (2439 of 12614 items started), 10640096 keep the door working, 240 s
+  pocket 0: 53651525 screened (2711 of 12614 items started), 11877945 keep the door working, 270 s
+  pocket 0: 60049871 screened (3016 of 12614 items started), 12953406 keep the door working, 300 s
+  pocket 0: 65858529 screened (3273 of 12614 items started), 14120090 keep the door working, 330 s
+  pocket 0: 72469859 screened (3592 of 12614 items started), 15093043 keep the door working, 360 s
+  pocket 0: 77775872 screened (3850 of 12614 items started), 16745876 keep the door working, 390 s
+  pocket 0: 83935019 screened (4087 of 12614 items started), 18088164 keep the door working, 420 s
+  pocket 0: 89382885 screened (4378 of 12614 items started), 19847277 keep the door working, 450 s
+  pocket 0: 95430847 screened (4626 of 12614 items started), 21390429 keep the door working, 480 s
+  pocket 0: 101082340 screened (4913 of 12614 items started), 23020989 keep the door working, 510 s
+  pocket 0: 107507846 screened (5192 of 12614 items started), 24454418 keep the door working, 540 s
+  pocket 0: 113493472 screened (5502 of 12614 items started), 25857968 keep the door working, 570 s
+  pocket 0: 119224249 screened (5761 of 12614 items started), 27159253 keep the door working, 600 s
+  pocket 0: 125422546 screened (6028 of 12614 items started), 28383787 keep the door working, 630 s
+  pocket 0: 130518708 screened (6290 of 12614 items started), 29928101 keep the door working, 660 s
+  pocket 0: 136933982 screened (6611 of 12614 items started), 30789156 keep the door working, 690 s
+  pocket 0: 142220852 screened (6900 of 12614 items started), 32375003 keep the door working, 720 s
+  pocket 0: 148500727 screened (7202 of 12614 items started), 33321572 keep the door working, 750 s
+  pocket 0: 154392101 screened (7506 of 12614 items started), 34654960 keep the door working, 780 s
+  pocket 0: 161187976 screened (7881 of 12614 items started), 35539418 keep the door working, 810 s
+  pocket 0: 166484301 screened (8113 of 12614 items started), 36902775 keep the door working, 840 s
+  pocket 0: 172736341 screened (8505 of 12614 items started), 38092042 keep the door working, 870 s
+  pocket 0: 178112695 screened (8736 of 12614 items started), 39595211 keep the door working, 900 s
+  pocket 0: 184179637 screened (8996 of 12614 items started), 40364767 keep the door working, 930 s
+  pocket 0: 189976956 screened (9295 of 12614 items started), 41721728 keep the door working, 960 s
+  pocket 0: 196069668 screened (9562 of 12614 items started), 42627346 keep the door working, 990 s
+  pocket 0: 202155313 screened (9850 of 12614 items started), 43911367 keep the door working, 1020 s
+  pocket 0: 208788818 screened (10154 of 12614 items started), 44809011 keep the door working, 1050 s
+  pocket 0: 215073157 screened (10456 of 12614 items started), 45968287 keep the door working, 1081 s
+  pocket 0: 221660781 screened (10758 of 12614 items started), 46713103 keep the door working, 1111 s
+  pocket 0: 226375536 screened (11045 of 12614 items started), 47459147 keep the door working, 1141 s
+  pocket 0: 229325301 screened (11167 of 12614 items started), 48094014 keep the door working, 1171 s
+  pocket 0: 232091732 screened (11282 of 12614 items started), 48752901 keep the door working, 1201 s
+  pocket 0: 235095273 screened (11420 of 12614 items started), 49363852 keep the door working, 1231 s
+  pocket 0: 239027285 screened (11596 of 12614 items started), 49903208 keep the door working, 1261 s
+  pocket 0: 241805620 screened (11782 of 12614 items started), 50542642 keep the door working, 1291 s
+  pocket 0: 246115453 screened (11987 of 12614 items started), 51369822 keep the door working, 1321 s
+  pocket 0: 252498767 screened (12287 of 12614 items started), 52266101 keep the door working, 1351 s
+pocket 0: 257007614 screened, 53076962 keep the door working, 1378.7 s; driven input sets: {(-1,-1)o4 (1,-2)o6 (-1,-1)o10 (1,-2)o12 (-1,-1)c4 (1,-2)c6 (-1,-1)c10 (1,-2)c12} x7 (best 5 blocks), {(1,-2)o6 (1,-2)o12 (1,-2)c6 (1,-2)c12} x64 (best 3 blocks), {(-1,-1)o4 (-1,-1)o10 (-1,-1)c4 (-1,-1)c10} x64 (best 2 blocks), {(-1,-1)o4 (-1,-1)o10 (-1,-1)c4} x18 (best 4 blocks), {(-1,-1)c4 (1,-2)c6} x9 (best 5 blocks), {(-1,-1)o10 (1,-2)c6} x18 (best 5 blocks), {(-1,-1)o4 (-1,-1)o10} x3 (best 5 blocks), {(-1,-1)o10 (-1,-1)c4} x64 (best 3 blocks), {(-1,-1)o4 (-1,-1)c4} x64 (best 3 blocks), {(1,-2)o6 (1,-2)o12} x33 (best 4 blocks), {(1,-2)o6 (1,-2)c6} x64 (best 4 blocks), {(1,-2)o12 (1,-2)c12} x28 (best 4 blocks), {(1,-2)o12} x64 (best 4 blocks), {(1,-2)c6} x7 (best 5 blocks), {(-1,-1)c4} x64 (best 2 blocks), {(-1,-1)o10} x64 (best 3 blocks), {(1,-2)o6} x64 (best 4 blocks), {(1,-2)c12} x1 (best 5 blocks), {(-1,-1)o4} x64 (best 2 blocks)
+pocket 1: 1 cells, 1 subset/lever items, 24 fillings to screen
+pocket 1: 24 screened, 10 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 1 cells, 1 subset/lever items, 24 fillings to screen
+pocket 2: 24 screened, 13 keep the door working, 0.3 s; driven input sets: none
+combination 1: true partial, 2 inputs still assisted [-1,-1 1,-2] (46 blocks)
+combination 3: true partial, 1 inputs still assisted [-1,-1] (49 blocks)
+combination 3299: perfect screen; redsim judge: combo: WORKS open 39 close 45 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 49 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/b50-bl-k5/pockets-64b-49-0.txt
+combination 3300: perfect screen; redsim judge: combo: WORKS open 39 close 45 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 49 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/b50-bl-k5/pockets-64b-49-1.txt
+combination 3301: perfect screen; redsim judge: combo: WORKS open 39 close 45 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 49 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/b50-bl-k5/pockets-64b-49-2.txt
+combination 3302: perfect screen; redsim judge: combo: WORKS open 39 close 45 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 49 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/b50-bl-k5/pockets-64b-49-3.txt
+combination 3303: perfect screen; redsim judge: combo: WORKS open 39 close 45 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 49 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/b50-bl-k5/pockets-64b-49-4.txt
+combination 3304: perfect screen; redsim judge: combo: WORKS open 39 close 45 | FULL | hallway breaks it (not back to its rest state: [-1, -2, 0] minecraft:observer[facing=west,powered=false] -> minecraft:air; [0, -2, 0] minecraft:air -> minecraft:observer[facing=west,powered=false]) | frame 12/12 | 64b (8x8x1), 49 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/b50-bl-k5/pockets-64b-49-5.txt
+combination 3305: perfect screen; redsim judge: combo: WORKS open 39 close 45 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 49 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/b50-bl-k5/pockets-64b-49-6.txt
+4404 combinations verified, 7 finds, 1382 s total

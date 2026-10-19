@@ -58,6 +58,14 @@ pub struct FillOpts {
     /// 180 and 270 degrees, checked on redsim like `door verify`: the boards rank rotation-safe
     /// doors).
     pub any_rotation: bool,
+    /// Keep only fillings that use at least one state containing one of these substrings (e.g.
+    /// `sculk_sensor`: a sculk variant), pruned before simulation.
+    pub require_any: Vec<String>,
+    /// KEEP mode (`--keep`): region cells keep their seed blocks unless the filling changes them;
+    /// `k` counts the CHANGED cells, and a changed cell takes another palette state, or air when it
+    /// held a block. `ideal-rs --vary` with a `keep` alternative per cell and at most k cells off
+    /// `keep`, judged as the real door: re-screen a near-door's existing wiring plus new blocks.
+    pub keep: bool,
 }
 
 /// Palette shorthands -> exact block states.
@@ -79,6 +87,8 @@ pub fn expand_palette(items: &[String]) -> Result<Vec<String>> {
             "glass" => add("minecraft:glass".into()),
             "obsidian" => add("minecraft:obsidian".into()),
             "wool" => add("minecraft:white_wool".into()),
+            "amethyst" => add("minecraft:amethyst_block".into()),
+            "air" => add("minecraft:air".into()),
             "obs" => {
                 for f in ["east", "west", "up", "down"] {
                     add(format!("minecraft:observer[facing={f},powered=false]"));
@@ -134,8 +144,9 @@ pub fn expand_palette(items: &[String]) -> Result<Vec<String>> {
                 }
             }
             "sculk" => add("minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]".into()),
-            "calib" => {
-                for f in hz {
+            "calib" | "calib4" => {
+                let dirs: &[&str] = if it == "calib4" { &["east", "west", "north", "south"] } else { &hz };
+                for f in dirs {
                     add(format!("minecraft:calibrated_sculk_sensor[facing={f},power=0,sculk_sensor_phase=inactive,waterlogged=false]"));
                 }
             }
@@ -380,11 +391,19 @@ pub fn run(o: &FillOpts) -> Result<()> {
     let fixed_set: HashSet<Pos> = fixed.iter().map(|(p, _)| *p).collect();
     let region: Vec<Pos> = o.cells.iter().map(|c| w(*c)).collect();
     let free: Vec<Pos> = region.iter().copied().filter(|p| !fixed_set.contains(p)).collect();
-    // the base: the design without the region and the fixed cells
+    // the base: the design without the region and the fixed cells (keep mode: with the region's
+    // seed blocks, which a filling may change)
     let mut base: BTreeMap<Pos, Block> = BTreeMap::new();
+    let mut seed_at: BTreeMap<Pos, String> = BTreeMap::new();
     for (p, s) in d.block_list() {
-        if region.contains(&p) || fixed_set.contains(&p) {
+        if fixed_set.contains(&p) {
             continue;
+        }
+        if region.contains(&p) {
+            if !o.keep {
+                continue;
+            }
+            seed_at.insert(p, s.clone());
         }
         let b = cs::convert_state(&s).map_err(|e| anyhow::anyhow!("{s} at {p:?}: {e}"))?;
         base.insert(p, b);
@@ -399,13 +418,26 @@ pub fn run(o: &FillOpts) -> Result<()> {
             }
         }
     }
+    // keep mode: each free cell's palette without its seed state, plus air when it held a block
+    if o.keep {
+        for p in &free {
+            let k0 = *cell_pal.get(p).unwrap_or(&0);
+            let seed = seed_at.get(p).map(|s| cs::convert_state(s).map_err(|e| anyhow::anyhow!("{s}: {e}"))).transpose()?;
+            let mut list: Vec<(String, Block)> = pal_states[k0].iter().filter(|(_, b)| Some(*b) != seed && !(seed.is_none() && b.is_air())).cloned().collect();
+            if seed.is_some() && !list.iter().any(|(_, b)| b.is_air()) {
+                list.push(("minecraft:air".to_string(), cs::convert_state("minecraft:air").map_err(|e| anyhow::anyhow!("air: {e}"))?));
+            }
+            pal_states.push(list);
+            cell_pal.insert(*p, pal_states.len() - 1);
+        }
+    }
     let base_count = base.values().filter(|b| !matches!(b, Block::PistonHead { .. })).count();
     // base blocks whose support cell is in the region (a repeater standing on a region cell)
     let region_set: HashSet<Pos> = region.iter().chain(fixed_set.iter()).copied().collect();
-    let base_needs: Vec<Pos> = base.iter().filter_map(|(p, b)| support_of(b, *p)).filter(|s| region_set.contains(s)).collect();
+    let base_needs: Vec<(Pos, Pos)> = base.iter().filter_map(|(p, b)| support_of(b, *p).map(|s| (*p, s))).filter(|(_, s)| region_set.contains(s)).collect();
     let orig_count = d.blocks.values().filter(|s| !s.contains("piston_head")).count();
     println!(
-        "fill {}: {} region cells ({} free, {} fixed), base {} blocks (design {}), k {}..={}, global palette {} states{}",
+        "fill {}: {} region cells ({} free, {} fixed), base {} blocks (design {}), k {}..={}, global palette {} states{}{}",
         o.design.display(),
         region.len(),
         free.len(),
@@ -415,7 +447,8 @@ pub fn run(o: &FillOpts) -> Result<()> {
         o.kmin,
         o.k,
         pal_states[0].len(),
-        if o.gaps { ", gaps allowed" } else { "" }
+        if o.gaps { ", gaps allowed" } else { "" },
+        if o.keep { ", KEEP mode (k = changed cells)" } else { "" }
     );
     // subsets
     let n4 = |p: Pos| -> [Pos; 4] { [[p[0] + 1, p[1], p[2]], [p[0] - 1, p[1], p[2]], [p[0], p[1] + 1, p[2]], [p[0], p[1] - 1, p[2]]] };
@@ -447,7 +480,8 @@ pub fn run(o: &FillOpts) -> Result<()> {
                 seen.insert(st);
                 let mut touch = false;
                 while let Some(p) = stack.pop() {
-                    touch |= touches_base(p, &filled);
+                    // keep mode: a changed cell that held a seed block replaces a part of the build
+                    touch |= touches_base(p, &filled) || seed_at.contains_key(&p);
                     for q in n4(p) {
                         if filled.contains(&q) && seen.insert(q) {
                             stack.push(q);
@@ -546,12 +580,25 @@ pub fn run(o: &FillOpts) -> Result<()> {
                     idx[..it.prefix.len()].copy_from_slice(&it.prefix);
                     let lens: Vec<usize> = it.pals.iter().map(|k| pal_states[*k].len()).collect();
                     'outer: loop {
-                        // build the filling
+                        // build the filling (an air state removes the cell's block: keep mode)
                         let mut map = base.clone();
                         for j in 0..n {
-                            map.insert(it.cells[j], pal_states[it.pals[j]][idx[j]].1);
+                            let b = pal_states[it.pals[j]][idx[j]].1;
+                            if b.is_air() {
+                                map.remove(&it.cells[j]);
+                            } else {
+                                map.insert(it.cells[j], b);
+                            }
                         }
-                        let mut ok = base_needs.iter().all(|sp| map.get(sp).is_some_and(|x| cs::full_cube(x)));
+                        // a block standing on a region cell needs a full block there (keep mode:
+                        // only when that cell changed and the block itself did not)
+                        let mut ok = base_needs.iter().all(|(bp, sp)| (o.keep && (it.cells.contains(bp) || !it.cells.contains(sp))) || map.get(sp).is_some_and(|x| cs::full_cube(x)));
+                        if ok && !o.require_any.is_empty() {
+                            ok = (0..n).any(|j| {
+                                let s = &pal_states[it.pals[j]][idx[j]].0;
+                                o.require_any.iter().any(|r| s.contains(r.as_str()))
+                            });
+                        }
                         for j in 0..n {
                             if !ok {
                                 break;

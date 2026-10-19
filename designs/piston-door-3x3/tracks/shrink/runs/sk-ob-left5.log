@@ -1,0 +1,9 @@
+fill designs/piston-door-3x3/tracks/shrink/wip/t7b-ob40.txt: 10 region cells (10 free, 0 fixed), base 34 blocks (design 40), k 0..=5, global palette 28 states, gaps allowed
+266 subsets pass the connectivity rule; 2303325500 fillings to screen in 2937920 work items
+[   120s] 58041105 screened (483466/s), 420972736 pruned, item 611034/2937920, 0 pass the 1-position screen, 0 finds
+[   240s] 115193181 screened (479758/s), 856661808 pruned, item 1239663/2937920, 0 pass the 1-position screen, 0 finds
+[   360s] 172308463 screened (478423/s), 1231469306 pruned, item 1790575/2937920, 0 pass the 1-position screen, 0 finds
+[   480s] 214666502 screened (447019/s), 1502738079 pruned, item 2190603/2937920, 0 pass the 1-position screen, 0 finds
+[   600s] 251828619 screened (419514/s), 1742285912 pruned, item 2543561/2937920, 0 pass the 1-position screen, 0 finds
+[   720s] 289437457 screened (401806/s), 1990224577 pruned, item 2907776/2937920, 0 pass the 1-position screen, 0 finds
+done in 733 s: 293593572 screened, 2009731928 pruned, 0 passed the screen, 0 finds
