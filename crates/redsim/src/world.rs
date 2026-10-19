@@ -108,8 +108,10 @@ pub struct World {
     pub gravity: crate::gravity::State,
     /// Blocks destroyed with drops (an item entity in the game): (where, what).
     pub drops: Vec<(BlockPos, Block)>,
-    /// Game events (vibrations), recorded only: (name, where).
+    /// Game events (vibrations), in order: (name, where). Sculk sensors hear them (`sculk.rs`).
     pub game_events: Vec<(&'static str, BlockPos)>,
+    /// Sculk sensor block entities and their tickers (agent sculk's side).
+    pub sculk: crate::sculk::State,
     /// Problems the model met (a write outside the box, an unmodeled case): a run with any is
     /// not trustworthy.
     pub errors: Vec<String>,
@@ -139,6 +141,7 @@ impl World {
             gravity: Default::default(),
             drops: Vec::new(),
             game_events: Vec::new(),
+            sculk: Default::default(),
             errors: Vec::new(),
         }
     }
@@ -261,6 +264,7 @@ impl World {
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
             Kind::Dispenser(_) | Kind::Hopper => crate::redstone::container::remove(self, pos),
+            Kind::Sculk(_) => crate::sculk::remove(self, pos),
             _ => {}
         }
     }
@@ -271,6 +275,7 @@ impl World {
                 self.comparator_out.entry(pos).or_insert(0);
             }
             Kind::Dispenser(_) | Kind::Hopper => crate::redstone::container::create(self, pos, &state),
+            Kind::Sculk(_) => crate::sculk::create(self, pos),
             _ => {}
         }
     }
@@ -294,7 +299,11 @@ impl World {
         if drop && bh::drops_item(&s) {
             self.drops.push((pos, s));
         }
-        self.set_block_limit(pos, Block::Air, flags::ALL, limit)
+        let destroyed = self.set_block_limit(pos, Block::Air, flags::ALL, limit);
+        if destroyed {
+            self.game_event_state("block_destroy", pos, s);
+        }
+        destroyed
     }
 
     /// `BlockStateBase.updateNeighbourShapes`.
@@ -548,6 +557,9 @@ impl World {
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
         crate::redstone::container::tick_hoppers(self);
+        // sculk sensors of a design exist before any moving block too (hoppers placed with them:
+        // see `sculk.rs`, an empty hopper's tick changes nothing)
+        crate::sculk::tick_all(self);
         crate::piston::tick_block_entities(self);
     }
 
@@ -557,9 +569,21 @@ impl World {
         self.ticks.count() == 0 && self.events.is_empty() && crate::piston::is_idle(self) && crate::gravity::is_idle(self)
     }
 
-    /// `Level.gameEvent` (recorded only).
+    /// `Level.gameEvent` with no affected state (`GameEvent.Context.of(entity=null)`): recorded,
+    /// and heard by the sculk sensors in range (`sculk::dispatch`).
     pub fn game_event(&mut self, name: &'static str, pos: BlockPos) {
         self.game_events.push((name, pos));
+        if !self.sculk.is_empty() {
+            crate::sculk::dispatch(self, name, pos, None);
+        }
+    }
+
+    /// `Level.gameEvent` with an affected state (`GameEvent.Context.of(state)`: wool dampens).
+    pub fn game_event_state(&mut self, name: &'static str, pos: BlockPos, state: Block) {
+        self.game_events.push((name, pos));
+        if !self.sculk.is_empty() {
+            crate::sculk::dispatch(self, name, pos, Some(state));
+        }
     }
 
     /// Step until idle (at most `max` ticks); returns the ticks run.

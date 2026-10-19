@@ -198,9 +198,13 @@ pub mod indicator {
 
     pub fn neighbor_changed(w: &mut World, s: Block, pos: BlockPos, src: Kind) {
         match s {
-            Block::Trapdoor { iron, facing, top, powered, .. } => {
+            Block::Trapdoor { iron, facing, top, open, powered } => {
                 let signal = w.has_neighbor_signal(pos);
                 if signal != powered {
+                    // TrapDoorBlock.playSound: the game event comes before the write
+                    if open != signal {
+                        w.game_event(if signal { "block_open" } else { "block_close" }, pos);
+                    }
                     w.set_block(pos, Block::Trapdoor { iron, facing, top, open: signal, powered: signal }, flags::CLIENTS);
                 }
             }

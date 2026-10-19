@@ -1856,6 +1856,13 @@ pub enum DoorCmd {
         /// Print every tick's block changes of the bridge run (for single replays).
         #[arg(long)]
         trace: bool,
+        /// Sculk scenarios (track sculk): sensors, calibrated sensors with frequency filters,
+        /// wool, amethyst, comparators and observers on sensors, among pistons and wiring.
+        #[arg(long)]
+        sculk: bool,
+        /// With --sculk: boxes anywhere in the sandbox (its edge chunks included).
+        #[arg(long)]
+        border: bool,
     },
     /// Mechanism search on the EXACT model (track pistmodel, crates/piston-door/src/fullmech.rs):
     /// every transition is the real tick-level game (redsim: spitting, 0-ticks, event order,
@@ -4042,8 +4049,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
         }
-        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace } => {
-            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace };
+        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace, sculk, border } => {
+            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace, sculk, border };
             crate::pistfuzz::cli(version, &o)?;
         }
         DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
