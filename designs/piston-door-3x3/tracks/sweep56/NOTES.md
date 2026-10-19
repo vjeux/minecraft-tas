@@ -78,6 +78,15 @@ filter misses such relays, satwire models them.
   only SD(1,4) and each other, the bottom pockets only the elevator column; e89b's x=-3 observer
   column is exactly that missing link.
 
+## Target correction (03:45Z, from vjeux): frame 12/12 at open
+When OPEN, all 12 frame cells around the opening (3 ceiling, 3 floor, 3 per wall, in the door
+plane) must hold plain door-type blocks (door blocks or static stone): no air, pistons, heads or
+redstone. Every plan swept here (families v2/v3, pistmodel, vmid, mechspace 7x8/c2e/t1, h1/h2,
+e89b's mechanism) is 9/12 at open, so none of these rows is a candidate under the corrected rule;
+the dedicated-box queue (SWEEP79 / SWEEP-c2e* / SWEEP-t1*: 49 UNSAT-train when stopped) was
+stopped. The tools carry over unchanged: `door satsweep` with menus runs on the frame-12/12 plans
+mechspace is generating.
+
 ## Report (20:25Z)
 No door: 0 SAT in ~400 satwire runs (SWEEP.tsv: 335 rows, 314 UNSAT-train, 20 INVALID plans, 1
 ERROR; CALIB.tsv 52 rows; ~10 direct runs), plus the dedicated-box queue still running
