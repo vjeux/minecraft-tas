@@ -1,0 +1,54 @@
+# verified WORKS by door leaderboard: 51 blocks, category sculk
+# archived 2026-10-19 09:44Z from HEAD:designs/piston-door-3x3/tracks/pockets/runs/c79-49-tr3-k3/pockets-screenpass-95.txt (repo at e427e03)
+name: pockets-screenpass-95
+verdict: redsim: WORKS open 15 close 15 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 51 blocks | 0.0 ms
+port door: 0 0 0
+port lever: 4 6 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:dropper[facing=south,triggered=false]
+  E minecraft:piston_head[facing=west,short=false,type=sticky]
+  F minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  G minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  H minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  I minecraft:iron_trapdoor[facing=west,half=bottom,open=false,powered=false,waterlogged=false]
+  J minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  K minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:note_block[instrument=harp,note=0,powered=true]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  Q minecraft:sticky_piston[extended=true,facing=down]
+  R minecraft:redstone_wire[east=none,north=none,power=15,south=none,west=none]
+  S minecraft:smooth_stone
+  T minecraft:sticky_piston[extended=true,facing=west]
+  U minecraft:stone
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  t minecraft:target[power=0]
+layer -3:
+  .oDSo.C
+layer -2:
+  oOBMMPI
+layer -1:
+  OK...rt
+layer 0:
+  K.UUUUA
+layer 1:
+  K.UUUET
+layer 2:
+  K.UUUET
+layer 3:
+  S.UsUoN
+layer 4:
+  GSFpooR
+layer 5:
+  .roQHJS
+layer 6:
+  ......L

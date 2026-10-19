@@ -1,0 +1,10 @@
+# f131 pn31: only P3 ideal
+design designs/piston-door-3x3/tracks/pockets/svc/f131-pn31.txt
+let op = 7
+let cp = 7
+open 0 use -3 6 0
+close 0 use -3 6 0
+open op set -1 3 1 minecraft:redstone_block
+open op+2 clear -1 3 1
+close cp set -1 3 1 minecraft:redstone_block
+close cp+2 clear -1 3 1

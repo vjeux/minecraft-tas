@@ -1,0 +1,31 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/q78-e78s.ideal: 4 input cells off the plane ([(1, -2), (3, -1), (1, -3), (1, -1)]), 12 / 8 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/q78-e78s.txt: 31 blocks in the box, screen 79/79
+seed screen 79/79 with 4 inputs assisted
+windows (10 groups, 0.0 s):
+  input (1,-2) open  t8 pulse 2 gt: window [-8, +3]
+  input (3,-1) open  t14 pulse 2 gt: window [-3, +4]
+  input (1,-3) open  t20 pulse 2 gt: window [-4, +3]
+  input (1,-1) open  t24 pulse 2 gt: window [-3, +3]
+  input (1,-3) open  t30 pulse 2 gt: window [-3, +2]
+  input (1,-2) open  t36 pulse 2 gt: window [-2, +24]
+  input (1,-2) close t8 pulse 2 gt: window [-8, +3]
+  input (3,-1) close t14 pulse 2 gt: window [-3, +3]
+  input (1,-3) close t20 pulse 2 gt: window [-3, +2]
+  input (1,-3) close t26 pulse 2 gt: window [-2, +24]
+17 pocket cells in 4 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 40 swept cells
+  pocket 0: 8 cells [(-2, -3), (-2, -2), (-2, -1), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 1 cells [(-1, 3)]
+  pocket 2: 7 cells [(2, -3), (2, -2), (3, -3), (3, -2), (4, -3), (4, -2), (4, -1)]
+  pocket 3: 1 cells [(3, 3)]
+pocket 0: 8 cells, 1417 subset/lever items, 5258017 fillings to screen
+pocket 0: 5744042 screened, 2255656 keep the door working, 29.3 s; driven input sets: {(1,-2)o8 (1,-2)c8} x1 (best 3 blocks), {(1,-1)o24} x3 (best 3 blocks), {(1,-2)o8} x30 (best 3 blocks)
+pocket 1: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 1: 61 screened, 45 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 7 cells, 1173 subset/lever items, 4350093 fillings to screen
+pocket 2: 5044668 screened, 1636416 keep the door working, 25.0 s; driven input sets: {(1,-3)o20 (1,-3)o30 (1,-3)c20 (1,-3)c26} x1 (best 3 blocks), {(3,-1)o14 (1,-2)c8 (3,-1)c14} x1 (best 3 blocks), {(3,-1)o14 (3,-1)c14} x64 (best 2 blocks), {(1,-1)o24} x2 (best 3 blocks)
+pocket 3: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 3: 61 screened, 43 keep the door working, 0.3 s; driven input sets: none
+plan groups no filling drives: (1,-2)o36
+combination 1: true partial, 4 inputs still assisted [1,-2 3,-1 1,-3 1,-1] (34 blocks)
+combination 32: true partial, 3 inputs still assisted [1,-2 1,-3 1,-1] (37 blocks)
+2541 combinations verified, 0 finds, 57 s total
