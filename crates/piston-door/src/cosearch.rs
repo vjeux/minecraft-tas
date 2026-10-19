@@ -135,9 +135,9 @@ pub fn quartz_like(b: &Block) -> bool {
     )
 }
 
-/// `isRandomlyTicking` among redsim's blocks.
+/// `isRandomlyTicking` among redsim's blocks (leaves: distance 7 and not persistent).
 pub fn random_ticking(b: &Block) -> bool {
-    matches!(b, Block::Leaves { persistent: false, .. })
+    matches!(b, Block::Leaves { persistent: false, distance: 7 })
 }
 
 // ---------------------------------------------------------------------- designs
