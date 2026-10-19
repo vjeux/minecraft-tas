@@ -76,6 +76,23 @@ rule: frame cells must hold the door block itself), pistmodel fm-8x8-000..063 (`
 
 ## 6. c79 other wirings (each region exhaustive, `finds/`)
 
+* **49 blocks (`finds/c79-49-bl5-br3.txt` = `BEST.txt`, archived `finds/archive/c79-49-bl5-br3-49b.txt`):
+  c79's mechanism + cosearch2's 5-block bottom-left + a 3-block bottom-right found with the FULL
+  palette (`--fill-palette all,sculk,calibrated`, k=4): observer (4,0) up on R1 -> a TARGET block
+  (4,-1) -> dust (3,-1) on the normal piston (3,-2). `verify --extra-offsets 28` WORKS (32 positions),
+  rotation-safe at 32 positions, FULL seamless, frame 12/12, 15/15. Ties satwire-63b-49-49b (main,
+  satwire's from-scratch re-wiring of the same mechanism: its bottom-right is the same 3-block shape
+  with a note block). The bottom-right run also gave 92 more 51-block wirings (`runs/c79-br-all-k4`).
+* Toward 48 (all on the 49, plan-from --close per region): bottom-left full palette k=4 (129M screens):
+  no 4-block cover ({K + U} 3 blocks, L0 2: still 5); top-left k=5 x 16 states (incl. target, slab,
+  trapdoor, glass; 32M screens): no 5-block cover; top-right with the lever on a block's front face
+  ((4,3)/(4,4)/(3,4)) and (4,5) freed, k=7 x 12 states (572M screens, on c79-front): no cover with
+  6 blocks + lever; bottom-middle + bottom-left (9 cells) k=7 x 8 states (38M screens): no 7-block cover
+  ({U, K} 6 blocks, L0 3); top-right's (4,3),(4,4),(3,3) x 60 states (k=3, lever kept): 3 is the minimum.
+  So 48 needs a cross-region change (no single region of the 49 shrinks at these palettes).
+* 50 blocks: `finds/c79bl50-tl1-63b-50.txt`, `c79bl50-tl12-63b-50.txt` (the 50-block door with the new
+  observer-up top-left), verify WORKS 4 positions, rotation-safe.
+
 * top-right (keep-lever, k=7 x 12 states, 85M screens): 5 wirings (`c79tr-63b-51-*`), delay/shape
   variants (dot dust (4,4), repeater pairs 4+1/3+2/2+3/1+4, a comparator at (3,5)).
 * top-left (k=6 x 12 states, 73M screens): 30 wirings (`c79tl-63b-51-*`), the minimum is 6 blocks.
