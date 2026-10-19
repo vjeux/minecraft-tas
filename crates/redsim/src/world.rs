@@ -83,7 +83,7 @@ impl BlockEvents {
 pub struct World {
     pub min: BlockPos,
     pub size: [i32; 3],
-    cells: Vec<Block>,
+    pub(crate) cells: Vec<Block>,
     /// Game time (`getGameTime`), incremented at the start of each tick.
     pub time: i64,
     sub_tick: i64,
