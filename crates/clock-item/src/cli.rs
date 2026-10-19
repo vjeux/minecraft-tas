@@ -512,6 +512,9 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
         ItemClockCmd::Fill { skeleton, free, k, palette, ticks, jobs, out } => {
             let d = load(&skeleton)?;
             let base = Spec::from_design(&d).map_err(|e| anyhow!("{}: {e}", skeleton.display()))?;
+            // The skeleton must place (its nbt lines on real containers): else every candidate
+            // fails the same way and the fill silently finds nothing.
+            let _ = sim::judge(&base, 4, None).map_err(|e| anyhow!("{}: the skeleton does not place: {e}", skeleton.display()))?;
             let (a, b) = free.split_once(':').context("--free takes x0,y0,z0:x1,y1,z1")?;
             let parse3 = |s: &str| -> Result<[i32; 3]> {
                 let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
