@@ -28,8 +28,11 @@ coordinator (f1a42990).
   census-report | extend-check | shot | shot-compare | video | montage | obs | rt | sculk | item`.
 - Calibration: `designs/clocks/calibration/` (8 clocks, robust in the game, redsim agrees);
   `door selftest` checks `clock:*`.
-- Pictures: `designs/clocks/img/<archive stem>.jpg` for every archived clock (the coordinator and
-  I shoot new archives; `clock shot designs/clocks/archive/*.txt` keeps existing ones).
+- Pictures: `designs/clocks/img/<archive stem>.jpg` for every archived clock (1582/1582 on
+  2026-10-19 13:10 PT; `clock shot designs/clocks/archive/*.txt` takes only the missing ones, ~2 s
+  each; `clock catalog` prunes pictures of designs no longer archived).
+- Census: `designs/clocks/census/<box>-k<k>/` for 11 boxes (core palette, rotation+mirror type
+  key) and `designs/clocks/census/README.md` (`clock census-report`).
 
 ## Results worth knowing
 - P <= 3: no clock with the `full` palette (self-start or one block placed last) in any box up to
@@ -40,7 +43,9 @@ coordinator (f1a42990).
 
 ## Next
 - Explorers convert their families to `extend` headers (clk-rt has generators: `mctas clock rt
-  family <name> --n N --out F`); archive them with `clock archive` (judged n recorded).
-- Census README: `clock census-report ~/clock-census/* --out designs/clocks/census/README.md`
-  after re-running the core censuses with the mirror type key (runs on devvm53196).
+  family <name> --n N --out F`); archive them with `clock archive` (judged n recorded in
+  extend.tsv; the catalog drops recorded instances from the per-period gallery).
+- Archive tables: one row per file (read_rows collapses repeated rows from union merges; dedupe
+  never removes a file as its own twin): if a merge repeats rows again, `clock archive --dedupe`
+  repairs the tables (reports COLLAPSED n).
 - P <= 3 at 2x2x2 k5 / 3x3x2 k4 if anyone needs a stronger bound (hours on 160 threads).
