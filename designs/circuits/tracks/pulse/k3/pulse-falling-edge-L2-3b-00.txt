@@ -1,0 +1,16 @@
+name: pulse-falling-edge-L2-3b-00
+# Pulse census (clk-obs pulse prototype on redsim, k = 3 + input): falling-edge L=2 delay=5 min-pulse=4.
+circuit: falling-edge
+origin: 0 0 1
+port output: 0 1 2
+port input: 0 1 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  .
+layer 1:
+  B
+  C
