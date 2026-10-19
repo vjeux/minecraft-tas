@@ -1,0 +1,21 @@
+# c70b t8r: B hold by a redstone-block shuttle: sticky X (-2,-3) east pushes R (-1,-3) into (0,-3) (next to B'), real gate (0,-2) watches (0,-3); X pulses ideal (s1 w1, s2 w2), P_M ideal
+design designs/piston-door-3x3/tracks/c70b/t7b/t8r.txt
+let pm = 21
+let s1 = 25
+let w1 = 2
+let s2 = 33
+let w2 = 2
+open 0 use 1 5 0
+close 0 use 1 5 0
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+2 clear -1 -1 1
+close pm set -1 -1 1 minecraft:redstone_block
+close pm+2 clear -1 -1 1
+open s1 set -2 -3 1 minecraft:redstone_block
+open s1+w1 clear -2 -3 1
+open s2 set -2 -3 1 minecraft:redstone_block
+open s2+w2 clear -2 -3 1
+close s1 set -2 -3 1 minecraft:redstone_block
+close s1+w1 clear -2 -3 1
+close s2 set -2 -3 1 minecraft:redstone_block
+close s2+w2 clear -2 -3 1

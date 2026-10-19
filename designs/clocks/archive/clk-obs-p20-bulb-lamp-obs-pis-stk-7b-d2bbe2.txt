@@ -1,0 +1,30 @@
+# archived 2026-10-19T18:52Z from designs/clocks/tracks/clk-obs/families/p20-bulb-lamp-obs-pis-stk-7b-d2bbe2.txt by mctas clock archive
+# CLOCK: clk-obs-p20-bulb-lamp-obs-pis-stk-7b-d2bbe2 period 20 gt (1 s), on 8/20, edges 4, warmup 11, family copper_bulb+observer+piston+redstone_lamp+sticky_piston, 7 blocks, 1x3x4, robust
+name: clk-obs-p20-bulb-lamp-obs-pis-stk-7b-d2bbe2
+# P20: 1 copper bulb, 2 observers, 2 pistons, 1 redstone lamp, 1 sticky piston; changing in place: copper_bulb, observer, piston, redstone_lamp, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 -1
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:piston[extended=false,facing=south]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:piston[extended=false,facing=down]
+layer 0:
+  .
+  A
+  .
+  .
+layer 1:
+  B
+  C
+  D
+  E
+layer 2:
+  .
+  .
+  F
+  G

@@ -1,0 +1,18 @@
+name: clk-obs-p14-lamp-note-obs-6b-b-93cd4d
+# P14: 1 note block, 2 observers, 3 redstone lamps; changing in place: note_block, observer, redstone_lamp. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:redstone_lamp[lit=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:note_block[instrument=harp,note=0,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+layer 0:
+  A
+  B
+  A
+layer 1:
+  C
+  D
+  A

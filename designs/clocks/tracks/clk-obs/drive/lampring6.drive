@@ -1,0 +1,10 @@
+design designs/clocks/tracks/clk-obs/lampring6.txt
+probe L 0 0 0
+probe O1 1 0 0
+probe O5 2 0 0
+probe O2 0 0 1
+probe O3 1 0 1
+probe O4 2 0 1
+clear 1 0 1
+set 1 0 1 minecraft:observer[facing=west,powered=false]
+trace 80

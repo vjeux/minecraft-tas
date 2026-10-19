@@ -1,0 +1,8 @@
+design designs/piston-door-3x3/tracks/pockets/svc/e78k-s11.txt
+let q = 33
+open 0 use 1 5 0
+close 0 use 1 5 0
+open q set 1 -3 1 minecraft:redstone_block
+open q+2 clear 1 -3 1
+close q set 1 -3 1 minecraft:redstone_block
+close q+2 clear 1 -3 1

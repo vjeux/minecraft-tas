@@ -121,20 +121,15 @@ pub fn is_moving(b: &Block) -> bool {
     matches!(b, Block::MovingPiston { .. })
 }
 
-/// `properties::quartz_like` on redsim blocks (quartz-likes redsim does not list are stone).
+/// `properties::quartz_like` on redsim blocks (quartz-likes redsim does not list are stone): the
+/// same names, so a white-concrete door's concrete frame and statics are building blocks here
+/// exactly as in `door properties` (they were circuitry before: "not FULL (open: white_concrete").
 pub fn quartz_like(b: &Block) -> bool {
-    matches!(
-        b,
-        Block::Simple(Simple::Stone)
-            | Block::Simple(Simple::SmoothStone)
-            | Block::Simple(Simple::Cobblestone)
-            | Block::Simple(Simple::WhiteWool)
-            | Block::Simple(Simple::OakPlanks)
-            | Block::Simple(Simple::GoldBlock)
-            | Block::Simple(Simple::IronBlock)
-            | Block::Simple(Simple::EmeraldBlock)
-            | Block::Log { .. }
-    )
+    match b {
+        Block::Simple(s) => crate::properties::quartz_like(s.name()),
+        Block::Log { .. } => true,
+        _ => false,
+    }
 }
 
 /// `isRandomlyTicking` among redsim's blocks (leaves: distance 7 and not persistent).
@@ -1193,6 +1188,26 @@ pub fn frame_filled(b: &Block) -> bool {
     !b.is_air() && full_cube(b) && !is_moving(b) && quartz_like(b)
 }
 
+/// The record rule for a frame cell when open (`properties.rs`'s `frame_full_count`, vjeux
+/// 2026-10-19): it holds a block of the DOOR's own kind (same block name as the door state,
+/// properties ignored), not moving. A white-concrete door's concrete frame counts; a smooth-stone
+/// frame around a stone door does not.
+pub fn frame_filled_door(b: &Block, door_block: &Block) -> bool {
+    if b == door_block {
+        return true;
+    }
+    if b.is_air() || is_moving(b) {
+        return false;
+    }
+    let name = |x: &Block| x.to_string().split('[').next().unwrap_or_default().to_string();
+    name(b) == name(door_block)
+}
+
+/// The door's own block (its rest state at the door port), stone when the port holds nothing.
+pub fn door_block_of(door: &RsDoor) -> Block {
+    door.blocks.iter().find(|(q, _)| q == &door.spec.door).map(|(_, b)| *b).unwrap_or(Block::Simple(Simple::Stone))
+}
+
 impl Eval {
     pub fn record_ok(&self) -> bool {
         self.judge.is_ok() && matches!(self.full, Some(Ok(()))) && matches!(self.hallway, Some(Ok(()))) && self.frame == Some(12)
@@ -1208,7 +1223,8 @@ pub fn evaluate(door: &RsDoor, opts: &JudgeOpts, props_even_if_broken: bool) -> 
                 e.full = Some(seamless_full(&rec));
                 e.volume = volume(&rec);
                 let open = rec.open_state();
-                e.frame = Some(crate::sheet::frame_cells(door.spec.door).iter().filter(|p| open.get(**p).is_some_and(|b| frame_filled(&b))).count() as i32);
+                let db = door_block_of(door);
+                e.frame = Some(crate::sheet::frame_cells(door.spec.door).iter().filter(|p| open.get(**p).is_some_and(|b| frame_filled_door(&b, &db))).count() as i32);
             }
             Err(why) => e.full = Some(Err(why)),
         }

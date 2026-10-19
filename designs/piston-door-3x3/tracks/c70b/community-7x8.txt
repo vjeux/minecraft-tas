@@ -1,0 +1,54 @@
+name: community-7x8
+# The COMMUNITY 7x8 door (SacredRedstone), reproduced from vjeux's screenshot of its OPEN state
+# (tracks/c70b/community/NOTES.md): 7 wide x 8 tall x 1, rests CLOSED with the lever ON (the
+# lever hangs on the front face of the lime wool (2,5)). Every block is read from the screenshot
+# except the three cells the low camera cannot show: dust (3,5) on observer (3,4) (lever ->
+# comparator) and, at (3,3) on the frame block (3,2), a delay-4 repeater (input from the dropper,
+# output into TR's cell) found by c77's `door fill --keep` (k<=2 over 14 top cells: every find has
+# it). The screenshot shows (3,3) empty, so the community wiring there is still unknown: with
+# hidden dust there (the only invisible option) the door closes from the screenshot but cannot
+# reopen in redsim or the JVM (the elevator top and TR's puller share the lime block's power and
+# need two re-pulses; dust gives one).
+port door: 0 0 0
+port lever: 2 5 1
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:obsidian
+  C minecraft:comparator[facing=west,mode=compare,powered=true]
+  D minecraft:dropper[facing=south,triggered=false]
+  E minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  F minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  G minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  H minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=true,facing=down]
+  L minecraft:lever[face=wall,facing=south,powered=true]
+  M minecraft:cyan_wool
+  N minecraft:lime_wool
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  W minecraft:white_concrete
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  RMoIooR
+layer -1:
+  Os..WBA
+layer 0:
+  s.WWW.J
+layer 1:
+  s.WWW.J
+layer 2:
+  s.WWWWA
+layer 3:
+  MOWSPHD
+layer 4:
+  AMGPKOA
+layer 5:
+  EFoKNrC
+  ....L..

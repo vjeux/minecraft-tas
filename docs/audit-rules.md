@@ -4,60 +4,60 @@
 
 | rule | where (live) | what real designs it excludes |
 |---|---|---|
-| judge: door cells = 9 identical plain full blocks, no mechanism block | lib.rs:1003 | doors whose closed face mixes blocks (glass + stone), or uses a mechanism block (observer/slime) as a door block; the community allows any 'full block' set (rules: identical) |
-| judge: lever port must hold a lever (either polarity since cc4686d) | lib.rs:1123 | buttons, pressure plates, or a repeater/observer input as the port (the community's input device is any switch) |
-| judge: nothing in front of / behind the door at any distance | lib.rs:132, lib.rs:136, lib.rs:879, lib.rs:1109 | a lever or dust placed in the tunnel columns (vjeux's rule: intended) |
-| judge: settle at placement (raw paste, wire shapes, one self update each, then idle) | lib.rs:481, lib.rs:1074, lib.rs:1345 | designs resting with a BUD- or QC-armed piston: INTENDED (vjeux 2026-10-19: no QC-armed piston at rest); a rest state that depends on placement order is buildable's job |
-| judge: every block passes canSurvive at rest | lib.rs:1087 | nothing real (a floating attachment pops in survival) |
-| judge: no random ticks (isRandomlyTicking) | lib.rs:340, lib.rs:612, lib.rs:682, lib.rs:1086 | unwaxed copper, leaves (non-persistent), crops: intended |
-| judge: open = 9 door cells + walkway walkable, no moving block | lib.rs:1031 | doors that are open while a block is still moving there (bouncing allowed only between settled states) |
-| judge: close = some closed state repeats an earlier one (PERIODIC rest, main 96a62d6; before: identical to the rest state) | lib.rs:1208, lib.rs:1251 | nothing now in the judge; doors whose internal state alternates were rejected before 96a62d6 |
-| door ideal: periodic rest (FIXED explore/audit 9040a14; was exact rest after each close) | ideal.rs:313 | before 9040a14: periodic-rest mechanisms failed `door ideal` and every tool replaying plans with it (fullmech --verify-ideal, families --verify, satsweep validation) |
+| judge: door cells = 9 identical plain full blocks, no mechanism block | lib.rs:1008 | doors whose closed face mixes blocks (glass + stone), or uses a mechanism block (observer/slime) as a door block; the community allows any 'full block' set (rules: identical) |
+| judge: lever port must hold a lever (either polarity since cc4686d) | lib.rs:1128 | buttons, pressure plates, or a repeater/observer input as the port (the community's input device is any switch) |
+| judge: nothing in front of / behind the door at any distance | lib.rs:135, lib.rs:139, lib.rs:884, lib.rs:1114 | a lever or dust placed in the tunnel columns (vjeux's rule: intended) |
+| judge: settle at placement (raw paste, wire shapes, one self update each, then idle) | lib.rs:486, lib.rs:1079, lib.rs:1350 | designs resting with a BUD- or QC-armed piston: INTENDED (vjeux 2026-10-19: no QC-armed piston at rest); a rest state that depends on placement order is buildable's job |
+| judge: every block passes canSurvive at rest | lib.rs:1092 | nothing real (a floating attachment pops in survival) |
+| judge: no random ticks (isRandomlyTicking) | lib.rs:345, lib.rs:617, lib.rs:687, lib.rs:1091 | unwaxed copper, leaves (non-persistent), crops: intended |
+| judge: open = 9 door cells + walkway walkable, no moving block | lib.rs:1036 | doors that are open while a block is still moving there (bouncing allowed only between settled states) |
+| judge: close = some closed state repeats an earlier one (PERIODIC rest, main 96a62d6; before: identical to the rest state) | lib.rs:1213, lib.rs:1256 | nothing now in the judge; doors whose internal state alternates were rejected before 96a62d6 |
+| door ideal: periodic rest (FIXED explore/audit 9040a14; was exact rest after each close) | ideal.rs:428 | before 9040a14: periodic-rest mechanisms failed `door ideal` and every tool replaying plans with it (fullmech --verify-ideal, families --verify, satsweep validation) |
 | props-dyn env_run: periodic rest, surroundings exact (FIXED explore/audit 5026010) | properties_dyn.rs:369 | before 5026010: a periodic-rest door failed every dynamic property (record eligibility, --eligible / --repeater-input / --seamless +hall searches) |
 | local-search screen_in: periodic rest (FIXED explore/audit 38f4b6f) | search.rs:1418 | before 38f4b6f: periodic-rest candidates of minimize/regrow/grow/harvest were screened out before the judge saw them |
 | redsim screen: periodic rest (FIXED explore/audit a4c5a84) | redsim_screen.rs:208 | before a4c5a84: same for the redsim pre-screen / redsim-verify |
-| tile judge: periodic rest (FIXED explore/audit 610a8ab) | tile.rs:489 | before 610a8ab: periodic tile modules |
-| cosearch screen: periodic rest (FIXED main 3d3f5c27, pockets) | cosearch_search.rs:798 | before 3d3f5c27: periodic-rest candidates lost points in the annealing screen |
+| tile judge: periodic rest (FIXED explore/audit 610a8ab) | tile.rs:490 | before 610a8ab: periodic tile modules |
+| cosearch screen: periodic rest (FIXED main 3d3f5c27, pockets) | cosearch_search.rs:891 | before 3d3f5c27: periodic-rest candidates lost points in the annealing screen |
 | STILL exact-rest: boxproof (close ends at exactly the rest state) | boxproof/bmc.rs:4 | periodic-rest doors are outside boxproof's space (its UNSATs do not cover them) |
-| STILL exact-rest: satwire (both stable states fixed points, each trace ends where the other starts) | satwire.rs:28, satwire.rs:2674, satwire.rs:2701 | periodic-rest wirings (e.g. T-flip-flop phases) |
+| STILL exact-rest: satwire (both stable states fixed points, each trace ends where the other starts) | satwire.rs:28, satwire.rs:4088 | periodic-rest wirings (e.g. T-flip-flop phases) |
 | STILL exact-rest: fullmech / mech-synth / families macro (close back to the exact rest state) | fullmech.rs:19 | mechanisms that close into a different but equivalent internal state (two-phase machines) |
 | placement = video.rs::place (raw paste in block_list order) | video.rs:281, video.rs:364 | states only reachable by a build order (e.g. a piston extended without power): judged unstable |
-| legality: FORBIDDEN list + no orphan piston heads | lib.rs:353, lib.rs:751 | nothing real (survival-only blocks) |
-| category: solid = not gravity, not sculk, no entities | lib.rs:654 | a solid door with a sculk sensor anywhere is ranked 'sculk' even if the sensor is unused |
-| flat label (single_layer): every block in the door plane, the lever cell ignored (main d975c15) | lib.rs:374 | fixed: before d975c15 the community 7x9 as built (lever on (4,5)'s front face) was 7x9x2, not flat, off the flat boards and out of flat-only searches |
-| cosearch search grid: an off-plane lever on a block's front/back face (FIXED main 3d3f5c27, pockets' Grid.lever_dz) | cosearch_search.rs:176 | before 3d3f5c27: c79's real lever (front face of (4,5)) could not seed or move in cosearch |
+| legality: FORBIDDEN list + no orphan piston heads | lib.rs:358, lib.rs:756 | nothing real (survival-only blocks) |
+| category: solid = not gravity, not sculk, no entities | lib.rs:659 | a solid door with a sculk sensor anywhere is ranked 'sculk' even if the sensor is unused |
+| flat label (single_layer): every block in the door plane, the lever cell ignored (main d975c15) | lib.rs:379 | fixed: before d975c15 the community 7x9 as built (lever on (4,5)'s front face) was 7x9x2, not flat, off the flat boards and out of flat-only searches |
+| cosearch search grid: an off-plane lever on a block's front/back face (FIXED main 3d3f5c27, pockets' Grid.lever_dz) | cosearch_search.rs:186 | before 3d3f5c27: c79's real lever (front face of (4,5)) could not seed or move in cosearch |
 | redsim judge: falling blocks are full cubes (FIXED explore/audit 088f15e) | cosearch.rs:90 | before 088f15e cosearch eval/search/agree rejected EVERY gravity door ('not closed at rest: door cell is minecraft:sand': 33/33 archived gravity doors) |
 | acceptance positions: 4 + extra (default 28) everywhere, never fewer than the 4 default positions | search.rs:39 | a door that works at 1-3 positions (vjeux: a 1-position pass should count as a find) is never reported by minimize/grow/regrow/resynth/synth (min 4), cosearch (main: hard-coded 32, cosearch_search.rs extra_offsets(28)), satwire (--extra-offsets 28), families/fullmech ideal replays (4) |
-| boxproof bmc: the door placed at dx = (w-3)/2, dy = (h-3)/2 unless --dx/--dy | boxproof/bmc.rs:548 | off-center placements (dx 0,1,3,4 in 7 wide; dy 3 in 8 tall): a 7x8 run covers 1 of 10 placements |
-| mechspace --door-offset (the single-U sweep ran with 2,2 only) | mechspace.rs:1732 | off-center 7-wide / 8-tall placements of the c78 single-U sweep |
-| flat-only seeds: cosearch search refuses non-flat seeds | cosearch_search.rs:1225, cosearch_search.rs:1514 | fixed by d975c15 for front-face levers (single_layer ignores the lever) |
+| boxproof bmc: the door placed at dx = (w-3)/2, dy = (h-3)/2 unless --dx/--dy | boxproof/bmc.rs:604 | off-center placements (dx 0,1,3,4 in 7 wide; dy 3 in 8 tall): a 7x8 run covers 1 of 10 placements |
+| mechspace --door-offset (the single-U sweep ran with 2,2 only) | mechspace.rs:1953 | off-center 7-wide / 8-tall placements of the c78 single-U sweep |
+| flat-only seeds: cosearch search refuses non-flat seeds | cosearch_search.rs:1349, cosearch_search.rs:1638 | fixed by d975c15 for front-face levers (single_layer ignores the lever) |
 | frame cells must hold the DOOR block itself when open (d975c15); the 3 extras may move | sheet.rs:92 | frame-12 tests that add STATIC stone (sheet --fill, mechspace --full-frame: 'frame cells air when open stay air on the cycle') exclude doors whose 3 extra frame blocks move |
 | mechspace --full-frame: static stones in the frame cells left air when open; movable extras (rule A, try_movable) since main 4f8f0604 | mechspace.rs:953 | before 4f8f0604: doors whose 3 extra frame blocks are moved into place (vjeux: the extras may move) |
-| verify prints the bounding box with the lever | door-judge/src/lib.rs:1027, door-judge/src/lib.rs:1134 | the printed box (7x9x2) disagrees with the community volume (7x9x1, lever excluded) |
+| verify prints the bounding box with the lever | (pattern not found) | the printed box (7x9x2) disagrees with the community volume (7x9x1, lever excluded) |
 | props-dyn repeater rig + door properties' repeater input: polarity (FIXED explore/audit 4c483b9) | properties_dyn.rs:605 | before 4c483b9 every lever-ON door failed repeater input ('not open'): c79 was not record-eligible and --eligible / --repeater-input searches rejected its family; now ELIGIBLE (x32, 15/15) |
-| cosearch screen: either lever polarity (FIXED main, cosearch2 c85570e) | cosearch_search.rs:788 | before: lever-ON seeds (c79) scored as broken (max-1 points) |
+| cosearch screen: either lever polarity (FIXED main, cosearch2 c85570e) | cosearch_search.rs:881 | before: lever-ON seeds (c79) scored as broken (max-1 points) |
 | minimize lever moves keep the design's polarity (FIXED explore/audit 9b1074d) | search.rs:646 | before 9b1074d every lever move of a lever-ON door turned its lever off and broke it |
 | relever keeps the design's polarity (FIXED explore/audit 9b1074d) | relever.rs:77 | before 9b1074d a lever-ON door's relever variants were all broken |
 | mech-wire: levers placed unpowered (its waves assume lever-off) | mechwire.rs:231 | wirings that need the lever's level at rest (level-held pullers released by the lever, c79's right side): a --lever-on option must invert every wave |
-| satwire: lever polarity auto-detected (FIXED main, `lever_on_rest`) | satwire.rs:1552 | before: lever-ON wirings; c79's `--from-wired --check` went from 157/485 piston-tick mismatches to 0/482 |
-| satwire: written levers keep the rest polarity (FIXED main) | satwire.rs:2768 | - |
-| boxproof: rest lever ON option (FIXED main fd8c52b3) | boxproof/bmc.rs:34, boxproof/bmc.rs:243, boxproof/bmc.rs:620, boxproof/bmc.rs:645 | before fd8c52b3: lever-ON doors |
+| satwire: lever polarity auto-detected (FIXED main, `lever_on_rest`) | satwire.rs:1988 | before: lever-ON wirings; c79's `--from-wired --check` went from 157/485 piston-tick mismatches to 0/482 |
+| satwire: written levers keep the rest polarity (FIXED main) | satwire.rs:4203 | - |
+| boxproof: rest lever ON option (FIXED main fd8c52b3) | boxproof/bmc.rs:34, boxproof/bmc.rs:245, boxproof/bmc.rs:676, boxproof/bmc.rs:701 | before fd8c52b3: lever-ON doors |
 | boxproof: cells = air/stone/obsidian/glass/note/lamp/rblock/dust/rep/obs/torch/piston + dropper, copper bulb, comparator (fd8c52b3) | boxproof/diff.rs:68 | slime, honey, iron trapdoors, slabs, subtract-mode comparators, leaves and logs, rails, sculk (droppers, bulbs, comparators added in fd8c52b3) |
-| families: 1-move exits use RETRACTED sticky pullers (unless --ext-pullers, mechspace only) | families.rs:1581 | level-held pullers released by the lever (c79's MR/TR, SW+(4,1) SW+(4,2)); fullmech and the catalog never set the flag |
-| families: paths of 1-2 unit moves, no reversal | families.rs:1474 | a door block moving 3 times or back (c79's TM: down, up, up) - only harmless when the pieces are generated for another nominal path |
-| families: the center leaves straight in exactly 2 moves | families.rs:1521 | a center that exits in 1 move sideways, 3 moves, or bends |
-| families: providers = a sticky puller 2 ahead or a pusher 1-2 behind | families.rs:1353 | a block pushed through a chain from 3+ cells (c79's BM is pushed from (1,3) through TM and C; generated anyway via its (1,-2) pull) |
-| families: a lifted or carried provider must be RETRACTED at rest (`!ext` in the lift / pull-back / carry branches) | families.rs:1400, families.rs:1406, families.rs:1413 | 19 archived flat doors under every flag (hA-full-rl-dropper 14, eligible-s4ff 3, fresh-a-sf1-w2 2): SD+(1,4) extended at rest retracts, is pushed down by SD(1,5), then pulls C |
-| families: only pieces an earlier provider PLACED are reused (lifted / carried) | families.rs:1399 | 39 archived flat doors under every flag (fast-clean 21, speed-wire 18): SD(0,3) acts only after SE(-1,3) carries it to (1,3); (0,3) is no provider position, so it is never placed |
-| families: pistons only (no stone, obsidian, slime, droppers, carried sources) in generated sets | families.rs:1324 | static frame stones (frame 12/12: mechspace --full-frame adds them after the solve), helper blocks, carried redstone blocks / observers |
-| families: a piston held on at rest above a retracted piston is refused (QC-armed rest) | families.rs:258 | rests where the QC-armed piston is meant to stay (blocked) or fire on the first update |
+| families: 1-move exits by RETRACTED sticky pullers only with --no-ext-pullers (extended-at-rest pullers are every generator's default since 2026-10-19) | families.rs:1633 | with --no-ext-pullers only: level-held pullers released by the lever (c79's MR/TR, SW+(4,1) SW+(4,2); the community 7x8's TR, SD+(2,4)); by default at most --ext-max (2) such exits per mechanism, the second next to the first (--ext-apart) |
+| families: paths of 1-2 unit moves, no reversal | families.rs:1524 | a door block moving 3 times or back (c79's TM: down, up, up) - only harmless when the pieces are generated for another nominal path |
+| families: the center leaves straight in exactly 2 moves | families.rs:1571 | a center that exits in 1 move sideways, 3 moves, or bends |
+| families: providers = a sticky puller 2 ahead or a pusher 1-2 behind | families.rs:1371 | a block pushed through a chain from 3+ cells (c79's BM is pushed from (1,3) through TM and C; generated anyway via its (1,-2) pull) |
+| families: a lifted or carried provider must be RETRACTED at rest (`!ext` in the lift / pull-back / carry branches) | (pattern not found) | 19 archived flat doors under every flag (hA-full-rl-dropper 14, eligible-s4ff 3, fresh-a-sf1-w2 2): SD+(1,4) extended at rest retracts, is pushed down by SD(1,5), then pulls C |
+| families: only pieces an earlier provider PLACED are reused (lifted / carried) | families.rs:1417 | 39 archived flat doors under every flag (fast-clean 21, speed-wire 18): SD(0,3) acts only after SE(-1,3) carries it to (1,3); (0,3) is no provider position, so it is never placed |
+| families: pistons only (no stone, obsidian, slime, droppers, carried sources) in generated sets | families.rs:1342 | static frame stones (frame 12/12: mechspace --full-frame adds them after the solve), helper blocks, carried redstone blocks / observers |
+| families: a piston held on at rest above a retracted piston is refused (QC-armed rest) | families.rs:276 | rests where the QC-armed piston is meant to stay (blocked) or fire on the first update |
 | families: box <= 144 cells, <= 16 pistons | families.rs:35 | boxes over 12x12 |
-| families: default P <= 10 (catalog), mechspace 11, fullmech 10 | door-mech/src/lib.rs:283, door-mech/src/lib.rs:526 | mechanisms with 11+ pistons (c79 has 10 mechanism pistons + 1 signal piston: families --check counts 11) |
-| families/mechspace hole rule (swept ring cells air when open) | families.rs:21, families.rs:615, families.rs:617, families.rs:801 | replaced by frame 12/12 (vjeux 03:36Z) |
+| families: default P <= 10 (catalog), mechspace 11, fullmech 10 | (pattern not found) | mechanisms with 11+ pistons (c79 has 10 mechanism pistons + 1 signal piston: families --check counts 11) |
+| families/mechspace hole rule (swept ring cells air when open) | families.rs:21, families.rs:633, families.rs:635, families.rs:819 | replaced by frame 12/12 (vjeux 03:36Z) |
 | mechspace sub-model: no piston body inside the 3x3 | mechspace.rs:314, mechspace.rs:317 | doors whose piston bodies cross the opening (none known among working flat doors; see the audit table) |
-| topology heuristic (parity, regions); `families --check` runs it in the MECHANISM's own box | families.rs:2331 | label: `families --check` prints 'topology: no' for c79 (no free cell in the mechanism's bounding box); in each door's own build box topology says 'strict' for c79 and every flat archived door (68 on main dfe893a) |
+| topology heuristic (parity, regions); `families --check` runs it in the MECHANISM's own box | families.rs:2403 | label: `families --check` prints 'topology: no' for c79 (no free cell in the mechanism's bounding box); in each door's own build box topology says 'strict' for c79 and every flat archived door (68 on main dfe893a) |
 | connect: only the lever's region awake at each flip; regions = free cells outside the footprint | connect.rs:447 | no known door: WIRABLE for c79 (real 7x9 placement; NOT in 7x8 or 7x9 shifted up) and every flat archived door in its own box (68 on main dfe893a) |
 | sheet piston count excludes heads (FIXED explore/audit add7f90) | sheet.rs:308 | label only: c79 printed '14 pistons' (11 + 3 heads) |
 | sheet (designs): flip 1 = open | sheet.rs:286 | a design file of an OPEN state (c79-open-b) draws 'frame 3/12' (door cycle handles it) |
-| properties CLEAN: never moves back | properties.rs:872 | label: c79's TM moves down then up (correct per regulation 2.1.5.3) |
+| properties CLEAN: never moves back | properties.rs:897 | label: c79's TM moves down then up (correct per regulation 2.1.5.3) |
 
