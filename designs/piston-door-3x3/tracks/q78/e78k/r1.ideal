@@ -1,0 +1,4 @@
+design designs/piston-door-3x3/tracks/q78/e78k/r1.txt
+# all real
+open 0 use 1 5 0
+close 0 use 1 5 0
