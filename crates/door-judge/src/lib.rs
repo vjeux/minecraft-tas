@@ -296,6 +296,31 @@ pub enum DoorCmd {
         #[arg(long, default_value = "designs/piston-door-3x3/archive/properties-dyn-v1.tsv")]
         out_tsv: PathBuf,
     },
+    /// Known-answer selftest (selftest.rs): every search / judge tool on known answers (archived
+    /// anchors WORK in redsim and the game, pockets re-find known regions, satwire's model on
+    /// c79 and on a saved BUD candidate, boxproof on c79, ideal-rs vs ideal, generator
+    /// membership). One PASS / FAIL line per check; part of AGENTS.md's push gate (`--quick`,
+    /// under 2 min; the full suite before a tool merge). Run from the repository root.
+    Selftest {
+        /// The fast subset only.
+        #[arg(long)]
+        quick: bool,
+        /// Only checks whose name contains one of these (comma list).
+        #[arg(long)]
+        only: Option<String>,
+        /// List the checks and exit.
+        #[arg(long)]
+        list: bool,
+        /// Checks run at once.
+        #[arg(long, default_value_t = 6)]
+        jobs: usize,
+        /// JVM checks (door verify / door ideal) at once.
+        #[arg(long, default_value_t = 2)]
+        jvm_jobs: usize,
+        /// Keep the scratch folder even when everything passes.
+        #[arg(long)]
+        keep: bool,
+    },
     /// Verify a design many times in ONE reused sandbox (as the search does) and count passes:
     /// shows state that leaks across `clear` (e.g. redstone torch burnout memory).
     ReuseCheck {
@@ -559,6 +584,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             } else {
                 crate::audit::run(&crate::audit::Opts { designs, sections, jvm, out, tsv, threads, cap, version: version.to_string(), src, only_flat })?;
             }
+        }
+        DoorCmd::Selftest { quick, only, list, jobs, jvm_jobs, keep } => {
+            crate::selftest::run(&crate::selftest::Opts { quick, only, list, jobs, jvm_jobs, keep })?;
         }
         DoorCmd::ReuseCheck { design, times, cycles, fresh } => {
             let d = load_design(&design)?;

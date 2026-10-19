@@ -1,0 +1,46 @@
+name: cosearch-partial-0-75of79
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:crying_obsidian
+  D minecraft:dropper[facing=down,triggered=false]
+  E minecraft:observer[facing=west,powered=false]
+  F minecraft:obsidian
+  G minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:iron_trapdoor[facing=east,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=true,facing=down]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:stone
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  W minecraft:white_glazed_terracotta[facing=north]
+  d minecraft:dropper[facing=east,triggered=false]
+  i minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  o minecraft:oak_log[axis=y]
+  r minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  ..D..RCB
+layer -2:
+  SIEHHoBi
+layer -1:
+  WBH.oSiF
+layer 0:
+  .dOMMM.J
+layer 1:
+  ss.MMM.J
+layer 2:
+  .BMMMMMB
+layer 3:
+  .rAPPPEG
+layer 4:
+  ...KKK
+layer 5:
+  ....L

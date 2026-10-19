@@ -148,6 +148,10 @@ pub enum DoorCmd {
         /// read after observer ticks, FIFO).
         #[arg(long)]
         exact_order: bool,
+        /// With --from-wired: steer the solver's decisions toward the source design's wiring (the
+        /// first model comes at once; minimization and CEGAR continue from it).
+        #[arg(long)]
+        hint: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -168,6 +172,15 @@ pub enum DoorCmd {
         /// Stop at the first judged design (no minimization).
         #[arg(long)]
         first: bool,
+        /// Batch mode: also solve ideal plans whose own replay with ideal inputs fails in redsim
+        /// (default: such a plan is reported BROKEN and skipped: its recording is not a door).
+        #[arg(long)]
+        keep_broken: bool,
+        /// Offer the solver a HOLD alternative per pulse puller ("auto": every one; or cells
+        /// "x,y;x,y"): extended at rest on a level, retracting on open and extending (staying) on
+        /// close, instead of the recorded pulse from rest (the solver picks per piston).
+        #[arg(long)]
+        hold: Option<String>,
         #[arg(long, default_value_t = 28)]
         extra_offsets: u32,
         #[arg(long)]
@@ -253,8 +266,22 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Boxproof { args } => {
             return crate::boxproof::cli(&args);
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, hint, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, keep_broken, hold, extra_offsets, out } => {
             use crate::satwire as sw;
+            // --hold: None = off; Some(None) = every pulse puller; Some(Some(cells)) = those
+            let hold_cells: Option<Option<Vec<(i32, i32)>>> = match hold.as_deref() {
+                None => None,
+                Some("auto") | Some("all") => Some(None),
+                Some(s) => {
+                    let mut v = Vec::new();
+                    for t in s.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                        let xy: Vec<i32> = t.split(',').map(|x| x.trim().parse()).collect::<Result<_, _>>()?;
+                        anyhow::ensure!(xy.len() >= 2, "--hold auto | x,y;x,y");
+                        v.push((xy[0], xy[1]));
+                    }
+                    Some(Some(v))
+                }
+            };
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             sw::SOUND.store(sound, std::sync::atomic::Ordering::Relaxed);
             sw::LOG_DOORS.store(log_doors, std::sync::atomic::Ordering::Relaxed);
@@ -264,6 +291,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             sw::RETIME.store(retime, std::sync::atomic::Ordering::Relaxed);
             sw::PERIOD2.store(period2, std::sync::atomic::Ordering::Relaxed);
             sw::EXACT_ORDER.store(exact_order, std::sync::atomic::Ordering::Relaxed);
+            sw::HINT.store(hint, std::sync::atomic::Ordering::Relaxed);
             if let Some(ki) = &keep_ideal {
                 let mut cells = Vec::new();
                 for t in ki.split(';').map(str::trim).filter(|t| !t.is_empty()) {
@@ -342,8 +370,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                                 }
                             };
                             let res = (|| -> Result<String> {
+                                // a plan that does not work with its own ideal inputs (redsim) records
+                                // no door: skip it (--keep-broken solves it anyway)
+                                if !from_wired && !keep_broken {
+                                    let s = crate::ideal::Schedule::parse(&std::fs::read_to_string(m)?)?;
+                                    if let Err(e) = crate::ideal_rs::run(&s, s.vars(), &crate::VerifyOptions::default().offsets, 2, false) {
+                                        return Ok(format!("BROKEN plan, skipped (redsim with ideal inputs: {})", e.chars().take(140).collect::<String>()));
+                                    }
+                                }
                                 let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
-                                let rec = {
+                                let mut rec = {
                                     let mut w = Worker::spawn(&cfg)?;
                                     if from_wired {
                                         sw::record_wired(&mut w, &load_design(m)?, rec_ticks)?
@@ -352,6 +388,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                                         sw::record_ideal(&mut w, &s, rec_ticks)?
                                     }
                                 };
+                                if let Some(only) = &hold_cells {
+                                    for l in sw::add_holds(&mut rec, only.as_deref()) {
+                                        log(l);
+                                    }
+                                }
                                 let mut p = sw::build_prob(rec, &po)?;
                                 if (keep_ideal.is_some() || retime) && !from_wired {
                                     p.plan = Some(crate::ideal::Schedule::parse(&std::fs::read_to_string(m)?)?);
@@ -389,7 +430,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mechanism = mechanism[0].clone();
             let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
             let mut fam_box = None;
-            let rec = {
+            let mut rec = {
                 let mut w = Worker::spawn(&cfg)?;
                 if let Some(id) = &families {
                     let (s, b) = sw::families_schedule(&mechanism, id, !oc, gap)?;
@@ -404,6 +445,34 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     sw::record_ideal(&mut w, &s, rec_ticks)?
                 }
             };
+            if let Some(only) = &hold_cells {
+                // SATWIRE_UNHOLD=x,y;x,y (known-answer test of --hold): those held pullers of the
+                // recording become pulse pullers first; the hold alternatives are then compared with
+                // the real recording
+                let orig = match std::env::var("SATWIRE_UNHOLD") {
+                    Ok(v) => {
+                        let cells: Vec<(i32, i32)> = v.split(';').filter_map(|t| { let xy: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect(); (xy.len() >= 2).then(|| (xy[0], xy[1])) }).collect();
+                        let (o, lines) = sw::unhold(&mut rec, &cells);
+                        for l in lines {
+                            println!("{l}");
+                        }
+                        Some((o, cells))
+                    }
+                    Err(_) => None,
+                };
+                let lines = sw::add_holds(&mut rec, only.as_deref());
+                if lines.is_empty() {
+                    println!("--hold: no pulse puller to offer a hold for");
+                }
+                for l in lines {
+                    println!("{l}");
+                }
+                if let Some((o, cells)) = &orig {
+                    for l in sw::hold_selftest(&rec, o, cells) {
+                        println!("{l}");
+                    }
+                }
+            }
             for (i, ph) in rec.phases.iter().enumerate() {
                 let on: Vec<String> = (1..ph.power.len())
                     .flat_map(|j| ph.power[j].iter().filter(|(_, v)| **v).map(move |(c, _)| format!("t{j}:{},{}", c.0, c.1)))

@@ -72,6 +72,8 @@ pub mod world;
 pub mod sheet;
 pub mod cycle;
 pub mod audit;
+pub mod selftest;
+pub mod fill;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;

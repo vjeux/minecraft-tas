@@ -1,0 +1,36 @@
+# ceil c070h: c070w with D as ONE hold (open only) and M as a hold (bridge's finding).
+design designs/piston-door-3x3/tracks/ceil/wip/c070w.txt
+let u = 13
+let d = 19
+let dl = 10
+let m = 14
+let ml = 10
+let e2 = 37
+let bl = 40
+let bm = 40
+let uc = 13
+let e2c = 20
+let blc = 20
+let bmc = 20
+open 0 use 1 5 0
+open u set -1 -1 1 minecraft:redstone_block
+open u+2 clear -1 -1 1
+open d set -3 1 1 minecraft:redstone_block
+open d+dl clear -3 1 1
+open m set -1 1 1 minecraft:redstone_block
+open m+ml clear -1 1 1
+open e2 set -2 1 1 minecraft:redstone_block
+open e2+2 clear -2 1 1
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+close 0 use 1 5 0
+close uc set -1 -1 1 minecraft:redstone_block
+close uc+2 clear -1 -1 1
+close e2c set -2 1 1 minecraft:redstone_block
+close e2c+2 clear -2 1 1
+close blc set 0 -2 1 minecraft:redstone_block
+close blc+2 clear 0 -2 1
+close bmc set 1 -2 1 minecraft:redstone_block
+close bmc+2 clear 1 -2 1

@@ -1,0 +1,40 @@
+# verified WORKS by door leaderboard: 53 blocks, category solid
+# archived 2026-10-19 06:40Z from HEAD:designs/piston-door-3x3/tracks/frame/ff-records/flat-seam-e89-51b-ff.txt (repo at fbb924c)
+name: flat-seam-e89
+port door: 0 0 0
+port lever: 0 -4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  D minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
+  L minecraft:lever[face=ceiling,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  ...LBBH
+layer -3:
+  ..oOFDRB
+layer -2:
+  ooOHFO.O
+layer -1:
+  O.E..S.O
+layer 0:
+  OE.HHH.G
+layer 1:
+  HE.HHH.G
+layer 2:
+  rE.HHH.G
+layer 3:
+  O.HH.HHA
+layer 4:
+  rBCBsBCB
