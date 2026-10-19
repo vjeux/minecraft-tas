@@ -64,8 +64,23 @@ fn plan(version: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
     let r = simulate(c, &so);
     let (main, strip, lo, hi) = match activity(c, &so) {
         Some((w0, p, counts)) => {
-            let best = counts.iter().enumerate().max_by(|a, b| a.1.cmp(b.1).then(b.0.cmp(&a.0))).map(|(i, _)| i as u32).unwrap_or(0);
-            let strip: Vec<u32> = o.strip.map(|n| (0..n).map(|k| w0 + k * p / n.max(1)).collect()).unwrap_or_default();
+            // the most active moment with nothing in motion (a moving block is invisible in a
+            // still picture), else the least motion
+            let best = counts
+                .iter()
+                .enumerate()
+                .max_by(|a, b| (std::cmp::Reverse(a.1.1), a.1.0).cmp(&(std::cmp::Reverse(b.1.1), b.1.0)).then(b.0.cmp(&a.0)))
+                .map(|(i, _)| i as u32)
+                .unwrap_or(0);
+            // strip moments: evenly spread, each nudged to the nearest tick with nothing moving
+            let still = |t: u32| -> u32 {
+                let n = counts.len() as u32;
+                (0..n).map(|d| (t + d) % n).find(|&k| counts[k as usize].1 == 0).unwrap_or(t % n.max(1))
+            };
+            let strip: Vec<u32> = o.strip.map(|n| (0..n).map(|k| w0 + still(k * p / n.max(1))).collect()).unwrap_or_default();
+            let mut strip = strip;
+            strip.sort();
+            strip.dedup();
             (o.tick.unwrap_or(w0 + best), strip, r.swept.0, r.swept.1)
         }
         None => {

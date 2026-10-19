@@ -115,10 +115,10 @@ Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives v
 | `mctas clock shot <design>... [--out-dir designs/clocks/img] [--tick T] [--strip N] [--width 800] [--redo]` | pictures in the REAL client (one session for all clocks; uses an X display: vjeux allowed it on clockinfra's dedicated box): each clock in its own sandbox on a grass floor at noon, kicked like the judge, stepped to the most active moment of a period after its warmup (the most changing cells ON; or `--tick`), a still camera framing its swept box (center crop), saved as `<out-dir>/<design stem>.jpg`; `--strip N` also tiles N moments of one period (`<stem>.strip.jpg`). Existing pictures are kept unless `--redo`. `clock catalog` shows them (a picture per type, a gallery by period) |
 | `mctas clock video <design> --out f.mp4 [--periods 2] [--min-secs 8] [--tps T] [--card] [--relabel] [--dry-run]` | (coordinator: shared X displays) the clock running in the real client: the kick and warmup stepped unseen, then >= 2 periods and >= 8 s filmed (10 tps, faster for long periods: <= 60 s), a still camera framing the swept box, a corner label (period; family, blocks, box; duty, start; name), an optional title card; H.264. The clean clip is kept as `f.clip.mp4` (`--relabel` recuts in seconds); `--dry-run` prints the plan and writes the label image |
 
-Clock checks in `door selftest`: `clock:sim-calibration` (the 8 calibration clocks' known period,
-warmup, output, family, blocks and box), `clock:sim-negative` (the observer pair placed silently:
-STOPS), `clock:verify-calibration` (quick, the real game: observer pair and subtract comparator
-robust, redsim agrees), `clock:verify-negative`.
+Clock checks in `door selftest`: `clock:sim-calibration` (quick: the 8 calibration clocks' known
+period, warmup, output, family, blocks and box), `clock:sim-negative` (quick: the observer pair
+placed silently: STOPS), `clock:verify-calibration` (full suite, the real game: observer pair and
+subtract comparator robust, redsim agrees), `clock:verify-negative` (full suite).
 
 ## Census results (redsim, `core` palette, self-start or one block placed last)
 

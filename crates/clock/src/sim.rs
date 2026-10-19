@@ -367,9 +367,10 @@ pub fn quick_period(blocks: &[(BlockPos, Block)], last: Option<usize>, margin: i
     None
 }
 
-/// One period replayed on redsim for a picture: (whole-state warmup W, the clock's period P, the
-/// number of changing cells that are ON at each tick W..W+P). `None` unless redsim says CLOCK.
-pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<u32>)> {
+/// One period replayed on redsim for a picture: (whole-state warmup W, the clock's period P, for
+/// each tick W..W+P the number of changing cells that are ON and the number of moving blocks: a
+/// moving block is invisible in a still picture). `None` unless redsim says CLOCK.
+pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<(u32, u32)>)> {
     let r = simulate(c, o);
     if r.verdict != Verdict::Clock {
         return None;
@@ -382,7 +383,9 @@ pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<u32>)> {
     for t in 0..(w0 + r.period) {
         between_ticks(&mut s, t).ok()?;
         if t >= w0 {
-            counts.push(cells.iter().filter(|p| wave::active(&s.world.get(**p).to_string())).count() as u32);
+            let on = cells.iter().filter(|p| wave::active(&s.world.get(**p).to_string())).count() as u32;
+            let moving = cells.iter().filter(|p| matches!(s.world.get(**p), Block::MovingPiston { .. })).count() as u32;
+            counts.push((on, moving));
         }
         s.world.tick();
     }

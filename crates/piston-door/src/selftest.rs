@@ -400,7 +400,7 @@ fn checks() -> Vec<Check> {
     v.push(Check {
         name: "clock:verify-calibration".into(),
         what: "`clock verify` (the real game, 2 positions x 4 rotations) on the observer pair and the subtract comparator: robust, P6 and P4, and redsim agrees",
-        quick: true,
+        quick: false,
         jvm: true,
         steps: vec![args(&format!("clock verify {CAL}/observer-pair.txt {CAL}/comparator-subtract.txt --positions 2 --horizon 1000 --workers 8"))],
         timeout: 600,
