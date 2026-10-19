@@ -1,47 +1,43 @@
-name: cosearch-live-75of79
+name: cosearch-live-77of79
 assisted: -2,2
 port door: 0 0 0
 port lever: 5 -1 0
 origin: -2 0 0
 palette:
-  A minecraft:dropper[facing=west,triggered=false]
-  B minecraft:observer[facing=up,powered=false]
-  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
-  D minecraft:dropper[facing=east,triggered=false]
-  E minecraft:observer[facing=west,powered=false]
-  F minecraft:obsidian
-  G minecraft:sticky_piston[extended=false,facing=down]
-  H minecraft:sticky_piston[extended=false,facing=east]
-  I minecraft:sticky_piston[extended=false,facing=west]
-  J minecraft:sticky_piston[extended=true,facing=up]
-  K minecraft:sticky_piston[extended=true,facing=west]
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:dropper[facing=up,triggered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:sticky_piston[extended=true,facing=up]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  K minecraft:stone
   L minecraft:lever[face=wall,facing=east,powered=true]
-  M minecraft:stone
   N minecraft:note_block[instrument=harp,note=0,powered=true]
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston_head[facing=up,short=false,type=sticky]
   R minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
   S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
   W minecraft:waxed_copper_bulb[lit=false,powered=false]
-  c minecraft:comparator[facing=west,mode=compare,powered=false]
-  d minecraft:dropper[facing=up,triggered=false]
   o minecraft:observer[facing=east,powered=false]
   p minecraft:piston_head[facing=west,short=false,type=sticky]
   s minecraft:smooth_stone
-  w minecraft:white_wool
 layer -2:
-  dsoJsoN
+  DsoIsoN
 layer -1:
-  O.MPMRsL
+  O.KPKRsL
 layer 0:
-  H.MMMpK
+  F.KKKpJ
 layer 1:
-  H.MMM.I
+  F.KKK.H
 layer 2:
-  H.MMM.I
+  F.KKK.H
 layer 3:
-  FH..MDB
+  OF..K.A
 layer 4:
-  .AEGoWc
+  GBsEoWC
 layer 5:
-  C..GwS
+  ..BEHS

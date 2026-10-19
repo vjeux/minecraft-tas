@@ -238,3 +238,18 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   input phases. Its windows allow TP SYMMETRIC (t11..12 both edges) with L1/L2 at t12 (`L3b.ideal`): one
   2 gt pulse into (-2,3) at t11..12 would drive L2 (direct), L1 (QC) and TP (from behind). Annealing that
   (runs/c78l-L3top1).
+- How L3a closes (trace): s4 pushes C down at t8, TP pushes TM into (1,3) at t12; M's comparator (0,5) turns on
+  at t13 and QC-powers s at home (s sits under M), so s itself extends at t14 shoving TM + C down one (M is
+  blocked by the extended s and never moves on close); when the comparator turns off at t23 s retracts and
+  pulls TM back up to (1,3); s's late O1 pulse at t38 pushes TM down again. On open M acts first (M's event
+  is queued before s's QC event).
+- TP / L1+L2 wiring attempts (all redsim): one sensor at (-2,5) + observer (-2,4) facing up + wool (-2,3)
+  drives TP, L2 and L1 at once (a calibrated sensor there wakes t9 hearing U/the lever, TP fires t11 = in its
+  window) but the observer gives 3 taps (t11, t21, t31): t21 is harmless (on open s is lowered: needs an
+  immovable (3,3); on close TP's head meets s's extended head), t31 pushes TM back on open and pulls TM out on
+  close. A plain sensor hears R0 at t8 (TP t10: one tick early). A sensor next to (-1,4) QC-powers TP for its
+  whole window; a sensor next to s powers s. pockets3: 0 of 119.6M (k=4 over the 7 top-left cells, M + s2 kept).
+- **L3d** (`c78l/L3d.txt` + `L3d.ideal`, 32 positions, both phases): the left stack L1/L2 AND TP can be
+  LEVEL-held (extended at closed rest) by ONE in-plane block at (-2,3): open OFF at 12..14, close ON at 8..16
+  or 23..29, i.e. the lever delayed 12..14 gt. No in-plane level source found that reaches (-2,3): top-left
+  comparators can only point west (out of the box) or east (at s / M).
