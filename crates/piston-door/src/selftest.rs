@@ -359,6 +359,33 @@ fn checks() -> Vec<Check> {
             Ok("membership as documented".into())
         }),
     });
+    // 7b. ideal-input mechanisms of the smaller-door campaign (piece lists): c77's 7x7 w1 is in
+    // the every-flag generators (g6, g7 = + --ring-escape); w86's 7x6 a3s is outside every one
+    // (BM leaves through the center column: a 3-move path). Update when a generator admits it.
+    v.push(Check {
+        name: "audit:member-ideal".into(),
+        what: "door audit --member smaller/ideal-mechs.txt: 7x7 w1 IN g6 and g7 only, 7x6 a3s out of g1..g7",
+        quick: true,
+        jvm: false,
+        steps: vec![args("door audit --member designs/piston-door-3x3/tracks/c70b/smaller/ideal-mechs.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            let row = |tag: &str| -> std::result::Result<Vec<String>, String> {
+                let l = o[0].lines().find(|l| l.starts_with(&format!("| {tag} "))).ok_or(format!("no {tag} row"))?;
+                Ok(l.split('|').map(|s| s.trim().to_string()).skip(2).take(7).collect())
+            };
+            let w1 = row("7x7 (-2,-2)")?;
+            let a3s = row("7x6 (-2,-1)")?;
+            let want_w1 = ["out", "out", "out", "out", "out", "IN", "IN"];
+            if w1 != want_w1 {
+                return Err(format!("w1 g1..g7 = {w1:?}, expected {want_w1:?}"));
+            }
+            if a3s.iter().any(|c| c != "out") {
+                return Err(format!("a3s g1..g7 = {a3s:?}, expected all out"));
+            }
+            Ok("w1 IN g6/g7, a3s outside every generator".into())
+        }),
+    });
     // 8. the clock judge (docs/clocks.md): known periods on redsim, the real game agreeing, a
     // non-clock rejected
     const CAL: &str = "designs/clocks/calibration";
