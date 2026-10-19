@@ -25,9 +25,18 @@
 //! entity: minecraft:minecart 0.5 1.0625 3.5
 //! entity: minecraft:armor_stand 2.5 1 0.5 {Rotation:[90f,0f]}
 //! ```
+//!
+//! Block-entity data (container contents: the items of a hopper, a dropper, a crafter...) are
+//! header lines too, one per block, world coordinates like `port:` (not shifted by `origin`), the
+//! SNBT merged into the block entity right after the raw paste exactly like
+//! `data merge block x y z <snbt>` ([`apply_block_entities`]):
+//!
+//! ```text
+//! nbt: 1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:3}]}
+//! ```
 
 use crate::blockstate::BlockState;
-use crate::sim::Pos;
+use crate::sim::{Pos, Worker};
 use anyhow::{Context, Result, anyhow, bail};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -103,6 +112,33 @@ pub struct Design {
     pub blocks: BTreeMap<Pos, String>,
     /// Entities (`entity:` lines), in file order. Most designs have none.
     pub entities: Vec<EntitySpec>,
+    /// Block-entity data (`nbt: x y z {snbt}` lines): SNBT merged into the block entity at that
+    /// position after the raw paste ([`apply_block_entities`]). Most designs have none.
+    pub block_entities: BTreeMap<Pos, String>,
+}
+
+/// `nbt: x y z {snbt}` (the text after `nbt:`): the position and the SNBT.
+fn parse_block_entity(s: &str) -> Result<(Pos, String)> {
+    let s = s.trim();
+    let usage = || anyhow!("expected 'nbt: <x> <y> <z> {{snbt}}', got {s:?}");
+    let brace = s.find('{').ok_or_else(usage)?;
+    let pos = parse_pos(&s[..brace]).map_err(|_| usage())?;
+    let nbt = s[brace..].trim();
+    if !nbt.ends_with('}') {
+        return Err(usage());
+    }
+    Ok((pos, nbt.to_string()))
+}
+
+/// Write a design's block-entity data into a sandbox where its blocks were just pasted: every
+/// `nbt:` line merged like `data merge block` ([`Worker::merge_block_entity`]: loadWithComponents
+/// + setChanged, so comparators reading a container get notified), in position order. Placement
+/// order (clock judge, `door drive`): raw paste, this, wire shapes, self updates.
+pub fn apply_block_entities(w: &mut Worker, sandbox: u32, d: &Design) -> Result<()> {
+    for (p, nbt) in &d.block_entities {
+        w.merge_block_entity(sandbox, *p, nbt).with_context(|| format!("nbt: {} {} {} {nbt}", p[0], p[1], p[2]))?;
+    }
+    Ok(())
 }
 
 fn parse_pos(s: &str) -> Result<Pos> {
@@ -159,6 +195,12 @@ impl Design {
                     section = Section::Header;
                 } else if let Some(rest) = l.strip_prefix("entity:") {
                     d.entities.push(EntitySpec::parse(rest).with_context(err)?);
+                    section = Section::Header;
+                } else if let Some(rest) = l.strip_prefix("nbt:") {
+                    let (p, nbt) = parse_block_entity(rest).with_context(err)?;
+                    if d.block_entities.insert(p, nbt).is_some() {
+                        bail!("two nbt: lines for {p:?} at {}", err());
+                    }
                     section = Section::Header;
                 } else if let Some((k, v)) = l.split_once(':') {
                     let (k, v) = (k.trim(), v.trim());
@@ -224,7 +266,7 @@ impl Design {
         self.blocks.len()
     }
 
-    /// The same design moved by `d` (ports and entities included).
+    /// The same design moved by `d` (ports, entities and block-entity data included).
     pub fn translated(&self, d: Pos) -> Design {
         let mv = |p: &Pos| [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
         Design {
@@ -232,6 +274,7 @@ impl Design {
             meta: self.meta.clone(),
             ports: self.ports.iter().map(|(k, p)| (k.clone(), mv(p))).collect(),
             blocks: self.blocks.iter().map(|(p, s)| (mv(p), s.clone())).collect(),
+            block_entities: self.block_entities.iter().map(|(p, s)| (mv(p), s.clone())).collect(),
             entities: self
                 .entities
                 .iter()
@@ -243,13 +286,17 @@ impl Design {
         }
     }
 
-    /// A key identifying the design's content (blocks, ports, and entities when it has any), for
-    /// deduplication and verdict caches: a design without entities keeps its old key.
+    /// A key identifying the design's content (blocks, ports, and entities and block-entity data
+    /// when it has any), for deduplication and verdict caches: a design without entities or
+    /// block-entity data keeps its old key.
     pub fn content_key(&self) -> String {
         let mut key = format!("{:?}|{:?}", self.blocks, self.ports);
         if !self.entities.is_empty() {
             let ents: Vec<String> = self.entities.iter().map(|e| e.to_text()).collect();
             key.push_str(&format!("|{ents:?}"));
+        }
+        if !self.block_entities.is_empty() {
+            key.push_str(&format!("|nbt{:?}", self.block_entities));
         }
         key
     }
@@ -273,6 +320,9 @@ impl Design {
         }
         for e in &self.entities {
             out.push_str(&format!("entity: {}\n", e.to_text()));
+        }
+        for (p, nbt) in &self.block_entities {
+            out.push_str(&format!("nbt: {} {} {} {nbt}\n", p[0], p[1], p[2]));
         }
         let Some((lo, hi)) = self.bounds() else { return out };
         out.push_str(&format!("origin: {} 0 {}\n", lo[0], lo[2]));
@@ -355,5 +405,27 @@ mod tests {
         assert_eq!(moved.entities[0].pos, [1.5, -0.9375, -0.25]);
         assert!(Design::parse("entity: minecraft:minecart 1 2\n").is_err());
         assert!(Design::parse("entity: minecraft:minecart 1 2 3 Rotation\n").is_err());
+    }
+
+    #[test]
+    fn block_entities_round_trip() {
+        let text = "name: hc\nnbt: 1 0 0 {Items:[{Slot:0b,id:\"minecraft:stone\",count:3}]}\nnbt: 0 0 0 {Items:[],TransferCooldown:0}\npalette:\n  H hopper[facing=east]\n  h hopper[facing=west]\nlayer 0:\n  Hh\n";
+        let d = Design::parse(text).unwrap();
+        assert_eq!(d.block_entities.len(), 2);
+        assert_eq!(d.block_entities[&[1, 0, 0]], "{Items:[{Slot:0b,id:\"minecraft:stone\",count:3}]}");
+        assert_eq!(d.block_entities[&[0, 0, 0]], "{Items:[],TransferCooldown:0}");
+        let again = Design::parse(&d.to_text()).unwrap();
+        assert_eq!(again, d);
+        // the key changes with the contents; a design without any keeps the old key
+        assert!(d.content_key().ends_with(&format!("|nbt{:?}", d.block_entities)));
+        let mut empty = d.clone();
+        empty.block_entities.clear();
+        assert_eq!(empty.content_key(), format!("{:?}|{:?}", empty.blocks, empty.ports));
+        let moved = d.translated([2, 1, -1]);
+        assert_eq!(moved.block_entities[&[3, 1, -1]], d.block_entities[&[1, 0, 0]]);
+        assert!(Design::parse("nbt: 1 0 0\n").is_err());
+        assert!(Design::parse("nbt: 1 0 {Items:[]}\n").is_err());
+        assert!(Design::parse("nbt: 1 0 0 {Items:[]\n").is_err());
+        assert!(Design::parse("nbt: 1 0 0 {}\nnbt: 1 0 0 {}\n").is_err());
     }
 }

@@ -213,6 +213,7 @@ pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
         blocks: blocks.into_iter().map(|(p, (s, _))| (p, s)).collect(),
         // Tiling copies blocks only: a module with entities is not tiled (yet).
         entities: Vec::new(),
+        block_entities: BTreeMap::new(),
     };
     design.meta.insert("tile".into(), tile.label.clone());
     design.ports.insert("lever".into(), first_lever);
@@ -321,7 +322,7 @@ pub fn rotate_tiled(w: &mut Worker, t: &Tiled, turns: u8) -> Result<Tiled> {
     };
     let specs: Vec<DoorSpec> = t.specs.iter().map(rot_spec).collect();
     let levers: Vec<Pos> = t.levers.iter().map(|p| crate::rotate_pos(*p, turns)).collect();
-    let mut design = Design { name: t.design.name.clone(), meta: t.design.meta.clone(), ports: BTreeMap::new(), blocks, entities: Vec::new() };
+    let mut design = Design { name: t.design.name.clone(), meta: t.design.meta.clone(), ports: BTreeMap::new(), blocks, entities: Vec::new(), block_entities: BTreeMap::new() };
     design.ports.insert("lever".into(), levers[0]);
     design.ports.insert("door".into(), specs[0].door);
     Ok(Tiled { design, specs, levers, copies: t.copies, shared: t.shared })

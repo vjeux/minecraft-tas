@@ -112,9 +112,10 @@ order, echoing `id`. Errors: `{"id":..,"ok":false,"error":"..."}`. On startup th
 | `drop` | `sandbox` | destroys the level |
 | `set` | `sandbox`, `blocks: [[x,y,z,"state"],...]`, `mode: "raw"\|"update"\|<flags>` | `changed` |
 | `fill` | `sandbox`, `from`, `to`, `state`, `mode` | `changed` |
-| `get` | `sandbox`, `from`, `to`, `moving?` | `from`, `size`, `palette`, `flags`, `data` (base64 u16 LE, x fastest, then z, then y), `time`, `moving?` |
+| `get` | `sandbox`, `from`, `to`, `moving?`, `block_entities?` | `from`, `size`, `palette`, `flags`, `data` (base64 u16 LE, x fastest, then z, then y), `time`, `moving?`, `block_entities?` (every block entity in the box, one line `x y z <type> <SNBT>` each, block order, keys sorted) |
+| `bedata` | `sandbox`, `pos`, `nbt` (SNBT) | `changed`, `nbt`: merges into the block entity exactly like `data merge block` (old data merged with the tag, `BlockDataAccessor.setData` = loadWithComponents + setChanged, only when it changes); fails without a block entity |
 | `use` | `sandbox`, `pos`, `face?` | `result` (levers/buttons toggled directly; other blocks get a mock player's right click) |
-| `step` | `sandbox` or `sandboxes`, `ticks`, `until_idle?`, `record?: {from,to}` | `results: [{sandbox, ticked, time, idle?, palette/flags/frames?}]` |
+| `step` | `sandbox` or `sandboxes`, `ticks`, `until_idle?`, `record?: {from,to,block_entities?}` | `results: [{sandbox, ticked, time, idle?, palette/flags/frames?, be_palette/be_frames?}]` (`block_entities: true`: the box's block-entity dump after every tick, deduplicated: `be_frames[i]` indexes `be_palette`) |
 | `status` | `sandbox` | `time`, `block_ticks`, `fluid_ticks`, `block_events`, `moving_pistons`, `entities`, `idle` |
 | `entities` | `sandbox` | `entities: [{type, pos, uuid, motion, yaw, pitch, design, still, collides, on_ground, box, state}]` |
 | `summon` | `sandbox`, `entities: [{type, pos: [x,y,z] (decimals), nbt?}]` | `uuids` (a design's entities: deterministic UUIDs and entity randoms, tagged `mctas_design`; mobs refused) |
