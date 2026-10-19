@@ -24,4 +24,4 @@ door-redsim = { path = "../door-redsim" }
 door-vanilla = { path = "../door-vanilla" }
 door-video = { path = "../door-video" }
 clock-cli = { path = "../clock-cli" }
-circuit-tff = { path = "../circuit-tff" }
+circuit-cli = { path = "../circuit-cli" }

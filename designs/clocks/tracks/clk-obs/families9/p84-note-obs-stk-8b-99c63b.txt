@@ -1,0 +1,28 @@
+name: clk-obs-p84-note-obs-stk-8b-99c63b
+# clk-obs grow: P=84 (redsim), family note_block+observer+sticky_piston, kick last 0 0 0, swept volume 15.
+origin: 0 0 0
+port output: 0 -1 1
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:note_block[instrument=basedrum,note=0,powered=false]
+layer -1:
+  .
+  .
+  A
+layer 0:
+  B
+  C
+  .
+layer 1:
+  D
+  E
+  .
+layer 2:
+  F
+  B
+  A

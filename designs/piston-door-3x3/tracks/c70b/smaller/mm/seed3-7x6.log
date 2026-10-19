@@ -1,0 +1,14 @@
+[mechmut] seed 7 6 -2 -1 SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,2) SD(-1,4) stone(0,-1) SD(0,4) stone(1,-1) SD(1,3) SD(1,4) stone(2,-1) SD(2,4) SD(3,4) SW(4,0) SW(4,1) SW(4,3): unfed 5 class X pistons 13 events 29
+[mechmut] round 1: 95 neighbours, 4 kept (0 by replay) (354s)
+[mechmut]   best: unfed 4 class X pistons 12 events 33: 7 6 -2 -1 SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,2) SD(-1,4) stone(0,-1) SD(0,4) stone(1,-1) SD(1,3) SD(1,4) stone(2,-1) SD(2,4) SW(4,0) SW(4,1) SW(4,3)
+[mechmut] round 2: 359 neighbours, 46 kept (7 by replay) (1244s)
+[mechmut]   best: unfed 1 class X pistons 11 events 38: 7 6 -2 -1 SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,2) SD(-1,4) stone(0,-1) stone(1,-1) SD(1,3) SD(1,4) stone(2,-1) SD(2,4) SW(4,0) SW(4,1) SW(4,3)
+[mechmut] round 3: 333 neighbours, 40 kept (8 by replay) (1074s)
+[mechmut]   best: unfed 1 class X pistons 11 events 36: 7 6 -2 -1 SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,2) SD(-1,4) stone(0,-1) stone(1,-1) SD(1,4) stone(2,-1) SD(2,3) SD(2,4) SW(4,0) SW(4,1) SW(4,3)
+[mechmut] export 1: no input cell for pulse PSdown@(1,2,0)
+[mechmut] export 2: no input cell for pulse PSdown@(1,2,0)
+[mechmut] export 3: no input cell for pulse PSdown@(1,2,0)
+[mechmut] export 4: no input cell for pulse PSdown@(1,2,0)
+[mechmut] export 5: no input cell for pulse PSdown@(1,2,0)
+[mechmut] export 6: no input cell for pulse PSdown@(1,2,0)
+[mechmut] 91 variants kept

@@ -1,0 +1,28 @@
+name: clk-obs-p30-bulb-note-obs-pis-stk-7b-1de4d2
+# clk-obs grow: P=30 (redsim), family note_block+observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 1 2, swept volume 12.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:piston[extended=false,facing=south]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:piston[extended=false,facing=down]
+  F minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  G minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  B
+  .
+  .
+layer 1:
+  .
+  C
+  D
+  E
+layer 2:
+  .
+  .
+  F
+  G
