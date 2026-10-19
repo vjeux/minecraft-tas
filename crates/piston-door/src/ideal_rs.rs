@@ -198,7 +198,7 @@ fn parse_vary(v: &str) -> Result<(Pos, Vec<Option<Option<String>>>)> {
 /// at a time) and/or block variants (`--vary`: every combination of alternatives per cell,
 /// applied in memory before each run: screening hand-built wiring variants in milliseconds).
 #[allow(clippy::too_many_arguments)]
-pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize, vary: &[String], ok_only: bool) -> Result<()> {
+pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize, vary: &[String], ok_only: bool, drop: usize) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut overrides = BTreeMap::new();
     for kv in set {
@@ -228,7 +228,44 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
         }
         variants = next;
     }
-    if sweep.is_empty() && vary.is_empty() {
+    if drop > 0 {
+        // Every subset of up to `drop` removable blocks (not the 9 door cells, not the lever
+        // port, not piston heads: their base is removed with them) taken out, on top of each
+        // --vary combination: a redsim block minimizer.
+        let d = s.design();
+        let door = *d.ports.get("door").context("design has no door port")?;
+        let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z") };
+        let fixed: std::collections::BTreeSet<Pos> = spec.door_cells().into_iter().chain(d.ports.get("lever").copied()).collect();
+        let cells: Vec<Pos> = d.blocks.iter().filter(|(p, st)| !fixed.contains(*p) && !st.contains("piston_head")).map(|(p, _)| *p).collect();
+        let mut subsets: Vec<Vec<Pos>> = vec![Vec::new()];
+        let mut frontier: Vec<(usize, Vec<Pos>)> = vec![(0, Vec::new())];
+        for _ in 0..drop {
+            let mut next = Vec::new();
+            for (start, sub) in &frontier {
+                for (i, p) in cells.iter().enumerate().skip(*start) {
+                    let mut s2 = sub.clone();
+                    s2.push(*p);
+                    subsets.push(s2.clone());
+                    next.push((i + 1, s2));
+                }
+            }
+            frontier = next;
+        }
+        let mut next = Vec::new();
+        for (label, edits) in &variants {
+            for sub in &subsets {
+                let mut l2 = label.clone();
+                let mut e2 = edits.clone();
+                for p in sub {
+                    l2.push(format!("-{},{}", p[0], p[1]));
+                    e2.push((*p, None));
+                }
+                next.push((l2, e2));
+            }
+        }
+        variants = next;
+    }
+    if sweep.is_empty() && vary.is_empty() && drop == 0 {
         match run(&s, &vars, &offsets, cycles, trace) {
             Ok((o, c)) => println!("WORKS in redsim ({} positions x {cycles} cycles): open after {o} ticks / closed after {c} ticks", offsets.len()),
             Err(e) => {
