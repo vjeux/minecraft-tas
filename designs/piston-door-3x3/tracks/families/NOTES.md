@@ -140,7 +140,7 @@ mirror-merged. Results (k = pistons per row):
   PROVEN to reach no open state, 503 reach an open state (of the first 62 checked by A*, 54 are
   proven unable to close back, 8 unknown), 1043 are still over 5M states. 9x6 / 6x9 with
   `--carry 1` (QC model, P <= 12): 6x9 141,224 candidates, 0 found, 95,274 unresolved at a 100k
-  cap (9x6 still running at the end); with two non-core 2-move blocks (non-QC, P <= 13): timed out
+  cap (9x6: 115,756 candidates, 0 found, 72,641 unresolved); with two non-core 2-move blocks (non-QC, P <= 13): timed out
   after 2 h inside 6x9 (1.3M candidates), no result; `--carry 1` on 7x7 / 7x8 generates 1.9M / 2.6M candidates (hours to solve
   with this solver); `--vmid any` on 7x8 (P <= 10): 0 found, 13,032 unresolved at a 50k cap.
 
