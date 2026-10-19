@@ -279,7 +279,10 @@ name = "clock-rt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "clock",
+ "mctas",
+ "redsim",
 ]
 
 [[package]]
