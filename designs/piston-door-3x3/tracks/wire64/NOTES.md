@@ -198,3 +198,15 @@ E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
 - Ideas not tried: BL exit DOWN with a LEVEL puller U0+ (0,-2) extended at rest, held by a wall
   torch at (-1,-2) on (-2,-2) and a lever at (-3,-2) on (-2,-2) (BL moves at ~t2 on both edges; its
   motion BUD-updates UM); or the 118 stopper idea applied to 131's D1/P3 coupling.
+- Mechanism change TRIED and VALIDATED (f131/f131L.txt + f131L.ideal): ML and TL pulled by LEVEL
+  pistons SE+(-2,1), SE+(-2,2) (extended at rest, heads in the ring at rest only) instead of pull
+  pulses; ONE conductor at (-2,3) holds L2+ (direct), L1+ (quasi, through L2+'s cell) and P3+
+  (direct). Symmetric schedule, WORKS at 32 positions x 2 cycles (open 39 / close 39), switch time
+  5..9 ticks after D1's first shot. The top-left's duties drop to: that one symmetric level, D1's
+  three shots (0,4), DE's two pulses (0,5).
+- satwire on f131L in 7x8: still UNSAT (31.8 s), core L2+ (-2,2) on close, groups (-2,3) (-2,4)
+  (-1,4) (0,4) (logs/sat-f131L-7w.log). Why: (-2,3) must be a STRONGLY powered conductor that is on
+  at rest (a lever on it powers it while ON: inverted), so it needs dust on (-2,4) fed by a torch
+  ((-2,5) on (-1,5), or (-1,4) on (0,4)), plus 5..9 ticks of delay, plus D1's feeder at (0,4) and
+  DE's at (0,5): the 4-cell core. DE fed from the right instead ((2,5): a repeater facing east on
+  D2) moves the problem to TR, which has no incoming link.
