@@ -4,6 +4,19 @@ Brief (coordinator for vjeux, 2026-10-19 05:47Z): run cosearch2's `door cosearch
 mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; first the tool items
 (periodic rest rule, off-plane lever, region closure). Box: devvm49255 (dedicated, 166 cores).
 
+**Result: BEST.txt = `finds/c79-49-bl5-br3.txt`, 63b (7x9x1), 49 blocks, solid, slime-free, FULL seamless,
+15/15, verify at 32 positions** (ties satwire-63b-49-49b; section 6). Plus two more 49s (`finds/c79-49-tl1`,
+`-tl12`), two 50s, and 127 more 51-block wirings of the community 7x9. No 7x8 or 8x8 door: every
+7x8/8x8 mechanism and hot seed tried stays a few inputs short (sections 2, 4, 5, 7).
+
+* Lesson: run the region searches with the FULL palette (`--fill-palette all,sculk,calibrated,wool`) at
+  small k first; the 49 came from a target block (4,-1) that the 12-state palettes never tried.
+* Next ideas: a cross-region 48 (no single region of the 49 shrinks); 8x8 m10-family with the extra column
+  on the RIGHT (room for the hold's delayed T chain and a torch-held B: m88a's hold at t7..8 has no source
+  with the extra column on the left); compact the mech-synth "oc" plans (door windows) before pockets
+  (inputs up to t66 need delay lines no pocket holds); a joint 5-block filling for e88 t3n's bottom-left
+  (P_M + shuttle; 13 cells x 31 states at k=5 is ~4G screens: needs a smarter palette).
+
 ## 1. Tool items (explore/pockets)
 
 * `d976c0f` PERIODIC rest in the screen (main 96a62d6): a closed state may differ from rest as long as the
@@ -24,6 +37,12 @@ mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; fi
   wiring block next to R (or an observer watching it) that differs joins R. c79: bottom-middle (3 cells)
   closes to 8 (+ bottom-left's observers and dust: cosearch2's finding); the lever's 4 cells close to the
   top-right 8 (+ dropper, its observer, the elevator observers).
+* Later tool commits: batch mode (several seeds / `.ideal` seeds / `--box auto`) with a summary table;
+  work items split by the first cells' states (no k=6 tails) + a progress line (`--report`);
+  `--lever-cells x,y,-1` on a pocket cell = the lever on the filling's own block there; audit item 5: a
+  perfect screen the 4-position judge rejects is judged per position and kept as
+  `pockets-repair-KofN-*.txt`; in-plane plan input cells hold the plan's blocks, not the build's (the halo
+  and outside-the-box checks skip them; in-plane inputs ON at rest join the seed: mech-synth plans screen).
 
 ## 2. c2e seeds (coordinator top priority)
 
@@ -112,3 +131,22 @@ No mechanism is fully wired at k=3 (fillings of <= 3 blocks per pocket); what st
 center train (A, B, U, K), as expected (c79's own regions need 4-8 blocks):
 m4 8 of 18 groups undriven, m5 5/17, m8-ff 13/19, m9-ff 16/20, c78-002-ff 13/23, t8-ff 7/22, jf-ff 5/20
 ((1,4)o2 (1,-1)o16 (1,-2)o28 (1,-2)c0 (1,4)c2); fm-8x8 (24 flat ones): 11-17 undriven each.
+Later batches (`runs/b78c-k3.log`, `runs/su8-k3.log`, `runs/su8-k4.log`, `runs/jf79-k3.log`): c78-001..006,
+t10, the 7x8 refits of 8x8-131/135 (oc and sym): 10-20 groups undriven at k=3; jf in 7x8 is unwirable as
+is (the middle top puller (1,4) is walled in by the other two pullers, the frame cell and the box top);
+su8r-03 17/33 and su8r-05 23/36 undriven at k=4 (their oc plans run to t66), su8-d-sym 9/30 (the elevator
+(1,3)/(0,4)/(0,5) and the right side on close).
+
+## 7. Wiring service (coordinator, 09:08Z): the live 8x8 / 7x8 partials
+
+* e88 t3n (8x8, P_M + the left redstone-block shuttle ideal): in 7x8 (x >= -2) the 3 bottom-left cells
+  cannot drive the shuttle. In 8x8 (13-cell pocket incl. the x=-3 column) each is drivable ALONE: P_M with
+  1 block (a sticky piston (-1,-2) facing west by the shuttle's redstone block: a BUD on P_M), the
+  shuttle's 4 pulses with 3 (dropper (-3,-2) east, observer (-2,-2) east, note block (-1,-2) lit by the
+  redstone block: the shuttle re-triggers itself); both need (-1,-2); no joint filling up to 4 blocks
+  (31 states, 21M screens; `runs/t3n-k4.log`).
+* c88 s11 (8x8 c79 mechanism, lever left): R (4,2) and BR (2,-2) with 3 blocks each (k=3); top-left k=5 x
+  18 states (181M screens): B (1,5) with 4 blocks (observers (-1,3)v (-1,4)v (-1,5)v + (0,5) west, a chain
+  started by TL's cell (-1,2)), A's top pull with 5 alone, never both within 5, A's t3 push/hold never.
+* m79s s78b (7x8, seed `finds/s78-a1/partial-full-live.txt`, K + L0 assisted): the bottom-left pocket is 3
+  cells; exhaustive (64 states, sculk/calibrated/wool): L0 with 2 blocks, K never.
