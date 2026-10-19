@@ -123,6 +123,14 @@ over the placement space, not yet a theorem about the game.
   fixed, its cut column x=-3 and row y=-4 gone, 25 cells next to the cuts plus every air cell
   free, wiring palette): one run with the lever just outside the box under (0,-3), three lever
   cubes with the lever free. `door boxproof watch` (background) waits for a screen Pass.
+* 03:45Z wire131 f131N-live1 (7x9) pockets: `--approx` (comparator -> 2 gt repeater, trapdoor /
+  bulb -> glass, crying obsidian -> obsidian, dot dust -> dust) with the screen on the ORIGINAL
+  design (only freed cells from the model; the merge path re-checked on e89b: Pass).
+* 03:47Z TARGET CORRECTION (vjeux): when OPEN all 12 frame cells must hold plain blocks (FRAME
+  12/12); every mechanism we had is 9-10/12, so every find run was stopped (both boxes). New
+  `--frame12` (ring cells plain and non-air when open); check: e89b's placement with
+  `--frame12` is UNSAT in 5 s (it is not 12/12), as expected. The whole-box mode needs no
+  mechanism: `bmc --w 7 --h 8 --frame12` asks directly whether any 12/12 door fits.
 
 ## Next ideas
 * The solver, not the encoding, is the wall: cost grows steeply with free cells (1 cell

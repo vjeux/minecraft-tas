@@ -28,6 +28,8 @@ pub struct Opts {
     /// also hold the ring to plain blocks at REST (the brief's stricter reading; `door
     /// properties` FULL only looks at the open state in the door plane)
     pub ring_rest: bool,
+    /// FRAME 12/12: all 12 ring cells plain and non-air when open (`--frame12`)
+    pub frame12: bool,
     pub flags: FlagMode,
     pub max_blocks: Option<usize>,
 }
@@ -270,7 +272,8 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             cx.a.add(&[s[i].k[AIR]]);
         }
         if o.seamless && g.is_ring(i) {
-            let ok = cx.or(&[s[i].k[AIR], s[i].k[STONE], s[i].k[OBSI], s[i].k[GLASS]]);
+            // FRAME 12/12 (vjeux 10-19 03:36Z): when open, every ring cell holds a plain block
+            let ok = if o.frame12 { cx.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[GLASS]]) } else { cx.or(&[s[i].k[AIR], s[i].k[STONE], s[i].k[OBSI], s[i].k[GLASS]]) };
             cx.a.add(&[ok]);
         }
     }
@@ -562,7 +565,7 @@ pub fn cli(a: &Args) -> Result<()> {
     }
     // the original design, for screening partial placements (`--fix-all`): freed cells only change
     let base = if a.has("fix-all") { a.s("fix").map(|p| mctas::design::Design::load(std::path::Path::new(p))).transpose()? } else { None };
-    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
+    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), frame12: a.has("frame12"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
     let t0 = Instant::now();
     let cfg = match a.s("cfg") {
         Some("sat") => Some(rustsat_cadical::Config::Sat),
