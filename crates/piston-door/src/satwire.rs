@@ -1607,6 +1607,11 @@ pub struct Model<'a> {
     qcs: HashMap<Key, (Lit, Lit)>,
     /// `--explain` with `--update-order`: one selector per update-order clause (trace, tick, piston, kind).
     pub uo_sels: Vec<(usize, i32, C2, &'static str, Lit)>,
+    /// Ordered pairs of touching events of different clusters (trace, cluster X, start a, cluster
+    /// Y, start b, safe gap min(3, b - a)): `--retime` keeps only their order and learns gaps.
+    pub pairs: Vec<(usize, usize, i32, usize, i32, i32)>,
+    /// `--retime`: "b starts less than the safe gap after a" literal per pair index.
+    close_lits: HashMap<usize, Lit>,
 }
 
 impl<'a> Model<'a> {
@@ -2192,6 +2197,82 @@ pub static LOCAL_NOGOOD: std::sync::atomic::AtomicBool = std::sync::atomic::Atom
 pub static UPDATE_ORDER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--explain`: guard the update-order clauses with selectors (an UNSAT core names them).
 pub static EXPLAIN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--retime` (ideal plans): a timing CEGAR. Touching events of different clusters keep only their
+/// ORDER (ties allowed, no safe gap); each candidate's timing is checked by replaying the ideal plan
+/// with every input moved with its piston's cluster (redsim, 4 positions, 2 cycles): a timing that
+/// breaks the mechanism is blocked for every wiring (the too-close pairs it uses).
+pub static RETIME: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+impl Model<'_> {
+    /// Cluster cl of trace tr plays recorded tick >= t at SAT tick k.
+    fn ge_lit(&mut self, tr: usize, cl: usize, k: i32, t: i32) -> Lit {
+        if k <= 0 {
+            return self.e.konst(t <= 0);
+        }
+        let lits: Vec<Lit> = self.warp[tr][cl][k as usize].iter().filter(|x| x.0 >= t).map(|x| x.1).collect();
+        self.e.or(&lits)
+    }
+    /// Pair i: event b (cluster y) starts less than its safe gap after event a (cluster x).
+    fn close_lit(&mut self, i: usize) -> Lit {
+        if let Some(l) = self.close_lits.get(&i) {
+            return *l;
+        }
+        let (tr, x, a, y, b, d) = self.pairs[i];
+        let mut terms = Vec::new();
+        for k in 1..=self.p.h {
+            let gy = self.ge_lit(tr, y, k, b);
+            let gy0 = self.ge_lit(tr, y, k - 1, b);
+            let gx = self.ge_lit(tr, x, k - d, a);
+            terms.push(self.e.and(&[gy, !gy0, !gx]));
+        }
+        let l = self.e.or(&terms);
+        self.close_lits.insert(i, l);
+        l
+    }
+    /// The recorded tick cluster cl plays at SAT tick k in the current model.
+    fn tau_val(&self, tr: usize, cl: usize, k: i32) -> i32 {
+        if k <= 0 {
+            return 0;
+        }
+        self.warp[tr][cl][k as usize].iter().find(|x| self.e.val(x.1)).map(|x| x.0).unwrap_or(0)
+    }
+    /// The first SAT tick at which cluster cl plays recorded tick >= t (current model).
+    fn start_val(&self, tr: usize, cl: usize, t: i32) -> i32 {
+        (1..=self.p.h).find(|k| self.tau_val(tr, cl, *k) >= t).unwrap_or(self.p.h + 1)
+    }
+}
+
+/// `--retime`: the ideal plan with each input event moved with the cluster of the piston it drives
+/// (an input set at plan tick t powers its piston at recorded tick t+1: it moves to the SAT tick
+/// before the one at which that piston's cluster plays t+1).
+fn retimed_plan(m: &Model, plan: &crate::ideal::Schedule) -> Result<crate::ideal::Schedule> {
+    let p = m.p;
+    let mut evs = Vec::new();
+    for (tr, open) in [(0usize, true), (1usize, false)] {
+        let ph = &p.rec.phases[tr];
+        for (t, pos, st) in plan.resolved(open)? {
+            let tau = t as i32 + 1;
+            let c0 = (pos[0], pos[1]);
+            let mut best: Option<(i32, C2)> = None;
+            if st.as_deref() != Some("@use") {
+                for (c, v) in ph.pow(tau) {
+                    if ph.pow(tau - 1).get(c).copied().unwrap_or(false) != *v {
+                        let d = (c.0 - c0.0).abs() + (c.1 - c0.1).abs();
+                        if d <= 2 && best.is_none_or(|b| d < b.0) {
+                            best = Some((d, *c));
+                        }
+                    }
+                }
+            }
+            let nt = match best {
+                Some((_, c)) => (m.start_val(tr, p.cl(c), tau) - 1).max(0) as u32,
+                None => t,
+            };
+            evs.push((open, nt, pos, st.clone()));
+        }
+    }
+    Ok(crate::ideal::Schedule::from_events(plan.design().clone(), &evs))
+}
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     let diag = check_mode || DIAG.load(std::sync::atomic::Ordering::Relaxed);
@@ -2254,6 +2335,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         }
     }
     // cluster timings keep the recorded ORDER of events across clusters: when cluster Y starts its
+    let mut pairs: Vec<(usize, usize, i32, usize, i32, i32)> = Vec::new();
     // event of recorded tick b, every cluster X has started its last event before b, at least
     // min(3, gap) ticks earlier (its motion has completed); ties of the recording stay free
     if p.ncl > 2 {
@@ -2302,7 +2384,11 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             continue;
                         }
                         let Some(a) = starts[x].iter().copied().filter(|a| *a < b && touch(&ev_cells(x, *a), &cb)).max() else { continue };
-                        let d = (b - a).min(3);
+                        let dmin = (b - a).min(3);
+                        // --retime: only the order is kept (ties allowed); the gap is checked by
+                        // replaying the retimed ideal plan (a timing nogood when it breaks)
+                        let d = if RETIME.load(std::sync::atomic::Ordering::Relaxed) { 0 } else { dmin };
+                        pairs.push((tr, x, a, y, b, dmin));
                         for k in 1..=p.h {
                             let gy = ge(&mut e, &warp, tr, y, k, b);
                             let gx = ge(&mut e, &warp, tr, x, k - d, a);
@@ -2343,6 +2429,8 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         alt_sel,
         qcs: HashMap::new(),
         uo_sels: Vec::new(),
+        pairs,
+        close_lits: HashMap::new(),
         gsels: Vec::new(),
     };
     let h = p.h;
@@ -3440,6 +3528,15 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
     let mut ws: Option<(Worker, u32)> = None;
     let mut best: Option<(Design, usize)> = None;
     let mut fails = 0usize;
+    // --retime needs the plan itself to work in redsim (else its replays prove nothing)
+    let retime = RETIME.load(std::sync::atomic::Ordering::Relaxed)
+        && p.plan.as_ref().is_some_and(|plan| match crate::ideal_rs::run(plan, plan.vars(), &crate::VerifyOptions::default().offsets, 2, false) {
+            Ok(_) => true,
+            Err(e) => {
+                log(format!("--retime off: the plan itself fails in redsim ({})", e.chars().take(120).collect::<String>()));
+                false
+            }
+        });
     for it in 0..o.iters {
         let mut assumps: Vec<Lit> = if bound < tot.len() { vec![!tot[bound]] } else { vec![] };
         assumps.extend(m.gsels.iter().map(|g| g.1));
@@ -3527,6 +3624,41 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
         ));
         // redsim (the judge's checks on the game-verified fast simulator) screens first
         let offs = crate::VerifyOptions::default().offsets;
+        // --retime: the candidate's timing must keep the mechanism working with ideal inputs
+        if retime {
+            if let Some(plan) = p.plan.as_ref() {
+                let s2 = retimed_plan(&m, plan)?;
+                if let Err(e) = crate::ideal_rs::run(&s2, &BTreeMap::new(), &offs, 2, false) {
+                    let close: Vec<usize> = (0..m.pairs.len())
+                        .filter(|i| {
+                            let (tr, x, a, y, b, d) = m.pairs[*i];
+                            m.start_val(tr, y, b) - m.start_val(tr, x, a) < d
+                        })
+                        .collect();
+                    let cl: Vec<Lit> = if close.is_empty() {
+                        // no too-close pair: block this exact timing
+                        let mut v = Vec::new();
+                        for tr in 0..2 {
+                            for c in 0..p.ncl {
+                                for k in 1..=p.h {
+                                    if let Some(x) = m.warp[tr][c][k as usize].iter().find(|x| m.e.val(x.1)) {
+                                        v.push(!x.1);
+                                    }
+                                }
+                            }
+                        }
+                        v
+                    } else {
+                        close.iter().map(|i| !m.close_lit(*i)).collect()
+                    };
+                    fails += 1;
+                    log(format!("  TIMING FAILS (retimed ideal plan: {}): blocked {} too-close pairs", e.chars().take(160).collect::<String>(), close.len()));
+                    m.e.add(&cl);
+                    continue;
+                }
+                log("  retimed ideal plan WORKS".into());
+            }
+        }
         let partial = p.plan.is_some() && !KEEP_IDEAL.lock().unwrap().is_empty();
         let screened = if partial {
             // --keep-ideal: the candidate wiring + the kept ideal inputs, replayed like `door ideal`

@@ -134,6 +134,12 @@ pub enum DoorCmd {
         /// an update). Removes the judge failures where a piston kept its old state.
         #[arg(long)]
         update_order: bool,
+        /// Ideal plans: timing CEGAR. Touching events of different clusters keep only their order
+        /// (no 3 gt safe gap); every candidate's timing is replayed with the plan's ideal inputs
+        /// moved with their pistons' clusters (redsim): a timing that breaks the mechanism is blocked
+        /// for every wiring.
+        #[arg(long)]
+        retime: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -239,7 +245,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Boxproof { args } => {
             return crate::boxproof::cli(&args);
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             sw::SOUND.store(sound, std::sync::atomic::Ordering::Relaxed);
@@ -247,6 +253,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             sw::LEVER_ON.store(lever_on, std::sync::atomic::Ordering::Relaxed);
             sw::LOCAL_NOGOOD.store(local_nogood, std::sync::atomic::Ordering::Relaxed);
             sw::UPDATE_ORDER.store(update_order, std::sync::atomic::Ordering::Relaxed);
+            sw::RETIME.store(retime, std::sync::atomic::Ordering::Relaxed);
             if let Some(ki) = &keep_ideal {
                 let mut cells = Vec::new();
                 for t in ki.split(';').map(str::trim).filter(|t| !t.is_empty()) {
@@ -336,7 +343,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                                     }
                                 };
                                 let mut p = sw::build_prob(rec, &po)?;
-                                if keep_ideal.is_some() && !from_wired {
+                                if (keep_ideal.is_some() || retime) && !from_wired {
                                     p.plan = Some(crate::ideal::Schedule::parse(&std::fs::read_to_string(m)?)?);
                                 }
                                 if let Some(fp) = &fixed {
@@ -411,7 +418,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 full_frame,
             };
             let mut p = sw::build_prob(rec, &po)?;
-            if keep_ideal.is_some() && !from_wired && families.is_none() {
+            if (keep_ideal.is_some() || retime) && !from_wired && families.is_none() {
                 p.plan = Some(crate::ideal::Schedule::parse(&std::fs::read_to_string(&mechanism)?)?);
             }
             if let Some(fp) = &fixed {
