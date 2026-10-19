@@ -4,6 +4,7 @@
 pub mod alg;
 pub mod bmc;
 pub mod diff;
+pub mod round;
 pub mod state;
 pub mod tick;
 

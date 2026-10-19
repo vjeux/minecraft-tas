@@ -301,6 +301,10 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let mut der = Der { cond, strong, weak: vec![], lvl: vec![] };
         let mut src = Vec::with_capacity(n);
         for i in 0..n {
+            if self.a.val(s[i].k[DUST]) == Some(false) {
+                src.push(self.fl());
+                continue;
+            }
             let (x, y) = self.g.xy(i);
             let mut t = Vec::new();
             for d in 0..4 {
@@ -313,6 +317,9 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let mut lvl = vec![[fl; 15]; n];
         for kk in (1..=15usize).rev() {
             for i in 0..n {
+                if self.a.val(s[i].k[DUST]) == Some(false) {
+                    continue;
+                }
                 if kk == 15 {
                     lvl[i][14] = src[i];
                     continue;
@@ -374,6 +381,9 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let q = self.or(&qc);
         let mut by = Vec::new();
         for f in 0..4 {
+            if self.a.val(s[p].f[f]) == Some(false) {
+                continue;
+            }
             let mut o: Vec<A::B> = (0..4).filter(|&d| d != f).map(|d| sides[d]).collect();
             o.push(q);
             let any = self.or(&o);

@@ -71,22 +71,22 @@ impl<'g, A: Alg> Ctx<'g, A> {
         Line { cells, resolves, bad, moved }
     }
 
-    fn sched(&mut self, bk: &mut Book<A::B>, i: usize, delay: usize, c: A::B) {
+    pub(super) fn sched(&mut self, bk: &mut Book<A::B>, i: usize, delay: usize, c: A::B) {
         bk.newsch[i][delay - 1] = self.or(&[bk.newsch[i][delay - 1], c]);
         bk.schd[i] = self.or(&[bk.schd[i], c]);
     }
 
-    fn add_nc(&mut self, nc: &mut [A::B], i: usize, c: A::B) {
+    pub(super) fn add_nc(&mut self, nc: &mut [A::B], i: usize, c: A::B) {
         nc[i] = self.or(&[nc[i], c]);
     }
-    fn add_nbs(&mut self, nc: &mut [A::B], i: usize, c: A::B) {
+    pub(super) fn add_nbs(&mut self, nc: &mut [A::B], i: usize, c: A::B) {
         for j in self.g.nbs(i) {
             self.add_nc(nc, j, c);
         }
     }
     /// Repeater/observer at i with facing f toggled: its front cell and that cell's neighbors
     /// (except i) get neighbor updates.
-    fn add_front(&mut self, nc: &mut [A::B], i: usize, f: &[A::B; 4], c: A::B) {
+    pub(super) fn add_front(&mut self, nc: &mut [A::B], i: usize, f: &[A::B; 4], c: A::B) {
         for d in 0..4 {
             if let Some(o) = self.g.nb(i, opp(d)) {
                 let cd = self.and(&[c, f[d]]);
@@ -101,7 +101,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
     }
 
     /// The block a finished moving block becomes (non-source contents; heads separately).
-    fn placed(&mut self, m: &Cell<A::B>) -> Cell<A::B> {
+    pub(super) fn placed(&mut self, m: &Cell<A::B>) -> Cell<A::B> {
         let mut c = konst_cell(&self.a, AIR);
         c.sch = m.sch;
         c.k[AIR] = self.fl();
@@ -117,7 +117,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
     }
 
     /// A cell as the content of a moving block.
-    fn mover(&mut self, src: &Cell<A::B>, target: &Cell<A::B>, f: usize, st: A::B, ext: A::B) -> Cell<A::B> {
+    pub(super) fn mover(&mut self, src: &Cell<A::B>, target: &Cell<A::B>, f: usize, st: A::B, ext: A::B) -> Cell<A::B> {
         let mut c = konst_cell(&self.a, MOVING);
         c.sch = target.sch;
         c.f[f] = self.t();
@@ -137,7 +137,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
 
     /// Placement rules of an observer a moving block puts down at i (`updateFromNeighbourShapes`
     /// fires an unpowered one; `onPlace` turns a powered one off).
-    fn place_obs(&mut self, bk: &mut Book<A::B>, nc: &mut [A::B], i: usize, c: &mut Cell<A::B>, placed: A::B) {
+    pub(super) fn place_obs(&mut self, bk: &mut Book<A::B>, nc: &mut [A::B], i: usize, c: &mut Cell<A::B>, placed: A::B) {
         let isobs = self.and(&[placed, c.k[OBSV]]);
         let busy = self.or(&[bk.pend[i], bk.schd[i]]);
         let free = self.not(busy);
@@ -155,23 +155,30 @@ impl<'g, A: Alg> Ctx<'g, A> {
     #[allow(clippy::too_many_arguments)]
     pub fn settle(&mut self, pre: &[Cell<A::B>], post: &mut [Cell<A::B>], lon: bool, nc0: &[A::B], chg_x: &[A::B], chg_out: &[((i32, i32), A::B)], wtt: &[A::B], obs_due: Option<&[A::B]>, ph: Phase, bk: &mut Book<A::B>) -> super::state::Der<A::B> {
         let n = self.g.n();
+        let prof = std::env::var("BP_PROF").is_ok();
+        let c0 = self.a.cost();
         let der = self.derive(post, lon);
+        let c1 = self.a.cost();
         for i in 0..n {
             post[i].lvl = der.lvl[i];
         }
         let mut chg = Vec::with_capacity(n);
         let mut dlc = Vec::with_capacity(n);
         for i in 0..n {
-            let same = self.same(&pre[i], &post[i]);
-            let c = self.not(same);
-            chg.push(self.or(&[c, chg_x[i]]));
             let both = self.and(&[pre[i].k[DUST], post[i].k[DUST]]);
-            let mut df = Vec::new();
-            for j in 0..15 {
-                df.push(self.xor(pre[i].lvl[j], post[i].lvl[j]));
-            }
-            let d = self.or(&df);
-            dlc.push(self.and(&[both, d]));
+            let d = if self.a.val(both) == Some(false) {
+                self.fl()
+            } else {
+                let mut df = Vec::new();
+                for j in 0..15 {
+                    df.push(self.xor(pre[i].lvl[j], post[i].lvl[j]));
+                }
+                let d = self.or(&df);
+                self.and(&[both, d])
+            };
+            dlc.push(d);
+            // a cell's state changed: a direct change of the step (`chg_x`) or its dust level
+            chg.push(self.or(&[d, chg_x[i]]));
         }
         let mut nc = nc0.to_vec();
         let mut ncd = Vec::with_capacity(n);
@@ -184,6 +191,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         // components updated only by the step's own actions check before dust settles
         let pre_lvl: Vec<[A::B; 15]> = pre.iter().map(|c| c.lvl).collect();
         let early = if self.flags_on { Some(self.derive_lvl(post, lon, pre_lvl)) } else { None };
+        let c2 = self.a.cost();
         // observers
         for o in 0..n {
             let stay = self.and(&[pre[o].k[OBSV], post[o].k[OBSV]]);
@@ -216,6 +224,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
             }
             self.sched(bk, o, 2, fire);
         }
+        let c3 = self.a.cost();
         // repeaters and torches
         for i in 0..n {
             let isr = post[i].k[REP];
@@ -249,6 +258,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let c = self.and(&[nc[i], ist, tm, free]);
             self.sched(bk, i, 2, c);
         }
+        let c4 = self.a.cost();
         // pistons
         for p in 0..n {
             let isp = post[p].k[PISTON];
@@ -285,6 +295,9 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let mut res = Vec::new();
             let mut e2 = Vec::new();
             for f in 0..4 {
+                if self.a.val(post[p].f[f]) == Some(false) {
+                    continue;
+                }
                 let l = self.line(post, p, f);
                 res.push(self.and(&[post[p].f[f], l.resolves]));
                 if let Some(c2) = self.g.off(p, f, 2) {
@@ -307,6 +320,10 @@ impl<'g, A: Alg> Ctx<'g, A> {
             bk.qn[p][0] = self.or(&[bk.qn[p][0], e0]);
             bk.qn[p][1] = self.or(&[bk.qn[p][1], r1]);
             bk.qn[p][2] = self.or(&[bk.qn[p][2], r2]);
+        }
+        if prof {
+            let c5 = self.a.cost();
+            eprintln!("settle {:?}: derive {} same+nc {} obs {} rep/torch {} pistons {}", ph as u8, c1 - c0, c2 - c1, c3 - c2, c4 - c3, c5 - c4);
         }
         der
     }
@@ -368,6 +385,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let mut nc0 = vec![fl; n];
         let mut rdue = vec![fl; n];
         let mut rin0 = vec![fl; n];
+        let mut dchg_r = vec![fl; n];
         for i in 0..n {
             let d = self.and(&[due[i], s[i].k[REP]]);
             if self.a.val(d) == Some(false) {
@@ -387,6 +405,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
             }
             let tg = self.xor(post[i].on, s[i].on);
             let tg = self.and(&[d, tg]);
+            dchg_r[i] = tg;
             let f = s[i].f;
             self.add_front(&mut nc0, i, &f, tg);
         }
@@ -394,7 +413,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let t = self.a.or(&[s[i].k[REP], s[i].k[TORCH], s[i].k[WTORCH]]);
             self.a.and(&[due[i], t])
         }).collect();
-        let der1 = self.settle(s, &mut post, lon, &nc0, &none, &[], &wtt, None, Phase::Rep, &mut bk);
+        let der1 = self.settle(s, &mut post, lon, &nc0, &dchg_r, &[], &wtt, None, Phase::Rep, &mut bk);
         for i in 0..n {
             if !self.flags_on || self.a.val(rdue[i]) == Some(false) {
                 continue;
@@ -411,6 +430,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let mut odue = vec![fl; n];
         let mut tdue = vec![fl; n];
         let mut tin0 = vec![fl; n];
+        let mut dchg_n = vec![fl; n];
         for i in 0..n {
             let od = self.and(&[due[i], s1[i].k[OBSV]]);
             if self.a.val(od) != Some(false) {
@@ -423,6 +443,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 self.sched(&mut bk, i, 2, c);
                 let f = s1[i].f;
                 self.add_front(&mut nc0, i, &f, od);
+                dchg_n[i] = od;
             }
             let tk = self.or(&[s1[i].k[TORCH], s1[i].k[WTORCH]]);
             let td = self.and(&[due[i], tk]);
@@ -434,12 +455,13 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 post[i].on = self.ite(td, ni, s1[i].on);
                 let tg = self.xor(post[i].on, s1[i].on);
                 let tg = self.and(&[td, tg]);
+                dchg_n[i] = self.or(&[dchg_n[i], tg]);
                 for j in self.g.diamond2(i) {
                     self.add_nc(&mut nc0, j, tg);
                 }
             }
         }
-        let der2 = self.settle(&s1, &mut post, lon, &nc0, &none, &[], &tdue, Some(&odue), Phase::Norm, &mut bk);
+        let der2 = self.settle(&s1, &mut post, lon, &nc0, &dchg_n, &[], &tdue, Some(&odue), Phase::Norm, &mut bk);
         for i in 0..n {
             if !self.flags_on || self.a.val(tdue[i]) == Some(false) {
                 continue;
@@ -460,7 +482,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let mut cur = post;
         for _r in 0..self.g.rounds {
             bk.qn = vec![[fl; 3]; n];
-            cur = self.round(&cur, lon, &q, &mut bk);
+            cur = if std::env::var("BP_OLD_ROUND").is_ok() { self.round(&cur, lon, &q, &mut bk) } else { self.round2(&cur, lon, &q, &mut bk) };
             q = bk.qn.clone();
         }
         let left: Vec<A::B> = q.iter().flat_map(|e| e.iter().copied()).collect();
@@ -631,12 +653,14 @@ impl<'g, A: Alg> Ctx<'g, A> {
         }
         // combine writes
         let mut post = pre.to_vec();
+        let mut dchg = vec![fl; n];
         for i in 0..n {
             let ws = std::mem::take(&mut writes[i]);
             if ws.is_empty() {
                 continue;
             }
             let conds: Vec<A::B> = ws.iter().map(|w| w.0).collect();
+            dchg[i] = self.or(&conds);
             for a in 0..conds.len() {
                 for b in a + 1..conds.len() {
                     if !self.flags_on {
@@ -662,7 +686,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         }
         let wtt = vec![fl; n];
         let none = vec![fl; n];
-        let der2 = self.settle(pre, &mut post, lon, &nc0, &none, &[], &wtt, None, Phase::Events, bk);
+        let der2 = self.settle(pre, &mut post, lon, &nc0, &dchg, &[], &wtt, None, Phase::Events, bk);
         // an event whose power differs at the end of the round may have seen another first
         for (p, c, pw0, up) in execs {
             if up || !self.flags_on {
@@ -681,6 +705,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let fl = self.fl();
         let mut post = pre.to_vec();
         let mut nc0 = vec![fl; n];
+        let mut dchg = vec![fl; n];
         for i in 0..n {
             let mv = pre[i].k[MOVING];
             if self.a.val(mv) == Some(false) {
@@ -698,6 +723,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
             pc.st = pre[i].mst;
             let c = self.ite_cell(fin, &pc, &aged);
             post[i] = c;
+            dchg[i] = fin;
             self.add_nbs(&mut nc0, i, fin);
             self.add_nc(&mut nc0, i, fin);
         }
@@ -734,11 +760,11 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let mut air = konst_cell(&self.a, AIR);
             air.sch = post[h].sch;
             post[h] = self.ite_cell(gone, &air, &post[h]);
+            dchg[h] = self.or(&[dchg[h], gone]);
             self.add_nbs(&mut nc0, h, gone);
         }
         let wtt = vec![fl; n];
-        let none = vec![fl; n];
-        self.settle(pre, &mut post, lon, &nc0, &none, &[], &wtt, None, Phase::Be, bk);
+        self.settle(pre, &mut post, lon, &nc0, &dchg, &[], &wtt, None, Phase::Be, bk);
         post
     }
 }

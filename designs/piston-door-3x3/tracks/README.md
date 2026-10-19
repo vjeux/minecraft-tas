@@ -33,6 +33,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [observer-seq](observer-seq/NOTES.md) | event-driven sequencing | the first slime-free doors: s1 89 -> s6 58 |
 | [pareto-mid](pareto-mid/NOTES.md) | fill the middle of the solid Pareto frontier | `door frontier`; gadgets log-leaves and rb-lamp (asymmetric delays from a moving log or redstone block); mp8-leafU 43 (15 / 17), mp8-lampU 44 (14 / 16), mp7-leafC 46 (15 / 13), mp7-repU 46 (14 / 14) |
 | [pistmodel](pistmodel/NOTES.md) | exact game-verified piston / moving-block model (`crates/redsim`), differential fuzzing vs the bridge, full-model mechanism search | [INVENTORY.md](pistmodel/INVENTORY.md) (pistons from the source) |
+| [boxproof](boxproof/NOTES.md) | whole-box bounded model checking of flat doors: every cell a SAT variable, the game unrolled tick by tick (redsim's semantics in one plane), validated against redsim tick by tick | e89b re-found from its placement; 7x8 find runs |
 | [q-free](q-free/NOTES.md) | beat 40 with a free Q delay or a shared bottom pulse | both fail (Q's head forwards A's update; no 1-block shared source); a 40 variant |
 | [redstone-block](redstone-block/NOTES.md) | movable power: shuttled redstone blocks | rb1 73, rb2 57, rb5 52, rb6 48 (solid records); rb7-rb9 fast (rb9 61 at 16 / 17) |
 | [riders](riders/NOTES.md) | blocks riding moving structures as timing elements | fx1 40 (ties fc2), r3 43, r2 46; P_M cannot be freed |

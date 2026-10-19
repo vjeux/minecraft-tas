@@ -492,6 +492,7 @@ pub fn cli(a: &Args) -> Result<()> {
     let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), flags: if a.has("prove") { FlagMode::Forbid } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
     let t0 = Instant::now();
     let (mut sat, b) = build(Sat::new(o.flags), &o, &g);
+    sat.drop_caches();
     println!("built {}x{} door@{:?} t={} rounds={}: {} vars {} clauses {} flags, {} lever candidates, {:.1}s", w, h, (dx, dy), t, rounds, sat.vars(), sat.clauses, sat.flags.len(), g.levers.len(), t0.elapsed().as_secs_f64());
     let out_dir = a.s("out").unwrap_or("/tmp/boxproof").to_string();
     std::fs::create_dir_all(&out_dir)?;

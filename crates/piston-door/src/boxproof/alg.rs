@@ -31,6 +31,10 @@ pub trait Alg {
     /// A situation the model does not decide exactly (an order race, an unmodeled case).
     fn flag(&mut self, a: Self::B, why: &'static str);
     fn val(&self, a: Self::B) -> Option<bool>;
+    /// Clauses so far (profiling).
+    fn cost(&self) -> usize {
+        0
+    }
 }
 
 #[derive(Default)]
@@ -117,6 +121,12 @@ impl Sat {
     }
     pub fn vars(&self) -> u32 {
         self.n
+    }
+    /// Free the gate caches once the problem is built (they only serve construction).
+    pub fn drop_caches(&mut self) {
+        self.cache = HashMap::new();
+        self.bigcache = HashMap::new();
+        self.xcache = HashMap::new();
     }
     pub fn add(&mut self, c: &[Lit]) {
         if c.iter().any(|&l| l == self.tru) {
@@ -328,5 +338,8 @@ impl Alg for Sat {
         } else {
             None
         }
+    }
+    fn cost(&self) -> usize {
+        self.clauses
     }
 }
