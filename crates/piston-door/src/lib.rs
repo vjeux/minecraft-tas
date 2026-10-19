@@ -38,6 +38,7 @@ pub mod properties_dyn;
 pub mod drive;
 pub mod harvest;
 pub mod ideal;
+pub mod ideal_rs;
 pub mod route;
 pub mod route2;
 pub mod minimize;
@@ -71,6 +72,7 @@ pub mod world;
 pub mod sheet;
 pub mod cycle;
 pub mod audit;
+pub mod fill;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;

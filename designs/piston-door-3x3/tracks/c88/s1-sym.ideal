@@ -1,0 +1,26 @@
+# c88 step 1, SYMMETRIC bottom: the same U1 (a), K (b), U2 (c), L0 (l) pulses on both edges
+# (what one wake-up signal per edge through a fixed chain would give).
+design designs/piston-door-3x3/tracks/c88/s1.txt
+let a = 4
+let b = 8
+let c = 10
+let l = 8
+let w = 2
+open 0 use 4 6 0
+open a set 1 -2 -1 minecraft:redstone_block
+open a+w clear 1 -2 -1
+open b set -1 -1 -1 minecraft:redstone_block
+open b+w clear -1 -1 -1
+open c set 1 -2 -1 minecraft:redstone_block
+open c+w clear 1 -2 -1
+open l set -2 0 -1 minecraft:redstone_block
+open l+w clear -2 0 -1
+close 0 use 4 6 0
+close a set 1 -2 -1 minecraft:redstone_block
+close a+w clear 1 -2 -1
+close b set -1 -1 -1 minecraft:redstone_block
+close b+w clear -1 -1 -1
+close c set 1 -2 -1 minecraft:redstone_block
+close c+w clear 1 -2 -1
+close l set -2 0 -1 minecraft:redstone_block
+close l+w clear -2 0 -1

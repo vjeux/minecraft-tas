@@ -1,0 +1,10 @@
+# m79p + m10f top-left (B watcher -> L1/L2 + A last pull): only B pulse ideal
+design designs/piston-door-3x3/tracks/pockets/seeds/m79p-tl10f.txt
+let b = 10
+let cb = 2
+open 0 use 4 5 0
+open b set 1 5 -1 minecraft:redstone_block
+open b+2 clear 1 5 -1
+close 0 use 4 5 0
+close cb set 1 5 -1 minecraft:redstone_block
+close cb+2 clear 1 5 -1

@@ -1,0 +1,41 @@
+name: u7-m10b
+# u7-m10a (lever ON at rest: R1/R0 held by the dust (4,3) on the dropper, TRp and B by repeaters)
+# + U wired in the bottom-right from R0's watcher: observer (4,-1) watches R0 -> lamp (4,-2) on/off
+# -> observer (3,-2) -> stone (2,-2) -> U (1,-2): two U pulses per edge (t5, t11), the symmetric
+# train's u1 and u2 (track sculk).
+port door: 0 0 0
+port lever: 4 5 0
+origin: -2 0 0
+palette:
+  A minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=true,facing=down]
+  D minecraft:dropper[facing=south,triggered=true]
+  E minecraft:sticky_piston[extended=true,facing=west]
+  F minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  r minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  u minecraft:observer[facing=up,powered=false]
+  e minecraft:observer[facing=east,powered=false]
+  M minecraft:redstone_lamp[lit=false]
+layer -2:
+  ...BFeM
+layer -1:
+  .s..F.u
+layer 0:
+  s.FFFpE
+layer 1:
+  s.FFFpE
+layer 2:
+  s.FFFFD
+layer 3:
+  ..FSP.R
+layer 4:
+  ...PCFF
+layer 5:
+  ...CrAL

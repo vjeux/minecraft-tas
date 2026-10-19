@@ -1,0 +1,34 @@
+name: pocket2-set0
+covers: (1,-2)o12 (1,-2)c12
+port door: 0 0 0
+port lever: -4 1 0
+origin: -4 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:dropper[facing=up,triggered=true]
+  E minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  S minecraft:smooth_stone
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ..EDOAA
+layer -1:
+  .ErCP
+layer 0:
+  .RCPEEEE
+layer 1:
+  LSCPEEE.B
+layer 2:
+  .RCPEEE.B
+layer 3:
+  ....EsE
+layer 4:
+  .
+layer 5:
+  .....s

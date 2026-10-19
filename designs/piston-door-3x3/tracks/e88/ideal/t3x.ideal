@@ -1,0 +1,44 @@
+# t3s: shuttle pulses s1 (push+spit R into (0,-3)) and s2 (pull back); a0 toggles (3,-2) so the
+# observer (2,-2) fires; P_M and walls ideal.
+design designs/piston-door-3x3/tracks/e88/wip/t3x.txt
+let a0 = 0
+let pm = 6
+let s1 = 10
+let s2 = 18
+let l = 14
+let r = 30
+open 0 use 1 5 0
+open a0 set 3 -2 0 minecraft:stone
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+2 clear -1 -1 1
+open s1 set -2 -3 1 minecraft:redstone_block
+open s1+2 clear -2 -3 1
+open s2 set -2 -3 1 minecraft:redstone_block
+open s2+2 clear -2 -3 1
+open l set -2 0 1 minecraft:redstone_block
+open l set -2 1 1 minecraft:redstone_block
+open l+2 clear -2 0 1
+open l+2 clear -2 1 1
+open r set 4 0 1 minecraft:redstone_block
+open r set 4 1 1 minecraft:redstone_block
+open r+2 clear 4 0 1
+open r+2 clear 4 1 1
+close 0 use 1 5 0
+close a0 clear 3 -2 0
+close pm set -1 -1 1 minecraft:redstone_block
+close pm+2 clear -1 -1 1
+close s1 set -2 -3 1 minecraft:redstone_block
+close s1+2 clear -2 -3 1
+close s2 set -2 -3 1 minecraft:redstone_block
+close s2+2 clear -2 -3 1
+close l set -2 0 1 minecraft:redstone_block
+close l set -2 1 1 minecraft:redstone_block
+close l+2 clear -2 0 1
+close l+2 clear -2 1 1
+close r set 4 0 1 minecraft:redstone_block
+close r set 4 1 1 minecraft:redstone_block
+close r+2 clear 4 0 1
+close r+2 clear 4 1 1
+let x1 = 13
+open x1 set 4 -1 0 minecraft:stone
+close x1 clear 4 -1 0

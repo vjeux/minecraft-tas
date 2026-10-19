@@ -1,0 +1,37 @@
+name: pockets-partial-5as
+assisted: -1,-1;-1,1;-2,1;0,-2;1,-2
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:stone
+  I minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=up]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  o minecraft:observer[facing=up,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -2:
+  ...ss
+layer -1:
+  ..s..E
+layer 0:
+  EO.EEE.C
+layer 1:
+  SS.EEE.C
+layer 2:
+  PoEEEEEo
+layer 3:
+  IROpppAr
+layer 4:
+  .ABDDD
+layer 5:
+  ....L

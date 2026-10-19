@@ -1,0 +1,38 @@
+name: pocket4-set3
+covers: (3,4)o6 (3,4)c6
+port door: 0 0 0
+port lever: 4 5 -1
+origin: -2 0 -1
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  D minecraft:dropper[facing=up,triggered=false]
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  .
+  ...A
+layer -1:
+  .
+  ..C.C
+layer 0:
+  .
+  s.CCC.B
+layer 1:
+  .
+  s.CCC.B
+layer 2:
+  .
+  .CCCC.B
+layer 3:
+  .
+  .....B
+layer 4:
+  .
+  ..SS..D
+layer 5:
+  ......L
+  ...S..R

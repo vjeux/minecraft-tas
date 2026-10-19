@@ -1,0 +1,53 @@
+# ceil c070v: c070 with every input group on its own variable (windows).
+design designs/piston-door-3x3/tracks/ceil/wip/c070.txt
+let e1 = 0
+let u = 6
+let d1 = 12
+let m = 18
+let d2 = 24
+let e2 = 30
+let bl = 30
+let bm = 30
+let r = 30
+let e1c = 0
+let uc = 6
+let e2c = 12
+let blc = 12
+let bmc = 12
+let rc = 12
+open 0 use 1 5 0
+open e1 set -2 1 1 minecraft:redstone_block
+open e1+2 clear -2 1 1
+open u set -2 -1 0 minecraft:redstone_block
+open u+2 clear -2 -1 0
+open d1 set -3 0 0 minecraft:redstone_block
+open d1+2 clear -3 0 0
+open m set -1 1 1 minecraft:redstone_block
+open m+2 clear -1 1 1
+open d2 set -3 0 0 minecraft:redstone_block
+open d2+2 clear -3 0 0
+open e2 set -2 1 1 minecraft:redstone_block
+open e2+2 clear -2 1 1
+open bl set 0 -3 0 minecraft:redstone_block
+open bl+2 clear 0 -3 0
+open bm set 1 -3 0 minecraft:redstone_block
+open bm+2 clear 1 -3 0
+open r set 5 1 0 minecraft:redstone_block
+open r set 4 -1 0 minecraft:redstone_block
+open r+2 clear 5 1 0
+open r+2 clear 4 -1 0
+close 0 use 1 5 0
+close e1c set -2 1 1 minecraft:redstone_block
+close e1c+2 clear -2 1 1
+close uc set -2 -1 0 minecraft:redstone_block
+close uc+2 clear -2 -1 0
+close e2c set -2 1 1 minecraft:redstone_block
+close e2c+2 clear -2 1 1
+close blc set 0 -3 0 minecraft:redstone_block
+close blc+2 clear 0 -3 0
+close bmc set 1 -3 0 minecraft:redstone_block
+close bmc+2 clear 1 -3 0
+close rc set 5 1 0 minecraft:redstone_block
+close rc set 4 -1 0 minecraft:redstone_block
+close rc+2 clear 5 1 0
+close rc+2 clear 4 -1 0

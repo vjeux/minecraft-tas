@@ -1,0 +1,1 @@
+set -2 4 0 minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]

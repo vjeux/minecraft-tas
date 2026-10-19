@@ -1,0 +1,31 @@
+name: u7-m9L
+# w63top's u7-m9 (single-U 7x8, symmetric train) with a lever (-3,4) on the stone (-2,4) (track
+# sculk seed: the bottom (U, K, BR) gets no in-plane signal from the top; sculk sensors can).
+port door: 0 0 0
+port lever: -3 4 0
+origin: -3 0 0
+palette:
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:stone
+  F minecraft:smooth_stone
+  Q minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer -2:
+  ....U
+layer -1:
+  ..E..F
+layer 0:
+  .E.CCC.W
+layer 1:
+  .E.CCC.W
+layer 2:
+  ..FCCC.W
+layer 3:
+  ..Q.DF
+layer 4:
+  LC.D
+layer 5:
+  ....D

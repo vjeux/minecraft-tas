@@ -118,9 +118,44 @@ pub enum DoorCmd {
         /// source design.
         #[arg(long)]
         lever_on: bool,
+        /// Ideal plans: off-plane ideal inputs that stay GIVEN sources (their recorded on/off,
+        /// timed with the piston they drive) instead of being wired: cells "x,y;x,y" (the input's
+        /// in-plane cell, e.g. the piston it sits behind).
+        #[arg(long)]
+        keep_ideal: Option<String>,
+        /// Exact timing (--dmax 0 --skip 0): a candidate the judge rejects blocks only its choices
+        /// within 3 cells of the first piston that misbehaves in its real run.
+        #[arg(long)]
+        local_nogood: bool,
+        /// Model when a piston READS its power (block-update order): quasi-connected power through
+        /// a conductor next to the cell above, powered from 3 cells away (a diode into it, a dust on
+        /// it, a lever on it), changes without updating the piston (a BUD): a retraction needs such
+        /// sources off the tick before, an extension an updating source rising (or held power plus
+        /// an update). Removes the judge failures where a piston kept its old state.
+        #[arg(long)]
+        update_order: bool,
+        /// Ideal plans: timing CEGAR. Touching events of different clusters keep only their order
+        /// (no 3 gt safe gap); every candidate's timing is replayed with the plan's ideal inputs
+        /// moved with their pistons' clusters (redsim): a timing that breaks the mechanism is blocked
+        /// for every wiring.
+        #[arg(long)]
+        retime: bool,
+        /// Two cycles (open, close, open, close) share the placement: the rest state may alternate
+        /// between cycles (copper bulbs toggled once per cycle; the judge accepts a periodic rest).
+        #[arg(long)]
+        period2: bool,
+        /// With --sound: keep its QC holds but not its free repeater/torch read orders (torches
+        /// read after observer ticks, FIFO).
+        #[arg(long)]
+        exact_order: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
+        /// Diagnose a candidate the judge rejected: its wiring fixed on the mechanism's recording
+        /// (what the solver believed) against its real run in the game: the first tick where the
+        /// mechanism differs, the wiring states that differ before it, the pistons' power there.
+        #[arg(long)]
+        explain: Option<PathBuf>,
         /// The mechanism is a families catalog entry: MECHANISM = CATALOG.tsv, this = the entry id.
         #[arg(long)]
         families: Option<String>,
@@ -218,14 +253,30 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Boxproof { args } => {
             return crate::boxproof::cli(&args);
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             sw::SOUND.store(sound, std::sync::atomic::Ordering::Relaxed);
             sw::LOG_DOORS.store(log_doors, std::sync::atomic::Ordering::Relaxed);
             sw::LEVER_ON.store(lever_on, std::sync::atomic::Ordering::Relaxed);
+            sw::LOCAL_NOGOOD.store(local_nogood, std::sync::atomic::Ordering::Relaxed);
+            sw::UPDATE_ORDER.store(update_order, std::sync::atomic::Ordering::Relaxed);
+            sw::RETIME.store(retime, std::sync::atomic::Ordering::Relaxed);
+            sw::PERIOD2.store(period2, std::sync::atomic::Ordering::Relaxed);
+            sw::EXACT_ORDER.store(exact_order, std::sync::atomic::Ordering::Relaxed);
+            if let Some(ki) = &keep_ideal {
+                let mut cells = Vec::new();
+                for t in ki.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                    let v: Vec<i32> = t.split(',').map(|x| x.trim().parse()).collect::<Result<_, _>>()?;
+                    anyhow::ensure!(v.len() >= 2, "--keep-ideal x,y;x,y");
+                    cells.push((v[0], v[1]));
+                }
+                *sw::KEEP_IDEAL.lock().unwrap() = cells;
+            }
             if check && mechanism.len() > 1 {
-                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false, motion: !recorded_power, clusters: false, full_frame: false };
+                // with --update-order: the synthesis model must accept each design's own wiring
+                sw::EXPLAIN.store(update_order, std::sync::atomic::Ordering::Relaxed);
+                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,dot,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,traptop,dropper,obsidian,glass,leaves,upiston,rblock")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false, motion: !recorded_power, clusters: false, full_frame: false };
                 let next = std::sync::atomic::AtomicUsize::new(0);
                 let out = std::sync::Mutex::new(Vec::new());
                 std::thread::scope(|sc| {
@@ -236,7 +287,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                             loop {
                                 let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 let Some(p) = mechanism.get(i) else { break };
-                                let line = sw::check_line(&mut w, p, &po);
+                                let line = if update_order { sw::selfcheck_line(&mut w, p, &po) } else { sw::check_line(&mut w, p, &po) };
                                 println!("{}: {line}", p.display());
                                 out.lock().unwrap().push((p.clone(), line));
                             }
@@ -302,7 +353,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                                     }
                                 };
                                 let mut p = sw::build_prob(rec, &po)?;
-                                if keep_wiring && !from_wired && !p.rec.wiring.is_empty() {
+                                if (keep_ideal.is_some() || retime) && !from_wired {
+                                    p.plan = Some(crate::ideal::Schedule::parse(&std::fs::read_to_string(m)?)?);
+                                }
+                                if let Some(fp) = &fixed {
+                                    sw::fix_partial(&mut p, &load_design(fp)?)?;
+                                }
+                                if keep_wiring && fixed.is_none() && !from_wired && !p.rec.wiring.is_empty() {
                                     let mut d = mctas::design::Design::default();
                                     for (cc, st) in &p.rec.wiring {
                                         d.blocks.insert([cc.0, cc.1, p.z], st.clone());
@@ -371,6 +428,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 full_frame,
             };
             let mut p = sw::build_prob(rec, &po)?;
+            if (keep_ideal.is_some() || retime) && !from_wired && families.is_none() {
+                p.plan = Some(crate::ideal::Schedule::parse(&std::fs::read_to_string(&mechanism)?)?);
+            }
             if let Some(fp) = &fixed {
                 sw::fix_partial(&mut p, &load_design(fp)?)?;
             }
@@ -387,6 +447,15 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             if check {
                 sw::fix_wiring(&mut p)?;
                 return sw::check(&p);
+            }
+            if let Some(cp) = &explain {
+                sw::EXPLAIN.store(true, std::sync::atomic::Ordering::Relaxed);
+                let cand = load_design(cp)?;
+                sw::fix_partial(&mut p, &cand)?;
+                p.fixed_only = true;
+                let mut w = Worker::spawn(&cfg)?;
+                let real = sw::record_wired(&mut w, &cand, rec_ticks)?;
+                return sw::explain(&p, &real);
             }
             let name = match &families { Some(id) => format!("satwire-{id}"), None => format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default()) };
             let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };

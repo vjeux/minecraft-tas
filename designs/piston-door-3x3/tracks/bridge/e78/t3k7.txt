@@ -1,0 +1,48 @@
+# e88 t3k-sculk with the x=-3 column removed (7x8 = 56 box x -2..4, y -3..4): P_M (-1,-1) and the shuttle (-2,-3) to be driven by sensors inside the box.
+name: bridge-e78-stage1
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  N minecraft:white_wool
+  P minecraft:observer[facing=west,powered=false]
+  X minecraft:observer[facing=east,powered=false]
+  Y minecraft:observer[facing=up,powered=false]
+  K minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  Z minecraft:observer[facing=east,powered=false]
+  Q minecraft:redstone_lamp[lit=false]
+  V minecraft:observer[facing=up,powered=false]
+  W minecraft:observer[facing=up,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  s minecraft:sticky_piston[extended=true,facing=down]
+  h minecraft:piston_head[facing=down,short=false,type=sticky]
+  H minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  R minecraft:redstone_block
+  O minecraft:observer[facing=down,powered=false]
+  U minecraft:observer[facing=up,powered=false]
+  e minecraft:observer[facing=east,powered=false]
+  w minecraft:observer[facing=west,powered=false]
+  q minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  p minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+layer -3:
+  ER.FZZV
+layer -2:
+  ..OFZKQ
+layer -1:
+  .E..H.W
+layer 0:
+  E.HHH.G
+layer 1:
+  E.HHH.G
+layer 2:
+  UHHHHHU
+layer 3:
+  qehhhwp
+layer 4:
+  ..sss..
+layer 5:
+  ...L...
