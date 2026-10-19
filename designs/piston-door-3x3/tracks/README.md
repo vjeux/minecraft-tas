@@ -79,4 +79,8 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [w63top](w63top/NOTES.md) | finish w63's top (7x8-014 in 7x9), then single-U 7x8 mechanisms | w63 top walled by hand (P_T's only driver (3,5) cuts the right column off; lamp trick, P_T pre-pulses harmless with obsidian); single-U 7x8 mechanisms that work with ideal inputs at 32 positions, frame 12/12: m8 (no T parker, C down), m9 (symmetric train), m10 (c79 squeezed: BR right, TR up), m10a (m10's levels real), m10r (A's hold relayed by TR); the 2-bottom-row connectivity rule (c78 and every 3-stack-both-sides 7x8 has an isolated bottom) |
 
 - [box64](box64/NOTES.md): flat FULL-seamless doors in 8x8 / 9x7 boxes (volume <= 64): ideal-input mechanism checks in the box, region/crossing analysis of the wiring
+- [e88](e88/NOTES.md): shave a row off e89b (8x9 -> 8x8 = 64, flat FULL seamless): one lever ON
+  standing on TOP of the T puller holds the whole ceiling (T direct, TL/TR by QC), whole top row up;
+  t3n works in redsim with walls, A pulse 0 and the B boost wired, only P_M and a left redstone-block
+  shuttle ideal; the shuttle's push/pull (>= 5 gt apart) and P_M share every source left of it.
 - [vmid](vmid/NOTES.md): 7x8 mechanisms whose middle-row side blocks leave VERTICALLY (no row-1 wall): vm1 (twin elevators), vc1 / vb2 / vb3 (the carried puller: a corner piston pushed into the ring pulls ML in 2 rows), all ideal at 32 positions; `door connect` and cosearch on them, no wired door yet
