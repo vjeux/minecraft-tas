@@ -15,6 +15,7 @@
 //! [`verify`] runs the kind's stimulus at 4 positions x 4 rotations and compares the builds.
 
 pub mod check;
+pub mod fly;
 pub mod run;
 pub mod stimulus;
 pub mod trace;
