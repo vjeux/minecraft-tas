@@ -1,0 +1,35 @@
+name: q78-q8LLa
+# q8LL (t8, TL left, lever ON at rest on the west face of TL's puller: TL + ML held) + A wired from the left:
+# plain sensor (-1,5) -> observer (-1,4) facing up -> observer (0,4) facing west -> A (taps T+4, T+34, T+44);
+# wool (0,5) shields A (and B, W) from the sensor so its re-arm hears no echo. WOOL door (static frame wool).
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  h minecraft:piston_head[facing=east,short=false,type=sticky]
+  E minecraft:sticky_piston[extended=true,facing=east]
+  I minecraft:sticky_piston[extended=false,facing=east]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  Q minecraft:white_wool
+  U minecraft:observer[facing=up,powered=false]
+  V minecraft:observer[facing=west,powered=false]
+  X minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ....J...
+layer -1:
+  ...Q.Q..
+layer 0:
+  .I.QQQ.K
+layer 1:
+  .EhQQQ.K
+layer 2:
+  LEhQQQ.K
+layer 3:
+  ...Q..K.
+layer 4:
+  ..UVs...
+layer 5:
+  ..XQs...

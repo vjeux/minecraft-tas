@@ -1,0 +1,24 @@
+design designs/piston-door-3x3/tracks/q78/q8/base.txt
+# real lever (ON at rest) + real left chain (TL, ML, BL); A, B, W, U, BR's puller ideal (z=1)
+let b1 = 18
+let b2d = 12
+let br = 42
+let bm = 42
+open 0 use 5 2 0
+close 0 use 5 2 0
+open b1 set 1 5 1 minecraft:redstone_block
+open b1+2 clear 1 5 1
+open b1+b2d set 1 5 1 minecraft:redstone_block
+open b1+b2d+2 clear 1 5 1
+open br set 4 0 1 minecraft:redstone_block
+open br+2 clear 4 0 1
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+close b1 set 1 5 1 minecraft:redstone_block
+close b1+2 clear 1 5 1
+close b1+b2d set 1 5 1 minecraft:redstone_block
+close b1+b2d+2 clear 1 5 1
+close br set 4 0 1 minecraft:redstone_block
+close br+2 clear 4 0 1
+close bm set 1 -2 1 minecraft:redstone_block
+close bm+2 clear 1 -2 1

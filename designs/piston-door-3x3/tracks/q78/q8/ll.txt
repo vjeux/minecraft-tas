@@ -1,0 +1,31 @@
+name: q78-q8LL
+# q8L with the lever on the LEFT: ON at rest on the west face of TL's puller (-2,2): TL + ML held (QC),
+# so the left (A's feed (0,4)) is near the lever and the top-right (W) far. TR+MR, BR, BL pull-type.
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  h minecraft:piston_head[facing=east,short=false,type=sticky]
+  E minecraft:sticky_piston[extended=true,facing=east]
+  I minecraft:sticky_piston[extended=false,facing=east]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  Q minecraft:stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ....J...
+layer -1:
+  ...Q.Q..
+layer 0:
+  .I.QQQ.K
+layer 1:
+  .EhQQQ.K
+layer 2:
+  LEhQQQ.K
+layer 3:
+  ...Q..K.
+layer 4:
+  ....s...
+layer 5:
+  ....s...

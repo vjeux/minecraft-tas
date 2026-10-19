@@ -26,3 +26,16 @@ B (b1, b1+12) or (b1, b1+16) only (the left chain's parity), A2 20..27, A3 34..4
 ## 2. q8L (`q8/l.txt` + `l.ideal`): t8 with TL LEFT (puller (-2,2)), C0 (0,3) static
 Frees (0,4) so A can be fed from the LEFT while W keeps the top-right. ideal-rs WORKS with A at a, a+10, a+20
 (a 0..7), W a+3..a+5, B a 7..10 gt hold at a+7..a+8, TL / BL / BR free, U >= a+20.
+* `q8/ll.txt` + `ll.ideal` (q8LL): q8L with the lever ON at rest on the WEST face of TL's puller (-3,2): TL + ML
+  held (zero wiring), TR + MR (one input (4,2,1)), BR, BL pull-type. ideal-rs WORKS; TR+MR / BL / BR free,
+  U >= a+20. Point: the left (A's feed (0,4)) is next to the lever (early), the top-right (W) far (late).
+* A WIRED from the left in q8LL (`q8/lla.txt` plain sensor, `llc.txt` calibrated; ideal-rs WORKS with W, B,
+  TR+MR, BL, BR, U ideal): sensor (-1,5) -> observer (-1,4) facing up -> observer (0,4) facing west -> A
+  (taps T+4, T+34, T+44 plain; T+4, T+14, T+24 calibrated), WOOL (0,5) occludes A / B / W from the sensor
+  so its re-arm hears no echo (the 3rd tap is the re-arm tap). Found by a 3.25M-variant screen.
+  Windows then: plain: W 9..16, B1 12..20 (>= W+3), B2 39..42; calibrated: W 9..11 + B (12..14, 23..24),
+  or W 9..14 + B (16, 29..30), or B as one hold [21..22, +9..16].
+* With a WOOL door (static C0 wool) a top-right sensor (4,5) is shielded from the lever / TL's puller at t0
+  and hears A1 instead (t7 -> active t10): W = sensor -> lamp (3,5) -> observer (3,4) up works (W at 12);
+  but B's feed (2,5) can only watch the same (3,5) (W and B fire together), B from the left needs (0,5)
+  (the shield), and TR+MR's only feed (4,3) needs an odd, echo-free pulse source. Open.

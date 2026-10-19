@@ -1,0 +1,30 @@
+name: cosearch-full-5as
+assisted: 1,4;3,3;1,5;1,3;4,2;-2,0;4,0;1,-2
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ....A
+layer -1:
+  ...D.D
+layer 0:
+  .s.DDD.B
+layer 1:
+  .CPDDD.B
+layer 2:
+  LCPDDD.B
+layer 3:
+  ...D..B
+layer 4:
+  ....S
+layer 5:
+  ....S

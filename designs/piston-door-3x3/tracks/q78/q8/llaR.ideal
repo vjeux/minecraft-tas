@@ -1,0 +1,24 @@
+design designs/piston-door-3x3/tracks/q78/q8/lla.txt
+# q8LL: A real (top-left screen); W, B (two 2 gt pulses), TR+MR, BR, BL, U ideal
+let tr = 30
+let bl0 = 30
+let br = 30
+let bm = 70
+open 0 use -3 2 0
+close 0 use -3 2 0
+open tr set 4 2 1 minecraft:redstone_block
+open tr+2 clear 4 2 1
+open bl0 set -2 0 1 minecraft:redstone_block
+open bl0+2 clear -2 0 1
+open br set 4 0 1 minecraft:redstone_block
+open br+2 clear 4 0 1
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+close tr set 4 2 1 minecraft:redstone_block
+close tr+2 clear 4 2 1
+close bl0 set -2 0 1 minecraft:redstone_block
+close bl0+2 clear -2 0 1
+close br set 4 0 1 minecraft:redstone_block
+close br+2 clear 4 0 1
+close bm set 1 -2 1 minecraft:redstone_block
+close bm+2 clear 1 -2 1
