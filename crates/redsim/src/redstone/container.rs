@@ -69,6 +69,22 @@ pub struct Containers {
     ticking: bool,
 }
 
+impl Containers {
+    /// Every container (by position: slots, hopper cooldown, `tickedGameTime` relative to `now`)
+    /// and the live hopper ticker order, for [`crate::world::World::state_key`].
+    pub(crate) fn key_into<H: std::hash::Hasher>(&self, now: i64, h: &mut H) {
+        use std::hash::Hash;
+        let mut all: Vec<(&BlockPos, &ContainerBe)> = self.map.iter().collect();
+        all.sort_by_key(|(p, _)| **p);
+        for (p, c) in all {
+            (p, &c.slots, c.cooldown, now - c.ticked, c.hopper).hash(h);
+        }
+        0xfeu8.hash(h);
+        let order: Vec<BlockPos> = self.tickers.iter().chain(self.pending.iter()).filter(|(_, live)| *live).map(|(p, _)| *p).collect();
+        order.hash(h);
+    }
+}
+
 /// Blocks whose block entity is a container we model.
 pub fn is_container_block(s: &Block) -> bool {
     matches!(s, Block::Dispenser { .. } | Block::Hopper { .. })

@@ -191,7 +191,15 @@ impl Design {
                     row = 0;
                 } else if let Some(rest) = l.strip_prefix("port ") {
                     let (name, pos) = rest.split_once(':').ok_or_else(|| anyhow!("{}", err()))?;
-                    d.ports.insert(name.trim().to_string(), parse_pos(pos).with_context(err)?);
+                    // `port <name>: x y z [args...]`: words after the position (a clock's start
+                    // kick: `port start: 1 0 0 minecraft:redstone_block 1`) are kept in `meta`
+                    // under `port <name>` and written back on the port line.
+                    let words: Vec<&str> = pos.split_whitespace().collect();
+                    let (xyz, args) = if words.len() > 3 { (words[..3].join(" "), words[3..].join(" ")) } else { (pos.to_string(), String::new()) };
+                    d.ports.insert(name.trim().to_string(), parse_pos(&xyz).with_context(err)?);
+                    if !args.is_empty() {
+                        d.meta.insert(format!("port {}", name.trim()), args);
+                    }
                     section = Section::Header;
                 } else if let Some(rest) = l.strip_prefix("entity:") {
                     d.entities.push(EntitySpec::parse(rest).with_context(err)?);
@@ -313,10 +321,16 @@ impl Design {
             out.push_str(&format!("name: {}\n", self.name));
         }
         for (k, v) in &self.meta {
+            if k.starts_with("port ") {
+                continue;
+            }
             out.push_str(&format!("{k}: {v}\n"));
         }
         for (k, p) in &self.ports {
-            out.push_str(&format!("port {k}: {} {} {}\n", p[0], p[1], p[2]));
+            match self.meta.get(&format!("port {k}")) {
+                Some(args) => out.push_str(&format!("port {k}: {} {} {} {args}\n", p[0], p[1], p[2])),
+                None => out.push_str(&format!("port {k}: {} {} {}\n", p[0], p[1], p[2])),
+            }
         }
         for e in &self.entities {
             out.push_str(&format!("entity: {}\n", e.to_text()));
@@ -388,6 +402,17 @@ mod tests {
         assert_eq!(again.ports, d.ports);
         assert!(again.entities.is_empty());
         assert_eq!(again.content_key(), format!("{:?}|{:?}", d.blocks, d.ports));
+    }
+
+    #[test]
+    fn port_args_round_trip() {
+        let text = "name: c\nport output: 1 0 0\nport start: 0 0 1 minecraft:redstone_block 1\npalette:\n  O observer[facing=east]\nlayer 0:\n  OO\n";
+        let d = Design::parse(text).unwrap();
+        assert_eq!(d.ports["start"], [0, 0, 1]);
+        assert_eq!(d.meta["port start"], "minecraft:redstone_block 1");
+        let again = Design::parse(&d.to_text()).unwrap();
+        assert_eq!(again, d);
+        assert!(d.to_text().contains("port start: 0 0 1 minecraft:redstone_block 1\n"));
     }
 
     #[test]

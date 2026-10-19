@@ -1,0 +1,14 @@
+[package]
+name = "clock-item"
+description = "Track clk-item's clock commands (mctas clock item ...): item clocks (hoppers, droppers, comparators reading containers): redsim cycle detection with container state, the census, the game cross-check; owned by clk-item, see docs/clocks.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+clock = { path = "../clock" }
+redsim = { path = "../redsim" }
+mctas = { path = "../mctas" }

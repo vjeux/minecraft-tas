@@ -37,6 +37,17 @@ pub struct State {
     pub entities: Vec<FallingBlock>,
 }
 
+impl State {
+    /// The live falling blocks for [`crate::world::World::state_key`] (floats by their bits).
+    pub(crate) fn key_into<H: std::hash::Hasher>(&self, h: &mut H) {
+        use std::hash::Hash;
+        for e in self.entities.iter().filter(|e| !e.removed) {
+            (e.block, e.x.to_bits(), e.y.to_bits(), e.z.to_bits(), e.vy.to_bits(), e.time).hash(h);
+        }
+        0xfeu8.hash(h);
+    }
+}
+
 pub fn is_idle(w: &World) -> bool {
     w.gravity.entities.iter().all(|e| e.removed)
 }

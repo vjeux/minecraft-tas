@@ -1,0 +1,11 @@
+[package]
+name = "clock-rt"
+description = "Track clk-rt's clock commands (mctas clock rt ...): owned by clk-rt; see docs/clocks.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clock = { path = "../clock" }
