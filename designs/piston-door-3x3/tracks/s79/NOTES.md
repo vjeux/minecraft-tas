@@ -152,3 +152,20 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
      fillings (not legal play).
 - Wool door blocks pass the judge (`closed_problems` rejects only mechanism blocks), so the door and
   the 3 static frame blocks can be wool and occlude vibrations (q78 uses a wool C0 too).
+- **Lever in the bottom-right probes** (`s79b/lb1.txt` + `lb1.ideal`, `lb2.txt` + `lb2.ideal`): the lever
+  on the EAST face of (4,-1) (outside the box; volume excludes it) makes R0 level-held (extended at
+  closed rest, retracts at t1 on open pulling BR, extends at t1 on close): R0 needs no wiring, and the
+  bottom-right hears the lever at t0 (the sensor (3,-1) at distance 2: active t2, U at t4). lb1
+  (U real, R1/R2 pull-type with ONE ideal stack input at (4,2,-1) - an input at (4,1,-1) QC-feeds R0 -,
+  M ideal through a redstone block at (2,5), s and L0 ideal): ideal-rs WORKS; R1/R2 work at ANY tick,
+  M any open tick >= 16, s's open push window widens to plan 6..9.
+  lb2 = lb1 with U RESTING EXTENDED (head at (1,-1)) and K + L0 REAL: WORKS. U's open move is then a
+  retraction (one watcher pulse) and its close move ends extended (one), so the dropper L0 gets an
+  odd count. Windows: open retract at plan 0..5 (later with s later), one 2 gt pulse at 8..50; close
+  one 2 gt pulse at 0..23 then extend at 10..17 or 20..50 and stay; s open push from plan 3 with holds
+  up to 14 gt when M is late (m 20..30). What is missing: (a) U's power must be FAST-OFF / SLOW-ON
+  (off by ~t6 on open, on only after K pushed BM in on close: a lever-level AND its delayed copy;
+  a lever on (2,-1)'s front face arms U silently on close - its update hits C - but is fast both
+  ways), and (3,-1) must stay immovable for K's chain (a repeater there is destroyed by K's late
+  push); (b) the top loses the lever: R1/R2 need a pulse, M a level (copper bulb + comparator, c88)
+  and s its pulses, all from sound (wool door blocks can occlude).
