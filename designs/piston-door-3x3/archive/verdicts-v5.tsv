@@ -134,6 +134,7 @@
 1559eec05663959e	broken	-	-	-		at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever
 155b2e5efffea574	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 1591e3bb862ff333	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
+15c0c8f5cfdc2b85	ok	34	34	safe		
 15c59f58004416b9	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone
 15d7f85b71022ce2	broken	-	-	-		at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [2, 1, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [0, 0, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [1, 0, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [2, 0, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [2, 2, 0] is minecraft:air; door cell [2, 1, 0] is minecraft:air; door cell [0, 0, 0] is minecraft:air; door cell [1, 0, 0] is minecraft:air; door cell [2, 0, 0] is minecraft:air
 15e267646f358bfe	ok	15	15	safe		
@@ -342,6 +343,7 @@
 334c37155202f4e1	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minecraft:stone
 337dc69593e232ea	ok	15	15	safe		
 33baa1191adad367	ok	24	36	safe		
+33cb362a2c4c384d	ok	34	34	safe		
 33f7ed2560d8e9c6	broken	-	-	-		at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the door must be 9 identical blocks (minecraft:air); door cell [1, 1, 0] is minecraft:stone, but the door must be 9 identical blocks (minecraft:air); door cell [0, 2, 0] is minecraft:air; door cell [2, 2, 0] is minecraft:air; door cell [0, 1, 0] is minecraft:air; door cell [2, 1, 0] is minecraft:air; door cell [0, 0, 0] is minecraft:air; door cell [1, 0, 0] is minecraft:air; door cell [2, 0, 0] is minecraft:air
 33fe1c8bbe0fd807	ok	22	22	safe		
 3405d2e3144ebcf1	ok	36	32	safe		
@@ -636,6 +638,7 @@
 597fdea5787e474a	ok	26	42	safe		
 5a115fee81362e7d	broken	-	-	-		at offset [5, -11, -6]: cycle 0: not open after the lever was switched on: [6, -10, -6] is minecraft:stone
 5a154e20de66906b	ok	15	15	safe		
+5acbb0d99489b8f1	ok	34	34	safe		
 5ad5724e2dd3e75b	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 5aecc1708e46acc9	broken	-	-	-		at offset [5, -11, -6]: cycle 0: not open after the lever was switched on: [6, -10, -6] is minecraft:stone
 5af9383f2db115dc	broken	-	-	-		at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is minecraft:air, was minecraft:stone; [0, 1, 2] is minecraft:air, was minecraft:stone; [0, 0, 1] is minecraft:air, was minecraft:stone; [0, 0, 2] is minecraft:air, was minecraft:stone
@@ -1231,6 +1234,7 @@ a8e4d01d46638cbd	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the 
 a8f9ee33760ec79a	ok	14	14	safe		
 a940b00f049fff61	broken	-	-	-		at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever
 a96377504401dac6	broken	-	-	-		at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever
+a981db7774dafa90	ok	39	27	safe		
 a98c8870de5d64be	broken	-	-	-		at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minecraft:stone; [1, 2, 0] is minecraft:stone; [2, 2, 0] is minecraft:stone; [0, 1, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [2, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone; [2, 0, 0] is minecraft:stone
 a99b5cd2c2093878	broken	-	-	-		at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [2, 1, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [0, 0, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [2, 0, 0] is minecraft:air, but the door must be 9 identical blocks (minecraft:stone); door cell [1, 2, 0] is minecraft:air; door cell [2, 1, 0] is minecraft:air; door cell [0, 0, 0] is minecraft:air; door cell [2, 0, 0] is minecraft:air
 a9ac970a3e176e85	ok	14	14	safe		
