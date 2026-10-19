@@ -305,7 +305,8 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
         y1 = y1.max(p[1]);
     }
     let (x0, y0, x1, y1) = (x0 - 1, y0 - 1, x1 + 1, y1 + 1);
-    let pistons = design.blocks.values().filter(|s| s.contains("piston")).count();
+    // piston bases only (an extended piston's head is not another piston)
+    let pistons = design.blocks.values().filter(|s| matches!(mctas::blockstate::block_name(s).trim_start_matches("minecraft:"), "piston" | "sticky_piston")).count();
     let below: Vec<(Pos, String)> = design
         .blocks
         .iter()

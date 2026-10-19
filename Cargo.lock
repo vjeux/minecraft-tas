@@ -626,6 +626,7 @@ dependencies = [
  "mctas",
  "redsim",
  "redsim-fuzz",
+ "regex",
  "rustsat",
  "rustsat-cadical",
  "serde_json",
