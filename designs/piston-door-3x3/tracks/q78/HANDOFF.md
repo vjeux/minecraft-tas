@@ -39,6 +39,25 @@ same facts with timings. All files below are on branch explore/q78 under `design
 - Inherent: if K's relay and the gate share (2,-3)'s clock and A3 is the gate QC at (2,-3)'s cooldown, K's push
   (cool+2, block-event phase) precedes A's QC extension (cool+3).
 
+## r1w (83ba8bee): (0,-3) wool + ideal open-only B' hold
+r1 with (0,-3) = WOOL works with an ideal B' hold [10..19, 29) on open (tile); `--holds 40` also finds a
+calibrated 10-tick hold starting at t18 on BOTH edges. (0,-3) MUST be wool: it shields the lamp sensor (-1,-3)
+from B2 (B' at d=2) and from A' at (1,-2); stone/obsidian/amethyst there fail (the lamp sensor re-arms at t26,
+hears B2, and its 2nd lamp cycle pushes C out of F1). So the hold has no cell: B' touches only (0,-3) and
+(2,-3) (the relay/gate clock), and its QC cells are the A1 observer and the gate.
+
+## Advice received (coordinator, c77)
+- c77: a push fails only if the line has something immovable AT THAT MOMENT (obsidian, block entity, extended
+  piston/head, moving block); pistons never retry. For t45: either K's update arrives 1 gt later (t46, when A's
+  QC head is a moving block in F1) and nothing updates K again while powered, or K is powered without an update.
+  A calibrated hold ends at activation + 10, so "ends at t29" = a calibrated sensor activating at t19; on close
+  B' must be blocked at t19 (column moving / A' extended) and get no update before t29; on open free at t19 or
+  nudged by an open-only update. c74 (explore/c77 tracks/c77/c074-64b-42.txt) and kb1g.ideal (stone e78s:
+  B' = both-edge pulse pair s1 17..21, s2 s1+3..+6 <= 24, plus ONE open-only pulse at 26..50).
+- coordinator: shrink's MOVING OBSERVER relay (archive/t7b-ob40-40b.txt: an observer fires when it LANDS, out
+  of its face at the new cell, so the two edges can feed different cells); c88b's copper-bulb T flip-flop +
+  comparator = a door-state LEVEL at the bottom (comparators need a support block, none on row -3).
+
 ## Next ideas
 1. An edge-selective B'-hold for r1-style designs: a B' source active [19,29) on open only (B2 at t29 lands A'
    at G3 start; the 2nd (2,-3) cycle is then harmless as in nb).
