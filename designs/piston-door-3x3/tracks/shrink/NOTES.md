@@ -68,6 +68,11 @@ relay, one open flaw at t45): left cells k<=5 and + top cells k<=4: nothing. r2.
 the open): 6 cells k<=4, 8 cells k<=4: nothing. nb.txt (7 cells): k<=4 full palette and exactly
 k=5 reduced (316M): nothing. r1 right cluster (relay included) k<=5 (78M) and + (2,-3) k<=5
 (346M): nothing. e78k handed off at 15:03Z (explore/q78 tracks/q78/HANDOFF.md).
+e78k's SOLID 7x8 s2nob.txt (explore/q78 d77fb3d8: c77's stone e78st with the sensors removed, only
+B' ideal: a 2 gt pulse at exactly t21 + a 2nd >= t29): --keep k<=3 over the left 8 + top-left 5
+cells (18 solid kinds with pistons): nothing (7.3M); the 8 left cells cleared, k<=6 (18 states:
+observers, lamp, stone, sticky/normal pistons, note, dust, redstone block, torch), --gaps:
+nothing (682M). --keep k<=4 over the 13 cells: runs/s2nob-keep4.log.
 s27-trbl51 top-left A part: no 5-block solid filling without pistons (k<=5, 32 states, --gaps).
 
 ## t7b's bottom, what it must do (ideal-rs windows on the 14 bottom wiring cells erased)

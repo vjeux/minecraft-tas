@@ -1,0 +1,6 @@
+fill designs/piston-door-3x3/tracks/shrink/wip/e78-s11.txt: 9 region cells (9 free, 0 fixed), base 39 blocks (design 44), k 0..=5, global palette 21 states, gaps allowed
+324 subsets pass the connectivity rule; 474602604 fillings to screen in 1076204 work items
+[   300s] 108340220 screened (361095/s), 29820205 pruned, item 313358/1076204, 0 pass the 1-position screen, 0 finds
+[   600s] 206607192 screened (344227/s), 62977800 pruned, item 611354/1076204, 0 pass the 1-position screen, 0 finds
+[   900s] 345668534 screened (383928/s), 105795321 pruned, item 1023790/1076204, 0 pass the 1-position screen, 0 finds
+done in 932 s: 361943034 screened, 112659570 pruned, 0 passed the screen, 0 finds
