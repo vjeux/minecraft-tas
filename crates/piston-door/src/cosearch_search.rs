@@ -142,6 +142,11 @@ pub struct SearchArgs {
     /// Write the cleaned seeds (blocks outside the box and blocks that pop dropped) here.
     #[arg(long)]
     pub write_seeds: Option<std::path::PathBuf>,
+    /// Screen with the old EXACT rest rule (the build back to its rest state after every close)
+    /// instead of the judge's periodic rule (main 96a62d6: closed, and some closed state repeats
+    /// within cycles + 8; memory parts like copper bulbs may stay flipped between cycles).
+    #[arg(long)]
+    pub exact_rest: bool,
 }
 
 // ---------------------------------------------------------------------- the grid
@@ -241,6 +246,9 @@ pub struct Problem {
     /// Max drive points per input (its plan edges over the screened cycles): a released input
     /// earns them all (the screen checks the door works without it).
     pub drive_max: Vec<i32>,
+    /// The screen requires the exact rest state after every close (the judge's rule before main
+    /// 96a62d6); default: the periodic rule (closed, and some closed state repeats).
+    pub exact_rest: bool,
 }
 
 /// A piston starting to extend or retract: (phase, extending, cell, tick).
@@ -735,6 +743,9 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<u6
     pts += 1;
     // the plane's cells (the box + 1) compared after each close
     let rest: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
+    // closed states seen so far (the periodic rest rule)
+    let mut seen: Vec<Vec<Block>> = vec![rest.clone()];
+    let mut periodic = false;
     let rec_cells = if p.reference.is_empty() { Vec::new() } else { plane_cells_wide(&w, z) };
     for cycle in 0..p.cycles {
         w.use_block(lever);
@@ -783,12 +794,59 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<u6
             return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
         }
         let now: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
-        let same = now.iter().zip(rest.iter()).filter(|(a, b)| a == b).count() as i32;
-        let n = rest.len() as i32;
-        if same == n {
-            pts += 3;
+        if p.exact_rest {
+            let same = now.iter().zip(rest.iter()).filter(|(a, b)| a == b).count() as i32;
+            let n = rest.len() as i32;
+            if same == n {
+                pts += 3;
+            } else {
+                pts -= (n - same).min(3);
+                return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
+            }
         } else {
-            pts -= (n - same).min(3);
+            // PERIODIC rest (main 96a62d6, vjeux: "internal state doesn't matter as long as the
+            // door works repeatedly"): a closed state may differ from rest (a copper bulb or a
+            // dropper left flipped between cycles) as long as the door is closed and some closed
+            // state repeats an earlier one (checked below, within cycles + MAX_PERIOD_EXTRA)
+            if back < 9 {
+                return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
+            }
+            pts += 3;
+            if seen.iter().any(|s| *s == now) {
+                periodic = true;
+            } else {
+                seen.push(now);
+            }
+        }
+    }
+    if !p.exact_rest && !periodic {
+        // extra cycles (no points): each must still open (9 cells walkable, frame 12/12) and
+        // close, until a closed state repeats
+        for _ in 0..crate::MAX_PERIOD_EXTRA {
+            w.use_block(lever);
+            let idle = run_phase(p, g, &mut w, 0, None, |_| {});
+            let open_n = p.door_cells.iter().filter(|(x, y)| {
+                let s = w.get(at(*x, *y));
+                !cs::collides(&s) && !cs::is_moving(&s)
+            }).count();
+            let clean = p.ring.iter().filter(|(x, y)| cs::frame_filled(&w.get(at(*x, *y)))).count();
+            if !idle || open_n < 9 || clean < 12 || !w.drops.is_empty() || !w.errors.is_empty() {
+                return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
+            }
+            w.use_block(lever);
+            let idle = run_phase(p, g, &mut w, 1, None, |_| {});
+            let back = p.door_cells.iter().filter(|(x, y)| w.get(at(*x, *y)) == p.door_block).count();
+            if !idle || back < 9 || !w.drops.is_empty() || !w.errors.is_empty() {
+                return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
+            }
+            let now: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
+            if seen.iter().any(|s| *s == now) {
+                periodic = true;
+                break;
+            }
+            seen.push(now);
+        }
+        if !periodic {
             return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
         }
     }
@@ -1431,6 +1489,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         drive_slack: a.drive_slack,
         drive_max: Vec::new(),
         no_lever: false,
+        exact_rest: a.exact_rest,
     };
     let mut prob = prob;
     if let Some(r) = &a.reference {
