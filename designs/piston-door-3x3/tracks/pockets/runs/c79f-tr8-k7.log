@@ -1,0 +1,36 @@
+assist designs/piston-door-3x3/tracks/pockets/plans/c79f-tr8.ideal: 4 input cells off the plane ([(4, 2), (1, 3), (1, 5), (1, 4)]), 4 / 4 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/seeds/c79-front.txt: 51 blocks in the box, screen 79/79
+14 piston cells locked, 39 cells free
+seed screen 79/79 with 4 inputs assisted
+windows (6 groups, 0.0 s):
+  input (4,2) open  t0 off: window [+0, +1]
+  input (1,3) open  t2 pulse 4 gt: window [-1, +1]
+  input (1,5) open  t10 off: window [-1, +24]
+  input (4,2) close t0 on: window [+0, +2]
+  input (1,4) close t4 pulse 2 gt: window [-4, +1]
+  input (1,5) close t10 on: window [-1, +0]
+11 pocket cells in 4 pockets; 0 lever candidates in the plane, 3 static front-face supports, polarity [true]; 52 swept cells
+  pocket 0: 1 cells [(-2, 5)]
+  pocket 1: 1 cells [(-1, 3)]
+  pocket 2: 8 cells [(2, 4), (2, 5), (3, 3), (3, 4), (3, 5), (4, 3), (4, 4), (4, 5)]
+  pocket 3: 1 cells [(4, -3)]
+pocket 0: 1 cells, 1 subset/lever items, 12 fillings to screen
+pocket 0: 12 screened, 5 keep the door working, 0.3 s; driven input sets: none
+pocket 1: 1 cells, 1 subset/lever items, 12 fillings to screen
+pocket 1: 13 screened, 6 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 8 cells, 145138 subset/lever items, 512825988 fillings to screen
+  pocket 2: 50814103 screened (7262 of 145138 items started), 7750321 keep the door working, 120 s
+  pocket 2: 124582741 screened (15193 of 145138 items started), 15843557 keep the door working, 240 s
+  pocket 2: 167973473 screened (26901 of 145138 items started), 24229174 keep the door working, 360 s
+  pocket 2: 221384645 screened (34443 of 145138 items started), 32312415 keep the door working, 480 s
+  pocket 2: 288869671 screened (43753 of 145138 items started), 40061181 keep the door working, 600 s
+  pocket 2: 331365944 screened (58037 of 145138 items started), 48440963 keep the door working, 720 s
+  pocket 2: 385281092 screened (72449 of 145138 items started), 56306242 keep the door working, 841 s
+  pocket 2: 435880795 screened (92601 of 145138 items started), 64566246 keep the door working, 961 s
+  pocket 2: 505546718 screened (110293 of 145138 items started), 72483603 keep the door working, 1081 s
+pocket 2: 572112961 screened, 79700627 keep the door working, 1187.0 s; driven input sets: {(4,2)o0 (1,3)o2 (4,2)c0 (1,4)c4} x64 (best 6 blocks), {(4,2)o0 (1,3)o2 (4,2)c0} x6 (best 7 blocks), {(4,2)o0 (4,2)c0} x64 (best 2 blocks), {(1,3)o2 (1,4)c4} x64 (best 5 blocks), {(1,5)o10 (1,5)c10} x64 (best 7 blocks), {(1,4)c4} x2 (best 7 blocks), {(1,3)o2} x6 (best 7 blocks)
+pocket 3: 1 cells, 1 subset/lever items, 12 fillings to screen
+pocket 3: 12 screened, 7 keep the door working, 0.3 s; driven input sets: none
+combination 1: true partial, 3 inputs still assisted [1,3 1,5 1,4] (44 blocks)
+combination 65: true partial, 1 inputs still assisted [1,5] (48 blocks)
+270 combinations verified, 0 finds, 1188 s total

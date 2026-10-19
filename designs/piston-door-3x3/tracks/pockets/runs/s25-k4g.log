@@ -1,0 +1,18 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/c88-s25.ideal: 1 input cells off the plane ([(2, -2)]), 2 / 2 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/c88-s25.txt: 51 blocks in the box, screen 79/79
+seed screen 79/79 with 1 inputs assisted
+windows (2 groups, 0.0 s):
+  input (2,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (2,-2) close t30 pulse 2 gt: window [-24, +24]
+5 pocket cells in 2 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 60 swept cells
+  pocket 0: 1 cells [(-2, 3)]
+  pocket 1: 4 cells [(3, -2), (4, -2), (4, -1), (4, 0)]
+pocket 0: skipped
+pocket 1: 4 cells, 3973 subset/lever items, 14772553 fillings to screen
+  pocket 1: 6940232 screened (1740 of 3973 items started), 1339474 keep the door working, 30 s
+  pocket 1: 10715909 screened (2624 of 3973 items started), 2902344 keep the door working, 60 s
+  pocket 1: 14525324 screened (3516 of 3973 items started), 4449293 keep the door working, 90 s
+pocket 1: 16719962 screened, 5284595 keep the door working, 109.1 s; driven input sets: {(2,-2)o30 (2,-2)c30} x2 (best 3 blocks)
+combination 2: perfect screen; redsim judge: combo: WORKS open 34 close 34 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 54 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/s25-k4g/pockets-64b-54-0.txt
+2 combinations verified, 1 finds, 109 s total

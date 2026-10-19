@@ -1,0 +1,25 @@
+assist designs/piston-door-3x3/tracks/pockets/plans/m79q-B1H.ideal: 4 input cells off the plane ([(1, 3), (1, 5), (1, 4), (-2, 2)]), 8 / 4 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/m10top/m79q.txt: 43 blocks in the box, screen 77/79
+14 piston cells locked, 39 cells free
+seed screen 79/79 with 4 inputs assisted
+windows (6 groups, 0.0 s):
+  input (1,3) open  t3 pulse 5 gt: window [-3, +0]
+  input (1,5) open  t9 pulse 2 gt: window [+0, +1]
+  input (1,4) open  t14 pulse 2 gt: window [-1, +24]
+  input (-2,2) open  t14 pulse 2 gt: window [-14, +24]
+  input (-2,2) close t0 pulse 2 gt: window [+0, +24]
+  input (1,5) close t4 pulse 2 gt: window [-4, +24]
+13 pocket cells in 5 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 50 swept cells
+  pocket 0: 7 cells [(-2, 4), (-2, 5), (-1, 3), (-1, 4), (-1, 5), (0, 4), (0, 5)]
+  pocket 1: 1 cells [(2, -2)]
+  pocket 2: 3 cells [(2, 5), (3, 5), (4, 5)]
+  pocket 3: 1 cells [(3, -1)]
+  pocket 4: 1 cells [(3, 3)]
+pocket 0: skipped
+pocket 1: skipped
+pocket 2: 3 cells, 60 subset/lever items, 172590 fillings to screen
+pocket 2: 222851 screened, 107001 keep the door working, 2.5 s; driven input sets: none
+pocket 3: skipped
+pocket 4: skipped
+plan groups no filling drives: (1,3)o3 (1,5)o9 (1,4)o14 (-2,2)o14 (-2,2)c0 (1,5)c4
+0 combinations verified, 0 finds, 3 s total

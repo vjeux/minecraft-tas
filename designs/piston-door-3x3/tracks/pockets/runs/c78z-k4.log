@@ -1,0 +1,27 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/s79-c78z.ideal: 2 input cells off the plane ([(1, -2), (4, 0)]), 6 / 6 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/s79-c78z.txt: 42 blocks in the box, screen 79/79
+seed screen 79/79 with 2 inputs assisted
+windows (6 groups, 0.0 s):
+  input (1,-2) open  t3 pulse 1 gt: window [-3, +0]
+  input (4,0) open  t4 pulse 2 gt: window [-4, +24]
+  input (1,-2) open  t24 pulse 2 gt: window [-17, +24]
+  input (4,0) close t4 pulse 2 gt: window [-4, +24]
+  input (1,-2) close t5 pulse 1 gt: window [-5, +15]
+  input (1,-2) close t24 pulse 2 gt: window [-4, +24]
+6 pocket cells in 3 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 51 swept cells
+  pocket 0: 1 cells [(-2, 5)]
+  pocket 1: 1 cells [(-1, 3)]
+  pocket 2: 4 cells [(2, -2), (3, -2), (4, -2), (4, -1)]
+pocket 0: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 0: 61 screened, 16 keep the door working, 0.3 s; driven input sets: none
+pocket 1: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 1: 63 screened, 32 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 4 cells, 3849 subset/lever items, 14311149 fillings to screen
+  pocket 2: 6803040 screened (1681 of 3849 items started), 1043199 keep the door working, 30 s
+  pocket 2: 10336730 screened (2484 of 3849 items started), 2160681 keep the door working, 60 s
+  pocket 2: 13869005 screened (3290 of 3849 items started), 3284891 keep the door working, 90 s
+  pocket 2: 16611247 screened (3849 of 3849 items started), 4146392 keep the door working, 120 s
+pocket 2: 16611247 screened, 4146392 keep the door working, 120.0 s; driven input sets: {(4,0)o4 (4,0)c4} x2000 (best 2 blocks), {(1,-2)o24 (1,-2)c5} x3 (best 3 blocks), {(1,-2)o24} x2 (best 3 blocks), {(4,0)o4} x36 (best 4 blocks)
+plan groups no filling drives: (1,-2)o3 (1,-2)c24
+combination 497: true partial, 1 inputs still assisted [1,-2] (45 blocks)
+2041 combinations verified, 0 finds, 125 s total

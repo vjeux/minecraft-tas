@@ -101,6 +101,18 @@ side pullers with at most `--two` missing and one extension state per side; `--b
 Acceptance: c79's piston set is generated in its 7x9 box (53.2M sets after pruning with free <= 5)
 and solved. 7x8 single-U (offset 2,2, side <= 1 missing, free <= 4): 12.26M sets after pruning,
 decided in the wirable sub-model on two boxes (MECHSPACE_SHARD), fewest pistons first.
+* Mirror pairs kept once (symmetric boxes); `MECHSPACE_REACH`: relaxed reachability along piston
+  lines (displaced pistons included) + a matching of the 9 door blocks to distinct frame cells
+  (on 1.78M decided sets: every FOUND passes, 12.6% of no-open pruned).
+* Audit acceptance (explore/audit): eligible-s4ff (7x8, single U, SD+(1,4) extended then
+  carried) is in the space and solves with the full frame (stones (0,-1) (0,3) (2,-1)).
+  fast-clean (7x7) needs pistons in frame cells at rest (MECHSPACE_FRAME_SLOTS) and normal pistons
+  (MECHSPACE_FREE_NORMAL), and its open state keeps a piston in (0,3): not a full-frame door.
+* Rule (A) (extra frame blocks may move): `movable` puts 3 door-type blocks in the open state's
+  empty frame cells and decides again; 0 of the first 64 no-close sets cycle that way.
+* Results so far (10-11 pistons): only 4 layouts, c78, 009 and their mirrors (16 extended-at-rest
+  variants each). families' generator with --ext-pullers (two 0, all offsets) in the full-frame
+  sub-model: 8 distinct 7x8 layouts (552 cycles) and 16 in 7x9 (partial), all catalog-like.
 
 ## Log
 * 01:03Z selftest 0 mismatches; 01:19Z pretest 0 missing; 01:27Z refit; 01:48Z corrected list.
