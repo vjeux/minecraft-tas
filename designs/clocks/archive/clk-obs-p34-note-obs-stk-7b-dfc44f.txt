@@ -1,0 +1,30 @@
+# archived 2026-10-19T19:04Z from designs/clocks/tracks/clk-obs/families/p34-note-obs-stk-7b-dfc44f.txt by mctas clock archive
+# CLOCK: clk-obs-p34-note-obs-stk-7b-dfc44f period 34 gt (1.7 s), on 14/34, edges 7, warmup 21, family note_block+observer+sticky_piston, 7 blocks, 1x4x3, robust
+name: clk-obs-p34-note-obs-stk-7b-dfc44f
+# P34: 1 note block, 4 observers, 1 redstone lamp, 1 sticky piston; changing in place: note_block, observer, sticky_piston (redstone lamp only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 -1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=south]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:note_block[instrument=basedrum,note=0,powered=false]
+layer -1:
+  .
+  A
+  .
+layer 0:
+  B
+  C
+  .
+layer 1:
+  D
+  E
+  D
+layer 2:
+  F
+  .
+  .

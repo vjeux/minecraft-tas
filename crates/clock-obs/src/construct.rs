@@ -37,13 +37,19 @@ fn obs(facing: Dir) -> Block {
 /// A ring of observers along the given closed cell loop (each watches the previous cell), with
 /// note blocks at the given loop indices.
 fn ring(name: &str, cells: &[[i32; 3]], notes: &[usize]) -> Spec {
+    ring_with(name, cells, notes, Block::parse("minecraft:note_block").unwrap())
+}
+
+/// A ring of observers with `relay` blocks at the given loop indices (each relay sits behind a
+/// straight observer, which powers it, and is watched by the next observer).
+pub fn ring_with(name: &str, cells: &[[i32; 3]], notes: &[usize], relay: Block) -> Spec {
     let n = cells.len();
     let mut blocks = Vec::new();
     for i in 0..n {
         let c = cells[i];
         let p = cells[(i + n - 1) % n];
         let d = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
-        let b = if notes.contains(&i) { Block::parse("minecraft:note_block").unwrap() } else { obs(crate::rings::dir_of(d)) };
+        let b = if notes.contains(&i) { relay } else { obs(crate::rings::dir_of(d)) };
         blocks.push((BlockPos::new(c[0], c[1], c[2]), b));
     }
     let kick_at = (0..n).find(|i| !notes.contains(i) && !notes.contains(&((i + 1) % n))).unwrap_or(0);
@@ -52,7 +58,7 @@ fn ring(name: &str, cells: &[[i32; 3]], notes: &[usize]) -> Spec {
 }
 
 /// The rectangle loop 2 x w in the xz plane (x from 0 to w-1), in loop order.
-fn rectangle(w: i32) -> Vec<[i32; 3]> {
+pub fn rectangle(w: i32) -> Vec<[i32; 3]> {
     let mut c: Vec<[i32; 3]> = (0..w).map(|x| [x, 0, 0]).collect();
     c.extend((0..w).rev().map(|x| [x, 0, 1]));
     c

@@ -1,0 +1,22 @@
+# archived 2026-10-19T18:28Z from designs/clocks/tracks/clk-obs/families/p20-note-obs-pis-rb-stk-6b-888374.txt by mctas clock archive
+# CLOCK: clk-obs-p20-note-obs-pis-rb-stk-6b-888374 period 20 gt (1 s), on 8/20, edges 4, warmup 2, family note_block+observer+piston+redstone_block+sticky_piston, 6 blocks, 2x2x3, robust
+name: clk-obs-p20-note-obs-pis-rb-stk-6b-888374
+# P20: 1 note block, 2 observers, 1 piston, 1 redstone block, 1 sticky piston; changing in place: note_block, observer, piston, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:piston[extended=false,facing=east]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:observer[facing=east,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=south]
+  F minecraft:redstone_block
+layer -1:
+  ..
+  A.
+  ..
+layer 0:
+  BE
+  CF
+  D.

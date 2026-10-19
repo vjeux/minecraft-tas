@@ -60,6 +60,26 @@ pub struct CensusArgs {
     /// low faces, connected or not (quasi-connectivity and moved blocks act at a distance)
     #[arg(long = "box")]
     pub r#box: Option<String>,
+    /// Skip structures where no piston is powered as placed (a redstone block next to it, not
+    /// in front, or next to the cell above it). Lossless when redstone blocks are the only power
+    /// source (no observers in the palette): then nothing can ever move.
+    #[arg(long)]
+    pub need_powered_piston: bool,
+}
+
+/// Some piston is powered by a redstone block as placed: one on a side other than its front, or
+/// one next to the cell above it (quasi-connectivity).
+pub fn powered_piston_at_home(blocks: &[(BlockPos, Block)]) -> bool {
+    let rb: Vec<BlockPos> = blocks.iter().filter(|(_, b)| matches!(b, Block::RedstoneBlock)).map(|(p, _)| *p).collect();
+    let adj = |a: BlockPos, b: BlockPos| (a.x - b.x).abs() + (a.y - b.y).abs() + (a.z - b.z).abs() == 1;
+    blocks.iter().any(|(p, b)| match b {
+        Block::Piston { facing, .. } => {
+            let front = p.rel(*facing);
+            let above = p.above();
+            rb.iter().any(|r| (adj(*r, *p) && *r != front) || (adj(*r, above) && *r != *p))
+        }
+        _ => false,
+    })
 }
 
 /// Every k-subset of a WxHxD box touching the box's x = 0, y = 0 and z = 0 faces, one per class
@@ -374,6 +394,9 @@ pub fn run(a: CensusArgs) -> Result<()> {
                         let npist = blocks.iter().filter(|(_, b)| matches!(b, Block::Piston { .. })).count();
                         let nrb = blocks.iter().filter(|(_, b)| matches!(b, Block::RedstoneBlock)).count();
                         if npist < a.min_pistons || nrb < a.min_rblocks || nrb > a.max_rblocks {
+                            continue;
+                        }
+                        if a.need_powered_piston && !powered_piston_at_home(&blocks) {
                             continue;
                         }
                         // without pistons nothing moves: an observer must watch a structure cell

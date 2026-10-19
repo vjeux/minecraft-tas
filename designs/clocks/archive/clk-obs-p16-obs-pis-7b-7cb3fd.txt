@@ -1,0 +1,27 @@
+# archived 2026-10-19T18:47Z from designs/clocks/tracks/clk-obs/families/p16-obs-pis-7b-7cb3fd.txt by mctas clock archive
+# CLOCK: clk-obs-p16-obs-pis-7b-7cb3fd period 16 gt (0.8 s), on 8/16, edges 4, warmup 4, family observer+piston, 7 blocks, 1x5x2, robust
+name: clk-obs-p16-obs-pis-7b-7cb3fd
+# P16: 1 copper bulb, 3 observers, 2 pistons, 1 stone; changing in place: observer, piston (copper bulb, stone only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:stone
+  G minecraft:piston[extended=false,facing=down]
+layer -1:
+  .
+  A
+layer 0:
+  B
+  C
+layer 1:
+  D
+  E
+layer 2:
+  F
+  G

@@ -1,0 +1,24 @@
+name: clk-obs-p40-bulb-lamp-obs-pis-6b-b-5c343e
+# P40: 1 copper bulb, 3 observers, 1 piston, 1 redstone lamp; changing in place: copper_bulb, observer, piston, redstone_lamp. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:redstone_lamp[lit=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:piston[extended=false,facing=down]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+layer -1:
+  A
+  .
+  .
+layer 0:
+  B
+  C
+  D
+layer 1:
+  E
+  F
+  .

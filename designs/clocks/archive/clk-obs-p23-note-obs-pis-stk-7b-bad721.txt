@@ -1,0 +1,30 @@
+# archived 2026-10-19T18:54Z from designs/clocks/tracks/clk-obs/families/p23-note-obs-pis-stk-7b-bad721.txt by mctas clock archive
+# CLOCK: clk-obs-p23-note-obs-pis-stk-7b-bad721 period 23 gt (1.15 s), on 8/23, edges 4, warmup 3, family note_block+observer+piston+sticky_piston, 7 blocks, 1x4x3, robust
+name: clk-obs-p23-note-obs-pis-stk-7b-bad721
+# P23: 1 note block, 3 observers, 1 piston, 2 sticky pistons; changing in place: note_block, observer, piston, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 0 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:piston[extended=false,facing=down]
+  F minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  B
+  .
+layer 1:
+  C
+  D
+  E
+layer 2:
+  D
+  .
+  .
+layer 3:
+  .
+  F
+  .

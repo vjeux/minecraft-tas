@@ -1,0 +1,22 @@
+name: clk-obs-p40-obs-rb-stk-7b-b-2aa574
+# P40: 3 observers, 1 redstone block, 3 sticky pistons; changing in place: observer, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 -1
+port output: 0 1 1
+palette:
+  A minecraft:redstone_block
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=north]
+  D minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:observer[facing=south,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  ..G
+  A..
+  B..
+  C..
+layer 1:
+  ...
+  DF.
+  E..
+  ...

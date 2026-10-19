@@ -1,0 +1,26 @@
+# archived 2026-10-19T18:47Z from designs/clocks/tracks/clk-obs/families/p16-note-obs-pis-7b-24f194.txt by mctas clock archive
+# CLOCK: clk-obs-p16-note-obs-pis-7b-24f194 period 16 gt (0.8 s), on 8/16, edges 4, warmup 5, family note_block+observer+piston, 7 blocks, 1x3x3, robust
+name: clk-obs-p16-note-obs-pis-7b-24f194
+# P16: 2 note blocks, 3 observers, 2 pistons; changing in place: note_block, observer, piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:piston[extended=false,facing=south]
+  C minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  D minecraft:piston[extended=false,facing=down]
+  E minecraft:note_block[instrument=bass,note=0,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+layer -1:
+  A
+  B
+  .
+layer 0:
+  C
+  A
+  D
+layer 1:
+  E
+  F
+  .
