@@ -51,6 +51,22 @@ P12 4979 / 3724 (most P4/P6 structures are the observer pair with different star
   period is a common multiple of its components' periods.
 * P3: no observer, lamp or bulb can change (periods >= 4 or even); only pistons 0-ticking every
   3 gt with redstone blocks and followers. None up to 5 blocks.
+  Necessary structure (2026-10-19): a piston of period 3 must 0-tick (extend at t, retract at
+  t' >= t, extend again >= t' + 3, so t' = t); its own push cannot queue its retract (moveBlocks
+  updates the arm cell's neighbors, the base included, BEFORE triggerEvent marks the base
+  EXTENDED, and a retract is only queued for an extended piston), so a second piston's move must
+  update it, after a power
+  element was moved away in the same block-event phase. Power elements: redstone blocks, or a
+  conductor next to a permanently powered observer. A sticky 0-tick places the block it pushed
+  one cell on (it cannot pull it back) and a normal one leaves it moving, so every element moved
+  away must be moved back by a DIFFERENT piston each cycle. So: at least 2 pistons and 1 element,
+  each element with two distinct movers per cycle, every piston 0-ticking every 3 gt. (A counting
+  bound beyond that is not proved: a piston can push the element that quasi-powers it when the
+  element is second in its upward line.)
+  Exhaustive targeted searches (`census --max-period 3 --min-pistons --min-rblocks`): no clock
+  with P <= 3 among every <= 5-block polycube (the full palette, and piston/sticky/redstone
+  block/slime/stone), and every 6-block polycube with exactly 4 pistons + 2 redstone blocks
+  (running); box mode (`--box WxHxD`, non-connected placements) next.
 * Pure observer clocks: each observer watches one cell, so the watch graph is functional (one
   cycle per component) and lattice cycles have even length n. One pulse runs 2 gt per observer:
   P = 2n for n >= 4. The pair (n = 2) has two stable modes chosen by the order of the two

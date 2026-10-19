@@ -44,6 +44,60 @@ pub struct CensusArgs {
     /// Shapes: one polycube class only, as `x,y,z;x,y,z;...` (for a targeted run)
     #[arg(long)]
     pub shape: Option<String>,
+    /// Keep only clocks with a period <= this (a targeted hunt, e.g. 3 for P2/P3)
+    #[arg(long)]
+    pub max_period: Option<u32>,
+    /// Skip structures with fewer pistons (sticky or not) than this
+    #[arg(long, default_value_t = 0)]
+    pub min_pistons: usize,
+    /// Skip structures with fewer redstone blocks than this
+    #[arg(long, default_value_t = 0)]
+    pub min_rblocks: usize,
+    /// Skip structures with more redstone blocks than this
+    #[arg(long, default_value_t = 99)]
+    pub max_rblocks: usize,
+    /// Instead of polycubes: every k-subset of the cells of a WxHxD box (x, y, z) touching its
+    /// low faces, connected or not (quasi-connectivity and moved blocks act at a distance)
+    #[arg(long = "box")]
+    pub r#box: Option<String>,
+}
+
+/// Every k-subset of a WxHxD box touching the box's x = 0, y = 0 and z = 0 faces, one per class
+/// of the horizontal rotations that keep it in the box (the rest are found again rotated).
+pub fn box_subsets(spec: &str, k: usize) -> Result<Vec<Vec<P3>>> {
+    let d: Vec<i32> = spec.split('x').map(|t| t.trim().parse()).collect::<Result<_, _>>()?;
+    if d.len() != 3 {
+        bail!("--box takes WxHxD");
+    }
+    let (dw, dh, dd) = (d[0], d[1], d[2]);
+    let cells: Vec<P3> = (0..dh).flat_map(|y| (0..dd).flat_map(move |z| (0..dw).map(move |x| [x, y, z]))).collect();
+    let n = cells.len();
+    let mut out: BTreeSet<Vec<P3>> = BTreeSet::new();
+    let mut idx: Vec<usize> = (0..k).collect();
+    if k > n {
+        return Ok(vec![]);
+    }
+    loop {
+        let set: Vec<P3> = idx.iter().map(|&i| cells[i]).collect();
+        if set.iter().any(|c| c[0] == 0) && set.iter().any(|c| c[1] == 0) && set.iter().any(|c| c[2] == 0) {
+            out.insert(canon_shape(&set));
+        }
+        // next combination
+        let mut i = k;
+        loop {
+            if i == 0 {
+                return Ok(out.into_iter().collect());
+            }
+            i -= 1;
+            if idx[i] != i + n - k {
+                break;
+            }
+        }
+        idx[i] += 1;
+        for j in i + 1..k {
+            idx[j] = idx[j - 1] + 1;
+        }
+    }
 }
 
 type P3 = [i32; 3];
@@ -260,12 +314,13 @@ pub fn padded(blocks: &[(BlockPos, Block)], kick: &Kick, period: u32, horizon: u
 
 pub fn run(a: CensusArgs) -> Result<()> {
     let pal = palette(&a.palette)?;
-    let shapes: Vec<Vec<P3>> = match &a.shape {
-        Some(s) => vec![s.split(';').map(|c| {
+    let shapes: Vec<Vec<P3>> = match (&a.shape, &a.r#box) {
+        (Some(s), _) => vec![s.split(';').map(|c| {
             let v: Vec<i32> = c.split(',').map(|t| t.trim().parse().unwrap()).collect();
             [v[0], v[1], v[2]]
         }).collect()],
-        None => shape_classes(a.k),
+        (None, Some(b)) => box_subsets(b, a.k)?,
+        (None, None) => shape_classes(a.k),
     };
     let kick_self = a.kicks.split(',').any(|s| s == "self");
     let kick_last = a.kicks.split(',').any(|s| s == "last");
@@ -316,6 +371,11 @@ pub fn run(a: CensusArgs) -> Result<()> {
                         if !require.is_empty() && !require.iter().all(|r| blocks.iter().any(|(_, b)| sim::short(b) == *r)) {
                             continue;
                         }
+                        let npist = blocks.iter().filter(|(_, b)| matches!(b, Block::Piston { .. })).count();
+                        let nrb = blocks.iter().filter(|(_, b)| matches!(b, Block::RedstoneBlock)).count();
+                        if npist < a.min_pistons || nrb < a.min_rblocks || nrb > a.max_rblocks {
+                            continue;
+                        }
                         // without pistons nothing moves: an observer must watch a structure cell
                         let has_piston = blocks.iter().any(|(_, b)| matches!(b, Block::Piston { .. }));
                         if !has_piston {
@@ -337,6 +397,9 @@ pub fn run(a: CensusArgs) -> Result<()> {
                             let spec = Spec { name: String::new(), blocks: blocks.clone(), kick: kick.clone(), output: None };
                             let r = sim::simulate(&spec, &sim::Opts { horizon: a.horizon, margin: 5, period_only: true });
                             if r.verdict != Verdict::Clock {
+                                continue;
+                            }
+                            if a.max_period.is_some_and(|m| r.period > m) {
                                 continue;
                             }
                             if padded(&blocks, &kick, r.period, a.horizon) {
