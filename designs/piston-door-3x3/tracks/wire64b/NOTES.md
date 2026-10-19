@@ -90,3 +90,55 @@ the lever is excluded from the volume). Then:
   by quasi-connectivity from (4,2), Q delayed past A3) and K0 (watch Q from (0,-2), merge, P0).
 - Open: K1. Plan was lever on a K1 face, (0,4) observer-west driving A, (0,5) B's feed, (-2,3)
   conductor driving L+P2+P1 (m105r), a timer in (-2,4)/(-1,4)/(-2,5)/(-1,5); no layout found, see 2b.
+- 8x8-105 (v1) = 8x8-131 (v3): every cell of it stays in x -2..4, so it FITS 7 wide (the 8th column
+  was spare room).
+
+## 4. 7 wide (00:01Z retarget: 7x9 = 63 and 7x8 = 56 exist in the community)
+### 4a. The 2-bottom-row connectivity wall (by hand, then by `door connect`)
+For the elevator-up family in rows -2..6 (2 bottom rows): each bottom quad must feed something,
+P_M (1,-2) only from (0,-2)/(2,-2) (its quasi cell (1,-1) touches only the corner parks, and
+powering a parked door block re-fires that corner's own puller under it); a quad links to the top
+only through its side stack, which needs (-2,0)/(4,0) free = that corner leaves DOWN = its puller
+takes (0,-2)/(2,-2) away from P_M; quad-to-quad links need both. Hence: both corners down = P_M
+unfeedable, one down = the other quad sealed, none down = no link to the top. Parity fixes (busy
+window, merger, memory link, torch link) cannot help: it is connectivity. The third bottom row
+(rows -3..5) removes the wall: the two bottom quads join under P_M.
+
+### 4b. `door connect` (new tool, connect.rs)
+Connectivity + ORDER, parity and room ignored (a necessary condition): regions of free cells after
+the run's footprint and the ring (merged through unswept ring stones); a piston is fed from a region
+next to it or to its quasi cell, directly, through a ring stone or through a parked door block
+(conduction); a region wakes when an observer there could see a change; door blocks bridge
+regions; BFS over EVERY event order (pulses on all pistons, level toggles on those extended at rest,
+stack events: two stacked pistons fired by one source), only the lever's region awake at each flip,
+dominance pruning on awake sets. Verbose: the region map and a witness open/close order (which
+regions are awake at each event), or the wall (the pistons no awake region can feed). Sanity: e89
+and flat43-full pass in their 8x9 boxes and fail in every 7x9 placement.
+
+Results on families v3 (6bdcca5), first pass (cap 1M; logs/connect-v3-7x9-7x8.log; 70 placements
+of 28 entries skipped there because the v3 runs, which model quasi-coupling, do not replay in this
+macro model: fixed afterwards by keeping the partial footprint):
+| box (rows) | WIRABLE | NOT | UNDECIDED (cap) |
+|---|---|---|---|
+| 7x9, extra row at the BOTTOM (y -3..5) | 7x8-008 010 012 013 014 015 016 017 021 023 025 026 027 028 029 030 031 032 033 034 035 036 037 038 (24) | 009 022 024 | 011 |
+| 7x9, rows -2..6 | 014 015 | 008 016 031 | 009 010 011 012 013 017 032 037 038 |
+| 7x9, rows -4..4 (center-down entries) | - | 021 022 023 028 033 034 | 024 025 026 027 029 030 035 036 |
+| 7x8 | 014 015 | 008 016 031 021 022 023 028 033 034 | 17 entries |
+| v3 8x8-131 (= v1 8x8-105) and 8x8-135 | WIRABLE in 7x9 (both placements) and in 7x8 | | |
+Walls named by the tool for the casualties: "no open state reachable: pistons never fed from an
+awake region: <the side stack's top pistons, the elevator, the T parker...>" (the lever's region
+cannot reach the core: the 2-row-bottom wall above) or "opens but cannot close" (the close needs a
+region that only wakes later in the order).
+Typical witnesses (7x9, y -3..5): 7x8-012: lever top-left (TL/ML stack, A x3), the top-right wakes by
+watching A from (2,4) (T parker, B, right stack), the bottom wakes by watching MR's puller from
+(4,0) (BL, BM, BR). 7x8-016: lever in the 17-cell bottom (BL, BM, BR, MR's puller from (4,0)); the
+top-right watches MR's puller from (4,2) and runs B; the top-left wakes on B's early round trip
+(B pushes A down into the empty (1,3) and pulls it back: no net change) and runs A, the T parker,
+TL/ML. 8x8-135 in 7x8 (center DOWN): lever top-left, the top-right wakes on the T puller, the
+bottom-right on MR's puller, the bottom-left on B''s early round trip.
+
+### 4c. What every survivor still has to solve
+Connectivity is not the wall any more: every survivor puts the whole elevator sequence (A x3 with
+B x2 interleaved, plus the T parker) on one or two 7-8 cell pockets whose inputs are only the
+elevator's own pistons (each link a double or quadruple pulse train), which is the K1 problem of
+section 2b. Parity (mergers, flip-flops) and room are what `door connect` does not model.

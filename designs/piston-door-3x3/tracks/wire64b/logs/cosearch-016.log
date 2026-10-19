@@ -1,0 +1,4 @@
+ideal reference designs/piston-door-3x3/tracks/wire64b/w63/7x8-016-sym.ideal: 52 piston events per cycle
+seed designs/piston-door-3x3/tracks/wire64b/w63/w63-016-seed.txt: 21 blocks in the box, screen 37/79
+10 piston cells locked, 44 cells free
+box x -2..4, y -3..5 (7x9 = 63), 44 free cells, palette 37 states, 16 threads, 2000 s
