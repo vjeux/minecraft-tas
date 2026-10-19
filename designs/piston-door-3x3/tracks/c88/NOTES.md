@@ -113,3 +113,15 @@ level-held left pullers + K, U's dropper/observer chain):
   input edges, visible to the observer: sculk sensor -> bulb -> observer gave 2 pulses); comparators and
   repeaters cannot stand on row y=-2 (no support) or on dust; the 3-observer B-watcher alternative
   ((2,4) watching (1,4): 3 pulses open / 1 close) breaks at some positions.
+- s27 (= BEST.txt, 53 blocks): `door minimize --seamless full+hall` on s26 turned the right side's
+  (3,3) stone + dust (3,4) into one observer (3,4) facing east into stone (2,4). Same checks (verify
+  32 positions, rotation-safe, FULL + hallway, repeater input 35/35, frame 12/12). `door regrow`
+  sizes 2 and 3 find nothing; redsim --vary screens of the top-left (27.9M, air allowed: min 9 + O1),
+  the top-right (480k: min 7) and the bottom-left (346k: min 8) find no smaller region.
+- 7x8 with this mechanism: the pistons fit x -2..4 (7 wide), but the left puller wall (x=-2, y 0..2)
+  splits the left side: TL/ML can only be fed from (-2,3) (TL direct, ML by QC), L0 and the bottom
+  (K's DELAYED level, U's masked dropper) only from (-2,-1)/(-1,-2), and one lever (front face or on
+  a puller's back outside the box) reaches one half only; the 8x8's column x=-3 is what lets the lever
+  block feed both halves (dust (-3,2) up, dust (-3,0) down). K also needs its 8 gt delay exactly
+  (repeater delays 1-3 fail in redsim): a repeater into K must sit at (-2,-1) reading (-3,-1). So no
+  7x8 for this mechanism; 8x7 is out too (B at y=5, U/BR's puller at y=-2).
