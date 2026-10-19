@@ -1,0 +1,24 @@
+name: clk-obs-p30-note-obs-stk-6b
+# CLOCK: grow-p30-6b-0020 period 30 gt, on 13/30, edges 6, warmup 10, family note_block+observer+sticky_piston, 6 blocks, 1x4x3, kick: last 0,0,1
+# (clk-obs, found by grow-p30-6b-0020.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 0 2
+port start: 0 0 1 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  .
+  .
+layer 2:
+  C
+  E
+  .

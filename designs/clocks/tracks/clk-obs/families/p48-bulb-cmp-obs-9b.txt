@@ -1,0 +1,16 @@
+name: clk-obs-p48-bulb-cmp-obs-9b
+# CLOCK: clk-obs-div3 period 48 gt, on 24/48, edges 1, warmup 0, family comparator+copper_bulb+observer, 9 blocks, 7x2x1, kick: last 1,0,0
+# (clk-obs, found by div3.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: -5 0 0
+port output: 0 0 0
+port start: 1 0 0 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:stone
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:observer[facing=east,powered=false]
+  E minecraft:observer[facing=west,powered=false]
+layer -1:
+  .B.B...
+layer 0:
+  ACACADE

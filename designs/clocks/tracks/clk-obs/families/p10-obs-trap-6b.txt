@@ -1,0 +1,20 @@
+name: clk-obs-p10-obs-trap-6b
+# CLOCK: clk-obs-trapring6-p10 period 10 gt, on 2/10, edges 1, warmup 2, family iron_trapdoor+observer, 6 blocks, 1x2x3, kick: last 0,0,0
+# (clk-obs, found by clk-obs-trapring6-p10.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+layer 0:
+  A
+  A
+  B
+layer 1:
+  C
+  D
+  E

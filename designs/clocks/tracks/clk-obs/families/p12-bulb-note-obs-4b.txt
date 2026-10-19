@@ -1,0 +1,16 @@
+name: clk-obs-p12-bulb-note-obs-4b
+# CLOCK: census-k4-p12-0000 period 12 gt, on 4/12, edges 2, warmup 0, family copper_bulb+note_block+observer, 4 blocks, 1x1x4, kick: last 0,0,2
+# (clk-obs, found by census-k4-p12-0000.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 0 2
+port start: 0 0 2 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+layer 0:
+  A
+  B
+  C
+  D

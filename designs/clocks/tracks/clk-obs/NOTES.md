@@ -19,6 +19,7 @@ below was measured, never assumed: redsim (`mctas clock sim`) for the searches, 
 | `pick <folders> --out-dir D` | the smallest clock per (period, family), re-run with `clock::sim`, named `p<P>-<family>-<blocks>b.txt` |
 | `cores <folders>` | groups clocks by their steady-state CORE (changing cells + the static blocks they need, up to rotation and phase): distinct machines vs starters |
 | `divider <base> --bulbs K` | a copper bulb + comparator chain out of an observer's back: P = P0 x 2^K |
+| `every --min A --max B [--out-dir D]` | one construction per period (observer ring, note ring, odd piston stage + tower), each confirmed by redsim |
 
 Palette shorthands: obs, piston, sticky (6 facings each), note, lamp, bulb, stone, rblock, glass,
 slime, honey, obsidian, trap (iron trapdoors, 8 states).
@@ -64,3 +65,27 @@ P12 4979 / 3724 (most P4/P6 structures are the observer pair with different star
 * Odd periods come from pistons: a block landing in the block-entity phase makes a piston fire
   the NEXT tick (+1 gt). The 6-block P5 runs a 10 gt loop carrying two pulses 5 gt apart (the odd
   offset is made during the warmup).
+
+### Every period P >= 4 (constructions, `mctas clock obs every --min 8 --max 200`)
+
+Every P from 4 up is reachable by block-update clocks: the census gives P4 (4 blocks), P5 (6),
+P6 (2), P7 (5), P9 (5), and three parametric families give every P >= 8 (all 192 designs for
+8..200 confirmed by redsim; the gaps of the census verified in the game, `logs/`):
+
+| P | construction | blocks |
+|---|---|---|
+| 0 mod 4, >= 8 | ring of P/2 observers on a 2 x P/4 rectangle | P/2 |
+| 2 mod 4, >= 10 | ring of P/2 observers + 1 note block (it follows its power at once but takes a lattice cell, so an odd number of observers closes the loop) | P/2 + 1 |
+| odd, >= 11 | THE ODD PISTON STAGE + an observer tower ([oddring11](oddring11.txt), [oddring13](oddring13.txt)) | about P/2 |
+
+The odd stage: observer O1 (fed by the ring) quasi-powers a sticky piston S (O1 touches the cell
+above S, facing away); O2 watches O1 and powers S directly from above, so S stays powered 4 gt
+(O2 turns on in the very tick O1 turns off) and does NOT spit its redstone block: the block LANDS
+under a normal piston Q in the block-entity phase 2 gt after the push, so Q fires the next tick
+(+1 gt) and its head enters the cell observer J watches: J fires 5 gt after O1. Q retracts when S
+pulls the block back (4 gt). A tower of observers carries J's pulse back to O1, 2 gt each. Variant A
+pushes the redstone block itself (J sits over an odd cell, the tower has an even number of
+observers: P = 4h - 1 for a tower of height h); variant B pushes a slime block that drags the
+redstone block one cell further (an odd tower: P = 4h + 1). A single 2 gt observer pulse is NOT
+enough: the sticky piston would retract while the block is still moving and place it at once
+(spitting), in the block-event phase, and Q would fire in the same tick (even again).

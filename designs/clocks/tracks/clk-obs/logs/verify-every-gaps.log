@@ -1,0 +1,84 @@
+CLOCK: clk-obs-notering-p10 period 10 gt, on 2/10, edges 1, warmup 2, family note_block+observer, 6 blocks, 3x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (16.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-notering-p34 period 34 gt, on 2/34, edges 1, warmup 2, family note_block+observer, 18 blocks, 9x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (16.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-notering-p50 period 50 gt, on 2/50, edges 1, warmup 2, family note_block+observer, 26 blocks, 13x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (17.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-notering-p62 period 62 gt, on 2/62, edges 1, warmup 2, family note_block+observer, 32 blocks, 16x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (17.3 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p101 period 101 gt, on 2/101, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 54 blocks, 4x26x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (21.6 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p199 period 199 gt, on 2/199, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 102 blocks, 3x51x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (26.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p25 period 25 gt, on 2/25, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 16 blocks, 4x7x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (16.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p29 period 29 gt, on 2/29, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 18 blocks, 4x8x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (16.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p31 period 31 gt, on 2/31, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 18 blocks, 3x9x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (15.9 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p33 period 33 gt, on 2/33, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 20 blocks, 4x9x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (16.4 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p39 period 39 gt, on 2/39, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 22 blocks, 3x11x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (16.1 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p41 period 41 gt, on 2/41, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 24 blocks, 4x11x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (17.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p45 period 45 gt, on 2/45, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 26 blocks, 4x12x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (17.3 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p47 period 47 gt, on 2/47, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 26 blocks, 3x13x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (17.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p49 period 49 gt, on 2/49, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 28 blocks, 4x13x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (19.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p51 period 51 gt, on 2/51, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 28 blocks, 3x14x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (17.4 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p53 period 53 gt, on 2/53, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 30 blocks, 4x14x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (18.1 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p55 period 55 gt, on 2/55, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 30 blocks, 3x15x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (16.8 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p57 period 57 gt, on 2/57, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 32 blocks, 4x15x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (18.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p59 period 59 gt, on 2/59, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 32 blocks, 3x16x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (17.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p61 period 61 gt, on 2/61, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 34 blocks, 4x16x1, robust
+  kick: last 2,3,0; 32 builds periodic of 32 (18.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p63 period 63 gt, on 2/63, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 34 blocks, 3x17x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (17.4 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-oddring-p99 period 99 gt, on 2/99, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 52 blocks, 3x26x1, robust
+  kick: last 1,3,0; 32 builds periodic of 32 (19.8 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-ring-p100 period 100 gt, on 2/100, edges 1, warmup 2, family observer, 50 blocks, 25x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (19.9 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-ring-p200 period 200 gt, on 2/200, edges 1, warmup 2, family observer, 100 blocks, 50x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (26.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-ring-p44 period 44 gt, on 2/44, edges 1, warmup 2, family observer, 22 blocks, 11x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (16.7 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-ring-p56 period 56 gt, on 2/56, edges 1, warmup 2, family observer, 28 blocks, 14x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (19.4 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-ring-p64 period 64 gt, on 2/64, edges 1, warmup 2, family observer, 32 blocks, 16x1x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (17.7 s)
+  redsim AGREES (period, warmup, output waveform, family, box)

@@ -1,0 +1,19 @@
+name: clk-obs-p10-obs-pis-stk-4b
+# CLOCK: census-k4-p10-0017 period 10 gt, on 0/10, edges 0, warmup 3, family observer+piston+sticky_piston, 4 blocks, 1x2x4, kick: last 0,1,2
+# (clk-obs, found by census-k4-p10-0017.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:piston[extended=false,facing=south]
+layer 0:
+  A
+  B
+  .
+layer 1:
+  .
+  C
+  D

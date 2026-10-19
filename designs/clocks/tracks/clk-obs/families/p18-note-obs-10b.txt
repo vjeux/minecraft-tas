@@ -1,0 +1,24 @@
+name: clk-obs-p18-note-obs-10b
+# CLOCK: clk-obs-notering10-p18 period 18 gt, on 2/18, edges 1, warmup 2, family note_block+observer, 10 blocks, 1x2x5, kick: last 0,0,0
+# (clk-obs, found by clk-obs-notering10-p18.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+layer 0:
+  A
+  B
+  A
+  A
+  C
+layer 1:
+  D
+  E
+  E
+  E
+  E

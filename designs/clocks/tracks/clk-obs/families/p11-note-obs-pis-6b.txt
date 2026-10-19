@@ -1,0 +1,24 @@
+name: clk-obs-p11-note-obs-pis-6b
+# CLOCK: grow-p11-6b-0000 period 11 gt, on 9/11, edges 2, warmup 19, family note_block+observer+piston, 6 blocks, 1x3x3, kick: last 0,0,0
+# (clk-obs, found by grow-p11-6b-0000.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:piston[extended=false,facing=north]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:note_block[instrument=basedrum,note=0,powered=false]
+layer 0:
+  A
+  .
+  B
+layer 1:
+  C
+  D
+  C
+layer 2:
+  .
+  .
+  E

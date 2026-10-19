@@ -1,0 +1,26 @@
+name: clk-obs-oddring11
+# The odd piston stage closed by a short observer ring. O1 (0,2,0) quasi-powers sticky piston S
+# (it touches the cell above S, facing away from it); O2 (0,1,0) watches O1 and powers S from
+# above, so S stays powered 4 gt and does not spit its redstone block R: R lands under normal
+# piston Q in the block-entity phase 2 gt later, so Q fires the NEXT tick (+1 gt) and its head
+# enters the cell observer J watches: O1 fires at t, J at t + 5. Then J -> K1 -> K2 -> O1 (2 gt
+# each): P = 5 + 6 = 11. Longer rings add 2 gt per observer (parametric: every odd period).
+origin: 0 0 0
+port output: 1 2 0
+port start: 1 3 0 last
+palette:
+  S minecraft:sticky_piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  Q minecraft:piston[extended=false,facing=up]
+  U minecraft:observer[facing=up,powered=false]
+  J minecraft:observer[facing=east,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=east,powered=false]
+layer 0:
+  SR
+layer 1:
+  U.Q
+layer 2:
+  UJ
+layer 3:
+  ED

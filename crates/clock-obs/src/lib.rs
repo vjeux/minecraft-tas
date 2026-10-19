@@ -12,6 +12,7 @@
 //! * `grow`: one block added or replaced around known clocks.
 
 pub mod census;
+pub mod construct;
 pub mod cores;
 pub mod divider;
 pub mod grow;
@@ -105,6 +106,9 @@ pub enum Cmd {
     /// The verified clocks of clock verify logs, matched to their design files: a markdown table
     /// (and the coordinator's one-line format)
     Report(report::ReportArgs),
+    /// Constructions for every period (observer rings, note rings, the odd piston stage + tower),
+    /// each simulated to confirm its period
+    Every(construct::EveryArgs),
 }
 
 pub fn run_args(args: Args) -> Result<()> {
@@ -155,5 +159,6 @@ pub fn run_args(args: Args) -> Result<()> {
         Cmd::Cores(a) => cores::run(a),
         Cmd::Divider(a) => divider::run(a),
         Cmd::Report(a) => report::run(a),
+        Cmd::Every(a) => construct::run(a),
     }
 }

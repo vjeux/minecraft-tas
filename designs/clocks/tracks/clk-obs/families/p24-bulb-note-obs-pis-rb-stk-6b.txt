@@ -1,0 +1,25 @@
+name: clk-obs-p24-bulb-note-obs-pis-rb-stk-6b
+# CLOCK: grow-p24-6b-0203 period 24 gt, on 18/24, edges 3, warmup 3, family copper_bulb+note_block+observer+piston+redstone_block+sticky_piston, 6 blocks, 1x3x3, kick: last 0,1,0
+# (clk-obs, found by grow-p24-6b-0203.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 0 last
+palette:
+  A minecraft:piston[extended=false,facing=north]
+  B minecraft:sticky_piston[extended=false,facing=south]
+  C minecraft:redstone_block
+  D minecraft:waxed_copper_bulb[lit=false,powered=false]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:note_block[instrument=harp,note=0,powered=false]
+layer -1:
+  .
+  A
+  .
+layer 0:
+  B
+  .
+  C
+layer 1:
+  D
+  E
+  F

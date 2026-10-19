@@ -1,0 +1,25 @@
+name: clk-obs-p17-note-obs-stk-6b
+# CLOCK: grow-p17-6b-0001 period 17 gt, on 9/17, edges 3, warmup 0, family note_block+observer+sticky_piston, 6 blocks, 1x3x3, kick: last 0,0,0
+# (clk-obs, found by grow-p17-6b-0001.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 -1
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:piston[extended=false,facing=down]
+  C minecraft:sticky_piston[extended=false,facing=south]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .
+  A
+  B
+layer 1:
+  C
+  D
+  .
+layer 2:
+  .
+  E
+  F

@@ -1,0 +1,16 @@
+name: clk-obs-p16-bulb-obs-5b
+# CLOCK: census-k5-p16-0036 period 16 gt, on 4/16, edges 2, warmup 2, family copper_bulb+observer, 5 blocks, 2x1x3, kick: last 0,0,0
+# (clk-obs, found by census-k5-p16-0036.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=west,powered=false]
+layer 0:
+  AD
+  BE
+  C.

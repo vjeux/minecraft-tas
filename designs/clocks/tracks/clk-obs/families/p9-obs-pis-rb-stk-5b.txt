@@ -1,0 +1,20 @@
+name: clk-obs-p9-obs-pis-rb-stk-5b
+# CLOCK: census-k5-p9-0144 period 9 gt, on 4/9, edges 2, warmup 4, family observer+piston+redstone_block+sticky_piston, 5 blocks, 1x3x3, self-start
+# (clk-obs, found by census-k5-p9-0144.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 0 0
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:piston[extended=false,facing=down]
+  D minecraft:sticky_piston[extended=false,facing=south]
+  E minecraft:redstone_block
+layer 0:
+  A
+  .
+layer 1:
+  B
+  C
+layer 2:
+  D
+  E
