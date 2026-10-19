@@ -8,111 +8,135 @@ from rest) and the close trace (lever off from the open state), both from one pl
 solver answers "does any filling of the box form a door within T ticks per edge?".
 
 Code: `crates/piston-door/src/boxproof/` (`mctas door boxproof fuzz|case|bmc|catalog|batch`).
+* `bmc --w W --h H --dx X --dy Y --t T` whole box; `--fix design [--fix-kinds piston,stone]`
+  fixed-pistons mode (those cells fixed, the rest free, full palette incl. extra update
+  pistons); `--fix-all --free "x,y;.."` a partial placement; `--prove` (races forbidden),
+  `--nondet` (races = either outcome), default find mode (races ignored, CEGAR); `--ring-rest`
+  (ring plain at rest too: the brief's reading) else FULL seamless = ring plain when open (as
+  `door properties`); `--lever-mod K --lever-rem k` lever cubes; `--cfg sat|unsat` CaDiCaL presets.
+* `fuzz --count N --w 5 --h 5` the model vs redsim on random boxes; `case --k N` one in detail.
 
 ## The model (`state.rs`, `tick.rs`, `round.rs`)
 * Written ONCE over a Boolean algebra (`alg.rs`): `Conc` = plain bools (the reference model the
-  differential tests run), `Sat` = Tseitin gates in CaDiCaL (rustsat), hash-consed. A model that
+  differential tests run), `Sat` = hash-consed Tseitin gates in CaDiCaL (rustsat). A model that
   matches redsim on bools IS the circuit the solver searches.
-* State per cell per checkpoint: kind (air, stone, obsidian, redstone block, dust, repeater,
-  observer, torch, wall torch, piston, head, moving block, lever), facing (E W U D), sticky,
-  extended, powered/lit, repeater delay, dust power (unary, exact 0..15), moving-block entity
-  (content kind/facing/sticky/powered, extending, source, progress 0/0.5/1), pending scheduled
-  tick (due in 0..7 ticks), queued block event (extend / retract / retract-and-drop).
-* Signals per checkpoint (combinational, exact): conductors' strong power (repeaters, observers,
-  torches below, lever on its support) and weak power (+ dust beside / above), dust levels as the
-  unique fixpoint (sources with every wire signal off, horizontal + step diagonals with the
-  conductor rules of `incomingWireSignal`), piston power (5 sides + quasi-connectivity incl. an
-  out-of-plane lever), repeater input, torch input, full-face sturdiness for supports.
-* A tick, phase by phase like `ServerLevel.tick`: (1a) due repeater ticks, (1b) due observer and
-  torch ticks, (2) block events in ROUNDS (events queued while a round runs execute in the next;
-  2 rounds modeled), (4) moving blocks age / place. After every step `settle`: dust recomputed,
-  cells that changed, neighbor updates (exact patterns: setBlock 6 neighbors; dust change =
-  cells within distance 2; torch toggle = distance 2; repeater/observer = front cell + its
-  neighbors except back; lever = own + support's neighbors; piston moves = neighbors of every
-  moved block's old cell, the arm, the base; head forwards to base), observers fire on any change
-  of the watched cell (unpowered, no tick pending), repeaters/torches schedule on a mismatch when
-  updated (not if collected this tick), pistons check power when updated (QC is a BUD) and queue
-  events (extend only if the push resolves NOW; retract-and-drop when the block two ahead is still
-  extending). Pistons: straight-line structure resolution with the 12-block limit, sticky pull of
-  one block, spitting (final-tick of the block two ahead), retract while the head is still moving
-  (source final tick -> air), pushed pistons and observers, an observer pushed toward its
-  destination leaves a stale tick, placed observers fire (unpowered) or turn off (powered).
-* Inside one step the model is PARALLEL: where the game's order could change the outcome it
-  raises a FLAG (`flag()`): two events writing one cell, an event whose power changes within its
-  round, a repeater/torch input changing within its own phase, an observer turning off while its
-  watched cell changes, a component checked before dust settled (lever cascade BUD), events left
-  after the last round. Prove mode forbids flagged situations; find mode ignores them (CEGAR).
-* Requirements (a real door can never violate them, so they are sound pruning): nothing pushed
-  out of the box, nothing destroyed (a drop = an entity = the judge fails), dust / repeaters /
-  torches always on a full sturdy face, the lever's support never moves.
-* Door constraints (`bmc.rs`): the 9 door cells stone at rest and air when open; rest state stable
-  (repeaters/torches consistent, dust exact, pistons extended iff powered, or powered-but-blocked);
-  open state idle at T (no tick, event or moving block); close trace ends idle at exactly the rest
-  state; FULL seamless (the 12 ring cells hold only stone, obsidian or air at rest and open).
-  Lever candidates: every in-box cell off the door/ring with each in-plane support, every cell
-  just outside the box, optionally out of the plane (`--oop`).
-* CEGAR: every SAT model is written as a design and screened by `redsim_screen` (the judge's
-  checks on redsim at 32 positions); a failing placement is blocked and the solver asked again.
+* Palette: air, stone (door block, conductor), obsidian, glass (non-conductor), redstone block,
+  dust (exact power 0-15), repeater 1-4 E/W, observer E/W/U/D, torch, wall torch E/W, note block
+  (powered at each neighbor update + 6-neighbor update; instrument from the block below), lamp
+  (lit at once, unlit 4 gt later), piston / sticky piston E/W/U/D (+ heads, extended at rest),
+  moving blocks (block-entity content, extending, source, progress), one lever: in the box, just
+  outside it, or out of the plane (`--oop`), its support never moving.
+* Signals per checkpoint (exact): strong/weak conductor power, dust as the unique fixpoint (no
+  wire signals while a wire computes; step diagonals with the conductor rules), piston power
+  (5 sides + quasi-connectivity), repeater / torch / note / lamp inputs, full-face sturdiness.
+* A tick, like `ServerLevel.tick`: (1a) due repeater ticks, (1b) due observer, torch and lamp
+  ticks, (2) block events in ROUNDS (events queued while a round runs execute in the next; 2
+  rounds), (4) moving blocks age / place. After every step `settle`: dust recomputed, changed
+  cells, neighbor updates with the game's exact patterns (setBlock 6 neighbors; dust change =
+  distance 2; torch toggle = distance 2; repeater/observer = front + its neighbors except back;
+  lever = own + support; piston moves per moved cell / arm / base; heads forward to the base;
+  note blocks at once), observers fire on any change of the watched cell (unpowered, no tick
+  pending), repeaters / torches schedule on a mismatch when updated (not when collected this
+  tick), pistons check when updated (QC is a BUD) and queue events (extend only if the push
+  resolves now; retract-and-drop when the block two ahead is still extending). Pistons: straight
+  structures with the 12 limit, sticky pull, spitting, retract while the head still moves, pushed
+  pistons and observers (a pushed observer facing its destination leaves a stale tick; placed
+  observers fire or turn off).
+* Inside a step the model is PARALLEL: where the game's order could change the outcome it raises
+  a FLAG: a repeater/torch/lamp input changing within its own phase, an observer turning off
+  while its watched cell changes, a component checked before dust settled (lever cascade BUD),
+  two events writing one cell, an event whose power changes within its round, events left after
+  the last round. `--prove` forbids flagged runs; `--nondet` makes the first four an either-way
+  choice (a fresh variable: sound) and forbids the rest; find mode ignores them (CEGAR).
+* Requirements (sound: a real door never violates them): nothing pushed out of the box, nothing
+  destroyed (a drop is an entity: the judge fails), dust/repeaters/torches on full sturdy faces.
+* Door: 9 door cells stone at rest and air when open; rest stable (repeaters/torches/notes/lamps
+  consistent, dust exact, pistons extended iff powered or powered-but-blocked); open idle at T;
+  close idle at T at exactly the rest state; FULL seamless as above.
 
 ## Validation (differential, `door boxproof fuzz`)
-Random 5x5 boxes (palette above, lever in box / outside / out of plane), settled in redsim, then
-30 gt lever on + 30 gt lever off, compared after every tick with the bool model: every block,
-moving-block entity (content, progress), pending tick and pending block event.
-* 30,000 random boxes, seed 7: 10,915 compared (1,062 with pistons moving): 10,913 identical or
-  flagged; 2 UNFLAGGED mismatches (same class: a piston updated by the lever before the dust it
-  depends on settles, then not updated again; partially flagged since 23:15).
-* seed 3: 7,452 compared, 4 unflagged (2 lever-cascade BUD, 2 phase-4 queue differences, under
-  study); 49 flagged mismatches.
-* e89b (8x9 record) with its placement given: model SAT in 14.5 s (t=45/edge, 37M vars, 123M
-  clauses, build 84 s); the model's door passes the redsim screen (open 34 / close 34). With ONE
-  block-event round e89b is UNSAT: it needs events chained within a tick, so 2 rounds are modeled.
+Random 5x5 boxes from the whole palette, settled in redsim, then 30 gt lever on + 30 gt lever
+off, compared after every tick with the bool model: every block state, moving-block entity
+(content, progress), pending scheduled tick and pending block event.
+* 20,000 boxes (seed 11, final palette): 7,691 compared (670 with pistons moving): 7,685
+  identical or flagged, 6 UNFLAGGED mismatches (0.08%): a lamp re-schedule (1), piston events
+  queued in the moving-block phase in a different order (2), a close-phase piston chain (3).
+* Bugs the fuzz found and fixed: the lever's own update reaches its support; pushed observers'
+  stale ticks; the note-block event kind. A calibration found the worst one: the torch phase
+  dropped an observer's toggle in FREE cells (fixed 02:20Z, 40d9258; fuzz could not see it since
+  its cells are concrete): every whole-box / fixed-pistons result before that commit is void.
+* e89b with its placement given: SAT in 4 s (8x9, t=40/edge, 9.5M vars / 33M clauses), the model's
+  door passes the redsim screen (open 34 / close 34). With ONE block-event round e89b is UNSAT:
+  it needs events chained within a tick, hence 2 rounds. e89b with one wiring cell erased (palette
+  observer+torch, after the fix): SAT 3.3 s.
 
-## Sizes and solve times
-Find mode (flags ignored, CaDiCaL `sat` config since 01:42Z, CEGAR with the redsim screen):
-| instance | T/edge | vars | clauses | memory | result |
-|---|---|---|---|---|---|
-| e89b fixed placement (8x9) | 45 | 37M | 123M | 13-33 GB | SAT 14.5 s, screen Pass (open 34 / close 34) |
-| e89b, 1 event round | 40 | 13M | 41M | 13 GB | UNSAT 144 s (1 round is not enough) |
-| e89b placement with 6 / 2 bottom wiring cells erased (8x9, lever given) | 40 | 13M | 45-47M | 13 GB | running (calibration: time vs free cells) |
-| e89b MECHANISM only, wiring free (8x9; and 7x8 = x -2..4, y -3..4) | 45 / 40 | 19M / 13M | 69M / 47M | 16 / 10 GB | running (default config since 01:17Z; 7x8 with `sat` config since 01:42Z) |
-| pistmodel fm-7x8-002/006/012 fixed pistons (old encoding) | 40 | 27M | 85M | 21 GB | no answer in 50 min (timeout) |
-| fm-7x8-013/014/015 fixed pistons | 40 | 13M | 47M | 10 GB | stopped after ~15 min for memory |
-| 7x8 whole box, door (2,2) / (2,3), full palette | 36 | 10.3M | 36.7M | 8-11 GB | no answer in 52 / 30 min (stopped for memory) |
-| f131L (wire64), vc1 (vmid) fixed pistons in 7x8 | 40 | 13M | 47-49M | 10 GB | running |
-| w63 (wire64b): 7x8-014 in 7x9, bottom wiring fixed, 24 top cells + lever free | 40 | 13.6M | 49M | 10 GB | running |
+## Results
+Proofs (`--nondet`, strict ring at rest and open, T=20/edge, palette above, 2 event rounds):
+| box | door offsets (mirror-reduced) | vars / clauses | result |
+|---|---|---|---|
+| 5x5 | all 6: (0,0) (0,1) (0,2) (1,0) (1,1) (1,2) | 1.4-2.6M / 4.8-9.3M | UNSAT in 451, 66, 284, 105, 0.0, 50 s |
+| 6x6 | 4 of 8 started | 4.4M / 16M | see log (30 min cap) |
+Even 5x5, where no door can fit, costs the solver minutes per offset: the temporal unrolling is
+the cost, not the encoding size.
 
-Prove mode (flags forbidden: "no race-free door"), strict seamless ring (rest and open), T=20:
-| box | door offset | vars | clauses | result |
-|---|---|---|---|---|
-| 5x5 | (0,0) (0,1) (0,2) (1,0) (1,1) (1,2) (all, mirror) | 1.2-2.4M | 4.4-8.8M | UNSAT in 528, 104, 468, 101, 0.0, 70 s |
-| 6x6 | 8 offsets | 4.2-4.4M | 15-16M | running |
+Find mode (`sat` config, CEGAR via the redsim screen at 32 positions), all after the fix, on box2:
+e89b's mechanism in 7x8 (x -2..4, y -3..4; 4 lever cubes), vmid vb3 (2 cubes), vb2, vc1,
+wire64 f131L, families 8x8-131 (fits 7x8), wire64b w63 top region in 7x9, whole box 7x8 door
+(2,2), and the calibration "e89b with its 6 bottom wiring cells erased": see the log for what
+came back. Each instance ~13.5M vars / 49M clauses / 12 GB.
 
-So even a 5x5 box (where no door can fit: no room for a piston that reaches a door block) takes
-the solver minutes per door offset: the temporal unrolling, not the encoding size, is the cost.
-Next: sound static lemmas (a door cell can only change if some piston's line can reach it,
-counting bounds), cube-and-conquer over the lever candidates, incremental horizon.
+## Sizes
+~515k clauses per tick for a free 7x8 box, ~270k with fixed pistons (per-cell round, `round.rs`:
+every cell takes at most a handful of candidate new states, combined as a sum of products).
 
-Per-tick cost after the per-cell round (`round.rs`): ~515k clauses per tick for a free 7x8 box,
-~270k for a 7x8 box with fixed pistons.
-
-## Coverage (what an UNSAT would and would not prove)
+## Coverage (what an UNSAT proves)
 | aspect | status | over/under |
 |---|---|---|
-| palette | air, stone (door block), obsidian, redstone block, dust, repeater 1-4 E/W, observer x4, torch, wall torch E/W, piston/sticky x4 (+ heads, moving) | blocks outside it are not covered: note block, glass, lamp, bulb, comparator, trapdoor, target (= stone in a plane), dropper... |
-| supports | full sturdy faces only (stone, obsidian, rblock, observer, retracted piston, extended base back, head front) | UNDER: a torch on a sideways base's top (CENTER support) is excluded |
-| dust shape | power only (in a plane every dust powers E/W/down; dots excluded) | dot dust excluded; an observer watching a dust SHAPE change (no power change) is missed (UNDER) |
-| order inside a step | parallel + flags | prove mode forbids flags (UNDER: race-dependent doors excluded); find mode ignores them (neither; CEGAR) |
-| block-event rounds | 2 | more chained rounds flagged |
-| torch burnout | not modeled | doors toggling a torch 8x in 60 gt excluded in effect |
-| horizon | T ticks per edge, idle at T | doors slower than T not covered |
-| one position | the model has no position-dependent dust order | exact where flags are off |
-So today an UNSAT means "no door in this palette whose run is race-free (no flag) within T". To
-make it a proof every flag must become a nondeterministic choice (either order) and the residual
-unflagged mismatches fixed.
+| palette | the list above | blocks outside it (bulb, comparator, trapdoors, dropper, slabs, leaves, rails, buttons, slime) not covered |
+| supports | full sturdy faces (stone, obsidian, glass, rblock, observer, note, lamp, retracted piston, extended base back, head front) | UNDER: CENTER supports (torch on a sideways base's top), moving blocks as supports |
+| dust shape | power only (in a plane every non-dot dust powers E, W, down) | dots excluded; observers watching a dust SHAPE change without a power change missed (UNDER) |
+| order inside a step | parallel + flags | `--nondet`: 4 race kinds either-way (sound), 2 forbidden (UNDER); `--prove`: all forbidden |
+| block-event rounds | 2 | doors needing 3+ chained rounds in one tick excluded |
+| torch burnout | not modeled | doors relying on burnout excluded in effect |
+| horizon | T per edge, idle at T | slower doors not covered |
+| residual mismatches | 6 / 7,691 random runs | where the model and redsim differ unflagged, an UNSAT may be spurious |
+So an UNSAT here reads "no door in this palette, box and horizon, under this model": exhaustive
+over the placement space, not yet a theorem about the game.
 
 ## Log
-* 23:30Z start; 00:05Z model + diff harness compiling; 00:20Z e89b re-found from its placement.
-* 00:40Z fixed-pistons batch over families 7x8-006..033 killed (memory: 6 x 28 GB; and 008-017,
-  013/014 are known dead); restarted on pistmodel's 22 live exact mechanisms (3 jobs).
-* 00:57Z per-cell round: 2.3x fewer clauses for the whole box; fuzz identical to the per-piston
-  round. Whole-box 7x8 find started (door at (2,2) and (2,3), T=36).
+* 23:30Z start; 00:05Z model + diff harness; 00:20Z e89b re-found from its placement.
+* 00:40Z families 7x8-006..033 batch killed (6 x 28 GB on the shared box; 008-017 known dead).
+* 00:57Z per-cell round (2.3x smaller); 01:05-01:15Z glass, note blocks, lamps; lever-support fix.
+* 01:20Z docs/coverage.md boxproof column; 01:35Z `--nondet`; 01:42Z CaDiCaL `sat` config.
+* 02:00Z box2 (devvm53196) attached; 02:20Z the observer/torch free-cell bug found by a
+  calibration (one erased cell UNSAT) and fixed; every run restarted on box2.
+* 02:35Z 5x5 all offsets UNSAT (`--nondet`, T=20).
+* 02:51Z find-mode calibration: e89b with 2 bottom wiring cells erased, full palette (pistons
+  allowed in the free cells): SAT in 617 s, the solver put back e89b's two observers (screen
+  Pass). 1 erased cell (observer+torch palette): 3.3 s. 6 erased cells (wiring palette): first
+  model after 1130 s, then CEGAR: 4 models the redsim screen rejected (the model said open,
+  redsim did not: race outcomes the find mode ignores), each next model in 2-15 s, the 5th
+  passed (open 34 / close 34). 3 erased cells (full palette), e89b's mechanism in 7x8 (4 lever
+  cubes + a wiring-only run), vb3 (2 cubes), vb2, vc1, f131L, 8x8-131, w63 top (7x9): no answer by
+  03:15Z (35-50 min each). f131X stopped (wire131 proved its top link unwirable in the plane).
+* 03:10Z "e89b squeezed into 7x8" (x -2..4, y -3..4: e89b's mechanism and its in-box wiring
+  fixed, its cut column x=-3 and row y=-4 gone, 25 cells next to the cuts plus every air cell
+  free, wiring palette): one run with the lever just outside the box under (0,-3), three lever
+  cubes with the lever free. `door boxproof watch` (background) waits for a screen Pass.
+
+## Next ideas
+* The solver, not the encoding, is the wall: cost grows steeply with free cells (1 cell
+  seconds, 2 cells with pistons 10 min). Stronger SOUND pruning first: a door cell changes only
+  if a piston line can reach it (reachability of pistons over time, over-approximated);
+  per-cell kind restrictions from the mechanism (in fixed-pistons mode a free cell crossed by a
+  fixed piston's line can only hold air or a movable block); bound the number of pistons /
+  observers; symmetry breaking where the model is mirror-symmetric (it is, without position
+  order); seed the lever's region.
+* Abstraction refinement: solve a coarse model first (ideal-input mechanism level with wiring
+  reachability as necessary conditions); UNSAT there is a proof, SAT gives the timing skeleton to
+  constrain the exact model.
+* Incremental horizon (assumption literals per tick) and learned-clause reuse across door
+  offsets; a parallel portfolio (CaDiCaL configs, kissat) per instance on the 166-core box.
+* Exactness: the 6 residual fuzz mismatches (phase-4 placement order, a lamp re-schedule, a
+  close-phase piston chain), event write conflicts as either-order choices, dust shapes, CENTER
+  supports, more palette (bulb, comparator, trapdoors, dropper, slabs, leaves).

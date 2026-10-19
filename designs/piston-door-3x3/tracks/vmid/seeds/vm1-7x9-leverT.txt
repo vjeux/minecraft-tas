@@ -1,0 +1,34 @@
+name: vm1-7x9-leverT
+# vm1 (mech/vm1.txt) in a 7x9 box (x -2..4, y -2..6) with the lever outside the box at (-2,7) on
+# top of a glass block (-2,6): the top region that runs both elevators holds the lever.
+port door: 0 0 0
+port lever: -2 7 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:glass
+  L minecraft:lever[face=floor,facing=west,powered=false]
+layer -2:
+  ...UU..
+layer -1:
+  .......
+layer 0:
+  E.SSS..
+layer 1:
+  ..SSS.W
+layer 2:
+  E.SSS.W
+layer 3:
+  .....W.
+layer 4:
+  ..DD...
+layer 5:
+  ..DD...
+layer 6:
+  G......
+layer 7:
+  L......

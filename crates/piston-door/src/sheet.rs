@@ -1,0 +1,266 @@
+//! `mctas door sheet <file>...`: one markdown page that draws mechanisms by eye. Each file is an
+//! ideal schedule (`door ideal` format) or a design with a lever; the page shows the plane of the
+//! door at rest and once its opening has settled, side by side, and counts the FRAME at open:
+//! the 12 cells around the opening (3 ceiling, 3 floor, 3 per wall) that the target requires to
+//! hold full blocks when open (vjeux, 2026-10-19). Openings are replayed in redsim (the exact
+//! model, milliseconds per mechanism), so a whole mechanism list draws in a second; no Minecraft.
+//!
+//! Glyphs: `·` air, `#` full block (door blocks, stone), `X` obsidian, piston bases by facing
+//! (sticky upper case `U D E W`, normal lower case `u d e w`), heads `^ v > <`, `~` moving block,
+//! `R` redstone block (an ideal input when the schedule sets it), `o` observer, `q` repeater,
+//! `c` comparator, `t` torch, `+` dust, `l` lever, `%` anything else. `^^^` under a plane marks
+//! the opening's columns; in the open plane an empty frame cell is drawn `!`.
+
+use crate::DoorSpec;
+use crate::cosearch::{RsDoor, bp, convert_state, full_cube, step_until_idle, watch_box};
+use crate::ideal::Schedule;
+use anyhow::{Context, Result};
+use mctas::blockstate::BlockState;
+use mctas::design::Design;
+use mctas::sim::Pos;
+use redsim::{Block, BlockPos, World};
+use std::path::{Path, PathBuf};
+
+fn glyph(state: &str) -> char {
+    let Ok(b) = BlockState::parse(state) else { return '?' };
+    let facing = |upper: bool| {
+        let c = match b.get("facing") {
+            Some("up") => 'u',
+            Some("down") => 'd',
+            Some("east") => 'e',
+            Some("west") => 'w',
+            Some("north") => 'n',
+            Some("south") => 's',
+            _ => '?',
+        };
+        if upper { c.to_ascii_uppercase() } else { c }
+    };
+    match b.short_name() {
+        "air" | "cave_air" | "void_air" => '·',
+        "obsidian" | "crying_obsidian" => 'X',
+        "sticky_piston" => facing(true),
+        "piston" => facing(false),
+        "piston_head" => match b.get("facing") {
+            Some("up") => '^',
+            Some("down") => 'v',
+            Some("east") => '>',
+            Some("west") => '<',
+            _ => '*',
+        },
+        "moving_piston" => '~',
+        "redstone_block" => 'R',
+        "observer" => 'o',
+        "repeater" => 'q',
+        "comparator" => 'c',
+        "redstone_torch" | "redstone_wall_torch" => 't',
+        "redstone_wire" => '+',
+        "lever" => 'l',
+        "slime_block" => 's',
+        "honey_block" => 'y',
+        n if n.contains("stone") || n.contains("concrete") || n.contains("planks") || n.contains("glass") || n == "dirt" => '#',
+        _ => '%',
+    }
+}
+
+/// The 12 frame cells around the opening (door plane): ceiling, floor, left wall, right wall.
+pub fn frame_cells(door: Pos) -> Vec<Pos> {
+    let [x, y, z] = door;
+    let mut out = Vec::new();
+    for dx in 0..3 {
+        out.push([x + dx, y + 3, z]);
+    }
+    for dx in 0..3 {
+        out.push([x + dx, y - 1, z]);
+    }
+    for dy in 0..3 {
+        out.push([x - 1, y + dy, z]);
+    }
+    for dy in 0..3 {
+        out.push([x + 3, y + dy, z]);
+    }
+    out
+}
+
+fn filled(b: &Block) -> bool {
+    // A frame cell counts when it holds a plain full block (a door block or a quartz-like
+    // building block); pistons, observers and other circuitry do not.
+    !b.is_air() && full_cube(b) && !crate::cosearch::is_moving(b) && crate::cosearch::quartz_like(b)
+}
+
+struct Drawn {
+    title: String,
+    pistons: usize,
+    rest: Vec<String>,
+    open: Option<std::result::Result<(Vec<String>, usize, Vec<Pos>), String>>,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn plane(get: &dyn Fn(BlockPos) -> Block, z: i32, x0: i32, y0: i32, x1: i32, y1: i32, door: Pos, mark_frame: bool) -> Vec<String> {
+    let frame = frame_cells(door);
+    let mut out = Vec::new();
+    for y in (y0..=y1).rev() {
+        let mut line = format!("{y:>3} ");
+        for x in x0..=x1 {
+            let b = get(BlockPos::new(x, y, z));
+            let c = if mark_frame && frame.contains(&[x, y, z]) && !filled(&b) { '!' } else { glyph(&b.to_string()) };
+            line.push(c);
+        }
+        out.push(line);
+    }
+    let mut marks = String::from("    ");
+    for x in x0..=x1 {
+        marks.push(if (door[0]..door[0] + 3).contains(&x) { '^' } else { ' ' });
+    }
+    out.push(marks);
+    out
+}
+
+fn draw(path: &Path) -> Result<Drawn> {
+    let text = std::fs::read_to_string(path).with_context(|| path.display().to_string())?;
+    let is_schedule = text.lines().any(|l| l.trim_start().starts_with("design "));
+    let (design, schedule): (Design, Option<Schedule>) = if is_schedule {
+        let s = Schedule::parse(&text).with_context(|| path.display().to_string())?;
+        (s.design().clone(), Some(s))
+    } else {
+        (crate::cli::load_design(path)?, None)
+    };
+    let door = *design.ports.get("door").context("design has no door port")?;
+    let z = door[2];
+    let (mut x0, mut y0, mut x1, mut y1) = (door[0], door[1], door[0] + 2, door[1] + 2);
+    for p in design.blocks.keys().filter(|p| p[2] == z) {
+        x0 = x0.min(p[0]);
+        y0 = y0.min(p[1]);
+        x1 = x1.max(p[0]);
+        y1 = y1.max(p[1]);
+    }
+    let (x0, y0, x1, y1) = (x0 - 1, y0 - 1, x1 + 1, y1 + 1);
+    let pistons = design.blocks.values().filter(|s| s.contains("piston")).count();
+    let title = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let frame = frame_cells(door);
+    let count = |get: &dyn Fn(BlockPos) -> Block| -> (usize, Vec<Pos>) {
+        let empty: Vec<Pos> = frame.iter().copied().filter(|p| !filled(&get(bp(*p)))).collect();
+        (12 - empty.len(), empty)
+    };
+    if schedule.is_none() && design.ports.contains_key("lever") {
+        // A real door: flip its lever in redsim (cosearch's recorder).
+        let rs = RsDoor::from_design(&design).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+        let rec = crate::cosearch::record(&rs).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+        let air = convert_state("minecraft:air").map_err(|e| anyhow::anyhow!(e))?;
+        let rest_get = |p: BlockPos| rec.rest.get(p.arr()).unwrap_or(air);
+        let open_snap = rec.open_state();
+        let open_get = |p: BlockPos| open_snap.get(p.arr()).unwrap_or(air);
+        let rest = plane(&rest_get, z, x0, y0, x1, y1, door, false);
+        let open_lines = plane(&open_get, z, x0, y0, x1, y1, door, true);
+        let (n, empty) = count(&open_get);
+        return Ok(Drawn { title, pistons, rest, open: Some(Ok((open_lines, n, empty))) });
+    }
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false };
+    let mut blocks: Vec<(Pos, Block)> = Vec::new();
+    for (p, s) in &design.blocks {
+        blocks.push((*p, convert_state(s).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?));
+    }
+    let (wlo, whi) = watch_box(&blocks, &spec);
+    let mut w = World::new(BlockPos::new(wlo[0] - 4, wlo[1] - 4, wlo[2] - 4), [whi[0] - wlo[0] + 9, whi[1] - wlo[1] + 9, whi[2] - wlo[2] + 9]);
+    let list: Vec<(BlockPos, Block)> = blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
+    w.place_like_judge(&list);
+    step_until_idle(&mut w, 300, |_| {});
+    let rest = plane(&|p| w.get(p), z, x0, y0, x1, y1, door, false);
+    let open = schedule.map(|s| -> std::result::Result<(Vec<String>, usize, Vec<Pos>), String> {
+        let evs = s.events_of(true, s.vars()).map_err(|e| format!("{e:#}"))?;
+        let mut t = 0u32;
+        let mut i = 0;
+        while i < evs.len() {
+            while i < evs.len() && evs[i].0 == t {
+                let (_, p, st) = &evs[i];
+                if st.as_deref() == Some("@use") {
+                    w.use_block(bp(*p));
+                } else {
+                    let state = st.clone().unwrap_or_else(|| "minecraft:air".to_string());
+                    let b = convert_state(&state)?;
+                    w.set_block_and_update(bp(*p), b);
+                }
+                i += 1;
+            }
+            if i < evs.len() {
+                w.tick();
+                t += 1;
+            }
+        }
+        let (_, idle) = step_until_idle(&mut w, 300, |_| {});
+        if !idle {
+            return Err("still moving 300 ticks after the last event".into());
+        }
+        let open_ok = spec.door_cells().iter().all(|c| w.get(bp(*c)).is_air());
+        let mut lines = plane(&|p| w.get(p), z, x0, y0, x1, y1, door, true);
+        if !open_ok {
+            lines.push("    (opening NOT clear)".into());
+        }
+        let (n, empty) = count(&|p| w.get(p));
+        Ok((lines, n, empty))
+    });
+    Ok(Drawn { title, pistons, rest, open })
+}
+
+/// CLI entry: draw every file, print (or write) one markdown page.
+pub fn cli(files: &[PathBuf], out: Option<&Path>, heading: Option<&str>) -> Result<()> {
+    let drawn: Vec<(PathBuf, Result<Drawn>)> = crate::cosearch::par_map(files, 16, |p| (p.clone(), draw(p)));
+    let mut s = String::new();
+    if let Some(h) = heading {
+        s.push_str(&format!("# {h}\n\n"));
+    }
+    let full: Vec<&str> = drawn.iter().filter_map(|(_, d)| d.as_ref().ok()).filter(|d| matches!(&d.open, Some(Ok((_, 12, _))))).map(|d| d.title.as_str()).collect();
+    let counted = drawn.iter().filter(|(_, d)| matches!(d, Ok(Drawn { open: Some(Ok(_)), .. }))).count();
+    s.push_str(&format!(
+        "FRAME FULL WHEN OPEN (all 12 cells around the opening hold full blocks): {} of {} drawn{}\n\n",
+        full.len(),
+        counted,
+        if full.is_empty() { String::new() } else { format!(": {}", full.join(", ")) }
+    ));
+    s.push_str(
+        "Glyphs: `·` air, `#` door/stone block, `X` obsidian, piston bases by facing (sticky `U D E W`, normal `u d e w`), \
+         heads `^ v > <`, `R` redstone block (ideal input), `o` observer, `q` repeater, `t` torch, `+` dust, `%` other. \
+         `^^^` marks the opening's columns. Left: at rest. Right: open (replayed in redsim); `!` = an EMPTY frame cell when open.\n\n",
+    );
+    for (p, d) in &drawn {
+        match d {
+            Err(e) => s.push_str(&format!("### {}\n\nnot drawn: {e:#}\n\n", p.display())),
+            Ok(d) => {
+                let frame_note = match &d.open {
+                    Some(Ok((_, n, _))) => format!(", frame {n}/12 when open"),
+                    _ => String::new(),
+                };
+                s.push_str(&format!("### {} ({} pistons{frame_note})\n\n```\n", d.title, d.pistons));
+                let width = d.rest.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+                match &d.open {
+                    None => {
+                        for l in &d.rest {
+                            s.push_str(&format!("{l}\n"));
+                        }
+                    }
+                    Some(Err(e)) => {
+                        for l in &d.rest {
+                            s.push_str(&format!("{l}\n"));
+                        }
+                        s.push_str(&format!("open: not drawn ({e})\n"));
+                    }
+                    Some(Ok((open, _, _))) => {
+                        s.push_str(&format!("{:<width$}    {}\n", "rest", "open"));
+                        let n = d.rest.len().max(open.len());
+                        for k in 0..n {
+                            let a = d.rest.get(k).map(String::as_str).unwrap_or("");
+                            let b = open.get(k).map(String::as_str).unwrap_or("");
+                            let pad = width.saturating_sub(a.chars().count());
+                            s.push_str(&format!("{a}{}    {b}\n", " ".repeat(pad)));
+                        }
+                    }
+                }
+                s.push_str("```\n\n");
+            }
+        }
+    }
+    match out {
+        Some(o) => std::fs::write(o, &s)?,
+        None => print!("{s}"),
+    }
+    Ok(())
+}

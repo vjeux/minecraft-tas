@@ -1023,6 +1023,79 @@ pub fn export(ctx: &Ctx, rest: &Key, f: &Found, name: &str, design_path: &str, g
     Some((d, plan))
 }
 
+/// Input merging on a solution's action order (settled steps): members of a group are switched
+/// together wherever the solution switches any of them; greedy, cheap (no search).
+pub fn merge_on_solution(ctx: &Ctx, rest: &Key, f: &Found) -> (Vec<u16>, Found) {
+    let pist = |a: &A| -> Option<u8> {
+        match *a {
+            A::L(i) | A::P(i, _) => Some(i),
+            _ => None,
+        }
+    };
+    let mut groups: Vec<u16> = Vec::new();
+    for a in f.open.iter().chain(f.close.iter()) {
+        if let Some(i) = pist(a) {
+            if !groups.iter().any(|m| m >> i & 1 == 1) {
+                groups.push(1 << i);
+            }
+        }
+    }
+    let lift = |groups: &[u16], seq: &[A]| -> Vec<A> {
+        seq.iter()
+            .map(|a| match *a {
+                A::L(i) => A::GL(*groups.iter().find(|m| *m >> i & 1 == 1).unwrap()),
+                A::P(i, k) => A::GP(*groups.iter().find(|m| *m >> i & 1 == 1).unwrap(), k),
+                a => a,
+            })
+            .collect()
+    };
+    let works = |groups: &[u16]| -> Option<Found> {
+        let open = lift(groups, &f.open);
+        let close = lift(groups, &f.close);
+        let mut k = rest.clone();
+        let mut sw = 0u16;
+        for &a in &open {
+            let (nk, s) = ctx.step(&k, a)?;
+            k = nk;
+            sw |= s;
+        }
+        if !ctx.is_open(&k) {
+            return None;
+        }
+        let ok_key = k.clone();
+        for &a in &close {
+            let (nk, s) = ctx.step(&k, a)?;
+            k = nk;
+            sw |= s;
+        }
+        if k != *rest || !ctx.holes_ok(&ok_key, sw) {
+            return None;
+        }
+        Some(Found { open, close, states: 0, used: f.used.clone() })
+    };
+    let mut best = works(&groups).unwrap_or_else(|| f.clone());
+    loop {
+        let mut merged = false;
+        'outer: for a in 0..groups.len() {
+            for b in a + 1..groups.len() {
+                let mut g2 = groups.clone();
+                let mb = g2.remove(b);
+                g2[a] |= mb;
+                if let Some(nf) = works(&g2) {
+                    groups = g2;
+                    best = nf;
+                    merged = true;
+                    break 'outer;
+                }
+            }
+        }
+        if !merged {
+            break;
+        }
+    }
+    (groups, best)
+}
+
 /// Greedy input minimization: undrive pistons one at a time (in piece order) while the
 /// mechanism still opens and closes exactly; returns the undriven pistons and the solution.
 pub fn min_inputs(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> Option<(Vec<FPc>, Found)> {
@@ -1754,6 +1827,8 @@ pub struct CliOpts {
     pub boxes: Vec<(i8, i8)>,
     pub pmax: usize,
     pub two: usize,
+    /// Middle-row side blocks forced to leave vertically (families' `--vmid` variants).
+    pub vmid: Vec<Vec<(i8, i8)>>,
     pub pulses: Vec<u8>,
     pub levels: bool,
     pub cap: usize,
@@ -1934,7 +2009,19 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             r => r,
         };
         match r {
-            Ok(Some(f)) => println!("  {} [{:.1}s]", describe(&ctx, &f), t0.elapsed().as_secs_f64()),
+            Ok(Some(f)) => {
+                println!("  {} [{:.1}s]", describe(&ctx, &f), t0.elapsed().as_secs_f64());
+                if o.groups {
+                    let (gs, gf) = merge_on_solution(&ctx, &rest, &f);
+                    let pid = |i: usize| ctx.pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).nth(i).map(|p| p.code()).unwrap_or_default();
+                    println!(
+                        "  merging on this solution's order: {} signals: {}\n  {}",
+                        gs.len(),
+                        gs.iter().map(|m| (0..16).filter(|i| m >> i & 1 == 1).map(pid).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | "),
+                        describe(&ctx, &gf)
+                    );
+                }
+            }
             Ok(None) => println!("  no FULL seamless open + close (whole reachable graph explored) [{:.1}s]", t0.elapsed().as_secs_f64()),
             Err(()) => println!("  cap hit [{:.1}s]", t0.elapsed().as_secs_f64()),
         }
@@ -1999,7 +2086,7 @@ pub fn cli(o: &CliOpts) -> Result<()> {
                     continue;
                 }
                 let bx = Bx { x0: -dx, y0: -dy, w, h };
-                for v in families::generate(bx, o.pmax, true, true, o.two) {
+                for v in families::generate_v(bx, o.pmax, true, true, o.two, 0, &o.vmid) {
                     if seen.insert(families::canon(&v)) {
                         cands.push((bx, v));
                     }

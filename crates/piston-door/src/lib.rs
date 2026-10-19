@@ -67,6 +67,7 @@ pub mod pistfuzz;
 pub mod fullmech;
 pub mod mechspace;
 pub mod world;
+pub mod sheet;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
