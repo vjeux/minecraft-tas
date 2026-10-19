@@ -1,0 +1,15 @@
+# NIMPLY (b & !a) gate (track gates census, function nimply-ba, latency 0 gt, class instant): stone
+# at 0,0,0; redstone_wire[east=none,north=none,power=0,south=none,west=none] at 0,1,0
+name: gate-nimply-b-a-2b
+circuit: gate nimply-ba
+port input.a: 0 1 1
+port input.b: 1 1 0
+port output: -1 1 0
+origin: 0 0 0
+palette:
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:stone
+layer 0:
+  S
+layer 1:
+  R
