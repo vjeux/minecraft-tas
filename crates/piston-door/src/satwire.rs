@@ -2009,13 +2009,33 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             let motion: Vec<Vec<i32>> = (0..p.ncl).map(|cl| (1..=kk).filter(|t| !p.static_tick_c(tr, *t, cl)).collect()).collect();
             // event starts: a motion tick whose previous tick was static
             let starts: Vec<Vec<i32>> = motion.iter().map(|v| v.iter().copied().filter(|t| !v.contains(&(t - 1))).collect()).collect();
+            // the cells an event changes (its run of motion ticks): only events that touch the
+            // same or adjacent cells keep their recorded order (independent ones may swap)
+            let ev_cells = |cl: usize, s: i32| -> HashSet<C2> {
+                let mut out = HashSet::new();
+                let mut t = s;
+                while motion[cl].contains(&t) {
+                    for ph in p.rec.trace_phases(tr) {
+                        let (a, b) = (ph.frame(t - 1), ph.frame(t));
+                        for c in a.keys().chain(b.keys()) {
+                            if p.cl(*c) == cl && a.get(c) != b.get(c) {
+                                out.insert(*c);
+                            }
+                        }
+                    }
+                    t += 1;
+                }
+                out
+            };
+            let touch = |a: &HashSet<C2>, b: &HashSet<C2>| a.iter().any(|c| b.contains(c) || [E, W, U, DN].iter().any(|d| b.contains(&add(*c, *d))));
             for y in 1..p.ncl {
                 for &b in &starts[y] {
+                    let cb = ev_cells(y, b);
                     for x in 1..p.ncl {
                         if x == y {
                             continue;
                         }
-                        let Some(&a) = starts[x].iter().filter(|a| **a < b).max() else { continue };
+                        let Some(a) = starts[x].iter().copied().filter(|a| *a < b && touch(&ev_cells(x, *a), &cb)).max() else { continue };
                         let d = (b - a).min(3);
                         for k in 1..=p.h {
                             let gy = ge(&mut e, &warp, tr, y, k, b);
