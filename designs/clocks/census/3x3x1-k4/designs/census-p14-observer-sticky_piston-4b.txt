@@ -1,0 +1,12 @@
+name: census-p14-observer-sticky_piston-4b
+census: box 3x3x1 k<=4 (0,0,0=sticky_piston[extended=false,facing=east];1,1,0=observer[facing=east,powered=false];2,0,0=slime_block;2,1,0=observer[facing=east,powered=false])
+port start: 2 1 0 last
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:slime_block
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  s.S
+layer 1:
+  .OO

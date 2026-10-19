@@ -1,0 +1,13 @@
+name: census-p8-note_block-observer-sticky_piston-4b
+census: box 3x3x1 k<=4 (0,0,0=glass;0,1,0=note_block[instrument=harp,note=0,powered=false];1,1,0=observer[facing=west,powered=false];2,0,0=sticky_piston[extended=false,facing=west])
+port start: 0 0 0 last
+origin: 0 0 0
+palette:
+  G minecraft:glass
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  G.S
+layer 1:
+  NO
