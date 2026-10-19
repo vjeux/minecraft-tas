@@ -67,10 +67,12 @@ pub fn cli(path: &Path, flips: usize, write_state: Option<usize>, out: Option<&P
         let clear = |s: &Snap| cells.iter().all(|c| s.get(mv(*c)).is_some_and(|b: Block| b.is_air()));
         let frame_n = |s: &Snap, db: &Block| frame.iter().filter(|p| s.get(mv(**p)).is_some_and(|b| crate::sheet::filled_frame(&b, db))).count();
         let mut problems = Vec::new();
-        for k in 2..states.len() {
-            if states[k] != states[k - 2] {
-                problems.push(format!("the state after flip {k} differs from the state after flip {}", k - 2));
-            }
+        // Periodic (vjeux: internal state doesn't matter as long as the door works repeatedly):
+        // some closed state (after an even number of flips) equals an earlier one.
+        let closed_states: Vec<&Snap> = states.iter().step_by(2).collect();
+        let periodic = (1..closed_states.len()).any(|k| (0..k).any(|j| closed_states[j] == closed_states[k]));
+        if !periodic {
+            problems.push(format!("no closed state repeats within {flips} flips (internal state drifts)"));
         }
         let (a, b) = (&states[0], states.get(1).unwrap_or(&states[0]));
         let (open, closed) = if clear(a) { (a, b) } else { (b, a) };
