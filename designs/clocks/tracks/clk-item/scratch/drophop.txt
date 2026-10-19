@@ -1,7 +1,7 @@
 # Skeleton: a dropper D (facing east) and a hopper H (facing west) facing each other, 1 stone in H.
 name: drophop
 nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
-origin: 0 1 0
+origin: 0 0 0
 palette:
   D minecraft:dropper[facing=east,triggered=false]
   H minecraft:hopper[enabled=true,facing=west]
