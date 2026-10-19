@@ -1237,6 +1237,9 @@ pub fn add_menu(w: &mut Worker, rec: &mut Rec, items: &[(String, usize, String, 
         by.entry((*tr, g.clone())).or_default().push((label.clone(), ph));
     }
     let mut taken: [BTreeSet<C2>; 2] = Default::default();
+    // the core group first: it matters most, and a toggle that shares cells with it would drop it
+    let mut by: Vec<((usize, String), Vec<(String, Phase)>)> = by.into_iter().collect();
+    by.sort_by_key(|((tr, g), _)| (*tr, g != "core", g.clone()));
     for ((tr, g), mut alts) in by {
         let n = alts.iter().map(|a| a.1.frames.len()).max().unwrap_or(0).max(rec.phases[tr].frames.len());
         let mut base = rec.phases[tr].clone();
