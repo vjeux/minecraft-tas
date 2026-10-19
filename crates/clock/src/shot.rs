@@ -218,14 +218,15 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
         return Ok(lines);
     }
     let t_plan = t_all.elapsed().as_secs_f64();
-    // the layout: rows of cells along x (wrapping at ROW blocks), sculk clocks last
-    const ROW: i32 = 192;
+    // the layout: rows of cells along x (wrapping at ROW blocks), sculk clocks last; a batch (one
+    // world) ends when its rows reach DEPTH blocks: the client gets every chunk of a batch from its
+    // center (the client's render distance, 6 chunks, caps what the server sends it, and a frozen
+    // level never re-centers it: so a batch fits within 80 blocks of its center)
+    const ROW: i32 = 160;
+    const DEPTH: i32 = 160;
     let sculk = |c: &Clock| c.design.blocks.values().any(|s| s.contains("sculk_sensor"));
     todo.sort_by_key(|(_, c, _)| sculk(c));
-    let mut offsets: Vec<Pos> = Vec::with_capacity(todo.len());
-    // the order the camera visits them: row by row, every other row backwards (a snake: every
-    // move stays short, inside the client's render distance)
-    let mut visit: Vec<(i32, i32, usize)> = Vec::with_capacity(todo.len());
+    let mut batches: Vec<Vec<Cell>> = vec![Vec::new()];
     let (mut x, mut z, mut depth, mut row) = (0i32, 0i32, 0i32, 0i32);
     for (i, (_, c, p)) in todo.iter().enumerate() {
         let gap = if sculk(c) { 17 } else { 4 };
@@ -236,20 +237,14 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
             depth = 0;
             row += 1;
         }
-        offsets.push([x + gap - p.lo[0], -p.lo[1], z + gap - p.lo[2]]);
-        visit.push((row, if row % 2 == 0 { x } else { -x }, i));
+        if z + d > DEPTH && !batches.last().unwrap().is_empty() {
+            batches.push(Vec::new());
+            (x, z, depth, row) = (0, 0, 0, 0);
+        }
+        batches.last_mut().unwrap().push(Cell { i, off: [x + gap - p.lo[0], -p.lo[1], z + gap - p.lo[2]], key: (row, if row % 2 == 0 { x } else { -x }) });
         x += w;
         depth = depth.max(d);
     }
-    visit.sort();
-    let mv = |p: Pos, d: Pos| [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
-    let (mut wlo, mut whi) = (mv(todo[0].2.lo, offsets[0]), mv(todo[0].2.hi, offsets[0]));
-    for (i, (_, _, p)) in todo.iter().enumerate() {
-        crate::grow(&mut wlo, &mut whi, mv(p.lo, offsets[i]));
-        crate::grow(&mut wlo, &mut whi, mv(p.hi, offsets[i]));
-    }
-    let m = 24;
-    let chunks = [(wlo[0] - m).div_euclid(16), (wlo[2] - m).div_euclid(16), (whi[0] + m).div_euclid(16), (whi[2] + m).div_euclid(16)];
     let (rw, rh) = o.render;
     let client_build = video::build_client(version)?;
     let display = Display::start(rw, rh)?;
@@ -262,101 +257,71 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
     let cfg = WorkerConfig { version: version.to_string(), listen: Some(port), stderr_log: Some(run.join("server.log")), ..Default::default() };
     let mut w = Worker::spawn(&cfg)?;
     let t0 = Instant::now();
-    let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
-    w.fill(sb, [wlo[0] - m, -2, wlo[2] - m], [whi[0] + m, -2, whi[2] + m], "minecraft:grass_block", PlaceMode::Raw)?;
-    w.exec(sb, "time set noon")?;
-    w.view_distance(sb, 6)?;
-    // staggered starts: clock i starts at G - T_i, so at tick G every clock shows its tick T_i
-    let g = todo.iter().map(|(_, _, p)| p.ticks[0]).max().unwrap_or(0);
-    enum Ev {
-        Place(usize),
-        Act(crate::Action),
-    }
-    let mut evs: Vec<(u32, usize, Ev)> = Vec::new();
-    let moved: Vec<Clock> = todo.iter().enumerate().map(|(i, (_, c, _))| c.translated(offsets[i])).collect();
-    for (i, (_, _, p)) in todo.iter().enumerate() {
-        let s = g - p.ticks[0];
-        evs.push((s, 0, Ev::Place(i)));
-        for (at, a) in moved[i].actions() {
-            evs.push((s + at, 1, Ev::Act(a)));
-        }
-    }
-    evs.sort_by_key(|(t, k, _)| (*t, *k));
-    let mut t = 0u32;
-    for (at, _, ev) in evs {
-        if at > t {
-            w.step(sb, at - t)?;
-            t = at;
-        }
-        match ev {
-            Ev::Place(i) => place(&mut w, sb, &moved[i])?,
-            Ev::Act(a) => apply(&mut w, sb, &a)?,
-        }
-    }
-    if g > t {
-        w.step(sb, g - t)?;
-    }
-    // the markers, all at once (raw, no tick after: the clocks stay frozen)
-    let mut markers: Vec<Option<Pos>> = Vec::with_capacity(todo.len());
-    for (i, (_, _, p)) in todo.iter().enumerate() {
-        markers.push(match p.output {
-            Some(op) => marker_cell(&mut w, sb, mv(op, offsets[i]))?,
-            None => None,
-        });
-    }
-    let marks: Vec<(Pos, &str)> = markers.iter().flatten().map(|m| (*m, MARKER)).collect();
-    if !marks.is_empty() {
-        w.set_blocks(sb, &marks, PlaceMode::Raw)?;
-    }
-    let t_world = t0.elapsed().as_secs_f64();
-    // the client joins the frozen world; then only the camera moves
     let mut client = Client::launch(&client_build, &display, port, rw, rh, &run.join("client"))?;
     let deadline = Instant::now() + Duration::from_secs(240);
-    let aspect = rw as f64 / rh as f64;
-    let mut raws: Vec<(PathBuf, PathBuf)> = Vec::new();
-    let mut prev_eye: Option<[f64; 3]> = None;
-    let t1 = Instant::now();
-    for (n_done, &(_, _, i)) in visit.iter().enumerate() {
-        let (stem, _, p) = &todo[i];
-        let (mut flo, mut fhi) = (mv(p.lo, offsets[i]), mv(p.hi, offsets[i]));
-        if let Some(mk) = markers[i] {
-            crate::grow(&mut flo, &mut fhi, mk);
+    while w.viewers()? == 0 {
+        if !client.alive() {
+            bail!("the client exited; see {}", client.log.display());
         }
-        let lo = [flo[0] as f64 - 0.25, flo[1] as f64 - 0.25, flo[2] as f64 - 0.25];
-        let hi = [fhi[0] as f64 + 1.25, fhi[1] as f64 + 1.25, fhi[2] as f64 + 1.25];
-        let (eye, yaw, pitch) = video::frame_box(lo, hi, CAM_DIR, VFOV, aspect, 0.85);
-        if std::env::var_os("MCTAS_SHOT_DEBUG").is_some() {
-            eprintln!("{stem}: box {flo:?}..{fhi:?} eye {eye:?} yaw {yaw:.1} pitch {pitch:.1} marker {:?}", markers[i]);
+        if Instant::now() > deadline {
+            bail!("the client never joined; see {}", client.log.display());
         }
-        if n_done == 0 {
-            // the camera moves only once the client is in the world
-            while w.viewers()? == 0 {
-                if !client.alive() {
-                    bail!("the client exited; see {}", client.log.display());
-                }
-                if Instant::now() > deadline {
-                    bail!("the client never joined; see {}", client.log.display());
-                }
-                w.hold(500)?;
-            }
-        }
-        w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
-        // the frozen level does not track the player's chunks on a teleport: changing the view
-        // distance makes it send the chunks around the new position
-        w.view_distance(sb, if n_done % 2 == 0 { 7 } else { 6 })?;
-        if n_done == 0 {
-            w.hold(o.hold_ms.max(8_000))?;
-        } else {
-            // settle: new chunks come in when the camera moves far
-            let dist = prev_eye.map(|q| ((q[0] - eye[0]).powi(2) + (q[2] - eye[2]).powi(2)).sqrt()).unwrap_or(0.0);
-            w.hold((o.settle_ms as f64 + dist * 15.0).min(4000.0) as u64)?;
-        }
-        prev_eye = Some(eye);
-        let raw = run.join(format!("{stem}.png"));
-        video::screenshot(&display, rw, rh, &raw)?;
-        raws.push((raw, shot_path(&o.out_dir, stem)));
+        w.hold(500)?;
     }
-    let t_cam = t1.elapsed().as_secs_f64();
+    let t_join = t0.elapsed().as_secs_f64();
+    let mut raws: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut marked: Vec<bool> = vec![false; todo.len()];
+    let mut prev: Option<u32> = None;
+    let (mut t_world, mut t_cam, mut g_max) = (0.0f64, 0.0f64, 0u32);
+    for batch in &mut batches {
+        let tb = Instant::now();
+        let (sb, markers, g) = build_batch(&mut w, &todo, batch)?;
+        g_max = g_max.max(g);
+        t_world += tb.elapsed().as_secs_f64();
+        let tc = Instant::now();
+        // the camera arrives from another level: the client gets every chunk of the batch, the
+        // markers included (written raw on the frozen level, never broadcast otherwise)
+        let mv = |p: Pos, d: Pos| [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
+        let (mut wlo, mut whi) = (mv(todo[batch[0].i].2.lo, batch[0].off), mv(todo[batch[0].i].2.hi, batch[0].off));
+        for c in batch.iter() {
+            crate::grow(&mut wlo, &mut whi, mv(todo[c.i].2.lo, c.off));
+            crate::grow(&mut wlo, &mut whi, mv(todo[c.i].2.hi, c.off));
+        }
+        w.view_distance(sb, 12)?;
+        let center = [(wlo[0] + whi[0]) as f64 / 2.0, 30.0, (wlo[2] + whi[2]) as f64 / 2.0];
+        w.camera(sb, center, 0.0, 90.0)?;
+        if let Some(old) = prev.take() {
+            let _ = w.drop_sandbox(old);
+        }
+        w.hold(o.hold_ms.max(8_000))?;
+        batch.sort_by_key(|c| c.key);
+        let aspect = rw as f64 / rh as f64;
+        let mut prev_eye: Option<[f64; 3]> = None;
+        for c in batch.iter() {
+            let (stem, _, p) = &todo[c.i];
+            let (mut flo, mut fhi) = (mv(p.lo, c.off), mv(p.hi, c.off));
+            if let Some(mk) = markers[c.i] {
+                crate::grow(&mut flo, &mut fhi, mk);
+            }
+            marked[c.i] = markers[c.i].is_some();
+            let lo = [flo[0] as f64 - 0.25, flo[1] as f64 - 0.25, flo[2] as f64 - 0.25];
+            let hi = [fhi[0] as f64 + 1.25, fhi[1] as f64 + 1.25, fhi[2] as f64 + 1.25];
+            let (eye, yaw, pitch) = video::frame_box(lo, hi, CAM_DIR, VFOV, aspect, 0.85);
+            if std::env::var_os("MCTAS_SHOT_DEBUG").is_some() {
+                eprintln!("{stem}: box {flo:?}..{fhi:?} eye {eye:?} marker {:?}", markers[c.i]);
+            }
+            w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
+            // settle: the renderer meshes the chunks that come into its range
+            let dist = prev_eye.map(|q| ((q[0] - eye[0]).powi(2) + (q[2] - eye[2]).powi(2)).sqrt()).unwrap_or(64.0);
+            w.hold((o.settle_ms as f64 + dist * 15.0).min(3000.0) as u64)?;
+            prev_eye = Some(eye);
+            let raw = run.join(format!("{stem}.png"));
+            video::screenshot(&display, rw, rh, &raw)?;
+            raws.push((raw, shot_path(&o.out_dir, stem)));
+        }
+        t_cam += tc.elapsed().as_secs_f64();
+        prev = Some(sb);
+    }
     drop(client);
     // JPEGs, 8 at a time
     let t2 = Instant::now();
@@ -384,18 +349,82 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
     }
     let t_enc = t2.elapsed().as_secs_f64();
     for (i, (stem, _, p)) in todo.iter().enumerate() {
-        lines.push(format!("SHOT {} (tick {}{})", shot_path(&o.out_dir, stem).display(), p.ticks[0], if markers[i].is_some() { ", marker" } else { ", no marker" }));
+        lines.push(format!("SHOT {} (tick {}{})", shot_path(&o.out_dir, stem).display(), p.ticks[0], if marked[i] { ", marker" } else { ", no marker" }));
     }
     let n = todo.len() as f64;
     lines.push(format!(
-        "TIMING {} clocks: plan {t_plan:.1} s, world (create, place {} clocks at staggered starts, run {g} gt, markers) {t_world:.1} s, camera + capture {t_cam:.1} s ({:.2} s per clock), encode {t_enc:.1} s; total {:.1} s = {:.2} s per clock",
+        "TIMING {} clocks in {} world(s): plan {t_plan:.1} s, client start {t_join:.1} s, worlds (create, place at staggered starts, run up to {g_max} gt, markers) {t_world:.1} s, camera + capture {t_cam:.1} s ({:.2} s per clock), encode {t_enc:.1} s; total {:.1} s = {:.2} s per clock",
         todo.len(),
-        todo.len(),
+        batches.len(),
         t_cam / n,
         t_all.elapsed().as_secs_f64(),
         t_all.elapsed().as_secs_f64() / n
     ));
     Ok(lines)
+}
+
+/// A clock's place in a one-world batch: its index, its offset, its visiting key (row, x).
+struct Cell {
+    i: usize,
+    off: Pos,
+    key: (i32, i32),
+}
+
+/// Build one batch's world: a grass floor, every clock placed at its staggered start (clock i at
+/// G - T_i) and kicked, run to G (every clock at its chosen tick), the markers written raw.
+/// Returns the sandbox, the marker of each clock (indexed like `todo`) and G.
+fn build_batch(w: &mut Worker, todo: &[(&String, &Clock, Plan)], batch: &[Cell]) -> Result<(u32, Vec<Option<Pos>>, u32)> {
+    let mv = |p: Pos, d: Pos| [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
+    let (mut wlo, mut whi) = (mv(todo[batch[0].i].2.lo, batch[0].off), mv(todo[batch[0].i].2.hi, batch[0].off));
+    for c in batch {
+        crate::grow(&mut wlo, &mut whi, mv(todo[c.i].2.lo, c.off));
+        crate::grow(&mut wlo, &mut whi, mv(todo[c.i].2.hi, c.off));
+    }
+    let m = 24;
+    let chunks = [(wlo[0] - m).div_euclid(16), (wlo[2] - m).div_euclid(16), (whi[0] + m).div_euclid(16), (whi[2] + m).div_euclid(16)];
+    let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
+    w.fill(sb, [wlo[0] - m, -2, wlo[2] - m], [whi[0] + m, -2, whi[2] + m], "minecraft:grass_block", PlaceMode::Raw)?;
+    w.exec(sb, "time set noon")?;
+    let g = batch.iter().map(|c| todo[c.i].2.ticks[0]).max().unwrap_or(0);
+    enum Ev {
+        Place(usize),
+        Act(crate::Action),
+    }
+    let moved: Vec<(usize, Clock)> = batch.iter().map(|c| (c.i, todo[c.i].1.translated(c.off))).collect();
+    let mut evs: Vec<(u32, usize, Ev)> = Vec::new();
+    for (k, (i, mc)) in moved.iter().enumerate() {
+        let s = g - todo[*i].2.ticks[0];
+        evs.push((s, 0, Ev::Place(k)));
+        for (at, a) in mc.actions() {
+            evs.push((s + at, 1, Ev::Act(a)));
+        }
+    }
+    evs.sort_by_key(|(t, k, _)| (*t, *k));
+    let mut t = 0u32;
+    for (at, _, ev) in evs {
+        if at > t {
+            w.step(sb, at - t)?;
+            t = at;
+        }
+        match ev {
+            Ev::Place(k) => place(w, sb, &moved[k].1)?,
+            Ev::Act(a) => apply(w, sb, &a)?,
+        }
+    }
+    if g > t {
+        w.step(sb, g - t)?;
+    }
+    let mut markers: Vec<Option<Pos>> = vec![None; todo.len()];
+    for c in batch {
+        if let Some(op) = todo[c.i].2.output {
+            markers[c.i] = marker_cell(w, sb, mv(op, c.off))?;
+        }
+    }
+    let marks: Vec<(Pos, &str)> = markers.iter().flatten().map(|m| (*m, MARKER)).collect();
+    if !marks.is_empty() {
+        w.set_blocks(sb, &marks, PlaceMode::Raw)?;
+    }
+    Ok((sb, markers, g))
 }
 
 /// Picture every clock (`(stem, clock)`): see the module doc. Returns one line per clock.
