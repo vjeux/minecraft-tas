@@ -106,3 +106,27 @@
     top->bottom link (box72's torch link), e.g. R0's watcher at (4,-1) driving L0 and U below.
   * still open: every elevator design has its T parker's QC cell next to A's driver (the w63 top
     wall, mirrored for a parker at (-1,3)).
+
+## Single-U 7x8 mechanisms (04:30Z-05:12Z), all `door ideal` at 32 positions x 2, frame 12/12
+| file | what | open/close |
+|---|---|---|
+| u7/m8.txt + m8.ideal | NO T parker, C goes DOWN: U pulls BM, K (-1,-1) parks it into (0,-1), B pushes A into (1,3), A pushes TM+C down (held), U pulls C, A pulls TM back, B lifts A, A pulls TM up; TL up (0,4), left 2-stack, right 3-stack; static (-1,2), (2,3), (2,-1); oc plan | 35 / 13 |
+| u7/m9.txt + m9.ideal | m8's moves with A RESTING in (1,3) and ONE SYMMETRIC train: TL (at (0,3) only while open) gates A's hold, powered by a real repeater on the static frame stone (-1,2); A's last pull through a conductor at (2,4) only QC-arms A at (1,3) (no update) so it does nothing on close | 45 / 37 |
+| u7/m10i.txt + m10.ideal | the community 7x9 (c79) squeezed into 7x8 the other way from mechspace's c78: BR RIGHT (R0 under R1: right 2-stack), TR UP by a level-held TRp (2,4), single U (1,-2), A resting in (1,3), B level-held, TL/ML/BL left; static (0,3), (3,2), (2,-1) | 15 / 15 |
+| u7/m10a.txt + m10a.ideal | m10 with its LEVELS real (lever ON at rest): lever (4,5) on the stone (4,4); dust (4,3) on the dropper (4,2) holds R1 + R0 (QC); repeater (3,5) d4 (on the stone (3,4)) reads the lever and holds TRp by QC through (2,5); repeater (2,5) d1 holds B. Only A/K/U/L pulses ideal | 15 / 15 |
+| u7/m10ri.txt + m10r.ideal | m10 with A's hold RELAYED by TR: TRp's level drops first, TR lands in (2,3), a real repeater (3,3) (d2, on the static frame stone (3,2)) powers TR, which powers A at (1,3) | 23 / 15 |
+- m8's windows (oc): u1 0..3, k 3..14, b1 0..13, a 6..15 (hold 3..13), u2 13..28, b2 21..28, a3 30..50;
+  close: cu1 0..1, ck 1..9, cu2 5..30, ca and the sides any. m10: hold start 0..3 with B at 9..10
+  (B - hold = 7..10), K 3..8, U >= 10, R/TRp/L/close levels any.
+- CONNECTIVITY (by hand, 7 wide, 2 bottom rows): the bottom rows can only watch the bottom side
+  pullers (from (-2,-1)/(4,-1)), so a bottom side puller must be TOP-fed: a 2-stack (top side
+  block leaving vertically, or BR leaving down so (4,0) watches row 1 as in c79). With 3-high
+  stacks on both sides (the 9 artifact mechanisms, m7, mechspace's c78) the bottom (L0, R0, K, U)
+  never learns the lever: the only top-driven change there, BM landing in (1,-1), is watchable only
+  from frame cells or U. satwire agrees on m8 (core: close L0 + close R0).
+- m10's remaining wiring (not done): the hold pulse into (3,3)'s back (4,3) ~4 gt after the flip
+  while (4,3) also carries the dropper's level dust (needs a second lever-derived signal: the
+  dropper's `triggered` is watchable only from (4,3)); A's last pull through c79's dust line
+  ((0,5) observer on B -> (-1,5) -> (0,4) on the static (0,3), and -> (-2,4) on (-2,3) for L2+L1);
+  the bottom (U twice, K, L0) from R0's watcher (4,-1) in the 9 bottom cells, the left half woken
+  by watching U from (0,-2) (U pulls BM first, m8-style, so K can follow U).
