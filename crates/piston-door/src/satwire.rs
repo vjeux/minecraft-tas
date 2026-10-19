@@ -2929,8 +2929,15 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                                 let i_p = m.e.or(&[s0p, blp2]);
                                 let g1 = m.e.and(&[g, s_k]);
                                 // an input change in the same tick as its tick: it reads either value
-                                m.e.add(&[!g1, !i_p, !i_k, o_k]);
-                                m.e.add(&[!g1, i_p, i_k, !o_k]);
+                                // (--exact-order: its NORMAL-priority tick runs after the observer and
+                                // repeater changes of the tick that scheduled them first: it reads the
+                                // input at the end of the tick; a 2 gt observer pulse never passes)
+                                if EXACT_ORDER.load(std::sync::atomic::Ordering::Relaxed) {
+                                    m.e.eq_if(g1, o_k, i_k);
+                                } else {
+                                    m.e.add(&[!g1, !i_p, !i_k, o_k]);
+                                    m.e.add(&[!g1, i_p, i_k, !o_k]);
+                                }
                                 let g2 = m.e.and(&[g, !s_k]);
                                 m.e.eq_if(g2, o_k, o_p);
                             }
