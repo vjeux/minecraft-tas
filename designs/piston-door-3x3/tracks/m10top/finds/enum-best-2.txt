@@ -5,43 +5,41 @@ origin: -2 0 0
 palette:
   A minecraft:observer[facing=up,powered=false]
   B minecraft:observer[facing=west,powered=false]
-  C minecraft:crying_obsidian
+  C minecraft:piston_head[facing=west,short=false,type=sticky]
   D minecraft:dropper[facing=south,triggered=false]
-  E minecraft:piston_head[facing=west,short=false,type=sticky]
-  F minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
-  G minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
-  H minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
-  I minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
-  J minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
-  K minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  F minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=true,facing=down]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  K minecraft:stone
   L minecraft:lever[face=floor,facing=north,powered=true]
-  M minecraft:sticky_piston[extended=true,facing=down]
-  N minecraft:sticky_piston[extended=true,facing=west]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston[extended=false,facing=down]
-  Q minecraft:stone
-  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
-  S minecraft:sticky_piston[extended=false,facing=down]
+  R minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  S minecraft:smooth_stone_slab[type=top,waterlogged=false]
   d minecraft:dropper[facing=south,triggered=true]
   o minecraft:observer[facing=east,powered=false]
   p minecraft:piston_head[facing=down,short=false,type=sticky]
-  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
-  s minecraft:sticky_piston[extended=false,facing=east]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
 layer -3:
-  QoDQo.Q
+  KoDKo.K
 layer -2:
-  FOBK.PF
+  rOBH.Pr
 layer -1:
-  Os..Q.A
+  OG..K.A
 layer 0:
-  s.QQQEN
+  G.KKKCJ
 layer 1:
-  s.QQQEN
+  G.KKKCJ
 layer 2:
-  s.QQQQd
+  G.KKKKd
 layer 3:
-  Q.QSp.G
+  ..KspFE
 layer 4:
-  HCRpMQQ
+  ....ISN
 layer 5:
-  .roMIJL
+  ...s.RL
