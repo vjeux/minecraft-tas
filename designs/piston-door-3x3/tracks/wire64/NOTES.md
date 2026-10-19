@@ -210,3 +210,20 @@ E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
   ((-2,5) on (-1,5), or (-1,4) on (0,4)), plus 5..9 ticks of delay, plus D1's feeder at (0,4) and
   DE's at (0,5): the 4-cell core. DE fed from the right instead ((2,5): a repeater facing east on
   D2) moves the problem to TR, which has no incoming link.
+- Hand-wiring f131L's top-left (7 cells), where it jams: D1's three shots (t0 at (1,4), t18 lifted
+  at (1,3), t30 at (1,4)) all come from (0,4) (D1's only feed in both positions); an observer there
+  must face west and watch (-1,4), so (-1,4) must change three times per edge (on, off, on) without
+  powering P3 below it: only a weakly activated note block works (a wall torch at (-1,5) or a
+  strongly powered conductor at (-2,4) next to it). DE's two pulses come from (0,5): an observer
+  there watches (-1,5) (the same torch: DE and D1 would fire together), a repeater there reads
+  (-1,5) too. X (-2,3) must be strong and on at rest: dust on (-2,4) fed by a torch, 5..9 ticks
+  after D1's first shot. Seven cells cannot hold all of: X's dust + torch + delay, (-1,4)'s 3-change
+  source, (0,4)'s observer, DE's feed and the lever's attachment.
+- The window variant (DE held 12..24, a watcher of its carrier for D1's lifted shot) needs the
+  carrier at (0,5) and a watcher facing up at (0,4), which then cannot feed D1 at (1,4) (s1, s6).
+- Bottom-left in 7x8: L0's park cell (-1,0) is filled only by L0 itself; 131 has no bottom
+  elevator; UM is fed from BL or BR and BR sees R0 only if R0 is fed from TR (R0 quasi from (4,2)).
+  Making R0/R1 LEVEL pistons (SW+(4,0), SW+(4,1), extended at rest like L1+/L2+) would give BR an odd
+  link (a watcher at (4,-1) sees R0+ move once per edge) to fire UM; UM's two motions then reach BL
+  ((0,-2)) as a pair 2-4 gt apart, which a merger (observer + delay-2 repeater) could turn into L0's
+  single pulse, if it fits in BL's 5 cells. Not tried.
