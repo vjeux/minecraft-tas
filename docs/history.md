@@ -385,6 +385,12 @@ Read in the 26.3 source, each proven by a [gadget](../designs/gadgets/) or a jud
 exist** (no designs; never look them up). So every "7 wide is blocked" verdict below is an
 artifact of our bounds, not of the box: look for what the bounds exclude.
 
+**Caveat on every satwire verdict below (sweep56, 01:15Z):** a satwire UNSAT is relative to the
+ideal plan it was given; with families' plans even e89b's own mechanism is UNSAT in e89b's own box.
+Treat "satwire UNSAT" lines as "this plan can't be wired", not "this mechanism can't".
+**8x8-131 and 8x8-135 (v3) fit 7 wide x 8 tall** (every mechanism cell stays in x -2..4 over a
+full cycle): the catalog filed them under 8x8, so its 7x8 list is incomplete.
+
 Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and under which bounds
 (every "none" is bounded; tricks that may break a bound are in
 [mechanics.md](mechanics.md#wiring-tricks-for-tight-flat-boxes-found-2026-10-18-evening-below-72-hunt)):

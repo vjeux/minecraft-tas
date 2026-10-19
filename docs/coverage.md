@@ -104,7 +104,12 @@ a named fixture is also a regression test in `crates/redsim/tests/fixtures/` (re
 1. **satwire UNSATs are not proofs** while the encoding approximates block updates (re-read every
    tick), QC-as-BUD, observer transients and repeater races, and lacks update pistons, redstone
    blocks, targets, slabs and leaves. Fix: encode updates exactly or use boxproof; until then an
-   UNSAT means "no wiring in this encoding".
+   UNSAT means "no wiring in this encoding". **Worse, an UNSAT is relative to the IDEAL PLAN it was
+   given** (sweep56's calibration): with families' plans, e89b's own mechanism is UNSAT in e89b's
+   own 8x9 box, where its wiring exists, because e89b's real power trains (a held elevator level,
+   1 gt pulses, other orders) are nothing like the plan. So "satwire UNSAT" says nothing about a
+   mechanism until the requirements are plan-free (satwire's macro windows, sweep56's menus) or
+   the timing is chosen by the solver (boxproof's fixed-pistons mode).
 2. **The catalog's mechanism space**: no helpers, lifts of 1 cell along the axis (general
    `--carry` ran on 9x6/6x9 only), no 0-ticks, <= 2 moves per block (non-center blocks 1 unless
    `--two`), no carried sources, state-capped candidates (7x8: 1861 unresolved; 7x7: 1639, a
