@@ -147,3 +147,23 @@ E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
   (none exists in 118's geometry: E3 changes mid-sequence), or L2/N4 pulses derived from a bottom-left
   trigger through E3... The stopper trick itself is general: a pull-type puller held extended at rest
   turns a "fires too early" coupling into "fires the moment its path clears".
+
+## 6. v3 8x8-131 and 8x8-135 (explore/families 9159d57; memory-wirable, oc + sym plans)
+
+- 131 (box x=-2..5, y=-2..5): `SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,3) SU(1,-2) SD(1,4) SD(1,5) SD(2,4)
+  SW(4,0) SW(4,1)`: 102's elevator turned upright at the top center: DE (1,5) lifts D1 (1,4) down into
+  (1,3), P3+ (-1,3) (level, head at (0,3) at rest) pulls T aside into (0,3), C goes up column 1;
+  BL/ML/TL leave left (stack L0/L1/L2 at x=-2), M down, MR/BR right, TR up. 135 is its mirror
+  (center down, P3+ at (-1,-1)).
+- Families' four ideal plans (8x8-131/135 -oc/-sym) WORK in `door ideal` at 32 positions x 2 cycles.
+- satwire (time warp, front fix): 131-sym UNSAT, core P3 (-1,3) on close, conflicting groups = the
+  top-left cells (-2,3) (-2,4) (-1,4) (0,4) (-2,5); 135-sym UNSAT. Geometry behind it (131): the
+  top-left region (7 cells) must hold the lever's whole sequence: P3's level (only from (-1,4), or
+  from (-2,3) which is also the L2/L1 feeder: a conductor there powers L2), the L2+L1 pulse (only
+  from (-2,3): L1's quasi cell is L2's cell), D1's three shots (both D1 cells are fed only from
+  (0,4): directly at (1,4), by quasi-connectivity at (1,3)), and possibly DE's window/pulses
+  ((0,5); (2,5) would also power D2). Any observer at (0,4) must watch (-1,4), which is P3's only
+  clean feeder; the lever can only sit outside the box next to (-2,3..5)/(-1,6)/(0,6). 
+- The 102 window trick carries over (DE held for a window, D1's lifted shot from a watcher of DE's
+  carrier), but its carrier would have to sit at (0,5) and the watcher at (0,4) must face west to
+  feed D1 (so it watches (-1,4), not the carrier): same cell conflict as above.
