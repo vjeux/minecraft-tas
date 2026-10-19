@@ -10,6 +10,7 @@ Box: devvm55865 (shared box1). Tool: `door fill` (new, below).
 | **archive/t7b-ob40-40b.txt** (= BEST.txt) | 63b (7x9x1) | **40** | 41 / 29 | a MOVING OBSERVER replaces t7b's merger + route (below) |
 | archive/t7b-pw42-42b.txt | 63b | 42 | 37 / 25 | route stone + note block -> one normal piston whose head pops into the watched cell |
 | **archive/t7b-sk40-40b.txt** (SCULK) | 63b | **40** | 47 / 47 | ob40 with the left wall driven by a plain sculk sensor (-2,4) hearing the lever + observer (-2,3) up + wool (-2,2) (sculk board leader was 49) |
+| archive/t7b-ob40e-41b.txt (ELIGIBLE) | 70b (7x10x1) | 41 | 41 / 29 | ob40's record-eligible variant (door relever: note block (1,5) under the lever; `door eligible`: ELIGIBLE). A t7b-family door cannot be eligible inside 63b: the lever's support is the T puller, which has no free side for the repeater rig and can only be powered from y=5 |
 | archive/t7b-p42-42b.txt | 63b | 42 | 53 / 21 | bottom-right re-filled with 3 wiring sticky pistons |
 | archive/t7b-nb2-43b.txt | 63b | 43 | 37 / 25 | route note block + observer -> stone + note block (one stage less) |
 | **archive/s27-tlp50-50b.txt** | 64b (8x8x1) | **50** | 39 / 45 | pockets2's s27-trbl51 (51) + top-left A part: sticky piston (-3,3) up replaces observer + stone |
