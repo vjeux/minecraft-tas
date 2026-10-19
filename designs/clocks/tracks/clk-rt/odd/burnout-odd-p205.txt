@@ -1,0 +1,20 @@
+# ODD burnout clock (clk-rt): a wall torch on A -> delay-1 repeater -> block F -> wall torch on F
+# -> dust -> A (2 torches, loop delay 6 gt) toggles too fast and burns out; a temporary wall torch
+# under A for 2 gt at tick 1 (odd) starts a second parity class: 8 pulses of 3 gt, period 205.
+name: clk-rt-odd-p205-8b
+uloop: T-1*-d-T
+port output: 0 1 -1
+port start: 0 0 0 minecraft:redstone_wall_torch[facing=west,lit=true] 2 at 1
+origin: 0 0 -1
+palette:
+  A minecraft:redstone_wire
+  B minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+layer 0:
+  .S
+  .S
+layer 1:
+  RBS
+  SAr

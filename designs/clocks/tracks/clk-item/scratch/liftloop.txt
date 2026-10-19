@@ -1,0 +1,13 @@
+# Skeleton for the dropper self-trigger search: H (hopper) -> D (dropper, up) -> H1 (hopper) -> X (hopper, down) -> H, one item in X.
+name: liftloop
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  H minecraft:hopper[enabled=true,facing=east]
+  D minecraft:dropper[facing=up,triggered=false]
+  I minecraft:hopper[enabled=true,facing=west]
+  X minecraft:hopper[enabled=true,facing=down]
+layer 0:
+  HD
+layer 1:
+  XI

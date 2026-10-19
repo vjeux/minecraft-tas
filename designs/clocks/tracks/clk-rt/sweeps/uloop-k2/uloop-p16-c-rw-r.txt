@@ -1,0 +1,20 @@
+# U-loop (clk-rt): block A + dust beside it -> top row [delay-1 repeater (powered at placement),
+# delay-2 repeater (powered at placement)] -> block F -> dust beside F -> bottom row [delay-4
+# repeater, comparator] -> A; 0 torches = a pulse ring of loop delay 16 gt
+name: clk-rt-uloop-p16-c-rw-r-14b
+uloop: C-1*,2*-4,c-d
+port output: 0 1 -1
+origin: 0 0 -1
+palette:
+  A minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
+  B minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  R minecraft:redstone_wire
+  S minecraft:stone
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+layer 0:
+  SSS
+  .SSS
+layer 1:
+  RrAS
+  SBCR

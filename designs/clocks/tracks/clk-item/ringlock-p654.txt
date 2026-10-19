@@ -1,0 +1,23 @@
+# Ring lock, 10 blocks (clk-item): 8 hoppers around a 3x3 square, a comparator in the middle reads the west hopper and locks the east one (it points into it); 3 items (2 stone + 1 sword). Items queue at the locked hopper and are released in an irregular order: the whole pattern repeats only every 654 gt.
+# redsim: P=654 gt, warmup 22, family comparator+hopper, 10 blocks, output on 234/654 gt, 30 rising edge(s)
+
+name: ringlock-p654
+port output: 1 0 1
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:2}]}
+nbt: 2 0 2 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=north,mode=subtract,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer -1:
+  .
+  .S
+  .
+layer 0:
+  ABB
+  ACh
+  HHh

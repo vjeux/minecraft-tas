@@ -1,0 +1,21 @@
+# archived 2026-10-19T17:29Z from /tmp/clk-in7/clk-obs--notering6.txt by mctas clock archive
+# CLOCK: clk-obs-notering6 period 10 gt, on 2/10, edges 1, warmup 2, family note_block+observer, 6 blocks, 3x1x2, robust
+name: clk-obs-notering6
+# A 3x2 loop of five observers and a note block: observer O1 (1,0,0) watches O5 (2,0,0) and
+# powers the note block N (0,0,0) behind it; O2 (0,0,1) watches N, O3 (1,0,1) watches O2,
+# O4 (2,0,1) watches O3, O5 watches O4. The note block follows its power with no delay, so the
+# pulse goes around in 5 x 2 gt: P = 10, a single-pulse ring whose length is 2 mod 4 (a lattice
+# loop of observers alone has an even number of observers, so P = 0 mod 4).
+origin: 0 0 0
+port output: 1 0 0
+port start: 1 0 1 last
+palette:
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:observer[facing=south,powered=false]
+layer 0:
+  NAE
+  BCD

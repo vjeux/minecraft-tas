@@ -1,0 +1,10 @@
+place designs/clocks/tracks/clk-item/scratch/h2-slosh.txt
+probe_items a 0 1 0
+probe_items b 1 1 0
+probe c -1 1 0
+items 0 1 0
+trace 30
+items 0 1 0
+items 1 1 0
+box -1 1 0 1 1 0
+bechanges 16
