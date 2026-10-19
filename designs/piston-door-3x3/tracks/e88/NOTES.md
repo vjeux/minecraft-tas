@@ -95,3 +95,17 @@ second pulse must happen on OPEN only. Gate: BM parked at (0,-1) exists only whi
 
 ## Files
 wip/t1-t3*.txt + ideal/*.ideal (door ideal-rs WORKS for t1, t2, t3, t3b, t3p, t3q, t3r, t3w, t3m, t3x).
+
+## Shrink attempts on t7b (43)
+- `door minimize --seamless full+hall` (with the frame fix, ece7e451): 43 -> 43; without the fix it
+  removed the 3 static frame stones (42, frame 9/12).
+- t7c: merger replaced by note block (4,-2) + observer (3,-2) + note block (2,-2) (42): the observer
+  fires on both of W1's pulses (t11, t15), A gets two pulses: BROKEN. The delay-2 repeater merger stays.
+- Walls: 3 blocks per side is the minimum with this topology (the emitter at (-2,2) must point down
+  to power ML directly and QC BL; its input must come from TL's park watcher (-1,3)).
+
+## 7x8 with this top: what needs row -4
+Row -4 holds D's support (0,-4) and the horizontal channel from the right (cut) side to D's input.
+In 8 rows, row -3 can hold no repeater/comparator/dust, so B's >= 7 gt hold must come from a
+redstone-block shuttle (two pulses >= 5 apart from the 3 cells left of it: pockets say undrivable in
+x >= -2) or a sculk sensor (bridge's t3k-sculk does it in 8x8, sculk category).
