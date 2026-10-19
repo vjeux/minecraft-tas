@@ -51,3 +51,8 @@ extend + 4), so A3 happens there and the lamp's later off-edge re-pushes C.
   extra lamp lighter (-2,-2)+(-2,-1) instead of (-1,-1)); a loop that re-uses the BL-park watcher (-1,-1)
   would save one. K + B1 share (4,-1) (4,-3) (3,-3); the top-right driver (3 blocks) is also K's 2-gt delay.
 - Older sculk-era notes (r1/r2/nb, satwire3's UNSAT core) are in git history of this file (before 17:40Z).
+- Record eligibility (coordinator, 19:00Z): impossible at 7x8 on this line. The TM puller's power cells
+  are all in row 5, so a fixed lever support makes the door 7x9: h5 + a note block at (1,5) = ELIGIBLE,
+  42 blocks, 63b. An eligible 7x8 needs a new top (TM driven from (0,4)/(2,4), top corners moved
+  sideways, wall firing redone). Also why c77's community 46 fails the repeater input, and how to emulate
+  the rig in ideal-rs: e78s/NOTES.md, last section.
