@@ -1185,6 +1185,27 @@ pub enum CosearchCmd {
     /// when it drives plan inputs inside their timing windows; then one filling per pocket
     /// combined and verified.
     Pockets(crate::cosearch_search::PocketArgs),
+    /// Place a design in redsim, settle, flip its lever `--flips` times (settling after each) and
+    /// write the settled plane as a design: e.g. a door read in its OPEN state (lever off) turned
+    /// into its CLOSED state (lever on), for searches with `--lever-on-rest`.
+    Flip {
+        design: std::path::PathBuf,
+        #[arg(long, default_value_t = 1)]
+        flips: u32,
+        #[arg(long)]
+        out: std::path::PathBuf,
+    },
+    /// An ideal plan from a working door: per lever edge, every piston cell's real power tick by
+    /// tick becomes a redstone block behind it (z+1) while powered (`door ideal` format, `design`
+    /// = the given file). With `--only x,y;...` only those piston cells (door coordinates): the
+    /// plan of the inputs a wiring pocket drove, for `pockets --assist` calibration.
+    PlanFrom {
+        design: std::path::PathBuf,
+        #[arg(long)]
+        out: std::path::PathBuf,
+        #[arg(long)]
+        only: Option<String>,
+    },
     /// Print every block change tick by tick in redsim (placement, then `--flips` lever flips):
     /// compare with `door trace` (the real game) to locate a model disagreement.
     Trace {
@@ -1249,6 +1270,92 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
         }
         CosearchCmd::Search(a) => crate::cosearch_search::run(version, &a)?,
         CosearchCmd::Pockets(a) => crate::cosearch_search::pockets_run(version, &a)?,
+        CosearchCmd::Flip { design, flips, out } => {
+            let (d0, door) = load_door(&design)?;
+            let (wlo, whi) = watch_box(&door.blocks, &door.spec);
+            let mut w = world_for(wlo, whi);
+            let list: Vec<(BlockPos, Block)> = door.blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
+            w.place_like_judge(&list);
+            step_until_idle(&mut w, 400, |_| {});
+            for _ in 0..flips {
+                w.use_block(bp(door.spec.lever));
+                step_until_idle(&mut w, 400, |_| {});
+            }
+            anyhow::ensure!(w.idle(), "not idle after the flips");
+            let z = door.spec.door[2];
+            let snap = Snap::take(&w, wlo, whi);
+            let blocks: Vec<(Pos, Block)> = snap.iter().filter(|(p, b)| p[2] == z && !b.is_air()).collect();
+            anyhow::ensure!(blocks.iter().all(|(_, b)| !is_moving(b)), "a moving block in the settled state");
+            let r = RsDoor { spec: door.spec, blocks };
+            let mut d = r.to_design(&format!("{}-flip{flips}", d0.name));
+            d.meta.insert("note".into(), format!("{} after {flips} lever flip(s), settled (door cosearch flip)", design.display()));
+            d.save(&out)?;
+            println!("wrote {} ({} blocks)", out.display(), r.block_count());
+        }
+        CosearchCmd::PlanFrom { design, out, only } => {
+            let (_, door) = load_door(&design)?;
+            let d0 = door.spec.door;
+            let keep: Option<Vec<(i32, i32)>> = only.as_ref().map(|s| {
+                s.split(';')
+                    .filter_map(|t| {
+                        let v: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                        (v.len() == 2).then(|| (v[0] + d0[0], v[1] + d0[1]))
+                    })
+                    .collect()
+            });
+            let (wlo, whi) = watch_box(&door.blocks, &door.spec);
+            let mut w = world_for(wlo, whi);
+            let list: Vec<(BlockPos, Block)> = door.blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
+            w.place_like_judge(&list);
+            step_until_idle(&mut w, 400, |_| {});
+            let z = d0[2];
+            let powered_cells = |w: &World| -> Vec<(i32, i32)> {
+                let mut v = Vec::new();
+                for x in wlo[0]..=whi[0] {
+                    for y in wlo[1]..=whi[1] {
+                        let q = BlockPos::new(x, y, z);
+                        if let Block::Piston { facing, .. } = w.get(q)
+                            && redsim::piston::base::neighbor_signal(w, q, facing)
+                            && keep.as_ref().is_none_or(|k| k.contains(&(x, y)))
+                        {
+                            v.push((x, y));
+                        }
+                    }
+                }
+                v
+            };
+            let rest: Vec<(i32, i32)> = powered_cells(&w);
+            let mut text = String::new();
+            text.push_str(&format!("# door cosearch plan-from {}: every piston cell's real power per lever edge, as a redstone\n# block behind it (z+1) while powered\n", design.display()));
+            text.push_str(&format!("design {}\n", design.display()));
+            let mut cur: Vec<(i32, i32)> = rest.clone();
+            for phase in ["open", "close"] {
+                w.use_block(bp(door.spec.lever));
+                let mut t = 0u32;
+                loop {
+                    // the state after t ticks is applied before tick t (`door ideal`)
+                    let now = powered_cells(&w);
+                    for c in &now {
+                        if !cur.contains(c) {
+                            text.push_str(&format!("{phase} {t} set {} {} {} minecraft:redstone_block\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2]));
+                        }
+                    }
+                    for c in &cur {
+                        if !now.contains(c) {
+                            text.push_str(&format!("{phase} {t} clear {} {} {}\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2]));
+                        }
+                    }
+                    cur = now;
+                    w.tick();
+                    t += 1;
+                    if (w.idle() && t > 2) || t > 300 {
+                        break;
+                    }
+                }
+            }
+            std::fs::write(&out, text)?;
+            println!("wrote {} (powered at rest: {:?})", out.display(), rest.iter().map(|c| (c.0 - d0[0], c.1 - d0[1])).collect::<Vec<_>>());
+        }
         CosearchCmd::Trace { design, offset, flips, cells, assist, assist_cells, grid } => {
             let (_, door) = load_door(&design)?;
             let opts = JudgeOpts::with_extra(28);
