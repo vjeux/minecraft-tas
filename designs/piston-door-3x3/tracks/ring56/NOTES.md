@@ -103,3 +103,26 @@ see each other, and the bottom cannot reach either: one lever wakes only one top
   four observers; cosearch run 5 wires it (assist mode).
 * Tool fix: `cosearch search`'s screen required an unpowered lever at rest (the judge already accepted
   either polarity): fixed in its own commit.
+
+## 8. Where it stands (end of the night) and what to try next
+
+* No wired 7x8 or 7x9 yet. Mechanisms that WORK with ideal inputs (frame 12/12): jf / j1-j13 (7x9, lever
+  off), s1 (7x8, not wirable: split top), t8 (7x8, one piston below the door), t10 (7x8, lever-ON family).
+* jf: everything wired by cosearch (p2) except the corner piston K, whose only feeds are (3,-2) (needs an
+  upward emitter) and (4,-1) (the right stack's watcher); with j6's top the right half wakes at 20, with
+  j12's dust top at 6, and neither run found K plus the B'/gate pulses (best 77/79 without assists).
+  Single source of trouble: watching a pull-type piston gives a DOUBLE pulse, and the bottom halves are too
+  small for mergers.
+* t10 (lever on TL's puller, ON at rest): both crossings are clean single pulses. Remaining walls: (1) the
+  top-left must sequence the elevator (A x3, E, B x2 over ~30 ticks) in 4 free cells; (2) BM's puller must
+  move >= 30 ticks after the flip with the symmetric train (an earlier BM makes the close's low A-push
+  shove the whole column down). cosearch run 5 (t10s seed, all other pistons assisted): best 77/79 with
+  2-4 assists left (always the elevator).
+* Ideas not tried yet:
+  - an ASYMMETRIC (edge-aware) top for t10 so BM can move early (the close's low A-push is the only reason
+    for BM >= 30); gate the open-only pulses through door blocks parked in the frame (TM in C0, TR in C2)
+    the way BM in F2 gates A2/A3 in jf;
+  - the B double trick: a pull-type B fed a 4 gt double lifts A and lowers it again; A2 fits between if
+    A-low's power window is [B1+5, B1+7) (one odd tick: from a landing-powered piston);
+  - TR pulled RIGHT in t10 (C2 static): the top-right then reaches A at both heights ((2,4) direct + QC,
+    and the static C2 as c79's relay into A-low) and has 8 free cells for the sequencer.

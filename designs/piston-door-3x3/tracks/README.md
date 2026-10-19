@@ -68,6 +68,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [wire19sf](wire19sf/NOTES.md) | wire the 19-block slime-free mechanism | w45 -> w42 42 (slime-free record at the time, buildable) |
 | [wire21](wire21/NOTES.md) | wire the 21-block pulse-only mechanism | m05 40 (ties fc2) |
 | [wire64b](wire64b/NOTES.md) | wire families 8x8-105 / 104 flat FULL seamless (64), then 7x9 = 63 | 105 ideal works (+ pulse-only parker variant); K1 timer is the wall; 104 blocked at one cell; satwire ideal-recorder fix + `--grid` |
+| [ring56](ring56/NOTES.md) | a 7-wide flat FULL-frame door designed by hand ("the door is the wire", 7x8 / 7x9) | mechanisms with ideal inputs: jf 7x9 (top row up, bottom elevator, BM gate), s1 / t8 / t10 7x8 (frame 12/12); jf wired by cosearch except one piston (K); levers hung on a side puller (lever-ON polarity) give clean single-pulse crossings; cosearch screen fixed for lever-ON |
 
 - [box64](box64/NOTES.md): flat FULL-seamless doors in 8x8 / 9x7 boxes (volume <= 64): ideal-input mechanism checks in the box, region/crossing analysis of the wiring
 - [vmid](vmid/NOTES.md): 7x8 mechanisms whose middle-row side blocks leave VERTICALLY (no row-1 wall): vm1 (twin elevators), vc1 / vb2 / vb3 (the carried puller: a corner piston pushed into the ring pulls ML in 2 rows), all ideal at 32 positions; `door connect` and cosearch on them, no wired door yet
