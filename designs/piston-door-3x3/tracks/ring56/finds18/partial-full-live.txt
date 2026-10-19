@@ -1,0 +1,41 @@
+name: cosearch-full-3as
+assisted: 1,4;3,3;1,5;0,4;-2,1;4,0;1,-2
+port door: 0 0 0
+port lever: 5 2 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:sticky_piston[extended=true,facing=west]
+  H minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  O minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  W minecraft:white_glazed_terracotta[facing=north]
+  o minecraft:observer[facing=down,powered=false]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ...E
+layer -1:
+  ..H.H
+layer 0:
+  s.HHH.F
+layer 1:
+  s.HHHpG
+layer 2:
+  .HHHHpGL
+layer 3:
+  .....Fo
+layer 4:
+  ..SSADE
+layer 5:
+  ...SCB
+layer 6:
+  PE.R.OW

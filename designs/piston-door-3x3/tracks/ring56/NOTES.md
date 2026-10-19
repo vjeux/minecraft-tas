@@ -251,3 +251,19 @@ gets pulses); or a T flip-flop (bulb + comparator) on W_TR's pulse to make B a l
   {A1o,P_To}, 5; {B1o,A2o}, 6); B2 (both edges) and A2-close are driven by NO filling. So with this
   palette the 7x8 t8 top-right cannot run the elevator: t8 (lever on TR's puller) is unwirable in 7x8.
   Next: t9 = the same mechanism in 7x9 (box y -2..6): B fed from above, (2,5) free to watch B.
+
+## 14. B as ONE window per edge; A fully wired (12:55Z)
+
+* The elevator works with B held EXTENDED from B1 to B2 instead of two pulses (spit, then pull): B is
+  on for one window per edge. `mech/t9w.ideal` (7x9) and `mech/t8Lw.ideal` (7x8): B on anywhere in
+  15..22 and off in 29..34 (the full rectangle works with the left side ideal).
+* With the window plan, exhaustive pockets k=4 (22 states) on the 7x8 top-right find A at ALL SIX times
+  (A1, A2 low, A3, both edges) with 4 blocks (`pk/t8Lw-k4/pocket3-set0.txt`): the observer on TR's
+  puller fires a NORMAL piston (4,4) that shoves an observer from (3,4) into (2,4) (it fires on arrival:
+  A1); B's watcher (2,5) -> observer (3,5) QC-fires the piston again through (4,5): its head enters
+  (3,4), the observer at (2,4) sees it and fires A (A2 at B on, A3 at B off). B's window still needs a
+  source and P_T loses its feed cell (3,4).
+* `mech/t9b.txt` (7x9 = t9 + that A wiring): screens 79/79 with only P_T and B left ideal (left, BR, U
+  pinned). In 7x9, B can take its window from above ((1,6)), as cosearch already did in t9a with a
+  delay line (obsidian (4,6) -> repeaters (3,6), (2,6) -> QC through (1,6)). Run 19 searches P_T + B.
+* k=6 on the 7x8 top-right with the window plan: running (147 M fillings).
