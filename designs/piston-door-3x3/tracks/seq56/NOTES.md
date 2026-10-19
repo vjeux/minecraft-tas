@@ -52,3 +52,33 @@ Box target 7x8 = 56 (x -2..4, y -2..5), fallback 7x9 = 63.
   TL/ML by L2/L1 (-2,2..1); TR/MR/BR by a 3-stack (4,2..0). Static frame stones (0,3), (2,3), (-1,0).
   `door ideal`: WORKS (4 positions x 2 cycles, open 33 / close 15); `door sheet`: frame 12/12.
 - Regions: top-left (5 cells) - L1 - bottom-left (8) - B'/A' - bottom-right (7); top-left - T - top-right (5).
+
+## 5. m3y (7x9): the bottom elevator, self-sequenced (2026-10-19 04:40Z)
+- m3w (pushed): top wiring + bottom-left merger REAL (lever (-2,5) on observer (-2,4) -> stone (-2,3) -> L2 + L1 by QC;
+  observer (-1,4) -> stone (0,4) -> T; W_T (2,4) -> repeater (4,4) -> observer (4,3) -> R2 + R1; W (-2,0) watches L1 ->
+  2-pulse merger -> M (-1,-2) -> cross dust (-1,-1) -> U0 by QC). A dust on top of a piston pops when that piston
+  extends (extended base has no full top face): first m3w bug.
+- m3y: elevator steps E4 (A at (1,-1) pulls C) and E6 (A back at (1,-2) pulls C) come for free from B's WINDOW:
+  the B window is carried by a NOTE BLOCK at (2,-3) (conductor beside B); an observer (2,-2) facing down watches the
+  note block and pulses up into BM-parked (2,-1). Each window edge -> pulse 2gt later = exactly when A lands
+  (at (1,-1) after B's push, at (1,-2) after B's pull) -> A fires by landing (direct at (1,-1), by QC at (1,-2)).
+  On CLOSE (2,-1) is empty (K pushed BM back) so the same pulses do nothing, and B's window pushes A+BM+C up and
+  pulls A back (it IS the close's last step). `door ideal m3y.ideal` WORKS for window w = 8..14.
+- What stays open in m3y: E1/F1 (A at (1,-2) pulling BM from (1,0)). With BL down (U0 at (0,-2)) A has exactly one
+  free neighbour, (2,-2), which the observer above needs (it must emit UP into BM-parked); a torch there (west+up)
+  has its input next to K or B. Powering A via BL-parked (0,-1) always QC-arms U0 too. So m3's center-down with a
+  corner down is a dead end for full wiring; c79's answer is the opposite: push the center down from the TOP.
+
+## 6. Single-U 7x8 mechanisms after the community 7x9 (c79) tricks
+- m4 (7x8, x -2..4, y -2..5): c79 center (A (1,4)/B (1,5) push TM+C+BM down one, A pulls TM back, B lifts A, A pulls
+  TM into (1,3); U (1,-2) = the only up piston, takes C into (1,-1); K (-1,-1) parks BM at (0,-1)) + TR goes UP via
+  D (2,4); MR/BR by a 2-stack R1/R0 (4,1..0); left 3-stack. Static (0,3), (3,2), (2,-1). Ideal WORKS, frame 12/12.
+- m5: mirror idea (TL up via D (0,4), left 2-stack L1/L0, right 3-stack), static (2,3), (-1,2), (2,-1). Ideal WORKS.
+- Why the 7x8 is hard to wire (what c79 gets from its 9th row): c79 needs (a) a LEVEL side piston the bottom can see
+  (observer (4,0) watching R1: one pulse per edge) and (b) A's push window of >= 3 gt (pulse, then pull TM back):
+  observer (3,3) -> static (2,3) for 2 gt + observers (3,4) -> (2,4) -> QC (1,4) for 2 more gt. In 7x8 with one up
+  piston, BR goes sideways, so (a) needs a corner-up side (a 2-stack whose bottom piston is visible: m4 R0 at (4,0)
+  watched from (4,-1)), but then that corner's up-puller sits at (2,4) and (b) loses its second chain; A's push via
+  TR-parked (2,3) gets only one observer pulse (TR lands at the observer's first tick -> A retracts 1 tick too early
+  -> spit, TM stuck at (1,1)). m5 keeps (b) but loses (a). Next: a window source for A that is not an observer
+  pulse (e.g. repeater-stretched pulse from a dropper sensor), or A's second chain via (0,4) from TOP-L.
