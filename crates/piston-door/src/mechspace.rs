@@ -308,11 +308,45 @@ struct Step {
 
 /// One event at s: its successor (None = disabled: noop, illegal, or a forbidden cell filled),
 /// reads and writes.
+/// The WIRABLE sub-model (`--no-door-bodies`): a transition that leaves a piston BODY inside the
+/// 3x3 is disabled (such a piston could only be powered from the doorway: every catalog
+/// mechanism with a working ideal plan keeps bodies out). Heads may still enter the 3x3.
+pub static NO_DOOR_BODIES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn body_in_door(m: &Mech, n: &St) -> bool {
+    if !NO_DOOR_BODIES.load(Ordering::Relaxed) {
+        return false;
+    }
+    let bx = m.bx;
+    for x in 0..3 {
+        for y in 0..3 {
+            if bx.has(x, y) && (BODY..HEAD).contains(&n.g[bx.idx(x, y)]) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Every state of a cycle respects the sub-model in force.
+pub fn cycle_allowed(m: &Mech, rest: &St, open: &[E], close: &[E]) -> bool {
+    let mut c = rest.clone();
+    for e in open.iter().chain(close.iter()) {
+        if let Out::Ok(n) = m.apply(&c, *e) {
+            c = n;
+        }
+        if body_in_door(m, &c) {
+            return false;
+        }
+    }
+    true
+}
+
 fn step_ev(m: &Mech, s: &St, e: E, forbid: &Fp) -> Step {
     let mut r = Fp::default();
     match apply_t(m, s, e, &mut r) {
         Out::Ok(n) if n != *s => {
-            if !forbid.is_empty() && forbid.ones().any(|i| i < MAXC && n.g[i] != AIR) {
+            if (!forbid.is_empty() && forbid.ones().any(|i| i < MAXC && n.g[i] != AIR)) || body_in_door(m, &n) {
                 return Step { next: None, r, w: Fp::default() };
             }
             let w = writes(m, s, &n, &r);
@@ -415,7 +449,7 @@ impl Grp {
             self.bounded = false;
             return;
         }
-        let mut seen: HashSet<Key> = HashSet::new();
+        let mut seen: KeySet = KeySet::default();
         seen.insert(pack(cx.m, s));
         let mut q: VecDeque<St> = VecDeque::new();
         // successors of s from the precomputed steps
@@ -487,6 +521,11 @@ fn choose(cx: &Cx, s: &St, goal: &Goal, forbid: &Fp) -> Vec<(u8, St)> {
     for k in 0..ne {
         let r = find(&mut uf, k);
         cls.entry(r).or_default().push(k);
+    }
+    // a single class holds every enabled event: no reduction possible (full expansion is always
+    // a valid stubborn set), skip the group analysis
+    if cls.values().filter(|c| c.iter().any(|&k| st[k].next.is_some())).count() <= 1 {
+        return all(&every);
     }
     let mut groups: Vec<Grp> = cls.into_values().map(|evs| Grp { evs, bounded: false, r: Fp::default(), w: Fp::default(), reach: Vec::new() }).collect();
     for g in groups.iter_mut() {
@@ -648,6 +687,35 @@ pub fn diag(bx: Bx, v: &[Pc], cap: usize, cap_local: usize, max_group: usize) ->
 const KW: usize = 5;
 type Key = [u64; KW];
 
+/// A fast multiplicative hasher for the 40-byte keys (SipHash dominated the lean searches).
+#[derive(Default, Clone, Copy)]
+pub struct KeyHasher(u64);
+impl std::hash::Hasher for KeyHasher {
+    fn finish(&self) -> u64 {
+        let mut h = self.0;
+        h ^= h >> 33;
+        h = h.wrapping_mul(0xff51afd7ed558ccd);
+        h ^= h >> 33;
+        h
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for c in bytes.chunks(8) {
+            let mut b = [0u8; 8];
+            b[..c.len()].copy_from_slice(c);
+            self.write_u64(u64::from_le_bytes(b));
+        }
+    }
+    fn write_u64(&mut self, x: u64) {
+        self.0 = (self.0.rotate_left(5) ^ x).wrapping_mul(0x9E3779B97F4A7C15);
+    }
+    fn write_usize(&mut self, x: usize) {
+        self.write_u64(x as u64);
+    }
+}
+type KB = std::hash::BuildHasherDefault<KeyHasher>;
+type KeySet = HashSet<Key, KB>;
+type KeyMap = HashMap<Key, u32, KB>;
+
 fn pack(m: &Mech, s: &St) -> Key {
     let n = m.bx.n();
     let mut k = [0u64; KW];
@@ -749,7 +817,7 @@ impl Graph {
 pub fn search(cx: &Cx, starts: &[St], goal: &Goal, forbid: &Fp, cap: usize, all_goals: bool) -> Graph {
     let m = cx.m;
     let mut g = Graph { keys: Vec::new(), parent: Vec::new(), goals: Vec::new(), complete: true };
-    let mut index: HashMap<Key, u32> = HashMap::new();
+    let mut index: KeyMap = KeyMap::default();
     let mut q: VecDeque<u32> = VecDeque::new();
     for (si, s) in starts.iter().enumerate() {
         let k = pack(m, s);
@@ -807,8 +875,14 @@ fn bad_holes(m: &Mech, o: &St) -> Fp {
 /// Lean search (no paths): the visited set only, goals returned as keys. `por` = the stubborn-set
 /// reduction (else every enabled event, through `Mech::apply` directly).
 pub fn search_lean(cx: &Cx, starts: &[St], goal: &Goal, forbid: &Fp, cap: usize, all_goals: bool, por: bool) -> (Vec<Key>, bool, usize) {
+    let (g, c, set) = search_lean_set(cx, starts, goal, forbid, cap, all_goals, por);
+    (g, c, set.len())
+}
+
+/// [`search_lean`] that also returns the visited set.
+pub fn search_lean_set(cx: &Cx, starts: &[St], goal: &Goal, forbid: &Fp, cap: usize, all_goals: bool, por: bool) -> (Vec<Key>, bool, KeySet) {
     let m = cx.m;
-    let mut seen: HashSet<Key> = HashSet::with_capacity(1 << 16);
+    let mut seen: KeySet = KeySet::with_capacity_and_hasher(1 << 16, KB::default());
     let mut q: VecDeque<Key> = VecDeque::new();
     let mut goals = Vec::new();
     for s in starts {
@@ -823,7 +897,7 @@ pub fn search_lean(cx: &Cx, starts: &[St], goal: &Goal, forbid: &Fp, cap: usize,
         if cx.is_goal(goal, &s) {
             goals.push(k);
             if !all_goals {
-                return (goals, complete, seen.len());
+                return (goals, complete, seen);
             }
         }
         let succ: Vec<St> = if por {
@@ -832,7 +906,7 @@ pub fn search_lean(cx: &Cx, starts: &[St], goal: &Goal, forbid: &Fp, cap: usize,
             let mut v = Vec::with_capacity(cx.evs.len());
             for &e in &cx.evs {
                 if let Out::Ok(n) = m.apply(&s, e) {
-                    if n != s && (forbid.is_empty() || !forbid.ones().any(|i| i < MAXC && n.g[i] != AIR)) {
+                    if n != s && (forbid.is_empty() || !forbid.ones().any(|i| i < MAXC && n.g[i] != AIR)) && !body_in_door(m, &n) {
                         v.push(n);
                     }
                 }
@@ -852,7 +926,29 @@ pub fn search_lean(cx: &Cx, starts: &[St], goal: &Goal, forbid: &Fp, cap: usize,
             q.push_back(kn);
         }
     }
-    (goals, complete, seen.len())
+    (goals, complete, seen)
+}
+
+/// States of `within` (a complete forward set) that can reach rest: backward BFS from rest over
+/// pre-images, staying inside `within`.
+pub fn coreach_within(m: &Mech, rest: &St, within: &KeySet) -> KeySet {
+    let evs = m.events_pulse();
+    let mut live: KeySet = KeySet::default();
+    let k0 = pack(m, rest);
+    live.insert(k0);
+    let mut q: VecDeque<Key> = VecDeque::from([k0]);
+    while let Some(k) = q.pop_front() {
+        let t = unpack(m, &k);
+        for &e in &evs {
+            for s in preimages(m, &t, e) {
+                let ks = pack(m, &s);
+                if within.contains(&ks) && live.insert(ks) {
+                    q.push_back(ks);
+                }
+            }
+        }
+    }
+    live
 }
 
 /// The exact decision with a second, lean stage: when the reduced search with paths hits
@@ -872,7 +968,7 @@ pub fn decide2(cx: &Cx, cap: usize, cap_lean: usize, astar: usize) -> (Verdict, 
     // one (it preserves every open state; it wins where independent toggles multiply states)
     let (mut opens, mut complete, mut n) = search_lean(cx, std::slice::from_ref(&rest), &Goal::Open, &none, cap_lean, true, false);
     if !complete {
-        let r = search_lean(cx, std::slice::from_ref(&rest), &Goal::Open, &none, cap_lean, true, true);
+        let r = search_lean(cx, std::slice::from_ref(&rest), &Goal::Open, &none, (cap_lean / 4).max(cap), true, true);
         if r.1 {
             opens = r.0;
             complete = true;
@@ -907,7 +1003,7 @@ pub fn decide2(cx: &Cx, cap: usize, cap_lean: usize, astar: usize) -> (Verdict, 
         let goal = Goal::Exact(rest.clone());
         let (mut back, mut cc, mut nc) = search_lean(cx, &starts, &goal, mask, cap_lean, false, false);
         if back.is_empty() && !cc {
-            let r = search_lean(cx, &starts, &goal, mask, cap_lean, false, true);
+            let r = search_lean(cx, &starts, &goal, mask, (cap_lean / 4).max(cap), false, true);
             if !r.0.is_empty() || r.1 {
                 back = r.0;
                 cc = r.1;
@@ -1044,7 +1140,7 @@ pub fn replay_ok(m: &Mech, rest: &St, open: &[E], close: &[E]) -> bool {
         cyc.push(c.clone());
     }
     let refs: Vec<&St> = cyc.iter().collect();
-    c == *rest && m.holes_ok(&refs, &o)
+    c == *rest && m.holes_ok(&refs, &o) && !cyc.iter().any(|s| body_in_door(m, s))
 }
 
 // ---------------------------------------------------------------- pre-images (backward search)
@@ -1202,9 +1298,9 @@ pub fn preimages(m: &Mech, t: &St, e: E) -> Vec<St> {
 }
 
 /// Backward BFS from rest over pre-images: the set of states that can reach rest (capped).
-pub fn coreach(m: &Mech, rest: &St, cap: usize) -> (HashSet<Key>, bool) {
+pub fn coreach(m: &Mech, rest: &St, cap: usize) -> (KeySet, bool) {
     let evs = m.events_pulse();
-    let mut seen: HashSet<Key> = HashSet::new();
+    let mut seen: KeySet = KeySet::default();
     seen.insert(pack(m, rest));
     let mut q: VecDeque<Key> = VecDeque::from([pack(m, rest)]);
     while let Some(k) = q.pop_front() {
@@ -1505,8 +1601,76 @@ pub fn decide_fast(cx: &Cx, cap: usize, astar: usize) -> (Verdict, Stats) {
     decide_all(cx, cap, 0, astar)
 }
 
+/// Given the complete reachable set `visited` (in the system restricted by `forbid`) and its open
+/// states with no other bad hole than `forbid`'s cells: the open states that can come back to
+/// rest. Some -> Found (sequences from A* or from reduced path searches); None -> none closes.
+fn cycle_in(cx: &Cx, opens: &[Key], visited: &KeySet, forbid: &Fp, astar: usize) -> Option<Verdict> {
+    let m = cx.m;
+    let live = coreach_within(m, &cx.rest, visited);
+    let lo: Vec<St> = opens.iter().filter(|k| live.contains(*k)).map(|k| unpack(m, k)).filter(|o| bad_holes(m, o) == *forbid).collect();
+    let o = lo.first()?;
+    if forbid.is_empty() && astar > 0 {
+        if let Ok(Some(sol)) = families::solve_pulse_astar(m, &cx.rest, astar) {
+            if replay_ok(m, &cx.rest, &sol.open, &sol.close) {
+                return Some(Verdict::Found { open: sol.open, close: sol.close });
+            }
+        }
+    }
+    // exact sequences: rest -> o and o -> rest by reduced path searches
+    let cap = visited.len() + 10;
+    let g1 = search(cx, std::slice::from_ref(&cx.rest), &Goal::Exact(o.clone()), forbid, cap, false);
+    let g2 = search(cx, std::slice::from_ref(o), &Goal::Exact(cx.rest.clone()), forbid, cap, false);
+    if let (Some(&a), Some(&b)) = (g1.goals.first(), g2.goals.first()) {
+        let ev = |v: Vec<u8>| -> Vec<E> { v.into_iter().map(|k| cx.evs[k as usize]).collect() };
+        let open = ev(g1.path(a).1);
+        let close = ev(g2.path(b).1);
+        if replay_ok(m, &cx.rest, &open, &close) {
+            return Some(Verdict::Found { open, close });
+        }
+    }
+    Some(Verdict::Found { open: Vec::new(), close: Vec::new() })
+}
+
 /// [`decide2`] (exact, lean second stage up to `cap_lean`), then families' A* when still capped.
 pub fn decide_all(cx: &Cx, cap: usize, cap_lean: usize, astar: usize) -> (Verdict, Stats) {
+    // main path: a plain search (cheap per state) enumerates the whole reachable set R; then
+    // the states of R that can come back to rest are found BACKWARD from rest (pre-images kept
+    // inside R): an open state among them is a cycle (exact; the hole rule in the restricted
+    // system when needed)
+    let lim = cap_lean.max(200_000);
+    let none = Fp::default();
+    let (opens, complete, visited) = search_lean_set(cx, std::slice::from_ref(&cx.rest), &Goal::Open, &none, lim, true, false);
+    if complete {
+        let n = visited.len();
+        if opens.is_empty() {
+            return (Verdict::NoOpen, Stats { open_states: n, close_states: 0 });
+        }
+        if let Some(v) = cycle_in(cx, &opens, &visited, &none, astar) {
+            return (v, Stats { open_states: n, close_states: 0 });
+        }
+        drop(visited);
+        // open states whose holes need cells kept air: the restricted system per mask
+        let m = cx.m;
+        let masks: std::collections::BTreeSet<Fp> = opens.iter().map(|k| bad_holes(m, &unpack(m, k))).filter(|b| !b.is_empty()).collect();
+        let mut capped = false;
+        for mask in masks {
+            if mask.ones().any(|i| cx.rest.g[i] != AIR) {
+                continue;
+            }
+            let (o2, c2, v2) = search_lean_set(cx, std::slice::from_ref(&cx.rest), &Goal::Open, &mask, lim, true, false);
+            if !c2 {
+                capped = true;
+                continue;
+            }
+            let o2: Vec<Key> = o2.into_iter().filter(|k| bad_holes(m, &unpack(m, k)) == mask).collect();
+            if let Some(v) = cycle_in(cx, &o2, &v2, &mask, astar) {
+                return (v, Stats { open_states: n, close_states: 0 });
+            }
+        }
+        let nopen = opens.len();
+        return (if capped { Verdict::Capped { opens: nopen } } else { Verdict::NoClose { opens: nopen } }, Stats { open_states: n, close_states: 0 });
+    }
+    drop(visited);
     let (vd, st) = decide2(cx, cap, cap_lean, astar);
     if astar == 0 || vd.decided() {
         return (vd, st);
@@ -1521,14 +1685,26 @@ pub fn decide_all(cx: &Cx, cap: usize, cap_lean: usize, astar: usize) -> (Verdic
 
 /// Decide a list of candidates; writes `<out>/<tag>.tsv` (one verdict per candidate) and
 /// returns the found ones.
-pub fn run_list(items: &[(Bx, Vec<Pc>)], o: &RunOpts, families_cmp: bool) -> Result<Vec<(Bx, Vec<Pc>, Vec<E>, Vec<E>)>> {
+pub fn run_list(items_all: &[(Bx, Vec<Pc>)], o: &RunOpts, families_cmp: bool) -> Result<Vec<(Bx, Vec<Pc>, Vec<E>, Vec<E>)>> {
     std::fs::create_dir_all(&o.out)?;
+    // resume: candidates already in <tag>.partial.tsv are skipped (their rows are kept there)
+    let ppath = o.out.join(format!("{}.partial.tsv", o.tag));
+    let done_before: HashSet<String> = if std::env::var("MECHSPACE_RESUME").is_ok() {
+        std::fs::read_to_string(&ppath).unwrap_or_default().lines().filter_map(|l| l.split('\t').next().map(|s| s.to_string())).collect()
+    } else {
+        HashSet::new()
+    };
+    let items: Vec<(Bx, Vec<Pc>)> = items_all.iter().filter(|(b, v)| !done_before.contains(&line_of(b, v))).cloned().collect();
+    if !done_before.is_empty() {
+        eprintln!("[mechspace {}] resume: {} already decided, {} left", o.tag, items_all.len() - items.len(), items.len());
+    }
+    let items = &items[..];
     let t0 = std::time::Instant::now();
     let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
     let rows: Mutex<Vec<(usize, String)>> = Mutex::new(Vec::new());
     // rows also stream to <tag>.partial.tsv as they finish (long runs)
-    let partial = Mutex::new(std::fs::File::create(o.out.join(format!("{}.partial.tsv", o.tag)))?);
+    let partial = Mutex::new(if done_before.is_empty() { std::fs::File::create(&ppath)? } else { std::fs::OpenOptions::new().append(true).open(&ppath)? });
     let found: Mutex<Vec<(usize, Bx, Vec<Pc>, Vec<E>, Vec<E>)>> = Mutex::new(Vec::new());
     let counts: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
     std::thread::scope(|sc| {
@@ -1607,7 +1783,7 @@ pub fn diag2(bx: Bx, v: &[Pc], cap: usize) -> Result<()> {
     let (m, rest) = Mech::new(bx, v).context("invalid mechanism")?;
     let evs = m.events_pulse();
     let t0 = std::time::Instant::now();
-    let mut index: HashMap<Key, u32> = HashMap::new();
+    let mut index: KeyMap = KeyMap::default();
     let mut keys: Vec<Key> = vec![pack(&m, &rest)];
     index.insert(keys[0], 0);
     let mut rev: Vec<Vec<u32>> = vec![Vec::new()];
