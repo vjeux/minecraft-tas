@@ -1,0 +1,28 @@
+name: w86-a3
+# 8x6 (48b) MECHANISM candidate, ideal inputs. Box A (one row above), floor = 3 statics.
+# Column 1 goes UP into the ceiling: W (1,3) ring puller carried by Q (1,4); C leaves via row 2
+# (RP_L (-1,2) pulls TM to (0,2), wiggles TM+C right and TM back) then up by (2,4); W escapes
+# right to the corner (3,3) via KR (3,3)->(4,3) carried by KR2 (5,3); RP_L escapes up by (-1,4).
+port door: 0 0 0
+port lever: -2 5 0
+origin: -2 0 0
+palette:
+  F minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer -1:
+  ..FFF...
+layer 0:
+  E.FFF.W.
+layer 1:
+  E.FFF.W.
+layer 2:
+  EEFFF.W.
+layer 3:
+  ...D.W.W
+layer 4:
+  FDDDD...
+layer 5:
+  L

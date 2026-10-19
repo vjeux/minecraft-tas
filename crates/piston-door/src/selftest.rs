@@ -350,6 +350,22 @@ fn checks() -> Vec<Check> {
             if v.contains("open after 34 ticks / closed after 34 ticks") { Ok(v.chars().take(100).collect()) } else { Err(v) }
         }),
     });
+    // 6c. the first sub-56 mechanisms in 6-tall boxes (w86): ring pistons resting in frame cells, a
+    // carried ring puller, wiggles, QC-coupled stacks avoided; redsim must keep opening and closing them
+    for (plan, label) in [("designs/piston-door-3x3/selftest/w86-a3s-7x6.ideal", "a3s-7x6"), ("designs/piston-door-3x3/selftest/w86-a3r-8x6.ideal", "a3r-8x6")] {
+        v.push(Check {
+            name: format!("ideal:w86-{label}"),
+            what: "w86's 6-tall mechanisms (7x6 = 42b a3s, 8x6 = 48b a3r: ideal inputs, FULL frame 12/12, the game agrees): `door ideal-rs` WORKS at 4 positions x 2 cycles",
+            quick: true,
+            jvm: false,
+            steps: vec![args(&format!("?door ideal-rs {plan}"))],
+            timeout: 120,
+            pred: Box::new(|o| {
+                let v = ideal_verdict(&o[0]).ok_or(format!("no verdict: {}", tail(&o[0])))?;
+                if v.starts_with("WORKS") { Ok(v.chars().take(100).collect()) } else { Err(v) }
+            }),
+        });
+    }
     // 7. generator membership (docs/audit.md acceptance list)
     let expect: Vec<(&str, [&str; 6])> = vec![
         ("c79-closed", ["out", "IN", "IN", "IN", "IN", "IN"]),
