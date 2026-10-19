@@ -22,7 +22,9 @@ palette). So 39 needs a coupled change across more regions or a new mechanism.
 
 ## e78 help (e78k's 7x8 sculk partial, partials/e78.md): all 0
 e78wsT right cells + (-2,-1) k<=4, 7 free cells k<=4; r1 left 5 cells k<=5, + top 2 k<=4; r2 6 cells
-k<=4, 8 cells k<=4; nb 7 cells k<=4 (full palette) and k=5 (reduced). Logs: runs/e78*.log.
+k<=4, 8 cells k<=4; nb 7 cells k<=4 (full palette) and k=5 (reduced); r1 right cluster (relay
+included) k<=5, and + (2,-3) k<=5. Logs: runs/e78*.log. e78k handed off at 15:03Z (explore/q78
+tracks/q78/HANDOFF.md); the results are on partials/e78.md.
 
 ## Next ideas
 1. Pistons as wiring everywhere (a normal piston as a 1-block watched relay; a sticky piston moving
