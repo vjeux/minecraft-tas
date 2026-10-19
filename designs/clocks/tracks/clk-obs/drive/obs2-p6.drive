@@ -1,0 +1,8 @@
+# Measure the face-to-face observer pair: re-place B with updates (the kick), trace 40 gt.
+design designs/clocks/tracks/clk-obs/obs2-p6.txt
+plane 0 -1 -1 2 1
+probe A 0 0 0
+probe B 1 0 0
+clear 1 0 0
+set 1 0 0 minecraft:observer[facing=west,powered=false]
+trace 40
