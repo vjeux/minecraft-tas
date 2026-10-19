@@ -60,6 +60,7 @@ pub fn cli(raw: &[String]) -> Result<()> {
         Some("catalog") => catalog(&a),
         Some("batch") => batch(&a),
         Some("fill-column") => fill_column(&a),
+        Some("watch") => watch(&a),
         _ => bail!("usage: door boxproof fuzz|case|bmc|catalog|batch [--flags]"),
     }
 }
@@ -216,6 +217,46 @@ fn fill_column(a: &Args) -> Result<()> {
     std::fs::write(file, out)?;
     println!("{n} rows filled");
     Ok(())
+}
+
+/// Block until a line containing `--pattern` (default "screen Pass") appears in one of the
+/// files given by `--files a,b,c` (or every `*.log` of `--dir D`, minus names containing any of
+/// `--skip x,y`); print the matching lines and exit. For a background watcher on find runs.
+fn watch(a: &Args) -> Result<()> {
+    let pat = a.s("pattern").unwrap_or("screen Pass").to_string();
+    let skip: Vec<String> = a.s("skip").map(|s| s.split(',').map(String::from).collect()).unwrap_or_default();
+    let every: u64 = a.get("interval", 30);
+    loop {
+        let mut files: Vec<std::path::PathBuf> = a.s("files").map(|s| s.split(',').map(std::path::PathBuf::from).collect()).unwrap_or_default();
+        if let Some(dirs) = a.s("dir") {
+            for dir in dirs.split(',') {
+                if let Ok(rd) = std::fs::read_dir(dir) {
+                    for e in rd.flatten() {
+                        let p = e.path();
+                        let name = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                        if name.ends_with(".log") && !skip.iter().any(|s| name.contains(s.as_str())) {
+                            files.push(p);
+                        }
+                    }
+                }
+            }
+        }
+        let mut hits = Vec::new();
+        for f in &files {
+            if let Ok(t) = std::fs::read_to_string(f) {
+                for l in t.lines().filter(|l| l.contains(&pat)) {
+                    hits.push(format!("{}: {l}", f.display()));
+                }
+            }
+        }
+        if !hits.is_empty() {
+            for h in hits {
+                println!("{h}");
+            }
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_secs(every));
+    }
 }
 
 /// Random boxes vs redsim, in parallel.
