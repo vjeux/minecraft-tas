@@ -172,6 +172,10 @@ pub enum DoorCmd {
         /// Stop at the first judged design (no minimization).
         #[arg(long)]
         first: bool,
+        /// Batch mode: also solve ideal plans whose own replay with ideal inputs fails in redsim
+        /// (default: such a plan is reported BROKEN and skipped: its recording is not a door).
+        #[arg(long)]
+        keep_broken: bool,
         #[arg(long, default_value_t = 28)]
         extra_offsets: u32,
         #[arg(long)]
@@ -257,7 +261,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Boxproof { args } => {
             return crate::boxproof::cli(&args);
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, hint, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, hint, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, keep_broken, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             sw::SOUND.store(sound, std::sync::atomic::Ordering::Relaxed);
@@ -347,6 +351,14 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                                 }
                             };
                             let res = (|| -> Result<String> {
+                                // a plan that does not work with its own ideal inputs (redsim) records
+                                // no door: skip it (--keep-broken solves it anyway)
+                                if !from_wired && !keep_broken {
+                                    let s = crate::ideal::Schedule::parse(&std::fs::read_to_string(m)?)?;
+                                    if let Err(e) = crate::ideal_rs::run(&s, s.vars(), &crate::VerifyOptions::default().offsets, 2, false) {
+                                        return Ok(format!("BROKEN plan, skipped (redsim with ideal inputs: {})", e.chars().take(140).collect::<String>()));
+                                    }
+                                }
                                 let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
                                 let rec = {
                                     let mut w = Worker::spawn(&cfg)?;
