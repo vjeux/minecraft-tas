@@ -1,0 +1,14 @@
+# archived 2026-10-19T23:51Z from designs/circuits/pext/work/n1-sticky.txt by mctas circuit archive
+# CIRCUIT: pext-n1-sticky piston-extender 1 N 1, extend 3 gt, retract 3 gt, 2 blocks, 3x1x1, robust
+# N=1 baseline: a lever on the back of a sticky piston.
+name: pext-n1-sticky
+circuit: piston-extender 1
+travel: 1 0 0
+port input: 0 0 0 lever
+port payload: 2 0 0
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  P minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+layer 0:
+  LPG
