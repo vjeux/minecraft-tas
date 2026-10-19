@@ -4,9 +4,10 @@ Brief (coordinator for vjeux, 2026-10-19 05:47Z): run cosearch2's `door cosearch
 mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; first the tool items
 (periodic rest rule, off-plane lever, region closure). Box: devvm49255 (dedicated, 166 cores).
 
-**pockets3 (15:09Z..): THE FIRST 7x8 = BEST.txt = `finds/e78-56b-40.txt`, 56b (7x8x1), 40 blocks, SCULK, FULL,
-rotation-safe, open 98 / close 24, verify --extra-offsets 28 WORKS** (e78k's r1 made a door by `door fill --keep`
-across regions, then shrunk 45 -> 40; section 9).
+**pockets3: BEST.txt = `finds/e78s-56b-43.txt`, SOLID 7x8 = 56b, 43 blocks, FULL, rotation-safe, open 29 / close 15,
+verify --extra-offsets 28 WORKS** (e78k's solid h2 45 -> 44 -> 43 by `door fill --keep --max-blocks`); sculk 7x8:
+`finds/e78st-56b-37.txt` (c77's stone 38-1s minus an obsidian, 37 blocks) and the wool line `finds/e78-56b-40.txt`
+(THE FIRST 7x8, 15:09Z: e78k's r1 made a door by `door fill --keep` across regions, then shrunk 45 -> 40; section 9).
 
 **Result (pockets2, 2026-10-19 09:24Z-12:30Z): `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks,
 solid, FULL seamless, rotation-safe, open 39 / close 27, verify at 32 positions** (e88's 43-block record t7b,
