@@ -1,0 +1,30 @@
+name: c77-7x7-w1
+# 7x7 candidate (macro design, ideal inputs): P (1,-1) pushes the middle column up (TM->(1,3), C->(1,2)) and pulls BM back
+# (BM wiggle); TM->(0,3) by corner (-1,3); C->(1,3) by (1,4); P escapes (1,-1)->(2,-1) (Q push-spit) ->(3,-1) (R pull),
+# Q ->(-1,-1) (L pull); BL/BM/BR down by (0,-2)/(1,-2)/(2,-2); close reverses (Q pulls P back).
+port door: 0 0 0
+port lever: -2 5 0
+origin: -2 0 0
+palette:
+  D minecraft:sticky_piston[extended=false,facing=down]
+  e minecraft:sticky_piston[extended=false,facing=east]
+  w minecraft:sticky_piston[extended=false,facing=west]
+  u minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer -2:
+  ..uuu..
+layer -1:
+  e.eu..w
+layer 0:
+  .FFFFF.
+layer 1:
+  e.FFF.w
+layer 2:
+  e.FFFF.
+layer 3:
+  .e.....
+layer 4:
+  F..DD..
+layer 5:
+  L
