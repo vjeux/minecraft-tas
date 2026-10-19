@@ -78,6 +78,14 @@ pub enum Cmd {
         jobs: usize,
         #[arg(long)]
         out: PathBuf,
+        /// A skeleton circuit (its blocks fixed, its `port input:` the input, its `port output:`
+        /// the only output tried when present) filled in the `--free` box instead of `--box`.
+        #[arg(long)]
+        skeleton: Option<PathBuf>,
+        /// The free box for `--skeleton`: `x0,y0,z0:x1,y1,z1` (inclusive; skeleton cells and the
+        /// input are skipped).
+        #[arg(long)]
+        free: Option<String>,
     },
 }
 
@@ -293,7 +301,7 @@ pub fn run(cmd: Cmd) -> Result<()> {
                 println!("{}: {} blocks, family {}: {}; {verdict}", d.display(), c.blocks(), c.family(), m.summary());
             }
         }
-        Cmd::Census { dims, input, k, palette, len, period, count, jobs, out } => {
+        Cmd::Census { dims, input, k, palette, len, period, count, jobs, out, skeleton, free: free_box } => {
             let d: Vec<i32> = dims.split('x').map(|t| t.parse::<i32>()).collect::<Result<_, _>>().context("--box AxBxC")?;
             if d.len() != 3 {
                 bail!("--box AxBxC");
@@ -306,9 +314,44 @@ pub fn run(cmd: Cmd) -> Result<()> {
                     }
                 }
             }
-            let inputs: Vec<redsim::BlockPos> = match &input {
-                Some(s) => s.split(';').filter(|t| !t.trim().is_empty()).map(|t| parse_pos(t).map(|p| redsim::BlockPos::new(p[0], p[1], p[2]))).collect::<Result<_>>()?,
-                None => {
+            // a skeleton: fixed blocks, its input and output, the free box
+            let mut fixed: Vec<(redsim::BlockPos, redsim::Block)> = Vec::new();
+            let mut fixed_be: Vec<(redsim::BlockPos, String)> = Vec::new();
+            let mut fixed_out: Option<Vec<redsim::BlockPos>> = None;
+            let mut sk_input: Option<redsim::BlockPos> = None;
+            if let Some(sk) = &skeleton {
+                let c = Circuit::load(sk)?;
+                for (p, s) in &c.design.blocks {
+                    fixed.push((redsim::BlockPos::new(p[0], p[1], p[2]), redsim::Block::parse(s).map_err(|e| anyhow!(e))?));
+                }
+                for (p, s) in &c.design.block_entities {
+                    fixed_be.push((redsim::BlockPos::new(p[0], p[1], p[2]), s.clone()));
+                }
+                let ip = c.inputs[0].pos;
+                sk_input = Some(redsim::BlockPos::new(ip[0], ip[1], ip[2]));
+                if c.design.ports.contains_key("output") {
+                    let op = c.outputs[0].1;
+                    fixed_out = Some(vec![redsim::BlockPos::new(op[0], op[1], op[2])]);
+                }
+                let fb = free_box.as_deref().ok_or_else(|| anyhow!("--skeleton needs --free x0,y0,z0:x1,y1,z1"))?;
+                let (a, b) = fb.split_once(':').ok_or_else(|| anyhow!("--free x0,y0,z0:x1,y1,z1"))?;
+                let (a, b) = (parse_pos(a)?, parse_pos(b)?);
+                free.clear();
+                for y in a[1].min(b[1])..=a[1].max(b[1]) {
+                    for z in a[2].min(b[2])..=a[2].max(b[2]) {
+                        for x in a[0].min(b[0])..=a[0].max(b[0]) {
+                            let p = redsim::BlockPos::new(x, y, z);
+                            if !fixed.iter().any(|(q, _)| *q == p) && Some(p) != sk_input {
+                                free.push(p);
+                            }
+                        }
+                    }
+                }
+            }
+            let inputs: Vec<redsim::BlockPos> = match (&input, sk_input) {
+                (_, Some(p)) => vec![p],
+                (Some(s), None) => s.split(';').filter(|t| !t.trim().is_empty()).map(|t| parse_pos(t).map(|p| redsim::BlockPos::new(p[0], p[1], p[2]))).collect::<Result<_>>()?,
+                (None, None) => {
                     let mut v = Vec::new();
                     for y in 0..d[1] {
                         for z in 0..d[2] {
@@ -324,7 +367,7 @@ pub fn run(cmd: Cmd) -> Result<()> {
             let mut all: std::collections::BTreeMap<String, (redsim::BlockPos, crate::census::Found)> = std::collections::BTreeMap::new();
             for inp in &inputs {
                 eprintln!("input {},{},{}: {} free cells, {} palette states, k {k_min}..={k_max}", inp.x, inp.y, inp.z, free.len(), pal.len());
-                let c = crate::census::Census { inputs: vec![*inp], fixed: Vec::new(), fixed_be: Vec::new(), free: free.clone(), palette: pal.clone(), palette_be: pal_be.clone(), k_min, k_max, outputs: None, jobs, margin: 3 };
+                let c = crate::census::Census { inputs: vec![*inp], fixed: fixed.clone(), fixed_be: fixed_be.clone(), free: free.clone(), palette: pal.clone(), palette_be: pal_be.clone(), k_min, k_max, outputs: fixed_out.clone(), jobs, margin: 3 };
                 for f in c.run(&spec, true) {
                     all.entry(f.key.clone()).or_insert((*inp, f));
                 }

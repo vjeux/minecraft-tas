@@ -23,7 +23,11 @@ pub trait Spec: Sync {
     /// Judge one cell from its on/off changes (frames >= watch_from, each a frame whose on/off
     /// differs from the frame before) and its on/off at `watch_from - 1`: a score (lower = better,
     /// e.g. the latency) or None.
-    fn judge(&self, rest_on: bool, changes: &[u32]) -> Option<u32>;
+    fn judge(&self, rest_on: bool, changes: &[u32], samples: &[u8]) -> Option<u32>;
+    /// Frames whose level (0-15) each cell records for the judge (`samples`), ascending.
+    fn samples(&self) -> Vec<u32> {
+        Vec::new()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -109,11 +113,6 @@ fn bounds(cells: impl Iterator<Item = BlockPos>, g: i32) -> (BlockPos, BlockPos)
     (BlockPos::new(lo.x - g, lo.y - g, lo.z - g), BlockPos::new(hi.x + g, hi.y + g, hi.z + g))
 }
 
-/// The judge's output level of a cell is on (see `rs::level`).
-fn on_at(w: &World, p: BlockPos) -> bool {
-    crate::rs::level(w, p) > 0
-}
-
 impl Census {
     /// The world box for any candidate (every free cell, fixed block and input, plus margin).
     fn world_box(&self) -> (BlockPos, [i32; 3]) {
@@ -168,6 +167,14 @@ impl Census {
         let mut last: Vec<bool> = vec![false; cells.len()];
         let mut rest: Vec<bool> = vec![false; cells.len()];
         let mut changes: Vec<Vec<u32>> = vec![Vec::new(); cells.len()];
+        let sample_at = spec.samples();
+        let mut si = 0;
+        let mut samples: Vec<Vec<u8>> = vec![Vec::with_capacity(sample_at.len()); cells.len()];
+        // a tick of a quiet world (no scheduled tick, block event or moving block, and no block
+        // that acts every tick) changes nothing: its frame keeps the previous levels
+        let self_ticking = blocks.iter().any(|(_, b)| matches!(b, Block::Hopper { .. } | Block::Sculk { .. } | Block::Falling { .. } | Block::Crafter { .. }));
+        let mut dirty = true;
+        let mut lv: Vec<u8> = vec![0; cells.len()];
         for t in 0..frames {
             while k < ev.len() && ev[k].t == t {
                 let e = ev[k];
@@ -179,18 +186,25 @@ impl Census {
                     return None;
                 }
                 w.set_block(pos, if e.on { Block::RedstoneBlock } else { Block::Air }, flags::ALL);
+                dirty = true;
                 k += 1;
             }
             if !w.drops.is_empty() || !w.errors.is_empty() {
                 return None;
+            }
+            let need_levels = t + 1 >= from || sample_at.get(si) == Some(&t);
+            if need_levels && dirty {
+                for (i, p) in cells.iter().enumerate() {
+                    lv[i] = crate::rs::level(&w, *p);
+                }
             }
             if t + 1 >= from {
                 if t + 1 == from && self.inputs.iter().any(|p| w.get(*p) != Block::Air) {
                     // something moved into an input cell during the settle
                     return None;
                 }
-                for (i, p) in cells.iter().enumerate() {
-                    let on = on_at(&w, *p);
+                for i in 0..cells.len() {
+                    let on = lv[i] > 0;
                     if t + 1 == from {
                         rest[i] = on;
                     } else if on != last[i] {
@@ -206,11 +220,18 @@ impl Census {
             if t == react && changes.iter().all(|c| c.is_empty()) {
                 return None;
             }
+            while si < sample_at.len() && sample_at[si] == t {
+                for i in 0..cells.len() {
+                    samples[i].push(lv[i]);
+                }
+                si += 1;
+            }
+            dirty = self_ticking || w.ticks.count() > 0 || w.piston.live_count() > 0 || !w.events.is_empty() || !need_levels;
             w.tick();
         }
         let mut out = Vec::new();
         for (i, p) in cells.iter().enumerate() {
-            if let Some(s) = spec.judge(rest[i], &changes[i]) {
+            if let Some(s) = spec.judge(rest[i], &changes[i], &samples[i]) {
                 out.push((*p, s));
             }
         }
@@ -372,7 +393,7 @@ impl Spec for TffSpec {
         // early (census speed)
         crate::tff::SETTLE + 16.min(self.period - 1)
     }
-    fn judge(&self, _rest_on: bool, changes: &[u32]) -> Option<u32> {
+    fn judge(&self, _rest_on: bool, changes: &[u32], _samples: &[u8]) -> Option<u32> {
         if changes.len() != self.count as usize {
             return None;
         }

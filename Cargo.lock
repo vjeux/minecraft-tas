@@ -240,6 +240,12 @@ name = "circuit-memory"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
+ "circuit-tff",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
 ]
 
 [[package]]
