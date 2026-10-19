@@ -343,3 +343,6 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   (b) no ring-resting pusher in the RIGHT frame: a sticky at (3,1) facing west could push a whole row west
       (ML into (-1,1)), then would have to leave the ring (pulled up/down by corner pistons) -- the only way
       I see for a left frame cell to receive a door block.
+- pockets3 m69b k=4: the top-right 8 cells drive R1+R2 (o2 + c2) or s1 + P3t, the bottom-right R0, the
+  bottom-left U0; never U1 (home or raised), MB, P3b, s0, W, M0. The walls are the bottom elevator
+  (U1/MB/P3b share (2,-2)/(2,-3)/(3,-2)) and the top-left (W, s0, M0 from (-1,4)/(-1,5) only).
