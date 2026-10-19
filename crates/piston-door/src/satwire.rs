@@ -2519,6 +2519,9 @@ pub static HINT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 /// with every input moved with its piston's cluster (redsim, 4 positions, 2 cycles): a timing that
 /// breaks the mechanism is blocked for every wiring (the too-close pairs it uses).
 pub static RETIME: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--free-order` (with `--retime`): touching events of different clusters may also swap order;
+/// the redsim replay of each candidate's retimed plan is the only timing check.
+pub static FREE_ORDER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 impl Model<'_> {
     /// Cluster cl of trace tr plays recorded tick >= t at SAT tick k.
@@ -2723,6 +2726,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         // replaying the retimed ideal plan (a timing nogood when it breaks)
                         let d = if RETIME.load(std::sync::atomic::Ordering::Relaxed) { 0 } else { dmin };
                         pairs.push((tr0, x, a, y, b, dmin));
+                        // --free-order (with --retime): touching events of different clusters may
+                        // even swap; every candidate's timing is replayed with the plan's ideal
+                        // inputs (redsim) and a timing that breaks the mechanism is blocked
+                        if FREE_ORDER.load(std::sync::atomic::Ordering::Relaxed) && RETIME.load(std::sync::atomic::Ordering::Relaxed) {
+                            continue;
+                        }
                         for k in 1..=p.h {
                             let gy = ge(&mut e, &warp, tr0, y, k, b);
                             let gx = ge(&mut e, &warp, tr0, x, k - d, a);
