@@ -4,7 +4,7 @@
 
 use crate::stimulus::{SETTLE, Schedule, euler_walk};
 use crate::trace::{Trace, runs};
-use crate::{Circuit, GATES2, InputHow, Kind};
+use crate::{Circuit, GATES2, InputHow, Kind, Pos};
 
 /// The verdict of one run.
 #[derive(Clone, Debug, Default)]
@@ -175,7 +175,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             }
         }
         Kind::FlyingMachine => {
-            t = c.clock.free_from() + z.gap.max(200);
+            t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
             s.phase(0, t, "flight");
         }
     }
@@ -196,8 +196,123 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Tff => tff(c, s, t),
         Kind::RsLatch | Kind::DLatch => latch(c, kind, s, t),
         Kind::Counter(n) => counter(c, *n, s, t),
-        Kind::PistonExtender(_) | Kind::FlyingMachine => Outcome::fail(format!("the {} checker is not in the judge yet (next push)", kind.name()), Vec::new()),
+        Kind::PistonExtender(n) => pext(c, *n, s, t),
+        Kind::FlyingMachine => flying(c, t),
     }
+}
+
+/// A flying machine (track fly's tracker, [`crate::fly`]): a steady motion along `travel` (frame
+/// t + P = frame t shifted by d cells, at least 2 periods), intact over `distance` cells (or to the
+/// corridor's end); or a steady shuttle in place that takes 2+ positions (two-way).
+fn flying(c: &Circuit, t: &Trace) -> Outcome {
+    let mut table = Vec::new();
+    let travel = c.travel.unwrap_or([1, 0, 0]);
+    let kick = match &c.clock.kick {
+        Some(clock::Kick::Place { pos, ticks, .. }) => Some((*pos, c.clock.kick_at, c.clock.kick_at + ticks)),
+        _ => None,
+    };
+    let mut r = crate::fly::Recorder::new(&c.clock.design.blocks, kick);
+    for f in 0..t.frames() {
+        r.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
+    }
+    let n = t.frames();
+    let from = c.clock.free_from() as usize;
+    let first_change = (1..n).find(|&f| r.canon[f] != r.canon[0] || r.corner[f] != r.corner[0]);
+    let along = |s: &Pos| s[0] * travel[0] + s[1] * travel[1] + s[2] * travel[2];
+    let intact: Vec<(usize, Pos)> = r.shifts.iter().enumerate().filter_map(|(f, s)| s.map(|s| (f, s))).collect();
+    let far = intact.iter().map(|(_, s)| along(s)).max().unwrap_or(0);
+    let distinct: std::collections::BTreeSet<Pos> = intact.iter().map(|(_, s)| *s).collect();
+    let latency = first_change.map(|f| f.saturating_sub(c.clock.kick_at as usize));
+    if let Some(e) = &t.ended {
+        table.push(e.clone());
+    }
+    table.push(format!("first move at frame {}, intact positions seen: {}, farthest {far} cells along {travel:?}", first_change.map(|f| f.to_string()).unwrap_or("-".into()), distinct.len()));
+    match crate::fly::steady(&r, from) {
+        Some(st) if st.cells() > 0 && st.periods >= 2 => {
+            let k = st.cells();
+            let dir = st.d.map(|x| x / k);
+            table.push(format!("steady from frame {}: period {} gt, {k} cell(s) per period along {dir:?} ({} periods seen)", st.start, st.period, st.periods));
+            if st.d.iter().filter(|x| **x != 0).count() != 1 || dir != travel {
+                return Outcome::fail(format!("flies along {:?}, not along travel {travel:?}", st.d), table);
+            }
+            let need = c.distance.unwrap_or(0) as i32;
+            if far < need && t.ended.is_none() {
+                return Outcome::fail(format!("intact only {far} cells along travel (distance {need})"), table);
+            }
+            let speed = if st.period % k as u32 == 0 { format!("{} gt/block", st.period / k as u32) } else { format!("{}/{} gt/block", st.period, k) };
+            Outcome {
+                pass: true,
+                why: String::new(),
+                metrics: vec![("speed".into(), speed), ("period".into(), format!("{} gt, {k} cell(s)", st.period)), ("latency".into(), latency.map(|l| gt(l as i64)).unwrap_or("-".into()))],
+                table,
+            }
+        }
+        Some(st) if st.periods >= 2 && distinct.len() >= 2 => {
+            table.push(format!("steady in place from frame {}: period {} gt, {} positions", st.start, st.period, distinct.len()));
+            Outcome { pass: true, why: String::new(), metrics: vec![("two-way".into(), format!("period {} gt over {} positions", st.period, distinct.len())), ("latency".into(), latency.map(|l| gt(l as i64)).unwrap_or("-".into()))], table }
+        }
+        Some(st) if st.periods >= 2 => Outcome::fail(format!("oscillates in place (period {} gt): a clock, not a machine", st.period), table),
+        _ => Outcome::fail(if first_change.is_none() { "never moves".to_string() } else { "no steady motion (it breaks, stops, or never repeats its shape)".to_string() }, table),
+    }
+}
+
+/// A piston extender: per cycle, the payload stands at p0 + N * travel (placed, nothing moving)
+/// from some frame after the on edge to the off edge (a lever; a button: at some point of the
+/// press), then the whole rest state comes back exactly after the off edge and stays.
+fn pext(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
+    let mut table = Vec::new();
+    let Some(d) = c.travel else {
+        return Outcome::fail("no travel: dx dy dz", table);
+    };
+    let p0 = c.payloads[0].pos;
+    let target = [p0[0] + d[0] * n as i32, p0[1] + d[1] * n as i32, p0[2] + d[2] * n as i32];
+    let rest_at = (start(c) as usize).saturating_sub(1);
+    let Some(payload) = t.state(rest_at, p0).map(|s| s.to_string()) else {
+        return Outcome::fail(format!("no payload block at {p0:?} at rest"), table);
+    };
+    let rest = &t.cells[rest_at];
+    let moving = |f: usize| t.cells[f].iter().any(|(_, id)| t.names[*id as usize].starts_with("minecraft:moving_piston"));
+    let pid = t.names.iter().position(|n| *n == payload).map(|i| i as u32);
+    let once = |f: usize| t.cells[f].iter().filter(|(_, id)| Some(*id) == pid).count() == 1;
+    if !once(rest_at) {
+        return Outcome::fail(format!("the payload's state ({}) must be unique in the design", clock::short(&payload)), table);
+    }
+    let extended = |f: usize| !moving(f) && t.state(f, target) == Some(payload.as_str()) && once(f);
+    let button = c.inputs[0].how == InputHow::Button;
+    let mut cycles: Vec<(usize, usize)> = Vec::new();
+    for (from, to, label) in &s.phases {
+        let (from, to) = (*from as usize, (*to as usize).min(t.frames()));
+        let Some((on, len)) = input_pulse(t, 0, from, to) else {
+            return Outcome::fail(format!("{label}: the input never turned on"), table);
+        };
+        let off = on + len;
+        // extended: from its first frame to the off edge (a lever), or at some frame (a button)
+        let end = if button { to } else { off };
+        let Some(e) = (on..end).find(|&f| extended(f)) else {
+            table.push(format!("{label}: never extended"));
+            return Outcome::fail(format!("{label}: the payload never stands still at {target:?} (N = {n} along {d:?}) after the input turns on"), table);
+        };
+        if !button && let Some(f) = (e..off).find(|&f| !extended(f)) {
+            table.push(format!("{label}: extended at +{} but not held (frame {f})", e - on));
+            return Outcome::fail(format!("{label}: the payload leaves {target:?} at frame {f} while the input is still on"), table);
+        }
+        // restored: the whole rest state back, and staying until the phase ends
+        let Some(r) = (off.max(e)..to).find(|&f| !moving(f) && t.cells[f] == *rest && (f..to).all(|g| t.cells[g] == *rest)) else {
+            let last = to - 1;
+            let diff: Vec<String> = t.cells[last].iter().filter(|c| !rest.contains(c)).take(4).map(|(p, id)| format!("{p:?} {}", clock::short(&t.names[*id as usize]))).collect();
+            table.push(format!("{label}: extended at +{}, not restored", e - on));
+            return Outcome::fail(format!("{label}: the rest state does not come back after the input turns off (left: {})", if diff.is_empty() { "cells missing".to_string() } else { diff.join(", ") }), table);
+        };
+        // retract: from the off edge (a lever) or from the press (a button), to the first frame of
+        // the final rest
+        let from_edge = if button { on } else { off };
+        table.push(format!("{label}: extended at +{} gt, restored {} gt after the {}", e - on, r - from_edge, if button { "press" } else { "off edge" }));
+        cycles.push((e - on, r - from_edge));
+    }
+    let (ext, ret) = cycles[0];
+    let why = if cycles.iter().all(|c| *c == cycles[0]) { String::new() } else { format!("the cycles differ: {cycles:?} (extend, retract)") };
+    let retract = if button { format!("{} (from the press)", gt(ret as i64)) } else { gt(ret as i64) };
+    Outcome { pass: why.is_empty(), why, metrics: vec![("N".into(), n.to_string()), ("extend".into(), gt(ext as i64)), ("retract".into(), retract)], table }
 }
 
 /// The main output: `q` when there is one, else the first.

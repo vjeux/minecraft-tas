@@ -1,0 +1,12 @@
+name: pulse-dual-edge-L2-2b-00
+# Pulse census (clk-obs pulse prototype on redsim, k = 2 + input): dual-edge L=2 delay=2/6 min-pulse=1.
+circuit: dual-edge
+origin: 0 0 0
+port output: 0 0 -1
+port input: 0 0 2
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:redstone_lamp[lit=false]
+layer 0:
+  A
+  B

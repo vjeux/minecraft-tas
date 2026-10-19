@@ -523,6 +523,8 @@ fn checks() -> Vec<Check> {
         ("dust-or", "cal-dust-or gate or function or, latency 0 gt, class instant, 2 blocks, 1x2x1"),
         ("repeater-dlatch", "cal-repeater-dlatch d-latch latency 4 gt, enable low, 4 blocks, 1x2x2"),
         ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, 6 blocks, 4x2x1"),
+        ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 3 gt, retract 3 gt, 2 blocks, 3x1x1"),
+        ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
     ];
     let mut s = args("circuit sim");
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
@@ -531,7 +533,7 @@ fn checks() -> Vec<Check> {
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 8 calibration circuits (edge detectors, T flip-flop, delay, NOT, OR, D latch, divider): their known metrics; the OR gate claiming AND refused",
+        what: "`circuit sim` (redsim) on the 10 calibration circuits (edge detectors, T flip-flop, delay, NOT, OR, D latch, divider, piston extender, flying machine): their known metrics; the OR gate claiming AND refused",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -548,7 +550,7 @@ fn checks() -> Vec<Check> {
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 8 calibration circuits: robust, the same metrics as redsim",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 10 calibration circuits: robust, the same metrics as redsim",
         quick: false,
         jvm: true,
         steps: vec![{

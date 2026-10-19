@@ -1,0 +1,31 @@
+# archived 2026-10-19T23:15Z from designs/clocks/tracks/clk-obs/families9/p130-obs-stk-8b-162f3c.txt by mctas clock archive
+# CLOCK: clk-obs-p130-obs-stk-8b-162f3c period 130 gt (6.5 s), on 56/130, edges 28, warmup 3, family observer+sticky_piston, 8 blocks, 1x3x6, robust
+name: clk-obs-p130-obs-stk-8b-162f3c
+# clk-obs grow: P=130 (redsim), family observer+sticky_piston, kick last 0 1 2, swept volume 18.
+origin: 0 0 -1
+port output: 0 2 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=south]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .
+  A
+  .
+  .
+  .
+layer 1:
+  B
+  C
+  C
+  B
+  C
+layer 2:
+  .
+  .
+  D
+  E
+  .
