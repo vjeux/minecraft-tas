@@ -45,3 +45,43 @@ windows: BR level any 0..20, U1 2..5 (inside A's hold), K' 7..8, U2 10..11 or >=
   open (t13, t17) (probe), but L0 needs exactly one pulse per edge (an extra pull/push undoes BL). A
   merger + copper bulb + bulb watcher does not fit the 5 bottom-left cells (no support row for repeaters).
 - `door satwire` on v2 (whole box): UNSAT, core close U + close L0 (L0 at t20: core close L0 alone).
+
+## 4. The lever on the LEFT (s4 -> s19): bottom + left + B real, A and the right side still ideal
+Idea: keep c79's block moves but put the lever at (-4,1) on the west face of (-3,1) (outside the box), so
+the bottom-left gets the lever's LEVEL directly; the price is that the top and the right only get pulses.
+- Left pullers level-held (extended at rest, heads in the left wall): ML (-2,1) by the lever block, L0
+  (-2,0) by QC through it, TL (-2,2) by dust (-3,2). Right pullers MR/TR (4,1)/(4,2) and BR's puller
+  (2,-2) become PULSED (any time, windows 0..40). B (1,5) pulsed too (retracted at rest): its 2-gt pulse
+  lifts A on open and pushes A+TM down (spit) on close. Obsidian (3,-1) blocks K's early close push.
+- K real and level-held (s10): dust (-3,0) -> stone (-3,-1) -> repeater (-2,-1) delay 4 -> K.
+- U real (s11): dropper (-3,-2) (level) -> observer (-2,-2) -> dropper (-1,-2) -> observer (0,-2) -> U.
+  The dropper (-1,-2) is QC-held by K's repeater through K: on open it is still held when the early pulse
+  passes (masked, only U2 fires at t10, once K's level drops), on close the hold is gone so U1 fires at t4
+  and U2 at t10. That is the asymmetric bottom section 2 asked for, with no top-left signal at all.
+- B real (s19.txt / s19.ideal, from pockets' top-left k=5 find on s11): note block (-1,3) over TL's park
+  (its instrument flips when TL lands there on open, t3, or leaves on close, t1) -> observers (-1,4),
+  (-1,5) facing down -> observer (0,5) facing west -> B (t9 open, t7 close). `door ideal-rs` WORKS 4 and
+  32 positions, `door ideal` (game) WORKS 4 positions; windows of what is left: A push ap 0..3 with hold ah
+  3..4, A's top pull atp >= 12, right pullers and BR's puller any tick 0..40.
+- A's push+hold real instead (s17.txt / s17.ideal, B ideal): observer (-1,3) facing down on TL's park
+  (t1 -> pulse t3-5) -> dust (-1,4) (0,4) on the static (0,3); observer (-3,3) on the TL dust -> dropper
+  (-3,4) -> observer (-2,4) -> the same dust t4-6: A powered t3-6. WORKS in redsim with B at bb = 8 only
+  (t9: the same dust powers A at (1,4) on close, so B must wait for that close push to land at t8) and
+  atp = 12 (+ the close hazard emulation, s11h).
+- Not both: A needs an odd pulse (t3, from the park observer) plus an even one (t4, from the TL dust
+  watcher) in (0,3)/(0,4), B needs an odd chain of 4 stages ending at (0,5) at t9; in the 11 top-left cells
+  the two chains need the same cells ((-1,3), (-1,4), (-2,4)) and every rearrangement I tried breaks parity
+  (B at t7/t8 is blocked by A's close push, t10 misses A's landing) or QC-powers TL's puller (anything
+  powered next to (-2,3), TL's QC cell, re-extends TL on open: s12 was a clock for that reason).
+  pockets k=5 (coordinator relay) agrees: A's push/hold is never driven from the top-left.
+- The right side: with B PULSED its watcher (2,5) fires twice per edge (t11, t15: B extends, retracts, then
+  lands 4 gt later), so the B-watcher net (s15: mirror of c79's top-left net + observer (4,0) on MR's puller
+  -> stone (4,-1) -> dropper (4,-2) -> observer (3,-2) -> BR's puller) double-pulses MR/TR (the second pulse
+  undoes the pull) and A's top pull (the second pulse is the close hazard after U2 lands). Only bw = 1 (one
+  watcher pulse) or a level-held B (s14: windows bb 8..9) gives one pulse per edge; a level at (0,5) needs
+  a copper bulb + comparator (the comparator cannot sit on (0,4)'s dust).
+- Pockets' per-pocket screens for s11 claimed the right pullers (with sculk sensors) and BR's puller
+  (observer (3,-2), sticky piston (4,-2) up, observer (4,-1)) drivable, but the combination verify kept all
+  5 inputs assisted, and the BR filling does not drive BR when I add it to s11 (s11 + filling: BR stays).
+- satwire on the left-lever designs: UNSAT immediately, core close K (its model does not reproduce K's
+  blocked close push under the dropper's QC hold).
