@@ -124,3 +124,10 @@ top-left cannot pass a level down past D/E/(-1,2). Same for 076 (TLc level-held)
 - Wiring obstruction: P is boxed in (neighbours Q, BM, the piston (1,-2), and the path cell (2,-1)); QC for P sees
   only door cells. P needs ONE >= 3 gt pulse on open; it can only come from (2,-1) temporarily or a moving source.
   (1,-2) is boxed in too; Q can be QC-fired through a strongly powered static (-1,0).
+- Why the wiggle piston is boxed in (argument): the center's last occupant must leave by a PULL from a sticky piston
+  whose body sits in an edge-middle ring cell e (a push refills the center from behind). The block it pulls (BM) must
+  later enter e, which needs a sticky puller in the margin cell behind e (a push from above would need the empty center).
+  So e's piston always has: the pulled block in front, a piston behind, and the two ring-row cells beside it, one of which
+  holds its pusher (it must escape sideways to a corner and come back; margin moves are one-way in 7x7). Its only feed is
+  the path cell, temporarily. Fixes need a temporary source there (an observer fired twice = a 4 gt pulse, a sensor) that
+  leaves before the escape; every variant tried by hand leaves the ring cell e short of a door block (2 pushes needed).
