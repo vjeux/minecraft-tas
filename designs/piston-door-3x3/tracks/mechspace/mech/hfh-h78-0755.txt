@@ -1,0 +1,29 @@
+name: hfh-h78-0755
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=down]
+  D minecraft:sticky_piston[extended=true,facing=west]
+  E minecraft:stone
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ...A
+layer -1:
+  ..E.EB
+layer 0:
+  s.EEEpD
+layer 1:
+  s.EEEpD
+layer 2:
+  s.EEEE
+layer 3:
+  .s..P
+layer 4:
+  ...SC
+layer 5:
+  ...S
