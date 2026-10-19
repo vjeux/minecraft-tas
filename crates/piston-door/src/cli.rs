@@ -438,6 +438,14 @@ pub enum DoorCmd {
         #[arg(long)]
         quiet: bool,
     },
+    /// Flip a design's lever N times in redsim at the judge's 4 positions and check it alternates
+    /// between an open state (opening clear, frame 12/12) and a closed one (cycle.rs). Accepts a
+    /// door that rests open, e.g. a community design read from a screenshot of its open state.
+    Cycle {
+        design: PathBuf,
+        #[arg(long, default_value_t = 6)]
+        flips: usize,
+    },
     /// Draw mechanisms by eye (sheet.rs): for each ideal schedule (or design), the door's plane at
     /// rest and once the opening settles (replayed in redsim, no Minecraft), as one markdown page.
     Sheet {
@@ -455,6 +463,9 @@ pub enum DoorCmd {
         /// With --fill: write each working filled mechanism (`<name>-ff.txt` + `.ideal`) here.
         #[arg(long)]
         fill_dir: Option<PathBuf>,
+        /// Keep only mechanisms whose single piston below the opening is a sticky piston facing up.
+        #[arg(long)]
+        single_up_below: bool,
     },
     /// Judge a mechanism driven by ideal inputs from a schedule (see ideal.rs); sweep its timing.
     Ideal {
@@ -2435,8 +2446,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => anyhow::bail!("no route"),
             }
         }
-        DoorCmd::Sheet { files, out, heading, fill, fill_dir } => {
-            crate::sheet::cli(&files, out.as_deref(), heading.as_deref(), fill, fill_dir.as_deref())?;
+        DoorCmd::Cycle { design, flips } => {
+            crate::cycle::cli(&design, flips)?;
+        }
+        DoorCmd::Sheet { files, out, heading, fill, fill_dir, single_up_below } => {
+            crate::sheet::cli(&files, out.as_deref(), heading.as_deref(), fill, fill_dir.as_deref(), single_up_below)?;
         }
         DoorCmd::Ideal { schedule, set, sweep, independent, extra_offsets, cycles, trace, workers } => {
             crate::ideal::cli(version, &schedule, &set, &sweep, independent, extra_offsets, cycles, trace, workers)?;
