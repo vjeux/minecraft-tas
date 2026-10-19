@@ -1270,6 +1270,18 @@ fn try_find(p: &Problem, g: &Grid, sh: &Shared, jopts: &cs::JudgeOpts, a: &Searc
     sh.full_evals.fetch_add(1, Ordering::Relaxed);
     let door = door_of(g, p.spec);
     let e = cs::evaluate(&door, jopts, false);
+    if !e.record_ok() {
+        // a 1-position screen pass counts as a find to report (vjeux 05:07Z: the community door
+        // may be locational): kept apart with the redsim judge's verdict
+        let n = sh.finds.load(Ordering::Relaxed);
+        let name = format!("cosearch-screenpass-{}-{n}-{:x}", door.block_count(), h & 0xffff);
+        let mut d = door.to_design(&name);
+        d.meta.insert("verdict".into(), cs::eval_line("redsim", &e, 0.0));
+        let _ = d.save(&a.out_dir.join(format!("{name}.txt")));
+        let msg = format!("SCREEN PASS (1 position, 2 cycles): {} -> {name}.txt", cs::eval_line(&name, &e, 0.0));
+        println!("{msg}");
+        sh.log.lock().unwrap().push(msg);
+    }
     if e.record_ok() {
         let k = sh.finds.fetch_add(1, Ordering::Relaxed);
         let vol = e.volume.map(|v| v.0).unwrap_or(0);
@@ -2471,6 +2483,23 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
     let pal: Vec<Block> = pal.into_iter().filter(|b| !b.is_air()).collect();
     let stone_pal: Vec<Block> = pal.iter().copied().filter(|b| matches!(b, Block::Simple(Simple::Stone) | Block::Simple(Simple::SmoothStone))).collect();
     // ---- per pocket enumeration
+    // what the seed's own (remaining) wiring already feeds the inputs, tick by tick: a filling's
+    // traces are matched with those ticks taken out (the door's other wiring keeps its share)
+    let base_tr: [Vec<u64>; 2] = {
+        let mut evs = Vec::new();
+        let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
+        let _ = screen_core(&prob, &seed, &mut evs, &mut traces, true);
+        traces
+    };
+    let own = |tr: &[Vec<u64>; 2]| -> [Vec<u64>; 2] {
+        let mut o = tr.clone();
+        for ph in 0..2 {
+            for (t, r) in o[ph].iter_mut().enumerate() {
+                *r &= !base_tr[ph].get(t).copied().unwrap_or(0);
+            }
+        }
+        o
+    };
     let mut accepted: Vec<Vec<Filling>> = Vec::new();
     for (pi, pk) in pockets.iter().enumerate() {
         if only.as_ref().is_some_and(|o| !o.contains(&pi)) || pk.len() > pa.max_pocket {
@@ -2559,6 +2588,8 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                             let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
                             let sc = screen_core(&prob, &g, &mut evs, &mut traces, true);
                             screened.fetch_add(1, Ordering::Relaxed);
+                            // this filling's own share (the seed's remaining wiring taken out)
+                            let traces = own(&traces);
                             // the inputs this filling feeds at all (any real power in what ran)
                             let fed: u64 = traces.iter().flatten().fold(0, |acc, r| acc | r) & seed.assist;
                             let mut driven: Option<u64> = None;
@@ -2575,6 +2606,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                                 let mut evs2 = Vec::new();
                                 let mut tr2: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
                                 let sc2 = screen_core(&prob, &g2, &mut evs2, &mut tr2, true);
+                                let tr2 = own(&tr2);
                                 screened.fetch_add(1, Ordering::Relaxed);
                                 if sc2.pts >= max
                                     && let Some(d2) = match_groups(&prob, &groups, seed.assist, &tr2, pa.width_tol)
@@ -2751,6 +2783,13 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                     let door = door_of(&g, prob.spec);
                     let e = cs::evaluate(&door, &jopts, false);
                     println!("combination {combos_tried}: perfect screen; redsim judge: {}", cs::eval_line("combo", &e, 0.0));
+                    // every perfect screen is kept (vjeux 05:07Z: a 1-position pass is a find to
+                    // report even if the 4-position judge fails)
+                    {
+                        let mut d = door.to_design(&format!("pockets-screenpass-{combos_tried}"));
+                        d.meta.insert("verdict".into(), cs::eval_line("redsim", &e, 0.0));
+                        d.save(&a.out_dir.join(format!("pockets-screenpass-{combos_tried}.txt")))?;
+                    }
                     if e.record_ok() || (pa.no_hallway && e.judge.is_ok() && matches!(e.full, Some(Ok(()))) && e.frame == Some(12)) {
                         let vol = e.volume.map(|v| v.0).unwrap_or(0);
                         let name = format!("pockets-{vol}b-{}-{finds}", door.block_count());
