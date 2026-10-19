@@ -83,6 +83,33 @@ Why freeing row 1 is not enough in 7x8 (what every layout above ran into):
 * Make `door connect` decide 12-piston mechanisms (partial-order reduction over independent pullers);
   it caps on every vmid mechanism.
 
+## 7x9 (63): mechanisms that `door connect` calls WIRABLE, FULL FRAME (03:00-04:10Z)
+vjeux (03:02Z): one working 7x8 or 7x9 door; (03:45Z) FULL FRAME: when open the 12 frame cells
+hold plain blocks. The vertical exits leave exactly 3 frame cells that nothing ever moves through,
+so 3 static stones make every mechanism here 12/12 (`door sheet`: vd1sF, vm1F, ve1).
+
+| id | box | pistons | how | ideal | connect |
+|---|---|---|---|---|---|
+| vm1 / vm1F | x -2..4, y -2..6 (row 6 joins the two top regions) or y -3..5 | 11 | vm1 (above); F: stones at (-1,1), (3,0), (0,-1) | WORKS with 2 gt pulses (`vm1-2gt.ideal`, `vm1F.ideal`; 3 gt breaks it) | WIRABLE: regions [5,1,20,5] (lever bottom-left) / [17,1,6,7] |
+| vm1L | same | 11 | vm1 with TL's and TR's+MR's pullers LEVEL-held (extended at rest) so observers on them fire once per edge | WORKS (`vm1L.ideal`) | - |
+| vd1 / vd1F | x -2..4, y -3..5 | 11 | ML UP 2 by the column-0 elevator, C DOWN 2 by the column-1 elevator below (opposite sides), TL left, TM up, TR up, MR+BR right on one QC feed ((4,1) over (4,0)), BL down, BM down then right ((3,-1)); F: stones at (-1,0), (-1,1), (3,2) | WORKS: `vd1.ideal` (oc), `vd1w.ideal` (connect's witness: close fires TL's puller 3 times, center back with 2 pushes of (1,-2)), **`vd1s.ideal` / `vd1sF.ideal`: ONE SYMMETRIC train, the same 15 pulses on both edges** (TLp, E2, E1, E2, E1, E1c, BMs, E2c, E1c, E2c, E1c, BLp, TMp, TRp, MRp; door blocks come back shuffled), `vd1L.ideal` (single-move pullers and the ML lifter level-held) | WIRABLE: [9,6,9,7], lever in the left/bottom-left region |
+| ve1 | x -2..4, y -3..5 | 12 | vd1's bottom; TL up ((0,4)) then right (pushed by K (-1,3)), TM up then right ((3,3) pull), TR/MR/BR right: the WHOLE left column x = -2 is free; stones at (-1,0..2) | WORKS (`ve1.ideal`), frame 12/12 | 3 regions [15,8,7], every region wakes from the left one; order search caps |
+
+Wiring status (no wired door yet):
+* satwire (box 7x9, `--forbid-ring --hall-ring`, palette block,dust,rep,obs,torch,note,bulb,cmp,
+  `--dmax/--skip` 8 and 30): UNSAT for vm1-2gt (core: close BLp + BMp), vm1L (open E2 + TLp), vd1,
+  vd1w, vd1s, vd1L (core: close BLp alone). UNSAT is relative to each plan's order and timing.
+* cosearch `--assist` (60 min runs, 34 threads): vm1 7x9 77/79 with TL's + TR's pullers still
+  assisted (lever bottom) / 75/79 with BL's + BR's (lever top); vd1w and vd1s 73/79 with TL's
+  puller assisted; ve1 running at the end.
+* Why the links are the problem (simulator traces, `vm1Lw1`): an observer watching a pulse-driven
+  puller fires TWICE (extension, then the landing of the retraction, 4 gt apart); a puller fed that
+  double pulse pulls on open (the second pulse finds the block still moving) but on close pushes
+  the block home and pulls it out again. Single-pulse links need a LEVEL-held piston (moves once
+  per edge) or a pushed block; `vm1Lw1` wires vm1L's bottom-right and BL's puller for real that way
+  (K1 observer on the level-held TL puller, observer on the level-held MR puller -> BR's puller),
+  only BM's puller (fed from the 5-cell bottom-left region) still gets a double pulse.
+
 ## Log
 * 01:33Z vm1 WORKS with ideal inputs at 32 positions (11 pistons: families' P <= 10 run missed it).
 * 01:47Z vc1 (top carried puller), 01:56Z vb1, 02:02Z vb2, 02:12Z vb3 (bottom carried puller): all

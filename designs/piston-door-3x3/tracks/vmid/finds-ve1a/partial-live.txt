@@ -1,0 +1,49 @@
+name: cosearch-live-73of79
+assisted: 4,2;4,0
+port door: 0 0 0
+port lever: -3 4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:dropper[facing=down,triggered=false]
+  E minecraft:piston[extended=false,facing=up]
+  F minecraft:piston[extended=false,facing=west]
+  G minecraft:glass
+  H minecraft:sticky_piston[extended=false,facing=down]
+  I minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:sticky_piston[extended=false,facing=up]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:stone
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:smooth_stone
+  T minecraft:target[power=0]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  d minecraft:dropper[facing=up,triggered=false]
+  o minecraft:oak_log[axis=y]
+  p minecraft:piston[extended=false,facing=east]
+  s minecraft:smooth_stone_slab[type=top,waterlogged=false]
+  w minecraft:white_glazed_terracotta[facing=north]
+layer -3:
+  .SKpKO.G
+layer -2:
+  .IJKKT.D
+layer -1:
+  .sFo.AMW
+layer 0:
+  .J.NNN.M
+layer 1:
+  .J.NNN.M
+layer 2:
+  .DSNNN.M
+layer 3:
+  .AJ.OSM
+layer 4:
+  LBRHHwED
+layer 5:
+  .PoHds.C
