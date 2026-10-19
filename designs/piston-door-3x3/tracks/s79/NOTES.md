@@ -287,3 +287,19 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   leave TM in (1,2), 13 fail the retimed plan. Conclusion: the c78L family (BM down, C up 2 by M + s, TM up +
   sideways) has no wiring in 7x8 within satwire's model (sculk palette, warps 8, holds, free order); the
   hand-wired L3a (2 ideal inputs) is the closest real partial.
+
+## 9. 6x8 campaign (20:03Z): a 7x8-style door with one side column of pistons dropped
+Box x -1..4, y -2..5 (no pistons at x = -2); door (0..2, 0..2); frame bottom (0..2,-1), top (0..2,3),
+left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cells.
+- Hand counting with the left frame as the 3 statics: the 9 door blocks must fill bottom 3 + top 3 + right 3.
+  * Only row-0 blocks can reach the bottom row (one row of pistons below: a block can drop 1, never 2).
+  * Only a block standing in column 2 can be pulled into the right frame (a puller reaches 1 block; a
+    sticky piston pulls one block; nothing can push eastward from inside the door).
+  * The top has 2 rows: an M + s elevator lifts a column's middle block 2 (c78L), corner pullers at
+    (-1,3)/(3,3) slide blocks along the top frame row.
+  So bottom <= {BL, BM, BR}, right <= blocks in column 2, top <= 3: ML and C (middle row, columns 0 and 1)
+  can only go up (2) and TL, TM up (1) -> 4 blocks for the 3 top cells unless one of BL/BM/BR stays out of
+  the bottom row, which then lacks a block. A block reaching (3,0) or (3,2) from columns 0..1 needs 2
+  eastward steps. => no mechanism of this shape; asking c70b's exact generators (families 6x8: 65,664
+  candidates) for anything else (e.g. the left frame filled from the top-left corner by a down-pusher,
+  blocks entering column -1 through (-1,3)).
