@@ -2,6 +2,7 @@ name: clk-sculk-c22s-rep-obs-note
 # Self-starting: R is placed powered with no input; its turn-off is the first observer pulse.
 # Calibrated sensor C -> repeater R (delay 4) -> observer O watching R -> note block N (dist sqrt5).
 origin: 0 0 0
+port output: 0 1 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
   S minecraft:stone
