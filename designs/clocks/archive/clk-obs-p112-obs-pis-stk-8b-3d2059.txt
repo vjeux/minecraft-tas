@@ -1,0 +1,22 @@
+# archived 2026-10-19T22:38Z from designs/clocks/tracks/clk-obs/smallest9/p112-obs-pis-stk-8b-3d2059.txt by mctas clock archive
+# CLOCK: clk-obs-p112-obs-pis-stk-8b-3d2059 period 112 gt (5.6 s), on 56/112, edges 28, warmup 9, family observer+piston+sticky_piston, 8 blocks, 3x3x3, robust
+name: clk-obs-p112-obs-pis-stk-8b-3d2059
+# clk-obs grow: P=112 (redsim), family observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 0 1, swept volume 27.
+origin: -1 0 0
+port output: -1 0 1
+port start: 0 0 1 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:piston[extended=false,facing=east]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:piston[extended=false,facing=west]
+layer -1:
+  A..
+  ...
+  ...
+layer 0:
+  BD.
+  CCE
+  .EF

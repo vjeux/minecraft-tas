@@ -1,0 +1,29 @@
+# archived 2026-10-19T22:38Z from designs/clocks/tracks/clk-obs/smallest9/p103-note-obs-pis-stk-9b-059437.txt by mctas clock archive
+# CLOCK: clk-obs-p103-note-obs-pis-stk-9b-059437 period 103 gt (5.15 s), on 48/103, edges 24, warmup 5, family note_block+observer+piston+sticky_piston, 9 blocks, 4x3x3, robust
+name: clk-obs-p103-note-obs-pis-stk-9b-059437
+# clk-obs grow: P=103 (redsim), family note_block+observer+piston+sticky_piston, kick last 0 0 2, swept volume 36.
+origin: 0 0 0
+port output: 1 0 0
+port start: 0 0 2 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:note_block[instrument=harp,note=0,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=south]
+layer -1:
+  ..H
+  ...
+  ...
+layer 0:
+  AFI
+  B..
+  CG.
+layer 1:
+  ...
+  D..
+  E..

@@ -1,0 +1,25 @@
+name: clk-obs-p81-obs-stk-8b-2f85ce
+# clk-obs grow: P=81 (redsim), family observer+sticky_piston, kick last 0 1 2, swept volume 24.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=south]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  A.
+  ..
+  ..
+layer 1:
+  B.
+  C.
+  A.
+layer 2:
+  D.
+  E.
+  FG

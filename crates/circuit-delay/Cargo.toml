@@ -1,0 +1,10 @@
+[package]
+name = "circuit-delay"
+description = "Contraption study 3, track delay (mctas circuit delay ...): delay lines; owned by the track, see docs/circuits.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
