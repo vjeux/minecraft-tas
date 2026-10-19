@@ -1,0 +1,25 @@
+# archived 2026-10-19T20:22Z from designs/clocks/tracks/clk-obs/mech2/p40-obs-stk-7b-b-a16c31.txt by mctas clock archive
+# CLOCK: clk-obs-p40-obs-stk-7b-b-a16c31 period 40 gt (2 s), on 18/40, edges 9, warmup 20, family observer+sticky_piston, 7 blocks, 1x4x3, robust
+name: clk-obs-p40-obs-stk-7b-b-a16c31
+# P40: 4 observers, 3 sticky pistons; changing in place: observer, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  A
+  .
+  A
+layer 0:
+  B
+  B
+  .
+layer 1:
+  C
+  D
+  E

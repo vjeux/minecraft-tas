@@ -1,0 +1,22 @@
+# archived 2026-10-19T20:42Z from designs/clocks/tracks/clk-obs/mech2/p9-obs-stk-5b-b-a11811.txt by mctas clock archive
+# CLOCK: clk-obs-p9-obs-stk-5b-b-a11811 period 9 gt (0.45 s), on 4/9, edges 2, warmup 2, family observer+sticky_piston, 5 blocks, 1x4x2, robust
+name: clk-obs-p9-obs-stk-5b-b-a11811
+# P9: 2 observers, 2 sticky pistons, 1 stone; changing in place: observer, sticky_piston (stone only moved or static). Found by the clk-obs exhaustive census of every 5-block structure (all orientations, every block placed last as a kick); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=down]
+  D minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  A
+  .
+layer 1:
+  B
+  C
+layer 2:
+  D
+  E

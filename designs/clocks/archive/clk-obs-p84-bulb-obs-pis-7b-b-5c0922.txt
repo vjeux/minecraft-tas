@@ -1,0 +1,17 @@
+# archived 2026-10-19T20:36Z from designs/clocks/tracks/clk-obs/mech2/p84-bulb-obs-pis-7b-b-5c0922.txt by mctas clock archive
+# CLOCK: clk-obs-p84-bulb-obs-pis-7b-b-5c0922 period 84 gt (4.2 s), on 36/84, edges 18, warmup 6, family copper_bulb+observer+piston, 7 blocks, 3x1x3, robust
+name: clk-obs-p84-bulb-obs-pis-7b-b-5c0922
+# P84: 1 copper bulb, 4 observers, 2 pistons; changing in place: copper_bulb, observer, piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: -1 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:piston[extended=false,facing=east]
+  E minecraft:piston[extended=false,facing=west]
+layer 0:
+  .CE
+  AAC
+  BD.
