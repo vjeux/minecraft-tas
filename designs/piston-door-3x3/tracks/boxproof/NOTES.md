@@ -115,7 +115,7 @@ t=22 per edge):
 |---|---|---|
 | A3: the 3 hidden top-left dusts (-2,4) (-1,5) (0,4) | 11.5M / 40M | SAT 628 s: exactly c79's dust, screen Pass |
 | B5: top-right dropper (4,3), observers (2,4) (3,4) (3,3), dust (4,4) | 12.7M / 44M | SAT 1262 s: c79 with a note block instead of the dropper at (4,3), screen Pass |
-| A3 + B5 | 13.7M / 48M | running |
+| A3 + B5 | 13.7M / 48M | SAT after 2000 s, 25 CEGAR rejections (all "center stays": the free split-rounds order picks an event order the game does not produce), then a pass at ~45 min: A3 exact + B5's note-block variant |
 | C6: bottom chain (4,-1) (3,-1) (2,-3) (1,-3) (0,-3) (-1,-3) | 13.0M / 45M | SAT 886 s (screen: door not restored), then 0.1 s later a model that passes: droppers at (1,-3) and (3,-1) instead of two smooth stones |
 (B5 and C6 first came back UNSAT: the comparator tick wiped a free cell's observer pulse; fixed
 in fc86166, the third bug of that pattern, found only because the answer was known.)
