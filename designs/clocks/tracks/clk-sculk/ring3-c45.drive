@@ -1,0 +1,10 @@
+mark ring3-c45
+design designs/clocks/tracks/clk-sculk/ring3-c45.txt
+probe S1 1 0 0
+probe S2 15 0 8
+probe S3 1 0 16
+quiet 3
+use 0 0 0
+edges S1 300
+edges S2 100
+edges S3 100
