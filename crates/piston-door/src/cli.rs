@@ -449,6 +449,12 @@ pub enum DoorCmd {
         /// Page title.
         #[arg(long)]
         heading: Option<String>,
+        /// Also test static stone in the frame cells left empty when open (2 cycles in redsim).
+        #[arg(long)]
+        fill: bool,
+        /// With --fill: write each working filled mechanism (`<name>-ff.txt` + `.ideal`) here.
+        #[arg(long)]
+        fill_dir: Option<PathBuf>,
     },
     /// Judge a mechanism driven by ideal inputs from a schedule (see ideal.rs); sweep its timing.
     Ideal {
@@ -2429,8 +2435,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => anyhow::bail!("no route"),
             }
         }
-        DoorCmd::Sheet { files, out, heading } => {
-            crate::sheet::cli(&files, out.as_deref(), heading.as_deref())?;
+        DoorCmd::Sheet { files, out, heading, fill, fill_dir } => {
+            crate::sheet::cli(&files, out.as_deref(), heading.as_deref(), fill, fill_dir.as_deref())?;
         }
         DoorCmd::Ideal { schedule, set, sweep, independent, extra_offsets, cycles, trace, workers } => {
             crate::ideal::cli(version, &schedule, &set, &sweep, independent, extra_offsets, cycles, trace, workers)?;
