@@ -1,0 +1,43 @@
+design designs/piston-door-3x3/tracks/bridge/ring56/t8xL-b.txt
+# U as 3 observer taps of a calibrated sensor activated at u (set u+1, u+11, u+21), open cu / close u
+let a1 = 6
+let b1 = 18
+let a2 = 24
+let b2 = 30
+let a3 = 36
+let u = 40
+let cu = 40
+open 0 use 6 1 0
+close 0 use 6 1 0
+open a1 set 1 4 1 minecraft:redstone_block
+open a1+2 clear 1 4 1
+open b1 set 1 5 1 minecraft:redstone_block
+open b1+2 clear 1 5 1
+open a2 set 1 3 1 minecraft:redstone_block
+open a2+2 clear 1 3 1
+open b2 set 1 5 1 minecraft:redstone_block
+open b2+2 clear 1 5 1
+open a3 set 1 4 1 minecraft:redstone_block
+open a3+2 clear 1 4 1
+open u+1 set 1 -2 1 minecraft:redstone_block
+open u+3 clear 1 -2 1
+open u+11 set 1 -2 1 minecraft:redstone_block
+open u+13 clear 1 -2 1
+open u+21 set 1 -2 1 minecraft:redstone_block
+open u+23 clear 1 -2 1
+close a1 set 1 4 1 minecraft:redstone_block
+close a1+2 clear 1 4 1
+close b1 set 1 5 1 minecraft:redstone_block
+close b1+2 clear 1 5 1
+close a2 set 1 3 1 minecraft:redstone_block
+close a2+2 clear 1 3 1
+close b2 set 1 5 1 minecraft:redstone_block
+close b2+2 clear 1 5 1
+close a3 set 1 4 1 minecraft:redstone_block
+close a3+2 clear 1 4 1
+close cu+1 set 1 -2 1 minecraft:redstone_block
+close cu+3 clear 1 -2 1
+close cu+11 set 1 -2 1 minecraft:redstone_block
+close cu+13 clear 1 -2 1
+close cu+21 set 1 -2 1 minecraft:redstone_block
+close cu+23 clear 1 -2 1

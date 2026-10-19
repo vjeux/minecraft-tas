@@ -152,6 +152,11 @@ pub enum DoorCmd {
         /// heads excepted), on top of each --vary combination: a redsim block minimizer.
         #[arg(long, default_value_t = 0)]
         drop: usize,
+        /// For every ideal input of the plan, try what a sculk sensor can give it instead (a 10
+        /// or 30 tick hold, 3 taps 10 apart, 2 taps 14 apart, one pulse), every start 0..=N on
+        /// each edge (or none), and print which starts work: which inputs a sensor could drive.
+        #[arg(long)]
+        holds: Option<i64>,
     },
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
@@ -327,8 +332,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
-        DoorCmd::IdealRs { schedule, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop } => {
-            crate::ideal_rs::cli(&schedule, &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop)?;
+        DoorCmd::IdealRs { schedule, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds } => {
+            crate::ideal_rs::cli(&schedule, &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds)?;
         }
         DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace, sculk, border } => {
             let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace, sculk, border };
