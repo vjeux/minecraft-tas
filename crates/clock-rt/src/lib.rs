@@ -176,6 +176,20 @@ enum Cmd {
         n: u32,
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Also write the family's `extend` headers (the catalog card's base design).
+        #[arg(long)]
+        card: bool,
+    },
+    /// Remove from the archive every clk-rt clock that is exactly an instance of one of the
+    /// extendable families (same type key and period as the generator's design for some n in the
+    /// family's range): the family card covers it. Dry run unless --apply.
+    PruneMembers {
+        /// Family names (default: all).
+        names: Vec<String>,
+        #[arg(long, default_value = "designs/clocks/archive")]
+        dir: PathBuf,
+        #[arg(long)]
+        apply: bool,
     },
     /// Even periods from..=to on RECTANGLE rings (ring.rs): a 0-torch pulse ring (one loaded
     /// pulse, repeater delays summing to P / 2) and, for P = 0 mod 4, a 1-torch inverter ring
@@ -488,11 +502,84 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 None => print!("{text}"),
             }
         }
-        Cmd::Family { name, n, out } => {
+        Cmd::Family { name, n, out, card } => {
             let (dname, text, cap) = family_member(&name, n)?;
+            let text = if card {
+                let c = family_card(&name)?;
+                let mut d = mctas::design::Design::parse(&text)?;
+                d.meta.insert("extend family".into(), c.id.clone());
+                d.meta.insert("extend period".into(), c.period.to_string());
+                d.meta.insert("extend blocks".into(), c.blocks.to_string());
+                d.meta.insert("extend rule".into(), c.rule.to_string());
+                d.meta.insert("extend n".into(), format!("{}..{}", c.lo, c.hi));
+                d.meta.insert("extend base".into(), n.to_string());
+                d.meta.insert("extend generator".into(), format!("mctas clock rt family {name} --n {{n}} --out {{out}}"));
+                d.to_text()
+            } else {
+                text
+            };
+            let dname = if card { family_card(&name)?.id } else { dname };
             match out {
                 Some(p) => write_design(&p, &text, &dname, "", &cap)?,
                 None => print!("{text}"),
+            }
+        }
+        Cmd::PruneMembers { names, dir, apply } => {
+            let names: Vec<String> = if names.is_empty() { FAMILIES.iter().map(|s| s.to_string()).collect() } else { names };
+            let vpath = dir.join("verdicts-v1.tsv");
+            let verdicts = std::fs::read_to_string(&vpath)?;
+            // (file, period, type key) of every archived clk-rt clock: the key recomputed from the
+            // archived design like the catalog does (stored keys may predate canon changes)
+            let rows: Vec<(String, u32, String)> = verdicts
+                .lines()
+                .skip(1)
+                .filter_map(|l| {
+                    let f: Vec<&str> = l.split('\t').collect();
+                    if f.len() <= 13 || !f[1].starts_with("clk-rt-") {
+                        return None;
+                    }
+                    let key = match mctas::design::Design::load(&dir.join(f[1])) {
+                        Ok(d) => clock::canon::design_type_key(&d),
+                        Err(_) => f[13].to_string(),
+                    };
+                    Some((f[1].to_string(), f[2].parse().unwrap_or(0), key))
+                })
+                .collect();
+            let mut remove: std::collections::BTreeSet<String> = Default::default();
+            for name in &names {
+                let c = family_card(name)?;
+                let pf = clock::extend::Formula::parse(c.period)?;
+                for n in c.lo..=c.hi {
+                    let (_, text, _) = family_member(name, n)?;
+                    let d = mctas::design::Design::parse(&text)?;
+                    let key = clock::canon::design_type_key(&d);
+                    let p = pf.eval(n as i64) as u32;
+                    for (file, period, k) in &rows {
+                        if *period == p && *k == key {
+                            println!("{}: n = {n} (P{p}) = {file}", c.id);
+                            remove.insert(file.clone());
+                        }
+                    }
+                }
+            }
+            println!("{} archived clk-rt clock(s) are family instances", remove.len());
+            if apply {
+                let keep_line = |l: &str, col: usize| -> bool { l.split('\t').nth(col).is_none_or(|f| !remove.contains(f)) };
+                let v: String = verdicts.lines().filter(|l| keep_line(l, 1)).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&vpath, v)?;
+                let cpath = dir.join("captions.tsv");
+                let caps = std::fs::read_to_string(&cpath)?;
+                let c: String = caps.lines().filter(|l| keep_line(l, 0)).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&cpath, c)?;
+                let apath = dir.join("aliases.tsv");
+                if let Ok(al) = std::fs::read_to_string(&apath) {
+                    let a: String = al.lines().filter(|l| keep_line(l, 0)).map(|l| format!("{l}\n")).collect();
+                    std::fs::write(&apath, a)?;
+                }
+                for f in &remove {
+                    let _ = std::fs::remove_file(dir.join(f));
+                }
+                println!("removed {} design(s) and their verdicts/captions rows", remove.len());
             }
         }
         Cmd::EvenRect { from, to, kind, out_dir } => {
@@ -1208,6 +1295,35 @@ fn rect_cells(straight: &[Cell], corner_override: &[(usize, Cell)]) -> Option<(i
     Some((w, h, cells))
 }
 
+/// The extendable families (`family <name>`), in card order.
+const FAMILIES: [&str; 9] = ["uloop2t", "uloop1t", "rect-pulse", "rect-inv", "odd-rect", "fade", "div", "div-fade", "counter"];
+
+/// A family's catalog card: id, formulas, rule, judged n range.
+struct Card {
+    id: String,
+    period: &'static str,
+    blocks: &'static str,
+    rule: &'static str,
+    lo: u32,
+    hi: u32,
+}
+
+fn family_card(name: &str) -> Result<Card> {
+    let (period, blocks, rule, lo, hi) = match name {
+        "uloop2t" => ("20 + 16n", "8 + 4n", "add one delay-4 repeater (powered at placement) to each row of the 2-torch U-ring (wall torch on block A -> top row -> block F -> wall torch on F -> bottom row -> A)", 0, 10),
+        "uloop1t" => ("36 + 32n", "9 + 4n", "add one delay-4 repeater (powered at placement) to each row of the 1-torch inverter U-loop (block A + a dust corner -> top row -> block F -> wall torch on F -> bottom row -> A)", 0, 8),
+        "rect-pulse" => ("32 + 16n", "12 + 4n", "lengthen the 3 x (3+n) ring of delay-4 repeaters with corner blocks by one row: one more repeater on each long side (one pulse loaded at placement)", 0, 10),
+        "rect-inv" => ("52 + 32n", "12 + 4n", "lengthen the 3 x (3+n) inverter ring (delay-4 repeaters, corner blocks, a wall torch on one corner block, the next corner dust) by one row: one more repeater on each long side", 0, 8),
+        "odd-rect" => ("23 + 8n", "16 + 4n", "lengthen the 3 x (4+n) ring (delay-4 repeaters, one delay-3, corner blocks) by one row: one more repeater on each long side; two pulses 23 + 8n gt apart, the second started by a temporary torch at an odd tick", 0, 9),
+        "fade" => ("114 + 56n", "18 + 4n", "add one compare-mode comparator to each row of the comparator fading ring (2 + 2 comparators at n = 0, a lossy two-dust turn, a refill torch)", 0, 10),
+        "div" => ("36 * 2^n", "9 + 18n", "append one master-slave T flip-flop stage (18 blocks: 2 latch repeaters, 2 lock repeaters, a target block with a wall torch, dust) to the chain on the P36 torch + repeater loop: the period doubles", 1, 7),
+        "div-fade" => ("114 * 2^n", "18 + 18n", "append one master-slave T flip-flop stage (18 blocks) to the chain on the P114 comparator fading ring: the period doubles", 1, 5),
+        "counter" => ("114 * 14^n", "18 + 26n", "wrap one more counter level around the clock (a lossless 2 + 2 comparator ring with one subtract comparator, its pulse shaper and refill torch: 26 blocks): the period x 14", 1, 3),
+        _ => bail!("family: {}", FAMILIES.join(" | ")),
+    };
+    Ok(Card { id: format!("clk-rt-{name}"), period, blocks, rule, lo, hi })
+}
+
 /// The n-th member of an extendable family: (design name, design text, caption).
 fn family_member(name: &str, n: u32) -> Result<(String, String, String)> {
     let k = n as usize;
@@ -1292,7 +1408,7 @@ fn family_member(name: &str, n: u32) -> Result<(String, String, String)> {
             let best = kick::search(&d, &kc, &[1, 2], &ats, 4 * p + 400, 8)
                 .into_iter()
                 .filter(|r| r.4.period == p)
-                .min_by_key(|r| (r.4.blocks, r.4.volume, r.3))
+                .min_by(|a, b| (a.4.blocks, a.4.volume, a.3, a.2, a.0, &a.1).cmp(&(b.4.blocks, b.4.volume, b.3, b.2, b.0, &b.1)))
                 .ok_or_else(|| anyhow::anyhow!("no odd kick for P{p}"))?;
             let how = format!("{} at {:?} for {} gt at tick {}", clock::short(&best.1), best.0, best.2, best.3);
             Ok((dname, best.4.design, format!("EXTENDABLE odd two-pulse ring, n = {n} (P = 23 + 8n): {}; the second pulse started by a {how} (an odd tick)", ring::caption(w, h, &cells))))
