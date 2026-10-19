@@ -2719,6 +2719,42 @@ fn vib_lines(src: Pos, dst: Pos) -> Vec<Vec<Pos>> {
 }
 
 impl Model<'_> {
+    /// A comparator at c with its rear at c + fd: its input (compare mode, no side input in a
+    /// flat door): the rear signal, or an analog block's output (a copper bulb: lit; a sculk
+    /// sensor: ACTIVE) right behind it, or behind a conductor at the rear (read THROUGH the block,
+    /// replacing a signal below 15: a dust-powered block reads the analog block, a diode-powered
+    /// one stays at 15).
+    fn cmp_in(&mut self, tr: usize, k: i32, c: C2, fd: C2) -> Lit {
+        let f = self.e.f();
+        let r = add(c, fd);
+        let s0 = self.sig(tr, k, r, c, false);
+        let bb = self.pred(r, P_BULB);
+        let bl = Model::get(&self.blit, (tr, k, r), f);
+        let bl2 = self.e.and(&[bb, bl]);
+        let r2 = add(r, fd);
+        let analog2 = self.p.can(r2, |x| x == Kind::Bulb || x.sculk());
+        let cond_r = self.p.can(r, |x| x.cond()) || (self.is_mech(r) && !self.p.is_free(r));
+        if !(analog2 && cond_r) {
+            return self.e.or(&[s0, bl2]);
+        }
+        let isc = self.cond_at(tr, k, r);
+        let b2 = self.pred(r2, P_BULB);
+        let l2 = Model::get(&self.blit, (tr, k, r2), f);
+        let a_b = self.e.and(&[b2, l2]);
+        let s2 = self.pred(r2, P_SCULK);
+        let o2 = self.out(tr, k, r2);
+        let a_s = self.e.and(&[s2, o2]);
+        let an = self.e.or(&[a_b, a_s]);
+        let has_an = self.e.or(&[b2, s2]);
+        // through the block: the analog value, unless the block is strongly powered (15)
+        let st = if self.p.is_free(r) { Model::get(&self.st, (tr, k, r), f) } else { self.cpow(tr, k, r, true) };
+        let thr_v = self.e.or(&[an, st]);
+        let thr = self.e.and(&[isc, has_an]);
+        let direct = self.e.or(&[s0, bl2]);
+        let a = self.e.and(&[thr, thr_v]);
+        let b = self.e.and(&[!thr, direct]);
+        self.e.or(&[a, b])
+    }
     /// The mechanism piston at q starts extending (block_activate) or retracting
     /// (block_deactivate) during SAT tick t: a vibration at q.
     fn pstart(&mut self, tr: usize, t: i32, q: C2) -> Lit {
@@ -3251,7 +3287,9 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     for c in p.free.clone() {
         for k in p.kinds[&c].clone() {
             let l = m.kl[&(c, k)];
-            if let Some(sd) = k.support() {
+            // (a kept cell keeps its own support: a working partial may float dust over a cell a
+            // piston empties without a shape update; the judge decides)
+            if let Some(sd) = k.support().filter(|_| p.fixed.get(&c) != Some(&k)) {
                 let s = m.sturdy_static(add(c, sd), sd == DN);
                 m.e.add(&[!l, s]);
             }
@@ -3745,21 +3783,13 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             m.cause(tr, k + 4, c, cs);
                         }
                         Kind::Cmp(fd) => {
-                            let r = add(c, fd);
-                            let s0 = m.sig(tr, k, r, c, false);
-                            let bb = m.pred(r, P_BULB);
-                            let bl = Model::get(&m.blit, (tr, k, r), f);
-                            let bl2 = m.e.and(&[bb, bl]);
-                            let i_k = m.e.or(&[s0, bl2]);
+                            let i_k = m.cmp_in(tr, k, c, fd);
                             if k == -1 {
                                 m.e.eq_if(g, o_k, i_k);
                                 continue;
                             }
                             if k >= 1 {
-                                let s0p = m.sig(tr, k - 1, r, c, false);
-                                let blp = Model::get(&m.blit, (tr, k - 1, r), f);
-                                let blp2 = m.e.and(&[bb, blp]);
-                                let i_p = m.e.or(&[s0p, blp2]);
+                                let i_p = m.cmp_in(tr, k - 1, c, fd);
                                 let g1 = m.e.and(&[g, s_k]);
                                 // an input change in the same tick as its tick: it reads either value
                                 // (--exact-order: its NORMAL-priority tick runs after the observer and
