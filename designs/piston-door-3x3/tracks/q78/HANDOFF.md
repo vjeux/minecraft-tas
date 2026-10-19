@@ -34,13 +34,19 @@ failing only at the final lamp edge) -> 4-cell --vary -> h2; rounds of 6-cell --
 Always verify the winners (`door verify --extra-offsets 28`) and check `door properties` for FULL.
 
 ## Searched without a gain from h5 (41)
+(`ideal-rs --vary` memory: ~2.3 KB per combination; two 134M-combination runs swapped devvm47239 until the
+node agent dropped: keep each run under ~60M.)
 My --vary rounds: every 6-cell group (bottom-left, A1+lamp, bottom-right, top-left, top-right, mixed) and a
-7-cell A1/lamp/loop group (36M): nothing below 41. `door minimize --moves all --plateau --depth 2`: 41.
+7-cell A1/lamp/loop group (36M), an 8-cell bottom-left (45M) and a bottom-left with pistons at the lamp cell
+(17M): nothing below 41. `door minimize --moves all --plateau --depth 2`: 41.
 shrink (7f3f12cf): clear-and-refill k<=5 on the B'-feed cells, bottom-right 7, bottom-left 8: 0. pockets3
-(1d42739b): --keep <= 3 over 25 wiring cells: 0; exactly-4/5 runs were still going at 17:40Z.
+(1d42739b): --keep <= 3 / exactly 4 over the 25 wiring cells (33 states) and exactly 5 over all 25 (13 states,
+1.09G screened) on h5: 0; on h6 (-> 41): <= 3 and exactly 4 (369M): 0. The h5l seed (stone-relight loop, 40
+blocks) is structurally doomed: the relight always re-fires the lamp observer exactly at A's landing (B'
+extend + 4), so A3 happens there and the lamp's later off-edge re-pushes C.
 
 ## Next ideas
-- Speed: h6 is 29/15 at 42; `door minimize --objective total` on h5/h6 (started 17:36Z, logs in e78s/min/).
+- Speed: h6 is 29/15 at 42; `door minimize --objective total` found nothing faster at 41 (h5) or 42 (h6).
 - Fewer blocks needs a structural change: the loop costs 3 blocks (observer (0,-3), sticky (-1,-3) and the
   extra lamp lighter (-2,-2)+(-2,-1) instead of (-1,-1)); a loop that re-uses the BL-park watcher (-1,-1)
   would save one. K + B1 share (4,-1) (4,-3) (3,-3); the top-right driver (3 blocks) is also K's 2-gt delay.
