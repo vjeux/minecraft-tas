@@ -428,6 +428,18 @@ Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and unde
   a 2-cell region under the carrier) must act before the row push that region watches. Freeing row
   y=1 does not by itself make 7x8 wirable: the center's elevator splits its side of the box, the
   bottom pullers split the bottom, and the carrier at (-2,-1) cuts the free left column.
+* **w63's top (7x8-014 in 7x9 rows -2..6) by hand** (w63top NOTES "The wall, stated once"): A's
+  only driver is an observer at (2,4) facing east; P_T's only real driver is an observer at (3,5)
+  facing up; with it, every input of the right column (4,4)-(4,6), which must carry A's late
+  pulses and the right stack's run, is P_T-coupled, and P_T may pulse only before A1 (with
+  obsidian at (-1,3)) or after A3. Plans that do work ideally: A2 as a triple sharing (4,4) with
+  the right stack (t1), P_T + right stack on one conductor as a run of 3 (v2), the lamp plan.
+* **7 wide, 2 bottom rows** (w63top NOTES "Single-U 7x8 mechanisms"): the bottom rows can only
+  watch the bottom side pullers, so one side must be a TOP-fed 2-stack (its top block leaves
+  vertically, or BR leaves down so (4,0) watches row 1 as in c79). With 3-high stacks on both sides
+  (the 9 catalog single-U mechanisms, mechspace's c78) the bottom never learns the lever.
+  Mechanisms that pass this and work ideally at 32 positions with frame 12/12: u7-m8 / m9 / m10
+  (m10 = c79 with BR right and TR up; m10a: its levels real).
 * **No mechanism** (families catalog, <= 11 pistons, in-plane, lifts only, QC model): 6x11 and 11x6
   (so 6x9, 9x6, 6x10, 10x6), 5x14 and 14x5 in 2D (strips only via walking row mechanisms). 7x7:
   none found, 1,639 candidates unresolved. Carrying, helpers and 0-ticks are being added.
