@@ -430,6 +430,9 @@ pub struct GenOpts {
     /// Redstone components next to the pistons (dust, torches, repeaters, comparators, levers,
     /// lamps, note blocks, targets), judge-style placement.
     pub mixed: bool,
+    /// Shaped blocks among the solids: slabs, trapdoors, scaffolding, fence gates (moved by
+    /// pistons, landed on by falling blocks).
+    pub shapes: bool,
 }
 
 const HORIZ: [&str; 4] = ["north", "south", "west", "east"];
@@ -481,7 +484,23 @@ pub fn gen_piston(seed: u64, o: GenOpts) -> Scenario {
         let s: String = if roll < 380 {
             continue;
         } else if roll < 520 {
-            "minecraft:stone".into()
+            if o.shapes && r.chance(0.45) {
+                // collision / support shapes that pistons move and falling blocks land on
+                match r.below(6) {
+                    0 => format!("minecraft:smooth_stone_slab[type={},waterlogged=false]", r.pick(&["bottom", "top", "double"])),
+                    1 | 2 => format!(
+                        "minecraft:{}_trapdoor[facing={},half={},open={},powered=false,waterlogged=false]",
+                        r.pick(&["oak", "iron"]),
+                        r.pick(&HORIZ),
+                        r.pick(&["bottom", "top"]),
+                        r.chance(0.5)
+                    ),
+                    3 | 4 => format!("minecraft:scaffolding[bottom=false,distance={},waterlogged=false]", r.pick(&["0", "0", "1", "7"])),
+                    _ => format!("minecraft:oak_fence_gate[facing={},in_wall=false,open={},powered=false]", r.pick(&HORIZ), r.chance(0.5)),
+                }
+            } else {
+                "minecraft:stone".into()
+            }
         } else if roll < 760 {
             let sticky = r.chance(0.5);
             let f = *r.pick(fac);
@@ -846,6 +865,7 @@ pub struct CliOpts {
     pub gravity: bool,
     pub observers: bool,
     pub mixed: bool,
+    pub shapes: bool,
     pub against: String,
     pub workers: usize,
     pub shrink: bool,
@@ -923,7 +943,7 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
                 "box" => false,
                 _ => s % 2 == 0,
             };
-            scenarios.push(gen_piston(s, GenOpts { flat, slime: o.slime, gravity: o.gravity, observers: o.observers, mixed: o.mixed }));
+            scenarios.push(gen_piston(s, GenOpts { flat, slime: o.slime, gravity: o.gravity, observers: o.observers, mixed: o.mixed, shapes: o.shapes }));
         }
     }
     for s in &skipped {
