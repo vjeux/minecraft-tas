@@ -113,6 +113,16 @@ split rounds and t=40 with `--split-rounds`: no answer yet.
 | satwire m79q (7x9, A's last pull + L1/L2) | top-left x -2..0, y 3..5 minus (0,3) | find x2 + nondet t=28; cosearch k <= 3 (9.5M, best = seed 49/79), k <= 4 running | running |
 Each UNSAT is relative to the model (palette, races in find mode, 2 rounds, horizon T).
 
+## Infra role (2026-10-19 12:25Z-): `door selftest`, the plan phase, crates/redsim
+* `door selftest` (crates/piston-door/src/selftest.rs, fixtures in designs/piston-door-3x3/selftest/):
+  24 known-answer checks, one PASS/FAIL line each, `--quick` (12 checks, ~40 s) is in AGENTS.md's
+  push gate, the full suite (~155 s) before a tool change. Building it found one inconsistency:
+  the redsim hallway check still demanded the exact rest state (fixed: periodic, like props-dyn).
+* Plan phase (66f1f744): `door ideal` / `door ideal-rs` deliver off-plane redstone-block inputs at
+  t >= 2 in the TILE-TICK phase of tick t (a wall torch on a support block; the old rule is
+  `--between-ticks` / `phase between`). Known answer: c88 s25 + BR at the ticks s26's observer
+  powers it = 34/34 like the wired s26 (35/35 under the old rule), in redsim and the game.
+
 ## Known-answer calibration: the community 7x9 (c79, tracks/c79)
 c79-closed (lever ON at rest, droppers, a normal piston firing into an empty cell, dust steps),
 every block fixed: UNSAT in the model at first; `door boxproof replay` (the design through the
