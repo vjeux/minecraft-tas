@@ -88,6 +88,25 @@ mirror-merged. Results (k = pistons per row):
   turns an even link into one window). On the v1 catalog (6b2d389, P <= 10): 2 strict (8x8-102,
   8x9-111), 15 permissive (all rider shuffles), 26 memory (7x8-028/029 with a 13-pulse train).
 
+## Coverage of `door families` (for docs/coverage.md, CATALOG column)
+| mechanism-space row | status | evidence |
+|---|---|---|
+| piston push / pull (PistonStructureResolver) | exact for the palette: push limit 12, sticky pull of the block two ahead, retracted pistons movable, extended pistons / heads / obsidian immovable, blocked push = no-op | grid port of mech-synth's model (`Mech::apply_raw`); both records' mechanisms solve, 85 oc + 44 sym ideal replays pass in the JVM |
+| push limit | exact (12) | `MAX_PUSH` |
+| immovables | exact for obsidian, extended pistons, heads; no other immovable block in the palette | `pushable()` |
+| glazed terracotta | missing (mech-synth has it; families' grid model does not) | `K` has Stone / Obsidian / Piston only |
+| slime / honey | missing (slime-free only) | no slime kind in `K` |
+| update pistons / BUD / update order | missing (ideal signals; one settled action at a time) | macro model |
+| 0-ticks, same-tick tricks | missing (a 2 gt pulse = push and spit, or extend into a gap and pull; nothing shorter) | `Act::P` |
+| quasi-connectivity | approximated since v3: a retracted unpowered piston right below a powered piston follows it (pulse while the upper one is out, level held / released); QC from the wiring itself not modeled | `Mech::apply`, `QC`; 8x8-119's oc plan replays only with it |
+| pistons moving pistons | solver: exact within the model (any push line or sticky pull may move a retracted piston, along or across its axis: the rider shuffles); generator: reused pistons at rest or lifted 1 cell along their axis by one lift; `--carry N` adds displacements of 1-2 cells in any direction by carriers carried up to depth N (published catalog: carry 0; carry 1 ran on 9x6/6x9 only) | `Gen::providers`, `carry_by` |
+| helpers (stone / obsidian) | missing in the generator (the model supports them) | `K::Stone`, `K::Obsidian` |
+| carried power sources (redstone block / observer on the mechanism) | missing | - |
+| door-block paths | center exactly 2 straight moves; its line's edge 2 moves; others 1 move (`--two N`: up to N of them 2 moves); `--vmid` forces ML and/or MR to leave vertically (2 moves, first up/down); 3-move paths missing | `Gen::core`, `Gen::others` |
+| open / close judge | FULL seamless static test + hole rule, exact rest state (door blocks interchangeable), box bound at every state; walkway implied (flat) | `is_open`, `holes_ok` |
+| exhaustiveness | exact within the generator's bounds except UNRESOLVED candidates (pulse graph > 300k states and A* found nothing), counted per box and listed in unresolved/WxH.txt; 7x7: 1639 (a 5M-state re-check proved ~5 % of them and left most over the cap) | CATALOG.md per-box table |
+| wiring | heuristic: `wire` class and box56's `door topology` (strict / permissive / memory): not a proof | CATALOG.md header |
+
 ## Results (see CATALOG.md for the current counts)
 * Box monotonicity: a mechanism that fits W x H fits every box containing it, so "none found" is
   stated for the MAXIMAL boxes and holds for their sub-boxes. Within the 2D bounds (QC model, P <=
