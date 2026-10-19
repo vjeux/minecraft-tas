@@ -1,0 +1,54 @@
+# mech-synth ideal schedule (symmetric on both edges)
+design designs/piston-door-3x3/tracks/families/mech/8x7-075-sym.txt
+# open:  PSeast@(-2,1,0) LSdown+@(-1,3,0) PSeast@(-3,1,0) PSeast@(-2,1,0) PSeast@(-3,1,0) PSeast@(-2,1,0) PSup@(0,-2,0) PSdown@(0,4,0) PSup@(1,-2,0) PSdown@(1,4,0) PSup@(2,-2,0) PSwest@(4,2,0) PSwest@(4,1,0)
+# close: PSeast@(-2,1,0) LSdown+@(-1,3,0) PSeast@(-3,1,0) PSeast@(-2,1,0) PSeast@(-3,1,0) PSeast@(-2,1,0) PSup@(0,-2,0) PSdown@(0,4,0) PSup@(1,-2,0) PSdown@(1,4,0) PSup@(2,-2,0) PSwest@(4,2,0) PSwest@(4,1,0)
+open 0 set -2 0 0 minecraft:redstone_block
+open 2 clear -2 0 0
+open 6 clear -1 3 1
+open 12 set -3 0 0 minecraft:redstone_block
+open 14 clear -3 0 0
+open 18 set -1 0 0 minecraft:redstone_block
+open 20 clear -1 0 0
+open 24 set -3 0 0 minecraft:redstone_block
+open 26 clear -3 0 0
+open 30 set -2 0 0 minecraft:redstone_block
+open 30 set 0 -3 0 minecraft:redstone_block
+open 30 set 0 4 1 minecraft:redstone_block
+open 30 set 1 -3 0 minecraft:redstone_block
+open 30 set 2 4 0 minecraft:redstone_block
+open 30 set 2 -3 0 minecraft:redstone_block
+open 30 set 5 2 0 minecraft:redstone_block
+open 32 clear -2 0 0
+open 32 clear 0 -3 0
+open 32 clear 0 4 1
+open 32 clear 1 -3 0
+open 32 clear 2 4 0
+open 32 clear 2 -3 0
+open 32 clear 5 2 0
+open 36 set 4 0 0 minecraft:redstone_block
+open 38 clear 4 0 0
+close 0 set -2 0 0 minecraft:redstone_block
+close 2 clear -2 0 0
+close 6 set -1 3 1 minecraft:redstone_block
+close 12 set -3 0 0 minecraft:redstone_block
+close 14 clear -3 0 0
+close 18 set -1 0 0 minecraft:redstone_block
+close 20 clear -1 0 0
+close 24 set -3 0 0 minecraft:redstone_block
+close 26 clear -3 0 0
+close 30 set -2 0 0 minecraft:redstone_block
+close 30 set 0 -3 0 minecraft:redstone_block
+close 30 set 0 4 1 minecraft:redstone_block
+close 30 set 1 -3 0 minecraft:redstone_block
+close 30 set 2 4 0 minecraft:redstone_block
+close 30 set 2 -3 0 minecraft:redstone_block
+close 30 set 5 2 0 minecraft:redstone_block
+close 32 clear -2 0 0
+close 32 clear 0 -3 0
+close 32 clear 0 4 1
+close 32 clear 1 -3 0
+close 32 clear 2 4 0
+close 32 clear 2 -3 0
+close 32 clear 5 2 0
+close 36 set 4 0 0 minecraft:redstone_block
+close 38 clear 4 0 0

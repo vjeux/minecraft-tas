@@ -1,0 +1,23 @@
+name: 8x7-067-sym
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ...AAA
+layer -1:
+  ..A
+layer 0:
+  ...CCC
+layer 1:
+  ss.CCC.B
+layer 2:
+  .s.CCC.B
+layer 3:
+  .
+layer 4:
+  ....S

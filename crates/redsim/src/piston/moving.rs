@@ -50,8 +50,14 @@ pub struct State {
     /// `Level.tickingBlockEntities`.
     ticking: bool,
     next_id: u32,
-    /// Ideal inputs (mechanism search, `door ideal`-style): pistons at these cells see power.
-    pub ideal: Vec<BlockPos>,
+    /// Ideal inputs (mechanism search, `door fullmech`): tracked pistons by id, their base cell
+    /// (it follows the piston when another piston moves it) and whether their input is on.
+    pub tracked: Vec<(BlockPos, bool)>,
+    /// Where each input's source sits while it is on: the cell of the piston when the input was
+    /// switched on (a redstone block right behind it, out of the plane, as `door ideal` plays
+    /// it). It powers a piston in that cell, and by quasi-connectivity the piston right below
+    /// (whose cell above it is), never anything else; it does not follow a carried piston.
+    pub ideal_src: Vec<Option<BlockPos>>,
 }
 
 impl State {
@@ -77,7 +83,21 @@ impl State {
             .count()
     }
     pub fn ideal_powered(&self, p: BlockPos) -> bool {
-        !self.ideal.is_empty() && self.ideal.contains(&p)
+        let above = p.above();
+        self.ideal_src.iter().flatten().any(|s| *s == p || *s == above)
+    }
+
+    /// Pistons moved by a piston action keep their identity (and input): `moved` lists the old
+    /// cells of moved pistons, `dir` the motion.
+    pub fn follow(&mut self, moved: &[BlockPos], dir: crate::pos::Dir) {
+        if self.tracked.is_empty() || moved.is_empty() {
+            return;
+        }
+        for t in self.tracked.iter_mut() {
+            if moved.contains(&t.0) {
+                t.0 = t.0.rel(dir);
+            }
+        }
     }
 
     /// `LevelChunk.removeBlockEntity`: the entity at `p` is dropped (setRemoved) and its wrapper

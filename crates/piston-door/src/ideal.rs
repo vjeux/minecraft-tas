@@ -168,6 +168,13 @@ impl Schedule {
         out.sort_by_key(|e| e.0);
         Ok(out)
     }
+
+    /// Resolved events of the opening (`open`) or the closing: (tick, pos, state; `None` =
+    /// clear, `Some("@use")` = right-click), sorted by tick. Used by `door cosearch search
+    /// --reference-ideal` (the plan's piston events as a shaping target).
+    pub fn resolved(&self, open: bool) -> Result<Vec<(u32, Pos, Option<String>)>> {
+        self.phase(open, &self.vars)
+    }
 }
 
 /// Knobs of one ideal run.
