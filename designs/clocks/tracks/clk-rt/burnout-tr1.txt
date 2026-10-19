@@ -1,0 +1,19 @@
+# Torch + delay-1 repeater loop (draft, clk-rt): T (wall torch on A) -> 3 dust -> repeater R -> A.
+# Inner loop period 4 * (1 + 1) = 8 gt: 7 x 8 = 56 <= 60, so the torch burns out at its 8th
+# turn-off; R keeps T's input powered past that turn-off, so the 160 gt burnout re-check is not
+# replaced by a relight tick, and T relights 160 gt after its 8th turn-off. Predicted period 220.
+name: clk-rt-burnout-tr1
+origin: -2 0 0
+port output: 0 1 1
+palette:
+  S minecraft:stone
+  A minecraft:stone
+  R minecraft:repeater[facing=west,delay=1,locked=false,powered=false]
+  T minecraft:redstone_wall_torch[facing=south,lit=true]
+  w minecraft:redstone_wire
+layer 0:
+  SS.
+  SS.
+layer 1:
+  wRA
+  wwT
