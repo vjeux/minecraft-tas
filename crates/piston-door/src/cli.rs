@@ -1533,6 +1533,9 @@ pub enum DoorCmd {
         /// levers, lamps, note blocks, targets), placed like the judge does.
         #[arg(long)]
         mixed: bool,
+        /// Shaped blocks among the solids: slabs, trapdoors, scaffolding, fence gates.
+        #[arg(long)]
+        shapes: bool,
         /// Replay every gadget drive script of designs/gadgets (entity gadgets skipped).
         #[arg(long)]
         gadgets: bool,
@@ -3495,8 +3498,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
         }
-        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace } => {
-            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace };
+        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace } => {
+            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace };
             crate::pistfuzz::cli(version, &o)?;
         }
         DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
