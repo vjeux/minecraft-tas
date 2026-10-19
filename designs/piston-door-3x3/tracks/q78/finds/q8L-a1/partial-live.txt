@@ -1,0 +1,52 @@
+name: cosearch-live-71of79
+assisted: -2,2;4,0
+port door: 0 0 0
+port lever: 5 2 0
+origin: -2 0 0
+palette:
+  A minecraft:oak_log[axis=y]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  G minecraft:glass
+  H minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  I minecraft:sticky_piston[extended=false,facing=down]
+  J minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:sticky_piston[extended=false,facing=up]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  M minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  P minecraft:piston[extended=false,facing=west]
+  Q minecraft:sticky_piston[extended=true,facing=west]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:smooth_stone
+  T minecraft:stone
+  U minecraft:white_glazed_terracotta[facing=south]
+  V minecraft:white_glazed_terracotta[facing=west]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  c minecraft:crying_obsidian
+  d minecraft:dropper[facing=up,triggered=false]
+  o minecraft:oak_log[axis=x]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  r minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  s minecraft:smooth_stone_slab[type=bottom,waterlogged=false]
+  w minecraft:white_glazed_terracotta[facing=north]
+layer -2:
+  sKcKNdI
+layer -1:
+  o.T.ErF
+layer 0:
+  JSTTT.M
+layer 1:
+  J.TTTpQ
+layer 2:
+  J.TTTpQL
+layer 3:
+  P.B.AM
+layer 4:
+  WDcIVGO
+layer 5:
+  CH.IRUw

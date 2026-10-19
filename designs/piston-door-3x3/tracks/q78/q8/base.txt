@@ -1,0 +1,39 @@
+name: q78-q8base
+# ring56 q8seed cleaned: t8L mechanism (7x8, x -2..4, y -2..5), lever ON at rest on TR's puller east face,
+# left side wired by the B-observer -> repeater d4 -> lamps -> observers parity chain (cosearch run 6).
+# Left to wire: A (1,4) x3, B (1,5) x2, W (3,3), U (1,-2), BR's puller (4,0).
+port door: 0 0 0
+port lever: 5 2 0
+origin: -2 0 0
+palette:
+  B minecraft:observer[facing=east,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  E minecraft:observer[facing=west,powered=false]
+  G minecraft:piston_head[facing=west,short=false,type=sticky]
+  H minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  I minecraft:sticky_piston[extended=false,facing=east]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  M minecraft:sticky_piston[extended=true,facing=west]
+  Q minecraft:stone
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  o minecraft:oak_log[axis=y]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...J...
+layer -1:
+  ..Q.Q..
+layer 0:
+  I.QQQ.K
+layer 1:
+  I.QQQGM
+layer 2:
+  SQQQQGML
+layer 3:
+  Co...K.
+layer 4:
+  REss...
+layer 5:
+  RHBs...
