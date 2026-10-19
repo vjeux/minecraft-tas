@@ -12,7 +12,8 @@ A design file (format: [tools.md](tools.md#design-files)) names two ports:
   spans x and y from that corner to +2. A design marked `door-axis: z` faces east/west instead
   (the opening spans z and y in the plane `x = door.x`; `door turn` writes one), and every tool
   judges it in that orientation.
-* `lever`: a lever, unpowered at rest. Switching it on opens the door, switching it off closes it.
+* `lever`: a lever, off or on at rest (either polarity counts, vjeux 2026-10-19: "doesn't matter
+  whether it's on or off for the door"). The first flip from rest opens the door, the second closes it.
 
 The **walkway** is the opening extended 3 blocks in front of and 3 behind the door (54 cells).
 
@@ -41,13 +42,13 @@ design that only passes with a modified verifier does not count.
      pistons, observers, redstone blocks, lamps, targets, repeaters, comparators, dust, torches,
      levers, dispensers, droppers, hoppers, note blocks, TNT);
    * the walkway has no collision;
-   * the `lever` port holds an unpowered lever.
+   * the `lever` port holds a lever (off or on: either rest polarity counts).
 6. **Nothing in front of or behind the door** (vjeux, since 2026-10-18 16:40Z): at rest the 3x3
    columns in front of and behind the opening, at any distance, are air: no machine parts, dust,
    torches, rails or levers. Designs judged before the rule keep their cached verdicts for now.
-7. **Open.** The lever is switched on and the build runs until idle. Then the 9 door cells and the
+7. **Open.** The lever is flipped and the build runs until idle. Then the 9 door cells and the
    walkway have no collision and hold no moving block, and there are no entities.
-8. **Close.** The lever is switched off and the build runs until idle. Then the door cells hold
+8. **Close.** The lever is flipped back and the build runs until idle. Then the door cells hold
    their rest blocks, the whole watched box (the design plus the walkway plus a 2-block margin) is
    identical to the rest state, and there are no entities (nothing broke or dropped).
 9. **Bouncing is allowed** (vjeux, 15:07Z): only the settled states after each flip are judged, so

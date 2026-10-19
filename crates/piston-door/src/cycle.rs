@@ -29,8 +29,24 @@ fn draw(s: &Snap, z: i32, x0: i32, y0: i32, x1: i32, y1: i32) -> Vec<String> {
     out
 }
 
-pub fn cli(path: &Path, flips: usize) -> Result<()> {
+pub fn cli(path: &Path, flips: usize, write_state: Option<usize>, out: Option<&Path>) -> Result<()> {
     let (d, door) = crate::cosearch::load_door(path)?;
+    if let (Some(k), Some(o)) = (write_state, out) {
+        // The settled state after k flips (position 0) as a design: e.g. the CLOSED state of a
+        // door read from a screenshot of its open state, to judge it with `door verify`.
+        let states = flip_states(&door, [0, 0, 0], k).map_err(|e| anyhow::anyhow!(e))?;
+        let s = &states[k];
+        let mut d2 = d.clone();
+        d2.blocks.clear();
+        for (p, b) in s.iter() {
+            if !b.is_air() {
+                d2.blocks.insert(p, b.to_string());
+            }
+        }
+        d2.name = format!("{}-after-{k}-flips", d.name);
+        d2.save(o)?;
+        println!("wrote the state after {k} flips to {}", o.display());
+    }
     let spec = door.spec;
     let cells = spec.door_cells();
     let frame = frame_cells(spec.door);
