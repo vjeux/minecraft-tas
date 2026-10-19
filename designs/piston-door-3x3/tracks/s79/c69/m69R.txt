@@ -1,0 +1,33 @@
+# m69R: m69L (6x9, R0/R1 lever-held) with column 0 driven by a RING PUSHER instead of the top elevator:
+# P0 (0,-1) sticky facing up rests in the bottom-left frame cell; open: P0 pushes BL ML TL up (TL -> (0,3)),
+# retracts pulling BL back; W slides TL east; s0 (0,4) reach-pulls ML (0,2) -> (0,3); E0 (0,-3) pulls P0 down to
+# (0,-2); P0 reach-pulls BL (0,0) -> (0,-1). M0 and the lowered s0 are gone.
+name: c78l-m69R
+port door: 0 0 0
+port lever: 5 1 0
+origin: -1 0 0
+palette:
+  Q minecraft:stone
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:sticky_piston[extended=true,facing=west]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+layer -3:
+  .UU...
+layer -2:
+  ..U...
+layer -1:
+  .U..T.
+layer 0:
+  QQQQpN
+layer 1:
+  QQQQpNL
+layer 2:
+  QQQQ.T
+layer 3:
+  E...T.
+layer 4:
+  .DD...
