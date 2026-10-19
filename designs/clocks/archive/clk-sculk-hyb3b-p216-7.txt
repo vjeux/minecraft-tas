@@ -1,0 +1,20 @@
+# archived 2026-10-19T19:28Z from /tmp/gen/arch2/hyb3b-p216-7.txt by mctas clock archive
+# CLOCK: clk-sculk-hyb3b-p216-7 period 216 gt (10.8 s), on 150/216, edges 5, warmup 130, family observer+piston+sculk_sensor+sticky_piston, 6 blocks, 4x4x1, robust
+# A plain sculk sensor watched by a chain of 3 observer(s) (each watching the previous); a piston at the last output, 2 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a sticky piston beside the chain (moves parts of it: the hybrid)
+name: clk-sculk-hyb3b-p216-7
+# how: obs plain k=3 path 0,1,0 0,2,0 1,2,0 emitter piston-up at the output (travel 2) + sticky_piston[extended=false,facing=west] at 2,1,0
+port output: 0 0 0
+port start: 3 2 0 minecraft:redstone_block 1
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=up]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=west,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  S
+layer 1:
+  O.s
+layer 2:
+  OoP
