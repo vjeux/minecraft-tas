@@ -183,3 +183,10 @@ see each other, and the bottom cannot reach either: one lever wakes only one top
   (2,4) facing east (the only cell that can reach A at both heights), so its watched cell (3,4) must
   change exactly at the three A times, while the corner puller W(3,3)'s only feeds are (3,4) itself
   (direct, or QC with an update) and (4,3) (W_TR's cell); B's feed is (2,5) (the left side owns (0,5)).
+* Run 12 (t8xL, fixed screen) wired A at all three times (`mech/t8xL-a.txt`, 75/79 with the corner puller,
+  B and U assisted) by SELF-SEQUENCING from B: observer (2,5) facing west on B -> observer (3,5) -> glazed
+  terracotta (4,5) -> iron trapdoor (4,4) (also opened by W_TR (4,3) for A1) -> observer (3,4) facing east
+  -> obsidian (2,4) -> A, i.e. A2 = B1 + 6 and A3 = B2 + 6, exactly the train's shape. But that uses
+  (2,5), B's only free feed cell (the left side owns (0,5)), so B itself cannot be wired that way: the
+  next step is a B feed at (2,5) that keeps an A trigger, e.g. the trapdoor (4,4) re-powered from a
+  delay line, or B fed from the left through (0,5) with the left side's lamp chain moved to watch A.
