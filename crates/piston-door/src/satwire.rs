@@ -118,6 +118,8 @@ pub enum Kind {
     /// power arrives and retracts when it goes; observers watching its base see both (the
     /// block-update side effect on QC-armed pistons is not modeled). Costs 1 block.
     UPiston(C2),
+    /// dust shaped as a dot (no connections): powers only the block below it.
+    Dot,
     /// a redstone block: a constant source into its 4 in-plane neighbors (not a conductor).
     RBlock,
     /// a closed top-half iron trapdoor: like `Trap`, and its top face holds dust and diodes.
@@ -156,7 +158,7 @@ impl Kind {
     }
     pub fn support(self) -> Option<C2> {
         match self {
-            Kind::Dust | Kind::Rep(..) | Kind::Cmp(_) | Kind::Torch => Some(DN),
+            Kind::Dust | Kind::Dot | Kind::Rep(..) | Kind::Cmp(_) | Kind::Torch => Some(DN),
             Kind::WTorch(f) => Some(neg(f)),
             _ => None,
         }
@@ -168,6 +170,7 @@ impl Kind {
             Kind::Empty => "minecraft:air".into(),
             Kind::Block => "minecraft:smooth_stone".into(),
             Kind::Dust => format!("minecraft:redstone_wire[east=side,north=side,power={lvl},south=side,west=side]"),
+            Kind::Dot => format!("minecraft:redstone_wire[east=none,north=none,power={lvl},south=none,west=none]"),
             Kind::Rep(d, f) => format!("minecraft:repeater[delay={d},facing={},locked=false,powered={out}]", dname(f)),
             Kind::Obs(f) => format!("minecraft:observer[facing={},powered=false]", dname(f)),
             Kind::Torch => format!("minecraft:redstone_torch[lit={out}]"),
@@ -191,6 +194,7 @@ impl Kind {
         let f = |k: &str| prop(s, k).and_then(dparse);
         Some(match short(s) {
             "smooth_stone" | "stone" => Kind::Block,
+            "redstone_wire" if ["east", "west", "north", "south"].iter().all(|k| prop(s, k) == Some("none")) => Kind::Dot,
             "redstone_wire" => Kind::Dust,
             "repeater" => Kind::Rep(prop(s, "delay")?.parse().ok()?, f("facing")?),
             "observer" => Kind::Obs(f("facing")?),
@@ -221,6 +225,7 @@ pub fn palette(spec: &str) -> Result<Vec<Kind>> {
         match t {
             "block" => v.push(Kind::Block),
             "dust" => v.push(Kind::Dust),
+            "dot" => v.push(Kind::Dot),
             "rep" | "rep1" | "rep2" | "rep3" | "rep4" => {
                 let ds: Vec<u8> = match t.strip_prefix("rep").and_then(|d| d.parse().ok()) {
                     Some(d) => vec![d],
@@ -1445,7 +1450,7 @@ const P_UPISTON: u8 = 15;
 fn pred_fn(t: u8) -> fn(Kind) -> bool {
     match t {
         P_COND => |k| k.cond(),
-        P_DUST => |k| k == Kind::Dust,
+        P_DUST => |k| matches!(k, Kind::Dust | Kind::Dot),
         P_STURDY => |k| k.sturdy(),
         P_OUT => |k| k.has_out(),
         P_OBS => |k| matches!(k, Kind::Obs(_)),
@@ -1739,6 +1744,13 @@ impl<'a> Model<'a> {
                 terms.push(Self::get(if dust_rx { &self.st } else { &self.pw }, (tr, k, a), self.e.f()));
             }
             if !dust_rx && ks.contains(&Kind::Dust) && (b == add(a, E) || b == add(a, W) || b == add(a, DN)) {
+                let lv = self.lvl(tr, k, a, self.lo());
+                let isx = self.kl[&(a, Kind::Dust)];
+                let t = if b == add(a, DN) { lv } else { self.e.and(&[isx, lv]) };
+                terms.push(t);
+            }
+            // a dot (no connections) powers only the block below it
+            if !dust_rx && ks.contains(&Kind::Dot) && b == add(a, DN) {
                 terms.push(self.dpow(tr, k, a));
             }
             if ks.contains(&Kind::RBlock) {
@@ -1851,7 +1863,7 @@ impl<'a> Model<'a> {
                 let se = Self::get(&self.sched_e, (tr, k, w), f);
                 let on_e = self.e.and(&[o1, !o0, se]);
                 t.push(self.e.and(&[ob, oc, !on_e]));
-                if self.p.can(w, |kk| kk == Kind::Dust) {
+                if self.p.can(w, |kk| matches!(kk, Kind::Dust | Kind::Dot)) {
                     let mut x = Vec::new();
                     for j in self.lo()..=15 {
                         let a = self.lvl(tr, k, w, j);
@@ -2063,7 +2075,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     let v = m.e.var();
                     m.out.insert((tr, k, c), v);
                 }
-                if p.can(c, |kk| kk == Kind::Dust) {
+                if p.can(c, |kk| matches!(kk, Kind::Dust | Kind::Dot)) {
                     for j in lo..=15 {
                         let v = m.e.var();
                         m.lv.insert((tr, k, c, j), v);
@@ -2134,7 +2146,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     m.e.eq(pwv, b);
                 }
                 // dust levels
-                if ks.contains(&Kind::Dust) {
+                if ks.iter().any(|kk| matches!(kk, Kind::Dust | Kind::Dot)) {
                     let isd = m.pred(c, P_DUST);
                     let mut src = Vec::new();
                     for d in DIRS {
@@ -2151,12 +2163,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             let nc = m.cond_at(tr, k, n);
                             let upn = add(n, U);
                             let dnn = add(n, DN);
-                            if p.can(upn, |kk| kk == Kind::Dust) {
+                            if p.can(upn, |kk| matches!(kk, Kind::Dust | Kind::Dot)) {
                                 let g = m.e.and(&[nc, !up_c]);
                                 let l = m.lvl(tr, k, upn, j + 1);
                                 sup.push(m.e.and(&[g, l]));
                             }
-                            if p.can(dnn, |kk| kk == Kind::Dust) {
+                            if p.can(dnn, |kk| matches!(kk, Kind::Dust | Kind::Dot)) {
                                 let l = m.lvl(tr, k, dnn, j + 1);
                                 sup.push(m.e.and(&[!nc, l]));
                             }
@@ -2711,6 +2723,7 @@ pub fn render(p: &Prob, s: &Sol) -> String {
                 match k {
                     Kind::Block => '#',
                     Kind::Dust => '+',
+                    Kind::Dot => '*',
                     Kind::Rep(d, f) => {
                         let arrow = if *f == E { ['<', '{', '«', '⇐'] } else { ['>', '}', '»', '⇒'] };
                         arrow[(*d - 1) as usize]
@@ -3002,7 +3015,7 @@ pub fn check(p: &Prob) -> Result<()> {
                     let (model, rv): (String, String) = match kind {
                         Kind::Rep(..) | Kind::Obs(_) | Kind::Cmp(_) => (m.e.val(m.out(tr, k, *c)).to_string(), rb("powered").to_string()),
                         Kind::Torch | Kind::WTorch(_) | Kind::Lamp => (m.e.val(m.out(tr, k, *c)).to_string(), rb("lit").to_string()),
-                        Kind::Dust => {
+                        Kind::Dust | Kind::Dot => {
                             let lvl = (m.lo()..=15).rev().find(|j| m.e.val(m.lvl(tr, k, *c, *j))).unwrap_or(0);
                             (lvl.to_string(), prop(real, "power").unwrap_or("0").to_string())
                         }
