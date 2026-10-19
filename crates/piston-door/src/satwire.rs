@@ -118,6 +118,10 @@ pub enum Kind {
     /// power arrives and retracts when it goes; observers watching its base see both (the
     /// block-update side effect on QC-armed pistons is not modeled). Costs 1 block.
     UPiston(C2),
+    /// a redstone block: a constant source into its 4 in-plane neighbors (not a conductor).
+    RBlock,
+    /// a closed top-half iron trapdoor: like `Trap`, and its top face holds dust and diodes.
+    TrapTop,
 }
 
 impl Kind {
@@ -125,7 +129,7 @@ impl Kind {
         matches!(self, Kind::Block | Kind::Note | Kind::Lamp | Kind::Dropper | Kind::Obsid)
     }
     pub fn sturdy(self) -> bool {
-        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Dropper | Kind::Obsid | Kind::Glass)
+        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Dropper | Kind::Obsid | Kind::Glass | Kind::RBlock | Kind::TrapTop)
     }
     pub fn movable(self) -> bool {
         matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Trap | Kind::Glass | Kind::UPiston(_))
@@ -178,6 +182,8 @@ impl Kind {
             Kind::Glass => "minecraft:glass".into(),
             Kind::Leaves => format!("minecraft:oak_leaves[distance={lvl},persistent=true,waterlogged=false]"),
             Kind::UPiston(f) => format!("minecraft:piston[extended=false,facing={}]", dname(f)),
+            Kind::RBlock => "minecraft:redstone_block".into(),
+            Kind::TrapTop => format!("minecraft:iron_trapdoor[facing=north,half=top,open={b},powered={b},waterlogged=false]"),
         }
     }
     /// The kind of a wiring block state (None: not wiring).
@@ -194,9 +200,11 @@ impl Kind {
             "waxed_copper_bulb" => Kind::Bulb,
             "comparator" => Kind::Cmp(f("facing")?),
             "redstone_lamp" => Kind::Lamp,
+            "iron_trapdoor" if prop(s, "half") == Some("top") => Kind::TrapTop,
             "iron_trapdoor" => Kind::Trap,
             "dropper" | "dispenser" => Kind::Dropper,
-            "obsidian" => Kind::Obsid,
+            "obsidian" | "crying_obsidian" => Kind::Obsid,
+            "redstone_block" => Kind::RBlock,
             "glass" => Kind::Glass,
             n if n.ends_with("_leaves") => Kind::Leaves,
             "piston" => Kind::UPiston(f("facing")?),
@@ -235,6 +243,8 @@ pub fn palette(spec: &str) -> Result<Vec<Kind>> {
             "glass" => v.push(Kind::Glass),
             "leaves" => v.push(Kind::Leaves),
             "upiston" => v.extend(DIRS.iter().map(|d| Kind::UPiston(*d))),
+            "rblock" => v.push(Kind::RBlock),
+            "traptop" => v.push(Kind::TrapTop),
             _ => bail!("unknown palette entry {t:?} (block,dust,rep,rep1..4,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian,glass,leaves,upiston)"),
         }
     }
@@ -644,7 +654,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             lever = Some((*p, st.clone()));
             continue;
         }
-        if p[2] != z || short(st) == "redstone_block" {
+        if p[2] != z || (short(st) == "redstone_block" && s.input_cells().contains(p)) {
             continue;
         }
         let c = (p[0], p[1]);
@@ -996,7 +1006,7 @@ impl Prob {
                 None => return true,
                 Some(s) => match mk(s) {
                     MK::Air => return true,
-                    MK::Cond | MK::Solid if short(s) != "obsidian" => continue,
+                    MK::Cond | MK::Solid if !short(s).contains("obsidian") => continue,
                     MK::Piston { ext: false, .. } => continue,
                     _ => return false,
                 },
@@ -1414,7 +1424,7 @@ fn pred_fn(t: u8) -> fn(Kind) -> bool {
         P_NOTE => |k| k == Kind::Note,
         P_BULB => |k| k == Kind::Bulb,
         P_LAMP => |k| k == Kind::Lamp,
-        P_IND => |k| matches!(k, Kind::Note | Kind::Trap | Kind::Dropper),
+        P_IND => |k| matches!(k, Kind::Note | Kind::Trap | Kind::TrapTop | Kind::Dropper),
         P_DROP => |k| k == Kind::Dropper,
         P_LEAVES => |k| k == Kind::Leaves,
         P_UPISTON => |k| matches!(k, Kind::UPiston(_)),
@@ -1698,6 +1708,9 @@ impl<'a> Model<'a> {
             }
             if !dust_rx && ks.contains(&Kind::Dust) && (b == add(a, E) || b == add(a, W) || b == add(a, DN)) {
                 terms.push(self.dpow(tr, k, a));
+            }
+            if ks.contains(&Kind::RBlock) {
+                terms.push(self.kl[&(a, Kind::RBlock)]);
             }
             let lits: Vec<Lit> = ks.iter().filter(|kk| kk.out_to().iter().any(|o| add(a, *o) == b)).map(|kk| self.kl[&(a, *kk)]).collect();
             if !lits.is_empty() {
@@ -2043,7 +2056,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         m.leaves.insert((tr, k, c, j), a);
                     }
                 }
-                if p.can(c, |kk| matches!(kk, Kind::Note | Kind::Trap | Kind::Dropper)) {
+                if p.can(c, |kk| matches!(kk, Kind::Note | Kind::Trap | Kind::TrapTop | Kind::Dropper)) {
                     let a = m.e.var();
                     m.npow.insert((tr, k, c), a);
                 }
@@ -2167,7 +2180,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     }
                 }
                 // note blocks, iron trapdoors, droppers: a powered state observers can watch
-                if ks.iter().any(|kk| matches!(kk, Kind::Note | Kind::Trap | Kind::Dropper)) {
+                if ks.iter().any(|kk| matches!(kk, Kind::Note | Kind::Trap | Kind::TrapTop | Kind::Dropper)) {
                     let isi = m.pred(c, P_IND);
                     let isd = m.pred(c, P_DROP);
                     let i = m.any_in(tr, k, c, None);
@@ -2685,6 +2698,8 @@ pub fn render(p: &Prob, s: &Sol) -> String {
                     Kind::Glass => 'g',
                     Kind::Leaves => '%',
                     Kind::UPiston(f) => match *f { E => '1', W => '2', U => '3', _ => '4' },
+                    Kind::RBlock => 'R',
+                    Kind::TrapTop => 'T',
                     Kind::Empty => '.',
                 }
             } else if let Some(st) = p.rec.phases[0].frames[0].get(&c) {
