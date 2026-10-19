@@ -132,3 +132,18 @@ E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
 - satwire: first run UNSAT with core "L2 (-2,2)": its recorder counted the signal into L2's cell from
   its FRONT (TL strongly powered by u), which a piston ignores. Fixed in satwire.rs (record_ideal: a
   piston's direct power is dropped when only its front neighbor emits into it); re-running.
+- satwire rerun (front fix): UNSAT, core E3 (-3,1) + L0 (-2,0) on open. Concretely: E3+ needs a lever
+  LEVEL (on at rest, off at t18 on open, back on at t0..1 on close), and every cell that can power it
+  is taken or couples: (-3,0) also powers L0 (east of it); (-3,2) is L2's driver o (and a conductor
+  there would power L2); its quasi cell (-3,2) can be fed from (-3,3) only by dust (on o) or a wall
+  torch, and their supports/inputs are (-2,3) = J (r's floor, directly above L2: powering it powers L2)
+  or (-2,4) = r; (-4,1)/(-4,2) are outside the box (only the lever may sit there, and a lever there
+  powers E3 while ON, the inverse of what E3+ needs). The top-left has 5 free cells left after the
+  coupled core ((-3,3), (-3,4), (-3,5), (-2,5), (-1,5)) for E3's asymmetric level, E5's level and N4's
+  three-pulse train: not enough, and the two that matter for E3 cannot reach it without touching L2.
+- Next for whoever continues: move E3's control to the bottom-left by changing BL's exit to DOWN
+  (SU(0,-2) instead of SE(-2,0): frees (-2,0), so a conductor at (-3,0) can hold E3 without touching a
+  piston), with the lever near the bottom-left; then the top-left needs an early link for L2 and N4
+  (none exists in 118's geometry: E3 changes mid-sequence), or L2/N4 pulses derived from a bottom-left
+  trigger through E3... The stopper trick itself is general: a pull-type puller held extended at rest
+  turns a "fires too early" coupling into "fires the moment its path clears".
