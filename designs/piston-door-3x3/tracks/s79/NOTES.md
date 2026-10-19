@@ -398,3 +398,6 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   w86's m79 / m80 (9x6, column 5 free, RP0 resting at (4,0), left carriers stacked): SCULK UNSAT (490-530 s),
   cores = the whole LEFT half (carried U0/U1 (-1,0)/(-1,1), MB0/MB1 (-3,0)/(-3,1), (-2,0)/(-2,1), the corner
   (-1,3)) + the lever-held top (0,4)/(1,4) on close.
+  w86's m81 (m78's simple left + m80's right; solid core W' only): SCULK UNSAT in 568 s, core open MB0 (-3,0),
+  (1,4), U1 (-2,1), M1 (5,1), (-1,0), carried s1 (3,1) + close U0 (-2,0), s1 (4,1), MB0, (-1,0): W' leaves the
+  core with sound, but the sensors then disturb the left elevator / right carrier / held top.
