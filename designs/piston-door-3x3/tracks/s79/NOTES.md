@@ -198,3 +198,9 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
 - `--vary` over (2,-2), (3,-2), (4,-2) x 28 states and (3,-1) x 34 (sensors, bulbs, lamps, pistons,
   torches, diodes): 0 of 746k (no 4-cell bottom-right gives P1 + P2 + F: (2,-2) is U's only free feed and
   carries either a 2 gt observer pulse or a 10/30 gt sensor window, never both).
+- **Top wired by the annealer (13:25Z)**: `c78l/t2a.txt` + `t2a.ideal` (cosearch search on lb4, 16 top cells,
+  sculk allowed, frame cells locked; runs/c78l-top2): M and both s inputs REAL (calibrated sensors (-2,5),
+  (3,5), plain sensor (0,5), waxed bulb (2,5), observers, a wall torch, an iron trapdoor). ideal-rs WORKS at
+  32 positions and JVM `door ideal` WORKS (open 43 / close 33), frame 12/12. Left ideal: R1/R2 (one 2 gt
+  pulse per edge through (4,2,-1), ANY tick both edges) and P2 (open U pulse >= 4 gt at plan 18..28,
+  symmetric OK).
