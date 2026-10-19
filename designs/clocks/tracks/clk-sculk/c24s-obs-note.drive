@@ -1,5 +1,0 @@
-design designs/clocks/tracks/clk-sculk/c24s-obs-note.txt
-probe C 0 0 0
-probe O 1 0 0
-probe N 2 0 0
-trace 100

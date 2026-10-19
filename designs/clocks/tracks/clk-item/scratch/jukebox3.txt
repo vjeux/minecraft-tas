@@ -1,0 +1,22 @@
+# Jukebox carousel (draft, clk-item): 3 copies of disc 11 go around a jukebox. The jukebox emits 15 while a song plays: it locks the hopper below it (the extractor) and, through 2 dust, powers stone S whose wall torch stays off. When the song ends (lengthInTicks + 20 gt) the extractor pulls the disc and pushes its waiting one into the lift dropper; the torch relights 2 gt later and fires both droppers 4 gt after that: the upper one inserts the next disc into the jukebox, the lift raises the waiting one.
+name: jukebox-carousel
+port output: 0 1 0
+nbt: 0 1 0 {RecordItem:{id:"minecraft:music_disc_11",count:1},ticks_since_song_started:0L}
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:music_disc_11",count:1}]}
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:music_disc_11",count:1}]}
+origin: 0 0 -1
+palette:
+  S minecraft:stone
+  J minecraft:jukebox[has_record=true]
+  H minecraft:hopper[enabled=false,facing=east]
+  L minecraft:dropper[facing=up,triggered=true]
+  I minecraft:dropper[facing=west,triggered=true]
+  D minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
+  E minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  T minecraft:redstone_wall_torch[facing=south,lit=false]
+layer 0:
+  SS
+  HL
+layer 1:
+  DES
+  JIT

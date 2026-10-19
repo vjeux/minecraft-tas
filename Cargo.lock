@@ -263,7 +263,10 @@ name = "clock-item"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "clock",
+ "mctas",
+ "redsim",
 ]
 
 [[package]]
@@ -287,7 +290,9 @@ name = "clock-sculk"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "clock",
+ "mctas",
 ]
 
 [[package]]

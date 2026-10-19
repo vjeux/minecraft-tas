@@ -1,0 +1,16 @@
+# Hopper slosh, 4 blocks (clk-item): two hoppers facing each other hold one item; it hops back and forth, 7 gt per hop (the receiving hopper was empty: TransferCooldown 8 - 1). A comparator reading the west hopper is on 7 gt, off 7 gt.
+# redsim: P=14 gt, warmup 3, family comparator+hopper, 4 blocks, output on 7/14 gt, 1 rising edge(s)
+
+name: hop2-p14
+port output: -1 1 0
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -1 0 0
+palette:
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=west]
+layer 0:
+  S
+layer 1:
+  CHh

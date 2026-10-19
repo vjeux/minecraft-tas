@@ -1,0 +1,13 @@
+# archived 2026-10-19T15:59Z from /tmp/clk-in3/clk-sculk--c24-obs-piston.txt by mctas clock archive
+# CLOCK: clk-sculk-c24-obs-piston period 24 gt, on 10/24, edges 1, warmup 6, family calibrated_sculk_sensor+observer+piston, 3 blocks, 3x2x2, robust
+name: clk-sculk-c24-obs-piston
+# Calibrated C, observer O watching C, piston E behind O (dist 2): O's 3rd pulse (A+22) extends E.
+origin: 0 0 0
+port output: 0 0 0
+port start: 2 0 1 minecraft:redstone_block 1
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:observer[facing=west,powered=false]
+  E minecraft:piston[extended=false,facing=up]
+layer 0:
+  COE
