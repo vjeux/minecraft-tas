@@ -1,0 +1,13 @@
+[package]
+name = "itemclock"
+description = "Item clocks (clock study, track clk-item): redsim-exact cycle detection with container contents, the census of small hopper/dropper/comparator clocks, and the JVM cross-check"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+redsim = { path = "../redsim" }
+mctas = { path = "../mctas" }

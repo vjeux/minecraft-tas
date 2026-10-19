@@ -40,6 +40,12 @@ enum Cmd {
         #[command(subcommand)]
         command: door::DoorCmd,
     },
+    /// Item clocks (clock study, track clk-item): redsim cycle detection with container
+    /// contents, the game cross-check, the census of small hopper/dropper/comparator clocks.
+    Itemclock {
+        #[command(subcommand)]
+        command: itemclock::cli::ItemClockCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -114,6 +120,7 @@ fn main() -> Result<()> {
         Cmd::Sim { command } => sim(&cli.version, command)?,
         Cmd::Bench(args) => bench::run(&cli.version, args)?,
         Cmd::Door { command } => door::run(&cli.version, command)?,
+        Cmd::Itemclock { command } => itemclock::cli::run(&cli.version, command)?,
     }
     Ok(())
 }
