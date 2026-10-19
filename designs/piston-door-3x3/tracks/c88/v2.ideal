@@ -1,0 +1,30 @@
+# v2: mirrored bottom (BR right into (3,0), K' (3,-1) pulls BM into (2,-1), static (0,-1)), c79's top real.
+# Ideal: BR's puller level (redstone block (5,0), off at open t0, on at close t0), U (1,-2), K' (3,-1),
+# L0 (-2,0) at c79's bottom ticks (U1 5 blocked by A's head on open, K' 9, U2 11).
+design designs/piston-door-3x3/tracks/c88/v2r.txt
+let br = 0
+let u1 = 4
+let k = 8
+let u2 = 10
+let l = 8
+let w = 2
+open 0 use 4 6 0
+open br clear 5 0 0
+open u1 set 1 -2 -1 minecraft:redstone_block
+open u1+w clear 1 -2 -1
+open k set 3 -1 -1 minecraft:redstone_block
+open k+w clear 3 -1 -1
+open u2 set 1 -2 -1 minecraft:redstone_block
+open u2+w clear 1 -2 -1
+open l set -2 0 -1 minecraft:redstone_block
+open l+w clear -2 0 -1
+close 0 use 4 6 0
+close br set 5 0 0 minecraft:redstone_block
+close u1 set 1 -2 -1 minecraft:redstone_block
+close u1+w clear 1 -2 -1
+close k set 3 -1 -1 minecraft:redstone_block
+close k+w clear 3 -1 -1
+close u2 set 1 -2 -1 minecraft:redstone_block
+close u2+w clear 1 -2 -1
+close l set -2 0 -1 minecraft:redstone_block
+close l+w clear -2 0 -1
