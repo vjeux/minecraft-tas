@@ -1,0 +1,20 @@
+# BURNOUT clock: U-loop (clk-rt): block A + dust beside it -> top row [block, delay-1 repeater
+# (powered at placement)] -> block F -> a wall torch on F -> bottom row [delay-1 repeater (powered
+# at placement), delay-1 repeater (powered at placement)] -> A; 1 torch(es) = an inverter loop of
+# delay 8 gt (period 2 x delay); kicked by a redstone_block at [-1, 1, -1] for 1 gt at tick 0
+name: clk-rt-burn-p16-12b
+port output: 0 1 -1
+port start: -1 1 -1 minecraft:redstone_block 1
+origin: 0 0 -1
+palette:
+  A minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  B minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  R minecraft:redstone_wall_torch[facing=south,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wire
+layer 0:
+  S.S
+  .SS
+layer 1:
+  rSBS
+  SAAR

@@ -110,6 +110,29 @@ enum Cmd {
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
+    /// Burnout clocks: every loading of every U-loop with a fast loop (torches toggling more than
+    /// 7 times in 60 gt), self-starting and with every temporary-block kick up to a tick; every
+    /// period found (the smallest design each).
+    SweepBurnout {
+        #[arg(long, default_value_t = 2)]
+        kmax: usize,
+        #[arg(long, default_value = "1,c,d")]
+        alphabet: String,
+        /// Longest loop delay (redstone ticks) kept: 4 = 8 gt.
+        #[arg(long, default_value_t = 4)]
+        max_rt: u32,
+        /// Kick ticks 0..=max_at (none = self-starting only).
+        #[arg(long)]
+        max_at: Option<u32>,
+        #[arg(long, default_value_t = 2)]
+        max_len: u32,
+        #[arg(long, default_value_t = 20000)]
+        horizon: u32,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+    },
     /// A divider chain: a base torch-repeater U-loop (period 4 (1 + d1 + d2)) and master-slave
     /// T flip-flop stages, each doubling the period (divider.rs).
     Divider {
@@ -228,6 +251,57 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         dd.name = format!("{}-kick-p{}", d.name, f.period);
                         std::fs::write(path, dd.to_text())?;
                     }
+                }
+            }
+        }
+        Cmd::SweepBurnout { kmax, alphabet, max_rt, max_at, max_len, horizon, threads, out_dir } => {
+            let alpha: Vec<Cell> = parse_row(&alphabet)?;
+            let heads = [Head::Torch { lit: true }, Head::Corner];
+            let tails = [Tail::Torch { lit: true }, Tail::Dust];
+            let base = sweep::uloops(kmax, &alpha, &heads, &tails);
+            let mut cands: Vec<(String, String)> = Vec::new();
+            let mut caps: std::collections::HashMap<String, String> = Default::default();
+            for u in &base {
+                if u.loop_rt() > max_rt || u.torches() == 0 {
+                    continue;
+                }
+                for v in loadings(u) {
+                    let name = format!("clk-rt-burn-{}", v.label());
+                    let Ok(b) = v.build(&name) else { continue };
+                    if b.conflict {
+                        continue;
+                    }
+                    let d = b.design();
+                    caps.insert(name.clone(), v.caption());
+                    cands.push((name.clone(), d.to_text()));
+                    if let Some(ma) = max_at {
+                        for (c, st) in kick::kick_cells(&d) {
+                            for l in 1..=max_len {
+                                for a in 0..=ma {
+                                    let kn = format!("{name}+k{}{}{}-{l}-{a}", c[0], c[1], c[2]);
+                                    caps.insert(kn.clone(), format!("{}; kicked by a {} at {:?} for {l} gt at tick {a}", v.caption(), clock::short(&st), c));
+                                    cands.push((kn, kick::with_kick(&d, c, &st, l, a).to_text()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            eprintln!("{} candidates", cands.len());
+            let t0 = std::time::Instant::now();
+            let found = sweep::run_all(cands, horizon, threads);
+            eprintln!("judged in {:.1} s: {} clocks", t0.elapsed().as_secs_f64(), found.len());
+            let t = sweep::table(&found);
+            println!("| P | blocks | volume | output | family | design |");
+            println!("|---|---|---|---|---|---|");
+            for (p, f) in &t.best {
+                println!("| {p} | {} | {} | {} | {} | {} |", f.blocks, f.volume, f.wave(), f.family, f.label);
+            }
+            if let Some(dir) = out_dir {
+                std::fs::create_dir_all(&dir)?;
+                for (p, f) in &t.best {
+                    let cap = caps.get(&f.label).cloned().unwrap_or_default();
+                    write_design(&dir.join(format!("burn-p{p}.txt")), &f.design, &format!("clk-rt-burn-p{p}-{}b", f.blocks), "", &format!("BURNOUT clock: {cap}"))?;
                 }
             }
         }
@@ -442,6 +516,43 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Every loading of a U-loop: each repeater powered or not, each head / tail torch lit or not.
+fn loadings(u: &ULoop) -> Vec<ULoop> {
+    let mut slots: Vec<usize> = Vec::new();
+    for (i, c) in u.top.iter().chain(&u.bottom).enumerate() {
+        if matches!(c, Cell::Rep { .. } | Cell::Torch { .. }) {
+            slots.push(i);
+        }
+    }
+    let th = matches!(u.head, Head::Torch { .. });
+    let tt = matches!(u.tail, Tail::Torch { .. });
+    let nbits = slots.len() + th as usize + tt as usize;
+    let k = u.top.len();
+    let mut out = Vec::new();
+    for mask in 0u32..(1 << nbits) {
+        let mut v = u.clone();
+        for (b, &i) in slots.iter().enumerate() {
+            let on = mask >> b & 1 == 1;
+            let c = if i < k { &mut v.top[i] } else { &mut v.bottom[i - k] };
+            *c = match *c {
+                Cell::Rep { d, .. } => Cell::Rep { d, on },
+                Cell::Torch { .. } => Cell::Torch { lit: on },
+                x => x,
+            };
+        }
+        let mut b = slots.len();
+        if th {
+            v.head = Head::Torch { lit: mask >> b & 1 == 1 };
+            b += 1;
+        }
+        if tt {
+            v.tail = Tail::Torch { lit: mask >> b & 1 == 1 };
+        }
+        out.push(v);
+    }
+    out
 }
 
 /// Write a generated design with its name, its `uloop:` spec and a leading comment (the catalog's
