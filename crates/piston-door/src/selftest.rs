@@ -40,6 +40,9 @@ struct Check {
 const A: &str = "designs/piston-door-3x3/archive";
 const C79: &str = "designs/piston-door-3x3/tracks/c79/c79-closed.txt";
 const BULB: &str = "designs/piston-door-3x3/selftest/c79-bulb-periodic.txt";
+/// A white-concrete door (the community 7x8's material): FULL + frame 12/12 follow the door's own
+/// material in the redsim evaluator, as in `door properties`.
+const CONCRETE: &str = "designs/piston-door-3x3/selftest/e78s-43-white-concrete.txt";
 const ANCHORS: [&str; 5] = ["c79-community-63b-51b", "e88-t7b-43b", "t7b-nb2-43b", "s27-bl52-52b", "m79s-sculk-63b-50-50b"];
 const SAT_PALETTE: &str = "block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,glass,leaves,upiston";
 
@@ -67,12 +70,13 @@ fn checks() -> Vec<Check> {
     // 1. the redsim judge on the anchors (and the periodic bulb fixture)
     let mut files: Vec<String> = ANCHORS.iter().map(|a| format!("{A}/{a}.txt")).collect();
     files.push(BULB.into());
+    files.push(CONCRETE.into());
     let mut s = vec!["door".to_string(), "cosearch".into(), "eval".into()];
     s.extend(files.iter().cloned());
     let fl = files.clone();
     v.push(Check {
         name: "judge:redsim-anchors".into(),
-        what: "the redsim judge (cosearch eval: 32 positions x 3 cycles, FULL, hallway, frame) on the archived anchors + the periodic bulb fixture: WORKS",
+        what: "the redsim judge (cosearch eval: 32 positions x 3 cycles, FULL, hallway, frame) on the archived anchors + the periodic bulb fixture + a white-concrete door: WORKS",
         quick: true,
         jvm: false,
         steps: vec![s],
