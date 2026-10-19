@@ -802,6 +802,8 @@ pub struct Prob {
     pub levels: u8,
     /// Power of a retracted piston that does not move anyway is free (see build).
     pub blocked_dc: bool,
+    /// Piston requirements from the mechanism's motion (default) instead of the recorded power.
+    pub motion: bool,
     /// cells whose wiring placement is fixed (`--check`)
     pub fixed: HashMap<C2, Kind>,
     pub fixed_lever: Option<usize>,
@@ -834,6 +836,57 @@ impl Prob {
         }
         t + 1
     }
+    /// The piston at c in recorded frame tau-1 must be powered (Some(true)), unpowered
+    /// (Some(false)), or either (None), from its MOTION alone (not the recorded power): it starts
+    /// extending at tau -> on; starts retracting -> off; stays extended -> on (the 2nd tick of a
+    /// <= 2 gt pulse is free: 1 gt and 2 gt pulses both spit); stays retracted -> off if it could
+    /// extend (its push line ends in air, a wiring cell, or the box edge), free if blocked.
+    pub fn motion_req(&self, tr: usize, tau: i32, c: C2) -> Option<bool> {
+        let ph = &self.rec.phases[tr];
+        let st = |j: i32| ph.frame(j).get(&c).map_or(MK::Air, |s| mk(s));
+        let (before, after) = (st(tau - 1), st(tau));
+        let changed = ph.frame(tau - 1).get(&c) != ph.frame(tau).get(&c) && tau >= 1;
+        match before {
+            MK::Piston { ext: false, f, .. } => {
+                if changed {
+                    Some(true)
+                } else if self.can_extend(ph.frame(tau - 1), c, f) {
+                    Some(false)
+                } else {
+                    None
+                }
+            }
+            MK::Piston { ext: true, .. } => {
+                if changed {
+                    let _ = after;
+                    Some(false)
+                } else {
+                    let started = tau >= 2 && ph.frame(tau - 2).get(&c) != ph.frame(tau - 1).get(&c);
+                    let ends = ph.frame(tau + 1).get(&c) != ph.frame(tau).get(&c);
+                    if started && ends { None } else { Some(true) }
+                }
+            }
+            _ => None,
+        }
+    }
+    /// A retracted piston at c facing f could extend in this frame (conservative: a non-mechanism
+    /// cell in its push line counts as room).
+    pub fn can_extend(&self, fr: &HashMap<C2, String>, c: C2, f: C2) -> bool {
+        let mut x = c;
+        for _ in 0..13 {
+            x = add(x, f);
+            match fr.get(&x) {
+                None => return true,
+                Some(s) => match mk(s) {
+                    MK::Air => return true,
+                    MK::Cond | MK::Solid if short(s) != "obsidian" => continue,
+                    MK::Piston { ext: false, .. } => continue,
+                    _ => return false,
+                },
+            }
+        }
+        false
+    }
     /// Recorded ticks SAT tick k may play.
     pub fn window(&self, tr: usize, k: i32) -> std::ops::RangeInclusive<i32> {
         let kk = self.rec.phases[tr].k();
@@ -853,6 +906,7 @@ pub struct ProbOpts {
     pub qc: bool,
     pub levels: u8,
     pub blocked_dc: bool,
+    pub motion: bool,
 }
 
 /// Free cells, palettes per cell, lever candidates.
@@ -1038,7 +1092,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     }
     let kmax = rec.phases.iter().map(|p| p.k()).max().unwrap_or(0);
     let h = kmax + o.dmax + o.settle;
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, fixed: HashMap::new(), fixed_lever: None, fixed_only: false })
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed: HashMap::new(), fixed_lever: None, fixed_only: false })
 }
 
 // ---------------------------------------------------------------- the model
@@ -1898,7 +1952,14 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             for &c in &mech {
                 for (tau, wl) in m.warp_at(tr, k) {
                     let MK::Piston { f: fc, .. } = p.mk_tau(tr, tau, c) else { continue };
-                    let req = p.rec.phases[tr].pow(tau).get(&c).copied().unwrap_or(false);
+                    let mreq = if p.motion { p.motion_req(tr, tau, c) } else { None };
+                    if p.motion && mreq.is_none() && !check_mode {
+                        continue;
+                    }
+                    let req = match mreq {
+                        Some(v) if p.motion => v,
+                        _ => p.rec.phases[tr].pow(tau).get(&c).copied().unwrap_or(false),
+                    };
                     let d = tau;
                     let front = if fc == (0, 0) { None } else { Some(fc) };
                     let direct = m.any_in(tr, k, c, front);
@@ -1924,7 +1985,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     }
                     // a retracted piston that stays retracted while powered (blocked, or QC-armed
                     // without an update) does not care about its power at that tick
-                    let blocked = req && p.blocked_dc && k >= 1 && {
+                    let blocked = !p.motion && req && p.blocked_dc && k >= 1 && {
                         let ph = &p.rec.phases[tr];
                         let a = ph.frame(tau - 1).get(&c);
                         let b = ph.frame(tau).get(&c);
@@ -1932,7 +1993,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     };
                     // the 2nd tick of a pulse of at most 2 gt (or the tick right after a 1 gt pulse):
                     // a 1 gt and a 2 gt pulse do the same (a push spits, a gap-extension pulls)
-                    let pulse_tol = p.blocked_dc && k >= 1 && {
+                    let pulse_tol = !p.motion && p.blocked_dc && k >= 1 && {
                         let ph = &p.rec.phases[tr];
                         let pw = |j: i32| ph.pow(j).get(&c).copied().unwrap_or(false);
                         let same = |j: i32| ph.frame(j).get(&c) == ph.frame(tau - 1).get(&c) || j >= tau;

@@ -824,6 +824,11 @@ pub enum DoorCmd {
         /// powered, blocked or QC-armed, may get any power at that tick).
         #[arg(long)]
         exact: bool,
+        /// Require the RECORDED piston power per tick (old behavior) instead of the power implied
+        /// by the mechanism's motion (on to extend or stay extended, off to retract or to stay
+        /// retracted when it could extend, free when blocked).
+        #[arg(long)]
+        recorded_power: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -2646,11 +2651,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, diag, keep_wiring, exact, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, diag, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             if check && mechanism.len() > 1 {
-                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false };
+                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false, motion: false };
                 let next = std::sync::atomic::AtomicUsize::new(0);
                 let out = std::sync::Mutex::new(Vec::new());
                 std::thread::scope(|sc| {
@@ -2716,6 +2721,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 qc: !no_qc,
                 levels,
                 blocked_dc: !exact && !check,
+                motion: !recorded_power && !check,
             };
             let mut p = sw::build_prob(rec, &po)?;
             if let Some(fp) = &fixed {
