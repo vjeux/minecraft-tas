@@ -86,6 +86,13 @@ Generated and verified batches: `verified/` (see its README).
   the output; a design where no cell has the full period is a composite of independent parts
   (e.g. 30 and 20 -> 60) and is excluded (../composite/).
 
+## Extendable families (one catalog card each; extend/README.md)
+`mctas clock sculk family <name> --n <n>`: replin (P = 9n + 4, 3 <= n <= 14), hairpin (16n + 3,
+n >= 2; plain n >= 3), racetrack (32m + 28; plain 16m + 12, m >= 3). Every P >= 21 is reachable:
+a hairpin whose repeater delays sum to D rt plays its note 2D + 2 gt after the sensor fires
+(>= 20 once D >= 9), so P = 2D + 3 with the note diagonal to the sensor (travel 1) and 2D + 4
+with it one block further (travel 2).
+
 ## Open questions / next
 * Exhaustive minimality: the census (k <= 4 in 3x2x2, 3x3x1, 4x1x2, 2x2x2; k <= 5 in 3x1x2) finds
   no 4-block P=21 or P=22 (self-start or one block placed last), and nothing below 3 blocks.

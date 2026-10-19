@@ -1,0 +1,18 @@
+name: clk-obs-divider
+# Extendable family divider (n = 0): P = 12 x 2^n gt, 3 + 3n blocks. an observer pair (6 gt) toggles the copper bulb behind it on every pulse (12 gt); each comparator reading a bulb powers the next bulb only every other pulse, doubling the period. Extension: add a stage behind the last bulb: a comparator (facing the clock, reading the bulb, on a stone floor) and a bulb. Generator: mctas clock obs family divider --n N --out FILE.
+extend family: clk-obs-divider
+extend period: 12 * 2^n
+extend blocks: 3 + 3n
+extend rule: add a stage behind the last bulb: a comparator (facing the clock, reading the bulb, on a stone floor) and a bulb
+extend n: 0..8
+extend base: 0
+extend generator: mctas clock obs family divider --n {n} --out {out}
+origin: -1 0 0
+port output: -1 0 0
+port start: 1 0 0 last
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  CAB

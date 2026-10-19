@@ -259,10 +259,10 @@ pub struct FullmechArgs {
     ext_pullers: bool,
     /// Generated candidates: most 1-move exits by a puller extended at rest per mechanism
     /// (families' --ext-max).
-    #[arg(long, default_value_t = 2)]
+    #[arg(long, default_value_t = 3)]
     ext_max: usize,
-    /// Generated candidates: a second extended-puller exit may sit anywhere (families'
-    /// --ext-apart; default: next to the first).
+    /// Generated candidates: extended-puller exits may sit anywhere (families' --ext-apart;
+    /// default: each next to an earlier one).
     #[arg(long)]
     ext_apart: bool,
     /// Generated candidates: audit bound (a), extended-at-rest pistons reused lifted / carried.

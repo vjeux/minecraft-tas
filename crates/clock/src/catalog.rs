@@ -107,7 +107,51 @@ pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
     if !p.exists() {
         return Ok(Vec::new());
     }
-    Ok(std::fs::read_to_string(&p)?.lines().filter_map(Row::from_tsv).collect())
+    // one row per file: a union merge of two branches can repeat a file's row; the newest (last)
+    // row wins, in the place of the first
+    let all: Vec<Row> = std::fs::read_to_string(&p)?.lines().filter_map(Row::from_tsv).collect();
+    let mut last: BTreeMap<String, usize> = BTreeMap::new();
+    for (i, r) in all.iter().enumerate() {
+        last.insert(r.file.clone(), i);
+    }
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut out = Vec::with_capacity(last.len());
+    for r in &all {
+        if seen.insert(r.file.clone()) {
+            out.push(all[last[&r.file]].clone());
+        }
+    }
+    Ok(out)
+}
+
+/// Rewrite verdicts-v1.tsv and captions.tsv with one row per file (the newest), dropping the
+/// files in `gone`.
+pub fn write_tables(dir: &Path, gone: &BTreeSet<String>) -> Result<()> {
+    let rows = read_rows(dir)?;
+    let mut s = format!("{HEADER}\n");
+    for r in rows.iter().filter(|r| !gone.contains(&r.file)) {
+        s.push_str(&r.to_tsv());
+        s.push('\n');
+    }
+    std::fs::write(dir.join(VERDICTS), s)?;
+    let cp = dir.join(CAPTIONS);
+    if cp.exists() {
+        let caps = read_captions(dir);
+        let mut order: Vec<String> = Vec::new();
+        for l in std::fs::read_to_string(&cp)?.lines().skip(1) {
+            if let Some((f, _)) = l.split_once('\t') {
+                if !order.iter().any(|o| o == f) {
+                    order.push(f.to_string());
+                }
+            }
+        }
+        let mut c = String::from("file\tcaption\n");
+        for f in order.iter().filter(|f| !gone.contains(*f)) {
+            c.push_str(&format!("{f}\t{}\n", caps[f]));
+        }
+        std::fs::write(&cp, c)?;
+    }
+    Ok(())
 }
 
 fn read_captions(dir: &Path) -> BTreeMap<String, String> {
@@ -166,6 +210,8 @@ pub fn archived_type_key(dir: &Path, r: &Row) -> String {
 /// record them in `aliases.tsv` (kept file, alias file, alias name), which the catalog lists as
 /// "also found as". Returns one line per removed design.
 pub fn dedupe(dir: &Path, img_dir: &Path) -> Result<Vec<String>> {
+    // read_rows already keeps one row per file (repeated rows from a union merge collapse to the
+    // newest), so a file can never be "a duplicate of itself"
     let rows = read_rows(dir)?;
     let mut kept: BTreeMap<(u32, String), Row> = BTreeMap::new();
     let mut removed: Vec<(Row, Row)> = Vec::new();
@@ -176,17 +222,25 @@ pub fn dedupe(dir: &Path, img_dir: &Path) -> Result<Vec<String>> {
         }
         let tk = (r.period, archived_type_key(dir, r));
         match kept.get(&tk) {
-            Some(k) => removed.push((k.clone(), r.clone())),
+            Some(k) if k.file != r.file => removed.push((k.clone(), r.clone())),
+            Some(_) => {}
             None => {
                 kept.insert(tk, r.clone());
             }
         }
     }
-    if removed.is_empty() {
-        return Ok(vec!["no duplicate types".into()]);
-    }
     let gone: BTreeSet<String> = removed.iter().map(|(_, r)| r.file.clone()).collect();
+    // the tables get one row per file in any case (repairs repeated rows)
+    let repeated = std::fs::read_to_string(dir.join(VERDICTS)).map(|t| t.lines().count().saturating_sub(1)).unwrap_or(0).saturating_sub(rows.len());
+    write_tables(dir, &gone)?;
     let mut lines = Vec::new();
+    if repeated > 0 {
+        lines.push(format!("COLLAPSED {repeated} repeated verdict row(s) (one row per file, the newest kept)"));
+    }
+    if removed.is_empty() {
+        lines.push("no duplicate types".into());
+        return Ok(lines);
+    }
     let mut aliases = std::fs::read_to_string(dir.join(ALIASES)).unwrap_or_else(|_| "kept\talias_file\talias_name\n".into());
     for (k, r) in &removed {
         let name = Clock::load(&dir.join(&r.file)).map(|c| c.name().to_string()).unwrap_or_else(|_| r.file.trim_end_matches(".txt").to_string());
@@ -198,16 +252,6 @@ pub fn dedupe(dir: &Path, img_dir: &Path) -> Result<Vec<String>> {
         lines.push(format!("REMOVED {} ({name}): same type as {} (kept, archived first)", r.file, k.file));
     }
     std::fs::write(dir.join(ALIASES), aliases)?;
-    // rewrite the verdict and caption files without the removed designs
-    let vp = dir.join(VERDICTS);
-    let text = std::fs::read_to_string(&vp)?;
-    let kept_lines: Vec<&str> = text.lines().filter(|l| l.split('\t').nth(1).is_none_or(|f| !gone.contains(f))).collect();
-    std::fs::write(&vp, kept_lines.join("\n") + "\n")?;
-    let cp = dir.join(CAPTIONS);
-    if let Ok(text) = std::fs::read_to_string(&cp) {
-        let kept_lines: Vec<&str> = text.lines().filter(|l| l.split('\t').next().is_none_or(|f| !gone.contains(f))).collect();
-        std::fs::write(&cp, kept_lines.join("\n") + "\n")?;
-    }
     Ok(lines)
 }
 
@@ -317,15 +361,22 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         type_key: tk,
         summary: summary.clone(),
     };
+    // one row per file: a row for the same file is replaced, never repeated
     let vp = dir.join(VERDICTS);
-    let mut all = if vp.exists() { std::fs::read_to_string(&vp)? } else { format!("{HEADER}\n") };
-    all.push_str(&row.to_tsv());
-    all.push('\n');
+    let mut rows_now = read_rows(dir)?;
+    rows_now.retain(|r| r.file != row.file);
+    rows_now.push(row.clone());
+    let mut all = format!("{HEADER}\n");
+    for r in &rows_now {
+        all.push_str(&r.to_tsv());
+        all.push('\n');
+    }
     std::fs::write(&vp, all)?;
     let cap = caption.map(|s| s.to_string()).unwrap_or_else(|| default_caption(&text));
     if !cap.is_empty() {
         let cp = dir.join(CAPTIONS);
-        let mut caps = if cp.exists() { std::fs::read_to_string(&cp)? } else { "file\tcaption\n".to_string() };
+        let old = if cp.exists() { std::fs::read_to_string(&cp)? } else { "file\tcaption\n".to_string() };
+        let mut caps: String = old.lines().filter(|l| l.split('\t').next() != Some(file.as_str())).map(|l| format!("{l}\n")).collect();
         caps.push_str(&format!("{file}\t{}\n", cap.replace(['\t', '\n'], " ")));
         std::fs::write(&cp, caps)?;
     }
@@ -523,5 +574,60 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         matrix(false)
     );
     std::fs::write(coverage, cov)?;
+    // pictures of designs no longer archived (removed duplicates, family instances): pruned, so
+    // img/ holds exactly the archived designs' pictures
+    let mut pruned = 0;
+    if let Ok(rd) = std::fs::read_dir(&img_dir) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            let stem = name.trim_end_matches(".jpg").trim_end_matches(".strip");
+            if name.ends_with(".jpg") && !dir.join(format!("{stem}.txt")).exists() {
+                if std::fs::remove_file(e.path()).is_ok() {
+                    pruned += 1;
+                }
+            }
+        }
+    }
+    if pruned > 0 {
+        eprintln!("pruned {pruned} picture(s) of designs no longer in the archive");
+    }
     Ok(CatalogStats { clocks: rows.len(), types: by_type.len(), families: families.len(), periods: periods.len() })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(file: &str, summary: &str) -> String {
+        format!("h\t{file}\t6\t0\t2\t1\t[2]\tobserver\t2\t2x1x1\t2\trobust\tkick: last 1,0,0\tk\tfalse\t{summary}")
+    }
+
+    /// A union merge repeated a file's rows: dedupe collapses them and never removes a file as a
+    /// duplicate of itself (coordinator's bug, 2026-10-19: 167 archived clocks deleted); a real
+    /// duplicate (the same structure turned) is still removed.
+    #[test]
+    fn dedupe_repeated_rows() {
+        let dir = std::env::temp_dir().join(format!("clock-dedupe-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let pair_x = "name: a\nport start: 1 0 0 last\npalette:\n  E minecraft:observer[facing=east]\n  W minecraft:observer[facing=west]\nlayer 0:\n  EW\n";
+        let pair_z = "name: b\nport start: 0 0 1 last\npalette:\n  S minecraft:observer[facing=south]\n  N minecraft:observer[facing=north]\nlayer 0:\n  S\n  N\n";
+        std::fs::write(dir.join("a.txt"), pair_x).unwrap();
+        std::fs::write(dir.join("b.txt"), pair_z).unwrap();
+        std::fs::write(dir.join(VERDICTS), format!("{HEADER}\n{}\n{}\n{}\n", row("a.txt", "old"), row("a.txt", "new"), row("b.txt", "b"))).unwrap();
+        std::fs::write(dir.join(CAPTIONS), "file\tcaption\na.txt\tone\na.txt\ttwo\nb.txt\tthree\n").unwrap();
+        let rows = read_rows(&dir).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].summary, "new");
+        let lines = dedupe(&dir, &dir.join("img")).unwrap();
+        assert!(dir.join("a.txt").exists(), "{lines:?}");
+        assert!(!dir.join("b.txt").exists(), "{lines:?}");
+        assert!(lines.iter().any(|l| l.starts_with("COLLAPSED 1")), "{lines:?}");
+        assert!(lines.iter().any(|l| l.starts_with("REMOVED b.txt")), "{lines:?}");
+        let v = std::fs::read_to_string(dir.join(VERDICTS)).unwrap();
+        assert_eq!(v.lines().count(), 2, "{v}");
+        let c = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap();
+        assert_eq!(c, "file\tcaption\na.txt\ttwo\n");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

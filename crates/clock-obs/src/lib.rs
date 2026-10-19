@@ -18,6 +18,7 @@ pub mod family;
 pub mod divider;
 pub mod grow;
 pub mod pick;
+pub mod prune;
 pub mod report;
 pub mod rings;
 pub mod sim;
@@ -112,6 +113,8 @@ pub enum Cmd {
     Every(construct::EveryArgs),
     /// Extendable families (base + repeated unit): formula, extension rule, instance for any n
     Family(family::FamilyArgs),
+    /// Remove archived instances of the extendable families (design, every TSV row, picture)
+    Prune(prune::PruneArgs),
 }
 
 pub fn run_args(args: Args) -> Result<()> {
@@ -164,5 +167,6 @@ pub fn run_args(args: Args) -> Result<()> {
         Cmd::Report(a) => report::run(a),
         Cmd::Every(a) => construct::run(a),
         Cmd::Family(a) => family::run(a),
+        Cmd::Prune(a) => prune::run(a),
     }
 }

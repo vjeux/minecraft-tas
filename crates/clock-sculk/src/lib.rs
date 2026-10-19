@@ -86,6 +86,8 @@ enum Cmd {
     Caption(caption::CaptionArgs),
     /// The extendable families (replin, racetrack): one design per n.
     Family(family::FamilyArgs),
+    /// Archived designs that are instances of the extendable families (`--remove` deletes them).
+    FamilyDupes(family::DupesArgs),
     /// Simulate designs and print one line each, sorted by period (`--best`: the smallest per
     /// period only).
     Table {
@@ -139,6 +141,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Outputs(a) => outputs::outputs(&a),
         Cmd::Caption(a) => caption::caption(&a),
         Cmd::Family(a) => family::family(&a),
+        Cmd::FamilyDupes(a) => family::dupes(&a),
         Cmd::Table { files, best, md } => table(&files, best, md),
         Cmd::Select { files, out_dir, min_p, max_p, known, per_period, mechanisms, minimal, no_composite } => select(&files, &out_dir, min_p, max_p, &known, per_period, mechanisms, minimal, no_composite),
     }

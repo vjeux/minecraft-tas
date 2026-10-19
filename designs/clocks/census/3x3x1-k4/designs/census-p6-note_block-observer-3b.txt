@@ -1,0 +1,14 @@
+name: census-p6-note_block-observer-3b
+census: box 3x3x1 k<=4 (0,0,0=note_block[instrument=harp,note=0,powered=false];0,1,0=observer[facing=up,powered=false];0,2,0=observer[facing=down,powered=false])
+port start: 0 1 0 last
+origin: 0 0 0
+palette:
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  o minecraft:observer[facing=up,powered=false]
+layer 0:
+  N
+layer 1:
+  o
+layer 2:
+  O

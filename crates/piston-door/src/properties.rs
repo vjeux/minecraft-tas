@@ -696,6 +696,9 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     if let Some(w) = s.why.clone() {
         p.insert("seamless_why".into(), w);
     }
+    // FULL FRAME WHEN OPEN (vjeux): how many of the 12 frame cells hold the door block when open;
+    // the leaderboard's main boards rank only `12/12` designs.
+    p.insert("frame".into(), format!("{}/12", frame_full_count(rec)));
     let (holes_r, holes_o) = (s.holes_r.clone(), s.holes_o.clone());
     if !holes_r.is_empty() || !holes_o.is_empty() {
         let l = |v: &[Pos]| v.iter().map(|q| format!("{q:?}")).collect::<Vec<_>>().join(" ");
@@ -1600,7 +1603,9 @@ pub fn volumes(version: &str, designs: Vec<Design>, workers: usize, cache_dir: O
         if !seen.insert(h) {
             continue;
         }
-        match cache.get(&h).and_then(cached_volume) {
+        // A cached row from before the `frame` key (FULL FRAME WHEN OPEN) is measured again so the
+        // leaderboard can rank by it.
+        match cache.get(&h).filter(|p| p.contains_key("frame")).and_then(cached_volume) {
             Some(v) => {
                 out.insert(h, v);
             }

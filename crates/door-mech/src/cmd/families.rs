@@ -70,11 +70,11 @@ pub struct MechspaceArgs {
     /// Accepted for old command lines: extended-at-rest pullers are the default now.
     #[arg(long, hide = true)]
     ext_pullers: bool,
-    /// Generator: most 1-move exits by a puller EXTENDED at rest per mechanism (c79 has 2, the
-    /// community 7x8 1; each one doubles a block's choices).
-    #[arg(long, default_value_t = 2)]
+    /// Generator: most 1-move exits by a puller EXTENDED at rest per mechanism (a lever-held top
+    /// row has 3, c79 2, the community 7x8 1; each one doubles a block's choices).
+    #[arg(long, default_value_t = 3)]
     ext_max: usize,
-    /// Generator: a second extended-puller exit may sit anywhere (default: next to the first).
+    /// Generator: extended-puller exits may sit anywhere (default: each next to an earlier one).
     #[arg(long)]
     ext_apart: bool,
     /// Generator: exactly one piston in the box's bottom row, sticky facing up.
@@ -528,14 +528,17 @@ pub struct FamiliesArgs {
     /// Accepted for old command lines: extended-at-rest pullers are the default now.
     #[arg(long, hide = true)]
     ext_pullers: bool,
-    /// Most 1-move exits by a puller EXTENDED at rest per mechanism (c79 has 2, the community
-    /// 7x8 1; each one doubles a block's choices).
-    #[arg(long, default_value_t = 2)]
+    /// Most 1-move exits by a puller EXTENDED at rest per mechanism (a lever-held top row has 3,
+    /// c79 2, the community 7x8 1; each one doubles a block's choices).
+    #[arg(long, default_value_t = 3)]
     ext_max: usize,
-    /// A second extended-puller exit may sit anywhere (default: next to the first, as one level
-    /// holds both, like c79's MR/TR pullers; halves the candidates).
+    /// Extended-puller exits may sit anywhere (default: each next to an earlier one, as one level
+    /// holds them all, like c79's MR/TR pullers or a lever-held top row; halves the candidates).
     #[arg(long)]
     ext_apart: bool,
+    /// How near (Chebyshev) an earlier extended-puller exit each later one must be.
+    #[arg(long, default_value_t = 1)]
+    ext_dist: usize,
     /// Audit bound (a): a piston extended at rest may be reused as a lifted / carried provider.
     #[arg(long)]
     lift_ext: bool,
@@ -546,7 +549,8 @@ pub struct FamiliesArgs {
 }
 
 pub fn cmd_families(version: &str, args: FamiliesArgs) -> Result<()> {
-    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, lift_ext, carry_in } = args;
+    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in } = args;
+    crate::families::EXT_DIST.store(ext_dist, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_PULLERS.store(!no_ext_pullers, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_MAX.store(ext_max, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_ADJACENT.store(!ext_apart, std::sync::atomic::Ordering::Relaxed);
