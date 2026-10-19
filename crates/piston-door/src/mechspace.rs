@@ -1946,6 +1946,11 @@ pub fn run_list(items_all: &[(Bx, Vec<Pc>)], o: &RunOpts, families_cmp: bool) ->
         HashSet::new()
     };
     let items: Vec<(Bx, Vec<Pc>)> = items_all.iter().filter(|(b, v)| !done_before.contains(&line_of(b, v))).cloned().collect();
+    // MECHSPACE_SHARD="k/n": only every n-th candidate starting at k (split a sweep across boxes)
+    let items: Vec<(Bx, Vec<Pc>)> = match std::env::var("MECHSPACE_SHARD").ok().and_then(|s| s.split_once('/').map(|(a, b)| (a.parse::<usize>().ok(), b.parse::<usize>().ok()))) {
+        Some((Some(k), Some(n))) if n > 0 => items.into_iter().enumerate().filter(|(i, _)| i % n == k).map(|(_, x)| x).collect(),
+        _ => items,
+    };
     if !done_before.is_empty() {
         eprintln!("[mechspace {}] resume: {} already decided, {} left", o.tag, items_all.len() - items.len(), items.len());
     }
