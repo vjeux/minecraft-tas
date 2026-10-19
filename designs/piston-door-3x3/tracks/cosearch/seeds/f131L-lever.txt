@@ -1,0 +1,36 @@
+name: f131L-lever
+# wire64's f131L (explore/wire64 tracks/wire64/f131/f131L.txt: 8x8-131 with ML / TL pulled by
+# level pistons held out at rest through the conductor (-2,3), here still the plan's redstone block)
+# with a lever outside the box at (-3,4) on a glass block (-2,4). Fits 7 wide x 8 tall
+# (x -2..4, y -2..5). Seed for `door cosearch search` (the search must replace the redstone
+# block by an inverted level, wire D1 / DE / the bottom-left and the right side).
+port door: 0 0 0
+port lever: -3 4 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:glass
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer -2:
+  ....A
+layer -1:
+  .
+layer 0:
+  .s.DDD.B
+layer 1:
+  .CPDDD.B
+layer 2:
+  .CPDDD
+layer 3:
+  .RCP
+layer 4:
+  LG..SS
+layer 5:
+  ....S
