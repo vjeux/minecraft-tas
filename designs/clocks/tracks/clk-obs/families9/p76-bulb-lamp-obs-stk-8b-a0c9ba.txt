@@ -1,0 +1,30 @@
+name: clk-obs-p76-bulb-lamp-obs-stk-8b-a0c9ba
+# clk-obs grow: P=76 (redsim), family observer+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 12.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 0 0 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:redstone_lamp[lit=false]
+  F minecraft:observer[facing=south,powered=false]
+  G minecraft:observer[facing=down,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=south]
+layer -1:
+  A
+  .
+  .
+layer 0:
+  B
+  C
+  D
+layer 1:
+  E
+  F
+  G
+layer 2:
+  H
+  .
+  .
