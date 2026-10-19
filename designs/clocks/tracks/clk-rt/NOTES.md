@@ -49,13 +49,21 @@ generated names carry the family: `uloop<n>t-` (n torches), `fade-`, `ring<w>x<h
 | 90, 94, 98 | 28 | redstone_torch+repeater | `uloop-2torch/p90.txt` .. | 2-torch ring, 12 repeaters |
 | 114 .. 338 | 18 .. 34 | comparator+redstone_torch+redstone_wire | `fade/sweep/uloop-p114.txt` .. | FADING rings: P114 18b, P142/P144 21b, P170 22b, P226 26b, P282 30b, P338 34b |
 | 205 | 8 | redstone_torch+redstone_wire+repeater | `odd/burnout-odd-p205.txt` | ODD burnout: 2-torch loop (delay 6) kicked by a temporary wall torch `2 at 1`, 3 gt pulses |
+| 200, 210 | 14 | comparator+redstone_torch+redstone_wire | `ring/3x4-burn/` | burnout of a 3-torch dust ring with a comparator (rotation-dependent) |
+| 872 | 16 | redstone_torch+redstone_wire | `ring/torch-dust/ring4x4-p872-rt-rw.txt` | burnout of a 4-torch dust ring (4x4 rectangle) |
 | 220 | 8 | redstone_torch+repeater | `uloop-p220` | burnout of a 2-torch + 2 delay-1 ring (also 9-block 1-torch `burnout-tr9.txt`) |
 | 410 | 12 | comparator+redstone_torch+redstone_wire | `ring/3x3/ring3x3-p410-c-rt-rw.txt` | burnout in a 3x3 ring (rotation-dependent) |
 | 440 | 8 | redstone_torch+repeater | `burnout/burn-p440.txt` | 2-torch burnout, odd kick `1 at 15`: the two burnout halves land in different parity classes |
 | 40 .. 2304 | 27 .. 117 | redstone_torch+redstone_wire+repeater | `div/div-*.txt` | DIVIDERS: base U-loop + master-slave T flip-flop stages |
-| 228 .. 5408 | 36 .. 106 | comparator+redstone_torch+redstone_wire+repeater | `div/div-fade*.txt` | DIVIDERS on a fading ring: P1012 64b, P1360 76b, P2704 88b, P5408 106b (P10816 124b: sim) |
+| 228 .. 10816 | 36 .. 124 | comparator+redstone_torch+redstone_wire+repeater | `div/div-fade*.txt` | DIVIDERS on a fading ring: P1012 64b, P1360 76b, P2704 88b, P5408 106b, P10816 124b |
 | 1596, 2380, 3164, 4732 | 44, 52, 60, 76 | comparator+redstone_torch+redstone_wire | `counter/count-i2-o2.txt` .. | comparator COUNTER (below): a fading ring's refill pulse decrements a lossless comparator ring, x14 |
 | 22344 | 70 | comparator+redstone_torch+redstone_wire | `counter/count-i2-o2-2.txt` | NESTED counters: fading ring P114 x14 x14 (18.6 minutes) |
+| 312816 | 96 | comparator+redstone_torch+redstone_wire | `counter/count-i2-o2-2-2.txt` | 3 nested counters (4 h 20 min) |
+| 161, 1127 (odd) | 44, 72 | comparator+redstone_torch+redstone_wire+repeater | `counter/count7-over-odd23.txt`, `count7x7-...` | count-7 counters (decrement 2) over the odd P23 rectangle ring |
+
+Other families: torch + dust only, a 3-torch dust ring P12 (14 blocks, `ring/torch-dust/`);
+comparators only (kicked), 3x3 ring P8 (12b) and 3x4 P12 (16b) (`ring/cmp/`);
+comparator+repeater rectangle rings P8..P42 (12-16b, `ring/3x3/`, `ring/3x4-cr/`).
 
 Every period from 4 to 100 has a robust clock (even: the families above; odd: the two-pulse
 rings). Every (period, family) pair's smallest U-loop: `sweeps/uloop-k2/uloop-p<P>-<fam>.txt`
@@ -78,7 +86,7 @@ dependent: equal-tick repeater races); 3x3 rings: `ring/3x3/` (78, 77 robust:
   Verified: P40 (27b), P288 (63b), P1152 (99b), P2304 (117b); fading base P228 (36b), P1012 (64b),
   P1360 (76b), P2704 (88b), P5408 (106b).
 - Comparator counters: + 26 blocks per factor 14 (a counter ring of 2 + 2 comparators + its
-  decrement shaper): P1596 at 44 blocks, P22344 at 70, (3 levels: P312816 = 4.3 h at 96, sim).
+  decrement shaper): P1596 at 44 blocks, P22344 at 70, P312816 (4 h 20 min) at 96.
   Per block, a counter level multiplies the period by 14^(1/26) = 1.107, a divider stage by
   2^(1/18) = 1.039.
 
