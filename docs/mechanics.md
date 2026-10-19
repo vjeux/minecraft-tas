@@ -388,6 +388,15 @@ track notes).
 * **Door blocks and ring stones relay power into the opening's quasi cells**: a strongly powered
   plain block in a ring cell gives signal into the opening cell next to it, which QC-powers a piston
   facing up just below that cell (the carried puller above); a parked door block does the same.
+* **Two pulses 8 gt apart from one pull-type puller** (cosearch2 pockets, ring56 s1
+  `runs/pk-s1-k5/pocket0-set1.txt`): observer watching the puller -> stone -> delay-4 repeater ->
+  observer watching the repeater: the puller's extend and pull retract give two output pulses (t13,
+  t21 after a t0 pulse, both edges), here fed into the elevator's lower piston by QC through the
+  empty cell of the upper one.
+* **A redstone lamp mirrors a DE input cell for an observer chain** (cosearch2 f131X): a lamp next
+  to a strongly powered input cell lights at once and goes dark 4 gt after; an observer on the lamp
+  gives one pulse at the window's start and one 4 gt after its end (D1's b and c shots from DE's
+  window).
 
 Notes for builders of fast doors:
 

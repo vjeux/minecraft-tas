@@ -1056,22 +1056,33 @@ pub struct Eval {
     pub hallway: Option<std::result::Result<(), String>>,
     pub volume: Option<(i32, [i32; 3])>,
     pub blocks: usize,
+    /// Frame cells filled when open (vjeux 03:36Z: all 12 cells around the opening must hold
+    /// plain full blocks when open), None when not measured.
+    pub frame: Option<i32>,
+}
+
+/// A frame cell counts when it holds a plain full block (a door block or a quartz-like building
+/// block), not moving (`sheet.rs`'s `filled`).
+pub fn frame_filled(b: &Block) -> bool {
+    !b.is_air() && full_cube(b) && !is_moving(b) && quartz_like(b)
 }
 
 impl Eval {
     pub fn record_ok(&self) -> bool {
-        self.judge.is_ok() && matches!(self.full, Some(Ok(()))) && matches!(self.hallway, Some(Ok(())))
+        self.judge.is_ok() && matches!(self.full, Some(Ok(()))) && matches!(self.hallway, Some(Ok(()))) && self.frame == Some(12)
     }
 }
 
 pub fn evaluate(door: &RsDoor, opts: &JudgeOpts, props_even_if_broken: bool) -> Eval {
     let judge = judge(door, opts);
-    let mut e = Eval { judge, full: None, hallway: None, volume: None, blocks: door.block_count() };
+    let mut e = Eval { judge, full: None, hallway: None, volume: None, blocks: door.block_count(), frame: None };
     if e.judge.is_ok() || props_even_if_broken {
         match record(door) {
             Ok(rec) => {
                 e.full = Some(seamless_full(&rec));
                 e.volume = volume(&rec);
+                let open = rec.open_state();
+                e.frame = Some(crate::sheet::frame_cells(door.spec.door).iter().filter(|p| open.get(**p).is_some_and(|b| frame_filled(&b))).count() as i32);
             }
             Err(why) => e.full = Some(Err(why)),
         }
@@ -1100,7 +1111,8 @@ pub fn eval_line(name: &str, e: &Eval, ms: f64) -> String {
         Some(Err(w)) => format!("hallway breaks it ({w})"),
     };
     let vol = e.volume.map(|(v, d)| format!("{v}b ({}x{}x{})", d[0], d[1], d[2])).unwrap_or("-".into());
-    format!("{name}: {j} | {full} | {hall} | {vol}, {} blocks | {ms:.1} ms", e.blocks)
+    let frame = e.frame.map(|f| format!("frame {f}/12")).unwrap_or("frame -".into());
+    format!("{name}: {j} | {full} | {hall} | {frame} | {vol}, {} blocks | {ms:.1} ms", e.blocks)
 }
 
 /// Load a design file (or `@builtin`) as a redsim door.
@@ -1185,6 +1197,37 @@ pub enum CosearchCmd {
     },
     /// The joint mechanism + wiring search (cosearch_search.rs).
     Search(crate::cosearch_search::SearchArgs),
+    /// Pocket-exhaustive wiring (cosearch_search.rs `pockets_run`): every filling of up to `--k`
+    /// blocks of each free pocket, simulated with the rest of the door driven by the plan, kept
+    /// when it drives plan inputs inside their timing windows; then one filling per pocket
+    /// combined and verified.
+    Pockets(crate::cosearch_search::PocketArgs),
+    /// Place a design in redsim, settle, flip its lever `--flips` times (settling after each) and
+    /// write the settled plane as a design: e.g. a door read in its OPEN state (lever off) turned
+    /// into its CLOSED state (lever on), for searches with `--lever-on-rest`.
+    Flip {
+        design: std::path::PathBuf,
+        #[arg(long, default_value_t = 1)]
+        flips: u32,
+        #[arg(long)]
+        out: std::path::PathBuf,
+    },
+    /// An ideal plan from a working door: per lever edge, every piston cell's real power tick by
+    /// tick becomes a redstone block behind it (z+1) while powered (`door ideal` format, `design`
+    /// = the given file). With `--only x,y;...` only those piston cells (door coordinates): the
+    /// plan of the inputs a wiring pocket drove, for `pockets --assist` calibration.
+    PlanFrom {
+        design: std::path::PathBuf,
+        #[arg(long)]
+        out: std::path::PathBuf,
+        #[arg(long)]
+        only: Option<String>,
+        /// Only the piston cells this region of wiring feeds (door coordinates `x,y;...`): at
+        /// every tick a powered piston that loses its power when the region's blocks are taken
+        /// out (raw, put back after) is fed by it; those cells' whole traces go in the plan.
+        #[arg(long)]
+        region: Option<String>,
+    },
     /// Print every block change tick by tick in redsim (placement, then `--flips` lever flips):
     /// compare with `door trace` (the real game) to locate a model disagreement.
     Trace {
@@ -1197,6 +1240,17 @@ pub enum CosearchCmd {
         /// Only these cells (x,y,z;x,y,z...), default every cell.
         #[arg(long)]
         cells: Option<String>,
+        /// Apply a `door ideal` plan's inputs like `search --assist` (odd flips: the open edge's
+        /// events, even flips: the close edge's).
+        #[arg(long)]
+        assist: Option<std::path::PathBuf>,
+        /// Only the plan inputs at these cells (door coordinates `x,y;x,y`).
+        #[arg(long)]
+        assist_cells: Option<String>,
+        /// Print the door plane as a picture after every tick that changed it, over this box
+        /// (door coordinates `x0,y0:x1,y1`), instead of the change list.
+        #[arg(long)]
+        grid: Option<String>,
     },
 }
 
@@ -1237,12 +1291,239 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
             agree(version, &designs, mutants, seed, flat_only, extra_offsets, workers, threads, &out, judge_only)?;
         }
         CosearchCmd::Search(a) => crate::cosearch_search::run(version, &a)?,
-        CosearchCmd::Trace { design, offset, flips, cells } => {
+        CosearchCmd::Pockets(a) => crate::cosearch_search::pockets_run(version, &a)?,
+        CosearchCmd::Flip { design, flips, out } => {
+            let (d0, door) = load_door(&design)?;
+            let (wlo, whi) = watch_box(&door.blocks, &door.spec);
+            let mut w = world_for(wlo, whi);
+            let list: Vec<(BlockPos, Block)> = door.blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
+            w.place_like_judge(&list);
+            step_until_idle(&mut w, 400, |_| {});
+            for _ in 0..flips {
+                w.use_block(bp(door.spec.lever));
+                step_until_idle(&mut w, 400, |_| {});
+            }
+            anyhow::ensure!(w.idle(), "not idle after the flips");
+            let z = door.spec.door[2];
+            let snap = Snap::take(&w, wlo, whi);
+            let blocks: Vec<(Pos, Block)> = snap.iter().filter(|(p, b)| p[2] == z && !b.is_air()).collect();
+            anyhow::ensure!(blocks.iter().all(|(_, b)| !is_moving(b)), "a moving block in the settled state");
+            let r = RsDoor { spec: door.spec, blocks };
+            let mut d = r.to_design(&format!("{}-flip{flips}", d0.name));
+            d.meta.insert("note".into(), format!("{} after {flips} lever flip(s), settled (door cosearch flip)", design.display()));
+            d.save(&out)?;
+            println!("wrote {} ({} blocks)", out.display(), r.block_count());
+        }
+        CosearchCmd::PlanFrom { design, out, only, region } => {
+            let (_, door) = load_door(&design)?;
+            let d0 = door.spec.door;
+            let cells_of = |s: &str| -> Vec<(i32, i32)> {
+                s.split(';')
+                    .filter_map(|t| {
+                        let v: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                        (v.len() == 2).then(|| (v[0] + d0[0], v[1] + d0[1]))
+                    })
+                    .collect()
+            };
+            let mut keep: Option<Vec<(i32, i32)>> = only.as_ref().map(|s| cells_of(s));
+            let (wlo, whi) = watch_box(&door.blocks, &door.spec);
+            let list: Vec<(BlockPos, Block)> = door.blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
+            let z = d0[2];
+            let piston_cells = |w: &World| -> Vec<(i32, i32, Dir)> {
+                let mut v = Vec::new();
+                for x in wlo[0]..=whi[0] {
+                    for y in wlo[1]..=whi[1] {
+                        if let Block::Piston { facing, .. } = w.get(BlockPos::new(x, y, z)) {
+                            v.push((x, y, facing));
+                        }
+                    }
+                }
+                v
+            };
+            if let Some(rs) = &region {
+                // the ticks at which the region alone feeds each piston cell (taking its blocks
+                // out unpowers the piston): the plan's blocks stand in for exactly those, so the
+                // door's other wiring keeps its own share (no double drive)
+                let reg: Vec<BlockPos> = cells_of(rs).iter().map(|(x, y)| BlockPos::new(*x, *y, z)).collect();
+                let mut w = world_for(wlo, whi);
+                w.place_like_judge(&list);
+                step_until_idle(&mut w, 400, |_| {});
+                // (phase: 0 rest, 1 open, 2 close; tick) per cell
+                let mut fed: std::collections::BTreeMap<(i32, i32), Vec<(usize, u32)>> = std::collections::BTreeMap::new();
+                let probe = |w: &mut World, fed: &mut std::collections::BTreeMap<(i32, i32), Vec<(usize, u32)>>, ph: usize, t: u32| {
+                    for (x, y, f) in piston_cells(w) {
+                        let q = BlockPos::new(x, y, z);
+                        if !redsim::piston::base::neighbor_signal(w, q, f) {
+                            continue;
+                        }
+                        let saved: Vec<(BlockPos, Block)> = reg.iter().map(|r| (*r, w.get(*r))).collect();
+                        for r in &reg {
+                            w.put(*r, Block::Air);
+                        }
+                        let still = redsim::piston::base::neighbor_signal(w, q, f);
+                        for (r, b) in &saved {
+                            w.put(*r, *b);
+                        }
+                        if !still {
+                            fed.entry((x, y)).or_default().push((ph, t));
+                        }
+                    }
+                };
+                probe(&mut w, &mut fed, 0, 0);
+                let mut len = [0u32; 3];
+                for ph in 1..3usize {
+                    w.use_block(bp(door.spec.lever));
+                    let mut t = 0;
+                    probe(&mut w, &mut fed, ph, 0);
+                    loop {
+                        w.tick();
+                        t += 1;
+                        probe(&mut w, &mut fed, ph, t);
+                        if (w.idle() && t > 2) || t > 300 {
+                            break;
+                        }
+                    }
+                    len[ph] = t;
+                }
+                println!("region feeds piston cells {:?}", fed.keys().map(|c| (c.0 - d0[0], c.1 - d0[1])).collect::<Vec<_>>());
+                let mut text = String::new();
+                text.push_str(&format!("# door cosearch plan-from {} --region {rs}: a redstone block behind each piston cell\n# (z+1) at exactly the ticks the region alone feeds it\n", design.display()));
+                text.push_str(&format!("design {}\n", design.display()));
+                for (c, v) in &fed {
+                    if keep.as_ref().is_some_and(|k| !k.contains(c)) {
+                        continue;
+                    }
+                    // a cell fed exactly like the one above it: that block's QC powers it (its own
+                    // block would also QC-power the piston below it, which the door does not)
+                    if fed.get(&(c.0, c.1 + 1)).is_some_and(|a| a == v) {
+                        continue;
+                    }
+                    let mut state = v.contains(&(0, 0));
+                    for ph in 1..3usize {
+                        let phase = if ph == 1 { "open" } else { "close" };
+                        for t in 0..=len[ph] {
+                            let on = v.contains(&(ph, t));
+                            if on != state {
+                                if on {
+                                    text.push_str(&format!("{phase} {t} set {} {} {} minecraft:redstone_block\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2]));
+                                } else {
+                                    text.push_str(&format!("{phase} {t} clear {} {} {}\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2]));
+                                }
+                                state = on;
+                            }
+                        }
+                    }
+                }
+                std::fs::write(&out, text)?;
+                println!("wrote {}", out.display());
+                return Ok(());
+            }
+            let mut w = world_for(wlo, whi);
+            w.place_like_judge(&list);
+            step_until_idle(&mut w, 400, |_| {});
+            let powered_cells = |w: &World| -> Vec<(i32, i32)> {
+                piston_cells(w)
+                    .into_iter()
+                    .filter(|(x, y, f)| redsim::piston::base::neighbor_signal(w, BlockPos::new(*x, *y, z), *f) && keep.as_ref().is_none_or(|k| k.contains(&(*x, *y))))
+                    .map(|(x, y, _)| (x, y))
+                    .collect()
+            };
+            let rest: Vec<(i32, i32)> = powered_cells(&w);
+            let mut text = String::new();
+            text.push_str(&format!("# door cosearch plan-from {}: every piston cell's real power per lever edge, as a redstone\n# block behind it (z+1) while powered (a cell fed exactly like the one above it is left to that\n# block's quasi-connectivity)\n", design.display()));
+            text.push_str(&format!("design {}\n", design.display()));
+            // events per cell: (phase, tick, on)
+            let mut evs: std::collections::BTreeMap<(i32, i32), Vec<(usize, u32, bool)>> = std::collections::BTreeMap::new();
+            let mut cur: Vec<(i32, i32)> = rest.clone();
+            for phase in 0..2usize {
+                w.use_block(bp(door.spec.lever));
+                let mut t = 0u32;
+                loop {
+                    // the state after t ticks is applied before tick t (`door ideal`)
+                    let now = powered_cells(&w);
+                    for c in &now {
+                        if !cur.contains(c) {
+                            evs.entry(*c).or_default().push((phase, t, true));
+                        }
+                    }
+                    for c in &cur {
+                        if !now.contains(c) {
+                            evs.entry(*c).or_default().push((phase, t, false));
+                        }
+                    }
+                    cur = now;
+                    w.tick();
+                    t += 1;
+                    if (w.idle() && t > 2) || t > 300 {
+                        break;
+                    }
+                }
+            }
+            // the block behind (x, y+1) powers (x, y) by quasi-connectivity: a cell whose trace
+            // equals the one above it needs no block of its own (its own block would also
+            // quasi-power the piston below it, which the door does not)
+            let same_above = |c: &(i32, i32)| evs.get(&(c.0, c.1 + 1)).is_some_and(|a| Some(a) == evs.get(c)) && rest.contains(c) == rest.contains(&(c.0, c.1 + 1));
+            let mut lines: Vec<(usize, u32, String)> = Vec::new();
+            for (c, v) in &evs {
+                if same_above(c) {
+                    continue;
+                }
+                for (ph, t, on) in v {
+                    let phase = if *ph == 0 { "open" } else { "close" };
+                    let l = if *on {
+                        format!("{phase} {t} set {} {} {} minecraft:redstone_block\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2])
+                    } else {
+                        format!("{phase} {t} clear {} {} {}\n", c.0 - d0[0], c.1 - d0[1], z + 1 - d0[2])
+                    };
+                    lines.push((*ph, *t, l));
+                }
+            }
+            lines.sort_by_key(|l| (l.0, l.1));
+            for (_, _, l) in lines {
+                text.push_str(&l);
+            }
+            std::fs::write(&out, text)?;
+            println!("wrote {} (powered at rest: {:?})", out.display(), rest.iter().map(|c| (c.0 - d0[0], c.1 - d0[1])).collect::<Vec<_>>());
+        }
+        CosearchCmd::Trace { design, offset, flips, cells, assist, assist_cells, grid } => {
             let (_, door) = load_door(&design)?;
             let opts = JudgeOpts::with_extra(28);
             let off = opts.offsets[offset.min(opts.offsets.len() - 1)];
             let blocks: Vec<(Pos, Block)> = door.blocks.iter().map(|(p, b)| (add(*p, off), *b)).collect();
             let spec = door.spec.translated(off);
+            let d0 = door.spec.door;
+            // the assist plan's events, only the chosen input cells
+            let mut asst: [Vec<(u32, BlockPos, Block)>; 2] = [Vec::new(), Vec::new()];
+            if let Some(path) = &assist {
+                let a = crate::cosearch_search::load_assist(path, d0[2])?;
+                let keep: Option<Vec<(i32, i32)>> = assist_cells.as_ref().map(|s| {
+                    s.split(';')
+                        .filter_map(|t| {
+                            let v: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                            (v.len() == 2).then(|| (v[0] + d0[0], v[1] + d0[1]))
+                        })
+                        .collect()
+                });
+                for ph in 0..2 {
+                    for (t, k, pos, b) in &a.events[ph] {
+                        if keep.as_ref().is_none_or(|c| c.contains(&a.cells[*k])) {
+                            asst[ph].push((*t, BlockPos::new(pos.x + off[0], pos.y + off[1], pos.z + off[2]), *b));
+                        }
+                    }
+                }
+            }
+            let gbox: Option<([i32; 2], [i32; 2])> = match &grid {
+                Some(g) => {
+                    let (a, b) = anyhow::Context::context(g.split_once(':'), "--grid x0,y0:x1,y1")?;
+                    let p = |t: &str| -> Result<[i32; 2]> {
+                        let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                        anyhow::ensure!(v.len() == 2, "--grid x0,y0:x1,y1");
+                        Ok([v[0], v[1]])
+                    };
+                    Some((p(a)?, p(b)?))
+                }
+                None => None,
+            };
             let only: Option<HashSet<Pos>> = cells.map(|c| {
                 c.split(';')
                     .filter_map(|t| {
@@ -1256,7 +1537,28 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
             let list: Vec<(BlockPos, Block)> = blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
             w.place_like_judge(&list);
             let mut prev = Snap::take(&w, wlo, whi);
+            let picture = |w: &World| -> String {
+                let Some((a, b)) = gbox else { return String::new() };
+                let mut s = String::new();
+                for y in (a[1]..=b[1]).rev() {
+                    s.push_str(&format!("{y:>4} |"));
+                    for x in a[0]..=b[0] {
+                        let q = BlockPos::new(x + d0[0] + off[0], y + d0[1] + off[1], d0[2] + off[2]);
+                        s.push_str(&crate::cosearch_search::cell3(&w.get(q)));
+                        s.push('|');
+                    }
+                    s.push('\n');
+                }
+                s
+            };
             let show = |label: &str, prev: &Snap, now: &Snap, w: &World| {
+                if gbox.is_some() {
+                    let changed = now.iter().any(|(p, b)| prev.get(p) != Some(b) && p[2] == d0[2] + off[2]);
+                    if changed || !w.drops.is_empty() {
+                        println!("{label}{}\n{}", if w.drops.is_empty() { String::new() } else { format!(" DROPS {:?}", w.drops) }, picture(w));
+                    }
+                    return;
+                }
                 let ch: Vec<String> = now
                     .iter()
                     .filter(|(p, b)| prev.get(*p) != Some(*b) && only.as_ref().is_none_or(|o| o.contains(p)))
@@ -1281,13 +1583,20 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
                     prev = now;
                     t = 0;
                 }
+                let evs: &[(u32, BlockPos, Block)] = if flip == 0 { &[] } else { &asst[((flip - 1) % 2) as usize] };
+                let mut i = 0;
                 loop {
+                    while i < evs.len() && evs[i].0 == t {
+                        w.set_block_and_update(evs[i].1, evs[i].2);
+                        println!("  assist t{t}: {:?} := {}", [evs[i].1.x - off[0], evs[i].1.y - off[1], evs[i].1.z - off[2]], st(&evs[i].2).trim_start_matches("minecraft:"));
+                        i += 1;
+                    }
                     w.tick();
                     t += 1;
                     let now = Snap::take(&w, wlo, whi);
                     show(&format!("{} t{t}", if flip == 0 { "settle" } else { "after flip" }), &prev, &now, &w);
                     prev = now;
-                    if w.idle() || t >= 400 {
+                    if (i >= evs.len() && w.idle()) || t >= 400 {
                         break;
                     }
                 }
@@ -1325,7 +1634,7 @@ fn rs_verdict(d: &Design, opts: &JudgeOpts, judge_only: bool) -> std::result::Re
         return Ok((Verdict { judge: Err((0, None, "illegal")), full: None, hallway: None, volume: None }, "illegal".into()));
     }
     let r = RsDoor::from_design(d)?;
-    let e = if judge_only { Eval { judge: judge(&r, opts), full: None, hallway: None, volume: None, blocks: r.block_count() } } else { evaluate(&r, opts, false) };
+    let e = if judge_only { Eval { judge: judge(&r, opts), full: None, hallway: None, volume: None, blocks: r.block_count(), frame: None } } else { evaluate(&r, opts, false) };
     let detail = eval_line(&d.name, &e, 0.0);
     let judge = match &e.judge {
         Ok(c) => Ok(c.clone()),
