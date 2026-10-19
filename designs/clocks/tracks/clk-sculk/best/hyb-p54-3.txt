@@ -1,7 +1,7 @@
 # CLOCK: cand period 54 gt, on 20/54, edges 2, warmup 4, family calibrated_sculk_sensor+oak_trapdoor+observer+sticky_piston, 5 blocks, 4x3x1, self-start
 # built by `mctas clock sculk`: obs cal k=2 path 1,0,0 2,0,0 emitter trapdoor at the output (travel 3) + sticky_piston[extended=false,facing=up] at 3,-1,0
 name: clk-sculk-hyb-p54-3
-port output: 0 0 0
+port output: 3 0 0
 origin: 0 0 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]

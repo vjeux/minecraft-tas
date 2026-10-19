@@ -16,6 +16,7 @@
 mod build;
 mod climb;
 mod gens;
+mod outputs;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -76,6 +77,9 @@ enum Cmd {
     /// Long-period hunt: random walkers mutate seed clocks one cell at a time, keeping clocks with
     /// at most --max-blocks blocks and longer periods.
     Climb(climb::ClimbArgs),
+    /// Check (and with --fix move) each design's output to a cell whose own period is the
+    /// clock's (the "period = output's period" ruling); flags composites.
+    Outputs(outputs::OutputsArgs),
     /// Simulate designs and print one line each, sorted by period (`--best`: the smallest per
     /// period only).
     Table {
@@ -112,6 +116,9 @@ enum Cmd {
         /// Skip designs from which one block can go with the period kept (decorations).
         #[arg(long)]
         minimal: bool,
+        /// Skip composites: designs in which no cell has the clock's full period.
+        #[arg(long)]
+        no_composite: bool,
     },
 }
 
@@ -123,8 +130,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Ring(a) => gens::ring(&a),
         Cmd::RingBig(a) => gens::ring_big(&a),
         Cmd::Climb(a) => climb::climb(&a),
+        Cmd::Outputs(a) => outputs::outputs(&a),
         Cmd::Table { files, best, md } => table(&files, best, md),
-        Cmd::Select { files, out_dir, min_p, max_p, known, per_period, mechanisms, minimal } => select(&files, &out_dir, min_p, max_p, &known, per_period, mechanisms, minimal),
+        Cmd::Select { files, out_dir, min_p, max_p, known, per_period, mechanisms, minimal, no_composite } => select(&files, &out_dir, min_p, max_p, &known, per_period, mechanisms, minimal, no_composite),
     }
 }
 
@@ -175,7 +183,7 @@ fn reducible(path: &std::path::Path) -> bool {
     false
 }
 
-fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, known: &[PathBuf], per_period: bool, mechanisms: usize, minimal: bool) -> Result<()> {
+fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, known: &[PathBuf], per_period: bool, mechanisms: usize, minimal: bool, no_composite: bool) -> Result<()> {
     let group = |fam: &str| if per_period { String::new() } else { fam.to_string() };
     let mut have: BTreeMap<(u32, String), usize> = BTreeMap::new();
     for k in known {
@@ -192,6 +200,9 @@ fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, 
             continue;
         }
         if minimal && reducible(f) {
+            continue;
+        }
+        if no_composite && clock::Clock::load(f).ok().and_then(|c| outputs::has_full_period_cell(&c)) != Some(true) {
             continue;
         }
         all.entry((p, g)).or_default().push((b, v, f.clone(), fam, mech_sig(f)));

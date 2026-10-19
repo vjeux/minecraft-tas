@@ -1,4 +1,5 @@
 name: census-p140-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-4b
+port output: 0 0 0
 census: box 4x1x2 k<=4 (0,0,0=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];1,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];2,0,0=observer[facing=west,powered=false];3,0,0=dispenser[facing=down,triggered=false])
 port start: 1 0 0 last
 origin: 0 0 0

@@ -1,7 +1,7 @@
 # CLOCK: cand period 92 gt, on 60/92, edges 2, warmup 32, family oak_trapdoor+observer+sculk_sensor+sticky_piston, 5 blocks, 3x3x1, self-start
 # built by `mctas clock sculk`: obs plain k=2 path 0,1,0 1,1,0 emitter trapdoor at the output (travel 2) + sticky_piston[extended=false,facing=up] at 2,0,0
 name: clk-sculk-hyb-p92-3
-port output: 0 0 0
+port output: 2 1 0
 origin: 0 0 0
 palette:
   A minecraft:observer[facing=west,powered=false]

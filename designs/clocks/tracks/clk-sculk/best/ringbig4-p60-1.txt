@@ -1,0 +1,31 @@
+# CLOCK: cand period 60 gt, on 10/60, edges 1, warmup 21, family calibrated_sculk_sensor+note_block, 8 blocks, 19x1x19, kick: use 8,0,7
+# built by `mctas clock sculk`: ring of 4 calibrated sensors on a circle (r 11.31), hops [15,15,15,15], first resonator a note block (the kick), the others amethyst
+name: clk-sculk-ringbig4-p60-1
+port output: 9 0 7
+port start: 8 0 7 use
+origin: -9 0 -9
+palette:
+  A minecraft:amethyst_block
+  C minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  c minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  ................C
+  ................A
+  CA
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .................Nc
+  ..A
+  ..C
