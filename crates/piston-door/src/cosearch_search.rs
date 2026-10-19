@@ -712,7 +712,9 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<u6
     }
     pts -= 2 * unsupported;
     let lever = BlockPos::new(g.lever.0, g.lever.1, g.z);
-    if !matches!(w.get(lever), Block::Lever { powered: false, .. }) {
+    // either rest polarity counts (vjeux 2026-10-19, the judge on main): a lever powered at rest is
+    // flipped off first, and that first flip opens
+    if !matches!(w.get(lever), Block::Lever { .. }) {
         return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
     }
     pts += 1;
