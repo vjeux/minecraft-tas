@@ -105,6 +105,13 @@ enum Cmd {
         /// One design per PERIOD (the smallest of any family) instead of per (period, family).
         #[arg(long)]
         per_period: bool,
+        /// Also up to this many more designs per group with a different mechanism class (the
+        /// generator line without its geometry).
+        #[arg(long, default_value_t = 0)]
+        mechanisms: usize,
+        /// Skip designs from which one block can go with the period kept (decorations).
+        #[arg(long)]
+        minimal: bool,
     },
 }
 
@@ -117,7 +124,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::RingBig(a) => gens::ring_big(&a),
         Cmd::Climb(a) => climb::climb(&a),
         Cmd::Table { files, best, md } => table(&files, best, md),
-        Cmd::Select { files, out_dir, min_p, max_p, known, per_period } => select(&files, &out_dir, min_p, max_p, &known, per_period),
+        Cmd::Select { files, out_dir, min_p, max_p, known, per_period, mechanisms, minimal } => select(&files, &out_dir, min_p, max_p, &known, per_period, mechanisms, minimal),
     }
 }
 
@@ -128,7 +135,47 @@ fn sim_key(path: &std::path::Path) -> Option<(u32, String, usize, i32)> {
     (r.verdict == clock::sim::Verdict::Clock).then(|| (r.period, r.analysis.family.join("+"), r.blocks, r.volume()))
 }
 
-fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, known: &[PathBuf], per_period: bool) -> Result<()> {
+/// A design's mechanism class for `select --mechanisms`: its generator line (`# built by`) with the
+/// geometry dropped (coordinates, distances, delays, facings), or the file name for a hand-made one.
+fn mech_sig(path: &std::path::Path) -> String {
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    let Some(how) = text.lines().find_map(|l| l.strip_prefix("# built by `mctas clock sculk`: ")) else {
+        return path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    };
+    how.split_whitespace()
+        .filter(|t| t.starts_with("k=") || !t.chars().any(|c| c.is_ascii_digit()))
+        .map(|t| t.split('[').next().unwrap_or(t).trim_matches(|c: char| c == ',' || c == '(' || c == ')'))
+        .filter(|t| !t.is_empty() && *t != "travel")
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Some single block can go with the clock and its period kept (a decoration: it can only add to
+/// the family, never to the mechanism).
+fn reducible(path: &std::path::Path) -> bool {
+    let Ok(c) = clock::Clock::load(path) else { return false };
+    let o = clock::sim::SimOptions::default();
+    let r = clock::sim::simulate(&c, &o);
+    if r.verdict != clock::sim::Verdict::Clock {
+        return false;
+    }
+    let kick = c.kick.as_ref().map(|k| k.pos());
+    for p in c.design.blocks.keys() {
+        if Some(*p) == kick {
+            continue;
+        }
+        let mut d = c.design.clone();
+        d.blocks.remove(p);
+        let Ok(c2) = clock::Clock::from_design(d) else { continue };
+        let r2 = clock::sim::simulate(&c2, &o);
+        if r2.verdict == clock::sim::Verdict::Clock && r2.period == r.period {
+            return true;
+        }
+    }
+    false
+}
+
+fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, known: &[PathBuf], per_period: bool, mechanisms: usize, minimal: bool) -> Result<()> {
     let group = |fam: &str| if per_period { String::new() } else { fam.to_string() };
     let mut have: BTreeMap<(u32, String), usize> = BTreeMap::new();
     for k in known {
@@ -137,25 +184,35 @@ fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, 
             *e = (*e).min(b);
         }
     }
-    let mut best: BTreeMap<(u32, String), (usize, i32, PathBuf, String)> = BTreeMap::new();
+    let mut all: BTreeMap<(u32, String), Vec<(usize, i32, PathBuf, String, String)>> = BTreeMap::new();
     for f in files {
         let Some((p, fam, b, v)) = sim_key(f) else { continue };
         let g = group(&fam);
         if p < min_p || p > max_p || have.get(&(p, g.clone())).is_some_and(|hb| *hb <= b) {
             continue;
         }
-        let e = best.entry((p, g)).or_insert((b, v, f.clone(), fam.clone()));
-        if (b, v, f) < (e.0, e.1, &e.2) {
-            *e = (b, v, f.clone(), fam);
+        if minimal && reducible(f) {
+            continue;
         }
+        all.entry((p, g)).or_default().push((b, v, f.clone(), fam, mech_sig(f)));
     }
     std::fs::create_dir_all(out_dir)?;
-    for ((p, _), (b, _, f, fam)) in &best {
-        let name = f.file_name().context("file name")?;
-        std::fs::copy(f, out_dir.join(name))?;
-        println!("P={p:<4} {b:>3} blocks  {fam}  <{}>", f.display());
+    let mut n = 0;
+    for ((p, _), mut v) in all {
+        v.sort();
+        let mut taken: Vec<String> = Vec::new();
+        for (b, _, f, fam, sig) in v {
+            if taken.len() > mechanisms || taken.contains(&sig) {
+                continue;
+            }
+            taken.push(sig.clone());
+            let name = f.file_name().context("file name")?;
+            std::fs::copy(&f, out_dir.join(name))?;
+            n += 1;
+            println!("P={p:<4} {b:>3} blocks  {fam}  <{}>  [{sig}]", f.display());
+        }
     }
-    println!("selected {} designs into {}", best.len(), out_dir.display());
+    println!("selected {n} designs into {}", out_dir.display());
     Ok(())
 }
 
