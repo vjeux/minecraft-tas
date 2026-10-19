@@ -2233,6 +2233,15 @@ pub struct PocketArgs {
     /// `observer[facing=east];repeater[facing=east,delay=4];redstone_wire`).
     #[arg(long)]
     pub fill_states: Option<String>,
+    /// Per-pocket `--k` (repeatable, `x,y=K`: the pocket holding door cell (x,y) takes fillings
+    /// of up to K blocks): cross-region runs where one pocket needs a deeper search than another.
+    #[arg(long)]
+    pub pocket_k: Vec<String>,
+    /// Per-pocket palette (repeatable, `x,y=<families>` as in --fill-palette, or
+    /// `x,y=states:<states ;-separated>` as in --fill-states): the pocket holding door cell (x,y)
+    /// uses it instead of the global palette.
+    #[arg(long)]
+    pub pocket_fill: Vec<String>,
     /// Window scan (ticks) around each plan pulse / level edge.
     #[arg(long, default_value_t = 24)]
     pub win: i32,
@@ -2282,6 +2291,11 @@ pub struct PocketArgs {
     /// trace and the plan groups it matches, then stop.
     #[arg(long)]
     pub debug_fill: Option<std::path::PathBuf>,
+    /// Fillings may have GAPS (several pieces, each touching the build), not only one connected
+    /// piece: an observer powering a quasi cell through air (c88 s26's BR: observer (4,0) up ->
+    /// air (4,-1) -> piston (4,-2) up, QC'd), a sculk sensor next to a separate wool block.
+    #[arg(long)]
+    pub gaps: bool,
 }
 
 /// One plan pulse (on, then off) or level edge of one input in one phase, with its window.
@@ -2526,18 +2540,32 @@ fn connected(cells: &[(i32, i32)]) -> bool {
     if cells.is_empty() {
         return false;
     }
+    components(cells).len() == 1
+}
+
+/// The connected pieces of a cell set (4-neighbourhood).
+fn components(cells: &[(i32, i32)]) -> Vec<Vec<(i32, i32)>> {
     let mut seen = vec![false; cells.len()];
-    let mut stack = vec![0];
-    seen[0] = true;
-    while let Some(i) = stack.pop() {
-        for j in 0..cells.len() {
-            if !seen[j] && (cells[i].0 - cells[j].0).abs() + (cells[i].1 - cells[j].1).abs() == 1 {
-                seen[j] = true;
-                stack.push(j);
+    let mut out = Vec::new();
+    for s in 0..cells.len() {
+        if seen[s] {
+            continue;
+        }
+        seen[s] = true;
+        let mut comp = vec![cells[s]];
+        let mut stack = vec![s];
+        while let Some(i) = stack.pop() {
+            for j in 0..cells.len() {
+                if !seen[j] && (cells[i].0 - cells[j].0).abs() + (cells[i].1 - cells[j].1).abs() == 1 {
+                    seen[j] = true;
+                    stack.push(j);
+                    comp.push(cells[j]);
+                }
             }
         }
+        out.push(comp);
     }
-    seen.iter().all(|s| *s)
+    out
 }
 
 fn subsets_upto(n: usize, k: usize) -> Vec<Vec<usize>> {
@@ -2659,8 +2687,21 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                 println!("  input {} {}: own  {s}\n  {:>w$}   base {b}", names[k], if phase == 0 { "open " } else { "close" }, "", w = names[k].len() + 8);
             }
         }
-        match match_groups(&prob, &groups, seed.assist, &tr2, pa.width_tol) {
-            Some(c) => println!("  released: matched groups: {}", (0..64).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" ")),
+        // as the enumeration judges it: the released inputs need no plan group when the door ran
+        // (sc2 perfect), the others are matched against their windows
+        let rel_ok = sc2.pts >= max;
+        match match_groups(&prob, &groups, if rel_ok { seed.assist & !fed } else { seed.assist }, &tr2, pa.width_tol) {
+            Some(c) => {
+                let mut c = c;
+                if rel_ok {
+                    for (gi, gr) in groups.iter().enumerate() {
+                        if (fed >> gr.k) & 1 == 1 {
+                            c |= 1u64 << gi;
+                        }
+                    }
+                }
+                println!("  released: matched groups: {}", (0..64).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "))
+            }
             None => println!("  released: rejected: a real edge no group explains"),
         }
         return Ok(PocketSummary { note: "debug".into(), ..Default::default() });
@@ -2822,6 +2863,37 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     };
     let pal: Vec<Block> = pal.into_iter().filter(|b| !b.is_air()).collect();
     let stone_pal: Vec<Block> = pal.iter().copied().filter(|b| matches!(b, Block::Simple(Simple::Stone) | Block::Simple(Simple::SmoothStone))).collect();
+    // per-pocket k and palettes (`--pocket-k x,y=K`, `--pocket-fill x,y=<families>|states:<..>`),
+    // keyed by a door cell inside the pocket
+    let cell_key = |s: &str| -> Result<((i32, i32), String)> {
+        let (c, v) = s.split_once('=').with_context(|| format!("expected x,y=..., not {s:?}"))?;
+        let xy: Vec<i32> = c.split(',').filter_map(|t| t.trim().parse().ok()).collect();
+        anyhow::ensure!(xy.len() == 2, "expected x,y=..., not {s:?}");
+        Ok(((xy[0] + dx, xy[1] + dy), v.trim().to_string()))
+    };
+    let mut pocket_k: Vec<((i32, i32), usize)> = Vec::new();
+    for s in &pa.pocket_k {
+        let (c, v) = cell_key(s)?;
+        pocket_k.push((c, v.parse().with_context(|| format!("--pocket-k {s}"))?));
+    }
+    let mut pocket_pal: Vec<((i32, i32), Vec<Block>)> = Vec::new();
+    for s in &pa.pocket_fill {
+        let (c, v) = cell_key(s)?;
+        let pv = match v.strip_prefix("states:") {
+            Some(st) => {
+                let mut out = Vec::new();
+                for t in st.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                    out.push(Block::parse(t).map_err(|e| anyhow::anyhow!("--pocket-fill {t}: {e}"))?);
+                }
+                out
+            }
+            None => palette(&v)?,
+        };
+        pocket_pal.push((c, pv.into_iter().filter(|b| !b.is_air()).collect()));
+    }
+    for (c, _) in pocket_k.iter().map(|(c, _)| (c, ())).chain(pocket_pal.iter().map(|(c, _)| (c, ()))) {
+        anyhow::ensure!(pockets.iter().any(|pk| pk.contains(c)), "--pocket-k / --pocket-fill: ({},{}) is in no pocket", c.0 - dx, c.1 - dy);
+    }
     // ---- per pocket enumeration
     // what the seed's own (remaining) wiring already feeds the inputs, tick by tick: a filling's
     // traces are matched with those ticks taken out (the door's other wiring keeps its share)
@@ -2854,18 +2926,33 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             continue;
         }
         let tp = std::time::Instant::now();
+        // this pocket's k and palette (--pocket-k / --pocket-fill)
+        let kp = pocket_k.iter().find(|(c, _)| pk.contains(c)).map(|(_, k)| *k).unwrap_or(pa.k);
+        let (pal, stone_pal): (Vec<Block>, Vec<Block>) = match pocket_pal.iter().find(|(c, _)| pk.contains(c)) {
+            Some((_, pv)) => (pv.clone(), pv.iter().copied().filter(|b| matches!(b, Block::Simple(Simple::Stone) | Block::Simple(Simple::SmoothStone))).collect()),
+            None => (pal.clone(), stone_pal.clone()),
+        };
+        if kp != pa.k || pocket_pal.iter().any(|(c, _)| pk.contains(c)) {
+            println!("pocket {pi}: k {kp}, {} states", pal.len());
+        }
         let touches_context = |cells: &[(i32, i32)]| cells.iter().any(|(x, y)| [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(ddx, ddy)| rest_occ.contains(&(x + ddx, y + ddy))));
         // work items: (subset of pocket cell indices, lever option, the fixed states of the first
         // cells when the item is split: big subsets are split by their first 1-3 cells' states so
         // 150 threads stay busy to the end)
         let mut items: Vec<(Vec<usize>, Option<LeverAt>, Vec<usize>)> = Vec::new();
         let mut push = |items: &mut Vec<(Vec<usize>, Option<LeverAt>, Vec<usize>)>, sub: &Vec<usize>, lev: Option<LeverAt>| {
-            let fixed = match sub.len() {
+            let mut fixed = match sub.len() {
                 0..=2 => 0,
                 3..=4 => 1,
                 5 => 2,
                 _ => 3,
             };
+            // big palettes (61 states with sculk) leave few, huge items at the end of a pocket:
+            // fix more cells until an item holds at most ~50k fillings (threads stay busy)
+            let n_of = |i: usize| if ring.contains(&pk[i]) { stone_pal.len().max(1) } else { pal.len().max(1) };
+            while fixed + 1 < sub.len() && sub.iter().skip(fixed).map(|&i| n_of(i) as u64).product::<u64>() > 50_000 {
+                fixed += 1;
+            }
             let ns: Vec<usize> = sub.iter().take(fixed).map(|&i| if ring.contains(&pk[i]) { stone_pal.len() } else { pal.len() }).collect();
             let mut pre = vec![0usize; fixed];
             loop {
@@ -2884,15 +2971,17 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                 }
             }
         };
-        for sub in subsets_upto(pk.len(), pa.k) {
+        for sub in subsets_upto(pk.len(), kp) {
             let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
-            if !connected(&cells) {
+            // one connected piece touching the build, or (--gaps) pieces that each touch it
+            let ok_shape = if pa.gaps { components(&cells).iter().all(|c| touches_context(c)) } else { connected(&cells) && touches_context(&cells) };
+            if !ok_shape && !(pa.gaps || connected(&cells)) {
                 continue;
             }
-            if touches_context(&cells) {
+            if ok_shape {
                 push(&mut items, &sub, None);
             }
-            if sub.len() < pa.k {
+            if sub.len() < kp {
                 for &pw in &polarities {
                     for &l in &lever_cands {
                         if cells.contains(&l) {
@@ -3032,8 +3121,12 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                                 let sc2 = screen_core(&prob, &g2, &mut evs2, &mut tr2, true);
                                 let tr2 = own(&tr2);
                                 screened.fetch_add(1, Ordering::Relaxed);
+                                // the released inputs ran on the real wiring alone and the door
+                                // worked: their real edges need no plan group (an extra harmless
+                                // pulse, a long pulse for a push/pull pair, ...); only the inputs
+                                // still assisted are matched against their windows
                                 if sc2.pts >= max
-                                    && let Some(d2) = match_groups(&prob, &groups, seed.assist, &tr2, pa.width_tol)
+                                    && let Some(d2) = match_groups(&prob, &groups, seed.assist & !fed, &tr2, pa.width_tol)
                                 {
                                     // every group of a released input counts as covered: the door
                                     // ran without its plan
