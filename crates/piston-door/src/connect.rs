@@ -608,21 +608,37 @@ pub fn catalog_cli(path: &std::path::Path, only: &[String], boxes: &[(i8, i8)], 
                 continue;
             }
         };
-        // footprint extent of the run, to place the mechanism in each box
-        let own = (f[cb].to_string(), f[co].to_string());
-        let (bw0, bh0) = own.0.split_once('x').map(|(a, b)| (a.parse::<i8>().unwrap_or(0), b.parse::<i8>().unwrap_or(0))).unwrap_or((0, 0));
-        let (ox0, oy0) = own.1.split_once(',').map(|(a, b)| (a.trim().parse::<i8>().unwrap_or(0), b.trim().parse::<i8>().unwrap_or(0))).unwrap_or((0, 0));
-        let lo0 = [-ox0, -oy0];
-        let hi0 = [-ox0 + bw0 - 1, -oy0 + bh0 - 1];
+        // footprint extent of the run (the door included), to place the mechanism in each box at
+        // every offset that contains it (an entry catalogued in a wider box may still fit)
+        let ext = {
+            let big = layout(&w, &sol, [-20, -20], [20, 20]);
+            match big {
+                Ok(l) => {
+                    let mut lo = [0i8, 0];
+                    let mut hi = [2i8, 2];
+                    for p in &l.footprint {
+                        lo = [lo[0].min(p[0]), lo[1].min(p[1])];
+                        hi = [hi[0].max(p[0]), hi[1].max(p[1])];
+                    }
+                    Some((lo, hi))
+                }
+                Err(_) => None,
+            }
+        };
+        let _ = (cb, co);
+        let Some((elo, ehi)) = ext else {
+            println!("{id}: skipped (footprint)");
+            continue;
+        };
         for &(bw, bh) in boxes {
-            if bw < bw0 || bh < bh0 {
+            let (ew, eh) = (ehi[0] - elo[0] + 1, ehi[1] - elo[1] + 1);
+            if bw < ew || bh < eh {
                 continue;
             }
-            for dx in 0..=(bw - bw0) {
-                for dy in 0..=(bh - bh0) {
-                    let lo = [lo0[0] - dx, lo0[1] - dy];
+            for dx in 0..=(bw - ew) {
+                for dy in 0..=(bh - eh) {
+                    let lo = [elo[0] - dx, elo[1] - dy];
                     let hi = [lo[0] + bw - 1, lo[1] + bh - 1];
-                    let _ = hi0;
                     jobs.push(Job { id: id.to_string(), rest: w.clone(), sol: sol.clone(), lo, hi, tag: format!("{bw}x{bh} x {}..{} y {}..{}", lo[0], hi[0], lo[1], hi[1]) });
                 }
             }

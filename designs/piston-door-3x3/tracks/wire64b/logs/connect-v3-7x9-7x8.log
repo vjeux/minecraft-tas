@@ -1,0 +1,155 @@
+7x8-000 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-000 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-000 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-001 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-001 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-001 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-002 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-002 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-002 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-005 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-003 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-004 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-004 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-003 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-004 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-003 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-005 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-005 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-006 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-006 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-006 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-007 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-007 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-007 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-008 in 7x9 x -2..4 y -2..6: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-012 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-009 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Swest@(4,1) Swest@(4,2))
+7x8-012 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(3,3) Swest@(4,1) Swest@(4,2))
+7x8-011 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Swest@(4,1) Swest@(4,2))
+7x8-010 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-013 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest+@(3,3) Swest@(4,1) Swest@(4,2))
+7x8-008 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-008 in 7x8 x -2..4 y -2..5: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-010 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-009 in 7x9 x -2..4 y -3..5: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Swest@(4,1) Swest@(4,2))
+7x8-013 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-009 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sdown@(1,4) Sdown@(1,5) Swest@(4,1) Swest@(4,2))
+7x8-012 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(3,3) Swest@(4,1) Swest@(4,2))
+7x8-011 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b101; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Swest@(4,1) Swest@(4,2))
+7x8-018 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-018 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-018 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-019 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-019 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-019 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-020 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-020 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-020 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-010 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-011 in 7x9 x -2..4 y -3..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sdown@(1,4) Sdown@(1,5) Swest@(4,1) Swest@(4,2))
+7x8-014 in 7x9 x -2..4 y -2..6: WIRABLE (lever K1)
+7x8-014 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-014 in 7x8 x -2..4 y -2..5: WIRABLE (lever K1)
+7x8-016 in 7x9 x -2..4 y -3..5: WIRABLE (lever K0)
+7x8-015 in 7x9 x -2..4 y -2..6: WIRABLE (lever K1)
+7x8-015 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-015 in 7x8 x -2..4 y -2..5: WIRABLE (lever K1)
+7x8-022 in 7x9 x -2..4 y -4..4: NOT wirable: lever K0: no open state reachable (regions ever awake 0b111; pistons never fed from an awake region: none)
+7x8-021 in 7x9 x -2..4 y -4..4: NOT wirable: lever K0: no open state reachable (regions ever awake 0b111; pistons never fed from an awake region: none)
+7x8-017 in 7x9 x -2..4 y -3..5: WIRABLE (lever K0)
+7x8-013 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest+@(3,3) Swest@(4,1) Swest@(4,2))
+7x8-022 in 7x9 x -2..4 y -3..5: NOT wirable: lever K0: no open state reachable (regions ever awake 0b111; pistons never fed from an awake region: none)
+7x8-021 in 7x8 x -2..4 y -3..4: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1111; pistons never fed from an awake region: none)
+7x8-022 in 7x8 x -2..4 y -3..4: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1111; pistons never fed from an awake region: none)
+7x8-023 in 7x9 x -2..4 y -4..4: NOT wirable: lever K0: no open state reachable (regions ever awake 0b111; pistons never fed from an awake region: none)
+7x8-024 in 7x9 x -2..4 y -4..4: UNDECIDED (cap hit somewhere): lever K1: no open state reachable (regions ever awake 0b110; pistons never fed from an awake region: Seast@(-2,0) Seast+@(-1,-1) Sup@(1,-3) Sup@(1,-2) Swest@(4,0))
+7x8-021 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-024 in 7x9 x -2..4 y -3..5: NOT wirable: lever K0: no open state reachable (regions ever awake 0b111; pistons never fed from an awake region: none)
+7x8-023 in 7x8 x -2..4 y -3..4: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1111; pistons never fed from an awake region: none)
+7x8-023 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-024 in 7x8 x -2..4 y -3..4: UNDECIDED (cap hit somewhere): lever K1: no open state reachable (regions ever awake 0b1010; pistons never fed from an awake region: Seast@(-2,0) Seast+@(-1,-1) Sup@(1,-3) Sup@(1,-2) Swest@(4,0))
+7x8-025 in 7x9 x -2..4 y -4..4: UNDECIDED (cap hit somewhere): lever K1: no open state reachable (regions ever awake 0b10; pistons never fed from an awake region: Seast@(-2,0) Sup@(1,-3) Sup@(1,-2) Sdown@(2,4) Swest@(3,-1) Swest@(4,0) Swest@(4,1))
+7x8-025 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-026 in 7x9 x -2..4 y -4..4: UNDECIDED (cap hit somewhere): lever K1: no open state reachable (regions ever awake 0b10; pistons never fed from an awake region: Seast@(-2,0) Sup@(1,-3) Sup@(1,-2) Sdown@(2,4) Swest+@(3,-1) Swest@(4,0) Swest@(4,1))
+7x8-026 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-025 in 7x8 x -2..4 y -3..4: UNDECIDED (cap hit somewhere): lever K1: no open state reachable (regions ever awake 0b10; pistons never fed from an awake region: Seast@(-2,0) Sup@(1,-3) Sup@(1,-2) Sdown@(2,4) Swest@(3,-1) Swest@(4,0) Swest@(4,1))
+7x8-028 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-026 in 7x8 x -2..4 y -3..4: UNDECIDED (cap hit somewhere): lever K1: no open state reachable (regions ever awake 0b10; pistons never fed from an awake region: Seast@(-2,0) Sup@(1,-3) Sup@(1,-2) Sdown@(2,4) Swest+@(3,-1) Swest@(4,0) Swest@(4,1))
+7x8-028 in 7x9 x -2..4 y -4..4: NOT wirable: lever K0: no open state reachable (regions ever awake 0b111; pistons never fed from an awake region: Sdown@(1,4))
+7x8-031 in 7x9 x -2..4 y -2..6: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-030 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-028 in 7x8 x -2..4 y -3..4: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1111; pistons never fed from an awake region: Sdown@(1,4))
+7x8-031 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-032 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-030 in 7x9 x -2..4 y -4..4: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (cap hit) (regions ever awake 0b111; pistons never fed from an awake region: Sdown@(1,4))
+7x8-032 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-031 in 7x8 x -2..4 y -2..5: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-033 in 7x9 x -2..4 y -3..5: WIRABLE (lever K0)
+7x8-029 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-032 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-034 in 7x9 x -2..4 y -3..5: WIRABLE (lever K0)
+7x8-030 in 7x8 x -2..4 y -3..4: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: Sdown@(1,4))
+7x8-033 in 7x9 x -2..4 y -4..4: NOT wirable: lever K2: opens (29 open states) but cannot close (regions ever awake on close 0b101; pistons never fed on close: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4))
+7x8-027 in 7x9 x -2..4 y -3..5: WIRABLE (lever K1)
+7x8-027 in 7x9 x -2..4 y -4..4: UNDECIDED (cap hit somewhere): lever K2: opens (7 open states) but cannot close (cap hit) (regions ever awake on close 0b111; pistons never fed on close: none)
+7x8-035 in 7x9 x -2..4 y -3..5: WIRABLE (lever K0)
+7x8-033 in 7x8 x -2..4 y -3..4: NOT wirable: lever K3: opens (16 open states) but cannot close (regions ever awake on close 0b1101; pistons never fed on close: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4))
+7x8-036 in 7x9 x -2..4 y -3..5: WIRABLE (lever K0)
+7x8-034 in 7x9 x -2..4 y -4..4: NOT wirable: lever K2: opens (8 open states) but cannot close (regions ever awake on close 0b101; pistons never fed on close: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4))
+7x8-029 in 7x9 x -2..4 y -4..4: UNDECIDED (cap hit somewhere): lever K2: opens (5 open states) but cannot close (cap hit) (regions ever awake on close 0b111; pistons never fed on close: none)
+7x8-037 in 7x9 x -2..4 y -3..5: WIRABLE (lever K0)
+7x8-016 in 7x9 x -2..4 y -2..6: NOT wirable: lever K2: opens (8 open states) but cannot close (regions ever awake on close 0b110; pistons never fed on close: Seast@(-2,0) Sup@(1,-2))
+7x8-039 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-039 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-039 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-040 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-040 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-040 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-041 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-041 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-041 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-042 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-042 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-042 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-043 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-043 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-043 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-044 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-044 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-044 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-045 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-045 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-045 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-046 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-046 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-046 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x8-047 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-047 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-047 in 7x8 x -2..4 y -3..4: the catalog run does not return to rest in the macro model
+7x8-048 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x8-048 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x8-048 in 7x8 x -2..4 y -2..5: the catalog run does not return to rest in the macro model
+7x9-098 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x9-099 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x9-100 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x9-101 in 7x9 x -2..4 y -2..6: the catalog run does not return to rest in the macro model
+7x9-102 in 7x9 x -2..4 y -3..5: the catalog run does not return to rest in the macro model
+7x9-103 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x9-104 in 7x9 x -2..4 y -4..4: the catalog run does not return to rest in the macro model
+7x8-034 in 7x8 x -2..4 y -3..4: NOT wirable: lever K3: opens (7 open states) but cannot close (regions ever awake on close 0b1101; pistons never fed on close: Seast@(-2,1) Seast@(-2,2) Sdown@(1,4))
+7x8-037 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,4) Swest@(4,1))
+7x8-035 in 7x9 x -2..4 y -4..4: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (cap hit) (regions ever awake 0b111; pistons never fed from an awake region: Sdown@(1,4))
+7x8-038 in 7x9 x -2..4 y -3..5: WIRABLE (lever K0)
+7x8-027 in 7x8 x -2..4 y -3..4: UNDECIDED (cap hit somewhere): lever K3: opens (7 open states) but cannot close (cap hit) (regions ever awake on close 0b1111; pistons never fed on close: none)
+7x8-029 in 7x8 x -2..4 y -3..4: UNDECIDED (cap hit somewhere): lever K3: opens (5 open states) but cannot close (cap hit) (regions ever awake on close 0b1111; pistons never fed on close: none)
+7x8-036 in 7x9 x -2..4 y -4..4: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (cap hit) (regions ever awake 0b111; pistons never fed from an awake region: Sdown@(1,4))
+7x8-038 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,4) Swest@(4,1))
+7x8-035 in 7x8 x -2..4 y -3..4: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: Sdown@(1,4))
+7x8-037 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,4) Swest@(4,1))
+7x8-036 in 7x8 x -2..4 y -3..4: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: Sdown@(1,4))
+7x8-038 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Sdown@(2,4) Swest@(4,1))
+7x8-017 in 7x9 x -2..4 y -2..6: UNDECIDED (cap hit somewhere): lever K2: opens (7 open states) but cannot close (cap hit) (regions ever awake on close 0b110; pistons never fed on close: Seast@(-2,0) Sup@(1,-2))
+7x8-016 in 7x8 x -2..4 y -2..5: NOT wirable: lever K3: opens (7 open states) but cannot close (regions ever awake on close 0b1110; pistons never fed on close: Seast@(-2,0) Sup@(1,-2))
+7x8-017 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K3: opens (5 open states) but cannot close (cap hit) (regions ever awake on close 0b1110; pistons never fed on close: Seast@(-2,0) Sup@(1,-2))
+154 placements checked, 28 wirable (connectivity + order): 7x8-012 (7x9 x -2..4 y -3..5), 7x8-008 (7x9 x -2..4 y -3..5), 7x8-010 (7x9 x -2..4 y -3..5), 7x8-013 (7x9 x -2..4 y -3..5), 7x8-014 (7x9 x -2..4 y -2..6), 7x8-014 (7x9 x -2..4 y -3..5), 7x8-014 (7x8 x -2..4 y -2..5), 7x8-016 (7x9 x -2..4 y -3..5), 7x8-015 (7x9 x -2..4 y -2..6), 7x8-015 (7x9 x -2..4 y -3..5), 7x8-015 (7x8 x -2..4 y -2..5), 7x8-017 (7x9 x -2..4 y -3..5), 7x8-021 (7x9 x -2..4 y -3..5), 7x8-023 (7x9 x -2..4 y -3..5), 7x8-025 (7x9 x -2..4 y -3..5), 7x8-026 (7x9 x -2..4 y -3..5), 7x8-028 (7x9 x -2..4 y -3..5), 7x8-030 (7x9 x -2..4 y -3..5), 7x8-031 (7x9 x -2..4 y -3..5), 7x8-032 (7x9 x -2..4 y -3..5), 7x8-033 (7x9 x -2..4 y -3..5), 7x8-029 (7x9 x -2..4 y -3..5), 7x8-034 (7x9 x -2..4 y -3..5), 7x8-027 (7x9 x -2..4 y -3..5), 7x8-035 (7x9 x -2..4 y -3..5), 7x8-036 (7x9 x -2..4 y -3..5), 7x8-037 (7x9 x -2..4 y -3..5), 7x8-038 (7x9 x -2..4 y -3..5)
