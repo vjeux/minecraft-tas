@@ -62,7 +62,30 @@ rule: frame cells must hold the door block itself), pistmodel fm-8x8-000..063 (`
   is visible only from (2,5) facing down (output leaves the box) or from the lamp's cell.
   Tool note: m79q's real B trace (t8-9) fails the screen released while a plan pulse at the same
   ticks passes: an observer fires inside the tick, a plan block appears between ticks, so plan
-  windows of observer-driven inputs can be 1 gt optimistic.
+  windows of observer-driven inputs can be 1 gt optimistic. m79q with sculk/calibrated sensors in
+  the palette (60 states): nothing either.
+* m79p top-right re-run to the end (k=6 x 19 states, 100M screens): B's open pulse in its window IS
+  drivable, but never with the hold: (a) repeater d4 (3,5) on the lever -> observer (2,5) -> B at t10
+  (TRp then QC-held until t8, so TR lands too late for the hold); (b) an odd-tick chain watching R1's
+  retraction: observers (4,2)v, (4,3)v, dropper (3,3), observers (3,4)v, (3,5)v -> (2,5)e -> B.
+* m79q-sat (satwire 56b8164, top-right re-synthesized): `door ideal` WORKS at 32 positions with ONLY
+  L1/L2 (-2,2) ideal (`plans/p79q-sat-L.ideal`; A's last pull is real: B's pull lifts A to (1,4) and the
+  lit lamp (0,5) QC-powers it). But it is circular: B's chain starts from the observer (-1,3) watching
+  TL arrive in (-1,2), which only L2 does, and nothing the free top-left cells can see moves before
+  that (60 states incl. sculk, k=3: nothing). L2 needs a trigger from the right or the bottom.
+
+## 6. c79 other wirings (each region exhaustive, `finds/`)
+
+* top-right (keep-lever, k=7 x 12 states, 85M screens): 5 wirings (`c79tr-63b-51-*`), delay/shape
+  variants (dot dust (4,4), repeater pairs 4+1/3+2/2+3/1+4, a comparator at (3,5)).
+* top-left (k=6 x 12 states, 73M screens): 30 wirings (`c79tl-63b-51-*`), the minimum is 6 blocks.
+  A new family: an observer (-2,3) facing UP fires L2 (+ L1 by QC) from a state change at (-2,4)
+  (a d1 repeater reading (-1,4), a note block, a dropper, an observer east), instead of c79's dust
+  on (-2,3).
+* bottom-middle + bottom-left closed region (8 cells, k=6 x 12 states): nothing new (best partial 49
+  blocks with L0 left assisted).
+* Region minima at these palettes: top-left 6, top-right 7 + the lever, bottom-right 4, bottom-left 5
+  (the 50-block door), bottom-middle 3.
 
 ## 5. Coverage batches (k=3, ~37 states, lever both polarities + front face; `runs/b78-k3.log`, `runs/fm8-y2-k3.log`)
 
