@@ -45,6 +45,14 @@
   column push but takes the right observer's cell). Rule of thumb: in Box A an elevator in row 1 or 2 is fed,
   one in row 0 is not (its carried puller's quasi cell is a wall cell boxed by pistons/door blocks).
 
+- **m69t/m73 (8x6 = 48b, w86, 22:06Z)**: built around the obstacle list: Box A, lever-held top trio (the real
+  lever ON at rest on top of (1,4)), BM leaves by a ROW-0 WIGGLE (ring piston RP0 resting in the right wall cell
+  (3,0) pushes BR+BM left and pulls BR back; BL climbs the left wall by W'' (-1,-1); U0 pulls BM into (-1,0)),
+  C leaves right by a row-1 elevator (M1 carries s1 into (3,1)); RP0 escapes to (4,0) via R5 (5,0), which rides
+  M1's QC coupling and needs no input. WORKS ideal-rs tile+between + real game, frame 12/12. Weak spots: the
+  bottom corner pockets are isolated in 8 wide ((-2,-1) = W''s only feed; (3,-1)..(5,-1) = RP0's); on close R5's
+  coupled pull at M1's release must be blocked by RP0 being extended. satwire (c78l) running.
+
 ## The 6-tall obstacle list (w86, 22:00Z; satwire agrees on every m69 version)
 1. The frame row opposite the single machine row (the FAR row) must stay static (blocks entering it come
    back only through a puller inside the opening).
