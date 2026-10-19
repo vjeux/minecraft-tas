@@ -850,7 +850,9 @@ impl Prob {
             MK::Piston { ext: false, f, .. } => {
                 if changed {
                     Some(true)
-                } else if self.can_extend(ph.frame(tau - 1), c, f) {
+                } else if self.can_extend(ph.frame(tau - 1), c, f) && self.can_extend(ph.frame(tau), c, f) {
+                    // (blocked in frame tau too: a piston in front extended in this same tick,
+                    // its block event ran first)
                     Some(false)
                 } else {
                     None
