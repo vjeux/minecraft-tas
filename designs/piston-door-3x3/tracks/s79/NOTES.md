@@ -393,3 +393,5 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
     and Q's escape) now; sculk pending.
     m69V sculk: UNSAT, core open U1 (1,-2) + open P0 at (0,-2) + close E0, P0 at (0,-2), P0 (0,-1): with sound the
     top wires and the bottom-left (ring pusher + escape puller + U1) is the wall.
+  w86's m76 (8x6 m73 design, re-timed; solid at 9x6/10x6: core close RP0 (3,0) only): SCULK at 9x6 UNSAT in
+  496 s, core close (1,4) (the lever-held top middle) + close RP0 (3,0).
