@@ -536,7 +536,9 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 let inp = self.tin(&s1, &der1, i, lon);
                 tin0[i] = inp;
                 let ni = self.not(inp);
-                post[i].on = self.ite(td, ni, s1[i].on);
+                // else-branch: the cell's value so far (a free cell may be an observer that
+                // toggled above; `s1` here lost its toggle whenever the cell could be a torch)
+                post[i].on = self.ite(td, ni, post[i].on);
             }
         }
         if self.flags_on {
