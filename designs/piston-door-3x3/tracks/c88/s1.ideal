@@ -1,0 +1,29 @@
+# c88 step 1: c79's mechanism in 8x8 (x -3..4, y -2..5), real top + BR puller; U, K, L0 ideal at
+# c79's own bottom ticks (an ideal set at t moves the piston in tick t+1, like an observer firing in
+# tick t+1): open K 9, U 11 (U's t5 pulse is blocked by A's head in c79), L0 9;
+# close U 5, K 9, U 11, L0 9.
+design designs/piston-door-3x3/tracks/c88/s1.txt
+let ok = 8
+let ou = 10
+let ol = 8
+let cu1 = 4
+let ck = 8
+let cu2 = 10
+let cl = 8
+let w = 2
+open 0 use 4 6 0
+open ok set -1 -1 -1 minecraft:redstone_block
+open ok+w clear -1 -1 -1
+open ou set 1 -2 -1 minecraft:redstone_block
+open ou+w clear 1 -2 -1
+open ol set -2 0 -1 minecraft:redstone_block
+open ol+w clear -2 0 -1
+close 0 use 4 6 0
+close cu1 set 1 -2 -1 minecraft:redstone_block
+close cu1+w clear 1 -2 -1
+close ck set -1 -1 -1 minecraft:redstone_block
+close ck+w clear -1 -1 -1
+close cu2 set 1 -2 -1 minecraft:redstone_block
+close cu2+w clear 1 -2 -1
+close cl set -2 0 -1 minecraft:redstone_block
+close cl+w clear -2 0 -1

@@ -1,0 +1,41 @@
+# ceil c070d: c070w with D tapped twice on BOTH edges (tap 1 = the close's ML+C push, tap 2 = E home)
+# and E2 on OPEN only (M gated by ML parked at (-1,0)).
+design designs/piston-door-3x3/tracks/ceil/wip/c070w.txt
+let u = 13
+let d1 = 19
+let d2 = 33
+let m = 22
+let e2 = 40
+let bl = 40
+let bm = 40
+let uc = 13
+let d1c = 19
+let d2c = 33
+let blc = 20
+let bmc = 20
+open 0 use 1 5 0
+open u set -1 -1 1 minecraft:redstone_block
+open u+2 clear -1 -1 1
+open d1 set -3 1 1 minecraft:redstone_block
+open d1+2 clear -3 1 1
+open m set -1 1 1 minecraft:redstone_block
+open m+2 clear -1 1 1
+open d2 set -3 1 1 minecraft:redstone_block
+open d2+2 clear -3 1 1
+open e2 set -2 1 1 minecraft:redstone_block
+open e2+2 clear -2 1 1
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+close 0 use 1 5 0
+close uc set -1 -1 1 minecraft:redstone_block
+close uc+2 clear -1 -1 1
+close d1c set -3 1 1 minecraft:redstone_block
+close d1c+2 clear -3 1 1
+close d2c set -3 1 1 minecraft:redstone_block
+close d2c+2 clear -3 1 1
+close blc set 0 -2 1 minecraft:redstone_block
+close blc+2 clear 0 -2 1
+close bmc set 1 -2 1 minecraft:redstone_block
+close bmc+2 clear 1 -2 1

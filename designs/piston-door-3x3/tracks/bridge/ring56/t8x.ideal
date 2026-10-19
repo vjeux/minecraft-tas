@@ -1,0 +1,42 @@
+design designs/piston-door-3x3/tracks/bridge/ring56/t8x.txt
+# real lever (ON at rest, first flip opens the right side); every other piston by an off-plane ideal input
+let e0 = 6
+let s = 42
+open 0 use 6 1 0
+close 0 use 6 1 0
+open e0 set 1 4 1 minecraft:redstone_block
+open e0+2 clear 1 4 1
+open e0+6 set 3 3 1 minecraft:redstone_block
+open e0+8 clear 3 3 1
+open e0+12 set 1 5 1 minecraft:redstone_block
+open e0+14 clear 1 5 1
+open e0+18 set 1 3 1 minecraft:redstone_block
+open e0+20 clear 1 3 1
+open e0+24 set 1 5 1 minecraft:redstone_block
+open e0+26 clear 1 5 1
+open e0+30 set 1 4 1 minecraft:redstone_block
+open e0+32 clear 1 4 1
+open s set 0 4 1 minecraft:redstone_block
+open s+2 clear 0 4 1
+open s set -2 1 1 minecraft:redstone_block
+open s+2 clear -2 1 1
+open s set 1 -2 1 minecraft:redstone_block
+open s+2 clear 1 -2 1
+close e0 set 1 4 1 minecraft:redstone_block
+close e0+2 clear 1 4 1
+close e0+6 set 3 3 1 minecraft:redstone_block
+close e0+8 clear 3 3 1
+close e0+12 set 1 5 1 minecraft:redstone_block
+close e0+14 clear 1 5 1
+close e0+18 set 1 3 1 minecraft:redstone_block
+close e0+20 clear 1 3 1
+close e0+24 set 1 5 1 minecraft:redstone_block
+close e0+26 clear 1 5 1
+close e0+30 set 1 4 1 minecraft:redstone_block
+close e0+32 clear 1 4 1
+close s set 0 4 1 minecraft:redstone_block
+close s+2 clear 0 4 1
+close s set -2 1 1 minecraft:redstone_block
+close s+2 clear -2 1 1
+close s set 1 -2 1 minecraft:redstone_block
+close s+2 clear 1 -2 1

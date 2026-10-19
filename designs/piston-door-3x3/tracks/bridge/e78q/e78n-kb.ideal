@@ -1,0 +1,24 @@
+design designs/piston-door-3x3/tracks/bridge/e78q/e78n.txt
+# e78a's bottom (= p2-sculk-r's) real, sides ideal at sl / sr (both edges)
+let sl = 3
+let sr = 3
+open 0 use 1 5 0
+close 0 use 1 5 0
+open sl set -2 1 1 minecraft:redstone_block
+open sl+2 clear -2 1 1
+open sr set 4 1 1 minecraft:redstone_block
+open sr+2 clear 4 1 1
+close sl set -2 1 1 minecraft:redstone_block
+close sl+2 clear -2 1 1
+close sr set 4 1 1 minecraft:redstone_block
+close sr+2 clear 4 1 1
+let kh = 9
+let bh = 9
+open kh set 3 -1 1 minecraft:redstone_block
+open kh+10 clear 3 -1 1
+open bh set 1 -3 1 minecraft:redstone_block
+open bh+10 clear 1 -3 1
+close kh set 3 -1 1 minecraft:redstone_block
+close kh+10 clear 3 -1 1
+close bh set 1 -3 1 minecraft:redstone_block
+close bh+10 clear 1 -3 1

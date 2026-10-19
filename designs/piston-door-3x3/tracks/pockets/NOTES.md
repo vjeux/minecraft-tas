@@ -4,14 +4,30 @@ Brief (coordinator for vjeux, 2026-10-19 05:47Z): run cosearch2's `door cosearch
 mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; first the tool items
 (periodic rest rule, off-plane lever, region closure). Box: devvm49255 (dedicated, 166 cores).
 
-**Result: BEST.txt = `finds/c79-49-bl5-br3.txt`, 63b (7x9x1), 49 blocks, solid, slime-free, FULL seamless,
+**Result (pockets2, 2026-10-19 09:24Z-12:30Z): BEST.txt = `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks,
+solid, FULL seamless, rotation-safe, open 39 / close 27, verify at 32 positions** (e88's 43-block record t7b,
+43/31, with its right wall re-wired: same size, 8 ticks faster, so it ranks first by the tie-break), and
+**`finds/s27-bl52.txt`, solid 8x8 = 64b, 52 blocks, FULL, rotation-safe, verify at 32 positions** (c88b's s27
++ a 6-block bottom-left found by pockets; also `finds/s26-bl53.txt`, 53); 40 sculk 7x9 doors at 51 (c79 + a
+3-block sculk TL/ML), 64 t7b wall variants at 43, 3 s26 bottom-lefts at 53. Section 8.
+Earlier (pockets): `finds/c79-49-bl5-br3.txt`,
+63b (7x9x1), 49 blocks, solid, slime-free, FULL seamless,
 15/15, verify at 32 positions** (ties satwire-63b-49-49b; section 6). Plus two more 49s (`finds/c79-49-tl1`,
 `-tl12`), two 50s, and 127 more 51-block wirings of the community 7x9. No 7x8 or 8x8 door: every
 7x8/8x8 mechanism and hot seed tried stays a few inputs short (sections 2, 4, 5, 7).
 
-* Lesson: run the region searches with the FULL palette (`--fill-palette all,sculk,calibrated,wool`) at
+* Lessons (pockets2): run small pockets with `--gaps` (a disconnected filling, an observer feeding a QC
+  cell through air, is invisible otherwise: c88 s26's BR driver); a plan built by `plan-from` can be off
+  (s27's top-right close pulse: the erased door works only at c0..16, plan-from said c22: sweep it with
+  ideal-rs before searching); compacting mech-synth plans does NOT help the pocket search.
+* Next ideas (pockets2): t7b 42 needs its coupled bottom (BR merger + BL = 13 cells): a plan input on a
+  NON-piston receiver (the note block (2,-4) that BL's observer watches) would split it; e78wsT's K needs
+  its torch-off 1 gt later (a sensor hearing BR's puller from 3 blocks while still strongly powering the
+  torch's support (4,-3)); c070x's U + M must come from one source 3 gt apart; s27-bl52's B line + support
+  (k=6, `runs/b52-tlb-k6`) and top-right (k=4, `runs/b52-tr-k4`) for a 51.
+* Lesson (pockets): run the region searches with the FULL palette (`--fill-palette all,sculk,calibrated,wool`) at
   small k first; the 49 came from a target block (4,-1) that the 12-state palettes never tried.
-* Next ideas: a cross-region 48 (no single region of the 49 shrinks); 8x8 m10-family with the extra column
+* Next ideas (pockets): a cross-region 48 (no single region of the 49 shrinks); 8x8 m10-family with the extra column
   on the RIGHT (room for the hold's delayed T chain and a torch-held B: m88a's hold at t7..8 has no source
   with the extra column on the left); compact the mech-synth "oc" plans (door windows) before pockets
   (inputs up to t66 need delay lines no pocket holds); a joint 5-block filling for e88 t3n's bottom-left
@@ -150,3 +166,95 @@ su8r-03 17/33 and su8r-05 23/36 undriven at k=4 (their oc plans run to t66), su8
   started by TL's cell (-1,2)), A's top pull with 5 alone, never both within 5, A's t3 push/hold never.
 * m79s s78b (7x8, seed `finds/s78-a1/partial-full-live.txt`, K + L0 assisted): the bottom-left pocket is 3
   cells; exhaustive (64 states, sculk/calibrated/wool): L0 with 2 blocks, K never.
+
+## 8. pockets2 (2026-10-19 09:24Z ->, same box and branch)
+
+Tools (explore/pockets, one commit each):
+* `bc96adfe` `--pocket-k x,y=K` / `--pocket-fill x,y=<families>|states:<..>`: per-pocket depth and palette
+  (cross-region runs: a k=7 pocket next to a k=6 one in one run).
+* `4ad28287` finer work items for big palettes (a 4-cell pocket x 61 states had 61 items for 160 threads).
+* `c6c4d7e2` a RELEASED input's real edges need no plan group: the released re-screen (the door running on
+  the real wiring alone) already proves them. Before, a filling with an extra harmless pulse (c88 s11: A's
+  push on close too) or ONE long pulse for a push/pull pair (e88 t3k's shuttle) was rejected.
+* `0b6a8c43` `door ideal-rs --compact-dir DIR <schedules...>`: every input group as early as the mechanism
+  allows (others fixed, 2 passes, merged pulses tidied), `<name>-cpt.ideal` with each group's window.
+
+Results:
+* 48 cross-region, TL + TR of the 49 (`plans/c79-49-tltr.ideal`, union plan; TL k=6 x 14 states, TR k=7 x
+  14 states, 400M screens, `runs/c79-49-tltr-k67.log`): no 48. TR can take TL's elevator pulses (1,4)o12 +
+  (1,3)c12 together with R, (1,3)o2, (1,4)c4 in 7 blocks, but never with B's level; TL alone then still
+  needs 5 for TL/ML. With sculk: TL k=5 x 18 states incl. plain/calibrated sensors + wool
+  (`runs/c79-49-tl-sculk-k5`): TL/ML both edges with 3 blocks (plain sensor (-2,5) -> observer (-2,4) up
+  -> wool (-2,3), a conductor, -> TL's puller + ML by QC) but the elevator pulses still 4: no 5-block TL;
+  40 combinations = 7x9 SCULK doors with 51 blocks (`pockets-63b-51-0` verify WORKS, rotation-safe,
+  open/close 50): new wirings, no record (sculk board: 50). TR with sculk k=6: `runs/c79-49-tr-sculk-k6`.
+* e88 t3k (8x8, only the shuttle ideal): ideal-rs: ONE long pulse (start 24..50, width >= 7) replaces the
+  push + pull pair. The 4-cell pocket (full palette + sculk, k=4): plain sensor (-3,-3) next to the shuttle
+  piston + wool (-3,-2) and (-1,-2): hears B' (1,-3) at ~t25 and holds the shuttle t30..t59; 24 such
+  fillings screen perfect, the redsim judge passes 2 of 4 positions (at #2/#3 the wool's occlusion of P_M's
+  t19 vibration flips: the line runs through a block corner) (`runs/t3k-k4/pockets-repair-2of4-*`).
+  bridge finished t3k first (archive/bridge-e88-sculk-52b.txt, a calibrated sensor in a wool pocket).
+* c88 s11 (top-left k=5 x 18 states, with the released-input rule, `runs/s11-tl-k5fix`): A's push
+  (1,3)o3 real with 5 blocks: observer (-3,3) down on the lever's dust (-3,2) -> dust (-3,4) (-2,4) ->
+  lamp (-2,3) -> observer (-1,3) west into the static (0,3) (true partial with B, A's top pull, R, BR
+  assisted); B's 4-block chain also needs (-1,3): no A + B. s19 (B real): A has no path (the free
+  top-left cells are cut off from (0,3)/(1,4) by B's x=-1 chain). ideal-rs: A's push on close too is
+  harmless (s11: close push 0..19; s19: 0..3), window start 0..4, end <= 7, length >= 3.
+* f131 pn26b (P3 + L2 ideal, `runs/pn26b-k4`): the only pocket is (-2,3..5); observers (-2,5) up, (-2,4)
+  up + glazed terracotta (-2,3) (a conductor) give P3 and L2 at t6-8 and screen perfect with the plan
+  double-driving, but fully real the door fails (center (1,1) never opens) although ideal-rs with both
+  pulsed at t6..8 WORKS: the real drive differs from the plan (placement transient / in-tick timing).
+* mechspace single-U oc plans compacted (`cpt/`, `runs/sl-compact.log`): 63 working plans, last input
+  t62..66 -> t12 (sl-025, sl-076), t15 (sl-047), t18..30 for 30 more. pockets k=3 (default palette, lever
+  both polarities) on the 12 most compact (`runs/slc-k3.log`): 8..22 of 25..33 groups undriven (sl-076 8,
+  sl-025 9, sl-047 11), best partials 8..13 inputs left; the same plans UNCOMPACTED (`runs/slo-k3.log`):
+  5..23 undriven (sl-025 5, sl-076 7, sl-089 7), best partials 9..12 left: compaction does NOT help the
+  pocket search (every compacted group sits at the early edge of its window, many share t0).
+* s79's c78z (7x8, only U and R0 ideal, coordinator 10:23Z; `runs/c78z-k4`, the 4 bottom-right cells,
+  full palette + sculk, k=4): R0 real on both edges with 2 blocks (2000 variants); U's U2 open + U1 close
+  with 3 blocks; never U's 1-gt open pulse nor the close U2: best true partial = only U assisted, 45
+  blocks. ideal-rs: U's first pulse must be exactly 1 gt (2 gt: BM lands at (1,-1) one tick after K's
+  pull starts, K and L0 are slaved to U through the observer (0,-2)).
+* **e88-t7b-43b (the new 43-block record, a 10-piston mechanism) re-wired: `finds/t7b-rwfast-43.txt` =
+  BEST.txt, 63b 43 blocks, solid, FULL, rotation-safe, open 39 / close 27 (t7b: 43 / 31), verify
+  --extra-offsets 28 WORKS**: its right wall becomes observer (3,3) west -> dust (4,3) -> stone (4,2)
+  (MR direct, BR by QC) instead of repeater + observer (4 gt faster). Both walls are minimal at 3
+  blocks (k=3, full palette + sculk; 64 wall variants at 43 blocks in `runs/t7b-lw-k3`, `runs/t7b-rw-k3`).
+  The bottom: BL (7 cells) is a closed region; BR's merger closes into BL (13 cells). `ideal-rs --drop 2`:
+  only the 3 frame stones drop (the frame rule keeps them). BL k=6 x 14 states (813M screens, connected
+  fillings, `runs/rf-bl-k6`): no 6-block BL; best true partial 41 blocks with only P_M assisted (BL in
+  5: stone (0,-4) under the d4 repeater, note block (-1,-3), observer (-1,-2) UP watching P_M, the gate),
+  and no 1- or 2-block P_M driver fits the free cells around it (`runs/rf-pm-k2`, full palette, --gaps).
+* `--gaps` (tool bug found on c88 s25, coordinator 10:50Z: everything real but BR's puller (2,-2)): the
+  4-cell bottom-right pocket at k=4 x 61 states found no driver because c88b's answer (s26: observer (4,0)
+  up -> AIR (4,-1) -> normal piston (4,-2) QC'd -> observer (3,-2) east -> BR) is two pieces; with --gaps
+  the run re-finds that 54-block door (`runs/s25-k4g`). s26 (`archive/c88-s26-54b.txt`, solid 8x8 54)
+  regions (`s26/`): BR's driver 3 = minimal (k=4 gaps), B's level line (bulb, comparator, d2, d4) 4 =
+  minimal (k=3); bottom-left k=6 x 16 states (`runs/s26-bl-k6`, 140M): **3 bottom-lefts with 6 blocks
+  instead of 7 = `finds/s26-bl53.txt`, solid 8x8 = 64b, 53 blocks, FULL, rotation-safe, open/close
+  34/34, verify --extra-offsets 28 WORKS** (lamp (-3,-2), observer (-3,-1) up, observers (-2,-2) (0,-2)
+  west, note block (-1,-2), dust dot (-3,0); K rests retracted, no level repeater). Combined with c88b's
+  s27 top-right (one observer (3,4) east instead of stone + dust): **`finds/s27-bl52.txt`, solid 8x8 =
+  64b, 52 blocks, FULL, rotation-safe, verify --extra-offsets 28 WORKS** (coordinator 11:12Z).
+  s27-bl52's top-right as a plan needs the close A pulse at c0..16 (plan-from said c22: the erased door
+  only works at <= 16, ideal-rs sweep; `s26/b52-tr.ideal`): k=4 x 61 states (`runs/b52-tr-k4`, 197M):
+  **`finds/s27-trbl51.txt`, solid 8x8 = 64b, 51 blocks, FULL, rotation-safe, verify --extra-offsets 28
+  WORKS** (12:27Z): the observer (3,5) became a STICKY PISTON (3,5) facing east, fired by the observer
+  (2,5) on B at t18; its head pops into (4,5) for 2 gt, the observer (4,4) facing up sees it and fires R2
+  (+ R1 by QC) through the stone (4,3) at t20, and the observer (3,4) east sees (4,4) and pushes A through
+  (2,4) at t22 (dust (4,4) + stone (4,5) gone): a piston as a 1-block "something moved" source for an
+  observer. B line + support (7 cells) k=6 x 16 states on s27-bl52: `runs/b52-tlb-k6`; shrink takes the
+  top-left A part with `door fill`.
+* q78's e78s (7x8, only the bottom ideal: A' x3, K, B' x2; `runs/e78s-k3`, `runs/e78s-k5`, --gaps):
+  right pocket (x=2..4): B' all four pulses with 3 blocks (observer (3,-2) up on K -> lamp (3,-3) ->
+  observer (2,-3) east), K with 2, never both within 5; left pocket: A' o8, (1,-1)o24, B' o30 alone;
+  A' o36 never. The left pocket at k=4 x 30 states (`runs/e78s-l4`) drives ALL of A' + (1,-1) with 4
+  blocks (calibrated sensor (-2,-2) east, observer (-1,-2) west, lamp (-2,-1), observer (-1,-1) west);
+  with K from the right (5 blocks): **true partial with only B' ideal, 40 blocks** (`runs/e78s-kb/
+  pockets-partial-1as.txt`); B' then has no filling in the 6 cells left (`runs/e78s-b4`, k=4, full
+  palette). q78 then wired B', A1 and the late A'-low with sensors (e78wsK): ONLY K left, K's pulse must
+  END at t12..13: exhaustive k=4 x 61 states + gaps over the 4 right cells and the 3 left ones: NO K
+  driver (`runs/wsK-k4`); the wool (3,-2) is needed (the seed breaks without it), so K's feeds are (4,-1)
+  (no west-pointing emitter fits) and its QC cell (3,0).
+* ceil's c070x (8x7 = 56, plan with m = u+3; `runs/c070x-k5`, k=5 x 33 states, --gaps): BL-down and
+  BM-down with 3 blocks each, E2's open pulse with 4; never U / M (coupled: windows [0,0]) nor E2 close.

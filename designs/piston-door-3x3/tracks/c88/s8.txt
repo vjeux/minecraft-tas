@@ -1,0 +1,46 @@
+name: c88-s8
+# s8 = s5 with B PULSED (retracted at rest, no head at (1,4)): on open a pulse lifts A (extend onto A,
+# retract pulling it up); on close a pulse pushes A and TM down one and spits (A's close push for free).
+port door: 0 0 0
+port lever: 4 6 0
+origin: -3 0 -1
+palette:
+  E minecraft:sticky_piston[extended=true,facing=east]
+  e minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:sticky_piston[extended=false,facing=up]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:sticky_piston[extended=true,facing=down]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  Q minecraft:stone
+  R minecraft:redstone_block
+  S minecraft:smooth_stone
+layer -2:
+  ........
+  ....KK..
+layer -1:
+  ........
+  ..J.....
+layer 0:
+  .R......
+  .EeQQQQ.
+layer 1:
+  .R......
+  .EeQQQ.W
+layer 2:
+  .R......
+  .EeQQQ.W
+layer 3:
+  ........
+  ...QsQ..
+layer 4:
+  ........
+  ........
+layer 5:
+  ........
+  ....s..S
+layer 6:
+  ........
+  .......L

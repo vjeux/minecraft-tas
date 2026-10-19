@@ -59,6 +59,10 @@ pub enum DoorCmd {
         /// Worker JVMs for sweeps.
         #[arg(long, default_value_t = 8)]
         workers: usize,
+        /// The old input rule: plan blocks appear between ticks, after tick t (default: in tick
+        /// t's tile-tick phase, where an observer's output arrives; see ideal.rs).
+        #[arg(long)]
+        between_ticks: bool,
     },
     /// Wire a mechanism from its ideal-input schedule (mechwire.rs): replay it with ideal inputs,
     /// route every piston cell's wave from a lever at each lever spot with route2's router, rank
@@ -630,7 +634,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::RowsFire { tsv, wirable, only } => {
             crate::rowsfire::cli(&tsv, wirable, &only)?;
         }
-        DoorCmd::Ideal { schedule, set, sweep, independent, extra_offsets, cycles, trace, workers } => {
+        DoorCmd::Ideal { schedule, set, sweep, independent, extra_offsets, cycles, trace, workers, between_ticks } => {
+            crate::ideal::cli_phase(between_ticks);
             crate::ideal::cli(version, &schedule, &set, &sweep, independent, extra_offsets, cycles, trace, workers)?;
         }
         DoorCmd::Drive { scripts, quiet } => {

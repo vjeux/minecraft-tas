@@ -413,6 +413,21 @@ track notes).
   that by QC (it emits into (-2,1)): a level-held 2-stack, switched off by powering the stone.
 * **A level-held piston is a clean link**: it moves once per lever edge, so an observer on its base
   fires exactly one pulse per edge (box72's torch link, c79's (4,0) on MR's puller, u7-m10a's R0).
+* **Sound crosses sealed regions** (m79s, archive m79s-sculk-63b-50-50b / m79s-sculk-8x8-64b-50b): a
+  region that sees nothing the lever moves first (a top-left behind the elevator column, a bottom-left
+  behind U) can hear the lever or the t1 pistons: activation = event tick + floor(distance). A plain
+  sensor (range 8) ignores a lever more than 8 away and hears the t1 pullers instead; a lever behind a
+  wool block is inaudible too. Category sculk.
+* **Wool kills the re-arm echo** (m79s): a sensor re-arms 40 gt (plain) / 20 gt (calibrated) after it
+  wakes and then hears the door's own late moves (an endless loop); put WOOL (a conductor, so it can also
+  be a wire block or the elevator's feed block) on every line from the late movers to the sensor
+  (`sculk::is_occluded`: all 6 nudged lines must cross wool).
+* **Plain sensor -> lamp -> observer = 2 taps, no echo** (m79s 8x8 K): lit at T, dark at T+34: both
+  taps land inside the sensor's 40 gt dead time. **Calibrated sensor -> observer = 3 taps 10 gt apart**
+  (T+2, T+12, T+22): an odd count for a pull-type piston (pull/push/pull on open, push/pull/push on
+  close), and its window can hold another piston meanwhile (the 63's B through dust -> wool).
+* **Glass under a wire dust** (m79s s88h/s88i): a stone under a dust is strongly powered and QC-arms
+  any piston whose quasi cell it touches; glass carries the dust without powering anything.
 
 Notes for builders of fast doors:
 
@@ -430,6 +445,38 @@ Notes for builders of fast doors:
   or one tick later. A piston whose push fails when its event runs never retries. (Interleaving
   goes one event per chain per round, so a chain that must act second can also be made longer:
   `open-4-close3` pads T's chain with one piston to run it after C's in the same tick.)
+* **T flip-flop level for a level-held piston** (c88 `tracks/c88/s24.txt`, the solid 8x8 c88-s26):
+  a waxed copper bulb toggled by ONE pulse per lever edge (an observer on the lever's dust ->
+  stone -> bulb) read by a comparator is a level that is on at rest and off when open (the judge's
+  periodic rest accepts it); repeaters after the comparator delay it like any level (t16 here).
+  It made the elevator's top piston B level-held far from the lever, so B moves once per edge and
+  its watcher fires ONE pulse per edge (a pulsed B's watcher fires twice: extend, then landing).
+* **Fire a QC-only piston with an update, or deliberately without one** (c88 s22/s25): a piston
+  powered only through its above cell reacts only when something updates it. An emitter INTO the
+  above cell updates that cell's neighbors, the piston included (observer (0,4) into (1,4) fires A
+  at (1,3)); powering a solid block NEXT to the above cell ((0,4) or (2,4)) updates that block's
+  neighbors only, so the piston stays put (s22's A never pushed). s25 uses the second on purpose: a
+  stone (2,4) powered from (3,4) fires A's top pull at (1,4) (its neighbor) but leaves A at (1,3)
+  alone on close (QC-powered, never updated), which removes c79's close hazard.
+* **Odd-parity reshaper** (c88 s26): an observer on a once-pulsed sticky piston fires twice (extend,
+  then landing 4 gt later). Feed that double pulse into the empty quasi cell of a NORMAL piston
+  and watch the normal piston with an observer: the downstream train is odd on both edges (3 on
+  open), and three pulses toggle a pulsed sticky piston (BR's puller here).
+* **Copper bulb + observer counts input EDGES, not pulses**: the bulb's `powered` flips on both
+  input edges, so `bulb-pulse` gives one pulse only for inputs <= 2 gt; a 30 gt sculk window into a
+  bulb under an observer gives two pulses (c88 s15sk).
+* **A normal piston as a 1-block watched relay** (shrink, archive t7b-pw42-42b): an observer fires
+  a normal piston whose head pops into the cell another observer watches: one block where a
+  conductor + a watched note block took two (t7b's row -4 route: piston (2,-4) facing west into
+  (1,-4), watched by (0,-4)).
+* **A moving observer = merger + router** (shrink, archive t7b-ob40-40b): a double pulse (an
+  observer on a pulse-pulled piston) into a sticky piston that faces an observer: pulse 1 pushes
+  the observer next to target A (2 gt: spit, it stays) and it fires A on landing; pulse 2 pulls it
+  home and it fires again on landing, into a different cell (here the empty quasi cell of a normal
+  piston). One pulse per edge into A plus a second, later signal elsewhere, from 2 blocks (sticky
+  piston + observer) where t7b used a delay-2 repeater merger + support + observer + route.
+* **Search with pistons in the palette** (shrink): `door fill --palette ...,sticky,piston --gaps`
+  found every one of the above; palettes without pistons (pockets defaults, satwire) cannot.
 
 ## 9. Floors for the fastest 3x3 door
 

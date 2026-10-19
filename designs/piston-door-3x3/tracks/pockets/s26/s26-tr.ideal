@@ -1,0 +1,11 @@
+# door cosearch plan-from designs/piston-door-3x3/tracks/pockets/s26/s26.txt --region 3,3;4,3;2,4;3,4;4,4;2,5;3,5;4,5: a redstone block behind each piston cell
+# (z+1) at exactly the ticks the region alone feeds it
+design designs/piston-door-3x3/tracks/pockets/s26/s26.txt
+close 20 set 1 3 1 minecraft:redstone_block
+close 22 clear 1 3 1
+open 20 set 1 4 1 minecraft:redstone_block
+open 22 clear 1 4 1
+open 20 set 4 2 1 minecraft:redstone_block
+open 22 clear 4 2 1
+close 20 set 4 2 1 minecraft:redstone_block
+close 22 clear 4 2 1
