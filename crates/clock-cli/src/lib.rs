@@ -257,6 +257,12 @@ pub enum ClockCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track clk-misc's commands (crates/clock-misc: crafters, rails, doors, fence gates, heads and
+    /// other blocks no other track covers).
+    Misc {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
@@ -465,6 +471,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         ClockCmd::Rt { args } => clock_rt::run(args)?,
         ClockCmd::Sculk { args } => clock_sculk::run(args)?,
         ClockCmd::Item { args } => clock_item::run(args)?,
+        ClockCmd::Misc { args } => clock_misc::run(args)?,
     }
     Ok(())
 }

@@ -1,0 +1,47 @@
+//! Track clk-misc's clock commands: `mctas clock misc <args...>` calls [`run`] with every argument
+//! after `misc`. OWNED BY TRACK clk-misc: the blocks no other clock track covers (crafters,
+//! powered and activator rails, doors, fence gates, heads, fluids, daylight detectors...).
+//!
+//! * [`ring`]: relay rings, one extendable family per relay block. A 2-wide observer ring stands
+//!   in a vertical plane with ONE relay block at its top, on the observer that powers it (so a
+//!   rail, a door or a bell has its support); the next observer watches the relay. A relay whose
+//!   state follows its power at once (a crafter's `triggered`, a rail's `powered`, a door's or a
+//!   fence gate's `open`) takes a lattice cell without adding delay, so the ring closes with an odd
+//!   number of observers: P = 2 gt x observers = 10 + 4n.
+//!
+//! The official judge is `mctas clock verify` (crates/clock, docs/clocks.md); this crate builds
+//! and searches.
+
+pub mod ring;
+
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "mctas clock misc", about = "Track clk-misc's clocks: crafters, rails, doors, fence gates, heads and other blocks no other track covers")]
+struct Args {
+    #[command(subcommand)]
+    cmd: Cmd,
+}
+
+#[derive(Subcommand)]
+enum Cmd {
+    /// A relay ring (extendable family `clk-misc-<relay>-ring`, P = 10 + 4n): a 2-wide observer
+    /// ring of height 3 + n in the x-y plane with one relay block at its top left, on the observer
+    /// that powers it; checked on redsim. `--list` shows the relays, `--check K` runs n = 0..=K.
+    Ring(ring::RingArgs),
+}
+
+/// `mctas clock misc <args...>`.
+pub fn run(args: Vec<String>) -> anyhow::Result<()> {
+    let a = match Args::try_parse_from(std::iter::once("mctas clock misc".to_string()).chain(args)) {
+        Ok(a) => a,
+        Err(e) if matches!(e.kind(), clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion) => {
+            print!("{e}");
+            return Ok(());
+        }
+        Err(e) => anyhow::bail!("{e}"),
+    };
+    match a.cmd {
+        Cmd::Ring(r) => ring::run(r),
+    }
+}
