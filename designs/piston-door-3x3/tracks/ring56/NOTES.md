@@ -267,3 +267,13 @@ gets pulses); or a T flip-flop (bulb + comparator) on W_TR's pulse to make B a l
   pinned). In 7x9, B can take its window from above ((1,6)), as cosearch already did in t9a with a
   delay line (obsidian (4,6) -> repeaters (3,6), (2,6) -> QC through (1,6)). Run 19 searches P_T + B.
 * k=6 on the 7x8 top-right with the window plan: running (147 M fillings).
+* k=6 on the 7x8 top-right with the WINDOW plan (212 M fillings): A at all six times with 4 blocks (24
+  fillings), P_T+A2 with 6, but B's window is driven by NO filling. Both plans fail: t8 in 7x8 is dead.
+* Main de6ecbce changed `door ideal` / cosearch assists to the TILE-TICK phase (inputs act inside tick t
+  like a wired observer). My old plans break under it (B's input at (1,5,1) lets A react first: A
+  QC-extends through (1,5) and B cannot push an extended piston). Feeding B from ABOVE in the plan
+  (in-plane input at (1,6)) models the real feed (no update reaches A) and works under the new phase:
+  `mech/t9w3.ideal`, B on 14..21, off 28..33 (whole rectangle). t9b + A trick + that plan: WORKS.
+* `mech/t9c.txt` + `t9cw3.ideal`: t9 + the A trick + an observer (3,5) facing UP (P_T's feed through
+  (3,4), free once the A observer is shoved to (2,4)); A2/A3 should then come from B's window source,
+  not from a B watcher, so (2,5)/(3,5) stay free. Run 20 (64 threads) searches row 6 + (2,5) (4,5) (0,5).
