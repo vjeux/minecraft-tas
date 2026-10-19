@@ -1029,6 +1029,7 @@ pub struct ProbOpts {
     pub bx: Option<(i32, i32, i32, i32)>,
     pub palette: Vec<Kind>,
     pub forbid_ring: bool,
+    pub full_frame: bool,
     /// Ring cells nothing ever passes through hold smooth stone (what `door properties-dyn`'s
     /// hallway check puts there): the wiring is hallway-compatible by construction.
     pub hall_ring: bool,
@@ -1154,6 +1155,32 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             };
             kinds.insert(c, ks);
             free.push(c);
+        }
+    }
+    // --full-frame (vjeux, 03:45Z): open, the 12 frame cells around the opening hold plain blocks:
+    // a door-type block of the mechanism, or static stone placed here (a free frame cell is forced
+    // to a block); a frame cell the mechanism leaves empty or holds a piston/head in at open makes
+    // the mechanism ineligible
+    if o.full_frame {
+        let open = rec.phases[1].frames[0].clone();
+        let mut ring_v: Vec<C2> = ring.iter().copied().collect();
+        ring_v.sort();
+        for r in ring_v {
+            let st = open.get(&r).map(|s| mk(s));
+            if matches!(st, Some(MK::Cond)) {
+                continue;
+            }
+            if let Some(ks) = kinds.get_mut(&r) {
+                if mech.contains(&r) {
+                    bail!("--full-frame: frame cell {r:?} is swept by the mechanism and not a block at open");
+                }
+                ks.retain(|k| *k == Kind::Block);
+                if ks.is_empty() {
+                    bail!("--full-frame: frame cell {r:?} cannot hold a block");
+                }
+            } else {
+                bail!("--full-frame: frame cell {r:?} holds {:?} at open (not a plain block)", open.get(&r).map(|s| short(s).to_string()));
+            }
         }
     }
     // sticky pistons never pull wiring: the cell two ahead of any sticky piston holds nothing movable
