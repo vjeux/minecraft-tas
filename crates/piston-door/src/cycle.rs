@@ -65,12 +65,14 @@ pub fn cli(path: &Path, flips: usize, write_state: Option<usize>, out: Option<&P
         };
         let filled = |s: &Snap| cells.iter().all(|c| s.get(mv(*c)).is_some_and(|b| !b.is_air() && !crate::cosearch::is_moving(&b)));
         let clear = |s: &Snap| cells.iter().all(|c| s.get(mv(*c)).is_some_and(|b: Block| b.is_air()));
-        let frame_n = |s: &Snap| frame.iter().filter(|p| s.get(mv(**p)).is_some_and(|b| crate::sheet::filled_frame(&b))).count();
+        let frame_n = |s: &Snap, db: &Block| frame.iter().filter(|p| s.get(mv(**p)).is_some_and(|b| crate::sheet::filled_frame(&b, db))).count();
         let mut problems = Vec::new();
-        for k in 2..states.len() {
-            if states[k] != states[k - 2] {
-                problems.push(format!("the state after flip {k} differs from the state after flip {}", k - 2));
-            }
+        // Periodic (vjeux: internal state doesn't matter as long as the door works repeatedly):
+        // some closed state (after an even number of flips) equals an earlier one.
+        let closed_states: Vec<&Snap> = states.iter().step_by(2).collect();
+        let periodic = (1..closed_states.len()).any(|k| (0..k).any(|j| closed_states[j] == closed_states[k]));
+        if !periodic {
+            problems.push(format!("no closed state repeats within {flips} flips (internal state drifts)"));
         }
         let (a, b) = (&states[0], states.get(1).unwrap_or(&states[0]));
         let (open, closed) = if clear(a) { (a, b) } else { (b, a) };
@@ -80,9 +82,12 @@ pub fn cli(path: &Path, flips: usize, write_state: Option<usize>, out: Option<&P
         if !filled(closed) {
             problems.push("neither state has the 9 door cells filled".into());
         }
-        let fr = frame_n(open);
+        let fr = match closed.get(mv(cells[0])) {
+            Some(db) => frame_n(open, &db),
+            None => 0,
+        };
         if fr != 12 {
-            problems.push(format!("frame {fr}/12 when open"));
+            problems.push(format!("frame {fr}/12 when open (frame cells must hold the door block)"));
         }
         if problems.is_empty() {
             println!(

@@ -1102,7 +1102,7 @@ fn grid_from_door(door: &RsDoor, p: &Problem) -> Result<Grid> {
     let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize], lever: (door.spec.lever[0], door.spec.lever[1]), assist: 0 };
     let lever = door.spec.lever;
     for (q, b) in &door.blocks {
-        anyhow::ensure!(q[2] == z, "not flat: {q:?}");
+        anyhow::ensure!(q[2] == z, "not flat: {q:?} (an off-plane lever is not supported by the search grid yet)");
         let keep = in_box(p, q[0], q[1]) || *q == lever;
         if keep {
             g.set(q[0], q[1], *b);
