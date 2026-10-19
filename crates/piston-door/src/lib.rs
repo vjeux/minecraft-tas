@@ -3,14 +3,15 @@
 //! A design is a [`Design`] with two ports:
 //! * `door`: the lowest corner (min x, min y) of the 3x3 opening. The door is the vertical
 //!   plane `z = door.z` covering `x in door.x..door.x+3`, `y in door.y..door.y+3`.
-//! * `lever`: a lever. On opens the door, off closes it.
+//! * `lever`: a lever, off or on at rest (either polarity counts): the first flip from rest
+//!   opens the door, the second closes it.
 //!
 //! What "works" means (the full rules: docs/rules.md):
-//! * at rest with the lever off, the 9 door cells hold 9 identical plain full blocks and the
+//! * at rest, the 9 door cells hold 9 identical plain full blocks and the
 //!   walkway (the opening extended 3 blocks in front and behind) is walkable (no collision);
-//! * after the lever is switched on and everything settles, the 9 door cells and the walkway
+//! * after the lever is flipped and everything settles, the 9 door cells and the walkway
 //!   are all walkable;
-//! * after the lever is switched off and everything settles, every block of the build is back
+//! * after the lever is flipped back and everything settles, every block of the build is back
 //!   exactly where it started (so the door is the same blocks, and it can cycle forever);
 //! * no item entity appears (nothing was broken), repeated for several cycles, at several
 //!   positions in the world (Minecraft has location-dependent update orders).
@@ -1113,8 +1114,10 @@ fn verify_at(
         }
     }
     let lever = rest.get(spec.lever).unwrap_or("?");
-    if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {
-        bail!("port lever {:?} is {lever}, expected an unpowered lever", spec.lever);
+    // Either rest polarity counts (vjeux, 2026-10-19: "doesn't matter whether it's on or off for
+    // the door"): the first flip from rest opens the door, the second closes it.
+    if !lever.starts_with("minecraft:lever") {
+        bail!("port lever {:?} is {lever}, expected a lever", spec.lever);
     }
     let closed_door: Vec<String> = spec.door_cells().iter().map(|p| rest.get(*p).unwrap().to_string()).collect();
     // The entities' rest state, and the boxes the entity checks use.
