@@ -88,8 +88,27 @@ Box and ring:
 * `--fixed <design>`: that design's wiring cells and lever are kept; a partly wired ideal plan
   (with `use` of its real lever) keeps its wiring automatically.
 
-Replay check (`--check`, the model fixed to a design's own wiring, recorded power compared):
-see the log below for the archive counts.
+Direction of the approximations (for UNSAT as a proof; every UNSAT so far is RELATIVE TO THE
+ENCODING): OVER-approximating (the model allows more than the game; spurious SATs are rejected by
+the redsim screen and the real judge): QC-powered pistons fire at once (the game needs an update),
+blocked pistons' power is free (`--exact` pins it). UNDER-approximating (the model may reject a
+design the game accepts): ambiguous same-tick orders are FORBIDDEN rather than branched (an
+observer's off-tick coinciding with an ambiguous change of its watched cell, comparator races),
+repeater-repeater races resolve one way, torches read after observers, intra-tick transients other
+than the lamp's off-on are not seen by observers, QC power while a piston must stay off is
+forbidden even when no update would come (BUD), droppers ignore quasi-connected power, supports
+must be static, nothing movable two ahead of a sticky piston, the exact recorded piston power
+(an ideal plan's own side effects become requirements: the warp only retimes pauses).
+Recorder: the power of a piston = the real signal into its cell, minus a source that is only its
+front neighbor (wire64's fix), or into the cell above (QC).
+
+Known-answer test (`door satwire --check --jobs 8` over every FLAT archived door, 65 designs on
+this branch after merging main): 57 REPRODUCED exactly (e89b, every flat-b, flat-v2..v8 but v5/v7f,
+s55, flat43-full + every lamp/dropper relever variant but the two `@support` ones, h44, h45, fl81m,
+fl81n, f43-b1, lamp-sweep, fv58n, ...), 1 not flat, 4 MISMATCH (flat-v5-52b 2 ticks, fl81f 6 ticks,
+the two dropper@support variants: their dropper is re-armed by quasi-connectivity on the lever's
+update, a BUD), 3 REJECTED (fl72f, flat-b-v7-52b, flat-v7-full: cores name the cells around their
+lever/observer chains; not diagnosed yet).
 
 ## Log
 * e89b `--check`: the model reproduces e89b's piston power exactly (0 mismatches / 864 piston-ticks).
@@ -101,3 +120,15 @@ see the log below for the archive counts.
   lemma (no static wiring for 5-tall strip doors).
 * Archive replay check (287 designs on this branch): 254 not flat, 2 turned, 2 entities = out of
   scope; flat ones: see `door satwire --check` counts in the latest report.
+* Model fixes driven by the known-answer test: observer ticks scheduled by a moving block run after
+  phase-S ticks (flat-v6/v7 observer chains), supports on retracting / down-facing piston bases
+  (flat43-full's repeater on a piston), the lamp's 4 gt tick runs before observer/torch ticks and
+  an input rising later relights it (the observer->lamp->observer relay of h44/flat43-full sees
+  the off-on transient), a lamp lights at the flip itself (relever lamp variants), droppers are
+  wiring and follow direct power: 17 -> 57 of 64 flat doors reproduced.
+* e89b with the time warp (stalls/skips <= 6, palette incl. note/bulb/comparator): <= 28 wiring
+  UNSAT after 44 min = 29 is minimal even when the schedule may be retimed (relative to the
+  encoding at that time: before the observer-phase and lamp fixes).
+* Ideals checked with `door ideal` before SAT: box64 f102b (8x8-130) BROKEN (not back at rest),
+  box72 m2w BROKEN (not open) -> their UNSATs are moot; m710b and wire56 m028 (7x8-013) work:
+  UNSAT relative to the encoding, cores: m710b open pistons (3,3)+(1,3); m028-oc close (1,4)+(1,5).
