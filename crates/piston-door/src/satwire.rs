@@ -3455,6 +3455,28 @@ fn normalize_notes(w: &mut Worker, d: &mut Design) -> Result<()> {
     Ok(())
 }
 
+/// A clock candidate (the judge: "still moving"): replay it and return the free wiring cells whose
+/// state still changes in the last 16 recorded ticks of a phase (None: no such cell, or too many).
+fn clock_cells(w: &mut Worker, p: &Prob, d: &Design) -> Option<Vec<C2>> {
+    let r = record_wired(w, d, 120).ok()?;
+    let mut cells: BTreeSet<C2> = BTreeSet::new();
+    for ph in &r.full {
+        let n = ph.len();
+        if n < 20 {
+            continue;
+        }
+        for j in n - 16..n {
+            let (a, b) = (&ph[j - 1], &ph[j]);
+            for c in a.keys().chain(b.keys()) {
+                if p.kinds.contains_key(c) && a.get(c) != b.get(c) {
+                    cells.insert(*c);
+                }
+            }
+        }
+    }
+    (!cells.is_empty() && cells.len() <= 10).then(|| cells.into_iter().collect())
+}
+
 /// `--local-nogood`: replay the failing candidate, find the first recorded tick where its
 /// mechanism differs from the recording, and return the cells within 3 of that difference (and of
 /// the pistons next to it). None when the run cannot be compared (then the whole design is blocked).
@@ -3768,6 +3790,18 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
                     let _ = s.design.save(&path.with_extension("fail.txt"));
                 }
                 let mut cl: Vec<Lit> = Vec::new();
+                // a clock (the run never settles): block only the wiring cells that keep changing
+                // at the end of the run (the loop oscillates whatever the rest of the wiring is)
+                let clock = if e.contains("still moving") { clock_cells(w, p, &s.design) } else { None };
+                if let Some(cells) = &clock {
+                    for c in cells {
+                        let k = s.kinds.get(c).copied().unwrap_or(Kind::Empty);
+                        cl.push(!m.kl[&(*c, k)]);
+                    }
+                    log(format!("  clock nogood: {} cells {:?}", cells.len(), cells));
+                    m.e.add(&cl);
+                    continue;
+                }
                 // --local-nogood (exact timing): block only the candidate's choices around the
                 // first piston that misbehaves in its real run (the failure is local)
                 let local = if LOCAL_NOGOOD.load(std::sync::atomic::Ordering::Relaxed) && p.dmax == 0 && p.skip == 0 { local_region(w, p, &s.design) } else { None };
