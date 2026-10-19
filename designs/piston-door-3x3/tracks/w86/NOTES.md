@@ -23,6 +23,28 @@
   TR+W left (W home at (1,3), TR to (2,3)), KR2 pushes KR home, W/Q push BM down to (1,0), (2,4) pushes TR+C
   down (TR home, C into (2,1)), MR's puller pushes MR+C left (C home), then TM, RP_L, TM, TL, BL.
 
+## Wiring (the open problem)
+- **a3s / a3r / b3s are unwirable as is.** Lemma (6-tall Box A): a piston in the single machine row whose two
+  row neighbours are pistons can only be powered from above the box (its quasi cell and top face are outside,
+  its front is row 3, pistons don't conduct), i.e. only by the lever, as a level. a3s's row 4 is 5 pistons in a
+  row ((-1,4)..(3,4)): Q (1,4), (0,4), (2,4) are boxed in (pockets3: 27 of 30 event groups undriven; families'
+  wire analysis: 6 pistons without a free feed cell). b3s (a3s upside down) is boxed the same way in practice.
+- **m69t/ (9x6 = 54b, c78l's m69a turned by c70b; plan by w86): m69u.ideal** WORKS ideal-rs + real game, tile AND
+  between phases, frame 12/12. Re-timed for the s0 (4,2)/s1 (4,1) QC coupling: s0's home pulls on open are long
+  (the coupled s1 push of the (3,1) block is pulled back), on close s0's first home spit also spits s1 (TR takes
+  MR's home) and M0 pushes the LINE s0+MR (MR into (2,2)), elevator releases 2 gt after the carried pull lands.
+  But (c78l, satwire): R1 (1,-2) has no feed (UNSAT at once); with R1 lever-held (c78l's m69v, lever under it)
+  the left (x<=-1) and right (x>=3) wiring regions still can't both learn of the flip: they are separated by the
+  door column and nothing the lever moves is observable from both (R1 has no free neighbour). Sculk could.
+- **m69t/m69f + m69g (9x6, Box A = m69t upside down, floor statics):** WORK ideal-rs tile+between + real game,
+  frame 12/12. m69g: the top trio (0..2,4) facing down EXTENDED at rest, the REAL lever ON at rest on top of
+  (1,4) (powers it directly and (0,4)/(2,4) by QC: the 7x8 doors' trick); observers at (-1,4)/(3,4) watching the
+  outer pullers can give both halves the flip. Left half fully fed (carried U1 at (-1,1) has its quasi cell
+  (-1,2) next to the free (-2,2)). Right half: carried s0 at (3,0) is UNFED (quasi cell (3,1) = a door block
+  whose neighbours are s1 and MR'), and W' (3,-1) sits under carried s0 (QC-coupled; obsidian at (3,4) blocks its
+  column push but takes the right observer's cell). Rule of thumb: in Box A an elevator in row 1 or 2 is fed,
+  one in row 0 is not (its carried puller's quasi cell is a wall cell boxed by pistons/door blocks).
+
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back
   through a puller inside the opening (a carried piston at y = 1 facing down for the floor).
