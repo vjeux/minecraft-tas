@@ -376,6 +376,18 @@ track notes).
   every other component delays an even number of ticks.
 * **In-plane limits**: no repeater locking and no comparator side inputs (both need a diode at
   z+-1).
+* **Carried puller: a middle-row side block leaves vertically in 2 rows** (vmid vb2/vb3, ideal
+  plans at 32 positions): a sticky piston facing UP resting in the corner (-1,-1) is pushed into
+  the ring cell (0,-1) by a piston at (-2,-1) (1 gt pulse: spit), pulls ML (pos+2 = (0,1)) to (0,0),
+  is pulled back by the same piston (now a pull-type, its front empty), and a puller at (0,-2)
+  finishes ML to (0,-1); anything already lowered into row -1 (BL, BM) rides one cell right with it.
+  An elevator needs 3 rows, this 2. It is drivable in-plane only facing up: its quasi cell is (0,0),
+  fed by a plain stone in the ring cell (-1,0) that a component at (-2,0) powers strongly. The top
+  mirror (facing down, into (0,3)) has its quasi cell at (0,4), the finishing puller, so it cannot
+  fire without that puller (vc1).
+* **Door blocks and ring stones relay power into the opening's quasi cells**: a strongly powered
+  plain block in a ring cell gives signal into the opening cell next to it, which QC-powers a piston
+  facing up just below that cell (the carried puller above); a parked door block does the same.
 
 Notes for builders of fast doors:
 

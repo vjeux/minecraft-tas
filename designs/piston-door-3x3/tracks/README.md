@@ -68,3 +68,4 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [wire64b](wire64b/NOTES.md) | wire families 8x8-105 / 104 flat FULL seamless (64), then 7x9 = 63 | 105 ideal works (+ pulse-only parker variant); K1 timer is the wall; 104 blocked at one cell; satwire ideal-recorder fix + `--grid` |
 
 - [box64](box64/NOTES.md): flat FULL-seamless doors in 8x8 / 9x7 boxes (volume <= 64): ideal-input mechanism checks in the box, region/crossing analysis of the wiring
+- [vmid](vmid/NOTES.md): 7x8 mechanisms whose middle-row side blocks leave VERTICALLY (no row-1 wall): vm1 (twin elevators), vc1 / vb2 / vb3 (the carried puller: a corner piston pushed into the ring pulls ML in 2 rows), all ideal at 32 positions; `door connect` and cosearch on them, no wired door yet
