@@ -311,6 +311,77 @@ dependencies = [
 ]
 
 [[package]]
+name = "door-judge"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "piston-door",
+]
+
+[[package]]
+name = "door-mech"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "piston-door",
+]
+
+[[package]]
+name = "door-redsim"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "piston-door",
+ "redsim-fuzz",
+]
+
+[[package]]
+name = "door-sat"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "piston-door",
+]
+
+[[package]]
+name = "door-search"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "piston-door",
+]
+
+[[package]]
+name = "door-vanilla"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "piston-door",
+]
+
+[[package]]
+name = "door-video"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "piston-door",
+]
+
+[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -551,8 +622,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "door-judge",
+ "door-mech",
+ "door-redsim",
+ "door-sat",
+ "door-search",
+ "door-vanilla",
+ "door-video",
  "mctas",
- "piston-door",
  "regex",
  "serde_json",
 ]

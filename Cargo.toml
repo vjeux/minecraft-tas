@@ -19,5 +19,35 @@ sha1 = "0.10"
 sha2 = "0.10"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
+# Fast edit-build loop, same binary (docs/internals.md#build): `cargo build --release` and
+# target/release/mctas as always, every search as fast as before.
 [profile.release]
 debug = 1
+# Workspace crates compile incrementally (crates.io dependencies never do): a change recompiles
+# only the codegen units it touches.
+incremental = true
+# The non-incremental default: incremental's own default (256 units) splits the hot code across
+# units optimized apart (boxproof's SAT encoding ran ~4% slower).
+codegen-units = 16
+
+# redsim, the engine of every redsim search, compiles whole as before (incremental: ~1% more
+# instructions in its tick loop); it rebuilds in ~3 s.
+[profile.release.package.redsim]
+incremental = false
+
+# The door CLI crates (crates/door-*) only parse arguments and dispatch to the optimized crates:
+# unoptimized they build in ~1 s instead of ~25 s (clap's derive output is huge).
+[profile.release.package.door-judge]
+opt-level = 0
+[profile.release.package.door-search]
+opt-level = 0
+[profile.release.package.door-mech]
+opt-level = 0
+[profile.release.package.door-sat]
+opt-level = 0
+[profile.release.package.door-redsim]
+opt-level = 0
+[profile.release.package.door-vanilla]
+opt-level = 0
+[profile.release.package.door-video]
+opt-level = 0

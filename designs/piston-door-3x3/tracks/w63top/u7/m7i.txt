@@ -1,0 +1,40 @@
+name: u7-m7i
+# u7-m7 with its ideal level inputs present at rest: redstone blocks at z=1 behind every
+# level-held piston (L0-L2, R0-R2, U, P); m7.ideal clears them at open and restores them at close.
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  E minecraft:sticky_piston[extended=true,facing=east]
+  e minecraft:piston_head[facing=east,short=false,type=sticky]
+  W minecraft:sticky_piston[extended=true,facing=west]
+  w minecraft:piston_head[facing=west,short=false,type=sticky]
+  U minecraft:sticky_piston[extended=true,facing=up]
+  u minecraft:piston_head[facing=up,short=false,type=sticky]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:stone
+  F minecraft:smooth_stone
+  R minecraft:redstone_block
+layer -2:
+  ...U
+  ...R
+layer -1:
+  ..FuF
+  .......
+layer 0:
+  EeCCCwW
+  R.....R
+layer 1:
+  EeCCCwW
+  R.....R
+layer 2:
+  EeCCCwW
+  R.....R
+layer 3:
+  ..F.wW
+  .....R
+layer 4:
+  ...D
+  ....
+layer 5:
+  ...D
+  ....

@@ -1,0 +1,4 @@
+set 4 -1 0 minecraft:observer[facing=up]
+set 4 -2 0 minecraft:redstone_lamp
+set 3 -2 0 minecraft:observer[facing=east]
+set 2 -2 0 minecraft:stone

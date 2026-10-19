@@ -172,3 +172,40 @@ for 008 016 031 in rows -2..6 / 7x8 and for the center-down 021-034 group in y -
   redstone block at (4,3) also powers P_T (3,3) beside it (pushes row 3 left); a real observer at
   (4,3) facing up emits only down; the ideal uses (4,2,1).
 - Next: wire the top (22 cells) to that schedule: satwire with the bottom wiring kept (running).
+- Top windows (w63-014-bottom-t.ideal: every top event a variable; each swept alone, others at
+  their defaults, 4 positions): A1 0 (reference), P_T 3..9 (6), B1 9..16 (12), A2 14..21 (18),
+  B2 21..26 (24), A3 28..34 (30), TL's puller U ANY of 0..50, left triple t0 26..50, right
+  triple tr ANY of 0..60 (g = 6 or 7 for both triples). So U and the right triple can hang off
+  the lever directly. Variants that WORK at 32 positions: v1 (U 0, tr 0, t0 30), v2 (U 30, tr 0,
+  t0 36), v3 (U 0, tr 36, t0 36: one shared triple for both stacks).
+- satwire on the top, the bottom wiring kept (5 of its cells fixed, the 3 stones left to the
+  solver): the families-timed plan UNSAT (31 s); `--diag` printed no core.
+- satwire on v1, v2, v3 (same settings): all UNSAT (33-37 s). cosearch (35 min each, pistons
+  locked, plan-shaped) on 012/016 (y -3..5) and 014 (rows -2..6): 0 finds, best 43/79.
+- **The core** (satwire's deletion-minimized UNSAT core, printed after its UNSAT line; it takes
+  ~25 min, so do not kill a satwire run that has printed UNSAT): v1 = "close piston (1,5), close
+  piston (3,3), close piston (1,4)": B, the T parker and A on the CLOSE edge cannot get their
+  recorded power together. The side triples, U and the bottom pockets are not in the core: the
+  top's wall is the elevator trio's close-edge feeds (on close T and C sit in (2,3)/(1,3) and TL in
+  (0,3), so the cells next to A, B and P_T conduct differently than on open). v2/v3/families-timed
+  cores: see logs/sat-014-{v2,v3,top}.log.
+
+### 4e. The top of 7x8-014, by hand (where it stands)
+Feeds the cells allow (x -2..4, rows 3..6, plus (-2,2) and (4,3)):
+- A (1,4) and A2 (A at (1,3)): only (2,4) reaches both (direct west, and quasi through (1,4));
+  so (2,4) = an observer facing EAST (emits west only); it fires on changes of (3,4).
+- P_T (3,3): (3,4) above or (4,3) east, or quasi from (2,4)/(4,4)/(3,5). A conductor at (2,4)
+  would quasi-power P_T, so A's driver must be an observer.
+- B (1,5): (0,5)/(2,5)/(1,6), all of which also quasi-power A at (1,4) (the plan includes that
+  coupling: A powered at 13 with B1); (0,6)/(2,6) reach B by quasi only.
+- U (0,4): (-1,4) or (0,5) (an observer at (0,5) facing up: emits only down, B untouched).
+- left stack: one cross dust at (-2,3) on a stone at (-2,2) (the stone powers P1 directly and P0
+  through P1's cell); right stack: an observer at (4,3) facing up (a stone or dust at (4,3) would
+  power P_T beside it).
+- Crossing the elevator column only works in row 6, and anything emitting INTO (1,6) arms B: an
+  observer AT (1,6) watching (0,6) (a lamp or note block there, not dust) and emitting east is the
+  one clean crossing.
+- The one cell that cannot both watch A and drive it is (2,4): A's motions are visible ONLY from
+  (2,4), so the top cannot be driven by watching A; the clock has to come from the lever line,
+  from B (watched from (0,5)/(2,5)/(1,6)), from P_T (watched from (3,4)/(4,3)), from U (from
+  (-1,4)/(0,5)) or from TL's park (0,3) (from (-1,3)).
