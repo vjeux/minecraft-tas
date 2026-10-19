@@ -1,0 +1,3 @@
+fill designs/piston-door-3x3/tracks/shrink/wip/e78-h2t44.txt: 7 region cells (7 free, 0 fixed), base 37 blocks (design 44), k 0..=6, global palette 18 states, gaps allowed
+103 subsets pass the connectivity rule; 279182790 fillings to screen in 861680 work items
+[   300s] 208516160 screened (694753/s), 17692255 pruned, item 698223/861680, 0 pass the 1-position screen, 0 finds

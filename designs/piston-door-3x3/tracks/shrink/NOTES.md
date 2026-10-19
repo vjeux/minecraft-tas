@@ -72,7 +72,17 @@ e78k's SOLID 7x8 s2nob.txt (explore/q78 d77fb3d8: c77's stone e78st with the sen
 B' ideal: a 2 gt pulse at exactly t21 + a 2nd >= t29): --keep k<=3 over the left 8 + top-left 5
 cells (18 solid kinds with pistons): nothing (7.3M); the 8 left cells cleared, k<=6 (18 states:
 observers, lamp, stone, sticky/normal pistons, note, dust, redstone block, torch), --gaps:
-nothing (682M). --keep k<=4 over the 13 cells: runs/s2nob-keep4.log.
+nothing (682M). --keep k<=4 over the 13 cells: stopped at 29% (0 of 158M) when the base moved.
+s11.txt (only B2 ideal): --keep k<=3 over 24 wiring cells (93M), 9 cells cleared k<=5 (362M): nothing.
+e78k then found the FIRST SOLID 7x8 (h2, 45, archive e78k-h2-45b). On it: top-left 5 cells cleared
+k<=3 gave **44** (the TL watcher on the TL head at (-1,3) powers the dust (-2,3) directly; stone
+(-2,4) gone): archive/e78-h2t44-44b.txt, verified 32 + rotations; pockets3 had found the same edit
+minutes earlier (main: archive/e78s-56b-44-44b.txt). e78k's later FULL bases h4 (42) and h5 (41,
+main: e78k-h5-41b): every clear-and-refill region came back empty (FULL filter, frame cells
+(0,-1) (-1,2) (3,2) kept): h5 bottom-left 8 cells k<=5 (169M) and k<=4 with 18 kinds (runs/
+h5-left8b.log), bottom-right 7 cells k<=5 (95M), B'-feed 6 cells (0,-3) (-1,-3) (2,-3) (3,-3)
+(2,-2) (0,-2) k<=5 (29M); h4 top-left and top-right 5 cells k<=2. Split: pockets3 = keep-mode
+over all wiring cells, c77 = wider palettes on the bottom-right, e78k = fast `ideal-rs --vary`.
 s27-trbl51 top-left A part: no 5-block solid filling without pistons (k<=5, 32 states, --gaps).
 
 ## t7b's bottom, what it must do (ideal-rs windows on the 14 bottom wiring cells erased)
