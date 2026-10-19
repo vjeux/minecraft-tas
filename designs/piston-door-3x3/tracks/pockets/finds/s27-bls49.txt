@@ -1,6 +1,6 @@
 # 49 blocks, 64b (8x8x1), SCULK, slime-free, FULL seamless, rotation-safe, open 39 / close 45: shrink's s27-tlp50 (solid 50) with its
 # bottom-left re-wired by door cosearch pockets (k=5 x 24 states incl. pistons + sculk, --gaps): a plain sculk sensor (-3,-1)
-# replaces the observer (-3,-1) + the dust dot (-3,0)
+# and a dropper (-3,-2) facing up replace the observer (-3,-1), the lamp (-3,-2) and the dust dot (-3,0)
 name: s27-bls49
 port door: 0 0 0
 port lever: -4 1 0
