@@ -1,0 +1,23 @@
+# archived 2026-10-19T17:30Z from /tmp/clk-in7/clk-rt--fade--sweep--uloop-p170.txt by mctas clock archive
+# CLOCK: clk-rt-uloop-p170-22b period 170 gt, on 12/170, edges 1, warmup 6, family comparator+redstone_torch+redstone_wire, 22 blocks, 6x2x2, robust
+# Comparator FADING ring (clk-rt): two dust (one level lost per lap) -> top row [comparator,
+# comparator, comparator] -> block F -> dust beside F (a wall torch on F lights when the ring is
+# empty and refills it through a dust beside it) -> bottom row [comparator, comparator, comparator]
+# -> back; the compare-mode comparators keep a signal strength, each dust-to-dust step loses one
+# level per lap, and the torch refills the ring at 0
+name: clk-rt-uloop-p170-22b
+uloop: D-c,c,c-c,c,c-F
+port output: 5 1 -1
+origin: 0 0 -1
+palette:
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:stone
+  c minecraft:comparator[facing=west,mode=compare,powered=false]
+  r minecraft:redstone_wire
+layer 0:
+  SSSS
+  SSSSSS
+layer 1:
+  rcccSR
+  rCCCrr
