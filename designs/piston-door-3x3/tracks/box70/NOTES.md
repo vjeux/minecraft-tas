@@ -45,7 +45,29 @@ instead of left (= families' 7x8-031): x = -2..4, rows -2..5 (7x8 before wiring)
 * Repeaters, comparators and dust need a sturdy block below: nothing of that kind on the box's
   bottom row (first wiring attempt wip/w0.txt lost its whole row -3 delay line that way).
 
+## 7x8 (56): satwire on pistmodel's exact 3-signal plans (explore/pistmodel fullmech/7x8)
+
+`door satwire <fm-7x8-NNN-groups.ideal> --forbid-ring --palette block,dust,rep,obs,torch,note,bulb,
+cmp,lamp,trapdoor,dropper,obsidian,glass --dmax 12 --skip 12` (the mechanism's own 7x8 box, lever
+anywhere around it). Every run is UNSAT in 12-40 s, and satwire names the core:
+
+| entry | as planned (1-tick group pulses) | group pulses widened to 2 gt (still `door ideal` WORKS) |
+|---|---|---|
+| fm-7x8-000 | UNSAT, core close (-1,3) | UNSAT, core close (-1,3) + close (1,4) |
+| fm-7x8-004 | UNSAT, core close (-2,1) (the undriven ML puller gets power) | - |
+| fm-7x8-012 | UNSAT, core close (-1,3) | UNSAT, core close (1,4) + close (-1,3) |
+| fm-7x8-016 | UNSAT, core close (-2,0) | UNSAT, core open (2,-2) + open (1,-1) |
+| fm-7x8-020 | UNSAT, core close (-1,-1) | - |
+| fm-7x8-024 | UNSAT, core close (2,-1) | - |
+| fm-7x8-028 | UNSAT, core open (1,4) | - |
+
+Reading: the 1-tick pulses of the plans are not producible by in-plane wiring (single-piston cores);
+with 2 gt pulses the top-elevator entries (000, 012) hit the same wall as m7u: P_TL and P_M must
+fire together on the close edge and their only feeds share (0,4) (a powered conductor there also
+quasi-powers P_TL); the bottom-elevator entry 016 hits it on BR's puller and the raised P_M.
+
 ## Log
+
 * 21:44Z m7 ideal schedule works (P2 retraction must wait for P_M#2 to finish: gap 6, not 4).
 * 21:46Z, 22:00Z `door mech-wire` on m7 / the top half alone: no routing (0 of 66 lever spots reach
   every receiver alone).
@@ -54,12 +76,12 @@ instead of left (= families' 7x8-031): x = -2..4, rows -2..5 (7x8 before wiring)
 
 ## satwire (SAT wiring synthesis, explore/satwire) on m7
 
-Tool changes (this branch): satwire now reads ideal inputs placed at z = +-1 (the usual `door ideal`
-placement; it used to see only in-plane redstone blocks, so most pistons were recorded unpowered),
-and takes `--set` / `--sweep name=lo..hi[:step]` over the schedule's variables (stops at the first
-judged design). Timing matters: the solver only shifts the whole schedule, so every relative offset
-must be one a wiring can produce (observer = 2 gt, repeater window 8 gt, P_M's pulse at (1,3) must
-start exactly 2 gt after P2's power, like an observer watching P2's repeater).
+Tool changes (this branch, superseded by main's satwire which has both): satwire reads ideal inputs
+placed at z = +-1 (the usual `door ideal` placement; it used to see only in-plane redstone blocks, so
+most pistons were recorded unpowered), and `--set` / `--sweep name=lo..hi[:step]` over the schedule's
+variables. Before main's retiming (`--dmax/--skip` stalls and skips), timing mattered: the solver only
+shifted the whole schedule, so every relative offset had to be one a wiring can produce (observer =
+2 gt, repeater window 8 gt, P_M's pulse at (1,3) exactly 2 gt after P2's power).
 
 | schedule | box | result |
 |---|---|---|
