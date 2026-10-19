@@ -199,7 +199,7 @@ n = 0..9: P = 23 gt (1.15 s) .. 95 gt (4.75 s); judged in the game: n = 0, 1, 2,
 
 **clk-misc-cart-loop** ([base design](archive/clk-misc-cart-loop-n0.txt)) · P = 1.3 s + 0.25 s·n · 25 + 4n blocks · detector_rail+minecart
 
-<table><tr><td align="center" valign="top"><a href="archive/clk-misc-cart-loop-n0.txt"><img src="img/clk-misc-cart-loop-n0.jpg" width="420" alt="clk-misc-cart-loop n = 0"></a><br><b>n = 0</b>: 26 gt (1.3 s) · 25 blocks</td><td align="center" valign="top">(picture pending)<br><b>n = 1</b>: 31 gt (1.55 s) · 29 blocks</td></tr></table>
+<table><tr><td align="center" valign="top"><a href="archive/clk-misc-cart-loop-n0.txt"><img src="img/clk-misc-cart-loop-n0.jpg" width="420" alt="clk-misc-cart-loop n = 0"></a><br><b>n = 0</b>: 26 gt (1.3 s) · 25 blocks</td><td align="center" valign="top"><img src="img/clk-misc-cart-loop-n0.n1.jpg" width="420" alt="clk-misc-cart-loop n = 1"><br><b>n = 1</b>: 31 gt (1.55 s) · 29 blocks</td></tr></table>
 
 Extend: lengthen both long sides by one powered rail (on a redstone block).<br>
 n = 0..20: P = 26 gt (1.3 s) .. 126 gt (6.3 s); judged in the game: n = 0, 1, 2, 10, 20.
