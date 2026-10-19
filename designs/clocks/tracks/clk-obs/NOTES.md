@@ -92,6 +92,24 @@ P12 4979 / 3724 (most P4/P6 structures are the observer pair with different star
   the NEXT tick (+1 gt). The 6-block P5 runs a 10 gt loop carrying two pulses 5 gt apart (the odd
   offset is made during the warmup).
 
+### Extendable families (`mctas clock obs family list`, cards in `extend/`)
+
+| family | P (gt) | blocks | extension rule |
+|---|---|---|---|
+| obs-ring | 8 + 4n | 4 + 2n | insert 2 observers: one more column of the 2-wide ring |
+| note-ring | 10 + 4n | 6 + 2n | same (a note block after a straight observer: a cell, no delay) |
+| trap-ring | 10 + 4n | 6 + 2n | same (an iron trapdoor relay) |
+| bulb-ring | 20 + 8n | 6 + 2n | same (a copper bulb relay: the pulse goes round twice per bulb cycle) |
+| odd-a | 11 + 4n | 8 + 2n | raise the observer tower by one (one observer per column) |
+| odd-b | 13 + 4n | 10 + 2n | same (slime variant of the odd piston stage) |
+| divider | 12 x 2^n | 3 + 3n | add a comparator (on a stone floor) + bulb behind the last bulb |
+
+`mctas clock obs family <name> --n N --out FILE` builds any instance, `--check K` confirms n =
+0..K in redsim (all exact up to n = 40, the divider up to n = 12), `--card-max-n K` writes the
+family card (`extend` headers), `members <paths>` lists archived instances (any layout) and
+`prune --members FILE` removes them (design, every TSV row, picture) unless one is also the
+smallest clock of its period outside the family.
+
 ### Every period P >= 4 (constructions, `mctas clock obs every --min 8 --max 200`)
 
 Every P from 4 up is reachable by block-update clocks: the census gives P4 (4 blocks), P5 (6),

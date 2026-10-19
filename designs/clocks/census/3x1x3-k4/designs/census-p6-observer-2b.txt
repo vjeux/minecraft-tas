@@ -1,0 +1,10 @@
+name: census-p6-observer-2b
+census: box 3x1x3 k<=4 (0,0,0=observer[facing=south,powered=false];0,0,1=observer[facing=north,powered=false])
+port start: 0 0 0 last
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=north,powered=false]
+  o minecraft:observer[facing=south,powered=false]
+layer 0:
+  o
+  O

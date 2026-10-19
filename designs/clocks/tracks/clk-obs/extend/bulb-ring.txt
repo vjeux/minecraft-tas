@@ -1,0 +1,21 @@
+name: clk-obs-bulb-ring
+# Extendable family bulb-ring (n = 0): P = 20 + 8n gt, 6 + 2n blocks. a copper bulb after a straight observer toggles on each pulse and the next observer fires on each toggle, so one pulse makes the round twice before the bulb is back: P = 2 x 2 gt x (observers). Extension: insert 2 observers: one more column in the 2-wide ring. Generator: mctas clock obs family bulb-ring --n N --out FILE.
+extend family: clk-obs-bulb-ring
+extend period: 20 + 8n
+extend blocks: 6 + 2n
+extend rule: insert 2 observers: one more column in the 2-wide ring
+extend n: 0..22
+extend base: 0
+extend generator: mctas clock obs family bulb-ring --n {n} --out {out}
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:observer[facing=east,powered=false]
+layer 0:
+  ABC
+  EED

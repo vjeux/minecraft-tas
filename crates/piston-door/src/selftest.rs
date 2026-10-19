@@ -431,6 +431,26 @@ fn checks() -> Vec<Check> {
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("CLOCK:")) { Err("accepted a non-clock".into()) } else { Ok("rejected".into()) }),
     });
+    v.push(Check {
+        name: "clock:verify-entities".into(),
+        what: "`clock verify` with design entities: the observer pair beside a minecart on a rail is a robust clock (the cart summoned, turned and still there at the end); with the cart in the air (it falls away) it is rejected",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?clock verify designs/clocks/selftest/observer-pair-cart.txt --positions 1 --no-sim --workers 4"),
+            args("?clock verify designs/clocks/selftest/observer-pair-falling-cart.txt --positions 1 --no-rotations --no-sim --workers 1"),
+        ],
+        timeout: 600,
+        pred: Box::new(|o| {
+            if !o[0].lines().any(|l| l.starts_with("CLOCK: entity-test-decor period 6 gt") && l.ends_with("robust")) {
+                return Err(format!("the cart design is not a robust P6 clock: {}", o[0].lines().next().unwrap_or("")));
+            }
+            if o[1].lines().any(|l| l.starts_with("CLOCK:")) || !o[1].contains("entities at the end") {
+                return Err(format!("the falling cart was not rejected for its entity: {}", o[1].lines().next().unwrap_or("")));
+            }
+            Ok("cart kept: robust P6; cart lost: rejected".into())
+        }),
+    });
     v
 }
 

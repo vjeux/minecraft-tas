@@ -153,6 +153,41 @@ pub fn ring_lock(d: i32, zc: i32, reversed: bool, items: &[Vec<Stack>]) -> Optio
     Some(des)
 }
 
+/// A hopper ring 2 x d (d >= 1; d = 1 is the pair) with the pair-lock wiring on its north side: the
+/// comparator reads ring hopper (0, 0) from the north (on stone) and powers stone S north of it; the
+/// dust beside S (on stone) feeds a repeater of `delay` (1..=4; 0 = a stone instead) that points
+/// into ring hopper (1, 0) and locks it. `items[i]` = ring cell i (loop order).
+pub fn lock_ring(d: i32, delay: u8, items: &[Vec<Stack>]) -> Option<Design> {
+    let cells = loop_cells(2, d);
+    if cells.is_empty() || delay > 4 {
+        return None;
+    }
+    let mut des = Design { name: format!("lockring-2x{d}-r{delay}"), ..Default::default() };
+    let n = cells.len();
+    for (i, c) in cells.iter().enumerate() {
+        let next = cells[(i + 1) % n];
+        des.blocks.insert([c.0, 1, c.1], format!("minecraft:hopper[enabled=true,facing={}]", facing(*c, next)));
+        if let Some(st) = items.get(i)
+            && !st.is_empty()
+        {
+            des.block_entities.insert([c.0, 1, c.1], items_snbt(st));
+        }
+    }
+    des.blocks.insert([0, 1, -1], "minecraft:comparator[facing=south,mode=compare,powered=false]".into());
+    des.blocks.insert([0, 0, -1], "minecraft:stone".into());
+    des.blocks.insert([0, 1, -2], "minecraft:stone".into());
+    des.blocks.insert([1, 1, -2], "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
+    des.blocks.insert([1, 0, -2], "minecraft:stone".into());
+    if delay == 0 {
+        des.blocks.insert([1, 1, -1], "minecraft:stone".into());
+    } else {
+        des.blocks.insert([1, 1, -1], format!("minecraft:repeater[delay={delay},facing=north,locked=false,powered=false]"));
+        des.blocks.insert([1, 0, -1], "minecraft:stone".into());
+    }
+    des.ports.insert("output".into(), [0, 1, -1]);
+    Some(des)
+}
+
 /// Judge a design in redsim: (visible period, whole-state period, on ticks, rising edges) or why
 /// not.
 pub fn measure(d: &Design, max_ticks: u32) -> Result<(u32, u32, u32, u32), String> {

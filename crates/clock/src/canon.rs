@@ -215,6 +215,12 @@ pub fn design_type_key(d: &crate::Design) -> String {
                     let nbt = d.block_entities.get(&(if mirror { [-p[0], p[1], p[2]] } else { p })).cloned().unwrap_or_default();
                     (crate::rotate_pos(p, t), format!("{st}{nbt}"))
                 })
+                // design entities (minecarts...) by their cell, turned like the blocks
+                .chain(d.entities.iter().map(|e| {
+                    let cell = [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32];
+                    let cell = if mirror { [-cell[0], cell[1], cell[2]] } else { cell };
+                    (crate::rotate_pos(cell, t), format!("entity {}", e.kind))
+                }))
                 .collect();
             let e = encode(&cells);
             if best.as_ref().is_none_or(|b| e < *b) {
