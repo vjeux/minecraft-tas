@@ -48,6 +48,9 @@ pub fn cell_state(c: &Cell<bool>, lever: &str) -> String {
         GLASS => "minecraft:glass".into(),
         NOTE => format!("minecraft:note_block[instrument=harp,note=0,powered={}]", c.on),
         LAMP => format!("minecraft:redstone_lamp[lit={}]", c.on),
+        BULB => format!("minecraft:waxed_copper_bulb[lit={},powered={}]", c.on, c.ext),
+        COMP => format!("minecraft:comparator[facing={f},mode=compare,powered={}]", c.on),
+        DROP => format!("minecraft:dropper[facing=south,triggered={}]", c.on),
         RB => "minecraft:redstone_block".into(),
         DUST => format!("minecraft:redstone_wire[east=side,north=side,power={lvl},south=side,west=side]"),
         REP => format!("minecraft:repeater[delay={},facing={f},locked=false,powered={}]", c.dl.iter().position(|&b| b).unwrap_or(0) + 1, c.on),
@@ -73,6 +76,23 @@ pub fn cell_of_state(s: &str) -> Option<Cell<bool>> {
         "glass" => konst_cell(&a, GLASS),
         "note_block" => konst_cell(&a, NOTE),
         "redstone_lamp" => konst_cell(&a, LAMP),
+        "waxed_copper_bulb" => {
+            let mut c = konst_cell(&a, BULB);
+            c.on = prop(s, "lit") == Some("true");
+            c.ext = prop(s, "powered") == Some("true");
+            return Some(c);
+        }
+        "comparator" => {
+            if prop(s, "mode") == Some("subtract") {
+                return None;
+            }
+            konst_cell(&a, COMP)
+        }
+        "dropper" => {
+            let mut c = konst_cell(&a, DROP);
+            c.on = prop(s, "triggered") == Some("true");
+            return Some(c);
+        }
         "redstone_block" => konst_cell(&a, RB),
         "redstone_wire" => {
             let mut c = konst_cell(&a, DUST);
@@ -110,7 +130,7 @@ pub fn cell_of_state(s: &str) -> Option<Cell<bool>> {
             c.f[f] = true;
         }
     }
-    if c.k[REP] || c.k[OBSV] || c.k[TORCH] || c.k[WTORCH] || c.k[NOTE] || c.k[LAMP] {
+    if c.k[REP] || c.k[OBSV] || c.k[TORCH] || c.k[WTORCH] || c.k[NOTE] || c.k[LAMP] || c.k[COMP] {
         c.on = on;
     }
     Some(c)
@@ -119,7 +139,7 @@ pub fn cell_of_state(s: &str) -> Option<Cell<bool>> {
 /// Note-block instrument a block state gives the note block above it (`harp` for others).
 pub fn instrument_below(s: &str) -> &'static str {
     match short(s) {
-        "stone" | "smooth_stone" | "cobblestone" | "obsidian" | "observer" => "basedrum",
+        "stone" | "smooth_stone" | "cobblestone" | "obsidian" | "observer" | "dropper" => "basedrum",
         "glass" => "hat",
         "note_block" => "bass",
         _ => "harp",
@@ -172,6 +192,10 @@ pub fn read_world(w: &World, g: &Geo) -> Result<Vec<Cell<bool>>, String> {
             } else if mc.k[LAMP] {
                 c.mk[MC_LAMP] = true;
                 c.mon = mc.on;
+            } else if mc.k[BULB] {
+                c.mk[MC_BULB] = true;
+                c.mon = mc.on;
+                c.mst = mc.ext;
             } else if mc.k[RB] {
                 c.mk[MC_RB] = true;
             } else if mc.k[OBSV] {
@@ -197,6 +221,12 @@ pub fn read_world(w: &World, g: &Geo) -> Result<Vec<Cell<bool>>, String> {
         };
         if c.k[LEVER] {
             c.on = false;
+        }
+        if c.k[COMP] {
+            let o = w.comparator_out.get(&p).copied().unwrap_or(0) as usize;
+            for j in 0..o.min(15) {
+                c.lvl[j] = true;
+            }
         }
         v.push(std::mem::replace(&mut c, konst_cell(&Conc::default(), AIR)));
     }
@@ -261,7 +291,7 @@ pub fn diff_cells(g: &Geo, a: &[Cell<bool>], b: &[Cell<bool>]) -> Vec<String> {
         }
         let k = ka;
         let mut fields = Vec::new();
-        if matches!(k, REP | OBSV | WTORCH | PISTON | HEAD | MOVING) && p.f != q.f {
+        if matches!(k, REP | OBSV | WTORCH | PISTON | HEAD | MOVING | COMP) && p.f != q.f {
             fields.push("facing");
         }
         if matches!(k, PISTON | HEAD | MOVING) && p.st != q.st {
@@ -270,8 +300,17 @@ pub fn diff_cells(g: &Geo, a: &[Cell<bool>], b: &[Cell<bool>]) -> Vec<String> {
         if k == PISTON && p.ext != q.ext {
             fields.push("extended");
         }
-        if matches!(k, REP | OBSV | TORCH | WTORCH | NOTE | LAMP) && p.on != q.on {
+        if matches!(k, REP | OBSV | TORCH | WTORCH | NOTE | LAMP | COMP | DROP) && p.on != q.on {
             fields.push("powered");
+        }
+        if k == BULB && (p.on != q.on || p.ext != q.ext) {
+            fields.push("bulb lit/powered");
+        }
+        if k == COMP && p.lvl != q.lvl {
+            fields.push("comparator output");
+        }
+        if k == MOVING && p.mk[MC_BULB] && (p.mon != q.mon || p.mst != q.mst) {
+            fields.push("moving bulb state");
         }
         if k == MOVING && (p.mk[MC_OBSV] || p.mk[MC_NOTE] || p.mk[MC_LAMP]) && p.mon != q.mon {
             fields.push("moving content power");
@@ -316,13 +355,13 @@ impl Rng {
 /// A random flat box and lever (cells as block states, lever candidate).
 pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) {
     let mut cells: Vec<String> = Vec::new();
-    let full = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp") || s.contains("extended=false");
+    let full = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp" | "waxed_copper_bulb" | "dropper") || s.contains("extended=false");
     for i in 0..(w * h) as usize {
         let f = dname(r.below(4) as usize);
         let fh = dname(r.below(2) as usize);
         let below_full = i >= w as usize && full(&cells[i - w as usize]);
         let left_full = i % (w as usize) > 0 && full(&cells[i - 1]);
-        let mut s = match r.below(22) {
+        let mut s = match r.below(27) {
             0..=4 => "minecraft:air".to_string(),
             5..=7 => "minecraft:stone".to_string(),
             8 => if r.below(2) == 0 { "minecraft:obsidian".to_string() } else { "minecraft:glass".to_string() },
@@ -335,17 +374,20 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
             17 => format!("minecraft:piston[extended=false,facing={f}]"),
             19 => "minecraft:note_block[instrument=harp,note=0,powered=false]".to_string(),
             20 => "minecraft:redstone_lamp[lit=false]".to_string(),
+            21 => format!("minecraft:waxed_copper_bulb[lit={},powered=false]", r.below(2) == 0),
+            22..=23 => format!("minecraft:comparator[facing={fh},mode=compare,powered=false]"),
+            25..=26 => "minecraft:dropper[facing=south,triggered=false]".to_string(),
             _ => format!("minecraft:sticky_piston[extended=false,facing={f}]"),
         };
-        let needs_below = matches!(short(&s), "redstone_wire" | "repeater" | "redstone_torch");
+        let needs_below = matches!(short(&s), "redstone_wire" | "repeater" | "redstone_torch" | "comparator");
         if (needs_below && !below_full) || (short(&s) == "redstone_wall_torch" && !left_full) {
             s = if r.below(2) == 0 { "minecraft:air".into() } else { "minecraft:stone".into() };
         }
         cells.push(s);
     }
     // lever: in-box air cell with a sturdy neighbor, or outside the box, or out of the plane
-    let geo0 = Geo { w, h, door: (0, 0), levers: vec![], rounds: 3 };
-    let sturdy = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp");
+    let geo0 = Geo { w, h, door: (0, 0), levers: vec![], rounds: 3, split: false };
+    let sturdy = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp" | "waxed_copper_bulb" | "dropper");
     let mut lev = None;
     for _ in 0..200 {
         let mode = r.below(3);
@@ -381,7 +423,7 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
         cells[0] = "minecraft:stone".into();
         LeverCand { pos: (0, 0), oop: true, sup: (0, 0) }
     });
-    let g = Geo { w, h, door: (0, 0), levers: vec![lev.clone()], rounds: 3 };
+    let g = Geo { w, h, door: (0, 0), levers: vec![lev.clone()], rounds: 3, split: false };
     fix_instruments(w, h, &mut cells);
     (g, cells, lev)
 }
@@ -398,12 +440,17 @@ pub struct Outcome {
 /// Settle the box in redsim, flip the lever on for `t` ticks and off for `t` ticks, comparing
 /// every tick with the model.
 pub fn run_case(g: &Geo, cells: &[String], lev: &LeverCand, t: usize) -> Outcome {
+    run_case_pol(g, cells, lev, t, false)
+}
+
+/// `run_case` with the lever polarity: `lr` = the lever is ON at rest (flips off, then on).
+pub fn run_case_pol(g: &Geo, cells: &[String], lev: &LeverCand, t: usize, lr: bool) -> Outcome {
     let mut out = Outcome { mismatch: None, flags: vec![], violations: vec![], skipped: None, moved: false };
     let mut w = World::new(BlockPos::new(-6, -6, -3), [g.w + 12, g.h + 12, 7]);
     let mut blocks = Vec::new();
     for (i, s) in cells.iter().enumerate() {
         let (x, y) = g.xy(i);
-        let st = if s == "LEVER" { lever_state(lev, false) } else { s.clone() };
+        let st = if s == "LEVER" { lever_state(lev, lr) } else { s.clone() };
         match Block::parse(&st) {
             Ok(b) => blocks.push((BlockPos::new(x, y, 0), b)),
             Err(e) => {
@@ -413,7 +460,7 @@ pub fn run_case(g: &Geo, cells: &[String], lev: &LeverCand, t: usize) -> Outcome
         }
     }
     if !cells.iter().any(|s| s == "LEVER") {
-        blocks.push((lever_pos3(lev), Block::parse(&lever_state(lev, false)).unwrap()));
+        blocks.push((lever_pos3(lev), Block::parse(&lever_state(lev, lr)).unwrap()));
     }
     w.place_like_judge(&blocks);
     w.run_until_idle(100);
@@ -442,15 +489,15 @@ pub fn run_case(g: &Geo, cells: &[String], lev: &LeverCand, t: usize) -> Outcome
     };
     let mut cx = Ctx { a: Conc::default(), g, lsel: vec![true], flags_on: true };
     // the model's own dust levels must agree at rest
-    let der = cx.derive(&s, false);
+    let der = cx.derive(&s, lr);
     for i in 0..g.n() {
-        if der.lvl[i] != s[i].lvl {
+        if !s[i].k[COMP] && der.lvl[i] != s[i].lvl {
             out.mismatch = Some((0, vec![format!("rest dust level at {:?}", g.xy(i))]));
             return out;
         }
     }
     let mut step = 0;
-    for lon in [true, false] {
+    for lon in [!lr, lr] {
         w.use_block(lp);
         s = cx.flip(&s, lon);
         step += 1;

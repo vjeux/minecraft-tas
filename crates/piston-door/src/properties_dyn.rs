@@ -18,7 +18,9 @@
 //! 4. **repeater**: the lever stays off; a repeater (delay 1) points into the lever's support
 //!    block, fed by a redstone block placed and removed behind it (outside the build and its swept
 //!    cells), so the input changes in the scheduled-tick phase instead of the player phase (the
-//!    idea of MC-172213). Open/close ticks are counted like the judge's, from the tick before the
+//!    idea of MC-172213). A door resting with its lever ON gets the lever turned off and the
+//!    repeater powered at rest (the redstone block there): the first input removes the block.
+//!    Open/close ticks are counted like the judge's, from the tick before the
 //!    repeater's output changes (the equivalent of a lever flip's tick 0).
 //! 5. **steps**: in each stable state, a footstep (GameEvent.STEP, no source entity) at every
 //!    walkable cell of the tunnel's floor row within 3 of the door; nothing may change for 40
@@ -61,8 +63,10 @@ pub enum Input {
     /// The judge's player right-click on the lever.
     Lever,
     /// A redstone block placed (on) / removed (off) at `source`, behind the repeater at
-    /// `repeater` that points into the lever's support block.
-    Repeater { source: Pos, repeater: Pos },
+    /// `repeater` that points into the lever's support block. `rest_on`: the design rests with its
+    /// lever ON (either polarity counts, vjeux 2026-10-19): the lever is left OFF, the repeater is
+    /// powered at rest (the redstone block already there), and the first input removes it.
+    Repeater { source: Pos, repeater: Pos, rest_on: bool },
 }
 
 #[derive(Clone, Debug)]
@@ -176,8 +180,8 @@ fn flip(w: &mut Worker, sb: u32, spec: &DoorSpec, input: Input, on: bool) -> Res
         Input::Lever => {
             w.use_block(sb, spec.lever)?;
         }
-        Input::Repeater { source, .. } => {
-            let s = if on { "minecraft:redstone_block" } else { "minecraft:air" };
+        Input::Repeater { source, rest_on, .. } => {
+            let s = if on != rest_on { "minecraft:redstone_block" } else { "minecraft:air" };
             w.set_blocks(sb, &[(source, s)], PlaceMode::Update)?;
         }
     }
@@ -189,8 +193,8 @@ fn flip(w: &mut Worker, sb: u32, spec: &DoorSpec, input: Input, on: bool) -> Res
 fn input_frame(frames: &[Region], input: Input, on: bool) -> u32 {
     match input {
         Input::Lever => 0,
-        Input::Repeater { repeater, .. } => {
-            let want = if on { "powered=true" } else { "powered=false" };
+        Input::Repeater { repeater, rest_on, .. } => {
+            let want = if on != rest_on { "powered=true" } else { "powered=false" };
             frames.iter().position(|f| f.get(repeater).is_some_and(|s| s.contains(want))).map(|i| i as u32).unwrap_or(0)
         }
     }
@@ -307,7 +311,17 @@ pub fn env_run(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, env: &Env, 
     let mut volatile: HashSet<Pos> = HashSet::new();
     let mut res = RunResult::default();
     let mut closed_snap = rest.clone();
-    for cycle in 0..opts.cycles {
+    // Periodic rest, like the judge (vjeux 2026-10-19: internal state doesn't matter as long as the
+    // door works repeatedly): the build may close into another internal state as long as some
+    // closed state repeats an earlier one within cycles + MAX_PERIOD_EXTRA; the surroundings
+    // (`env`: hallway, shell, repeater rig) must be back exactly after every close.
+    let env_cells: HashSet<Pos> = env.blocks.iter().map(|(p, _)| *p).collect();
+    let mut seen_closed: Vec<Region> = vec![rest.clone()];
+    let mut periodic = false;
+    for cycle in 0..opts.cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= opts.cycles && periodic {
+            break;
+        }
         disturb(w, sb, spec, opts, (wlo, whi), &closed_snap, &mut volatile, "closed").with_context(|| format!("cycle {cycle}"))?;
         flip(w, sb, spec, opts.input, true)?;
         let open = w.step_record(sb, MAX_TICKS, true, wlo, whi)?;
@@ -341,9 +355,21 @@ pub fn env_run(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, env: &Env, 
                 .collect();
             bail!("cycle {cycle}: door not restored: {}", bad.join("; "));
         }
-        let diffs = region_diffs(&last, &rest, &volatile, 6);
-        if !diffs.is_empty() {
-            bail!("cycle {cycle}: not back to its rest state: {}", diffs.join("; "));
+        let env_diffs: Vec<String> = rest
+            .iter()
+            .filter(|(p, _)| env_cells.contains(p) && !volatile.contains(p))
+            .filter(|(p, s)| last.get(*p) != Some(*s))
+            .take(6)
+            .map(|(p, s)| format!("{p:?} {} -> {}", short(s), short(last.get(p).unwrap_or("?"))))
+            .collect();
+        if !env_diffs.is_empty() {
+            bail!("cycle {cycle}: the surroundings are not back: {}", env_diffs.join("; "));
+        }
+        let same = |a: &Region| a.iter().all(|(p, s)| volatile.contains(&p) || last.get(p) == Some(s));
+        if seen_closed.iter().any(same) {
+            periodic = true;
+        } else {
+            seen_closed.push(last.clone());
         }
         entity_check(w, sb, d, "while closing").with_context(|| format!("cycle {cycle}"))?;
         let t0 = input_frame(&close.frames, opts.input, false);
@@ -351,6 +377,10 @@ pub fn env_run(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, env: &Env, 
             .unwrap_or(close.ticked);
         res.close_ticks.push(ct.saturating_sub(t0));
         closed_snap = last;
+    }
+    if !periodic {
+        let diffs = region_diffs(&closed_snap, &rest, &volatile, 6);
+        bail!("not back to its rest state, nor to any closed state it had before, within {} cycles: {}", opts.cycles + crate::MAX_PERIOD_EXTRA, diffs.join("; "));
     }
     res.snow_cells = volatile.len();
     Ok(res)
@@ -568,8 +598,17 @@ fn repeater_site_tier(d: &Design, spec: &DoorSpec, swept: &HashSet<Pos>, loose: 
             }
             env.push((below, "minecraft:smooth_stone".to_string()));
         }
-        env.push((p, format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", dir_name(dir))));
-        out.push((Env { blocks: env }, Input::Repeater { source: q, repeater: p }, s));
+        // A lever-ON-at-rest door (either polarity counts, vjeux 2026-10-19): the lever is left
+        // OFF and the repeater holds the support block powered at rest (its redstone block already
+        // placed); the first input removes the block (opens), the second puts it back.
+        let lever_state = d.blocks.get(&spec.lever).cloned().unwrap_or_default();
+        let rest_on = lever_state.contains("powered=true");
+        env.push((p, format!("minecraft:repeater[delay=1,facing={},locked=false,powered={rest_on}]", dir_name(dir))));
+        if rest_on {
+            env.push((q, "minecraft:redstone_block".to_string()));
+            env.push((spec.lever, lever_state.replace("powered=true", "powered=false")));
+        }
+        out.push((Env { blocks: env }, Input::Repeater { source: q, repeater: p, rest_on }, s));
     }
     out
 }

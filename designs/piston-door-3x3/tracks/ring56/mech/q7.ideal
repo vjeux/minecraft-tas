@@ -1,0 +1,8 @@
+design designs/piston-door-3x3/tracks/ring56/mech/q7.txt
+let s = 42
+open 0 use 6 1 0
+close 0 use 6 1 0
+open s set -2 1 1 minecraft:redstone_block
+open s+2 clear -2 1 1
+close s set -2 1 1 minecraft:redstone_block
+close s+2 clear -2 1 1

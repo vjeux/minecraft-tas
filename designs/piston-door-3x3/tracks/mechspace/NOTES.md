@@ -83,6 +83,25 @@ from rest (pre-images kept inside R); per hole mask a restricted re-search.
   a NEW layout (TL up by SD(0,4), TM up then right by the corner piston SW(3,3), static (-1,2)).
   Running: the same in the full model (bodies may cross the opening; slow), two = 1 (P <= 12).
 
+### c78: the single-U 7x8 (04:58Z)
+c79 (the community 7x9, reproduced on main) with BR leaving RIGHT instead of down gives a 7x8 whose
+bottom row holds exactly one piston, SU(1,-2): SE(-2,0..2) SW(4,0..2) SE(-1,-1) SU(1,-2) SD(1,4)
+SD(1,5) + static (0,3) (2,-1) (2,3), 10 pistons, open 11 / close 8, frame 12/12; C is pushed down
+through TM by the elevator and taken by SU(1,-2), BM is pulled sideways into the floor corner by
+the corner piston (-1,-1). c78-001..006 (level-held / extended variants) all replay (sym + oc)
+in the simulator: c78.tsv, mech/c78-*. `door connect`: not wirable in 7x8 by connect's model
+(c79's own mechanism is wirable by connect only in its real 7x9 placement).
+
+### Piston-set enumeration (`door mechspace enum`, 05:15Z)
+Pistons in the cells around the door (side columns, rows above / below, the 4 diagonal corners),
+facing the door or along the frame (head cell or the next one in the frame or the door), sticky
+(normal with MECHSPACE_FREE_NORMAL), retracted or extended at rest. Tractable structure: the 6
+side pullers with at most `--two` missing and one extension state per side; `--bottom-su`; at most
+`--carry` free pistons. Pruning: every door cell on a piston line, >= 9 frame cells receivable.
+Acceptance: c79's piston set is generated in its 7x9 box (53.2M sets after pruning with free <= 5)
+and solved. 7x8 single-U (offset 2,2, side <= 1 missing, free <= 4): 12.26M sets after pruning,
+decided in the wirable sub-model on two boxes (MECHSPACE_SHARD), fewest pistons first.
+
 ## Log
 * 01:03Z selftest 0 mismatches; 01:19Z pretest 0 missing; 01:27Z refit; 01:48Z corrected list.
 * 03:20Z sub-model; 03:05Z c2e; 03:21Z t1a; 03:50Z full frame; 04:25Z single-U sweep.

@@ -1,0 +1,46 @@
+name: cosearch-partial-2-43of79
+port door: 0 0 0
+port lever: -3 -3 0
+origin: -3 0 0
+palette:
+  A minecraft:comparator[facing=west,mode=subtract,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  F minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  G minecraft:glass
+  H minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:target[power=0]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  c minecraft:comparator[facing=west,mode=compare,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=west]
+  r minecraft:redstone_torch[lit=true]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  LT.IB.WT
+layer -2:
+  .rRDIIDG
+layer -1:
+  .RHoKOpK
+layer 0:
+  .s.KKKPc
+layer 1:
+  .sOKKKTJ
+layer 2:
+  .sOKKKAB
+layer 3:
+  .PsTD.RP
+layer 4:
+  .RGOSSEB
+layer 5:
+  .FCKSAOR

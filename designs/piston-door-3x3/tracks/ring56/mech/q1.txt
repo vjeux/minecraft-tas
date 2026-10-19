@@ -1,0 +1,43 @@
+name: ring56-q1
+port door: 0 0 0
+port lever: -2 6 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:oak_log[axis=y]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:smooth_stone_slab[type=bottom,waterlogged=false]
+layer -3:
+  ..OHsGH
+layer -2:
+  FBOHB.o
+layer -1:
+  AFS..ID
+layer 0:
+  G.JJJ.I
+layer 1:
+  G.JJJ.I
+layer 2:
+  JSJJJSA
+layer 3:
+  RJ....N
+layer 4:
+  JEFFFJC
+layer 5:
+  A.rrrrA
+layer 6:
+  L

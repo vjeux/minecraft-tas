@@ -1307,6 +1307,9 @@ struct Gen {
     out: HashSet<Vec<Pc>>,
     memo: HashSet<(usize, Vec<Pc>)>,
     order: Vec<(i8, i8)>,
+    /// `door audit`: only pieces of this set may be added (membership of a known door's
+    /// mechanism in the generator's space, without enumerating the whole space).
+    allow: Option<HashSet<Pc>>,
 }
 
 fn n_pistons(v: &[Pc]) -> usize {
@@ -1321,6 +1324,9 @@ impl Gen {
     fn add(&self, v: &[Pc], p: Pc) -> Option<Vec<Pc>> {
         if v.contains(&p) {
             return Some(v.to_vec());
+        }
+        if self.allow.as_ref().is_some_and(|a| !a.contains(&p)) {
+            return None;
         }
         for (x, y) in p.cells() {
             if !self.bx.has(x, y) || in_t(x, y) || self.occupied(v, x, y) {
@@ -1620,6 +1626,25 @@ pub fn generate_v(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, ca
 }
 
 fn generate_one(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize, vmid: &[(i8, i8)]) -> Vec<Vec<Pc>> {
+    generate_one_in(bx, pmax, lifts, pushes, two, carry, vmid, None)
+}
+
+/// [`generate_v`] restricted to pieces of `allow` (`door audit`: is this known mechanism one of
+/// the generator's candidates?). Same rules, same order; only the pieces it may add are limited.
+#[allow(clippy::too_many_arguments)]
+pub fn generate_within(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize, vmid: &[Vec<(i8, i8)>], allow: &HashSet<Pc>) -> Vec<Vec<Pc>> {
+    let variants: Vec<Vec<(i8, i8)>> = if vmid.is_empty() { vec![Vec::new()] } else { vmid.to_vec() };
+    let mut all: HashSet<Vec<Pc>> = HashSet::new();
+    for vm in &variants {
+        all.extend(generate_one_in(bx, pmax, lifts, pushes, two, carry, vm, Some(allow.clone())));
+    }
+    let mut v: Vec<Vec<Pc>> = all.into_iter().collect();
+    v.sort();
+    v
+}
+
+#[allow(clippy::too_many_arguments)]
+fn generate_one_in(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize, vmid: &[(i8, i8)], allow: Option<HashSet<Pc>>) -> Vec<Vec<Pc>> {
     let mut all: HashSet<Vec<Pc>> = HashSet::new();
     for d in F {
         let e = (1 + d.0, 1 + d.1);
@@ -1627,7 +1652,7 @@ fn generate_one(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carr
             continue; // a forced-vertical block is not the center's line edge
         }
         let order: Vec<(i8, i8)> = [(1, 0), (1, 2), (0, 1), (2, 1), (0, 0), (2, 0), (0, 2), (2, 2)].into_iter().filter(|&b| b != e).collect();
-        let mut g = Gen { bx, pmax, lifts, pushes, carry, vmid: vmid.to_vec(), out: HashSet::new(), memo: HashSet::new(), order };
+        let mut g = Gen { bx, pmax, lifts, pushes, carry, vmid: vmid.to_vec(), out: HashSet::new(), memo: HashSet::new(), order, allow: allow.clone() };
         for c in g.core(d) {
             if n_pistons(&c) > pmax {
                 continue;
@@ -1639,6 +1664,139 @@ fn generate_one(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carr
     let mut v: Vec<Vec<Pc>> = all.into_iter().collect();
     v.sort();
     v
+}
+
+/// `door audit`: why `target` (a known door's mechanism pistons) is not one of the generator's
+/// candidates in `bx`: per center exit direction, the first core move with no provider among the
+/// target's pieces, else the perimeter blocks with no exit option (1-move pullers, 2-move paths),
+/// the 2-move budget, and the target's pieces no option ever uses (the generator adds providers
+/// only). An over-approximation per block (each block judged with every target piece present).
+/// `prefer`: judge only this center exit direction (the door's real one).
+pub fn explain_within(bx: Bx, pmax: usize, two: usize, carry: usize, allow: &HashSet<Pc>, prefer: Option<(i8, i8)>) -> Vec<String> {
+    let mut target: Vec<Pc> = allow.iter().copied().collect();
+    target.sort();
+    let name = |b: (i8, i8)| -> String {
+        let col = ["L", "M", "R"][b.0.clamp(0, 2) as usize];
+        let row = ["B", "M", "T"][b.1.clamp(0, 2) as usize];
+        if b == (1, 1) { "C".into() } else { format!("{row}{col}") }
+    };
+    let mut out = Vec::new();
+    if n_pistons(&target) > pmax {
+        out.push(format!("{} pistons > P {pmax}", n_pistons(&target)));
+    }
+    let mut best: Option<(usize, String)> = None;
+    for d in F {
+        if prefer.is_some_and(|p| p != d) {
+            continue;
+        }
+        let e = (1 + d.0, 1 + d.1);
+        let order: Vec<(i8, i8)> = [(1, 0), (1, 2), (0, 1), (2, 1), (0, 0), (2, 0), (0, 2), (2, 2)].into_iter().filter(|&b| b != e).collect();
+        let g = Gen { bx, pmax: 99, lifts: true, pushes: true, carry, vmid: Vec::new(), out: HashSet::new(), memo: HashSet::new(), order: order.clone(), allow: Some(allow.clone()) };
+        let dn = FNAME[fdir(d) as usize];
+        let cpark = (1 + 2 * d.0, 1 + 2 * d.1);
+        let mut why: Vec<String> = Vec::new();
+        // the core: the edge on the center's line in 2 moves, the center straight in 2
+        let edge_ok = g.paths(e).iter().filter(|p| p.len() == 2).filter(|p| p.iter().fold(e, |c, dd| (c.0 + dd.0, c.1 + dd.1)) != cpark).any(|p| !g.provide_path(&target, e, p).is_empty());
+        if !edge_ok {
+            why.push(format!("{} (the edge on the center's line) has no 2-move path with providers among the pieces", name(e)));
+        }
+        let c1 = g.providers(&target, (1, 1), d);
+        if c1.is_empty() {
+            why.push(format!("the center's move 1 (1,1)->({},{}) has no provider among the pieces (a puller at ({},{}), a pusher at ({},{}), or a piston RETRACTED at rest lifted 1 cell along its axis)", 1 + d.0, 1 + d.1, 1 + 2 * d.0, 1 + 2 * d.1, 1 - 2 * d.0, 1 - 2 * d.1));
+        } else if g.providers(&target, (1 + d.0, 1 + d.1), d).is_empty() {
+            why.push(format!("the center's move 2 ({},{})->({},{}) has no provider among the pieces", 1 + d.0, 1 + d.1, cpark.0, cpark.1));
+        }
+        // ORDER: the real core starts empty; a piston is reused (lifted / carried) only after an
+        // earlier provider placed it, so one that acts only away from its rest cell is never placed
+        if why.is_empty() && g.core(d).is_empty() {
+            let mut needs = Vec::new();
+            for mv in [((1, 1), d), ((1 + d.0, 1 + d.1), d)] {
+                if !g.providers(&[], mv.0, mv.1).is_empty() {
+                    continue;
+                }
+                for q in target.iter().filter(|q| matches!(q.k, K::Piston { .. })) {
+                    if !g.providers(&[*q], mv.0, mv.1).is_empty() {
+                        needs.push(format!("{} (for the center's move from ({},{}))", q.code(), mv.0.0, mv.0.1));
+                    }
+                }
+            }
+            let edge_real = g.paths(e).iter().filter(|p| p.len() == 2).filter(|p| p.iter().fold(e, |c, dd| (c.0 + dd.0, c.1 + dd.1)) != cpark).any(|p| !g.provide_path(&[], e, p).is_empty());
+            if !needs.is_empty() {
+                why.push(format!(
+                    "the core needs a piston that only ever acts away from its rest cell, lifted or carried there: {}; the generator reuses only pistons an earlier provider placed (Gen::providers iterates the pieces already chosen), so it is never placed",
+                    needs.join(", ")
+                ));
+            } else if !edge_real {
+                why.push(format!("{} (the edge on the center's line) has no 2-move path whose providers the generator places in order", name(e)));
+            } else {
+                why.push("the core (edge + center) has options per move but no combination the generator builds in order".into());
+            }
+        }
+        // the other blocks
+        let mut twos = 0;
+        for &b in &order {
+            let one = F.iter().any(|&dd| {
+                let c = (b.0 + dd.0, b.1 + dd.1);
+                let a = (b.0 + 2 * dd.0, b.1 + 2 * dd.1);
+                !in_t(c.0, c.1) && [false, true].iter().any(|&ext| (!ext || EXT_PULLERS.load(Ordering::Relaxed)) && target.contains(&Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(dd)), ext } }))
+            });
+            if one {
+                continue;
+            }
+            let ext_one = F.iter().any(|&dd| {
+                let a = (b.0 + 2 * dd.0, b.1 + 2 * dd.1);
+                target.contains(&Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(dd)), ext: true } })
+            });
+            let two_ok = g.paths(b).iter().filter(|p| p.len() == 2).any(|p| !g.provide_path(&target, b, p).is_empty());
+            if two_ok {
+                twos += 1;
+            } else if ext_one {
+                why.push(format!("{} exits only by a puller EXTENDED at rest (1-move exits: retracted pullers unless --ext-pullers)", name(b)));
+            } else {
+                why.push(format!("{} has no exit among the pieces (no retracted sticky puller 2 ahead, no 2-move path with providers)", name(b)));
+            }
+        }
+        if twos > two {
+            why.push(format!("{twos} perimeter blocks need a 2-move path (budget --two {two})"));
+        }
+        // pieces no option uses
+        if why.is_empty() {
+            let mut used: HashSet<Pc> = HashSet::new();
+            let cores = g.core(d);
+            for c in &cores {
+                used.extend(c.iter().copied());
+            }
+            let base = cores.first().cloned().unwrap_or_default();
+            for &b in &order {
+                for dd in F {
+                    let a = (b.0 + 2 * dd.0, b.1 + 2 * dd.1);
+                    for ext in [false, true] {
+                        let p = Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(dd)), ext } };
+                        if target.contains(&p) {
+                            used.insert(p);
+                        }
+                    }
+                }
+                for p in g.paths(b).iter().filter(|p| p.len() == 2) {
+                    for w in g.provide_path(&base, b, p) {
+                        used.extend(w);
+                    }
+                }
+            }
+            let unused: Vec<String> = target.iter().filter(|p| !used.contains(p)).map(|p| p.code()).collect();
+            if !unused.is_empty() {
+                why.push(format!("pieces no exit option uses: {} (the generator adds providers only)", unused.join(" ")));
+            }
+        }
+        let text = format!("center exits {dn}: {}", if why.is_empty() { "every block has an option (the exact union is still not produced)".to_string() } else { why.join("; ") });
+        if best.as_ref().is_none_or(|(n, _)| why.len() < *n) {
+            best = Some((why.len(), text));
+        }
+    }
+    if let Some((_, t)) = best {
+        out.push(t);
+    }
+    out
 }
 
 /// Canonical form under the left-right mirror (x -> 2 - x).
