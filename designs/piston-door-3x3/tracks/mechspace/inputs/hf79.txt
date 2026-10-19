@@ -1,0 +1,2 @@
+hf-c79m -2 -3 SE(-2,0) SE(-2,1) SE(-2,2) SW+(4,1) SW+(4,2) SE(-1,-1) SU(1,-2) SU(2,-2) SD(1,4) SD(1,5) stone(0,3) stone(2,3) stone(3,0)
+hf-c79m-l -2 -3 SE+(-2,0) SE+(-2,1) SE+(-2,2) SW(4,1) SW(4,2) SE(-1,-1) SU(1,-2) SU(2,-2) SD(1,4) SD(1,5) stone(0,3) stone(2,3) stone(3,0)
