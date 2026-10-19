@@ -34,8 +34,16 @@ pub const GLASS: usize = 13;
 pub const NOTE: usize = 14;
 /// redstone lamp: a conductor, lit at once when powered, unlit 4 gt after losing power
 pub const LAMP: usize = 15;
-pub const NK: usize = 16;
-pub const KNAMES: [&str; NK] = ["air", "stone", "obsidian", "rblock", "dust", "repeater", "observer", "torch", "wtorch", "piston", "head", "moving", "lever", "glass", "note", "lamp"];
+/// waxed copper bulb: a conductor; `ext` = powered, `on` = lit (toggled at once on each rising
+/// edge of its input, read by comparators as 15 / 0)
+pub const BULB: usize = 16;
+/// comparator (compare mode; in the plane its sides face out of it, so its output is its rear
+/// input): `f` = facing (input side, like repeaters), `on` = powered, `lvl` = the block
+/// entity's output signal, `dl[0]` = its pending tick has HIGH priority (front is a diode not
+/// facing back)
+pub const COMP: usize = 17;
+pub const NK: usize = 18;
+pub const KNAMES: [&str; NK] = ["air", "stone", "obsidian", "rblock", "dust", "repeater", "observer", "torch", "wtorch", "piston", "head", "moving", "lever", "glass", "note", "lamp", "bulb", "comparator"];
 
 /// Moving-block contents.
 pub const MC_STONE: usize = 0;
@@ -46,7 +54,9 @@ pub const MC_HEAD: usize = 4;
 pub const MC_GLASS: usize = 5;
 pub const MC_NOTE: usize = 6;
 pub const MC_LAMP: usize = 7;
-pub const NMK: usize = 8;
+/// a moving bulb: `mon` = lit, `mst` = powered
+pub const MC_BULB: usize = 8;
+pub const NMK: usize = 9;
 
 /// One cell at one checkpoint. `f` is the facing of repeaters (input side), observers (watched
 /// side), wall torches (away from the wall), pistons, heads, and the BE direction of moving
@@ -155,6 +165,8 @@ pub struct Der<B> {
     pub strong: Vec<B>,
     pub weak: Vec<B>,
     pub lvl: Vec<[B; 15]>,
+    /// strong power level of a conductor (unary), comparators' levels included
+    pub slvl: Vec<[B; 15]>,
 }
 
 pub struct Ctx<'g, A: Alg> {
@@ -208,6 +220,21 @@ impl<'g, A: Alg> Ctx<'g, A> {
         }
     }
 
+    /// A race between two outcomes: the literal "take the other outcome" (nondeterministic
+    /// mode: a free choice where the race occurs; otherwise the race is flagged and false).
+    pub fn relax_choice(&mut self, race: A::B, why: &'static str) -> A::B {
+        if self.a.val(race) == Some(false) {
+            return self.fl();
+        }
+        if self.a.nondet() {
+            let v = self.a.fresh();
+            self.and(&[race, v])
+        } else {
+            self.a.flag(race, why);
+            self.fl()
+        }
+    }
+
     /// In-plane levers standing at `pos`, powered.
     pub fn levers_at(&mut self, pos: (i32, i32), lon: bool) -> A::B {
         if !lon {
@@ -238,6 +265,14 @@ impl<'g, A: Alg> Ctx<'g, A> {
     /// The component signal of the block at cell `n` toward its neighbor that lies in direction
     /// opp(d) from it (the receiver looks in direction d), conductors and dust excluded.
     fn comp_sig(&mut self, s: &[Cell<A::B>], n: usize, d: usize) -> A::B {
+        let a = self.comp_sig15(s, n, d);
+        let c = s[n];
+        let cm = self.and(&[c.k[COMP], c.f[d], c.on]);
+        self.or(&[a, cm])
+    }
+
+    /// `comp_sig` restricted to the sources of level 15 (comparators excluded).
+    pub fn comp_sig15(&mut self, s: &[Cell<A::B>], n: usize, d: usize) -> A::B {
         let c = s[n];
         let nf = self.not(c.f[d]);
         let mut t = vec![c.k[RB]];
@@ -248,6 +283,57 @@ impl<'g, A: Alg> Ctx<'g, A> {
         }
         t.push(self.and(&[c.k[WTORCH], c.on, nf]));
         self.or(&t)
+    }
+
+    /// Strong (direct) power of every conductor, unary level: 15 from repeaters, observers,
+    /// torches below and attached levers; a comparator's own level from a comparator facing in.
+    /// Returns (any strong source, cond, level).
+    fn strong_lvl(&mut self, s: &[Cell<A::B>], lon: bool) -> (Vec<A::B>, Vec<A::B>, Vec<[A::B; 15]>) {
+        let n = self.g.n();
+        // copper bulbs are full sturdy blocks but not redstone conductors
+        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[NOTE], s[i].k[LAMP]])).collect();
+        let mut ds = Vec::with_capacity(n);
+        let mut sl = Vec::with_capacity(n);
+        for i in 0..n {
+            let mut t = Vec::new();
+            let mut cm: Vec<(A::B, [A::B; 15])> = Vec::new();
+            for d in 0..4 {
+                if let Some(nb) = self.g.nb(i, d) {
+                    let c = s[nb];
+                    t.push(self.and(&[c.k[REP], c.f[d], c.on]));
+                    t.push(self.and(&[c.k[OBSV], c.f[d], c.on]));
+                    if d == D {
+                        t.push(self.and(&[c.k[TORCH], c.on]));
+                        t.push(self.and(&[c.k[WTORCH], c.on]));
+                    }
+                    let x = self.and(&[c.k[COMP], c.f[d], c.on]);
+                    if self.a.val(x) != Some(false) {
+                        cm.push((x, c.lvl));
+                    }
+                }
+            }
+            t.push(self.levers_sup(i, lon));
+            let s15 = self.or(&t);
+            let mut any = vec![s15];
+            any.extend(cm.iter().map(|(x, _)| *x));
+            let a = self.or(&any);
+            ds.push(a);
+            let mut l = [s15; 15];
+            if !cm.is_empty() {
+                for j in 0..15 {
+                    let mut v = vec![s15];
+                    for (x, cl) in &cm {
+                        v.push(self.and(&[*x, cl[j]]));
+                    }
+                    l[j] = self.or(&v);
+                }
+            }
+            for j in 0..15 {
+                l[j] = self.and(&[cond[i], l[j]]);
+            }
+            sl.push(l);
+        }
+        (ds, cond, sl)
     }
 
     /// Signal into the receiver at (x, y) from its neighbor in direction d (`Level.getSignal` >
@@ -269,29 +355,51 @@ impl<'g, A: Alg> Ctx<'g, A> {
         self.or(&t)
     }
 
+    /// Unary level of the source signal into the dust at i (no wire signals): levers,
+    /// components (15), comparators (their level), strongly powered conductors (their level).
+    fn dust_src(&mut self, s: &[Cell<A::B>], sl: &[[A::B; 15]], i: usize, lon: bool) -> [A::B; 15] {
+        let (x, y) = self.g.xy(i);
+        let mut b15 = Vec::new();
+        let mut lv: Vec<[A::B; 15]> = Vec::new();
+        for d in 0..4 {
+            let p = (x + DIRS[d].0, y + DIRS[d].1);
+            b15.push(self.levers_at(p, lon));
+            if let Some(n) = self.g.idx(p.0, p.1) {
+                b15.push(self.comp_sig15(s, n, d));
+                let c = s[n];
+                let cm = self.and(&[c.k[COMP], c.f[d], c.on]);
+                if self.a.val(cm) != Some(false) {
+                    let mut l = c.lvl;
+                    for j in 0..15 {
+                        l[j] = self.and(&[cm, l[j]]);
+                    }
+                    lv.push(l);
+                }
+                lv.push(sl[n]);
+            }
+        }
+        let a15 = self.or(&b15);
+        let mut out = [a15; 15];
+        for j in 0..15 {
+            let mut v = vec![a15];
+            for l in &lv {
+                v.push(l[j]);
+            }
+            let o = self.or(&v);
+            out[j] = self.and(&[s[i].k[DUST], o]);
+        }
+        out
+    }
+
     /// Signals of `s` with dust levels taken as given (`lvl`), no dust recomputation.
     pub fn derive_lvl(&mut self, s: &[Cell<A::B>], lon: bool, lvl: Vec<[A::B; 15]>) -> Der<A::B> {
         let n = self.g.n();
-        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[NOTE], s[i].k[LAMP]])).collect();
+        let (ds, cond, slvl) = self.strong_lvl(s, lon);
         let mut strong = Vec::with_capacity(n);
         let mut weak = Vec::with_capacity(n);
         for i in 0..n {
-            let mut t = Vec::new();
-            for d in 0..4 {
-                if let Some(nb) = self.g.nb(i, d) {
-                    let c = s[nb];
-                    t.push(self.and(&[c.k[REP], c.f[d], c.on]));
-                    t.push(self.and(&[c.k[OBSV], c.f[d], c.on]));
-                    if d == D {
-                        t.push(self.and(&[c.k[TORCH], c.on]));
-                        t.push(self.and(&[c.k[WTORCH], c.on]));
-                    }
-                }
-            }
-            t.push(self.levers_sup(i, lon));
-            let ds = self.or(&t);
-            strong.push(self.and(&[cond[i], ds]));
-            let mut w = vec![ds];
+            strong.push(self.and(&[cond[i], ds[i]]));
+            let mut w = vec![ds[i]];
             for d in [U, E, W] {
                 if let Some(nb) = self.g.nb(i, d) {
                     w.push(lvl[nb][0]);
@@ -300,45 +408,23 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let any = self.or(&w);
             weak.push(self.and(&[cond[i], any]));
         }
-        Der { cond, strong, weak, lvl }
+        Der { cond, strong, weak, lvl, slvl }
     }
 
     pub fn derive(&mut self, s: &[Cell<A::B>], lon: bool) -> Der<A::B> {
         let n = self.g.n();
-        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[NOTE], s[i].k[LAMP]])).collect();
-        let mut ds = Vec::with_capacity(n);
-        for i in 0..n {
-            let mut t = Vec::new();
-            for d in 0..4 {
-                if let Some(nb) = self.g.nb(i, d) {
-                    let c = s[nb];
-                    t.push(self.and(&[c.k[REP], c.f[d], c.on]));
-                    t.push(self.and(&[c.k[OBSV], c.f[d], c.on]));
-                    if d == D {
-                        t.push(self.and(&[c.k[TORCH], c.on]));
-                        t.push(self.and(&[c.k[WTORCH], c.on]));
-                    }
-                }
-            }
-            t.push(self.levers_sup(i, lon));
-            ds.push(self.or(&t));
-        }
+        let (ds, cond, slvl) = self.strong_lvl(s, lon);
         let strong: Vec<A::B> = (0..n).map(|i| self.a.and(&[cond[i], ds[i]])).collect();
-        let mut der = Der { cond, strong, weak: vec![], lvl: vec![] };
+        let der = Der { cond, strong, weak: vec![], lvl: vec![], slvl };
         let mut src = Vec::with_capacity(n);
         for i in 0..n {
             if self.a.val(s[i].k[DUST]) == Some(false) {
-                src.push(self.fl());
+                src.push([self.fl(); 15]);
                 continue;
             }
-            let (x, y) = self.g.xy(i);
-            let mut t = Vec::new();
-            for d in 0..4 {
-                t.push(self.sig_at(s, &der, x, y, d, lon, true));
-            }
-            let any = self.or(&t);
-            src.push(self.and(&[s[i].k[DUST], any]));
+            src.push(self.dust_src(s, &der.slvl, i, lon));
         }
+        let mut der = der;
         let fl = self.fl();
         let mut lvl = vec![[fl; 15]; n];
         for kk in (1..=15usize).rev() {
@@ -347,10 +433,10 @@ impl<'g, A: Alg> Ctx<'g, A> {
                     continue;
                 }
                 if kk == 15 {
-                    lvl[i][14] = src[i];
+                    lvl[i][14] = src[i][14];
                     continue;
                 }
-                let mut t = vec![src[i]];
+                let mut t = vec![src[i][kk - 1]];
                 let above = self.g.nb(i, U);
                 let nca = match above {
                     Some(a) => self.not(der.cond[a]),
@@ -453,6 +539,81 @@ impl<'g, A: Alg> Ctx<'g, A> {
         self.or(&v)
     }
 
+    /// Comparator rear input at i, unary (`ComparatorBlock.getInputSignal`, compare mode, no
+    /// side input in the plane): a bulb behind gives its analog output (15 lit / 0), replacing
+    /// any power; dust its level; a source facing in 15; a comparator facing in its level; a
+    /// conductor its direct power (strong sources, comparators, dust pointing into it), and
+    /// when that is below 15 a bulb right behind the conductor replaces it.
+    pub fn crear(&mut self, s: &[Cell<A::B>], der: &Der<A::B>, i: usize, lon: bool) -> [A::B; 15] {
+        let fl = self.fl();
+        let mut out = [fl; 15];
+        if self.a.val(s[i].k[COMP]) == Some(false) {
+            return out;
+        }
+        let (x, y) = self.g.xy(i);
+        for f in [E, W] {
+            let sel = self.and(&[s[i].k[COMP], s[i].f[f]]);
+            if self.a.val(sel) == Some(false) {
+                continue;
+            }
+            let rp = (x + DIRS[f].0, y + DIRS[f].1);
+            let lev = self.levers_at(rp, lon);
+            let mut v = [lev; 15];
+            if let Some(r) = self.g.idx(rp.0, rp.1) {
+                let c = s[r];
+                let s15 = self.comp_sig15(s, r, f);
+                let a15 = self.or(&[lev, s15]);
+                let cm = self.and(&[c.k[COMP], c.f[f], c.on]);
+                let nb = self.not(c.k[BULB]);
+                let cnd = self.and(&[der.cond[r], nb]);
+                let dn: Vec<usize> = [U, E, W].iter().filter_map(|&d| self.g.nb(r, d)).collect();
+                for j in 0..15 {
+                    let mut t = vec![a15, der.lvl[r][j]];
+                    t.push(self.and(&[cm, c.lvl[j]]));
+                    let mut cl = vec![der.slvl[r][j]];
+                    for &q in &dn {
+                        cl.push(der.lvl[q][j]);
+                    }
+                    let clv = self.or(&cl);
+                    t.push(self.and(&[cnd, clv]));
+                    v[j] = self.or(&t);
+                }
+                let lit = self.and(&[c.k[BULB], c.on]);
+                for j in 0..15 {
+                    v[j] = self.ite(c.k[BULB], lit, v[j]);
+                }
+                if let Some(r2) = self.g.nb(r, f) {
+                    let n14 = self.not(v[14]);
+                    let behind = self.and(&[cnd, n14, s[r2].k[BULB]]);
+                    if self.a.val(behind) != Some(false) {
+                        for j in 0..15 {
+                            v[j] = self.ite(behind, s[r2].on, v[j]);
+                        }
+                    }
+                }
+            }
+            for j in 0..15 {
+                let x = self.and(&[sel, v[j]]);
+                out[j] = self.or(&[out[j], x]);
+            }
+        }
+        out
+    }
+
+    /// The comparator's tick would be HIGH priority (front block a diode not facing back).
+    pub fn cprio(&mut self, s: &[Cell<A::B>], i: usize) -> A::B {
+        let mut v = Vec::new();
+        for f in [E, W] {
+            if let Some(o) = self.g.nb(i, opp(f)) {
+                let dio = self.or(&[s[o].k[REP], s[o].k[COMP]]);
+                let back = s[o].f[opp(f)];
+                let nb = self.not(back);
+                v.push(self.and(&[s[i].f[f], dio, nb]));
+            }
+        }
+        self.or(&v)
+    }
+
     /// Note-block instrument class of the block at `i` (as the block below a note block):
     /// 0 harp, 1 basedrum (stone, obsidian, observer), 2 hat (glass), 3 bass (note block).
     pub fn instr(&mut self, s: &[Cell<A::B>], below: Option<usize>) -> [A::B; 3] {
@@ -468,10 +629,10 @@ impl<'g, A: Alg> Ctx<'g, A> {
     pub fn pushable(&mut self, c: &Cell<A::B>) -> A::B {
         let ne = self.not(c.ext);
         let p = self.and(&[c.k[PISTON], ne]);
-        self.or(&[c.k[STONE], c.k[RB], c.k[OBSV], c.k[GLASS], c.k[NOTE], c.k[LAMP], p])
+        self.or(&[c.k[STONE], c.k[RB], c.k[OBSV], c.k[GLASS], c.k[NOTE], c.k[LAMP], c.k[BULB], p])
     }
     pub fn popped(&mut self, c: &Cell<A::B>) -> A::B {
-        self.or(&[c.k[DUST], c.k[REP], c.k[TORCH], c.k[WTORCH], c.k[LEVER]])
+        self.or(&[c.k[DUST], c.k[REP], c.k[TORCH], c.k[WTORCH], c.k[LEVER], c.k[COMP]])
     }
     /// Full sturdy face toward `face` (as seen from the neighbor on that side).
     pub fn sturdy(&mut self, c: &Cell<A::B>, face: usize) -> A::B {
@@ -481,7 +642,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let eb = self.and(&[c.k[PISTON], c.ext, c.f[opp(face)]]);
         // head: its front plate face is full
         let hd = self.and(&[c.k[HEAD], c.f[face]]);
-        self.or(&[c.k[STONE], c.k[OBSI], c.k[RB], c.k[OBSV], c.k[GLASS], c.k[NOTE], c.k[LAMP], rp, eb, hd])
+        self.or(&[c.k[STONE], c.k[OBSI], c.k[RB], c.k[OBSV], c.k[GLASS], c.k[NOTE], c.k[LAMP], c.k[BULB], rp, eb, hd])
     }
 
     /// Same block state (what a shape update reports as a change).
@@ -499,7 +660,11 @@ impl<'g, A: Alg> Ctx<'g, A> {
                         eqs.push(self.eqv(a.lvl[j], b.lvl[j]));
                     }
                 }
-                REP | TORCH | WTORCH | NOTE | LAMP => eqs.push(self.eqv(a.on, b.on)),
+                REP | TORCH | WTORCH | NOTE | LAMP | COMP => eqs.push(self.eqv(a.on, b.on)),
+                BULB => {
+                    eqs.push(self.eqv(a.on, b.on));
+                    eqs.push(self.eqv(a.ext, b.ext));
+                }
                 OBSV => {
                     eqs.push(self.eqv(a.on, b.on));
                     for f in 0..4 {

@@ -44,6 +44,8 @@ pub fn parse_palette(s: &str) -> Result<Vec<usize>> {
             "glass" => GLASS,
             "note" => NOTE,
             "lamp" => LAMP,
+            "bulb" => BULB,
+            "comp" | "comparator" => COMP,
             "dust" => DUST,
             "rep" => REP,
             "obs" => OBSV,
@@ -51,7 +53,7 @@ pub fn parse_palette(s: &str) -> Result<Vec<usize>> {
             "wtorch" => WTORCH,
             "piston" => PISTON,
             "all" => {
-                v.extend([STONE, OBSI, RB, DUST, REP, OBSV, TORCH, WTORCH, PISTON, GLASS, NOTE, LAMP]);
+                v.extend([STONE, OBSI, RB, DUST, REP, OBSV, TORCH, WTORCH, PISTON, GLASS, NOTE, LAMP, BULB, COMP]);
                 continue;
             }
             _ => bail!("unknown palette entry {t}"),
@@ -120,11 +122,16 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
                 c.f[d] = sat.k(fc.f[d]);
             }
             c.st = sat.k(fc.st);
-            c.ext = sat.k(fc.ext);
+            c.ext = if fc.k[BULB] { sat.var() } else { sat.k(fc.ext) };
             for d in 0..4 {
                 c.dl[d] = sat.k(fc.dl[d]);
             }
-            c.on = if fc.k[REP] || fc.k[OBSV] || fc.k[TORCH] || fc.k[WTORCH] || fc.k[NOTE] || fc.k[LAMP] { sat.var() } else { f };
+            c.on = if fc.k[REP] || fc.k[OBSV] || fc.k[TORCH] || fc.k[WTORCH] || fc.k[NOTE] || fc.k[LAMP] || fc.k[COMP] { sat.var() } else if fc.k[BULB] { sat.k(fc.on) } else { f };
+            if fc.k[COMP] {
+                for j in 0..15 {
+                    c.lvl[j] = sat.var();
+                }
+            }
             rest.push(c);
             continue;
         }
@@ -149,8 +156,8 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             }
         }
         sat.exactly_one(&ks);
-        let needf = sat.or(&[c.k[REP], c.k[OBSV], c.k[WTORCH], c.k[PISTON], c.k[HEAD]]);
-        let horiz = sat.or(&[c.k[REP], c.k[WTORCH]]);
+        let needf = sat.or(&[c.k[REP], c.k[OBSV], c.k[WTORCH], c.k[PISTON], c.k[HEAD], c.k[COMP]]);
+        let horiz = sat.or(&[c.k[REP], c.k[WTORCH], c.k[COMP]]);
         let fv: Vec<Lit> = (0..4).map(|_| sat.var()).collect();
         for d in 0..4 {
             c.f[d] = fv[d];
@@ -165,7 +172,8 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
         sat.add(&[!sv, stp]);
         c.st = sv;
         let ev = sat.var();
-        sat.add(&[!ev, c.k[PISTON]]);
+        let pb = sat.or(&[c.k[PISTON], c.k[BULB]]);
+        sat.add(&[!ev, pb]);
         c.ext = ev;
         let dv: Vec<Lit> = (0..4).map(|_| sat.var()).collect();
         for d in 0..4 {
@@ -175,9 +183,16 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
         sat.at_most_one(&dv);
         sat.add(&[!c.k[REP], dv[0], dv[1], dv[2], dv[3]]);
         let onv = sat.var();
-        let can_on = sat.or(&[c.k[REP], c.k[OBSV], c.k[TORCH], c.k[WTORCH], c.k[NOTE], c.k[LAMP]]);
+        let can_on = sat.or(&[c.k[REP], c.k[OBSV], c.k[TORCH], c.k[WTORCH], c.k[NOTE], c.k[LAMP], c.k[BULB], c.k[COMP]]);
         sat.add(&[!onv, can_on]);
         c.on = onv;
+        if o.palette.contains(&COMP) {
+            for j in 0..15 {
+                let v = sat.var();
+                sat.add(&[!v, c.k[COMP]]);
+                c.lvl[j] = v;
+            }
+        }
         rest.push(c);
     }
     let mut cx = Ctx { a: sat, g, lsel: lsel.clone(), flags_on: o.flags != FlagMode::Ignore };
@@ -224,9 +239,31 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
     // stability of the rest state (lever off) and its dust levels
     let der = cx.derive(&rest, false);
     for i in 0..n {
-        rest[i].lvl = der.lvl[i];
+        let keep = rest[i].k[COMP];
+        for j in 0..15 {
+            let cl = cx.and(&[keep, rest[i].lvl[j]]);
+            rest[i].lvl[j] = cx.or(&[der.lvl[i][j], cl]);
+        }
     }
     for i in 0..n {
+        // a bulb's `powered` follows its input; a comparator's output is its rear input
+        if cx.a.val(rest[i].k[BULB]) != Some(false) {
+            let ni = cx.nin(&rest, &der, i, false);
+            let m = cx.xor(rest[i].ext, ni);
+            let bad = cx.and(&[rest[i].k[BULB], m]);
+            cx.a.add(&[!bad]);
+        }
+        if cx.a.val(rest[i].k[COMP]) != Some(false) {
+            let r = cx.crear(&rest, &der, i, false);
+            for j in 0..15 {
+                let m = cx.xor(rest[i].lvl[j], r[j]);
+                let bad = cx.and(&[rest[i].k[COMP], m]);
+                cx.a.add(&[!bad]);
+            }
+            let m = cx.xor(rest[i].on, r[0]);
+            let bad = cx.and(&[rest[i].k[COMP], m]);
+            cx.a.add(&[!bad]);
+        }
         let rin = cx.rin(&rest, &der, i, false);
         let m = cx.xor(rest[i].on, rin);
         let bad = cx.and(&[rest[i].k[REP], m]);
@@ -322,7 +359,7 @@ fn check_static(cx: &mut Ctx<Sat>, s: &[Cell<Lit>], is_sup: &[Lit], rest: &[Cell
     let g = cx.g;
     for i in 0..g.n() {
         let below = g.nb(i, D);
-        let need = cx.or(&[s[i].k[DUST], s[i].k[REP], s[i].k[TORCH]]);
+        let need = cx.or(&[s[i].k[DUST], s[i].k[REP], s[i].k[TORCH], s[i].k[COMP]]);
         let ok = match below {
             Some(b) => {
                 let c = s[b];
@@ -343,9 +380,9 @@ fn check_static(cx: &mut Ctx<Sat>, s: &[Cell<Lit>], is_sup: &[Lit], rest: &[Cell
             cx.a.add(&[!wt, ok]);
         }
         // a lever support keeps its kind and stays sturdy
-        let st_ok = cx.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[RB], s[i].k[OBSV], s[i].k[GLASS], s[i].k[NOTE], s[i].k[LAMP]]);
+        let st_ok = cx.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[RB], s[i].k[OBSV], s[i].k[GLASS], s[i].k[NOTE], s[i].k[LAMP], s[i].k[BULB]]);
         cx.a.add(&[!is_sup[i], st_ok]);
-        for k in [STONE, OBSI, RB, OBSV, GLASS, NOTE, LAMP] {
+        for k in [STONE, OBSI, RB, OBSV, GLASS, NOTE, LAMP, BULB] {
             let e = cx.eqv(s[i].k[k], rest[i].k[k]);
             cx.a.add(&[!is_sup[i], e]);
         }
@@ -448,10 +485,8 @@ pub fn approx_block(s: &str) -> Option<String> {
     let name = s.split('[').next().unwrap_or(s);
     let prop = |k: &str| s.split(&format!("{k}=")).nth(1).map(|v| v.split([',', ']']).next().unwrap_or("").to_string());
     match name {
-        "minecraft:comparator" => Some(format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", prop("facing").unwrap_or("east".into()))),
+        "minecraft:comparator" => Some(s.replace("mode=subtract", "mode=compare")),
         "minecraft:crying_obsidian" => Some("minecraft:obsidian".into()),
-        // a copper bulb is a full conductor (its lit toggle only shows to comparators/observers)
-        "minecraft:waxed_copper_bulb" => Some("minecraft:stone".into()),
         // an iron trapdoor does not conduct (its open toggle only shows to observers)
         "minecraft:iron_trapdoor" => Some("minecraft:glass".into()),
         "minecraft:redstone_wire" => Some(format!("minecraft:redstone_wire[east=side,north=none,power={},south=none,west=side]", prop("power").unwrap_or("0".into()))),

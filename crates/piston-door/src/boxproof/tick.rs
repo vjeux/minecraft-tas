@@ -113,10 +113,13 @@ impl<'g, A: Alg> Ctx<'g, A> {
         c.k[HEAD] = m.mk[MC_HEAD];
         c.k[NOTE] = m.mk[MC_NOTE];
         c.k[LAMP] = m.mk[MC_LAMP];
+        c.k[BULB] = m.mk[MC_BULB];
         c.f = m.mf;
         c.st = m.mst;
-        let has_on = self.or(&[m.mk[MC_OBSV], m.mk[MC_NOTE], m.mk[MC_LAMP]]);
+        let has_on = self.or(&[m.mk[MC_OBSV], m.mk[MC_NOTE], m.mk[MC_LAMP], m.mk[MC_BULB]]);
         c.on = self.and(&[has_on, m.mon]);
+        // a bulb keeps its powered state in `mst` while moving
+        c.ext = self.and(&[m.mk[MC_BULB], m.mst]);
         c
     }
 
@@ -133,9 +136,10 @@ impl<'g, A: Alg> Ctx<'g, A> {
         c.mk[MC_PISTON] = src.k[PISTON];
         c.mk[MC_NOTE] = src.k[NOTE];
         c.mk[MC_LAMP] = src.k[LAMP];
+        c.mk[MC_BULB] = src.k[BULB];
         c.mf = src.f;
-        c.mst = src.st;
-        let has_on = self.or(&[src.k[OBSV], src.k[NOTE], src.k[LAMP]]);
+        c.mst = self.ite(src.k[BULB], src.ext, src.st);
+        let has_on = self.or(&[src.k[OBSV], src.k[NOTE], src.k[LAMP], src.k[BULB]]);
         c.mon = self.and(&[has_on, src.on]);
         c.mext = ext;
         c.msrc = self.fl();
@@ -168,7 +172,12 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let der = self.derive(post, lon);
         let c1 = self.a.cost();
         for i in 0..n {
-            post[i].lvl = der.lvl[i];
+            // dust levels from the fixpoint; a comparator keeps its block entity's output
+            let keep = post[i].k[COMP];
+            for j in 0..15 {
+                let cl = self.and(&[keep, post[i].lvl[j]]);
+                post[i].lvl[j] = self.or(&[der.lvl[i][j], cl]);
+            }
         }
         let mut chg = Vec::with_capacity(n);
         let mut dlc = Vec::with_capacity(n);
@@ -202,10 +211,38 @@ impl<'g, A: Alg> Ctx<'g, A> {
         for i in 0..n {
             let isn = post[i].k[NOTE];
             let isl = post[i].k[LAMP];
-            if self.a.val(isn) == Some(false) && self.a.val(isl) == Some(false) {
+            let isb = post[i].k[BULB];
+            if self.a.val(isn) == Some(false) && self.a.val(isl) == Some(false) && self.a.val(isb) == Some(false) {
                 continue;
             }
             let inp = self.nin(post, &der, i, lon);
+            // a bulb: `powered` follows its input at once, a rising edge toggles `lit`; the
+            // setBlock updates its 6 neighbors and (analog output) comparators behind one
+            // conductor east and west
+            if self.a.val(isb) != Some(false) {
+                let bd = self.xor(inp, post[i].ext);
+                let bflip = self.and(&[nc[i], isb, bd]);
+                if self.a.val(bflip) != Some(false) {
+                    let rise = self.and(&[bflip, inp]);
+                    post[i].ext = self.ite(bflip, inp, post[i].ext);
+                    post[i].on = self.xor(post[i].on, rise);
+                    chg[i] = self.or(&[chg[i], bflip]);
+                    for j in self.g.nbs(i) {
+                        self.add_nc(&mut nc, j, bflip);
+                    }
+                    for d in [E, W] {
+                        if let Some(n1) = self.g.nb(i, d) {
+                            if let Some(n2) = self.g.nb(n1, d) {
+                                let x = self.and(&[bflip, der.cond[n1], post[n2].k[COMP]]);
+                                self.add_nc(&mut nc, n2, x);
+                            }
+                        }
+                    }
+                }
+            }
+            if self.a.val(isn) == Some(false) && self.a.val(isl) == Some(false) {
+                continue;
+            }
             let diff = self.xor(inp, post[i].on);
             let flip = self.and(&[nc[i], isn, diff]);
             let noff = self.not(post[i].on);
@@ -310,6 +347,36 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let c = self.and(&[nc[i], ist, tm, free]);
             let c = self.relax(tr, c, "torch checked before dust settled");
             self.sched(bk, i, 2, c);
+        }
+        // comparators: a tick 2 gt later when the output or `powered` would change
+        for i in 0..n {
+            let isc = post[i].k[COMP];
+            if self.a.val(isc) == Some(false) {
+                continue;
+            }
+            let busy = self.or(&[bk.pend[i], bk.schd[i], wtt[i]]);
+            let free = self.not(busy);
+            let need = |cx: &mut Self, rear: &[A::B; 15], c: &Cell<A::B>| -> A::B {
+                let mut dv: Vec<A::B> = (0..15).map(|j| cx.xor(rear[j], c.lvl[j])).collect();
+                dv.push(cx.xor(rear[0], c.on));
+                cx.or(&dv)
+            };
+            let rear = self.crear(post, &der, i, lon);
+            let cell = post[i];
+            let nd_f = need(self, &rear, &cell);
+            let c = self.and(&[nc[i], isc, nd_f, free]);
+            let mut cr = self.fl();
+            if let Some(early) = &early {
+                let re = self.crear(post, early, i, lon);
+                let nd_e = need(self, &re, &cell);
+                let ch = self.xor(nd_f, nd_e);
+                let nd = self.not(ncd[i]);
+                cr = self.and(&[nc0[i], nd, isc, ch, free]);
+            }
+            let c = self.relax(cr, c, "comparator checked before dust settled");
+            self.sched(bk, i, 2, c);
+            let pr = self.cprio(post, i);
+            post[i].dl[0] = self.ite(c, pr, post[i].dl[0]);
         }
         let c4 = self.a.cost();
         // pistons
@@ -432,6 +499,65 @@ impl<'g, A: Alg> Ctx<'g, A> {
         post
     }
 
+    /// Comparator ticks due in this phase (`sel`: HIGH-priority ticks in the repeater phase,
+    /// NORMAL ones in the observer/torch phase): output := rear input, powered := output > 0
+    /// (setBlock flags 2: no neighbor updates of its own), then always `updateNeighborsInFront`
+    /// (compare mode). A rear input changing within the phase is a race (either outcome).
+    #[allow(clippy::too_many_arguments)]
+    fn comp_ticks(&mut self, s: &[Cell<A::B>], der: &Der<A::B>, post: &mut [Cell<A::B>], due: &[A::B], high: bool, lon: bool, nc0: &mut [A::B], dchg: &mut [A::B]) -> Vec<A::B> {
+        let n = self.g.n();
+        let fl = self.fl();
+        let mut cdue = vec![fl; n];
+        let mut r0: Vec<[A::B; 15]> = vec![[fl; 15]; n];
+        for i in 0..n {
+            let pr = if high { s[i].dl[0] } else { self.not(s[i].dl[0]) };
+            let d = self.and(&[due[i], s[i].k[COMP], pr]);
+            if self.a.val(d) == Some(false) {
+                continue;
+            }
+            cdue[i] = d;
+            let r = self.crear(s, der, i, lon);
+            r0[i] = r;
+            for j in 0..15 {
+                post[i].lvl[j] = self.ite(d, r[j], s[i].lvl[j]);
+            }
+            post[i].on = self.ite(d, r[0], s[i].on);
+            let nd = self.not(d);
+            post[i].dl[0] = self.and(&[nd, s[i].dl[0]]);
+        }
+        if self.flags_on && cdue.iter().any(|&d| self.a.val(d) != Some(false)) {
+            let dt = self.derive(post, lon);
+            for i in 0..n {
+                if self.a.val(cdue[i]) == Some(false) {
+                    continue;
+                }
+                let r1 = self.crear(post, &dt, i, lon);
+                let dv: Vec<A::B> = (0..15).map(|j| self.xor(r1[j], r0[i][j])).collect();
+                let ch = self.or(&dv);
+                let race = self.and(&[cdue[i], ch]);
+                let alt = self.relax_choice(race, "comparator input changes within its phase");
+                if self.a.val(alt) != Some(false) {
+                    for j in 0..15 {
+                        post[i].lvl[j] = self.ite(alt, r1[j], post[i].lvl[j]);
+                    }
+                    post[i].on = self.ite(alt, r1[0], post[i].on);
+                }
+            }
+        }
+        for i in 0..n {
+            let d = cdue[i];
+            if self.a.val(d) == Some(false) {
+                continue;
+            }
+            let tg = self.xor(post[i].on, s[i].on);
+            let tg = self.and(&[d, tg]);
+            dchg[i] = self.or(&[dchg[i], tg]);
+            let f = s[i].f;
+            self.add_front(nc0, i, &f, d);
+        }
+        cdue
+    }
+
     pub fn tick(&mut self, s: &[Cell<A::B>], lon: bool) -> Vec<Cell<A::B>> {
         let n = self.g.n();
         let fl = self.fl();
@@ -489,8 +615,9 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let f = s[i].f;
             self.add_front(&mut nc0, i, &f, tg);
         }
+        self.comp_ticks(s, &der0, &mut post, &due, true, lon, &mut nc0, &mut dchg_r);
         let wtt: Vec<A::B> = (0..n).map(|i| {
-            let t = self.a.or(&[s[i].k[REP], s[i].k[TORCH], s[i].k[WTORCH]]);
+            let t = self.a.or(&[s[i].k[REP], s[i].k[TORCH], s[i].k[WTORCH], s[i].k[COMP]]);
             self.a.and(&[due[i], t])
         }).collect();
         let der1 = self.settle(s, &mut post, lon, &nc0, &dchg_r, &[], &wtt, None, Phase::Rep, &mut bk);
@@ -570,6 +697,10 @@ impl<'g, A: Alg> Ctx<'g, A> {
             for j in self.g.diamond2(i) {
                 self.add_nc(&mut nc0, j, ttg);
             }
+        }
+        let cdue_b = self.comp_ticks(&s1, &der1, &mut post, &due, false, lon, &mut nc0, &mut dchg_n);
+        for i in 0..n {
+            tdue[i] = self.or(&[tdue[i], cdue_b[i]]);
         }
         let _der2 = self.settle(&s1, &mut post, lon, &nc0, &dchg_n, &[], &tdue, Some(&odue), Phase::Norm, &mut bk);
         // ---- phase 2: block events
