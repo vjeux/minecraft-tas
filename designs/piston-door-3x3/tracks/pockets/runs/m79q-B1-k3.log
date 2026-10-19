@@ -1,0 +1,26 @@
+assist designs/piston-door-3x3/tracks/pockets/plans/m79q-B1.ideal: 3 input cells off the plane ([(1, 5), (1, 4), (-2, 2)]), 6 / 4 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/m10top/m79q.txt: 43 blocks in the box, screen 77/79
+14 piston cells locked, 39 cells free
+seed screen 79/79 with 3 inputs assisted
+windows (5 groups, 0.0 s):
+  input (1,5) open  t9 pulse 2 gt: window [-1, +1]
+  input (1,4) open  t14 pulse 2 gt: window [-1, +24]
+  input (-2,2) open  t14 pulse 2 gt: window [-14, +24]
+  input (-2,2) close t0 pulse 2 gt: window [+0, +24]
+  input (1,5) close t4 pulse 2 gt: window [-4, +24]
+12 pocket cells in 4 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 51 swept cells
+  pocket 0: 7 cells [(-2, 4), (-2, 5), (-1, 3), (-1, 4), (-1, 5), (0, 4), (0, 5)]
+  pocket 1: 1 cells [(2, -2)]
+  pocket 2: 3 cells [(2, 5), (3, 5), (4, 5)]
+  pocket 3: 1 cells [(3, -1)]
+pocket 0: 7 cells, 670 subset/lever items, 2014870 fillings to screen
+pocket 0: 2164633 screened, 1192488 keep the door working, 8.5 s; driven input sets: {(-2,2)o14 (-2,2)c0} x1 (best 3 blocks), {(-2,2)o14} x1 (best 3 blocks), {(1,4)o14} x1 (best 3 blocks)
+pocket 1: 1 cells, 1 subset/lever items, 55 fillings to screen
+pocket 1: 55 screened, 48 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 3 cells, 60 subset/lever items, 172590 fillings to screen
+pocket 2: 222851 screened, 106953 keep the door working, 2.5 s; driven input sets: none
+pocket 3: 1 cells, 1 subset/lever items, 55 fillings to screen
+pocket 3: 55 screened, 51 keep the door working, 0.3 s; driven input sets: none
+plan groups no filling drives: (1,5)o9 (1,5)c4
+combination 1: true partial, 2 inputs still assisted [1,5 -2,2] (44 blocks)
+3 combinations verified, 0 finds, 12 s total

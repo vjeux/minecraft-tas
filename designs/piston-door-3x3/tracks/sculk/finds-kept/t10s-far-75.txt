@@ -1,0 +1,49 @@
+name: cosearch-partial-0-75of79
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=down,powered=false]
+  B minecraft:observer[facing=east,powered=false]
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:dropper[facing=down,triggered=false]
+  E minecraft:observer[facing=west,powered=false]
+  F minecraft:obsidian
+  G minecraft:glass
+  H minecraft:piston_head[facing=east,short=false,type=sticky]
+  I minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  K minecraft:sticky_piston[extended=false,facing=down]
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  M minecraft:sticky_piston[extended=false,facing=east]
+  N minecraft:sticky_piston[extended=false,facing=up]
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston[extended=false,facing=up]
+  Q minecraft:sticky_piston[extended=false,facing=west]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  T minecraft:sticky_piston[extended=true,facing=down]
+  U minecraft:sticky_piston[extended=true,facing=east]
+  V minecraft:stone
+  W minecraft:white_glazed_terracotta[facing=west]
+  d minecraft:dropper[facing=up,triggered=false]
+  o minecraft:oak_log[axis=y]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  s minecraft:smooth_stone
+layer -2:
+  .M.dNCEW
+layer -1:
+  .DEo.VAP
+layer 0:
+  .SsVVV.Q
+layer 1:
+  .UHVVVRQ
+layer 2:
+  LM.VVVoB
+layer 3:
+  .FM.KorO
+layer 4:
+  .KGAp.RS
+layer 5:
+  ...JT..I

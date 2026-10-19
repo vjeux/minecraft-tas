@@ -1,0 +1,47 @@
+# u7-m10 plan (lever-off-at-rest convention): levels cleared at open / restored at close.
+design designs/piston-door-3x3/tracks/sculk/seeds/m10i.txt
+let r = 0
+let ah0 = 2
+let ah = 4
+let tr = 8
+let k = 8
+let l0 = 8
+let l12 = 12
+let b = 10
+let u = 10
+let af = 12
+let cr = 0
+let ctr = 8
+let cb = 10
+let cl = 0
+let cu1 = 0
+let ck = 4
+let cu2 = 12
+open r clear 4 1 1
+open ah0 set 1 3 -1 minecraft:redstone_block
+open ah0+ah clear 1 3 -1
+open tr clear 2 4 1
+open k set -1 -1 -1 minecraft:redstone_block
+open k+2 clear -1 -1 -1
+open l0 set -2 0 -1 minecraft:redstone_block
+open l0+2 clear -2 0 -1
+open l12 set -2 2 -1 minecraft:redstone_block
+open l12+2 clear -2 2 -1
+open b clear 1 5 1
+open u set 1 -2 -1 minecraft:redstone_block
+open u+2 clear 1 -2 -1
+open af set 1 4 1 minecraft:redstone_block
+open af+2 clear 1 4 1
+close cr set 4 1 1 minecraft:redstone_block
+close ctr set 2 4 1 minecraft:redstone_block
+close cb set 1 5 1 minecraft:redstone_block
+close cl set -2 0 -1 minecraft:redstone_block
+close cl+2 clear -2 0 -1
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1
+close cu1 set 1 -2 -1 minecraft:redstone_block
+close cu1+2 clear 1 -2 -1
+close ck set -1 -1 -1 minecraft:redstone_block
+close ck+2 clear -1 -1 -1
+close cu2 set 1 -2 -1 minecraft:redstone_block
+close cu2+2 clear 1 -2 -1
