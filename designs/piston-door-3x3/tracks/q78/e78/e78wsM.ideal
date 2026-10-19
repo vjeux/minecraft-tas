@@ -1,0 +1,10 @@
+design designs/piston-door-3x3/tracks/q78/e78/e78wsM.txt
+# MIRRORED bottom of e78wsK: K' at (-1,-1) facing east (BM parks in F0); only K' ideal
+let k = 10
+let kl = 2
+open 0 use 1 5 0
+close 0 use 1 5 0
+open k set -1 -1 1 minecraft:redstone_block
+open k+kl clear -1 -1 1
+close k set -1 -1 1 minecraft:redstone_block
+close k+kl clear -1 -1 1
