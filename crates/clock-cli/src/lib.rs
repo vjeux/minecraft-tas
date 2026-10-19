@@ -113,6 +113,28 @@ pub enum ClockCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Pictures in the REAL client (one session for all): each clock in its own sandbox on a grass
+    /// floor at noon, stepped to the most active moment of a period after its warmup (or --tick),
+    /// a still camera framing its whole swept box; saved as <out-dir>/<design stem>.jpg (--width
+    /// px). --strip N: also N moments of one period tiled (<stem>.strip.jpg). The catalog shows
+    /// them. Uses an X display: run it on a box where you may (docs/clocks.md).
+    Shot {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = clock::shot::IMG_DIR)]
+        out_dir: PathBuf,
+        #[arg(long)]
+        tick: Option<u32>,
+        #[arg(long)]
+        strip: Option<u32>,
+        #[arg(long, default_value_t = 800)]
+        width: u32,
+        /// Wait after moving to a clock (ms).
+        #[arg(long, default_value_t = 5000)]
+        hold_ms: u64,
+        /// Take pictures that exist again.
+        #[arg(long)]
+        redo: bool,
+    },
     /// (COORDINATOR ONLY: the X displays are shared) The clock running in the real client, a
     /// still camera framing its swept box, >= 2 periods (and >= --min-secs of footage) after its
     /// warmup, with a corner label (period; family, blocks, box; duty, start; name) and an optional
@@ -239,6 +261,17 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             if failed > 0 {
                 std::process::exit(1);
+            }
+        }
+        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, redo } => {
+            let mut items = Vec::new();
+            for p in &designs {
+                let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                items.push((stem, Clock::load(p)?));
+            }
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, redo, ..Default::default() };
+            for l in clock::shot::shots(version, &items, &o)? {
+                println!("{l}");
             }
         }
         ClockCmd::Video { design, out, periods, min_secs, tps, card, relabel, dry_run } => {

@@ -22,6 +22,7 @@
 pub mod canon;
 pub mod catalog;
 pub mod census;
+pub mod shot;
 pub mod sim;
 pub mod verify;
 pub mod video;

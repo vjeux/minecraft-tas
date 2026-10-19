@@ -290,6 +290,61 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
     out
 }
 
+/// How many groups the changing cells split into: two cells are linked when they are at most 2
+/// apart (Chebyshev distance: blocks touching, a dust step, quasi-connectivity), and a sculk sensor
+/// links every changing cell within its listening range (8, calibrated 16). Independent sub-clocks
+/// side by side are 2 or more groups; one mechanism is one.
+pub fn spatial_groups(positions: &[Pos], sensors: &[(Pos, i32)]) -> usize {
+    let n = positions.len();
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn find(p: &mut Vec<usize>, i: usize) -> usize {
+        let mut r = i;
+        while p[r] != r {
+            r = p[r];
+        }
+        let mut j = i;
+        while p[j] != r {
+            let next = p[j];
+            p[j] = r;
+            j = next;
+        }
+        r
+    }
+    let cheb = |a: Pos, b: Pos| (0..3).map(|k| (a[k] - b[k]).abs()).max().unwrap_or(0);
+    for i in 0..n {
+        for j in i + 1..n {
+            let near = cheb(positions[i], positions[j]) <= 2 || sensors.iter().any(|(s, r)| cheb(*s, positions[i]) <= *r && cheb(*s, positions[j]) <= *r);
+            if near {
+                let (a, b) = (find(&mut parent, i), find(&mut parent, j));
+                parent[a] = b;
+            }
+        }
+    }
+    (0..n).filter(|&i| find(&mut parent, i) == i).count()
+}
+
+/// The sculk sensors of a design with their listening ranges.
+pub fn sensors_of(blocks: &std::collections::BTreeMap<Pos, String>) -> Vec<(Pos, i32)> {
+    blocks
+        .iter()
+        .filter_map(|(p, s)| {
+            if s.contains("calibrated_sculk_sensor") {
+                Some((*p, 16))
+            } else if s.contains("sculk_sensor") {
+                Some((*p, 8))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// The smallest d dividing `seq.len()` such that the cyclic sequence repeats every d.
+pub fn cyclic_period<T: PartialEq>(seq: &[T]) -> usize {
+    let n = seq.len();
+    (1..=n.max(1)).filter(|d| n % d == 0).find(|&d| (0..n).all(|t| seq[t] == seq[(t + d) % n])).unwrap_or(n.max(1))
+}
+
 /// The family signature: `observer+sticky_piston`, or `-` for none.
 pub fn signature(family: &[String]) -> String {
     if family.is_empty() { "-".into() } else { family.join("+") }

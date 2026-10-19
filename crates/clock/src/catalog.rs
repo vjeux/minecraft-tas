@@ -236,8 +236,15 @@ fn duty(r: &Row) -> String {
 
 /// Write the catalog and the coverage matrix from the archive's verdict rows (no game runs).
 pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> {
-    let rows = read_rows(dir)?;
+    let all_rows = read_rows(dir)?;
     let caps = read_captions(dir);
+    // composite (beat) clocks, marked `# composite` in their design, have their own section
+    let composite: BTreeSet<String> = all_rows
+        .iter()
+        .filter(|r| std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default().lines().any(|l| l.trim_start().starts_with("# composite")))
+        .map(|r| r.file.clone())
+        .collect();
+    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file)).cloned().collect();
     // one instance per type: the smallest (blocks, volume, then file name)
     let mut by_type: BTreeMap<(u32, String), Row> = BTreeMap::new();
     for r in &rows {
@@ -301,18 +308,54 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
             md.push_str(&format!("| {} | {} | {} |\n", v[0], v[1], v[2]));
         }
     }
+    // pictures (`clock shot`): designs/clocks/img/<archive file stem>.jpg, linked relative to the
+    // catalog's folder
+    let out_dir = out.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+    let img_dir = out_dir.join("img");
+    let pic = |file: &str, width: u32| -> String {
+        let stem = file.trim_end_matches(".txt");
+        if img_dir.join(format!("{stem}.jpg")).exists() { format!("<img src=\"img/{stem}.jpg\" width=\"{width}\">") } else { String::new() }
+    };
+    let strip = |file: &str| -> String {
+        let stem = file.trim_end_matches(".txt");
+        if img_dir.join(format!("{stem}.strip.jpg")).exists() { format!(" [motion](img/{stem}.strip.jpg)") } else { String::new() }
+    };
+    md.push_str("\n## Gallery\n\nEvery archived clock in the real game (`mctas clock shot`: the most active moment of a period), by period; click a picture for its design.\n");
+    for p in &periods {
+        let mut rs: Vec<&Row> = rows.iter().filter(|r| r.period == *p).collect();
+        rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
+        let cells: Vec<String> = rs
+            .iter()
+            .filter_map(|r| {
+                let stem = r.file.trim_end_matches(".txt");
+                img_dir.join(format!("{stem}.jpg")).exists().then(|| {
+                    format!("<a href=\"archive/{}\"><img src=\"img/{stem}.jpg\" width=\"260\" title=\"P {} gt, {}, {} blocks, {}\"></a>", r.file, r.period, r.family, r.blocks, r.dims)
+                })
+            })
+            .collect();
+        if !cells.is_empty() {
+            md.push_str(&format!("\n**P = {p} gt**\n\n{}\n", cells.join("\n")));
+        }
+    }
+    if !composite.is_empty() {
+        md.push_str("\n## Composite clocks (beat clocks: the output combines sub-clocks that run alone)\n\nMarked `# composite` in their design; not in the coverage matrix.\n\n| period | family | blocks | box | picture | design |\n|---|---|---|---|---|---|\n");
+        for r in all_rows.iter().filter(|r| composite.contains(&r.file)) {
+            md.push_str(&format!("| {} | {} | {} | {} | {} | [{}](archive/{}) |\n", r.period, r.family, r.blocks, r.dims, pic(&r.file, 160), r.file.trim_end_matches(".txt"), r.file));
+        }
+    }
     md.push_str("\n## By period\n");
     for p in &periods {
         let types: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).collect();
         let fams: BTreeSet<&str> = types.iter().map(|r| r.family.as_str()).collect();
         md.push_str(&format!("\n### P = {p} gt: {} type{}, {} famil{}\n\n", types.len(), if types.len() == 1 { "" } else { "s" }, fams.len(), if fams.len() == 1 { "y" } else { "ies" }));
-        md.push_str("| family | blocks | box | volume | duty | edges | start | judge | design | how it works |\n|---|---|---|---|---|---|---|---|---|---|\n");
+        md.push_str("| picture | family | blocks | box | volume | duty | edges | start | judge | design | how it works |\n|---|---|---|---|---|---|---|---|---|---|---|\n");
         let mut sorted = types.clone();
         sorted.sort_by(|a, b| (a.family.as_str(), a.blocks, a.volume).cmp(&(b.family.as_str(), b.blocks, b.volume)));
         for r in sorted {
             let smallest = best.get(&(*p, r.family.clone())).is_some_and(|b| b.hash == r.hash);
             md.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | {} | {}{} | [{}](archive/{}) | {} |\n",
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {}{} | [{}](archive/{}){} | {} |\n",
+                pic(&r.file, 200),
                 if smallest { format!("**{}**", r.family) } else { r.family.clone() },
                 r.blocks,
                 r.dims,
@@ -324,6 +367,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
                 if r.chiral { ", chiral" } else { "" },
                 r.file.trim_end_matches(".txt"),
                 r.file,
+                strip(&r.file),
                 caps.get(&r.file).cloned().unwrap_or_default().replace('|', "/")
             ));
         }
