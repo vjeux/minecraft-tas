@@ -319,7 +319,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                                 if keep_ideal.is_some() && !from_wired {
                                     p.plan = Some(crate::ideal::Schedule::parse(&std::fs::read_to_string(m)?)?);
                                 }
-                                if keep_wiring && !from_wired && !p.rec.wiring.is_empty() {
+                                if let Some(fp) = &fixed {
+                                    sw::fix_partial(&mut p, &load_design(fp)?)?;
+                                }
+                                if keep_wiring && fixed.is_none() && !from_wired && !p.rec.wiring.is_empty() {
                                     let mut d = mctas::design::Design::default();
                                     for (cc, st) in &p.rec.wiring {
                                         d.blocks.insert([cc.0, cc.1, p.z], st.clone());
