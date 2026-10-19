@@ -1,0 +1,19 @@
+# CLOCK: cand period 42 gt, on 30/42, edges 1, warmup 0, family oak_fence_gate+observer+repeater+sculk_sensor, 5 blocks, 2x4x1, self-start
+# built by `mctas clock sculk`: chain plain line reps [3], observer on the top of the last repeater, gate (travel 2)
+name: clk-sculk-chain-p42-35
+port output: 0 1 0
+origin: 0 0 0
+palette:
+  O minecraft:oak_fence_gate[facing=north,in_wall=false,open=true,powered=true]
+  R minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=down,powered=false]
+  s minecraft:stone
+layer 0:
+  .s
+layer 1:
+  SR
+layer 2:
+  .o
+layer 3:
+  .O

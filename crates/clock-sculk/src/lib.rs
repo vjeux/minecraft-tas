@@ -14,6 +14,7 @@
 //! and a vibration posted at T lands at T + max(1, floor(distance)), so P >= 21 / P >= 41.
 
 mod build;
+mod climb;
 mod gens;
 
 use anyhow::{Context, Result};
@@ -52,6 +53,9 @@ pub struct Out {
     /// Simulation horizon (gt).
     #[arg(long, default_value_t = 4_000)]
     pub horizon: u32,
+    /// Simulation threads (0: every core, at most 64).
+    #[arg(long, default_value_t = 0)]
+    pub threads: usize,
 }
 
 #[derive(Subcommand)]
@@ -69,12 +73,18 @@ enum Cmd {
     Ring(gens::RingArgs),
     /// A big ring of n calibrated sensors on a circle (long periods: P = sum of hops <= 16 n).
     RingBig(gens::RingBigArgs),
+    /// Long-period hunt: random walkers mutate seed clocks one cell at a time, keeping clocks with
+    /// at most --max-blocks blocks and longer periods.
+    Climb(climb::ClimbArgs),
     /// Simulate designs and print one line each, sorted by period (`--best`: the smallest per
     /// period only).
     Table {
         files: Vec<PathBuf>,
         #[arg(long)]
         best: bool,
+        /// A markdown table (P, blocks, box, family, start, output, design, how).
+        #[arg(long)]
+        md: bool,
     },
     /// Keep the smallest design per (period, family) among the given files (by blocks, then
     /// swept volume, then name) and copy them into --out-dir: the batch to judge with
@@ -105,7 +115,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Chain(a) => gens::chain(&a),
         Cmd::Ring(a) => gens::ring(&a),
         Cmd::RingBig(a) => gens::ring_big(&a),
-        Cmd::Table { files, best } => table(&files, best),
+        Cmd::Climb(a) => climb::climb(&a),
+        Cmd::Table { files, best, md } => table(&files, best, md),
         Cmd::Select { files, out_dir, min_p, max_p, known, per_period } => select(&files, &out_dir, min_p, max_p, &known, per_period),
     }
 }
@@ -183,7 +194,7 @@ pub fn try_clock(c: &clock::Clock, how: &str, out: &Out) -> Option<Found> {
 
 /// Simulate every candidate on all cores.
 pub fn simulate_all(cands: Vec<(clock::Clock, String)>, out: &Out) -> Vec<Found> {
-    let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(64);
+    let n = if out.threads > 0 { out.threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(64) };
     let next = std::sync::atomic::AtomicUsize::new(0);
     let found = std::sync::Mutex::new(Vec::new());
     std::thread::scope(|s| {
@@ -261,15 +272,44 @@ pub fn report(found: Vec<Found>, out: &Out) -> Result<()> {
     Ok(())
 }
 
-fn table(files: &[PathBuf], best: bool) -> Result<()> {
+fn table(files: &[PathBuf], best: bool, md: bool) -> Result<()> {
     let mut rows: Vec<(u32, usize, i32, String)> = Vec::new();
     for f in files {
         let c = clock::Clock::load(f)?;
         let r = clock::sim::simulate(&c, &clock::sim::SimOptions::default());
         let p = if r.verdict == clock::sim::Verdict::Clock { r.period } else { 0 };
-        rows.push((p, r.blocks, r.volume(), format!("{}  <{}>", r.summary(), f.display())));
+        let line = if md {
+            // The design's "built by" / description comment, if any.
+            let text = std::fs::read_to_string(f).unwrap_or_default();
+            let how = text
+                .lines()
+                .find_map(|l| l.strip_prefix("# built by `mctas clock sculk`: ").map(str::to_string))
+                .or_else(|| text.lines().filter(|l| l.starts_with("# ") && !l.starts_with("# CLOCK")).map(|l| l[2..].to_string()).next())
+                .unwrap_or_default();
+            let (on, edges) = r.output.as_ref().map(|o| (o.wave.on, o.wave.edges)).unwrap_or((0, 0));
+            let [w, h, d] = r.dims();
+            format!(
+                "| {p} | {} | {}x{}x{} | {} | {} | on {on}/{p}, {edges} edge(s) | [{}]({}) | {} |",
+                r.blocks,
+                w,
+                h,
+                d,
+                clock::wave::signature(&r.analysis.family),
+                r.start,
+                f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+                f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+                how.replace('|', "/")
+            )
+        } else {
+            format!("{}  <{}>", r.summary(), f.display())
+        };
+        rows.push((p, r.blocks, r.volume(), line));
     }
     rows.sort();
+    if md {
+        println!("| P | blocks | box | family | start | output | design | how |");
+        println!("|---|---|---|---|---|---|---|---|");
+    }
     let mut last_p = None;
     for (p, _, _, line) in rows {
         if best && last_p == Some(p) {
