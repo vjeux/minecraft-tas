@@ -40,7 +40,7 @@ instances of a card were removed from the archive (`rt prune-members`).
 | 7 | 19 | repeater | `odd/rect/odd-rect-p7.txt` | ODD: 3x5 ring, 7 delay-1 repeaters, corner blocks + a relay block |
 | 8 | 10 | redstone_wire+repeater | `sweeps/uloop-k2/uloop-p8.txt` | pulse ring, 2 delay-2 repeaters (pure comparator: 3x3 ring of 4 comparators, 12b, kicked) |
 | 9 .. 23 odd | 16 | (redstone_wire+)repeater | `odd/rect/odd-rect-p9.txt` .. | ODD: 3x4 ring, 5-6 repeaters with delays summing to P, two pulses |
-| 25 .. 99 odd | 19 .. 55 | repeater | `odd/rect/` | ODD: 3 x h rings, P / 4 repeaters, corner + relay blocks |
+| 25 .. 99 odd | 19 .. 55 | repeater | `odd/rect/` | ODD: 3 x h rings, P / 4 repeaters, corner + relay blocks (P85, P95: 46 blocks with a count-5 counter over the odd P17/P19 ring, `counter/count5-over-odd17.txt`) |
 | 10 .. 20 | 8 | redstone_torch+repeater | `uloop-p10` .. `p20` | 2-torch U-ring: torch on A -> repeater -> block F -> torch on F -> repeater -> A |
 | 22, 26, 30, 34 | 12 | redstone_torch+repeater, repeater | `uloop-p22` .., `ring3x3-p22-r` .. | 2-torch ring with 4 repeaters; 3x3 ring of 4 repeaters + 4 corner blocks |
 | 24, 28, 32, 36 | 9 | redstone_torch+redstone_wire+repeater | `uloop-p24` .. | 1-torch inverter: corner head, 2 repeaters, torch tail |
