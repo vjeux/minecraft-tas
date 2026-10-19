@@ -153,10 +153,14 @@ pub enum ItemClockCmd {
     /// Copy a found design into the track folder under a clean name with a caption (the design's
     /// first comment block, which `clock archive` takes as the caption) and the redsim facts.
     Promote {
-        design: PathBuf,
+        /// One or more designs; with several, `--name` and `--caption` should carry `{p}` (the
+        /// redsim period) so each file gets its own name.
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        /// The file name (`{p}` = the redsim period).
         #[arg(long)]
         name: String,
-        /// How it works (one line or more; `\n` splits lines).
+        /// How it works (one line or more; `\n` splits lines; `{p}` = the redsim period).
         #[arg(long)]
         caption: String,
         #[arg(long, default_value = "designs/clocks/tracks/clk-item")]
@@ -223,6 +227,43 @@ fn parse_k(s: &str) -> Result<(usize, usize)> {
         let k = s.trim().parse()?;
         Ok((k, k))
     }
+}
+
+/// Copy a found design into the track folder under a clean name (`{p}` = its redsim period) with a
+/// caption comment block and the redsim facts.
+fn promote(design: &PathBuf, name: &str, caption: &str, dir: &std::path::Path) -> Result<()> {
+    let mut d = load(design)?;
+    let spec = Spec::from_design(&d).map_err(|e| anyhow!("{}: {e}", design.display()))?;
+    let facts = match sim::judge(&spec, 200000, output_port(&d)).map_err(|e| anyhow!(e))? {
+        Ok(ch) => ch,
+        Err(v) => bail!("{}: not a clock in redsim: {v:?}", design.display()),
+    };
+    let p = facts.period.to_string();
+    let name = name.replace("{p}", &p);
+    d.name = name.clone();
+    for k in ["mechanism", "waveform", "family", "period", "whole-state-period"] {
+        d.meta.remove(k);
+    }
+    let mut text = String::new();
+    for line in caption.replace("{p}", &p).split("\\n") {
+        text.push_str(&format!("# {line}\n"));
+    }
+    text.push_str(&format!(
+        "# redsim: P={} gt{}, warmup {}, family {}, {} blocks, output {}\n",
+        facts.period,
+        if facts.whole_period != facts.period { format!(" (whole state {} gt)", facts.whole_period) } else { String::new() },
+        facts.transient,
+        facts.family,
+        spec.blocks.len(),
+        if facts.analog { "analog (strength only)".to_string() } else { format!("on {}/{} gt, {} rising edge(s)", facts.on_ticks, facts.period, facts.rising) }
+    ));
+    text.push('\n');
+    text.push_str(&d.to_text());
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join(format!("{name}.txt"));
+    std::fs::write(&path, text)?;
+    println!("{}: P={} gt, {} blocks", path.display(), facts.period, spec.blocks.len());
+    Ok(())
 }
 
 fn output_port(d: &Design) -> Option<BlockPos> {
@@ -505,36 +546,10 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                 }
             }
         }
-        ItemClockCmd::Promote { design, name, caption, dir } => {
-            let mut d = load(&design)?;
-            let spec = Spec::from_design(&d).map_err(|e| anyhow!("{}: {e}", design.display()))?;
-            let facts = match sim::judge(&spec, 200000, output_port(&d)).map_err(|e| anyhow!(e))? {
-                Ok(ch) => ch,
-                Err(v) => bail!("{}: not a clock in redsim: {v:?}", design.display()),
-            };
-            d.name = name.clone();
-            for k in ["mechanism", "waveform", "family", "period", "whole-state-period"] {
-                d.meta.remove(k);
+        ItemClockCmd::Promote { designs, name, caption, dir } => {
+            for design in designs {
+                promote(&design, &name, &caption, &dir)?;
             }
-            let mut text = String::new();
-            for line in caption.split("\\n") {
-                text.push_str(&format!("# {line}\n"));
-            }
-            text.push_str(&format!(
-                "# redsim: P={} gt{}, warmup {}, family {}, {} blocks, output {}\n",
-                facts.period,
-                if facts.whole_period != facts.period { format!(" (whole state {} gt)", facts.whole_period) } else { String::new() },
-                facts.transient,
-                facts.family,
-                spec.blocks.len(),
-                if facts.analog { "analog (strength only)".to_string() } else { format!("on {}/{} gt, {} rising edge(s)", facts.on_ticks, facts.period, facts.rising) }
-            ));
-            text.push('\n');
-            text.push_str(&d.to_text());
-            std::fs::create_dir_all(&dir)?;
-            let path = dir.join(format!("{name}.txt"));
-            std::fs::write(&path, text)?;
-            println!("{}: P={} gt, {} blocks", path.display(), facts.period, spec.blocks.len());
         }
         ItemClockCmd::SweepRinglock { min_d, max_d, max_row, max_hopper, all, max_items, item, ticks, jobs, out } => {
             use crate::families::{Stack, measure, ring_lock};

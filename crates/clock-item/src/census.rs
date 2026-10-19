@@ -130,7 +130,19 @@ pub fn rotate_block(b: Block) -> Block {
 /// rotations; with the contents too when `with_nbt`.
 pub fn type_key(spec: &Spec, with_nbt: bool) -> String {
     let mut best: Option<String> = None;
-    let mut blocks: Vec<(BlockPos, Block)> = spec.blocks.clone();
+    // Dust shape and power are recomputed by the placement (wire shapes, self updates): a dot and a
+    // cross dust in the same cell are the same structure.
+    let canon = |b: Block| match b {
+        Block::Wire { .. } => Block::Wire {
+            north: redsim::block::Side::None,
+            east: redsim::block::Side::None,
+            south: redsim::block::Side::None,
+            west: redsim::block::Side::None,
+            power: 0,
+        },
+        other => other,
+    };
+    let mut blocks: Vec<(BlockPos, Block)> = spec.blocks.iter().map(|(p, b)| (*p, canon(*b))).collect();
     let mut nbt: Vec<(BlockPos, String)> = spec.nbt.clone();
     for _ in 0..4 {
         let minx = blocks.iter().map(|(p, _)| p.x).min().unwrap();
