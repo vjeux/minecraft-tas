@@ -217,4 +217,16 @@ Results:
   up -> AIR (4,-1) -> normal piston (4,-2) QC'd -> observer (3,-2) east -> BR) is two pieces; with --gaps
   the run re-finds that 54-block door (`runs/s25-k4g`). s26 (`archive/c88-s26-54b.txt`, solid 8x8 54)
   regions (`s26/`): BR's driver 3 = minimal (k=4 gaps), B's level line (bulb, comparator, d2, d4) 4 =
-  minimal (k=3); bottom-left k=6 x 16 states: `runs/s26-bl-k6`.
+  minimal (k=3); bottom-left k=6 x 16 states (`runs/s26-bl-k6`, 140M): **3 bottom-lefts with 6 blocks
+  instead of 7 = `finds/s26-bl53.txt`, solid 8x8 = 64b, 53 blocks, FULL, rotation-safe, open/close
+  34/34, verify --extra-offsets 28 WORKS** (lamp (-3,-2), observer (-3,-1) up, observers (-2,-2) (0,-2)
+  west, note block (-1,-2), dust dot (-3,0); K rests retracted, no level repeater). Combined with c88b's
+  s27 top-right (one observer (3,4) east instead of stone + dust): **`finds/s27-bl52.txt`, solid 8x8 =
+  64b, 52 blocks, FULL, rotation-safe, verify --extra-offsets 28 WORKS** (coordinator 11:12Z).
+  s27-bl52's top-right as a plan needs the close A pulse at c0..16 (plan-from said c22: the erased door
+  only works at <= 16, ideal-rs sweep; `s26/b52-tr.ideal`): k=4 x 61 states `runs/b52-tr-k4`; its B line
+  + support (7 cells) k=6 x 16 states `runs/b52-tlb-k6`.
+* q78's e78s (7x8, only the bottom ideal: A' x3, K, B' x2; `runs/e78s-k3`, `runs/e78s-k5`, --gaps):
+  right pocket (x=2..4): B' all four pulses with 3 blocks (observer (3,-2) up on K -> lamp (3,-3) ->
+  observer (2,-3) east), K with 2, never both within 5; left pocket: A' o8, (1,-1)o24, B' o30 alone;
+  A' o36 never. Right pocket k=7: `runs/e78s-r7`.
