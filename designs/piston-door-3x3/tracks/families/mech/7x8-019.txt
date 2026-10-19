@@ -16,12 +16,12 @@ layer -2:
 layer -1:
   .CP
 layer 0:
-  s.DDD
+  ..DDD
 layer 1:
   s.DDD.B
 layer 2:
-  s.DDD
+  s.DDD.B
 layer 3:
   .
 layer 4:
-  ...SS
+  ...S

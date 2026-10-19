@@ -9,19 +9,19 @@ palette:
   P minecraft:piston_head[facing=east,short=false,type=sticky]
   S minecraft:sticky_piston[extended=false,facing=down]
   s minecraft:sticky_piston[extended=false,facing=east]
-layer -3:
-  ...A
 layer -2:
   ...A
 layer -1:
-  .CP
+  .
 layer 0:
   s.DDD.B
 layer 1:
   s.DDD.B
 layer 2:
-  s.DDD
+  ..DDD
 layer 3:
-  .
+  .CP
 layer 4:
   ...SS
+layer 5:
+  ...S

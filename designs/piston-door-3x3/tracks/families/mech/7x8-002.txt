@@ -16,10 +16,10 @@ layer 0:
 layer 1:
   s.CCC
 layer 2:
-  ..CCC
+  ..CCC.B
 layer 3:
   .....B
 layer 4:
-  ..SSS
+  ..SS
 layer 5:
   ...S

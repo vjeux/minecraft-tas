@@ -7,10 +7,12 @@ palette:
   C minecraft:stone
   S minecraft:sticky_piston[extended=false,facing=down]
   s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  ...A
 layer -2:
-  ..A.A
+  ..AAA
 layer -1:
-  .
+  .....B
 layer 0:
   ..CCC
 layer 1:
@@ -18,10 +20,6 @@ layer 1:
 layer 2:
   s.CCC
 layer 3:
-  .s
+  .
 layer 4:
   ...SS
-layer 5:
-  ...S
-layer 6:
-  ...S

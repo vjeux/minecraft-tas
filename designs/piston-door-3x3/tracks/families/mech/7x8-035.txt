@@ -10,16 +10,16 @@ palette:
 layer -3:
   ...A
 layer -2:
-  ..AAA
+  ...AA
 layer -1:
-  .....B
+  .s
 layer 0:
-  ..CCC
+  s.CCC
 layer 1:
   s.CCC.B
 layer 2:
-  s.CCC
+  ..CCC
 layer 3:
   .
 layer 4:
-  ...SS
+  ..SSS

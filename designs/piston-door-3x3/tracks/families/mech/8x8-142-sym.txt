@@ -17,11 +17,11 @@ layer -4:
 layer -3:
   ....D
 layer -2:
-  ...Ap
+  ...ApA
 layer -1:
   R...A
 layer 0:
-  CPsEEE.B
+  CPsEEE
 layer 1:
   .s.EEE.B
 layer 2:

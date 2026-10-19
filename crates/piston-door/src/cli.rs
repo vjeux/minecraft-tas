@@ -905,6 +905,14 @@ pub enum DoorCmd {
         /// reachability with --cap.
         #[arg(long)]
         resolve: Option<PathBuf>,
+        /// General carrying depth: reused pistons displaced 1-2 cells in ANY direction (sideways
+        /// too) by carriers, carriers carried themselves up to this depth (0 = elevator lifts only).
+        #[arg(long, default_value_t = 0)]
+        carry: usize,
+        /// Middle-row side blocks forced to leave VERTICALLY: `ml`, `mr`, `any` (ML or MR) or
+        /// `both`.
+        #[arg(long)]
+        vmid: Option<String>,
         /// Strip mode: x columns (door coordinates) no piston may fire from, e.g.
         /// `--forbid-fire=-1,1,3` (cells no wiring can reach in a 5-tall strip box).
         #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
@@ -2819,7 +2827,15 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
         }
-        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, forbid_fire, rblocks, r_both } => {
+        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both } => {
+            let vmid: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {
+                None => Vec::new(),
+                Some("ml") => vec![vec![(0, 1)]],
+                Some("mr") => vec![vec![(2, 1)]],
+                Some("any") => vec![vec![(0, 1)], vec![(2, 1)]],
+                Some("both") => vec![vec![(0, 1), (2, 1)]],
+                Some(x) => anyhow::bail!("--vmid ml|mr|any|both, got {x}"),
+            };
             if let Some(f) = resolve {
                 let b = crate::families::parse_boxes(&boxes)?;
                 anyhow::ensure!(b.len() == 1, "--resolve needs one --boxes WxH");
@@ -2865,6 +2881,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 gap,
                 limit,
                 two,
+                carry,
+                vmid,
                 levels,
             };
             crate::families::run(version, &o)?;
