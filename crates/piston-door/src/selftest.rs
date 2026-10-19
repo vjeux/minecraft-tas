@@ -269,18 +269,66 @@ fn checks() -> Vec<Check> {
         let stem = Path::new(plan).file_stem().unwrap().to_string_lossy().to_string();
         v.push(Check {
             name: format!("ideal:agree-{stem}"),
-            what: "`door ideal-rs` (redsim) and `door ideal` (the game) give the same verdict and ticks on a plan (c78z: a 1 gt pulse)",
+            what: "`door ideal-rs` (redsim) and `door ideal` (the game) give the same verdict and ticks on a plan, in the default tile phase and with --between-ticks (c78z: a 1 gt pulse)",
             quick,
             jvm: true,
-            steps: vec![args(&format!("?door ideal-rs {plan}")), args(&format!("?door ideal {plan}"))],
+            steps: vec![args(&format!("?door ideal-rs {plan}")), args(&format!("?door ideal {plan}")), args(&format!("?door ideal-rs {plan} --between-ticks")), args(&format!("?door ideal {plan} --between-ticks"))],
             timeout: 600,
             pred: Box::new(|o| {
-                let a = ideal_verdict(&o[0]).ok_or(format!("ideal-rs: no verdict: {}", tail(&o[0])))?;
-                let b = ideal_verdict(&o[1]).ok_or(format!("ideal: no verdict: {}", tail(&o[1])))?;
-                if a == b { Ok(a.chars().take(100).collect()) } else { Err(format!("ideal-rs `{a}` vs ideal `{b}`")) }
+                let mut out = Vec::new();
+                for (k, mode) in [(0, "tile"), (2, "between")] {
+                    let a = ideal_verdict(&o[k]).ok_or(format!("ideal-rs {mode}: no verdict: {}", tail(&o[k])))?;
+                    let b = ideal_verdict(&o[k + 1]).ok_or(format!("ideal {mode}: no verdict: {}", tail(&o[k + 1])))?;
+                    if a != b {
+                        return Err(format!("{mode}: ideal-rs `{a}` vs ideal `{b}`"));
+                    }
+                    out.push(format!("{mode}: {}", a.chars().take(60).collect::<String>()));
+                }
+                Ok(out.join(" | "))
             }),
         });
     }
+    // 6b. plan phase: an observer-driven input works at plan t exactly like the wired door at t
+    const PH: &str = "designs/piston-door-3x3/selftest/s25-br-observer.ideal";
+    v.push(Check {
+        name: "ideal:plan-phase-observer".into(),
+        what: "s25 + BR driven at the ticks s26's observer powers it: ideal-rs (default tile phase) opens/closes in 34/34 like the wired s26; the old --between-ticks rule is 1 gt late (35/35)",
+        quick: true,
+        jvm: false,
+        steps: vec![
+            args(&format!("?door ideal-rs {PH}")),
+            args("?door cosearch eval designs/piston-door-3x3/tracks/c88/s26.txt"),
+            args(&format!("?door ideal-rs {PH} --between-ticks")),
+        ],
+        timeout: 300,
+        pred: Box::new(|o| {
+            let plan = ideal_verdict(&o[0]).ok_or(format!("ideal-rs: no verdict: {}", tail(&o[0])))?;
+            let wired = o[1].lines().find(|l| l.contains("s26.txt:")).ok_or(format!("s26: no verdict: {}", tail(&o[1])))?;
+            if !wired.contains("WORKS open 34 close 34") {
+                return Err(format!("the wired s26 changed: {}", wired.chars().take(120).collect::<String>()));
+            }
+            if !plan.contains("open after 34 ticks / closed after 34 ticks") {
+                return Err(format!("tile-phase plan `{plan}` != the wired s26 (34 / 34)"));
+            }
+            let old = ideal_verdict(&o[2]).unwrap_or_default();
+            if !old.contains("open after 35 ticks / closed after 35 ticks") {
+                return Err(format!("--between-ticks gave `{old}` (expected 35 / 35)"));
+            }
+            Ok("plan at t = wired at t (34/34); between-ticks 35/35".into())
+        }),
+    });
+    v.push(Check {
+        name: "ideal:plan-phase-observer-jvm".into(),
+        what: "the same plan in the game (`door ideal`, tile phase): 34/34 like the wired s26",
+        quick: false,
+        jvm: true,
+        steps: vec![args(&format!("?door ideal {PH}"))],
+        timeout: 600,
+        pred: Box::new(|o| {
+            let v = ideal_verdict(&o[0]).ok_or(format!("no verdict: {}", tail(&o[0])))?;
+            if v.contains("open after 34 ticks / closed after 34 ticks") { Ok(v.chars().take(100).collect()) } else { Err(v) }
+        }),
+    });
     // 7. generator membership (docs/audit.md acceptance list)
     let expect: Vec<(&str, [&str; 6])> = vec![
         ("c79-closed", ["out", "out", "IN", "IN", "IN", "IN"]),
