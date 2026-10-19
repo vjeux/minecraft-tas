@@ -441,6 +441,39 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                     out.failures.push(format!("line {}: t={tick} expect_trace {name} {want}, got {got}", lineno + 1));
                 }
             }
+            // `edges <probe> <n>`: step n ticks and print the ticks where the probe rises (its value
+            // goes from 0 / false to anything else) and the gaps between rises: a clock's period
+            // measured in the game (`expect_gaps` checks them).
+            "edges" | "expect_gaps" => {
+                let name = parts.get(1).context("edges needs a probe name")?;
+                let n = int(2)?;
+                let (_, p, signal) = probes.iter().find(|(nm, _, _)| nm == name).with_context(|| format!("no probe {name}"))?.clone();
+                let off = |v: &str| v == "0" || v == "false" || v == ".";
+                let mut was_off = off(&value(w, p, signal)?);
+                let mut rises: Vec<u32> = Vec::new();
+                for _ in 0..n {
+                    w.step(sb, 1)?;
+                    tick += 1;
+                    let now_off = off(&value(w, p, signal)?);
+                    if was_off && !now_off {
+                        rises.push(tick);
+                    }
+                    was_off = now_off;
+                }
+                let gaps: Vec<String> = rises.windows(2).map(|r| (r[1] - r[0]).to_string()).collect();
+                if parts[0] == "edges" {
+                    let at: Vec<String> = rises.iter().map(|t| t.to_string()).collect();
+                    println!("edges {name}: rises at [{}] gaps [{}]", at.join(" "), gaps.join(" "));
+                } else {
+                    // `expect_gaps <probe> <n> <g1,g2,..>`: the last gaps must repeat the list.
+                    let want: Vec<&str> = parts.get(3).context("expect_gaps needs gaps")?.split(',').collect();
+                    out.checks += 1;
+                    let ok = gaps.len() >= want.len() && gaps[gaps.len() - want.len()..].iter().zip(&want).all(|(a, b)| a == b);
+                    if !ok {
+                        out.failures.push(format!("line {}: t={tick} expect_gaps {name} {}, got [{}]", lineno + 1, want.join(","), gaps.join(" ")));
+                    }
+                }
+            }
             "box" => {
                 watch = Some((pos(1)?, pos(4)?));
                 prev = None;
