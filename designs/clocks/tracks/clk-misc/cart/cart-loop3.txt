@@ -1,25 +1,31 @@
 name: clk-misc-cart-loop3
-# A minecart circling a 3x3 rail loop: plain rails curve at the corners, two powered rails (on redstone blocks) keep the empty
-# cart going, a detector rail on one side is powered while the cart is on it and turns off at its next 20 gt check once the
-# cart has left. The lap time and the detector's 20 gt checks beat against each other, so the block states repeat only after
-# many laps.
+# A minecart circling a 3x3 rail loop (19 pieces: blocks, 2 levers and the cart): plain rails curve at the corners, a powered
+# rail in the middle of the north and south sides (each powered by a switched-on lever on its support) keeps the empty cart going,
+# a detector rail on the east side is powered while the cart is on it and turns off at its next 20 gt check once the cart has
+# left. The short lap and the detector's 20 gt checks beat against each other, so the block states repeat only after 28 laps.
 port output: 2 0 1
 entity: minecraft:minecart 1.5 0.0625 0.5 {Motion:[0.4d,0.0d,0.0d]}
+origin: 0 0 -1
 palette:
-  S minecraft:stone
-  R minecraft:redstone_block
-  a minecraft:rail[shape=south_east,waterlogged=false]
-  b minecraft:rail[shape=south_west,waterlogged=false]
-  c minecraft:rail[shape=north_west,waterlogged=false]
-  d minecraft:rail[shape=north_east,waterlogged=false]
-  n minecraft:rail[shape=north_south,waterlogged=false]
-  P minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  A minecraft:rail[shape=north_west,waterlogged=false]
+  B minecraft:rail[shape=south_east,waterlogged=false]
+  C minecraft:rail[shape=south_west,waterlogged=false]
   D minecraft:detector_rail[powered=false,shape=north_south,waterlogged=false]
+  L minecraft:lever[face=wall,facing=north,powered=true]
+  P minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  R minecraft:rail[shape=north_east,waterlogged=false]
+  S minecraft:stone
+  l minecraft:lever[face=wall,facing=south,powered=true]
+  r minecraft:rail[shape=north_south,waterlogged=false]
 layer -1:
-  SRS
+  .L
+  SSS
   S.S
-  SRS
+  SSS
+  .l
 layer 0:
-  aPb
-  n.D
-  dPc
+  .
+  BPC
+  r.D
+  RPA
+  .

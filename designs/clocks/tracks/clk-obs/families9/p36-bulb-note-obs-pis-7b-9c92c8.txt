@@ -1,0 +1,15 @@
+name: clk-obs-p36-bulb-note-obs-pis-7b-9c92c8
+# clk-obs grow: P=36 (redsim), family note_block+observer+piston+waxed_copper_bulb, kick last 0 0 1, swept volume 9.
+origin: -1 0 0
+port output: -1 0 1
+port start: 0 0 1 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:waxed_copper_bulb[lit=false,powered=false]
+  E minecraft:piston[extended=false,facing=west]
+layer 0:
+  .BD
+  AAC
+  .CE

@@ -35,7 +35,8 @@ pub struct MechmutArgs {
     /// stacked pistons now couple by quasi-connectivity).
     #[arg(long)]
     repair: bool,
-    /// Pieces never changed, comma list (e.g. a lever-held top trio "SD+(0,4),SD+(1,4),SD+(2,4)").
+    /// Pieces never changed, space- or ';'-separated (e.g. a lever-held top trio
+    /// "SD+(0,4) SD+(1,4) SD+(2,4)").
     #[arg(long)]
     keep: Option<String>,
     /// Cells no piece may cover and the cycle may never occupy, "x,y;x,y" (room for an observer).
@@ -46,7 +47,7 @@ pub struct MechmutArgs {
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
     let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve } = args;
     let keep: Vec<crate::families::Pc> = match keep {
-        Some(s) => s.split(',').map(str::trim).filter(|t| !t.is_empty()).map(crate::mechspace::parse_piece).collect::<Result<_>>()?,
+        Some(s) => s.split(|c: char| c == ';' || c.is_whitespace()).map(str::trim).filter(|t| !t.is_empty()).map(crate::mechspace::parse_piece).collect::<Result<_>>()?,
         None => Vec::new(),
     };
     let reserve: Vec<(i8, i8)> = match reserve {

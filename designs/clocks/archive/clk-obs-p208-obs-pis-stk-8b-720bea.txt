@@ -1,0 +1,31 @@
+# archived 2026-10-19T22:42Z from designs/clocks/tracks/clk-obs/smallest9/p208-obs-pis-stk-8b-720bea.txt by mctas clock archive
+# CLOCK: clk-obs-p208-obs-pis-stk-8b-720bea period 208 gt (10.4 s), on 104/208, edges 52, warmup 7, family observer+piston+sticky_piston, 8 blocks, 1x4x5, robust
+name: clk-obs-p208-obs-pis-stk-8b-720bea
+# clk-obs grow: P=208 (redsim), family observer+piston+sticky_piston, kick last 0 1 0, swept volume 20.
+origin: 0 0 -2
+port output: 0 2 -1
+port start: 0 1 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .
+  .
+  A
+  B
+  A
+layer 1:
+  C
+  .
+  D
+  D
+  .
+layer 2:
+  E
+  B
+  .
+  .
+  .

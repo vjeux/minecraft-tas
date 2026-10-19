@@ -1,0 +1,27 @@
+name: clk-obs-p11-bulb-obs-pis-7b-d7ddd1
+# clk-obs grow: P=11 (redsim), family observer+piston+waxed_copper_bulb, kick last 0 0 0, swept volume 10.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=up,powered=false]
+  E minecraft:piston[extended=false,facing=south]
+  F minecraft:redstone_lamp[lit=false]
+layer 0:
+  A
+  B
+layer 1:
+  C
+  D
+layer 2:
+  E
+  .
+layer 3:
+  C
+  .
+layer 4:
+  F
+  .
