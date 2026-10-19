@@ -1243,21 +1243,37 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
                 let cells: Vec<C2> = a.keys().chain(b.keys()).copied().filter(|c| a.get(c) != b.get(c)).collect();
                 for pc in cells {
                     parent.entry(pc).or_insert(pc);
-                    let fc = match (a.get(&pc).map(|s| mk(s)), b.get(&pc).map(|s| mk(s))) {
-                        (Some(MK::Piston { f, .. }), _) | (_, Some(MK::Piston { f, .. })) => f,
+                    // the cells of this piston's OWN motion: an extension moves the blocks in
+                    // front of it up to the first air cell (frame before); a retraction moves its
+                    // head and, if sticky, the block in front of the head
+                    let movable = |s: Option<&String>| s.is_some_and(|s| matches!(mk(s), MK::Cond | MK::Solid | MK::Piston { ext: false, .. }) && short(s) != "obsidian");
+                    let mut line: Vec<C2> = Vec::new();
+                    match (a.get(&pc).map(|s| mk(s)), b.get(&pc).map(|s| mk(s))) {
+                        (Some(MK::Piston { ext: false, f, .. }), Some(MK::Piston { ext: true, .. })) => {
+                            let mut x = add(pc, f);
+                            for _ in 0..13 {
+                                line.push(x);
+                                if !movable(a.get(&x)) {
+                                    break;
+                                }
+                                x = add(x, f);
+                            }
+                        }
+                        (Some(MK::Piston { ext: true, f, sticky }), _) => {
+                            line.push(add(pc, f));
+                            if sticky {
+                                line.push(add(add(pc, f), f));
+                            }
+                        }
                         _ => continue,
-                    };
-                    let mut x = pc;
-                    for _ in 0..14 {
-                        x = add(x, fc);
+                    }
+                    for x in line {
                         if (t..=t + 3).any(|j| ch(x, j)) {
                             parent.entry(x).or_insert(x);
                             let (ra, rb) = (find(&mut parent, pc), find(&mut parent, x));
                             if ra != rb {
                                 parent.insert(ra, rb);
                             }
-                        } else {
-                            break;
                         }
                     }
                 }
