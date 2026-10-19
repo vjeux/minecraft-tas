@@ -264,6 +264,8 @@ pub enum MK {
     /// full block that does not conduct (glass, slime...)
     Solid,
     Piston { f: C2, ext: bool, sticky: bool },
+    /// a redstone block moved by the mechanism (a power source for its neighbors)
+    RBlock,
     /// piston head, moving piston
     Other,
 }
@@ -278,6 +280,7 @@ pub fn mk(s: &str) -> MK {
             sticky: n == "sticky_piston",
         },
         "piston_head" | "moving_piston" => MK::Other,
+        "redstone_block" => MK::RBlock,
         n if n.contains("glass") || n == "slime_block" || n == "honey_block" || n == "ice" => MK::Solid,
         _ => MK::Cond,
     }
@@ -513,6 +516,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
     let is_input = |s: &str| matches!(short(s), "redstone_block" | "lever");
     // What the schedule writes into a cell (redstone blocks, glass pokes, a stone put back) is
     // input, not mechanism, while it stays there: a mechanism block under it keeps its last state.
+    let inputs: Vec<Pos> = s.input_cells();
     let mech = |f: &HashMap<C2, String>, prev: &HashMap<C2, String>, held: &mut HashMap<C2, String>| -> HashMap<C2, String> {
         let mut out = HashMap::new();
         held.retain(|c, st| f.get(c).map(String::as_str).unwrap_or("minecraft:air") == st.as_str());
@@ -521,7 +525,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
                 if let Some(m) = prev.get(c) {
                     out.insert(*c, m.clone());
                 }
-            } else if !is_input(st) {
+            } else if !(is_input(st) && (short(st) == "lever" || inputs.contains(&[c.0, c.1, z]))) {
                 out.insert(*c, st.clone());
             }
         }
@@ -660,7 +664,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         let c = (p[0], p[1]);
         let stat = phases.iter().all(|ph| ph.frames.iter().all(|f| f.get(&c).map(|s| short(s)) == Some(short(st))));
         let plain = matches!(mk(st), MK::Cond | MK::Solid) && !door_cells.contains(&c) && !matches!(short(st), "stone") ;
-        if is_wiring_state(st) || (plain && stat) {
+        if (is_wiring_state(st) && (stat || short(st) != "redstone_block")) || (plain && stat) {
             wiring.insert(c, st.clone());
         }
     }
@@ -1006,7 +1010,7 @@ impl Prob {
                 None => return true,
                 Some(s) => match mk(s) {
                     MK::Air => return true,
-                    MK::Cond | MK::Solid if !short(s).contains("obsidian") => continue,
+                    MK::Cond | MK::Solid | MK::RBlock if !short(s).contains("obsidian") => continue,
                     MK::Piston { ext: false, .. } => continue,
                     _ => return false,
                 },
@@ -1539,6 +1543,7 @@ impl<'a> Model<'a> {
                 let m = ph.frame(*tau - 1).get(&c).map_or(MK::Air, |s| mk(s));
                 let hit = match (what, m) {
                     (0, MK::Cond) => true,
+                    (11, MK::RBlock) => true,
                     (1..=4, MK::Piston { f, .. }) => f == DIRS[(what - 1) as usize],
                     _ => false,
                 };
@@ -1720,6 +1725,9 @@ impl<'a> Model<'a> {
             }
         } else if self.is_mech(a) {
             terms.push(self.cpow(tr, k, a, dust_rx));
+            // a redstone block carried by the mechanism powers its neighbors while it rests there
+            let rb = self.mprop(tr, k, a, 11);
+            terms.push(rb);
         }
         terms.push(self.lever_on_lits(tr, k, |l| l.pos == [a.0, a.1, z]));
         let l = self.e.or(&terms);
