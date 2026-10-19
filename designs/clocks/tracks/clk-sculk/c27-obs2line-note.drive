@@ -1,0 +1,8 @@
+mark c27-obs2line-note
+design designs/clocks/tracks/clk-sculk/c27-obs2line-note.txt
+probe C 0 0 0
+quiet 3
+set 3 0 1 minecraft:redstone_block
+step 1
+clear 3 0 1
+edges C 150

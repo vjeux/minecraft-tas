@@ -1,0 +1,5 @@
+mark c24s-obs-irontrapdoor
+design designs/clocks/tracks/clk-sculk/c24s-obs-irontrapdoor.txt
+probe C 0 0 0
+probe E 2 0 0
+edges C 120
