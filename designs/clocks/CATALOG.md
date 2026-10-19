@@ -78,7 +78,7 @@
 ## 10 gt (0.5 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p10-obs-rb-stk-4b-f64f29.txt">clk-obs-p10-obs-rb-stk-4b-f64f29</a><br><sub>10 gt (0.5 s) · observer+redstone_block+sticky_piston · 4 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p10-obs-stk-4b-22a8a8.txt">clk-obs-p10-obs-stk-4b-22a8a8</a><br><sub>10 gt (0.5 s) · observer+sticky_piston · 4 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p10-obs-stk-4b.txt"><img src="img/clk-obs-p10-obs-stk-4b.jpg" width="260" alt="clk-obs-p10-obs-stk-4b"></a><br><sub>10 gt (0.5 s) · observer+sticky_piston · 4 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p10-obs-rb-stk-4b-f64f29.txt">clk-obs-p10-obs-rb-stk-4b-f64f29</a><br><sub>10 gt (0.5 s) · observer+redstone_block+sticky_piston · 4 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p10-obs-stk-4b-22a8a8.txt"><img src="img/clk-obs-p10-obs-stk-4b-22a8a8.jpg" width="260" alt="clk-obs-p10-obs-stk-4b-22a8a8"></a><br><sub>10 gt (0.5 s) · observer+sticky_piston · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p10-obs-stk-4b.txt"><img src="img/clk-obs-p10-obs-stk-4b.jpg" width="260" alt="clk-obs-p10-obs-stk-4b"></a><br><sub>10 gt (0.5 s) · observer+sticky_piston · 4 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p10-obs-pis-stk-4b-1426f2.txt">clk-obs-p10-obs-pis-stk-4b-1426f2</a><br><sub>10 gt (0.5 s) · observer+piston+sticky_piston · 4 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p10-note-obs-rb-stk-5b-4a9db2.txt">clk-obs-p10-note-obs-rb-stk-5b-4a9db2</a><br><sub>10 gt (0.5 s) · note_block+observer+redstone_block+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p10-note-obs-stk-5b-04366b.txt">clk-obs-p10-note-obs-stk-5b-04366b</a><br><sub>10 gt (0.5 s) · note_block+observer+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p10-lamp-obs-rb-stk-5b-9dc6e8.txt">clk-obs-p10-lamp-obs-rb-stk-5b-9dc6e8</a><br><sub>10 gt (0.5 s) · observer+redstone_block+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p10-note-obs-pis-stk-5b-d53b14.txt">clk-obs-p10-note-obs-pis-stk-5b-d53b14</a><br><sub>10 gt (0.5 s) · note_block+observer+piston+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-notering6.txt"><img src="img/clk-obs-notering6.jpg" width="260" alt="clk-obs-notering6"></a><br><sub>10 gt (0.5 s) · note_block+observer · 6 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p10-obs-trap-6b-fdda18.txt">clk-obs-p10-obs-trap-6b-fdda18</a><br><sub>10 gt (0.5 s) · iron_trapdoor+observer · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p10-bulb-note-obs-stk-6b-64ca3e.txt">clk-obs-p10-bulb-note-obs-stk-6b-64ca3e</a><br><sub>10 gt (0.5 s) · copper_bulb+note_block+observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p10-bulb-obs-stk-6b-55879b.txt">clk-obs-p10-bulb-obs-stk-6b-55879b</a><br><sub>10 gt (0.5 s) · copper_bulb+observer+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
@@ -137,7 +137,7 @@
 ## 14 gt (0.7 s)
 
 <table>
-<tr><td align="center"><a href="archive/hop2-p14.txt"><img src="img/hop2-p14.jpg" width="260" alt="hop2-p14"></a><br><sub>14 gt (0.7 s) · comparator+hopper · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p14-bulb-lamp-stk-5b-d50fa3.txt">clk-obs-p14-bulb-lamp-stk-5b-d50fa3</a><br><sub>14 gt (0.7 s) · copper_bulb+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p14-bulb-stk-5b-268e59.txt">clk-obs-p14-bulb-stk-5b-268e59</a><br><sub>14 gt (0.7 s) · copper_bulb+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/hop2-p14.txt"><img src="img/hop2-p14.jpg" width="260" alt="hop2-p14"></a><br><sub>14 gt (0.7 s) · comparator+hopper · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p14-bulb-lamp-stk-5b-d50fa3.txt">clk-obs-p14-bulb-lamp-stk-5b-d50fa3</a><br><sub>14 gt (0.7 s) · copper_bulb+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p14-bulb-stk-5b-268e59.txt"><img src="img/clk-obs-p14-bulb-stk-5b-268e59.jpg" width="260" alt="clk-obs-p14-bulb-stk-5b-268e59"></a><br><sub>14 gt (0.7 s) · copper_bulb+sticky_piston · 5 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p14-bulb-lamp-obs-stk-5b-6b78cb.txt">clk-obs-p14-bulb-lamp-obs-stk-5b-6b78cb</a><br><sub>14 gt (0.7 s) · copper_bulb+observer+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p14-bulb-note-obs-stk-5b-68ca6b.txt">clk-obs-p14-bulb-note-obs-stk-5b-68ca6b</a><br><sub>14 gt (0.7 s) · copper_bulb+note_block+observer+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p14-bulb-note-stk-5b-db8f70.txt">clk-obs-p14-bulb-note-stk-5b-db8f70</a><br><sub>14 gt (0.7 s) · copper_bulb+note_block+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p14-bulb-obs-stk-5b-768adb.txt">clk-obs-p14-bulb-obs-stk-5b-768adb</a><br><sub>14 gt (0.7 s) · copper_bulb+observer+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p14-lamp-obs-stk-5b-5bb3b9.txt">clk-obs-p14-lamp-obs-stk-5b-5bb3b9</a><br><sub>14 gt (0.7 s) · observer+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p14-note-obs-stk-5b-68179f.txt">clk-obs-p14-note-obs-stk-5b-68179f</a><br><sub>14 gt (0.7 s) · note_block+observer+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p14-obs-pis-5b-9a550b.txt">clk-obs-p14-obs-pis-5b-9a550b</a><br><sub>14 gt (0.7 s) · observer+piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p14-obs-pis-5b.txt"><img src="img/clk-obs-p14-obs-pis-5b.jpg" width="260" alt="clk-obs-p14-obs-pis-5b"></a><br><sub>14 gt (0.7 s) · observer+piston · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p14-obs-pis-stk-5b-edbcf8.txt">clk-obs-p14-obs-pis-stk-5b-edbcf8</a><br><sub>14 gt (0.7 s) · observer+piston+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
@@ -191,7 +191,7 @@
 ## 17 gt (0.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p17-obs-pis-stk-5b-2c26e6.txt">clk-obs-p17-obs-pis-stk-5b-2c26e6</a><br><sub>17 gt (0.85 s) · observer+piston+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-obs-stk-5b-883ca3.txt">clk-obs-p17-obs-stk-5b-883ca3</a><br><sub>17 gt (0.85 s) · observer+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-obs-stk-5b.txt"><img src="img/clk-obs-p17-obs-stk-5b.jpg" width="260" alt="clk-obs-p17-obs-stk-5b"></a><br><sub>17 gt (0.85 s) · observer+sticky_piston · 5 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p17-obs-pis-stk-5b-2c26e6.txt">clk-obs-p17-obs-pis-stk-5b-2c26e6</a><br><sub>17 gt (0.85 s) · observer+piston+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-obs-stk-5b-883ca3.txt"><img src="img/clk-obs-p17-obs-stk-5b-883ca3.jpg" width="260" alt="clk-obs-p17-obs-stk-5b-883ca3"></a><br><sub>17 gt (0.85 s) · observer+sticky_piston · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p17-obs-stk-5b.txt"><img src="img/clk-obs-p17-obs-stk-5b.jpg" width="260" alt="clk-obs-p17-obs-stk-5b"></a><br><sub>17 gt (0.85 s) · observer+sticky_piston · 5 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p17-obs-pis-6b-b484a8.txt">clk-obs-p17-obs-pis-6b-b484a8</a><br><sub>17 gt (0.85 s) · observer+piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-lamp-obs-rb-stk-6b-231c89.txt">clk-obs-p17-lamp-obs-rb-stk-6b-231c89</a><br><sub>17 gt (0.85 s) · observer+redstone_block+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-lamp-obs-stk-6b-df29ba.txt">clk-obs-p17-lamp-obs-stk-6b-df29ba</a><br><sub>17 gt (0.85 s) · observer+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p17-note-obs-rb-stk-6b-37d824.txt">clk-obs-p17-note-obs-rb-stk-6b-37d824</a><br><sub>17 gt (0.85 s) · note_block+observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-note-obs-stk-6b-3143af.txt">clk-obs-p17-note-obs-stk-6b-3143af</a><br><sub>17 gt (0.85 s) · note_block+observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-obs-pis-rb-stk-6b-7c7b64.txt">clk-obs-p17-obs-pis-rb-stk-6b-7c7b64</a><br><sub>17 gt (0.85 s) · observer+piston+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p17-obs-rb-stk-6b-9de7ed.txt">clk-obs-p17-obs-rb-stk-6b-9de7ed</a><br><sub>17 gt (0.85 s) · observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-note-obs-pis-rb-stk-6b-934b64.txt">clk-obs-p17-note-obs-pis-rb-stk-6b-934b64</a><br><sub>17 gt (0.85 s) · note_block+observer+piston+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p17-note-obs-pis-stk-6b-790217.txt">clk-obs-p17-note-obs-pis-stk-6b-790217</a><br><sub>17 gt (0.85 s) · note_block+observer+piston+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
@@ -235,7 +235,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-obs-p20-lamp-obs-pis-5b-7834a3.txt">clk-obs-p20-lamp-obs-pis-5b-7834a3</a><br><sub>20 gt (1 s) · observer+piston+redstone_lamp · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-lamp-obs-stk-5b-5df641.txt">clk-obs-p20-lamp-obs-stk-5b-5df641</a><br><sub>20 gt (1 s) · observer+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-obs-rb-stk-5b-b6f039.txt">clk-obs-p20-obs-rb-stk-5b-b6f039</a><br><sub>20 gt (1 s) · observer+redstone_block+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p20-obs-stk-5b-cc0c2e.txt">clk-obs-p20-obs-stk-5b-cc0c2e</a><br><sub>20 gt (1 s) · observer+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-obs-stk-5b.txt"><img src="img/clk-obs-p20-obs-stk-5b.jpg" width="260" alt="clk-obs-p20-obs-stk-5b"></a><br><sub>20 gt (1 s) · observer+sticky_piston · 5 blocks</sub></td><td align="center"><a href="archive/snowdisp-r2-p20.txt"><img src="img/snowdisp-r2-p20.jpg" width="260" alt="snowdisp-r2-p20"></a><br><sub>20 gt (1 s) · dispenser+observer+redstone_wire+repeater · 5 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p20-obs-stk-5b-cc0c2e.txt"><img src="img/clk-obs-p20-obs-stk-5b-cc0c2e.jpg" width="260" alt="clk-obs-p20-obs-stk-5b-cc0c2e"></a><br><sub>20 gt (1 s) · observer+sticky_piston · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p20-obs-stk-5b.txt"><img src="img/clk-obs-p20-obs-stk-5b.jpg" width="260" alt="clk-obs-p20-obs-stk-5b"></a><br><sub>20 gt (1 s) · observer+sticky_piston · 5 blocks</sub></td><td align="center"><a href="archive/snowdisp-r2-p20.txt"><img src="img/snowdisp-r2-p20.jpg" width="260" alt="snowdisp-r2-p20"></a><br><sub>20 gt (1 s) · dispenser+observer+redstone_wire+repeater · 5 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p20-bulb-obs-rb-stk-5b-201c31.txt">clk-obs-p20-bulb-obs-rb-stk-5b-201c31</a><br><sub>20 gt (1 s) · copper_bulb+observer+redstone_block+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-obs-pis-stk-5b-21a10b.txt">clk-obs-p20-obs-pis-stk-5b-21a10b</a><br><sub>20 gt (1 s) · observer+piston+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-bulb-obs-6b-c56f76.txt">clk-obs-p20-bulb-obs-6b-c56f76</a><br><sub>20 gt (1 s) · copper_bulb+observer · 6 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p20-lamp-obs-6b-9d0434.txt">clk-obs-p20-lamp-obs-6b-9d0434</a><br><sub>20 gt (1 s) · observer+redstone_lamp · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-bulb-note-obs-rb-stk-6b-561684.txt">clk-obs-p20-bulb-note-obs-rb-stk-6b-561684</a><br><sub>20 gt (1 s) · copper_bulb+note_block+observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-lamp-note-obs-pis-6b-941298.txt">clk-obs-p20-lamp-note-obs-pis-6b-941298</a><br><sub>20 gt (1 s) · note_block+observer+piston+redstone_lamp · 6 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p20-lamp-note-obs-stk-6b-63d3e3.txt">clk-obs-p20-lamp-note-obs-stk-6b-63d3e3</a><br><sub>20 gt (1 s) · note_block+observer+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-lamp-obs-rb-stk-6b-c1acc8.txt">clk-obs-p20-lamp-obs-rb-stk-6b-c1acc8</a><br><sub>20 gt (1 s) · observer+redstone_block+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p20-note-obs-pis-stk-6b-c6b74a.txt">clk-obs-p20-note-obs-pis-stk-6b-c6b74a</a><br><sub>20 gt (1 s) · note_block+observer+piston+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
@@ -267,7 +267,7 @@
 <tr><td align="center"><a href="archive/clk-sculk-chain-p22-10.txt"><img src="img/clk-sculk-chain-p22-10.jpg" width="260" alt="clk-sculk-chain-p22-10"></a><br><sub>22 gt (1.1 s) · calibrated_sculk_sensor+oak_trapdoor+observer+repeater · 5 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c22s-rep-obs-note.txt"><img src="img/clk-sculk-c22s-rep-obs-note.jpg" width="260" alt="clk-sculk-c22s-rep-obs-note"></a><br><sub>22 gt (1.1 s) · calibrated_sculk_sensor+note_block+observer+repeater · 5 blocks</sub></td><td align="center"><a href="archive/clk-sculk-chaind-p22-1.txt"><img src="img/clk-sculk-chaind-p22-1.jpg" width="260" alt="clk-sculk-chaind-p22-1"></a><br><sub>22 gt (1.1 s) · calibrated_sculk_sensor+dispenser+observer+repeater · 5 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p22-lamp-obs-pis-stk-6b-827175.txt">clk-obs-p22-lamp-obs-pis-stk-6b-827175</a><br><sub>22 gt (1.1 s) · observer+piston+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p22-note-obs-pis-stk-6b-8f648f.txt">clk-obs-p22-note-obs-pis-stk-6b-8f648f</a><br><sub>22 gt (1.1 s) · note_block+observer+piston+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p22-obs-pis-stk-6b-64024b.txt">clk-obs-p22-obs-pis-stk-6b-64024b</a><br><sub>22 gt (1.1 s) · observer+piston+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p22-lamp-obs-rb-stk-6b-9c49e6.txt">clk-obs-p22-lamp-obs-rb-stk-6b-9c49e6</a><br><sub>22 gt (1.1 s) · observer+redstone_block+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p22-lamp-obs-stk-6b-b98da0.txt">clk-obs-p22-lamp-obs-stk-6b-b98da0</a><br><sub>22 gt (1.1 s) · observer+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p22-note-obs-stk-6b-a955ab.txt">clk-obs-p22-note-obs-stk-6b-a955ab</a><br><sub>22 gt (1.1 s) · note_block+observer+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p22-obs-rb-stk-6b-320ee4.txt">clk-obs-p22-obs-rb-stk-6b-320ee4</a><br><sub>22 gt (1.1 s) · observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p22-obs-stk-6b-e7dec9.txt">clk-obs-p22-obs-stk-6b-e7dec9</a><br><sub>22 gt (1.1 s) · observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p22-obs-stk-6b.txt"><img src="img/clk-obs-p22-obs-stk-6b.jpg" width="260" alt="clk-obs-p22-obs-stk-6b"></a><br><sub>22 gt (1.1 s) · observer+sticky_piston · 6 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p22-obs-rb-stk-6b-320ee4.txt">clk-obs-p22-obs-rb-stk-6b-320ee4</a><br><sub>22 gt (1.1 s) · observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p22-obs-stk-6b-e7dec9.txt"><img src="img/clk-obs-p22-obs-stk-6b-e7dec9.jpg" width="260" alt="clk-obs-p22-obs-stk-6b-e7dec9"></a><br><sub>22 gt (1.1 s) · observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p22-obs-stk-6b.txt"><img src="img/clk-obs-p22-obs-stk-6b.jpg" width="260" alt="clk-obs-p22-obs-stk-6b"></a><br><sub>22 gt (1.1 s) · observer+sticky_piston · 6 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-sculk-chaind-p22-3.txt"><img src="img/clk-sculk-chaind-p22-3.jpg" width="260" alt="clk-sculk-chaind-p22-3"></a><br><sub>22 gt (1.1 s) · calibrated_sculk_sensor+dispenser+redstone_torch+repeater · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p22-bulb-obs-pis-stk-7b-cb3754.txt">clk-obs-p22-bulb-obs-pis-stk-7b-cb3754</a><br><sub>22 gt (1.1 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p22-bulb-obs-stk-7b-e539f4.txt">clk-obs-p22-bulb-obs-stk-7b-e539f4</a><br><sub>22 gt (1.1 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p22-obs-pis-rb-stk-7b-09b56c.txt">clk-obs-p22-obs-pis-rb-stk-7b-09b56c</a><br><sub>22 gt (1.1 s) · observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-rt-uloop-p22-c-rt-r-12b.txt"><img src="img/clk-rt-uloop-p22-c-rt-r-12b.jpg" width="260" alt="clk-rt-uloop-p22-c-rt-r-12b"></a><br><sub>22 gt (1.1 s) · comparator+redstone_torch+repeater · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p22-c-rt-rw-r-12b.txt"><img src="img/clk-rt-uloop-p22-c-rt-rw-r-12b.jpg" width="260" alt="clk-rt-uloop-p22-c-rt-rw-r-12b"></a><br><sub>22 gt (1.1 s) · comparator+redstone_torch+redstone_wire+repeater · 12 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p22-rt-r-12b.txt"><img src="img/clk-rt-uloop-p22-rt-r-12b.jpg" width="260" alt="clk-rt-uloop-p22-rt-r-12b"></a><br><sub>22 gt (1.1 s) · redstone_torch+repeater · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p22-rt-rw-r-12b.txt"><img src="img/clk-rt-uloop-p22-rt-rw-r-12b.jpg" width="260" alt="clk-rt-uloop-p22-rt-rw-r-12b"></a><br><sub>22 gt (1.1 s) · redstone_torch+redstone_wire+repeater · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-ring3x3-p22-c-r-12b.txt"><img src="img/clk-rt-ring3x3-p22-c-r-12b.jpg" width="260" alt="clk-rt-ring3x3-p22-c-r-12b"></a><br><sub>22 gt (1.1 s) · comparator+repeater · 12 blocks</sub></td></tr>
@@ -313,7 +313,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-chain-p25-13.txt"><img src="img/clk-sculk-chain-p25-13.jpg" width="260" alt="clk-sculk-chain-p25-13"></a><br><sub>25 gt (1.25 s) · calibrated_sculk_sensor+oak_trapdoor+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c25-obs-stone-note.txt"><img src="img/clk-sculk-c25-obs-stone-note.jpg" width="260" alt="clk-sculk-c25-obs-stone-note"></a><br><sub>25 gt (1.25 s) · calibrated_sculk_sensor+note_block+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-sculk-chaind-p25-1.txt"><img src="img/clk-sculk-chaind-p25-1.jpg" width="260" alt="clk-sculk-chaind-p25-1"></a><br><sub>25 gt (1.25 s) · calibrated_sculk_sensor+dispenser+observer+repeater · 5 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p25-obs-rb-stk-6b-c5d39b.txt">clk-obs-p25-obs-rb-stk-6b-c5d39b</a><br><sub>25 gt (1.25 s) · observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-sculk-chaind-p25-3.txt"><img src="img/clk-sculk-chaind-p25-3.jpg" width="260" alt="clk-sculk-chaind-p25-3"></a><br><sub>25 gt (1.25 s) · calibrated_sculk_sensor+dispenser+redstone_torch+repeater · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p25-lamp-note-obs-stk-7b-0ff53a.txt">clk-obs-p25-lamp-note-obs-stk-7b-0ff53a</a><br><sub>25 gt (1.25 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p25-obs-rb-stk-6b-c5d39b.txt"><img src="img/clk-obs-p25-obs-rb-stk-6b-c5d39b.jpg" width="260" alt="clk-obs-p25-obs-rb-stk-6b-c5d39b"></a><br><sub>25 gt (1.25 s) · observer+redstone_block+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-sculk-chaind-p25-3.txt"><img src="img/clk-sculk-chaind-p25-3.jpg" width="260" alt="clk-sculk-chaind-p25-3"></a><br><sub>25 gt (1.25 s) · calibrated_sculk_sensor+dispenser+redstone_torch+repeater · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p25-lamp-note-obs-stk-7b-0ff53a.txt">clk-obs-p25-lamp-note-obs-stk-7b-0ff53a</a><br><sub>25 gt (1.25 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p25-lamp-obs-pis-stk-7b-d0ad3f.txt">clk-obs-p25-lamp-obs-pis-stk-7b-d0ad3f</a><br><sub>25 gt (1.25 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p25-lamp-obs-stk-7b-6b2a70.txt">clk-obs-p25-lamp-obs-stk-7b-6b2a70</a><br><sub>25 gt (1.25 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p25-note-obs-pis-stk-7b-fbb83c.txt">clk-obs-p25-note-obs-pis-stk-7b-fbb83c</a><br><sub>25 gt (1.25 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p25-note-obs-stk-7b-5b3600.txt">clk-obs-p25-note-obs-stk-7b-5b3600</a><br><sub>25 gt (1.25 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p25-obs-pis-stk-7b-4b4f06.txt">clk-obs-p25-obs-pis-stk-7b-4b4f06</a><br><sub>25 gt (1.25 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p25-obs-stk-7b-cf1ac9.txt">clk-obs-p25-obs-stk-7b-cf1ac9</a><br><sub>25 gt (1.25 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/hop2lockr4-p25.txt"><img src="img/hop2lockr4-p25.jpg" width="260" alt="hop2lockr4-p25"></a><br><sub>25 gt (1.25 s) · comparator+hopper+redstone_wire+repeater · 9 blocks</sub></td><td align="center"><a href="archive/droprep3-p25.txt"><img src="img/droprep3-p25.jpg" width="260" alt="droprep3-p25"></a><br><sub>25 gt (1.25 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p25-19b.txt"><img src="img/clk-rt-odd-rect-p25-19b.jpg" width="260" alt="clk-rt-odd-rect-p25-19b"></a><br><sub>25 gt (1.25 s) · repeater · 19 blocks</sub></td></tr>
@@ -324,7 +324,7 @@
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb-p26-7.txt"><img src="img/clk-sculk-hyb-p26-7.jpg" width="260" alt="clk-sculk-hyb-p26-7"></a><br><sub>26 gt (1.3 s) · calibrated_sculk_sensor+oak_trapdoor+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c26-obs2-note.txt"><img src="img/clk-sculk-c26-obs2-note.jpg" width="260" alt="clk-sculk-c26-obs2-note"></a><br><sub>26 gt (1.3 s) · calibrated_sculk_sensor+note_block+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p26-bulb-obs-pis-5b-288217.txt">clk-obs-p26-bulb-obs-pis-5b-288217</a><br><sub>26 gt (1.3 s) · copper_bulb+observer+piston · 5 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p26-bulb-obs-pis-stk-5b-71f265.txt">clk-obs-p26-bulb-obs-pis-stk-5b-71f265</a><br><sub>26 gt (1.3 s) · copper_bulb+observer+piston+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-bulb-obs-stk-5b-91a60a.txt">clk-obs-p26-bulb-obs-stk-5b-91a60a</a><br><sub>26 gt (1.3 s) · copper_bulb+observer+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-lamp-obs-pis-stk-5b-f9e42b.txt">clk-obs-p26-lamp-obs-pis-stk-5b-f9e42b</a><br><sub>26 gt (1.3 s) · observer+piston+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p26-lamp-obs-stk-5b-551131.txt">clk-obs-p26-lamp-obs-stk-5b-551131</a><br><sub>26 gt (1.3 s) · observer+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-obs-pis-stk-5b-011f1d.txt">clk-obs-p26-obs-pis-stk-5b-011f1d</a><br><sub>26 gt (1.3 s) · observer+piston+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-obs-stk-5b-b38f3d.txt">clk-obs-p26-obs-stk-5b-b38f3d</a><br><sub>26 gt (1.3 s) · observer+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p26-lamp-obs-stk-5b-551131.txt">clk-obs-p26-lamp-obs-stk-5b-551131</a><br><sub>26 gt (1.3 s) · observer+redstone_lamp+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-obs-pis-stk-5b-011f1d.txt">clk-obs-p26-obs-pis-stk-5b-011f1d</a><br><sub>26 gt (1.3 s) · observer+piston+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-obs-stk-5b-b38f3d.txt"><img src="img/clk-obs-p26-obs-stk-5b-b38f3d.jpg" width="260" alt="clk-obs-p26-obs-stk-5b-b38f3d"></a><br><sub>26 gt (1.3 s) · observer+sticky_piston · 5 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p26-obs-stk-5b.txt"><img src="img/clk-obs-p26-obs-stk-5b.jpg" width="260" alt="clk-obs-p26-obs-stk-5b"></a><br><sub>26 gt (1.3 s) · observer+sticky_piston · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p26-obs-pis-rb-stk-5b-76781d.txt">clk-obs-p26-obs-pis-rb-stk-5b-76781d</a><br><sub>26 gt (1.3 s) · observer+piston+redstone_block+sticky_piston · 5 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-obs-rb-stk-5b-0ce023.txt">clk-obs-p26-obs-rb-stk-5b-0ce023</a><br><sub>26 gt (1.3 s) · observer+redstone_block+sticky_piston · 5 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-lampring6.txt"><img src="img/clk-obs-lampring6.jpg" width="260" alt="clk-obs-lampring6"></a><br><sub>26 gt (1.3 s) · observer+redstone_lamp · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p26-lamp-obs-6b-a4c2d6.txt">clk-obs-p26-lamp-obs-6b-a4c2d6</a><br><sub>26 gt (1.3 s) · observer+redstone_lamp · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-bulb-note-obs-pis-6b-a675d2.txt">clk-obs-p26-bulb-note-obs-pis-6b-a675d2</a><br><sub>26 gt (1.3 s) · copper_bulb+note_block+observer+piston · 6 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p26-bulb-note-obs-pis-stk-6b-6e1eba.txt">clk-obs-p26-bulb-note-obs-pis-stk-6b-6e1eba</a><br><sub>26 gt (1.3 s) · copper_bulb+note_block+observer+piston+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-bulb-note-obs-stk-6b-c1cd29.txt">clk-obs-p26-bulb-note-obs-stk-6b-c1cd29</a><br><sub>26 gt (1.3 s) · copper_bulb+note_block+observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p26-lamp-obs-pis-6b-9905df.txt">clk-obs-p26-lamp-obs-pis-6b-9905df</a><br><sub>26 gt (1.3 s) · observer+piston+redstone_lamp · 6 blocks (picture pending)</sub></td></tr>
@@ -371,7 +371,7 @@
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-chaind-p29-1.txt"><img src="img/clk-sculk-chaind-p29-1.jpg" width="260" alt="clk-sculk-chaind-p29-1"></a><br><sub>29 gt (1.45 s) · calibrated_sculk_sensor+dispenser+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c29-obs-stone-disp.txt"><img src="img/clk-sculk-c29-obs-stone-disp.jpg" width="260" alt="clk-sculk-c29-obs-stone-disp"></a><br><sub>29 gt (1.45 s) · calibrated_sculk_sensor+dispenser+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p29-lamp-note-obs-rb-stk-7b-997bca.txt">clk-obs-p29-lamp-note-obs-rb-stk-7b-997bca</a><br><sub>29 gt (1.45 s) · note_block+observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p29-lamp-note-obs-stk-7b-f3e92e.txt">clk-obs-p29-lamp-note-obs-stk-7b-f3e92e</a><br><sub>29 gt (1.45 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p29-lamp-obs-rb-stk-7b-f6ddaf.txt">clk-obs-p29-lamp-obs-rb-stk-7b-f6ddaf</a><br><sub>29 gt (1.45 s) · observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p29-lamp-obs-stk-7b-14af64.txt">clk-obs-p29-lamp-obs-stk-7b-14af64</a><br><sub>29 gt (1.45 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p29-note-obs-stk-7b-6c261d.txt">clk-obs-p29-note-obs-stk-7b-6c261d</a><br><sub>29 gt (1.45 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p29-obs-stk-7b-d86167.txt">clk-obs-p29-obs-stk-7b-d86167</a><br><sub>29 gt (1.45 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p29-bulb-obs-stk-7b-5c96b7.txt">clk-obs-p29-bulb-obs-stk-7b-5c96b7</a><br><sub>29 gt (1.45 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p29-note-obs-stk-7b-6c261d.txt">clk-obs-p29-note-obs-stk-7b-6c261d</a><br><sub>29 gt (1.45 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p29-obs-stk-7b-d86167.txt"><img src="img/clk-obs-p29-obs-stk-7b-d86167.jpg" width="260" alt="clk-obs-p29-obs-stk-7b-d86167"></a><br><sub>29 gt (1.45 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p29-bulb-obs-stk-7b-5c96b7.txt">clk-obs-p29-bulb-obs-stk-7b-5c96b7</a><br><sub>29 gt (1.45 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p29.txt"><img src="img/droprep-p29.jpg" width="260" alt="droprep-p29"></a><br><sub>29 gt (1.45 s) · comparator+dropper+hopper+repeater · 14 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p29-20b.txt"><img src="img/clk-rt-odd-rect-p29-20b.jpg" width="260" alt="clk-rt-odd-rect-p29-20b"></a><br><sub>29 gt (1.45 s) · repeater · 20 blocks</sub></td></tr>
 </table>
 
@@ -379,7 +379,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-obsd-p30-1.txt"><img src="img/clk-sculk-obsd-p30-1.jpg" width="260" alt="clk-sculk-obsd-p30-1"></a><br><sub>30 gt (1.5 s) · calibrated_sculk_sensor+dispenser+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c30-obs2-disp.txt"><img src="img/clk-sculk-c30-obs2-disp.jpg" width="260" alt="clk-sculk-c30-obs2-disp"></a><br><sub>30 gt (1.5 s) · calibrated_sculk_sensor+dispenser+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p30-obs-rb-stk-6b-2f8834.txt">clk-obs-p30-obs-rb-stk-6b-2f8834</a><br><sub>30 gt (1.5 s) · observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p30-obs-stk-6b-f5eb19.txt">clk-obs-p30-obs-stk-6b-f5eb19</a><br><sub>30 gt (1.5 s) · observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p30-obs-stk-6b.txt"><img src="img/clk-obs-p30-obs-stk-6b.jpg" width="260" alt="clk-obs-p30-obs-stk-6b"></a><br><sub>30 gt (1.5 s) · observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p30-note-obs-stk-6b-a603b1.txt">clk-obs-p30-note-obs-stk-6b-a603b1</a><br><sub>30 gt (1.5 s) · note_block+observer+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p30-obs-stk-6b-f5eb19.txt"><img src="img/clk-obs-p30-obs-stk-6b-f5eb19.jpg" width="260" alt="clk-obs-p30-obs-stk-6b-f5eb19"></a><br><sub>30 gt (1.5 s) · observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p30-obs-stk-6b.txt"><img src="img/clk-obs-p30-obs-stk-6b.jpg" width="260" alt="clk-obs-p30-obs-stk-6b"></a><br><sub>30 gt (1.5 s) · observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p30-note-obs-stk-6b-a603b1.txt">clk-obs-p30-note-obs-stk-6b-a603b1</a><br><sub>30 gt (1.5 s) · note_block+observer+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p30-bulb-obs-rb-stk-6b-d5df5d.txt">clk-obs-p30-bulb-obs-rb-stk-6b-d5df5d</a><br><sub>30 gt (1.5 s) · copper_bulb+observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p30-lamp-obs-stk-6b-260f97.txt">clk-obs-p30-lamp-obs-stk-6b-260f97</a><br><sub>30 gt (1.5 s) · observer+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p30-lamp-note-obs-pis-stk-7b-c809dc.txt">clk-obs-p30-lamp-note-obs-pis-stk-7b-c809dc</a><br><sub>30 gt (1.5 s) · note_block+observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p30-lamp-note-obs-stk-7b-6dd62c.txt">clk-obs-p30-lamp-note-obs-stk-7b-6dd62c</a><br><sub>30 gt (1.5 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p30-lamp-obs-pis-stk-7b-1a416b.txt">clk-obs-p30-lamp-obs-pis-stk-7b-1a416b</a><br><sub>30 gt (1.5 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p30-note-obs-pis-stk-7b-dea2f6.txt">clk-obs-p30-note-obs-pis-stk-7b-dea2f6</a><br><sub>30 gt (1.5 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p30-note-obs-rb-stk-7b-fedf8b.txt">clk-obs-p30-note-obs-rb-stk-7b-fedf8b</a><br><sub>30 gt (1.5 s) · note_block+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p30-obs-pis-stk-7b-29f845.txt">clk-obs-p30-obs-pis-stk-7b-29f845</a><br><sub>30 gt (1.5 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p30-bulb-lamp-note-obs-rb-stk-7b-b70ea1.txt">clk-obs-p30-bulb-lamp-note-obs-rb-stk-7b-b70ea1</a><br><sub>30 gt (1.5 s) · copper_bulb+note_block+observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
@@ -396,7 +396,7 @@
 <tr><td align="center"><a href="archive/clk-sculk-obsd-p31-1.txt"><img src="img/clk-sculk-obsd-p31-1.jpg" width="260" alt="clk-sculk-obsd-p31-1"></a><br><sub>31 gt (1.55 s) · calibrated_sculk_sensor+dispenser+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c31-obs2line-disp.txt"><img src="img/clk-sculk-c31-obs2line-disp.jpg" width="260" alt="clk-sculk-c31-obs2line-disp"></a><br><sub>31 gt (1.55 s) · calibrated_sculk_sensor+dispenser+observer · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p31-obs-pis-stk-7b-a16422.txt">clk-obs-p31-obs-pis-stk-7b-a16422</a><br><sub>31 gt (1.55 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p31-lamp-obs-pis-stk-7b-84e88c.txt">clk-obs-p31-lamp-obs-pis-stk-7b-84e88c</a><br><sub>31 gt (1.55 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p31-lamp-obs-stk-7b-26dbea.txt">clk-obs-p31-lamp-obs-stk-7b-26dbea</a><br><sub>31 gt (1.55 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p31-note-obs-pis-stk-7b-608d35.txt">clk-obs-p31-note-obs-pis-stk-7b-608d35</a><br><sub>31 gt (1.55 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p31-note-obs-stk-7b-69a79c.txt">clk-obs-p31-note-obs-stk-7b-69a79c</a><br><sub>31 gt (1.55 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p31-obs-pis-rb-stk-7b-0ef981.txt">clk-obs-p31-obs-pis-rb-stk-7b-0ef981</a><br><sub>31 gt (1.55 s) · observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p31-obs-rb-stk-7b-ed4c28.txt">clk-obs-p31-obs-rb-stk-7b-ed4c28</a><br><sub>31 gt (1.55 s) · observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p31-obs-stk-7b-4337ae.txt">clk-obs-p31-obs-stk-7b-4337ae</a><br><sub>31 gt (1.55 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/droprep-p31.txt"><img src="img/droprep-p31.jpg" width="260" alt="droprep-p31"></a><br><sub>31 gt (1.55 s) · comparator+dropper+hopper+repeater · 14 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p31-20b.txt"><img src="img/clk-rt-odd-rect-p31-20b.jpg" width="260" alt="clk-rt-odd-rect-p31-20b"></a><br><sub>31 gt (1.55 s) · repeater · 20 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p31-obs-stk-7b-4337ae.txt"><img src="img/clk-obs-p31-obs-stk-7b-4337ae.jpg" width="260" alt="clk-obs-p31-obs-stk-7b-4337ae"></a><br><sub>31 gt (1.55 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p31.txt"><img src="img/droprep-p31.jpg" width="260" alt="droprep-p31"></a><br><sub>31 gt (1.55 s) · comparator+dropper+hopper+repeater · 14 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p31-20b.txt"><img src="img/clk-rt-odd-rect-p31-20b.jpg" width="260" alt="clk-rt-odd-rect-p31-20b"></a><br><sub>31 gt (1.55 s) · repeater · 20 blocks</sub></td></tr>
 </table>
 
 ## 32 gt (1.6 s)
@@ -418,7 +418,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-obs-p33-1.txt"><img src="img/clk-sculk-obs-p33-1.jpg" width="260" alt="clk-sculk-obs-p33-1"></a><br><sub>33 gt (1.65 s) · calibrated_sculk_sensor+note_block+observer · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p33-lamp-note-obs-stk-7b-ab1ddb.txt">clk-obs-p33-lamp-note-obs-stk-7b-ab1ddb</a><br><sub>33 gt (1.65 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p33-lamp-obs-stk-7b-efa876.txt">clk-obs-p33-lamp-obs-stk-7b-efa876</a><br><sub>33 gt (1.65 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p33-note-obs-stk-7b-086ee9.txt">clk-obs-p33-note-obs-stk-7b-086ee9</a><br><sub>33 gt (1.65 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p33-obs-stk-7b-b0ff0f.txt">clk-obs-p33-obs-stk-7b-b0ff0f</a><br><sub>33 gt (1.65 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/droprep-p33.txt"><img src="img/droprep-p33.jpg" width="260" alt="droprep-p33"></a><br><sub>33 gt (1.65 s) · comparator+dropper+hopper+repeater · 14 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p33-note-obs-stk-7b-086ee9.txt">clk-obs-p33-note-obs-stk-7b-086ee9</a><br><sub>33 gt (1.65 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p33-obs-stk-7b-b0ff0f.txt"><img src="img/clk-obs-p33-obs-stk-7b-b0ff0f.jpg" width="260" alt="clk-obs-p33-obs-stk-7b-b0ff0f"></a><br><sub>33 gt (1.65 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p33.txt"><img src="img/droprep-p33.jpg" width="260" alt="droprep-p33"></a><br><sub>33 gt (1.65 s) · comparator+dropper+hopper+repeater · 14 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p33-23b.txt"><img src="img/clk-rt-odd-rect-p33-23b.jpg" width="260" alt="clk-rt-odd-rect-p33-23b"></a><br><sub>33 gt (1.65 s) · repeater · 23 blocks</sub></td></tr>
 </table>
 
@@ -430,7 +430,7 @@
 <tr><td align="center"><a href="archive/clk-obs-p34-bulb-lamp-obs-rb-stk-7b-c65d30.txt">clk-obs-p34-bulb-lamp-obs-rb-stk-7b-c65d30</a><br><sub>34 gt (1.7 s) · copper_bulb+observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-bulb-lamp-obs-stk-7b-096179.txt">clk-obs-p34-bulb-lamp-obs-stk-7b-096179</a><br><sub>34 gt (1.7 s) · copper_bulb+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-lamp-obs-pis-stk-7b-597f59.txt">clk-obs-p34-lamp-obs-pis-stk-7b-597f59</a><br><sub>34 gt (1.7 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p34-lamp-obs-stk-7b-b0dd68.txt">clk-obs-p34-lamp-obs-stk-7b-b0dd68</a><br><sub>34 gt (1.7 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-note-obs-pis-stk-7b-0d0888.txt">clk-obs-p34-note-obs-pis-stk-7b-0d0888</a><br><sub>34 gt (1.7 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-note-obs-rb-stk-7b-cedbf7.txt">clk-obs-p34-note-obs-rb-stk-7b-cedbf7</a><br><sub>34 gt (1.7 s) · note_block+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p34-note-obs-stk-7b-dfc44f.txt">clk-obs-p34-note-obs-stk-7b-dfc44f</a><br><sub>34 gt (1.7 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-obs-pis-stk-7b-462b0e.txt">clk-obs-p34-obs-pis-stk-7b-462b0e</a><br><sub>34 gt (1.7 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-obs-rb-stk-7b-9659b1.txt">clk-obs-p34-obs-rb-stk-7b-9659b1</a><br><sub>34 gt (1.7 s) · observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p34-obs-stk-7b-474fa7.txt">clk-obs-p34-obs-stk-7b-474fa7</a><br><sub>34 gt (1.7 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-obs-pis-rb-stk-7b-37c595.txt">clk-obs-p34-obs-pis-rb-stk-7b-37c595</a><br><sub>34 gt (1.7 s) · observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-note-obs-pis-rb-stk-7b-a3d64a.txt">clk-obs-p34-note-obs-pis-rb-stk-7b-a3d64a</a><br><sub>34 gt (1.7 s) · note_block+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p34-obs-stk-7b-474fa7.txt"><img src="img/clk-obs-p34-obs-stk-7b-474fa7.jpg" width="260" alt="clk-obs-p34-obs-stk-7b-474fa7"></a><br><sub>34 gt (1.7 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p34-obs-pis-rb-stk-7b-37c595.txt">clk-obs-p34-obs-pis-rb-stk-7b-37c595</a><br><sub>34 gt (1.7 s) · observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p34-note-obs-pis-rb-stk-7b-a3d64a.txt">clk-obs-p34-note-obs-pis-rb-stk-7b-a3d64a</a><br><sub>34 gt (1.7 s) · note_block+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p34-rt-r-12b.txt"><img src="img/clk-rt-uloop-p34-rt-r-12b.jpg" width="260" alt="clk-rt-uloop-p34-rt-r-12b"></a><br><sub>34 gt (1.7 s) · redstone_torch+repeater · 12 blocks</sub></td><td align="center"><a href="archive/dropringw-p34.txt"><img src="img/dropringw-p34.jpg" width="260" alt="dropringw-p34"></a><br><sub>34 gt (1.7 s) · comparator+dropper+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x4-p34-16b.txt"><img src="img/clk-rt-rect3x4-p34-16b.jpg" width="260" alt="clk-rt-rect3x4-p34-16b"></a><br><sub>34 gt (1.7 s) · redstone_wire+repeater · 16 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-ring3x4-p34-c-r-16b.txt"><img src="img/clk-rt-ring3x4-p34-c-r-16b.jpg" width="260" alt="clk-rt-ring3x4-p34-c-r-16b"></a><br><sub>34 gt (1.7 s) · comparator+repeater · 16 blocks</sub></td></tr>
 </table>
@@ -470,7 +470,7 @@
 ## 38 gt (1.9 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p38-obs-rb-stk-6b-09dcb6.txt">clk-obs-p38-obs-rb-stk-6b-09dcb6</a><br><sub>38 gt (1.9 s) · observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p38-obs-stk-6b-8b1836.txt">clk-obs-p38-obs-stk-6b-8b1836</a><br><sub>38 gt (1.9 s) · observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p38-obs-stk-6b.txt"><img src="img/clk-obs-p38-obs-stk-6b.jpg" width="260" alt="clk-obs-p38-obs-stk-6b"></a><br><sub>38 gt (1.9 s) · observer+sticky_piston · 6 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p38-obs-rb-stk-6b-09dcb6.txt">clk-obs-p38-obs-rb-stk-6b-09dcb6</a><br><sub>38 gt (1.9 s) · observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p38-obs-stk-6b-8b1836.txt"><img src="img/clk-obs-p38-obs-stk-6b-8b1836.jpg" width="260" alt="clk-obs-p38-obs-stk-6b-8b1836"></a><br><sub>38 gt (1.9 s) · observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p38-obs-stk-6b.txt"><img src="img/clk-obs-p38-obs-stk-6b.jpg" width="260" alt="clk-obs-p38-obs-stk-6b"></a><br><sub>38 gt (1.9 s) · observer+sticky_piston · 6 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-sculk-ring3-p38-1.txt"><img src="img/clk-sculk-ring3-p38-1.jpg" width="260" alt="clk-sculk-ring3-p38-1"></a><br><sub>38 gt (1.9 s) · calibrated_sculk_sensor+note_block · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p38-lamp-obs-stk-7b-fdbff2.txt">clk-obs-p38-lamp-obs-stk-7b-fdbff2</a><br><sub>38 gt (1.9 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p38-bulb-lamp-note-obs-rb-stk-7b-1fb71b.txt">clk-obs-p38-bulb-lamp-note-obs-rb-stk-7b-1fb71b</a><br><sub>38 gt (1.9 s) · copper_bulb+note_block+observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p38-bulb-note-obs-rb-stk-7b-32d27b.txt">clk-obs-p38-bulb-note-obs-rb-stk-7b-32d27b</a><br><sub>38 gt (1.9 s) · copper_bulb+note_block+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p38-note-obs-pis-stk-7b-ce5b96.txt">clk-obs-p38-note-obs-pis-stk-7b-ce5b96</a><br><sub>38 gt (1.9 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p38-note-obs-stk-7b-410cff.txt">clk-obs-p38-note-obs-stk-7b-410cff</a><br><sub>38 gt (1.9 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p38.txt"><img src="img/droprep-p38.jpg" width="260" alt="droprep-p38"></a><br><sub>38 gt (1.9 s) · comparator+dropper+hopper+repeater · 14 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p38-16b.txt"><img src="img/clk-rt-uloop-p38-16b.jpg" width="260" alt="clk-rt-uloop-p38-16b"></a><br><sub>38 gt (1.9 s) · redstone_torch+repeater · 16 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x4-p38-16b.txt"><img src="img/clk-rt-rect3x4-p38-16b.jpg" width="260" alt="clk-rt-rect3x4-p38-16b"></a><br><sub>38 gt (1.9 s) · redstone_wire+repeater · 16 blocks</sub></td></tr>
@@ -481,7 +481,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-ring3-p39-1.txt"><img src="img/clk-sculk-ring3-p39-1.jpg" width="260" alt="clk-sculk-ring3-p39-1"></a><br><sub>39 gt (1.95 s) · calibrated_sculk_sensor+note_block · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p39-bulb-note-obs-pis-stk-7b-29e6a5.txt">clk-obs-p39-bulb-note-obs-pis-stk-7b-29e6a5</a><br><sub>39 gt (1.95 s) · copper_bulb+note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p39-bulb-note-obs-stk-7b-1879f6.txt">clk-obs-p39-bulb-note-obs-stk-7b-1879f6</a><br><sub>39 gt (1.95 s) · copper_bulb+note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p39-bulb-obs-pis-stk-7b-f19139.txt">clk-obs-p39-bulb-obs-pis-stk-7b-f19139</a><br><sub>39 gt (1.95 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p39-bulb-obs-stk-7b-522598.txt">clk-obs-p39-bulb-obs-stk-7b-522598</a><br><sub>39 gt (1.95 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p39-obs-pis-stk-7b-d53cd2.txt">clk-obs-p39-obs-pis-stk-7b-d53cd2</a><br><sub>39 gt (1.95 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p39-bulb-obs-pis-stk-7b-f19139.txt">clk-obs-p39-bulb-obs-pis-stk-7b-f19139</a><br><sub>39 gt (1.95 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p39-bulb-obs-stk-7b-522598.txt"><img src="img/clk-obs-p39-bulb-obs-stk-7b-522598.jpg" width="260" alt="clk-obs-p39-bulb-obs-stk-7b-522598"></a><br><sub>39 gt (1.95 s) · copper_bulb+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p39-obs-pis-stk-7b-d53cd2.txt">clk-obs-p39-obs-pis-stk-7b-d53cd2</a><br><sub>39 gt (1.95 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p39-lamp-obs-pis-stk-7b-271b76.txt">clk-obs-p39-lamp-obs-pis-stk-7b-271b76</a><br><sub>39 gt (1.95 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p39-note-obs-pis-stk-7b-34729a.txt">clk-obs-p39-note-obs-pis-stk-7b-34729a</a><br><sub>39 gt (1.95 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p39-note-obs-stk-7b-ecc612.txt">clk-obs-p39-note-obs-stk-7b-ecc612</a><br><sub>39 gt (1.95 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p39-obs-stk-7b-ecc382.txt">clk-obs-p39-obs-stk-7b-ecc382</a><br><sub>39 gt (1.95 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p39-lamp-note-obs-stk-7b-79a21d.txt">clk-obs-p39-lamp-note-obs-stk-7b-79a21d</a><br><sub>39 gt (1.95 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p39-lamp-obs-stk-7b-11434b.txt">clk-obs-p39-lamp-obs-stk-7b-11434b</a><br><sub>39 gt (1.95 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p39-24b.txt"><img src="img/clk-rt-odd-rect-p39-24b.jpg" width="260" alt="clk-rt-odd-rect-p39-24b"></a><br><sub>39 gt (1.95 s) · repeater · 24 blocks</sub></td></tr>
@@ -491,7 +491,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-obs-p40-bulb-lamp-obs-pis-6b-975b45.txt">clk-obs-p40-bulb-lamp-obs-pis-6b-975b45</a><br><sub>40 gt (2 s) · copper_bulb+observer+piston+redstone_lamp · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p40-bulb-lamp-obs-stk-6b-778471.txt">clk-obs-p40-bulb-lamp-obs-stk-6b-778471</a><br><sub>40 gt (2 s) · copper_bulb+observer+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p40-bulb-obs-rb-stk-6b-39192b.txt">clk-obs-p40-bulb-obs-rb-stk-6b-39192b</a><br><sub>40 gt (2 s) · copper_bulb+observer+redstone_block+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p40-bulb-obs-stk-6b-31c0be.txt">clk-obs-p40-bulb-obs-stk-6b-31c0be</a><br><sub>40 gt (2 s) · copper_bulb+observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p40-bulb-obs-stk-6b.txt"><img src="img/clk-obs-p40-bulb-obs-stk-6b.jpg" width="260" alt="clk-obs-p40-bulb-obs-stk-6b"></a><br><sub>40 gt (2 s) · copper_bulb+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p40-lamp-obs-stk-6b-e8a278.txt">clk-obs-p40-lamp-obs-stk-6b-e8a278</a><br><sub>40 gt (2 s) · observer+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p40-bulb-obs-stk-6b-31c0be.txt"><img src="img/clk-obs-p40-bulb-obs-stk-6b-31c0be.jpg" width="260" alt="clk-obs-p40-bulb-obs-stk-6b-31c0be"></a><br><sub>40 gt (2 s) · copper_bulb+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p40-bulb-obs-stk-6b.txt"><img src="img/clk-obs-p40-bulb-obs-stk-6b.jpg" width="260" alt="clk-obs-p40-bulb-obs-stk-6b"></a><br><sub>40 gt (2 s) · copper_bulb+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p40-lamp-obs-stk-6b-e8a278.txt">clk-obs-p40-lamp-obs-stk-6b-e8a278</a><br><sub>40 gt (2 s) · observer+redstone_lamp+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-sculk-ring3-p40-1.txt"><img src="img/clk-sculk-ring3-p40-1.jpg" width="260" alt="clk-sculk-ring3-p40-1"></a><br><sub>40 gt (2 s) · calibrated_sculk_sensor+note_block · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p40-bulb-lamp-note-obs-stk-7b-95fb0f.txt">clk-obs-p40-bulb-lamp-note-obs-stk-7b-95fb0f</a><br><sub>40 gt (2 s) · copper_bulb+note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p40-bulb-lamp-obs-rb-stk-7b-3f3fff.txt">clk-obs-p40-bulb-lamp-obs-rb-stk-7b-3f3fff</a><br><sub>40 gt (2 s) · copper_bulb+observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p40-lamp-note-obs-stk-7b-456869.txt">clk-obs-p40-lamp-note-obs-stk-7b-456869</a><br><sub>40 gt (2 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p40-bulb-note-obs-rb-stk-7b-a93749.txt">clk-obs-p40-bulb-note-obs-rb-stk-7b-a93749</a><br><sub>40 gt (2 s) · copper_bulb+note_block+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p40-bulb-note-obs-stk-7b-96d678.txt">clk-obs-p40-bulb-note-obs-stk-7b-96d678</a><br><sub>40 gt (2 s) · copper_bulb+note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p40-obs-stk-7b-7fd43e.txt">clk-obs-p40-obs-stk-7b-7fd43e</a><br><sub>40 gt (2 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p40-obs-rb-stk-7b-e5d29e.txt">clk-obs-p40-obs-rb-stk-7b-e5d29e</a><br><sub>40 gt (2 s) · observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-rt-ring3x3-p40-c-rt-rw-r-12b.txt"><img src="img/clk-rt-ring3x3-p40-c-rt-rw-r-12b.jpg" width="260" alt="clk-rt-ring3x3-p40-c-rt-rw-r-12b"></a><br><sub>40 gt (2 s) · comparator+redstone_torch+redstone_wire+repeater · 12 blocks</sub></td></tr>
@@ -504,7 +504,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-p41-obs3-disp.txt"><img src="img/clk-sculk-p41-obs3-disp.jpg" width="260" alt="clk-sculk-p41-obs3-disp"></a><br><sub>41 gt (2.05 s) · dispenser+observer+sculk_sensor · 5 blocks</sub></td><td align="center"><a href="archive/clk-sculk-p41s-rep-obs-note.txt"><img src="img/clk-sculk-p41s-rep-obs-note.jpg" width="260" alt="clk-sculk-p41s-rep-obs-note"></a><br><sub>41 gt (2.05 s) · note_block+observer+repeater+sculk_sensor · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p41-obs-pis-stk-7b-2c9076.txt">clk-obs-p41-obs-pis-stk-7b-2c9076</a><br><sub>41 gt (2.05 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p41-obs-stk-7b-4310fc.txt">clk-obs-p41-obs-stk-7b-4310fc</a><br><sub>41 gt (2.05 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/dropringw-p41.txt"><img src="img/dropringw-p41.jpg" width="260" alt="dropringw-p41"></a><br><sub>41 gt (2.05 s) · comparator+dropper+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p41-27b.txt"><img src="img/clk-rt-odd-rect-p41-27b.jpg" width="260" alt="clk-rt-odd-rect-p41-27b"></a><br><sub>41 gt (2.05 s) · repeater · 27 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p41-obs-stk-7b-4310fc.txt"><img src="img/clk-obs-p41-obs-stk-7b-4310fc.jpg" width="260" alt="clk-obs-p41-obs-stk-7b-4310fc"></a><br><sub>41 gt (2.05 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/dropringw-p41.txt"><img src="img/dropringw-p41.jpg" width="260" alt="dropringw-p41"></a><br><sub>41 gt (2.05 s) · comparator+dropper+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p41-27b.txt"><img src="img/clk-rt-odd-rect-p41-27b.jpg" width="260" alt="clk-rt-odd-rect-p41-27b"></a><br><sub>41 gt (2.05 s) · repeater · 27 blocks</sub></td></tr>
 </table>
 
 ## 42 gt (2.1 s)
@@ -531,7 +531,7 @@
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-chain-p44-39.txt"><img src="img/clk-sculk-chain-p44-39.jpg" width="260" alt="clk-sculk-chain-p44-39"></a><br><sub>44 gt (2.2 s) · oak_fence_gate+observer+sculk_sensor · 3 blocks</sub></td><td align="center"><a href="archive/clk-sculk-p44-obs-note.txt"><img src="img/clk-sculk-p44-obs-note.jpg" width="260" alt="clk-sculk-p44-obs-note"></a><br><sub>44 gt (2.2 s) · note_block+observer+sculk_sensor · 3 blocks</sub></td><td align="center"><a href="archive/clk-obs-p44-bulb-note-obs-pis-stk-7b-afee97.txt">clk-obs-p44-bulb-note-obs-pis-stk-7b-afee97</a><br><sub>44 gt (2.2 s) · copper_bulb+note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p44-bulb-obs-pis-stk-7b-79c74a.txt">clk-obs-p44-bulb-obs-pis-stk-7b-79c74a</a><br><sub>44 gt (2.2 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p44-lamp-note-obs-rb-stk-7b-228072.txt">clk-obs-p44-lamp-note-obs-rb-stk-7b-228072</a><br><sub>44 gt (2.2 s) · note_block+observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p44-lamp-note-obs-stk-7b-fa7be7.txt">clk-obs-p44-lamp-note-obs-stk-7b-fa7be7</a><br><sub>44 gt (2.2 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p44-lamp-obs-rb-stk-7b-a76296.txt">clk-obs-p44-lamp-obs-rb-stk-7b-a76296</a><br><sub>44 gt (2.2 s) · observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p44-lamp-obs-stk-7b-77ba59.txt">clk-obs-p44-lamp-obs-stk-7b-77ba59</a><br><sub>44 gt (2.2 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p44-bulb-obs-rb-stk-7b-9f2bc4.txt">clk-obs-p44-bulb-obs-rb-stk-7b-9f2bc4</a><br><sub>44 gt (2.2 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p44-lamp-obs-rb-stk-7b-a76296.txt">clk-obs-p44-lamp-obs-rb-stk-7b-a76296</a><br><sub>44 gt (2.2 s) · observer+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p44-lamp-obs-stk-7b-77ba59.txt"><img src="img/clk-obs-p44-lamp-obs-stk-7b-77ba59.jpg" width="260" alt="clk-obs-p44-lamp-obs-stk-7b-77ba59"></a><br><sub>44 gt (2.2 s) · observer+redstone_lamp+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p44-bulb-obs-rb-stk-7b-9f2bc4.txt">clk-obs-p44-bulb-obs-rb-stk-7b-9f2bc4</a><br><sub>44 gt (2.2 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p44-obs-pis-stk-7b-f547cf.txt">clk-obs-p44-obs-pis-stk-7b-f547cf</a><br><sub>44 gt (2.2 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p44-bulb-obs-stk-7b-d577c1.txt">clk-obs-p44-bulb-obs-stk-7b-d577c1</a><br><sub>44 gt (2.2 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p44-bulb-note-obs-stk-7b-0026e6.txt">clk-obs-p44-bulb-note-obs-stk-7b-0026e6</a><br><sub>44 gt (2.2 s) · copper_bulb+note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-ring3x3-p44-rt-rw-r-12b.txt"><img src="img/clk-rt-ring3x3-p44-rt-rw-r-12b.jpg" width="260" alt="clk-rt-ring3x3-p44-rt-rw-r-12b"></a><br><sub>44 gt (2.2 s) · redstone_torch+redstone_wire+repeater · 12 blocks</sub></td><td align="center"><a href="archive/ringlock34-p44.txt"><img src="img/ringlock34-p44.jpg" width="260" alt="ringlock34-p44"></a><br><sub>44 gt (2.2 s) · comparator+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p44-c-rt-rw-r-13b.txt"><img src="img/clk-rt-uloop-p44-c-rt-rw-r-13b.jpg" width="260" alt="clk-rt-uloop-p44-c-rt-rw-r-13b"></a><br><sub>44 gt (2.2 s) · comparator+redstone_torch+redstone_wire+repeater · 13 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p44-rt-rw-r-13b.txt"><img src="img/clk-rt-uloop-p44-rt-rw-r-13b.jpg" width="260" alt="clk-rt-uloop-p44-rt-rw-r-13b"></a><br><sub>44 gt (2.2 s) · redstone_torch+redstone_wire+repeater · 13 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x4-p44-16b.txt"><img src="img/clk-rt-rect3x4-p44-16b.jpg" width="260" alt="clk-rt-rect3x4-p44-16b"></a><br><sub>44 gt (2.2 s) · repeater · 16 blocks</sub></td><td align="center"><a href="archive/droprep-p44.txt"><img src="img/droprep-p44.jpg" width="260" alt="droprep-p44"></a><br><sub>44 gt (2.2 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td></tr>
@@ -542,7 +542,7 @@
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-chain-p45-28.txt"><img src="img/clk-sculk-chain-p45-28.jpg" width="260" alt="clk-sculk-chain-p45-28"></a><br><sub>45 gt (2.25 s) · oak_fence_gate+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p45-bulb-obs-pis-stk-7b-8ace65.txt">clk-obs-p45-bulb-obs-pis-stk-7b-8ace65</a><br><sub>45 gt (2.25 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p45-bulb-obs-stk-7b-58e33c.txt">clk-obs-p45-bulb-obs-stk-7b-58e33c</a><br><sub>45 gt (2.25 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p45-lamp-obs-pis-stk-7b-0e45cc.txt">clk-obs-p45-lamp-obs-pis-stk-7b-0e45cc</a><br><sub>45 gt (2.25 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p45-lamp-obs-stk-7b-d69410.txt">clk-obs-p45-lamp-obs-stk-7b-d69410</a><br><sub>45 gt (2.25 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p45-note-obs-pis-stk-7b-6088eb.txt">clk-obs-p45-note-obs-pis-stk-7b-6088eb</a><br><sub>45 gt (2.25 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p45-note-obs-stk-7b-fca038.txt">clk-obs-p45-note-obs-stk-7b-fca038</a><br><sub>45 gt (2.25 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p45-obs-pis-stk-7b-3e44c7.txt">clk-obs-p45-obs-pis-stk-7b-3e44c7</a><br><sub>45 gt (2.25 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p45-obs-stk-7b-aa692a.txt">clk-obs-p45-obs-stk-7b-aa692a</a><br><sub>45 gt (2.25 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p45-note-obs-stk-7b-fca038.txt">clk-obs-p45-note-obs-stk-7b-fca038</a><br><sub>45 gt (2.25 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p45-obs-pis-stk-7b-3e44c7.txt">clk-obs-p45-obs-pis-stk-7b-3e44c7</a><br><sub>45 gt (2.25 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p45-obs-stk-7b-aa692a.txt"><img src="img/clk-obs-p45-obs-stk-7b-aa692a.jpg" width="260" alt="clk-obs-p45-obs-stk-7b-aa692a"></a><br><sub>45 gt (2.25 s) · observer+sticky_piston · 7 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-sculk-ring3-c45.txt"><img src="img/clk-sculk-ring3-c45.jpg" width="260" alt="clk-sculk-ring3-c45"></a><br><sub>45 gt (2.25 s) · calibrated_sculk_sensor · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p45.txt"><img src="img/droprep-p45.jpg" width="260" alt="droprep-p45"></a><br><sub>45 gt (2.25 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p45-28b.txt"><img src="img/clk-rt-odd-rect-p45-28b.jpg" width="260" alt="clk-rt-odd-rect-p45-28b"></a><br><sub>45 gt (2.25 s) · repeater · 28 blocks</sub></td></tr>
 </table>
 
@@ -561,7 +561,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb-p47-11.txt"><img src="img/clk-sculk-hyb-p47-11.jpg" width="260" alt="clk-sculk-hyb-p47-11"></a><br><sub>47 gt (2.35 s) · oak_trapdoor+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p47-lamp-obs-pis-rb-stk-7b-88eb4c.txt">clk-obs-p47-lamp-obs-pis-rb-stk-7b-88eb4c</a><br><sub>47 gt (2.35 s) · observer+piston+redstone_block+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p47-note-obs-pis-rb-stk-7b-74e4ca.txt">clk-obs-p47-note-obs-pis-rb-stk-7b-74e4ca</a><br><sub>47 gt (2.35 s) · note_block+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p47-obs-pis-rb-stk-7b-e48592.txt">clk-obs-p47-obs-pis-rb-stk-7b-e48592</a><br><sub>47 gt (2.35 s) · observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p47-obs-stk-7b-193e30.txt">clk-obs-p47-obs-stk-7b-193e30</a><br><sub>47 gt (2.35 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/droprep-p47.txt"><img src="img/droprep-p47.jpg" width="260" alt="droprep-p47"></a><br><sub>47 gt (2.35 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p47-obs-pis-rb-stk-7b-e48592.txt">clk-obs-p47-obs-pis-rb-stk-7b-e48592</a><br><sub>47 gt (2.35 s) · observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p47-obs-stk-7b-193e30.txt"><img src="img/clk-obs-p47-obs-stk-7b-193e30.jpg" width="260" alt="clk-obs-p47-obs-stk-7b-193e30"></a><br><sub>47 gt (2.35 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p47.txt"><img src="img/droprep-p47.jpg" width="260" alt="droprep-p47"></a><br><sub>47 gt (2.35 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p47-28b.txt"><img src="img/clk-rt-odd-rect-p47-28b.jpg" width="260" alt="clk-rt-odd-rect-p47-28b"></a><br><sub>47 gt (2.35 s) · repeater · 28 blocks</sub></td></tr>
 </table>
 
@@ -585,7 +585,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-chaind-p49-5.txt"><img src="img/clk-sculk-chaind-p49-5.jpg" width="260" alt="clk-sculk-chaind-p49-5"></a><br><sub>49 gt (2.45 s) · dispenser+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/clk-obs-p49-lamp-note-obs-stk-7b-5bdba7.txt">clk-obs-p49-lamp-note-obs-stk-7b-5bdba7</a><br><sub>49 gt (2.45 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p49-lamp-obs-stk-7b-9db5dc.txt">clk-obs-p49-lamp-obs-stk-7b-9db5dc</a><br><sub>49 gt (2.45 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p49-obs-stk-7b-db5d66.txt">clk-obs-p49-obs-stk-7b-db5d66</a><br><sub>49 gt (2.45 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/ringlock-p49.txt"><img src="img/ringlock-p49.jpg" width="260" alt="ringlock-p49"></a><br><sub>49 gt (2.45 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p49.txt"><img src="img/droprep-p49.jpg" width="260" alt="droprep-p49"></a><br><sub>49 gt (2.45 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p49-obs-stk-7b-db5d66.txt"><img src="img/clk-obs-p49-obs-stk-7b-db5d66.jpg" width="260" alt="clk-obs-p49-obs-stk-7b-db5d66"></a><br><sub>49 gt (2.45 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/ringlock-p49.txt"><img src="img/ringlock-p49.jpg" width="260" alt="ringlock-p49"></a><br><sub>49 gt (2.45 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p49.txt"><img src="img/droprep-p49.jpg" width="260" alt="droprep-p49"></a><br><sub>49 gt (2.45 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p49-31b.txt"><img src="img/clk-rt-odd-rect-p49-31b.jpg" width="260" alt="clk-rt-odd-rect-p49-31b"></a><br><sub>49 gt (2.45 s) · repeater · 31 blocks</sub></td></tr>
 </table>
 
@@ -593,13 +593,13 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-obsd-p50-1.txt"><img src="img/clk-sculk-obsd-p50-1.jpg" width="260" alt="clk-sculk-obsd-p50-1"></a><br><sub>50 gt (2.5 s) · dispenser+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p50-16b.txt"><img src="img/clk-rt-uloop-p50-16b.jpg" width="260" alt="clk-rt-uloop-p50-16b"></a><br><sub>50 gt (2.5 s) · redstone_torch+repeater · 16 blocks</sub></td><td align="center"><a href="archive/droprep-p50.txt"><img src="img/droprep-p50.jpg" width="260" alt="droprep-p50"></a><br><sub>50 gt (2.5 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-rt-rect3x5-p50-19b.txt"><img src="img/clk-rt-rect3x5-p50-19b.jpg" width="260" alt="clk-rt-rect3x5-p50-19b"></a><br><sub>50 gt (2.5 s) · repeater · 19 blocks</sub></td><td align="center"><a href="archive/clk-obs-p50-note-obs-26b-2873f7.txt">clk-obs-p50-note-obs-26b-2873f7</a><br><sub>50 gt (2.5 s) · note_block+observer · 26 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-rt-rect3x5-p50-19b.txt"><img src="img/clk-rt-rect3x5-p50-19b.jpg" width="260" alt="clk-rt-rect3x5-p50-19b"></a><br><sub>50 gt (2.5 s) · repeater · 19 blocks</sub></td><td align="center"><a href="archive/clk-obs-p50-note-obs-26b-2873f7.txt"><img src="img/clk-obs-p50-note-obs-26b-2873f7.jpg" width="260" alt="clk-obs-p50-note-obs-26b-2873f7"></a><br><sub>50 gt (2.5 s) · note_block+observer · 26 blocks</sub></td></tr>
 </table>
 
 ## 51 gt (2.55 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-obsd-p51-1.txt"><img src="img/clk-sculk-obsd-p51-1.jpg" width="260" alt="clk-sculk-obsd-p51-1"></a><br><sub>51 gt (2.55 s) · dispenser+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/droprep-p51.txt"><img src="img/droprep-p51.jpg" width="260" alt="droprep-p51"></a><br><sub>51 gt (2.55 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p51-obs-pis-rb-stk-28b-285572.txt">clk-obs-p51-obs-pis-rb-stk-28b-285572</a><br><sub>51 gt (2.55 s) · observer+piston+redstone_block+sticky_piston · 28 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-obsd-p51-1.txt"><img src="img/clk-sculk-obsd-p51-1.jpg" width="260" alt="clk-sculk-obsd-p51-1"></a><br><sub>51 gt (2.55 s) · dispenser+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/droprep-p51.txt"><img src="img/droprep-p51.jpg" width="260" alt="droprep-p51"></a><br><sub>51 gt (2.55 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p51-obs-pis-rb-stk-28b-285572.txt"><img src="img/clk-obs-p51-obs-pis-rb-stk-28b-285572.jpg" width="260" alt="clk-obs-p51-obs-pis-rb-stk-28b-285572"></a><br><sub>51 gt (2.55 s) · observer+piston+redstone_block+sticky_piston · 28 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p51-31b.txt"><img src="img/clk-rt-odd-rect-p51-31b.jpg" width="260" alt="clk-rt-odd-rect-p51-31b"></a><br><sub>51 gt (2.55 s) · repeater · 31 blocks</sub></td></tr>
 </table>
 
@@ -619,7 +619,7 @@
 ## 53 gt (2.65 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-obs-p53-1.txt"><img src="img/clk-sculk-obs-p53-1.jpg" width="260" alt="clk-sculk-obs-p53-1"></a><br><sub>53 gt (2.65 s) · note_block+observer+sculk_sensor · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p53.txt"><img src="img/droprep-p53.jpg" width="260" alt="droprep-p53"></a><br><sub>53 gt (2.65 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p53-obs-pis-rb-stk-30b-df7740.txt">clk-obs-p53-obs-pis-rb-stk-30b-df7740</a><br><sub>53 gt (2.65 s) · observer+piston+redstone_block+sticky_piston · 30 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-obs-p53-1.txt"><img src="img/clk-sculk-obs-p53-1.jpg" width="260" alt="clk-sculk-obs-p53-1"></a><br><sub>53 gt (2.65 s) · note_block+observer+sculk_sensor · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p53.txt"><img src="img/droprep-p53.jpg" width="260" alt="droprep-p53"></a><br><sub>53 gt (2.65 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p53-obs-pis-rb-stk-30b-df7740.txt"><img src="img/clk-obs-p53-obs-pis-rb-stk-30b-df7740.jpg" width="260" alt="clk-obs-p53-obs-pis-rb-stk-30b-df7740"></a><br><sub>53 gt (2.65 s) · observer+piston+redstone_block+sticky_piston · 30 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p53-32b.txt"><img src="img/clk-rt-odd-rect-p53-32b.jpg" width="260" alt="clk-rt-odd-rect-p53-32b"></a><br><sub>53 gt (2.65 s) · repeater · 32 blocks</sub></td></tr>
 </table>
 
@@ -627,7 +627,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb-p54-3.txt"><img src="img/clk-sculk-hyb-p54-3.jpg" width="260" alt="clk-sculk-hyb-p54-3"></a><br><sub>54 gt (2.7 s) · calibrated_sculk_sensor+observer+sticky_piston · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p54-bulb-obs-pis-stk-6b-58448b.txt">clk-obs-p54-bulb-obs-pis-stk-6b-58448b</a><br><sub>54 gt (2.7 s) · copper_bulb+observer+piston+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p54-bulb-obs-stk-6b-a102c6.txt">clk-obs-p54-bulb-obs-stk-6b-a102c6</a><br><sub>54 gt (2.7 s) · copper_bulb+observer+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p54-bulb-obs-stk-6b.txt"><img src="img/clk-obs-p54-bulb-obs-stk-6b.jpg" width="260" alt="clk-obs-p54-bulb-obs-stk-6b"></a><br><sub>54 gt (2.7 s) · observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p54-obs-stk-6b-ee999d.txt">clk-obs-p54-obs-stk-6b-ee999d</a><br><sub>54 gt (2.7 s) · observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p54-obs-pis-stk-7b-6390c7.txt">clk-obs-p54-obs-pis-stk-7b-6390c7</a><br><sub>54 gt (2.7 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p54-bulb-obs-stk-6b.txt"><img src="img/clk-obs-p54-bulb-obs-stk-6b.jpg" width="260" alt="clk-obs-p54-bulb-obs-stk-6b"></a><br><sub>54 gt (2.7 s) · observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p54-obs-stk-6b-ee999d.txt"><img src="img/clk-obs-p54-obs-stk-6b-ee999d.jpg" width="260" alt="clk-obs-p54-obs-stk-6b-ee999d"></a><br><sub>54 gt (2.7 s) · observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p54-obs-pis-stk-7b-6390c7.txt">clk-obs-p54-obs-pis-stk-7b-6390c7</a><br><sub>54 gt (2.7 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p54-lamp-obs-pis-stk-7b-7b1b02.txt">clk-obs-p54-lamp-obs-pis-stk-7b-7b1b02</a><br><sub>54 gt (2.7 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p54-lamp-obs-stk-7b-f07bb8.txt">clk-obs-p54-lamp-obs-stk-7b-f07bb8</a><br><sub>54 gt (2.7 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p54-note-obs-pis-stk-7b-daceb1.txt">clk-obs-p54-note-obs-pis-stk-7b-daceb1</a><br><sub>54 gt (2.7 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p54-note-obs-stk-7b-f5ca0d.txt">clk-obs-p54-note-obs-stk-7b-f5ca0d</a><br><sub>54 gt (2.7 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/dropring-p54.txt"><img src="img/dropring-p54.jpg" width="260" alt="dropring-p54"></a><br><sub>54 gt (2.7 s) · comparator+dropper+hopper · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p54.txt"><img src="img/droprep-p54.jpg" width="260" alt="droprep-p54"></a><br><sub>54 gt (2.7 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x5-p54-19b.txt"><img src="img/clk-rt-rect3x5-p54-19b.jpg" width="260" alt="clk-rt-rect3x5-p54-19b"></a><br><sub>54 gt (2.7 s) · repeater · 19 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-1--1--3--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-1--1--3--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-1--1--3--4--4--4--4--4--T"></a><br><sub>54 gt (2.7 s) · redstone_torch+repeater · 20 blocks</sub></td></tr>
@@ -637,14 +637,14 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p55-2.txt"><img src="img/clk-sculk-hyb3-p55-2.jpg" width="260" alt="clk-sculk-hyb3-p55-2"></a><br><sub>55 gt (2.75 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p55-note-obs-pis-stk-7b-9aabf5.txt">clk-obs-p55-note-obs-pis-stk-7b-9aabf5</a><br><sub>55 gt (2.75 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p55-note-obs-stk-7b-63cc6d.txt">clk-obs-p55-note-obs-stk-7b-63cc6d</a><br><sub>55 gt (2.75 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p55-obs-pis-stk-7b-280c94.txt">clk-obs-p55-obs-pis-stk-7b-280c94</a><br><sub>55 gt (2.75 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p55-obs-stk-7b-c5c4bf.txt">clk-obs-p55-obs-stk-7b-c5c4bf</a><br><sub>55 gt (2.75 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p55-obs-rb-stk-7b-1d8d3e.txt">clk-obs-p55-obs-rb-stk-7b-1d8d3e</a><br><sub>55 gt (2.75 s) · observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p55-obs-pis-stk-7b-280c94.txt">clk-obs-p55-obs-pis-stk-7b-280c94</a><br><sub>55 gt (2.75 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p55-obs-stk-7b-c5c4bf.txt"><img src="img/clk-obs-p55-obs-stk-7b-c5c4bf.jpg" width="260" alt="clk-obs-p55-obs-stk-7b-c5c4bf"></a><br><sub>55 gt (2.75 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p55-obs-rb-stk-7b-1d8d3e.txt">clk-obs-p55-obs-rb-stk-7b-1d8d3e</a><br><sub>55 gt (2.75 s) · observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/dropringw-p55.txt"><img src="img/dropringw-p55.jpg" width="260" alt="dropringw-p55"></a><br><sub>55 gt (2.75 s) · comparator+dropper+hopper · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p55.txt"><img src="img/droprep-p55.jpg" width="260" alt="droprep-p55"></a><br><sub>55 gt (2.75 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p55-32b.txt"><img src="img/clk-rt-odd-rect-p55-32b.jpg" width="260" alt="clk-rt-odd-rect-p55-32b"></a><br><sub>55 gt (2.75 s) · repeater · 32 blocks</sub></td></tr>
 </table>
 
 ## 56 gt (2.8 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p56-2.txt"><img src="img/clk-sculk-hyb3-p56-2.jpg" width="260" alt="clk-sculk-hyb3-p56-2"></a><br><sub>56 gt (2.8 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p56-bulb-obs-pis-7b-9f9567.txt">clk-obs-p56-bulb-obs-pis-7b-9f9567</a><br><sub>56 gt (2.8 s) · copper_bulb+observer+piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p56-bulb-obs-pis-stk-7b-9293db.txt">clk-obs-p56-bulb-obs-pis-stk-7b-9293db</a><br><sub>56 gt (2.8 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p56-2.txt"><img src="img/clk-sculk-hyb3-p56-2.jpg" width="260" alt="clk-sculk-hyb3-p56-2"></a><br><sub>56 gt (2.8 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p56-bulb-obs-pis-7b-9f9567.txt"><img src="img/clk-obs-p56-bulb-obs-pis-7b-9f9567.jpg" width="260" alt="clk-obs-p56-bulb-obs-pis-7b-9f9567"></a><br><sub>56 gt (2.8 s) · copper_bulb+observer+piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p56-bulb-obs-pis-stk-7b-9293db.txt">clk-obs-p56-bulb-obs-pis-stk-7b-9293db</a><br><sub>56 gt (2.8 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p56-bulb-lamp-obs-stk-7b-18561c.txt">clk-obs-p56-bulb-lamp-obs-stk-7b-18561c</a><br><sub>56 gt (2.8 s) · copper_bulb+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p56-bulb-obs-pis-rb-stk-7b-f44ee9.txt">clk-obs-p56-bulb-obs-pis-rb-stk-7b-f44ee9</a><br><sub>56 gt (2.8 s) · copper_bulb+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p56-bulb-obs-stk-7b-a29efc.txt">clk-obs-p56-bulb-obs-stk-7b-a29efc</a><br><sub>56 gt (2.8 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p56-lamp-obs-stk-7b-96abec.txt">clk-obs-p56-lamp-obs-stk-7b-96abec</a><br><sub>56 gt (2.8 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/ringlock-p56.txt"><img src="img/ringlock-p56.jpg" width="260" alt="ringlock-p56"></a><br><sub>56 gt (2.8 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p56-c-rt-rw-r-13b.txt"><img src="img/clk-rt-uloop-p56-c-rt-rw-r-13b.jpg" width="260" alt="clk-rt-uloop-p56-c-rt-rw-r-13b"></a><br><sub>56 gt (2.8 s) · comparator+redstone_torch+redstone_wire+repeater · 13 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p56-rt-rw-r-13b.txt"><img src="img/clk-rt-uloop-p56-rt-rw-r-13b.jpg" width="260" alt="clk-rt-uloop-p56-rt-rw-r-13b"></a><br><sub>56 gt (2.8 s) · redstone_torch+redstone_wire+repeater · 13 blocks</sub></td><td align="center"><a href="archive/droprep-p56.txt"><img src="img/droprep-p56.jpg" width="260" alt="droprep-p56"></a><br><sub>56 gt (2.8 s) · comparator+dropper+hopper+repeater · 16 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x5-p56-19b.txt"><img src="img/clk-rt-rect3x5-p56-19b.jpg" width="260" alt="clk-rt-rect3x5-p56-19b"></a><br><sub>56 gt (2.8 s) · repeater · 19 blocks</sub></td></tr>
@@ -653,7 +653,7 @@
 ## 57 gt (2.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p57-2.txt"><img src="img/clk-sculk-hyb3-p57-2.jpg" width="260" alt="clk-sculk-hyb3-p57-2"></a><br><sub>57 gt (2.85 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p57.txt"><img src="img/droprep-p57.jpg" width="260" alt="droprep-p57"></a><br><sub>57 gt (2.85 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p57-obs-pis-rb-stk-32b-34d597.txt">clk-obs-p57-obs-pis-rb-stk-32b-34d597</a><br><sub>57 gt (2.85 s) · observer+piston+redstone_block+sticky_piston · 32 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p57-2.txt"><img src="img/clk-sculk-hyb3-p57-2.jpg" width="260" alt="clk-sculk-hyb3-p57-2"></a><br><sub>57 gt (2.85 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p57.txt"><img src="img/droprep-p57.jpg" width="260" alt="droprep-p57"></a><br><sub>57 gt (2.85 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p57-obs-pis-rb-stk-32b-34d597.txt"><img src="img/clk-obs-p57-obs-pis-rb-stk-32b-34d597.jpg" width="260" alt="clk-obs-p57-obs-pis-rb-stk-32b-34d597"></a><br><sub>57 gt (2.85 s) · observer+piston+redstone_block+sticky_piston · 32 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p57-35b.txt"><img src="img/clk-rt-odd-rect-p57-35b.jpg" width="260" alt="clk-rt-odd-rect-p57-35b"></a><br><sub>57 gt (2.85 s) · repeater · 35 blocks</sub></td></tr>
 </table>
 
@@ -661,7 +661,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p58-2.txt"><img src="img/clk-sculk-hyb3-p58-2.jpg" width="260" alt="clk-sculk-hyb3-p58-2"></a><br><sub>58 gt (2.9 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p58-lamp-obs-pis-stk-7b-85eb34.txt">clk-obs-p58-lamp-obs-pis-stk-7b-85eb34</a><br><sub>58 gt (2.9 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p58-note-obs-pis-stk-7b-80545b.txt">clk-obs-p58-note-obs-pis-stk-7b-80545b</a><br><sub>58 gt (2.9 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p58-obs-pis-stk-7b-63f026.txt">clk-obs-p58-obs-pis-stk-7b-63f026</a><br><sub>58 gt (2.9 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p58-note-obs-10b-60394b.txt">clk-obs-p58-note-obs-10b-60394b</a><br><sub>58 gt (2.9 s) · note_block+observer · 10 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p58-obs-trap-10b.txt"><img src="img/clk-obs-p58-obs-trap-10b.jpg" width="260" alt="clk-obs-p58-obs-trap-10b"></a><br><sub>58 gt (2.9 s) · iron_trapdoor+observer · 10 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p58-obs-pis-stk-7b-63f026.txt"><img src="img/clk-obs-p58-obs-pis-stk-7b-63f026.jpg" width="260" alt="clk-obs-p58-obs-pis-stk-7b-63f026"></a><br><sub>58 gt (2.9 s) · observer+piston+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p58-note-obs-10b-60394b.txt">clk-obs-p58-note-obs-10b-60394b</a><br><sub>58 gt (2.9 s) · note_block+observer · 10 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p58-obs-trap-10b.txt"><img src="img/clk-obs-p58-obs-trap-10b.jpg" width="260" alt="clk-obs-p58-obs-trap-10b"></a><br><sub>58 gt (2.9 s) · iron_trapdoor+observer · 10 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/ringlock35-p58.txt"><img src="img/ringlock35-p58.jpg" width="260" alt="ringlock35-p58"></a><br><sub>58 gt (2.9 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-1--3--3--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-1--3--3--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-1--3--3--4--4--4--4--4--T"></a><br><sub>58 gt (2.9 s) · redstone_torch+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x5-p58-20b.txt"><img src="img/clk-rt-rect3x5-p58-20b.jpg" width="260" alt="clk-rt-rect3x5-p58-20b"></a><br><sub>58 gt (2.9 s) · repeater · 20 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p58.txt"><img src="img/droprep-p58.jpg" width="260" alt="droprep-p58"></a><br><sub>58 gt (2.9 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td></tr>
 </table>
@@ -669,7 +669,7 @@
 ## 59 gt (2.95 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-chain-p59-13.txt"><img src="img/clk-sculk-chain-p59-13.jpg" width="260" alt="clk-sculk-chain-p59-13"></a><br><sub>59 gt (2.95 s) · oak_trapdoor+observer+repeater+sculk_sensor · 9 blocks</sub></td><td align="center"><a href="archive/droprep-p59.txt"><img src="img/droprep-p59.jpg" width="260" alt="droprep-p59"></a><br><sub>59 gt (2.95 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p59-obs-pis-rb-stk-32b-628ad9.txt">clk-obs-p59-obs-pis-rb-stk-32b-628ad9</a><br><sub>59 gt (2.95 s) · observer+piston+redstone_block+sticky_piston · 32 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-chain-p59-13.txt"><img src="img/clk-sculk-chain-p59-13.jpg" width="260" alt="clk-sculk-chain-p59-13"></a><br><sub>59 gt (2.95 s) · oak_trapdoor+observer+repeater+sculk_sensor · 9 blocks</sub></td><td align="center"><a href="archive/droprep-p59.txt"><img src="img/droprep-p59.jpg" width="260" alt="droprep-p59"></a><br><sub>59 gt (2.95 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p59-obs-pis-rb-stk-32b-628ad9.txt"><img src="img/clk-obs-p59-obs-pis-rb-stk-32b-628ad9.jpg" width="260" alt="clk-obs-p59-obs-pis-rb-stk-32b-628ad9"></a><br><sub>59 gt (2.95 s) · observer+piston+redstone_block+sticky_piston · 32 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p59-35b.txt"><img src="img/clk-rt-odd-rect-p59-35b.jpg" width="260" alt="clk-rt-odd-rect-p59-35b"></a><br><sub>59 gt (2.95 s) · repeater · 35 blocks</sub></td></tr>
 </table>
 
@@ -685,14 +685,14 @@
 ## 61 gt (3.05 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-chain-p61-11.txt"><img src="img/clk-sculk-chain-p61-11.jpg" width="260" alt="clk-sculk-chain-p61-11"></a><br><sub>61 gt (3.05 s) · oak_trapdoor+observer+repeater+sculk_sensor · 9 blocks</sub></td><td align="center"><a href="archive/droprep-p61.txt"><img src="img/droprep-p61.jpg" width="260" alt="droprep-p61"></a><br><sub>61 gt (3.05 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p61-obs-pis-rb-stk-34b-24ce81.txt">clk-obs-p61-obs-pis-rb-stk-34b-24ce81</a><br><sub>61 gt (3.05 s) · observer+piston+redstone_block+sticky_piston · 34 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-chain-p61-11.txt"><img src="img/clk-sculk-chain-p61-11.jpg" width="260" alt="clk-sculk-chain-p61-11"></a><br><sub>61 gt (3.05 s) · oak_trapdoor+observer+repeater+sculk_sensor · 9 blocks</sub></td><td align="center"><a href="archive/droprep-p61.txt"><img src="img/droprep-p61.jpg" width="260" alt="droprep-p61"></a><br><sub>61 gt (3.05 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p61-obs-pis-rb-stk-34b-24ce81.txt"><img src="img/clk-obs-p61-obs-pis-rb-stk-34b-24ce81.jpg" width="260" alt="clk-obs-p61-obs-pis-rb-stk-34b-24ce81"></a><br><sub>61 gt (3.05 s) · observer+piston+redstone_block+sticky_piston · 34 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p61-36b.txt"><img src="img/clk-rt-odd-rect-p61-36b.jpg" width="260" alt="clk-rt-odd-rect-p61-36b"></a><br><sub>61 gt (3.05 s) · repeater · 36 blocks</sub></td></tr>
 </table>
 
 ## 62 gt (3.1 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p62-lamp-note-obs-stk-7b-25d906.txt">clk-obs-p62-lamp-note-obs-stk-7b-25d906</a><br><sub>62 gt (3.1 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p62-lamp-obs-stk-7b-23033e.txt">clk-obs-p62-lamp-obs-stk-7b-23033e</a><br><sub>62 gt (3.1 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-sculk-chain-p62-11.txt"><img src="img/clk-sculk-chain-p62-11.jpg" width="260" alt="clk-sculk-chain-p62-11"></a><br><sub>62 gt (3.1 s) · oak_trapdoor+observer+repeater+sculk_sensor · 10 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p62-lamp-note-obs-stk-7b-25d906.txt">clk-obs-p62-lamp-note-obs-stk-7b-25d906</a><br><sub>62 gt (3.1 s) · note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p62-lamp-obs-stk-7b-23033e.txt"><img src="img/clk-obs-p62-lamp-obs-stk-7b-23033e.jpg" width="260" alt="clk-obs-p62-lamp-obs-stk-7b-23033e"></a><br><sub>62 gt (3.1 s) · observer+redstone_lamp+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-sculk-chain-p62-11.txt"><img src="img/clk-sculk-chain-p62-11.jpg" width="260" alt="clk-sculk-chain-p62-11"></a><br><sub>62 gt (3.1 s) · oak_trapdoor+observer+repeater+sculk_sensor · 10 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/dropringw-p62.txt"><img src="img/dropringw-p62.jpg" width="260" alt="dropringw-p62"></a><br><sub>62 gt (3.1 s) · comparator+dropper+hopper · 16 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-1--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-1--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-1--4--4--4--4--4--4--4--T"></a><br><sub>62 gt (3.1 s) · redstone_torch+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x5-p62-20b.txt"><img src="img/clk-rt-rect3x5-p62-20b.jpg" width="260" alt="clk-rt-rect3x5-p62-20b"></a><br><sub>62 gt (3.1 s) · repeater · 20 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p62.txt"><img src="img/droprep-p62.jpg" width="260" alt="droprep-p62"></a><br><sub>62 gt (3.1 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td></tr>
 </table>
@@ -700,7 +700,7 @@
 ## 63 gt (3.15 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-chaind-p63-1.txt"><img src="img/clk-sculk-chaind-p63-1.jpg" width="260" alt="clk-sculk-chaind-p63-1"></a><br><sub>63 gt (3.15 s) · dispenser+observer+repeater+sculk_sensor · 9 blocks</sub></td><td align="center"><a href="archive/droprep-p63.txt"><img src="img/droprep-p63.jpg" width="260" alt="droprep-p63"></a><br><sub>63 gt (3.15 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p63-obs-pis-rb-stk-34b-e87c32.txt">clk-obs-p63-obs-pis-rb-stk-34b-e87c32</a><br><sub>63 gt (3.15 s) · observer+piston+redstone_block+sticky_piston · 34 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-chaind-p63-1.txt"><img src="img/clk-sculk-chaind-p63-1.jpg" width="260" alt="clk-sculk-chaind-p63-1"></a><br><sub>63 gt (3.15 s) · dispenser+observer+repeater+sculk_sensor · 9 blocks</sub></td><td align="center"><a href="archive/droprep-p63.txt"><img src="img/droprep-p63.jpg" width="260" alt="droprep-p63"></a><br><sub>63 gt (3.15 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p63-obs-pis-rb-stk-34b-e87c32.txt"><img src="img/clk-obs-p63-obs-pis-rb-stk-34b-e87c32.jpg" width="260" alt="clk-obs-p63-obs-pis-rb-stk-34b-e87c32"></a><br><sub>63 gt (3.15 s) · observer+piston+redstone_block+sticky_piston · 34 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p63-36b.txt"><img src="img/clk-rt-odd-rect-p63-36b.jpg" width="260" alt="clk-rt-odd-rect-p63-36b"></a><br><sub>63 gt (3.15 s) · repeater · 36 blocks</sub></td></tr>
 </table>
 
@@ -708,7 +708,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-obs-p64-bulb-lamp-note-obs-stk-7b-af3e67.txt">clk-obs-p64-bulb-lamp-note-obs-stk-7b-af3e67</a><br><sub>64 gt (3.2 s) · copper_bulb+note_block+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p64-bulb-lamp-obs-stk-7b-272c8d.txt">clk-obs-p64-bulb-lamp-obs-stk-7b-272c8d</a><br><sub>64 gt (3.2 s) · copper_bulb+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p64-bulb-obs-pis-rb-stk-7b-391cf0.txt">clk-obs-p64-bulb-obs-pis-rb-stk-7b-391cf0</a><br><sub>64 gt (3.2 s) · copper_bulb+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p64-bulb-obs-rb-stk-7b-fb0a42.txt">clk-obs-p64-bulb-obs-rb-stk-7b-fb0a42</a><br><sub>64 gt (3.2 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p64-bulb-obs-stk-7b-bf0bf5.txt">clk-obs-p64-bulb-obs-stk-7b-bf0bf5</a><br><sub>64 gt (3.2 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/hopburn-p64.txt"><img src="img/hopburn-p64.jpg" width="260" alt="hopburn-p64"></a><br><sub>64 gt (3.2 s) · hopper+redstone_torch+redstone_wire · 8 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p64-bulb-obs-rb-stk-7b-fb0a42.txt">clk-obs-p64-bulb-obs-rb-stk-7b-fb0a42</a><br><sub>64 gt (3.2 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p64-bulb-obs-stk-7b-bf0bf5.txt"><img src="img/clk-obs-p64-bulb-obs-stk-7b-bf0bf5.jpg" width="260" alt="clk-obs-p64-bulb-obs-stk-7b-bf0bf5"></a><br><sub>64 gt (3.2 s) · copper_bulb+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/hopburn-p64.txt"><img src="img/hopburn-p64.jpg" width="260" alt="hopburn-p64"></a><br><sub>64 gt (3.2 s) · hopper+redstone_torch+redstone_wire · 8 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-sculk-chaind-p64-1.txt"><img src="img/clk-sculk-chaind-p64-1.jpg" width="260" alt="clk-sculk-chaind-p64-1"></a><br><sub>64 gt (3.2 s) · dispenser+observer+repeater+sculk_sensor · 10 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p64-rt-rw-r-13b.txt"><img src="img/clk-rt-uloop-p64-rt-rw-r-13b.jpg" width="260" alt="clk-rt-uloop-p64-rt-rw-r-13b"></a><br><sub>64 gt (3.2 s) · redstone_torch+redstone_wire+repeater · 13 blocks</sub></td><td align="center"><a href="archive/droprep-p64.txt"><img src="img/droprep-p64.jpg" width="260" alt="droprep-p64"></a><br><sub>64 gt (3.2 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x5-p64-20b.txt"><img src="img/clk-rt-rect3x5-p64-20b.jpg" width="260" alt="clk-rt-rect3x5-p64-20b"></a><br><sub>64 gt (3.2 s) · repeater · 20 blocks</sub></td></tr>
 </table>
@@ -716,7 +716,7 @@
 ## 65 gt (3.25 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p65-obs-stk-7b-890ba1.txt">clk-obs-p65-obs-stk-7b-890ba1</a><br><sub>65 gt (3.25 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/hopburn-p65.txt"><img src="img/hopburn-p65.jpg" width="260" alt="hopburn-p65"></a><br><sub>65 gt (3.25 s) · comparator+hopper+redstone_torch+redstone_wire · 8 blocks</sub></td><td align="center"><a href="archive/clk-sculk-chaind-p65-1.txt"><img src="img/clk-sculk-chaind-p65-1.jpg" width="260" alt="clk-sculk-chaind-p65-1"></a><br><sub>65 gt (3.25 s) · dispenser+observer+repeater+sculk_sensor · 9 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p65-obs-stk-7b-890ba1.txt"><img src="img/clk-obs-p65-obs-stk-7b-890ba1.jpg" width="260" alt="clk-obs-p65-obs-stk-7b-890ba1"></a><br><sub>65 gt (3.25 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/hopburn-p65.txt"><img src="img/hopburn-p65.jpg" width="260" alt="hopburn-p65"></a><br><sub>65 gt (3.25 s) · comparator+hopper+redstone_torch+redstone_wire · 8 blocks</sub></td><td align="center"><a href="archive/clk-sculk-chaind-p65-1.txt"><img src="img/clk-sculk-chaind-p65-1.jpg" width="260" alt="clk-sculk-chaind-p65-1"></a><br><sub>65 gt (3.25 s) · dispenser+observer+repeater+sculk_sensor · 9 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p65.txt"><img src="img/droprep-p65.jpg" width="260" alt="droprep-p65"></a><br><sub>65 gt (3.25 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p65-39b.txt"><img src="img/clk-rt-odd-rect-p65-39b.jpg" width="260" alt="clk-rt-odd-rect-p65-39b"></a><br><sub>65 gt (3.25 s) · repeater · 39 blocks</sub></td></tr>
 </table>
 
@@ -725,14 +725,14 @@
 <table>
 <tr><td align="center"><a href="archive/census-p66-calibrated_sculk_sensor-dispenser-oak_trapdoor-observer-5b.txt"><img src="img/census-p66-calibrated_sculk_sensor-dispenser-oak_trapdoor-observer-5b.jpg" width="260" alt="census-p66-calibrated_sculk_sensor-dispenser-oak_trapdoor-observer-5b"></a><br><sub>66 gt (3.3 s) · calibrated_sculk_sensor+dispenser+oak_trapdoor+observer · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p66-lamp-obs-pis-stk-7b-bb8466.txt">clk-obs-p66-lamp-obs-pis-stk-7b-bb8466</a><br><sub>66 gt (3.3 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p66-note-obs-pis-stk-7b-dab55e.txt">clk-obs-p66-note-obs-pis-stk-7b-dab55e</a><br><sub>66 gt (3.3 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p66-obs-pis-stk-7b-04bfa6.txt">clk-obs-p66-obs-pis-stk-7b-04bfa6</a><br><sub>66 gt (3.3 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p66-lamp-obs-stk-7b-748c24.txt">clk-obs-p66-lamp-obs-stk-7b-748c24</a><br><sub>66 gt (3.3 s) · observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p66-note-obs-stk-7b-cebaa9.txt">clk-obs-p66-note-obs-stk-7b-cebaa9</a><br><sub>66 gt (3.3 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p66-obs-stk-7b-a36052.txt">clk-obs-p66-obs-stk-7b-a36052</a><br><sub>66 gt (3.3 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/droprep-p66.txt"><img src="img/droprep-p66.jpg" width="260" alt="droprep-p66"></a><br><sub>66 gt (3.3 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-3--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-3--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-3--4--4--4--4--4--4--4--T"></a><br><sub>66 gt (3.3 s) · redstone_torch+repeater · 20 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p66-obs-stk-7b-a36052.txt"><img src="img/clk-obs-p66-obs-stk-7b-a36052.jpg" width="260" alt="clk-obs-p66-obs-stk-7b-a36052"></a><br><sub>66 gt (3.3 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p66.txt"><img src="img/droprep-p66.jpg" width="260" alt="droprep-p66"></a><br><sub>66 gt (3.3 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-3--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-3--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-3--4--4--4--4--4--4--4--T"></a><br><sub>66 gt (3.3 s) · redstone_torch+repeater · 20 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x6-p66-23b.txt"><img src="img/clk-rt-rect3x6-p66-23b.jpg" width="260" alt="clk-rt-rect3x6-p66-23b"></a><br><sub>66 gt (3.3 s) · repeater · 23 blocks</sub></td></tr>
 </table>
 
 ## 67 gt (3.35 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-chain-p67-10.txt"><img src="img/clk-sculk-chain-p67-10.jpg" width="260" alt="clk-sculk-chain-p67-10"></a><br><sub>67 gt (3.35 s) · oak_fence_gate+repeater+sculk_sensor · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p67.txt"><img src="img/droprep-p67.jpg" width="260" alt="droprep-p67"></a><br><sub>67 gt (3.35 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p67-obs-pis-rb-stk-36b-6f3a54.txt">clk-obs-p67-obs-pis-rb-stk-36b-6f3a54</a><br><sub>67 gt (3.35 s) · observer+piston+redstone_block+sticky_piston · 36 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-chain-p67-10.txt"><img src="img/clk-sculk-chain-p67-10.jpg" width="260" alt="clk-sculk-chain-p67-10"></a><br><sub>67 gt (3.35 s) · oak_fence_gate+repeater+sculk_sensor · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p67.txt"><img src="img/droprep-p67.jpg" width="260" alt="droprep-p67"></a><br><sub>67 gt (3.35 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p67-obs-pis-rb-stk-36b-6f3a54.txt"><img src="img/clk-obs-p67-obs-pis-rb-stk-36b-6f3a54.jpg" width="260" alt="clk-obs-p67-obs-pis-rb-stk-36b-6f3a54"></a><br><sub>67 gt (3.35 s) · observer+piston+redstone_block+sticky_piston · 36 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p67-39b.txt"><img src="img/clk-rt-odd-rect-p67-39b.jpg" width="260" alt="clk-rt-odd-rect-p67-39b"></a><br><sub>67 gt (3.35 s) · repeater · 39 blocks</sub></td></tr>
 </table>
 
@@ -740,13 +740,13 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p68-rt-rw-r-13b.txt"><img src="img/clk-rt-uloop-p68-rt-rw-r-13b.jpg" width="260" alt="clk-rt-uloop-p68-rt-rw-r-13b"></a><br><sub>68 gt (3.4 s) · redstone_torch+redstone_wire+repeater · 13 blocks</sub></td><td align="center"><a href="archive/droprep-p68.txt"><img src="img/droprep-p68.jpg" width="260" alt="droprep-p68"></a><br><sub>68 gt (3.4 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x6-p68-23b.txt"><img src="img/clk-rt-rect3x6-p68-23b.jpg" width="260" alt="clk-rt-rect3x6-p68-23b"></a><br><sub>68 gt (3.4 s) · repeater · 23 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p68-obs-34b-3a3c8f.txt">clk-obs-p68-obs-34b-3a3c8f</a><br><sub>68 gt (3.4 s) · observer · 34 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p68-obs-34b-3a3c8f.txt"><img src="img/clk-obs-p68-obs-34b-3a3c8f.jpg" width="260" alt="clk-obs-p68-obs-34b-3a3c8f"></a><br><sub>68 gt (3.4 s) · observer · 34 blocks</sub></td></tr>
 </table>
 
 ## 69 gt (3.45 s)
 
 <table>
-<tr><td align="center"><a href="archive/dropringw-p69.txt"><img src="img/dropringw-p69.jpg" width="260" alt="dropringw-p69"></a><br><sub>69 gt (3.45 s) · comparator+dropper+hopper · 16 blocks</sub></td><td align="center"><a href="archive/droprep-p69.txt"><img src="img/droprep-p69.jpg" width="260" alt="droprep-p69"></a><br><sub>69 gt (3.45 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p69-obs-pis-rb-stk-38b-9e6835.txt">clk-obs-p69-obs-pis-rb-stk-38b-9e6835</a><br><sub>69 gt (3.45 s) · observer+piston+redstone_block+sticky_piston · 38 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/dropringw-p69.txt"><img src="img/dropringw-p69.jpg" width="260" alt="dropringw-p69"></a><br><sub>69 gt (3.45 s) · comparator+dropper+hopper · 16 blocks</sub></td><td align="center"><a href="archive/droprep-p69.txt"><img src="img/droprep-p69.jpg" width="260" alt="droprep-p69"></a><br><sub>69 gt (3.45 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p69-obs-pis-rb-stk-38b-9e6835.txt"><img src="img/clk-obs-p69-obs-pis-rb-stk-38b-9e6835.jpg" width="260" alt="clk-obs-p69-obs-pis-rb-stk-38b-9e6835"></a><br><sub>69 gt (3.45 s) · observer+piston+redstone_block+sticky_piston · 38 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p69-40b.txt"><img src="img/clk-rt-odd-rect-p69-40b.jpg" width="260" alt="clk-rt-odd-rect-p69-40b"></a><br><sub>69 gt (3.45 s) · repeater · 40 blocks</sub></td></tr>
 </table>
 
@@ -754,21 +754,21 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3b-p70-1.txt"><img src="img/clk-sculk-hyb3b-p70-1.jpg" width="260" alt="clk-sculk-hyb3b-p70-1"></a><br><sub>70 gt (3.5 s) · calibrated_sculk_sensor+dispenser+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p70-note-obs-pis-stk-7b-32b4dd.txt">clk-obs-p70-note-obs-pis-stk-7b-32b4dd</a><br><sub>70 gt (3.5 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p70-note-obs-stk-7b-57dd88.txt">clk-obs-p70-note-obs-stk-7b-57dd88</a><br><sub>70 gt (3.5 s) · note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p70-obs-pis-stk-7b-c85162.txt">clk-obs-p70-obs-pis-stk-7b-c85162</a><br><sub>70 gt (3.5 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p70-obs-stk-7b-108974.txt">clk-obs-p70-obs-stk-7b-108974</a><br><sub>70 gt (3.5 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/droprep-p70.txt"><img src="img/droprep-p70.jpg" width="260" alt="droprep-p70"></a><br><sub>70 gt (3.5 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p70-obs-pis-stk-7b-c85162.txt">clk-obs-p70-obs-pis-stk-7b-c85162</a><br><sub>70 gt (3.5 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p70-obs-stk-7b-108974.txt"><img src="img/clk-obs-p70-obs-stk-7b-108974.jpg" width="260" alt="clk-obs-p70-obs-stk-7b-108974"></a><br><sub>70 gt (3.5 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p70.txt"><img src="img/droprep-p70.jpg" width="260" alt="droprep-p70"></a><br><sub>70 gt (3.5 s) · comparator+dropper+hopper+repeater · 18 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x6-p70-23b.txt"><img src="img/clk-rt-rect3x6-p70-23b.jpg" width="260" alt="clk-rt-rect3x6-p70-23b"></a><br><sub>70 gt (3.5 s) · repeater · 23 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-1--1--3--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-1--1--3--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-1--1--3--4--4--4--4--4--4--4--T"></a><br><sub>70 gt (3.5 s) · redstone_torch+repeater · 24 blocks</sub></td></tr>
 </table>
 
 ## 71 gt (3.55 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p71-1.txt"><img src="img/clk-sculk-hyb3-p71-1.jpg" width="260" alt="clk-sculk-hyb3-p71-1"></a><br><sub>71 gt (3.55 s) · calibrated_sculk_sensor+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p71.txt"><img src="img/droprep-p71.jpg" width="260" alt="droprep-p71"></a><br><sub>71 gt (3.55 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p71-obs-pis-rb-stk-38b-c7264c.txt">clk-obs-p71-obs-pis-rb-stk-38b-c7264c</a><br><sub>71 gt (3.55 s) · observer+piston+redstone_block+sticky_piston · 38 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p71-1.txt"><img src="img/clk-sculk-hyb3-p71-1.jpg" width="260" alt="clk-sculk-hyb3-p71-1"></a><br><sub>71 gt (3.55 s) · calibrated_sculk_sensor+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p71.txt"><img src="img/droprep-p71.jpg" width="260" alt="droprep-p71"></a><br><sub>71 gt (3.55 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p71-obs-pis-rb-stk-38b-c7264c.txt"><img src="img/clk-obs-p71-obs-pis-rb-stk-38b-c7264c.jpg" width="260" alt="clk-obs-p71-obs-pis-rb-stk-38b-c7264c"></a><br><sub>71 gt (3.55 s) · observer+piston+redstone_block+sticky_piston · 38 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p71-40b.txt"><img src="img/clk-rt-odd-rect-p71-40b.jpg" width="260" alt="clk-rt-odd-rect-p71-40b"></a><br><sub>71 gt (3.55 s) · repeater · 40 blocks</sub></td></tr>
 </table>
 
 ## 72 gt (3.6 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-c72-obs-moving-sticky.txt"><img src="img/clk-sculk-c72-obs-moving-sticky.jpg" width="260" alt="clk-sculk-c72-obs-moving-sticky"></a><br><sub>72 gt (3.6 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p72-bulb-obs-pis-stk-7b-5aee17.txt">clk-obs-p72-bulb-obs-pis-stk-7b-5aee17</a><br><sub>72 gt (3.6 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p72-bulb-obs-stk-7b-2a79be.txt">clk-obs-p72-bulb-obs-stk-7b-2a79be</a><br><sub>72 gt (3.6 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-c72-obs-moving-sticky.txt"><img src="img/clk-sculk-c72-obs-moving-sticky.jpg" width="260" alt="clk-sculk-c72-obs-moving-sticky"></a><br><sub>72 gt (3.6 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p72-bulb-obs-pis-stk-7b-5aee17.txt">clk-obs-p72-bulb-obs-pis-stk-7b-5aee17</a><br><sub>72 gt (3.6 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p72-bulb-obs-stk-7b-2a79be.txt"><img src="img/clk-obs-p72-bulb-obs-stk-7b-2a79be.jpg" width="260" alt="clk-obs-p72-bulb-obs-stk-7b-2a79be"></a><br><sub>72 gt (3.6 s) · copper_bulb+observer+sticky_piston · 7 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x4-inv-p72-16b.txt"><img src="img/clk-rt-rect3x4-inv-p72-16b.jpg" width="260" alt="clk-rt-rect3x4-inv-p72-16b"></a><br><sub>72 gt (3.6 s) · redstone_torch+redstone_wire+repeater · 16 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p72-17b.txt"><img src="img/clk-rt-uloop-p72-17b.jpg" width="260" alt="clk-rt-uloop-p72-17b"></a><br><sub>72 gt (3.6 s) · redstone_torch+redstone_wire+repeater · 17 blocks</sub></td><td align="center"><a href="archive/droprep-p72.txt"><img src="img/droprep-p72.jpg" width="260" alt="droprep-p72"></a><br><sub>72 gt (3.6 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x6-p72-23b.txt"><img src="img/clk-rt-rect3x6-p72-23b.jpg" width="260" alt="clk-rt-rect3x6-p72-23b"></a><br><sub>72 gt (3.6 s) · repeater · 23 blocks</sub></td></tr>
 </table>
@@ -776,26 +776,26 @@
 ## 73 gt (3.65 s)
 
 <table>
-<tr><td align="center"><a href="archive/droprep-p73.txt"><img src="img/droprep-p73.jpg" width="260" alt="droprep-p73"></a><br><sub>73 gt (3.65 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p73-obs-pis-rb-stk-40b-897743.txt">clk-obs-p73-obs-pis-rb-stk-40b-897743</a><br><sub>73 gt (3.65 s) · observer+piston+redstone_block+sticky_piston · 40 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p73-43b.txt"><img src="img/clk-rt-odd-rect-p73-43b.jpg" width="260" alt="clk-rt-odd-rect-p73-43b"></a><br><sub>73 gt (3.65 s) · repeater · 43 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/droprep-p73.txt"><img src="img/droprep-p73.jpg" width="260" alt="droprep-p73"></a><br><sub>73 gt (3.65 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p73-obs-pis-rb-stk-40b-897743.txt"><img src="img/clk-obs-p73-obs-pis-rb-stk-40b-897743.jpg" width="260" alt="clk-obs-p73-obs-pis-rb-stk-40b-897743"></a><br><sub>73 gt (3.65 s) · observer+piston+redstone_block+sticky_piston · 40 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p73-43b.txt"><img src="img/clk-rt-odd-rect-p73-43b.jpg" width="260" alt="clk-rt-odd-rect-p73-43b"></a><br><sub>73 gt (3.65 s) · repeater · 43 blocks</sub></td></tr>
 </table>
 
 ## 74 gt (3.7 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p74-bulb-obs-pis-stk-7b-b37d1f.txt">clk-obs-p74-bulb-obs-pis-stk-7b-b37d1f</a><br><sub>74 gt (3.7 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p74-bulb-obs-stk-7b-d93322.txt">clk-obs-p74-bulb-obs-stk-7b-d93322</a><br><sub>74 gt (3.7 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/ringlock34-p74.txt"><img src="img/ringlock34-p74.jpg" width="260" alt="ringlock34-p74"></a><br><sub>74 gt (3.7 s) · comparator+hopper · 12 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p74-bulb-obs-pis-stk-7b-b37d1f.txt">clk-obs-p74-bulb-obs-pis-stk-7b-b37d1f</a><br><sub>74 gt (3.7 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p74-bulb-obs-stk-7b-d93322.txt"><img src="img/clk-obs-p74-bulb-obs-stk-7b-d93322.jpg" width="260" alt="clk-obs-p74-bulb-obs-stk-7b-d93322"></a><br><sub>74 gt (3.7 s) · copper_bulb+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/ringlock34-p74.txt"><img src="img/ringlock34-p74.jpg" width="260" alt="ringlock34-p74"></a><br><sub>74 gt (3.7 s) · comparator+hopper · 12 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p74.txt"><img src="img/droprep-p74.jpg" width="260" alt="droprep-p74"></a><br><sub>74 gt (3.7 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-1--3--3--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-1--3--3--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-1--3--3--4--4--4--4--4--4--4--T"></a><br><sub>74 gt (3.7 s) · redstone_torch+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x6-p74-24b.txt"><img src="img/clk-rt-rect3x6-p74-24b.jpg" width="260" alt="clk-rt-rect3x6-p74-24b"></a><br><sub>74 gt (3.7 s) · repeater · 24 blocks</sub></td></tr>
 </table>
 
 ## 75 gt (3.75 s)
 
 <table>
-<tr><td align="center"><a href="archive/droprep-p75.txt"><img src="img/droprep-p75.jpg" width="260" alt="droprep-p75"></a><br><sub>75 gt (3.75 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p75-obs-pis-rb-stk-40b-52753b.txt">clk-obs-p75-obs-pis-rb-stk-40b-52753b</a><br><sub>75 gt (3.75 s) · observer+piston+redstone_block+sticky_piston · 40 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p75-43b.txt"><img src="img/clk-rt-odd-rect-p75-43b.jpg" width="260" alt="clk-rt-odd-rect-p75-43b"></a><br><sub>75 gt (3.75 s) · repeater · 43 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/droprep-p75.txt"><img src="img/droprep-p75.jpg" width="260" alt="droprep-p75"></a><br><sub>75 gt (3.75 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p75-obs-pis-rb-stk-40b-52753b.txt"><img src="img/clk-obs-p75-obs-pis-rb-stk-40b-52753b.jpg" width="260" alt="clk-obs-p75-obs-pis-rb-stk-40b-52753b"></a><br><sub>75 gt (3.75 s) · observer+piston+redstone_block+sticky_piston · 40 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p75-43b.txt"><img src="img/clk-rt-odd-rect-p75-43b.jpg" width="260" alt="clk-rt-odd-rect-p75-43b"></a><br><sub>75 gt (3.75 s) · repeater · 43 blocks</sub></td></tr>
 </table>
 
 ## 76 gt (3.8 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p76-bulb-obs-rb-stk-7b-cd52f9.txt">clk-obs-p76-bulb-obs-rb-stk-7b-cd52f9</a><br><sub>76 gt (3.8 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p76-bulb-obs-stk-7b-d8a316.txt">clk-obs-p76-bulb-obs-stk-7b-d8a316</a><br><sub>76 gt (3.8 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-sculk-chain-p76-5.txt"><img src="img/clk-sculk-chain-p76-5.jpg" width="260" alt="clk-sculk-chain-p76-5"></a><br><sub>76 gt (3.8 s) · oak_fence_gate+repeater+sculk_sensor · 12 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p76-bulb-obs-rb-stk-7b-cd52f9.txt">clk-obs-p76-bulb-obs-rb-stk-7b-cd52f9</a><br><sub>76 gt (3.8 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p76-bulb-obs-stk-7b-d8a316.txt"><img src="img/clk-obs-p76-bulb-obs-stk-7b-d8a316.jpg" width="260" alt="clk-obs-p76-bulb-obs-stk-7b-d8a316"></a><br><sub>76 gt (3.8 s) · copper_bulb+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-sculk-chain-p76-5.txt"><img src="img/clk-sculk-chain-p76-5.jpg" width="260" alt="clk-sculk-chain-p76-5"></a><br><sub>76 gt (3.8 s) · oak_fence_gate+repeater+sculk_sensor · 12 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/ringlock34-p76.txt"><img src="img/ringlock34-p76.jpg" width="260" alt="ringlock34-p76"></a><br><sub>76 gt (3.8 s) · comparator+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x4-inv-p76-16b.txt"><img src="img/clk-rt-rect3x4-inv-p76-16b.jpg" width="260" alt="clk-rt-rect3x4-inv-p76-16b"></a><br><sub>76 gt (3.8 s) · redstone_torch+redstone_wire+repeater · 16 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p76-17b.txt"><img src="img/clk-rt-uloop-p76-17b.jpg" width="260" alt="clk-rt-uloop-p76-17b"></a><br><sub>76 gt (3.8 s) · redstone_torch+redstone_wire+repeater · 17 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/dropringw-p76.txt"><img src="img/dropringw-p76.jpg" width="260" alt="dropringw-p76"></a><br><sub>76 gt (3.8 s) · comparator+dropper+hopper · 18 blocks</sub></td><td align="center"><a href="archive/droprep-p76.txt"><img src="img/droprep-p76.jpg" width="260" alt="droprep-p76"></a><br><sub>76 gt (3.8 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x6-p76-24b.txt"><img src="img/clk-rt-rect3x6-p76-24b.jpg" width="260" alt="clk-rt-rect3x6-p76-24b"></a><br><sub>76 gt (3.8 s) · repeater · 24 blocks</sub></td></tr>
 </table>
@@ -803,7 +803,7 @@
 ## 77 gt (3.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-chain-p77-1.txt"><img src="img/clk-sculk-chain-p77-1.jpg" width="260" alt="clk-sculk-chain-p77-1"></a><br><sub>77 gt (3.85 s) · note_block+redstone_torch+repeater+sculk_sensor · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p77.txt"><img src="img/droprep-p77.jpg" width="260" alt="droprep-p77"></a><br><sub>77 gt (3.85 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p77-obs-pis-rb-stk-42b-0cadcd.txt">clk-obs-p77-obs-pis-rb-stk-42b-0cadcd</a><br><sub>77 gt (3.85 s) · observer+piston+redstone_block+sticky_piston · 42 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-chain-p77-1.txt"><img src="img/clk-sculk-chain-p77-1.jpg" width="260" alt="clk-sculk-chain-p77-1"></a><br><sub>77 gt (3.85 s) · note_block+redstone_torch+repeater+sculk_sensor · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p77.txt"><img src="img/droprep-p77.jpg" width="260" alt="droprep-p77"></a><br><sub>77 gt (3.85 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p77-obs-pis-rb-stk-42b-0cadcd.txt"><img src="img/clk-obs-p77-obs-pis-rb-stk-42b-0cadcd.jpg" width="260" alt="clk-obs-p77-obs-pis-rb-stk-42b-0cadcd"></a><br><sub>77 gt (3.85 s) · observer+piston+redstone_block+sticky_piston · 42 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p77-44b.txt"><img src="img/clk-rt-odd-rect-p77-44b.jpg" width="260" alt="clk-rt-odd-rect-p77-44b"></a><br><sub>77 gt (3.85 s) · repeater · 44 blocks</sub></td></tr>
 </table>
 
@@ -818,14 +818,14 @@
 ## 79 gt (3.95 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p79-obs-pis-stk-7b-109879.txt">clk-obs-p79-obs-pis-stk-7b-109879</a><br><sub>79 gt (3.95 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-sculk-chain-p79-1.txt"><img src="img/clk-sculk-chain-p79-1.jpg" width="260" alt="clk-sculk-chain-p79-1"></a><br><sub>79 gt (3.95 s) · note_block+redstone_torch+repeater+sculk_sensor · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p79.txt"><img src="img/droprep-p79.jpg" width="260" alt="droprep-p79"></a><br><sub>79 gt (3.95 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p79-obs-pis-stk-7b-109879.txt"><img src="img/clk-obs-p79-obs-pis-stk-7b-109879.jpg" width="260" alt="clk-obs-p79-obs-pis-stk-7b-109879"></a><br><sub>79 gt (3.95 s) · observer+piston+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-sculk-chain-p79-1.txt"><img src="img/clk-sculk-chain-p79-1.jpg" width="260" alt="clk-sculk-chain-p79-1"></a><br><sub>79 gt (3.95 s) · note_block+redstone_torch+repeater+sculk_sensor · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p79.txt"><img src="img/droprep-p79.jpg" width="260" alt="droprep-p79"></a><br><sub>79 gt (3.95 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p79-44b.txt"><img src="img/clk-rt-odd-rect-p79-44b.jpg" width="260" alt="clk-rt-odd-rect-p79-44b"></a><br><sub>79 gt (3.95 s) · repeater · 44 blocks</sub></td></tr>
 </table>
 
 ## 80 gt (4 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p80-bulb-obs-stk-7b-8111d6.txt">clk-obs-p80-bulb-obs-stk-7b-8111d6</a><br><sub>80 gt (4 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p80-obs-rb-stk-7b-8ebe2d.txt">clk-obs-p80-obs-rb-stk-7b-8ebe2d</a><br><sub>80 gt (4 s) · observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p80-obs-stk-7b-ef523d.txt">clk-obs-p80-obs-stk-7b-ef523d</a><br><sub>80 gt (4 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p80-bulb-obs-stk-7b-8111d6.txt">clk-obs-p80-bulb-obs-stk-7b-8111d6</a><br><sub>80 gt (4 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p80-obs-rb-stk-7b-8ebe2d.txt">clk-obs-p80-obs-rb-stk-7b-8ebe2d</a><br><sub>80 gt (4 s) · observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p80-obs-stk-7b-ef523d.txt"><img src="img/clk-obs-p80-obs-stk-7b-ef523d.jpg" width="260" alt="clk-obs-p80-obs-stk-7b-ef523d"></a><br><sub>80 gt (4 s) · observer+sticky_piston · 7 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x4-inv-p80-16b.txt"><img src="img/clk-rt-rect3x4-inv-p80-16b.jpg" width="260" alt="clk-rt-rect3x4-inv-p80-16b"></a><br><sub>80 gt (4 s) · redstone_torch+redstone_wire+repeater · 16 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p80-17b.txt"><img src="img/clk-rt-uloop-p80-17b.jpg" width="260" alt="clk-rt-uloop-p80-17b"></a><br><sub>80 gt (4 s) · redstone_torch+redstone_wire+repeater · 17 blocks</sub></td><td align="center"><a href="archive/droprep-p80.txt"><img src="img/droprep-p80.jpg" width="260" alt="droprep-p80"></a><br><sub>80 gt (4 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x6-p80-24b.txt"><img src="img/clk-rt-rect3x6-p80-24b.jpg" width="260" alt="clk-rt-rect3x6-p80-24b"></a><br><sub>80 gt (4 s) · repeater · 24 blocks</sub></td></tr>
 </table>
@@ -833,7 +833,7 @@
 ## 81 gt (4.05 s)
 
 <table>
-<tr><td align="center"><a href="archive/dropring-p81.txt"><img src="img/dropring-p81.jpg" width="260" alt="dropring-p81"></a><br><sub>81 gt (4.05 s) · comparator+dropper+hopper · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p81.txt"><img src="img/droprep-p81.jpg" width="260" alt="droprep-p81"></a><br><sub>81 gt (4.05 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p81-obs-pis-rb-stk-44b-1b0e81.txt">clk-obs-p81-obs-pis-rb-stk-44b-1b0e81</a><br><sub>81 gt (4.05 s) · observer+piston+redstone_block+sticky_piston · 44 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/dropring-p81.txt"><img src="img/dropring-p81.jpg" width="260" alt="dropring-p81"></a><br><sub>81 gt (4.05 s) · comparator+dropper+hopper · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p81.txt"><img src="img/droprep-p81.jpg" width="260" alt="droprep-p81"></a><br><sub>81 gt (4.05 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p81-obs-pis-rb-stk-44b-1b0e81.txt"><img src="img/clk-obs-p81-obs-pis-rb-stk-44b-1b0e81.jpg" width="260" alt="clk-obs-p81-obs-pis-rb-stk-44b-1b0e81"></a><br><sub>81 gt (4.05 s) · observer+piston+redstone_block+sticky_piston · 44 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p81-47b.txt"><img src="img/clk-rt-odd-rect-p81-47b.jpg" width="260" alt="clk-rt-odd-rect-p81-47b"></a><br><sub>81 gt (4.05 s) · repeater · 47 blocks</sub></td></tr>
 </table>
 
@@ -841,13 +841,13 @@
 
 <table>
 <tr><td align="center"><a href="archive/droprep-p82.txt"><img src="img/droprep-p82.jpg" width="260" alt="droprep-p82"></a><br><sub>82 gt (4.1 s) · comparator+dropper+hopper+repeater · 20 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--T"></a><br><sub>82 gt (4.1 s) · redstone_torch+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x7-p82-27b.txt"><img src="img/clk-rt-rect3x7-p82-27b.jpg" width="260" alt="clk-rt-rect3x7-p82-27b"></a><br><sub>82 gt (4.1 s) · repeater · 27 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p82-note-obs-42b-0f8007.txt">clk-obs-p82-note-obs-42b-0f8007</a><br><sub>82 gt (4.1 s) · note_block+observer · 42 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p82-note-obs-42b-0f8007.txt"><img src="img/clk-obs-p82-note-obs-42b-0f8007.jpg" width="260" alt="clk-obs-p82-note-obs-42b-0f8007"></a><br><sub>82 gt (4.1 s) · note_block+observer · 42 blocks</sub></td></tr>
 </table>
 
 ## 83 gt (4.15 s)
 
 <table>
-<tr><td align="center"><a href="archive/dropringw-p83.txt"><img src="img/dropringw-p83.jpg" width="260" alt="dropringw-p83"></a><br><sub>83 gt (4.15 s) · comparator+dropper+hopper · 18 blocks</sub></td><td align="center"><a href="archive/droprep-p83.txt"><img src="img/droprep-p83.jpg" width="260" alt="droprep-p83"></a><br><sub>83 gt (4.15 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p83-obs-pis-rb-stk-44b-c5b4c9.txt">clk-obs-p83-obs-pis-rb-stk-44b-c5b4c9</a><br><sub>83 gt (4.15 s) · observer+piston+redstone_block+sticky_piston · 44 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/dropringw-p83.txt"><img src="img/dropringw-p83.jpg" width="260" alt="dropringw-p83"></a><br><sub>83 gt (4.15 s) · comparator+dropper+hopper · 18 blocks</sub></td><td align="center"><a href="archive/droprep-p83.txt"><img src="img/droprep-p83.jpg" width="260" alt="droprep-p83"></a><br><sub>83 gt (4.15 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p83-obs-pis-rb-stk-44b-c5b4c9.txt"><img src="img/clk-obs-p83-obs-pis-rb-stk-44b-c5b4c9.jpg" width="260" alt="clk-obs-p83-obs-pis-rb-stk-44b-c5b4c9"></a><br><sub>83 gt (4.15 s) · observer+piston+redstone_block+sticky_piston · 44 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p83-47b.txt"><img src="img/clk-rt-odd-rect-p83-47b.jpg" width="260" alt="clk-rt-odd-rect-p83-47b"></a><br><sub>83 gt (4.15 s) · repeater · 47 blocks</sub></td></tr>
 </table>
 
@@ -855,7 +855,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/census-p84-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.txt"><img src="img/census-p84-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.jpg" width="260" alt="census-p84-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b"></a><br><sub>84 gt (4.2 s) · calibrated_sculk_sensor+dispenser+observer+sculk_sensor · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p84-bulb-lamp-obs-stk-7b-f94b2e.txt">clk-obs-p84-bulb-lamp-obs-stk-7b-f94b2e</a><br><sub>84 gt (4.2 s) · copper_bulb+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p84-bulb-note-obs-stk-7b-b15f95.txt">clk-obs-p84-bulb-note-obs-stk-7b-b15f95</a><br><sub>84 gt (4.2 s) · copper_bulb+note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p84-bulb-obs-pis-7b-85bd93.txt">clk-obs-p84-bulb-obs-pis-7b-85bd93</a><br><sub>84 gt (4.2 s) · copper_bulb+observer+piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p84-bulb-obs-pis-stk-7b-fca95d.txt">clk-obs-p84-bulb-obs-pis-stk-7b-fca95d</a><br><sub>84 gt (4.2 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p84-bulb-obs-rb-stk-7b-a0cb9e.txt">clk-obs-p84-bulb-obs-rb-stk-7b-a0cb9e</a><br><sub>84 gt (4.2 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p84-bulb-obs-pis-7b-85bd93.txt"><img src="img/clk-obs-p84-bulb-obs-pis-7b-85bd93.jpg" width="260" alt="clk-obs-p84-bulb-obs-pis-7b-85bd93"></a><br><sub>84 gt (4.2 s) · copper_bulb+observer+piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p84-bulb-obs-pis-stk-7b-fca95d.txt">clk-obs-p84-bulb-obs-pis-stk-7b-fca95d</a><br><sub>84 gt (4.2 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p84-bulb-obs-rb-stk-7b-a0cb9e.txt">clk-obs-p84-bulb-obs-rb-stk-7b-a0cb9e</a><br><sub>84 gt (4.2 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p84-bulb-obs-stk-7b-388fc2.txt">clk-obs-p84-bulb-obs-stk-7b-388fc2</a><br><sub>84 gt (4.2 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p84-lamp-obs-pis-stk-7b-7d1237.txt">clk-obs-p84-lamp-obs-pis-stk-7b-7d1237</a><br><sub>84 gt (4.2 s) · observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p84-note-obs-pis-stk-7b-7447eb.txt">clk-obs-p84-note-obs-pis-stk-7b-7447eb</a><br><sub>84 gt (4.2 s) · note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p84-obs-pis-stk-7b-d40d1f.txt">clk-obs-p84-obs-pis-stk-7b-d40d1f</a><br><sub>84 gt (4.2 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p84-bulb-lamp-obs-pis-stk-7b-3d1b1e.txt">clk-obs-p84-bulb-lamp-obs-pis-stk-7b-3d1b1e</a><br><sub>84 gt (4.2 s) · copper_bulb+observer+piston+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p84-bulb-note-obs-pis-stk-7b-62a421.txt">clk-obs-p84-bulb-note-obs-pis-stk-7b-62a421</a><br><sub>84 gt (4.2 s) · copper_bulb+note_block+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/loop4burn-p84.txt"><img src="img/loop4burn-p84.jpg" width="260" alt="loop4burn-p84"></a><br><sub>84 gt (4.2 s) · comparator+hopper+redstone_torch+redstone_wire · 10 blocks</sub></td><td align="center"><a href="archive/ringlock35-p84.txt"><img src="img/ringlock35-p84.jpg" width="260" alt="ringlock35-p84"></a><br><sub>84 gt (4.2 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x4-inv-p84-16b.txt"><img src="img/clk-rt-rect3x4-inv-p84-16b.jpg" width="260" alt="clk-rt-rect3x4-inv-p84-16b"></a><br><sub>84 gt (4.2 s) · redstone_torch+redstone_wire+repeater · 16 blocks</sub></td></tr>
@@ -865,21 +865,21 @@
 ## 85 gt (4.25 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb-p85-1.txt"><img src="img/clk-sculk-hyb-p85-1.jpg" width="260" alt="clk-sculk-hyb-p85-1"></a><br><sub>85 gt (4.25 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p85.txt"><img src="img/droprep-p85.jpg" width="260" alt="droprep-p85"></a><br><sub>85 gt (4.25 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p85-obs-pis-rb-stk-46b-02cad0.txt">clk-obs-p85-obs-pis-rb-stk-46b-02cad0</a><br><sub>85 gt (4.25 s) · observer+piston+redstone_block+sticky_piston · 46 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb-p85-1.txt"><img src="img/clk-sculk-hyb-p85-1.jpg" width="260" alt="clk-sculk-hyb-p85-1"></a><br><sub>85 gt (4.25 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p85.txt"><img src="img/droprep-p85.jpg" width="260" alt="droprep-p85"></a><br><sub>85 gt (4.25 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p85-obs-pis-rb-stk-46b-02cad0.txt"><img src="img/clk-obs-p85-obs-pis-rb-stk-46b-02cad0.jpg" width="260" alt="clk-obs-p85-obs-pis-rb-stk-46b-02cad0"></a><br><sub>85 gt (4.25 s) · observer+piston+redstone_block+sticky_piston · 46 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p85-48b.txt"><img src="img/clk-rt-odd-rect-p85-48b.jpg" width="260" alt="clk-rt-odd-rect-p85-48b"></a><br><sub>85 gt (4.25 s) · repeater · 48 blocks</sub></td></tr>
 </table>
 
 ## 86 gt (4.3 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb-p86-1.txt"><img src="img/clk-sculk-hyb-p86-1.jpg" width="260" alt="clk-sculk-hyb-p86-1"></a><br><sub>86 gt (4.3 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p86-bulb-obs-rb-stk-7b-99c6a4.txt">clk-obs-p86-bulb-obs-rb-stk-7b-99c6a4</a><br><sub>86 gt (4.3 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-rt-uloop-p86-17b.txt"><img src="img/clk-rt-uloop-p86-17b.jpg" width="260" alt="clk-rt-uloop-p86-17b"></a><br><sub>86 gt (4.3 s) · comparator+redstone_torch+redstone_wire · 17 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb-p86-1.txt"><img src="img/clk-sculk-hyb-p86-1.jpg" width="260" alt="clk-sculk-hyb-p86-1"></a><br><sub>86 gt (4.3 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p86-bulb-obs-rb-stk-7b-99c6a4.txt"><img src="img/clk-obs-p86-bulb-obs-rb-stk-7b-99c6a4.jpg" width="260" alt="clk-obs-p86-bulb-obs-rb-stk-7b-99c6a4"></a><br><sub>86 gt (4.3 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p86-17b.txt"><img src="img/clk-rt-uloop-p86-17b.jpg" width="260" alt="clk-rt-uloop-p86-17b"></a><br><sub>86 gt (4.3 s) · comparator+redstone_torch+redstone_wire · 17 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p86.txt"><img src="img/droprep-p86.jpg" width="260" alt="droprep-p86"></a><br><sub>86 gt (4.3 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x7-p86-27b.txt"><img src="img/clk-rt-rect3x7-p86-27b.jpg" width="260" alt="clk-rt-rect3x7-p86-27b"></a><br><sub>86 gt (4.3 s) · repeater · 27 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-1--1--3--4--4--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-1--1--3--4--4--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-1--1--3--4--4--4--4--4--4--4--4--4--T"></a><br><sub>86 gt (4.3 s) · redstone_torch+repeater · 28 blocks</sub></td></tr>
 </table>
 
 ## 87 gt (4.35 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p87-obs-pis-stk-7b-6b98fe.txt">clk-obs-p87-obs-pis-stk-7b-6b98fe</a><br><sub>87 gt (4.35 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p87-obs-stk-7b-8eb4b8.txt">clk-obs-p87-obs-stk-7b-8eb4b8</a><br><sub>87 gt (4.35 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-sculk-hyb3-p87-1.txt"><img src="img/clk-sculk-hyb3-p87-1.jpg" width="260" alt="clk-sculk-hyb3-p87-1"></a><br><sub>87 gt (4.35 s) · observer+piston+sculk_sensor+sticky_piston · 7 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p87-obs-pis-stk-7b-6b98fe.txt">clk-obs-p87-obs-pis-stk-7b-6b98fe</a><br><sub>87 gt (4.35 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p87-obs-stk-7b-8eb4b8.txt"><img src="img/clk-obs-p87-obs-stk-7b-8eb4b8.jpg" width="260" alt="clk-obs-p87-obs-stk-7b-8eb4b8"></a><br><sub>87 gt (4.35 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-sculk-hyb3-p87-1.txt"><img src="img/clk-sculk-hyb3-p87-1.jpg" width="260" alt="clk-sculk-hyb3-p87-1"></a><br><sub>87 gt (4.35 s) · observer+piston+sculk_sensor+sticky_piston · 7 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p87.txt"><img src="img/droprep-p87.jpg" width="260" alt="droprep-p87"></a><br><sub>87 gt (4.35 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p87-48b.txt"><img src="img/clk-rt-odd-rect-p87-48b.jpg" width="260" alt="clk-rt-odd-rect-p87-48b"></a><br><sub>87 gt (4.35 s) · repeater · 48 blocks</sub></td></tr>
 </table>
 
@@ -887,20 +887,20 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb-p88-3.txt"><img src="img/clk-sculk-hyb-p88-3.jpg" width="260" alt="clk-sculk-hyb-p88-3"></a><br><sub>88 gt (4.4 s) · observer+sculk_sensor+sticky_piston · 4 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p88-17b.txt"><img src="img/clk-rt-uloop-p88-17b.jpg" width="260" alt="clk-rt-uloop-p88-17b"></a><br><sub>88 gt (4.4 s) · comparator+redstone_torch+redstone_wire · 17 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop1t-p88-17b.txt"><img src="img/clk-rt-uloop1t-p88-17b.jpg" width="260" alt="clk-rt-uloop1t-p88-17b"></a><br><sub>88 gt (4.4 s) · redstone_torch+redstone_wire+repeater · 17 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/droprep-p88.txt"><img src="img/droprep-p88.jpg" width="260" alt="droprep-p88"></a><br><sub>88 gt (4.4 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x7-p88-27b.txt"><img src="img/clk-rt-rect3x7-p88-27b.jpg" width="260" alt="clk-rt-rect3x7-p88-27b"></a><br><sub>88 gt (4.4 s) · repeater · 27 blocks</sub></td><td align="center"><a href="archive/clk-obs-p88-obs-44b-b10bf4.txt">clk-obs-p88-obs-44b-b10bf4</a><br><sub>88 gt (4.4 s) · observer · 44 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/droprep-p88.txt"><img src="img/droprep-p88.jpg" width="260" alt="droprep-p88"></a><br><sub>88 gt (4.4 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x7-p88-27b.txt"><img src="img/clk-rt-rect3x7-p88-27b.jpg" width="260" alt="clk-rt-rect3x7-p88-27b"></a><br><sub>88 gt (4.4 s) · repeater · 27 blocks</sub></td><td align="center"><a href="archive/clk-obs-p88-obs-44b-b10bf4.txt"><img src="img/clk-obs-p88-obs-44b-b10bf4.jpg" width="260" alt="clk-obs-p88-obs-44b-b10bf4"></a><br><sub>88 gt (4.4 s) · observer · 44 blocks</sub></td></tr>
 </table>
 
 ## 89 gt (4.45 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p89-2.txt"><img src="img/clk-sculk-hyb3-p89-2.jpg" width="260" alt="clk-sculk-hyb3-p89-2"></a><br><sub>89 gt (4.45 s) · observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p89.txt"><img src="img/droprep-p89.jpg" width="260" alt="droprep-p89"></a><br><sub>89 gt (4.45 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p89-obs-pis-rb-stk-48b-c5518f.txt">clk-obs-p89-obs-pis-rb-stk-48b-c5518f</a><br><sub>89 gt (4.45 s) · observer+piston+redstone_block+sticky_piston · 48 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p89-2.txt"><img src="img/clk-sculk-hyb3-p89-2.jpg" width="260" alt="clk-sculk-hyb3-p89-2"></a><br><sub>89 gt (4.45 s) · observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p89.txt"><img src="img/droprep-p89.jpg" width="260" alt="droprep-p89"></a><br><sub>89 gt (4.45 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p89-obs-pis-rb-stk-48b-c5518f.txt"><img src="img/clk-obs-p89-obs-pis-rb-stk-48b-c5518f.jpg" width="260" alt="clk-obs-p89-obs-pis-rb-stk-48b-c5518f"></a><br><sub>89 gt (4.45 s) · observer+piston+redstone_block+sticky_piston · 48 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p89-51b.txt"><img src="img/clk-rt-odd-rect-p89-51b.jpg" width="260" alt="clk-rt-odd-rect-p89-51b"></a><br><sub>89 gt (4.45 s) · repeater · 51 blocks</sub></td></tr>
 </table>
 
 ## 90 gt (4.5 s)
 
 <table>
-<tr><td align="center"><a href="archive/census-p90-oak_trapdoor-observer-sculk_sensor-4b.txt"><img src="img/census-p90-oak_trapdoor-observer-sculk_sensor-4b.jpg" width="260" alt="census-p90-oak_trapdoor-observer-sculk_sensor-4b"></a><br><sub>90 gt (4.5 s) · oak_trapdoor+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c90-obs-moving-sticky.txt"><img src="img/clk-sculk-c90-obs-moving-sticky.jpg" width="260" alt="clk-sculk-c90-obs-moving-sticky"></a><br><sub>90 gt (4.5 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p90-obs-stk-7b-2e3301.txt">clk-obs-p90-obs-stk-7b-2e3301</a><br><sub>90 gt (4.5 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/census-p90-oak_trapdoor-observer-sculk_sensor-4b.txt"><img src="img/census-p90-oak_trapdoor-observer-sculk_sensor-4b.jpg" width="260" alt="census-p90-oak_trapdoor-observer-sculk_sensor-4b"></a><br><sub>90 gt (4.5 s) · oak_trapdoor+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c90-obs-moving-sticky.txt"><img src="img/clk-sculk-c90-obs-moving-sticky.jpg" width="260" alt="clk-sculk-c90-obs-moving-sticky"></a><br><sub>90 gt (4.5 s) · calibrated_sculk_sensor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p90-obs-stk-7b-2e3301.txt"><img src="img/clk-obs-p90-obs-stk-7b-2e3301.jpg" width="260" alt="clk-obs-p90-obs-stk-7b-2e3301"></a><br><sub>90 gt (4.5 s) · observer+sticky_piston · 7 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/ringlock35-p90.txt"><img src="img/ringlock35-p90.jpg" width="260" alt="ringlock35-p90"></a><br><sub>90 gt (4.5 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p90.txt"><img src="img/droprep-p90.jpg" width="260" alt="droprep-p90"></a><br><sub>90 gt (4.5 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-1--3--3--4--4--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-1--3--3--4--4--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-1--3--3--4--4--4--4--4--4--4--4--4--T"></a><br><sub>90 gt (4.5 s) · redstone_torch+repeater · 28 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x7-p90-28b.txt"><img src="img/clk-rt-rect3x7-p90-28b.jpg" width="260" alt="clk-rt-rect3x7-p90-28b"></a><br><sub>90 gt (4.5 s) · repeater · 28 blocks</sub></td></tr>
 </table>
@@ -908,7 +908,7 @@
 ## 91 gt (4.55 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p91-2.txt"><img src="img/clk-sculk-hyb3-p91-2.jpg" width="260" alt="clk-sculk-hyb3-p91-2"></a><br><sub>91 gt (4.55 s) · oak_trapdoor+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p91.txt"><img src="img/droprep-p91.jpg" width="260" alt="droprep-p91"></a><br><sub>91 gt (4.55 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p91-obs-pis-rb-stk-48b-4561d6.txt">clk-obs-p91-obs-pis-rb-stk-48b-4561d6</a><br><sub>91 gt (4.55 s) · observer+piston+redstone_block+sticky_piston · 48 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p91-2.txt"><img src="img/clk-sculk-hyb3-p91-2.jpg" width="260" alt="clk-sculk-hyb3-p91-2"></a><br><sub>91 gt (4.55 s) · oak_trapdoor+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p91.txt"><img src="img/droprep-p91.jpg" width="260" alt="droprep-p91"></a><br><sub>91 gt (4.55 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p91-obs-pis-rb-stk-48b-4561d6.txt"><img src="img/clk-obs-p91-obs-pis-rb-stk-48b-4561d6.jpg" width="260" alt="clk-obs-p91-obs-pis-rb-stk-48b-4561d6"></a><br><sub>91 gt (4.55 s) · observer+piston+redstone_block+sticky_piston · 48 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p91-51b.txt"><img src="img/clk-rt-odd-rect-p91-51b.jpg" width="260" alt="clk-rt-odd-rect-p91-51b"></a><br><sub>91 gt (4.55 s) · repeater · 51 blocks</sub></td></tr>
 </table>
 
@@ -917,14 +917,14 @@
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb-p92-3.txt"><img src="img/clk-sculk-hyb-p92-3.jpg" width="260" alt="clk-sculk-hyb-p92-3"></a><br><sub>92 gt (4.6 s) · observer+sculk_sensor+sticky_piston · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p92-bulb-obs-pis-stk-7b-d2f25f.txt">clk-obs-p92-bulb-obs-pis-stk-7b-d2f25f</a><br><sub>92 gt (4.6 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p92-bulb-obs-stk-7b-43ba0f.txt">clk-obs-p92-bulb-obs-stk-7b-43ba0f</a><br><sub>92 gt (4.6 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p92-obs-pis-rb-stk-7b-d26019.txt">clk-obs-p92-obs-pis-rb-stk-7b-d26019</a><br><sub>92 gt (4.6 s) · observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p92-obs-pis-stk-7b-85e814.txt">clk-obs-p92-obs-pis-stk-7b-85e814</a><br><sub>92 gt (4.6 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p92-obs-rb-stk-7b-b12c88.txt">clk-obs-p92-obs-rb-stk-7b-b12c88</a><br><sub>92 gt (4.6 s) · observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p92-obs-stk-7b-c12af4.txt">clk-obs-p92-obs-stk-7b-c12af4</a><br><sub>92 gt (4.6 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-rt-uloop-p92-17b.txt"><img src="img/clk-rt-uloop-p92-17b.jpg" width="260" alt="clk-rt-uloop-p92-17b"></a><br><sub>92 gt (4.6 s) · redstone_torch+redstone_wire+repeater · 17 blocks</sub></td><td align="center"><a href="archive/droprep-p92.txt"><img src="img/droprep-p92.jpg" width="260" alt="droprep-p92"></a><br><sub>92 gt (4.6 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p92-obs-stk-7b-c12af4.txt"><img src="img/clk-obs-p92-obs-stk-7b-c12af4.jpg" width="260" alt="clk-obs-p92-obs-stk-7b-c12af4"></a><br><sub>92 gt (4.6 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p92-17b.txt"><img src="img/clk-rt-uloop-p92-17b.jpg" width="260" alt="clk-rt-uloop-p92-17b"></a><br><sub>92 gt (4.6 s) · redstone_torch+redstone_wire+repeater · 17 blocks</sub></td><td align="center"><a href="archive/droprep-p92.txt"><img src="img/droprep-p92.jpg" width="260" alt="droprep-p92"></a><br><sub>92 gt (4.6 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-rect3x7-p92-28b.txt"><img src="img/clk-rt-rect3x7-p92-28b.jpg" width="260" alt="clk-rt-rect3x7-p92-28b"></a><br><sub>92 gt (4.6 s) · repeater · 28 blocks</sub></td></tr>
 </table>
 
 ## 93 gt (4.65 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3b-p93-1.txt"><img src="img/clk-sculk-hyb3b-p93-1.jpg" width="260" alt="clk-sculk-hyb3b-p93-1"></a><br><sub>93 gt (4.65 s) · dispenser+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p93.txt"><img src="img/droprep-p93.jpg" width="260" alt="droprep-p93"></a><br><sub>93 gt (4.65 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-obs-p93-obs-pis-rb-stk-50b-27a171.txt">clk-obs-p93-obs-pis-rb-stk-50b-27a171</a><br><sub>93 gt (4.65 s) · observer+piston+redstone_block+sticky_piston · 50 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3b-p93-1.txt"><img src="img/clk-sculk-hyb3b-p93-1.jpg" width="260" alt="clk-sculk-hyb3b-p93-1"></a><br><sub>93 gt (4.65 s) · dispenser+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p93.txt"><img src="img/droprep-p93.jpg" width="260" alt="droprep-p93"></a><br><sub>93 gt (4.65 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-obs-p93-obs-pis-rb-stk-50b-27a171.txt"><img src="img/clk-obs-p93-obs-pis-rb-stk-50b-27a171.jpg" width="260" alt="clk-obs-p93-obs-pis-rb-stk-50b-27a171"></a><br><sub>93 gt (4.65 s) · observer+piston+redstone_block+sticky_piston · 50 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p93-52b.txt"><img src="img/clk-rt-odd-rect-p93-52b.jpg" width="260" alt="clk-rt-odd-rect-p93-52b"></a><br><sub>93 gt (4.65 s) · repeater · 52 blocks</sub></td></tr>
 </table>
 
@@ -932,13 +932,13 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb-p94-3.txt"><img src="img/clk-sculk-hyb-p94-3.jpg" width="260" alt="clk-sculk-hyb-p94-3"></a><br><sub>94 gt (4.7 s) · observer+sculk_sensor+sticky_piston · 5 blocks</sub></td><td align="center"><a href="archive/droprep-p94.txt"><img src="img/droprep-p94.jpg" width="260" alt="droprep-p94"></a><br><sub>94 gt (4.7 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-1--4--4--4--4--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-1--4--4--4--4--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-1--4--4--4--4--4--4--4--4--4--4--4--T"></a><br><sub>94 gt (4.7 s) · redstone_torch+repeater · 28 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-rt-rect3x7-p94-28b.txt"><img src="img/clk-rt-rect3x7-p94-28b.jpg" width="260" alt="clk-rt-rect3x7-p94-28b"></a><br><sub>94 gt (4.7 s) · repeater · 28 blocks</sub></td><td align="center"><a href="archive/clk-obs-p94-note-obs-48b-81aa89.txt">clk-obs-p94-note-obs-48b-81aa89</a><br><sub>94 gt (4.7 s) · note_block+observer · 48 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-rt-rect3x7-p94-28b.txt"><img src="img/clk-rt-rect3x7-p94-28b.jpg" width="260" alt="clk-rt-rect3x7-p94-28b"></a><br><sub>94 gt (4.7 s) · repeater · 28 blocks</sub></td><td align="center"><a href="archive/clk-obs-p94-note-obs-48b-81aa89.txt"><img src="img/clk-obs-p94-note-obs-48b-81aa89.jpg" width="260" alt="clk-obs-p94-note-obs-48b-81aa89"></a><br><sub>94 gt (4.7 s) · note_block+observer · 48 blocks</sub></td></tr>
 </table>
 
 ## 95 gt (4.75 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p95-2.txt"><img src="img/clk-sculk-hyb3-p95-2.jpg" width="260" alt="clk-sculk-hyb3-p95-2"></a><br><sub>95 gt (4.75 s) · oak_trapdoor+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p95.txt"><img src="img/droprep-p95.jpg" width="260" alt="droprep-p95"></a><br><sub>95 gt (4.75 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-obs-p95-obs-pis-rb-stk-50b-ff8722.txt">clk-obs-p95-obs-pis-rb-stk-50b-ff8722</a><br><sub>95 gt (4.75 s) · observer+piston+redstone_block+sticky_piston · 50 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p95-2.txt"><img src="img/clk-sculk-hyb3-p95-2.jpg" width="260" alt="clk-sculk-hyb3-p95-2"></a><br><sub>95 gt (4.75 s) · oak_trapdoor+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p95.txt"><img src="img/droprep-p95.jpg" width="260" alt="droprep-p95"></a><br><sub>95 gt (4.75 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-obs-p95-obs-pis-rb-stk-50b-ff8722.txt"><img src="img/clk-obs-p95-obs-pis-rb-stk-50b-ff8722.jpg" width="260" alt="clk-obs-p95-obs-pis-rb-stk-50b-ff8722"></a><br><sub>95 gt (4.75 s) · observer+piston+redstone_block+sticky_piston · 50 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p95-52b.txt"><img src="img/clk-rt-odd-rect-p95-52b.jpg" width="260" alt="clk-rt-odd-rect-p95-52b"></a><br><sub>95 gt (4.75 s) · repeater · 52 blocks</sub></td></tr>
 </table>
 
@@ -946,7 +946,7 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p96-2.txt"><img src="img/clk-sculk-hyb3-p96-2.jpg" width="260" alt="clk-sculk-hyb3-p96-2"></a><br><sub>96 gt (4.8 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p96-bulb-lamp-obs-stk-7b-6099aa.txt">clk-obs-p96-bulb-lamp-obs-stk-7b-6099aa</a><br><sub>96 gt (4.8 s) · copper_bulb+observer+redstone_lamp+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p96-bulb-note-obs-stk-7b-3010db.txt">clk-obs-p96-bulb-note-obs-stk-7b-3010db</a><br><sub>96 gt (4.8 s) · copper_bulb+note_block+observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p96-bulb-obs-stk-7b-cc9634.txt">clk-obs-p96-bulb-obs-stk-7b-cc9634</a><br><sub>96 gt (4.8 s) · copper_bulb+observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p96-bulb-note-obs-pis-rb-stk-7b-5d2f59.txt">clk-obs-p96-bulb-note-obs-pis-rb-stk-7b-5d2f59</a><br><sub>96 gt (4.8 s) · copper_bulb+note_block+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p96-bulb-note-obs-rb-stk-7b-ea832a.txt">clk-obs-p96-bulb-note-obs-rb-stk-7b-ea832a</a><br><sub>96 gt (4.8 s) · copper_bulb+note_block+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p96-bulb-obs-stk-7b-cc9634.txt"><img src="img/clk-obs-p96-bulb-obs-stk-7b-cc9634.jpg" width="260" alt="clk-obs-p96-bulb-obs-stk-7b-cc9634"></a><br><sub>96 gt (4.8 s) · copper_bulb+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p96-bulb-note-obs-pis-rb-stk-7b-5d2f59.txt">clk-obs-p96-bulb-note-obs-pis-rb-stk-7b-5d2f59</a><br><sub>96 gt (4.8 s) · copper_bulb+note_block+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p96-bulb-note-obs-rb-stk-7b-ea832a.txt">clk-obs-p96-bulb-note-obs-rb-stk-7b-ea832a</a><br><sub>96 gt (4.8 s) · copper_bulb+note_block+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-obs-p96-bulb-obs-pis-rb-stk-7b-7ac3f6.txt">clk-obs-p96-bulb-obs-pis-rb-stk-7b-7ac3f6</a><br><sub>96 gt (4.8 s) · copper_bulb+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p96-bulb-obs-rb-stk-7b-cdf56d.txt">clk-obs-p96-bulb-obs-rb-stk-7b-cdf56d</a><br><sub>96 gt (4.8 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-rt-uloop-p96-17b.txt"><img src="img/clk-rt-uloop-p96-17b.jpg" width="260" alt="clk-rt-uloop-p96-17b"></a><br><sub>96 gt (4.8 s) · redstone_torch+redstone_wire+repeater · 17 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/droprep-p96.txt"><img src="img/droprep-p96.jpg" width="260" alt="droprep-p96"></a><br><sub>96 gt (4.8 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x7-p96-28b.txt"><img src="img/clk-rt-rect3x7-p96-28b.jpg" width="260" alt="clk-rt-rect3x7-p96-28b"></a><br><sub>96 gt (4.8 s) · repeater · 28 blocks</sub></td></tr>
 </table>
@@ -954,7 +954,7 @@
 ## 97 gt (4.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p97-2.txt"><img src="img/clk-sculk-hyb3-p97-2.jpg" width="260" alt="clk-sculk-hyb3-p97-2"></a><br><sub>97 gt (4.85 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p97.txt"><img src="img/droprep-p97.jpg" width="260" alt="droprep-p97"></a><br><sub>97 gt (4.85 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-obs-p97-obs-pis-rb-stk-52b-b85fcf.txt">clk-obs-p97-obs-pis-rb-stk-52b-b85fcf</a><br><sub>97 gt (4.85 s) · observer+piston+redstone_block+sticky_piston · 52 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p97-2.txt"><img src="img/clk-sculk-hyb3-p97-2.jpg" width="260" alt="clk-sculk-hyb3-p97-2"></a><br><sub>97 gt (4.85 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/droprep-p97.txt"><img src="img/droprep-p97.jpg" width="260" alt="droprep-p97"></a><br><sub>97 gt (4.85 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-obs-p97-obs-pis-rb-stk-52b-b85fcf.txt"><img src="img/clk-obs-p97-obs-pis-rb-stk-52b-b85fcf.jpg" width="260" alt="clk-obs-p97-obs-pis-rb-stk-52b-b85fcf"></a><br><sub>97 gt (4.85 s) · observer+piston+redstone_block+sticky_piston · 52 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/clk-rt-odd-rect-p97-55b.txt"><img src="img/clk-rt-odd-rect-p97-55b.jpg" width="260" alt="clk-rt-odd-rect-p97-55b"></a><br><sub>97 gt (4.85 s) · repeater · 55 blocks</sub></td></tr>
 </table>
 
@@ -962,112 +962,112 @@
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p98-2.txt"><img src="img/clk-sculk-hyb3-p98-2.jpg" width="260" alt="clk-sculk-hyb3-p98-2"></a><br><sub>98 gt (4.9 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/ringlock-p98.txt"><img src="img/ringlock-p98.jpg" width="260" alt="ringlock-p98"></a><br><sub>98 gt (4.9 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p98.txt"><img src="img/droprep-p98.jpg" width="260" alt="droprep-p98"></a><br><sub>98 gt (4.9 s) · comparator+dropper+hopper+repeater · 22 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T"></a><br><sub>98 gt (4.9 s) · redstone_torch+repeater · 28 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x8-p98-31b.txt"><img src="img/clk-rt-rect3x8-p98-31b.jpg" width="260" alt="clk-rt-rect3x8-p98-31b"></a><br><sub>98 gt (4.9 s) · repeater · 31 blocks</sub></td><td align="center"><a href="archive/clk-obs-p98-note-obs-50b-5d8a0a.txt">clk-obs-p98-note-obs-50b-5d8a0a</a><br><sub>98 gt (4.9 s) · note_block+observer · 50 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T"></a><br><sub>98 gt (4.9 s) · redstone_torch+repeater · 28 blocks</sub></td><td align="center"><a href="archive/clk-rt-rect3x8-p98-31b.txt"><img src="img/clk-rt-rect3x8-p98-31b.jpg" width="260" alt="clk-rt-rect3x8-p98-31b"></a><br><sub>98 gt (4.9 s) · repeater · 31 blocks</sub></td><td align="center"><a href="archive/clk-obs-p98-note-obs-50b-5d8a0a.txt"><img src="img/clk-obs-p98-note-obs-50b-5d8a0a.jpg" width="260" alt="clk-obs-p98-note-obs-50b-5d8a0a"></a><br><sub>98 gt (4.9 s) · note_block+observer · 50 blocks</sub></td></tr>
 </table>
 
 ## 99 gt (4.95 s)
 
 <table>
-<tr><td align="center"><a href="archive/droprep-p99.txt"><img src="img/droprep-p99.jpg" width="260" alt="droprep-p99"></a><br><sub>99 gt (4.95 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-obs-p99-obs-pis-rb-stk-52b-4f5c58.txt">clk-obs-p99-obs-pis-rb-stk-52b-4f5c58</a><br><sub>99 gt (4.95 s) · observer+piston+redstone_block+sticky_piston · 52 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p99-55b.txt"><img src="img/clk-rt-odd-rect-p99-55b.jpg" width="260" alt="clk-rt-odd-rect-p99-55b"></a><br><sub>99 gt (4.95 s) · repeater · 55 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/droprep-p99.txt"><img src="img/droprep-p99.jpg" width="260" alt="droprep-p99"></a><br><sub>99 gt (4.95 s) · comparator+dropper+hopper+repeater · 24 blocks</sub></td><td align="center"><a href="archive/clk-obs-p99-obs-pis-rb-stk-52b-4f5c58.txt"><img src="img/clk-obs-p99-obs-pis-rb-stk-52b-4f5c58.jpg" width="260" alt="clk-obs-p99-obs-pis-rb-stk-52b-4f5c58"></a><br><sub>99 gt (4.95 s) · observer+piston+redstone_block+sticky_piston · 52 blocks</sub></td><td align="center"><a href="archive/clk-rt-odd-rect-p99-55b.txt"><img src="img/clk-rt-odd-rect-p99-55b.jpg" width="260" alt="clk-rt-odd-rect-p99-55b"></a><br><sub>99 gt (4.95 s) · repeater · 55 blocks</sub></td></tr>
 </table>
 
 ## 100 gt (5 s)
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p100-2.txt"><img src="img/clk-sculk-hyb3-p100-2.jpg" width="260" alt="clk-sculk-hyb3-p100-2"></a><br><sub>100 gt (5 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p100-17b.txt"><img src="img/clk-rt-uloop-p100-17b.jpg" width="260" alt="clk-rt-uloop-p100-17b"></a><br><sub>100 gt (5 s) · redstone_torch+redstone_wire+repeater · 17 blocks</sub></td><td align="center"><a href="archive/droprep-p100.txt"><img src="img/droprep-p100.jpg" width="260" alt="droprep-p100"></a><br><sub>100 gt (5 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-rt-rect3x8-p100-31b.txt"><img src="img/clk-rt-rect3x8-p100-31b.jpg" width="260" alt="clk-rt-rect3x8-p100-31b"></a><br><sub>100 gt (5 s) · repeater · 31 blocks</sub></td><td align="center"><a href="archive/clk-obs-p100-obs-50b-d27740.txt">clk-obs-p100-obs-50b-d27740</a><br><sub>100 gt (5 s) · observer · 50 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-rt-rect3x8-p100-31b.txt"><img src="img/clk-rt-rect3x8-p100-31b.jpg" width="260" alt="clk-rt-rect3x8-p100-31b"></a><br><sub>100 gt (5 s) · repeater · 31 blocks</sub></td><td align="center"><a href="archive/clk-obs-p100-obs-50b-d27740.txt"><img src="img/clk-obs-p100-obs-50b-d27740.jpg" width="260" alt="clk-obs-p100-obs-50b-d27740"></a><br><sub>100 gt (5 s) · observer · 50 blocks</sub></td></tr>
 </table>
 
 ## 101 gt (5.05 s)
 
 <table>
-<tr><td align="center"><a href="archive/droprep-p101.txt"><img src="img/droprep-p101.jpg" width="260" alt="droprep-p101"></a><br><sub>101 gt (5.05 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p101-obs-pis-rb-stk-54b-58b3ef.txt">clk-obs-p101-obs-pis-rb-stk-54b-58b3ef</a><br><sub>101 gt (5.05 s) · observer+piston+redstone_block+sticky_piston · 54 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/droprep-p101.txt"><img src="img/droprep-p101.jpg" width="260" alt="droprep-p101"></a><br><sub>101 gt (5.05 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p101-obs-pis-rb-stk-54b-58b3ef.txt"><img src="img/clk-obs-p101-obs-pis-rb-stk-54b-58b3ef.jpg" width="260" alt="clk-obs-p101-obs-pis-rb-stk-54b-58b3ef"></a><br><sub>101 gt (5.05 s) · observer+piston+redstone_block+sticky_piston · 54 blocks</sub></td></tr>
 </table>
 
 ## 102 gt (5.1 s)
 
 <table>
-<tr><td align="center"><a href="archive/ringlock35-p102.txt"><img src="img/ringlock35-p102.jpg" width="260" alt="ringlock35-p102"></a><br><sub>102 gt (5.1 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p102.txt"><img src="img/droprep-p102.jpg" width="260" alt="droprep-p102"></a><br><sub>102 gt (5.1 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p102-note-obs-52b-9afaf3.txt">clk-obs-p102-note-obs-52b-9afaf3</a><br><sub>102 gt (5.1 s) · note_block+observer · 52 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/ringlock35-p102.txt"><img src="img/ringlock35-p102.jpg" width="260" alt="ringlock35-p102"></a><br><sub>102 gt (5.1 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p102.txt"><img src="img/droprep-p102.jpg" width="260" alt="droprep-p102"></a><br><sub>102 gt (5.1 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p102-note-obs-52b-9afaf3.txt"><img src="img/clk-obs-p102-note-obs-52b-9afaf3.jpg" width="260" alt="clk-obs-p102-note-obs-52b-9afaf3"></a><br><sub>102 gt (5.1 s) · note_block+observer · 52 blocks</sub></td></tr>
 </table>
 
 ## 103 gt (5.15 s)
 
 <table>
-<tr><td align="center"><a href="archive/ringlock35-p103.txt"><img src="img/ringlock35-p103.jpg" width="260" alt="ringlock35-p103"></a><br><sub>103 gt (5.15 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p103.txt"><img src="img/droprep-p103.jpg" width="260" alt="droprep-p103"></a><br><sub>103 gt (5.15 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p103-obs-pis-rb-stk-54b-8a13a6.txt">clk-obs-p103-obs-pis-rb-stk-54b-8a13a6</a><br><sub>103 gt (5.15 s) · observer+piston+redstone_block+sticky_piston · 54 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/ringlock35-p103.txt"><img src="img/ringlock35-p103.jpg" width="260" alt="ringlock35-p103"></a><br><sub>103 gt (5.15 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p103.txt"><img src="img/droprep-p103.jpg" width="260" alt="droprep-p103"></a><br><sub>103 gt (5.15 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p103-obs-pis-rb-stk-54b-8a13a6.txt"><img src="img/clk-obs-p103-obs-pis-rb-stk-54b-8a13a6.jpg" width="260" alt="clk-obs-p103-obs-pis-rb-stk-54b-8a13a6"></a><br><sub>103 gt (5.15 s) · observer+piston+redstone_block+sticky_piston · 54 blocks</sub></td></tr>
 </table>
 
 ## 104 gt (5.2 s)
 
 <table>
 <tr><td align="center"><a href="archive/clk-obs-p104-bulb-obs-pis-7b-a9fff0.txt">clk-obs-p104-bulb-obs-pis-7b-a9fff0</a><br><sub>104 gt (5.2 s) · copper_bulb+observer+piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p104-bulb-obs-pis-rb-stk-7b-deb6e5.txt">clk-obs-p104-bulb-obs-pis-rb-stk-7b-deb6e5</a><br><sub>104 gt (5.2 s) · copper_bulb+observer+piston+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p104-bulb-obs-pis-stk-7b-86b030.txt">clk-obs-p104-bulb-obs-pis-stk-7b-86b030</a><br><sub>104 gt (5.2 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p104-bulb-obs-rb-stk-7b-f538e7.txt">clk-obs-p104-bulb-obs-rb-stk-7b-f538e7</a><br><sub>104 gt (5.2 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p104-obs-stk-7b-de77b3.txt">clk-obs-p104-obs-stk-7b-de77b3</a><br><sub>104 gt (5.2 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/ringlock35-p104.txt"><img src="img/ringlock35-p104.jpg" width="260" alt="ringlock35-p104"></a><br><sub>104 gt (5.2 s) · comparator+hopper · 14 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p104-bulb-obs-rb-stk-7b-f538e7.txt">clk-obs-p104-bulb-obs-rb-stk-7b-f538e7</a><br><sub>104 gt (5.2 s) · copper_bulb+observer+redstone_block+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p104-obs-stk-7b-de77b3.txt"><img src="img/clk-obs-p104-obs-stk-7b-de77b3.jpg" width="260" alt="clk-obs-p104-obs-stk-7b-de77b3"></a><br><sub>104 gt (5.2 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/ringlock35-p104.txt"><img src="img/ringlock35-p104.jpg" width="260" alt="ringlock35-p104"></a><br><sub>104 gt (5.2 s) · comparator+hopper · 14 blocks</sub></td></tr>
 <tr><td align="center"><a href="archive/ringlock3x6n5-p104.txt"><img src="img/ringlock3x6n5-p104.jpg" width="260" alt="ringlock3x6n5-p104"></a><br><sub>104 gt (5.2 s) · comparator+hopper · 16 blocks</sub></td><td align="center"><a href="archive/droprep-p104.txt"><img src="img/droprep-p104.jpg" width="260" alt="droprep-p104"></a><br><sub>104 gt (5.2 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td></tr>
 </table>
 
 ## 105 gt (5.25 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p105-obs-stk-7b-fa107e.txt">clk-obs-p105-obs-stk-7b-fa107e</a><br><sub>105 gt (5.25 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/droprep-p105.txt"><img src="img/droprep-p105.jpg" width="260" alt="droprep-p105"></a><br><sub>105 gt (5.25 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p105-obs-stk-7b-fa107e.txt"><img src="img/clk-obs-p105-obs-stk-7b-fa107e.jpg" width="260" alt="clk-obs-p105-obs-stk-7b-fa107e"></a><br><sub>105 gt (5.25 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/droprep-p105.txt"><img src="img/droprep-p105.jpg" width="260" alt="droprep-p105"></a><br><sub>105 gt (5.25 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td></tr>
 </table>
 
 ## 106 gt (5.3 s)
 
 <table>
-<tr><td align="center"><a href="archive/ringlock-p106.txt"><img src="img/ringlock-p106.jpg" width="260" alt="ringlock-p106"></a><br><sub>106 gt (5.3 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p106.txt"><img src="img/droprep-p106.jpg" width="260" alt="droprep-p106"></a><br><sub>106 gt (5.3 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p106-note-obs-54b-4586e3.txt">clk-obs-p106-note-obs-54b-4586e3</a><br><sub>106 gt (5.3 s) · note_block+observer · 54 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/ringlock-p106.txt"><img src="img/ringlock-p106.jpg" width="260" alt="ringlock-p106"></a><br><sub>106 gt (5.3 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/droprep-p106.txt"><img src="img/droprep-p106.jpg" width="260" alt="droprep-p106"></a><br><sub>106 gt (5.3 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p106-note-obs-54b-4586e3.txt"><img src="img/clk-obs-p106-note-obs-54b-4586e3.jpg" width="260" alt="clk-obs-p106-note-obs-54b-4586e3"></a><br><sub>106 gt (5.3 s) · note_block+observer · 54 blocks</sub></td></tr>
 </table>
 
 ## 107 gt (5.35 s)
 
 <table>
-<tr><td align="center"><a href="archive/ringlock35-p107.txt"><img src="img/ringlock35-p107.jpg" width="260" alt="ringlock35-p107"></a><br><sub>107 gt (5.35 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p107.txt"><img src="img/droprep-p107.jpg" width="260" alt="droprep-p107"></a><br><sub>107 gt (5.35 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p107-obs-pis-rb-stk-56b-2f917d.txt">clk-obs-p107-obs-pis-rb-stk-56b-2f917d</a><br><sub>107 gt (5.35 s) · observer+piston+redstone_block+sticky_piston · 56 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/ringlock35-p107.txt"><img src="img/ringlock35-p107.jpg" width="260" alt="ringlock35-p107"></a><br><sub>107 gt (5.35 s) · comparator+hopper · 14 blocks</sub></td><td align="center"><a href="archive/droprep-p107.txt"><img src="img/droprep-p107.jpg" width="260" alt="droprep-p107"></a><br><sub>107 gt (5.35 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p107-obs-pis-rb-stk-56b-2f917d.txt"><img src="img/clk-obs-p107-obs-pis-rb-stk-56b-2f917d.jpg" width="260" alt="clk-obs-p107-obs-pis-rb-stk-56b-2f917d"></a><br><sub>107 gt (5.35 s) · observer+piston+redstone_block+sticky_piston · 56 blocks</sub></td></tr>
 </table>
 
 ## 108 gt (5.4 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p108-obs-stk-7b-d936ef.txt">clk-obs-p108-obs-stk-7b-d936ef</a><br><sub>108 gt (5.4 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p108-obs-pis-stk-7b-105950.txt">clk-obs-p108-obs-pis-stk-7b-105950</a><br><sub>108 gt (5.4 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p108-obs-stk-7b-d936ef.txt"><img src="img/clk-obs-p108-obs-stk-7b-d936ef.jpg" width="260" alt="clk-obs-p108-obs-stk-7b-d936ef"></a><br><sub>108 gt (5.4 s) · observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p108-obs-pis-stk-7b-105950.txt">clk-obs-p108-obs-pis-stk-7b-105950</a><br><sub>108 gt (5.4 s) · observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
 </table>
 
 ## 109 gt (5.45 s)
 
 <table>
-<tr><td align="center"><a href="archive/droprep-p109.txt"><img src="img/droprep-p109.jpg" width="260" alt="droprep-p109"></a><br><sub>109 gt (5.45 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p109-obs-pis-rb-stk-58b-29c47c.txt">clk-obs-p109-obs-pis-rb-stk-58b-29c47c</a><br><sub>109 gt (5.45 s) · observer+piston+redstone_block+sticky_piston · 58 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/droprep-p109.txt"><img src="img/droprep-p109.jpg" width="260" alt="droprep-p109"></a><br><sub>109 gt (5.45 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p109-obs-pis-rb-stk-58b-29c47c.txt"><img src="img/clk-obs-p109-obs-pis-rb-stk-58b-29c47c.jpg" width="260" alt="clk-obs-p109-obs-pis-rb-stk-58b-29c47c"></a><br><sub>109 gt (5.45 s) · observer+piston+redstone_block+sticky_piston · 58 blocks</sub></td></tr>
 </table>
 
 ## 110 gt (5.5 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p110-note-obs-56b-d957ea.txt">clk-obs-p110-note-obs-56b-d957ea</a><br><sub>110 gt (5.5 s) · note_block+observer · 56 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p110-note-obs-56b-d957ea.txt"><img src="img/clk-obs-p110-note-obs-56b-d957ea.jpg" width="260" alt="clk-obs-p110-note-obs-56b-d957ea"></a><br><sub>110 gt (5.5 s) · note_block+observer · 56 blocks</sub></td></tr>
 </table>
 
 ## 111 gt (5.55 s)
 
 <table>
-<tr><td align="center"><a href="archive/droprep-p111.txt"><img src="img/droprep-p111.jpg" width="260" alt="droprep-p111"></a><br><sub>111 gt (5.55 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p111-obs-pis-rb-stk-58b-1a1a6a.txt">clk-obs-p111-obs-pis-rb-stk-58b-1a1a6a</a><br><sub>111 gt (5.55 s) · observer+piston+redstone_block+sticky_piston · 58 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/droprep-p111.txt"><img src="img/droprep-p111.jpg" width="260" alt="droprep-p111"></a><br><sub>111 gt (5.55 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p111-obs-pis-rb-stk-58b-1a1a6a.txt"><img src="img/clk-obs-p111-obs-pis-rb-stk-58b-1a1a6a.jpg" width="260" alt="clk-obs-p111-obs-pis-rb-stk-58b-1a1a6a"></a><br><sub>111 gt (5.55 s) · observer+piston+redstone_block+sticky_piston · 58 blocks</sub></td></tr>
 </table>
 
 ## 112 gt (5.6 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p112-obs-56b-2fc87e.txt">clk-obs-p112-obs-56b-2fc87e</a><br><sub>112 gt (5.6 s) · observer · 56 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p112-obs-56b-2fc87e.txt"><img src="img/clk-obs-p112-obs-56b-2fc87e.jpg" width="260" alt="clk-obs-p112-obs-56b-2fc87e"></a><br><sub>112 gt (5.6 s) · observer · 56 blocks</sub></td></tr>
 </table>
 
 ## 113 gt (5.65 s)
 
 <table>
-<tr><td align="center"><a href="archive/droprep-p113.txt"><img src="img/droprep-p113.jpg" width="260" alt="droprep-p113"></a><br><sub>113 gt (5.65 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p113-obs-pis-rb-stk-60b-798366.txt">clk-obs-p113-obs-pis-rb-stk-60b-798366</a><br><sub>113 gt (5.65 s) · observer+piston+redstone_block+sticky_piston · 60 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/droprep-p113.txt"><img src="img/droprep-p113.jpg" width="260" alt="droprep-p113"></a><br><sub>113 gt (5.65 s) · comparator+dropper+hopper+repeater · 26 blocks</sub></td><td align="center"><a href="archive/clk-obs-p113-obs-pis-rb-stk-60b-798366.txt"><img src="img/clk-obs-p113-obs-pis-rb-stk-60b-798366.jpg" width="260" alt="clk-obs-p113-obs-pis-rb-stk-60b-798366"></a><br><sub>113 gt (5.65 s) · observer+piston+redstone_block+sticky_piston · 60 blocks</sub></td></tr>
 </table>
 
 ## 114 gt (5.7 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-rt-uloop-p114-18b.txt"><img src="img/clk-rt-uloop-p114-18b.jpg" width="260" alt="clk-rt-uloop-p114-18b"></a><br><sub>114 gt (5.7 s) · comparator+redstone_torch+redstone_wire · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p114-note-obs-58b-a8b3a2.txt">clk-obs-p114-note-obs-58b-a8b3a2</a><br><sub>114 gt (5.7 s) · note_block+observer · 58 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-rt-uloop-p114-18b.txt"><img src="img/clk-rt-uloop-p114-18b.jpg" width="260" alt="clk-rt-uloop-p114-18b"></a><br><sub>114 gt (5.7 s) · comparator+redstone_torch+redstone_wire · 18 blocks</sub></td><td align="center"><a href="archive/clk-obs-p114-note-obs-58b-a8b3a2.txt"><img src="img/clk-obs-p114-note-obs-58b-a8b3a2.jpg" width="260" alt="clk-obs-p114-note-obs-58b-a8b3a2"></a><br><sub>114 gt (5.7 s) · note_block+observer · 58 blocks</sub></td></tr>
 </table>
 
 ## 115 gt (5.75 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p115-obs-pis-rb-stk-60b-816152.txt">clk-obs-p115-obs-pis-rb-stk-60b-816152</a><br><sub>115 gt (5.75 s) · observer+piston+redstone_block+sticky_piston · 60 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p115-obs-pis-rb-stk-60b-816152.txt"><img src="img/clk-obs-p115-obs-pis-rb-stk-60b-816152.jpg" width="260" alt="clk-obs-p115-obs-pis-rb-stk-60b-816152"></a><br><sub>115 gt (5.75 s) · observer+piston+redstone_block+sticky_piston · 60 blocks</sub></td></tr>
 </table>
 
 ## 116 gt (5.8 s)
@@ -1079,507 +1079,507 @@
 ## 117 gt (5.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p117-obs-pis-rb-stk-62b-bad869.txt">clk-obs-p117-obs-pis-rb-stk-62b-bad869</a><br><sub>117 gt (5.85 s) · observer+piston+redstone_block+sticky_piston · 62 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p117-obs-pis-rb-stk-62b-bad869.txt"><img src="img/clk-obs-p117-obs-pis-rb-stk-62b-bad869.jpg" width="260" alt="clk-obs-p117-obs-pis-rb-stk-62b-bad869"></a><br><sub>117 gt (5.85 s) · observer+piston+redstone_block+sticky_piston · 62 blocks</sub></td></tr>
 </table>
 
 ## 118 gt (5.9 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p118-note-obs-60b-56e737.txt">clk-obs-p118-note-obs-60b-56e737</a><br><sub>118 gt (5.9 s) · note_block+observer · 60 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p118-note-obs-60b-56e737.txt"><img src="img/clk-obs-p118-note-obs-60b-56e737.jpg" width="260" alt="clk-obs-p118-note-obs-60b-56e737"></a><br><sub>118 gt (5.9 s) · note_block+observer · 60 blocks</sub></td></tr>
 </table>
 
 ## 119 gt (5.95 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p119-obs-pis-rb-stk-62b-225b15.txt">clk-obs-p119-obs-pis-rb-stk-62b-225b15</a><br><sub>119 gt (5.95 s) · observer+piston+redstone_block+sticky_piston · 62 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p119-obs-pis-rb-stk-62b-225b15.txt"><img src="img/clk-obs-p119-obs-pis-rb-stk-62b-225b15.jpg" width="260" alt="clk-obs-p119-obs-pis-rb-stk-62b-225b15"></a><br><sub>119 gt (5.95 s) · observer+piston+redstone_block+sticky_piston · 62 blocks</sub></td></tr>
 </table>
 
 ## 120 gt (6 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p120-obs-60b-409c74.txt">clk-obs-p120-obs-60b-409c74</a><br><sub>120 gt (6 s) · observer · 60 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p120-obs-60b-409c74.txt"><img src="img/clk-obs-p120-obs-60b-409c74.jpg" width="260" alt="clk-obs-p120-obs-60b-409c74"></a><br><sub>120 gt (6 s) · observer · 60 blocks</sub></td></tr>
 </table>
 
 ## 121 gt (6.05 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p121-obs-pis-rb-stk-64b-0acc16.txt">clk-obs-p121-obs-pis-rb-stk-64b-0acc16</a><br><sub>121 gt (6.05 s) · observer+piston+redstone_block+sticky_piston · 64 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p121-obs-pis-rb-stk-64b-0acc16.txt"><img src="img/clk-obs-p121-obs-pis-rb-stk-64b-0acc16.jpg" width="260" alt="clk-obs-p121-obs-pis-rb-stk-64b-0acc16"></a><br><sub>121 gt (6.05 s) · observer+piston+redstone_block+sticky_piston · 64 blocks</sub></td></tr>
 </table>
 
 ## 122 gt (6.1 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p122-note-obs-62b-4cada3.txt">clk-obs-p122-note-obs-62b-4cada3</a><br><sub>122 gt (6.1 s) · note_block+observer · 62 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p122-note-obs-62b-4cada3.txt"><img src="img/clk-obs-p122-note-obs-62b-4cada3.jpg" width="260" alt="clk-obs-p122-note-obs-62b-4cada3"></a><br><sub>122 gt (6.1 s) · note_block+observer · 62 blocks</sub></td></tr>
 </table>
 
 ## 123 gt (6.15 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p123-obs-pis-rb-stk-64b-8f0caf.txt">clk-obs-p123-obs-pis-rb-stk-64b-8f0caf</a><br><sub>123 gt (6.15 s) · observer+piston+redstone_block+sticky_piston · 64 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p123-obs-pis-rb-stk-64b-8f0caf.txt"><img src="img/clk-obs-p123-obs-pis-rb-stk-64b-8f0caf.jpg" width="260" alt="clk-obs-p123-obs-pis-rb-stk-64b-8f0caf"></a><br><sub>123 gt (6.15 s) · observer+piston+redstone_block+sticky_piston · 64 blocks</sub></td></tr>
 </table>
 
 ## 124 gt (6.2 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p124-obs-62b-a666f2.txt">clk-obs-p124-obs-62b-a666f2</a><br><sub>124 gt (6.2 s) · observer · 62 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p124-obs-62b-a666f2.txt"><img src="img/clk-obs-p124-obs-62b-a666f2.jpg" width="260" alt="clk-obs-p124-obs-62b-a666f2"></a><br><sub>124 gt (6.2 s) · observer · 62 blocks</sub></td></tr>
 </table>
 
 ## 125 gt (6.25 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p125-obs-pis-rb-stk-66b-9d1818.txt">clk-obs-p125-obs-pis-rb-stk-66b-9d1818</a><br><sub>125 gt (6.25 s) · observer+piston+redstone_block+sticky_piston · 66 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p125-obs-pis-rb-stk-66b-9d1818.txt"><img src="img/clk-obs-p125-obs-pis-rb-stk-66b-9d1818.jpg" width="260" alt="clk-obs-p125-obs-pis-rb-stk-66b-9d1818"></a><br><sub>125 gt (6.25 s) · observer+piston+redstone_block+sticky_piston · 66 blocks</sub></td></tr>
 </table>
 
 ## 126 gt (6.3 s)
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3b-p126-1.txt"><img src="img/clk-sculk-hyb3b-p126-1.jpg" width="260" alt="clk-sculk-hyb3b-p126-1"></a><br><sub>126 gt (6.3 s) · dispenser+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c126-obs-moving-sticky.txt"><img src="img/clk-sculk-c126-obs-moving-sticky.jpg" width="260" alt="clk-sculk-c126-obs-moving-sticky"></a><br><sub>126 gt (6.3 s) · calibrated_sculk_sensor+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/hopburn-p126.txt"><img src="img/hopburn-p126.jpg" width="260" alt="hopburn-p126"></a><br><sub>126 gt (6.3 s) · comparator+hopper+redstone_torch+redstone_wire · 8 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p126-note-obs-64b-b2baa9.txt">clk-obs-p126-note-obs-64b-b2baa9</a><br><sub>126 gt (6.3 s) · note_block+observer · 64 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p126-note-obs-64b-b2baa9.txt"><img src="img/clk-obs-p126-note-obs-64b-b2baa9.jpg" width="260" alt="clk-obs-p126-note-obs-64b-b2baa9"></a><br><sub>126 gt (6.3 s) · note_block+observer · 64 blocks</sub></td></tr>
 </table>
 
 ## 127 gt (6.35 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p127-obs-pis-rb-stk-66b-b5c16a.txt">clk-obs-p127-obs-pis-rb-stk-66b-b5c16a</a><br><sub>127 gt (6.35 s) · observer+piston+redstone_block+sticky_piston · 66 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p127-obs-pis-rb-stk-66b-b5c16a.txt"><img src="img/clk-obs-p127-obs-pis-rb-stk-66b-b5c16a.jpg" width="260" alt="clk-obs-p127-obs-pis-rb-stk-66b-b5c16a"></a><br><sub>127 gt (6.35 s) · observer+piston+redstone_block+sticky_piston · 66 blocks</sub></td></tr>
 </table>
 
 ## 128 gt (6.4 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-climb1-p128-5.txt"><img src="img/clk-sculk-climb1-p128-5.jpg" width="260" alt="clk-sculk-climb1-p128-5"></a><br><sub>128 gt (6.4 s) · oak_trapdoor+observer+sculk_sensor+sticky_piston · 8 blocks</sub></td><td align="center"><a href="archive/clk-obs-p128-obs-64b-5528b0.txt">clk-obs-p128-obs-64b-5528b0</a><br><sub>128 gt (6.4 s) · observer · 64 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-climb1-p128-5.txt"><img src="img/clk-sculk-climb1-p128-5.jpg" width="260" alt="clk-sculk-climb1-p128-5"></a><br><sub>128 gt (6.4 s) · oak_trapdoor+observer+sculk_sensor+sticky_piston · 8 blocks</sub></td><td align="center"><a href="archive/clk-obs-p128-obs-64b-5528b0.txt"><img src="img/clk-obs-p128-obs-64b-5528b0.jpg" width="260" alt="clk-obs-p128-obs-64b-5528b0"></a><br><sub>128 gt (6.4 s) · observer · 64 blocks</sub></td></tr>
 </table>
 
 ## 129 gt (6.45 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p129-1.txt"><img src="img/clk-sculk-hyb3-p129-1.jpg" width="260" alt="clk-sculk-hyb3-p129-1"></a><br><sub>129 gt (6.45 s) · observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/hopburn-p129.txt"><img src="img/hopburn-p129.jpg" width="260" alt="hopburn-p129"></a><br><sub>129 gt (6.45 s) · comparator+hopper+redstone_torch+redstone_wire · 8 blocks</sub></td><td align="center"><a href="archive/clk-obs-p129-obs-pis-rb-stk-68b-1e00c6.txt">clk-obs-p129-obs-pis-rb-stk-68b-1e00c6</a><br><sub>129 gt (6.45 s) · observer+piston+redstone_block+sticky_piston · 68 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p129-1.txt"><img src="img/clk-sculk-hyb3-p129-1.jpg" width="260" alt="clk-sculk-hyb3-p129-1"></a><br><sub>129 gt (6.45 s) · observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/hopburn-p129.txt"><img src="img/hopburn-p129.jpg" width="260" alt="hopburn-p129"></a><br><sub>129 gt (6.45 s) · comparator+hopper+redstone_torch+redstone_wire · 8 blocks</sub></td><td align="center"><a href="archive/clk-obs-p129-obs-pis-rb-stk-68b-1e00c6.txt"><img src="img/clk-obs-p129-obs-pis-rb-stk-68b-1e00c6.jpg" width="260" alt="clk-obs-p129-obs-pis-rb-stk-68b-1e00c6"></a><br><sub>129 gt (6.45 s) · observer+piston+redstone_block+sticky_piston · 68 blocks</sub></td></tr>
 </table>
 
 ## 130 gt (6.5 s)
 
 <table>
-<tr><td align="center"><a href="archive/census-p130-calibrated_sculk_sensor-note_block-observer-sculk_sensor-5b.txt"><img src="img/census-p130-calibrated_sculk_sensor-note_block-observer-sculk_sensor-5b.jpg" width="260" alt="census-p130-calibrated_sculk_sensor-note_block-observer-sculk_sensor-5b"></a><br><sub>130 gt (6.5 s) · calibrated_sculk_sensor+note_block+observer+sculk_sensor · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p130-note-obs-66b-0855e7.txt">clk-obs-p130-note-obs-66b-0855e7</a><br><sub>130 gt (6.5 s) · note_block+observer · 66 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/census-p130-calibrated_sculk_sensor-note_block-observer-sculk_sensor-5b.txt"><img src="img/census-p130-calibrated_sculk_sensor-note_block-observer-sculk_sensor-5b.jpg" width="260" alt="census-p130-calibrated_sculk_sensor-note_block-observer-sculk_sensor-5b"></a><br><sub>130 gt (6.5 s) · calibrated_sculk_sensor+note_block+observer+sculk_sensor · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p130-note-obs-66b-0855e7.txt"><img src="img/clk-obs-p130-note-obs-66b-0855e7.jpg" width="260" alt="clk-obs-p130-note-obs-66b-0855e7"></a><br><sub>130 gt (6.5 s) · note_block+observer · 66 blocks</sub></td></tr>
 </table>
 
 ## 131 gt (6.55 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p131-1.txt"><img src="img/clk-sculk-hyb3-p131-1.jpg" width="260" alt="clk-sculk-hyb3-p131-1"></a><br><sub>131 gt (6.55 s) · observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p131-obs-pis-rb-stk-68b-5aa841.txt">clk-obs-p131-obs-pis-rb-stk-68b-5aa841</a><br><sub>131 gt (6.55 s) · observer+piston+redstone_block+sticky_piston · 68 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p131-1.txt"><img src="img/clk-sculk-hyb3-p131-1.jpg" width="260" alt="clk-sculk-hyb3-p131-1"></a><br><sub>131 gt (6.55 s) · observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p131-obs-pis-rb-stk-68b-5aa841.txt"><img src="img/clk-obs-p131-obs-pis-rb-stk-68b-5aa841.jpg" width="260" alt="clk-obs-p131-obs-pis-rb-stk-68b-5aa841"></a><br><sub>131 gt (6.55 s) · observer+piston+redstone_block+sticky_piston · 68 blocks</sub></td></tr>
 </table>
 
 ## 132 gt (6.6 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p132-1.txt"><img src="img/clk-sculk-hyb3-p132-1.jpg" width="260" alt="clk-sculk-hyb3-p132-1"></a><br><sub>132 gt (6.6 s) · observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p132-obs-66b-c28fe6.txt">clk-obs-p132-obs-66b-c28fe6</a><br><sub>132 gt (6.6 s) · observer · 66 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p132-1.txt"><img src="img/clk-sculk-hyb3-p132-1.jpg" width="260" alt="clk-sculk-hyb3-p132-1"></a><br><sub>132 gt (6.6 s) · observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p132-obs-66b-c28fe6.txt"><img src="img/clk-obs-p132-obs-66b-c28fe6.jpg" width="260" alt="clk-obs-p132-obs-66b-c28fe6"></a><br><sub>132 gt (6.6 s) · observer · 66 blocks</sub></td></tr>
 </table>
 
 ## 133 gt (6.65 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p133-obs-pis-rb-stk-70b-9c1934.txt">clk-obs-p133-obs-pis-rb-stk-70b-9c1934</a><br><sub>133 gt (6.65 s) · observer+piston+redstone_block+sticky_piston · 70 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p133-obs-pis-rb-stk-70b-9c1934.txt"><img src="img/clk-obs-p133-obs-pis-rb-stk-70b-9c1934.jpg" width="260" alt="clk-obs-p133-obs-pis-rb-stk-70b-9c1934"></a><br><sub>133 gt (6.65 s) · observer+piston+redstone_block+sticky_piston · 70 blocks</sub></td></tr>
 </table>
 
 ## 134 gt (6.7 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p134-note-obs-68b-58e50e.txt">clk-obs-p134-note-obs-68b-58e50e</a><br><sub>134 gt (6.7 s) · note_block+observer · 68 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p134-note-obs-68b-58e50e.txt"><img src="img/clk-obs-p134-note-obs-68b-58e50e.jpg" width="260" alt="clk-obs-p134-note-obs-68b-58e50e"></a><br><sub>134 gt (6.7 s) · note_block+observer · 68 blocks</sub></td></tr>
 </table>
 
 ## 135 gt (6.75 s)
 
 <table>
-<tr><td align="center"><a href="archive/census-p135-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.txt"><img src="img/census-p135-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.jpg" width="260" alt="census-p135-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b"></a><br><sub>135 gt (6.75 s) · calibrated_sculk_sensor+dispenser+observer+sculk_sensor · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p135-obs-pis-rb-stk-70b-119034.txt">clk-obs-p135-obs-pis-rb-stk-70b-119034</a><br><sub>135 gt (6.75 s) · observer+piston+redstone_block+sticky_piston · 70 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/census-p135-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.txt"><img src="img/census-p135-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.jpg" width="260" alt="census-p135-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b"></a><br><sub>135 gt (6.75 s) · calibrated_sculk_sensor+dispenser+observer+sculk_sensor · 5 blocks</sub></td><td align="center"><a href="archive/clk-obs-p135-obs-pis-rb-stk-70b-119034.txt"><img src="img/clk-obs-p135-obs-pis-rb-stk-70b-119034.jpg" width="260" alt="clk-obs-p135-obs-pis-rb-stk-70b-119034"></a><br><sub>135 gt (6.75 s) · observer+piston+redstone_block+sticky_piston · 70 blocks</sub></td></tr>
 </table>
 
 ## 136 gt (6.8 s)
 
 <table>
-<tr><td align="center"><a href="archive/ringlock3x6n9-p136.txt"><img src="img/ringlock3x6n9-p136.jpg" width="260" alt="ringlock3x6n9-p136"></a><br><sub>136 gt (6.8 s) · comparator+hopper · 16 blocks</sub></td><td align="center"><a href="archive/clk-sculk-ringbig10-p136-1.txt"><img src="img/clk-sculk-ringbig10-p136-1.jpg" width="260" alt="clk-sculk-ringbig10-p136-1"></a><br><sub>136 gt (6.8 s) · calibrated_sculk_sensor+note_block · 21 blocks</sub></td><td align="center"><a href="archive/clk-obs-p136-obs-68b-b05f7c.txt">clk-obs-p136-obs-68b-b05f7c</a><br><sub>136 gt (6.8 s) · observer · 68 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/ringlock3x6n9-p136.txt"><img src="img/ringlock3x6n9-p136.jpg" width="260" alt="ringlock3x6n9-p136"></a><br><sub>136 gt (6.8 s) · comparator+hopper · 16 blocks</sub></td><td align="center"><a href="archive/clk-sculk-ringbig10-p136-1.txt"><img src="img/clk-sculk-ringbig10-p136-1.jpg" width="260" alt="clk-sculk-ringbig10-p136-1"></a><br><sub>136 gt (6.8 s) · calibrated_sculk_sensor+note_block · 21 blocks</sub></td><td align="center"><a href="archive/clk-obs-p136-obs-68b-b05f7c.txt"><img src="img/clk-obs-p136-obs-68b-b05f7c.jpg" width="260" alt="clk-obs-p136-obs-68b-b05f7c"></a><br><sub>136 gt (6.8 s) · observer · 68 blocks</sub></td></tr>
 </table>
 
 ## 137 gt (6.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p137-obs-pis-rb-stk-72b-2ffd0d.txt">clk-obs-p137-obs-pis-rb-stk-72b-2ffd0d</a><br><sub>137 gt (6.85 s) · observer+piston+redstone_block+sticky_piston · 72 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p137-obs-pis-rb-stk-72b-2ffd0d.txt"><img src="img/clk-obs-p137-obs-pis-rb-stk-72b-2ffd0d.jpg" width="260" alt="clk-obs-p137-obs-pis-rb-stk-72b-2ffd0d"></a><br><sub>137 gt (6.85 s) · observer+piston+redstone_block+sticky_piston · 72 blocks</sub></td></tr>
 </table>
 
 ## 138 gt (6.9 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p138-1.txt"><img src="img/clk-sculk-ringbig10-p138-1.jpg" width="260" alt="clk-sculk-ringbig10-p138-1"></a><br><sub>138 gt (6.9 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p138-note-obs-70b-5c6f13.txt">clk-obs-p138-note-obs-70b-5c6f13</a><br><sub>138 gt (6.9 s) · note_block+observer · 70 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p138-1.txt"><img src="img/clk-sculk-ringbig10-p138-1.jpg" width="260" alt="clk-sculk-ringbig10-p138-1"></a><br><sub>138 gt (6.9 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p138-note-obs-70b-5c6f13.txt"><img src="img/clk-obs-p138-note-obs-70b-5c6f13.jpg" width="260" alt="clk-obs-p138-note-obs-70b-5c6f13"></a><br><sub>138 gt (6.9 s) · note_block+observer · 70 blocks</sub></td></tr>
 </table>
 
 ## 139 gt (6.95 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p139-obs-pis-rb-stk-72b-6b1bbf.txt">clk-obs-p139-obs-pis-rb-stk-72b-6b1bbf</a><br><sub>139 gt (6.95 s) · observer+piston+redstone_block+sticky_piston · 72 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p139-obs-pis-rb-stk-72b-6b1bbf.txt"><img src="img/clk-obs-p139-obs-pis-rb-stk-72b-6b1bbf.jpg" width="260" alt="clk-obs-p139-obs-pis-rb-stk-72b-6b1bbf"></a><br><sub>139 gt (6.95 s) · observer+piston+redstone_block+sticky_piston · 72 blocks</sub></td></tr>
 </table>
 
 ## 140 gt (7 s)
 
 <table>
 <tr><td align="center"><a href="archive/census-p140-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-4b.txt"><img src="img/census-p140-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-4b.jpg" width="260" alt="census-p140-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-4b"></a><br><sub>140 gt (7 s) · calibrated_sculk_sensor+dispenser+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/loop4burn-p140.txt"><img src="img/loop4burn-p140.jpg" width="260" alt="loop4burn-p140"></a><br><sub>140 gt (7 s) · comparator+hopper+redstone_torch+redstone_wire · 10 blocks</sub></td><td align="center"><a href="archive/clk-sculk-ringbig10-p140-1.txt"><img src="img/clk-sculk-ringbig10-p140-1.jpg" width="260" alt="clk-sculk-ringbig10-p140-1"></a><br><sub>140 gt (7 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td></tr>
-<tr><td align="center"><a href="archive/clk-obs-p140-obs-70b-c22cc6.txt">clk-obs-p140-obs-70b-c22cc6</a><br><sub>140 gt (7 s) · observer · 70 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p140-obs-70b-c22cc6.txt"><img src="img/clk-obs-p140-obs-70b-c22cc6.jpg" width="260" alt="clk-obs-p140-obs-70b-c22cc6"></a><br><sub>140 gt (7 s) · observer · 70 blocks</sub></td></tr>
 </table>
 
 ## 141 gt (7.05 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p141-obs-pis-rb-stk-74b-a7d327.txt">clk-obs-p141-obs-pis-rb-stk-74b-a7d327</a><br><sub>141 gt (7.05 s) · observer+piston+redstone_block+sticky_piston · 74 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p141-obs-pis-rb-stk-74b-a7d327.txt"><img src="img/clk-obs-p141-obs-pis-rb-stk-74b-a7d327.jpg" width="260" alt="clk-obs-p141-obs-pis-rb-stk-74b-a7d327"></a><br><sub>141 gt (7.05 s) · observer+piston+redstone_block+sticky_piston · 74 blocks</sub></td></tr>
 </table>
 
 ## 142 gt (7.1 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p142-1.txt"><img src="img/clk-sculk-ringbig10-p142-1.jpg" width="260" alt="clk-sculk-ringbig10-p142-1"></a><br><sub>142 gt (7.1 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p142-21b.txt"><img src="img/clk-rt-uloop-p142-21b.jpg" width="260" alt="clk-rt-uloop-p142-21b"></a><br><sub>142 gt (7.1 s) · comparator+redstone_torch+redstone_wire · 21 blocks</sub></td><td align="center"><a href="archive/clk-obs-p142-note-obs-72b-03c5e4.txt">clk-obs-p142-note-obs-72b-03c5e4</a><br><sub>142 gt (7.1 s) · note_block+observer · 72 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p142-1.txt"><img src="img/clk-sculk-ringbig10-p142-1.jpg" width="260" alt="clk-sculk-ringbig10-p142-1"></a><br><sub>142 gt (7.1 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p142-21b.txt"><img src="img/clk-rt-uloop-p142-21b.jpg" width="260" alt="clk-rt-uloop-p142-21b"></a><br><sub>142 gt (7.1 s) · comparator+redstone_torch+redstone_wire · 21 blocks</sub></td><td align="center"><a href="archive/clk-obs-p142-note-obs-72b-03c5e4.txt"><img src="img/clk-obs-p142-note-obs-72b-03c5e4.jpg" width="260" alt="clk-obs-p142-note-obs-72b-03c5e4"></a><br><sub>142 gt (7.1 s) · note_block+observer · 72 blocks</sub></td></tr>
 </table>
 
 ## 143 gt (7.15 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p143-obs-pis-rb-stk-74b-0d9a18.txt">clk-obs-p143-obs-pis-rb-stk-74b-0d9a18</a><br><sub>143 gt (7.15 s) · observer+piston+redstone_block+sticky_piston · 74 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p143-obs-pis-rb-stk-74b-0d9a18.txt"><img src="img/clk-obs-p143-obs-pis-rb-stk-74b-0d9a18.jpg" width="260" alt="clk-obs-p143-obs-pis-rb-stk-74b-0d9a18"></a><br><sub>143 gt (7.15 s) · observer+piston+redstone_block+sticky_piston · 74 blocks</sub></td></tr>
 </table>
 
 ## 144 gt (7.2 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p144-1.txt"><img src="img/clk-sculk-ringbig10-p144-1.jpg" width="260" alt="clk-sculk-ringbig10-p144-1"></a><br><sub>144 gt (7.2 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p144-21b.txt"><img src="img/clk-rt-uloop-p144-21b.jpg" width="260" alt="clk-rt-uloop-p144-21b"></a><br><sub>144 gt (7.2 s) · comparator+redstone_torch+redstone_wire · 21 blocks</sub></td><td align="center"><a href="archive/clk-obs-p144-obs-72b-c6a08a.txt">clk-obs-p144-obs-72b-c6a08a</a><br><sub>144 gt (7.2 s) · observer · 72 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p144-1.txt"><img src="img/clk-sculk-ringbig10-p144-1.jpg" width="260" alt="clk-sculk-ringbig10-p144-1"></a><br><sub>144 gt (7.2 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p144-21b.txt"><img src="img/clk-rt-uloop-p144-21b.jpg" width="260" alt="clk-rt-uloop-p144-21b"></a><br><sub>144 gt (7.2 s) · comparator+redstone_torch+redstone_wire · 21 blocks</sub></td><td align="center"><a href="archive/clk-obs-p144-obs-72b-c6a08a.txt"><img src="img/clk-obs-p144-obs-72b-c6a08a.jpg" width="260" alt="clk-obs-p144-obs-72b-c6a08a"></a><br><sub>144 gt (7.2 s) · observer · 72 blocks</sub></td></tr>
 </table>
 
 ## 145 gt (7.25 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p145-obs-pis-rb-stk-76b-e11340.txt">clk-obs-p145-obs-pis-rb-stk-76b-e11340</a><br><sub>145 gt (7.25 s) · observer+piston+redstone_block+sticky_piston · 76 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p145-obs-pis-rb-stk-76b-e11340.txt"><img src="img/clk-obs-p145-obs-pis-rb-stk-76b-e11340.jpg" width="260" alt="clk-obs-p145-obs-pis-rb-stk-76b-e11340"></a><br><sub>145 gt (7.25 s) · observer+piston+redstone_block+sticky_piston · 76 blocks</sub></td></tr>
 </table>
 
 ## 146 gt (7.3 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p146-1.txt"><img src="img/clk-sculk-ringbig10-p146-1.jpg" width="260" alt="clk-sculk-ringbig10-p146-1"></a><br><sub>146 gt (7.3 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p146-note-obs-74b-d8973f.txt">clk-obs-p146-note-obs-74b-d8973f</a><br><sub>146 gt (7.3 s) · note_block+observer · 74 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p146-1.txt"><img src="img/clk-sculk-ringbig10-p146-1.jpg" width="260" alt="clk-sculk-ringbig10-p146-1"></a><br><sub>146 gt (7.3 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p146-note-obs-74b-d8973f.txt"><img src="img/clk-obs-p146-note-obs-74b-d8973f.jpg" width="260" alt="clk-obs-p146-note-obs-74b-d8973f"></a><br><sub>146 gt (7.3 s) · note_block+observer · 74 blocks</sub></td></tr>
 </table>
 
 ## 147 gt (7.35 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p147-obs-pis-rb-stk-76b-e3ff55.txt">clk-obs-p147-obs-pis-rb-stk-76b-e3ff55</a><br><sub>147 gt (7.35 s) · observer+piston+redstone_block+sticky_piston · 76 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p147-obs-pis-rb-stk-76b-e3ff55.txt"><img src="img/clk-obs-p147-obs-pis-rb-stk-76b-e3ff55.jpg" width="260" alt="clk-obs-p147-obs-pis-rb-stk-76b-e3ff55"></a><br><sub>147 gt (7.35 s) · observer+piston+redstone_block+sticky_piston · 76 blocks</sub></td></tr>
 </table>
 
 ## 148 gt (7.4 s)
 
 <table>
-<tr><td align="center"><a href="archive/ringlock34-p148.txt"><img src="img/ringlock34-p148.jpg" width="260" alt="ringlock34-p148"></a><br><sub>148 gt (7.4 s) · comparator+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-sculk-ringbig10-p148-1.txt"><img src="img/clk-sculk-ringbig10-p148-1.jpg" width="260" alt="clk-sculk-ringbig10-p148-1"></a><br><sub>148 gt (7.4 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p148-obs-74b-e06e91.txt">clk-obs-p148-obs-74b-e06e91</a><br><sub>148 gt (7.4 s) · observer · 74 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/ringlock34-p148.txt"><img src="img/ringlock34-p148.jpg" width="260" alt="ringlock34-p148"></a><br><sub>148 gt (7.4 s) · comparator+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-sculk-ringbig10-p148-1.txt"><img src="img/clk-sculk-ringbig10-p148-1.jpg" width="260" alt="clk-sculk-ringbig10-p148-1"></a><br><sub>148 gt (7.4 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p148-obs-74b-e06e91.txt"><img src="img/clk-obs-p148-obs-74b-e06e91.jpg" width="260" alt="clk-obs-p148-obs-74b-e06e91"></a><br><sub>148 gt (7.4 s) · observer · 74 blocks</sub></td></tr>
 </table>
 
 ## 149 gt (7.45 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p149-obs-pis-rb-stk-78b-df1937.txt">clk-obs-p149-obs-pis-rb-stk-78b-df1937</a><br><sub>149 gt (7.45 s) · observer+piston+redstone_block+sticky_piston · 78 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p149-obs-pis-rb-stk-78b-df1937.txt"><img src="img/clk-obs-p149-obs-pis-rb-stk-78b-df1937.jpg" width="260" alt="clk-obs-p149-obs-pis-rb-stk-78b-df1937"></a><br><sub>149 gt (7.45 s) · observer+piston+redstone_block+sticky_piston · 78 blocks</sub></td></tr>
 </table>
 
 ## 150 gt (7.5 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p150-1.txt"><img src="img/clk-sculk-ringbig10-p150-1.jpg" width="260" alt="clk-sculk-ringbig10-p150-1"></a><br><sub>150 gt (7.5 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p150-note-obs-76b-bbc9b4.txt">clk-obs-p150-note-obs-76b-bbc9b4</a><br><sub>150 gt (7.5 s) · note_block+observer · 76 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-ringbig10-p150-1.txt"><img src="img/clk-sculk-ringbig10-p150-1.jpg" width="260" alt="clk-sculk-ringbig10-p150-1"></a><br><sub>150 gt (7.5 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td><td align="center"><a href="archive/clk-obs-p150-note-obs-76b-bbc9b4.txt"><img src="img/clk-obs-p150-note-obs-76b-bbc9b4.jpg" width="260" alt="clk-obs-p150-note-obs-76b-bbc9b4"></a><br><sub>150 gt (7.5 s) · note_block+observer · 76 blocks</sub></td></tr>
 </table>
 
 ## 151 gt (7.55 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p151-obs-pis-rb-stk-78b-df2ebc.txt">clk-obs-p151-obs-pis-rb-stk-78b-df2ebc</a><br><sub>151 gt (7.55 s) · observer+piston+redstone_block+sticky_piston · 78 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p151-obs-pis-rb-stk-78b-df2ebc.txt"><img src="img/clk-obs-p151-obs-pis-rb-stk-78b-df2ebc.jpg" width="260" alt="clk-obs-p151-obs-pis-rb-stk-78b-df2ebc"></a><br><sub>151 gt (7.55 s) · observer+piston+redstone_block+sticky_piston · 78 blocks</sub></td></tr>
 </table>
 
 ## 152 gt (7.6 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p152-obs-76b-99ea93.txt">clk-obs-p152-obs-76b-99ea93</a><br><sub>152 gt (7.6 s) · observer · 76 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p152-obs-76b-99ea93.txt"><img src="img/clk-obs-p152-obs-76b-99ea93.jpg" width="260" alt="clk-obs-p152-obs-76b-99ea93"></a><br><sub>152 gt (7.6 s) · observer · 76 blocks</sub></td></tr>
 </table>
 
 ## 153 gt (7.65 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p153-obs-pis-rb-stk-80b-533726.txt">clk-obs-p153-obs-pis-rb-stk-80b-533726</a><br><sub>153 gt (7.65 s) · observer+piston+redstone_block+sticky_piston · 80 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p153-obs-pis-rb-stk-80b-533726.txt"><img src="img/clk-obs-p153-obs-pis-rb-stk-80b-533726.jpg" width="260" alt="clk-obs-p153-obs-pis-rb-stk-80b-533726"></a><br><sub>153 gt (7.65 s) · observer+piston+redstone_block+sticky_piston · 80 blocks</sub></td></tr>
 </table>
 
 ## 154 gt (7.7 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p154-note-obs-78b-83be82.txt">clk-obs-p154-note-obs-78b-83be82</a><br><sub>154 gt (7.7 s) · note_block+observer · 78 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p154-note-obs-78b-83be82.txt"><img src="img/clk-obs-p154-note-obs-78b-83be82.jpg" width="260" alt="clk-obs-p154-note-obs-78b-83be82"></a><br><sub>154 gt (7.7 s) · note_block+observer · 78 blocks</sub></td></tr>
 </table>
 
 ## 155 gt (7.75 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p155-obs-pis-rb-stk-80b-a9cad1.txt">clk-obs-p155-obs-pis-rb-stk-80b-a9cad1</a><br><sub>155 gt (7.75 s) · observer+piston+redstone_block+sticky_piston · 80 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p155-obs-pis-rb-stk-80b-a9cad1.txt"><img src="img/clk-obs-p155-obs-pis-rb-stk-80b-a9cad1.jpg" width="260" alt="clk-obs-p155-obs-pis-rb-stk-80b-a9cad1"></a><br><sub>155 gt (7.75 s) · observer+piston+redstone_block+sticky_piston · 80 blocks</sub></td></tr>
 </table>
 
 ## 156 gt (7.8 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p156-bulb-obs-pis-7b-fa5433.txt">clk-obs-p156-bulb-obs-pis-7b-fa5433</a><br><sub>156 gt (7.8 s) · copper_bulb+observer+piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p156-bulb-obs-pis-stk-7b-444820.txt">clk-obs-p156-bulb-obs-pis-stk-7b-444820</a><br><sub>156 gt (7.8 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/ringlock34-p156.txt"><img src="img/ringlock34-p156.jpg" width="260" alt="ringlock34-p156"></a><br><sub>156 gt (7.8 s) · comparator+hopper · 12 blocks</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p156-bulb-obs-pis-7b-fa5433.txt"><img src="img/clk-obs-p156-bulb-obs-pis-7b-fa5433.jpg" width="260" alt="clk-obs-p156-bulb-obs-pis-7b-fa5433"></a><br><sub>156 gt (7.8 s) · copper_bulb+observer+piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-obs-p156-bulb-obs-pis-stk-7b-444820.txt">clk-obs-p156-bulb-obs-pis-stk-7b-444820</a><br><sub>156 gt (7.8 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/ringlock34-p156.txt"><img src="img/ringlock34-p156.jpg" width="260" alt="ringlock34-p156"></a><br><sub>156 gt (7.8 s) · comparator+hopper · 12 blocks</sub></td></tr>
 </table>
 
 ## 157 gt (7.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p157-obs-pis-rb-stk-82b-b982d3.txt">clk-obs-p157-obs-pis-rb-stk-82b-b982d3</a><br><sub>157 gt (7.85 s) · observer+piston+redstone_block+sticky_piston · 82 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p157-obs-pis-rb-stk-82b-b982d3.txt"><img src="img/clk-obs-p157-obs-pis-rb-stk-82b-b982d3.jpg" width="260" alt="clk-obs-p157-obs-pis-rb-stk-82b-b982d3"></a><br><sub>157 gt (7.85 s) · observer+piston+redstone_block+sticky_piston · 82 blocks</sub></td></tr>
 </table>
 
 ## 158 gt (7.9 s)
 
 <table>
-<tr><td align="center"><a href="archive/ringlock-p158.txt"><img src="img/ringlock-p158.jpg" width="260" alt="ringlock-p158"></a><br><sub>158 gt (7.9 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/clk-obs-p158-note-obs-80b-81ff84.txt">clk-obs-p158-note-obs-80b-81ff84</a><br><sub>158 gt (7.9 s) · note_block+observer · 80 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/ringlock-p158.txt"><img src="img/ringlock-p158.jpg" width="260" alt="ringlock-p158"></a><br><sub>158 gt (7.9 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/clk-obs-p158-note-obs-80b-81ff84.txt"><img src="img/clk-obs-p158-note-obs-80b-81ff84.jpg" width="260" alt="clk-obs-p158-note-obs-80b-81ff84"></a><br><sub>158 gt (7.9 s) · note_block+observer · 80 blocks</sub></td></tr>
 </table>
 
 ## 159 gt (7.95 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p159-obs-pis-rb-stk-82b-b563c9.txt">clk-obs-p159-obs-pis-rb-stk-82b-b563c9</a><br><sub>159 gt (7.95 s) · observer+piston+redstone_block+sticky_piston · 82 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p159-obs-pis-rb-stk-82b-b563c9.txt"><img src="img/clk-obs-p159-obs-pis-rb-stk-82b-b563c9.jpg" width="260" alt="clk-obs-p159-obs-pis-rb-stk-82b-b563c9"></a><br><sub>159 gt (7.95 s) · observer+piston+redstone_block+sticky_piston · 82 blocks</sub></td></tr>
 </table>
 
 ## 160 gt (8 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p160-obs-80b-9fce87.txt">clk-obs-p160-obs-80b-9fce87</a><br><sub>160 gt (8 s) · observer · 80 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p160-obs-80b-9fce87.txt"><img src="img/clk-obs-p160-obs-80b-9fce87.jpg" width="260" alt="clk-obs-p160-obs-80b-9fce87"></a><br><sub>160 gt (8 s) · observer · 80 blocks</sub></td></tr>
 </table>
 
 ## 161 gt (8.05 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-rt-count7-k2-over-odd-rect-p23-16b.txt"><img src="img/clk-rt-count7-k2-over-odd-rect-p23-16b.jpg" width="260" alt="clk-rt-count7-k2-over-odd-rect-p23-16b"></a><br><sub>161 gt (8.05 s) · comparator+redstone_torch+redstone_wire+repeater · 44 blocks</sub></td><td align="center"><a href="archive/clk-obs-p161-obs-pis-rb-stk-84b-82b7e0.txt">clk-obs-p161-obs-pis-rb-stk-84b-82b7e0</a><br><sub>161 gt (8.05 s) · observer+piston+redstone_block+sticky_piston · 84 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-rt-count7-k2-over-odd-rect-p23-16b.txt"><img src="img/clk-rt-count7-k2-over-odd-rect-p23-16b.jpg" width="260" alt="clk-rt-count7-k2-over-odd-rect-p23-16b"></a><br><sub>161 gt (8.05 s) · comparator+redstone_torch+redstone_wire+repeater · 44 blocks</sub></td><td align="center"><a href="archive/clk-obs-p161-obs-pis-rb-stk-84b-82b7e0.txt"><img src="img/clk-obs-p161-obs-pis-rb-stk-84b-82b7e0.jpg" width="260" alt="clk-obs-p161-obs-pis-rb-stk-84b-82b7e0"></a><br><sub>161 gt (8.05 s) · observer+piston+redstone_block+sticky_piston · 84 blocks</sub></td></tr>
 </table>
 
 ## 162 gt (8.1 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-hyb3-p162-2.txt"><img src="img/clk-sculk-hyb3-p162-2.jpg" width="260" alt="clk-sculk-hyb3-p162-2"></a><br><sub>162 gt (8.1 s) · calibrated_sculk_sensor+oak_trapdoor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p162-note-obs-82b-1def62.txt">clk-obs-p162-note-obs-82b-1def62</a><br><sub>162 gt (8.1 s) · note_block+observer · 82 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-hyb3-p162-2.txt"><img src="img/clk-sculk-hyb3-p162-2.jpg" width="260" alt="clk-sculk-hyb3-p162-2"></a><br><sub>162 gt (8.1 s) · calibrated_sculk_sensor+oak_trapdoor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-obs-p162-note-obs-82b-1def62.txt"><img src="img/clk-obs-p162-note-obs-82b-1def62.jpg" width="260" alt="clk-obs-p162-note-obs-82b-1def62"></a><br><sub>162 gt (8.1 s) · note_block+observer · 82 blocks</sub></td></tr>
 </table>
 
 ## 163 gt (8.15 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p163-obs-pis-rb-stk-84b-d31c17.txt">clk-obs-p163-obs-pis-rb-stk-84b-d31c17</a><br><sub>163 gt (8.15 s) · observer+piston+redstone_block+sticky_piston · 84 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p163-obs-pis-rb-stk-84b-d31c17.txt"><img src="img/clk-obs-p163-obs-pis-rb-stk-84b-d31c17.jpg" width="260" alt="clk-obs-p163-obs-pis-rb-stk-84b-d31c17"></a><br><sub>163 gt (8.15 s) · observer+piston+redstone_block+sticky_piston · 84 blocks</sub></td></tr>
 </table>
 
 ## 164 gt (8.2 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p164-obs-82b-e06875.txt">clk-obs-p164-obs-82b-e06875</a><br><sub>164 gt (8.2 s) · observer · 82 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p164-obs-82b-e06875.txt"><img src="img/clk-obs-p164-obs-82b-e06875.jpg" width="260" alt="clk-obs-p164-obs-82b-e06875"></a><br><sub>164 gt (8.2 s) · observer · 82 blocks</sub></td></tr>
 </table>
 
 ## 165 gt (8.25 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p165-obs-pis-rb-stk-86b-615f0f.txt">clk-obs-p165-obs-pis-rb-stk-86b-615f0f</a><br><sub>165 gt (8.25 s) · observer+piston+redstone_block+sticky_piston · 86 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p165-obs-pis-rb-stk-86b-615f0f.txt"><img src="img/clk-obs-p165-obs-pis-rb-stk-86b-615f0f.jpg" width="260" alt="clk-obs-p165-obs-pis-rb-stk-86b-615f0f"></a><br><sub>165 gt (8.25 s) · observer+piston+redstone_block+sticky_piston · 86 blocks</sub></td></tr>
 </table>
 
 ## 166 gt (8.3 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p166-note-obs-84b-5d6951.txt">clk-obs-p166-note-obs-84b-5d6951</a><br><sub>166 gt (8.3 s) · note_block+observer · 84 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p166-note-obs-84b-5d6951.txt"><img src="img/clk-obs-p166-note-obs-84b-5d6951.jpg" width="260" alt="clk-obs-p166-note-obs-84b-5d6951"></a><br><sub>166 gt (8.3 s) · note_block+observer · 84 blocks</sub></td></tr>
 </table>
 
 ## 167 gt (8.35 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p167-obs-pis-rb-stk-86b-675018.txt">clk-obs-p167-obs-pis-rb-stk-86b-675018</a><br><sub>167 gt (8.35 s) · observer+piston+redstone_block+sticky_piston · 86 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p167-obs-pis-rb-stk-86b-675018.txt"><img src="img/clk-obs-p167-obs-pis-rb-stk-86b-675018.jpg" width="260" alt="clk-obs-p167-obs-pis-rb-stk-86b-675018"></a><br><sub>167 gt (8.35 s) · observer+piston+redstone_block+sticky_piston · 86 blocks</sub></td></tr>
 </table>
 
 ## 168 gt (8.4 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p168-obs-84b-5faf59.txt">clk-obs-p168-obs-84b-5faf59</a><br><sub>168 gt (8.4 s) · observer · 84 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p168-obs-84b-5faf59.txt"><img src="img/clk-obs-p168-obs-84b-5faf59.jpg" width="260" alt="clk-obs-p168-obs-84b-5faf59"></a><br><sub>168 gt (8.4 s) · observer · 84 blocks</sub></td></tr>
 </table>
 
 ## 169 gt (8.45 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p169-obs-pis-rb-stk-88b-0d7dde.txt">clk-obs-p169-obs-pis-rb-stk-88b-0d7dde</a><br><sub>169 gt (8.45 s) · observer+piston+redstone_block+sticky_piston · 88 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p169-obs-pis-rb-stk-88b-0d7dde.txt"><img src="img/clk-obs-p169-obs-pis-rb-stk-88b-0d7dde.jpg" width="260" alt="clk-obs-p169-obs-pis-rb-stk-88b-0d7dde"></a><br><sub>169 gt (8.45 s) · observer+piston+redstone_block+sticky_piston · 88 blocks</sub></td></tr>
 </table>
 
 ## 170 gt (8.5 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-sculk-climb1-p170-4.txt"><img src="img/clk-sculk-climb1-p170-4.jpg" width="260" alt="clk-sculk-climb1-p170-4"></a><br><sub>170 gt (8.5 s) · note_block+observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p170-22b.txt"><img src="img/clk-rt-uloop-p170-22b.jpg" width="260" alt="clk-rt-uloop-p170-22b"></a><br><sub>170 gt (8.5 s) · comparator+redstone_torch+redstone_wire · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p170-note-obs-86b-e07901.txt">clk-obs-p170-note-obs-86b-e07901</a><br><sub>170 gt (8.5 s) · note_block+observer · 86 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-sculk-climb1-p170-4.txt"><img src="img/clk-sculk-climb1-p170-4.jpg" width="260" alt="clk-sculk-climb1-p170-4"></a><br><sub>170 gt (8.5 s) · note_block+observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p170-22b.txt"><img src="img/clk-rt-uloop-p170-22b.jpg" width="260" alt="clk-rt-uloop-p170-22b"></a><br><sub>170 gt (8.5 s) · comparator+redstone_torch+redstone_wire · 22 blocks</sub></td><td align="center"><a href="archive/clk-obs-p170-note-obs-86b-e07901.txt"><img src="img/clk-obs-p170-note-obs-86b-e07901.jpg" width="260" alt="clk-obs-p170-note-obs-86b-e07901"></a><br><sub>170 gt (8.5 s) · note_block+observer · 86 blocks</sub></td></tr>
 </table>
 
 ## 171 gt (8.55 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p171-obs-pis-rb-stk-88b-bac176.txt">clk-obs-p171-obs-pis-rb-stk-88b-bac176</a><br><sub>171 gt (8.55 s) · observer+piston+redstone_block+sticky_piston · 88 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p171-obs-pis-rb-stk-88b-bac176.txt"><img src="img/clk-obs-p171-obs-pis-rb-stk-88b-bac176.jpg" width="260" alt="clk-obs-p171-obs-pis-rb-stk-88b-bac176"></a><br><sub>171 gt (8.55 s) · observer+piston+redstone_block+sticky_piston · 88 blocks</sub></td></tr>
 </table>
 
 ## 172 gt (8.6 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p172-obs-86b-b30820.txt">clk-obs-p172-obs-86b-b30820</a><br><sub>172 gt (8.6 s) · observer · 86 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p172-obs-86b-b30820.txt"><img src="img/clk-obs-p172-obs-86b-b30820.jpg" width="260" alt="clk-obs-p172-obs-86b-b30820"></a><br><sub>172 gt (8.6 s) · observer · 86 blocks</sub></td></tr>
 </table>
 
 ## 173 gt (8.65 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p173-obs-pis-rb-stk-90b-cf52b2.txt">clk-obs-p173-obs-pis-rb-stk-90b-cf52b2</a><br><sub>173 gt (8.65 s) · observer+piston+redstone_block+sticky_piston · 90 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p173-obs-pis-rb-stk-90b-cf52b2.txt"><img src="img/clk-obs-p173-obs-pis-rb-stk-90b-cf52b2.jpg" width="260" alt="clk-obs-p173-obs-pis-rb-stk-90b-cf52b2"></a><br><sub>173 gt (8.65 s) · observer+piston+redstone_block+sticky_piston · 90 blocks</sub></td></tr>
 </table>
 
 ## 174 gt (8.7 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p174-note-obs-88b-d4bfeb.txt">clk-obs-p174-note-obs-88b-d4bfeb</a><br><sub>174 gt (8.7 s) · note_block+observer · 88 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p174-note-obs-88b-d4bfeb.txt"><img src="img/clk-obs-p174-note-obs-88b-d4bfeb.jpg" width="260" alt="clk-obs-p174-note-obs-88b-d4bfeb"></a><br><sub>174 gt (8.7 s) · note_block+observer · 88 blocks</sub></td></tr>
 </table>
 
 ## 175 gt (8.75 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p175-obs-pis-rb-stk-90b-ab4edc.txt">clk-obs-p175-obs-pis-rb-stk-90b-ab4edc</a><br><sub>175 gt (8.75 s) · observer+piston+redstone_block+sticky_piston · 90 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p175-obs-pis-rb-stk-90b-ab4edc.txt"><img src="img/clk-obs-p175-obs-pis-rb-stk-90b-ab4edc.jpg" width="260" alt="clk-obs-p175-obs-pis-rb-stk-90b-ab4edc"></a><br><sub>175 gt (8.75 s) · observer+piston+redstone_block+sticky_piston · 90 blocks</sub></td></tr>
 </table>
 
 ## 176 gt (8.8 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p176-obs-88b-7385c1.txt">clk-obs-p176-obs-88b-7385c1</a><br><sub>176 gt (8.8 s) · observer · 88 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p176-obs-88b-7385c1.txt"><img src="img/clk-obs-p176-obs-88b-7385c1.jpg" width="260" alt="clk-obs-p176-obs-88b-7385c1"></a><br><sub>176 gt (8.8 s) · observer · 88 blocks</sub></td></tr>
 </table>
 
 ## 177 gt (8.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p177-obs-pis-rb-stk-92b-a4ad9e.txt">clk-obs-p177-obs-pis-rb-stk-92b-a4ad9e</a><br><sub>177 gt (8.85 s) · observer+piston+redstone_block+sticky_piston · 92 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p177-obs-pis-rb-stk-92b-a4ad9e.txt"><img src="img/clk-obs-p177-obs-pis-rb-stk-92b-a4ad9e.jpg" width="260" alt="clk-obs-p177-obs-pis-rb-stk-92b-a4ad9e"></a><br><sub>177 gt (8.85 s) · observer+piston+redstone_block+sticky_piston · 92 blocks</sub></td></tr>
 </table>
 
 ## 178 gt (8.9 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p178-note-obs-90b-7c2b8b.txt">clk-obs-p178-note-obs-90b-7c2b8b</a><br><sub>178 gt (8.9 s) · note_block+observer · 90 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p178-note-obs-90b-7c2b8b.txt"><img src="img/clk-obs-p178-note-obs-90b-7c2b8b.jpg" width="260" alt="clk-obs-p178-note-obs-90b-7c2b8b"></a><br><sub>178 gt (8.9 s) · note_block+observer · 90 blocks</sub></td></tr>
 </table>
 
 ## 179 gt (8.95 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p179-obs-pis-rb-stk-92b-728b84.txt">clk-obs-p179-obs-pis-rb-stk-92b-728b84</a><br><sub>179 gt (8.95 s) · observer+piston+redstone_block+sticky_piston · 92 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p179-obs-pis-rb-stk-92b-728b84.txt"><img src="img/clk-obs-p179-obs-pis-rb-stk-92b-728b84.jpg" width="260" alt="clk-obs-p179-obs-pis-rb-stk-92b-728b84"></a><br><sub>179 gt (8.95 s) · observer+piston+redstone_block+sticky_piston · 92 blocks</sub></td></tr>
 </table>
 
 ## 180 gt (9 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p180-obs-90b-793c55.txt">clk-obs-p180-obs-90b-793c55</a><br><sub>180 gt (9 s) · observer · 90 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p180-obs-90b-793c55.txt"><img src="img/clk-obs-p180-obs-90b-793c55.jpg" width="260" alt="clk-obs-p180-obs-90b-793c55"></a><br><sub>180 gt (9 s) · observer · 90 blocks</sub></td></tr>
 </table>
 
 ## 181 gt (9.05 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p181-obs-pis-rb-stk-94b-6c11a4.txt">clk-obs-p181-obs-pis-rb-stk-94b-6c11a4</a><br><sub>181 gt (9.05 s) · observer+piston+redstone_block+sticky_piston · 94 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p181-obs-pis-rb-stk-94b-6c11a4.txt"><img src="img/clk-obs-p181-obs-pis-rb-stk-94b-6c11a4.jpg" width="260" alt="clk-obs-p181-obs-pis-rb-stk-94b-6c11a4"></a><br><sub>181 gt (9.05 s) · observer+piston+redstone_block+sticky_piston · 94 blocks</sub></td></tr>
 </table>
 
 ## 182 gt (9.1 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p182-note-obs-92b-1acabb.txt">clk-obs-p182-note-obs-92b-1acabb</a><br><sub>182 gt (9.1 s) · note_block+observer · 92 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p182-note-obs-92b-1acabb.txt"><img src="img/clk-obs-p182-note-obs-92b-1acabb.jpg" width="260" alt="clk-obs-p182-note-obs-92b-1acabb"></a><br><sub>182 gt (9.1 s) · note_block+observer · 92 blocks</sub></td></tr>
 </table>
 
 ## 183 gt (9.15 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p183-obs-pis-rb-stk-94b-10dd59.txt">clk-obs-p183-obs-pis-rb-stk-94b-10dd59</a><br><sub>183 gt (9.15 s) · observer+piston+redstone_block+sticky_piston · 94 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p183-obs-pis-rb-stk-94b-10dd59.txt"><img src="img/clk-obs-p183-obs-pis-rb-stk-94b-10dd59.jpg" width="260" alt="clk-obs-p183-obs-pis-rb-stk-94b-10dd59"></a><br><sub>183 gt (9.15 s) · observer+piston+redstone_block+sticky_piston · 94 blocks</sub></td></tr>
 </table>
 
 ## 184 gt (9.2 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p184-obs-92b-a94e53.txt">clk-obs-p184-obs-92b-a94e53</a><br><sub>184 gt (9.2 s) · observer · 92 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p184-obs-92b-a94e53.txt"><img src="img/clk-obs-p184-obs-92b-a94e53.jpg" width="260" alt="clk-obs-p184-obs-92b-a94e53"></a><br><sub>184 gt (9.2 s) · observer · 92 blocks</sub></td></tr>
 </table>
 
 ## 185 gt (9.25 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p185-obs-pis-rb-stk-96b-e3d9f7.txt">clk-obs-p185-obs-pis-rb-stk-96b-e3d9f7</a><br><sub>185 gt (9.25 s) · observer+piston+redstone_block+sticky_piston · 96 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p185-obs-pis-rb-stk-96b-e3d9f7.txt"><img src="img/clk-obs-p185-obs-pis-rb-stk-96b-e3d9f7.jpg" width="260" alt="clk-obs-p185-obs-pis-rb-stk-96b-e3d9f7"></a><br><sub>185 gt (9.25 s) · observer+piston+redstone_block+sticky_piston · 96 blocks</sub></td></tr>
 </table>
 
 ## 186 gt (9.3 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p186-note-obs-94b-9e5051.txt">clk-obs-p186-note-obs-94b-9e5051</a><br><sub>186 gt (9.3 s) · note_block+observer · 94 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p186-note-obs-94b-9e5051.txt"><img src="img/clk-obs-p186-note-obs-94b-9e5051.jpg" width="260" alt="clk-obs-p186-note-obs-94b-9e5051"></a><br><sub>186 gt (9.3 s) · note_block+observer · 94 blocks</sub></td></tr>
 </table>
 
 ## 187 gt (9.35 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p187-obs-pis-rb-stk-96b-fd58a3.txt">clk-obs-p187-obs-pis-rb-stk-96b-fd58a3</a><br><sub>187 gt (9.35 s) · observer+piston+redstone_block+sticky_piston · 96 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p187-obs-pis-rb-stk-96b-fd58a3.txt"><img src="img/clk-obs-p187-obs-pis-rb-stk-96b-fd58a3.jpg" width="260" alt="clk-obs-p187-obs-pis-rb-stk-96b-fd58a3"></a><br><sub>187 gt (9.35 s) · observer+piston+redstone_block+sticky_piston · 96 blocks</sub></td></tr>
 </table>
 
 ## 188 gt (9.4 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p188-obs-94b-37728c.txt">clk-obs-p188-obs-94b-37728c</a><br><sub>188 gt (9.4 s) · observer · 94 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p188-obs-94b-37728c.txt"><img src="img/clk-obs-p188-obs-94b-37728c.jpg" width="260" alt="clk-obs-p188-obs-94b-37728c"></a><br><sub>188 gt (9.4 s) · observer · 94 blocks</sub></td></tr>
 </table>
 
 ## 189 gt (9.45 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p189-obs-pis-rb-stk-98b-18fecd.txt">clk-obs-p189-obs-pis-rb-stk-98b-18fecd</a><br><sub>189 gt (9.45 s) · observer+piston+redstone_block+sticky_piston · 98 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p189-obs-pis-rb-stk-98b-18fecd.txt"><img src="img/clk-obs-p189-obs-pis-rb-stk-98b-18fecd.jpg" width="260" alt="clk-obs-p189-obs-pis-rb-stk-98b-18fecd"></a><br><sub>189 gt (9.45 s) · observer+piston+redstone_block+sticky_piston · 98 blocks</sub></td></tr>
 </table>
 
 ## 190 gt (9.5 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p190-note-obs-96b-d266d1.txt">clk-obs-p190-note-obs-96b-d266d1</a><br><sub>190 gt (9.5 s) · note_block+observer · 96 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p190-note-obs-96b-d266d1.txt"><img src="img/clk-obs-p190-note-obs-96b-d266d1.jpg" width="260" alt="clk-obs-p190-note-obs-96b-d266d1"></a><br><sub>190 gt (9.5 s) · note_block+observer · 96 blocks</sub></td></tr>
 </table>
 
 ## 191 gt (9.55 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p191-obs-pis-rb-stk-98b-e175ae.txt">clk-obs-p191-obs-pis-rb-stk-98b-e175ae</a><br><sub>191 gt (9.55 s) · observer+piston+redstone_block+sticky_piston · 98 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p191-obs-pis-rb-stk-98b-e175ae.txt"><img src="img/clk-obs-p191-obs-pis-rb-stk-98b-e175ae.jpg" width="260" alt="clk-obs-p191-obs-pis-rb-stk-98b-e175ae"></a><br><sub>191 gt (9.55 s) · observer+piston+redstone_block+sticky_piston · 98 blocks</sub></td></tr>
 </table>
 
 ## 192 gt (9.6 s)
 
 <table>
-<tr><td align="center"><a href="archive/hopburn2-p192.txt"><img src="img/hopburn2-p192.jpg" width="260" alt="hopburn2-p192"></a><br><sub>192 gt (9.6 s) · hopper+redstone_torch+redstone_wire · 9 blocks</sub></td><td align="center"><a href="archive/clk-obs-p192-obs-96b-70b7b0.txt">clk-obs-p192-obs-96b-70b7b0</a><br><sub>192 gt (9.6 s) · observer · 96 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/hopburn2-p192.txt"><img src="img/hopburn2-p192.jpg" width="260" alt="hopburn2-p192"></a><br><sub>192 gt (9.6 s) · hopper+redstone_torch+redstone_wire · 9 blocks</sub></td><td align="center"><a href="archive/clk-obs-p192-obs-96b-70b7b0.txt"><img src="img/clk-obs-p192-obs-96b-70b7b0.jpg" width="260" alt="clk-obs-p192-obs-96b-70b7b0"></a><br><sub>192 gt (9.6 s) · observer · 96 blocks</sub></td></tr>
 </table>
 
 ## 193 gt (9.65 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p193-obs-pis-rb-stk-100b-fe0e02.txt">clk-obs-p193-obs-pis-rb-stk-100b-fe0e02</a><br><sub>193 gt (9.65 s) · observer+piston+redstone_block+sticky_piston · 100 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p193-obs-pis-rb-stk-100b-fe0e02.txt"><img src="img/clk-obs-p193-obs-pis-rb-stk-100b-fe0e02.jpg" width="260" alt="clk-obs-p193-obs-pis-rb-stk-100b-fe0e02"></a><br><sub>193 gt (9.65 s) · observer+piston+redstone_block+sticky_piston · 100 blocks</sub></td></tr>
 </table>
 
 ## 194 gt (9.7 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p194-note-obs-98b-3a6a3a.txt">clk-obs-p194-note-obs-98b-3a6a3a</a><br><sub>194 gt (9.7 s) · note_block+observer · 98 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p194-note-obs-98b-3a6a3a.txt"><img src="img/clk-obs-p194-note-obs-98b-3a6a3a.jpg" width="260" alt="clk-obs-p194-note-obs-98b-3a6a3a"></a><br><sub>194 gt (9.7 s) · note_block+observer · 98 blocks</sub></td></tr>
 </table>
 
 ## 195 gt (9.75 s)
 
 <table>
-<tr><td align="center"><a href="archive/hopburn2-p195.txt"><img src="img/hopburn2-p195.jpg" width="260" alt="hopburn2-p195"></a><br><sub>195 gt (9.75 s) · comparator+hopper+redstone_torch+redstone_wire · 9 blocks</sub></td><td align="center"><a href="archive/clk-obs-p195-obs-pis-rb-stk-100b-0294a9.txt">clk-obs-p195-obs-pis-rb-stk-100b-0294a9</a><br><sub>195 gt (9.75 s) · observer+piston+redstone_block+sticky_piston · 100 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/hopburn2-p195.txt"><img src="img/hopburn2-p195.jpg" width="260" alt="hopburn2-p195"></a><br><sub>195 gt (9.75 s) · comparator+hopper+redstone_torch+redstone_wire · 9 blocks</sub></td><td align="center"><a href="archive/clk-obs-p195-obs-pis-rb-stk-100b-0294a9.txt"><img src="img/clk-obs-p195-obs-pis-rb-stk-100b-0294a9.jpg" width="260" alt="clk-obs-p195-obs-pis-rb-stk-100b-0294a9"></a><br><sub>195 gt (9.75 s) · observer+piston+redstone_block+sticky_piston · 100 blocks</sub></td></tr>
 </table>
 
 ## 196 gt (9.8 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p196-obs-98b-eb36d1.txt">clk-obs-p196-obs-98b-eb36d1</a><br><sub>196 gt (9.8 s) · observer · 98 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p196-obs-98b-eb36d1.txt"><img src="img/clk-obs-p196-obs-98b-eb36d1.jpg" width="260" alt="clk-obs-p196-obs-98b-eb36d1"></a><br><sub>196 gt (9.8 s) · observer · 98 blocks</sub></td></tr>
 </table>
 
 ## 197 gt (9.85 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p197-obs-pis-rb-stk-102b-b57a65.txt">clk-obs-p197-obs-pis-rb-stk-102b-b57a65</a><br><sub>197 gt (9.85 s) · observer+piston+redstone_block+sticky_piston · 102 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p197-obs-pis-rb-stk-102b-b57a65.txt"><img src="img/clk-obs-p197-obs-pis-rb-stk-102b-b57a65.jpg" width="260" alt="clk-obs-p197-obs-pis-rb-stk-102b-b57a65"></a><br><sub>197 gt (9.85 s) · observer+piston+redstone_block+sticky_piston · 102 blocks</sub></td></tr>
 </table>
 
 ## 198 gt (9.9 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p198-note-obs-100b-d04cda.txt">clk-obs-p198-note-obs-100b-d04cda</a><br><sub>198 gt (9.9 s) · note_block+observer · 100 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p198-note-obs-100b-d04cda.txt"><img src="img/clk-obs-p198-note-obs-100b-d04cda.jpg" width="260" alt="clk-obs-p198-note-obs-100b-d04cda"></a><br><sub>198 gt (9.9 s) · note_block+observer · 100 blocks</sub></td></tr>
 </table>
 
 ## 199 gt (9.95 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-obs-p199-obs-pis-rb-stk-102b-cd210a.txt">clk-obs-p199-obs-pis-rb-stk-102b-cd210a</a><br><sub>199 gt (9.95 s) · observer+piston+redstone_block+sticky_piston · 102 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-obs-p199-obs-pis-rb-stk-102b-cd210a.txt"><img src="img/clk-obs-p199-obs-pis-rb-stk-102b-cd210a.jpg" width="260" alt="clk-obs-p199-obs-pis-rb-stk-102b-cd210a"></a><br><sub>199 gt (9.95 s) · observer+piston+redstone_block+sticky_piston · 102 blocks</sub></td></tr>
 </table>
 
 ## 200 gt (10 s)
 
 <table>
-<tr><td align="center"><a href="archive/clk-rt-ring3x4-p200-c-rt-rw-14b.txt"><img src="img/clk-rt-ring3x4-p200-c-rt-rw-14b.jpg" width="260" alt="clk-rt-ring3x4-p200-c-rt-rw-14b"></a><br><sub>200 gt (10 s) · comparator+redstone_torch+redstone_wire · 14 blocks</sub></td><td align="center"><a href="archive/clk-obs-p200-obs-100b-b5e6ba.txt">clk-obs-p200-obs-100b-b5e6ba</a><br><sub>200 gt (10 s) · observer · 100 blocks (picture pending)</sub></td></tr>
+<tr><td align="center"><a href="archive/clk-rt-ring3x4-p200-c-rt-rw-14b.txt"><img src="img/clk-rt-ring3x4-p200-c-rt-rw-14b.jpg" width="260" alt="clk-rt-ring3x4-p200-c-rt-rw-14b"></a><br><sub>200 gt (10 s) · comparator+redstone_torch+redstone_wire · 14 blocks</sub></td><td align="center"><a href="archive/clk-obs-p200-obs-100b-b5e6ba.txt"><img src="img/clk-obs-p200-obs-100b-b5e6ba.jpg" width="260" alt="clk-obs-p200-obs-100b-b5e6ba"></a><br><sub>200 gt (10 s) · observer · 100 blocks</sub></td></tr>
 </table>
 
 ## 205 gt (10.25 s)
