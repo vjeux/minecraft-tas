@@ -1,0 +1,23 @@
+name: n8823-116
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ....A
+layer -1:
+  ..CC.A
+layer 0:
+  s.CCC
+layer 1:
+  s.CCC.BB
+layer 2:
+  s.CCC.B
+layer 3:
+  ..C
+layer 4:
+  ...SS
