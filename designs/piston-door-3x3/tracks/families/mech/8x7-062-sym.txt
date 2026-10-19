@@ -19,8 +19,8 @@ layer 0:
 layer 1:
   ss.DDD.B
 layer 2:
-  .s.DDD
+  ...DDD.B
 layer 3:
   .
 layer 4:
-  ....SS
+  ...SS

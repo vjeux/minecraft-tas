@@ -10,11 +10,11 @@ palette:
 layer -3:
   ...A
 layer -2:
-  ...A
+  ...AA
 layer -1:
   .s
 layer 0:
-  s.CCC.B
+  ..CCC
 layer 1:
   s.CCC.B
 layer 2:

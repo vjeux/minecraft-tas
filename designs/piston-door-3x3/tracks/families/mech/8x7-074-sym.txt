@@ -10,7 +10,7 @@ palette:
 layer -2:
   ...AA
 layer -1:
-  ..A
+  .
 layer 0:
   ...CCC.B
 layer 1:
@@ -18,6 +18,6 @@ layer 1:
 layer 2:
   ...CCC
 layer 3:
-  .
+  ..S
 layer 4:
   ...SSS

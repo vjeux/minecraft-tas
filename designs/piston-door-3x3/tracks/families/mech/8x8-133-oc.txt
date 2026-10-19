@@ -1,6 +1,6 @@
 name: 8x8-133-oc
 port door: 0 0 0
-origin: -4 0 0
+origin: -3 0 0
 palette:
   A minecraft:sticky_piston[extended=false,facing=up]
   B minecraft:sticky_piston[extended=false,facing=west]
@@ -13,18 +13,18 @@ palette:
   p minecraft:piston_head[facing=east,short=false,type=sticky]
   s minecraft:sticky_piston[extended=false,facing=east]
 layer -2:
-  ....AA
+  ...AA
 layer -1:
   .
 layer 0:
-  ....EEE.B
+  R..EEE.B
 layer 1:
-  ..s.EEE.B
+  DpsEEE.B
 layer 2:
-  RDpsEEE.B
+  .s.EEE.B
 layer 3:
-  .....S
+  ...S
 layer 4:
-  ....SP
+  ...PS
 layer 5:
-  .....CR
+  ..RC

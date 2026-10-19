@@ -757,6 +757,9 @@ pub struct ProbOpts {
     pub bx: Option<(i32, i32, i32, i32)>,
     pub palette: Vec<Kind>,
     pub forbid_ring: bool,
+    /// Ring cells nothing ever passes through hold smooth stone (what `door properties-dyn`'s
+    /// hallway check puts there): the wiring is hallway-compatible by construction.
+    pub hall_ring: bool,
     pub levers: Option<Vec<Pos>>,
     pub lever_oop: bool,
     pub dmax: i32,
@@ -819,13 +822,15 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     let ring: HashSet<C2> = (0..3)
         .flat_map(|i| [(dx + i, dy - 1), (dx + i, dy + 3), (dx - 1, dy + i), (dx + 3, dy + i)])
         .collect();
-    // hallway holes: ring cells some block passes through that are air in a stable state; the
-    // cell right behind (outward) may only hold a plain block.
+    // hallway holes: ring cells some block passes through that are air in the OPEN state; the
+    // cell right behind (outward) may only hold a plain block. (Closed, a flat door's ring is
+    // hidden behind the door blocks: `properties::seamless` skips depth-0 holes at rest, so a
+    // park cell that is air only at rest leaves the cell behind it free.)
     let mut hole_back: HashSet<C2> = HashSet::new();
     for r in &ring {
         let swept = rec.phases.iter().any(|ph| ph.frames.iter().any(|f| f.get(r).is_some_and(|s| mk(s) != MK::Air)));
-        let air_stable = rec.phases.iter().any(|ph| ph.frames[0].get(r).is_none());
-        if swept && air_stable {
+        let air_open = rec.phases[1].frames.first().is_some_and(|f| f.get(r).is_none_or(|s| mk(s) == MK::Air));
+        if swept && air_open {
             let out = if r.1 == dy - 1 {
                 (r.0, r.1 - 1)
             } else if r.1 == dy + 3 {
@@ -839,6 +844,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         }
     }
     let mut kinds: HashMap<C2, Vec<Kind>> = HashMap::new();
+    let mut hall_fixed: Vec<C2> = Vec::new();
     let mut free = Vec::new();
     for y in bx.1..=bx.3 {
         for x in bx.0..=bx.2 {
@@ -847,7 +853,12 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
                 continue;
             }
             let plain_only = o.forbid_ring && (ring.contains(&c) || hole_back.contains(&c));
-            let ks: Vec<Kind> = o.palette.iter().copied().filter(|k| !plain_only || matches!(k, Kind::Empty | Kind::Block)).collect();
+            let ks: Vec<Kind> = if o.hall_ring && ring.contains(&c) {
+                hall_fixed.push(c);
+                vec![Kind::Empty, Kind::Block]
+            } else {
+                o.palette.iter().copied().filter(|k| !plain_only || matches!(k, Kind::Empty | Kind::Block)).collect()
+            };
             kinds.insert(c, ks);
             free.push(c);
         }
@@ -931,7 +942,8 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     }
     let kmax = rec.phases.iter().map(|p| p.k()).max().unwrap_or(0);
     let h = kmax + o.dmax + o.settle;
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, fixed: HashMap::new(), fixed_lever: None, fixed_only: false })
+    let fixed: HashMap<C2, Kind> = hall_fixed.into_iter().map(|c| (c, Kind::Block)).collect();
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, fixed, fixed_lever: None, fixed_only: false })
 }
 
 // ---------------------------------------------------------------- the model

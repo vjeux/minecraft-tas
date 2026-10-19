@@ -778,6 +778,10 @@ pub enum DoorCmd {
         /// Ring cells (and the cells behind hallway holes) hold only plain blocks.
         #[arg(long)]
         forbid_ring: bool,
+        /// Ring cells nothing passes through hold smooth stone (props-dyn's hallway blocks), so
+        /// the wiring is hallway-compatible by construction.
+        #[arg(long)]
+        hall_ring: bool,
         /// Lever candidate cells "x,y,z;..." (default: free cells and the cells around the box).
         #[arg(long)]
         lever: Option<String>,
@@ -835,6 +839,59 @@ pub enum DoorCmd {
         extra_offsets: u32,
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+    /// A systematic `door satwire` sweep (satsweep.rs, track sweep56): every ideal plan x every
+    /// placement of a W x H wiring box (`--box-dims`) x every timing variant (`--variants
+    /// base,gap,triple`): each variant is replayed with ideal inputs first (plans the mechanism
+    /// cannot follow are INVALID), then SAT-wired; one TSV row per run (SAT / UNSAT + core / ...).
+    Satsweep {
+        /// Ideal schedules (`.ideal`).
+        #[arg(required = true, num_args = 1..)]
+        plans: Vec<PathBuf>,
+        #[arg(long, default_value_t = 8)]
+        jobs: usize,
+        #[arg(long, default_value = "block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")]
+        palette: String,
+        /// Ring cells (and cells behind open-state holes) hold only plain blocks.
+        #[arg(long)]
+        forbid_ring: bool,
+        /// Ring cells nothing passes through hold smooth stone (props-dyn's hallway blocks).
+        #[arg(long)]
+        hall_ring: bool,
+        #[arg(long)]
+        lever_oop: bool,
+        #[arg(long, default_value_t = 8)]
+        dmax: i32,
+        #[arg(long, default_value_t = 8)]
+        skip: i32,
+        #[arg(long, default_value_t = 6)]
+        settle: i32,
+        #[arg(long, default_value_t = 6)]
+        core_tries: usize,
+        /// Wiring box size "WxH" (every placement around the mechanism); default: its bounding box.
+        #[arg(long)]
+        box_dims: Option<String>,
+        /// base,gap,triple
+        #[arg(long, default_value = "base")]
+        variants: String,
+        /// Gap values (ticks) for the `gap` variants.
+        #[arg(long, default_value = "2,3,4,5")]
+        gaps: String,
+        /// Pulse spacings (ticks) for the `triple` variants.
+        #[arg(long, default_value = "4,6")]
+        triple_gaps: String,
+        /// Skip the ideal-input replay of each variant.
+        #[arg(long)]
+        no_validate: bool,
+        /// Minimize the wiring of every SAT model (default: stop at the first judged design).
+        #[arg(long)]
+        minimize: bool,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/sweep56/SWEEP.tsv")]
+        tsv: PathBuf,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/sweep56/runs")]
+        out_dir: PathBuf,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
     },
     /// The catalog of flat (1-wide) seamless mechanisms per box (families.rs): every door block
     /// leaves the 3x3 in 1-2 unit moves (center 2), each move provided by a pull or push piston
@@ -2649,10 +2706,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             if check && mechanism.len() > 1 {
-                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels };
+                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels };
                 let next = std::sync::atomic::AtomicUsize::new(0);
                 let out = std::sync::Mutex::new(Vec::new());
                 std::thread::scope(|sc| {
@@ -2710,6 +2767,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 bx: bx.as_deref().map(sw::parse_box).transpose()?.or(fam_box),
                 palette: sw::palette(&palette)?,
                 forbid_ring,
+                hall_ring: hall_ring && !check,
                 levers: lever.as_deref().map(crate::synth::parse_cells).transpose()?,
                 lever_oop,
                 dmax: if check { 0 } else { dmax },
@@ -2729,6 +2787,38 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let name = match &families { Some(id) => format!("satwire-{id}"), None => format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default()) };
             let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
+        }
+        DoorCmd::Satsweep { plans, jobs, palette, forbid_ring, hall_ring, lever_oop, dmax, skip, settle, core_tries, box_dims, variants, gaps, triple_gaps, no_validate, minimize, tsv, out_dir, extra_offsets } => {
+            let nums = |s: &str| -> Result<Vec<u32>> { s.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<u32>().map_err(anyhow::Error::from)).collect() };
+            let box_dims = match box_dims.as_deref() {
+                Some(b) => {
+                    let (w, h) = b.split_once('x').ok_or_else(|| anyhow::anyhow!("--box-dims WxH"))?;
+                    Some((w.parse::<i32>()?, h.parse::<i32>()?))
+                }
+                None => None,
+            };
+            let o = crate::satsweep::SweepOpts {
+                jobs,
+                palette,
+                forbid_ring,
+                hall_ring,
+                lever_oop,
+                dmax,
+                skip,
+                settle,
+                core_tries,
+                box_dims,
+                variants: variants.split(',').map(|s| s.trim().to_string()).collect(),
+                gaps: nums(&gaps)?,
+                triple_gaps: nums(&triple_gaps)?,
+                no_validate,
+                minimize,
+                tsv,
+                out_dir,
+                version: version.to_string(),
+                extra_offsets,
+            };
+            crate::satsweep::cli(&plans, &o)?;
         }
         DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, forbid_fire, rblocks, r_both } => {
             if let Some(f) = resolve {

@@ -45,6 +45,7 @@ pub mod place;
 pub mod properties;
 pub mod relever;
 pub mod rowsfire;
+pub mod satsweep;
 pub mod satwire;
 pub mod search;
 pub mod shapes;

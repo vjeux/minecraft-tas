@@ -8,7 +8,7 @@ palette:
   S minecraft:sticky_piston[extended=false,facing=down]
   s minecraft:sticky_piston[extended=false,facing=east]
 layer -2:
-  ...A.A
+  ....AA
 layer -1:
   ..A
 layer 0:
