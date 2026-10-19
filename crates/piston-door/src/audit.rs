@@ -906,9 +906,7 @@ type Verdict = std::result::Result<(), String>;
 fn satwire_block(s: &str, depth: i32, is_lever: bool) -> Verdict {
     let n = short(s);
     if is_lever {
-        if prop(s, "powered") == Some("true") {
-            return Err("lever ON at rest (main's satwire: two traces = lever ON from rest, OFF from open, `fn on`, lever states powered=false, --lever-on auto-detected on explore/satwire 91730a2+)".into());
-        }
+        // either rest polarity: main's satwire auto-detects a lever ON at rest (`lever_on_rest`)
         if depth != 0 {
             return if prop(s, "face") == Some("wall") { Ok(()) } else { Err("lever off the plane not hung on a block's front face".into()) };
         }
@@ -953,11 +951,10 @@ fn satwire_block(s: &str, depth: i32, is_lever: bool) -> Verdict {
 fn cosearch_block(s: &str, depth: i32, is_lever: bool, pal: &HashSet<(String, Option<String>)>) -> Verdict {
     let n = short(s);
     if is_lever {
-        if depth != 0 {
-            return Err("lever off the door plane (main's cosearch grid is in-plane only, front/back-face levers on explore/audit-cslever f6de2a2)".into());
-        }
-        if prop(s, "powered") == Some("true") {
-            return Err("lever ON at rest: main's screen requires `Lever { powered: false }` (cosearch_search.rs score, fixed on explore/cosearch2 c85570e), its lever moves place powered=false levers (fixed on explore/audit-cslever)".into());
+        // main (pockets 3d3f5c27): either polarity; a lever hung on a plane block's front or back
+        // face (`Grid.lever_dz`)
+        if depth != 0 && !(depth.abs() == 1 && prop(s, "face") == Some("wall")) {
+            return Err("lever off the door plane, not on a block's front / back face".into());
         }
         return Ok(());
     }
@@ -1006,10 +1003,8 @@ fn cosearch_palette() -> HashSet<(String, Option<String>)> {
 fn boxproof_block(s: &str, depth: i32, is_lever: bool) -> Verdict {
     let n = short(s);
     if is_lever {
-        if prop(s, "powered") == Some("true") {
-            return Err("lever ON at rest (bmc.rs: the rest lever is `lever_state(lev, false)`, open = lever on)".into());
-        }
-        return Ok(()); // in the box, outside it, or out of the plane (--oop)
+        // main (fd8c52b3): `lever_on_rest`; in the box, outside it, or out of the plane (--oop)
+        return Ok(());
     }
     if depth != 0 {
         return Err(format!("{n} off the door plane"));
@@ -1020,7 +1015,7 @@ fn boxproof_block(s: &str, depth: i32, is_lever: bool) -> Verdict {
         return Err(if plain { format!("{n}: not a boxproof cell (stone/smooth stone/cobblestone, obsidian, glass only, class-equivalent to stone)") } else { format!("{n}: not a boxproof cell") });
     }
     if let Some(f) = prop(s, "facing") {
-        if matches!(f, "north" | "south") && n != "lever" {
+        if matches!(f, "north" | "south") && !matches!(n, "lever" | "dropper") {
             return Err(format!("{n} facing {f} (in-plane facings only)"));
         }
     }
@@ -1050,7 +1045,8 @@ pub fn mechanics(d: &Design, m: Option<&Mechanism>) -> Vec<(&'static str, String
                 if let Some(t) = d.blocks.get(&w) {
                     let tn = short(t);
                     if matches!(tn, "dropper" | "dispenser" | "note_block" | "redstone_lamp" | "waxed_copper_bulb" | "iron_trapdoor" | "crafter" | "hopper" | "target") || tn.ends_with("trapdoor") {
-                        out.push(("obs-state", format!("observer {:?} reads the {tn} at {:?} (a state change, not a move)", local(&spec, *p), local(&spec, w))));
+                        let kind = if matches!(tn, "dropper" | "dispenser") { "obs-dropper" } else if matches!(tn, "note_block" | "redstone_lamp") { "obs-note-lamp" } else { "obs-state" };
+                        out.push((kind, format!("observer {:?} reads the {tn} at {:?} (a state change, not a move)", local(&spec, *p), local(&spec, w))));
                     }
                 }
             }
@@ -1114,11 +1110,12 @@ fn mechanic_support(kind: &str) -> [Verdict; 3] {
     let ok = || Ok(());
     let no = |s: &str| Err(s.to_string());
     match kind {
-        "lever-on" => [no("main: ON from rest opens (fn on); --lever-on on explore/satwire 91730a2+"), no("main's screen needs an unpowered lever (fixed on explore/cosearch2 c85570e)"), no("bmc: rest lever off, open = lever on")],
-        "lever-oop" => [ok(), no("main: in-plane only (front/back face: explore/audit-cslever f6de2a2)"), ok()],
+        "lever-on" => [ok(), ok(), ok()],
+        "lever-oop" => [ok(), ok(), ok()],
         "dust-step" => [ok(), ok(), ok()],
-        "dropper" => [ok(), ok(), no("no dropper cell")],
-        "obs-state" => [ok(), ok(), no("no dropper / bulb / trapdoor cells (note blocks and lamps only)")],
+        "dropper" => [ok(), ok(), ok()],
+        "obs-dropper" | "obs-note-lamp" => [ok(), ok(), ok()],
+        "obs-state" => [ok(), ok(), no("no cell for bulbs / trapdoors / crafters / hoppers / targets")],
         "signal-piston" => [no("plan mode: no pistons in the wiring palette (from-wired records it as mechanism)"), ok(), ok()],
         "level-held" => [ok(), ok(), ok()],
         "carried" => [ok(), ok(), ok()],
@@ -1183,7 +1180,7 @@ pub fn rules() -> Vec<Rule> {
         Rule { name: "local-search screen_in: periodic rest (FIXED explore/audit 38f4b6f)", file: "search.rs", pattern: r"seen_closed.iter\(\).any", excludes: "before 38f4b6f: periodic-rest candidates of minimize/regrow/grow/harvest were screened out before the judge saw them" },
         Rule { name: "redsim screen: periodic rest (FIXED explore/audit a4c5a84)", file: "redsim_screen.rs", pattern: r"seen_closed.iter\(\).any", excludes: "before a4c5a84: same for the redsim pre-screen / redsim-verify" },
         Rule { name: "tile judge: periodic rest (FIXED explore/audit 610a8ab)", file: "tile.rs", pattern: r"seen_closed.iter\(\).any", excludes: "before 610a8ab: periodic tile modules" },
-        Rule { name: "STILL exact-rest: cosearch screen (plane compared after each close)", file: "cosearch_search.rs", pattern: r"compared after each close", excludes: "periodic-rest candidates lose points in the annealing screen" },
+        Rule { name: "cosearch screen: periodic rest (FIXED main 3d3f5c27, pockets)", file: "cosearch_search.rs", pattern: r"the periodic rest rule", excludes: "before 3d3f5c27: periodic-rest candidates lost points in the annealing screen" },
         Rule { name: "STILL exact-rest: boxproof (close ends at exactly the rest state)", file: "boxproof/bmc.rs", pattern: r"exactly the rest state", excludes: "periodic-rest doors are outside boxproof's space (its UNSATs do not cover them)" },
         Rule { name: "STILL exact-rest: satwire (both stable states fixed points, each trace ends where the other starts)", file: "satwire.rs", pattern: r"each trace ends where the other", excludes: "periodic-rest wirings (e.g. T-flip-flop phases)" },
         Rule { name: "STILL exact-rest: fullmech / mech-synth / families macro (close back to the exact rest state)", file: "fullmech.rs", pattern: r"Close = back to the exact rest state", excludes: "mechanisms that close into a different but equivalent internal state (two-phase machines)" },
@@ -1191,36 +1188,38 @@ pub fn rules() -> Vec<Rule> {
         Rule { name: "legality: FORBIDDEN list + no orphan piston heads", file: "lib.rs", pattern: r"FORBIDDEN", excludes: "nothing real (survival-only blocks)" },
         Rule { name: "category: solid = not gravity, not sculk, no entities", file: "lib.rs", pattern: r"pub fn category", excludes: "a solid door with a sculk sensor anywhere is ranked 'sculk' even if the sensor is unused" },
         Rule { name: "flat label (single_layer): every block in the door plane, the lever cell ignored (main d975c15)", file: "lib.rs", pattern: r"pub fn single_layer", excludes: "fixed: before d975c15 the community 7x9 as built (lever on (4,5)'s front face) was 7x9x2, not flat, off the flat boards and out of flat-only searches" },
-        Rule { name: "cosearch search grid: the lever in the door plane only (main; front/back-face levers on explore/audit-cslever f6de2a2)", file: "cosearch_search.rs", pattern: r"lever: \(i32, i32\)|g\.lever\.0, g\.lever\.1, g\.z", excludes: "c79's real lever (front face of (4,5)): a flat-by-rule design main's cosearch cannot seed or move" },
+        Rule { name: "cosearch search grid: an off-plane lever on a block's front/back face (FIXED main 3d3f5c27, pockets' Grid.lever_dz)", file: "cosearch_search.rs", pattern: r"pub lever_dz: i32", excludes: "before 3d3f5c27: c79's real lever (front face of (4,5)) could not seed or move in cosearch" },
         Rule { name: "redsim judge: falling blocks are full cubes (FIXED explore/audit 088f15e)", file: "cosearch.rs", pattern: r"Block::Falling \{ \.\. \} => true", excludes: "before 088f15e cosearch eval/search/agree rejected EVERY gravity door ('not closed at rest: door cell is minecraft:sand': 33/33 archived gravity doors)" },
         Rule { name: "acceptance positions: 4 + extra (default 28) everywhere, never fewer than the 4 default positions", file: "search.rs", pattern: r"pub fn judge_offsets", excludes: "a door that works at 1-3 positions (vjeux: a 1-position pass should count as a find) is never reported by minimize/grow/regrow/resynth/synth (min 4), cosearch (main: hard-coded 32, cosearch_search.rs extra_offsets(28)), satwire (--extra-offsets 28), families/fullmech ideal replays (4)" },
         Rule { name: "boxproof bmc: the door placed at dx = (w-3)/2, dy = (h-3)/2 unless --dx/--dy", file: "boxproof/bmc.rs", pattern: r#"a.get\("dx""#, excludes: "off-center placements (dx 0,1,3,4 in 7 wide; dy 3 in 8 tall): a 7x8 run covers 1 of 10 placements" },
         Rule { name: "mechspace --door-offset (the single-U sweep ran with 2,2 only)", file: "mechspace.rs", pattern: r"DOOR_OFFSET.get\(\)", excludes: "off-center 7-wide / 8-tall placements of the c78 single-U sweep" },
         Rule { name: "flat-only seeds: cosearch search refuses non-flat seeds", file: "cosearch_search.rs", pattern: r"not flat", excludes: "fixed by d975c15 for front-face levers (single_layer ignores the lever)" },
         Rule { name: "frame cells must hold the DOOR block itself when open (d975c15); the 3 extras may move", file: "sheet.rs", pattern: r"pub fn filled_frame", excludes: "frame-12 tests that add STATIC stone (sheet --fill, mechspace --full-frame: 'frame cells air when open stay air on the cycle') exclude doors whose 3 extra frame blocks move" },
-        Rule { name: "mechspace --full-frame: frame cells left air when open must stay air on the whole cycle (static stones)", file: "mechspace.rs", pattern: r"FULL_FRAME", excludes: "doors whose 3 extra frame blocks are moved into place (vjeux: the extras may move)" },
-        Rule { name: "verify prints the bounding box with the lever", file: "cli.rs", pattern: r"if crate::single_layer\(", excludes: "the printed box (7x9x2) disagrees with the community volume (7x9x1, lever excluded)" },
+        Rule { name: "mechspace --full-frame: static stones in the frame cells left air when open; movable extras (rule A, try_movable) since main 4f8f0604", file: "mechspace.rs", pattern: r"pub fn try_movable", excludes: "before 4f8f0604: doors whose 3 extra frame blocks are moved into place (vjeux: the extras may move)" },
+        Rule { name: "verify prints the bounding box with the lever", file: "../../door-judge/src/lib.rs", pattern: r"if crate::single_layer\(", excludes: "the printed box (7x9x2) disagrees with the community volume (7x9x1, lever excluded)" },
         Rule { name: "props-dyn repeater rig + door properties' repeater input: polarity (FIXED explore/audit 4c483b9)", file: "properties_dyn.rs", pattern: r"let rest_on = lever_state", excludes: "before 4c483b9 every lever-ON door failed repeater input ('not open'): c79 was not record-eligible and --eligible / --repeater-input searches rejected its family; now ELIGIBLE (x32, 15/15)" },
-        Rule { name: "cosearch screen: lever must be unpowered at rest (main)", file: "cosearch_search.rs", pattern: r"Block::Lever \{ powered: false, \.\. \}", excludes: "lever-ON seeds (c79) score as broken (max-1 points); fixed on explore/cosearch2 c85570e, not merged" },
+        Rule { name: "cosearch screen: either lever polarity (FIXED main, cosearch2 c85570e)", file: "cosearch_search.rs", pattern: r"Block::Lever \{ \.\. \}\) && !\(p\.no_lever", excludes: "before: lever-ON seeds (c79) scored as broken (max-1 points)" },
         Rule { name: "minimize lever moves keep the design's polarity (FIXED explore/audit 9b1074d)", file: "search.rs", pattern: r#"let pw = if ls.contains\("powered=true"\)"#, excludes: "before 9b1074d every lever move of a lever-ON door turned its lever off and broke it" },
         Rule { name: "relever keeps the design's polarity (FIXED explore/audit 9b1074d)", file: "relever.rs", pattern: r"let polar = ", excludes: "before 9b1074d a lever-ON door's relever variants were all broken" },
         Rule { name: "mech-wire: levers placed unpowered (its waves assume lever-off)", file: "mechwire.rs", pattern: r"lever\[face=floor,facing=north,powered=false\]", excludes: "wirings that need the lever's level at rest (level-held pullers released by the lever, c79's right side): a --lever-on option must invert every wave" },
-        Rule { name: "satwire (main): lever ON from rest, OFF from open (--lever-on auto-detected on explore/satwire 91730a2+)", file: "satwire.rs", pattern: r"fn on\(&self", excludes: "lever-ON-at-rest wirings (c79: --from-wired --check diverges at t0, 157/485 piston-ticks)" },
-        Rule { name: "satwire: lever candidates unpowered", file: "satwire.rs", pattern: r#"facing=\{facing\},powered=false\]"#, excludes: "the same" },
-        Rule { name: "boxproof: rest lever unpowered", file: "boxproof/bmc.rs", pattern: r"lever_state\(lev, false\)", excludes: "lever-ON doors" },
-        Rule { name: "boxproof: cells = air/stone/obsidian/glass/note/lamp/rblock/dust/rep/obs/torch/piston", file: "boxproof/diff.rs", pattern: r"pub fn cell_of_state", excludes: "droppers (c79's conductors and sensors), trapdoors, slabs, comparators, bulbs, leaves" },
+        Rule { name: "satwire: lever polarity auto-detected (FIXED main, `lever_on_rest`)", file: "satwire.rs", pattern: r"!= self\.p\.lever_on_rest", excludes: "before: lever-ON wirings; c79's `--from-wired --check` went from 157/485 piston-tick mismatches to 0/482" },
+        Rule { name: "satwire: written levers keep the rest polarity (FIXED main)", file: "satwire.rs", pattern: r"if p\.lever_on_rest \{ lc\.state\.replace", excludes: "-" },
+        Rule { name: "boxproof: rest lever ON option (FIXED main fd8c52b3)", file: "boxproof/bmc.rs", pattern: r"lever_on_rest", excludes: "before fd8c52b3: lever-ON doors" },
+        Rule { name: "boxproof: cells = air/stone/obsidian/glass/note/lamp/rblock/dust/rep/obs/torch/piston + dropper, copper bulb, comparator (fd8c52b3)", file: "boxproof/diff.rs", pattern: r"pub fn cell_of_state", excludes: "slime, honey, iron trapdoors, slabs, subtract-mode comparators, leaves and logs, rails, sculk (droppers, bulbs, comparators added in fd8c52b3)" },
         Rule { name: "families: 1-move exits use RETRACTED sticky pullers (unless --ext-pullers, mechspace only)", file: "families.rs", pattern: r"if ext && !EXT_PULLERS", excludes: "level-held pullers released by the lever (c79's MR/TR, SW+(4,1) SW+(4,2)); fullmech and the catalog never set the flag" },
         Rule { name: "families: paths of 1-2 unit moves, no reversal", file: "families.rs", pattern: r"fn paths\(", excludes: "a door block moving 3 times or back (c79's TM: down, up, up) - only harmless when the pieces are generated for another nominal path" },
         Rule { name: "families: the center leaves straight in exactly 2 moves", file: "families.rs", pattern: r"fn core\(", excludes: "a center that exits in 1 move sideways, 3 moves, or bends" },
         Rule { name: "families: providers = a sticky puller 2 ahead or a pusher 1-2 behind", file: "families.rs", pattern: r"fn providers\(", excludes: "a block pushed through a chain from 3+ cells (c79's BM is pushed from (1,3) through TM and C; generated anyway via its (1,-2) pull)" },
+        Rule { name: "families: a lifted or carried provider must be RETRACTED at rest (`!ext` in the lift / pull-back / carry branches)", file: "families.rs", pattern: r"p\.x \+ fx == ax && p\.y \+ fy == ay && !ext|p\.x - fx == ax && p\.y - fy == ay && !ext|if self\.carry > 0 && !ext", excludes: "19 archived flat doors under every flag (hA-full-rl-dropper 14, eligible-s4ff 3, fresh-a-sf1-w2 2): SD+(1,4) extended at rest retracts, is pushed down by SD(1,5), then pulls C" },
+        Rule { name: "families: only pieces an earlier provider PLACED are reused (lifted / carried)", file: "families.rs", pattern: r"lifted toward its facing: rest \+ f = action", excludes: "39 archived flat doors under every flag (fast-clean 21, speed-wire 18): SD(0,3) acts only after SE(-1,3) carries it to (1,3); (0,3) is no provider position, so it is never placed" },
         Rule { name: "families: pistons only (no stone, obsidian, slime, droppers, carried sources) in generated sets", file: "families.rs", pattern: r"fn add\(&self, v: &\[Pc\], p: Pc\)", excludes: "static frame stones (frame 12/12: mechspace --full-frame adds them after the solve), helper blocks, carried redstone blocks / observers" },
         Rule { name: "families: a piston held on at rest above a retracted piston is refused (QC-armed rest)", file: "families.rs", pattern: r"QC-arms a retracted piston right below it", excludes: "rests where the QC-armed piston is meant to stay (blocked) or fire on the first update" },
         Rule { name: "families: box <= 144 cells, <= 16 pistons", file: "families.rs", pattern: r"pub const MAXC", excludes: "boxes over 12x12" },
-        Rule { name: "families: default P <= 10 (catalog), mechspace 11, fullmech 10", file: "cli.rs", pattern: r"default_value_t = 10\)\]", excludes: "mechanisms with 11+ pistons (c79 has 10 mechanism pistons + 1 signal piston: families --check counts 11)" },
+        Rule { name: "families: default P <= 10 (catalog), mechspace 11, fullmech 10", file: "../../door-mech/src/lib.rs", pattern: r"default_value_t = 10\)\]", excludes: "mechanisms with 11+ pistons (c79 has 10 mechanism pistons + 1 signal piston: families --check counts 11)" },
         Rule { name: "families/mechspace hole rule (swept ring cells air when open)", file: "families.rs", pattern: r"hole", excludes: "replaced by frame 12/12 (vjeux 03:36Z)" },
         Rule { name: "mechspace sub-model: no piston body inside the 3x3", file: "mechspace.rs", pattern: r"no_door_bodies|NO_DOOR_BODIES", excludes: "doors whose piston bodies cross the opening (none known among working flat doors; see the audit table)" },
-        Rule { name: "topology heuristic (parity, regions); `families --check` runs it in the MECHANISM's own box", file: "families.rs", pattern: r"topology: \{\}", excludes: "label: `families --check` prints 'topology: no' for c79 (no free cell in the mechanism's bounding box); in each door's own build box topology says 'strict' for c79 and all 66 flat archived doors" },
-        Rule { name: "connect: only the lever's region awake at each flip; regions = free cells outside the footprint", file: "connect.rs", pattern: r"pub fn check\(", excludes: "no known door: WIRABLE for c79 (real 7x9 placement; NOT in 7x8 or 7x9 shifted up) and all 66 flat archived doors in their own boxes" },
+        Rule { name: "topology heuristic (parity, regions); `families --check` runs it in the MECHANISM's own box", file: "families.rs", pattern: r"topology: \{\}", excludes: "label: `families --check` prints 'topology: no' for c79 (no free cell in the mechanism's bounding box); in each door's own build box topology says 'strict' for c79 and every flat archived door (68 on main dfe893a)" },
+        Rule { name: "connect: only the lever's region awake at each flip; regions = free cells outside the footprint", file: "connect.rs", pattern: r"pub fn check\(", excludes: "no known door: WIRABLE for c79 (real 7x9 placement; NOT in 7x8 or 7x9 shifted up) and every flat archived door in its own box (68 on main dfe893a)" },
         Rule { name: "sheet piston count excludes heads (FIXED explore/audit add7f90)", file: "sheet.rs", pattern: r"piston bases only", excludes: "label only: c79 printed '14 pistons' (11 + 3 heads)" },
         Rule { name: "sheet (designs): flip 1 = open", file: "sheet.rs", pattern: r"fn draw\(", excludes: "a design file of an OPEN state (c79-open-b) draws 'frame 3/12' (door cycle handles it)" },
         Rule { name: "properties CLEAN: never moves back", file: "properties.rs", pattern: r"moves back", excludes: "label: c79's TM moves down then up (correct per regulation 2.1.5.3)" },
@@ -1235,7 +1234,7 @@ pub fn scan_rules(src: &Path) -> Vec<(String, Vec<String>, String)> {
         if let (Ok(text), Ok(re)) = (std::fs::read_to_string(&path), regex::Regex::new(r.pattern)) {
             for (i, l) in text.lines().enumerate() {
                 if re.is_match(l) {
-                    hits.push(format!("{}:{}", r.file, i + 1));
+                    hits.push(format!("{}:{}", r.file.trim_start_matches("../../"), i + 1));
                     if hits.len() >= 4 {
                         break;
                     }
