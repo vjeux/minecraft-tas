@@ -4,7 +4,7 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 
 | study | designs | shown | variants |
 |---|---|---|---|
-| Pulse circuits | 0 | 0 | 0 |
+| [Pulse circuits](pulse/CATALOG.md) | 12 | 11 | 1 |
 | [T flip-flops](tff/CATALOG.md) | 4 | 4 | 0 |
 | Delay lines | 0 | 0 | 0 |
 | Logic gates | 0 | 0 | 0 |
