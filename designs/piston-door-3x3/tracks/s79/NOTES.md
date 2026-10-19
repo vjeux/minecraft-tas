@@ -336,3 +336,10 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   pulls TL to (2,3), s1 lifts TM into (1,3), the s0 + M0 elevator brings ML up 2. Ideal WORKS (redsim 32
   positions, open 42 / close 25). satwire: solid UNSAT (core: close s1; Q parks on (2,4), so s1's only feed
   left is (1,5), which also touches M0 and QL), sculk UNSAT (core close QL + close s1).
+- Assumptions behind the 6x8 NO (to be closed by c70b's --ring-escape / corner-route generators):
+  (a) every door block ends IN the frame (exactly 3 extra blocks); the rules only demand the 12 frame cells
+      hold the door material when open, so extra statics + door blocks parked outside the frame are legal in
+      principle (needs a block to pass THROUGH a frame cell: 3 piston rows on that side);
+  (b) no ring-resting pusher in the RIGHT frame: a sticky at (3,1) facing west could push a whole row west
+      (ML into (-1,1)), then would have to leave the ring (pulled up/down by corner pistons) -- the only way
+      I see for a left frame cell to receive a door block.
