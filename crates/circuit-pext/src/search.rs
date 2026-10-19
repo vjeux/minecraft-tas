@@ -58,6 +58,9 @@ pub struct GrowOptions {
     pub plane_z: Option<i32>,
     /// Keep every find, not only the minimal ones.
     pub all: bool,
+    /// Only cells face-adjacent (Manhattan distance <= near) to a base block other than the
+    /// input, when set.
+    pub near: Option<i32>,
 }
 
 #[derive(Clone, Debug)]
@@ -144,6 +147,12 @@ pub fn grow(p: &Pext, o: &GrowOptions, progress: &(dyn Fn(usize, usize, usize) +
                 let c = [x, y, z];
                 if p.design.blocks.contains_key(&c) || forbidden.contains(&c) || o.plane_z.is_some_and(|pz| pz != z) {
                     continue;
+                }
+                if let Some(nd) = o.near {
+                    let close = p.design.blocks.keys().any(|q| *q != p.input && (q[0] - c[0]).abs() + (q[1] - c[1]).abs() + (q[2] - c[2]).abs() <= nd);
+                    if !close {
+                        continue;
+                    }
                 }
                 cells.push(c);
             }

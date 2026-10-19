@@ -3,7 +3,7 @@
 # B + payload and spits them (B lands next to the input, which holds it extended: the payload goes
 # one more cell). Off: B retracts (payload back one), A's pulse reach-pulls B home, and the carried
 # observer, pulled home too, fires on landing into B (variant 2: where it sits), whose 2 gt pulse
-# reach-pulls the payload home.
+# reach-pulls the payload home. The lever hangs on the input observer.
 name: pext-n2-sf7-2
 circuit: piston-extender 2
 travel: 1 0 0
@@ -13,7 +13,7 @@ origin: 1 0 1
 palette:
   A minecraft:stone
   G minecraft:gold_block
-  L minecraft:lever[face=floor,facing=north]
+  L minecraft:lever[face=wall,facing=east]
   O minecraft:observer[facing=east,powered=false]
   S minecraft:sticky_piston[extended=false,facing=north]
   o minecraft:observer[facing=west,powered=false]

@@ -238,6 +238,11 @@ pub fn place(prep: &Prepared, params: &Params) -> Result<(World, Vec<(BlockPos, 
     if w.get(prep.payload) != prep.payload_block {
         return Err((Verdict::Fails, "the payload is not at its cell at rest".into()));
     }
+    // the support rule: every block can stand where it is (a lever or a torch on a sturdy face,
+    // dust and diodes on a floor): a player could build it
+    if let Some((p, b)) = rest.iter().find(|(p, b)| !redsim::behavior::can_survive(&w, b, *p)) {
+        return Err((Verdict::Fails, format!("{} at {},{},{} has no support (it could not be built)", short(b), p.x, p.y, p.z)));
+    }
     Ok((w, rest))
 }
 

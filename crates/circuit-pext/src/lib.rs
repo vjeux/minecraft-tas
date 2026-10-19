@@ -81,6 +81,9 @@ enum Cmd {
         /// Keep non-minimal finds too.
         #[arg(long)]
         all: bool,
+        /// Only cells within this Manhattan distance of a base block (1 = face-adjacent).
+        #[arg(long)]
+        near: Option<i32>,
         #[arg(long)]
         out_dir: Option<PathBuf>,
         /// Print at most this many finds.
@@ -124,8 +127,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let o = game::Options { positions, rotations: !no_rotations, cycles, workers, ..Default::default() };
             cmd_verify(&designs, &o, verbose)
         }
-        Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, out_dir, show } => {
-            let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all };
+        Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, near, out_dir, show } => {
+            let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near };
             cmd_grow(&base, &o, show)
         }
         Cmd::Minimize { design, palette, threads, out } => {
