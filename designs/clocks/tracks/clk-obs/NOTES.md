@@ -66,7 +66,7 @@ P12 4979 / 3724 (most P4/P6 structures are the observer pair with different star
   Exhaustive targeted searches (`census --max-period 3 --min-pistons --min-rblocks`): no clock
   with P <= 3 among every <= 5-block polycube (the full palette, and piston/sticky/redstone
   block/slime/stone), and every 6-block polycube with exactly 4 pistons + 2 redstone blocks
-  (running); box mode (`--box WxHxD`, non-connected placements) next.
+  (1.94 G sims, 42 min); box mode (`--box WxHxD`, non-connected placements) next.
 * Pure observer clocks: each observer watches one cell, so the watch graph is functional (one
   cycle per component) and lattice cycles have even length n. One pulse runs 2 gt per observer:
   P = 2n for n >= 4. The pair (n = 2) has two stable modes chosen by the order of the two

@@ -1,0 +1,16 @@
+# archived 2026-10-19T17:41Z from designs/clocks/tracks/clk-obs/families/p194-note-obs-98b-3a6a3a.txt by mctas clock archive
+# CLOCK: clk-obs-p194-note-obs-98b-3a6a3a period 194 gt, on 2/194, edges 1, warmup 2, family note_block+observer, 98 blocks, 49x1x2, robust
+name: clk-obs-p194-note-obs-98b-3a6a3a
+# Construction for P = 194: observer ring + note block (crates/clock-obs/src/construct.rs). redsim: P = 194, family note_block+observer.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=east,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:note_block[instrument=harp,note=0,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+layer 0:
+  ACDCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+  BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBE

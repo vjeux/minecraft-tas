@@ -1,0 +1,21 @@
+name: clk-obs-p14-obs-trap-8b-b35d42
+# A ring of 7 observers and one trap relay (8 cells): the observer before the relay powers it, the next one watches it. P=14 (redsim), family iron_trapdoor+observer.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+layer 0:
+  A
+  B
+  A
+  C
+layer 1:
+  D
+  E
+  E
+  E

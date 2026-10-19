@@ -1,0 +1,22 @@
+# archived 2026-10-19T17:30Z from designs/clocks/tracks/clk-obs/families/p33-obs-stk-7b-b0ff0f.txt by mctas clock archive
+# CLOCK: clk-obs-p33-obs-stk-7b-b0ff0f period 33 gt, on 2/33, edges 1, warmup 1, family observer+sticky_piston, 7 blocks, 2x4x3, robust
+name: clk-obs-p33-obs-stk-7b-b0ff0f
+# P33: 2 observers, 4 sticky pistons, 1 stone; changing in place: observer, sticky_piston (stone only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 1 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:sticky_piston[extended=false,facing=down]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:stone
+  F minecraft:observer[facing=east,powered=false]
+layer -1:
+  ..
+  A.
+  B.
+layer 0:
+  C.
+  DF
+  EB

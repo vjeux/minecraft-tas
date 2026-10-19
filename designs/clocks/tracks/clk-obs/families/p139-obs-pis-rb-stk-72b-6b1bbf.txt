@@ -1,0 +1,84 @@
+name: clk-obs-p139-obs-pis-rb-stk-72b-6b1bbf
+# Construction for P = 139: odd piston stage + observer tower (crates/clock-obs/src/construct.rs). redsim: P = 139, family observer+piston+redstone_block+sticky_piston.
+origin: 0 0 0
+port output: 0 1 0
+port start: 1 3 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=east,powered=false]
+  D minecraft:redstone_block
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:piston[extended=false,facing=up]
+layer 0:
+  AD.
+layer 1:
+  B.F
+layer 2:
+  BC.
+layer 3:
+  BE.
+layer 4:
+  BE.
+layer 5:
+  BE.
+layer 6:
+  BE.
+layer 7:
+  BE.
+layer 8:
+  BE.
+layer 9:
+  BE.
+layer 10:
+  BE.
+layer 11:
+  BE.
+layer 12:
+  BE.
+layer 13:
+  BE.
+layer 14:
+  BE.
+layer 15:
+  BE.
+layer 16:
+  BE.
+layer 17:
+  BE.
+layer 18:
+  BE.
+layer 19:
+  BE.
+layer 20:
+  BE.
+layer 21:
+  BE.
+layer 22:
+  BE.
+layer 23:
+  BE.
+layer 24:
+  BE.
+layer 25:
+  BE.
+layer 26:
+  BE.
+layer 27:
+  BE.
+layer 28:
+  BE.
+layer 29:
+  BE.
+layer 30:
+  BE.
+layer 31:
+  BE.
+layer 32:
+  BE.
+layer 33:
+  BE.
+layer 34:
+  BE.
+layer 35:
+  CE.

@@ -26,6 +26,15 @@ pub struct PickArgs {
     /// Skip (period, family) groups already present in these folders (by period and family)
     #[arg(long)]
     pub skip_known: Vec<PathBuf>,
+    /// Skip designs whose structure (up to rotation and translation) is one of these designs'
+    /// (files or folders): e.g. what another batch already archives
+    #[arg(long)]
+    pub skip_structures: Vec<PathBuf>,
+    /// Keep designs of a group only when their steady-state MECHANISMS differ (`cores`: the
+    /// changing cells and the static blocks they need, canonical over phases), not just their
+    /// structures (a different starter or inert block is the same mechanism)
+    #[arg(long)]
+    pub mechanisms: bool,
     #[arg(long, default_value_t = 0)]
     pub threads: usize,
     /// Keep only clocks whose changing cells have at most this many rising edges per period
@@ -128,6 +137,8 @@ struct Row {
     output: Option<[i32; 3]>,
     /// Same period in all 4 rotations (redsim).
     robust: bool,
+    /// The steady-state mechanism (`cores::core_of`), with --mechanisms.
+    core: Option<u128>,
 }
 
 pub fn run(a: PickArgs) -> Result<()> {
@@ -140,6 +151,12 @@ pub fn run(a: PickArgs) -> Result<()> {
             if r.verdict == clock::sim::Verdict::Clock {
                 known.insert((r.period, clock::wave::signature(&r.analysis.family)));
             }
+        }
+    }
+    let mut skip_keys: HashSet<u128> = HashSet::new();
+    for f in files(&a.skip_structures)? {
+        if let Ok(s) = Spec::load(&f) {
+            skip_keys.insert(crate::census::canon_hash(&s.blocks));
         }
     }
     let threads = if a.threads > 0 { a.threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(6).max(1) };
@@ -170,13 +187,17 @@ pub fn run(a: PickArgs) -> Result<()> {
                     }
                 }
                 let Ok(spec) = Spec::load(path) else { continue };
+                if !skip_keys.is_empty() && skip_keys.contains(&crate::census::canon_hash(&spec.blocks)) {
+                    continue;
+                }
                 let key = canon_structure(&spec.blocks);
                 let robust = rotation_robust(&spec, r.period);
                 // declared output: the changing observer with the most edges (self-reporting in
                 // every rotation), else the judge's auto choice
                 let obs_out = r.analysis.cells.iter().filter(|c| c.kinds.iter().any(|k| k == "observer") && c.states.iter().all(|s| s.starts_with("observer"))).max_by(|a, b| (a.edges, a.on).cmp(&(b.edges, b.on)).then(b.pos.cmp(&a.pos))).map(|c| c.pos);
                 let output = obs_out.or(r.output.as_ref().map(|o| o.pos));
-                rows.lock().unwrap().push(Row { period: r.period, family: r.analysis.family.clone(), blocks: r.blocks, volume: r.volume(), summary: r.summary(), path: path.clone(), spec, key, output, robust });
+                let core = if a.mechanisms { crate::cores::core_of(&spec).map(|c| c.0) } else { None };
+                rows.lock().unwrap().push(Row { period: r.period, family: r.analysis.family.clone(), blocks: r.blocks, volume: r.volume(), summary: r.summary(), path: path.clone(), spec, key, output, robust, core });
             });
         }
     });
@@ -192,7 +213,8 @@ pub fn run(a: PickArgs) -> Result<()> {
     for r in &rows {
         let fam_key = if a.by_period { period_groups.entry(r.period).or_insert_with(|| r.family.clone()).clone() } else { r.family.clone() };
         let g = groups.entry((r.period, fam_key)).or_default();
-        if g.len() < a.top && !g.iter().any(|q| q.key == r.key) {
+        let same = |q: &&Row| if a.mechanisms { q.core.is_some() && q.core == r.core } else { q.key == r.key };
+        if g.len() < a.top && !g.iter().any(|q| same(q)) {
             g.push(r);
         }
     }
@@ -201,15 +223,61 @@ pub fn run(a: PickArgs) -> Result<()> {
     for ((p, fam), g) in &groups {
         for (i, r) in g.iter().enumerate() {
             let suffix = if g.len() > 1 { format!("-{}", (b'a' + i as u8) as char) } else { String::new() };
-            let name = format!("p{p}-{}-{}b{suffix}", abbrev(fam), r.blocks);
+            let tag = crate::census::canon_hash(&r.spec.blocks) as u32;
+            let name = format!("p{p}-{}-{}b{suffix}-{:06x}", abbrev(fam), r.blocks, tag & 0xff_ffff);
             let mut spec = r.spec.clone();
             spec.name = format!("clk-obs-{name}");
             spec.output = r.output.map(|o| redsim::BlockPos::new(o[0], o[1], o[2]));
             let from = r.path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-            let text = spec.to_text(&format!("{}\n(clk-obs, found by {from}; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)", r.summary));
+            let text = spec.to_text(&caption(&r.spec, &r.path, &from, *p, &r.family));
             std::fs::write(a.out_dir.join(format!("{name}.txt")), text)?;
             println!("| {p} | {} | {} | {} | {} | {name}.txt | {from} |", clock::wave::signature(fam), r.blocks, r.volume, if r.robust { "robust" } else { "DEPENDENT" });
         }
     }
     Ok(())
+}
+
+/// A one-paragraph caption for a picked design: a hand-written source keeps its own first comment
+/// block; census and grow outputs get their parts, what changes in place and how they were found.
+pub fn caption(spec: &Spec, path: &std::path::Path, from: &str, period: u32, family: &[String]) -> String {
+    let census = from.starts_with("census-");
+    let grow = from.starts_with("grow-");
+    if !census && !grow {
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        let mut lines = Vec::new();
+        for l in text.lines() {
+            let t = l.trim();
+            if let Some(c) = t.strip_prefix('#') {
+                lines.push(c.trim().to_string());
+            } else if !lines.is_empty() && !t.starts_with("name:") {
+                break;
+            }
+        }
+        if !lines.is_empty() {
+            return lines.join("\n");
+        }
+    }
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for (_, b) in &spec.blocks {
+        let n = match b {
+            redsim::Block::Piston { sticky: true, .. } => "sticky piston".to_string(),
+            redsim::Block::Piston { sticky: false, .. } => "piston".to_string(),
+            _ => sim::short(b).replace("waxed_", "").replace('_', " "),
+        };
+        *counts.entry(n).or_default() += 1;
+    }
+    let parts: Vec<String> = counts.iter().map(|(n, c)| if *c == 1 { format!("1 {n}") } else { format!("{c} {n}s") }).collect();
+    let how = if census {
+        let k = from.trim_start_matches("census-k").split('-').next().unwrap_or("?");
+        format!("Found by the clk-obs exhaustive census of every {k}-block structure (all orientations, every block placed last as a kick)")
+    } else {
+        "Found by the clk-obs grow search (minimal clocks extended or changed one block at a time)".to_string()
+    };
+    let moved: Vec<String> = counts.keys().filter(|n| !family.iter().any(|f| f.replace("waxed_", "").replace('_', " ") == **n)).cloned().collect();
+    let moved = if moved.is_empty() { String::new() } else { format!(" ({} only moved or static)", moved.join(", ")) };
+    format!(
+        "P{period}: {}; changing in place: {}{moved}. {how}; minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).",
+        parts.join(", "),
+        family.join(", ")
+    )
 }
