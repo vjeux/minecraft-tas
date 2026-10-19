@@ -208,4 +208,13 @@ Results:
   (MR direct, BR by QC) instead of repeater + observer (4 gt faster). Both walls are minimal at 3
   blocks (k=3, full palette + sculk; 64 wall variants at 43 blocks in `runs/t7b-lw-k3`, `runs/t7b-rw-k3`).
   The bottom: BL (7 cells) is a closed region; BR's merger closes into BL (13 cells). `ideal-rs --drop 2`:
-  only the 3 frame stones drop (the frame rule keeps them). BL k=6 x 14 states (708M): `runs/rf-bl-k6`.
+  only the 3 frame stones drop (the frame rule keeps them). BL k=6 x 14 states (813M screens, connected
+  fillings, `runs/rf-bl-k6`): no 6-block BL; best true partial 41 blocks with only P_M assisted (BL in
+  5: stone (0,-4) under the d4 repeater, note block (-1,-3), observer (-1,-2) UP watching P_M, the gate),
+  and no 1- or 2-block P_M driver fits the free cells around it (`runs/rf-pm-k2`, full palette, --gaps).
+* `--gaps` (tool bug found on c88 s25, coordinator 10:50Z: everything real but BR's puller (2,-2)): the
+  4-cell bottom-right pocket at k=4 x 61 states found no driver because c88b's answer (s26: observer (4,0)
+  up -> AIR (4,-1) -> normal piston (4,-2) QC'd -> observer (3,-2) east -> BR) is two pieces; with --gaps
+  the run re-finds that 54-block door (`runs/s25-k4g`). s26 (`archive/c88-s26-54b.txt`, solid 8x8 54)
+  regions (`s26/`): BR's driver 3 = minimal (k=4 gaps), B's level line (bulb, comparator, d2, d4) 4 =
+  minimal (k=3); bottom-left k=6 x 16 states: `runs/s26-bl-k6`.
