@@ -27,8 +27,9 @@ section 12; what each tool models: docs/coverage.md. Inventory: [INVENTORY.md](I
   disagreements with the real judge on all 328 supported designs (first run: 263/263 at 2.2 s wall
   vs 28 s for the judge, 68 ms CPU per design vs ~3 s). cosearch built its search on it
   (2049/2049 agreement).
-* **Final confirmation** (finished model, containers included): 0 mismatches in 100,000 random
-  circuits (seeds 30000-30009, `--palette all`, 7x4x7).
+* **Final confirmation** (finished model, containers and scaffolding included): 0 mismatches in
+  100,000 random circuits (seeds 40000-40009, `--palette all`, 7x4x7); `redsim-verify --judge`
+  still 0 disagreements on the 328 supported archived designs.
 * **Block equivalence classes** (`redsim::classes`): 70 plain states in 22 classes (11 ignoring
   note-block instruments), proven in the game by `redsim-fuzz classfuzz` (3000 circuits vs
   class-swapped variants: 0 differ). Sent to satwire, boxproof and cosearch.
