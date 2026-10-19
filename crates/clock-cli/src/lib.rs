@@ -144,11 +144,11 @@ pub enum ClockCmd {
         /// One-world shooter: wait after a camera move (ms, plus 15 ms per block moved).
         #[arg(long, default_value_t = 700)]
         settle_ms: u64,
-        /// Every clock in its own sandbox (the old shooter: ~13 s a clock); default: ONE world
-        /// for all of them, clocks frozen at their moments by staggered starts, only the camera
-        /// moves (~1 s a clock). --strip implies it.
+        /// ONE world for all the clocks (clocks frozen at their moments by staggered starts, only
+        /// the camera moves: ~1-4 s a clock instead of ~13); not the default until far clocks stop
+        /// coming out blank. --strip uses the per-sandbox shooter.
         #[arg(long)]
-        one_by_one: bool,
+        grid: bool,
         /// Take pictures that exist again.
         #[arg(long)]
         redo: bool,
@@ -310,14 +310,14 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, one_by_one, redo } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo } => {
             let mut items = Vec::new();
             for p in &designs {
                 let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 items.push((stem, Clock::load(p)?));
             }
             let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo, ..Default::default() };
-            let lines = if one_by_one || strip.is_some() { clock::shot::shots(version, &items, &o)? } else { clock::shot::shots_grid(version, &items, &o)? };
+            let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");
             }
