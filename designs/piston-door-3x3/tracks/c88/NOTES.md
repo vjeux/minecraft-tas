@@ -26,3 +26,22 @@ through (3,-1)), so (3,-1) is now dust (on S (3,-2)): it powers and updates the 
   goes up into (-1,4) (c79's top-left net), so the top-left net must be re-laid to use it. Same 2-vs-1 for
   every park/floor-cell watcher (the cells where a pulled block arrives), the wrong way round for U.
 - Flat circuits cannot lock repeaters (their sides are off the plane).
+- Also no symmetric U,K,U train with ANY pulse widths (1..6 each) once every pulse is >= t10
+  (`s1-symw.ideal`, 0 of ~2.4M schedules).
+- `door cosearch pockets` on s1 + s3.ideal (k=3, the 13-cell left pocket + (-1,3)): L0 (both edges, 2
+  blocks), K close (2 blocks) and U open (3 blocks) are drivable; K open and U close are not.
+- `door satwire` (whole box re-wired, s3.ideal, bulb/cmp/note in the palette): UNSAT.
+
+## 3. v2: the bottom mirrored to the right (x -2..5): mechanism WORKS, wiring blocked elsewhere
+`v2.txt` / `v2r.txt` + `v2.ideal`: BR goes RIGHT into (3,0) (its puller (4,0), extended at rest like
+MR/TR's), K' (3,-1) pulls BM into (2,-1), (0,-1) is the third static. Then (2,-2) is free and U could be fed
+from the bottom-right, which in c79 hears the lever at t3. Ideal (BR level, U, K', L0): WORKS (redsim, 4 pos),
+windows: BR level any 0..20, U1 2..5 (inside A's hold), K' 7..8, U2 10..11 or >= 14, L0 any.
+- The bottom-right loses c79's early link: the observer (4,0) on MR's puller becomes BR's puller, and every
+  other watcher of the right pullers outputs out of the box; a lever level cannot go down the 1-wide
+  column x=5 (dust -> block -> dust carries no power; torches only go up; observers are 2 gt per cell, too
+  slow for U1 at t3-6).
+- The left then only hears U, whose watcher (0,-2) pulses 3 times on close (t7, t11, t15) and twice on
+  open (t13, t17) (probe), but L0 needs exactly one pulse per edge (an extra pull/push undoes BL). A
+  merger + copper bulb + bulb watcher does not fit the 5 bottom-left cells (no support row for repeaters).
+- `door satwire` on v2 (whole box): UNSAT, core close U + close L0 (L0 at t20: core close L0 alone).
