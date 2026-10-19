@@ -204,3 +204,12 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   32 positions and JVM `door ideal` WORKS (open 43 / close 33), frame 12/12. Left ideal: R1/R2 (one 2 gt
   pulse per edge through (4,2,-1), ANY tick both edges) and P2 (open U pulse >= 4 gt at plan 18..28,
   symmetric OK).
+- **R1/R2 real by hand (13:37Z)** `c78l/lb5.txt`: plain sculk sensor (3,5) -> waxed bulb (3,4) (the sensor's
+  strong-down output toggles it once per lever edge) -> comparator (4,4) facing west -> observer (4,3) facing
+  up -> R2 directly + R1 by QC: one 2 gt pulse per edge. Then the annealer re-wired M + s around it in 26 s:
+  **`c78l/p5-0..3.txt` + `p5-N.ideal`: the WHOLE door real except P2** (redsim 32 positions WORKS, JVM
+  `door ideal` WORKS, open 45 / close 25, frame 12/12, sculk). P2 window in p5-0: plan 12..35, >= 4 gt.
+- P2 is the last input. pockets2's exhaustive k=4 x 61 states --gaps over (2,-2) (3,-2) (4,-2) (3,-1)
+  (runs/t2a-bot-k4 on explore/pockets): nothing drives P2, not even alone. U's feeds are (2,-2) and QC via
+  (2,-1) (F's repeater); (0,-2) is the U watcher (K, L0); (1,-3) is outside the box. A sensor next to U hears
+  U's own t2 close spit and keeps U powered (no spit), so sound cannot sit at (2,-2)/(0,-2).
