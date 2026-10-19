@@ -169,6 +169,35 @@ pub enum ItemClockCmd {
         #[arg(long, default_value = "designs/clocks/tracks/clk-item")]
         dir: PathBuf,
     },
+    /// Write one design of an extendable family (gen.rs): `loop` (--n, --m items of --item),
+    /// `dropring` (--w, --one for a single dropper, --delays e.g. 14), `ringlock` (--d, --n stones).
+    Gen {
+        family: String,
+        #[arg(long, default_value_t = 0)]
+        n: i32,
+        #[arg(long, default_value_t = 1)]
+        m: usize,
+        #[arg(long, default_value = "stone")]
+        item: String,
+        #[arg(long, default_value_t = 3)]
+        w: i32,
+        #[arg(long)]
+        one: bool,
+        #[arg(long, default_value = "")]
+        delays: String,
+        #[arg(long, default_value_t = 3)]
+        d: i32,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Check an extendable family's formula against redsim over its parameters (up to --max).
+    GenCheck {
+        family: String,
+        #[arg(long, default_value_t = 8)]
+        max: i32,
+        #[arg(long, default_value_t = 100000)]
+        ticks: u32,
+    },
     /// Sweep the dropper-ring family (families.rs `drop_ring`): w x 3 rings (w = 3..=--max-w), every
     /// comparator column, every dropper set around the fired cell, both directions, contents = one
     /// or two ring cells holding 1..=--max-n of one kind: the distinct periods (fewest blocks, then
@@ -718,6 +747,71 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
             for design in designs {
                 promote(&design, &name, &caption, &dir)?;
             }
+        }
+        ItemClockCmd::Gen { family, n, m, item, w, one, delays, d, out } => {
+            let dl: Vec<u8> = delays.bytes().filter(|b| b.is_ascii_digit()).map(|b| b - b'0').collect();
+            let (des, p) = match family.as_str() {
+                "loop" => (crate::extend::loop_ring(n, m, &item), crate::extend::loop_ring_period(n, m)),
+                "dropring" => (crate::extend::dropring(w, one, &dl), crate::extend::dropring_period(w, one, &dl)),
+                "ringlock" => (crate::extend::ringlock(d, n as u32), crate::extend::ringlock_period(d, n as u32)),
+                other => bail!("unknown family {other:?} (loop, dropring, ringlock)"),
+            };
+            let mut des = des.ok_or_else(|| anyhow!("no such {family} design"))?;
+            des.meta.insert("period".into(), p.to_string());
+            des.save(&out)?;
+            println!("{}: {} blocks, formula P = {p} gt", out.display(), des.blocks.len());
+        }
+        ItemClockCmd::GenCheck { family, max, ticks } => {
+            use crate::families::measure;
+            let mut cases: Vec<(String, Option<Design>, u32)> = Vec::new();
+            match family.as_str() {
+                "loop" => {
+                    for n in 0..=max {
+                        for m in [1usize, 2, 3, 4] {
+                            // every hopper holding an item is static (no move ever shows)
+                            if 2 * (n as usize + 1) <= m {
+                                continue;
+                            }
+                            if let Some(des) = crate::extend::loop_ring(n, m, "stone") {
+                                cases.push((format!("n={n} m={m}"), Some(des), crate::extend::loop_ring_period(n, m)));
+                            }
+                        }
+                    }
+                }
+                "dropring" => {
+                    for w in 3..=max {
+                        for one in [false, true] {
+                            for dl in ["", "1", "2", "3", "4", "11", "14", "44"] {
+                                let v: Vec<u8> = dl.bytes().map(|b| b - b'0').collect();
+                                cases.push((format!("w={w} one={one} delays={dl}"), crate::extend::dropring(w, one, &v), crate::extend::dropring_period(w, one, &v)));
+                            }
+                        }
+                    }
+                }
+                "ringlock" => {
+                    for d in 3..=max {
+                        for n in 5..=crate::extend::ringlock_n_max(d) {
+                            cases.push((format!("d={d} n={n}"), crate::extend::ringlock(d, n), crate::extend::ringlock_period(d, n)));
+                        }
+                    }
+                }
+                other => bail!("unknown family {other:?} (loop, dropring, ringlock)"),
+            }
+            let (mut ok, mut bad) = (0, 0);
+            for (label, des, want) in &cases {
+                let got = match des {
+                    Some(des) => measure(des, ticks).map(|r| r.0),
+                    None => Err("no design".into()),
+                };
+                match got {
+                    Ok(p) if p == *want => ok += 1,
+                    other => {
+                        bad += 1;
+                        println!("{label}: formula {want}, redsim {other:?}");
+                    }
+                }
+            }
+            println!("{family}: {ok} of {} match the formula ({bad} differ)", cases.len());
         }
         ItemClockCmd::SweepDropring { max_w, max_n, items, pairs, triples, delays, ticks, jobs, out } => {
             let chains: Vec<Vec<u8>> = delays
