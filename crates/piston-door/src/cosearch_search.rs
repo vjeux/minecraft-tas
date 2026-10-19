@@ -203,6 +203,8 @@ pub struct Problem {
     pub assist_pistons: Vec<(i32, i32)>,
     pub assist_events: [Vec<(u32, usize, BlockPos, Block)>; 2],
     pub assist_weight: f64,
+    /// Plan input cells IN the door plane: reserved while their input is assisted.
+    pub assist_in_plane: HashSet<(i32, i32)>,
 }
 
 /// A piston starting to extend or retract: (phase, extending, cell, tick).
@@ -666,15 +668,78 @@ fn refaced(b: &Block, rng: &mut Rng) -> Option<Block> {
     })
 }
 
+/// The update-piston proposal (vjeux): a normal or sticky piston facing an EMPTY free cell,
+/// placed so its base or head cell touches a sensor: a piston's quasi cell (the cell above it), an
+/// observer's watched cell, a dropper or a note block. Its extension / retraction is then a block
+/// update (a BUD trigger) or an observer pulse.
+fn update_piston(p: &Problem, g: &mut Grid, rng: &mut Rng) -> Option<(i32, i32)> {
+    let mut sensors: Vec<(i32, i32)> = Vec::new();
+    for &(x, y) in &p.free {
+        match g.get(x, y) {
+            Block::Piston { .. } => sensors.push((x, y + 1)),
+            Block::Observer { facing, .. } => {
+                let s = facing.step();
+                sensors.push((x + s[0], y + s[1]));
+            }
+            Block::Dispenser { .. } | Block::Note { .. } => sensors.push((x, y)),
+            _ => {}
+        }
+    }
+    // the seed's locked pistons count too
+    for x in g.gx..g.gx + g.w {
+        for y in g.gy..g.gy + g.h {
+            if matches!(g.get(x, y), Block::Piston { .. }) && !p.free.contains(&(x, y)) {
+                sensors.push((x, y + 1));
+            }
+        }
+    }
+    if sensors.is_empty() {
+        return None;
+    }
+    let (sx, sy) = sensors[rng.below(sensors.len())];
+    // the piston's base (b) or head (h) cell next to the sensor
+    let d = PLANE_DIRS[rng.below(4)].step();
+    let f = PLANE_DIRS[rng.below(4)];
+    let fs = f.step();
+    let (bx, by) = if rng.below(2) == 0 {
+        (sx + d[0], sy + d[1])
+    } else {
+        // head next to the sensor: base one step back
+        (sx + d[0] - fs[0], sy + d[1] - fs[1])
+    };
+    let (hx, hy) = (bx + fs[0], by + fs[1]);
+    let ok = |x: i32, y: i32| p.free.contains(&(x, y)) && g.get(x, y).is_air() && (x, y) != g.lever && !reserved(p, g, x, y);
+    if !ok(bx, by) || !ok(hx, hy) || p.ring.contains(&(hx, hy)) {
+        return None;
+    }
+    g.set(bx, by, Block::Piston { sticky: rng.below(2) == 0, facing: f, extended: false });
+    Some((bx, by))
+}
+
+/// Move kinds (for the improvement statistics): cell edit, assist toggle, lever move, update piston.
+pub const MOVE_KINDS: [&str; 4] = ["cell", "assist", "lever", "update-piston"];
+
 /// One random move at `at` (or a random focus cell). Returns the cell when something changed.
-fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>) -> Option<(i32, i32)> {
+fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>, kind: &mut usize) -> Option<(i32, i32)> {
+    *kind = 0;
+    if p.mech && at.is_none() && rng.below(8) == 0 {
+        *kind = 3;
+        return update_piston(p, g, rng);
+    }
     if !p.assist_pistons.is_empty() && at.is_none() && rng.below(10) == 0 {
         // release (or re-assist) one planned input
+        *kind = 1;
         let k = rng.below(p.assist_pistons.len());
+        let (cx, cy) = p.assist_pistons[k];
+        if (g.assist >> k) & 1 == 0 && p.assist_in_plane.contains(&(cx, cy)) && !g.get(cx, cy).is_air() {
+            // re-assisting an in-plane input needs its cell free again
+            return None;
+        }
         g.assist ^= 1u64 << k;
         return Some(p.assist_pistons[k]);
     }
     if p.lever_moves && at.is_none() && rng.below(25) == 0 {
+        *kind = 2;
         return move_lever(p, g, rng).then_some(g.lever);
     }
     let (x, y) = match at {
@@ -684,9 +749,17 @@ fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>) -> O
     if mutate_cell(p, g, rng, x, y) { Some((x, y)) } else { None }
 }
 
+/// An in-plane plan input cell whose input is still assisted: no block may go there.
+fn reserved(p: &Problem, g: &Grid, x: i32, y: i32) -> bool {
+    if p.assist_in_plane.is_empty() || !p.assist_in_plane.contains(&(x, y)) {
+        return false;
+    }
+    p.assist_pistons.iter().position(|c| *c == (x, y)).is_some_and(|k| (g.assist >> k) & 1 == 1)
+}
+
 fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool {
     let cur = g.get(x, y);
-    if (x, y) == g.lever {
+    if (x, y) == g.lever || reserved(p, g, x, y) {
         return false;
     }
     if matches!(cur, Block::PistonHead { .. }) {
@@ -734,7 +807,7 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
         }
         let d = PLANE_DIRS[rng.below(4)].step();
         let (nx, ny) = (x + d[0], y + d[1]);
-        if !p.free.contains(&(nx, ny)) || !g.get(nx, ny).is_air() {
+        if !p.free.contains(&(nx, ny)) || !g.get(nx, ny).is_air() || reserved(p, g, nx, ny) {
             return false;
         }
         g.set(x, y, Block::Air);
@@ -745,7 +818,7 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
         let d = PLANE_DIRS[rng.below(4)].step();
         let (nx, ny) = (x + d[0], y + d[1]);
         let other = g.get(nx, ny);
-        if !p.free.contains(&(nx, ny)) || other == cur || head_of(&cur, x, y).is_some() || head_of(&other, nx, ny).is_some() || matches!(other, Block::PistonHead { .. }) {
+        if !p.free.contains(&(nx, ny)) || reserved(p, g, nx, ny) || other == cur || head_of(&cur, x, y).is_some() || head_of(&other, nx, ny).is_some() || matches!(other, Block::PistonHead { .. }) {
             return false;
         }
         if !p.mech && (is_piston(&cur) || is_piston(&other)) {
@@ -774,7 +847,7 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
         let s = f.step();
         let k = 1 + rng.below(2) as i32;
         let (cx, cy) = (px + s[0] * k, py + s[1] * k);
-        if !p.free.contains(&(cx, cy)) || !g.get(cx, cy).is_air() {
+        if !p.free.contains(&(cx, cy)) || !g.get(cx, cy).is_air() || reserved(p, g, cx, cy) {
             return false;
         }
         let b = if rng.below(2) == 0 { Block::RedstoneBlock } else { Block::Observer { facing: PLANE_DIRS[rng.below(4)], powered: false } };
@@ -789,7 +862,7 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
             Block::Piston { sticky, facing, extended: false } => {
                 let s = facing.step();
                 let (hx, hy) = (x + s[0], y + s[1]);
-                if !p.free.contains(&(hx, hy)) || !g.get(hx, hy).is_air() {
+                if !p.free.contains(&(hx, hy)) || !g.get(hx, hy).is_air() || reserved(p, g, hx, hy) {
                     return false;
                 }
                 g.set(x, y, Block::Piston { sticky, facing, extended: true });
@@ -1022,6 +1095,8 @@ struct Shared {
     seen: Mutex<HashSet<u64>>,
     best: Mutex<Vec<(Score, Grid)>>,
     log: Mutex<Vec<String>>,
+    /// Strict screen improvements per move kind (MOVE_KINDS).
+    improved: [AtomicU64; 4],
 }
 
 fn grid_hash(g: &Grid) -> u64 {
@@ -1110,6 +1185,7 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         assist_pistons: Vec::new(),
         assist_events: [Vec::new(), Vec::new()],
         assist_weight: a.assist_weight,
+        assist_in_plane: HashSet::new(),
     };
     let mut prob = prob;
     if let Some(r) = &a.reference {
@@ -1132,9 +1208,14 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         let mut skipped = 0;
         for (ph, open) in [(0usize, true), (1usize, false)] {
             for (t, pos, st) in s.resolved(open)? {
-                if pos[2] == spec0.door[2] || st.as_deref() == Some("@use") {
+                if st.as_deref() == Some("@use") {
                     skipped += 1;
                     continue;
+                }
+                if pos[2] == spec0.door[2] {
+                    // an in-plane input: its cell is reserved (no block may go there) while the
+                    // input stays assisted
+                    prob.assist_in_plane.insert((pos[0], pos[1]));
                 }
                 let cell = (pos[0], pos[1]);
                 let k = match prob.assist_pistons.iter().position(|c| *c == cell) {
@@ -1236,6 +1317,7 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         seen: Mutex::new(HashSet::new()),
         best: Mutex::new(Vec::new()),
         log: Mutex::new(Vec::new()),
+        improved: [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
     };
     let jopts = cs::JudgeOpts::with_extra(28);
     let t0 = std::time::Instant::now();
@@ -1298,12 +1380,13 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
                 let best = sh.best.lock().unwrap();
                 let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}+{}ev-{}as({}b)", s.pts, s.max, s.ev, s.assisted, g.count())).collect();
                 println!(
-                    "[{el:>5}s] {} screens ({:.0}/s), {} perfect screens, {} redsim judge runs, {} finds; best {}",
+                    "[{el:>5}s] {} screens ({:.0}/s), {} perfect screens, {} redsim judge runs, {} finds; improvements by move {}; best {}",
                     sh.evals.load(Ordering::Relaxed),
                     sh.evals.load(Ordering::Relaxed) as f64 / t0.elapsed().as_secs_f64(),
                     sh.perfect.load(Ordering::Relaxed),
                     sh.full_evals.load(Ordering::Relaxed),
                     sh.finds.load(Ordering::Relaxed),
+                    MOVE_KINDS.iter().zip(sh.improved.iter()).map(|(n, c)| format!("{n}={}", c.load(Ordering::Relaxed))).collect::<Vec<_>>().join(" "),
                     top.join(" ")
                 );
                 // the current best, for inspection while the run goes on
@@ -1377,6 +1460,7 @@ fn anneal(
             let nm = 1 + rng.below(3);
             let mut changed = false;
             let mut last: Option<(i32, i32)> = None;
+            let mut kinds = [false; 4];
             for _ in 0..nm {
                 // the next move is next to the previous one half of the time (local pairs)
                 let at = match last {
@@ -1386,9 +1470,11 @@ fn anneal(
                     }
                     _ => None,
                 };
-                if let Some(c) = mutate(p, &mut cand, &mut rng, at) {
+                let mut kind = 0;
+                if let Some(c) = mutate(p, &mut cand, &mut rng, at, &mut kind) {
                     changed = true;
                     last = Some(c);
+                    kinds[kind] = true;
                 }
             }
             if !changed {
@@ -1397,6 +1483,14 @@ fn anneal(
             let s = screen(p, &cand);
             sh.evals.fetch_add(1, Ordering::Relaxed);
             let de = s.energy() - cs_.energy();
+            if de < 0.0 {
+                // a strict improvement: credit the move kinds that made it
+                for (k, used) in kinds.iter().enumerate() {
+                    if *used {
+                        sh.improved[k].fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            }
             if de <= 0.0 || rng.f64() < (-de / temp).exp() {
                 cur = cand;
                 cs_ = s;

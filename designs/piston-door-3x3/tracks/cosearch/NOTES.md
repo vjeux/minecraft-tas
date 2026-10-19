@@ -94,9 +94,17 @@ port are fixed (the lever may hang OUTSIDE the box: the community volume exclude
   best 43/79, no door: moving parts inside those cells (pistons, carried blocks, leaves + log) do
   not make K2's odd gap (agrees with wire56's lemma). Annealing 15 min with mechanism changes / lever
   moves: 43/79.
-* **Ideal assist** (`--assist`, 18:00Z): t1 + K2 plan-driven and fm-7x8-000 + pistmodel's 3-signal
-  plan both screen 79/79 fully assisted; the annealer releases inputs one by one (a released input
-  must be produced by real wiring). Runs: [below](#log).
+* **Ideal assist** (`--assist`, 18:00Z): a seed whose plan inputs are all plan-driven screens 79/79;
+  the annealer releases inputs one by one (a released input must come from real wiring).
+  * fm-7x8-000 (pistmodel, 3-signal groups plan, 10 off-plane inputs), lever at (-3,5): 8 of 10
+    released at 77/79 in 25 min (left: (-2,0), (-2,2), the left members of the puller group: the
+    crossing), the lever wandered to (4,6); continuing from that partial with only those 2 assisted:
+    no gain in 10 min. Restart with the lever pinned on the left: (-2,2) wires, (-2,0), (2,-2),
+    (2,4), (1,4) remain at 18:45Z.
+  * wire56 t1 + K2 plan (6 inputs): 4 released at 75/79 (P5 (1,5) and PTR (4,2) remain).
+  * vmid vm1 (ML leaves up, 12 inputs, oc plan of 15 pulses per edge), lever at (-2,-3): 5 of 12
+    released with the door still at 79/79 in 3 min (the column-0 elevator, lifted P4, BL, BR).
+  * families 8x8-131 / wire64 f131L (in-plane plans: only 2 inputs can be assisted): 43-47/79.
 
 ## Log
 * 23:16Z start; 23:46Z evaluator pushed; 00:04Z agreement 2049/2049; 00:15Z palette (coordinator);
