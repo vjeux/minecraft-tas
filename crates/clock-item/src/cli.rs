@@ -162,6 +162,34 @@ pub enum ItemClockCmd {
         #[arg(long, default_value = "designs/clocks/tracks/clk-item")]
         dir: PathBuf,
     },
+    /// Sweep the ring-lock family (families.rs `ring_lock`): 3-wide hopper rings of depth 3..=--max-d,
+    /// every comparator row, both directions, N items of --item as one stack in one ring hopper
+    /// (every hopper, N = 1..=--max-items): the periods each gives (longest and every distinct one).
+    SweepRinglock {
+        #[arg(long, default_value_t = 3)]
+        min_d: i32,
+        #[arg(long, default_value_t = 5)]
+        max_d: i32,
+        /// Only comparator rows up to this one (1 = the row next to the start corner).
+        #[arg(long, default_value_t = 1000)]
+        max_row: i32,
+        /// Only ring hoppers up to this index get the items (0 = the start corner).
+        #[arg(long, default_value_t = 1000)]
+        max_hopper: usize,
+        /// Print every case.
+        #[arg(long)]
+        all: bool,
+        #[arg(long, default_value_t = 16)]
+        max_items: u32,
+        #[arg(long, default_value = "stone")]
+        item: String,
+        #[arg(long, default_value_t = 200000)]
+        ticks: u32,
+        #[arg(long, default_value_t = 64)]
+        jobs: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Sweep the hopper-loop family (families.rs): every rectangular loop up to --max-w x --max-d
     /// (the facing pair is 2x1), with m items of one kind placed as one stack in hopper 0
     /// (`stack`), one per hopper side by side (`row`) or evenly spaced (`spread`); prints the
@@ -507,6 +535,83 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
             let path = dir.join(format!("{name}.txt"));
             std::fs::write(&path, text)?;
             println!("{}: P={} gt, {} blocks", path.display(), facts.period, spec.blocks.len());
+        }
+        ItemClockCmd::SweepRinglock { min_d, max_d, max_row, max_hopper, all, max_items, item, ticks, jobs, out } => {
+            use crate::families::{Stack, measure, ring_lock};
+            let mut cases: Vec<(i32, i32, bool, usize, u32)> = Vec::new();
+            for d in min_d.max(3)..=max_d {
+                let l = (2 * d + 2) as usize;
+                for zc in 1..=(d - 2).min(max_row) {
+                    for rev in [false, true] {
+                        for j in 0..l.min(max_hopper + 1) {
+                            for n in 1..=max_items {
+                                cases.push((d, zc, rev, j, n));
+                            }
+                        }
+                    }
+                }
+            }
+            eprintln!("sweep-ringlock: {} cases", cases.len());
+            let next = std::sync::atomic::AtomicUsize::new(0);
+            let res: std::sync::Mutex<Vec<((i32, i32, bool, usize, u32), Result<(u32, u32, u32, u32), String>)>> = std::sync::Mutex::new(Vec::new());
+            std::thread::scope(|sc| {
+                for _ in 0..jobs.max(1) {
+                    sc.spawn(|| {
+                        loop {
+                            let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            if i >= cases.len() {
+                                break;
+                            }
+                            let (d, zc, rev, j, n) = cases[i];
+                            let l = (2 * d + 2) as usize;
+                            let mut items: Vec<Vec<Stack>> = vec![Vec::new(); l];
+                            items[j].push((item.clone(), n));
+                            let r = match ring_lock(d, zc, rev, &items) {
+                                Some(des) => measure(&des, ticks),
+                                None => Err("no design".into()),
+                            };
+                            res.lock().unwrap().push((cases[i], r));
+                        }
+                    });
+                }
+            });
+            let mut res = res.into_inner().unwrap();
+            res.sort_by_key(|(c, _)| *c);
+            if all {
+                for ((d, zc, rev, j, n), r) in &res {
+                    match r {
+                        Ok((p, whole, on, edges)) => println!("3x{d} row {zc}{} hopper {j} n={n}: P={p} whole {whole} on {on} edges {edges}", if *rev { " rev" } else { "" }),
+                        Err(e) => println!("3x{d} row {zc}{} hopper {j} n={n}: {e}", if *rev { " rev" } else { "" }),
+                    }
+                }
+            }
+            let mut best: std::collections::BTreeMap<u32, (i32, i32, bool, usize, u32)> = std::collections::BTreeMap::new();
+            for (c, r) in &res {
+                if let Ok((p, _, _, _)) = r {
+                    let e = best.entry(*p).or_insert(*c);
+                    // fewest blocks (smallest d), then fewest items
+                    if (c.0, c.4) < (e.0, e.4) {
+                        *e = *c;
+                    }
+                }
+            }
+            println!("{} distinct periods", best.len());
+            for (p, (d, zc, rev, j, n)) in &best {
+                println!("P={p}: ring 3x{d} ({} blocks), comparator row {zc}{}, {n} {item} in hopper {j}", 2 * d + 2 + 2, if *rev { ", reversed" } else { "" });
+            }
+            if let Some(dir) = &out {
+                std::fs::create_dir_all(dir)?;
+                for (p, (d, zc, rev, j, n)) in &best {
+                    let l = (2 * d + 2) as usize;
+                    let mut items: Vec<Vec<Stack>> = vec![Vec::new(); l];
+                    items[*j].push((item.clone(), *n));
+                    if let Some(mut des) = ring_lock(*d, *zc, *rev, &items) {
+                        des.name = format!("ringlock-3x{d}-r{zc}{}-{n}{item}-h{j}-p{p}", if *rev { "r" } else { "" });
+                        des.meta.insert("period".into(), p.to_string());
+                        des.save(&dir.join(format!("{}.txt", des.name)))?;
+                    }
+                }
+            }
         }
         ItemClockCmd::SweepLoop { max_w, max_d, max_items, item, ticks, out } => {
             use crate::families::{Stack, hopper_loop, loop_cells, measure};

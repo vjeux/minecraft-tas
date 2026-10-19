@@ -74,6 +74,35 @@ pub fn hopper_loop(w: i32, d: i32, items: &[Vec<Stack>]) -> Option<Design> {
     Some(des)
 }
 
+/// A ring lock: a rectangular hopper ring 3 wide (x 0..2) and `d` deep (z), clockwise, with a
+/// comparator in the inner column at z = `zc` (standing on stone below it) that reads the west
+/// ring hopper (0, zc) and points into the east one (2, zc), locking it while the west one holds
+/// items. `reversed` runs the ring counter-clockwise. `items[i]` = stacks of ring hopper i.
+pub fn ring_lock(d: i32, zc: i32, reversed: bool, items: &[Vec<Stack>]) -> Option<Design> {
+    if d < 3 || zc < 1 || zc > d - 2 {
+        return None;
+    }
+    let mut cells = loop_cells(3, d);
+    if reversed {
+        cells.reverse();
+    }
+    let mut des = Design { name: format!("ringlock-3x{d}"), ..Default::default() };
+    let n = cells.len();
+    for (i, c) in cells.iter().enumerate() {
+        let next = cells[(i + 1) % n];
+        des.blocks.insert([c.0, 1, c.1], format!("minecraft:hopper[enabled=true,facing={}]", facing(*c, next)));
+        if let Some(st) = items.get(i)
+            && !st.is_empty()
+        {
+            des.block_entities.insert([c.0, 1, c.1], items_snbt(st));
+        }
+    }
+    des.blocks.insert([1, 1, zc], "minecraft:comparator[facing=west,mode=compare,powered=false]".into());
+    des.blocks.insert([1, 0, zc], "minecraft:stone".into());
+    des.ports.insert("output".into(), [1, 1, zc]);
+    Some(des)
+}
+
 /// Judge a design in redsim: (visible period, whole-state period, on ticks, rising edges) or why
 /// not.
 pub fn measure(d: &Design, max_ticks: u32) -> Result<(u32, u32, u32, u32), String> {

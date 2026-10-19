@@ -1,0 +1,22 @@
+# Skeleton: classic shuttle hopper clock. Hoppers A (east) / B (west) facing each other, 6 stone in A.
+# A sticky-piston shuttle above them: P1 (west, facing east) | R over A | over B | P2 (east, facing west).
+# Comparators C1 (reads A) and C2 (reads B) output north; the fill searches the links to the pistons.
+name: shuttle
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:6}]}
+origin: -1 0 -1
+palette:
+  S minecraft:stone
+  A minecraft:hopper[enabled=true,facing=east]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  R minecraft:redstone_block
+layer 0:
+  .SS
+layer 1:
+  .CC
+  .AB
+layer 2:
+  .
+  ER.W
