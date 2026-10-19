@@ -2,7 +2,7 @@ design designs/piston-door-3x3/tracks/q78/e78/e78wsG.txt
 # wool e78: B' (two sensors), A2 + open A3 (gate observer (2,-2)) real; A1, K, A3 (both edges, late) ideal
 let a1 = 4
 let k = 7
-let c3 = 30
+let c3 = 50
 open 0 use 1 5 0
 close 0 use 1 5 0
 open a1 set 1 -2 1 minecraft:redstone_block
