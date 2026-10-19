@@ -2233,6 +2233,15 @@ pub struct PocketArgs {
     /// `observer[facing=east];repeater[facing=east,delay=4];redstone_wire`).
     #[arg(long)]
     pub fill_states: Option<String>,
+    /// Per-pocket `--k` (repeatable, `x,y=K`: the pocket holding door cell (x,y) takes fillings
+    /// of up to K blocks): cross-region runs where one pocket needs a deeper search than another.
+    #[arg(long)]
+    pub pocket_k: Vec<String>,
+    /// Per-pocket palette (repeatable, `x,y=<families>` as in --fill-palette, or
+    /// `x,y=states:<states ;-separated>` as in --fill-states): the pocket holding door cell (x,y)
+    /// uses it instead of the global palette.
+    #[arg(long)]
+    pub pocket_fill: Vec<String>,
     /// Window scan (ticks) around each plan pulse / level edge.
     #[arg(long, default_value_t = 24)]
     pub win: i32,
@@ -2822,6 +2831,37 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     };
     let pal: Vec<Block> = pal.into_iter().filter(|b| !b.is_air()).collect();
     let stone_pal: Vec<Block> = pal.iter().copied().filter(|b| matches!(b, Block::Simple(Simple::Stone) | Block::Simple(Simple::SmoothStone))).collect();
+    // per-pocket k and palettes (`--pocket-k x,y=K`, `--pocket-fill x,y=<families>|states:<..>`),
+    // keyed by a door cell inside the pocket
+    let cell_key = |s: &str| -> Result<((i32, i32), String)> {
+        let (c, v) = s.split_once('=').with_context(|| format!("expected x,y=..., not {s:?}"))?;
+        let xy: Vec<i32> = c.split(',').filter_map(|t| t.trim().parse().ok()).collect();
+        anyhow::ensure!(xy.len() == 2, "expected x,y=..., not {s:?}");
+        Ok(((xy[0] + dx, xy[1] + dy), v.trim().to_string()))
+    };
+    let mut pocket_k: Vec<((i32, i32), usize)> = Vec::new();
+    for s in &pa.pocket_k {
+        let (c, v) = cell_key(s)?;
+        pocket_k.push((c, v.parse().with_context(|| format!("--pocket-k {s}"))?));
+    }
+    let mut pocket_pal: Vec<((i32, i32), Vec<Block>)> = Vec::new();
+    for s in &pa.pocket_fill {
+        let (c, v) = cell_key(s)?;
+        let pv = match v.strip_prefix("states:") {
+            Some(st) => {
+                let mut out = Vec::new();
+                for t in st.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                    out.push(Block::parse(t).map_err(|e| anyhow::anyhow!("--pocket-fill {t}: {e}"))?);
+                }
+                out
+            }
+            None => palette(&v)?,
+        };
+        pocket_pal.push((c, pv.into_iter().filter(|b| !b.is_air()).collect()));
+    }
+    for (c, _) in pocket_k.iter().map(|(c, _)| (c, ())).chain(pocket_pal.iter().map(|(c, _)| (c, ()))) {
+        anyhow::ensure!(pockets.iter().any(|pk| pk.contains(c)), "--pocket-k / --pocket-fill: ({},{}) is in no pocket", c.0 - dx, c.1 - dy);
+    }
     // ---- per pocket enumeration
     // what the seed's own (remaining) wiring already feeds the inputs, tick by tick: a filling's
     // traces are matched with those ticks taken out (the door's other wiring keeps its share)
@@ -2854,6 +2894,15 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             continue;
         }
         let tp = std::time::Instant::now();
+        // this pocket's k and palette (--pocket-k / --pocket-fill)
+        let kp = pocket_k.iter().find(|(c, _)| pk.contains(c)).map(|(_, k)| *k).unwrap_or(pa.k);
+        let (pal, stone_pal): (Vec<Block>, Vec<Block>) = match pocket_pal.iter().find(|(c, _)| pk.contains(c)) {
+            Some((_, pv)) => (pv.clone(), pv.iter().copied().filter(|b| matches!(b, Block::Simple(Simple::Stone) | Block::Simple(Simple::SmoothStone))).collect()),
+            None => (pal.clone(), stone_pal.clone()),
+        };
+        if kp != pa.k || pocket_pal.iter().any(|(c, _)| pk.contains(c)) {
+            println!("pocket {pi}: k {kp}, {} states", pal.len());
+        }
         let touches_context = |cells: &[(i32, i32)]| cells.iter().any(|(x, y)| [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(ddx, ddy)| rest_occ.contains(&(x + ddx, y + ddy))));
         // work items: (subset of pocket cell indices, lever option, the fixed states of the first
         // cells when the item is split: big subsets are split by their first 1-3 cells' states so
@@ -2884,7 +2933,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                 }
             }
         };
-        for sub in subsets_upto(pk.len(), pa.k) {
+        for sub in subsets_upto(pk.len(), kp) {
             let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
             if !connected(&cells) {
                 continue;
@@ -2892,7 +2941,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             if touches_context(&cells) {
                 push(&mut items, &sub, None);
             }
-            if sub.len() < pa.k {
+            if sub.len() < kp {
                 for &pw in &polarities {
                     for &l in &lever_cands {
                         if cells.contains(&l) {
