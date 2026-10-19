@@ -1,0 +1,27 @@
+name: hs23-0217
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=west]
+  D minecraft:stone
+  P minecraft:piston_head[facing=west,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  ...A
+layer -2:
+  .A.A
+layer -1:
+  ..D.D
+layer 0:
+  s.DDDPC
+layer 1:
+  s.DDDPC
+layer 2:
+  s.DDDPC
+layer 3:
+  .sD..B
+layer 4:
+  ...S
