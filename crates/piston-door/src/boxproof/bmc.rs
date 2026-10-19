@@ -483,7 +483,7 @@ pub fn cli(a: &Args) -> Result<()> {
                 // the design's own lever (if it has one)
                 let d = mctas::design::Design::load(std::path::Path::new(p))?;
                 let door = *d.ports.get("door").context("no door port")?;
-                if let Some(&lp) = d.ports.get("lever") {
+                if let Some(&lp) = d.ports.get("lever").filter(|_| !a.has("free-lever")) {
                 let ls = d.block_list().into_iter().find(|(q, _)| *q == lp).map(|(_, s)| s).context("no lever block")?;
                 let pos = (lp[0] - door[0] + dx, lp[1] - door[1] + dy);
                 let face = ls.split("face=").nth(1).map(|s| s.split([',', ']']).next().unwrap_or("")).unwrap_or("");
