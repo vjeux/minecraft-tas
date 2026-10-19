@@ -17,11 +17,20 @@ pub struct CycleArgs {
     write_state: Option<usize>,
     #[arg(long)]
     out: Option<PathBuf>,
+    /// Uncertain cells of a transcription: `x,y[,z]=state|state|...` (`air`, `keep`, block
+    /// states as in `door ideal-rs --vary`); every combination is cycled and judged.
+    #[arg(long)]
+    vary: Vec<String>,
+    #[arg(long, default_value_t = 16)]
+    threads: usize,
+    /// With --vary: print only the combinations that cycle.
+    #[arg(long)]
+    ok_only: bool,
 }
 
 pub fn cmd_cycle(args: CycleArgs) -> Result<()> {
-    let CycleArgs { design, flips, write_state, out } = args;
-    crate::cycle::cli(&design, flips, write_state, out.as_deref())?;
+    let CycleArgs { design, flips, write_state, out, vary, threads, ok_only } = args;
+    crate::cycle::cli(&design, flips, write_state, out.as_deref(), &vary, threads, ok_only)?;
     Ok(())
 }
 

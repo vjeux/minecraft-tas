@@ -1,0 +1,14 @@
+# c70b t8p: P_M search frame: B hold ideal (b, bw; the plan toggles the gate cell (0,-3) at b / b+bw), P_M REAL (vary the left cells)
+design designs/piston-door-3x3/tracks/c70b/t7b/t8p.txt
+let b = 18
+let bw = 8
+open 0 use 1 5 0
+close 0 use 1 5 0
+open b set 1 -3 1 minecraft:redstone_block
+open b+bw clear 1 -3 1
+close b set 1 -3 1 minecraft:redstone_block
+close b+bw clear 1 -3 1
+open b set 0 -3 0 minecraft:glass
+open b+bw clear 0 -3 0
+close b set 0 -3 0 minecraft:glass
+close b+bw clear 0 -3 0

@@ -1,0 +1,17 @@
+# c70: M-side search frame: b1mU (U by the test observer X toggled at gu / guc); the top-left (E chain + M observer's watched cell) is varied; BL/BM ideal.
+design designs/piston-door-3x3/tracks/c70/wip/b1mU.txt
+let gu = 12
+let guc = 12
+let bl = 46
+open 0 use 1 5 0
+open gu set -1 -1 2 minecraft:glass
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+open bl set 1 -2 1 minecraft:redstone_block
+open bl+2 clear 1 -2 1
+close 0 use 1 5 0
+close guc clear -1 -1 2
+close bl set 0 -2 1 minecraft:redstone_block
+close bl+2 clear 0 -2 1
+close bl set 1 -2 1 minecraft:redstone_block
+close bl+2 clear 1 -2 1
