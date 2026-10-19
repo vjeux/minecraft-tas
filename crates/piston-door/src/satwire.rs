@@ -368,8 +368,9 @@ impl Phase {
 }
 
 /// Alternative recordings of a group of mechanism cells for one trace (`--menu`: a toggle
-/// piston's pulse retimed or tripled): the solver picks one alternative per group; the group's
-/// cells take their frames and piston power from it, every other cell from the base recording.
+/// piston's pulse retimed or tripled; `--hold`: a pulse puller held extended at rest): the solver
+/// picks one alternative per group; the group's cells take their frames and piston power from it,
+/// every other cell from the base recording.
 #[derive(Clone, Debug)]
 pub struct AltGroup {
     pub name: String,
@@ -377,6 +378,9 @@ pub struct AltGroup {
     pub cells: BTreeSet<C2>,
     /// (label, the whole trace recorded with that alternative; only `cells` are read)
     pub alts: Vec<(String, Phase)>,
+    /// The group of the other trace that must pick the same alternative (`--hold`: the rest
+    /// state of the piston changes with the choice, so both traces follow it).
+    pub link: Option<usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -1508,7 +1512,7 @@ pub fn add_menu(w: &mut Worker, rec: &mut Rec, items: &[(String, usize, String, 
         log.push(format!("menu {g} ({}): {} alternatives ({}), cells {:?}", ["open", "close"][tr], alts.len() + 1, labels.join(" "), cells));
         let mut all = vec![("as planned".to_string(), base)];
         all.extend(alts);
-        rec.groups.push(AltGroup { name: g, tr, cells, alts: all });
+        rec.groups.push(AltGroup { name: g, tr, cells, alts: all, link: None });
     }
     for tr in 0..2 {
         let n = rec.trace_phases(tr).iter().map(|p| p.frames.len()).max().unwrap_or(0);
@@ -1522,7 +1526,230 @@ pub fn add_menu(w: &mut Worker, rec: &mut Rec, items: &[(String, usize, String, 
     Ok(log)
 }
 
+/// `--hold`: offer a HOLD alternative for each pulse puller of the recording. A pulse puller is a
+/// sticky piston, retracted at rest and when open, that on OPEN extends once into air (the cell in
+/// front of it stays air until then) and retracts once (pulling the block two ahead of it), and on
+/// CLOSE extends once (pushing that block back) and spits it (retracts within 2 gt), the cell in
+/// front staying air afterwards. Mech-synth plans pulse every piston from rest like this; the real
+/// doors (c79, pockets, e88) hang such pullers on the lever's level instead: extended at rest, they
+/// only retract on open and only extend (and stay) on close. The alternative is built from the
+/// recorded frames (no ideal input, hence no input side effects such as QC-firing the piston
+/// below): the piston extended with its head in front until the open retraction starts, and from
+/// the close extension on. One group per trace and piston, the two linked (the same choice in both
+/// traces: the rest state follows it). `only`: the piston cells offered (None: every pulse puller).
+/// Returns one log line per piston offered.
+pub fn add_holds(rec: &mut Rec, only: Option<&[C2]>) -> Vec<String> {
+    let mut log = Vec::new();
+    let (ph0, ph1) = (rec.phases[0].clone(), rec.phases[1].clone());
+    let mut taken: [BTreeSet<C2>; 2] = [0usize, 1].map(|tr| rec.groups.iter().filter(|g| g.tr == tr).flat_map(|g| g.cells.iter().copied()).collect());
+    let mut cands: Vec<C2> = ph0.frames[0].iter().filter(|(_, s)| matches!(mk(s), MK::Piston { ext: false, sticky: true, .. })).map(|(c, _)| *c).collect();
+    cands.sort();
+    for p in cands {
+        if only.is_some_and(|v| !v.contains(&p)) {
+            continue;
+        }
+        let x = ph0.frames[0][&p].clone();
+        let MK::Piston { f, .. } = mk(&x) else { continue };
+        if !DIRS.contains(&f) {
+            continue;
+        }
+        let (fc, dc) = (add(p, f), add(add(p, f), f));
+        let ext = x.replace("extended=false", "extended=true");
+        let head = format!("minecraft:piston_head[facing={},short=false,type=sticky]", dname(f));
+        let st = |ph: &Phase, j: usize, c: C2| ph.frames[j].get(&c).cloned();
+        let is_air = |s: &Option<String>| s.as_ref().is_none_or(|s| mk(s) == MK::Air);
+        let moving = |s: &Option<String>| s.as_deref().is_some_and(|v| short(v) == "moving_piston");
+        // retracted from frame 0, then extended, then moving (retracting), then retracted to the end:
+        // (first extended frame, first retracting frame)
+        let pat = |ph: &Phase| -> Option<(usize, usize)> {
+            let n = ph.frames.len();
+            let s: Vec<Option<String>> = (0..n).map(|j| st(ph, j, p)).collect();
+            if s[0].as_deref() != Some(x.as_str()) {
+                return None;
+            }
+            let te = (0..n).find(|&j| s[j].as_deref() != Some(x.as_str()))?;
+            if s[te].as_deref() != Some(ext.as_str()) {
+                return None;
+            }
+            let tr = (te..n).find(|&j| s[j].as_deref() != Some(ext.as_str()))?;
+            if !moving(&s[tr]) {
+                return None;
+            }
+            let tb = (tr..n).find(|&j| !moving(&s[j]))?;
+            if (tb..n).any(|j| s[j].as_deref() != Some(x.as_str())) {
+                return None;
+            }
+            Some((te, tr))
+        };
+        let (Some((te0, tr0)), Some((te1, ts1))) = (pat(&ph0), pat(&ph1)) else { continue };
+        // open: it extends into air (the head can stand there from rest)
+        if !(0..te0).all(|j| is_air(&st(&ph0, j, fc))) {
+            continue;
+        }
+        // close: it spits (retracts within 2 gt of its extension) and the cell in front stays air
+        // from then on (the head can stay there)
+        if ts1 > te1 + 2 || !(ts1..ph1.frames.len()).all(|j| is_air(&st(&ph1, j, fc))) {
+            continue;
+        }
+        let mut oh = ph0.clone();
+        for j in 0..tr0 {
+            oh.frames[j].insert(p, ext.clone());
+            oh.frames[j].insert(fc, head.clone());
+            if let Some(pw) = oh.power.get_mut(j) {
+                pw.insert(p, true);
+            }
+        }
+        let mut chh = ph1.clone();
+        let n1 = chh.frames.len();
+        for j in te1..n1 {
+            chh.frames[j].insert(p, ext.clone());
+            if j >= te1 + 2 {
+                chh.frames[j].insert(fc, head.clone());
+            }
+            if let Some(pw) = chh.power.get_mut(j) {
+                pw.insert(p, true);
+            }
+        }
+        if ts1 == te1 + 1 && te1 + 1 < n1 {
+            // a 1 gt spit: held, the extension is still moving in its second tick
+            for c in [fc, dc] {
+                if let Some(s) = st(&ph1, te1, c).filter(|_| moving(&st(&ph1, te1, c))) {
+                    chh.frames[te1 + 1].insert(c, s);
+                }
+            }
+        }
+        if chh.power.len() > n1 {
+            chh.power.truncate(n1);
+        }
+        let diff = |a: &Phase, b: &Phase| -> BTreeSet<C2> {
+            let mut cells = BTreeSet::new();
+            for j in 0..a.frames.len().max(b.frames.len()) {
+                let (fa, fb) = (a.frame(j as i32), b.frame(j as i32));
+                cells.extend(fa.keys().chain(fb.keys()).filter(|c| fa.get(c) != fb.get(c)));
+                let (pa, pb) = (a.pow(j as i32), b.pow(j as i32));
+                cells.extend(pa.keys().chain(pb.keys()).filter(|c| pa.get(c).copied().unwrap_or(false) != pb.get(c).copied().unwrap_or(false)));
+            }
+            cells
+        };
+        let (c0, c1) = (diff(&ph0, &oh), diff(&ph1, &chh));
+        if !c0.is_disjoint(&taken[0]) || !c1.is_disjoint(&taken[1]) {
+            log.push(format!("hold ({},{}): skipped (its cells meet another group's)", p.0, p.1));
+            continue;
+        }
+        taken[0].extend(c0.iter().copied());
+        taken[1].extend(c1.iter().copied());
+        let g = rec.groups.len();
+        let name = format!("hold ({},{})", p.0, p.1);
+        rec.groups.push(AltGroup { name: name.clone(), tr: 0, cells: c0, alts: vec![("pulse".into(), ph0.clone()), ("hold".into(), oh)], link: Some(g + 1) });
+        rec.groups.push(AltGroup { name: name.clone(), tr: 1, cells: c1, alts: vec![("pulse".into(), ph1.clone()), ("hold".into(), chh)], link: Some(g) });
+        log.push(format!("{name}: may hang on a level (extended at rest; open retracts at t{tr0}, its extension at t{te0} dropped; close extends at t{te1} and stays, its spit at t{ts1} dropped)"));
+    }
+    log
+}
+
 // ---------------------------------------------------------------- the model
+
+/// The inverse of `--hold` (a known-answer test of it): turn the held pullers at `cells` of a
+/// recording (sticky, extended at rest with the head in front, retracting once on open, extending
+/// once and staying on close) into pulse pullers (retracted at rest; open: extend into air 2 gt
+/// before the recorded retraction; close: spit 2 gt after the recorded extension). Returns the
+/// original phases (to compare `add_holds`' alternative with) and one line per piston.
+pub fn unhold(rec: &mut Rec, cells: &[C2]) -> ([Phase; 2], Vec<String>) {
+    let orig = rec.phases.clone();
+    let mut log = Vec::new();
+    for &p in cells {
+        let Some(e) = rec.phases[0].frames[0].get(&p).cloned() else {
+            log.push(format!("unhold ({},{}): no piston at rest", p.0, p.1));
+            continue;
+        };
+        let MK::Piston { f, ext: true, sticky: true } = mk(&e) else {
+            log.push(format!("unhold ({},{}): not an extended sticky piston at rest", p.0, p.1));
+            continue;
+        };
+        let fc = add(p, f);
+        let x = e.replace("extended=true", "extended=false");
+        let mv = format!("minecraft:moving_piston[facing={},type=sticky]", dname(f));
+        let (o, c) = (&rec.phases[0], &rec.phases[1]);
+        let Some(tr) = (0..o.frames.len()).find(|&j| o.frames[j].get(&p) != Some(&e)) else { continue };
+        let Some(te) = (0..c.frames.len()).find(|&j| c.frames[j].get(&p) != Some(&x)) else { continue };
+        if tr < 2 {
+            log.push(format!("unhold ({},{}): retracts at t{tr}, too early to pulse before", p.0, p.1));
+            continue;
+        }
+        let mut o2 = o.clone();
+        for j in 0..tr {
+            let extending = j + 2 >= tr;
+            o2.frames[j].insert(p, if extending { e.clone() } else { x.clone() });
+            if extending {
+                o2.frames[j].insert(fc, mv.clone());
+            } else {
+                o2.frames[j].remove(&fc);
+            }
+            if let Some(pw) = o2.power.get_mut(j) {
+                pw.insert(p, j + 2 >= tr);
+            }
+        }
+        let mut c2 = c.clone();
+        for j in te + 2..c2.frames.len() {
+            match j - (te + 2) {
+                0 | 1 => {
+                    c2.frames[j].insert(p, mv.clone());
+                    if let Some(pw) = c2.power.get_mut(j) {
+                        pw.remove(&p);
+                    }
+                }
+                _ => {
+                    c2.frames[j].insert(p, x.clone());
+                    if let Some(pw) = c2.power.get_mut(j) {
+                        pw.insert(p, false);
+                    }
+                }
+            }
+            c2.frames[j].remove(&fc);
+        }
+        if let Some(pw) = c2.power.get_mut(te + 2) {
+            pw.insert(p, false);
+        }
+        rec.phases = [o2, c2];
+        log.push(format!("unhold ({},{}): pulse puller now (open: extends at t{}, retracts at t{tr}; close: extends at t{te}, spits at t{})", p.0, p.1, tr - 2, te + 2));
+    }
+    for (c, s) in &rec.phases[0].frames[0] {
+        rec.rest.insert([c.0, c.1, rec.z], s.clone());
+    }
+    rec.rest.retain(|pos, _| rec.phases[0].frames[0].contains_key(&(pos[0], pos[1])));
+    (orig, log)
+}
+
+/// Compare the hold alternatives `add_holds` built for the pistons at `cells` with the original
+/// (held) recording: one line per group (frames and piston power of its cells, frame by frame).
+pub fn hold_selftest(rec: &Rec, orig: &[Phase; 2], cells: &[C2]) -> Vec<String> {
+    let mut out = Vec::new();
+    for g in rec.groups.iter().filter(|g| g.name.starts_with("hold") && cells.iter().any(|c| g.name == format!("hold ({},{})", c.0, c.1))) {
+        let Some((_, alt)) = g.alts.iter().find(|a| a.0 == "hold") else { continue };
+        let o = &orig[g.tr];
+        let mut bad = Vec::new();
+        for j in 0..alt.frames.len().max(o.frames.len()) {
+            for c in &g.cells {
+                let (a, b) = (alt.frame(j as i32).get(c), o.frame(j as i32).get(c));
+                if a != b {
+                    bad.push(format!("t{j} {c:?} hold {} real {}", a.map_or("air", |s| s.as_str()), b.map_or("air", |s| s.as_str())));
+                }
+                let (pa, pb) = (alt.pow(j as i32).get(c).copied(), o.pow(j as i32).get(c).copied());
+                if pa.unwrap_or(false) != pb.unwrap_or(false) && (pa.is_some() || pb.is_some()) {
+                    bad.push(format!("t{j} {c:?} power hold {pa:?} real {pb:?}"));
+                }
+            }
+        }
+        if bad.is_empty() {
+            out.push(format!("hold selftest {} {}: the hold alternative equals the real recording", ["open", "close"][g.tr], g.name));
+        } else {
+            let n = bad.len();
+            bad.truncate(6);
+            out.push(format!("hold selftest {} {}: {n} differences: {}", ["open", "close"][g.tr], g.name, bad.join("; ")));
+        }
+    }
+    out
+}
 
 const P_COND: u8 = 0;
 const P_DUST: u8 = 1;
@@ -2314,6 +2541,15 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         let v: Vec<Lit> = g.alts.iter().map(|_| e.var()).collect();
         e.exactly_one(&v);
         alt_sel.push(v);
+    }
+    // linked groups (`--hold`: one piston's two traces) pick the same alternative
+    for (gi, g) in p.rec.groups.iter().enumerate() {
+        if let Some(o) = g.link.filter(|o| *o > gi && *o < alt_sel.len()) {
+            for a in 0..g.alts.len().min(alt_sel[o].len()) {
+                let (x, y) = (alt_sel[gi][a], alt_sel[o][a]);
+                e.eq(x, y);
+            }
+        }
     }
     // the time warp: SAT tick k plays recorded tick tau (k <= 0: tau 0); a static recorded tick
     // may be replayed (a stall) and static ticks may be skipped; motion plays at full speed
@@ -3297,6 +3533,25 @@ pub fn decode(m: &Model, name: &str) -> Sol {
         let st = if logs && short(s) == "stone" { "minecraft:oak_log[axis=y]".to_string() } else { s.clone() };
         d.blocks.insert(*pos, st);
     }
+    // the rest state of the cells of an open-trace group follows its chosen alternative (`--hold`:
+    // a held puller rests extended with its head in front)
+    for (gi, g) in p.rec.groups.iter().enumerate().filter(|(_, g)| g.tr == 0) {
+        let Some(a) = m.alt_sel[gi].iter().position(|l| m.e.val(*l)) else { continue };
+        if a == 0 {
+            continue;
+        }
+        let f0 = &g.alts[a].1.frames[0];
+        for c in &g.cells {
+            match f0.get(c) {
+                Some(s) => {
+                    d.blocks.insert([c.0, c.1, z], s.clone());
+                }
+                None => {
+                    d.blocks.remove(&[c.0, c.1, z]);
+                }
+            }
+        }
+    }
     for c in &p.free {
         let k = p.kinds[c].iter().copied().find(|k| m.e.val(m.kl[&(*c, *k)])).unwrap_or(Kind::Empty);
         if k == Kind::Empty {
@@ -3738,8 +3993,10 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
         ));
         // redsim (the judge's checks on the game-verified fast simulator) screens first
         let offs = crate::VerifyOptions::default().offsets;
-        // --retime: the candidate's timing must keep the mechanism working with ideal inputs
-        if retime {
+        // --retime: the candidate's timing must keep the mechanism working with ideal inputs (the
+        // plan's inputs pulse every piston: a candidate with a held puller is left to the judge)
+        let held = s.alts.iter().any(|a| a.ends_with(": hold"));
+        if retime && !held {
             if let Some(plan) = p.plan.as_ref() {
                 let s2 = retimed_plan(&m, plan)?;
                 if let Err(e) = crate::ideal_rs::run(&s2, &BTreeMap::new(), &offs, 2, false) {

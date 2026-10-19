@@ -18,6 +18,7 @@ mctas door satwire x.ideal --box=x0,y0,z0:x1,y1,z1 --forbid-ring \
 mctas door satwire e89b.txt --from-wired --forbid-ring          # re-wire a design's mechanism
 mctas door satwire tracks/families/CATALOG.tsv --families 8x8-119 # a catalog entry (sym train)
 mctas door satwire plan.ideal --fixed partly-wired.txt          # keep those cells, solve the rest
+mctas door satwire plan.ideal --hold auto --lever-on ...        # each pulse puller: pulse OR held on a level
 mctas door satwire --check archive/*.txt --jobs 8               # replay check of the model
 ```
 UNSAT prints a core: the pistons whose recorded power cannot be produced together; `--diag` also
@@ -259,3 +260,23 @@ lever/observer chains; not diagnosed yet).
   lever's level; a plan variant per piston (pulse vs held) as `--menu` alternatives; (2) a mechspace
   wireability filter from the one-piston cores (a piston whose free neighbors cannot see a mechanism
   change at its time is unwirable); (3) warp-aware `--explain` (pin the candidate's own warp).
+
+## Results 2026-10-19, third shift (satwire3, devvm55676)
+* satwire2's last runs checked at 12:25Z: no door (the e88-t7b 42b runs only re-found the 23-wiring
+  source; e88 in 7x8 UNSAT with cluster warps 2 and 4; the sensor-free 8x8 still solving).
+* **`--hold <auto|x,y;x,y>` (new): the solver chooses PER PISTON between the recorded pulse and a
+  HOLD on a level.** A pulse puller (sticky, retracted at rest and open; open: extends once into air,
+  retracts once pulling; close: extends once pushing, spits within 2 gt) gets an alternative built from
+  the recorded frames (no ideal input, so no input side effect): extended with its head in front at
+  rest, open = only the retraction (at its recorded tick), close = the extension that stays. One
+  alternative group per trace, the two linked (same choice; the rest state follows it: `decode` writes
+  the held piston extended). `--retime`'s plan replay is skipped for a candidate with a hold (the
+  plan's inputs pulse; the judge decides).
+* Known answer (SATWIRE_UNHOLD=x,y: those held pullers of a wired recording become pulse pullers
+  first, then `--hold auto` must give them back): pockets-63b-50's top elevator piston (1,5): the hold
+  alternative equals the real recording frame by frame (frames and piston power, both traces), the
+  source wiring is accepted with the hold chosen, judged OK at 4 and 32 positions (50 blocks).
+  c79's and pockets' R pairs cannot be unheld: they retract at t1, before any pulse could (a hold
+  is also the only way to pull at the lever flip). c79 with `--hold auto` (5 pulse pullers offered a
+  hold): its own wiring accepted (pulse chosen), judged OK at 32.
+* Batch mode skips a BROKEN plan (its own ideal-input replay fails in redsim); `--keep-broken`.
