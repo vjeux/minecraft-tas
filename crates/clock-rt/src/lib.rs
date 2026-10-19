@@ -539,6 +539,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         return None;
                     }
                     let key = match mctas::design::Design::load(&dir.join(f[1])) {
+                        // a family card's base design is the card, not an instance to remove
+                        Ok(d) if d.meta.contains_key("extend family") => return None,
                         Ok(d) => clock::canon::design_type_key(&d),
                         Err(_) => f[13].to_string(),
                     };
