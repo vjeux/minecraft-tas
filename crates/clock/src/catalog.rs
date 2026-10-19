@@ -170,6 +170,10 @@ pub fn dedupe(dir: &Path, img_dir: &Path) -> Result<Vec<String>> {
     let mut kept: BTreeMap<(u32, String), Row> = BTreeMap::new();
     let mut removed: Vec<(Row, Row)> = Vec::new();
     for r in &rows {
+        // an extendable family's base is its own entry: never removed, never removes another
+        if Clock::load(&dir.join(&r.file)).is_ok_and(|c| c.design.meta.contains_key("extend family")) {
+            continue;
+        }
         let tk = (r.period, archived_type_key(dir, r));
         match kept.get(&tk) {
             Some(k) => removed.push((k.clone(), r.clone())),
@@ -247,17 +251,31 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         let r = crate::sim::simulate(&c, &crate::sim::SimOptions::default());
         (r.verdict == Verdict::Clock).then_some(r.period)
     };
-    if let Some(r) = same_type.iter().find(|r| Some(r.period) == sim_period) {
+    // (an extendable family's base is archived even when its n = base instance already is: the
+    // family card is another entry, the instance leaves the gallery)
+    let is_family = c.design.meta.contains_key("extend family");
+    if let Some(r) = same_type.iter().find(|r| Some(r.period) == sim_period).filter(|_| !is_family) {
         return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
     }
     let rep = verify_in_pool(pool, &c, o)?;
     if rep.verdict != Verdict::Clock {
         bail!("not archived: {}", rep.summary());
     }
-    if let (Some(b), true) = (rep.base(), sim_period.is_none()) {
+    if let (Some(b), true) = (rep.base(), sim_period.is_none() && !is_family) {
         if let Some(r) = same_type.iter().find(|r| r.period == b.period) {
             return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
         }
+    }
+    // an extendable family: n = low, low+1, low+2, the middle and the high end judged in the game
+    // first (period and blocks must follow the formulas), then recorded in extend.tsv
+    let family = crate::extend::Family::of(&c)?;
+    let mut family_rows = Vec::new();
+    if let Some(f) = &family {
+        let checked = crate::extend::check(pool, path, f, &f.sample(), o)?;
+        if let Some((_, _, line)) = checked.iter().find(|(_, ok, _)| !ok) {
+            bail!("not archived: extend family {}: {line}", f.id);
+        }
+        family_rows = checked.into_iter().map(|(i, _, _)| i).collect();
     }
     let base = rep.base().unwrap().clone();
     std::fs::create_dir_all(dir)?;
@@ -311,6 +329,13 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         caps.push_str(&format!("{file}\t{}\n", cap.replace(['\t', '\n'], " ")));
         std::fs::write(&cp, caps)?;
     }
+    if !family_rows.is_empty() {
+        crate::extend::record(dir, &family_rows)?;
+    }
+    let summary = match &family {
+        Some(f) => format!("{summary}; extend family {}: P = {} gt, n = {}..{} (judged: n = {})", f.id, f.period.text(), f.n_lo, f.n_hi, family_rows.iter().map(|r| r.n.to_string()).collect::<Vec<_>>().join(", ")),
+        None => summary,
+    };
     Ok(Archived { file: dir.join(file), summary, new: true })
 }
 
@@ -424,10 +449,65 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         periods.len(),
         families.len()
     ));
+    // extendable families (archived base designs with `extend` headers) and their verified
+    // instances (archive/extend.tsv): one card each; their instances leave the per-period gallery
+    let mut fams: Vec<(Row, crate::extend::Family)> = Vec::new();
+    for r in &rows {
+        if let Ok(c) = Clock::load(&dir.join(&r.file)) {
+            if let Ok(Some(f)) = crate::extend::Family::of(&c) {
+                fams.push((r.clone(), f));
+            }
+        }
+    }
+    fams.sort_by(|a, b| (a.1.period.eval(a.1.base), &a.1.id).cmp(&(b.1.period.eval(b.1.base), &b.1.id)));
+    let instances = crate::extend::read_instances(dir);
+    let fam_files: BTreeSet<String> = fams.iter().map(|(r, _)| r.file.clone()).collect();
+    let is_instance = |r: &Row| -> Option<(String, i64)> {
+        if fam_files.contains(&r.file) {
+            return fams.iter().find(|(fr, _)| fr.file == r.file).map(|(_, f)| (f.id.clone(), f.base));
+        }
+        let tk = &type_of[&r.file];
+        instances.iter().find(|x| x.period == r.period && &x.type_key == tk).map(|x| (x.family.clone(), x.n))
+    };
+    if !fams.is_empty() {
+        md.push_str("\n## Extendable clocks\n\nOne card per family: the base design, its period and size for any n, how to extend it, the n range verified in the game (`mctas clock extend-check`); their instances are not repeated in the periods below.\n\n<table>\n");
+        for chunk in fams.chunks(2) {
+            md.push_str("<tr>");
+            for (r, f) in chunk {
+                let stem = r.file.trim_end_matches(".txt");
+                let pic = if img_dir.join(format!("{stem}.jpg")).exists() { format!("<a href=\"archive/{}\"><img src=\"img/{stem}.jpg\" width=\"360\" alt=\"{stem}\"></a><br>", r.file) } else { format!("<a href=\"archive/{}\">{stem}</a> (picture pending)<br>", r.file) };
+                let verified: Vec<i64> = instances.iter().filter(|x| x.family == f.id).map(|x| x.n).collect();
+                let checked = if verified.is_empty() { String::new() } else { format!(" (judged in the game: n = {})", verified.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ")) };
+                md.push_str(&format!(
+                    "<td align=\"center\" valign=\"top\">{pic}<b>{}</b><br><sub>P = {} gt ({}) · {} blocks · {}<br>extend: {}<br>n = {}..{}: P = {}..{} gt{checked}</sub></td>",
+                    f.id,
+                    f.period.text(),
+                    f.period.seconds(),
+                    f.blocks.text(),
+                    r.family,
+                    f.rule,
+                    f.n_lo,
+                    f.n_hi,
+                    f.period.eval(f.n_lo),
+                    f.period.eval(f.n_hi)
+                ));
+            }
+            md.push_str("</tr>\n");
+        }
+        md.push_str("</table>\n");
+    }
     for p in &periods {
-        let mut rs: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).collect();
+        let mut rs: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).filter(|r| is_instance(r).is_none()).collect();
         rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
-        md.push_str(&format!("\n## {}\n\n{}", crate::gt_time(*p), grid(&rs)));
+        let reach: Vec<String> = fams
+            .iter()
+            .filter_map(|(_, f)| (f.n_lo..=f.n_hi).find(|n| f.period.eval(*n) == *p as i64).map(|n| format!("{} (n = {n})", f.id)))
+            .collect();
+        if rs.is_empty() && reach.is_empty() {
+            continue;
+        }
+        let also = if reach.is_empty() { String::new() } else { format!("\nAlso reachable by: {}.\n", reach.join(", ")) };
+        md.push_str(&format!("\n## {}\n{also}\n{}", crate::gt_time(*p), if rs.is_empty() { String::new() } else { grid(&rs) }));
     }
     if !composite.is_empty() {
         let rs: Vec<&Row> = all_rows.iter().filter(|r| composite.contains(&r.file)).collect();

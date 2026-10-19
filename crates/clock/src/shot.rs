@@ -71,9 +71,52 @@ pub fn strip_path(dir: &Path, stem: &str) -> PathBuf {
 /// What to picture: the ticks (ascending), the box to frame and the output cell.
 struct Plan {
     ticks: Vec<u32>,
+    /// The swept box (the floor and the sandbox cover it).
     lo: Pos,
     hi: Pos,
     output: Option<Pos>,
+}
+
+impl Plan {
+    /// The box the camera frames: the swept box, or for an elongated clock (its longest side over
+    /// 16 blocks and over 5x the next) a window of it along that side around the output, 3x the
+    /// next side long (8 to 16 blocks: coordinator, 50-100-block observer lines and towers came out
+    /// as thin lines).
+    fn frame(&self) -> (Pos, Pos) {
+        let (mut lo, mut hi) = (self.lo, self.hi);
+        let ext = |k: usize| hi[k] - lo[k] + 1;
+        let mut axes = [0usize, 1, 2];
+        axes.sort_by_key(|&k| std::cmp::Reverse(ext(k)));
+        let (long, next) = (axes[0], axes[1]);
+        if ext(long) > 16 && ext(long) > 5 * ext(next) {
+            let win = (3 * ext(next)).clamp(8, 16);
+            let c = self.output.map(|o| o[long]).unwrap_or((lo[long] + hi[long]) / 2);
+            let a = (c - win / 2).clamp(lo[long], hi[long] - win + 1);
+            lo[long] = a;
+            hi[long] = a + win - 1;
+        }
+        (lo, hi)
+    }
+}
+
+/// The mean luma (0-255) of a picture (ffmpeg signalstats), if it can be read.
+fn mean_luma(path: &Path) -> Option<f64> {
+    let o = Command::new(video::ffmpeg().ok()?).args(["-hide_banner", "-i"]).arg(path).args(["-vf", "signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"]).output().ok()?;
+    let err = String::from_utf8_lossy(&o.stderr);
+    let i = err.find("YAVG=")? + 5;
+    err[i..].split(|ch: char| !(ch.is_ascii_digit() || ch == '.')).next()?.parse().ok()
+}
+
+/// A frame to take again: dark (mean luma < 70: the client still loading, or an error screen) or
+/// nearly uniform (its JPEG under 15 KB: sky or grass only).
+fn bad_frame(raw: &Path, jpg: &Path) -> Option<String> {
+    if let Some(l) = mean_luma(raw).filter(|l| *l < 70.0) {
+        return Some(format!("dark (mean luma {l:.0})"));
+    }
+    match std::fs::metadata(jpg) {
+        Ok(m) if m.len() < 15_000 => Some(format!("nearly uniform ({} bytes)", m.len())),
+        _ => None,
+    }
 }
 
 /// The output marker (vjeux's pick): an orange stained glass block where the output signal is,
@@ -555,7 +598,9 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
     // two sandboxes used in turn, cleared for each clock and never dropped (dropping a level the
     // client has visited took ~10 s a clock); the camera always arrives from the other one, so
     // the client loads every chunk (and the marker) fresh
-    let m = 40;
+    // the floor reaches 64 blocks around each clock (a close-up looking along a long clock saw
+    // past a 40-block floor into the dark void)
+    let m = 64;
     let (mut ulo, mut uhi) = (todo[0].2.lo, todo[0].2.hi);
     for (_, _, p) in &todo {
         crate::grow(&mut ulo, &mut uhi, p.lo);
@@ -600,7 +645,7 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
             Some(op) => marker_cell(&mut w, sb, op)?,
             None => None,
         };
-        let (mut flo, mut fhi) = (p.lo, p.hi);
+        let (mut flo, mut fhi) = p.frame();
         if let Some(mk) = marker {
             crate::grow(&mut flo, &mut fhi, mk);
         }
@@ -632,7 +677,22 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
         // less grass and sky), scaled to the requested width
         let crop = "crop=iw*0.64:ih*0.64";
         let t_enc0 = t0.elapsed().as_secs_f64();
-        ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("{crop},scale={}:-2:flags=lanczos", o.width), "-q:v".into(), "3".into(), out.display().to_string()])?;
+        let encode = |raw: &Path, out: &Path| ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("{crop},scale={}:-2:flags=lanczos", o.width), "-q:v".into(), "3".into(), out.display().to_string()]);
+        encode(&raw, &out)?;
+        // a dark or nearly uniform frame (the client still loading, an error screen): taken again
+        // after a longer wait (the client keeps showing the marker: its removal is never sent)
+        let mut retakes = 0;
+        while let Some(why) = bad_frame(&raw, &out) {
+            if retakes == 2 {
+                lines.push(format!("BAD {}: {why} after 2 retakes", out.display()));
+                break;
+            }
+            retakes += 1;
+            eprintln!("RETAKE {stem}: {why}");
+            w.hold(3000)?;
+            video::screenshot(&display, rw, rh, &raw)?;
+            encode(&raw, &out)?;
+        }
         let t_enc = t0.elapsed().as_secs_f64() - t_enc0;
         if std::env::var_os("MCTAS_SHOT_DEBUG").is_some() {
             eprintln!("{stem}: build {t_build:.2} s, run to tick {t_step:.2} s, camera + hold + capture {t_shot:.2} s, encode {t_enc:.2} s");
