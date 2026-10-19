@@ -116,6 +116,31 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// `door ideal` on redsim (no JVM; piston-door ideal_rs.rs): the same schedule file and checks,
+    /// in milliseconds; `--sweep` grids run in parallel (timing windows), `--trace` prints every
+    /// block change of the first cycle at the first position.
+    IdealRs {
+        schedule: PathBuf,
+        /// Override a schedule variable, name=value (repeatable).
+        #[arg(long)]
+        set: Vec<String>,
+        /// Sweep a variable, name=lo..hi (repeatable: every combination).
+        #[arg(long)]
+        sweep: Vec<String>,
+        /// Sweep each --sweep variable on its own (others at their values) instead of the grid.
+        #[arg(long)]
+        independent: bool,
+        /// Extra pseudo-random positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        cycles: u32,
+        /// Print every block change of the first cycle at the first position.
+        #[arg(long)]
+        trace: bool,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+    },
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
     /// queue size compared after every tick against the bridge; failures shrunk and saved.
@@ -289,6 +314,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("{}: {}{judge_note}", p.display(), line.chars().take(220).collect::<String>());
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
+        }
+        DoorCmd::IdealRs { schedule, set, sweep, independent, extra_offsets, cycles, trace, threads } => {
+            crate::ideal_rs::cli(&schedule, &set, &sweep, independent, extra_offsets, cycles, trace, threads)?;
         }
         DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace, sculk, border } => {
             let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace, sculk, border };

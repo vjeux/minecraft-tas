@@ -204,7 +204,7 @@ pub fn watch_box(blocks: &[(Pos, Block)], spec: &DoorSpec) -> (Pos, Pos) {
 /// Cells of the simulated world beyond the watch box (blocks pushed out of it stay modeled).
 const MARGIN: i32 = 4;
 
-fn world_for(lo: Pos, hi: Pos) -> World {
+pub(crate) fn world_for(lo: Pos, hi: Pos) -> World {
     let min = BlockPos::new(lo[0] - MARGIN, lo[1] - MARGIN, lo[2] - MARGIN);
     let size = [hi[0] - lo[0] + 1 + 2 * MARGIN, hi[1] - lo[1] + 1 + 2 * MARGIN, hi[2] - lo[2] + 1 + 2 * MARGIN];
     World::new(min, size)
@@ -419,7 +419,7 @@ fn jfail(offset: usize, cycle: Option<u32>, kind: &'static str, msg: String) -> 
 }
 
 /// Door cells hold 9 identical full plain blocks; the walkway has no collision.
-fn closed_problems(snap: &Snap, spec: &DoorSpec) -> Vec<String> {
+pub(crate) fn closed_problems(snap: &Snap, spec: &DoorSpec) -> Vec<String> {
     let mut out = Vec::new();
     let cells = spec.door_cells();
     let first = snap.get(cells[0]).unwrap_or(Block::Air);
@@ -448,14 +448,14 @@ fn closed_problems(snap: &Snap, spec: &DoorSpec) -> Vec<String> {
     out
 }
 
-fn open_ok_world(w: &World, cells: &[BlockPos]) -> bool {
+pub(crate) fn open_ok_world(w: &World, cells: &[BlockPos]) -> bool {
     cells.iter().all(|p| {
         let s = w.get(*p);
         !collides(&s) && !is_moving(&s)
     })
 }
 
-fn open_problems(w: &World, cells: &[Pos]) -> Vec<String> {
+pub(crate) fn open_problems(w: &World, cells: &[Pos]) -> Vec<String> {
     cells
         .iter()
         .filter_map(|p| {
@@ -465,7 +465,7 @@ fn open_problems(w: &World, cells: &[Pos]) -> Vec<String> {
         .collect()
 }
 
-fn settled_from_flags(ok: &[bool]) -> Option<u32> {
+pub(crate) fn settled_from_flags(ok: &[bool]) -> Option<u32> {
     let mut first = None;
     for (i, &b) in ok.iter().enumerate() {
         if b {
@@ -484,7 +484,7 @@ fn model_errors(w: &World) -> Option<Fail> {
 }
 
 /// Place like the judge and settle (the world and the watch box).
-fn place_and_settle(blocks: &[(Pos, Block)], spec: &DoorSpec, max: u32) -> (World, (Pos, Pos), bool) {
+pub(crate) fn place_and_settle(blocks: &[(Pos, Block)], spec: &DoorSpec, max: u32) -> (World, (Pos, Pos), bool) {
     let (wlo, whi) = watch_box(blocks, spec);
     let mut w = world_for(wlo, whi);
     let list: Vec<(BlockPos, Block)> = blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
