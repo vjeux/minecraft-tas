@@ -327,6 +327,26 @@ pub fn trace(c: &Clock, o: &SimOptions, ticks: u32) -> Vec<String> {
     out
 }
 
+/// Every block of the world (with comparator strengths and container contents) after each tick
+/// 0..=ticks, sorted by position: for comparing two runs (`ident`). `None` when redsim does not
+/// model the design or the run meets something it does not model.
+pub fn run_states(c: &Clock, o: &SimOptions, ticks: u32) -> Option<Vec<Vec<(BlockPos, String)>>> {
+    if !c.design.entities.is_empty() {
+        return None;
+    }
+    let blocks = parse_blocks(c).ok()?;
+    let mut s = start(c, &blocks, o.margin).ok()?;
+    let mut out = Vec::with_capacity(ticks as usize + 1);
+    for t in 0..=ticks {
+        between_ticks(&mut s, t).ok()?;
+        let mut v: Vec<(BlockPos, String)> = s.world.blocks().into_iter().map(|(p, b)| (p, wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect();
+        v.sort_by_key(|(p, _)| *p);
+        out.push(v);
+        s.world.tick();
+    }
+    Some(out)
+}
+
 /// The census's fast screen (no waveform, no strings): place `blocks` like the judge (raw writes,
 /// wire shapes, self updates), the block at index `last` withheld and placed last with updates
 /// when given, then run until the whole state repeats. `Some((state_warmup, state_period))` for a

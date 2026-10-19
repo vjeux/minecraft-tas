@@ -347,12 +347,31 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo } => {
             let mut items = Vec::new();
             let mut hints = std::collections::HashMap::new();
+            let build_dir = mctas::paths::run_dir().join(format!("shot-family-{}", std::process::id()));
             for p in &designs {
                 let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 if let Some(h) = std::fs::read_to_string(p).ok().as_deref().and_then(clock::shot::judge_hint) {
                     hints.insert(stem.clone(), h);
                 }
-                items.push((stem, Clock::load(p)?));
+                let c = Clock::load(p)?;
+                // an extendable family's base: its two smallest members are pictured too, built
+                // with the family's generator (`<stem>.n<k>.jpg`; the base's own n is `<stem>.jpg`)
+                if let Ok(Some(f)) = clock::extend::Family::of(&c) {
+                    for n in [f.n_lo, f.n_lo + 1] {
+                        if n > f.n_hi || n == f.base {
+                            continue;
+                        }
+                        let mstem = format!("{stem}.n{n}");
+                        if !redo && clock::shot::shot_path(&out_dir, &mstem).exists() {
+                            continue;
+                        }
+                        match f.build(p, n, &build_dir).and_then(|bp| Clock::load(&bp)) {
+                            Ok(mc) => items.push((mstem, mc)),
+                            Err(e) => println!("SKIP {mstem}: {e:#}"),
+                        }
+                    }
+                }
+                items.push((stem, c));
             }
             let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo, hints, ..Default::default() };
             let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };

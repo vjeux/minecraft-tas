@@ -238,7 +238,7 @@ pub fn check(pool: &mctas::sim::Pool, base_path: &Path, f: &Family, ns: &[i64], 
         let c = Clock::load(&path)?;
         let rep = crate::verify::verify_in_pool(pool, &c, o)?;
         let (want_p, want_b) = (f.period.eval(n), f.blocks.eval(n));
-        let type_key = crate::canon::design_type_key(&c.design);
+        let type_key = crate::ident::type_key(&c);
         let (period, verdict) = match (rep.verdict, rep.base()) {
             (crate::sim::Verdict::Clock, Some(b)) => (b.period, rep.robustness.clone()),
             _ => (0, rep.summary()),
