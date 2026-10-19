@@ -1,0 +1,30 @@
+name: seq56-m4
+# seq56 m4: 7x8 single-U (x -2..4, y -2..5) after the community 7x9 tricks: center pushed DOWN by the top
+# elevator A (1,4) + B (1,5) through TM; U (1,-2) (the only up-facing piston below the door) takes C into
+# (1,-1); corner piston K (-1,-1) parks BM at (0,-1); TR goes UP (P (2,4)); MR/BR by a 2-stack R1/R0 (4,1..0)
+# (level-holdable from (4,2) by a lever-ON-at-rest dropper); TL/ML/BL by the left 3-stack.
+# Static frame stones (0,3), (3,2), (2,-1).
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+layer -2:
+  ...U...
+layer -1:
+  .E..S..
+layer 0:
+  E.SSS.W
+layer 1:
+  E.SSS.W
+layer 2:
+  E.SSSS.
+layer 3:
+  ..S....
+layer 4:
+  ...DD..
+layer 5:
+  ...D...

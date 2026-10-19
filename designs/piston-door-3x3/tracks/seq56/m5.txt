@@ -1,0 +1,30 @@
+name: seq56-m5
+# seq56 m5: 7x8 single-U (x -2..4, y -2..5), community-7x9 style center: A (1,3) (rests LOW, in the ceiling
+# cell) pushes TM+C+BM down one, pulls TM back; B (1,5) pulls A up; A pulls TM into (1,3). U (1,-2) (the only
+# up-facing piston below the door) takes C into (1,-1); corner piston K (-1,-1) parks BM at (0,-1).
+# TL goes UP (P (0,4)); ML/BL by a 2-stack L1/L0 (-2,1..0) (level-holdable from (-2,2)); TR/MR/BR by the
+# right 3-stack. Static frame stones (2,3), (-1,2), (2,-1). (Pulse-emulation rest state for door ideal.)
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+layer -2:
+  ...U...
+layer -1:
+  .E..S..
+layer 0:
+  E.SSS.W
+layer 1:
+  E.SSS.W
+layer 2:
+  .SSSS.W
+layer 3:
+  ...DS..
+layer 4:
+  ..D....
+layer 5:
+  ...D...
