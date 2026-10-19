@@ -162,4 +162,15 @@ lever/observer chains; not diagnosed yet).
   terracotta, non-iron trapdoors) are refused.
 * New options: `--full-frame`, `--lever-on`, `--keep-ideal x,y;...` (partial synthesis), per-cluster
   time warps (default; `--one-warp` off) with order kept only between interacting events, batch mode
-  (several plans: `--jobs N --out <dir>`, also with `--fixed`).
+  (several plans: `--jobs N --out <dir>`, also with `--fixed`), `--local-nogood` (exact timing:
+  block only the choices near the first misbehaving piston; heuristic).
+* CEGAR false positives found and fixed while hunting 48b on the 63b mechanism: dust written in its
+  placed shape (cross dust reshaped at placement fired observers), a retraction allowed one tick late
+  must be unpowered the next tick, pulse tolerances only for ideal plans (wired timing is exact), no
+  QC-armed piston at rest even with `--sound`, `--sound` QC holds only while no wiring update reaches
+  the piston (diode/observer outputs into a neighbor count). Still open: an update-order effect
+  (a piston checks power before a dust on a neighboring conductor recomputes: R2 under a ceiling
+  lever stayed extended), not modeled; such candidates are blocked one by one.
+* 48b status: exact model (no `--sound`) UNSAT at <= 27 wiring for both c79's and pockets' timing
+  (one-warp 0 and 4); `--sound` finds 27-wiring models that all fail the judge so far (thousands of
+  CEGAR iterations; pk6/pk8 runs on devvm55676 /tmp/sw-pk6-*.log, /tmp/sw-pk8-ln.log).
