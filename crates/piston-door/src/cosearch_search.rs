@@ -2687,8 +2687,21 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                 println!("  input {} {}: own  {s}\n  {:>w$}   base {b}", names[k], if phase == 0 { "open " } else { "close" }, "", w = names[k].len() + 8);
             }
         }
-        match match_groups(&prob, &groups, seed.assist, &tr2, pa.width_tol) {
-            Some(c) => println!("  released: matched groups: {}", (0..64).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" ")),
+        // as the enumeration judges it: the released inputs need no plan group when the door ran
+        // (sc2 perfect), the others are matched against their windows
+        let rel_ok = sc2.pts >= max;
+        match match_groups(&prob, &groups, if rel_ok { seed.assist & !fed } else { seed.assist }, &tr2, pa.width_tol) {
+            Some(c) => {
+                let mut c = c;
+                if rel_ok {
+                    for (gi, gr) in groups.iter().enumerate() {
+                        if (fed >> gr.k) & 1 == 1 {
+                            c |= 1u64 << gi;
+                        }
+                    }
+                }
+                println!("  released: matched groups: {}", (0..64).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "))
+            }
             None => println!("  released: rejected: a real edge no group explains"),
         }
         return Ok(PocketSummary { note: "debug".into(), ..Default::default() });
