@@ -3555,6 +3555,24 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
             }
         });
     for it in 0..o.iters {
+        // SATWIRE_RETIME_SELFTEST: solve once without the piston requirements and print the plan
+        // retimed with that (arbitrary) warp next to the original, and the redsim verdict
+        if it == 0 && retime && std::env::var("SATWIRE_RETIME_SELFTEST").is_ok() {
+            let neg: Vec<Lit> = m.sels.iter().map(|s| !s.2).collect();
+            if m.e.s.solve_assumps(&neg)? == SolverResult::Sat {
+                let plan = p.plan.as_ref().unwrap();
+                let s2 = retimed_plan(&m, plan)?;
+                for open in [true, false] {
+                    let a = plan.resolved(open)?;
+                    let b = s2.resolved(open)?;
+                    let fmt = |v: &[(u32, Pos, Option<String>)]| v.iter().map(|(t, p, s)| format!("{t}:{},{},{}{}", p[0], p[1], p[2], if s.is_some() { "+" } else { "-" })).collect::<Vec<_>>().join(" ");
+                    log(format!("selftest {}: plan    {}", if open { "open" } else { "close" }, fmt(&a)));
+                    log(format!("selftest {}: retimed {}", if open { "open" } else { "close" }, fmt(&b)));
+                }
+                let v = crate::ideal_rs::run(&s2, &BTreeMap::new(), &crate::VerifyOptions::default().offsets, 2, false);
+                log(format!("selftest: retimed plan in redsim: {v:?}"));
+            }
+        }
         let mut assumps: Vec<Lit> = if bound < tot.len() { vec![!tot[bound]] } else { vec![] };
         assumps.extend(m.gsels.iter().map(|g| g.1));
         let nb = assumps.len();
