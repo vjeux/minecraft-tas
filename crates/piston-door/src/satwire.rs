@@ -298,6 +298,29 @@ impl Phase {
         self.frames.truncate(keep);
         self.power.truncate(keep);
     }
+    /// Repeat the last frame (and power) until there are `n` frames.
+    pub fn pad(&mut self, n: usize) {
+        while self.frames.len() < n {
+            let f = self.frames.last().cloned().unwrap_or_default();
+            self.frames.push(f);
+        }
+        while self.power.len() < n {
+            let p = self.power.last().cloned().unwrap_or_default();
+            self.power.push(p);
+        }
+    }
+}
+
+/// Alternative recordings of a group of mechanism cells for one trace (`--menu`: a toggle
+/// piston's pulse retimed or tripled): the solver picks one alternative per group; the group's
+/// cells take their frames and piston power from it, every other cell from the base recording.
+#[derive(Clone, Debug)]
+pub struct AltGroup {
+    pub name: String,
+    pub tr: usize,
+    pub cells: BTreeSet<C2>,
+    /// (label, the whole trace recorded with that alternative; only `cells` are read)
+    pub alts: Vec<(String, Phase)>,
 }
 
 #[derive(Clone, Debug)]
@@ -312,6 +335,25 @@ pub struct Rec {
     pub lever: Option<(Pos, String)>,
     /// In-plane bounds of the source design (wired source), lever excluded.
     pub src_box: Option<(i32, i32, i32, i32)>,
+    /// Alternative recordings of cell groups (`--menu`), empty by default.
+    pub groups: Vec<AltGroup>,
+}
+
+impl Rec {
+    /// Every recorded phase of a trace: the base and each alternative of its groups.
+    pub fn trace_phases(&self, tr: usize) -> Vec<&Phase> {
+        let mut v = vec![&self.phases[tr]];
+        for g in self.groups.iter().filter(|g| g.tr == tr) {
+            v.extend(g.alts.iter().map(|a| &a.1));
+        }
+        v
+    }
+    /// Every recorded phase of both traces.
+    pub fn all_phases(&self) -> Vec<&Phase> {
+        let mut v = self.trace_phases(0);
+        v.extend(self.trace_phases(1));
+        v
+    }
 }
 
 fn place_settled(w: &mut Worker, d: &Design) -> Result<u32> {
@@ -418,7 +460,7 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
             sbx = (sbx.0.min(p[0]), sbx.1.min(p[1]), sbx.2.max(p[0]), sbx.3.max(p[1]));
         }
     }
-    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: Some(sbx) })
+    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: Some(sbx), groups: Vec::new() })
 }
 
 /// Replay an ideal schedule: the mechanism frames, and the power the redstone blocks give each
@@ -558,7 +600,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
     for (c, st) in &phases[0].frames[0] {
         rest.insert([c.0, c.1, z], st.clone());
     }
-    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: None })
+    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: None, groups: Vec::new() })
 }
 
 // ---------------------------------------------------------------- the SAT encoder
@@ -754,6 +796,8 @@ pub struct Prob {
     pub fixed_lever: Option<usize>,
     /// Only the fixed cells hold wiring (`--check`); else (`--fixed`) the other cells are free.
     pub fixed_only: bool,
+    /// (trace, cell) -> the alternative group (`rec.groups`) its frames come from.
+    pub cell_group: HashMap<(usize, C2), usize>,
 }
 
 impl Prob {
@@ -767,10 +811,19 @@ impl Prob {
     fn mk_tau(&self, tr: usize, tau: i32, c: C2) -> MK {
         self.rec.phases[tr].frame(tau - 1).get(&c).map_or(MK::Air, |s| mk(s))
     }
-    /// Recorded tick tau changes nothing (mechanism and piston power as the tick before).
+    /// The recordings cell c of trace tr reads: the base (None), or each alternative (group,
+    /// alternative) of the group holding it.
+    pub fn frame_opts(&self, tr: usize, c: C2) -> Vec<(Option<(usize, usize)>, &Phase)> {
+        match self.cell_group.get(&(tr, c)) {
+            Some(&g) => self.rec.groups[g].alts.iter().enumerate().map(|(a, x)| (Some((g, a)), &x.1)).collect(),
+            None => vec![(None, &self.rec.phases[tr])],
+        }
+    }
+    /// Recorded tick tau changes nothing (mechanism and piston power as the tick before), in the
+    /// base recording and in every alternative.
     pub fn static_tick(&self, tr: usize, tau: i32) -> bool {
         let ph = &self.rec.phases[tr];
-        tau <= 0 || tau > ph.k() || (ph.frame(tau) == ph.frame(tau - 1) && ph.pow(tau) == ph.pow(tau - 1))
+        tau <= 0 || tau > ph.k() || self.rec.trace_phases(tr).iter().all(|ph| ph.frame(tau) == ph.frame(tau - 1) && ph.pow(tau) == ph.pow(tau - 1))
     }
     /// First recorded tick from which everything stays static.
     pub fn settled_from(&self, tr: usize) -> i32 {
@@ -810,7 +863,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     let (dx, dy) = (rec.door[0], rec.door[1]);
     let mut mech: HashSet<C2> = HashSet::new();
     let mut stat: HashMap<C2, Option<String>> = HashMap::new();
-    for ph in &rec.phases {
+    for ph in rec.all_phases() {
         for f in &ph.frames {
             for (c, _s) in f {
                 mech.insert(*c);
@@ -820,7 +873,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     for c in &mech {
         let mut v: Option<String> = None;
         let mut ok = true;
-        for ph in &rec.phases {
+        for ph in rec.all_phases() {
             for f in &ph.frames {
                 match (f.get(c), &v) {
                     (None, _) => ok = false,
@@ -845,13 +898,13 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         .iter()
         .copied()
         .filter(|c| {
-            rec.phases.iter().all(|ph| {
+            rec.all_phases().iter().all(|ph| {
                 ph.frames.iter().all(|f| match f.get(c).map(|s| mk(s)) {
                     Some(MK::Cond | MK::Solid | MK::Piston { ext: false, .. }) => true,
                     Some(MK::Piston { ext: true, f: fc, .. }) => fc == DN,
                     // a retracting base is a moving piston for 2 gt (placed without shape
                     // updates: what stands on it stays)
-                    Some(MK::Other) => rec.phases.iter().all(|p| p.frames[0].get(c).is_some_and(|s| matches!(mk(s), MK::Piston { .. }))),
+                    Some(MK::Other) => rec.all_phases().iter().all(|p| p.frames[0].get(c).is_some_and(|s| matches!(mk(s), MK::Piston { .. }))),
                     _ => false,
                 })
             })
@@ -881,7 +934,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     // park cell that is air only at rest leaves the cell behind it free.)
     let mut hole_back: HashSet<C2> = HashSet::new();
     for r in &ring {
-        let swept = rec.phases.iter().any(|ph| ph.frames.iter().any(|f| f.get(r).is_some_and(|s| mk(s) != MK::Air)));
+        let swept = rec.all_phases().iter().any(|ph| ph.frames.iter().any(|f| f.get(r).is_some_and(|s| mk(s) != MK::Air)));
         let air_open = rec.phases[1].frames.first().is_some_and(|f| f.get(r).is_none_or(|s| mk(s) == MK::Air));
         if swept && air_open {
             let out = if r.1 == dy - 1 {
@@ -917,7 +970,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         }
     }
     // sticky pistons never pull wiring: the cell two ahead of any sticky piston holds nothing movable
-    for ph in &rec.phases {
+    for ph in rec.all_phases() {
         for f in &ph.frames {
             for (c, s) in f {
                 if let MK::Piston { f: fc, sticky: true, .. } = mk(s) {
@@ -996,7 +1049,87 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     let kmax = rec.phases.iter().map(|p| p.k()).max().unwrap_or(0);
     let h = kmax + o.dmax + o.settle;
     let fixed: HashMap<C2, Kind> = hall_fixed.into_iter().map(|c| (c, Kind::Block)).collect();
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, fixed, fixed_lever: None, fixed_only: false })
+    let mut cell_group: HashMap<(usize, C2), usize> = HashMap::new();
+    for (gi, g) in rec.groups.iter().enumerate() {
+        for c in &g.cells {
+            cell_group.insert((g.tr, *c), gi);
+        }
+    }
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, fixed, fixed_lever: None, fixed_only: false, cell_group })
+}
+
+/// `--menu`: record each alternative schedule, keep the trace `tr` of those that start and end
+/// like the base recording, and turn them into alternative groups (the cells where any
+/// alternative's frames or piston power differ from the base). A group whose cells meet an earlier
+/// group's (same trace) is dropped (its alternatives do not compose). Every phase of a trace is
+/// then padded to one length. Returns one log line per group.
+pub fn add_menu(w: &mut Worker, rec: &mut Rec, items: &[(String, usize, String, crate::ideal::Schedule)], ticks: u32) -> Result<Vec<String>> {
+    let mut log = Vec::new();
+    let mut by: BTreeMap<(usize, String), Vec<(String, Phase)>> = BTreeMap::new();
+    for (g, tr, label, s) in items {
+        let r = match record_ideal(w, s, ticks) {
+            Ok(r) => r,
+            Err(e) => {
+                log.push(format!("menu {g} {label}: recording failed: {e:#}"));
+                continue;
+            }
+        };
+        let ph = r.phases[*tr].clone();
+        let base = &rec.phases[*tr];
+        if ph.frames.first() != base.frames.first() || ph.frames.last() != base.frames.last() {
+            continue;
+        }
+        by.entry((*tr, g.clone())).or_default().push((label.clone(), ph));
+    }
+    let mut taken: [BTreeSet<C2>; 2] = Default::default();
+    for ((tr, g), mut alts) in by {
+        let n = alts.iter().map(|a| a.1.frames.len()).max().unwrap_or(0).max(rec.phases[tr].frames.len());
+        let mut base = rec.phases[tr].clone();
+        base.pad(n);
+        for a in alts.iter_mut() {
+            a.1.pad(n);
+        }
+        let mut cells: BTreeSet<C2> = BTreeSet::new();
+        for (_, ph) in &alts {
+            for j in 0..n {
+                let (fa, fb) = (&ph.frames[j], &base.frames[j]);
+                for c in fa.keys().chain(fb.keys()) {
+                    if fa.get(c) != fb.get(c) {
+                        cells.insert(*c);
+                    }
+                }
+                let (pa, pb) = (&ph.power[j], &base.power[j]);
+                for c in pa.keys().chain(pb.keys()) {
+                    if pa.get(c).copied().unwrap_or(false) != pb.get(c).copied().unwrap_or(false) {
+                        cells.insert(*c);
+                    }
+                }
+            }
+        }
+        if cells.is_empty() {
+            continue;
+        }
+        if !cells.is_disjoint(&taken[tr]) {
+            log.push(format!("menu {g} ({}): dropped, its cells meet an earlier group's", ["open", "close"][tr]));
+            continue;
+        }
+        taken[tr].extend(cells.iter().copied());
+        let labels: Vec<String> = alts.iter().map(|a| a.0.clone()).collect();
+        log.push(format!("menu {g} ({}): {} alternatives ({}), cells {:?}", ["open", "close"][tr], alts.len() + 1, labels.join(" "), cells));
+        let mut all = vec![("as planned".to_string(), base)];
+        all.extend(alts);
+        rec.groups.push(AltGroup { name: g, tr, cells, alts: all });
+    }
+    for tr in 0..2 {
+        let n = rec.trace_phases(tr).iter().map(|p| p.frames.len()).max().unwrap_or(0);
+        rec.phases[tr].pad(n);
+        for g in rec.groups.iter_mut().filter(|g| g.tr == tr) {
+            for a in g.alts.iter_mut() {
+                a.1.pad(n);
+            }
+        }
+    }
+    Ok(log)
 }
 
 // ---------------------------------------------------------------- the model
@@ -1078,6 +1211,8 @@ pub struct Model<'a> {
     pub gsels: Vec<(String, Lit)>,
     /// Selector per (trace, piston cell): assumed true; an UNSAT core names the pistons.
     pub sels: Vec<(usize, C2, Lit)>,
+    /// One selector per alternative of each group (`rec.groups`), exactly one true per group.
+    pub alt_sel: Vec<Vec<Lit>>,
 }
 
 impl<'a> Model<'a> {
@@ -1128,19 +1263,32 @@ impl<'a> Model<'a> {
             return *l;
         }
         let ws = self.warp_at(tr, k);
+        let p = self.p;
+        let opts = p.frame_opts(tr, c);
         let mut lits = Vec::new();
-        for (tau, wl) in &ws {
-            let m = self.p.mk_tau(tr, *tau, c);
-            let hit = match (what, m) {
-                (0, MK::Cond) => true,
-                (1..=4, MK::Piston { f, .. }) => f == DIRS[(what - 1) as usize],
-                _ => false,
-            };
-            if hit {
-                lits.push(*wl);
+        let mut every = opts.len() == 1;
+        for (ga, ph) in &opts {
+            for (tau, wl) in &ws {
+                let m = ph.frame(*tau - 1).get(&c).map_or(MK::Air, |s| mk(s));
+                let hit = match (what, m) {
+                    (0, MK::Cond) => true,
+                    (1..=4, MK::Piston { f, .. }) => f == DIRS[(what - 1) as usize],
+                    _ => false,
+                };
+                if hit {
+                    match ga {
+                        None => lits.push(*wl),
+                        Some((g, a)) => {
+                            let s = self.alt_sel[*g][*a];
+                            lits.push(self.e.and(&[*wl, s]));
+                        }
+                    }
+                } else {
+                    every = false;
+                }
             }
         }
-        let l = if lits.len() == ws.len() { self.e.t() } else { self.e.or(&lits) };
+        let l = if every { self.e.t() } else { self.e.or(&lits) };
         self.mc.insert((tr, k, c, what), l);
         l
     }
@@ -1150,8 +1298,21 @@ impl<'a> Model<'a> {
             return *l;
         }
         let ws = self.warp_at(tr, k);
-        let ph = &self.p.rec.phases[tr];
-        let lits: Vec<Lit> = ws.iter().filter(|(tau, _)| *tau >= 1 && ph.frame(*tau).get(&c) != ph.frame(*tau - 1).get(&c)).map(|(_, l)| *l).collect();
+        let p = self.p;
+        let mut lits: Vec<Lit> = Vec::new();
+        for (ga, ph) in p.frame_opts(tr, c) {
+            for (tau, wl) in &ws {
+                if *tau >= 1 && ph.frame(*tau).get(&c) != ph.frame(*tau - 1).get(&c) {
+                    match ga {
+                        None => lits.push(*wl),
+                        Some((g, a)) => {
+                            let s = self.alt_sel[g][a];
+                            lits.push(self.e.and(&[*wl, s]));
+                        }
+                    }
+                }
+            }
+        }
         let l = self.e.or(&lits);
         self.mc.insert((tr, k, c, 9), l);
         l
@@ -1387,6 +1548,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     }
     let lever: Vec<Lit> = p.levers.iter().map(|_| e.var()).collect();
     e.exactly_one(&lever);
+    let mut alt_sel: Vec<Vec<Lit>> = Vec::new();
+    for g in &p.rec.groups {
+        let v: Vec<Lit> = g.alts.iter().map(|_| e.var()).collect();
+        e.exactly_one(&v);
+        alt_sel.push(v);
+    }
     // the time warp: SAT tick k plays recorded tick tau (k <= 0: tau 0); a static recorded tick
     // may be replayed (a stall) and static ticks may be skipped; motion plays at full speed
     let mut warp: [Vec<Vec<(i32, Lit)>>; 2] = [Vec::new(), Vec::new()];
@@ -1449,6 +1616,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         checks: Vec::new(),
         check_mode,
         sels: Vec::new(),
+        alt_sel,
         gsels: Vec::new(),
     };
     let h = p.h;
@@ -1784,14 +1952,16 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             }
         }
         m.e.guard.clear();
-        // ---- pistons get exactly their recorded power
+        // ---- pistons get exactly their recorded power (in the alternative chosen for their group)
         let mech: Vec<C2> = p.mech.iter().copied().collect();
         let ks: Vec<i32> = std::iter::once(-1).chain(1..=h).collect();
         for &k in &ks {
             for &c in &mech {
+                let opts = p.frame_opts(tr, c);
                 for (tau, wl) in m.warp_at(tr, k) {
-                    let MK::Piston { f: fc, .. } = p.mk_tau(tr, tau, c) else { continue };
-                    let req = p.rec.phases[tr].pow(tau).get(&c).copied().unwrap_or(false);
+                  for (ga, ph) in &opts {
+                    let MK::Piston { f: fc, .. } = ph.frame(tau - 1).get(&c).map_or(MK::Air, |s| mk(s)) else { continue };
+                    let req = ph.pow(tau).get(&c).copied().unwrap_or(false);
                     let d = tau;
                     let front = if fc == (0, 0) { None } else { Some(fc) };
                     let direct = m.any_in(tr, k, c, front);
@@ -1802,7 +1972,13 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     }
                     qt.push(m.oop(tr, k, q));
                     let qc = m.e.or(&qt);
-                    let ds = wl;
+                    let ds = match ga {
+                        None => wl,
+                        Some((g, a)) => {
+                            let s = m.alt_sel[*g][*a];
+                            m.e.and(&[wl, s])
+                        }
+                    };
                     let sel = match m.sels.iter().find(|s| s.0 == tr && s.1 == c) {
                         Some(s) => s.2,
                         None => {
@@ -1825,6 +2001,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         m.e.add(&[!ds, !sel, !direct]);
                         m.e.add(&[!ds, !sel, !qc]);
                     }
+                  }
                 }
             }
         }
@@ -1896,6 +2073,8 @@ pub struct Sol {
     pub lever: usize,
     pub warp: [String; 2],
     pub wiring: usize,
+    /// The alternative chosen in each group (`--menu`), "group: label".
+    pub alts: Vec<String>,
 }
 
 pub fn decode(m: &Model, name: &str) -> Sol {
@@ -1939,7 +2118,17 @@ pub fn decode(m: &Model, name: &str) -> Sol {
         if v.is_empty() { "as recorded".into() } else { v.join(" ") }
     };
     let wiring = kinds.len();
-    Sol { design: d, kinds, lever, warp: [warp(0), warp(1)], wiring }
+    let alts: Vec<String> = p
+        .rec
+        .groups
+        .iter()
+        .enumerate()
+        .filter_map(|(gi, g)| {
+            let a = m.alt_sel[gi].iter().position(|l| m.e.val(*l))?;
+            (a > 0).then(|| format!("{} {}: {}", ["open", "close"][g.tr], g.name, g.alts[a].0))
+        })
+        .collect();
+    Sol { design: d, kinds, lever, warp: [warp(0), warp(1)], wiring, alts }
 }
 
 pub fn render(p: &Prob, s: &Sol) -> String {
@@ -2146,7 +2335,15 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
         }
         let (w, sb) = ws.as_mut().map(|(w, sb)| (w, *sb)).unwrap();
         normalize_notes(w, &mut s.design)?;
-        log(format!("[{:6.1}s] iter {it}: SAT (solve {dt:.1}s): {} wiring blocks; timing open: {}; close: {}\n{}", t0.elapsed().as_secs_f64(), s.wiring, s.warp[0], s.warp[1], render(p, &s)));
+        log(format!(
+            "[{:6.1}s] iter {it}: SAT (solve {dt:.1}s): {} wiring blocks; timing open: {}; close: {}{}\n{}",
+            t0.elapsed().as_secs_f64(),
+            s.wiring,
+            s.warp[0],
+            s.warp[1],
+            if s.alts.is_empty() { String::new() } else { format!("; menu: {}", s.alts.join(", ")) },
+            render(p, &s)
+        ));
         // redsim (the judge's checks on the game-verified fast simulator) screens first
         let offs = crate::VerifyOptions::default().offsets;
         let screened = match crate::redsim_screen::screen(&s.design, &offs, 3, 400, true) {

@@ -884,6 +884,19 @@ pub enum DoorCmd {
         /// Pulse spacings (ticks) for the `triple` variants.
         #[arg(long, default_value = "4,6")]
         triple_gaps: String,
+        /// Stretch pulses shorter than N ticks to N (pistmodel's 1 gt pulses -> 2 gt).
+        #[arg(long, default_value_t = 0)]
+        widen: u32,
+        /// Round every pulse width up to an even number of ticks (3 gt -> 4 gt).
+        #[arg(long)]
+        even: bool,
+        /// Per-toggle timing MENU: every input pulsed once in a phase may also be shifted by each
+        /// of these ticks (e.g. `--menu-shifts=-4,-2,2,4,6,8`); the solver picks per toggle.
+        #[arg(long, default_value = "", allow_hyphen_values = true)]
+        menu_shifts: String,
+        /// The menu also offers each toggle tripled (`--triple-gaps` spacings).
+        #[arg(long)]
+        menu_triples: bool,
         /// Skip the ideal-input replay of each variant.
         #[arg(long)]
         no_validate: bool,
@@ -2880,7 +2893,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
         }
-        DoorCmd::Satsweep { plans, jobs, palette, forbid_ring, hall_ring, lever_oop, dmax, skip, settle, core_tries, box_dims, variants, gaps, triple_gaps, no_validate, minimize, tsv, out_dir, extra_offsets } => {
+        DoorCmd::Satsweep { plans, jobs, palette, forbid_ring, hall_ring, lever_oop, dmax, skip, settle, core_tries, box_dims, variants, gaps, triple_gaps, widen, even, menu_shifts, menu_triples, no_validate, minimize, tsv, out_dir, extra_offsets } => {
             let nums = |s: &str| -> Result<Vec<u32>> { s.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<u32>().map_err(anyhow::Error::from)).collect() };
             let box_dims = match box_dims.as_deref() {
                 Some(b) => {
@@ -2903,6 +2916,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 variants: variants.split(',').map(|s| s.trim().to_string()).collect(),
                 gaps: nums(&gaps)?,
                 triple_gaps: nums(&triple_gaps)?,
+                widen,
+                even,
+                menu_shifts: menu_shifts.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<i64>().map_err(anyhow::Error::from)).collect::<Result<Vec<i64>>>()?,
+                menu_triples,
                 no_validate,
                 minimize,
                 tsv,
