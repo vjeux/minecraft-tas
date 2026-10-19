@@ -241,9 +241,21 @@ lever/observer chains; not diagnosed yet).
   too-close pairs" per candidate: the replay rejects the timings the order-only model admits.
 * e88-t7b re-wiring: the old-binary runs reached 22-wiring (42b) candidates; all were rejected by the
   judge (comparator race, bottom puller (1,-2) never fires) and the fixed model rejects them too;
-  fixed-model runs (exact, local nogood, cluster warps 6, all with `--hint`) restarted at 05:32 local.
+  fixed-model runs (exact, local nogood, cluster warps 6, one-warp 4, period2, all with `--hint`) restarted.
 * e88-t7b's mechanism in 7x8 (bottom wiring row cut): exact timing UNSAT (also with `--hint`),
-  cluster warps 2 UNSAT; cluster warps 4 is SAT but every candidate so far is a clock (44 judged).
-* Coordinator batches: n79 (mechspace 7x9 set, 61 plans, `--retime`): no door so far (10 plans fail
-  `--full-frame`'s frame check, the rest UNSAT); a78 (427 7x8 sym plans): running in batch
-  (`/tmp/a78s`), all UNSAT so far.
+  cluster warps 2 and 4 UNSAT with the fixed model (the old cluster-4 SATs were 44 clocks);
+  cluster warps 6 still running at the end of the shift.
+* Coordinator batches: n79 (mechspace 7x9 set, 61 plans, `--retime`): no door (10 plans fail
+  `--full-frame`'s frame check, the rest UNSAT); a78 (427 7x8 sym plans, `--retime --update-order
+  --exact-order`): no door; 93 of them were UNSAT at once because of an over-wide sticky-pull rule (a
+  full-frame block two ahead of a sticky piston that never extends), fixed (38287e61) and re-run:
+  UNSAT with piston cores (left pullers (-2,0..2), the bottom pullers (1,-2)/(-1,-1)).
+* Still running on devvm55676 at the end of the shift (logs in /tmp): the 42b attempt on e88-t7b
+  (`/tmp/e88-y0|yln|yc6|yw4|yp2.log`: exact, local nogood, cluster warps 6, one-warp 4, period2; all
+  past the 23-wiring source, solving <= 22), e88 in 7x8 cluster warps 6 (`/tmp/s78-e88-n6.log`), the
+  sensor-free 8x8 sculk door (`/tmp/m79s8-c6.log`). Any JUDGE OK line there is a door to verify.
+* Next: (1) give satwire the MOTION choice, not only timing: every mech-synth plan pulses every
+  piston from rest, while the doors that wire (c79, pockets, e88) hold pullers extended at rest on the
+  lever's level; a plan variant per piston (pulse vs held) as `--menu` alternatives; (2) a mechspace
+  wireability filter from the one-piston cores (a piston whose free neighbors cannot see a mechanism
+  change at its time is unwirable); (3) warp-aware `--explain` (pin the candidate's own warp).
