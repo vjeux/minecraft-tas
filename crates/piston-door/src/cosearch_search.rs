@@ -87,6 +87,10 @@ pub struct SearchArgs {
     pub assist: Option<std::path::PathBuf>,
     #[arg(long, default_value_t = 4.0)]
     pub assist_weight: f64,
+    /// Start with only these plan inputs assisted (door coordinates `x,y;x,y`; default all): to
+    /// continue from a partial whose other inputs are already wired.
+    #[arg(long)]
+    pub assist_cells: Option<String>,
     /// Shaping: a working door whose piston schedule the candidates should follow (each piston
     /// extension / retraction of the reference, same cell, within `--ref-slack` ticks, earns
     /// `--ref-weight` points; a perfect screen still only needs the door checks).
@@ -1172,6 +1176,17 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         clean_seed(&prob, &mut g);
         if !prob.assist_pistons.is_empty() {
             g.assist = if prob.assist_pistons.len() == 64 { u64::MAX } else { (1u64 << prob.assist_pistons.len()) - 1 };
+            if let Some(cells) = &a.assist_cells {
+                g.assist = 0;
+                for t in cells.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                    let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 2, "--assist-cells x,y;x,y");
+                    match prob.assist_pistons.iter().position(|c| *c == (v[0] + dx, v[1] + dy)) {
+                        Some(k) => g.assist |= 1u64 << k,
+                        None => bail!("--assist-cells: no plan input at {t}"),
+                    }
+                }
+            }
         }
         let s = screen(&prob, &g);
         println!("seed {name}: {} blocks in the box, screen {}/{}", g.count(), s.pts, s.max);
@@ -1281,7 +1296,7 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
             if el >= last + a.report {
                 last = el;
                 let best = sh.best.lock().unwrap();
-                let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}+{}ev({}b)", s.pts, s.max, s.ev, g.count())).collect();
+                let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}+{}ev-{}as({}b)", s.pts, s.max, s.ev, s.assisted, g.count())).collect();
                 println!(
                     "[{el:>5}s] {} screens ({:.0}/s), {} perfect screens, {} redsim judge runs, {} finds; best {}",
                     sh.evals.load(Ordering::Relaxed),
@@ -1291,6 +1306,18 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
                     sh.finds.load(Ordering::Relaxed),
                     top.join(" ")
                 );
+                // the current best, for inspection while the run goes on
+                if let Some((s, g)) = best.first() {
+                    let still: Vec<String> = (0..prob.assist_pistons.len())
+                        .filter(|k| (g.assist >> k) & 1 == 1)
+                        .map(|k| format!("{},{}", prob.assist_pistons[k].0 - dx, prob.assist_pistons[k].1 - dy))
+                        .collect();
+                    let mut d = door_of(g, prob.spec).to_design(&format!("cosearch-live-{}of{}", s.pts, s.max));
+                    if !still.is_empty() {
+                        d.meta.insert("assisted".into(), still.join(";"));
+                    }
+                    let _ = d.save(&a.out_dir.join("partial-live.txt"));
+                }
             }
         }
         sh.stop.store(true, Ordering::Relaxed);
@@ -1301,7 +1328,8 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         let d = door_of(g, prob.spec).to_design(&format!("cosearch-partial-{i}-{}of{}", s.pts, s.max));
         let path = a.out_dir.join(format!("partial-{i}.txt"));
         d.save(&path)?;
-        println!("best partial {i}: {}/{} ({} blocks) -> {}", s.pts, s.max, g.count(), path.display());
+        let still: Vec<(i32, i32)> = (0..prob.assist_pistons.len()).filter(|k| (g.assist >> k) & 1 == 1).map(|k| (prob.assist_pistons[k].0 - dx, prob.assist_pistons[k].1 - dy)).collect();
+        println!("best partial {i}: {}/{} +{} events, {} assisted {still:?} ({} blocks) -> {}", s.pts, s.max, s.ev, s.assisted, g.count(), path.display());
     }
     println!("{} screens in {:.0} s; {} finds", sh.evals.load(Ordering::Relaxed), t0.elapsed().as_secs_f64(), sh.finds.load(Ordering::Relaxed));
     Ok(())
