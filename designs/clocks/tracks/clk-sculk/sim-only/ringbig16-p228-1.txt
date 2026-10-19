@@ -1,0 +1,91 @@
+# CLOCK: cand period 228 gt, on 10/228, edges 1, warmup 21, family calibrated_sculk_sensor+note_block, 32 blocks, 79x1x79, kick: use 32,0,23
+# built by `mctas clock sculk`: ring of 16 calibrated sensors on a circle (r 40.01), hops [14,14,14,15,14,14,14,15,14,14,14,15,14,14,14,15], first resonator a note block (the kick), the others amethyst
+name: clk-sculk-ringbig16-p228-1
+port output: 33 0 23
+port start: 32 0 23 use
+origin: -39 0 -39
+palette:
+  A minecraft:amethyst_block
+  C minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  c minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  ................................CA.............CA
+  .
+  .
+  .
+  .
+  .................CA
+  ..............................................................CA
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ......CA
+  .........................................................................C
+  .........................................................................A
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  A
+  C
+  ..............................................................................C
+  ..............................................................................A
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  A
+  C
+  ..............................................................................C
+  ..............................................................................A
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .....A
+  .....C
+  .......................................................................Nc
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ...............AC
+  ............................................................AC
+  .
+  .
+  .
+  .
+  ..............................AC.............AC

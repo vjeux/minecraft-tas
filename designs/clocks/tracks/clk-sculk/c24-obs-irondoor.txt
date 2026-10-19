@@ -1,0 +1,19 @@
+name: clk-sculk-c24-obs-irondoor
+# Calibrated sensor C, observer O watching C, an iron door behind O (dist 2) on a stone, placed
+# closed (a door ignores its own placement update, so it is kicked); O's 3rd pulse
+# opens it each period.
+origin: 0 0 0
+port output: 0 1 0
+port start: 3 1 0 minecraft:redstone_block 1
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:observer[facing=west,powered=false]
+  L minecraft:iron_door[facing=east,half=lower,hinge=left,open=false,powered=false]
+  U minecraft:iron_door[facing=east,half=upper,hinge=left,open=false,powered=false]
+  S minecraft:stone
+layer 0:
+  ..S
+layer 1:
+  COL
+layer 2:
+  ..U
