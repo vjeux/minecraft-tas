@@ -1987,6 +1987,10 @@ pub struct PocketArgs {
     /// Palette of the fillings (families as in --palette); ring cells take stone only.
     #[arg(long, default_value = "stone,glass,dust,rblock,torch,walltorch,repeater,comparator,observer,lamp,note,target,bulb,dropper,trapdoor,leaves,log,sticky,piston")]
     pub fill_palette: String,
+    /// Exact block states for the fillings instead (`;`-separated, e.g.
+    /// `observer[facing=east];repeater[facing=east,delay=4];redstone_wire`).
+    #[arg(long)]
+    pub fill_states: Option<String>,
     /// Window scan (ticks) around each plan pulse / level edge.
     #[arg(long, default_value_t = 24)]
     pub win: i32,
@@ -2454,7 +2458,16 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
         println!("  pocket {i}: {} cells {:?}", pk.len(), pk.iter().map(|(x, y)| (x - dx, y - dy)).collect::<Vec<_>>());
     }
     let only: Option<Vec<usize>> = pa.only_pockets.as_ref().map(|s| s.split([',', ';']).filter_map(|t| t.trim().parse().ok()).collect());
-    let pal = palette(&pa.fill_palette)?;
+    let pal = match &pa.fill_states {
+        Some(s) => {
+            let mut v = Vec::new();
+            for t in s.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                v.push(Block::parse(t).map_err(|e| anyhow::anyhow!("--fill-states {t}: {e}"))?);
+            }
+            v
+        }
+        None => palette(&pa.fill_palette)?,
+    };
     let pal: Vec<Block> = pal.into_iter().filter(|b| !b.is_air()).collect();
     let stone_pal: Vec<Block> = pal.iter().copied().filter(|b| matches!(b, Block::Simple(Simple::Stone) | Block::Simple(Simple::SmoothStone))).collect();
     // ---- per pocket enumeration
