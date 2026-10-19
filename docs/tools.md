@@ -3,7 +3,8 @@
 Every tool is a `mctas` subcommand, written in Rust (`./target/release/mctas ...` after
 `cargo build --release`); `--help` on any command lists all of its flags. The rules the judge
 enforces are in [rules.md](rules.md); how the simulator, the bridge and the videos work is in
-[internals.md](internals.md).
+[internals.md](internals.md). The clock study's commands (`mctas clock sim | verify | ...`), its
+judge and its design format are in [clocks.md](clocks.md).
 
 ## The workflow behind the records
 
