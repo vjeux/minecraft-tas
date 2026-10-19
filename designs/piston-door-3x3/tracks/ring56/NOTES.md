@@ -169,3 +169,17 @@ see each other, and the bottom cannot reach either: one lever wakes only one top
 * `mech/t8e.txt` (+ `t8e.ideal`, windows `t8ew.ideal`): 8x8, t8x's lever-held right side, TM goes LEFT
   into C0 (corner E (-1,3)) so the left owns E (moves once per edge, window A1+3..A1+9) and can watch A
   from (0,4); TL/ML/BL left (x=-2), BM down. Ideal WORKS; left stack and BL free 0..60, BM >= 36.
+
+## 11. Elevator pocket (07:20Z)
+
+* Run 9 (t8xL, 50 min) wired the corner puller W(3,3) with "a piston fired into an empty cell watched
+  by an observer" (`mech/t8xL-p.txt`), but that piston was a sticky one at (3,5) facing UP whose head
+  enters (3,6): outside the 8x8 box at mid-cycle (volume 8x9). The cosearch screen only checked the open
+  state for blocks outside the box: fixed (commit 17239ae8: the one-cell ring around the box must stay
+  air at every tick of both phases, the lever excepted). q8seed also had a normal piston (4,-2) facing
+  east whose head would leave the box.
+* Left to wire: A (high at A1/A3, low at A2) and B (B1, B2) in the top-right; U and BR's puller are
+  c2e's (coordinator). The top-right's cells are few and interlocked: A's feed must be an observer at
+  (2,4) facing east (the only cell that can reach A at both heights), so its watched cell (3,4) must
+  change exactly at the three A times, while the corner puller W(3,3)'s only feeds are (3,4) itself
+  (direct, or QC with an update) and (4,3) (W_TR's cell); B's feed is (2,5) (the left side owns (0,5)).
