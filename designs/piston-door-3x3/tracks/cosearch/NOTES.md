@@ -103,9 +103,42 @@ port are fixed (the lever may hang OUTSIDE the box: the community volume exclude
     (2,4), (1,4) remain at 18:45Z.
   * wire56 t1 + K2 plan (6 inputs): 4 released at 75/79 (P5 (1,5) and PTR (4,2) remain).
   * vmid vm1 (ML leaves up, 12 inputs, oc plan of 15 pulses per edge), lever at (-2,-3): 5 of 12
-    released with the door still at 79/79 in 3 min (the column-0 elevator, lifted P4, BL, BR).
-  * families 8x8-131 / wire64 f131L (in-plane plans: only 2 inputs can be assisted): 43-47/79.
+    released with the door still at 79/79 in 3 min, 7 of 12 at 77/79 after 17 min (left: (-2,2),
+    (4,2), (1,4), (0,5), (1,5)); swapped for vc1 (vm1 fails `door connect`).
+  * vmid vc1 (ML leaves up by a carried puller, the center's elevator below, 12 inputs), lever at
+    (-2,-4): 6 of 12 released at 77/79 in 3 min (left: (1,4), (4,2), (-2,3), (1,-2), (3,-1), (1,-3)).
+  * wire64b w63 (7x8-014 in 7x9 = 63, bottom pockets wired for real, the top's 7 inputs assisted,
+    4 of them in the plane: their cells stay reserved while assisted), lever at (-2,7): 4 of 7
+    released at 77/79 in 3 min, 5 of 7 after 7 min (the top elevator (1,4) wired; left: the left stack
+    (-2,2) and the right stack (4,2), each needing 3 pulses 6-7 gt apart). Restarted from that
+    partial with only the stacks assisted and the focus grown to row 2 (the left stack's own feed
+    cell (-2,2) sits in row 2: the first focus, rows 3..6, could never wire it).
+  * fm-7x8-000 with the lever pinned on the left: 7 of 10 released at 77/79 (left: (-2,0), (2,4),
+    (4,1)).
+  * The update-piston proposal move (vjeux, 01:51Z: a normal / sticky piston facing an empty cell
+    next to a quasi cell, an observer's watched cell, a dropper or a note block; 1/8 of the moves):
+    1 strict screen improvement credited to it in ~1M improving steps (cell edits: ~200k, assist
+    toggles: ~10k) over the vc1 / w63 runs.
+  * families 8x8-131 / wire64 f131L (in-plane plans: only 2 inputs could be assisted at the time):
+    43-47/79.
+
+## 4. What the assisted partials say
+Every assisted run gets the easy inputs wired within minutes and stalls on the same kind of input:
+a piston that needs SEVERAL pulses at fixed gaps (w63's side stacks: 3 pulses 6-7 gt apart; the
+elevators' P4 / P5 trains) or one signal on the far side of the door (fm-7x8-000's left pullers,
+t1's P5 / PTR). Those are the cells where a static wiring has no room; the next moves to add are
+macro proposals for them: a delay-line pulse train (repeater chain taps ORed into one cell), a
+watcher on a piston of the other side (the crossing), a carried redstone block shuttled by a new
+piston (the strip lemma's moving corner source).
+
+## 5. Next
+* Finish w63 (63 < 72): the two stacks' 3-pulse trains; seeds and plan in [seeds/](seeds/).
+* Run the assist on mechspace's corrected 7x8 list (58 mechanisms, 31 replay-passing plans) in
+  parallel, a few minutes each, and keep the ones that release the most inputs.
+* Macro moves for multi-pulse inputs (above); scaffolding (redmodel's new 1 gt delay element) in the
+  palette once merged.
 
 ## Log
 * 23:16Z start; 23:46Z evaluator pushed; 00:04Z agreement 2049/2049; 00:15Z palette (coordinator);
-  00:38Z docs/coverage.md cosearch column; 00:55Z ideal assist.
+  00:38Z docs/coverage.md cosearch column; 00:55Z ideal assist; 01:52Z update-piston move, in-plane
+  assist inputs; 02:00Z vc1, w63 runs.
