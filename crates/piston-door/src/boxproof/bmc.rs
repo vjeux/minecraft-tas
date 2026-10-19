@@ -464,7 +464,7 @@ pub fn cli(a: &Args) -> Result<()> {
     let dy: i32 = a.get("dy", (h - 3) / 2);
     let t: usize = a.get("t", 30);
     let rounds: usize = a.get("rounds", 2);
-    let palette = parse_palette(a.s("palette").unwrap_or(if a.has("fix") && !a.has("fix-all") { "stone,obsidian,rb,dust,rep,obs,torch,wtorch,glass,note,lamp" } else { "all" }))?;
+    let palette = parse_palette(a.s("palette").unwrap_or("all"))?;
     let mut g = Geo { w, h, door: (dx, dy), levers: vec![], rounds };
     let oop = a.has("oop");
     g.levers = lever_cands(&g, oop);
@@ -480,10 +480,10 @@ pub fn cli(a: &Args) -> Result<()> {
                     }
                     let _ = i;
                 }
-                // the design's own lever
+                // the design's own lever (if it has one)
                 let d = mctas::design::Design::load(std::path::Path::new(p))?;
                 let door = *d.ports.get("door").context("no door port")?;
-                let lp = *d.ports.get("lever").context("no lever port")?;
+                if let Some(&lp) = d.ports.get("lever") {
                 let ls = d.block_list().into_iter().find(|(q, _)| *q == lp).map(|(_, s)| s).context("no lever block")?;
                 let pos = (lp[0] - door[0] + dx, lp[1] - door[1] + dy);
                 let face = ls.split("face=").nth(1).map(|s| s.split([',', ']']).next().unwrap_or("")).unwrap_or("");
@@ -499,11 +499,22 @@ pub fn cli(a: &Args) -> Result<()> {
                 let cand = if oop { LeverCand { pos: sup, oop: true, sup } } else { LeverCand { pos, oop: false, sup } };
                 println!("fixed lever {cand:?}");
                 g.levers = vec![cand];
+                }
             }
             v
         }
         None => vec![None; g.n()],
     };
+    // cells to leave free even under --fix ("x,y;x,y" in box coordinates)
+    let mut fixed = fixed;
+    if let Some(fr) = a.s("free") {
+        for c in fr.split(';').filter(|s| !s.is_empty()) {
+            let (x, y) = c.split_once(',').map(|(a, b)| (a.trim().parse::<i32>().unwrap_or(-1), b.trim().parse::<i32>().unwrap_or(-1))).unwrap_or((-1, -1));
+            if let Some(i) = g.idx(x, y) {
+                fixed[i] = None;
+            }
+        }
+    }
     let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
     let t0 = Instant::now();
     let cfg = match a.s("cfg") {
