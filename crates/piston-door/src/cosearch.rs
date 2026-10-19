@@ -437,8 +437,9 @@ fn judge_at(blocks: &[(Pos, Block)], spec: &DoorSpec, opts: &JudgeOpts, oi: usiz
         }
     }
     match rest.get(spec.lever) {
-        Some(Block::Lever { powered: false, .. }) => {}
-        other => return Err(jfail(oi, None, "lever", format!("port lever {:?} is {}, expected an unpowered lever", spec.lever, other.map(|b| st(&b)).unwrap_or("?".into())))),
+        // Either rest polarity counts (vjeux, 2026-10-19), like `crate::verify`.
+        Some(Block::Lever { .. }) => {}
+        other => return Err(jfail(oi, None, "lever", format!("port lever {:?} is {}, expected a lever", spec.lever, other.map(|b| st(&b)).unwrap_or("?".into())))),
     }
     let door_cells = spec.door_cells();
     let closed_door: Vec<Block> = door_cells.iter().map(|p| rest.get(*p).unwrap()).collect();
@@ -703,6 +704,31 @@ fn record_until_idle(w: &mut World, lo: Pos, hi: Pos, max: u32) -> std::result::
         }
     }
     Err(format!("still moving {max} ticks after the flip"))
+}
+
+/// `properties::record` on redsim (the door at its own position).
+/// The settled watch-box snapshot after each of `flips` lever flips (index 0 = settled rest), with
+/// the door translated by `offset` (a judge position). Err = never settles / a model error.
+pub fn flip_states(door: &RsDoor, offset: Pos, flips: usize) -> std::result::Result<Vec<Snap>, String> {
+    let blocks: Vec<(Pos, Block)> = door.blocks.iter().map(|(p, b)| (add(*p, offset), *b)).collect();
+    let spec = door.spec.translated(offset);
+    let (mut w, (lo, hi), idle) = place_and_settle(&blocks, &spec, 400);
+    if !idle {
+        return Err("the build never settles after placement".into());
+    }
+    let mut out = vec![Snap::take(&w, lo, hi)];
+    for i in 0..flips {
+        w.use_block(bp(spec.lever));
+        record_until_idle(&mut w, lo, hi, 400).map_err(|e| format!("flip {}: {e}", i + 1))?;
+        if !w.errors.is_empty() {
+            return Err(format!("MODEL: {}", w.errors.join("; ")));
+        }
+        if !w.drops.is_empty() {
+            return Err(format!("flip {}: entities appeared (something broke): {:?}", i + 1, w.drops));
+        }
+        out.push(Snap::take(&w, lo, hi));
+    }
+    Ok(out)
 }
 
 /// `properties::record` on redsim (the door at its own position).
