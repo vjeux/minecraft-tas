@@ -79,3 +79,20 @@ s pushes only TM + C down afterwards (e >= u0 + 3), with a hold >= 3 gt (push la
   dropper (-2,-2) (triggered by the powered (-1,-2)) -> observer (-2,-1) down -> L0 (3 pulses per edge:
   odd), obsidian (3,-1). ideal-rs WORKS (open 31 / close 31) with only U (1 gt first pulse + U2),
   R0 and s ideal. s open window: e >= u0 + 2, eh 3.., e + eh <= 12 (u0 = 2: e 4..9).
+
+## 4. c78z: the elevator real too; the bottom-right timing wall (03:20Z)
+`c78z.txt` + `c78z.ideal`: c78y with the top re-timed for U-first: a LIT redstone lamp at (4,3) replaces
+c79's dropper as R1/R2's conductor (the dust (4,4) on it), observer (3,3) east watches the lamp (fires t6
+on open, t2 on close) -> static (2,3) -> s pushes TM + C down at t6 on open (spit; on close s sits at
+(1,4), not next to (2,3)); observer (3,4) down watches (3,3); observer (2,4) east watches (3,4) -> (1,4):
+s pulls TM back at t10 on open, pushes TM at t6 on close; M at t16 ((2,5) delay 4). ideal-rs WORKS with
+only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal.
+- The wall: U's first pulse must start by tick 4 (s pushes at t6), but the bottom-right (sealed: it
+  touches only U, R0, the static (2,-1) and (3,-1)) can first hear R1/R2's t1 move at tick 3 ((4,-1),
+  distance 2), and U would have to be powered and updated in that tick's block-entity phase: impossible
+  (U's free neighbour (2,-2) is at distance 3.6 -> tick 4, and the cell above it is the static (2,-1)).
+  `--vary` over the 4 bottom-right cells + (3,-1) (pistons, redstone blocks, observers, sensors,
+  lamps, droppers, note blocks): 0 of 1.17M; pockets k=4: only R0 and U2 (pockets2 agrees).
+- Moving the s push later needs a 3+ gt hold starting at t8..10 and ending by t13 (M at t16 is the
+  latest the 2-repeater chain gives): `--vary` over the top-right cells, (3,5)'s delay and sensors /
+  observers at (-1,3), (-2,5): 0 of 667k.
