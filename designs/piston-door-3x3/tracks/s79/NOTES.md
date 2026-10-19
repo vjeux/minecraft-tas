@@ -391,3 +391,5 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
     open 38 / close 28, frame 12/12, the top-left corner is free. satwire solid core: open E1 (1,5), RP1
     (1,3), RP1 at (1,4), Q at (3,3); close QE (4,3), Q at (3,3): the top middle/right (RP1's escape column
     and Q's escape) now; sculk pending.
+    m69V sculk: UNSAT, core open U1 (1,-2) + open P0 at (0,-2) + close E0, P0 at (0,-2), P0 (0,-1): with sound the
+    top wires and the bottom-left (ring pusher + escape puller + U1) is the wall.
