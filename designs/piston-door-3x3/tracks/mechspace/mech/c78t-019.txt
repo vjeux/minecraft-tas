@@ -3,29 +3,28 @@ port door: 0 0 0
 origin: -2 0 0
 palette:
   A minecraft:piston_head[facing=up,short=false,type=sticky]
-  B minecraft:sticky_piston[extended=false,facing=east]
-  C minecraft:sticky_piston[extended=false,facing=west]
-  D minecraft:sticky_piston[extended=true,facing=down]
-  E minecraft:sticky_piston[extended=true,facing=east]
-  F minecraft:sticky_piston[extended=true,facing=up]
-  G minecraft:stone
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=down]
+  D minecraft:sticky_piston[extended=true,facing=east]
+  E minecraft:sticky_piston[extended=true,facing=up]
+  F minecraft:stone
   P minecraft:piston_head[facing=down,short=false,type=sticky]
-  S minecraft:smooth_stone
+  S minecraft:sticky_piston[extended=false,facing=down]
   p minecraft:piston_head[facing=east,short=false,type=sticky]
-  s minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
 layer -2:
-  ...F
+  ...E
 layer -1:
-  .EpAS
+  .DpAF
 layer 0:
-  B.GGG.C
+  s.FFF.B
 layer 1:
-  B.GGG.C
+  s.FFF.B
 layer 2:
-  B.GGGS
+  s.FFFF
 layer 3:
-  ..S.P
+  ..F.P
 layer 4:
-  ...sD
+  ...SC
 layer 5:
-  ...s
+  ...S

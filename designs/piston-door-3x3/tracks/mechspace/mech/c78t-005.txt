@@ -2,26 +2,25 @@ name: c78t-005
 port door: 0 0 0
 origin: -2 0 0
 palette:
-  A minecraft:sticky_piston[extended=false,facing=east]
-  B minecraft:sticky_piston[extended=false,facing=west]
-  C minecraft:sticky_piston[extended=true,facing=up]
-  D minecraft:stone
+  A minecraft:sticky_piston[extended=false,facing=west]
+  B minecraft:sticky_piston[extended=true,facing=up]
+  C minecraft:stone
   P minecraft:piston_head[facing=up,short=false,type=sticky]
-  S minecraft:smooth_stone
-  s minecraft:sticky_piston[extended=false,facing=down]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
 layer -2:
-  ...C
+  ...B
 layer -1:
-  .A.PS
+  .s.PC
 layer 0:
-  A.DDD.B
+  s.CCC.A
 layer 1:
-  A.DDD.B
+  s.CCC.A
 layer 2:
-  A.DDDS
+  s.CCCC
 layer 3:
-  ..S
+  ..C
 layer 4:
-  ...ss
+  ...SS
 layer 5:
-  ...s
+  ...S

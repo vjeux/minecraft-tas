@@ -1213,7 +1213,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let items = ms::read_list(&f, bxs[0].0, bxs[0].1)?;
                     let mut lines = Vec::new();
                     for (bx, v) in &items {
-                        let vs = if std::env::var("MECHSPACE_SIDE_ONLY").is_ok() { ms::side_ext_variants(bx, v) } else { ms::ext_variants(bx, v, 4096) };
+                        let vs = if std::env::var("MECHSPACE_HELD_TOP").is_ok() {
+                            ms::held_top_variants(bx, v)
+                        } else if std::env::var("MECHSPACE_SIDE_ONLY").is_ok() {
+                            ms::side_ext_variants(bx, v)
+                        } else {
+                            ms::ext_variants(bx, v, 4096)
+                        };
                         for w in vs {
                             lines.push(ms::line_of(bx, &w));
                         }
@@ -1254,6 +1260,26 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         let (exact, sup) = ms::gen_member(&cands, bx, v);
                         println!("{}: exact {exact}, supersets {sup}", ms::line_of(bx, v));
                     }
+                }
+                "rank" => {
+                    // exported TSVs (comma-separated) ranked for wiring: inputs not lever-held,
+                    // min free cells around them, max pulses per piston
+                    let f = input.ok_or_else(|| anyhow::anyhow!("rank needs --input (TSVs, comma-separated)"))?;
+                    anyhow::ensure!(bxs.len() == 1, "rank needs one --boxes WxH");
+                    let paths: Vec<PathBuf> = f.to_string_lossy().split(',').map(PathBuf::from).collect();
+                    let r = ms::rank_rows(&paths, bxs[0].0, bxs[0].1, threads)?;
+                    println!("nonheld\tminfree\tmaxpulses\tid\tsym_plan");
+                    for (a, b, c, id, plan) in r.iter().take(if limit > 0 { limit } else { usize::MAX }) {
+                        println!("{a}\t{b}\t{c}\t{id}\t{plan}");
+                    }
+                }
+                "framecheck" => {
+                    // re-check every WORKS plan of exported TSVs with the redsim frame check and
+                    // rewrite their sim column
+                    let f = input.ok_or_else(|| anyhow::anyhow!("framecheck needs --input (TSVs, comma-separated)"))?;
+                    let paths: Vec<PathBuf> = f.to_string_lossy().split(',').map(PathBuf::from).collect();
+                    let (n, d) = ms::framecheck_tsvs(&paths, threads)?;
+                    eprintln!("[mechspace framecheck] {n} WORKS plans checked, {d} demoted to FRAME");
                 }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }

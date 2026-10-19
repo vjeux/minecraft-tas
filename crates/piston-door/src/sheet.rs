@@ -259,6 +259,50 @@ fn fill_test(design: &Design, s: &Schedule, text: &str, empty: &[Pos], title: &s
     format!("OK: +{} stone at {:?}", empty.len(), empty)
 }
 
+/// Frame check of an ideal schedule (for mechanism exports): two open/close cycles replayed in
+/// redsim; the opening clear and all 12 frame cells holding THE door block when open, back at the
+/// exact rest state when closed. "OK" or the first failure.
+pub fn frame_cycle_check(path: &Path) -> String {
+    let text = match std::fs::read_to_string(path) {
+        Ok(t) => t,
+        Err(e) => return format!("FAIL: {e}"),
+    };
+    let s = match Schedule::parse(&text) {
+        Ok(s) => s,
+        Err(e) => return format!("FAIL: {e:#}"),
+    };
+    let design = s.design().clone();
+    let Some(door) = design.ports.get("door").copied() else { return "FAIL: no door port".into() };
+    let door_state = design.blocks.get(&door).cloned().unwrap_or_else(|| "minecraft:stone".to_string());
+    let Ok(door_block) = convert_state(&door_state) else { return "FAIL: door block".into() };
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false };
+    let (mut w, lo, hi) = match build_world(&design, &spec) {
+        Ok(x) => x,
+        Err(e) => return format!("FAIL: {e}"),
+    };
+    let rest = Snap::take(&w, lo, hi);
+    let frame = frame_cells(door);
+    for cycle in 0..2 {
+        if let Err(e) = replay(&mut w, &s, true) {
+            return format!("FAIL (cycle {cycle} open): {e}");
+        }
+        if !spec.door_cells().iter().all(|c| w.get(bp(*c)).is_air()) {
+            return format!("FAIL (cycle {cycle}): the opening is not clear");
+        }
+        let bad: Vec<Pos> = frame.iter().copied().filter(|p| !filled(&w.get(bp(*p)), &door_block)).collect();
+        if !bad.is_empty() {
+            return format!("FAIL (cycle {cycle}): frame {}/12 when open, empty {bad:?}", 12 - bad.len());
+        }
+        if let Err(e) = replay(&mut w, &s, false) {
+            return format!("FAIL (cycle {cycle} close): {e}");
+        }
+        if Snap::take(&w, lo, hi) != rest {
+            return format!("FAIL (cycle {cycle}): not back at rest");
+        }
+    }
+    "OK".into()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn plane(get: &dyn Fn(BlockPos) -> Block, z: i32, x0: i32, y0: i32, x1: i32, y1: i32, door: Pos, mark_frame: Option<&Block>) -> Vec<String> {
     let frame = frame_cells(door);

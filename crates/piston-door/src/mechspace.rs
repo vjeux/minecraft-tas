@@ -1941,6 +1941,130 @@ pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
     reach_ok(bx, v, &frame)
 }
 
+/// `rank` (for pockets2): rows of exported TSVs with a working sym plan, ranked by (pistons not
+/// held at rest = inputs to wire, min free cells around such a piston, max pulses of one piston in
+/// the sym train). Free cell: in the box, air in every state of the cycle, not a frame / door cell;
+/// "around" = the 4 neighbours in the plane plus the quasi-connectivity cell above.
+pub fn rank_rows(paths: &[std::path::PathBuf], w: i8, h: i8, threads: usize) -> Result<Vec<(usize, i64, usize, String, String)>> {
+    let mut rows: Vec<(String, Bx, Vec<Pc>, String)> = Vec::new();
+    for p in paths {
+        let text = std::fs::read_to_string(p)?;
+        for l in text.lines().skip(1) {
+            let c: Vec<&str> = l.split('\t').collect();
+            if c.len() < 14 || !c[12].contains("sym WORKS") {
+                continue;
+            }
+            let Some((ox, oy)) = c[2].split_once(',') else { continue };
+            let (Ok(ox), Ok(oy)) = (ox.parse::<i8>(), oy.parse::<i8>()) else { continue };
+            let bx = Bx { x0: -ox, y0: -oy, w, h };
+            let Ok(v) = c[8].split_whitespace().map(parse_piece).collect::<Result<Vec<Pc>>>() else { continue };
+            rows.push((c[0].to_string(), bx, v, p.parent().map(|d| d.join("mech").join(format!("{}-sym.ideal", c[0])).display().to_string()).unwrap_or_default()));
+        }
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let out: std::sync::Mutex<Vec<(usize, i64, usize, String, String)>> = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= rows.len() {
+                    break;
+                }
+                let (id, bx, v, plan) = &rows[i];
+                let Some((m, rest)) = Mech::new(*bx, v) else { continue };
+                let Ok(Some(sol)) = families::solve(&m, &rest, 300_000, false) else { continue };
+                let Some((sym, _)) = families::best_sym(&m, &rest, &sol, 200_000, 6) else { continue };
+                // the cycle: the sym train opens, the same train closes
+                let mut states = vec![rest.clone()];
+                let mut c = rest.clone();
+                let mut pulses: HashMap<usize, usize> = HashMap::new();
+                for e in sym.iter().chain(sym.iter()) {
+                    if let Out::Ok(n) = m.apply(&c, *e) {
+                        c = n;
+                    }
+                    states.push(c.clone());
+                }
+                for e in &sym {
+                    *pulses.entry(e.id as usize).or_default() += 1;
+                }
+                let maxp = pulses.values().copied().max().unwrap_or(0);
+                let free = |x: i8, y: i8| -> bool {
+                    bx.has(x, y) && !families::in_t(x, y) && !families::in_r(x, y) && states.iter().all(|s| s.g[bx.idx(x, y)] == AIR)
+                };
+                let mut nonheld = 0usize;
+                let mut minfree = i64::MAX;
+                for p in v {
+                    let K::Piston { ext, .. } = p.k else { continue };
+                    if ext {
+                        continue;
+                    }
+                    nonheld += 1;
+                    let nb = [(1i8, 0i8), (-1, 0), (0, 1), (0, -1)].iter().filter(|(dx, dy)| free(p.x + dx, p.y + dy)).count() as i64;
+                    minfree = minfree.min(nb);
+                }
+                if minfree == i64::MAX {
+                    minfree = 99;
+                }
+                out.lock().unwrap().push((nonheld, minfree, maxp, id.clone(), plan.clone()));
+            });
+        }
+    });
+    let mut r = out.into_inner().unwrap();
+    r.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)).then(a.2.cmp(&b.2)).then(a.3.cmp(&b.3)));
+    Ok(r)
+}
+
+/// t78's request: a one-side-held variant (left or right stack extended at rest) with its TOP
+/// pistons (rows y >= 3, the corner on the held side included) also extended at rest, every
+/// non-empty subset of them; invalid heads dropped.
+pub fn held_top_variants(bx: &Bx, v: &[Pc]) -> Vec<Vec<Pc>> {
+    let left = v.iter().any(|p| p.x == -2 && matches!(p.k, K::Piston { f: 0, ext: true, .. }));
+    let right = v.iter().any(|p| p.x == 4 && matches!(p.k, K::Piston { f: 1, ext: true, .. }));
+    if left == right {
+        return Vec::new();
+    }
+    let top: Vec<usize> = (0..v.len())
+        .filter(|&i| {
+            let p = v[i];
+            let K::Piston { ext: false, .. } = p.k else { return false };
+            if p.y < 3 {
+                return false;
+            }
+            // corners: only the one on the held side
+            if p.y == 3 && (p.x == -1 || p.x == 3) {
+                return (p.x == -1) == left;
+            }
+            (0..=2).contains(&p.x) || p.y >= 4
+        })
+        .collect();
+    let mut out = Vec::new();
+    for mask in 1u32..(1 << top.len().min(8)) {
+        let mut w = v.to_vec();
+        for (j, &i) in top.iter().enumerate() {
+            if mask & (1 << j) != 0 {
+                if let K::Piston { sticky, f, .. } = w[i].k {
+                    w[i].k = K::Piston { sticky, f, ext: true };
+                }
+            }
+        }
+        let occ: HashSet<(i8, i8)> = w.iter().map(|p| (p.x, p.y)).collect();
+        let mut heads: HashSet<(i8, i8)> = HashSet::new();
+        let ok = w.iter().all(|p| match p.k {
+            K::Piston { f, ext: true, .. } => {
+                let (dx, dy) = families::F[f as usize];
+                let h = (p.x + dx, p.y + dy);
+                bx.has(h.0, h.1) && !families::in_t(h.0, h.1) && !occ.contains(&h) && heads.insert(h)
+            }
+            _ => true,
+        });
+        if ok && Mech::new(*bx, &w).is_some() {
+            w.sort();
+            out.push(w);
+        }
+    }
+    out
+}
+
 /// Lever-holdable side stacks (c79 style): the layout with its left side pullers (x = -2, facing
 /// east, rows 0..2), its right ones (x = 4, facing west), or both, extended at rest.
 pub fn side_ext_variants(bx: &Bx, v: &[Pc]) -> Vec<Vec<Pc>> {
@@ -2811,6 +2935,81 @@ pub fn catalog_rows(path: &std::path::Path, w: i8, h: i8) -> Result<Vec<String>>
 /// Export mechanisms catalog-style: `<out>/mech/<id>.txt` (door + pistons), `<id>-oc` and (when a
 /// symmetric train exists) `<id>-sym` ideal plans (design + `.ideal`), each replayed in the
 /// simulator with ideal inputs; `<out>/<tag>.tsv` indexes them.
+/// `framecheck`: re-check every WORKS plan of exported TSVs with the redsim frame check
+/// (sheet::frame_cycle_check) and rewrite their `sim` column (WORKS -> FRAME (...) when the frame
+/// is not 12/12 when open). Returns (plans checked, plans demoted).
+pub fn framecheck_tsvs(paths: &[std::path::PathBuf], threads: usize) -> Result<(usize, usize)> {
+    let (mut checked, mut demoted) = (0, 0);
+    for p in paths {
+        let text = std::fs::read_to_string(p)?;
+        let mdir = p.parent().map(|d| d.join("mech")).unwrap_or_default();
+        let lines: Vec<String> = text.lines().map(|l| l.to_string()).collect();
+        // (line index, plan tag) for every WORKS plan
+        let mut jobs: Vec<(usize, String, std::path::PathBuf)> = Vec::new();
+        for (i, l) in lines.iter().enumerate().skip(1) {
+            let c: Vec<&str> = l.split('\t').collect();
+            if c.len() < 13 {
+                continue;
+            }
+            // older exports wrote the static frame stones as smooth stone: make them the door block
+            for suffix in ["", "-sym", "-oc"] {
+                let dp = mdir.join(format!("{}{suffix}.txt", c[0]));
+                if dp.exists() {
+                    if let Ok(mut d) = crate::cli::load_design(&dp) {
+                        frame_stones_as_door(&mut d);
+                        let _ = d.save(&dp);
+                    }
+                }
+            }
+            for part in c[12].split("; ") {
+                if let Some(t) = part.strip_suffix(" WORKS") {
+                    jobs.push((i, t.to_string(), mdir.join(format!("{}-{t}.ideal", c[0]))));
+                }
+            }
+        }
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let res: std::sync::Mutex<Vec<(usize, String, String)>> = std::sync::Mutex::new(Vec::new());
+        std::thread::scope(|s| {
+            for _ in 0..threads.max(1) {
+                s.spawn(|| loop {
+                    let k = next.fetch_add(1, Ordering::Relaxed);
+                    if k >= jobs.len() {
+                        break;
+                    }
+                    let (i, t, path) = &jobs[k];
+                    let f = crate::sheet::frame_cycle_check(path);
+                    res.lock().unwrap().push((*i, t.clone(), f));
+                });
+            }
+        });
+        let mut lines = lines;
+        for (i, t, f) in res.into_inner().unwrap() {
+            checked += 1;
+            if f == "OK" {
+                continue;
+            }
+            demoted += 1;
+            let mut c: Vec<String> = lines[i].split('\t').map(|x| x.to_string()).collect();
+            c[12] = c[12].replace(&format!("{t} WORKS"), &format!("{t} FRAME ({})", f.chars().take(90).collect::<String>().replace(['\t', '\n'], " ")));
+            lines[i] = c.join("\t");
+        }
+        std::fs::write(p, lines.join("\n") + "\n")?;
+    }
+    Ok((checked, demoted))
+}
+
+/// Static frame stones written as THE door block (the 12 frame cells hold the door block when
+/// open, vjeux 2026-10-19), instead of smooth stone.
+fn frame_stones_as_door(d: &mut mctas::design::Design) {
+    let Some(door) = d.ports.get("door").copied() else { return };
+    let door_state = d.blocks.get(&door).cloned().unwrap_or_else(|| "minecraft:stone".to_string());
+    for p in crate::sheet::frame_cells(door) {
+        if d.blocks.get(&p).is_some_and(|s| s == "minecraft:smooth_stone") {
+            d.blocks.insert(p, door_state.clone());
+        }
+    }
+}
+
 pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::Path, tag: &str, cap: usize, gap: u32, workers: usize, extra: u32) -> Result<()> {
     let mdir = out.join("mech");
     std::fs::create_dir_all(&mdir)?;
@@ -2861,12 +3060,17 @@ pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::P
                         sol.sym_levels = lv;
                     }
                     let (wld, map) = families::to_world(&m);
-                    mechsynth::design_of_world(&wld, id).save(&mdir.join(format!("{id}.txt")))?;
+                    let mut base = mechsynth::design_of_world(&wld, id);
+                    frame_stones_as_door(&mut base);
+                    base.save(&mdir.join(format!("{id}.txt")))?;
                     let mut plans = Vec::new();
                     let mut note = String::new();
                     for (t, msol) in families::ideal_solutions(&m, &rest, &sol, &map) {
                         match mechsynth::ideal_plan(&wld, &msol, false, gap, id) {
-                            Ok(plan) => {
+                            Ok(mut plan) => {
+                                // the static frame blocks are THE door block (rule: the 12 frame
+                                // cells hold the door block when open)
+                                frame_stones_as_door(&mut plan.design);
                                 let mut dd = plan.design.clone();
                                 dd.name = format!("{id}-{t}");
                                 let dpath = mdir.join(format!("{id}-{t}.txt"));
@@ -2901,7 +3105,15 @@ pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::P
         let Ok(e) = &exs[*k].1 else { continue };
         let t = e.plans[*p].0;
         let v = match r {
-            Ok(Ok(())) => format!("{t} WORKS"),
+            Ok(Ok(())) => {
+                // the simulator judge does not look at the frame: replay the plan in redsim and
+                // require frame 12/12 (door block) when open, twice
+                let ideal = out.join("mech").join(format!("{}-{t}.ideal", e.id));
+                match crate::sheet::frame_cycle_check(&ideal) {
+                    f if f == "OK" => format!("{t} WORKS"),
+                    f => format!("{t} FRAME ({})", f.chars().take(90).collect::<String>().replace(['\t', '\n'], " ")),
+                }
+            }
             Ok(Err(x)) => format!("{t} BROKEN ({})", x.chars().take(90).collect::<String>().replace(['\t', '\n'], " ")),
             Err(x) => format!("{t} ERROR ({})", format!("{x:#}").chars().take(90).collect::<String>().replace(['\t', '\n'], " ")),
         };
