@@ -4,43 +4,42 @@ port door: 0 0 0
 port lever: 4 5 0
 origin: -2 0 0
 palette:
-  A minecraft:observer[facing=down,powered=false]
-  B minecraft:observer[facing=east,powered=false]
-  C minecraft:observer[facing=up,powered=false]
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
   D minecraft:dropper[facing=up,triggered=false]
-  E minecraft:observer[facing=west,powered=false]
-  F minecraft:piston_head[facing=west,short=false,type=sticky]
-  G minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
-  H minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
-  I minecraft:sticky_piston[extended=false,facing=east]
-  J minecraft:sticky_piston[extended=false,facing=up]
-  K minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:piston_head[facing=west,short=false,type=sticky]
+  F minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  G minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  H minecraft:sticky_piston[extended=false,facing=east]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=true,facing=down]
+  K minecraft:sticky_piston[extended=true,facing=west]
   L minecraft:lever[face=floor,facing=north,powered=true]
-  M minecraft:sticky_piston[extended=true,facing=west]
-  O minecraft:oak_log[axis=x]
+  O minecraft:oak_log[axis=y]
   P minecraft:piston[extended=false,facing=down]
   R minecraft:redstone_lamp[lit=false]
   S minecraft:smooth_stone
   d minecraft:dropper[facing=up,triggered=true]
-  o minecraft:oak_log[axis=y]
+  o minecraft:observer[facing=down,powered=false]
   p minecraft:piston_head[facing=down,short=false,type=sticky]
   r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   s minecraft:sticky_piston[extended=false,facing=down]
 layer -3:
-  oBDoB.o
+  OADOA.O
 layer -2:
-  rAEJ.Pr
+  roCI.Pr
 layer -1:
-  AI..o.C
+  oH..O.B
 layer 0:
-  I.oooFM
+  H.OOOEK
 layer 1:
-  I.oooFM
+  H.OOOEK
 layer 2:
-  I.ooood
+  H.OOOOd
 layer 3:
-  OAospHG
+  .oOspGF
 layer 4:
-  .S..Koo
+  .S..JOO
 layer 5:
-  .rRs.GL
+  .rRs.FL

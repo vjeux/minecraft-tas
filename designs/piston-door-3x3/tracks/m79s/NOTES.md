@@ -39,3 +39,22 @@
 - Windows (ideal-rs): A's hold start plan 7..9 for 3..5 gt (start 7: 3-5, 8: 3-4, 9: 3); L0 any 0..40.
 - Only 2 free cells ((-1,3), (3,3)): pockets k=3 with the sculk palette: no filling drives the hold or L0.
 - cosearch search (sculk + wool palette, pistons locked, 56 threads, 25 min): running.
+- m10f annealer (25 min, 70M screens): nothing (2 assisted left). The 7x8 box is full.
+
+## 7x8: s78b = satwire's m79q top on c2e's 2-row 7x8 bottom (s78/, 08:20Z)
+- s78b.txt + s78b.ideal: ideal-rs WORKS (4 positions x 2) with only K (-1,-1), L0 (-2,0), L1/L2 (-2,2)
+  ideal (U real: R0's watcher (4,-1) -> lamp (4,-2) -> observer (3,-2) -> stone (2,-2): U at t5 (blocked by
+  the hold's column on open) and t11). Windows: K open = a pulse ENDING at plan 6..10 (any start), close =
+  START 7..8 (any length 1..12); L0 any; L1/L2 open >= 6, close any.
+- The m79s top-left sensor does not carry over: in m79s it heard the bottom chain's signal piston (3,-2)
+  at t3 (d 8.6 -> t11, power 7); with this bottom it hears nothing (s78a).
+- pockets k=3 (sculk palette): the bottom-left (4 cells) drives L0 with 3 blocks: dropper (-1,-2) (QC-senses
+  power INTO K's cell) -> observer (-2,-2) east -> observer (-2,-1) down -> L0, i.e. L0 follows K's feed.
+- Why K is the wall (by hand): K must pull BM before U's head enters (1,-1) at t11, so it cannot follow U
+  on open; its feeds are (-2,-1) (east) and (-1,-2) (up): an observer there would look outside the box,
+  (-1,-2) can only be strongly powered from (0,-2) (an observer watching U, too late), (-2,-1) only by dust
+  (then L0, whose only feed is (-2,-1) upward, is dead) or by a source emitting both ways (a sensor: a 10 gt
+  window ends too late on open: it would need to start at t1). So K + L0 by sound do not fit the 4-cell
+  bottom-left. Annealers running anyway (pistons locked, and a second run with piston moves).
+- Solid 7x9 (no sculk) annealer, 30 min, top focus, lever moves: nothing (the top-left is sealed: it sees
+  only L2's head cell, B's head cell (1,4) and the static (0,3), none of which moves before L2/B).
