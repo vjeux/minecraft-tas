@@ -166,6 +166,27 @@ pub enum ItemClockCmd {
         #[arg(long, default_value = "designs/clocks/tracks/clk-item")]
         dir: PathBuf,
     },
+    /// Sweep the dropper-ring family (families.rs `drop_ring`): w x 3 rings (w = 3..=--max-w), every
+    /// comparator column, every dropper set around the fired cell, both directions, contents = one
+    /// or two ring cells holding 1..=--max-n of one kind: the distinct periods (fewest blocks, then
+    /// items) and, with --out, one design per period.
+    SweepDropring {
+        #[arg(long, default_value_t = 5)]
+        max_w: i32,
+        #[arg(long, default_value_t = 3)]
+        max_n: u32,
+        #[arg(long, default_value = "stone,diamond_sword")]
+        items: String,
+        /// Also two filled cells (else one).
+        #[arg(long)]
+        pairs: bool,
+        #[arg(long, default_value_t = 20000)]
+        ticks: u32,
+        #[arg(long, default_value_t = 64)]
+        jobs: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Sweep the ring-lock family (families.rs `ring_lock`): 3-wide hopper rings of depth 3..=--max-d,
     /// every comparator row, both directions, N items of --item as one stack in one ring hopper
     /// (every hopper, N = 1..=--max-items): the periods each gives (longest and every distinct one).
@@ -227,6 +248,94 @@ fn parse_k(s: &str) -> Result<(usize, usize)> {
         let k = s.trim().parse()?;
         Ok((k, k))
     }
+}
+
+/// One dropper-ring case: (w, comparator column, dropper mask, reversed, filled cells as
+/// (ring index, count), item kind).
+type DropCase = (i32, i32, u8, bool, Vec<(usize, u32)>, String);
+
+fn drop_case_design(c: &DropCase) -> Option<Design> {
+    let (w, xc, mask, rev, fill, kind) = c;
+    let l = (2 * w + 2) as usize;
+    let mut items: Vec<Vec<crate::families::Stack>> = vec![Vec::new(); l];
+    for (i, n) in fill {
+        if kind == "diamond_sword" {
+            items[*i] = (0..*n).map(|_| (kind.clone(), 1)).collect();
+        } else {
+            items[*i] = vec![(kind.clone(), *n)];
+        }
+    }
+    crate::families::drop_ring(*w, *xc, *mask, *rev, &items)
+}
+
+fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, ticks: u32, jobs: usize, out: Option<&std::path::Path>) -> Result<()> {
+    let kinds: Vec<String> = items.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+    let mut cases: Vec<DropCase> = Vec::new();
+    for w in 3..=max_w {
+        let l = (2 * w + 2) as usize;
+        for xc in 1..=w - 2 {
+            for mask in [2u8, 3, 6, 7] {
+                for rev in [false, true] {
+                    for kind in &kinds {
+                        for i in 0..l {
+                            for n in 1..=max_n {
+                                cases.push((w, xc, mask, rev, vec![(i, n)], kind.clone()));
+                                if pairs {
+                                    for j in i + 1..l {
+                                        for m in 1..=max_n {
+                                            cases.push((w, xc, mask, rev, vec![(i, n), (j, m)], kind.clone()));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    eprintln!("sweep-dropring: {} cases", cases.len());
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let found: std::sync::Mutex<std::collections::BTreeMap<u32, (usize, u32, usize)>> = std::sync::Mutex::new(std::collections::BTreeMap::new());
+    std::thread::scope(|sc| {
+        for _ in 0..jobs.max(1) {
+            sc.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= cases.len() {
+                        break;
+                    }
+                    let c = &cases[i];
+                    let Some(des) = drop_case_design(c) else { continue };
+                    if let Ok((p, _, _, _)) = crate::families::measure(&des, ticks) {
+                        let blocks = des.blocks.len();
+                        let n_items: u32 = c.4.iter().map(|(_, n)| n).sum();
+                        let mut f = found.lock().unwrap();
+                        let better = f.get(&p).is_none_or(|(b, k, _)| (blocks, n_items) < (*b, *k));
+                        if better {
+                            f.insert(p, (blocks, n_items, i));
+                        }
+                    }
+                }
+            });
+        }
+    });
+    let found = found.into_inner().unwrap();
+    println!("{} distinct periods: {:?}", found.len(), found.keys().collect::<Vec<_>>());
+    for (p, (blocks, _, i)) in &found {
+        let (w, xc, mask, rev, fill, kind) = &cases[*i];
+        println!("P={p}: {blocks} blocks, ring {w}x3, comparator column {xc}, droppers {mask:03b}{}, {kind} {fill:?}", if *rev { ", reversed" } else { "" });
+    }
+    if let Some(dir) = out {
+        std::fs::create_dir_all(dir)?;
+        for (p, (_, _, i)) in &found {
+            if let Some(mut des) = drop_case_design(&cases[*i]) {
+                des.name = format!("dropring-{}x3-p{p}", cases[*i].0);
+                des.save(&dir.join(format!("{}.txt", des.name)))?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Copy a found design into the track folder under a clean name (`{p}` = its redsim period) with a
@@ -550,6 +659,9 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
             for design in designs {
                 promote(&design, &name, &caption, &dir)?;
             }
+        }
+        ItemClockCmd::SweepDropring { max_w, max_n, items, pairs, ticks, jobs, out } => {
+            sweep_dropring(max_w, max_n, &items, pairs, ticks, jobs, out.as_deref())?;
         }
         ItemClockCmd::SweepRinglock { min_d, max_d, max_row, max_hopper, all, max_items, item, ticks, jobs, out } => {
             use crate::families::{Stack, measure, ring_lock};
