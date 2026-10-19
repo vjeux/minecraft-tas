@@ -40,6 +40,23 @@ Found by `door ideal-rs --vary` (new, this track): 151,200 block variants of the
 p2 with sculk sensors, observers, wool, note blocks... screened in 7 s with only the lever real;
 4 work, all the same two sensors.
 
+## RESULT 2 (09:50Z): bridge-e88-sculk, 8x8 = 64b, 52 blocks, sculk, FULL, frame 12/12, rotation-safe
+
+`e88/t3k-sculk.txt` (archived by the coordinator as archive/bridge-e88-sculk-52b.txt, credit e88 +
+bridge): agent e88's t3k (everything wired but the shuttle piston (-2,-3), whose push and pull
+pair works as ONE hold starting at any tick >= 24) + a calibrated sensor (-3,-3) in a wool pocket
+((-3,-2), (-2,-2), (-1,-2)) that hears the door only late and holds the shuttle for its 10 gt
+window. Found by a 980-variant `ideal-rs --vary` screen in 0.1 s; `--drop 2`: only the static
+frame stones can go (52 is minimal). door verify WORKS + rotation-safe; open 45 / close 27.
+
+## The recipe behind both results
+1. Turn the missing input into a HOLD and sweep it (`door ideal-rs --set/--sweep`): a corner puller
+   (p2's K) or a push-then-pull pair (e88's shuttle) often works as one 10 gt (calibrated) or 30 gt
+   (plain) hold at a free start; pistons that must spit (pull-type pulses on close) never do.
+2. Put sensors on the piston's free neighbours and screen exhaustively (`--vary`), with wool cells
+   around the sensor to delay what it hears first (e88) and to stop re-arm echoes.
+3. Check every orientation: vibration order is direction-dependent (p2-sculk broke at 180 degrees).
+
 ## The other partials (why the bridge does not fit, all measured with ideal-rs)
 
 Every count below is an exhaustive `door ideal-rs --vary` screen (only the lever real unless noted;
@@ -47,7 +64,11 @@ sensors = calibrated facing W/E/N + plain; ~10-20k combinations/s on 20 threads)
 
 - c2e's m88c (8x8): A's hold must start 7..9 and last 3..5 gt (extend 8..10, retract 11..13);
   a sensor gives 10 (calibrated) or 30 gt windows, an observer on it 2 gt taps (a 2 gt pulse
-  makes A spit). On close A sits at (1,3) from t18 and any update + power there breaks the close
+  makes A spit). Why a longer hold fails (trace): B (1,5), lever-held through the two delay-4
+  repeaters (3,5), (2,5) (the most the row has room for), retracts at t16 to lift A to (1,4) for
+  its last pull; with A still extended at (1,3) that pull fails and TM stays at (1,2). A 4 gt pulse
+  needs a delay-2 repeater on (0,3) or (-1,3), but (0,3)'s floor is TL (pulled away at t22: the
+  repeater pops) and (-1,3)'s floor is L2's frame cell (air at rest). On close A sits at (1,3) from t18 and any update + power there breaks the close
   (ideal close pulse at (1,3) ok only if it ends by t17), so A's last pull must stay c2e's
   side-powered stone (0,4), which leaves (0,3) (fed only from an observer at (-1,3), 2 gt) for the
   hold. A's last pull itself: open only, start >= 15..17, ANY length (a 30 gt hold works); L2/L1:
@@ -85,8 +106,20 @@ sensors = calibrated facing W/E/N + plain; ~10-20k combinations/s on 20 threads)
 - wire131's f131F-b2 (f131's): N needs a LEVEL while open plus a blip (off 12..22 on open, on 12..22
   on close); all 11 sensor/observer states of its one free neighbour (-2,5): 0.
 - Seen while scanning every explore/* plan with <= 2 ideal pulses per edge: e88 t3k (8x8, only the
-  shuttle ideal; agent e88 active), m56 p1 (7x8, A's hold + L0; the TR relay is 1 gt short), s79
-  c78m (BR's puller only, but U/K/L0 unwired), m79s s88f (K, L0, L1/L2; m79s finished an 8x8 there).
+  shuttle ideal: finished here as RESULT 2), m56 p1 (7x8, A's hold + L0; the TR relay is 1 gt
+  short), s79 c78m (BR's puller only, but U/K/L0 unwired), m79s s88f (K, L0, L1/L2; m79s finished an
+  8x8 there), c88 s19 (A's push+hold 3..4 gt: not a sensor window; c88b on it).
+- e78 (`e78/t3k7.txt`): bridge-e88-sculk without its x=-3 column is a 7x8 = 56 box that WORKS with
+  P_M (-1,-1) and the shuttle ideal; the shuttle may be any 10 gt hold >= 24, but P_M must be ONE
+  2 gt pulse at 17..22 (10/30 gt holds: 0; 3 calibrated taps: only pm 22 with the shuttle at 29),
+  and in 7 columns its feeders are (-2,-1) (an observer there would watch outside the box; a
+  conductor there needs an emitter at (-2,-2), whose only watched cell is the shuttle itself, >= 24)
+  and (-1,-2) (an observer facing down watches the redstone block, which moves only with the
+  shuttle). So P_M keeps e88's x=-3 observer column (the 8th column).
+- ring56 s1 (7x8 single U) with K moved right and p2-sculk-r's bottom (`x/s1k.txt`): works with the
+  top/side inputs ideal at (ML 0, BR 15..16) or (21..22, 37..39), but BR's puller has no feeder other
+  than (4,-1), which the transplanted bottom needs as BR's watcher (sensors there: 0).
+- Top pullers of s1 accept 3 calibrated taps at any tick (`x/s1-tl3.ideal`: 651 of 651).
 
 ## Tools (this track)
 
