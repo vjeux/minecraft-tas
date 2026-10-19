@@ -1,0 +1,53 @@
+# verified WORKS by door leaderboard: 48 blocks, category solid
+# archived 2026-10-18 22:54Z from HEAD:designs/piston-door-3x3/tracks/seamless/wip/relever/flat-b-v7-full-rl-note-north.txt (repo at f760dea)
+name: flat-b-v7-full-rl-note-north
+port door: 0 0 0
+port lever: 0 -4 -1
+origin: -3 0 -1
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  D minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  ...L
+  ...NBBH
+layer -3:
+  .
+  ..oOFDR
+layer -2:
+  .
+  ooOHFO
+layer -1:
+  .
+  O.E..S
+layer 0:
+  .
+  OE.HHH.G
+layer 1:
+  .
+  HE.HHH.G
+layer 2:
+  .
+  rE.HHH.A
+layer 3:
+  .
+  O.....BC
+layer 4:
+  .
+  rB..ss
+layer 5:
+  .
+  .OBBS

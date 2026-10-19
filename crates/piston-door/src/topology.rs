@@ -21,7 +21,18 @@
 //! Verdict: some component (the lever's) must reach a feeder of every piston: odd-count pistons
 //! (one or three pulses per edge) need an odd-capable component, even-count ones (B's two
 //! pulses) any reached component. `strict`: a link is odd iff changes(q) is odd; `permissive`:
-//! also when changes(q) >= 3 (three events may chain-merge into an odd number).
+//! also when changes(q) >= 3 (three events may chain-merge into an odd number); `memory`: also
+//! a MEMORY link (track families, 2026-10-18): in a reached component with >= 2 free cells, a
+//! waxed copper bulb T flip-flop turns any even pulse count into ONE level window. Cell rule (all
+//! in that component, in the door plane): the link observer's output (its back face) powers the
+//! bulb B directly (B is the cell behind the observer) or through dust; a comparator C stands
+//! next to B facing away from it (it reads B through its back: signal 15 while B is lit) and its
+//! output reaches the piston's feed cell (C next to the piston or its quasi-connectivity cell, or
+//! dust from C). B toggles on each rising edge: lit between the 1st and the 2nd pulse, so a
+//! pulse-driven piston gets one long pulse (extend at the 1st, retract with the sticky pull at
+//! the 2nd). B and C cost 2 free cells; an observer watching B would fire twice again (no gain).
+//! Not modeled: whether B and C fit next to the specific watcher and feeder cells (the check only
+//! counts the component's free cells), latches (piston or note block reset on the other edge).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
@@ -64,6 +75,9 @@ fn run(rest: &World, sol: &Solution) -> (Vec<World>, Vec<(usize, Ev)>, usize) {
 pub struct Topo {
     pub strict: bool,
     pub permissive: bool,
+    /// Wirable when T flip-flops (copper bulb + comparator, 2 free cells) may turn an even link
+    /// into one window (memory links).
+    pub memory: bool,
     pub report: String,
 }
 
@@ -95,7 +109,7 @@ pub fn analyze(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Topo {
     let mut report = String::new();
     if !outside.is_empty() {
         report.push_str(&format!("mechanism blocks outside the box: {outside:?}\n"));
-        return Topo { strict: false, permissive: false, report };
+        return Topo { strict: false, permissive: false, memory: false, report };
     }
     // Components of free cells, joined through unswept ring cells (stone hops).
     let mut cells: Vec<P> = Vec::new();
@@ -255,8 +269,19 @@ pub fn analyze(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Topo {
             report.push_str(&format!("  link ({}): {} watched from ({},{}) in K{k}: {ch} changes\n", if edge == 0 { "open" } else { "close" }, name(i), c[0], c[1]));
         }
     }
-    // Both edges must be wirable with the lever in the same component.
-    let solve = |permissive: bool, k0: usize| -> Result<(), String> {
+    // Both edges must be wirable with the lever in the same component. mode 0 strict, 1
+    // permissive (chain merges), 2 memory: also a T flip-flop (waxed copper bulb + comparator,
+    // 2 free cells) in any reached component turns its even pulse count into one window.
+    let csize: HashMap<usize, usize> = {
+        let mut m: HashMap<usize, usize> = HashMap::new();
+        let cells: Vec<usize> = comp.values().copied().collect();
+        for c in cells {
+            *m.entry(root(&mut parent, c)).or_default() += 1;
+        }
+        m
+    };
+    let solve = |mode: usize, k0: usize| -> Result<(), String> {
+        let permissive = mode == 1;
         let mut bad: Vec<String> = Vec::new();
         for edge in 0..2 {
             let mut odd: BTreeSet<usize> = BTreeSet::from([k0]);
@@ -279,6 +304,13 @@ pub fn analyze(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Topo {
                         grew = true;
                     }
                 }
+                if mode == 2 {
+                    let even_only: Vec<usize> = any.iter().copied().filter(|k| !odd.contains(k) && csize.get(k).copied().unwrap_or(0) >= 2).collect();
+                    for k in even_only {
+                        odd.insert(k);
+                        grew = true;
+                    }
+                }
                 if !grew {
                     break;
                 }
@@ -292,14 +324,15 @@ pub fn analyze(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Topo {
         }
         if bad.is_empty() { Ok(()) } else { Err(bad.join(", ")) }
     };
-    let mut verdict = [false, false];
-    for (vi, permissive) in [false, true].into_iter().enumerate() {
+    let mut verdict = [false, false, false];
+    for (vi, mode) in [0usize, 1, 2].into_iter().enumerate() {
+        let label = ["strict", "permissive", "memory (copper-bulb T flip-flops)"][mode];
         let mut best: Option<(usize, String)> = None;
         for &k0 in &ncomp {
-            match solve(permissive, k0) {
+            match solve(mode, k0) {
                 Ok(()) => {
                     verdict[vi] = true;
-                    report.push_str(&format!("  {}: WIRABLE with the lever in K{k0}\n", if permissive { "permissive" } else { "strict" }));
+                    report.push_str(&format!("  {label}: WIRABLE with the lever in K{k0}\n"));
                     break;
                 }
                 Err(e) => {
@@ -311,10 +344,10 @@ pub fn analyze(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Topo {
             }
         }
         if !verdict[vi] {
-            report.push_str(&format!("  {}: NOT wirable (best: {})\n", if permissive { "permissive" } else { "strict" }, best.map(|b| b.1).unwrap_or_default()));
+            report.push_str(&format!("  {label}: NOT wirable (best: {})\n", best.map(|b| b.1).unwrap_or_default()));
         }
     }
-    Topo { strict: verdict[0], permissive: verdict[1], report }
+    Topo { strict: verdict[0], permissive: verdict[1], memory: verdict[2], report }
 }
 
 /// One catalog piece: `SE(-2,0)`, `SE+(-1,3)`, `ND(1,4)` (sticky/normal, facing, extended at rest).
@@ -360,7 +393,7 @@ pub fn catalog_cli(path: &std::path::Path, only: &[String], verbose: bool) -> an
     let header: Vec<&str> = lines.next().unwrap_or_default().split('\t').collect();
     let col = |name: &str| header.iter().position(|h| *h == name).ok_or_else(|| anyhow::anyhow!("no column {name}"));
     let (ci, cb, co, cp, cop, ccl, cs) = (col("id")?, col("box")?, col("door_offset")?, col("pieces")?, col("open")?, col("close")?, col("sym")?);
-    let (mut n, mut ns, mut np) = (0, 0, 0);
+    let (mut n, mut ns, mut np, mut nm) = (0, 0, 0, 0);
     for line in lines {
         let f: Vec<&str> = line.split('\t').collect();
         if f.len() <= cs.max(cp) {
@@ -399,13 +432,14 @@ pub fn catalog_cli(path: &std::path::Path, only: &[String], verbose: bool) -> an
         n += 1;
         ns += t.strict as usize;
         np += t.permissive as usize;
+        nm += t.memory as usize;
         let comps = t.report.lines().next().unwrap_or_default().to_string();
         let tag = |b: bool| if b { "WIRABLE" } else { "no" };
-        println!("{id} {}x{} offset {},{} {}: strict {} / permissive {} ({comps})", bw, bh, ox, oy, if sol.sym.is_some() { "sym" } else { "oc" }, tag(t.strict), tag(t.permissive));
+        println!("{id} {}x{} offset {},{} {}: strict {} / permissive {} / memory {} ({comps})", bw, bh, ox, oy, if sol.sym.is_some() { "sym" } else { "oc" }, tag(t.strict), tag(t.permissive), tag(t.memory));
         if verbose {
             print!("{}", t.report);
         }
     }
-    println!("{n} mechanisms: {ns} wirable (strict parity), {np} (permissive)");
+    println!("{n} mechanisms: {ns} wirable (strict parity), {np} (permissive), {nm} (memory links)");
     Ok(())
 }

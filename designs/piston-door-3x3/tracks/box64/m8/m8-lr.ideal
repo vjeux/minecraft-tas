@@ -1,0 +1,45 @@
+# right-side inputs of m8-lr.txt as ideal redstone blocks (left side is wired)
+design designs/piston-door-3x3/tracks/box64/m8/m8-lr.txt
+let a1 = 4
+let pm = 10
+let b1 = 12
+let b2 = 20
+let a3 = 24
+let top = 30
+let r = 4
+open a1 set 2 -2 0 minecraft:redstone_block
+open a1+2 clear 2 -2 0
+open pm set 3 -2 0 minecraft:redstone_block
+open pm+2 clear 3 -2 0
+open b1 set 2 -3 0 minecraft:redstone_block
+open b1+2 clear 2 -3 0
+open b2 set 2 -3 0 minecraft:redstone_block
+open b2+2 clear 2 -3 0
+open a3 set 2 -2 0 minecraft:redstone_block
+open a3+2 clear 2 -2 0
+open top set 2 4 0 minecraft:redstone_block
+open top+2 clear 2 4 0
+open r set 5 0 0 minecraft:redstone_block
+open r set 5 1 0 minecraft:redstone_block
+open r set 5 2 0 minecraft:redstone_block
+open r+2 clear 5 0 0
+open r+2 clear 5 1 0
+open r+2 clear 5 2 0
+close a1 set 2 -2 0 minecraft:redstone_block
+close a1+2 clear 2 -2 0
+close pm set 3 -2 0 minecraft:redstone_block
+close pm+2 clear 3 -2 0
+close b1 set 2 -3 0 minecraft:redstone_block
+close b1+2 clear 2 -3 0
+close b2 set 2 -3 0 minecraft:redstone_block
+close b2+2 clear 2 -3 0
+close a3 set 2 -2 0 minecraft:redstone_block
+close a3+2 clear 2 -2 0
+close top set 2 4 0 minecraft:redstone_block
+close top+2 clear 2 4 0
+close r set 5 0 0 minecraft:redstone_block
+close r set 5 1 0 minecraft:redstone_block
+close r set 5 2 0 minecraft:redstone_block
+close r+2 clear 5 0 0
+close r+2 clear 5 1 0
+close r+2 clear 5 2 0

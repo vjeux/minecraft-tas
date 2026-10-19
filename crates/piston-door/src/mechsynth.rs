@@ -287,6 +287,37 @@ impl World {
                 }
             }
         }
+        if SEAMLESS_OPEN.load(Ordering::Relaxed) {
+            return self.ring_clean();
+        }
+        true
+    }
+
+    /// `--seamless-open`: the open state shows no circuitry in the door plane's hallway ring (the
+    /// 12 cells face-adjacent to the opening at z = 0): each holds a door block, a plain stone
+    /// (quartz-like) or air, no piston head; an air ring cell has no circuitry right behind it
+    /// (one further out: it may be a hole); no slime or honey in the ring (it would drag the
+    /// hallway walls at z = +-1). FULL seamless for a flat door, conservatively.
+    pub fn ring_clean(&self) -> bool {
+        for (r, out) in ring12() {
+            match self.occ(r) {
+                Occ::Head(_) => return false,
+                Occ::Block(i) => {
+                    if !matches!(self.b[i].1, Kind::Door | Kind::Stone) {
+                        return false;
+                    }
+                }
+                Occ::Air => match self.occ(out) {
+                    Occ::Head(_) => return false,
+                    Occ::Block(i) => {
+                        if !matches!(self.b[i].1, Kind::Door | Kind::Stone) {
+                            return false;
+                        }
+                    }
+                    Occ::Air => {}
+                },
+            }
+        }
         true
     }
 
@@ -422,6 +453,8 @@ pub struct Graph {
 /// When set, pistons are pulse-driven only (no level events): the cheapest control, one observer
 /// chain from the lever (`--pulses-only`).
 pub static PULSES_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--seamless-open`: open states must also pass `World::ring_clean`.
+pub static SEAMLESS_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Where the split symmetric search puts the "edge" pulses: 0 both, 1 start, 2 end (`--edges`).
 pub static EDGES: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 /// `--split-only`: skip the graph symmetric search (use the edge/core split search).
@@ -1079,6 +1112,18 @@ pub struct EnumOptions {
     pub topology: Option<([i8; 2], [i8; 2])>,
 }
 
+/// The door plane's hallway ring (S at z = 0): each cell with the cell one further out.
+pub fn ring12() -> Vec<(P, P)> {
+    let mut out = Vec::new();
+    for t in 0..=2i8 {
+        out.push(([-1, t, 0], [-2, t, 0]));
+        out.push(([3, t, 0], [4, t, 0]));
+        out.push(([t, -1, 0], [t, -2, 0]));
+        out.push(([t, 3, 0], [t, 4, 0]));
+    }
+    out
+}
+
 fn ring16() -> Vec<P> {
     let mut out = Vec::new();
     for x in -1..=3i8 {
@@ -1734,6 +1779,65 @@ pub fn sym_cli(version: &str, base: &std::path::Path, open_seq: &str, levels: bo
         match verify_plan(&mut wk, &plan, extra) {
             Ok(()) => println!("  sim symmetric: WORKS"),
             Err(e) => println!("  sim symmetric: BROKEN {e:#}"),
+        }
+    }
+    Ok(())
+}
+
+/// `--oc "<open events> | <close events>"`: replay a hand-written open path and close path in the
+/// macro model (each event must change something; open must clear the corridor, close must give
+/// back the exact rest state), print what each step moves, write the ideal-input design and
+/// schedule (`--out-dir`) and replay it in the simulator (`--verify`).
+pub fn oc_cli(version: &str, base: &std::path::Path, oc: &str, out_dir: Option<&std::path::Path>, verify: usize, extra: u32, gap: u32) -> Result<()> {
+    let d = crate::cli::load_design(base)?;
+    let rest = world_of_design(&d)?;
+    let (o, c) = oc.split_once('|').context("--oc wants \"<open events> | <close events>\"")?;
+    let (open_seq, close_seq) = (parse_seq(&rest, o)?, parse_seq(&rest, c)?);
+    let show = |w: &World| -> String {
+        let mut cells: Vec<String> = Vec::new();
+        for (i, (p, k)) in w.b.iter().enumerate() {
+            if !matches!(k, Kind::Piston { .. }) && !matches!(k, Kind::Door) {
+                continue;
+            }
+            if let Kind::Door = k {
+                cells.push(format!("d{i}({},{})", p[0], p[1]));
+            }
+        }
+        cells.join(" ")
+    };
+    let mut w = rest.clone();
+    for (label, seq) in [("open", &open_seq), ("close", &close_seq)] {
+        for (i, e) in seq.iter().enumerate() {
+            let p = w.b[e.id as usize].0;
+            let n = w.apply(*e).with_context(|| format!("{label} step {}: {} at {:?} changes nothing (or is not allowed)", i + 1, fmt_ev(&rest, e), p))?;
+            println!("  {label} {:>2} {:<18} at {:?}   doors: {}", i + 1, fmt_ev(&rest, e), p, show(&n));
+            w = n;
+        }
+        if label == "open" {
+            anyhow::ensure!(w.is_open(), "the open path does not open the door (corridor not clear{})", if SEAMLESS_OPEN.load(Ordering::Relaxed) { " or ring not clean" } else { "" });
+            println!("  OPEN reached");
+        } else {
+            anyhow::ensure!(canon(&w) == canon(&rest), "the close path does not return to the rest state");
+            println!("  REST reached");
+        }
+    }
+    let sol = Solution { open: open_seq.clone(), close: close_seq.clone(), sym: None, states: 0 };
+    let plan = ideal_plan(&rest, &sol, false, gap, "oc")?;
+    if let Some(dir) = out_dir {
+        std::fs::create_dir_all(dir)?;
+        let mut dd = plan.design.clone();
+        dd.name = "oc".into();
+        dd.save(&dir.join("oc.txt"))?;
+        let text = plan.text.replace("design oc.txt", &format!("design {}", dir.join("oc.txt").display()));
+        std::fs::write(dir.join("oc.ideal"), text)?;
+        println!("wrote {}", dir.join("oc.ideal").display());
+    }
+    if verify > 0 {
+        let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() };
+        let mut wk = mctas::sim::Worker::spawn(&cfg)?;
+        match verify_plan(&mut wk, &plan, extra) {
+            Ok(()) => println!("  sim open/close: WORKS"),
+            Err(e) => println!("  sim open/close: BROKEN {e:#}"),
         }
     }
     Ok(())
