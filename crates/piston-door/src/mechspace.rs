@@ -404,7 +404,8 @@ impl<'a> Cx<'a> {
                 } else if families::in_r(x, y) {
                     matches!(t.g[i], AIR | DOOR | STONE)
                 } else {
-                    true
+                    // FRAME9: every door block sits in a frame cell when open
+                    !(FRAME9.load(Ordering::Relaxed) && t.g[i] == DOOR)
                 }
             }
             Goal::Exact(r) => {
@@ -421,10 +422,20 @@ impl<'a> Cx<'a> {
 
     fn is_goal(&self, goal: &Goal, s: &St) -> bool {
         match goal {
-            Goal::Open => self.m.is_open(s),
+            Goal::Open => self.m.is_open(s) && (!FRAME9.load(Ordering::Relaxed) || frame9_ok(self.m, s)),
             Goal::Exact(r) => s == r,
         }
     }
+}
+
+/// `--frame9`: when open, all 9 door blocks sit in frame cells (the 3 others take static stones).
+pub static FRAME9: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn frame9_ok(m: &Mech, s: &St) -> bool {
+    (0..m.bx.n()).all(|i| {
+        let (x, y) = m.bx.xy(i);
+        s.g[i] != DOOR || families::in_r(x, y)
+    })
 }
 
 struct Grp {
@@ -857,11 +868,22 @@ pub fn search(cx: &Cx, starts: &[St], goal: &Goal, forbid: &Fp, cap: usize, all_
     g
 }
 
+/// FULL FRAME (vjeux 03:36Z): when open, all 12 frame cells hold door blocks or STATIC plain
+/// blocks. The search keeps mechanisms stone-free: a frame cell that is air when open must stay
+/// air on the whole cycle (so a static stone can sit there without changing a transition, which
+/// the replay of the stone-augmented mechanism re-checks); the box must hold the whole frame.
+pub static FULL_FRAME: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn bad_holes(m: &Mech, o: &St) -> Fp {
     let mut b = Fp::default();
     let bx = m.bx;
+    let full = FULL_FRAME.load(Ordering::Relaxed);
     for (x, y) in families::ring() {
         if !bx.has(x, y) || o.g[bx.idx(x, y)] != AIR {
+            continue;
+        }
+        if full {
+            b.set(bx.idx(x, y));
             continue;
         }
         let (ox, oy) = families::outward(x, y);
@@ -870,6 +892,57 @@ fn bad_holes(m: &Mech, o: &St) -> Fp {
         }
     }
     b
+}
+
+/// The frame inside the box (needed for FULL FRAME).
+pub fn frame_in_box(bx: &Bx) -> bool {
+    families::ring().into_iter().all(|(x, y)| bx.has(x, y))
+}
+
+/// Frame cells holding a door block or a plain block in state s (out of 12).
+pub fn frame_count(m: &Mech, s: &St) -> usize {
+    families::ring().into_iter().filter(|&(x, y)| m.bx.has(x, y) && matches!(s.g[m.bx.idx(x, y)], DOOR | STONE)).count()
+}
+
+/// FULL FRAME augmentation: static stones in the frame cells left air by the found cycle's open
+/// state, then the augmented mechanism re-decided exactly and its cycle replayed: open state
+/// frame 12/12, every stone static on the cycle. Some(pieces, open, close).
+pub fn augment_frame(bx: Bx, v: &[Pc], open: &[E], cap: usize, cap_lean: usize) -> Option<(Vec<Pc>, Vec<E>, Vec<E>)> {
+    let (m, rest) = Mech::new(bx, v)?;
+    let mut o = rest.clone();
+    for e in open {
+        if let Out::Ok(n) = m.apply(&o, *e) {
+            o = n;
+        }
+    }
+    let mut aug = v.to_vec();
+    for (x, y) in families::ring() {
+        if bx.has(x, y) && o.g[bx.idx(x, y)] == AIR {
+            aug.push(Pc { x, y, k: K::Stone });
+        }
+    }
+    let (m2, rest2) = Mech::new(bx, &aug)?;
+    let cx2 = Cx::new(&m2, &rest2);
+    let (op, cl) = match decide_all(&cx2, cap.min(500_000), cap_lean.max(cap), 0).0 {
+        Verdict::Found { open, close } if !open.is_empty() => (open, close),
+        _ => return None,
+    };
+    // replay: frame 12/12 when open, stones static
+    let stones: Vec<usize> = aug.iter().filter(|p| matches!(p.k, K::Stone)).map(|p| bx.idx(p.x, p.y)).collect();
+    let mut c = rest2.clone();
+    for (k, e) in op.iter().chain(cl.iter()).enumerate() {
+        match m2.apply(&c, *e) {
+            Out::Ok(n) => c = n,
+            _ => return None,
+        }
+        if stones.iter().any(|&i| c.g[i] != STONE) {
+            return None;
+        }
+        if k + 1 == op.len() && (!m2.is_open(&c) || frame_count(&m2, &c) != 12) {
+            return None;
+        }
+    }
+    Some((aug, op, cl))
 }
 
 /// Lean search (no paths): the visited set only, goals returned as keys. `por` = the stubborn-set
@@ -1415,13 +1488,20 @@ pub fn read_list(path: &std::path::Path, w: i8, h: i8) -> Result<Vec<(Bx, Vec<Pc
     Ok(items)
 }
 
+/// `--door-offset dx,dy`: only this door offset in the box (columns left of / rows below the door).
+pub static DOOR_OFFSET: std::sync::OnceLock<(i8, i8)> = std::sync::OnceLock::new();
+
 /// families' candidate list of a box (the same enumeration and mirror dedup as `families::run`).
 pub fn candidates(w: i8, h: i8, pmax: usize, two: usize, carry: usize, vmid: &[Vec<(i8, i8)>]) -> Vec<(Bx, Vec<Pc>)> {
     let mut cands = Vec::new();
     let mut seen: HashSet<Vec<Pc>> = HashSet::new();
     for bx in families::offsets(w, h) {
         let dx = -bx.x0;
-        if dx > (w - 3) - dx {
+        if let Some(&(ox, oy)) = DOOR_OFFSET.get() {
+            if -bx.x0 != ox || -bx.y0 != oy {
+                continue;
+            }
+        } else if dx > (w - 3) - dx {
             continue;
         }
         for v in families::generate_v(bx, pmax, true, true, two, carry, vmid) {
@@ -1635,46 +1715,213 @@ fn cycle_in(cx: &Cx, opens: &[Key], visited: &KeySet, forbid: &Fp, astar: usize)
     Some(Verdict::Found { open: Vec::new(), close: Vec::new() })
 }
 
+/// Weighted A* in the model in force (sub-model filters included): from `start` to a state
+/// meeting `goal`; up to `want` goal states with their paths. (found, capped)
+fn astar_sub(cx: &Cx, start: &St, goal: &dyn Fn(&St) -> bool, h: &dyn Fn(&St) -> u32, cap: usize, want: usize, forbid: &Fp) -> (Vec<(St, Vec<E>)>, bool) {
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
+    let m = cx.m;
+    let mut keys: Vec<Key> = vec![pack(m, start)];
+    let mut parent: Vec<(u32, u8)> = vec![(u32::MAX, 0)];
+    let mut gs: Vec<u32> = vec![0];
+    let mut closed: Vec<bool> = vec![false];
+    let mut index: KeyMap = KeyMap::default();
+    index.insert(keys[0], 0);
+    let mut heap = BinaryHeap::new();
+    heap.push(Reverse((2 * h(start), 0u32, 0u32)));
+    let mut out = Vec::new();
+    let mut capped = false;
+    while let Some(Reverse((_, g, si))) = heap.pop() {
+        if closed[si as usize] || g > gs[si as usize] {
+            continue;
+        }
+        closed[si as usize] = true;
+        let s = unpack(m, &keys[si as usize]);
+        if goal(&s) {
+            let mut path = Vec::new();
+            let mut c = si;
+            while parent[c as usize].0 != u32::MAX {
+                path.push(cx.evs[parent[c as usize].1 as usize]);
+                c = parent[c as usize].0;
+            }
+            path.reverse();
+            out.push((s, path));
+            if out.len() >= want {
+                return (out, false);
+            }
+            continue;
+        }
+        for (k, &e) in cx.evs.iter().enumerate() {
+            let Out::Ok(n) = m.apply(&s, e) else { continue };
+            if n == s || body_in_door(m, &n) || (!forbid.is_empty() && forbid.ones().any(|i| i < MAXC && n.g[i] != AIR)) {
+                continue;
+            }
+            let kn = pack(m, &n);
+            let ng = g + 1;
+            match index.get(&kn) {
+                Some(&j) => {
+                    if ng < gs[j as usize] && !closed[j as usize] {
+                        gs[j as usize] = ng;
+                        parent[j as usize] = (si, k as u8);
+                        heap.push(Reverse((ng + 2 * h(&n), ng, j)));
+                    }
+                }
+                None => {
+                    if keys.len() >= cap {
+                        capped = true;
+                        continue;
+                    }
+                    let j = keys.len() as u32;
+                    index.insert(kn, j);
+                    keys.push(kn);
+                    parent.push((si, k as u8));
+                    gs.push(ng);
+                    closed.push(false);
+                    heap.push(Reverse((ng + 2 * h(&n), ng, j)));
+                }
+            }
+        }
+    }
+    (out, capped)
+}
+
+/// Goal-directed search for an open + close cycle in the model in force: A* to up to 8 open
+/// states (h = door cells still filled, the center counting 2), then A* back to rest from each
+/// (h = cells differing from rest). Some(open, close) when a replay-checked cycle is found.
+pub fn find_cycle(cx: &Cx, cap: usize) -> Option<(Vec<E>, Vec<E>)> {
+    let m = cx.m;
+    let bx = m.bx;
+    let ci = bx.idx(1, 1);
+    let tcells: Vec<usize> = (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).filter(|&(x, y)| bx.has(x, y)).map(|(x, y)| bx.idx(x, y)).collect();
+    let h_open = |s: &St| -> u32 { tcells.iter().map(|&i| if s.g[i] == AIR { 0 } else if i == ci { 2 } else { 1 }).sum() };
+    let none = Fp::default();
+    let (opens, _) = astar_sub(cx, &cx.rest, &|s| m.is_open(s), &h_open, cap, 8, &none);
+    let rest = cx.rest.clone();
+    let n = bx.n();
+    let h_close = |s: &St| -> u32 {
+        let mut d = 0;
+        for i in 0..n {
+            if (s.g[i] == AIR) != (rest.g[i] == AIR) {
+                d += 1;
+            }
+        }
+        d / 2 + (s.pow ^ rest.pow).count_ones()
+    };
+    for (o, open) in &opens {
+        let mask = bad_holes(m, o);
+        let (back, _) = astar_sub(cx, o, &|s| *s == rest, &h_close, cap, 1, &mask);
+        if let Some((_, close)) = back.into_iter().next() {
+            if replay_ok(m, &rest, open, &close) {
+                return Some((open.clone(), close));
+            }
+        }
+    }
+    None
+}
+
 /// [`decide2`] (exact, lean second stage up to `cap_lean`), then families' A* when still capped.
 pub fn decide_all(cx: &Cx, cap: usize, cap_lean: usize, astar: usize) -> (Verdict, Stats) {
-    // main path: a plain search (cheap per state) enumerates the whole reachable set R; then
-    // the states of R that can come back to rest are found BACKWARD from rest (pre-images kept
-    // inside R): an open state among them is a cycle (exact; the hole rule in the restricted
-    // system when needed)
-    let lim = cap_lean.max(200_000);
+    if SWEEP.load(Ordering::Relaxed) {
+        return decide_sweep(cx, cap_lean, astar.max(200_000));
+    }
+    if let Some(r) = main_path(cx, cap_lean.max(200_000), astar) {
+        return r;
+    }
+    decide_rest(cx, cap, cap_lean, astar)
+}
+
+/// Sweep mode (`MECHSPACE_SWEEP`): exact on small reachable sets, a goal-directed cycle search
+/// (A* in the model in force) next, the exact enumeration up to `cap_lean` last.
+pub static SWEEP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn decide_sweep(cx: &Cx, cap_lean: usize, astar: usize) -> (Verdict, Stats) {
+    if let Some(r) = main_path(cx, 100_000, 0) {
+        return r;
+    }
+    if let Some((open, close)) = find_cycle(cx, astar) {
+        return (Verdict::Found { open, close }, Stats { open_states: 0, close_states: 0 });
+    }
+    if let Some(r) = main_path(cx, cap_lean, 0) {
+        return r;
+    }
+    (Verdict::Capped { opens: 0 }, Stats { open_states: cap_lean, close_states: 0 })
+}
+
+/// The exact main path: a plain search (cheap per state) enumerates the whole reachable set R
+/// (None when it exceeds `lim`); the states of R that can come back to rest are found BACKWARD
+/// from rest (pre-images kept inside R): an open state among them is a cycle (the hole rule in
+/// the restricted system when needed).
+fn main_path(cx: &Cx, lim: usize, astar: usize) -> Option<(Verdict, Stats)> {
     let none = Fp::default();
     let (opens, complete, visited) = search_lean_set(cx, std::slice::from_ref(&cx.rest), &Goal::Open, &none, lim, true, false);
-    if complete {
-        let n = visited.len();
-        if opens.is_empty() {
-            return (Verdict::NoOpen, Stats { open_states: n, close_states: 0 });
-        }
-        if let Some(v) = cycle_in(cx, &opens, &visited, &none, astar) {
-            return (v, Stats { open_states: n, close_states: 0 });
-        }
-        drop(visited);
-        // open states whose holes need cells kept air: the restricted system per mask
-        let m = cx.m;
-        let masks: std::collections::BTreeSet<Fp> = opens.iter().map(|k| bad_holes(m, &unpack(m, k))).filter(|b| !b.is_empty()).collect();
-        let mut capped = false;
-        for mask in masks {
-            if mask.ones().any(|i| cx.rest.g[i] != AIR) {
-                continue;
-            }
-            let (o2, c2, v2) = search_lean_set(cx, std::slice::from_ref(&cx.rest), &Goal::Open, &mask, lim, true, false);
-            if !c2 {
-                capped = true;
-                continue;
-            }
-            let o2: Vec<Key> = o2.into_iter().filter(|k| bad_holes(m, &unpack(m, k)) == mask).collect();
-            if let Some(v) = cycle_in(cx, &o2, &v2, &mask, astar) {
-                return (v, Stats { open_states: n, close_states: 0 });
-            }
-        }
-        let nopen = opens.len();
-        return (if capped { Verdict::Capped { opens: nopen } } else { Verdict::NoClose { opens: nopen } }, Stats { open_states: n, close_states: 0 });
+    if !complete {
+        return None;
     }
+    let n = visited.len();
+    let st = Stats { open_states: n, close_states: 0 };
+    if opens.is_empty() {
+        return Some((Verdict::NoOpen, st));
+    }
+    let m = cx.m;
+    let nopen = opens.len();
+    // open states that can come back to rest at all (unrestricted): every cycle uses one
+    let live = coreach_within(m, &cx.rest, &visited);
     drop(visited);
+    let mut by_mask: BTreeMap<(u32, Fp), Vec<Key>> = BTreeMap::new();
+    for k in opens.iter().filter(|k| live.contains(*k)) {
+        let b = bad_holes(m, &unpack(m, k));
+        let c: u32 = b.0.iter().map(|w| w.count_ones()).sum();
+        by_mask.entry((c, b)).or_default().push(*k);
+    }
+    drop(live);
+    let mut capped = false;
+    // fewest cells to keep air first (FULL FRAME: fewest static stones)
+    for ((_, mask), list) in &by_mask {
+        if mask.is_empty() {
+            return Some((found_seq(cx, &unpack(m, &list[0]), &none, n + 10, astar), st));
+        }
+        if mask.ones().any(|i| cx.rest.g[i] != AIR) {
+            continue;
+        }
+        // the restricted system: those cells air at every state of the cycle
+        let (_, c2, v2) = search_lean_set(cx, std::slice::from_ref(&cx.rest), &Goal::Open, mask, lim, true, false);
+        if !c2 {
+            capped = true;
+            continue;
+        }
+        let live2 = coreach_within(m, &cx.rest, &v2);
+        if let Some(k) = list.iter().find(|k| v2.contains(*k) && live2.contains(*k)) {
+            return Some((found_seq(cx, &unpack(m, k), mask, v2.len() + 10, 0), st));
+        }
+    }
+    Some((if capped { Verdict::Capped { opens: nopen } } else { Verdict::NoClose { opens: nopen } }, st))
+}
+
+/// Event sequences of a cycle through the open state `o` known to exist (in the system
+/// restricted by `forbid`): families' A* when nothing is restricted, else reduced path searches.
+fn found_seq(cx: &Cx, o: &St, forbid: &Fp, cap: usize, astar: usize) -> Verdict {
+    let m = cx.m;
+    if forbid.is_empty() && astar > 0 {
+        if let Ok(Some(sol)) = families::solve_pulse_astar(m, &cx.rest, astar) {
+            if replay_ok(m, &cx.rest, &sol.open, &sol.close) {
+                return Verdict::Found { open: sol.open, close: sol.close };
+            }
+        }
+    }
+    let g1 = search(cx, std::slice::from_ref(&cx.rest), &Goal::Exact(o.clone()), forbid, cap, false);
+    let g2 = search(cx, std::slice::from_ref(o), &Goal::Exact(cx.rest.clone()), forbid, cap, false);
+    if let (Some(&a), Some(&b)) = (g1.goals.first(), g2.goals.first()) {
+        let ev = |v: Vec<u8>| -> Vec<E> { v.into_iter().map(|k| cx.evs[k as usize]).collect() };
+        let open = ev(g1.path(a).1);
+        let close = ev(g2.path(b).1);
+        if replay_ok(m, &cx.rest, &open, &close) {
+            return Verdict::Found { open, close };
+        }
+    }
+    Verdict::Found { open: Vec::new(), close: Vec::new() }
+}
+
+fn decide_rest(cx: &Cx, cap: usize, cap_lean: usize, astar: usize) -> (Verdict, Stats) {
     let (vd, st) = decide2(cx, cap, cap_lean, astar);
     if astar == 0 || vd.decided() {
         return (vd, st);
@@ -1709,6 +1956,7 @@ pub fn run_list(items_all: &[(Bx, Vec<Pc>)], o: &RunOpts, families_cmp: bool) ->
     let rows: Mutex<Vec<(usize, String)>> = Mutex::new(Vec::new());
     // rows also stream to <tag>.partial.tsv as they finish (long runs)
     let partial = Mutex::new(if done_before.is_empty() { std::fs::File::create(&ppath)? } else { std::fs::OpenOptions::new().append(true).open(&ppath)? });
+    let frame_out = Mutex::new(std::fs::OpenOptions::new().create(true).append(true).open(o.out.join(format!("{}.frame.tsv", o.tag)))?);
     let found: Mutex<Vec<(usize, Bx, Vec<Pc>, Vec<E>, Vec<E>)>> = Mutex::new(Vec::new());
     let counts: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
     std::thread::scope(|sc| {
@@ -1720,13 +1968,30 @@ pub fn run_list(items_all: &[(Bx, Vec<Pc>)], o: &RunOpts, families_cmp: bool) ->
                 }
                 let (bx, v) = &items[i];
                 let ti = std::time::Instant::now();
+                let full = FULL_FRAME.load(Ordering::Relaxed);
                 let row = match Mech::new(*bx, v) {
                     None => "invalid".to_string(),
+                    Some(_) if full && !frame_in_box(bx) => "no-frame".to_string(),
                     Some((m, rest)) => {
                         let mut cx = Cx::new(&m, &rest);
                         cx.cap_local = o.cap_local;
                         cx.max_group = o.max_group;
-                        let (vd, st) = decide_all(&cx, o.cap, o.cap_lean, o.astar);
+                        let (mut vd, st) = decide_all(&cx, o.cap, o.cap_lean, o.astar);
+                        // FULL FRAME: the found cycle must also work with static stones in the
+                        // frame cells it leaves air (streamed to <tag>.frame.tsv)
+                        if full {
+                            if let Verdict::Found { open, .. } = &vd {
+                                match augment_frame(*bx, v, open, o.cap, o.cap_lean) {
+                                    Some((aug, op, cl)) => {
+                                        use std::io::Write;
+                                        let (m2, _) = Mech::new(*bx, &aug).unwrap();
+                                        let mut f = frame_out.lock().unwrap();
+                                        let _ = writeln!(f, "{}\t{}\t{}\t{}+{}\t{}\t{}", line_of(bx, &aug), line_of(bx, v), aug.iter().filter(|p| matches!(p.k, K::Stone)).count(), op.len(), cl.len(), m2.fmt_seq(&op), m2.fmt_seq(&cl));
+                                    }
+                                    None => vd = Verdict::NoClose { opens: 0 },
+                                }
+                            }
+                        }
                         let fam = if families_cmp {
                             match families::solve(&m, &rest, o.fcap, false) {
                                 Ok(Some(_)) => "found",
@@ -2069,22 +2334,32 @@ pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::P
         };
         verdicts.entry(*k).or_default().push(v);
     }
-    let mut tsv = String::from("id\tbox\tdoor_offset\tpistons\topen_len\tclose_len\tsym_len\textent\tpieces\topen\tclose\tsym\tsim\tfiles\n");
+    let mut tsv = String::from("id\tbox\tdoor_offset\tpistons\topen_len\tclose_len\tsym_len\textent\tpieces\topen\tclose\tsym\tsim\tfiles\tframe\n");
     let (mut ok, mut bad) = (0, 0);
     for (k, (i, r)) in exs.iter().enumerate() {
         match r {
             Ok(e) => {
-                let (m, _) = Mech::new(e.bx, &e.pieces).unwrap();
+                let (m, mrest) = Mech::new(e.bx, &e.pieces).unwrap();
+                // sequences as families' catalog publishes them: the QC coupling spelled out
+                let xs = families::expanded_sol(&m, &mrest, &e.sol);
                 let sim = verdicts.get(&k).map(|v| v.join("; ")).unwrap_or_default();
                 if sim.contains("WORKS") {
                     ok += 1;
                 } else {
                     bad += 1;
                 }
+                // frame cells filled when open (door blocks + plain blocks), out of 12
+                let mut o = mrest.clone();
+                for ev in &e.sol.open {
+                    if let Out::Ok(n) = m.apply(&o, *ev) {
+                        o = n;
+                    }
+                }
+                let frame = frame_count(&m, &o);
                 let files: Vec<String> = std::iter::once(format!("mech/{}.txt", e.id)).chain(e.plans.iter().map(|(t, _)| format!("mech/{}-{t}.ideal", e.id))).collect();
                 let ex = e.sol.extent;
                 tsv.push_str(&format!(
-                    "{}\t{}x{}\t{},{}\t{}\t{}\t{}\t{}\t{}x{}\t{}\t{}\t{}\t{}\t{}{}\t{}\n",
+                    "{}\t{}x{}\t{},{}\t{}\t{}\t{}\t{}\t{}x{}\t{}\t{}\t{}\t{}\t{}{}\t{}\t{frame}/12\n",
                     e.id,
                     e.bx.w,
                     e.bx.h,
@@ -2097,9 +2372,9 @@ pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::P
                     ex.2 - ex.0 + 1,
                     ex.3 - ex.1 + 1,
                     e.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
-                    m.fmt_seq(&e.sol.open),
-                    m.fmt_seq(&e.sol.close),
-                    e.sol.sym.as_ref().map(|s| m.fmt_seq(s)).unwrap_or_default(),
+                    m.fmt_seq(&xs.open),
+                    m.fmt_seq(&xs.close),
+                    xs.sym.as_ref().map(|s| m.fmt_seq(s)).unwrap_or_default(),
                     e.note,
                     sim,
                     files.join(" ")
