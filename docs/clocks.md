@@ -100,6 +100,16 @@ layer 0:
   Items of its item table and TransferCooldown; anything else is UNMODELED for `clock sim`.
 * Extra words on any `port` line are kept: `Design.meta["port <name>"]`, written back on the port
   line.
+* `entity: <type> <x> <y> <z> [{snbt}]` (header, the door format's; track clk-misc: minecart
+  clocks): a design entity, summoned once the blocks stand (before the kick), turned with the
+  design (position like the cells, `Rotation` by the game, `Motion` by the judge). `clock verify`
+  then fails on any entity that is NOT the design's (a drop, a popped block) and on a design
+  entity lost, duplicated or outside the watched box at the end; the period stays the block
+  states' (a detector rail, a comparator reading a hopper minecart). Each entity counts as one
+  piece in `blocks`, its kind joins the family (`detector_rail+minecart`) and its cell joins the
+  type key. `clock sim` answers UNMODELED (redsim has no entities). Example: a minecart on a 3x3
+  rail loop with two powered rails on redstone blocks over a detector rail is a robust P476 clock
+  (warmup 556; the detector's 20 gt re-check against the lap time).
 
 ### Extendable clocks (`extend` headers, vjeux 2026-10-19)
 
@@ -136,7 +146,7 @@ Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives v
 | command | what |
 |---|---|
 | `mctas clock sim <design>... [--horizon 50000] [--margin 4] [--json] [-q] [--trace N]` | the exact period on redsim in milliseconds: place, kick, run until the whole state repeats (W, P), then replay one period for the waveform per changing cell and at the output, the family, the blocks and the swept box. `CLOCK:` line, or `STOPS` (it goes still, or only hidden state changes), `NO-REPEAT` (horizon), `UNMODELED` (a block or case redsim does not model exactly: judge it with `clock verify`), `INVALID` (a drop, or a write beyond the margin). `--trace N` prints every cell change of the first N ticks |
-| `mctas clock verify <design>... [--positions 4] [--no-rotations] [--horizon 4000] [--margin 3] [--workers 8] [-v] [--json]` | THE judge, in the real game: every build in a cleared sandbox at the door judge's positions (4 by default, vjeux 2026-10-19) x 4 rotations = 16 builds (the game turns every block state, and a temporary start block), placed and kicked like `clock sim`, every tick of the watched box recorded (block states and block entities); the horizon grows with redsim's period (warmup + 4 periods, up to 20000 gt); exact periodicity of the full cell state for >= 3 periods after warmup, no entity, never reaching the watched box's edge, the same period/output waveform/family everywhere. Prints `CLOCK: <name> period P gt (T s), on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust\|position-dependent\|rotation-dependent`, the builds that differ or fail, and the redsim agreement (`redsim AGREES (period, warmup, output waveform, family, box)` or what redsim says); exits 1 unless it is a clock |
+| `mctas clock verify <design>... [--positions 4] [--no-rotations] [--horizon 4000] [--margin 3] [--workers 8] [-v] [--json]` | THE judge, in the real game: every build in a cleared sandbox at the door judge's positions (4 by default, vjeux 2026-10-19) x 4 rotations = 16 builds (the game turns every block state, and a temporary start block), placed and kicked like `clock sim`, every tick of the watched box recorded (block states and block entities); the horizon grows with redsim's period (warmup + 4 periods, up to 20000 gt); exact periodicity of the full cell state for >= 3 periods after warmup, no entity but the design's own (`entity:` lines: still there, same counts, inside the box), never reaching the watched box's edge, the same period/output waveform/family everywhere. Prints `CLOCK: <name> period P gt (T s), on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust\|position-dependent\|rotation-dependent`, the builds that differ or fail, and the redsim agreement (`redsim AGREES (period, warmup, output waveform, family, box)` or what redsim says); exits 1 unless it is a clock |
 | `mctas clock archive <design>... [--caption '...'] [--dir designs/clocks/archive] [--dedupe]` | (coordinator) the judge, then a copy in the archive (header: date, source, the judge's line), its row in `verdicts-v1.tsv` (period, warmup, output duty and edges, family, blocks, box, robustness, start, type key, chirality) and its caption in `captions.tsv` (default: the design's first comment block); a clock already archived (same blocks, ports, kick, block entities) is skipped, and a design of an already archived TYPE at the same period (a rotation, mirror image or move of it) is refused (`SAME TYPE ... same type as <file>`); a name already taken by another structure is archived as `<name>-<6 hex digits of its type hash>.txt` (the same structure gets the same name on every branch). `--dedupe` (no judging): keep one archived design per type (the earliest archived), remove the others (design, pictures, rows) and record them in `aliases.tsv` (the catalog lists them as "also found as") |
 | `mctas clock census-report <census dir>... [--out F]` | the MINIMAL clocks of several census runs merged: per (period, family) the fewest blocks, its box and census, the minimal type count, the periods never found below the largest (`designs/clocks/census/README.md`) |
 | `mctas clock extend-check <design> [--n a..b \| a,b,c] [--positions 4] [--record] [--dir designs/clocks/archive]` | judges instances of an extendable family (its `extend` headers, above): builds each n with the generator, `clock verify`, period and blocks against the formulas; `OK`/`FAIL` line per n; `--record` adds the passing ones to `extend.tsv` (default n: low, low+1, low+2, middle, high) |
@@ -150,7 +160,9 @@ Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives v
 Clock checks in `door selftest`: `clock:sim-calibration` (quick: the 8 calibration clocks' known
 period, warmup, output, family, blocks and box), `clock:sim-negative` (quick: the observer pair
 placed silently: STOPS), `clock:verify-calibration` (full suite, the real game: observer pair and
-subtract comparator robust, redsim agrees), `clock:verify-negative` (full suite).
+subtract comparator robust, redsim agrees), `clock:verify-negative` (full suite),
+`clock:verify-entities` (full suite: the observer pair beside a minecart on a rail is robust; with
+the cart in the air, falling away, it is rejected).
 
 ## Census results (redsim, `core` palette, self-start or one block placed last)
 

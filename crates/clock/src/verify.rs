@@ -127,6 +127,26 @@ pub fn rotated(w: &mut Worker, c: &Clock, turns: u8) -> Result<Clock> {
     d.blocks = c.design.blocks.keys().zip(turned.iter()).map(|(p, s)| (crate::rotate_pos(*p, turns), s.clone())).collect();
     d.ports = c.design.ports.iter().map(|(k, p)| (k.clone(), crate::rotate_pos(*p, turns))).collect();
     d.block_entities = c.design.block_entities.iter().map(|(p, s)| (crate::rotate_pos(*p, turns), s.clone())).collect();
+    // design entities (minecarts...): positions by the same map in continuous coordinates (a turn
+    // takes cell (x, z) to (-z, x): (X, Z) -> (1 - Z, X), as the door judge turns them), their
+    // data (Rotation) by the game, their Motion turned here
+    if !c.design.entities.is_empty() {
+        let nbts = w.transform_entities(&c.design.entities, turns, false)?;
+        d.entities = c
+            .design
+            .entities
+            .iter()
+            .zip(nbts)
+            .map(|(e, nbt)| {
+                let mut p = e.pos;
+                for _ in 0..turns {
+                    p = [1.0 - p[2], p[1], p[0]];
+                }
+                let nbt = nbt.or_else(|| e.nbt.clone()).map(|s| crate::turn_motion(&s, turns));
+                mctas::design::EntitySpec { kind: e.kind.clone(), pos: p, nbt }
+            })
+            .collect();
+    }
     if let Some(Kick::Place { ticks, .. }) = &c.kick {
         let at = if c.kick_at > 0 { format!(" at {}", c.kick_at) } else { String::new() };
         d.meta.insert("port start".into(), format!("{} {ticks}{at}", turned.last().unwrap()));
@@ -163,7 +183,38 @@ pub fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
             merge(w)?;
         }
     }
+    // the design's entities (minecarts...), once the blocks stand (as the door judge summons them)
+    if !c.design.entities.is_empty() {
+        w.summon(sb, &c.design.entities)?;
+    }
     Ok(())
+}
+
+/// The end-of-run entity check: the design's own entities may stay (the same kinds and counts,
+/// inside the watched box); anything else (a drop, a popped block, a lost or extra cart) fails.
+fn entity_problem(c: &Clock, ents: &[mctas::sim::EntityInfo], from: Pos, to: Pos) -> Option<String> {
+    let norm = |k: &str| if k.contains(':') { k.to_string() } else { format!("minecraft:{k}") };
+    let mut want: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for e in &c.design.entities {
+        *want.entry(norm(&e.kind)).or_default() += 1;
+    }
+    let mut have: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for e in ents {
+        *have.entry(norm(&e.kind)).or_default() += 1;
+    }
+    if want != have {
+        let list = |m: &std::collections::BTreeMap<String, usize>| if m.is_empty() { "none".to_string() } else { m.iter().map(|(k, n)| format!("{n} {}", short(k))).collect::<Vec<_>>().join(", ") };
+        let first = ents.iter().find(|e| want.get(&norm(&e.kind)).copied().unwrap_or(0) < have[&norm(&e.kind)]);
+        let at = first.map(|e| format!(" ({} at {:.1?})", short(&e.kind), e.pos)).unwrap_or_default();
+        return Some(format!("entities at the end: {} (the design has {}): a drop, a popped block or a lost/extra entity{at}", list(&have), list(&want)));
+    }
+    ents.iter()
+        .find(|e| (0..3).any(|i| e.pos[i] < from[i] as f64 || e.pos[i] >= to[i] as f64 + 1.0))
+        .map(|e| format!("{} at {:.1?} left the watched box (margin cells included)", short(&e.kind), e.pos))
+}
+
+fn short(k: &str) -> &str {
+    crate::short(k)
 }
 
 /// Apply one input of the start kick between ticks.
@@ -315,8 +366,8 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         }
     }
     let ents = w.entities(sb)?;
-    if let Some(e) = ents.first() {
-        return Ok(Err(format!("{} entit{} appeared (a drop or a popped block): {} at {:?}", ents.len(), if ents.len() == 1 { "y" } else { "ies" }, e.kind, e.pos)));
+    if let Some(why) = entity_problem(c, &ents, from, to) {
+        return Ok(Err(why));
     }
     let (slo, shi) = (fr.slo, fr.shi);
     let end = c.free_from() as usize;
@@ -345,7 +396,16 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         .collect();
     let int = &fr.int;
     let states: Vec<Vec<&str>> = per_frame.iter().map(|v| v.iter().map(|id| int.name(*id)).collect()).collect();
-    let analysis = wave::analyze(&cells, &states);
+    let mut analysis = wave::analyze(&cells, &states);
+    // the design's entities (a minecart riding its rails) are part of the mechanism: their kinds
+    // join the family (`detector_rail+minecart`)
+    for e in &c.design.entities {
+        let k = short(&e.kind).to_string();
+        if !analysis.family.contains(&k) {
+            analysis.family.push(k);
+        }
+    }
+    analysis.family.sort();
     if analysis.cells.is_empty() {
         return Ok(Err(if p == 1 { format!("goes still at tick {w0}") } else { format!("no block changes in its period ({p} gt)") }));
     }

@@ -602,6 +602,14 @@ mod tests {
         format!("h\t{file}\t6\t0\t2\t1\t[2]\tobserver\t2\t2x1x1\t2\trobust\tkick: last 1,0,0\tk\tfalse\t{summary}")
     }
 
+    /// `Motion` turns with the design (the game turns `Rotation`).
+    #[test]
+    fn motion_turns() {
+        assert_eq!(crate::turn_motion("{Motion:[0.4d,0.0d,0.0d]}", 1), "{Motion:[0.0d,0.0d,0.4d]}");
+        assert_eq!(crate::turn_motion("{Motion:[0.4d,0.0d,0.0d]}", 2), "{Motion:[-0.4d,0.0d,0.0d]}");
+        assert_eq!(crate::turn_motion("{Invulnerable:1b}", 1), "{Invulnerable:1b}");
+    }
+
     /// A union merge repeated a file's rows: dedupe collapses them and never removes a file as a
     /// duplicate of itself (coordinator's bug, 2026-10-19: 167 archived clocks deleted); a real
     /// duplicate (the same structure turned) is still removed.
