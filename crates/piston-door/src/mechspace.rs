@@ -1999,7 +1999,13 @@ pub fn rank_rows(paths: &[std::path::PathBuf], w: i8, h: i8, threads: usize) -> 
                         continue;
                     }
                     nonheld += 1;
-                    let nb = [(1i8, 0i8), (-1, 0), (0, 1), (0, -1)].iter().filter(|(dx, dy)| free(p.x + dx, p.y + dy)).count() as i64;
+                    // the 4 neighbours, plus the cells that power its quasi-connectivity cell
+                    // (above it): (x-1,y+1), (x+1,y+1), (x,y+2) (MECHSPACE_RANK_QC)
+                    let mut cells: Vec<(i8, i8)> = vec![(1, 0), (-1, 0), (0, 1), (0, -1)];
+                    if std::env::var("MECHSPACE_RANK_QC").is_ok() {
+                        cells.extend([(-1, 1), (1, 1), (0, 2)]);
+                    }
+                    let nb = cells.iter().filter(|(dx, dy)| free(p.x + dx, p.y + dy)).count() as i64;
                     minfree = minfree.min(nb);
                 }
                 if minfree == i64::MAX {
@@ -2998,6 +3004,84 @@ pub fn framecheck_tsvs(paths: &[std::path::PathBuf], threads: usize) -> Result<(
     Ok((checked, demoted))
 }
 
+/// `MECHSPACE_HELD_FIRST` (satwire3): plans a lever LEVEL can drive for the pistons extended at
+/// rest (held): open = every held piston's level off first (all at t0), then pulses of the other
+/// pistons only; close = the held pistons' level back on as early as possible (first if their push
+/// line is clear), the rest pulses. Open goal: opening clear and frame 12/12. BFS, `cap` states
+/// per phase. None when no such cycle exists within the cap.
+pub static HELD_FIRST: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn held_solution(m: &Mech, rest: &St, cap: usize) -> Option<(Vec<E>, Vec<E>)> {
+    use crate::mechsynth::Act;
+    let held: Vec<u8> = (0..m.info.len()).filter(|&i| m.ext_rest[i]).map(|i| i as u8).collect();
+    let others: Vec<E> = (0..m.info.len()).filter(|&i| !m.ext_rest[i]).map(|i| E { id: i as u8, act: Act::P }).collect();
+    let bfs = |start: &St, allow_held_on: bool, goal: &dyn Fn(&St) -> bool| -> Option<(Vec<E>, St)> {
+        let mut par: HashMap<St, Option<(St, E)>> = HashMap::new();
+        let mut q: VecDeque<St> = VecDeque::new();
+        par.insert(start.clone(), None);
+        q.push_back(start.clone());
+        while let Some(s) = q.pop_front() {
+            if goal(&s) {
+                let mut path = Vec::new();
+                let mut c = s.clone();
+                while let Some(Some((p, e))) = par.get(&c).cloned() {
+                    path.push(e);
+                    c = p;
+                }
+                path.reverse();
+                return Some((path, s));
+            }
+            if par.len() > cap {
+                return None;
+            }
+            let mut evs: Vec<E> = others.clone();
+            if allow_held_on {
+                evs.extend(held.iter().filter(|&&h| s.pow & (1u16 << h) == 0).map(|&h| E { id: h, act: Act::L }));
+            }
+            for e in evs {
+                if let Out::Ok(n) = m.apply(&s, e) {
+                    if NO_DOOR_BODIES.load(Ordering::Relaxed) && body_in_door(m, &n) {
+                        continue;
+                    }
+                    if !par.contains_key(&n) {
+                        par.insert(n.clone(), Some((s.clone(), e)));
+                        q.push_back(n);
+                    }
+                }
+            }
+        }
+        None
+    };
+    // open: the held pistons' level off, all at once (applied in order), then pulses of the others
+    let mut s = rest.clone();
+    let mut open = Vec::new();
+    for &h in &held {
+        let e = E { id: h, act: Act::L };
+        match m.apply(&s, e) {
+            Out::Ok(n) => {
+                s = n;
+                open.push(e);
+            }
+            _ => return None,
+        }
+    }
+    let (p1, o) = bfs(&s, false, &|st: &St| m.is_open(st) && frame_count(m, st) == 12)?;
+    open.extend(p1);
+    // close: every held piston back on at t0 when its line is clear, then the rest
+    let mut c = o.clone();
+    let mut close = Vec::new();
+    for &h in &held {
+        let e = E { id: h, act: Act::L };
+        if let Out::Ok(n) = m.apply(&c, e) {
+            c = n;
+            close.push(e);
+        }
+    }
+    let (p2, _) = bfs(&c, true, &|st: &St| st == rest)?;
+    close.extend(p2);
+    Some((open, close))
+}
+
 /// Static frame stones written as THE door block (the 12 frame cells hold the door block when
 /// open, vjeux 2026-10-19), instead of smooth stone.
 fn frame_stones_as_door(d: &mut mctas::design::Design) {
@@ -3034,7 +3118,14 @@ pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::P
                 let (id, bx, v) = &items[i];
                 let r = (|| -> Result<Ex> {
                     let (m, rest) = Mech::new(*bx, v).context("invalid mechanism")?;
-                    let (open, close) = match families::solve(&m, &rest, 300_000, false) {
+                    let held_first = HELD_FIRST.load(Ordering::Relaxed);
+                    let (open, close) = if held_first {
+                        match held_solution(&m, &rest, cap.min(2_000_000)) {
+                            Some(x) => x,
+                            None => anyhow::bail!("no held-first open+close"),
+                        }
+                    } else {
+                        match families::solve(&m, &rest, 300_000, false) {
                         Ok(Some(s)) if replay_ok(&m, &rest, &s.open, &s.close) => (s.open, s.close),
                         _ => match families::solve_pulse_astar(&m, &rest, cap.min(2_000_000)) {
                             Ok(Some(s)) if replay_ok(&m, &rest, &s.open, &s.close) => (s.open, s.close),
@@ -3043,6 +3134,7 @@ pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::P
                                 other => anyhow::bail!("no open+close: {}", other.tag()),
                             },
                         },
+                        }
                     };
                     let mut cyc = vec![rest.clone()];
                     let mut c = rest.clone();
@@ -3055,7 +3147,9 @@ pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::P
                     let refs: Vec<&St> = cyc.iter().collect();
                     let extent = m.extent(&refs);
                     let mut sol = families::Sol { open, close, sym: None, sym_levels: false, states: 0, extent, levels: false };
-                    if let Some((s, lv)) = families::best_sym(&m, &rest, &sol, 200_000, 6) {
+                    if held_first {
+                        // the oc plan only: the held pistons' levels lead both edges
+                    } else if let Some((s, lv)) = families::best_sym(&m, &rest, &sol, 200_000, 6) {
                         sol.sym = Some(s);
                         sol.sym_levels = lv;
                     }
