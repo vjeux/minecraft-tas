@@ -243,6 +243,19 @@ pub enum DoorCmd {
         /// t's tile-tick phase, where an observer's output arrives; see ideal.rs).
         #[arg(long)]
         between_ticks: bool,
+        /// Screen many schedules for sensor wake-ups: for every ideal input, which sensor modes
+        /// (hold10, hold30, taps3, taps2) work with the SAME start on both edges, starts 0..=N
+        /// (others at their plan events); one line per schedule: inputs, sensor-friendly
+        /// inputs with their modes and starts, exact-only inputs. Sorted by exact-only count.
+        #[arg(long)]
+        holds_rank: Option<i64>,
+        /// Write each schedule to this directory with its in-plane inputs below the opening
+        /// (rows < door.y + --offplane-below) moved behind the pistons they feed (z+1), and
+        /// print the `satwire --keep-ideal` cell list: the sealed bottom left to sensors.
+        #[arg(long)]
+        offplane_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        offplane_below: i32,
     },
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
@@ -456,8 +469,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
-        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds, between_ticks } => match { crate::ideal::cli_phase(between_ticks); compact_dir } {
-            Some(dir) => {
+        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } => match { crate::ideal::cli_phase(between_ticks); (compact_dir, holds_rank) } {
+            _ if offplane_dir.is_some() => crate::ideal_rs::offplane_dir(&schedule, offplane_dir.as_deref().unwrap(), offplane_below)?,
+            (_, Some(max_tick)) => crate::ideal_rs::holds_rank(&schedule, extra_offsets, cycles, threads, max_tick)?,
+            (Some(dir), None) => {
                 std::fs::create_dir_all(&dir)?;
                 for s in &schedule {
                     let stem = s.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
@@ -466,8 +481,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     }
                 }
             }
-            None => {
-                anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir)");
+            (None, None) => {
+                anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir or --holds-rank)");
                 crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds)?;
             }
         },
