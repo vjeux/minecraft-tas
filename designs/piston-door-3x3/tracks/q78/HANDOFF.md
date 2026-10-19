@@ -58,9 +58,17 @@ hears B2, and its 2nd lamp cycle pushes C out of F1). So the hold has no cell: B
   of its face at the new cell, so the two edges can feed different cells); c88b's copper-bulb T flip-flop +
   comparator = a door-state LEVEL at the bottom (comparators need a support block, none on row -3).
 
+## satwire3 (15:01Z)
+r1w with (0,-3) and (-1,-1) freed: UNSAT at once, core = open B' (1,-3) alone; its sculk model forbids a sensor at a calibrated back, so read it as "no non-sensor feed at (0,-3) works", not a proof.
+
 ## Next ideas
 1. An edge-selective B'-hold for r1-style designs: a B' source active [19,29) on open only (B2 at t29 lands A'
    at G3 start; the 2nd (2,-3) cycle is then harmless as in nb).
 2. Lamp sensor that does not re-arm into B2: a filter or occluder for the lamp sensor after t26.
 3. A K relay that fires once per edge (no 2nd-cycle retraction), e.g. a block left in (4,-3) on open and
    brought back on close.
+4. The lamp sensor (-1,-3) is the recurring blocker: any B'-adjacent source at (0,-3) unshields it, and it
+   re-arms at t26 into B2/A3. A lamp sensor that is deaf through t45 on open (filter on its back fed by a
+   source active t20..45) would free (0,-3) for the calibrated B' hold at t18/19 (both edges per --holds).
+5. Mirror bottom (q78 idea 4): K' (-1,-1) facing east parks BM in F0, F2 static wool; note the gate then powers
+   A' through F2 on BOTH edges, so the close logic changes completely.
