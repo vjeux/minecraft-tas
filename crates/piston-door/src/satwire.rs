@@ -461,7 +461,8 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
         }
         let stat = full.iter().all(|ph| ph.iter().all(|f| f.get(&c).map(String::as_str) == Some(s)));
         let plain = matches!(mk(s), MK::Cond | MK::Solid) && !door_cells.contains(&c);
-        if is_wiring_state(s) || (plain && stat) {
+        let moves = phases_full_moves(&full, c, s);
+        if (is_wiring_state(s) && !(short(s) == "redstone_block" && moves)) || (plain && stat) {
             wiring.insert(c, s.to_string());
         }
     }
@@ -883,6 +884,8 @@ pub struct Prob {
     pub fixed_lever: Option<usize>,
     /// Only the fixed cells hold wiring (`--check`); else (`--fixed`) the other cells are free.
     pub fixed_only: bool,
+    /// The rest state of each fixed cell (its design state): pinned in the model.
+    pub fixed_state: HashMap<C2, String>,
     /// Independent-timing clusters of mechanism cells (`--one-warp` turns them off): each has
     /// its own time warp, so events of different clusters can be split or shifted apart.
     pub cluster: HashMap<C2, usize>,
@@ -1351,7 +1354,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             cell_group.insert((g.tr, *c), gi);
         }
     }
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, cell_group, cluster, ncl })
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), cell_group, cluster, ncl })
 }
 
 /// `--menu`: record each alternative schedule, keep the trace `tr` of those that start and end
@@ -1765,7 +1768,9 @@ impl<'a> Model<'a> {
         } else if self.is_mech(a) {
             terms.push(self.cpow(tr, k, a, dust_rx));
             // a redstone block carried by the mechanism powers its neighbors while it rests there
-            let rb = self.mprop(tr, k, a, 11);
+            // (its leaving or landing updates the wiring in the same tick: the frame after the tick)
+            let kn = if k >= 1 && k < self.p.h { k + 1 } else { k };
+            let rb = self.mprop(tr, kn, a, 11);
             terms.push(rb);
         }
         terms.push(self.lever_on_lits(tr, k, |l| l.pos == [a.0, a.1, z]));
@@ -2608,6 +2613,30 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         let g = m.gsel("each trace ends where the other starts");
         m.e.guard.push(g);
     }
+    // the rest state of fixed (kept) wiring is its design state
+    for (c, st) in p.fixed_state.clone() {
+        let Some(k) = p.fixed.get(&c).copied() else { continue };
+        let on = |key: &str| prop(&st, key) == Some("true");
+        let f0 = m.e.f();
+        match k {
+            Kind::Bulb => {
+                let l = Model::get(&m.blit, (0, -1, c), f0);
+                let v = m.e.konst(on("lit"));
+                m.e.eq(l, v);
+            }
+            Kind::Rep(..) | Kind::Cmp(_) => {
+                let o = m.out(0, -1, c);
+                let v = m.e.konst(on("powered"));
+                m.e.eq(o, v);
+            }
+            Kind::Torch | Kind::WTorch(_) | Kind::Lamp => {
+                let o = m.out(0, -1, c);
+                let v = m.e.konst(on("lit"));
+                m.e.eq(o, v);
+            }
+            _ => {}
+        }
+    }
     // ---- each trace ends where the other starts
     for c in p.free.clone() {
         for (a, b) in [(0usize, 1usize), (1, 0)] {
@@ -3071,6 +3100,7 @@ pub fn fix_wiring(p: &mut Prob) -> Result<()> {
             bail!("wiring block {s} at {c:?}: cell not free or kind not in the palette");
         }
         p.fixed.insert(*c, k);
+        p.fixed_state.insert(*c, s.clone());
     }
     let (lp, ls) = rec.lever.clone().context("no lever")?;
     let i = p.levers.iter().position(|l| l.pos == lp && short(&l.state) == short(&ls) && prop(&l.state, "face") == prop(&ls, "face") && (prop(&ls, "face") != Some("wall") || prop(&l.state, "facing") == prop(&ls, "facing")));
@@ -3258,6 +3288,7 @@ pub fn fix_partial(p: &mut Prob, d: &Design) -> Result<()> {
             p.free.push(c);
         }
         p.fixed.insert(c, k);
+        p.fixed_state.insert(c, s.clone());
         n += 1;
     }
     if let Some((lp, ls)) = d.blocks.iter().find(|(_, s)| short(s) == "lever") {
@@ -3288,4 +3319,9 @@ pub fn fix_partial(p: &mut Prob, d: &Design) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// A block of this type leaves cell c at some tick of the recorded phases (a carried block).
+fn phases_full_moves(full: &[Vec<HashMap<C2, String>>], c: C2, s: &str) -> bool {
+    full.iter().any(|ph| ph.iter().any(|f| f.get(&c).map(|x| short(x)) != Some(short(s))))
 }
