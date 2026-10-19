@@ -104,3 +104,142 @@ pub fn run(r: RingArgs) -> Result<()> {
     }
     Ok(())
 }
+
+#[derive(ClapArgs, Debug, Clone)]
+pub struct LiftArgs {
+    /// Length of the upper floor (the lower channel is L + 1 long, the drop gap 2 cells).
+    #[arg(long, default_value_t = 4)]
+    pub l: i32,
+    /// Height of the upper water level above the lower one (the column is H + 1 sources tall).
+    #[arg(long, default_value_t = 2)]
+    pub h: i32,
+    /// Design name (default clk-misc-boat-lift-l<L>h<H>).
+    #[arg(long)]
+    pub name: Option<String>,
+    /// Hang a tripwire across the boat's flight above the column (hooks on posts at z = -1, 2).
+    #[arg(long)]
+    pub tripwire: bool,
+    /// Land the dropping boat on waterlogged big dripleaves (on dirt) that tilt and let it through.
+    #[arg(long)]
+    pub dripleaf: bool,
+    /// Write the design here (else print it).
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+}
+
+/// `boat-lift`: the vertical boat loop. Lower channel (x = 1..=L+1, y = 0) flowing -x, a plate row
+/// at x = 0, a 2x2 upward bubble column (x = -2..=-1, y = 0..=H, soul sand below), wall banners
+/// at x = 0, y = 1..H (water curtains the boat rises through, hung on blocks at x = 1), the upper
+/// channel (y = H, over a floor x = 1..=L) fed by the column's top sources, a 2-cell drop gap
+/// (x = L+1..=L+2), a landing plate row at x = L+2 (y = 0), end wall x = L+3, a ceiling 2 above the
+/// upper water over the column. Lanes z = 0..=1.
+pub fn build_lift(l: i32, h: i32, tripwire: bool, dripleaf: bool, name: &str) -> Result<Design> {
+    if !(1..=5).contains(&l) || !(2..=6).contains(&h) {
+        bail!("L 1..=5 (the upper current reaches 7 cells), H 2..=6");
+    }
+    let mut d = Design { name: name.to_string(), ..Default::default() };
+    let mut put = |x: i32, y: i32, z: i32, s: &str| {
+        d.blocks.insert([x, y, z], s.to_string());
+    };
+    let end = l + 3;
+    for z in 0..2 {
+        // floors
+        put(-2, -1, z, "minecraft:soul_sand");
+        put(-1, -1, z, "minecraft:soul_sand");
+        for x in 0..=l + 2 {
+            put(x, -1, z, STONE);
+        }
+        // column, plates, banners
+        for y in 0..=h {
+            put(-2, y, z, SOURCE);
+            put(-1, y, z, SOURCE);
+            put(-3, y, z, STONE);
+            put(end, y, z, STONE);
+        }
+        put(0, 0, z, PLATE);
+        put(l + 2, 0, z, PLATE);
+        for y in 1..h {
+            put(0, y, z, "minecraft:white_wall_banner[facing=west]");
+            put(1, y, z, STONE);
+        }
+        // upper floor
+        for x in 1..=l {
+            put(x, h - 1, z, STONE);
+        }
+        // ceiling over the column
+        for x in -2..=1 {
+            put(x, h + 2, z, STONE);
+        }
+    }
+    // side walls: column (all levels), lower channel and plate rows (y = 0), upper channel (y = h)
+    for zw in [-1, 2] {
+        for y in 0..=h {
+            put(-2, y, zw, STONE);
+            put(-1, y, zw, STONE);
+        }
+        for x in 0..=l + 2 {
+            put(x, 0, zw, STONE);
+            put(x, h, zw, STONE);
+        }
+    }
+    d.ports.insert("output".into(), [0, 0, 0]);
+    if dripleaf {
+        // the drop lands on the first gap cell: waterlogged big dripleaves there (on dirt) carry the
+        // boat until they tilt (10 + 10 gt), then reset 100 gt later
+        for z in 0..2 {
+            d.blocks.insert([l + 1, -1, z], "minecraft:dirt".to_string());
+            d.blocks.insert([l + 1, 0, z], "minecraft:big_dripleaf[facing=west,tilt=none,waterlogged=true]".to_string());
+        }
+    }
+    if tripwire {
+        // the boat flies up through y = h + 1 at x ~ 0: a string across both lanes there, hooks on
+        // posts beside the column's side walls
+        let y = h + 1;
+        d.blocks.insert([0, y, -2], STONE.to_string());
+        d.blocks.insert([0, y, 3], STONE.to_string());
+        d.blocks.insert([0, y, -1], "minecraft:tripwire_hook[attached=true,facing=south,powered=false]".to_string());
+        d.blocks.insert([0, y, 2], "minecraft:tripwire_hook[attached=true,facing=north,powered=false]".to_string());
+        for z in 0..2 {
+            d.blocks.insert(
+                [0, y, z],
+                "minecraft:tripwire[attached=true,disarmed=false,east=false,north=true,powered=false,south=true,west=false]".to_string(),
+            );
+        }
+    }
+    d.entities.push(mctas::design::EntitySpec { kind: "minecraft:oak_boat".into(), pos: [(l as f64 + 2.0) / 2.0 + 0.5, 0.0, 1.0], nbt: None });
+    Ok(d)
+}
+
+pub fn run_lift(a: LiftArgs) -> Result<()> {
+    let suffix = format!("{}{}", if a.tripwire { "-tripwire" } else { "" }, if a.dripleaf { "-dripleaf" } else { "" });
+    let name = a.name.clone().unwrap_or_else(|| format!("clk-misc-boat-lift-l{}h{}{suffix}", a.l, a.h));
+    let d = build_lift(a.l, a.h, a.tripwire, a.dripleaf, &name)?;
+    let trip = format!(
+        "{}{}",
+        if a.tripwire { "\n# A tripwire string hangs across the boat's flight just above the column: the boat trips it going up and coming down." } else { "" },
+        if a.dripleaf {
+            "\n# The boat drops onto waterlogged big dripleaves: they tilt under it (unstable 10 gt, partial 10 gt, full) and let it fall into\n# the channel, and spring back 100 gt later."
+        } else {
+            ""
+        }
+    );
+    let caption = format!(
+        "# A REDSTONE-LESS vertical boat loop with a bubble-column lift (L = {}, H = {}): a boat rides a 2-wide water channel to a row\n\
+         # of wooden pressure plates, crosses it into a 2x2 upward bubble column (water sources over soul sand) and is shot up (a ceiling\n\
+         # stops it); it falls back on the column's top, whose sources feed an upper channel {} blocks higher that carries it to a 2-wide\n\
+         # gap, where it drops back into the lower channel onto a second plate row (which keeps the landing water flowing back). Wall\n\
+         # banners above the first plate row hold the column's water in while the boat rises through them (no collision, water cannot\n\
+         # enter them). Stone, soul sand, water, wall banners, 4 oak pressure plates and the boat.{trip}\n",
+        a.l, a.h, a.h
+    );
+    let text = d.to_text();
+    let text = match text.split_once('\n') {
+        Some((first, rest)) => format!("{first}\n{caption}{rest}"),
+        None => text,
+    };
+    match &a.out {
+        Some(p) => std::fs::write(p, &text)?,
+        None => print!("{text}"),
+    }
+    Ok(())
+}
