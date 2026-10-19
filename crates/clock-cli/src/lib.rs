@@ -312,11 +312,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         }
         ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo } => {
             let mut items = Vec::new();
+            let mut hints = std::collections::HashMap::new();
             for p in &designs {
                 let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                if let Some(h) = std::fs::read_to_string(p).ok().as_deref().and_then(clock::shot::judge_hint) {
+                    hints.insert(stem.clone(), h);
+                }
                 items.push((stem, Clock::load(p)?));
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo, ..Default::default() };
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo, hints, ..Default::default() };
             let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");
