@@ -95,7 +95,7 @@ pub struct Built {
 pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
     let mut sat = sat;
     let n = g.n();
-    let lsel: Vec<Lit> = (0..g.levers.len()).map(|_| sat.var()).collect();
+    let lsel: Vec<Lit> = if g.levers.len() == 1 { vec![sat.k(true)] } else { (0..g.levers.len()).map(|_| sat.var()).collect() };
     sat.exactly_one(&lsel);
     let f = sat.k(false);
     let t = sat.k(true);
@@ -172,7 +172,7 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
         c.on = onv;
         rest.push(c);
     }
-    let mut cx = Ctx { a: sat, g, lsel: lsel.clone() };
+    let mut cx = Ctx { a: sat, g, lsel: lsel.clone(), flags_on: o.flags == FlagMode::Forbid };
     // lever cells: an in-box lever cell holds LEVER exactly when its candidate is chosen
     for i in 0..n {
         let js: Vec<Lit> = g.levers.iter().enumerate().filter(|(_, l)| !l.oop && g.idx(l.pos.0, l.pos.1) == Some(i)).map(|(j, _)| lsel[j]).collect();
@@ -449,18 +449,47 @@ pub fn cli(a: &Args) -> Result<()> {
     let dy: i32 = a.get("dy", (h - 3) / 2);
     let t: usize = a.get("t", 30);
     let rounds: usize = a.get("rounds", 2);
-    let palette = parse_palette(a.s("palette").unwrap_or("all"))?;
+    let palette = parse_palette(a.s("palette").unwrap_or(if a.has("fix") && !a.has("fix-all") { "stone,obsidian,rb,dust,rep,obs,torch,wtorch" } else { "all" }))?;
     let mut g = Geo { w, h, door: (dx, dy), levers: vec![], rounds };
     let oop = a.has("oop");
     g.levers = lever_cands(&g, oop);
     let fixed = match a.s("fix") {
         Some(p) => {
-            let kinds: Vec<usize> = parse_palette(a.s("fix-kinds").unwrap_or("piston,stone"))?.into_iter().filter(|&k| k != AIR).chain([HEAD]).collect();
-            fixed_from(p, &kinds, &g)?
+            let all = a.has("fix-all");
+            let kinds: Vec<usize> = if all { (0..NK).collect() } else { parse_palette(a.s("fix-kinds").unwrap_or("piston,stone"))?.into_iter().filter(|&k| k != AIR).chain([HEAD]).collect() };
+            let mut v = fixed_from(p, &kinds, &g)?;
+            if all {
+                for (i, c) in v.iter_mut().enumerate() {
+                    if c.is_none() {
+                        *c = Some(konst_cell(&super::alg::Conc::default(), AIR));
+                    }
+                    let _ = i;
+                }
+                // the design's own lever
+                let d = mctas::design::Design::load(std::path::Path::new(p))?;
+                let door = *d.ports.get("door").context("no door port")?;
+                let lp = *d.ports.get("lever").context("no lever port")?;
+                let ls = d.block_list().into_iter().find(|(q, _)| *q == lp).map(|(_, s)| s).context("no lever block")?;
+                let pos = (lp[0] - door[0] + dx, lp[1] - door[1] + dy);
+                let face = ls.split("face=").nth(1).map(|s| s.split([',', ']']).next().unwrap_or("")).unwrap_or("");
+                let facing = ls.split("facing=").nth(1).map(|s| s.split([',', ']']).next().unwrap_or("")).unwrap_or("");
+                let sup = match (face, facing) {
+                    ("floor", _) => (pos.0, pos.1 - 1),
+                    ("ceiling", _) => (pos.0, pos.1 + 1),
+                    (_, "west") => (pos.0 + 1, pos.1),
+                    (_, "east") => (pos.0 - 1, pos.1),
+                    _ => pos,
+                };
+                let oop = lp[2] != door[2];
+                let cand = if oop { LeverCand { pos: sup, oop: true, sup } } else { LeverCand { pos, oop: false, sup } };
+                println!("fixed lever {cand:?}");
+                g.levers = vec![cand];
+            }
+            v
         }
         None => vec![None; g.n()],
     };
-    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), flags: if a.has("allow-races") { FlagMode::Ignore } else { FlagMode::Forbid }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
+    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), flags: if a.has("prove") { FlagMode::Forbid } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
     let t0 = Instant::now();
     let (mut sat, b) = build(Sat::new(o.flags), &o, &g);
     println!("built {}x{} door@{:?} t={} rounds={}: {} vars {} clauses {} flags, {} lever candidates, {:.1}s", w, h, (dx, dy), t, rounds, sat.vars(), sat.clauses, sat.flags.len(), g.levers.len(), t0.elapsed().as_secs_f64());

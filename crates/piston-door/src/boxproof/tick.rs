@@ -174,11 +174,16 @@ impl<'g, A: Alg> Ctx<'g, A> {
             dlc.push(self.and(&[both, d]));
         }
         let mut nc = nc0.to_vec();
+        let mut ncd = Vec::with_capacity(n);
         for i in 0..n {
             let ds: Vec<A::B> = self.g.diamond2(i).into_iter().map(|j| dlc[j]).collect();
             let any = self.or(&ds);
+            ncd.push(any);
             self.add_nc(&mut nc, i, any);
         }
+        // components updated only by the step's own actions check before dust settles
+        let pre_lvl: Vec<[A::B; 15]> = pre.iter().map(|c| c.lvl).collect();
+        let early = if self.flags_on { Some(self.derive_lvl(post, lon, pre_lvl)) } else { None };
         // observers
         for o in 0..n {
             let stay = self.and(&[pre[o].k[OBSV], post[o].k[OBSV]]);
@@ -222,6 +227,19 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let free = self.not(busy);
             let rin = self.rin(post, &der, i, lon);
             let mis = self.xor(post[i].on, rin);
+            if let Some(early) = &early {
+                let nd = self.not(ncd[i]);
+                let only0 = self.and(&[nc0[i], nd]);
+                let rin_e = self.rin(post, early, i, lon);
+                let rch = self.xor(rin, rin_e);
+                let rr = self.and(&[only0, isr, rch, free]);
+                self.a.flag(rr, "repeater checked before dust settled");
+                let tin_e = self.tin(post, early, i, lon);
+                let tin_f = self.tin(post, &der, i, lon);
+                let tch = self.xor(tin_e, tin_f);
+                let tr = self.and(&[only0, ist, tch, free]);
+                self.a.flag(tr, "torch checked before dust settled");
+            }
             for dl in 0..4 {
                 let c = self.and(&[nc[i], isr, post[i].dl[dl], mis, free]);
                 self.sched(bk, i, 2 * (dl + 1), c);
@@ -238,6 +256,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 continue;
             }
             let mut up = vec![nc[p]];
+            let mut upd_d = vec![ncd[p]];
             for f in 0..4 {
                 if let Some(h) = self.g.nb(p, f) {
                     let fits = self.eqv(post[h].st, post[p].st);
@@ -245,14 +264,24 @@ impl<'g, A: Alg> Ctx<'g, A> {
                     let mv = self.and(&[post[p].k[MOVING], post[p].f[f]]);
                     let surv = self.or(&[base_ok, mv]);
                     up.push(self.and(&[nc[h], post[h].k[HEAD], post[h].f[f], surv]));
+                    upd_d.push(self.and(&[ncd[h], post[h].k[HEAD], post[h].f[f], surv]));
                 }
             }
             let upd = self.or(&up);
             let upd = self.and(&[upd, isp]);
+            let anyd = self.or(&upd_d);
             if self.a.val(upd) == Some(false) {
                 continue;
             }
             let pw = self.ppow(post, &der, p, lon);
+            if let Some(early) = &early {
+                let nd = self.not(anyd);
+                let only0 = self.and(&[upd, nd]);
+                let pe = self.ppow(post, early, p, lon);
+                let ch = self.xor(pe, pw);
+                let r = self.and(&[only0, ch]);
+                self.a.flag(r, "piston checked before dust settled");
+            }
             let mut res = Vec::new();
             let mut e2 = Vec::new();
             for f in 0..4 {
@@ -367,7 +396,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         }).collect();
         let der1 = self.settle(s, &mut post, lon, &nc0, &none, &[], &wtt, None, Phase::Rep, &mut bk);
         for i in 0..n {
-            if self.a.val(rdue[i]) == Some(false) {
+            if !self.flags_on || self.a.val(rdue[i]) == Some(false) {
                 continue;
             }
             let r1 = self.rin(&post, &der1, i, lon);
@@ -412,7 +441,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         }
         let der2 = self.settle(&s1, &mut post, lon, &nc0, &none, &[], &tdue, Some(&odue), Phase::Norm, &mut bk);
         for i in 0..n {
-            if self.a.val(tdue[i]) == Some(false) {
+            if !self.flags_on || self.a.val(tdue[i]) == Some(false) {
                 continue;
             }
             let t1 = self.tin(&post, &der2, i, lon);
@@ -610,6 +639,9 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let conds: Vec<A::B> = ws.iter().map(|w| w.0).collect();
             for a in 0..conds.len() {
                 for b in a + 1..conds.len() {
+                    if !self.flags_on {
+                        continue;
+                    }
                     let both = self.and(&[conds[a], conds[b]]);
                     self.a.flag(both, "two block events write one cell in the same round");
                 }
@@ -633,7 +665,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let der2 = self.settle(pre, &mut post, lon, &nc0, &none, &[], &wtt, None, Phase::Events, bk);
         // an event whose power differs at the end of the round may have seen another first
         for (p, c, pw0, up) in execs {
-            if up {
+            if up || !self.flags_on {
                 continue;
             }
             let pw1 = self.ppow(&post, &der2, p, lon);

@@ -391,7 +391,7 @@ pub fn run_case(g: &Geo, cells: &[String], lev: &LeverCand, t: usize) -> Outcome
             return out;
         }
     };
-    let mut cx = Ctx { a: Conc::default(), g, lsel: vec![true] };
+    let mut cx = Ctx { a: Conc::default(), g, lsel: vec![true], flags_on: true };
     // the model's own dust levels must agree at rest
     let der = cx.derive(&s, false);
     for i in 0..g.n() {

@@ -56,8 +56,126 @@ pub fn cli(raw: &[String]) -> Result<()> {
         Some("fuzz") => fuzz(&a),
         Some("case") => case(&a),
         Some("bmc") => bmc::cli(&a),
-        _ => bail!("usage: door boxproof fuzz|case|bmc [--flags]"),
+        Some("catalog") => catalog(&a),
+        Some("batch") => batch(&a),
+        _ => bail!("usage: door boxproof fuzz|case|bmc|catalog|batch [--flags]"),
     }
+}
+
+/// Families catalog rows -> mechanism designs (pistons + the 9 door blocks), one per row:
+/// `catalog --tsv catalog.tsv --out DIR [--only 7x8]`. Prints `id w h dx dy path` per row.
+fn catalog(a: &Args) -> Result<()> {
+    let tsv = a.s("tsv").ok_or_else(|| anyhow::anyhow!("--tsv"))?;
+    let out = a.s("out").unwrap_or("/tmp/bp/mech");
+    let only = a.s("only");
+    std::fs::create_dir_all(out)?;
+    let text = std::fs::read_to_string(tsv)?;
+    let mut lines = text.lines();
+    let head: Vec<&str> = lines.next().unwrap_or("").split('\t').collect();
+    let col = |n: &str| head.iter().position(|h| *h == n);
+    let (ci, cb, co, cp) = (col("id").unwrap(), col("box").unwrap(), col("door_offset").unwrap(), col("pieces").unwrap());
+    for l in lines {
+        let f: Vec<&str> = l.split('\t').collect();
+        if f.len() <= cp {
+            continue;
+        }
+        if let Some(o) = only {
+            if f[cb] != o {
+                continue;
+            }
+        }
+        let (w, h) = f[cb].split_once('x').map(|(a, b)| (a.parse::<i32>().unwrap_or(0), b.parse::<i32>().unwrap_or(0))).unwrap_or((0, 0));
+        let (dx, dy) = f[co].split_once(',').map(|(a, b)| (a.parse::<i32>().unwrap_or(0), b.parse::<i32>().unwrap_or(0))).unwrap_or((0, 0));
+        let mut blocks: Vec<((i32, i32), String)> = Vec::new();
+        for y in 0..3 {
+            for x in 0..3 {
+                blocks.push(((x, y), "minecraft:stone".into()));
+            }
+        }
+        for p in f[cp].split_whitespace() {
+            let sticky = p.starts_with('S');
+            let fc = match p.chars().nth(1) {
+                Some('E') => "east",
+                Some('W') => "west",
+                Some('U') => "up",
+                _ => "down",
+            };
+            let inner = p.split_once('(').map(|x| x.1.trim_end_matches(')')).unwrap_or("");
+            let (x, y) = inner.split_once(',').map(|(a, b)| (a.trim().parse::<i32>().unwrap_or(0), b.trim().parse::<i32>().unwrap_or(0))).unwrap_or((0, 0));
+            blocks.push(((x, y), format!("minecraft:{}piston[extended=false,facing={fc}]", if sticky { "sticky_" } else { "" })));
+        }
+        let mut s = format!("name: {}\nport door: 0 0 0\norigin: {} 0 0\npalette:\n", f[ci], -dx);
+        let mut pal: Vec<String> = Vec::new();
+        for (_, st) in &blocks {
+            if !pal.contains(st) {
+                pal.push(st.clone());
+            }
+        }
+        let chars: Vec<char> = "ABCDEFGHIJ".chars().collect();
+        for (i, p) in pal.iter().enumerate() {
+            s.push_str(&format!("  {} {p}\n", chars[i]));
+        }
+        for y in -dy..h - dy {
+            let row: String = (-dx..w - dx).map(|x| blocks.iter().find(|(q, _)| *q == (x, y)).map(|(_, st)| chars[pal.iter().position(|p| p == st).unwrap()]).unwrap_or('.')).collect();
+            s.push_str(&format!("layer {y}:\n  {row}\n"));
+        }
+        let path = format!("{out}/{}.txt", f[ci]);
+        std::fs::write(&path, s)?;
+        println!("{} {w} {h} {dx} {dy} {path}", f[ci]);
+    }
+    Ok(())
+}
+
+/// Run many `bmc` instances as child processes: `batch --list FILE (lines "id w h dx dy path")
+/// --jobs N --timeout S -- <bmc flags>`; one log per instance in --logs.
+fn batch(a: &Args) -> Result<()> {
+    let list = std::fs::read_to_string(a.s("list").ok_or_else(|| anyhow::anyhow!("--list"))?)?;
+    let jobs: usize = a.get("jobs", 8);
+    let timeout: u64 = a.get("timeout", 3600);
+    let logs = a.s("logs").unwrap_or("/tmp/bp/logs").to_string();
+    std::fs::create_dir_all(&logs)?;
+    let extra: Vec<String> = a.s("bmc").unwrap_or("").split_whitespace().map(String::from).collect();
+    let items: Vec<Vec<String>> = list.lines().filter(|l| !l.trim().is_empty()).map(|l| l.split_whitespace().map(String::from).collect()).collect();
+    let next = Arc::new(AtomicUsize::new(0));
+    let items = Arc::new(items);
+    let exe = std::env::current_exe()?;
+    let mut hs = Vec::new();
+    for _ in 0..jobs {
+        let (next, items, extra, logs, exe) = (next.clone(), items.clone(), extra.clone(), logs.clone(), exe.clone());
+        hs.push(std::thread::spawn(move || {
+            loop {
+                let k = next.fetch_add(1, Ordering::SeqCst);
+                if k >= items.len() {
+                    break;
+                }
+                let it = &items[k];
+                let log = format!("{logs}/{}.log", it[0]);
+                let mut args: Vec<String> = vec!["door".into(), "boxproof".into(), "bmc".into(), "--w".into(), it[1].clone(), "--h".into(), it[2].clone(), "--dx".into(), it[3].clone(), "--dy".into(), it[4].clone(), "--fix".into(), it[5].clone(), "--out".into(), format!("{logs}/{}", it[0])];
+                args.extend(extra.iter().cloned());
+                let t0 = std::time::Instant::now();
+                let f = std::fs::File::create(&log).unwrap();
+                let mut child = std::process::Command::new(&exe).args(&args).stdout(f.try_clone().unwrap()).stderr(f).spawn().unwrap();
+                let status = loop {
+                    if let Ok(Some(s)) = child.try_wait() {
+                        break format!("exit {s}");
+                    }
+                    if t0.elapsed().as_secs() > timeout {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        break "TIMEOUT".to_string();
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                };
+                let res = std::fs::read_to_string(&log).unwrap_or_default();
+                let last = res.lines().filter(|l| l.starts_with("SAT") || l.starts_with("UNSAT") || l.starts_with("built")).last().unwrap_or("").to_string();
+                println!("{} {:.0}s {status}: {last}", it[0], t0.elapsed().as_secs_f64());
+            }
+        }));
+    }
+    for h in hs {
+        let _ = h.join();
+    }
+    Ok(())
 }
 
 /// Random boxes vs redsim, in parallel.

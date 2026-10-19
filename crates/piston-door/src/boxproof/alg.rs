@@ -87,7 +87,8 @@ pub struct Sat {
     pub s: rustsat_cadical::CaDiCaL<'static, 'static>,
     n: u32,
     tru: Lit,
-    cache: HashMap<Vec<Lit>, Lit>,
+    cache: HashMap<[u32; 4], Lit>,
+    bigcache: HashMap<Box<[u32]>, Lit>,
     xcache: HashMap<(Lit, Lit), Lit>,
     pub clauses: usize,
     pub mode: FlagMode,
@@ -104,7 +105,7 @@ impl Default for Sat {
 
 impl Sat {
     pub fn new(mode: FlagMode) -> Sat {
-        let mut s = Sat { s: rustsat_cadical::CaDiCaL::default(), n: 1, tru: Lit::positive(0), cache: HashMap::new(), xcache: HashMap::new(), clauses: 0, mode, flags: Vec::new(), reqs: 0 };
+        let mut s = Sat { s: rustsat_cadical::CaDiCaL::default(), n: 1, tru: Lit::positive(0), cache: HashMap::new(), bigcache: HashMap::new(), xcache: HashMap::new(), clauses: 0, mode, flags: Vec::new(), reqs: 0 };
         let t = s.tru;
         s.s.add_unit(t).unwrap();
         s
@@ -223,8 +224,24 @@ impl Alg for Sat {
             0 => self.tru,
             1 => v[0],
             _ => {
-                if let Some(&o) = self.cache.get(&v) {
-                    return o;
+                let key = if v.len() <= 4 {
+                    let mut k = [u32::MAX; 4];
+                    for (j, l) in v.iter().enumerate() {
+                        k[j] = l.lidx() as u32;
+                    }
+                    Some(k)
+                } else {
+                    None
+                };
+                if let Some(k) = &key {
+                    if let Some(&o) = self.cache.get(k) {
+                        return o;
+                    }
+                } else {
+                    let kb: Box<[u32]> = v.iter().map(|l| l.lidx() as u32).collect();
+                    if let Some(&o) = self.bigcache.get(&kb) {
+                        return o;
+                    }
                 }
                 let o = self.var();
                 for &x in &v {
@@ -233,7 +250,12 @@ impl Alg for Sat {
                 let mut c: Vec<Lit> = v.iter().map(|&x| !x).collect();
                 c.push(o);
                 self.add(&c);
-                self.cache.insert(v, o);
+                if let Some(k) = key {
+                    self.cache.insert(k, o);
+                } else {
+                    let kb: Box<[u32]> = v.iter().map(|l| l.lidx() as u32).collect();
+                    self.bigcache.insert(kb, o);
+                }
                 o
             }
         }

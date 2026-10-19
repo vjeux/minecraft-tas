@@ -151,6 +151,8 @@ pub struct Ctx<'g, A: Alg> {
     pub a: A,
     pub g: &'g Geo,
     pub lsel: Vec<A::B>,
+    /// compute the race / unmodeled-case flags (off: cheaper circuit, models checked by CEGAR)
+    pub flags_on: bool,
 }
 
 impl<'g, A: Alg> Ctx<'g, A> {
@@ -239,6 +241,40 @@ impl<'g, A: Alg> Ctx<'g, A> {
             }
         }
         self.or(&t)
+    }
+
+    /// Signals of `s` with dust levels taken as given (`lvl`), no dust recomputation.
+    pub fn derive_lvl(&mut self, s: &[Cell<A::B>], lon: bool, lvl: Vec<[A::B; 15]>) -> Der<A::B> {
+        let n = self.g.n();
+        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI]])).collect();
+        let mut strong = Vec::with_capacity(n);
+        let mut weak = Vec::with_capacity(n);
+        for i in 0..n {
+            let mut t = Vec::new();
+            for d in 0..4 {
+                if let Some(nb) = self.g.nb(i, d) {
+                    let c = s[nb];
+                    t.push(self.and(&[c.k[REP], c.f[d], c.on]));
+                    t.push(self.and(&[c.k[OBSV], c.f[d], c.on]));
+                    if d == D {
+                        t.push(self.and(&[c.k[TORCH], c.on]));
+                        t.push(self.and(&[c.k[WTORCH], c.on]));
+                    }
+                }
+            }
+            t.push(self.levers_sup(i, lon));
+            let ds = self.or(&t);
+            strong.push(self.and(&[cond[i], ds]));
+            let mut w = vec![ds];
+            for d in [U, E, W] {
+                if let Some(nb) = self.g.nb(i, d) {
+                    w.push(lvl[nb][0]);
+                }
+            }
+            let any = self.or(&w);
+            weak.push(self.and(&[cond[i], any]));
+        }
+        Der { cond, strong, weak, lvl }
     }
 
     pub fn derive(&mut self, s: &[Cell<A::B>], lon: bool) -> Der<A::B> {
