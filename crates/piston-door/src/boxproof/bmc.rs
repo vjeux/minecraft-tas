@@ -438,7 +438,26 @@ pub fn read_cells(sat: &Sat, cs: &[Cell<Lit>]) -> Vec<Cell<bool>> {
 
 /// Fixed cells from a design (cells whose kind is in `kinds`), mapped into the box with the
 /// door at `door`.
+/// `--approx`: blocks outside the model's palette mapped to the closest modeled block (printed;
+/// the redsim screen then runs on the ORIGINAL design, so a found door is still real).
+pub fn approx_block(s: &str) -> Option<String> {
+    let name = s.split('[').next().unwrap_or(s);
+    let prop = |k: &str| s.split(&format!("{k}=")).nth(1).map(|v| v.split([',', ']']).next().unwrap_or("").to_string());
+    match name {
+        "minecraft:comparator" => Some(format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", prop("facing").unwrap_or("east".into()))),
+        "minecraft:crying_obsidian" => Some("minecraft:obsidian".into()),
+        "minecraft:iron_trapdoor" | "minecraft:waxed_copper_bulb" => Some("minecraft:glass".into()),
+        "minecraft:redstone_wire" => Some(format!("minecraft:redstone_wire[east=side,north=none,power={},south=none,west=side]", prop("power").unwrap_or("0".into()))),
+        _ => None,
+    }
+}
+
 pub fn fixed_from(path: &str, kinds: &[usize], g: &Geo) -> Result<Vec<Option<Cell<bool>>>> {
+    fixed_from2(path, kinds, g, false, &mut Vec::new())
+}
+
+/// Fixed cells from a design; `unparsed` collects in-box cells the model cannot represent.
+pub fn fixed_from2(path: &str, kinds: &[usize], g: &Geo, approx: bool, unparsed: &mut Vec<usize>) -> Result<Vec<Option<Cell<bool>>>> {
     let d = mctas::design::Design::load(std::path::Path::new(path)).with_context(|| path.to_string())?;
     let door = *d.ports.get("door").context("no door port")?;
     let mut v = vec![None; g.n()];
@@ -448,7 +467,18 @@ pub fn fixed_from(path: &str, kinds: &[usize], g: &Geo) -> Result<Vec<Option<Cel
         }
         let (x, y) = (p[0] - door[0] + g.door.0, p[1] - door[1] + g.door.1);
         let Some(i) = g.idx(x, y) else { continue };
-        let Some(c) = cell_of_state(&s) else { continue };
+        let c = match cell_of_state(&s) {
+            Some(c) => Some(c),
+            None if approx => approx_block(&s).and_then(|r| {
+                println!("approx ({x},{y}): {s} -> {r}");
+                cell_of_state(&r)
+            }),
+            None => None,
+        };
+        let Some(c) = c else {
+            unparsed.push(i);
+            continue;
+        };
         let k = c.k.iter().position(|&b| b).unwrap();
         if kinds.contains(&k) {
             v[i] = Some(c);
@@ -468,11 +498,12 @@ pub fn cli(a: &Args) -> Result<()> {
     let mut g = Geo { w, h, door: (dx, dy), levers: vec![], rounds };
     let oop = a.has("oop");
     g.levers = lever_cands(&g, oop);
+    let mut unparsed: Vec<usize> = Vec::new();
     let fixed = match a.s("fix") {
         Some(p) => {
             let all = a.has("fix-all");
             let kinds: Vec<usize> = if all { (0..NK).collect() } else { parse_palette(a.s("fix-kinds").unwrap_or("piston,stone"))?.into_iter().filter(|&k| k != AIR).chain([HEAD]).collect() };
-            let mut v = fixed_from(p, &kinds, &g)?;
+            let mut v = fixed_from2(p, &kinds, &g, a.has("approx"), &mut unparsed)?;
             if all {
                 for (i, c) in v.iter_mut().enumerate() {
                     if c.is_none() {
@@ -514,14 +545,23 @@ pub fn cli(a: &Args) -> Result<()> {
             g.levers = g.levers.iter().enumerate().filter(|(j, _)| j % m == r).map(|(_, l)| l.clone()).collect();
         }
     }
+    let mut freed: Vec<usize> = Vec::new();
     if let Some(fr) = a.s("free") {
         for c in fr.split(';').filter(|s| !s.is_empty()) {
             let (x, y) = c.split_once(',').map(|(a, b)| (a.trim().parse::<i32>().unwrap_or(-1), b.trim().parse::<i32>().unwrap_or(-1))).unwrap_or((-1, -1));
             if let Some(i) = g.idx(x, y) {
                 fixed[i] = None;
+                freed.push(i);
             }
         }
     }
+    // nothing silently dropped: a fixed cell the model cannot represent is an error
+    let bad: Vec<(i32, i32)> = unparsed.iter().filter(|i| !freed.contains(i)).map(|&i| g.xy(i)).collect();
+    if a.has("fix-all") && !bad.is_empty() {
+        bail!("cells outside the model's palette (free them or pass --approx): {bad:?}");
+    }
+    // the original design, for screening partial placements (`--fix-all`): freed cells only change
+    let base = if a.has("fix-all") { a.s("fix").map(|p| mctas::design::Design::load(std::path::Path::new(p))).transpose()? } else { None };
     let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
     let t0 = Instant::now();
     let cfg = match a.s("cfg") {
@@ -547,7 +587,35 @@ pub fn cli(a: &Args) -> Result<()> {
                 let j = b.ctx_lsel.iter().position(|&l| sat.value(l)).unwrap();
                 let lev = g.levers[j].clone();
                 let name = format!("boxproof-{}x{}-{}", w, h, it);
-                let text = design_text(&g, &rest, &lev, &name);
+                let mut text = design_text(&g, &rest, &lev, &name);
+                if let Some(base) = &base {
+                    // merge: the original design with the freed cells taken from the model
+                    std::fs::write(format!("{out_dir}/{name}-model.txt"), &text)?;
+                    let mut m = base.clone();
+                    m.name = name.clone();
+                    let door = m.ports["door"];
+                    let at = |i: usize| -> [i32; 3] {
+                        let (x, y) = g.xy(i);
+                        [x - g.door.0 + door[0], y - g.door.1 + door[1], door[2]]
+                    };
+                    for &i in &freed {
+                        let s = cell_state(&rest[i], "minecraft:lever");
+                        if s == "minecraft:air" {
+                            m.blocks.remove(&at(i));
+                        } else {
+                            m.blocks.insert(at(i), s);
+                        }
+                    }
+                    for &i in &freed {
+                        let p = at(i);
+                        if m.blocks.get(&p).is_some_and(|s| s.starts_with("minecraft:note_block")) {
+                            let below = m.blocks.get(&[p[0], p[1] - 1, p[2]]).cloned().unwrap_or_else(|| "minecraft:air".into());
+                            let s = m.blocks[&p].replace("instrument=harp", &format!("instrument={}", super::diff::instrument_below(&below)));
+                            m.blocks.insert(p, s);
+                        }
+                    }
+                    text = m.to_text();
+                }
                 let path = format!("{out_dir}/{name}.txt");
                 std::fs::write(&path, &text)?;
                 let d = mctas::design::Design::parse(&text)?;
