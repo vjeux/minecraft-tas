@@ -1,0 +1,631 @@
+//! The per-kind checkers: each generates the stimulus its kind is judged with ([`stimulus`]) and
+//! judges a recorded run ([`check`]). The numbers they report are the study's axis and metrics
+//! (docs/circuits.md#metrics).
+
+use crate::stimulus::{SETTLE, Schedule, euler_walk};
+use crate::trace::{Trace, runs};
+use crate::{Circuit, GATES2, InputHow, Kind};
+
+/// The verdict of one run.
+#[derive(Clone, Debug, Default)]
+pub struct Outcome {
+    pub pass: bool,
+    /// Why it fails; on a pass, a flag worth reporting (a one-edge delay), else empty.
+    pub why: String,
+    /// The axis value and the metrics, in report order (`("L", "2 gt")`).
+    pub metrics: Vec<(String, String)>,
+    /// One line per test (an input pulse, a transition, a train).
+    pub table: Vec<String>,
+}
+
+impl Outcome {
+    fn fail(why: impl Into<String>, table: Vec<String>) -> Outcome {
+        Outcome { pass: false, why: why.into(), metrics: Vec::new(), table }
+    }
+
+    /// `L 2 gt, delay 1 gt, min-pulse 1 gt`.
+    pub fn metrics_text(&self) -> String {
+        self.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ")
+    }
+}
+
+/// How long the circuit takes to come back to rest after an input edge (from a redsim probe run;
+/// a default when redsim does not model it): the checkers space their tests by it.
+#[derive(Clone, Copy, Debug)]
+pub struct Sizing {
+    pub gap: u32,
+}
+
+impl Default for Sizing {
+    fn default() -> Self {
+        Sizing { gap: 100 }
+    }
+}
+
+/// The input pulse lengths the pulse checkers try.
+pub const PULSE_LENS: [u32; 12] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40];
+/// The pulse lengths the delay checker tries, then the gaps between two 20 gt pulses.
+pub const DELAY_LENS: [u32; 11] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30];
+pub const DELAY_GAPS: [u32; 8] = [1, 2, 3, 4, 5, 6, 8, 10];
+/// The T flip-flop checker: 8 pulses of 4 gt, then pulses of 10, 3, 2, 1 gt (the shortest it
+/// accepts), then trains of 6 pulses at these periods (the fastest it follows).
+pub const TFF_PERIODS: [u32; 11] = [30, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2];
+
+fn gt(n: i64) -> String {
+    format!("{n} gt")
+}
+
+/// The first frame the circuit may be driven: after its kick and the settle time.
+fn start(c: &Circuit) -> u32 {
+    c.clock.free_from() + SETTLE
+}
+
+/// The stimulus `kind` is judged with.
+pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
+    let mut s = Schedule::new(c.inputs.len());
+    let mut t = start(c);
+    let gap = z.gap.max(20);
+    let button = c.inputs.first().is_some_and(|i| i.how == InputHow::Button);
+    match kind {
+        Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => {
+            if button {
+                for k in 0..3 {
+                    s.pulse(0, t, 1);
+                    s.phase(t, t + gap + 40, format!("press {}", k + 1));
+                    t += gap + 40;
+                }
+            } else {
+                for &l in &PULSE_LENS {
+                    s.pulse(0, t, l);
+                    s.phase(t, t + l + gap, format!("pulse {l}"));
+                    t += l + gap;
+                }
+            }
+        }
+        Kind::Delay => {
+            let lens: &[u32] = if button { &[1, 1, 1] } else { &DELAY_LENS };
+            for &l in lens {
+                s.pulse(0, t, l);
+                s.phase(t, t + l + gap + if button { 40 } else { 0 }, format!("pulse {l}"));
+                t += l + gap + if button { 40 } else { 0 };
+            }
+            if !button {
+                for &g in &DELAY_GAPS {
+                    s.pulse(0, t, 20);
+                    s.pulse(0, t + 20 + g, 20);
+                    s.phase(t, t + 40 + g + gap, format!("gap {g}"));
+                    t += 40 + g + gap;
+                }
+            }
+        }
+        Kind::Gate(_) => {
+            let n = c.inputs.len();
+            let walk = euler_walk(1 << n);
+            s.phase(c.clock.free_from(), t, format!("{} (rest)", state_name(0, n)));
+            for &st in &walk[1..] {
+                for i in 0..n {
+                    s.set(i, t, st >> (n - 1 - i) & 1 == 1);
+                }
+                s.phase(t, t + gap, state_name(st, n));
+                t += gap;
+            }
+        }
+        Kind::Tff => {
+            let p0 = if button { 1 } else { 4 };
+            for k in 0..8 {
+                s.pulse(0, t, p0);
+                s.phase(t, t + p0 + gap, format!("A {} pulse {p0}", k + 1));
+                t += p0 + gap;
+            }
+            if !button {
+                for &p in &[10u32, 3, 2, 1] {
+                    for _ in 0..2 {
+                        s.pulse(0, t, p);
+                        s.phase(t, t + p + gap, format!("B pulse {p}"));
+                        t += p + gap;
+                    }
+                }
+                for &per in &TFF_PERIODS {
+                    let p = (per / 2).max(1);
+                    for j in 0..6 {
+                        s.pulse(0, t + j * per, p);
+                    }
+                    s.phase(t, t + 6 * per + gap, format!("C period {per}"));
+                    t += 6 * per + gap;
+                }
+            }
+        }
+        Kind::RsLatch => {
+            // inputs in name order: r, s
+            let p = if button { 1 } else { 4 };
+            for (i, label, len) in [(1, "s", p), (1, "s", p), (0, "r", p), (0, "r", p), (1, "s", p), (0, "r", p), (1, "s", 20), (0, "r", 20)] {
+                s.pulse(i, t, len);
+                s.phase(t, t + len + gap, format!("{label} pulse {len}"));
+                t += len + gap;
+            }
+        }
+        Kind::DLatch => {
+            // inputs in name order: d, e; (d, e) held `gap` frames each
+            for (d, e) in [(1, 0), (1, 1), (0, 1), (1, 1), (1, 0), (0, 0), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0)] {
+                s.set(0, t, d == 1);
+                s.set(1, t, e == 1);
+                s.phase(t, t + gap, format!("d={d} e={e}"));
+                t += gap;
+            }
+        }
+        Kind::Counter(n) => {
+            let p = if button { 1 } else { 4 };
+            for k in 0..(3 * n + 1) {
+                s.pulse(0, t, p);
+                s.phase(t, t + p + gap, format!("pulse {}", k + 1));
+                t += p + gap;
+            }
+        }
+        Kind::PistonExtender(_) => {
+            for k in 0..3 {
+                if button {
+                    s.pulse(0, t, 1);
+                    s.phase(t, t + 2 * gap, format!("press {}", k + 1));
+                    t += 2 * gap;
+                } else {
+                    s.pulse(0, t, gap);
+                    s.phase(t, t + 2 * gap, format!("cycle {}", k + 1));
+                    t += 2 * gap;
+                }
+            }
+        }
+        Kind::FlyingMachine => {
+            t = c.clock.free_from() + z.gap.max(200);
+            s.phase(0, t, "flight");
+        }
+    }
+    s.ticks = t;
+    s
+}
+
+fn state_name(st: usize, n: usize) -> String {
+    (0..n).map(|i| if st >> (n - 1 - i) & 1 == 1 { '1' } else { '0' }).collect()
+}
+
+/// Judge a run of `kind`'s stimulus.
+pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    match kind {
+        Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => pulse(c, kind, s, t),
+        Kind::Delay => delay(c, s, t),
+        Kind::Gate(claim) => gate(c, claim.as_deref(), s, t),
+        Kind::Tff => tff(c, s, t),
+        Kind::RsLatch | Kind::DLatch => latch(c, kind, s, t),
+        Kind::Counter(n) => counter(c, *n, s, t),
+        Kind::PistonExtender(_) | Kind::FlyingMachine => Outcome::fail(format!("the {} checker is not in the judge yet (next push)", kind.name()), Vec::new()),
+    }
+}
+
+/// The main output: `q` when there is one, else the first.
+fn main_output(c: &Circuit) -> usize {
+    c.outputs.iter().position(|o| o.name == "q").unwrap_or(0)
+}
+
+/// The output must be off and steady over the second half of the settle time.
+fn rest_off(c: &Circuit, out: &[bool]) -> Option<String> {
+    let (a, b) = ((c.clock.free_from() + SETTLE / 2) as usize, start(c) as usize);
+    if out[a..b.min(out.len())].iter().any(|x| *x) {
+        return Some("the output is on at rest (before the first input)".into());
+    }
+    None
+}
+
+/// Output runs starting in frames `from..to`.
+fn runs_in(out_runs: &[(usize, usize)], from: usize, to: usize) -> Vec<(usize, usize)> {
+    out_runs.iter().filter(|(s, _)| *s >= from && *s < to).copied().collect()
+}
+
+/// The input pulse (start, length) that starts in a phase.
+fn input_pulse(t: &Trace, i: usize, from: usize, to: usize) -> Option<(usize, usize)> {
+    runs(&t.inputs[i]).into_iter().find(|(s, _)| *s >= from && *s < to)
+}
+
+fn pulse(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    let k = main_output(c);
+    let out = t.out_seq(k);
+    let mut table = Vec::new();
+    if let Some(why) = rest_off(c, &out) {
+        return Outcome::fail(why, table);
+    }
+    let orun = runs(&out);
+    // per input pulse: (input length, output pulses as (delay from the rising edge, delay from the
+    // falling edge, length)), and whether the output is back off at the end of the phase
+    let mut rows: Vec<(usize, Vec<(i64, i64, usize)>, bool)> = Vec::new();
+    for (from, to, label) in &s.phases {
+        let (from, to) = (*from as usize, (*to as usize).min(out.len()));
+        let Some((on, len)) = input_pulse(t, 0, from, to) else {
+            return Outcome::fail(format!("{label}: the input never turned on"), table);
+        };
+        let os: Vec<(i64, i64, usize)> = runs_in(&orun, from, to).into_iter().map(|(st, l)| (st as i64 - on as i64, st as i64 - (on + len) as i64, l)).collect();
+        let back = !out[to - 1];
+        table.push(format!(
+            "in {len:>2} gt: {}{}",
+            if os.is_empty() { "no output".to_string() } else { os.iter().map(|(d, _, l)| format!("+{d} for {l}")).collect::<Vec<_>>().join(", ") },
+            if back { "" } else { " (still on at the end)" }
+        ));
+        rows.push((len, os, back));
+    }
+    let n = rows.len();
+    let last = &rows[n - 1];
+    // each row's verdict against the reference (the longest input, or the kind's rule)
+    let lens: Vec<usize> = rows.iter().map(|r| r.0).collect();
+    match kind {
+        Kind::RisingEdge | Kind::FallingEdge => {
+            let pick = |os: &Vec<(i64, i64, usize)>| -> Option<(i64, usize)> {
+                if os.len() != 1 {
+                    return None;
+                }
+                let (dr, df, l) = os[0];
+                if *kind == Kind::RisingEdge { (dr >= 0).then_some((dr, l)) } else { (df >= 0).then_some((df, l)) }
+            };
+            let Some(r) = pick(&last.1) else {
+                return Outcome::fail(format!("the longest input pulse ({} gt) gives {} output pulse(s): want 1 on its {} edge", last.0, last.1.len(), if *kind == Kind::RisingEdge { "rising" } else { "falling" }), table);
+            };
+            let ok: Vec<bool> = rows.iter().map(|(_, os, back)| *back && pick(os) == Some(r)).collect();
+            finish(c, lens, ok, table, |m| vec![("L".into(), gt(r.1 as i64)), ("delay".into(), gt(r.0)), ("min-pulse".into(), gt(m as i64))])
+        }
+        Kind::DualEdge => {
+            let pick = |os: &Vec<(i64, i64, usize)>| -> Option<(i64, usize, i64, usize)> { (os.len() == 2 && os[0].0 >= 0 && os[1].1 >= 0).then(|| (os[0].0, os[0].2, os[1].1, os[1].2)) };
+            let Some(r) = pick(&last.1) else {
+                return Outcome::fail(format!("the longest input pulse ({} gt) gives {} output pulse(s): want one per edge", last.0, last.1.len()), table);
+            };
+            let ok: Vec<bool> = rows.iter().map(|(_, os, back)| *back && pick(os) == Some(r)).collect();
+            finish(c, lens, ok, table, |m| {
+                let l = if r.1 == r.3 { gt(r.1 as i64) } else { format!("{} gt rising / {} gt falling", r.1, r.3) };
+                let d = if r.0 == r.2 { gt(r.0) } else { format!("{} gt rising / {} gt falling", r.0, r.2) };
+                vec![("L".into(), l), ("delay".into(), d), ("min-pulse".into(), gt(m as i64))]
+            })
+        }
+        Kind::PulseLimiter => {
+            if last.1.len() != 1 || last.1[0].0 < 0 {
+                return Outcome::fail(format!("the longest input pulse ({} gt) gives {} output pulse(s): want 1 from its rising edge", last.0, last.1.len()), table);
+            }
+            let (d, l) = (last.1[0].0, last.1[0].2);
+            if l >= last.0 {
+                return Outcome::fail(format!("never limits: the longest input pulse ({} gt) comes out {l} gt long", last.0), table);
+            }
+            let ok: Vec<bool> = rows.iter().map(|(len, os, back)| *back && os.len() == 1 && os[0].0 == d && if *len >= l { os[0].2 == l } else { os[0].2 <= l }).collect();
+            finish(c, lens, ok, table, |m| vec![("L".into(), gt(l as i64)), ("delay".into(), gt(d)), ("min-pulse".into(), gt(m as i64))])
+        }
+        _ => {
+            // a pulse extender
+            if last.1.len() != 1 || last.1[0].0 < 0 {
+                return Outcome::fail(format!("the longest input pulse ({} gt) gives {} output pulse(s): want 1 from its rising edge", last.0, last.1.len()), table);
+            }
+            let d = last.1[0].0;
+            let Some(l) = rows.iter().find(|(_, os, back)| *back && os.len() == 1 && os[0].0 == d).map(|(_, os, _)| os[0].2) else {
+                return Outcome::fail("no input pulse comes out as one pulse", table);
+            };
+            let ok: Vec<bool> = rows.iter().map(|(len, os, back)| *back && os.len() == 1 && os[0].0 == d && if *len < l { os[0].2 == l } else { os[0].2 >= l }).collect();
+            if !rows.iter().zip(&ok).any(|((len, _, _), o)| *o && *len < l) {
+                return Outcome::fail(format!("never extends: no input pulse shorter than its output ({l} gt) is handled"), table);
+            }
+            finish(c, lens, ok, table, |m| vec![("L".into(), gt(l as i64)), ("delay".into(), gt(d)), ("min-pulse".into(), gt(m as i64))])
+        }
+    }
+}
+
+/// A suffix verdict: the inputs from the shortest handled length up must all be handled (at least
+/// the 3 longest; a button's presses: all).
+fn finish(c: &Circuit, lens: Vec<usize>, ok: Vec<bool>, mut table: Vec<String>, metrics: impl Fn(usize) -> Vec<(String, String)>) -> Outcome {
+    let n = ok.len();
+    let k0 = (0..=n).rev().take_while(|&k| k == n || ok[k]).last().unwrap_or(n);
+    for (k, line) in table.iter_mut().enumerate() {
+        if k < ok.len() && !ok[k] {
+            line.push_str("  <- not handled");
+        }
+    }
+    let need = if c.inputs.first().is_some_and(|i| i.how == InputHow::Button) { n } else { 3.min(n) };
+    if n - k0 < need {
+        return Outcome::fail(format!("only the {} longest input pulse(s) are handled (want at least {need})", n - k0), table);
+    }
+    Outcome { pass: true, why: String::new(), metrics: metrics(lens[k0]), table }
+}
+
+fn delay(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
+    let k = main_output(c);
+    let out = t.out_seq(k);
+    let mut table = Vec::new();
+    if let Some(why) = rest_off(c, &out) {
+        return Outcome::fail(why, table);
+    }
+    let orun = runs(&out);
+    let ins = runs(&t.inputs[0]);
+    // the reference: the longest isolated pulse
+    let pulses: Vec<&(u32, u32, String)> = s.phases.iter().filter(|p| p.2.starts_with("pulse")).collect();
+    let Some(refp) = pulses.last() else {
+        return Outcome::fail("no pulse phase", table);
+    };
+    let (rf, rt) = (refp.0 as usize, (refp.1 as usize).min(out.len()));
+    let Some((ron, rlen)) = input_pulse(t, 0, rf, rt) else {
+        return Outcome::fail("the input never turned on", table);
+    };
+    let Some((oon, olen)) = runs_in(&orun, ron, rt).first().copied() else {
+        return Outcome::fail(format!("the longest pulse ({rlen} gt) gives no output"), table);
+    };
+    let (nr, nf) = (oon as i64 - ron as i64, (oon + olen) as i64 - (ron + rlen) as i64);
+    // a phase is handled when its output pulses are exactly its input pulses shifted (nr, nf)
+    let handled = |from: usize, to: usize| -> (bool, String) {
+        let inp: Vec<(usize, usize)> = ins.iter().filter(|(st, _)| *st >= from && *st < to).copied().collect();
+        let os = runs_in(&orun, from, to + nr.max(0) as usize);
+        let want: Vec<(i64, i64)> = inp.iter().map(|(st, l)| (*st as i64 + nr, (*st + *l) as i64 + nf)).collect();
+        let got: Vec<(i64, i64)> = os.iter().map(|(st, l)| (*st as i64, (*st + *l) as i64)).collect();
+        let first = inp.first().map(|(st, _)| *st as i64).unwrap_or(from as i64);
+        let desc = if got.is_empty() { "no output".to_string() } else { got.iter().map(|(a, b)| format!("+{} for {}", a - first, b - a)).collect::<Vec<_>>().join(", ") };
+        (want == got, desc)
+    };
+    let mut lens = Vec::new();
+    let mut ok = Vec::new();
+    let mut gaps: Vec<(u32, bool)> = Vec::new();
+    for (from, to, label) in &s.phases {
+        let (from, to) = (*from as usize, (*to as usize).min(out.len()));
+        let (h, desc) = handled(from, to);
+        if let Some(l) = label.strip_prefix("pulse ") {
+            lens.push(l.parse::<usize>().unwrap_or(0));
+            ok.push(h);
+            table.push(format!("in {l:>2} gt: {desc}{}", if h { "" } else { "  <- not handled" }));
+        } else if let Some(g) = label.strip_prefix("gap ") {
+            let g: u32 = g.parse().unwrap_or(0);
+            gaps.push((g, h));
+            table.push(format!("2 x 20 gt, gap {g:>2} gt: {desc}{}", if h { "" } else { "  <- not handled" }));
+        }
+    }
+    let n = ok.len();
+    let k0 = (0..=n).rev().take_while(|&k| k == n || ok[k]).last().unwrap_or(n);
+    if n - k0 < 3.min(n) {
+        return Outcome::fail(format!("only the {} longest pulse(s) come out shifted (want at least 3)", n - k0), table);
+    }
+    let mut metrics = vec![("N".to_string(), if nr == nf { gt(nr) } else { format!("{nr} gt rising / {nf} gt falling") }), ("min-pulse".into(), gt(lens[k0] as i64))];
+    if !gaps.is_empty() {
+        let g0 = (0..=gaps.len()).rev().take_while(|&i| i == gaps.len() || gaps[i].1).last().unwrap_or(gaps.len());
+        metrics.push(("min-gap".into(), if g0 < gaps.len() { gt(gaps[g0].0 as i64) } else { "over 10 gt".into() }));
+    }
+    let why = if nr == nf { String::new() } else { format!("one-edge delay: the rising edge is delayed {nr} gt, the falling edge {nf} gt (pulses change length)") };
+    Outcome { pass: true, why, metrics, table }
+}
+
+/// For each phase of a steady-state test: the value at its end, the frame of its last change
+/// (`None`: no change), and the number of changes.
+fn settle(out: &[bool], from: usize, to: usize) -> (bool, Option<usize>, usize) {
+    let mut last = None;
+    let mut changes = 0;
+    for i in from.max(1)..to {
+        if out[i] != out[i - 1] {
+            last = Some(i);
+            changes += 1;
+        }
+    }
+    (out[to - 1], last, changes)
+}
+
+fn gate(c: &Circuit, claim: Option<&str>, s: &Schedule, t: &Trace) -> Outcome {
+    if c.inputs.iter().any(|i| i.how == InputHow::Button) {
+        return Outcome::fail("a gate is judged with steady inputs: use a lever or a block input, not a button", Vec::new());
+    }
+    let k = main_output(c);
+    let out = t.out_seq(k);
+    let n = c.inputs.len();
+    let mut table = Vec::new();
+    let mut truth: Vec<Option<bool>> = vec![None; 1 << n];
+    let (mut worst, mut glitches) = (0usize, 0usize);
+    let mut prev = None;
+    for (w, (from, to, label)) in s.phases.iter().enumerate() {
+        let (from, to) = (*from as usize, (*to as usize).min(out.len()));
+        let st = usize::from_str_radix(label.split_whitespace().next().unwrap_or("0"), 2).unwrap_or(0);
+        let (fin, last, changes) = settle(&out, from, to);
+        if let Some(l) = last
+            && l >= from + (to - from) / 2
+        {
+            table.push(format!("{label}: still changing at frame {l}"));
+            return Outcome::fail(format!("{label}: the output is not steady in the second half of the hold ({} gt)", to - from), table);
+        }
+        match truth[st] {
+            Some(v) if v != fin => {
+                table.push(format!("{label}: output {}", fin as u8));
+                return Outcome::fail(format!("not a function of its inputs: {label} gives {} and {}", v as u8, fin as u8), table);
+            }
+            _ => truth[st] = Some(fin),
+        }
+        // latency and glitches: every transition (the rest phase only fixes the state at rest)
+        if w > 0 {
+            let lat = last.map(|l| l - from).unwrap_or(0);
+            let needed = prev.is_some_and(|p| p != fin) as usize;
+            let g = changes.saturating_sub(needed);
+            worst = worst.max(if needed == 1 { lat } else { 0 });
+            glitches += g;
+            table.push(format!("-> {label}: output {}{}{}", fin as u8, if needed == 1 { format!(" after {lat} gt") } else { String::new() }, if g > 0 { format!(", {g} glitch change(s)") } else { String::new() }));
+        } else {
+            table.push(format!("{label}: output {}", fin as u8));
+        }
+        prev = Some(fin);
+    }
+    let tt: Vec<bool> = truth.iter().map(|v| v.unwrap_or(false)).collect();
+    let found = if n == 1 {
+        match (tt[0], tt[1]) {
+            (true, false) => "not",
+            (false, true) => "buffer",
+            (false, false) => "false",
+            (true, true) => "true",
+        }
+        .to_string()
+    } else {
+        GATES2.iter().find(|(_, t4)| t4[..] == tt[..]).map(|(name, _)| name.to_string()).unwrap_or_default()
+    };
+    let degenerate = ["false", "true", "a", "b", "not-a", "not-b"];
+    if degenerate.contains(&found.as_str()) || (n == 1 && (found == "false" || found == "true")) {
+        return Outcome::fail(format!("not a gate: the output is {found} (truth table {})", tt.iter().map(|b| if *b { '1' } else { '0' }).collect::<String>()), table);
+    }
+    if let Some(cl) = claim
+        && cl != found
+    {
+        return Outcome::fail(format!("claims {cl} but behaves as {found}"), table);
+    }
+    let mut metrics = vec![("function".to_string(), found), ("latency".into(), gt(worst as i64))];
+    if glitches > 0 {
+        metrics.push(("glitches".into(), glitches.to_string()));
+    }
+    if worst == 0 {
+        metrics.push(("class".into(), "instant".into()));
+    }
+    Outcome { pass: true, why: String::new(), metrics, table }
+}
+
+fn tff(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
+    let k = main_output(c);
+    let out = t.out_seq(k);
+    let mut table = Vec::new();
+    // phase A and B: each pulse toggles the output exactly once; (pulse length, change offset)
+    let mut offsets: Vec<(usize, Option<usize>)> = Vec::new();
+    for (from, to, label) in s.phases.iter().filter(|p| p.2.starts_with('A') || p.2.starts_with('B')) {
+        let (from, to) = (*from as usize, (*to as usize).min(out.len()));
+        let Some((on, len)) = input_pulse(t, 0, from, to) else {
+            return Outcome::fail(format!("{label}: the input never turned on"), table);
+        };
+        let (_, last, changes) = settle(&out, from, to);
+        let toggled = changes == 1 && out[to - 1] != out[from - 1];
+        let off = if toggled { last.map(|l| l - on) } else { None };
+        table.push(format!("{label}: {}", if toggled { format!("toggled +{}", off.unwrap_or(0)) } else { format!("{changes} change(s): not a toggle") }));
+        let _ = len;
+        offsets.push((len, off));
+    }
+    let a: Vec<&(usize, Option<usize>)> = offsets.iter().take(8).collect();
+    if a.iter().any(|(_, o)| o.is_none()) {
+        return Outcome::fail("the first 8 pulses must each toggle the output exactly once", table);
+    }
+    // the edge: the offset stays when the pulse length changes (rising) or moves with it (falling)
+    let a_len = a[0].0;
+    let a_off = a.iter().map(|(_, o)| o.unwrap()).max().unwrap();
+    let long = offsets.iter().find(|(l, o)| *l > a_len && o.is_some());
+    let falling = match long {
+        Some((l, o)) => o.unwrap() as i64 - a_off as i64 == *l as i64 - a_len as i64 && o.unwrap() != a_off,
+        None => a_off >= a_len,
+    };
+    let latency = if falling { a_off - a_len } else { a_off };
+    // the shortest pulse: every tested length from it up toggles
+    let mut lens: Vec<usize> = offsets.iter().map(|(l, _)| *l).collect();
+    lens.sort();
+    lens.dedup();
+    let good = |l: usize| offsets.iter().filter(|(x, _)| *x == l).all(|(_, o)| o.is_some());
+    let min_pulse = lens.iter().rev().take_while(|l| good(**l)).last().copied().unwrap_or(a_len);
+    // phase C: trains of 6 pulses: exactly 6 changes, steady at the end
+    let mut periods: Vec<(u32, bool)> = Vec::new();
+    for (from, to, label) in s.phases.iter().filter(|p| p.2.starts_with('C')) {
+        let (from, to) = (*from as usize, (*to as usize).min(out.len()));
+        let pulses = runs(&t.inputs[0][from..to]).len();
+        let (_, last, changes) = settle(&out, from, to);
+        let steady = last.is_none_or(|l| l < to - (to - from).min(20) / 2);
+        let pass = changes == pulses && steady;
+        let per: u32 = label.rsplit(' ').next().and_then(|x| x.parse().ok()).unwrap_or(0);
+        table.push(format!("{label}: {pulses} pulses, {changes} change(s){}", if pass { "" } else { "  <- not followed" }));
+        periods.push((per, pass));
+    }
+    let mut metrics = vec![("latency".to_string(), gt(latency as i64)), ("edge".into(), if falling { "falling" } else { "rising" }.into()), ("min-pulse".into(), gt(min_pulse as i64))];
+    if !periods.is_empty() {
+        // the periods run from slow to fast: the fastest of the leading run that is followed
+        metrics.push(("min-period".into(), match periods.iter().take_while(|(_, ok)| *ok).last() {
+            Some((p, _)) => gt(*p as i64),
+            None => format!("over {} gt", periods[0].0),
+        }));
+    }
+    Outcome { pass: true, why: String::new(), metrics, table }
+}
+
+fn latch(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    if *kind == Kind::DLatch {
+        // both polarities: transparent while e is on (enable high), or while it is off (a
+        // repeater lock: enable low)
+        let high = latch_run(c, kind, s, t, true);
+        if high.pass {
+            let mut o = high;
+            o.metrics.push(("enable".into(), "high".into()));
+            return o;
+        }
+        let mut low = latch_run(c, kind, s, t, false);
+        if low.pass {
+            low.metrics.push(("enable".into(), "low".into()));
+            return low;
+        }
+        return Outcome::fail(format!("enable high: {}; enable low: {}", high.why, low.why), high.table);
+    }
+    latch_run(c, kind, s, t, true)
+}
+
+fn latch_run(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace, enable_high: bool) -> Outcome {
+    let k = main_output(c);
+    let out = t.out_seq(k);
+    let qbar = c.outputs.iter().position(|o| o.name == "qbar").map(|i| t.out_seq(i));
+    let mut table = Vec::new();
+    let mut q: Option<bool> = None;
+    let mut worst = 0usize;
+    for (from, to, label) in &s.phases {
+        let (from, to) = (*from as usize, (*to as usize).min(out.len()));
+        let want = match kind {
+            Kind::RsLatch => Some(label.starts_with('s')),
+            _ => {
+                // `d=D e=E`: transparent while e is on (enable high) or off (enable low), else holds
+                let d = label.contains("d=1");
+                if label.contains("e=1") == enable_high { Some(d) } else { q }
+            }
+        };
+        let (fin, last, _) = settle(&out, from, to);
+        if let Some(l) = last
+            && l >= from + (to - from) / 2
+        {
+            return Outcome::fail(format!("{label}: the output is not steady in the second half of the step"), table);
+        }
+        let lat = last.map(|l| l - from).unwrap_or(0);
+        let bad = want.is_some_and(|w| w != fin) || qbar.as_ref().is_some_and(|qb| qb[to - 1] == fin);
+        table.push(format!("{label}: q = {}{}{}", fin as u8, if last.is_some() { format!(" after {lat} gt") } else { String::new() }, if bad { "  <- wrong" } else { "" }));
+        if bad {
+            return Outcome::fail(format!("{label}: q = {}, want {}", fin as u8, want.map(|w| (w as u8).to_string()).unwrap_or("-".into())), table);
+        }
+        if q.is_some_and(|p| p != fin) || (q.is_none() && last.is_some()) {
+            worst = worst.max(lat);
+        }
+        q = Some(fin);
+    }
+    Outcome { pass: true, why: String::new(), metrics: vec![("latency".into(), gt(worst as i64))], table }
+}
+
+fn counter(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
+    let k = main_output(c);
+    let out = t.out_seq(k);
+    let levels = &t.levels[k];
+    let mut table = Vec::new();
+    // per pulse: the output's value at the end of its phase, and whether it pulsed within it
+    let mut toggles: Vec<usize> = Vec::new();
+    let mut pulses: Vec<usize> = Vec::new();
+    let mut ends: Vec<u8> = Vec::new();
+    let mut prev = out[(start(c) as usize).saturating_sub(1)];
+    for (j, (from, to, label)) in s.phases.iter().enumerate() {
+        let (from, to) = (*from as usize, (*to as usize).min(out.len()));
+        let (fin, _, changes) = settle(&out, from, to);
+        let pulsed = fin == prev && changes >= 2;
+        if fin != prev {
+            toggles.push(j + 1);
+        }
+        if pulsed {
+            pulses.push(j + 1);
+        }
+        table.push(format!("{label}: output {} (level {}){}{}", fin as u8, levels[to - 1], if fin != prev { ", changed" } else { "" }, if pulsed { ", pulsed" } else { "" }));
+        prev = fin;
+        ends.push(levels[to - 1]);
+    }
+    let every = |v: &[usize]| v.len() >= 2 && v.windows(2).all(|w| w[1] - w[0] == n as usize);
+    // a level counter: the level after each pulse repeats with period exactly N
+    let period = (1..=ends.len()).find(|&p| (p..ends.len()).all(|j| ends[j] == ends[j - p])).unwrap_or(ends.len());
+    let style = if !toggles.is_empty() && pulses.is_empty() && every(&toggles) {
+        "toggles"
+    } else if toggles.is_empty() && every(&pulses) {
+        "pulses"
+    } else if period == n as usize && ends.len() >= 2 * period {
+        "level"
+    } else {
+        return Outcome::fail(format!("the output does not change once every {n} pulses (changed after pulses {toggles:?}, pulsed after {pulses:?}, levels {ends:?})"), table);
+    };
+    Outcome { pass: true, why: String::new(), metrics: vec![("N".into(), n.to_string()), ("output".into(), format!("{style} every {n} pulses"))], table }
+}

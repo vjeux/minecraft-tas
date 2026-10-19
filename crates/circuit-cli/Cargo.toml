@@ -1,0 +1,21 @@
+[package]
+name = "circuit-cli"
+description = "mctas circuit commands (the contraption studies, docs/circuits.md): clap definitions and dispatch only, compiled unoptimized; the work is in crates/circuit and the track crates"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+clock = { path = "../clock" }
+circuit = { path = "../circuit" }
+circuit-pulse = { path = "../circuit-pulse" }
+circuit-tff = { path = "../circuit-tff" }
+circuit-memory = { path = "../circuit-memory" }
+circuit-delay = { path = "../circuit-delay" }
+circuit-gates = { path = "../circuit-gates" }
+circuit-pext = { path = "../circuit-pext" }
+circuit-fly = { path = "../circuit-fly" }

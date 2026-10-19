@@ -1,0 +1,10 @@
+[package]
+name = "circuit-gates"
+description = "Contraption study 4, track gates (mctas circuit gates ...): logic gates; owned by the track, see docs/circuits.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
