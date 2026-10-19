@@ -68,6 +68,9 @@ pub struct Case {
     /// Place the blocks one by one with updates (`setBlock(.., 3)`, onPlace runs) instead of the
     /// judge's way.
     pub update_place: bool,
+    /// Container contents set right after the blocks (`data merge block`): (pos, slot, item,
+    /// count).
+    pub items: Vec<(Pos, usize, String, u8)>,
 }
 
 impl Case {
@@ -79,6 +82,9 @@ impl Case {
         }
         for (p, b) in &self.blocks {
             let _ = writeln!(s, "block {} {} {} {}", p[0], p[1], p[2], b);
+        }
+        for (p, slot, item, count) in &self.items {
+            let _ = writeln!(s, "item {} {} {} {slot} {item} {count}", p[0], p[1], p[2]);
         }
         for st in &self.steps {
             match st {
@@ -97,7 +103,7 @@ impl Case {
     }
 
     pub fn parse(text: &str) -> Result<Case> {
-        let mut c = Case { blocks: Vec::new(), steps: Vec::new(), lo: [0; 3], hi: [0; 3], update_place: false };
+        let mut c = Case { blocks: Vec::new(), steps: Vec::new(), lo: [0; 3], hi: [0; 3], update_place: false, items: Vec::new() };
         for line in text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
             let t: Vec<&str> = line.split_whitespace().collect();
             let int = |i: usize| -> Result<i32> { t.get(i).context("missing field")?.parse::<i32>().with_context(|| format!("bad number in {line:?}")) };
@@ -107,6 +113,7 @@ impl Case {
                     c.hi = [int(4)?, int(5)?, int(6)?];
                 }
                 "place" => c.update_place = t.get(1) == Some(&"update"),
+                "item" => c.items.push(([int(1)?, int(2)?, int(3)?], int(4)? as usize, t.get(5).context("missing item")?.to_string(), int(6)? as u8)),
                 "block" => c.blocks.push(([int(1)?, int(2)?, int(3)?], t.get(4).context("missing state")?.to_string())),
                 "run" => c.steps.push(Step::Run(int(1)? as u32)),
                 "use" => c.steps.push(Step::Use([int(1)?, int(2)?, int(3)?])),
@@ -119,7 +126,7 @@ impl Case {
         Ok(c)
     }
 
-    fn cells(&self) -> Vec<Pos> {
+    pub fn cells(&self) -> Vec<Pos> {
         let mut v = Vec::new();
         for y in self.lo[1]..=self.hi[1] {
             for z in self.lo[2]..=self.hi[2] {
@@ -158,7 +165,20 @@ pub fn run_bridge(w: &mut Worker, sb: u32, c: &Case) -> Result<Vec<Frame>> {
     let mut cache = HashMap::new();
     w.clear(sb)?;
     if !c.blocks.is_empty() {
-        w.set_blocks(sb, &c.blocks, if c.update_place { PlaceMode::Update } else { PlaceMode::Raw })?;
+        if c.update_place {
+            // One block per request: the bridge's `set` reuses ONE MutableBlockPos for all its
+            // blocks, and a block event queued by an onPlace (a piston) keeps that object, so
+            // the next block's position overwrites the event's (it then runs at the wrong cell).
+            for b in &c.blocks {
+                w.set_blocks(sb, std::slice::from_ref(b), PlaceMode::Update)?;
+            }
+        } else {
+            w.set_blocks(sb, &c.blocks, PlaceMode::Raw)?;
+        }
+    }
+    for (p, items) in group_items(c) {
+        let list: Vec<String> = items.iter().map(|(slot, item, count)| format!("{{Slot:{slot}b,id:\"minecraft:{item}\",count:{count}}}")).collect();
+        w.exec(sb, &format!("data merge block {} {} {} {{Items:[{}]}}", p[0], p[1], p[2], list.join(",")))?;
     }
     if !c.update_place {
         let wires: Vec<Pos> = c.blocks.iter().filter(|(_, s)| s.contains("redstone_wire")).map(|(p, _)| *p).collect();
@@ -199,6 +219,32 @@ fn bp(p: Pos) -> BlockPos {
     BlockPos::new(p[0], p[1], p[2])
 }
 
+/// A case's container contents by container, in first-appearance order.
+fn group_items(c: &Case) -> Vec<(Pos, Vec<(usize, String, u8)>)> {
+    let mut out: Vec<(Pos, Vec<(usize, String, u8)>)> = Vec::new();
+    for (p, slot, item, count) in &c.items {
+        match out.iter_mut().find(|(q, _)| q == p) {
+            Some((_, v)) => v.push((*slot, item.clone(), *count)),
+            None => out.push((*p, vec![(*slot, item.clone(), *count)])),
+        }
+    }
+    out
+}
+
+/// The same contents in redsim (`data merge block`: contents replaced, then setChanged).
+fn sim_items(w: &mut World, c: &Case) -> Result<()> {
+    use redsim::redstone::container::{Stack, item_id, set_contents};
+    for (p, items) in group_items(c) {
+        let mut v = Vec::new();
+        for (slot, item, count) in items {
+            let id = item_id(&item).with_context(|| format!("unknown item {item}"))?;
+            v.push((slot, Stack { item: id, count }));
+        }
+        set_contents(w, bp(p), &v);
+    }
+    Ok(())
+}
+
 fn sim_frame(w: &World, cells: &[Pos]) -> Frame {
     cells.iter().map(|p| w.get(bp(*p)).to_string()).collect()
 }
@@ -217,8 +263,11 @@ pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
         for (p, b) in &blocks {
             w.set_block(*p, *b, redsim::world::flags::ALL);
         }
+        sim_items(&mut w, c)?;
     } else {
-        w.place_like_judge(&blocks);
+        w.place_raw(&blocks);
+        sim_items(&mut w, c)?;
+        w.place_updates(&blocks);
     }
     let cells = c.cells();
     let mut frames = vec![sim_frame(&w, &cells)];
@@ -241,7 +290,14 @@ pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
             }
         }
     }
-    Ok((frames, w.errors.clone()))
+    let mut notes = w.errors.clone();
+    // item entities (drops of popped blocks) can fall into hoppers below them: out of scope
+    let hoppers: Vec<BlockPos> = w.containers.map.iter().filter(|(_, c)| c.hopper).map(|(p, _)| *p).collect();
+    let near = |d: &BlockPos| hoppers.iter().any(|h| (d.x - h.x).abs() <= 1 && (d.z - h.z).abs() <= 1 && d.y >= h.y && d.y - h.y <= 4);
+    if let Some((p, b)) = w.drops.iter().find(|(p, _)| near(p)) {
+        notes.push(format!("drops near hoppers (item entities, not modeled): {p} {b}"));
+    }
+    Ok((frames, notes))
 }
 
 /// Where the two traces first differ: (frame index, [(cell, redsim, game)]).
@@ -338,8 +394,15 @@ pub fn palette(spec: &str) -> Result<Vec<(String, u32)>> {
         ("slab", 2),
         ("leaves", 1),
         ("log", 1),
+        ("scaffold", 2),
+        ("scaffold7", 0),
         ("analog", 2),
         ("door", 1),
+        // plain blocks of every equivalence class and pistons: `--palette core,plain:10,piston:4`
+        ("plain", 0),
+        ("piston", 0),
+        // droppers/hoppers with items: `--palette core,container:12`
+        ("container", 0),
     ];
     let mut out: Vec<(String, u32)> = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -379,6 +442,12 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
         "simple" => st(r
             .pick(&["white_wool", "oak_planks", "gold_block", "soul_sand", "slime_block", "honey_block", "waxed_copper_grate[waterlogged=false]", "glowstone", "obsidian", "smooth_stone", "packed_ice", "clay", "sea_lantern", "tinted_glass", "iron_block", "emerald_block"])
             .to_string()),
+        // any plain block of the class universe (redsim::classes)
+        "plain" => {
+            let u = redsim::classes::universe();
+            vec![r.pick(&u).to_string()]
+        }
+        "piston" => vec![format!("minecraft:{}[extended=false,facing={}]", if r.chance(0.5) { "sticky_piston" } else { "piston" }, anydir(r))],
         "dust" => {
             let side = |r: &mut Rng| *r.pick(&["none", "side", "side", "up"]);
             let (n, e, s, w) = match r.below(4) {
@@ -431,10 +500,22 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
             st(format!("{}[powered={},shape={shape},waterlogged=false]", if r.chance(0.7) { "powered_rail" } else { "activator_rail" }, tf(r, 0.2)))
         }
         "dispenser" => st(format!("{}[facing={},triggered={}]", if r.chance(0.5) { "dispenser" } else { "dropper" }, anydir(r), tf(r, 0.15))),
+        // item transfer: droppers and hoppers (contents from `container_items`)
+        "container" => {
+            if r.chance(0.6) {
+                st(format!("dropper[facing={},triggered=false]", anydir(r)))
+            } else {
+                st(format!("hopper[enabled=true,facing={}]", r.pick(&["down", "north", "east", "south", "west"])))
+            }
+        }
         "crafter" => st(format!("crafter[crafting=false,orientation={},triggered={}]", r.pick(&redsim::block::ORIENTATIONS), tf(r, 0.15))),
         "hopper" => st(format!("hopper[enabled={},facing={}]", tf(r, 0.8), r.pick(&["down", "north", "east", "south", "west"]))),
         "slab" => st(format!("smooth_stone_slab[type={},waterlogged=false]", r.pick(&["bottom", "top", "top", "double"]))),
         "leaves" => st(format!("oak_leaves[distance={},persistent=true,waterlogged=false]", r.range(1, 7))),
+        // scaffolding: distance 7 (only from placement) makes it fall as an entity at its first
+        // tick (`scaffold7:1` adds those)
+        "scaffold" => st(format!("scaffolding[bottom={},distance={},waterlogged=false]", tf(r, 0.5), r.range(0, 6))),
+        "scaffold7" => st(format!("scaffolding[bottom={},distance=7,waterlogged=false]", tf(r, 0.5))),
         "log" => st(format!("oak_log[axis={}]", r.pick(&["x", "y", "z"]))),
         "analog" => match r.below(4) {
             0 => st(format!("cake[bites={}]", r.range(0, 6))),
@@ -464,6 +545,16 @@ pub fn random_case(r: &mut Rng, pal: &[(String, u32)], size: [i32; 3], density: 
     let hi = [ox + size[0] - 1, oy + size[1] - 1, oz + size[2] - 1];
     let mut grid: HashMap<Pos, String> = HashMap::new();
     let mut order: Vec<Pos> = Vec::new();
+    // with containers in the palette: a stone floor under the box (nothing pops onto hoppers)
+    if pal.iter().any(|(n, w)| n == "container" && *w > 0) {
+        for z in lo[2]..=hi[2] {
+            for x in lo[0]..=hi[0] {
+                let p = [x, lo[1] - 1, z];
+                grid.insert(p, "minecraft:stone".into());
+                order.push(p);
+            }
+        }
+    }
     for y in lo[1]..=hi[1] {
         for z in lo[2]..=hi[2] {
             for x in lo[0]..=hi[0] {
@@ -539,6 +630,56 @@ pub fn random_case(r: &mut Rng, pal: &[(String, u32)], size: [i32; 3], density: 
         order.push(p);
         inputs.push(p);
     }
+    // most components that need support get a stone under them (or behind a wall torch), so
+    // fewer pop at placement (popped items would also feed hoppers)
+    for p in order.clone() {
+        let s = grid[&p].clone();
+        if !r.chance(0.85) {
+            continue;
+        }
+        let sup: Option<Pos> = if ["redstone_wire", "repeater", "comparator", "redstone_torch[", "_rail[", "_door[", "half=lower"].iter().any(|n| s.contains(n)) && !s.contains("half=upper") {
+            Some([p[0], p[1] - 1, p[2]])
+        } else if s.contains("redstone_wall_torch") {
+            let f = ["north", "south", "west", "east"].iter().find(|f| s.contains(&format!("facing={f}"))).copied().unwrap_or("north");
+            let d: Pos = match f {
+                "north" => [0, 0, 1],
+                "south" => [0, 0, -1],
+                "west" => [1, 0, 0],
+                _ => [-1, 0, 0],
+            };
+            Some([p[0] + d[0], p[1] + d[1], p[2] + d[2]])
+        } else {
+            None
+        };
+        if let Some(q) = sup
+            && (0..3).all(|i| q[i] >= lo[i] - if i == 1 { 1 } else { 0 } && q[i] <= hi[i])
+            && !grid.contains_key(&q)
+        {
+            grid.insert(q, "minecraft:stone".into());
+            order.push(q);
+        }
+    }
+    // containers mostly face a neighboring container (item transfer instead of spitting items)
+    let dirs: [(&str, Pos); 6] = [("north", [0, 0, -1]), ("south", [0, 0, 1]), ("west", [-1, 0, 0]), ("east", [1, 0, 0]), ("up", [0, 1, 0]), ("down", [0, -1, 0])];
+    for p in &order {
+        let s = grid[p].clone();
+        let is_cont = |s: &str| s.contains("minecraft:dropper") || s.contains("minecraft:hopper");
+        if !is_cont(&s) || !r.chance(0.85) {
+            continue;
+        }
+        let hopper = s.contains("minecraft:hopper");
+        let targets: Vec<&str> = dirs
+            .iter()
+            .filter(|(n, d)| !(hopper && *n == "up") && grid.get(&[p[0] + d[0], p[1] + d[1], p[2] + d[2]]).is_some_and(|t| is_cont(t)))
+            .map(|(n, _)| *n)
+            .collect();
+        if targets.is_empty() {
+            continue;
+        }
+        let f = *r.pick(&targets);
+        let ns = if hopper { format!("minecraft:hopper[enabled=true,facing={f}]") } else { format!("minecraft:dropper[facing={f},triggered=false]") };
+        grid.insert(*p, ns);
+    }
     let blocks: Vec<(Pos, String)> = order.iter().map(|p| (*p, grid[p].clone())).collect();
     let total2 = total;
     let random_single = |r: &mut Rng| -> String {
@@ -590,7 +731,137 @@ pub fn random_case(r: &mut Rng, pal: &[(String, u32)], size: [i32; 3], density: 
     }
     steps.push(Step::Run(16));
     let update_place = r.chance(0.35);
-    Case { blocks, steps, lo: [lo[0] - 1, lo[1] - 1, lo[2] - 1], hi: [hi[0] + 1, hi[1] + 1, hi[2] + 1], update_place }
+    Case { blocks, steps, lo: [lo[0] - 1, lo[1] - 1, lo[2] - 1], hi: [hi[0] + 1, hi[1] + 1, hi[2] + 1], update_place, items: container_items(r, &order, &grid) }
+}
+
+/// A container circuit with nothing that can pop or fall (`--gen containers`): a stone floor,
+/// droppers and hoppers (mostly facing each other) with one item type, comparators standing on
+/// the floor or on containers, floor levers as inputs, glass and stone.
+pub fn container_case(r: &mut Rng, size: [i32; 3]) -> Case {
+    let ox = r.range(-14, 15 - size[0]);
+    let oz = r.range(-14, 15 - size[2]);
+    let oy = r.range(1, 3);
+    let lo = [ox, oy, oz];
+    let hi = [ox + size[0] - 1, oy + size[1] - 1, oz + size[2] - 1];
+    let mut grid: HashMap<Pos, String> = HashMap::new();
+    let mut order: Vec<Pos> = Vec::new();
+    for z in lo[2]..=hi[2] {
+        for x in lo[0]..=hi[0] {
+            let p = [x, lo[1] - 1, z];
+            grid.insert(p, "minecraft:stone".into());
+            order.push(p);
+        }
+    }
+    let mut inputs = Vec::new();
+    for y in lo[1]..=hi[1] {
+        for z in lo[2]..=hi[2] {
+            for x in lo[0]..=hi[0] {
+                let p = [x, y, z];
+                let below = grid.get(&[x, y - 1, z]).cloned().unwrap_or_default();
+                let solid_below = below.contains("stone") || below.contains("dropper") || below.contains("hopper");
+                let k = r.below(100);
+                let s = if k < 45 {
+                    if r.chance(0.55) {
+                        format!("minecraft:dropper[facing={},triggered=false]", anydir(r))
+                    } else {
+                        format!("minecraft:hopper[enabled=true,facing={}]", r.pick(&["down", "north", "east", "south", "west"]))
+                    }
+                } else if k < 62 && solid_below {
+                    format!("minecraft:comparator[facing={},mode={},powered=false]", hdir(r), if r.chance(0.5) { "subtract" } else { "compare" })
+                } else if k < 70 && below.contains("stone") {
+                    inputs.push(p);
+                    format!("minecraft:lever[face=floor,facing={},powered=false]", hdir(r))
+                } else if k < 76 {
+                    "minecraft:stone".into()
+                } else if k < 80 {
+                    "minecraft:glass".into()
+                } else {
+                    continue;
+                };
+                grid.insert(p, s);
+                order.push(p);
+            }
+        }
+    }
+    // containers face a neighboring container
+    let dirs: [(&str, Pos); 6] = [("north", [0, 0, -1]), ("south", [0, 0, 1]), ("west", [-1, 0, 0]), ("east", [1, 0, 0]), ("up", [0, 1, 0]), ("down", [0, -1, 0])];
+    for p in &order {
+        let s = grid[p].clone();
+        let is_cont = |s: &str| s.contains("minecraft:dropper") || s.contains("minecraft:hopper");
+        if !is_cont(&s) || !r.chance(0.9) {
+            continue;
+        }
+        let hopper = s.contains("minecraft:hopper");
+        let targets: Vec<&str> = dirs
+            .iter()
+            .filter(|(n, d)| !(hopper && *n == "up") && grid.get(&[p[0] + d[0], p[1] + d[1], p[2] + d[2]]).is_some_and(|t| is_cont(t)))
+            .map(|(n, _)| *n)
+            .collect();
+        if let Some(f) = (!targets.is_empty()).then(|| *r.pick(&targets)) {
+            let ns = if hopper { format!("minecraft:hopper[enabled=true,facing={f}]") } else { format!("minecraft:dropper[facing={f},triggered=false]") };
+            grid.insert(*p, ns);
+        }
+    }
+    let blocks: Vec<(Pos, String)> = order.iter().map(|p| (*p, grid[p].clone())).collect();
+    let mut steps = vec![Step::Run(r.range(10, 30) as u32)];
+    for _ in 0..r.range(2, 6) {
+        if !inputs.is_empty() {
+            steps.push(Step::Use(*r.pick(&inputs)));
+        }
+        steps.push(Step::Run(r.range(1, 30) as u32));
+    }
+    steps.push(Step::Run(24));
+    let update_place = r.chance(0.3);
+    let items = container_items(r, &order, &grid);
+    Case { blocks, steps, lo: [lo[0] - 1, lo[1] - 2, lo[2] - 1], hi: [hi[0] + 1, hi[1] + 1, hi[2] + 1], update_place, items }
+}
+
+/// Random contents for the containers of a case: droppers get one stack (a dropper with
+/// several picks a random slot), hoppers up to two.
+fn container_items(r: &mut Rng, order: &[Pos], grid: &HashMap<Pos, String>) -> Vec<(Pos, usize, String, u8)> {
+    let mut out = Vec::new();
+    // one item type per case: a dropper holding two kinds would pick a random slot
+    let (item, max) = *r.pick(&redsim::redstone::container::ITEMS);
+    for p in order {
+        let s = &grid[p];
+        let dropper = s.contains("minecraft:dropper");
+        let hopper = s.contains("minecraft:hopper");
+        if !(dropper || hopper) || r.chance(0.3) {
+            continue;
+        }
+        // a dropper that does not face a container would spit its item into the world
+        if dropper {
+            let d: Pos = if s.contains("facing=north") {
+                [0, 0, -1]
+            } else if s.contains("facing=south") {
+                [0, 0, 1]
+            } else if s.contains("facing=west") {
+                [-1, 0, 0]
+            } else if s.contains("facing=east") {
+                [1, 0, 0]
+            } else if s.contains("facing=up") {
+                [0, 1, 0]
+            } else {
+                [0, -1, 0]
+            };
+            let t = grid.get(&[p[0] + d[0], p[1] + d[1], p[2] + d[2]]);
+            if !t.is_some_and(|t| t.contains("minecraft:dropper") || t.contains("minecraft:hopper")) {
+                continue;
+            }
+        }
+        let stacks = if hopper { r.range(1, 2) } else { 1 };
+        let mut used = Vec::new();
+        for _ in 0..stacks {
+            let slot = if dropper { 0 } else { r.below(5) as usize };
+            if used.contains(&slot) {
+                continue;
+            }
+            used.push(slot);
+            let count = if r.chance(0.6) { 1 } else { r.range(1, (max as i32).min(4)) as u8 };
+            out.push((*p, slot, item.to_string(), count));
+        }
+    }
+    out
 }
 
 // ---------------------------------------------------------------------- driver
@@ -606,8 +877,14 @@ pub fn check(w: &mut Worker, sb: u32, c: &Case) -> Result<Outcome> {
     Ok(Outcome { diff: first_diff(c, &sim, &game), sim_errors })
 }
 
-/// Greedy shrink: drop blocks, then steps, while the case still mismatches.
+/// Greedy shrink: drop blocks, then steps, while the case still mismatches (without model
+/// notes, when the original had none: a smaller case must not wander out of scope).
 pub fn shrink(w: &mut Worker, sb: u32, mut c: Case) -> Result<Case> {
+    let clean = check(w, sb, &c)?.sim_errors.is_empty();
+    let still = |w: &mut Worker, t: &Case| -> Result<bool> {
+        let o = check(w, sb, t)?;
+        Ok(o.diff.is_some() && (!clean || o.sim_errors.is_empty()))
+    };
     loop {
         let mut better = false;
         let mut i = c.blocks.len();
@@ -616,7 +893,8 @@ pub fn shrink(w: &mut Worker, sb: u32, mut c: Case) -> Result<Case> {
             let mut t = c.clone();
             let (p, _) = t.blocks.remove(i);
             t.steps.retain(|s| *s != Step::Use(p));
-            if check(w, sb, &t)?.diff.is_some() {
+            t.items.retain(|(q, ..)| *q != p);
+            if still(w, &t)? {
                 c = t;
                 better = true;
             }
@@ -631,7 +909,7 @@ pub fn shrink(w: &mut Worker, sb: u32, mut c: Case) -> Result<Case> {
                     t.steps.remove(j);
                 }
             }
-            if check(w, sb, &t)?.diff.is_some() {
+            if still(w, &t)? {
                 c = t;
                 better = true;
             }
@@ -669,6 +947,8 @@ pub struct FuzzOptions {
     pub out: std::path::PathBuf,
     pub shrink: bool,
     pub max_report: usize,
+    /// Case generator: `random` (palette circuits) or `containers` ([`container_case`]).
+    pub generator: String,
 }
 
 /// Run `n` random cases; returns (cases, mismatches).
@@ -685,7 +965,9 @@ pub fn fuzz(pool: &Pool, o: &FuzzOptions, log: &dyn Fn(&str)) -> Result<(usize, 
         Ok(sb)
     };
     let mut rng = Rng::new(o.seed);
-    let cases: Vec<(usize, Case)> = (0..o.n).map(|i| (i, random_case(&mut rng, &o.palette, o.size, o.density))).collect();
+    let cases: Vec<(usize, Case)> = (0..o.n)
+        .map(|i| (i, if o.generator == "containers" { container_case(&mut rng, o.size) } else { random_case(&mut rng, &o.palette, o.size, o.density) }))
+        .collect();
     if let Some((_, c)) = cases.first() {
         std::fs::write(o.out.join(format!("sample-{}.txt", o.seed)), c.to_text())?;
     }
@@ -698,14 +980,26 @@ pub fn fuzz(pool: &Pool, o: &FuzzOptions, log: &dyn Fn(&str)) -> Result<(usize, 
     let mut bad: Vec<(usize, Case, usize, Vec<(Pos, String, String)>)> = Vec::new();
     let mut errors = 0;
     let mut sim_err_cases = 0;
+    let mut noted_bad = 0;
+    let mut note_kinds: HashMap<String, usize> = HashMap::new();
     for r in results {
         match r {
             Ok((i, c, out)) => {
                 if !out.sim_errors.is_empty() {
                     sim_err_cases += 1;
+                    for e in &out.sim_errors {
+                        let k: String = e.split(|ch: char| ch == '(' || ch == ':').next().unwrap_or("").trim().to_string();
+                        *note_kinds.entry(k).or_insert(0usize) += 1;
+                    }
                 }
                 if let Some((f, d)) = out.diff {
-                    bad.push((i, c, f, d));
+                    // a case the model flagged as out of scope (random dropper slot, item
+                    // entities...) is not a model error
+                    if out.sim_errors.is_empty() {
+                        bad.push((i, c, f, d));
+                    } else {
+                        noted_bad += 1;
+                    }
                 }
             }
             Err(e) => {
@@ -717,12 +1011,17 @@ pub fn fuzz(pool: &Pool, o: &FuzzOptions, log: &dyn Fn(&str)) -> Result<(usize, 
         }
     }
     log(&format!(
-        "{} cases in {:.1}s: {} mismatches ({:.3}%), {errors} errors, {sim_err_cases} with model notes",
+        "{} cases in {:.1}s: {} mismatches ({:.3}%), {errors} errors, {sim_err_cases} with model notes ({noted_bad} of them differ: out of scope)",
         o.n,
         t0.elapsed().as_secs_f64(),
         bad.len(),
         100.0 * bad.len() as f64 / o.n.max(1) as f64
     ));
+    let mut nk: Vec<_> = note_kinds.into_iter().collect();
+    nk.sort_by(|a, b| b.1.cmp(&a.1));
+    for (k, n) in nk.iter().take(6) {
+        log(&format!("  note x{n}: {k}"));
+    }
     // group by the first mismatching game state's block name
     let mut by: HashMap<String, usize> = HashMap::new();
     for (_, _, _, d) in &bad {
@@ -813,4 +1112,142 @@ pub fn fixture(w: &mut Worker, c: &Case, note: &str) -> Result<String> {
         prev = f.clone();
     }
     Ok(s)
+}
+
+// ---------------------------------------------------------------------- equivalence classes
+
+/// A state's class representative (as a string), or the state itself when it is not a plain
+/// block of the class universe.
+pub fn class_canon(s: &str) -> String {
+    match Block::parse(s) {
+        Ok(b) => match redsim::classes::representative(&b) {
+            Some(r) => r.to_string(),
+            None => b.to_string(),
+        },
+        Err(_) => s.to_string(),
+    }
+}
+
+/// The same case with every plain block replaced by a random member of its class.
+pub fn class_variant(r: &mut Rng, c: &Case, classes: &[redsim::classes::Class]) -> Case {
+    let mut v = c.clone();
+    for (_, s) in v.blocks.iter_mut() {
+        if let Ok(b) = Block::parse(s)
+            && let Some(cl) = classes.iter().find(|cl| cl.members.contains(&b))
+        {
+            *s = r.pick(&cl.members).to_string();
+        }
+    }
+    v
+}
+
+/// Do a case and its variant differ in the game modulo classes?
+pub fn class_differs(w: &mut Worker, sb: u32, a: &Case, b: &Case) -> Result<bool> {
+    let fa = run_bridge(w, sb, a)?;
+    let fb = run_bridge(w, sb, b)?;
+    let canon = |fs: &[Frame]| -> Vec<Frame> { fs.iter().map(|f| f.iter().map(|s| class_canon(s)).collect()).collect() };
+    Ok(canon(&fa) != canon(&fb))
+}
+
+/// Shrink a class violation: revert swaps one by one, then drop blocks (from both), while the
+/// pair still differs; returns the minimal pair.
+pub fn class_shrink(w: &mut Worker, sb: u32, mut a: Case, mut b: Case) -> Result<(Case, Case)> {
+    loop {
+        let mut better = false;
+        for i in 0..a.blocks.len() {
+            if a.blocks[i].1 != b.blocks[i].1 {
+                let mut t = b.clone();
+                t.blocks[i].1 = a.blocks[i].1.clone();
+                if class_differs(w, sb, &a, &t)? {
+                    b = t;
+                    better = true;
+                }
+            }
+        }
+        let mut i = a.blocks.len();
+        while i > 0 {
+            i -= 1;
+            let (mut ta, mut tb) = (a.clone(), b.clone());
+            let (p, _) = ta.blocks.remove(i);
+            tb.blocks.remove(i);
+            ta.steps.retain(|s| *s != Step::Use(p));
+            tb.steps.retain(|s| *s != Step::Use(p));
+            if class_differs(w, sb, &ta, &tb)? {
+                a = ta;
+                b = tb;
+                better = true;
+            }
+        }
+        if !better {
+            return Ok((a, b));
+        }
+    }
+}
+
+/// Game-only proof of the classes: run a case and its class variant IN THE GAME and compare
+/// every frame after mapping every state to its class representative. Returns the number of
+/// differing pairs (and saves them).
+pub fn classfuzz(pool: &Pool, n: usize, seed: u64, pal: &[(String, u32)], size: [i32; 3], density: f64, out: &Path, log: &dyn Fn(&str)) -> Result<usize> {
+    std::fs::create_dir_all(out)?;
+    let classes = redsim::classes::classes();
+    let mut rng = Rng::new(seed);
+    let pairs: Vec<(usize, Case, Case)> = (0..n)
+        .map(|i| {
+            let mut c = random_case(&mut rng, pal, size, density);
+            // no mid-run edits: replacing a member by another of its class is itself a block
+            // change an observer sees; the classes are about what a design is built from
+            c.steps.retain(|s| !matches!(s, Step::Set(..)));
+            let v = class_variant(&mut rng, &c, &classes);
+            (i, c, v)
+        })
+        .collect();
+    let sbs: Vec<Mutex<Option<u32>>> = (0..pool.len()).map(|_| Mutex::new(None)).collect();
+    let t0 = std::time::Instant::now();
+    let res = pool.map(pairs, |w, wi, (i, c, v)| {
+        let mut s = sbs[wi].lock().unwrap();
+        let sb = match *s {
+            Some(sb) => sb,
+            None => {
+                let sb = w.create(&SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+                *s = Some(sb);
+                sb
+            }
+        };
+        let a = run_bridge(w, sb, &c)?;
+        let b = run_bridge(w, sb, &v)?;
+        let canon = |fs: &[Frame]| -> Vec<Frame> { fs.iter().map(|f| f.iter().map(|s| class_canon(s)).collect()).collect() };
+        let same = canon(&a) == canon(&b);
+        // and redsim on the variant, as a plain differential
+        let (sim, notes) = run_sim(&v)?;
+        let model_ok = notes.is_empty() && first_diff(&v, &sim, &b).is_none();
+        Ok((i, c, v, same, model_ok))
+    });
+    let (mut bad, mut model_bad, mut errors) = (0, 0, 0);
+    for r in res {
+        match r {
+            Ok((i, c, v, same, model_ok)) => {
+                if !same {
+                    bad += 1;
+                    if bad <= 6 {
+                        std::fs::write(out.join(format!("class-{seed}-{i}-a.txt")), c.to_text())?;
+                        std::fs::write(out.join(format!("class-{seed}-{i}-b.txt")), v.to_text())?;
+                    }
+                }
+                if !model_ok {
+                    model_bad += 1;
+                    if model_bad <= 12 {
+                        std::fs::write(out.join(format!("model-{seed}-{i}.txt")), v.to_text())?;
+                    }
+                }
+            }
+            Err(e) => {
+                if errors < 3 {
+                    log(&format!("error: {e:#}"));
+                }
+                errors += 1;
+            }
+        }
+    }
+    log(&format!("{n} class swaps in {:.1}s: {bad} traces differ modulo classes, {model_bad} redsim mismatches on the variants, {errors} errors", t0.elapsed().as_secs_f64()));
+    Ok(bad)
 }
