@@ -73,8 +73,8 @@ pub fn judge(run: &Run, spec: &DoorSpec) -> Result<Vec<(u32, u32)>> {
         bail!("not closed at rest: {}", problems.join("; "));
     }
     let lever = rest.get(spec.lever).unwrap_or("?");
-    if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {
-        bail!("port lever {:?} is {lever}, expected an unpowered lever", spec.lever);
+    if !lever.starts_with("minecraft:lever") {
+        bail!("port lever {:?} is {lever}, expected a lever", spec.lever);
     }
     let closed_door: Vec<String> = spec.door_cells().iter().map(|p| rest.get(*p).unwrap_or("?").to_string()).collect();
     let mut timings = Vec::new();

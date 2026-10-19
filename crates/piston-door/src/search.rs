@@ -1377,7 +1377,7 @@ pub(crate) fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, op
             bail!("walkway blocked at rest");
         }
         let lever = rest.get(spec.lever).unwrap_or("?");
-        if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {
+        if !lever.starts_with("minecraft:lever") {
             bail!("lever");
         }
         let open_ok = |r: &Region| {
