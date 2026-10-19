@@ -45,6 +45,11 @@ pub struct SweepOpts {
     pub menu_shifts: Vec<i64>,
     /// `--menu-triples`: also offer each toggle tripled (`triple_gaps` spacings).
     pub menu_triples: bool,
+    /// `--menu-widths`: also offer each toggle's pulse at these widths.
+    pub menu_widths: Vec<u32>,
+    /// `--menu-core`: one group for the core (inputs pulsed more than once and the single pulses
+    /// between them): each alternative shifts one core pulse, changes its width, or holds two.
+    pub menu_core: bool,
     /// Round every pulse width up to an even number of ticks.
     pub even: bool,
     /// Stretch every pulse shorter than this many ticks to it (0: keep the plan's widths).
@@ -248,11 +253,63 @@ fn menu_items(s: &Schedule, o: &SweepOpts) -> Result<Vec<(String, usize, String,
     let close = s.events_of(false, &vars)?;
     let ph = [pulses(&open), pulses(&close)];
     let mut items = Vec::new();
+    let mk_sched = |tr: usize, v: &[Pulse]| -> Schedule {
+        let (oe, ce) = if tr == 0 { (evs_of(v), close.clone()) } else { (open.clone(), evs_of(v)) };
+        let mut evs: Vec<(bool, u32, Pos, Option<String>)> = Vec::new();
+        evs.extend(oe.iter().map(|(t, q, st)| (true, *t, *q, st.clone())));
+        evs.extend(ce.iter().map(|(t, q, st)| (false, *t, *q, st.clone())));
+        Schedule::from_events(s.design().clone(), &evs)
+    };
     for tr in 0..2 {
         let ps = &ph[tr];
         let mut count: BTreeMap<Pos, usize> = BTreeMap::new();
         for p in ps.iter().filter(|p| !p.state.is_empty() && p.off.is_some()) {
             *count.entry(p.pos).or_default() += 1;
+        }
+        // the CORE: inputs pulsed more than once, and single pulses inside their span; one group
+        // whose alternatives each change one core pulse (shift, width) or merge two (hold)
+        let multi: Vec<&Pulse> = ps.iter().filter(|p| !p.state.is_empty() && count.get(&p.pos).copied().unwrap_or(0) > 1).collect();
+        let span = (multi.iter().map(|p| p.on).min(), multi.iter().map(|p| p.on).max());
+        let is_core = |p: &Pulse| -> bool {
+            count.get(&p.pos).copied().unwrap_or(0) > 1 || matches!(span, (Some(a), Some(b)) if p.on > a && p.on < b)
+        };
+        if o.menu_core {
+            for (i, p) in ps.iter().enumerate().filter(|(_, p)| !p.state.is_empty() && p.off.is_some() && is_core(p)) {
+                let off = p.off.unwrap();
+                for &d in &[-3i64, -2, -1, 1, 2, 3, 4, 6] {
+                    if p.on as i64 + d < 0 {
+                        continue;
+                    }
+                    let mut v = ps.clone();
+                    v[i].on = (p.on as i64 + d) as u32;
+                    v[i].off = Some((off as i64 + d) as u32);
+                    items.push(("core".to_string(), tr, format!("{},{},{}@{}{d:+}", p.pos[0], p.pos[1], p.pos[2], p.on), mk_sched(tr, &v)));
+                }
+                for w in [1u32, 3, 4] {
+                    if w == off - p.on {
+                        continue;
+                    }
+                    let mut v = ps.clone();
+                    v[i].off = Some(p.on + w);
+                    items.push(("core".to_string(), tr, format!("{},{},{}@{}w{w}", p.pos[0], p.pos[1], p.pos[2], p.on), mk_sched(tr, &v)));
+                }
+            }
+            // holds: two consecutive pulses of one core input merged into one level
+            let mut by: BTreeMap<Pos, Vec<usize>> = BTreeMap::new();
+            for (i, p) in ps.iter().enumerate().filter(|(_, p)| !p.state.is_empty() && p.off.is_some()) {
+                by.entry(p.pos).or_default().push(i);
+            }
+            for (pos, idx) in &by {
+                for w2 in idx.windows(2) {
+                    let (a, b) = (w2[0], w2[1]);
+                    for end in [ps[b].on, ps[b].off.unwrap()] {
+                        let mut v = ps.clone();
+                        v[a].off = Some(end.max(v[a].on + 1));
+                        v.remove(b);
+                        items.push(("core".to_string(), tr, format!("{},{},{}@{}hold{end}", pos[0], pos[1], pos[2], ps[a].on), mk_sched(tr, &v)));
+                    }
+                }
+            }
         }
         for (pos, n) in &count {
             if *n != 1 {
@@ -260,6 +317,9 @@ fn menu_items(s: &Schedule, o: &SweepOpts) -> Result<Vec<(String, usize, String,
             }
             let Some(i) = ps.iter().position(|p| p.pos == *pos && !p.state.is_empty()) else { continue };
             let p = ps[i].clone();
+            if o.menu_core && is_core(&p) {
+                continue;
+            }
             let off = p.off.unwrap();
             let mut alts: Vec<(String, Vec<Pulse>)> = Vec::new();
             for &d in &o.menu_shifts {
@@ -271,6 +331,14 @@ fn menu_items(s: &Schedule, o: &SweepOpts) -> Result<Vec<(String, usize, String,
                 v[i].off = Some((off as i64 + d) as u32);
                 alts.push((format!("shift{d:+}"), v));
             }
+            for &w in &o.menu_widths {
+                if w == off - p.on || w == 0 {
+                    continue;
+                }
+                let mut v = ps.clone();
+                v[i].off = Some(p.on + w);
+                alts.push((format!("w{w}"), v));
+            }
             if o.menu_triples {
                 for &g in &o.triple_gaps {
                     let mut v = ps.clone();
@@ -281,11 +349,7 @@ fn menu_items(s: &Schedule, o: &SweepOpts) -> Result<Vec<(String, usize, String,
                 }
             }
             for (label, v) in alts {
-                let (oe, ce) = if tr == 0 { (evs_of(&v), close.clone()) } else { (open.clone(), evs_of(&v)) };
-                let mut evs: Vec<(bool, u32, Pos, Option<String>)> = Vec::new();
-                evs.extend(oe.iter().map(|(t, q, st)| (true, *t, *q, st.clone())));
-                evs.extend(ce.iter().map(|(t, q, st)| (false, *t, *q, st.clone())));
-                items.push((format!("{},{},{}", pos[0], pos[1], pos[2]), tr, label, Schedule::from_events(s.design().clone(), &evs)));
+                items.push((format!("{},{},{}", pos[0], pos[1], pos[2]), tr, label, mk_sched(tr, &v)));
             }
         }
     }
@@ -351,7 +415,8 @@ pub fn cli(inputs: &[PathBuf], o: &SweepOpts) -> Result<()> {
         }
         for (vname, oe, ce) in variants(&s, o)? {
             let vname = if o.widen > 0 || o.even { format!("w{}{}-{vname}", o.widen, if o.even { "e" } else { "" }) } else { vname };
-            let vname = if !o.menu_shifts.is_empty() || o.menu_triples { format!("menu-{vname}") } else { vname };
+            let any_menu = !o.menu_shifts.is_empty() || o.menu_triples || !o.menu_widths.is_empty() || o.menu_core;
+            let vname = if any_menu { format!("menu-{vname}") } else { vname };
             let mut evs: Vec<(bool, u32, Pos, Option<String>)> = Vec::new();
             evs.extend(oe.iter().map(|(t, p, st)| (true, *t, *p, st.clone())));
             evs.extend(ce.iter().map(|(t, p, st)| (false, *t, *p, st.clone())));
@@ -427,7 +492,7 @@ fn run_job(j: &Job, o: &SweepOpts, log_path: &Path) -> (String, String, String, 
                 }
             }
             let mut rec = sw::record_ideal(&mut w, &j.sched, 80)?;
-            if !o.menu_shifts.is_empty() || o.menu_triples {
+            if !o.menu_shifts.is_empty() || o.menu_triples || !o.menu_widths.is_empty() || o.menu_core {
                 let items = menu_items(&j.sched, o)?;
                 log(format!("menu: {} alternative recordings", items.len()));
                 for l in sw::add_menu(&mut w, &mut rec, &items, 80)? {
@@ -474,7 +539,7 @@ fn run_job(j: &Job, o: &SweepOpts, log_path: &Path) -> (String, String, String, 
             }
             None => {
                 let unsat = ls.iter().any(|l| l.contains("UNSAT"));
-                Ok((if unsat { "UNSAT-enc".into() } else { "NOMODEL".into() }, "-".into(), "-".into(), core))
+                Ok((if unsat { "UNSAT-train".into() } else { "NOMODEL".into() }, "-".into(), "-".into(), core))
             }
         }
     })();

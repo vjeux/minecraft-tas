@@ -897,6 +897,13 @@ pub enum DoorCmd {
         /// The menu also offers each toggle tripled (`--triple-gaps` spacings).
         #[arg(long)]
         menu_triples: bool,
+        /// The menu also offers each toggle's pulse at these widths (e.g. `1,2,3,4`).
+        #[arg(long, default_value = "")]
+        menu_widths: String,
+        /// The menu also offers CORE alternatives (one core pulse shifted -3..+6 or re-widthed 1/3/4,
+        /// or two pulses of one input held as one level), the solver picking one.
+        #[arg(long)]
+        menu_core: bool,
         /// Skip the ideal-input replay of each variant.
         #[arg(long)]
         no_validate: bool,
@@ -2893,7 +2900,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
         }
-        DoorCmd::Satsweep { plans, jobs, palette, forbid_ring, hall_ring, lever_oop, dmax, skip, settle, core_tries, box_dims, variants, gaps, triple_gaps, widen, even, menu_shifts, menu_triples, no_validate, minimize, tsv, out_dir, extra_offsets } => {
+        DoorCmd::Satsweep { plans, jobs, palette, forbid_ring, hall_ring, lever_oop, dmax, skip, settle, core_tries, box_dims, variants, gaps, triple_gaps, widen, even, menu_shifts, menu_triples, menu_widths, menu_core, no_validate, minimize, tsv, out_dir, extra_offsets } => {
             let nums = |s: &str| -> Result<Vec<u32>> { s.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<u32>().map_err(anyhow::Error::from)).collect() };
             let box_dims = match box_dims.as_deref() {
                 Some(b) => {
@@ -2920,6 +2927,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 even,
                 menu_shifts: menu_shifts.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<i64>().map_err(anyhow::Error::from)).collect::<Result<Vec<i64>>>()?,
                 menu_triples,
+                menu_widths: nums(&menu_widths)?,
+                menu_core,
                 no_validate,
                 minimize,
                 tsv,
