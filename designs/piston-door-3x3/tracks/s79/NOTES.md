@@ -385,3 +385,9 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
     elevators at all; m69U: W idle on close, P3t pushes TM + TL back in one push): redsim 32 positions + JVM,
     open 30 / close 36, frame 12/12. satwire solid core close s0 (0,4) + W (-1,3) + RP1 at (1,4): the
     top-left corner again (s0, W and the escaped RP1 share (-1,4)/(0,5)).
+  * `m69V` (no top-left corner piston at all: a RING-RESTING puller Q (2,3) facing west pulls TL (0,3) ->
+    (1,3), escapes RIGHT into (3,3) pulled by QE (4,3), then pulls TL on to (2,3); ring pushers P0/RP1 for
+    both columns; R1/R2 lever-held from the lever on R2's back (5,2); R0 fed): redsim 32 positions + JVM,
+    open 38 / close 28, frame 12/12, the top-left corner is free. satwire solid core: open E1 (1,5), RP1
+    (1,3), RP1 at (1,4), Q at (3,3); close QE (4,3), Q at (3,3): the top middle/right (RP1's escape column
+    and Q's escape) now; sculk pending.
