@@ -1,6 +1,6 @@
-# CLOCK: cand period 60 gt, on 10/60, edges 1, warmup 21, family calibrated_sculk_sensor+note_block, 8 blocks, 19x1x19, kick: use 8,0,7
-# built by `mctas clock sculk`: ring of 4 calibrated sensors on a circle (r 11.31), hops [15,15,15,15], first resonator a note block (the kick), the others amethyst
+# Ring of 4 calibrated sensors on a circle (r 11.31), hops [15,15,15,15], first resonator a note block (the kick), the others amethyst: each sensor's resonator (amethyst, the first a note block) rings when it fires and the next sensor hears it floor(distance) gt later; the sensor two hops ahead is still dead
 name: clk-sculk-ringbig4-p60-1
+# how: ring of 4 calibrated sensors on a circle (r 11.31), hops [15,15,15,15], first resonator a note block (the kick), the others amethyst
 port output: 9 0 7
 port start: 8 0 7 use
 origin: -9 0 -9

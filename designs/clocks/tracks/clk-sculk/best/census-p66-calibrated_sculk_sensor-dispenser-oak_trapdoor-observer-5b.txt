@@ -1,3 +1,4 @@
+# Census find (3x1x2, k<=5): a sculk divider. An observer pair (6 gt) pulses an empty dispenser, which conducts the pulse into an oak trapdoor; the calibrated sensor hears them at most once per 20 gt dead time, and its own cycle repeats every 66 gt (output: the sensor).
 name: census-p66-calibrated_sculk_sensor-dispenser-oak_trapdoor-observer-5b
 port output: 0 0 0
 census: box 3x1x2 k<=5 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];0,0,1=observer[facing=east,powered=false];1,0,1=observer[facing=west,powered=false];2,0,0=oak_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false];2,0,1=dispenser[facing=down,triggered=false])

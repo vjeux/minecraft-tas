@@ -1,6 +1,6 @@
-# CLOCK: cand period 65 gt, on 30/65, edges 1, warmup 2, family dispenser+observer+repeater+sculk_sensor, 9 blocks, 7x2x1, kick: redstone_block 1 gt at 6,1,0
-# built by `mctas clock sculk`: chain plain line reps [4,4,4], observer in line, dispenser (travel 5)
+# A plain sculk sensor drives repeater(s) of delay [4,4,4], then observer in line, dispenser, 5 from the sensor (travel time)
 name: clk-sculk-chaind-p65-1
+# how: chain plain line reps [4,4,4], observer in line, dispenser (travel 5)
 port output: 0 1 0
 port start: 6 1 0 minecraft:redstone_block 1
 origin: 0 0 0

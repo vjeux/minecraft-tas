@@ -1,3 +1,4 @@
+# Census find (3x3x1, k<=4): a piston, an observer on top watching it, an empty dispenser on top of the observer, and a calibrated sensor beside the observer whose power reaches the piston by quasi-connectivity (through the observer's cell); the piston's moves pulse the observer, the dispenser fires 4 gt later and the sensor hears it.
 name: census-p23-calibrated_sculk_sensor-dispenser-observer-piston-4b
 census: box 3x3x1 k<=4 (0,0,0=piston[extended=false,facing=east];0,1,0=observer[facing=down,powered=false];0,2,0=dispenser[facing=down,triggered=false];1,1,0=calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false])
 port start: 0 0 0 last

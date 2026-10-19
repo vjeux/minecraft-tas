@@ -1,3 +1,4 @@
+# Census find (3x1x2, k<=5): three sensors (two calibrated, one plain) around an observer and an empty dispenser: each hears the dispenser at most once per dead time and gates what it powers; the joint cycle repeats every 242 gt (output: a full-period sensor).
 name: census-p242-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b
 census: box 3x1x2 k<=5 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];1,0,0=observer[facing=west,powered=false];1,0,1=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];2,0,0=dispenser[facing=down,triggered=false];2,0,1=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false])
 port start: 0 0 0 last

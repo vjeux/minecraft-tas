@@ -1,6 +1,6 @@
-# CLOCK: clk-sculk-hyb3-p468-1 period 128 gt, on 90/128, edges 3, warmup 44, family oak_trapdoor+observer+sculk_sensor+sticky_piston, 8 blocks, 5x1x4, kick: redstone_block 1 gt at 0,0,2
-# built by `mctas clock sculk`: climb from clk-sculk-hyb3-p468-1 (walker 18)
+# A sculk sensor + observer + sticky piston hybrid found by a long-period hunt (climb from clk-sculk-hyb3-p468-1 (walker 18))
 name: clk-sculk-climb1-p128-5
+# how: climb from clk-sculk-hyb3-p468-1 (walker 18)
 port output: 0 0 0
 port start: 0 0 2 minecraft:redstone_block 1
 origin: 0 0 0

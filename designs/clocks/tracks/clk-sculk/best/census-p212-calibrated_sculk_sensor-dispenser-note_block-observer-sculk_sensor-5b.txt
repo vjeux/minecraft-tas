@@ -1,3 +1,4 @@
+# Census find (3x1x2, k<=5): two sensors, an observer on the calibrated one, an empty dispenser and a note block: the calibrated sensor's observer loop and the plain sensor's 40 gt dead time interlock (each powers and gates a neighbor), repeating every 212 gt (output: a full-period sensor).
 name: census-p212-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b
 census: box 3x1x2 k<=5 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];1,0,0=observer[facing=west,powered=false];1,0,1=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];2,0,0=dispenser[facing=down,triggered=false];2,0,1=note_block[instrument=harp,note=0,powered=false])
 port start: 0 0 0 last

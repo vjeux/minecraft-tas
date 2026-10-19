@@ -1,6 +1,6 @@
-# CLOCK: cand period 468 gt, on 330/468, edges 11, warmup 95, family observer+piston+sculk_sensor+sticky_piston, 7 blocks, 4x1x3, kick: redstone_block 1 gt at 0,0,2
-# built by `mctas clock sculk`: obs plain k=3 path 1,0,0 2,0,0 2,0,1 stone at the output, emitter sticky-north beside it (travel 2) + piston[extended=false,facing=south] at 3,0,0
+# A plain sculk sensor watched by a chain of 3 observer(s) (each watching the previous); the last observer powers a stone and a sticky piston beside the stone, 2 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a piston beside the chain (moves parts of it: the hybrid)
 name: clk-sculk-hyb3-p468-1
+# how: obs plain k=3 path 1,0,0 2,0,0 2,0,1 stone at the output, emitter sticky-north beside it (travel 2) + piston[extended=false,facing=south] at 3,0,0
 port output: 0 0 0
 port start: 0 0 2 minecraft:redstone_block 1
 origin: 0 0 0

@@ -1,6 +1,6 @@
-# CLOCK: cand period 77 gt, on 30/77, edges 1, warmup 0, family note_block+redstone_torch+repeater+sculk_sensor, 14 blocks, 7x2x2, self-start
-# built by `mctas clock sculk`: chain plain line reps [4,4,4,4,4], wall torch on a stone, note beside the torch (travel 5)
+# A plain sculk sensor drives repeater(s) of delay [4,4,4,4,4], then wall torch on a stone, note beside the torch, 5 from the sensor (travel time)
 name: clk-sculk-chain-p77-1
+# how: chain plain line reps [4,4,4,4,4], wall torch on a stone, note beside the torch (travel 5)
 port output: 0 1 0
 origin: 0 0 0
 palette:

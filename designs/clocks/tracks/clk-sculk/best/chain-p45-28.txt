@@ -1,6 +1,6 @@
-# CLOCK: cand period 45 gt, on 30/45, edges 1, warmup 2, family oak_fence_gate+observer+sculk_sensor, 4 blocks, 4x1x1, self-start
-# built by `mctas clock sculk`: chain plain line reps [], observer, stone, gate beside (travel 3)
+# A plain sculk sensor, then observer, stone, gate beside, 3 from the sensor (travel time)
 name: clk-sculk-chain-p45-28
+# how: chain plain line reps [], observer, stone, gate beside (travel 3)
 port output: 0 1 0
 origin: 0 0 0
 palette:

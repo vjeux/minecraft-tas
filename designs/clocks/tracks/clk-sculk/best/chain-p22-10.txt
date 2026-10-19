@@ -1,6 +1,6 @@
-# CLOCK: cand period 22 gt, on 10/22, edges 1, warmup 12, family calibrated_sculk_sensor+oak_trapdoor+observer+repeater, 5 blocks, 2x4x1, self-start
-# built by `mctas clock sculk`: chain cal line reps [3] placed powered, observer on the top of the last repeater, trapdoor (travel 2)
+# A calibrated sculk sensor drives repeater(s) of delay [3] placed powered (their first turn-off is the self-start), then observer on the top of the last repeater, trapdoor, 2 from the sensor (travel time)
 name: clk-sculk-chain-p22-10
+# how: chain cal line reps [3] placed powered, observer on the top of the last repeater, trapdoor (travel 2)
 port output: 0 1 0
 origin: 0 0 0
 palette:

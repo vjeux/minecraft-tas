@@ -1,6 +1,6 @@
-# CLOCK: cand period 100 gt, on 60/100, edges 2, warmup 4, family oak_trapdoor+observer+sculk_sensor+sticky_piston, 6 blocks, 5x3x1, self-start
-# built by `mctas clock sculk`: obs plain k=3 path 1,0,0 2,0,0 3,0,0 emitter trapdoor at the output (travel 4) + sticky_piston[extended=false,facing=up] at 4,-1,0
+# A plain sculk sensor watched by a chain of 3 observer(s) (each watching the previous); an oak trapdoor (placed open+powered: it closes on placement, the self-start) at the last output, 4 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a sticky piston beside the chain (moves parts of it: the hybrid)
 name: clk-sculk-hyb3-p100-2
+# how: obs plain k=3 path 1,0,0 2,0,0 3,0,0 emitter trapdoor at the output (travel 4) + sticky_piston[extended=false,facing=up] at 4,-1,0
 port output: 4 0 0
 origin: 0 0 0
 palette:

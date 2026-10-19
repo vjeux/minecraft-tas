@@ -1,6 +1,6 @@
-# CLOCK: cand period 41 gt, on 30/41, edges 1, warmup 13, family dispenser+observer+sculk_sensor, 5 blocks, 4x1x2, kick: redstone_block 1 gt at -2,0,1
-# built by `mctas clock sculk`: obs plain k=3 path 1,0,0 1,0,1 0,0,1 emitter dispenser at the output (travel 1)
+# A plain sculk sensor watched by a chain of 3 observer(s) (each watching the previous); an empty dispenser (fires 4 gt after a rising edge) at the last output, 1 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard
 name: clk-sculk-obsd-p41-1
+# how: obs plain k=3 path 1,0,0 1,0,1 0,0,1 emitter dispenser at the output (travel 1)
 port output: 0 0 0
 port start: -2 0 1 minecraft:redstone_block 1
 origin: -1 0 0

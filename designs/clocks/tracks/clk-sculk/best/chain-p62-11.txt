@@ -1,6 +1,6 @@
-# CLOCK: cand period 62 gt, on 30/62, edges 1, warmup 2, family oak_trapdoor+observer+repeater+sculk_sensor, 10 blocks, 7x2x1, self-start
-# built by `mctas clock sculk`: chain plain line reps [4,4,4], observer, stone, trapdoor beside (travel 6)
+# A plain sculk sensor drives repeater(s) of delay [4,4,4], then observer, stone, trapdoor beside, 6 from the sensor (travel time)
 name: clk-sculk-chain-p62-11
+# how: chain plain line reps [4,4,4], observer, stone, trapdoor beside (travel 6)
 port output: 0 1 0
 origin: 0 0 0
 palette:

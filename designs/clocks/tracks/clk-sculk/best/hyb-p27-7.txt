@@ -1,6 +1,6 @@
-# CLOCK: cand period 27 gt, on 10/27, edges 1, warmup 2, family calibrated_sculk_sensor+oak_trapdoor+observer, 4 blocks, 1x4x1, self-start
-# built by `mctas clock sculk`: obs cal k=2 path 0,1,0 0,2,0 emitter trapdoor at the output (travel 3)
+# A calibrated sculk sensor watched by a chain of 2 observer(s) (each watching the previous); an oak trapdoor (placed open+powered: it closes on placement, the self-start) at the last output, 3 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard
 name: clk-sculk-hyb-p27-7
+# how: obs cal k=2 path 0,1,0 0,2,0 emitter trapdoor at the output (travel 3)
 port output: 0 0 0
 origin: 0 0 0
 palette:

@@ -1,6 +1,6 @@
-# CLOCK: cand period 76 gt, on 30/76, edges 1, warmup 46, family oak_fence_gate+repeater+sculk_sensor, 12 blocks, 7x2x1, self-start
-# built by `mctas clock sculk`: chain plain line reps [4,4,4,4,4] placed powered, gate at the last repeater's output (travel 6)
+# A plain sculk sensor drives repeater(s) of delay [4,4,4,4,4] placed powered (their first turn-off is the self-start), then gate at the last repeater's output, 6 from the sensor (travel time)
 name: clk-sculk-chain-p76-5
+# how: chain plain line reps [4,4,4,4,4] placed powered, gate at the last repeater's output (travel 6)
 port output: 0 1 0
 origin: 0 0 0
 palette:
