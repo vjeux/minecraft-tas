@@ -386,7 +386,7 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
         cells.push(s);
     }
     // lever: in-box air cell with a sturdy neighbor, or outside the box, or out of the plane
-    let geo0 = Geo { w, h, door: (0, 0), levers: vec![], rounds: 3 };
+    let geo0 = Geo { w, h, door: (0, 0), levers: vec![], rounds: 3, split: false };
     let sturdy = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp" | "waxed_copper_bulb" | "dropper");
     let mut lev = None;
     for _ in 0..200 {
@@ -423,7 +423,7 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
         cells[0] = "minecraft:stone".into();
         LeverCand { pos: (0, 0), oop: true, sup: (0, 0) }
     });
-    let g = Geo { w, h, door: (0, 0), levers: vec![lev.clone()], rounds: 3 };
+    let g = Geo { w, h, door: (0, 0), levers: vec![lev.clone()], rounds: 3, split: false };
     fix_instruments(w, h, &mut cells);
     (g, cells, lev)
 }
@@ -440,12 +440,17 @@ pub struct Outcome {
 /// Settle the box in redsim, flip the lever on for `t` ticks and off for `t` ticks, comparing
 /// every tick with the model.
 pub fn run_case(g: &Geo, cells: &[String], lev: &LeverCand, t: usize) -> Outcome {
+    run_case_pol(g, cells, lev, t, false)
+}
+
+/// `run_case` with the lever polarity: `lr` = the lever is ON at rest (flips off, then on).
+pub fn run_case_pol(g: &Geo, cells: &[String], lev: &LeverCand, t: usize, lr: bool) -> Outcome {
     let mut out = Outcome { mismatch: None, flags: vec![], violations: vec![], skipped: None, moved: false };
     let mut w = World::new(BlockPos::new(-6, -6, -3), [g.w + 12, g.h + 12, 7]);
     let mut blocks = Vec::new();
     for (i, s) in cells.iter().enumerate() {
         let (x, y) = g.xy(i);
-        let st = if s == "LEVER" { lever_state(lev, false) } else { s.clone() };
+        let st = if s == "LEVER" { lever_state(lev, lr) } else { s.clone() };
         match Block::parse(&st) {
             Ok(b) => blocks.push((BlockPos::new(x, y, 0), b)),
             Err(e) => {
@@ -455,7 +460,7 @@ pub fn run_case(g: &Geo, cells: &[String], lev: &LeverCand, t: usize) -> Outcome
         }
     }
     if !cells.iter().any(|s| s == "LEVER") {
-        blocks.push((lever_pos3(lev), Block::parse(&lever_state(lev, false)).unwrap()));
+        blocks.push((lever_pos3(lev), Block::parse(&lever_state(lev, lr)).unwrap()));
     }
     w.place_like_judge(&blocks);
     w.run_until_idle(100);
@@ -484,7 +489,7 @@ pub fn run_case(g: &Geo, cells: &[String], lev: &LeverCand, t: usize) -> Outcome
     };
     let mut cx = Ctx { a: Conc::default(), g, lsel: vec![true], flags_on: true };
     // the model's own dust levels must agree at rest
-    let der = cx.derive(&s, false);
+    let der = cx.derive(&s, lr);
     for i in 0..g.n() {
         if !s[i].k[COMP] && der.lvl[i] != s[i].lvl {
             out.mismatch = Some((0, vec![format!("rest dust level at {:?}", g.xy(i))]));
@@ -492,7 +497,7 @@ pub fn run_case(g: &Geo, cells: &[String], lev: &LeverCand, t: usize) -> Outcome
         }
     }
     let mut step = 0;
-    for lon in [true, false] {
+    for lon in [!lr, lr] {
         w.use_block(lp);
         s = cx.flip(&s, lon);
         step += 1;

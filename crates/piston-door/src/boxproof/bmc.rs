@@ -550,7 +550,7 @@ pub fn cli(a: &Args) -> Result<()> {
     let t: usize = a.get("t", 30);
     let rounds: usize = a.get("rounds", 2);
     let palette = parse_palette(a.s("palette").unwrap_or("all"))?;
-    let mut g = Geo { w, h, door: (dx, dy), levers: vec![], rounds };
+    let mut g = Geo { w, h, door: (dx, dy), levers: vec![], rounds, split: a.has("split-rounds") };
     let oop = a.has("oop");
     g.levers = lever_cands(&g, oop);
     let mut unparsed: Vec<usize> = Vec::new();

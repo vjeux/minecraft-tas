@@ -61,6 +61,7 @@ pub fn cli(raw: &[String]) -> Result<()> {
         Some("batch") => batch(&a),
         Some("fill-column") => fill_column(&a),
         Some("watch") => watch(&a),
+        Some("replay") => replay(&a),
         _ => bail!("usage: door boxproof fuzz|case|bmc|catalog|batch [--flags]"),
     }
 }
@@ -257,6 +258,57 @@ fn watch(a: &Args) -> Result<()> {
         }
         std::thread::sleep(std::time::Duration::from_secs(every));
     }
+}
+
+/// Replay one design through the model and redsim tick by tick (`--design F --w --h --dx --dy
+/// [--lever-on] [--ticks N]`): the first disagreement, the flags and the violations.
+fn replay(a: &Args) -> Result<()> {
+    let w: i32 = a.get("w", 7);
+    let h: i32 = a.get("h", 8);
+    let dx: i32 = a.get("dx", 2);
+    let dy: i32 = a.get("dy", 2);
+    let t: usize = a.get("ticks", 60);
+    let lr = a.has("lever-on");
+    let path = a.s("design").ok_or_else(|| anyhow::anyhow!("--design"))?;
+    let d = mctas::design::Design::load(std::path::Path::new(path))?;
+    let door = d.ports["door"];
+    let lp = d.ports["lever"];
+    let mut g = state::Geo { w, h, door: (dx, dy), levers: vec![], rounds: 2, split: false };
+    let at = |x: i32, y: i32| -> [i32; 3] { [x - dx + door[0], y - dy + door[1], door[2]] };
+    let mut cells = Vec::new();
+    for i in 0..g.n() {
+        let (x, y) = g.xy(i);
+        cells.push(d.blocks.get(&at(x, y)).cloned().unwrap_or_else(|| "minecraft:air".into()));
+    }
+    let ls = d.blocks.get(&lp).cloned().unwrap_or_default();
+    let pos = (lp[0] - door[0] + dx, lp[1] - door[1] + dy);
+    let prop = |k: &str| ls.split(&format!("{k}=")).nth(1).map(|v| v.split([',', ']']).next().unwrap_or("").to_string()).unwrap_or_default();
+    let sup = match (prop("face").as_str(), prop("facing").as_str()) {
+        ("floor", _) => (pos.0, pos.1 - 1),
+        ("ceiling", _) => (pos.0, pos.1 + 1),
+        (_, "west") => (pos.0 + 1, pos.1),
+        (_, "east") => (pos.0 - 1, pos.1),
+        _ => pos,
+    };
+    let oop = lp[2] != door[2];
+    let lev = if oop { state::LeverCand { pos: sup, oop: true, sup } } else { state::LeverCand { pos, oop: false, sup } };
+    if let Some(li) = g.idx(pos.0, pos.1).filter(|_| !oop) {
+        cells[li] = "LEVER".into();
+    }
+    g.levers = vec![lev.clone()];
+    println!("lever {lev:?}");
+    let o = diff::run_case_pol(&g, &cells, &lev, t, lr);
+    println!("skipped {:?}\nflags {:?}\nviolations {:?}", o.skipped, o.flags, o.violations);
+    match o.mismatch {
+        Some((step, dd)) => {
+            println!("mismatch at step {step}:");
+            for l in dd {
+                println!("  {l}");
+            }
+        }
+        None => println!("match ({t} ticks per edge)"),
+    }
+    Ok(())
 }
 
 /// Random boxes vs redsim, in parallel.

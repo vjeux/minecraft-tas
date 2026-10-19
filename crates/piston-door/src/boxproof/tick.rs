@@ -792,6 +792,38 @@ impl<'g, A: Alg> Ctx<'g, A> {
         }).collect();
         let mut cur = post;
         for _r in 0..self.g.rounds {
+            if self.g.split {
+                // two sub-rounds: the solver picks which pending events run first (the game's
+                // queue order), so two interacting events of one round can go either way
+                let mut q1 = q.clone();
+                let mut q2 = q.clone();
+                for p in 0..n {
+                    let any = self.or(&q[p]);
+                    if self.a.val(any) == Some(false) {
+                        continue;
+                    }
+                    let first = self.a.fresh();
+                    let nf = self.not(first);
+                    for k in 0..3 {
+                        q1[p][k] = self.and(&[q[p][k], first]);
+                        q2[p][k] = self.and(&[q[p][k], nf]);
+                    }
+                }
+                bk.qn = vec![[fl; 3]; n];
+                cur = self.round2(&cur, lon, &q1, &mut bk);
+                let new1 = bk.qn.clone();
+                bk.qn = vec![[fl; 3]; n];
+                cur = self.round2(&cur, lon, &q2, &mut bk);
+                let new2 = bk.qn.clone();
+                q = (0..n).map(|p| {
+                    let mut e = [fl; 3];
+                    for k in 0..3 {
+                        e[k] = self.a.or(&[new1[p][k], new2[p][k]]);
+                    }
+                    e
+                }).collect();
+                continue;
+            }
             bk.qn = vec![[fl; 3]; n];
             cur = if std::env::var("BP_OLD_ROUND").is_ok() { self.round(&cur, lon, &q, &mut bk) } else { self.round2(&cur, lon, &q, &mut bk) };
             q = bk.qn.clone();

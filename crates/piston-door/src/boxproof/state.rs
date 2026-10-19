@@ -112,6 +112,9 @@ pub struct Geo {
     pub door: (i32, i32),
     pub levers: Vec<LeverCand>,
     pub rounds: usize,
+    /// split every block-event round in two sub-rounds with a free choice of which pending
+    /// events go first (two interacting events of one round in either order)
+    pub split: bool,
 }
 
 impl Geo {
