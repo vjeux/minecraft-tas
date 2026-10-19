@@ -72,3 +72,88 @@ entities landing (`hit_ground`) woke sensors.
 
 ## Log
 * 05:23Z start; 05:42Z model + fuzz; 05:55Z 0 mismatches in 3000.
+* 06:20Z cosearch palette (`--palette all,sculk,calibrated,wool,amethyst`), redsim judge vs JVM
+  on 6 sculk doors + 90 mutants: 96/96 identical (`cosearch agree`).
+* 06:34Z `door ideal-rs` (redsim `door ideal`); 07:05Z merged main (door CLI split: ideal-rs now
+  lives in crates/door-redsim, its loop in piston-door/ideal_rs.rs).
+
+## 3. `door ideal-rs`: timing windows in milliseconds
+
+`door ideal-rs <plan.ideal> [--set v=n] [--sweep v=lo..hi]... [--independent] [--trace]`: the
+`door ideal` file format and checks (closed at rest, open, back closed, no drops) on redsim at the
+judge's 4 positions; a grid sweep runs in parallel (a 40x40 grid in seconds). Agrees with the
+JVM's `door ideal` on m10a/m10/m8/m9. Windows measured with it (plans in `seeds/`, `m10b.*`):
+
+* **u7-m10a has a SYMMETRIC train** (`seeds/m10s.ideal`: the same pulses after both flips, the
+  lever's levels as in m10a): A hold start 0..2 for 3..4 gt (0..6 with start 0), K 5..10 with
+  K >= U1 + 3, U1 2..6, U2 >= 8, L0 and L1+L2 any, A's last pull >= 12; open 15 / close 15.
+* u7-m9 with BR split from MR (`seeds/m9L.*`, lever (-3,4)): BR free (0..40); U1 0..14 with
+  K in [U1 + 3, 21]; a 10 or 30 gt hold instead of any bottom pulse breaks it (K: only 13 with a
+  10 gt hold).
+* ring56 t10's elevator compresses: A at a, a+10, a+20 works with E a+3, B a+6 and a+13..16
+  (`seeds/t10v.ideal`, every elevator event its own variable) -- the spacing of the three state
+  changes of a CALIBRATED sensor (an observer on it fires at T+2, T+12, T+22).
+* m10b's K tolerates only short holds: k 7..8 (2 gt), 6 (3..4 gt), 5 (4..5 gt); never a sensor
+  window.
+
+## 4. What a sensor gives a flat door (all measured in redsim, `cosearch trace` / ideal-rs)
+
+* Activation: an event at tick t activates a sensor at t + floor(d). Every cell of a 7x8 box is
+  within ~8.5 of the lever, so every sensor that hears the lever wakes by t8 (plain range 8:
+  cells farther than 8 hear the first in-range piston instead).
+* Outputs per activation at T (w = 30 plain / 10 calibrated):
+  - direct power: a window [T, T+w] (and strong power into the block below);
+  - observer on the sensor: 3 taps (T+2, T+w+2, T+w+12);
+  - sensor -> redstone lamp -> observer: 2 taps (T+2, T+w+6), no third;
+  - sensor -> waxed copper bulb -> comparator: a LEVER-LIKE LEVEL that flips once per activation
+    at T+2 (`tflipflop.txt`: sensor + bulb + comparator + its support, traced in redsim with
+    `cosearch trace`); an observer on the comparator: 1 tap at T+4;
+  - comparator reading the sensor: 9 or 10 (the lever's off/on frequency) for w ticks.
+* **The echo rule.** A sensor re-arms at T+w+10 (plain T+40, calibrated T+20) and then hears the
+  door's next event. Observer-on-sensor taps always echo (the third tap comes from the re-arm and
+  moves a piston in range). Calibrated sensors re-arm before any 7x8 cascade with an elevator ends
+  (30-45 ticks): only a short door (m10: 15 ticks) or plain sensors with T >= 6 stay quiet.
+* **A window on a pull-type piston fails on the close**: the window's end re-pulls the block it
+  just pushed home. Windows only suit pistons whose block has moved on by then.
+* **Wool doors shield**: with wool door blocks the three static frame blocks are wool too; e.g.
+  (2,-1) occludes R0's vibrations from (0,-2) and (3,2) occludes the lever (4,5) from the bottom.
+* Edge-selective sensors (sculk-2's trick): a calibrated sensor whose back touches a block the
+  lever powers hears nothing while the lever is on (filter 15): open-only for a lever-ON door.
+* Geometry of the bottom corners: in the bottom row (y = -2) nothing needing support can stand
+  (dust, repeater, comparator: y = -3 is outside), so a corner has observers, lamps, bulbs,
+  sensors and blocks only; m10's corner piston K (-1,-1) can be fed only by dust (-2,-1) on a
+  block powered by an observer at (-1,-2) watching (0,-2), or by (-1,-2) itself, and L0 only from
+  (-2,-1): I found no way to feed both K and L0 there.
+* One game tick: every vanilla delay except dust (0) is even (repeater, comparator, observer,
+  torch: 2 gt steps; lamp off 4); a sensor adds floor(d), so it is the only odd delay (the
+  coordinator's m79q, one tick short on B's chain, is the case). In m10b an observer on U at
+  (0,-2) feeding K through a stone at (-1,-2) fires K at t13 and t17 (U's first pulse is blocked
+  by the A hold's column; U moves only at t11): far from K's 7..8.
+
+## 5. Designs tried
+
+* **m10b** (`m10b.txt` + `m10b.ideal`, WORKS in redsim and in the game (`door ideal`, JVM: 4
+  positions x 2 cycles, open 15 / close 15) with A hold, K, L0, L1+L2, A's last pull
+  ideal): U wired in-plane WITHOUT sculk: observer (4,-1) watching R0 -> lamp (4,-2) (on at t3,
+  off at t9) -> observer (3,-2) -> stone (2,-2) -> U: two pulses (t5, t11) on both edges; on the
+  open the t5 one is blocked (the A hold has pushed the column onto U's head cell), so U moves
+  once at t11, while the close pushes at t5 and t11. Left: K at
+  7..8 and L0 in the bottom-left corner (see section 4), the A hold (lever-bound: starts 0..2).
+* t10 + a calibrated sensor at (-2,4) lighting a lamp for A's observer (`t10-sk1.*`): the sensor
+  QC-powers TL's puller (-2,2) through (-2,3) and re-extends it; with the sensor elsewhere the
+  calibrated re-arm (T+20) echoes into A. Not wirable this way.
+* cosearch with the sculk palette (all 25-min runs, 40 threads, ~150k screens/s): m10a (lever
+  levels real, the rest assisted) best 75/79 with 1 assist / 73/79 with none; m10s 75/79; t10s
+  69-75/79 (2 assists); m9L 73/79; t8L far side (elevator pinned) 69/79 (2 assists); m10s's
+  bottom (top pinned) 71/79; m10b's K (5 cells, enumeration k=3 + anneal) no find.
+
+## 6. Next ideas
+
+* An edge-aware (oc) plan per mechanism + open-only/close-only calibrated sensors (back touching
+  a lever-powered block): the asymmetric top ring56 wanted for t10's BM.
+* A short mechanism (m10-like, 15 ticks) keeps every sensor echo-free; give it a bottom whose
+  corner piston has a feed in the 2-row bottom (a variant where BL leaves down, as in t10).
+* Level-type far-side pistons driven by one T flip-flop (sensor + bulb + comparator) placed in
+  row -1 with its support in row -2.
+* cosearch macro moves that place a whole gadget (sensor+lamp+observer, sensor+bulb+comparator)
+  instead of one block at a time; an echo-aware score (a sensor's activations per flip).
