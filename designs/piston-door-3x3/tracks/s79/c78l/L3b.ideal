@@ -1,0 +1,16 @@
+# c78l L3b: L3a with TP and L1/L2 SYMMETRIC (all at t12 on both edges: one shared pulse into (-2,3) would do).
+design designs/piston-door-3x3/tracks/s79/c78l/L3a.txt
+let a2 = 12
+let l = 12
+let c5 = 12
+let cl = 12
+open 0 use 5 -1 0
+open a2 set -1 3 -1 minecraft:redstone_block
+open a2+2 clear -1 3 -1
+open l set -2 2 -1 minecraft:redstone_block
+open l+2 clear -2 2 -1
+close 0 use 5 -1 0
+close c5 set -1 3 -1 minecraft:redstone_block
+close c5+2 clear -1 3 -1
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1
