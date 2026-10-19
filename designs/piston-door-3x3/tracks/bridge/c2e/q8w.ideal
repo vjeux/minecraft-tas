@@ -1,0 +1,37 @@
+design designs/piston-door-3x3/tracks/bridge/c2e/q8seed.txt
+# real lever (ON at rest, first flip opens); every other piston by an off-plane ideal input
+let e0 = 6
+let su = 42
+let sk = 42
+let csu = 42
+let csk = 42
+open 0 use 5 2 0
+close 0 use 5 2 0
+open e0 set 1 4 1 minecraft:redstone_block
+open e0+2 clear 1 4 1
+open e0+12 set 1 5 1 minecraft:redstone_block
+open e0+14 clear 1 5 1
+open e0+18 set 1 3 1 minecraft:redstone_block
+open e0+20 clear 1 3 1
+open e0+24 set 1 5 1 minecraft:redstone_block
+open e0+26 clear 1 5 1
+open e0+30 set 1 4 1 minecraft:redstone_block
+open e0+32 clear 1 4 1
+open sk set 4 0 1 minecraft:redstone_block
+open sk+2 clear 4 0 1
+open su set 1 -2 1 minecraft:redstone_block
+open su+2 clear 1 -2 1
+close e0 set 1 4 1 minecraft:redstone_block
+close e0+2 clear 1 4 1
+close e0+12 set 1 5 1 minecraft:redstone_block
+close e0+14 clear 1 5 1
+close e0+18 set 1 3 1 minecraft:redstone_block
+close e0+20 clear 1 3 1
+close e0+24 set 1 5 1 minecraft:redstone_block
+close e0+26 clear 1 5 1
+close e0+30 set 1 4 1 minecraft:redstone_block
+close e0+32 clear 1 4 1
+close csk set 4 0 1 minecraft:redstone_block
+close csk+2 clear 4 0 1
+close csu set 1 -2 1 minecraft:redstone_block
+close csu+2 clear 1 -2 1

@@ -1,0 +1,20 @@
+# t3t: t3r + right-bottom wiring (BR-puller watcher (4,-1), lamp (4,-2), observers (3,-2)/(4,-3)/(3,-3),
+# stones (2,-2)/(2,-3)): A' pulse 0 at t11 and the B' boost at t23 (its t13 echo is blocked by A').
+design designs/piston-door-3x3/tracks/e88/wip/t3t.txt
+let pm = 16
+let s1 = 24
+let s2 = 32
+open 0 use 1 5 0
+close 0 use 1 5 0
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+2 clear -1 -1 1
+close pm set -1 -1 1 minecraft:redstone_block
+close pm+2 clear -1 -1 1
+open s1 set -2 -3 1 minecraft:redstone_block
+open s1+2 clear -2 -3 1
+close s1 set -2 -3 1 minecraft:redstone_block
+close s1+2 clear -2 -3 1
+open s2 set -2 -3 1 minecraft:redstone_block
+open s2+2 clear -2 -3 1
+close s2 set -2 -3 1 minecraft:redstone_block
+close s2+2 clear -2 -3 1

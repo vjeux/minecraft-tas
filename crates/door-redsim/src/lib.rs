@@ -147,6 +147,18 @@ pub enum DoorCmd {
         trace: bool,
         #[arg(long, default_value_t = 16)]
         threads: usize,
+        /// Block variants, `x,y[,z]=state|state|...` (repeatable: every combination, times the
+        /// --sweep grid): the design's cell is replaced in memory before each run (`air`
+        /// clears it, `keep` leaves the design's block, `minecraft:` is optional).
+        #[arg(long)]
+        vary: Vec<String>,
+        /// Print only the combinations that work (and a count on stderr).
+        #[arg(long)]
+        ok_only: bool,
+        /// Also try every subset of up to N blocks removed (door cells, the lever and piston
+        /// heads excepted), on top of each --vary combination: a redsim block minimizer.
+        #[arg(long, default_value_t = 0)]
+        drop: usize,
     },
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
@@ -322,7 +334,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
-        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads } => match compact_dir {
+        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop } => match compact_dir {
             Some(dir) => {
                 std::fs::create_dir_all(&dir)?;
                 for s in &schedule {
@@ -334,7 +346,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             None => {
                 anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir)");
-                crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads)?;
+                crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop)?;
             }
         },
         DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace, sculk, border } => {

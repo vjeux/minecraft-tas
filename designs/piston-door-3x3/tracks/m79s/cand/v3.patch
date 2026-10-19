@@ -1,0 +1,4 @@
+set -2 5 0 minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+set -2 4 0 minecraft:observer[facing=up,powered=false]
+set -2 3 0 minecraft:white_wool
+set 0 5 0 minecraft:white_wool

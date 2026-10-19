@@ -1,0 +1,15 @@
+# s78b + U delayed (observer (2,-2)) + K and L0 EXTENDED at rest, both held by a torch (-2,-1) on (-2,-2):
+# the level at (-2,-2) (ideal: a redstone block while open) turns the torch off -> K and L0 retract.
+design designs/piston-door-3x3/tracks/m79s/s78/s78c.txt
+let ko = 8
+let kc = 8
+let l12 = 10
+let cl12 = 4
+open 0 use 4 5 0
+open ko set -2 -2 0 minecraft:redstone_block
+open l12 set -2 2 -1 minecraft:redstone_block
+open l12+2 clear -2 2 -1
+close 0 use 4 5 0
+close kc set -2 -2 0 minecraft:stone
+close cl12 set -2 2 -1 minecraft:redstone_block
+close cl12+2 clear -2 2 -1
