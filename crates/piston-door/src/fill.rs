@@ -44,11 +44,16 @@ pub struct FillOpts {
     pub max_finds: usize,
     /// Accept a find only with at most this many blocks placed (0: any).
     pub max_blocks: usize,
+    /// Accept a find only with at most this community volume (0: any; a record keeps its volume).
+    pub max_volume: i32,
     /// Count the fillings only.
     pub count: bool,
     pub report: u64,
     /// Accept doors that pass the judge without FULL / hallway / frame 12 too.
     pub any_seamless: bool,
+    /// Region cells may hold pistons (wiring pistons such as s27's parity reshaper); the door's
+    /// mechanism pistons must stay out of the region.
+    pub allow_pistons: bool,
 }
 
 /// Palette shorthands -> exact block states.
@@ -131,6 +136,19 @@ pub fn expand_palette(items: &[String]) -> Result<Vec<String>> {
                 }
             }
             "redblock" => add("minecraft:redstone_block".into()),
+            "sticky" | "piston" | "stickyh" | "pistonh" | "stickyv" | "pistonv" => {
+                let name = if it.starts_with("sticky") { "sticky_piston" } else { "piston" };
+                let dirs: &[&str] = if it.ends_with('h') {
+                    &["east", "west"]
+                } else if it.ends_with('v') {
+                    &["up", "down"]
+                } else {
+                    &["east", "west", "up", "down"]
+                };
+                for f in dirs {
+                    add(format!("minecraft:{name}[extended=false,facing={f}]"));
+                }
+            }
             s if s.contains(':') || s.contains('[') => add(if s.contains(':') { s.to_string() } else { format!("minecraft:{s}") }),
             s => add(format!("minecraft:{s}")),
         }
@@ -168,12 +186,36 @@ pub fn parse_cells(s: &str) -> Result<Vec<(i32, i32)>> {
     Ok(out)
 }
 
+/// Split on `sep` outside `[...]` (block states carry commas inside their brackets).
+pub fn split_top(s: &str, sep: char) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut cur = String::new();
+    for ch in s.chars() {
+        match ch {
+            '[' => depth += 1,
+            ']' => depth -= 1,
+            _ => {}
+        }
+        if ch == sep && depth == 0 {
+            out.push(cur.trim().to_string());
+            cur.clear();
+        } else {
+            cur.push(ch);
+        }
+    }
+    if !cur.trim().is_empty() {
+        out.push(cur.trim().to_string());
+    }
+    out
+}
+
 /// `x,y=state|state;x,y=...` (shorthands allowed).
 pub fn parse_cell_states(s: &str) -> Result<Vec<((i32, i32), Vec<String>)>> {
     let mut out = Vec::new();
-    for t in s.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+    for t in split_top(s, ';').iter().map(|t| t.trim()).filter(|t| !t.is_empty()) {
         let (c, st) = t.split_once('=').with_context(|| format!("x,y=state|state: {t:?}"))?;
-        let items: Vec<String> = st.split('|').map(|x| x.trim().to_string()).collect();
+        let items: Vec<String> = split_top(st, '|');
         out.push((parse_cell(c)?, expand_palette(&items)?));
     }
     Ok(out)
@@ -267,12 +309,16 @@ pub fn run(o: &FillOpts) -> Result<()> {
         let c = d.blocks.get(p);
         if let Some(s) = c {
             let b = cs::convert_state(s).map_err(|e| anyhow::anyhow!("{s}: {e}"))?;
-            if matches!(b, Block::Piston { .. } | Block::PistonHead { .. } | Block::Lever { .. }) || spec.door_cells().contains(p) {
-                bail!("region cell {p:?} holds {s}: pistons, heads, the lever and door cells stay");
+            let piston = matches!(b, Block::Piston { .. } | Block::PistonHead { .. });
+            if (piston && !o.allow_pistons) || matches!(b, Block::Lever { .. }) || spec.door_cells().contains(p) {
+                bail!("region cell {p:?} holds {s}: pistons (without --allow-pistons), heads, the lever and door cells stay");
             }
         }
     }
     let base_count = base.values().filter(|b| !matches!(b, Block::PistonHead { .. })).count();
+    // base blocks whose support cell is in the region (a repeater standing on a region cell)
+    let region_set: HashSet<Pos> = region.iter().chain(fixed_set.iter()).copied().collect();
+    let base_needs: Vec<Pos> = base.iter().filter_map(|(p, b)| support_of(b, *p)).filter(|s| region_set.contains(s)).collect();
     let orig_count = d.blocks.values().filter(|s| !s.contains("piston_head")).count();
     println!(
         "fill {}: {} region cells ({} free, {} fixed), base {} blocks (design {}), k {}..={}, global palette {} states{}",
@@ -421,8 +467,11 @@ pub fn run(o: &FillOpts) -> Result<()> {
                         for j in 0..n {
                             map.insert(it.cells[j], pal_states[it.pals[j]][idx[j]].1);
                         }
-                        let mut ok = true;
+                        let mut ok = base_needs.iter().all(|sp| map.get(sp).is_some_and(|x| cs::full_cube(x)));
                         for j in 0..n {
+                            if !ok {
+                                break;
+                            }
                             let b = &pal_states[it.pals[j]][idx[j]].1;
                             if let Some(sp) = support_of(b, it.cells[j])
                                 && !map.get(&sp).is_some_and(|x| cs::full_cube(x))
@@ -437,7 +486,10 @@ pub fn run(o: &FillOpts) -> Result<()> {
                             if cs::judge(&door, &screen_opts).is_ok() {
                                 passed.fetch_add(1, Ordering::Relaxed);
                                 let e = cs::evaluate(&door, &full_opts, false);
-                                let good = e.judge.is_ok() && (o.any_seamless || e.record_ok()) && (o.max_blocks == 0 || e.blocks <= o.max_blocks);
+                                let good = e.judge.is_ok()
+                                    && (o.any_seamless || e.record_ok())
+                                    && (o.max_blocks == 0 || e.blocks <= o.max_blocks)
+                                    && (o.max_volume == 0 || e.volume.is_some_and(|(v, _)| v <= o.max_volume));
                                 let desc: Vec<String> = (0..n).map(|j| format!("({},{}) {}", it.cells[j][0] - spec.door[0], it.cells[j][1] - spec.door[1], pal_states[it.pals[j]][idx[j]].0.trim_start_matches("minecraft:"))).collect();
                                 if good {
                                     let key = desc.join(" ");
