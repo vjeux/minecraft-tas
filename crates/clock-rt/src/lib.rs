@@ -167,6 +167,16 @@ enum Cmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// The n-th member of an extendable family (EXTEND.md): uloop2t (P 20 + 16n), uloop1t
+    /// (36 + 32n), rect-pulse (32 + 16n), rect-inv (52 + 32n), odd-rect (23 + 8n), fade
+    /// (114 + 56n), div (36 x 2^n), div-fade (114 x 2^n), counter (114 x 14^n, n >= 1).
+    Family {
+        name: String,
+        #[arg(long)]
+        n: u32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Even periods from..=to on RECTANGLE rings (ring.rs): a 0-torch pulse ring (one loaded
     /// pulse, repeater delays summing to P / 2) and, for P = 0 mod 4, a 1-torch inverter ring
     /// (torch on a corner block, a dust corner after it, delays summing to P / 4 - 1); the
@@ -263,6 +273,9 @@ enum Cmd {
         corner: String,
         #[arg(long, default_value_t = 2)]
         max_powered: usize,
+        /// At most this many delay cells (repeaters, comparators, torches): fast loops (burnout).
+        #[arg(long)]
+        max_delay_cells: Option<usize>,
         #[arg(long, default_value_t = 20000)]
         horizon: u32,
         #[arg(long, default_value_t = 16)]
@@ -472,6 +485,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let text = b.design().to_text();
             match out {
                 Some(p) => write_design(&p, &text, &name, "", &cap)?,
+                None => print!("{text}"),
+            }
+        }
+        Cmd::Family { name, n, out } => {
+            let (dname, text, cap) = family_member(&name, n)?;
+            match out {
+                Some(p) => write_design(&p, &text, &dname, "", &cap)?,
                 None => print!("{text}"),
             }
         }
@@ -732,10 +752,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 None => print!("{text}"),
             }
         }
-        Cmd::SweepRing { w, h, straight, corner, max_powered, horizon, threads, out_dir, waves } => {
+        Cmd::SweepRing { w, h, straight, corner, max_powered, max_delay_cells, horizon, threads, out_dir, waves } => {
             let st = parse_row(&straight)?;
             let co = parse_row(&corner)?;
-            let all = ring::assignments(w, h, &st, &co, max_powered);
+            let all = ring::assignments_max(w, h, &st, &co, max_powered, max_delay_cells.unwrap_or(usize::MAX));
             let mut caps: std::collections::HashMap<String, String> = Default::default();
             let cands: Vec<(String, String)> = all
                 .iter()
@@ -1186,6 +1206,99 @@ fn rect_cells(straight: &[Cell], corner_override: &[(usize, Cell)]) -> Option<(i
         cells[i % len] = c;
     }
     Some((w, h, cells))
+}
+
+/// The n-th member of an extendable family: (design name, design text, caption).
+fn family_member(name: &str, n: u32) -> Result<(String, String, String)> {
+    let k = n as usize;
+    let rep4 = |on_first: bool, count: usize| -> Vec<Cell> { (0..count).map(|i| Cell::Rep { d: 4, on: on_first && i == 0 }).collect() };
+    let all4 = |count: usize| -> Vec<Cell> { (0..count).map(|_| Cell::Rep { d: 4, on: true }).collect() };
+    let uloop = |u: ULoop, dname: String, what: &str| -> Result<(String, String, String)> {
+        let b = u.build(&dname)?;
+        Ok((dname, b.design().to_text(), format!("{what}: {}", u.caption())))
+    };
+    match name {
+        "uloop2t" => {
+            let u = ULoop { head: Head::Torch { lit: true }, top: all4(k + 1), bottom: all4(k + 1), tail: Tail::Torch { lit: true } };
+            uloop(u, format!("clk-rt-uloop2t-x{n}"), &format!("EXTENDABLE 2-torch U-ring, n = {n} (P = 20 + 16n)"))
+        }
+        "uloop1t" => {
+            let u = ULoop { head: Head::Corner, top: all4(k + 1), bottom: all4(k + 1), tail: Tail::Torch { lit: true } };
+            uloop(u, format!("clk-rt-uloop1t-x{n}"), &format!("EXTENDABLE 1-torch inverter U-loop, n = {n} (P = 36 + 32n)"))
+        }
+        "fade" => {
+            let row = vec![Cell::Cmp; k + 2];
+            let u = ULoop { head: Head::Dust2, top: row.clone(), bottom: row, tail: Tail::Fade { lit: true } };
+            uloop(u, format!("clk-rt-fade-x{n}"), &format!("EXTENDABLE comparator fading ring, n = {n} (P = 114 + 56n)"))
+        }
+        "rect-pulse" => {
+            let st = rep4(true, 4 + 2 * k);
+            let (w, h, cells) = rect_cells(&st, &[]).ok_or_else(|| anyhow::anyhow!("rect"))?;
+            let dname = format!("clk-rt-rect-pulse-x{n}");
+            let b = ring::build(w, h, &cells, &dname).ok_or_else(|| anyhow::anyhow!("ring"))?;
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE repeater pulse ring, n = {n} (P = 32 + 16n): {}", ring::caption(w, h, &cells))))
+        }
+        "rect-inv" => {
+            let (w, h) = (3i32, 3 + n as i32);
+            let per = ring::perimeter(w, h);
+            let len = per.len();
+            let is_corner = |i: usize| -> bool {
+                let (x, z) = per[i];
+                let a = per[(i + len - 1) % len];
+                let b = per[(i + 1) % len];
+                !((a.0 - x) == -(b.0 - x) && (a.1 - z) == -(b.1 - z))
+            };
+            let ti = (h + 2) as usize;
+            let mut cells = vec![Cell::Block; len];
+            cells[ti] = Cell::Torch { lit: true };
+            cells[(ti + 1) % len] = Cell::Dust;
+            for i in 0..len {
+                if !is_corner(i) && i != ti {
+                    cells[i] = Cell::Rep { d: 4, on: false };
+                }
+            }
+            let dname = format!("clk-rt-rect-inv-x{n}");
+            let b = ring::build(w, h, &cells, &dname).ok_or_else(|| anyhow::anyhow!("ring"))?;
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE 1-torch inverter rectangle ring, n = {n} (P = 52 + 32n): {}", ring::caption(w, h, &cells))))
+        }
+        "div" => {
+            let dname = format!("clk-rt-div-44-x{n}");
+            let b = divider::chain(4, 4, k, &dname).ok_or_else(|| anyhow::anyhow!("stage collides"))?;
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE divider chain, n = {n} stages on a 1-torch U-loop (delays 4/4, P36): P = 36 x 2^n; each stage a master-slave T flip-flop (18 blocks)")))
+        }
+        "div-fade" => {
+            let dname = format!("clk-rt-div-fade2-x{n}");
+            let b = divider::chain_fade(2, k, &dname).ok_or_else(|| anyhow::anyhow!("stage collides"))?;
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE divider chain, n = {n} stages on a comparator fading ring (P114): P = 114 x 2^n; each stage a master-slave T flip-flop (18 blocks)")))
+        }
+        "counter" => {
+            anyhow::ensure!(n >= 1, "counter: n >= 1");
+            let ks = vec![2usize; k];
+            let dname = format!("clk-rt-count-x{n}");
+            let b = counter::build_nested(2, &ks, &dname);
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE comparator counters, n = {n} levels over a fading ring (P114): P = 114 x 14^n; each level a lossless 2 + 2 comparator ring decremented by one level per pulse of the level inside it and refilled by its own torch (26 blocks)")))
+        }
+        "odd-rect" => {
+            // P = 23 + 8n: delays 4 x (5 + 2n) and a 3, two pulses; the kick found by search
+            let p = 23 + 8 * n;
+            let mut ds: Vec<Cell> = (0..5 + 2 * k).map(|i| Cell::Rep { d: 4, on: i == 0 }).collect();
+            ds.push(Cell::Rep { d: 3, on: false });
+            let (w, h, cells) = rect_cells(&ds, &[]).ok_or_else(|| anyhow::anyhow!("rect"))?;
+            let dname = format!("clk-rt-odd-rect-x{n}");
+            let b = ring::build(w, h, &cells, &dname).ok_or_else(|| anyhow::anyhow!("ring"))?;
+            let d = b.design();
+            let kc = kick::kick_cells(&d);
+            let ats: Vec<u32> = (1..=(2 * p + 3)).filter(|a| a % 2 == 1).collect();
+            let best = kick::search(&d, &kc, &[1, 2], &ats, 4 * p + 400, 8)
+                .into_iter()
+                .filter(|r| r.4.period == p)
+                .min_by_key(|r| (r.4.blocks, r.4.volume, r.3))
+                .ok_or_else(|| anyhow::anyhow!("no odd kick for P{p}"))?;
+            let how = format!("{} at {:?} for {} gt at tick {}", clock::short(&best.1), best.0, best.2, best.3);
+            Ok((dname, best.4.design, format!("EXTENDABLE odd two-pulse ring, n = {n} (P = 23 + 8n): {}; the second pulse started by a {how} (an odd tick)", ring::caption(w, h, &cells))))
+        }
+        _ => bail!("family: uloop2t | uloop1t | fade | rect-pulse | rect-inv | odd-rect | div | div-fade | counter"),
+    }
 }
 
 /// Write a generated design with its name, its `uloop:` spec and a leading comment (the catalog's

@@ -1,9 +1,10 @@
 # clk-rt extendable families (for the catalog's `extend:` cards)
 
-Every family below grows by repeating one unit; `mctas clock rt ...` builds any member. "Verified"
-= instances archived with `clock archive` (robust, 32 builds). Delays d are repeater delays (1-4);
-the fixed-delay series uses d = 4 everywhere (other delays fill the periods in between, see the
-general rule).
+Every family below grows by repeating one unit; `mctas clock rt family <name> --n N [--out F]`
+builds the n-th member (names: `uloop2t`, `uloop1t`, `rect-pulse`, `rect-inv`, `odd-rect`, `fade`,
+`div`, `div-fade`, `counter`; checked with clock sim for several n). "Verified" = instances archived
+with `clock archive` (robust, 32 builds). Delays d are repeater delays (1-4); the fixed-delay series
+uses d = 4 everywhere (other delays fill the periods in between, see the general rule).
 
 | family | base | unit added | P | blocks | verified | generator |
 |---|---|---|---|---|---|---|
