@@ -1,0 +1,21 @@
+name: cal-bulb-observer
+# A waxed copper bulb watched by an observer: every toggle of the bulb fires the observer, whose
+# pulse runs (block behind it, dust, a delay-2 repeater) back into the bulb and toggles it again.
+# The repeater makes the new rising edge arrive after the observer's own pulse ended. Kick: the
+# bulb is placed last (the observer sees it appear).
+port output: 2 1 0
+port start: 2 1 0 last
+palette:
+  S minecraft:stone
+  O minecraft:observer[facing=east]
+  L minecraft:waxed_copper_bulb
+  d minecraft:redstone_wire
+  r minecraft:repeater[delay=2,facing=south]
+layer 0:
+  .
+  S.S
+  SSS
+layer 1:
+  SOL
+  d.r
+  ddd
