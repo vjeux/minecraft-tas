@@ -20,8 +20,10 @@ fn add(a: Pos, b: Pos) -> Pos {
 
 type Ev = (u32, Pos, Option<String>);
 
-/// One run at one position. Ok((worst open ticks, worst close ticks)).
-fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], close_ev: &[Ev], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+/// One run at one position. Ok((worst open ticks, worst close ticks)). `cells`: with `trace`, only
+/// changes of these design cells (x, y, any z) are printed.
+#[allow(clippy::too_many_arguments)]
+fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], close_ev: &[Ev], cycles: u32, trace: bool, cells: &[(i32, i32)]) -> std::result::Result<(u32, u32), String> {
     let blocks: Vec<(Pos, Block)> = blocks.iter().map(|(p, b)| (add(*p, off), *b)).collect();
     let spec = spec.translated(off);
     let (mut w, (wlo, whi), idle) = cs::place_and_settle(&blocks, &spec, 400);
@@ -58,8 +60,12 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
                     let ch: Vec<String> = now
                         .iter()
                         .filter(|(q, b)| p.get(*q) != Some(*b))
+                        .filter(|(q, _)| cells.is_empty() || cells.contains(&(q[0] - off[0], q[1] - off[1])))
                         .map(|(q, b)| {
                             let r = [q[0] - off[0], q[1] - off[1], q[2] - off[2]];
+                            if !cells.is_empty() {
+                                return format!("({},{}{}) {}", r[0], r[1], if r[2] != 0 { format!(",z{}", r[2]) } else { String::new() }, short_state(&b.to_string()));
+                            }
                             format!("{:?} {} -> {}", r, p.get(q).map(|x| x.to_string()).unwrap_or_default().trim_start_matches("minecraft:"), b.to_string().trim_start_matches("minecraft:"))
                         })
                         .collect();
@@ -135,8 +141,35 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
     Ok((worst_open, worst_close))
 }
 
+/// A block state in a few characters for `--trace-cells` lines: the block name without the
+/// namespace, and only the properties that usually change (powered, extended, lit, open, power,
+/// triggered, type of a moving piston).
+fn short_state(s: &str) -> String {
+    let s = s.trim_start_matches("minecraft:");
+    let (name, props) = match s.split_once('[') {
+        Some((n, p)) => (n, p.trim_end_matches(']')),
+        None => (s, ""),
+    };
+    let keep: Vec<String> = props
+        .split(',')
+        .filter_map(|kv| kv.split_once('='))
+        .filter(|(k, _)| matches!(*k, "powered" | "extended" | "lit" | "open" | "power" | "triggered" | "type"))
+        .map(|(k, v)| match (k, v) {
+            (_, "true") => k.to_string(),
+            (_, "false") => format!("!{k}"),
+            _ => format!("{k}={v}"),
+        })
+        .collect();
+    if keep.is_empty() { name.to_string() } else { format!("{name}[{}]", keep.join(",")) }
+}
+
 /// Run a schedule with these variables at every offset.
 pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+    run_cells(s, vars, offsets, cycles, trace, &[])
+}
+
+/// [`run`] with a `--trace-cells` filter.
+pub fn run_cells(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: u32, trace: bool, cells: &[(i32, i32)]) -> std::result::Result<(u32, u32), String> {
     let open_ev = s.events_of(true, vars).map_err(|e| format!("{e:#}"))?;
     let close_ev = s.events_of(false, vars).map_err(|e| format!("{e:#}"))?;
     let d = s.design();
@@ -148,7 +181,7 @@ pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: 
     }
     let mut worst = (0u32, 0u32);
     for (oi, off) in offsets.iter().enumerate() {
-        let (o, c) = run_at(&blocks, &spec, *off, &open_ev, &close_ev, cycles, trace && oi == 0).map_err(|e| format!("at offset {off:?}: {e}"))?;
+        let (o, c) = run_at(&blocks, &spec, *off, &open_ev, &close_ev, cycles, trace && oi == 0, cells).map_err(|e| format!("at offset {off:?}: {e}"))?;
         worst = (worst.0.max(o), worst.1.max(c));
     }
     Ok(worst)
@@ -157,7 +190,15 @@ pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: 
 /// CLI: run once, or sweep variables (`name=lo..hi`; several = grid, `--independent` = one axis
 /// at a time).
 #[allow(clippy::too_many_arguments)]
-pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize) -> Result<()> {
+pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, ranges: bool, extra_offsets: u32, cycles: u32, trace: bool, trace_cells: Option<&str>, threads: usize) -> Result<()> {
+    let cells: Vec<(i32, i32)> = trace_cells
+        .unwrap_or("")
+        .split(';')
+        .filter_map(|t| {
+            let v: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            (v.len() == 2).then(|| (v[0], v[1]))
+        })
+        .collect();
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut overrides = BTreeMap::new();
     for kv in set {
@@ -168,7 +209,7 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
     let vars = s.vars().clone();
     let offsets = crate::ideal::offsets(extra_offsets);
     if sweep.is_empty() {
-        match run(&s, &vars, &offsets, cycles, trace) {
+        match run_cells(&s, &vars, &offsets, cycles, trace, &cells) {
             Ok((o, c)) => println!("WORKS in redsim ({} positions x {cycles} cycles): open after {o} ticks / closed after {c} ticks", offsets.len()),
             Err(e) => {
                 println!("BROKEN: {e}");
@@ -210,6 +251,31 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
         }
     }
     let results = cs::par_map(&combos, threads, |(_, c)| run(&s, c, &offsets, cycles, false));
+    if independent && ranges {
+        // one line per variable: the values that work, as ranges
+        let mut per: BTreeMap<String, Vec<i64>> = BTreeMap::new();
+        for ((label, c), r) in combos.iter().zip(results.iter()) {
+            let k = label[0].split('=').next().unwrap_or("").to_string();
+            let e = per.entry(k.clone()).or_default();
+            if r.is_ok() {
+                e.push(c[&k]);
+            }
+        }
+        for (k, vals) in &per {
+            let mut parts: Vec<String> = Vec::new();
+            let mut i = 0;
+            while i < vals.len() {
+                let mut j = i;
+                while j + 1 < vals.len() && vals[j + 1] == vals[j] + 1 {
+                    j += 1;
+                }
+                parts.push(if i == j { format!("{}", vals[i]) } else { format!("{}..{}", vals[i], vals[j]) });
+                i = j + 1;
+            }
+            println!("{k} (plan {}): {}", vars.get(k).copied().unwrap_or(0), if parts.is_empty() { "none".to_string() } else { parts.join(" ") });
+        }
+        return Ok(());
+    }
     for ((label, _), r) in combos.iter().zip(results) {
         match r {
             Ok((o, c)) => println!("{}: ok open {o} close {c}", label.join(" ")),
