@@ -40,6 +40,11 @@ enum Cmd {
         #[command(subcommand)]
         command: door::DoorCmd,
     },
+    /// Redstone clock study (docs/clocks.md).
+    Clock {
+        #[command(subcommand)]
+        command: clock_cli::ClockCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -114,6 +119,7 @@ fn main() -> Result<()> {
         Cmd::Sim { command } => sim(&cli.version, command)?,
         Cmd::Bench(args) => bench::run(&cli.version, args)?,
         Cmd::Door { command } => door::run(&cli.version, command)?,
+        Cmd::Clock { command } => clock_cli::run(&cli.version, command)?,
     }
     Ok(())
 }

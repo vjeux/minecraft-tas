@@ -1,13 +1,15 @@
 //! Track clk-obs of the clock study (designs/clocks/tracks/clk-obs): generators and searches for
 //! block-update clocks: observers, pistons and sticky pistons (moved blocks, moving observers),
-//! copper bulbs, note blocks, lamps, trapdoors, rails and their hybrids.
+//! copper bulbs, note blocks, lamps, trapdoors, rails and their hybrids. OWNED BY TRACK clk-obs.
 //!
-//! Commands (`clk-obs <cmd>`, to be registered as `mctas clock obs <cmd>`):
-//! * `sim <designs...>`: period, warmup, family and waves of each design on redsim.
+//! Commands (`mctas clock obs <cmd>`; clockinfra's clock-cli passes every argument to [`run`]):
+//! * `sim <designs...>`: period, warmup, family and waves of each design on redsim (this crate's
+//!   fast runner, `sim.rs`; the official numbers are `mctas clock sim`).
 //! * `rings --max-len N`: every pure observer ring (a closed self-avoiding lattice loop, each
 //!   observer watching the previous one) up to N observers, simulated and counted per period.
 //! * `census`: every placement of k blocks from the family palette on every polycube shape, each
 //!   with every kick (self-start, each block placed last), simulated; the clocks found per period.
+//! * `grow`: one block added or replaced around known clocks.
 
 pub mod census;
 pub mod grow;
@@ -15,8 +17,29 @@ pub mod rings;
 pub mod sim;
 
 use anyhow::Result;
-use clap::{Args as ClapArgs, Subcommand};
+use clap::{Args as ClapArgs, Parser, Subcommand};
 use std::path::PathBuf;
+
+/// `mctas clock obs <args...>`.
+#[derive(Parser, Debug)]
+#[command(name = "mctas clock obs", about = "Clock study, track clk-obs: block-update clock generators and searches")]
+struct Cli {
+    #[command(flatten)]
+    args: Args,
+}
+
+/// The entry point clockinfra's `mctas clock obs` calls with every argument after `obs`.
+pub fn run(args: Vec<String>) -> Result<()> {
+    let cli = match Cli::try_parse_from(std::iter::once("mctas clock obs".to_string()).chain(args)) {
+        Ok(c) => c,
+        Err(e) => {
+            // --help and usage errors print through clap
+            e.print()?;
+            return if e.use_stderr() { Err(anyhow::anyhow!("bad arguments")) } else { Ok(()) };
+        }
+    };
+    run_args(cli.args)
+}
 
 #[derive(ClapArgs, Debug)]
 pub struct Args {
@@ -61,7 +84,7 @@ pub enum Cmd {
     Grow(grow::GrowArgs),
 }
 
-pub fn run(args: Args) -> Result<()> {
+pub fn run_args(args: Args) -> Result<()> {
     match args.cmd {
         Cmd::Sim { designs, horizon, cells, trace } => {
             for d in designs {

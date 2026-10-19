@@ -1,0 +1,13 @@
+[package]
+name = "clock"
+description = "The redstone clock study (docs/clocks.md): clock designs, the exact redsim period detector (`mctas clock sim`), the real-game judge (`mctas clock verify`), the exhaustive census and the catalog"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }

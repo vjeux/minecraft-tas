@@ -1,0 +1,11 @@
+[package]
+name = "clock-item"
+description = "Track clk-item's clock commands (mctas clock item ...): owned by clk-item; see docs/clocks.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clock = { path = "../clock" }

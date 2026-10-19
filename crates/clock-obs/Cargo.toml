@@ -1,6 +1,6 @@
 [package]
 name = "clock-obs"
-description = "Clock study, track clk-obs: generators and searches for block-update clocks (observers, pistons, copper bulbs, note blocks, lamps, trapdoors, rails)"
+description = "Clock study, track clk-obs (mctas clock obs ...): generators and searches for block-update clocks (observers, pistons, copper bulbs, note blocks, lamps, trapdoors, rails); see docs/clocks.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,5 +9,6 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+clock = { path = "../clock" }
 mctas = { path = "../mctas" }
 redsim = { path = "../redsim" }
