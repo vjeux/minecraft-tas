@@ -45,6 +45,25 @@
   column push but takes the right observer's cell). Rule of thumb: in Box A an elevator in row 1 or 2 is fed,
   one in row 0 is not (its carried puller's quasi cell is a wall cell boxed by pistons/door blocks).
 
+## The 6-tall obstacle list (w86, 22:00Z; satwire agrees on every m69 version)
+1. The frame row opposite the single machine row (the FAR row) must stay static (blocks entering it come
+   back only through a puller inside the opening).
+2. One lever must reach both wiring halves (x <= -1 and x >= 3), which the door column separates. Box B (row
+   below): nothing the lever moves is observable from both (the bottom trio's middle has no free neighbour), so
+   only sculk crosses. Box A (row above): a lever ON at rest on top of the middle top puller holds the whole
+   top trio (direct + QC both sides), and observers at (-1,4)/(3,4) watching the outer pullers reach both halves.
+3. The center block next to the far row (BM in Box A, TM in Box B) is the crux. It leaves either
+   (a) by a far-row elevator: Box B's carried puller at (3,2) has the corner (3,3) as quasi cell, where the
+   wall-shift pusher W must sit (TR moves down to make room); Box A's carried puller at (3,0) has quasi cell
+   (3,1), boxed by the row-1 side puller and door blocks (feeding it through the door block MR' at (3,2) powers
+   it without ever updating it); satwire: the right half is UNSAT solid and sculk in m69v and m69g; or
+   (b) by a carried column puller (a3s's W + Q), which puts Q in the middle of the machine-row trio: boxed, and
+   not lever-holdable (3 events per edge).
+4. C (row 1) is easy: a row-1 elevator on the side WITHOUT a wall-shift pusher is fed via the corner next to
+   its quasi cell (satwire: the left half of every m69 version is satisfiable, solid and sculk).
+5. Vertically stacked pistons are QC-coupled (powering the upper fires the lower); pulse lengths can make the
+   coupled firing net zero (long pulse: push + pull back) or useful (m69u's close).
+
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back
   through a puller inside the opening (a carried piston at y = 1 facing down for the floor).
