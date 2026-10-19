@@ -102,6 +102,17 @@ palette `all` = 56 states, 1-position 2-cycle screen, lever fixed):
 boxproof (bulbs + comparators exact) with all 9 cells free (any number changed): t=48 without
 split rounds and t=40 with `--split-rounds`: no answer yet.
 
+## One-input-left partials (c79 family, find mode, `--lever-on --frame12 --split-rounds`)
+| design | free cells | runs | result |
+|---|---|---|---|
+| c2e m79a (7x9, A's hold) | (-1,3) (3,3) (-2,5) | t=24 x3 (full / wiring palette), t=30, nondet t=26 | UNSAT in all (588-1780 s) |
+| c2e m88c (8x8, A's hold) | (-2,3) (3,3) (-3,1) | t=26 x2, t=32, nondet t=26 | UNSAT in all (1268-7327 s) |
+| m88c | + chain (-1,5) (-2,5) (-2,4) (-1,4) (0,4) | t=26 | running |
+| m88c (cosearch, real simulator) | the same 8 | k <= 3: 9.5M screens; k <= 4: 656M screens / 87 min | none, best = the seed's 71/79 |
+| m10top m79p (7x9, 3 inputs) | 10 top cells | find + nondet t=28 | superseded by m79q |
+| satwire m79q (7x9, A's last pull + L1/L2) | top-left x -2..0, y 3..5 minus (0,3) | find x2 + nondet t=28; cosearch k <= 3 (9.5M, best = seed 49/79), k <= 4 running | running |
+Each UNSAT is relative to the model (palette, races in find mode, 2 rounds, horizon T).
+
 ## Known-answer calibration: the community 7x9 (c79, tracks/c79)
 c79-closed (lever ON at rest, droppers, a normal piston firing into an empty cell, dust steps),
 every block fixed: UNSAT in the model at first; `door boxproof replay` (the design through the
