@@ -1,0 +1,32 @@
+# m73: 8x6 (48b) candidate, Box A (row above, floor = 3 statics). Lever trio pulls the top row up (lever ON at rest
+# on (1,4)). No far-row elevator and no column puller: BM leaves by a ROW-0 WIGGLE: the ring piston RP0 resting in
+# the right wall cell (3,0) pushes BR+BM left and pulls BR back (BM to (0,0)); BL climbs the left wall (W'' (-1,-1)
+# pushes it up after ML climbed to (-1,2) by P3b'), then U0 pulls BM into (-1,0). C leaves right by a row-1
+# elevator (M1 (5,1) carries s1 into (3,1)); RP0 escapes to (4,0) by R5 (5,0) and pulls BR into (3,0).
+name: w86-m73
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  Q minecraft:stone
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  X minecraft:sticky_piston[extended=true,facing=down]
+  H minecraft:piston_head[facing=down,short=false,type=sticky]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+layer -1:
+  .UQQQ...
+layer 0:
+  E.QQQT.T
+layer 1:
+  E.QQQ.TT
+layer 2:
+  ..QQQ...
+layer 3:
+  .DHHHD..
+layer 4:
+  ..XXX...
+layer 5:
+  ...L

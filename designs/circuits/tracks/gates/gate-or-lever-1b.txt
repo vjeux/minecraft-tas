@@ -1,0 +1,14 @@
+# OR gate with lever inputs (track gates): both levers hang on one stone and strongly power it; the
+# output cell above the stone sees it. 0 gt, one block.
+name: gate-or-lever-1b
+circuit: gate or
+port input.a: -1 1 0 lever
+port input.b: 1 1 0 lever
+port output: 0 2 0
+origin: -1 0 0
+palette:
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  M minecraft:lever[face=wall,facing=east,powered=false]
+  S minecraft:stone
+layer 1:
+  LSM
