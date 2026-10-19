@@ -10,20 +10,20 @@ One card per family: the base design, its period and size for any n, how to exte
 <tr><td align="center" valign="top"><a href="archive/clk-obs-obs-ring.txt">clk-obs-obs-ring</a> (picture pending)<br><b>clk-obs-obs-ring</b><br><sub>P = 8 + 4n gt (0.4 s + 0.2 s·n) · 4 + 2n blocks · observer<br>extend: insert 2 observers: one more column in the 2-wide ring (each observer watches the previous one)<br>n = 0..48: P = 8..200 gt (judged in the game: n = 0, 1, 2, 24, 48)</sub></td><td align="center" valign="top"><a href="archive/clk-obs-note-ring.txt">clk-obs-note-ring</a> (picture pending)<br><b>clk-obs-note-ring</b><br><sub>P = 10 + 4n gt (0.5 s + 0.2 s·n) · 6 + 2n blocks · note_block+observer<br>extend: insert 2 observers: one more column in the 2-wide ring<br>n = 0..47: P = 10..198 gt (judged in the game: n = 0, 1, 2, 23, 47)</sub></td></tr>
 <tr><td align="center" valign="top"><a href="archive/clk-obs-trap-ring.txt">clk-obs-trap-ring</a> (picture pending)<br><b>clk-obs-trap-ring</b><br><sub>P = 10 + 4n gt (0.5 s + 0.2 s·n) · 6 + 2n blocks · iron_trapdoor+observer<br>extend: insert 2 observers: one more column in the 2-wide ring<br>n = 0..47: P = 10..198 gt (judged in the game: n = 0, 1, 2, 23, 47)</sub></td><td align="center" valign="top"><a href="archive/clk-item-lockpair.txt">clk-item-lockpair</a> (picture pending)<br><b>clk-item-lockpair</b><br><sub>P = 11 + 2n gt (0.55 s + 0.1 s·n) · 9 blocks · comparator+hopper+redstone_wire+repeater<br>extend: one more tick of delay on the lock repeater (same blocks)<br>n = 0..2: P = 11..15 gt (judged in the game: n = 0, 1, 2)</sub></td></tr>
 <tr><td align="center" valign="top"><a href="archive/clk-obs-odd-a.txt">clk-obs-odd-a</a> (picture pending)<br><b>clk-obs-odd-a</b><br><sub>P = 11 + 4n gt (0.55 s + 0.2 s·n) · 8 + 2n blocks · observer+piston+redstone_block+sticky_piston<br>extend: raise the observer tower by one: one more observer in each column<br>n = 0..47: P = 11..199 gt (judged in the game: n = 0, 1, 2, 23, 47)</sub></td><td align="center" valign="top"><a href="archive/clk-obs-divider.txt">clk-obs-divider</a> (picture pending)<br><b>clk-obs-divider</b><br><sub>P = 12 · 2^n gt (0.6 s · 2^n) · 3 + 3n blocks · copper_bulb+observer<br>extend: add a stage behind the last bulb: a comparator (facing the clock, reading the bulb, on a stone floor) and a bulb<br>n = 0..8: P = 12..3072 gt (judged in the game: n = 0, 1, 2, 4, 8)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-obs-odd-b.txt">clk-obs-odd-b</a> (picture pending)<br><b>clk-obs-odd-b</b><br><sub>P = 13 + 4n gt (0.65 s + 0.2 s·n) · 10 + 2n blocks · observer+piston+redstone_block+sticky_piston<br>extend: raise the observer tower by one: one more observer in each column<br>n = 0..46: P = 13..197 gt (judged in the game: n = 0, 1, 2, 23, 46)</sub></td><td align="center" valign="top"><a href="archive/clk-item-hopper-ring.txt">clk-item-hopper-ring</a> (picture pending)<br><b>clk-item-hopper-ring</b><br><sub>P = 14 + 14n gt (0.7 s + 0.7 s·n) · 4 + 2n blocks · comparator+hopper<br>extend: lengthen the 2-wide hopper ring by one column (2 hoppers)<br>n = 0..12: P = 14..182 gt (judged in the game: n = 0, 1, 2, 6, 12)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-hopper-ring-2.txt">clk-item-hopper-ring-2</a> (picture pending)<br><b>clk-item-hopper-ring-2</b><br><sub>P = 7 + 7n gt (0.35 s + 0.35 s·n) · 4 + 2n blocks · comparator+hopper<br>extend: lengthen the 2-wide hopper ring by one column (2 hoppers); the two items stay half a ring apart<br>n = 1..12: P = 14..91 gt (judged in the game: n = 1, 2, 3, 6, 12)</sub></td><td align="center" valign="top"><a href="archive/clk-item-snowdisp.txt">clk-item-snowdisp</a> (picture pending)<br><b>clk-item-snowdisp</b><br><sub>P = 16 + 4n gt (0.8 s + 0.2 s·n) · 5 blocks · dispenser+observer+redstone_wire+repeater<br>extend: one more tick of delay on the repeater (same blocks)<br>n = 0..2: P = 16..24 gt (judged in the game: n = 0, 1, 2)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-obs-bulb-ring.txt">clk-obs-bulb-ring</a> (picture pending)<br><b>clk-obs-bulb-ring</b><br><sub>P = 20 + 8n gt (1 s + 0.4 s·n) · 6 + 2n blocks · copper_bulb+observer<br>extend: insert 2 observers: one more column in the 2-wide ring<br>n = 0..22: P = 20..196 gt (judged in the game: n = 0, 1, 2, 11, 22)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d.txt">clk-item-dropring-1d</a> (picture pending)<br><b>clk-item-dropring-1d</b><br><sub>P = 27 + 14n gt (1.35 s + 0.7 s·n) · 10 + 2n blocks · comparator+dropper+hopper<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 27..125 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r2.txt">clk-item-dropring-2d-r2</a> (picture pending)<br><b>clk-item-dropring-2d-r2</b><br><sub>P = 31 + 14n gt (1.55 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 31..129 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td><td align="center" valign="top"><a href="archive/clk-sculk-replin.txt">clk-sculk-replin</a> (picture pending)<br><b>clk-sculk-replin</b><br><sub>P = 4 + 9n gt (0.2 s + 0.45 s·n) · 3 + 2n blocks · calibrated_sculk_sensor+note_block+observer+repeater<br>extend: one more delay-4 repeater on a stone at the end of the line (the observer and note block move one block out): +8 gt of delay and +1 gt of travel<br>n = 3..14: P = 31..130 gt (judged in the game: n = 3, 4, 5, 8, 14)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r3.txt">clk-item-dropring-2d-r3</a> (picture pending)<br><b>clk-item-dropring-2d-r3</b><br><sub>P = 33 + 14n gt (1.65 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 33..131 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td><td align="center" valign="top"><a href="archive/clk-item-lockring-2s.txt">clk-item-lockring-2s</a> (picture pending)<br><b>clk-item-lockring-2s</b><br><sub>P = 33 + 2n gt (1.65 s + 0.1 s·n) · 11 blocks · comparator+hopper+redstone_wire+repeater<br>extend: one more tick of delay on the lock repeater (same blocks)<br>n = 0..3: P = 33..39 gt (judged in the game: n = 0, 1, 2, 3)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d.txt">clk-item-dropring-2d</a> (picture pending)<br><b>clk-item-dropring-2d</b><br><sub>P = 34 + 14n gt (1.7 s + 0.7 s·n) · 12 + 2n blocks · comparator+dropper+hopper<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 34..132 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r4.txt">clk-item-dropring-2d-r4</a> (picture pending)<br><b>clk-item-dropring-2d-r4</b><br><sub>P = 35 + 14n gt (1.75 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 35..133 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-sculk-hairpin.txt">clk-sculk-hairpin</a> (picture pending)<br><b>clk-sculk-hairpin</b><br><sub>P = 3 + 16n gt (0.15 s + 0.8 s·n) · 7 + 4n blocks · calibrated_sculk_sensor+note_block+observer+redstone_wire+repeater<br>extend: one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)<br>n = 2..12: P = 35..195 gt (judged in the game: n = 2, 3, 4, 7, 12)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r1.txt">clk-item-dropring-1d-r1</a> (picture pending)<br><b>clk-item-dropring-1d-r1</b><br><sub>P = 36 + 14n gt (1.8 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 36..134 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r2.txt">clk-item-dropring-1d-r2</a> (picture pending)<br><b>clk-item-dropring-1d-r2</b><br><sub>P = 38 + 14n gt (1.9 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 38..136 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r3.txt">clk-item-dropring-1d-r3</a> (picture pending)<br><b>clk-item-dropring-1d-r3</b><br><sub>P = 40 + 14n gt (2 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 40..138 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-lockring-3s.txt">clk-item-lockring-3s</a> (picture pending)<br><b>clk-item-lockring-3s</b><br><sub>P = 41 + 2n gt (2.05 s + 0.1 s·n) · 11 blocks · comparator+hopper+redstone_wire+repeater<br>extend: one more tick of delay on the lock repeater (same blocks)<br>n = 0..3: P = 41..47 gt (judged in the game: n = 0, 1, 2, 3)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r4.txt">clk-item-dropring-1d-r4</a> (picture pending)<br><b>clk-item-dropring-1d-r4</b><br><sub>P = 42 + 14n gt (2.1 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 42..140 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r1.txt">clk-item-dropring-2d-r1</a> (picture pending)<br><b>clk-item-dropring-2d-r1</b><br><sub>P = 43 + 14n gt (2.15 s + 0.7 s·n) · 16 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 43..141 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r14.txt">clk-item-dropring-2d-r14</a> (picture pending)<br><b>clk-item-dropring-2d-r14</b><br><sub>P = 44 + 14n gt (2.2 s + 0.7 s·n) · 18 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 44..142 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r24.txt">clk-item-dropring-2d-r24</a> (picture pending)<br><b>clk-item-dropring-2d-r24</b><br><sub>P = 46 + 14n gt (2.3 s + 0.7 s·n) · 18 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 46..144 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r14.txt">clk-item-dropring-1d-r14</a> (picture pending)<br><b>clk-item-dropring-1d-r14</b><br><sub>P = 51 + 14n gt (2.55 s + 0.7 s·n) · 18 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 51..149 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-sculk-hairpin-plain.txt">clk-sculk-hairpin-plain</a> (picture pending)<br><b>clk-sculk-hairpin-plain</b><br><sub>P = 3 + 16n gt (0.15 s + 0.8 s·n) · 7 + 4n blocks · note_block+observer+redstone_wire+repeater+sculk_sensor<br>extend: one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)<br>n = 3..12: P = 51..195 gt (judged in the game: n = 3, 4, 5, 7, 12)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r24.txt">clk-item-dropring-1d-r24</a> (picture pending)<br><b>clk-item-dropring-1d-r24</b><br><sub>P = 53 + 14n gt (2.65 s + 0.7 s·n) · 18 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..7: P = 53..151 gt (judged in the game: n = 0, 1, 2, 3, 7)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-obs-odd-b.txt">clk-obs-odd-b</a> (picture pending)<br><b>clk-obs-odd-b</b><br><sub>P = 13 + 4n gt (0.65 s + 0.2 s·n) · 10 + 2n blocks · observer+piston+redstone_block+sticky_piston<br>extend: raise the observer tower by one: one more observer in each column<br>n = 0..46: P = 13..197 gt (judged in the game: n = 0, 1, 2, 23, 46)</sub></td><td align="center" valign="top"><a href="archive/clk-item-hopper-ring.txt">clk-item-hopper-ring</a> (picture pending)<br><b>clk-item-hopper-ring</b><br><sub>P = 14 + 14n gt (0.7 s + 0.7 s·n) · 4 + 2n blocks · comparator+hopper<br>extend: lengthen the 2-wide hopper ring by one column (2 hoppers)<br>n = 0..40: P = 14..574 gt (judged in the game: n = 0, 1, 2, 20, 40)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-hopper-ring-2.txt">clk-item-hopper-ring-2</a> (picture pending)<br><b>clk-item-hopper-ring-2</b><br><sub>P = 7 + 7n gt (0.35 s + 0.35 s·n) · 4 + 2n blocks · comparator+hopper<br>extend: lengthen the 2-wide hopper ring by one column (2 hoppers); the two items stay half a ring apart<br>n = 1..40: P = 14..287 gt (judged in the game: n = 1, 2, 3, 20, 40)</sub></td><td align="center" valign="top"><a href="archive/clk-item-snowdisp.txt">clk-item-snowdisp</a> (picture pending)<br><b>clk-item-snowdisp</b><br><sub>P = 16 + 4n gt (0.8 s + 0.2 s·n) · 5 blocks · dispenser+observer+redstone_wire+repeater<br>extend: one more tick of delay on the repeater (same blocks)<br>n = 0..2: P = 16..24 gt (judged in the game: n = 0, 1, 2)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-obs-bulb-ring.txt">clk-obs-bulb-ring</a> (picture pending)<br><b>clk-obs-bulb-ring</b><br><sub>P = 20 + 8n gt (1 s + 0.4 s·n) · 6 + 2n blocks · copper_bulb+observer<br>extend: insert 2 observers: one more column in the 2-wide ring<br>n = 0..22: P = 20..196 gt (judged in the game: n = 0, 1, 2, 11, 22)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d.txt">clk-item-dropring-1d</a> (picture pending)<br><b>clk-item-dropring-1d</b><br><sub>P = 27 + 14n gt (1.35 s + 0.7 s·n) · 10 + 2n blocks · comparator+dropper+hopper<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 27..447 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r2.txt">clk-item-dropring-2d-r2</a> (picture pending)<br><b>clk-item-dropring-2d-r2</b><br><sub>P = 31 + 14n gt (1.55 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 31..451 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td><td align="center" valign="top"><a href="archive/clk-sculk-replin.txt">clk-sculk-replin</a> (picture pending)<br><b>clk-sculk-replin</b><br><sub>P = 4 + 9n gt (0.2 s + 0.45 s·n) · 3 + 2n blocks · calibrated_sculk_sensor+note_block+observer+repeater<br>extend: one more delay-4 repeater on a stone at the end of the line (the observer and note block move one block out): +8 gt of delay and +1 gt of travel<br>n = 3..14: P = 31..130 gt (judged in the game: n = 3, 4, 5, 8, 14)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r3.txt">clk-item-dropring-2d-r3</a> (picture pending)<br><b>clk-item-dropring-2d-r3</b><br><sub>P = 33 + 14n gt (1.65 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 33..453 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td><td align="center" valign="top"><a href="archive/clk-item-lockring-2s.txt">clk-item-lockring-2s</a> (picture pending)<br><b>clk-item-lockring-2s</b><br><sub>P = 33 + 2n gt (1.65 s + 0.1 s·n) · 11 blocks · comparator+hopper+redstone_wire+repeater<br>extend: one more tick of delay on the lock repeater (same blocks)<br>n = 0..3: P = 33..39 gt (judged in the game: n = 0, 1, 2, 3)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d.txt">clk-item-dropring-2d</a> (picture pending)<br><b>clk-item-dropring-2d</b><br><sub>P = 34 + 14n gt (1.7 s + 0.7 s·n) · 12 + 2n blocks · comparator+dropper+hopper<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 34..454 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r4.txt">clk-item-dropring-2d-r4</a> (picture pending)<br><b>clk-item-dropring-2d-r4</b><br><sub>P = 35 + 14n gt (1.75 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 35..455 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-sculk-hairpin.txt">clk-sculk-hairpin</a> (picture pending)<br><b>clk-sculk-hairpin</b><br><sub>P = 3 + 16n gt (0.15 s + 0.8 s·n) · 7 + 4n blocks · calibrated_sculk_sensor+note_block+observer+redstone_wire+repeater<br>extend: one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)<br>n = 2..12: P = 35..195 gt (judged in the game: n = 2, 3, 4, 7, 12)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r1.txt">clk-item-dropring-1d-r1</a> (picture pending)<br><b>clk-item-dropring-1d-r1</b><br><sub>P = 36 + 14n gt (1.8 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 36..456 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r2.txt">clk-item-dropring-1d-r2</a> (picture pending)<br><b>clk-item-dropring-1d-r2</b><br><sub>P = 38 + 14n gt (1.9 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 38..458 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r3.txt">clk-item-dropring-1d-r3</a> (picture pending)<br><b>clk-item-dropring-1d-r3</b><br><sub>P = 40 + 14n gt (2 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 40..460 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-lockring-3s.txt">clk-item-lockring-3s</a> (picture pending)<br><b>clk-item-lockring-3s</b><br><sub>P = 41 + 2n gt (2.05 s + 0.1 s·n) · 11 blocks · comparator+hopper+redstone_wire+repeater<br>extend: one more tick of delay on the lock repeater (same blocks)<br>n = 0..3: P = 41..47 gt (judged in the game: n = 0, 1, 2, 3)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r4.txt">clk-item-dropring-1d-r4</a> (picture pending)<br><b>clk-item-dropring-1d-r4</b><br><sub>P = 42 + 14n gt (2.1 s + 0.7 s·n) · 14 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 42..462 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r1.txt">clk-item-dropring-2d-r1</a> (picture pending)<br><b>clk-item-dropring-2d-r1</b><br><sub>P = 43 + 14n gt (2.15 s + 0.7 s·n) · 16 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 43..463 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r14.txt">clk-item-dropring-2d-r14</a> (picture pending)<br><b>clk-item-dropring-2d-r14</b><br><sub>P = 44 + 14n gt (2.2 s + 0.7 s·n) · 18 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 44..464 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-dropring-2d-r24.txt">clk-item-dropring-2d-r24</a> (picture pending)<br><b>clk-item-dropring-2d-r24</b><br><sub>P = 46 + 14n gt (2.3 s + 0.7 s·n) · 18 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 46..466 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r14.txt">clk-item-dropring-1d-r14</a> (picture pending)<br><b>clk-item-dropring-1d-r14</b><br><sub>P = 51 + 14n gt (2.55 s + 0.7 s·n) · 18 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 51..471 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-sculk-hairpin-plain.txt">clk-sculk-hairpin-plain</a> (picture pending)<br><b>clk-sculk-hairpin-plain</b><br><sub>P = 3 + 16n gt (0.15 s + 0.8 s·n) · 7 + 4n blocks · note_block+observer+redstone_wire+repeater+sculk_sensor<br>extend: one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)<br>n = 3..12: P = 51..195 gt (judged in the game: n = 3, 4, 5, 7, 12)</sub></td><td align="center" valign="top"><a href="archive/clk-item-dropring-1d-r24.txt">clk-item-dropring-1d-r24</a> (picture pending)<br><b>clk-item-dropring-1d-r24</b><br><sub>P = 53 + 14n gt (2.65 s + 0.7 s·n) · 18 + 2n blocks · comparator+dropper+hopper+repeater<br>extend: widen the dropper ring by one column (2 hoppers)<br>n = 0..30: P = 53..473 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td></tr>
 <tr><td align="center" valign="top"><a href="archive/clk-sculk-racetrack.txt">clk-sculk-racetrack</a> (picture pending)<br><b>clk-sculk-racetrack</b><br><sub>P = 28 + 32n gt (1.4 s + 1.6 s·n) · 4 + 4n blocks · calibrated_sculk_sensor+note_block<br>extend: one more calibrated sensor + amethyst block on each straight side, 17 blocks apart (the far turn sensor moves 17 out)<br>n = 1..8: P = 60..284 gt (judged in the game: n = 1, 2, 3, 4, 8)</sub></td><td align="center" valign="top"><a href="archive/clk-sculk-racetrack-plain.txt">clk-sculk-racetrack-plain</a> (picture pending)<br><b>clk-sculk-racetrack-plain</b><br><sub>P = 12 + 16n gt (0.6 s + 0.8 s·n) · 4 + 4n blocks · note_block+sculk_sensor<br>extend: one more plain sensor + amethyst block on each straight side, 9 blocks apart (the far turn sensor moves 9 out)<br>n = 3..10: P = 60..172 gt (judged in the game: n = 3, 4, 5, 6, 10)</sub></td></tr>
-<tr><td align="center" valign="top"><a href="archive/clk-item-ringlock-rows.txt">clk-item-ringlock-rows</a> (picture pending)<br><b>clk-item-ringlock-rows</b><br><sub>P = 76 + 14n gt (3.8 s + 0.7 s·n) · 12 + 2n blocks · comparator+hopper<br>extend: lengthen the 3-wide ring by one row (2 hoppers), still 5 stones<br>n = 0..12: P = 76..244 gt (judged in the game: n = 0, 1, 2, 6, 12)</sub></td><td align="center" valign="top"><a href="archive/clk-item-ringlock-stones-3x6.txt">clk-item-ringlock-stones-3x6</a> (picture pending)<br><b>clk-item-ringlock-stones-3x6</b><br><sub>P = 104 + 8n gt (5.2 s + 0.4 s·n) · 16 blocks · comparator+hopper<br>extend: one more stone in the corner hopper (same blocks)<br>n = 0..4: P = 104..136 gt (judged in the game: n = 0, 1, 2, 4)</sub></td></tr>
+<tr><td align="center" valign="top"><a href="archive/clk-item-ringlock-rows.txt">clk-item-ringlock-rows</a> (picture pending)<br><b>clk-item-ringlock-rows</b><br><sub>P = 76 + 14n gt (3.8 s + 0.7 s·n) · 12 + 2n blocks · comparator+hopper<br>extend: lengthen the 3-wide ring by one row (2 hoppers), still 5 stones<br>n = 0..30: P = 76..496 gt (judged in the game: n = 0, 1, 2, 15, 30)</sub></td><td align="center" valign="top"><a href="archive/clk-item-ringlock-stones-3x6.txt">clk-item-ringlock-stones-3x6</a> (picture pending)<br><b>clk-item-ringlock-stones-3x6</b><br><sub>P = 104 + 8n gt (5.2 s + 0.4 s·n) · 16 blocks · comparator+hopper<br>extend: one more stone in the corner hopper (same blocks)<br>n = 0..4: P = 104..136 gt (judged in the game: n = 0, 1, 2, 4)</sub></td></tr>
 <tr><td align="center" valign="top"><a href="archive/clk-item-ringlock-stones-3x20.txt">clk-item-ringlock-stones-3x20</a> (picture pending)<br><b>clk-item-ringlock-stones-3x20</b><br><sub>P = 300 + 8n gt (15 s + 0.4 s·n) · 44 blocks · comparator+hopper<br>extend: one more stone in the corner hopper (same blocks)<br>n = 0..28: P = 300..524 gt (judged in the game: n = 0, 1, 2, 14, 28)</sub></td></tr>
 </table>
 
@@ -1120,7 +1120,7 @@ Also reachable by: clk-obs-odd-b (n = 21), clk-item-dropring-1d (n = 5).
 
 ## 98 gt (4.9 s)
 
-Also reachable by: clk-obs-note-ring (n = 22), clk-obs-trap-ring (n = 22), clk-item-hopper-ring (n = 6), clk-item-dropring-1d-r4 (n = 4).
+Also reachable by: clk-obs-note-ring (n = 22), clk-obs-trap-ring (n = 22), clk-item-hopper-ring (n = 6), clk-item-hopper-ring-2 (n = 13), clk-item-dropring-1d-r4 (n = 4).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p98-2.txt"><img src="img/clk-sculk-hyb3-p98-2.jpg" width="260" alt="clk-sculk-hyb3-p98-2"></a><br><sub>98 gt (4.9 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/ringlock-p98.txt"><img src="img/ringlock-p98.jpg" width="260" alt="ringlock-p98"></a><br><sub>98 gt (4.9 s) · comparator+hopper · 10 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T.txt"><img src="img/clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T.jpg" width="260" alt="clk-rt-uloop-T-3--4--4--4--4--4--4--4--4--4--4--4--T"></a><br><sub>98 gt (4.9 s) · redstone_torch+repeater · 28 blocks</sub></td></tr>
@@ -1172,7 +1172,7 @@ Also reachable by: clk-obs-obs-ring (n = 24), clk-item-dropring-2d (n = 5), clk-
 
 ## 105 gt (5.25 s)
 
-Also reachable by: clk-obs-odd-b (n = 23), clk-item-dropring-2d-r4 (n = 5).
+Also reachable by: clk-obs-odd-b (n = 23), clk-item-hopper-ring-2 (n = 14), clk-item-dropring-2d-r4 (n = 5).
 
 <table>
 <tr><td align="center"><a href="archive/clk-obs-p105-obs-stk-7b-fa107e.txt">clk-obs-p105-obs-stk-7b-fa107e</a><br><sub>105 gt (5.25 s) · observer+sticky_piston · 7 blocks (picture pending)</sub></td></tr>
@@ -1220,7 +1220,7 @@ Also reachable by: clk-obs-obs-ring (n = 27), clk-obs-bulb-ring (n = 12), clk-it
 
 ## 126 gt (6.3 s)
 
-Also reachable by: clk-obs-note-ring (n = 29), clk-obs-trap-ring (n = 29), clk-item-hopper-ring (n = 8), clk-item-dropring-1d-r4 (n = 6).
+Also reachable by: clk-obs-note-ring (n = 29), clk-obs-trap-ring (n = 29), clk-item-hopper-ring (n = 8), clk-item-hopper-ring-2 (n = 17), clk-item-dropring-1d-r4 (n = 6).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3b-p126-1.txt"><img src="img/clk-sculk-hyb3b-p126-1.jpg" width="260" alt="clk-sculk-hyb3b-p126-1"></a><br><sub>126 gt (6.3 s) · dispenser+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-sculk-c126-obs-moving-sticky.txt"><img src="img/clk-sculk-c126-obs-moving-sticky.jpg" width="260" alt="clk-sculk-c126-obs-moving-sticky"></a><br><sub>126 gt (6.3 s) · calibrated_sculk_sensor+observer+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-sculk-hyb3b-p126-4.txt">clk-sculk-hyb3b-p126-4</a><br><sub>126 gt (6.3 s) · observer+piston+sculk_sensor · 7 blocks (picture pending)</sub></td></tr>
@@ -1293,7 +1293,7 @@ Also reachable by: clk-obs-note-ring (n = 32), clk-obs-trap-ring (n = 32), clk-i
 
 ## 140 gt (7 s)
 
-Also reachable by: clk-obs-obs-ring (n = 33), clk-item-hopper-ring (n = 9), clk-obs-bulb-ring (n = 15), clk-item-dropring-1d-r4 (n = 7), clk-sculk-racetrack-plain (n = 8).
+Also reachable by: clk-obs-obs-ring (n = 33), clk-item-hopper-ring (n = 9), clk-item-hopper-ring-2 (n = 19), clk-obs-bulb-ring (n = 15), clk-item-dropring-1d-r4 (n = 7), clk-sculk-racetrack-plain (n = 8).
 
 <table>
 <tr><td align="center"><a href="archive/census-p140-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-4b.txt"><img src="img/census-p140-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-4b.jpg" width="260" alt="census-p140-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-4b"></a><br><sub>140 gt (7 s) · calibrated_sculk_sensor+dispenser+observer+sculk_sensor · 4 blocks</sub></td><td align="center"><a href="archive/loop4burn-p140.txt"><img src="img/loop4burn-p140.jpg" width="260" alt="loop4burn-p140"></a><br><sub>140 gt (7 s) · comparator+hopper+redstone_torch+redstone_wire · 10 blocks</sub></td><td align="center"><a href="archive/clk-sculk-ringbig10-p140-1.txt"><img src="img/clk-sculk-ringbig10-p140-1.jpg" width="260" alt="clk-sculk-ringbig10-p140-1"></a><br><sub>140 gt (7 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td></tr>
@@ -1317,7 +1317,7 @@ Also reachable by: clk-obs-obs-ring (n = 34), clk-item-dropring-2d-r24 (n = 7).
 
 ## 146 gt (7.3 s)
 
-Also reachable by: clk-obs-note-ring (n = 34), clk-obs-trap-ring (n = 34), clk-item-ringlock-rows (n = 5).
+Also reachable by: clk-obs-note-ring (n = 34), clk-obs-trap-ring (n = 34), clk-item-dropring-2d (n = 8), clk-item-ringlock-rows (n = 5).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-ringbig10-p146-1.txt"><img src="img/clk-sculk-ringbig10-p146-1.jpg" width="260" alt="clk-sculk-ringbig10-p146-1"></a><br><sub>146 gt (7.3 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td></tr>
@@ -1325,7 +1325,7 @@ Also reachable by: clk-obs-note-ring (n = 34), clk-obs-trap-ring (n = 34), clk-i
 
 ## 148 gt (7.4 s)
 
-Also reachable by: clk-obs-obs-ring (n = 35), clk-obs-bulb-ring (n = 16).
+Also reachable by: clk-obs-obs-ring (n = 35), clk-obs-bulb-ring (n = 16), clk-item-dropring-1d-r1 (n = 8).
 
 <table>
 <tr><td align="center"><a href="archive/ringlock34-p148.txt"><img src="img/ringlock34-p148.jpg" width="260" alt="ringlock34-p148"></a><br><sub>148 gt (7.4 s) · comparator+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-sculk-ringbig10-p148-1.txt"><img src="img/clk-sculk-ringbig10-p148-1.jpg" width="260" alt="clk-sculk-ringbig10-p148-1"></a><br><sub>148 gt (7.4 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td></tr>
@@ -1333,7 +1333,7 @@ Also reachable by: clk-obs-obs-ring (n = 35), clk-obs-bulb-ring (n = 16).
 
 ## 150 gt (7.5 s)
 
-Also reachable by: clk-obs-note-ring (n = 35), clk-obs-trap-ring (n = 35).
+Also reachable by: clk-obs-note-ring (n = 35), clk-obs-trap-ring (n = 35), clk-item-dropring-1d-r2 (n = 8).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-ringbig10-p150-1.txt"><img src="img/clk-sculk-ringbig10-p150-1.jpg" width="260" alt="clk-sculk-ringbig10-p150-1"></a><br><sub>150 gt (7.5 s) · calibrated_sculk_sensor+note_block · 20 blocks</sub></td></tr>
@@ -1341,7 +1341,7 @@ Also reachable by: clk-obs-note-ring (n = 35), clk-obs-trap-ring (n = 35).
 
 ## 156 gt (7.8 s)
 
-Also reachable by: clk-obs-obs-ring (n = 37), clk-obs-bulb-ring (n = 17), clk-sculk-racetrack (n = 4), clk-sculk-racetrack-plain (n = 9).
+Also reachable by: clk-obs-obs-ring (n = 37), clk-obs-bulb-ring (n = 17), clk-item-dropring-2d-r14 (n = 8), clk-sculk-racetrack (n = 4), clk-sculk-racetrack-plain (n = 9).
 
 <table>
 <tr><td align="center"><a href="archive/clk-obs-p156-bulb-obs-pis-7b-fa5433.txt">clk-obs-p156-bulb-obs-pis-7b-fa5433</a><br><sub>156 gt (7.8 s) · copper_bulb+observer+piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-obs-p156-bulb-obs-pis-stk-7b-444820.txt">clk-obs-p156-bulb-obs-pis-stk-7b-444820</a><br><sub>156 gt (7.8 s) · copper_bulb+observer+piston+sticky_piston · 7 blocks (picture pending)</sub></td><td align="center"><a href="archive/ringlock34-p156.txt"><img src="img/ringlock34-p156.jpg" width="260" alt="ringlock34-p156"></a><br><sub>156 gt (7.8 s) · comparator+hopper · 12 blocks</sub></td></tr>
@@ -1349,7 +1349,7 @@ Also reachable by: clk-obs-obs-ring (n = 37), clk-obs-bulb-ring (n = 17), clk-sc
 
 ## 158 gt (7.9 s)
 
-Also reachable by: clk-obs-note-ring (n = 37), clk-obs-trap-ring (n = 37).
+Also reachable by: clk-obs-note-ring (n = 37), clk-obs-trap-ring (n = 37), clk-item-dropring-2d-r24 (n = 8).
 
 <table>
 <tr><td align="center"><a href="archive/ringlock-p158.txt"><img src="img/ringlock-p158.jpg" width="260" alt="ringlock-p158"></a><br><sub>158 gt (7.9 s) · comparator+hopper · 10 blocks</sub></td></tr>
@@ -1357,7 +1357,7 @@ Also reachable by: clk-obs-note-ring (n = 37), clk-obs-trap-ring (n = 37).
 
 ## 161 gt (8.05 s)
 
-Also reachable by: clk-obs-odd-b (n = 37).
+Also reachable by: clk-obs-odd-b (n = 37), clk-item-hopper-ring-2 (n = 22), clk-item-dropring-2d-r4 (n = 9).
 
 <table>
 <tr><td align="center"><a href="archive/clk-rt-count7-k2-over-odd-rect-p23-16b.txt"><img src="img/clk-rt-count7-k2-over-odd-rect-p23-16b.jpg" width="260" alt="clk-rt-count7-k2-over-odd-rect-p23-16b"></a><br><sub>161 gt (8.05 s) · comparator+redstone_torch+redstone_wire+repeater · 44 blocks</sub></td></tr>
@@ -1365,7 +1365,7 @@ Also reachable by: clk-obs-odd-b (n = 37).
 
 ## 162 gt (8.1 s)
 
-Also reachable by: clk-obs-note-ring (n = 38), clk-obs-trap-ring (n = 38).
+Also reachable by: clk-obs-note-ring (n = 38), clk-obs-trap-ring (n = 38), clk-item-dropring-1d-r1 (n = 9).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p162-2.txt"><img src="img/clk-sculk-hyb3-p162-2.jpg" width="260" alt="clk-sculk-hyb3-p162-2"></a><br><sub>162 gt (8.1 s) · calibrated_sculk_sensor+oak_trapdoor+observer+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-sculk-hyb3b-p162-3.txt">clk-sculk-hyb3b-p162-3</a><br><sub>162 gt (8.1 s) · calibrated_sculk_sensor+iron_trapdoor+observer+sticky_piston · 6 blocks (picture pending)</sub></td><td align="center"><a href="archive/clk-sculk-hyb3b-p162-5.txt">clk-sculk-hyb3b-p162-5</a><br><sub>162 gt (8.1 s) · calibrated_sculk_sensor+oak_fence_gate+observer+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
@@ -1374,7 +1374,7 @@ Also reachable by: clk-obs-note-ring (n = 38), clk-obs-trap-ring (n = 38).
 
 ## 170 gt (8.5 s)
 
-Also reachable by: clk-obs-note-ring (n = 40), clk-obs-trap-ring (n = 40).
+Also reachable by: clk-obs-note-ring (n = 40), clk-obs-trap-ring (n = 40), clk-item-dropring-2d-r14 (n = 9).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-climb1-p170-4.txt"><img src="img/clk-sculk-climb1-p170-4.jpg" width="260" alt="clk-sculk-climb1-p170-4"></a><br><sub>170 gt (8.5 s) · note_block+observer+sculk_sensor+sticky_piston · 7 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p170-22b.txt"><img src="img/clk-rt-uloop-p170-22b.jpg" width="260" alt="clk-rt-uloop-p170-22b"></a><br><sub>170 gt (8.5 s) · comparator+redstone_torch+redstone_wire · 22 blocks</sub></td></tr>
@@ -1382,7 +1382,7 @@ Also reachable by: clk-obs-note-ring (n = 40), clk-obs-trap-ring (n = 40).
 
 ## 192 gt (9.6 s)
 
-Also reachable by: clk-obs-obs-ring (n = 46), clk-obs-divider (n = 4).
+Also reachable by: clk-obs-obs-ring (n = 46), clk-obs-divider (n = 4), clk-item-dropring-1d-r2 (n = 11).
 
 <table>
 <tr><td align="center"><a href="archive/hopburn2-p192.txt"><img src="img/hopburn2-p192.jpg" width="260" alt="hopburn2-p192"></a><br><sub>192 gt (9.6 s) · hopper+redstone_torch+redstone_wire · 9 blocks</sub></td></tr>
@@ -1390,7 +1390,7 @@ Also reachable by: clk-obs-obs-ring (n = 46), clk-obs-divider (n = 4).
 
 ## 195 gt (9.75 s)
 
-Also reachable by: clk-obs-odd-a (n = 46), clk-sculk-hairpin (n = 12), clk-sculk-hairpin-plain (n = 12).
+Also reachable by: clk-obs-odd-a (n = 46), clk-item-dropring-1d (n = 12), clk-sculk-hairpin (n = 12), clk-sculk-hairpin-plain (n = 12).
 
 <table>
 <tr><td align="center"><a href="archive/hopburn2-p195.txt"><img src="img/hopburn2-p195.jpg" width="260" alt="hopburn2-p195"></a><br><sub>195 gt (9.75 s) · comparator+hopper+redstone_torch+redstone_wire · 9 blocks</sub></td></tr>
@@ -1398,7 +1398,7 @@ Also reachable by: clk-obs-odd-a (n = 46), clk-sculk-hairpin (n = 12), clk-sculk
 
 ## 200 gt (10 s)
 
-Also reachable by: clk-obs-obs-ring (n = 48).
+Also reachable by: clk-obs-obs-ring (n = 48), clk-item-dropring-2d-r24 (n = 11).
 
 <table>
 <tr><td align="center"><a href="archive/clk-rt-ring3x4-p200-c-rt-rw-14b.txt"><img src="img/clk-rt-ring3x4-p200-c-rt-rw-14b.jpg" width="260" alt="clk-rt-ring3x4-p200-c-rt-rw-14b"></a><br><sub>200 gt (10 s) · comparator+redstone_torch+redstone_wire · 14 blocks</sub></td></tr>
@@ -1406,11 +1406,15 @@ Also reachable by: clk-obs-obs-ring (n = 48).
 
 ## 205 gt (10.25 s)
 
+Also reachable by: clk-item-dropring-1d-r14 (n = 11).
+
 <table>
 <tr><td align="center"><a href="archive/clk-rt-odd-p205-8b.txt"><img src="img/clk-rt-odd-p205-8b.jpg" width="260" alt="clk-rt-odd-p205-8b"></a><br><sub>205 gt (10.25 s) · redstone_torch+redstone_wire+repeater · 8 blocks</sub></td></tr>
 </table>
 
 ## 206 gt (10.3 s)
+
+Also reachable by: clk-item-dropring-1d-r2 (n = 12).
 
 <table>
 <tr><td align="center"><a href="archive/ringlock35-p206.txt"><img src="img/ringlock35-p206.jpg" width="260" alt="ringlock35-p206"></a><br><sub>206 gt (10.3 s) · comparator+hopper · 14 blocks</sub></td></tr>
@@ -1418,11 +1422,15 @@ Also reachable by: clk-obs-obs-ring (n = 48).
 
 ## 210 gt (10.5 s)
 
+Also reachable by: clk-item-hopper-ring (n = 14), clk-item-hopper-ring-2 (n = 29), clk-item-dropring-1d-r4 (n = 12).
+
 <table>
 <tr><td align="center"><a href="archive/hopburn-p210.txt"><img src="img/hopburn-p210.jpg" width="260" alt="hopburn-p210"></a><br><sub>210 gt (10.5 s) · comparator+hopper+redstone_torch+redstone_wire · 8 blocks</sub></td><td align="center"><a href="archive/clk-rt-ring3x4-p210-c-rt-rw-14b.txt"><img src="img/clk-rt-ring3x4-p210-c-rt-rw-14b.jpg" width="260" alt="clk-rt-ring3x4-p210-c-rt-rw-14b"></a><br><sub>210 gt (10.5 s) · comparator+redstone_torch+redstone_wire · 14 blocks</sub></td></tr>
 </table>
 
 ## 211 gt (10.55 s)
+
+Also reachable by: clk-item-dropring-2d-r1 (n = 12).
 
 <table>
 <tr><td align="center"><a href="archive/ringlock35-p211.txt"><img src="img/ringlock35-p211.jpg" width="260" alt="ringlock35-p211"></a><br><sub>211 gt (10.55 s) · comparator+hopper · 14 blocks</sub></td></tr>
@@ -1430,11 +1438,15 @@ Also reachable by: clk-obs-obs-ring (n = 48).
 
 ## 212 gt (10.6 s)
 
+Also reachable by: clk-item-dropring-2d-r14 (n = 12).
+
 <table>
 <tr><td align="center"><a href="archive/census-p212-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b.txt"><img src="img/census-p212-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b.jpg" width="260" alt="census-p212-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b"></a><br><sub>212 gt (10.6 s) · calibrated_sculk_sensor+dispenser+note_block+observer+sculk_sensor · 5 blocks</sub></td></tr>
 </table>
 
 ## 214 gt (10.7 s)
+
+Also reachable by: clk-item-dropring-2d-r24 (n = 12).
 
 <table>
 <tr><td align="center"><a href="archive/ringlock35-p214.txt"><img src="img/ringlock35-p214.jpg" width="260" alt="ringlock35-p214"></a><br><sub>214 gt (10.7 s) · comparator+hopper · 14 blocks</sub></td></tr>
@@ -1442,13 +1454,15 @@ Also reachable by: clk-obs-obs-ring (n = 48).
 
 ## 215 gt (10.75 s)
 
+Also reachable by: clk-item-dropring-2d-r3 (n = 13).
+
 <table>
 <tr><td align="center"><a href="archive/census-p215-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b.txt"><img src="img/census-p215-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b.jpg" width="260" alt="census-p215-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b"></a><br><sub>215 gt (10.75 s) · calibrated_sculk_sensor+dispenser+note_block+observer+sculk_sensor · 5 blocks</sub></td></tr>
 </table>
 
 ## 216 gt (10.8 s)
 
-Also reachable by: clk-item-ringlock-rows (n = 10).
+Also reachable by: clk-item-dropring-2d (n = 13), clk-item-ringlock-rows (n = 10).
 
 <table>
 <tr><td align="center"><a href="archive/census-p216-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b.txt"><img src="img/census-p216-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b.jpg" width="260" alt="census-p216-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b"></a><br><sub>216 gt (10.8 s) · calibrated_sculk_sensor+dispenser+note_block+observer+sculk_sensor · 5 blocks</sub></td><td align="center"><a href="archive/clk-sculk-p216-obs-moving-sticky.txt"><img src="img/clk-sculk-p216-obs-moving-sticky.jpg" width="260" alt="clk-sculk-p216-obs-moving-sticky"></a><br><sub>216 gt (10.8 s) · observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/clk-sculk-hyb3b-p216-1.txt">clk-sculk-hyb3b-p216-1</a><br><sub>216 gt (10.8 s) · dispenser+observer+sculk_sensor+sticky_piston · 6 blocks (picture pending)</sub></td></tr>
@@ -1457,13 +1471,15 @@ Also reachable by: clk-item-ringlock-rows (n = 10).
 
 ## 218 gt (10.9 s)
 
+Also reachable by: clk-item-dropring-1d-r1 (n = 13).
+
 <table>
 <tr><td align="center"><a href="archive/ringlock-p218.txt"><img src="img/ringlock-p218.jpg" width="260" alt="ringlock-p218"></a><br><sub>218 gt (10.9 s) · comparator+hopper · 10 blocks</sub></td></tr>
 </table>
 
 ## 220 gt (11 s)
 
-Also reachable by: clk-sculk-racetrack (n = 6).
+Also reachable by: clk-item-dropring-1d-r2 (n = 13), clk-sculk-racetrack (n = 6).
 
 <table>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p220-c-rt-8b.txt"><img src="img/clk-rt-uloop-p220-c-rt-8b.jpg" width="260" alt="clk-rt-uloop-p220-c-rt-8b"></a><br><sub>220 gt (11 s) · comparator+redstone_torch · 8 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p220-c-rt-r-8b.txt"><img src="img/clk-rt-uloop-p220-c-rt-r-8b.jpg" width="260" alt="clk-rt-uloop-p220-c-rt-r-8b"></a><br><sub>220 gt (11 s) · comparator+redstone_torch+repeater · 8 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p220-rt-r-8b.txt"><img src="img/clk-rt-uloop-p220-rt-r-8b.jpg" width="260" alt="clk-rt-uloop-p220-rt-r-8b"></a><br><sub>220 gt (11 s) · redstone_torch+repeater · 8 blocks</sub></td></tr>
@@ -1473,11 +1489,15 @@ Also reachable by: clk-sculk-racetrack (n = 6).
 
 ## 226 gt (11.3 s)
 
+Also reachable by: clk-item-dropring-2d-r14 (n = 13).
+
 <table>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p226-26b.txt"><img src="img/clk-rt-uloop-p226-26b.jpg" width="260" alt="clk-rt-uloop-p226-26b"></a><br><sub>226 gt (11.3 s) · comparator+redstone_torch+redstone_wire · 26 blocks</sub></td></tr>
 </table>
 
 ## 228 gt (11.4 s)
+
+Also reachable by: clk-item-dropring-2d-r24 (n = 13).
 
 <table>
 <tr><td align="center"><a href="archive/ringlock34-p228.txt"><img src="img/ringlock34-p228.jpg" width="260" alt="ringlock34-p228"></a><br><sub>228 gt (11.4 s) · comparator+hopper · 12 blocks</sub></td><td align="center"><a href="archive/clk-rt-div-fade2-x1.txt"><img src="img/clk-rt-div-fade2-x1.jpg" width="260" alt="clk-rt-div-fade2-x1"></a><br><sub>228 gt (11.4 s) · comparator+redstone_torch+redstone_wire+repeater · 36 blocks</sub></td></tr>
@@ -1485,11 +1505,15 @@ Also reachable by: clk-sculk-racetrack (n = 6).
 
 ## 236 gt (11.8 s)
 
+Also reachable by: clk-item-dropring-1d-r3 (n = 14).
+
 <table>
 <tr><td align="center"><a href="archive/ringlock34-p236.txt"><img src="img/ringlock34-p236.jpg" width="260" alt="ringlock34-p236"></a><br><sub>236 gt (11.8 s) · comparator+hopper · 12 blocks</sub></td></tr>
 </table>
 
 ## 242 gt (12.1 s)
+
+Also reachable by: clk-item-dropring-2d-r24 (n = 14).
 
 <table>
 <tr><td align="center"><a href="archive/census-p242-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.txt"><img src="img/census-p242-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.jpg" width="260" alt="census-p242-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b"></a><br><sub>242 gt (12.1 s) · calibrated_sculk_sensor+dispenser+observer+sculk_sensor · 5 blocks</sub></td></tr>
@@ -1497,11 +1521,15 @@ Also reachable by: clk-sculk-racetrack (n = 6).
 
 ## 275 gt (13.75 s)
 
+Also reachable by: clk-item-dropring-1d-r14 (n = 16).
+
 <table>
 <tr><td align="center"><a href="archive/ringlock35-p275.txt"><img src="img/ringlock35-p275.jpg" width="260" alt="ringlock35-p275"></a><br><sub>275 gt (13.75 s) · comparator+hopper · 14 blocks</sub></td></tr>
 </table>
 
 ## 282 gt (14.1 s)
+
+Also reachable by: clk-item-dropring-2d-r14 (n = 17).
 
 <table>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p282-30b.txt"><img src="img/clk-rt-uloop-p282-30b.jpg" width="260" alt="clk-rt-uloop-p282-30b"></a><br><sub>282 gt (14.1 s) · comparator+redstone_torch+redstone_wire · 30 blocks</sub></td></tr>
@@ -1509,16 +1537,20 @@ Also reachable by: clk-sculk-racetrack (n = 6).
 
 ## 288 gt (14.4 s)
 
+Also reachable by: clk-item-dropring-1d-r1 (n = 18).
+
 <table>
 <tr><td align="center"><a href="archive/clk-rt-div-44-x3.txt"><img src="img/clk-rt-div-44-x3.jpg" width="260" alt="clk-rt-div-44-x3"></a><br><sub>288 gt (14.4 s) · redstone_torch+redstone_wire+repeater · 63 blocks</sub></td></tr>
 </table>
 
 ## 300 gt (15 s)
 
-Also reachable by: clk-item-ringlock-stones-3x20 (n = 0).
+Also reachable by: clk-item-dropring-2d (n = 19), clk-item-ringlock-rows (n = 16), clk-item-ringlock-stones-3x20 (n = 0).
 
 
 ## 306 gt (15.3 s)
+
+Also reachable by: clk-item-dropring-1d-r3 (n = 19).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p306-2.txt"><img src="img/clk-sculk-hyb3-p306-2.jpg" width="260" alt="clk-sculk-hyb3-p306-2"></a><br><sub>306 gt (15.3 s) · oak_trapdoor+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td><td align="center"><a href="archive/ringlock35-p306.txt"><img src="img/ringlock35-p306.jpg" width="260" alt="ringlock35-p306"></a><br><sub>306 gt (15.3 s) · comparator+hopper · 14 blocks</sub></td></tr>
@@ -1526,11 +1558,15 @@ Also reachable by: clk-item-ringlock-stones-3x20 (n = 0).
 
 ## 314 gt (15.7 s)
 
+Also reachable by: clk-item-dropring-2d (n = 20), clk-item-ringlock-rows (n = 17).
+
 <table>
 <tr><td align="center"><a href="archive/ringlock35-p314.txt"><img src="img/ringlock35-p314.jpg" width="260" alt="ringlock35-p314"></a><br><sub>314 gt (15.7 s) · comparator+hopper · 14 blocks</sub></td></tr>
 </table>
 
 ## 322 gt (16.1 s)
+
+Also reachable by: clk-item-hopper-ring (n = 22), clk-item-dropring-1d-r4 (n = 20).
 
 <table>
 <tr><td align="center"><a href="archive/clk-rt-count14-k2-over-odd-rect-p23-16b.txt"><img src="img/clk-rt-count14-k2-over-odd-rect-p23-16b.jpg" width="260" alt="clk-rt-count14-k2-over-odd-rect-p23-16b"></a><br><sub>322 gt (16.1 s) · comparator+redstone_torch+redstone_wire+repeater · 42 blocks</sub></td></tr>
@@ -1538,11 +1574,15 @@ Also reachable by: clk-item-ringlock-stones-3x20 (n = 0).
 
 ## 338 gt (16.9 s)
 
+Also reachable by: clk-item-dropring-2d-r14 (n = 21).
+
 <table>
 <tr><td align="center"><a href="archive/clk-rt-uloop-p338-34b.txt"><img src="img/clk-rt-uloop-p338-34b.jpg" width="260" alt="clk-rt-uloop-p338-34b"></a><br><sub>338 gt (16.9 s) · comparator+redstone_torch+redstone_wire · 34 blocks</sub></td></tr>
 </table>
 
 ## 342 gt (17.1 s)
+
+Also reachable by: clk-item-dropring-2d (n = 22), clk-item-ringlock-rows (n = 19).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p342-2.txt"><img src="img/clk-sculk-hyb3-p342-2.jpg" width="260" alt="clk-sculk-hyb3-p342-2"></a><br><sub>342 gt (17.1 s) · oak_trapdoor+observer+sculk_sensor+sticky_piston · 6 blocks</sub></td></tr>
@@ -1550,7 +1590,7 @@ Also reachable by: clk-item-ringlock-stones-3x20 (n = 0).
 
 ## 384 gt (19.2 s)
 
-Also reachable by: clk-obs-divider (n = 5).
+Also reachable by: clk-obs-divider (n = 5), clk-item-dropring-2d (n = 25), clk-item-ringlock-rows (n = 22).
 
 <table>
 <tr><td align="center"><a href="archive/hopburn2s-p384.txt"><img src="img/hopburn2s-p384.jpg" width="260" alt="hopburn2s-p384"></a><br><sub>384 gt (19.2 s) · comparator+hopper+redstone_torch+redstone_wire · 9 blocks</sub></td></tr>
@@ -1558,11 +1598,15 @@ Also reachable by: clk-obs-divider (n = 5).
 
 ## 389 gt (19.45 s)
 
+Also reachable by: clk-item-dropring-1d-r24 (n = 24).
+
 <table>
 <tr><td align="center"><a href="archive/hopburn2s-p389.txt"><img src="img/hopburn2s-p389.jpg" width="260" alt="hopburn2s-p389"></a><br><sub>389 gt (19.45 s) · comparator+hopper+redstone_torch+redstone_wire · 9 blocks</sub></td></tr>
 </table>
 
 ## 394 gt (19.7 s)
+
+Also reachable by: clk-item-dropring-2d-r14 (n = 25).
 
 <table>
 <tr><td align="center"><a href="archive/clk-rt-fade-D-c-c-c-c-c-c-c-c-c-c-c-c-c-c-F.txt"><img src="img/clk-rt-fade-D-c-c-c-c-c-c-c-c-c-c-c-c-c-c-F.jpg" width="260" alt="clk-rt-fade-D-c-c-c-c-c-c-c-c-c-c-c-c-c-c-F"></a><br><sub>394 gt (19.7 s) · comparator+redstone_torch+redstone_wire · 38 blocks</sub></td></tr>
@@ -1570,11 +1614,15 @@ Also reachable by: clk-obs-divider (n = 5).
 
 ## 410 gt (20.5 s)
 
+Also reachable by: clk-item-dropring-2d-r24 (n = 26).
+
 <table>
 <tr><td align="center"><a href="archive/clk-rt-ring3x3-p410-c-rt-rw-12b.txt"><img src="img/clk-rt-ring3x3-p410-c-rt-rw-12b.jpg" width="260" alt="clk-rt-ring3x3-p410-c-rt-rw-12b"></a><br><sub>410 gt (20.5 s) · comparator+redstone_torch+redstone_wire · 12 blocks</sub></td></tr>
 </table>
 
 ## 414 gt (20.7 s)
+
+Also reachable by: clk-item-dropring-1d-r1 (n = 27).
 
 <table>
 <tr><td align="center"><a href="archive/ringlock35-p414.txt"><img src="img/ringlock35-p414.jpg" width="260" alt="ringlock35-p414"></a><br><sub>414 gt (20.7 s) · comparator+hopper · 14 blocks</sub></td></tr>
@@ -1582,11 +1630,15 @@ Also reachable by: clk-obs-divider (n = 5).
 
 ## 422 gt (21.1 s)
 
+Also reachable by: clk-item-dropring-2d-r14 (n = 27).
+
 <table>
 <tr><td align="center"><a href="archive/ringlock35-p422.txt"><img src="img/ringlock35-p422.jpg" width="260" alt="ringlock35-p422"></a><br><sub>422 gt (21.1 s) · comparator+hopper · 14 blocks</sub></td></tr>
 </table>
 
 ## 440 gt (22 s)
+
+Also reachable by: clk-item-dropring-2d (n = 29), clk-item-ringlock-rows (n = 26).
 
 <table>
 <tr><td align="center"><a href="archive/clk-rt-burn-p440-8b.txt"><img src="img/clk-rt-burn-p440-8b.jpg" width="260" alt="clk-rt-burn-p440-8b"></a><br><sub>440 gt (22 s) · redstone_torch+repeater · 8 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p440-c-rt-8b.txt"><img src="img/clk-rt-uloop-p440-c-rt-8b.jpg" width="260" alt="clk-rt-uloop-p440-c-rt-8b"></a><br><sub>440 gt (22 s) · comparator+redstone_torch · 8 blocks</sub></td><td align="center"><a href="archive/clk-rt-uloop-p440-c-rt-rw-12b.txt"><img src="img/clk-rt-uloop-p440-c-rt-rw-12b.jpg" width="260" alt="clk-rt-uloop-p440-c-rt-rw-12b"></a><br><sub>440 gt (22 s) · comparator+redstone_torch+redstone_wire · 12 blocks</sub></td></tr>
@@ -1594,13 +1646,15 @@ Also reachable by: clk-obs-divider (n = 5).
 
 ## 450 gt (22.5 s)
 
+Also reachable by: clk-item-dropring-2d-r14 (n = 29).
+
 <table>
 <tr><td align="center"><a href="archive/clk-rt-fade-D-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-F.txt"><img src="img/clk-rt-fade-D-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-F.jpg" width="260" alt="clk-rt-fade-D-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-F"></a><br><sub>450 gt (22.5 s) · comparator+redstone_torch+redstone_wire · 42 blocks</sub></td></tr>
 </table>
 
 ## 468 gt (23.4 s)
 
-Also reachable by: clk-item-ringlock-stones-3x20 (n = 21).
+Also reachable by: clk-item-ringlock-rows (n = 28), clk-item-ringlock-stones-3x20 (n = 21).
 
 <table>
 <tr><td align="center"><a href="archive/clk-sculk-hyb3-p468-1.txt"><img src="img/clk-sculk-hyb3-p468-1.jpg" width="260" alt="clk-sculk-hyb3-p468-1"></a><br><sub>468 gt (23.4 s) · observer+piston+sculk_sensor+sticky_piston · 7 blocks</sub></td></tr>
