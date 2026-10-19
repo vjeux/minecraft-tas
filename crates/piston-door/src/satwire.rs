@@ -2078,7 +2078,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                 // its head cell stays free (air at rest, never wiring, never the lever)
                 let hc = add(c, fd);
                 if p.is_free(hc) {
-                    let em = m.kl[&(hc, Kind::Empty)];
+                    let em = m.kl.get(&(hc, Kind::Empty)).copied().unwrap_or(m.e.f());
                     m.e.add(&[!l, em]);
                     for (i, lc) in p.levers.iter().enumerate() {
                         if lc.pos == [hc.0, hc.1, p.z] {
@@ -2095,7 +2095,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                 m.e.add(&[!l, !d]);
             }
         }
-        let empty = m.kl[&(c, Kind::Empty)];
+        let empty = m.kl.get(&(c, Kind::Empty)).copied().unwrap_or(m.e.f());
         m.used.push((c, !empty));
         if let Some(fk) = p.fixed.get(&c) {
             let l = m.kind(c, *fk);
@@ -2555,8 +2555,14 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     // motion mode: the power matters only where the motion needs it AND the recording
                     // agrees (a recorded disagreement is the game tolerating it: a QC-held piston
                     // without an update, the 2nd tick of a short pulse...)
-                    let mreq = if p.motion { p.motion_req_ph(ph, tau, c).filter(|v| *v == ph.pow(tau).get(&c).copied().unwrap_or(false)) } else { None };
-                    if p.motion && mreq.is_none() {
+                    let mraw = if p.motion { p.motion_req_ph(ph, tau, c) } else { None };
+                    let recp = ph.pow(tau).get(&c).copied().unwrap_or(false);
+                    let mreq = mraw.filter(|v| *v == recp);
+                    // a piston that must stay off while the recording holds it powered (a QC hold the
+                    // game never updated): QC power may stay, DIRECT power may not (it always comes
+                    // with an update of the piston, which would fire it)
+                    let qc_only = p.motion && mraw == Some(false) && recp && k >= 1;
+                    if p.motion && mreq.is_none() && !qc_only {
                         continue;
                     }
                     let req = match mreq {
@@ -2609,6 +2615,10 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         tau >= 2 && !pw(tau - 2) && pw(tau - 1) && !pw(tau + 1) && same(tau - 2)
                     };
                     if blocked || pulse_tol {
+                        continue;
+                    }
+                    if qc_only {
+                        m.e.add(&[!ds, !sel, !direct]);
                         continue;
                     }
                     if req {
