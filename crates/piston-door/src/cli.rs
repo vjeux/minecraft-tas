@@ -3059,6 +3059,80 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 return Ok(());
             }
+            // batch synthesis: every plan in its own thread (own JVM), logs and doors in --out-dir
+            if mechanism.len() > 1 {
+                let dir = out.clone().ok_or_else(|| anyhow::anyhow!("several plans: --out <dir> (one .log per plan, a .txt per judged door)"))?;
+                std::fs::create_dir_all(&dir)?;
+                let next = std::sync::atomic::AtomicUsize::new(0);
+                let po = sw::ProbOpts {
+                    bx: bx.as_deref().map(sw::parse_box).transpose()?,
+                    palette: sw::palette(&palette)?,
+                    forbid_ring,
+                    hall_ring,
+                    levers: lever.as_deref().map(crate::synth::parse_cells).transpose()?,
+                    lever_oop,
+                    dmax,
+                    skip,
+                    settle,
+                    qc: !no_qc,
+                    levels,
+                    blocked_dc: !exact,
+                    motion: !recorded_power,
+                    clusters: !one_warp,
+                    full_frame,
+                };
+                std::thread::scope(|sc| {
+                    for _ in 0..jobs.min(mechanism.len()) {
+                        sc.spawn(|| loop {
+                            let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            let Some(m) = mechanism.get(i) else { break };
+                            let stem = m.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                            let logf = std::sync::Mutex::new(std::fs::File::create(dir.join(format!("{stem}.log"))).ok());
+                            let log = |s: String| {
+                                use std::io::Write;
+                                if let Some(f) = logf.lock().unwrap().as_mut() {
+                                    let _ = writeln!(f, "{s}");
+                                }
+                            };
+                            let res = (|| -> Result<String> {
+                                let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
+                                let rec = {
+                                    let mut w = Worker::spawn(&cfg)?;
+                                    if from_wired {
+                                        sw::record_wired(&mut w, &load_design(m)?, rec_ticks)?
+                                    } else {
+                                        let s = crate::ideal::Schedule::parse(&std::fs::read_to_string(m)?)?;
+                                        sw::record_ideal(&mut w, &s, rec_ticks)?
+                                    }
+                                };
+                                let mut p = sw::build_prob(rec, &po)?;
+                                if keep_wiring && !from_wired && !p.rec.wiring.is_empty() {
+                                    let mut d = mctas::design::Design::default();
+                                    for (cc, st) in &p.rec.wiring {
+                                        d.blocks.insert([cc.0, cc.1, p.z], st.clone());
+                                    }
+                                    if let Some((lp, ls)) = &p.rec.lever {
+                                        d.blocks.insert(*lp, ls.clone());
+                                    }
+                                    sw::fix_partial(&mut p, &d)?;
+                                }
+                                let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out: Some(dir.join(format!("{stem}.txt"))), name: format!("satwire-{stem}"), version: version.to_string() };
+                                Ok(match sw::run_log(&p, &o, &log)? {
+                                    Some(d) => format!("DOOR {} blocks", d.blocks.len()),
+                                    None => "no door".to_string(),
+                                })
+                            })();
+                            let line = match res {
+                                Ok(s) => s,
+                                Err(e) => format!("ERROR {}", e.to_string().lines().next().unwrap_or("")),
+                            };
+                            log(format!("RESULT {line}"));
+                            println!("{stem}: {line}");
+                        });
+                    }
+                });
+                return Ok(());
+            }
             let mechanism = mechanism[0].clone();
             let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
             let mut fam_box = None;
