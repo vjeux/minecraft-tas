@@ -1,0 +1,37 @@
+name: wire56-t1
+# 7x8-028 mechanism + REAL K1 / K0 / K3 wiring, K2 (the controller) emulated by ideal inputs
+# (t1.ideal). K1 (top-left): O(0,5) watches P5; P5 pulses exactly 6 gt apart give it 3 raw pulses
+# (odd); observers relay them to PTL (0,4) via O(-1,4) and to the left pair via O(-2,2) (observer
+# trick: direct into (-2,1), QC into (-2,0)). K0: O(-1,-1) watches BL's park cell (-1,0) (3 changes
+# seen per edge), note block (-1,-2), O(0,-2) into PBM. K3: O(4,0) watches PMR, note block (4,-1),
+# O(3,-1) into (2,-1) (QC of PBR).
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  H minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  a minecraft:observer[facing=east,powered=false]
+  b minecraft:observer[facing=west,powered=false]
+  c minecraft:observer[facing=up,powered=false]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  M minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer -2:
+  .MbUU..
+layer -1:
+  .c...aM
+layer 0:
+  E.HHH.c
+layer 1:
+  E.HHH.W
+layer 2:
+  c.HHH.W
+layer 3:
+  B....W.
+layer 4:
+  cbDD...
+layer 5:
+  NaaD...

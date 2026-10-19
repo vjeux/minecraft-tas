@@ -1,0 +1,10 @@
+design designs/piston-door-3x3/tracks/box72/wip/m2w.txt
+box -3 -3 0 5 1 0
+use -3 4 0
+quiet 37
+set 4 -1 0 minecraft:redstone_block
+set -1 -2 0 minecraft:redstone_block
+changes 2
+clear 4 -1 0
+clear -1 -2 0
+changes 20

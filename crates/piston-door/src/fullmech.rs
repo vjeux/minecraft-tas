@@ -59,6 +59,7 @@ impl FPc {
         let k = match p.k {
             K::Stone => FK::Stone,
             K::Obsidian => FK::Obsidian,
+            K::Redstone => FK::RedstoneBlock,
             K::Piston { sticky, f, ext } => FK::Piston { sticky, f, ext },
         };
         FPc { x: p.x, y: p.y, k }

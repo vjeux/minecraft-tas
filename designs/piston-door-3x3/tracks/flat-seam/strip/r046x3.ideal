@@ -1,0 +1,89 @@
+# Strip door, 3 rows of the row mechanism r046 (explore/families ROWS: NE(-4) NE(-2) SW(4) SW(5)
+# SW(6), door at x 0..2), every row driven by ideal inputs BEHIND the plane (z = 1), so the three
+# rows are independent. Open: E6 D4 C2 C2 D4 C3 E6 D5 C4 (piston by its rest cell, fired at its
+# current cell); close: A-4 B-2 C4.
+design designs/piston-door-3x3/tracks/flat-seam/strip/r046x3.txt
+let s1 = 0
+let s2 = 6
+let s3 = 12
+let s4 = 18
+let s5 = 24
+let s6 = 30
+let s7 = 36
+let s8 = 42
+let s9 = 48
+let c1 = 0
+let c2 = 6
+let c3 = 12
+open s1 set 6 0 1 minecraft:redstone_block
+open s1+2 clear 6 0 1
+open s2 set 4 0 1 minecraft:redstone_block
+open s2+2 clear 4 0 1
+open s3 set 2 0 1 minecraft:redstone_block
+open s3+2 clear 2 0 1
+open s4 set 2 0 1 minecraft:redstone_block
+open s4+2 clear 2 0 1
+open s5 set 4 0 1 minecraft:redstone_block
+open s5+2 clear 4 0 1
+open s6 set 3 0 1 minecraft:redstone_block
+open s6+2 clear 3 0 1
+open s7 set 6 0 1 minecraft:redstone_block
+open s7+2 clear 6 0 1
+open s8 set 5 0 1 minecraft:redstone_block
+open s8+2 clear 5 0 1
+open s9 set 4 0 1 minecraft:redstone_block
+open s9+2 clear 4 0 1
+open s1 set 6 1 1 minecraft:redstone_block
+open s1+2 clear 6 1 1
+open s2 set 4 1 1 minecraft:redstone_block
+open s2+2 clear 4 1 1
+open s3 set 2 1 1 minecraft:redstone_block
+open s3+2 clear 2 1 1
+open s4 set 2 1 1 minecraft:redstone_block
+open s4+2 clear 2 1 1
+open s5 set 4 1 1 minecraft:redstone_block
+open s5+2 clear 4 1 1
+open s6 set 3 1 1 minecraft:redstone_block
+open s6+2 clear 3 1 1
+open s7 set 6 1 1 minecraft:redstone_block
+open s7+2 clear 6 1 1
+open s8 set 5 1 1 minecraft:redstone_block
+open s8+2 clear 5 1 1
+open s9 set 4 1 1 minecraft:redstone_block
+open s9+2 clear 4 1 1
+open s1 set 6 2 1 minecraft:redstone_block
+open s1+2 clear 6 2 1
+open s2 set 4 2 1 minecraft:redstone_block
+open s2+2 clear 4 2 1
+open s3 set 2 2 1 minecraft:redstone_block
+open s3+2 clear 2 2 1
+open s4 set 2 2 1 minecraft:redstone_block
+open s4+2 clear 2 2 1
+open s5 set 4 2 1 minecraft:redstone_block
+open s5+2 clear 4 2 1
+open s6 set 3 2 1 minecraft:redstone_block
+open s6+2 clear 3 2 1
+open s7 set 6 2 1 minecraft:redstone_block
+open s7+2 clear 6 2 1
+open s8 set 5 2 1 minecraft:redstone_block
+open s8+2 clear 5 2 1
+open s9 set 4 2 1 minecraft:redstone_block
+open s9+2 clear 4 2 1
+close c1 set -4 0 1 minecraft:redstone_block
+close c1+2 clear -4 0 1
+close c2 set -2 0 1 minecraft:redstone_block
+close c2+2 clear -2 0 1
+close c3 set 4 0 1 minecraft:redstone_block
+close c3+2 clear 4 0 1
+close c1 set -4 1 1 minecraft:redstone_block
+close c1+2 clear -4 1 1
+close c2 set -2 1 1 minecraft:redstone_block
+close c2+2 clear -2 1 1
+close c3 set 4 1 1 minecraft:redstone_block
+close c3+2 clear 4 1 1
+close c1 set -4 2 1 minecraft:redstone_block
+close c1+2 clear -4 2 1
+close c2 set -2 2 1 minecraft:redstone_block
+close c2+2 clear -2 2 1
+close c3 set 4 2 1 minecraft:redstone_block
+close c3+2 clear 4 2 1

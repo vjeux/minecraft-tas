@@ -19,6 +19,45 @@ pub enum Support {
 
 // ---------------------------------------------------------------------- static properties
 
+/// Has any collision shape (blocks a walking player; the judge's `collides` flag).
+pub fn collides(s: &Block) -> bool {
+    match *s {
+        Block::Air
+        | Block::Wire { .. }
+        | Block::Torch { .. }
+        | Block::WallTorch { .. }
+        | Block::Lever { .. }
+        | Block::Button { .. }
+        | Block::Rail { .. } => false,
+        // an open fence gate has no collision box
+        Block::FenceGate { open, .. } => !open,
+        _ => true,
+    }
+}
+
+/// `isCollisionShapeFullBlock` (the judge's `full` flag: a door cell must be a full cube).
+pub fn full_cube(s: &Block) -> bool {
+    match *s {
+        Block::Simple(x) => x.full() && !matches!(x, Simple::SoulSand | Simple::HoneyBlock),
+        Block::Glazed { .. }
+        | Block::RedstoneBlock
+        | Block::Observer { .. }
+        | Block::Lamp { .. }
+        | Block::Bulb { .. }
+        | Block::Note { .. }
+        | Block::Target { .. }
+        | Block::Dispenser { .. }
+        | Block::Crafter { .. }
+        | Block::RespawnAnchor { .. }
+        | Block::Log { .. }
+        | Block::Leaves { .. }
+        | Block::Falling { .. } => true,
+        Block::Slab { kind } => kind == 2,
+        Block::Piston { extended, .. } => !extended,
+        _ => false,
+    }
+}
+
 /// `BlockState.isSolid()` (`calculateSolid`): forced on, or a collision box whose mean size is
 /// at least 0.7291666 (a 3 px slab is exactly that) or a full block tall.
 pub fn is_solid(s: &Block) -> bool {
@@ -39,7 +78,13 @@ pub fn is_solid(s: &Block) -> bool {
 }
 
 /// `isRedstoneConductor`.
+/// `isRedstoneConductor` (every modeled block's predicate depends on the state alone).
 pub fn is_conductor(_w: &World, s: &Block, _p: BlockPos) -> bool {
+    conductor_of(s)
+}
+
+/// `isRedstoneConductor` without a world (for static models: the search tools' enumerators).
+pub fn conductor_of(s: &Block) -> bool {
     match *s {
         Block::Simple(x) => x.conductor(),
         Block::Glazed { .. } | Block::Lamp { .. } | Block::Note { .. } | Block::Target { .. } | Block::Dispenser { .. } | Block::Crafter { .. } => true,
@@ -52,7 +97,17 @@ pub fn is_conductor(_w: &World, s: &Block, _p: BlockPos) -> bool {
 }
 
 /// `isFaceSturdy(level, pos, face, support)`: the block's support shape covers that face.
-pub fn sturdy(_w: &World, s: &Block, _p: BlockPos, face: Dir, support: Support) -> bool {
+pub fn sturdy(w: &World, s: &Block, p: BlockPos, face: Dir, support: Support) -> bool {
+    match *s {
+        // pistons' collision boxes (a retracting base keeps its extended box): pistmodel
+        Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy_at(w, s, p, face, support),
+        _ => sturdy_of(s, face, support),
+    }
+}
+
+/// `isFaceSturdy` without a world (for static models; a moving piston's box needs its block
+/// entity, see `sturdy`).
+pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
     match *s {
         Block::Simple(Simple::HoneyBlock) => face == Dir::Down && support == Support::Center,
         Block::Simple(x) => x.full(),
@@ -95,7 +150,7 @@ pub fn sturdy(_w: &World, s: &Block, _p: BlockPos, face: Dir, support: Support) 
         Block::Cake { bites } => face == Dir::Down && support == Support::Center && bites <= 2,
         Block::EndPortalFrame { eye, .. } => face == Dir::Down || (eye && face == Dir::Up && support == Support::Center),
         Block::Composter { .. } => face != Dir::Up || support == Support::Rigid,
-        Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy_at(_w, s, _p, face, support),
+        Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         _ => false,
     }
 }
@@ -301,7 +356,6 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::Door { .. } => indicator::door_update_shape(w, s, p, d, ns),
         Block::FenceGate { .. } => indicator::gate_update_shape(s, d),
         Block::Leaves { .. } => leaves::update_shape(w, s, p, ns),
-        Block::Falling { .. } => crate::gravity::update_shape(w, s, p, d, np, ns), // pistmodel
         // CakeBlock: falls off a non-solid floor
         Block::Cake { .. } => {
             if d == Dir::Down && !is_solid(&w.get(p.below())) {
@@ -310,6 +364,7 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
                 s
             }
         }
+        Block::Falling { .. } => crate::gravity::update_shape(w, s, p, d, np, ns), // pistmodel
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::update_shape(w, s, p, d, np, ns),
         _ => s,
     }

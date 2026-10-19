@@ -14,13 +14,21 @@ must be SEAMLESS, target FULL + hallway.
 
 | design | volume | blocks | seamless | lever open/close | repeater open/close | what |
 |---|---|---|---|---|---|---|
-| **[fl81n](fl81n.txt)** (BEST) | **81 (9x9x1)** | 45 | FULL + hallway | 52/48 | 53/49 | seamless's flat43-full + note block in the lever cell, lever on its east face (in-plane): flat, slime-free, rotation-safe |
+| **[fl72m](fl72m.txt)** (BEST) | **72 (8x9x1)** | **50** | FULL + hallway | 34/34 | 35/35 | flat-seam's 49-block e89b + note block in the lever cell, lever on its west face (in-plane): flat, slime-free, rotation-safe |
+| [fl72f](fl72f.txt) | 72 (8x9x1) | 52 | FULL + hallway | 34/34 | 35/35 | fl72n sped up: an observer -> iron trapdoor (`--objective total`) |
+| [fl72n](fl72n.txt) | 72 (8x9x1) | 52 | FULL + hallway | 36/36 | 37/37 | flat-seam's 51-block e89 + note block in the lever cell, lever on its west face (in-plane) |
+| [fl80m](fl80m.txt) | 80 (8x10x1) | 48 | FULL + hallway | 34/34 | 35/35 | seamless's 47-block flat-b-v7-full + note block in the lever cell, lever on its west face (in-plane) |
+| [fl80f](fl80f.txt) | 80 (8x10x1) | 51 | FULL + hallway | 30/30 | 31/31 | fl80n sped up: an observer -> iron trapdoor (`--objective total`) |
+| [fl80n](fl80n.txt) | 80 (8x10x1) | 51 | FULL + hallway | 32/32 | 33/33 | seamless's 50-block flat-b-v7-full + note block, lever on its west face |
+| [fl81f](fl81f.txt) | 81 (9x9x1) | 44 | FULL + hallway | 48/44 | 49/45 | fl81m sped up: two observers of the y=4 chain -> note block + iron trapdoor (`--objective total`) |
+| [fl81m](fl81m.txt) | 81 (9x9x1) | 44 | FULL + hallway | 52/48 | 53/49 | fl81n minus a dust the note block made redundant (`--objective volume`) |
+| [fl81n](fl81n.txt) | 81 (9x9x1) | 45 | FULL + hallway | 52/48 | 53/49 | seamless's flat43-full + note block in the lever cell, lever on its east face (in-plane) |
 | s55 + note (work/relever-flat) | 90 (9x10x1) | 56 | FULL + hallway | 40/40 | 41/41 | flat-seam's s55 the same way |
 | [fv58n](fv58n.txt) | 100 (10x10x1) | 58 | FULL + hallway | 42/42 | 43/43 | flat-v2-57b + note block, lever on its east face |
+| [s4ff](s4ff.txt) (fastest) | 210 (7x10x3) | 49 | FULL + hallway | **24/18** | **25/19** | seamless's s4-full + note block, then `--objective total`: an observer -> iron trapdoor, a repeater 3 -> 2 |
 | [f45n](f45n.txt) | 280 (7x10x4) | 45 | FULL + hallway | 36/28 | 37/29 | seamless's e41-full + note block |
 | [b39n](b39n.txt) | 252 (7x9x4) | 39 | QUART z+ (no longer counts) | 36/32 | 37/33 | sf-holdA b38 + note block: the fewest blocks |
 | [w43n](w43n.txt) | 252 (7x9x4) | 43 | QUART | 28/24 | 29/25 | wire19sf w42 + note block |
-| hA43-full + note, s4-full + note (work/relever-seam) | | 49 | FULL | 24/24, 26/20 | 25/25, 27/21 | the fastest eligible FULL doors so far |
 
 Every row passes, at all 32 judge positions: the judge, the rotation check, props-dyn's
 repeater-input rig on both edges, props-dyn's hallway, the lever's place, and props-dyn's other
@@ -82,12 +90,48 @@ the wrong one the judge fails "not back to its rest state").
 
 ## Searches that found nothing
 
+- fl80m (80, 48 blocks): `minimize --moves all --plateau --walk 12 --eligible --seamless full+hall`
+  (48 is a local minimum), `--objective total` with delays/subs/moves/singles and with swaps (no
+  faster variant), `resynth --fit` without the top row y=5 (its 4 blocks, re-grown with up to 3
+  more inside the box: nothing). The bottom row holds the note block (the lever's support, never
+  moved) and the right column the right pistons.
 - b39n: `minimize --moves all --plateau --eligible` (39 is a local minimum), `resynth --eligible
   --max-size 4` (nothing), `regrow --size 3 --eligible` (stopped: volume became the target).
 - f45n: `minimize --moves all --plateau --eligible --seamless full+hall`: 45 is a local minimum.
+- fl81m box repairs (resynth inside a smaller box, the cut groups re-grown with up to 3 more
+  blocks, max size 4, `--eligible --seamless full+hall`; same idea as main's `resynth --fit`):
+  without the left column x=-3 (a dropper toggle -> observer -> stone feeding the middle-left
+  piston F(-2,1): its only in-plane neighbors are that column, the pistons above and below and
+  the ring cell) nothing; without the top row y=6 (the delay-4 repeater chain) nothing. The right
+  column holds the note block (lever support, not removable) and the bottom row the bottom piston.
+
+## Next ideas
+
+- Every FULL + hallway flat door converts with `relever` at +1 block and the same volume (the note
+  block takes the lever's cell, which was already inside the box): run `door relever --branches
+  --seamless full+hall` on each new flat record, then `minimize --eligible --seamless full+hall`
+  (`--objective volume`, then `--objective total`): fl81n lost a block that way, fl81m/fl80n/s4-full
+  got 2-6 ticks faster (an observer of a chain turned into an iron trapdoor or a note block: those
+  toggle in the same tick, an observer stage costs 2).
+- The +1 block is avoidable only by designing doors that read the lever's support from the start
+  (a note block, a piston or a plain block read by dust as the support); a `--support-only`
+  constraint on the routers (route, route2, mech-wire) would build them that way.
+- The fc2 / rb / fast-clean families do not convert: their lever cell feeds readers through both
+  the support's strong power and the lever's own weak power with different timings; they are QUART
+  anyway and would need a FULL redesign first.
+- Sculk doors could become eligible with wool between the sensors and the hallway (3.9: isolated);
+  not tried (sculk ranks apart and none is FULL).
+- Volume below 80 needs a new mechanism: the flat side-piston family needs the side pistons two
+  cells from the opening plus a wiring column outside them (8-9 wide), and the top/bottom pistons
+  plus their wiring rows (9-10 high).
 
 ## Log
 - 19:30Z merged explore/props + explore/props-dyn on top of the coordinator's local main.
 - 19:52Z b39n (39, QUART): the first eligible solid door.
 - 20:13Z merged origin/main 9728b29 (seamless's --seamless filter).
 - 20:17Z f45n (45, FULL + hallway). 20:29Z fv58n (volume 100, FULL). 20:33Z fl81n (volume 81, FULL).
+- 20:40Z fl81m (81, 44 blocks). 20:56Z fl81f (81, 48/44). 21:00Z fl80n (volume 80, FULL, 32/32):
+  the smallest eligible door. 21:02Z s4ff (24/18): the fastest eligible FULL door. 21:06Z fl80f
+  (80, 30/30). 21:09Z fl80m (80, 48 blocks: seamless's 47-block flat-b-v7-full + note block).
+  21:37Z fl72n (72, 8x9x1: flat-seam's e89 + note block). 21:40Z fl72f (72, 34/34). 21:44Z fl72m
+  (72, 50 blocks: flat-seam's 49-block e89b + note block).

@@ -1,0 +1,93 @@
+[    8.3s] start: 50 blocks, open 32 / close 32
+[   17.8s] the start design is rotation-safe: replacements must stay rotation-safe (--any-rotation to allow others)
+[   29.0s] --fit: 5 removable blocks outside the box: (-2,5,0) (-1,5,0) (0,5,0) (1,5,0) (2,5,0)
+[   29.0s] 50 blocks: 29 removable, 168 groups of 2..6
+[   29.2s]   group [(-2,5,0)obse] -> <= 3 blocks: 1 circuits in 0.2s
+[   29.2s]   group [(-1,5,0)obse] -> <= 3 blocks: 1 circuits in 0.0s
+[   29.7s]   group [(0,5,0)drop] -> <= 3 blocks: 2 circuits in 0.5s
+[   29.7s]   group [(1,5,0)obse] -> <= 3 blocks: 0 circuits in 0.0s
+[   29.7s]   group [(2,5,0)smoo] -> <= 3 blocks: 0 circuits in 0.0s
+[   31.0s]   group [(-2,4,0)repe (-2,5,0)obse] -> <= 4 blocks: 68 circuits in 1.3s
+[   32.3s]   group [(-2,4,0)repe (-1,5,0)obse] -> <= 4 blocks: 620 circuits in 1.3s
+[   32.8s]   group [(-2,5,0)obse (-1,4,0)smoo] -> <= 4 blocks: 556 circuits in 0.5s
+[   32.8s]   group [(-2,5,0)obse (-1,5,0)obse] -> <= 4 blocks: 3 circuits in 0.0s
+[   33.0s]   group [(-1,4,0)smoo (0,5,0)drop] -> <= 4 blocks: 166 circuits in 0.2s
+[   33.1s]   group [(-1,4,0)smoo (-1,5,0)obse] -> <= 4 blocks: 155 circuits in 0.1s
+[   33.1s]   group [(-1,5,0)obse (0,5,0)drop] -> <= 4 blocks: 2 circuits in 0.0s
+[   33.1s]   group [(0,5,0)drop (1,5,0)obse] -> <= 4 blocks: 2 circuits in 0.0s
+[   33.1s]   group [(1,5,0)obse (2,5,0)smoo] -> <= 4 blocks: 0 circuits in 0.0s
+[   33.2s]   group [(2,5,0)smoo (3,4,0)drop] -> <= 4 blocks: 8 circuits in 0.0s
+[   34.0s]   group [(-2,3,0)smoo (-2,4,0)repe (-2,5,0)obse] -> <= 5 blocks: 670 circuits in 0.8s
+[   38.5s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,5,0)obse] -> <= 5 blocks: 6708 circuits in 4.5s
+[   41.8s]   group [(-2,3,0)smoo (-2,5,0)obse (-1,4,0)smoo] -> <= 5 blocks: 6027 circuits in 3.2s
+[   44.4s]   group [(-2,3,0)smoo (-1,4,0)smoo (0,5,0)drop] -> <= 5 blocks: 6559 circuits in 2.6s
+[   46.5s]   group [(-2,3,0)smoo (-1,4,0)smoo (-1,5,0)obse] -> <= 5 blocks: 5725 circuits in 2.1s
+[   47.9s]   group [(-2,4,0)repe (-2,5,0)obse (-1,3,0)obse] -> <= 5 blocks: 5063 circuits in 1.4s
+[   50.0s]   group [(-2,4,0)repe (-1,3,0)obse (-1,5,0)obse] -> <= 5 blocks: 7772 circuits in 2.1s
+[   51.5s]   group [(-2,4,0)repe (-2,5,0)obse (-1,4,0)smoo] -> <= 5 blocks: 3709 circuits in 1.4s
+[   52.3s]   group [(-2,4,0)repe (-2,5,0)obse (-1,5,0)obse] -> <= 5 blocks: 2000 circuits in 0.8s
+[   54.2s]   group [(-2,4,0)repe (-1,4,0)smoo (0,5,0)drop] -> <= 5 blocks: 5269 circuits in 1.9s
+[   56.0s]   group [(-2,4,0)repe (-1,4,0)smoo (-1,5,0)obse] -> <= 5 blocks: 4675 circuits in 1.8s
+[   56.9s]   group [(-2,4,0)repe (-1,5,0)obse (0,5,0)drop] -> <= 5 blocks: 2232 circuits in 0.9s
+[   57.7s]   group [(-2,5,0)obse (-1,3,0)obse (-1,4,0)smoo] -> <= 5 blocks: 3188 circuits in 0.8s
+[   58.1s]   group [(-2,5,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 5 blocks: 1502 circuits in 0.4s
+[   58.4s]   group [(-2,5,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 5 blocks: 1403 circuits in 0.4s
+[   58.5s]   group [(-2,5,0)obse (-1,5,0)obse (0,5,0)drop] -> <= 5 blocks: 5 circuits in 0.0s
+[   58.7s]   group [(-1,3,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 5 blocks: 863 circuits in 0.2s
+[   58.8s]   group [(-1,3,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 5 blocks: 687 circuits in 0.2s
+[   58.9s]   group [(-1,4,0)smoo (-1,5,0)obse (0,5,0)drop] -> <= 5 blocks: 161 circuits in 0.0s
+[   58.9s]   group [(-1,4,0)smoo (0,5,0)drop (1,5,0)obse] -> <= 5 blocks: 166 circuits in 0.0s
+[   58.9s]   group [(-1,5,0)obse (0,5,0)drop (1,5,0)obse] -> <= 5 blocks: 2 circuits in 0.0s
+[   58.9s]   group [(0,5,0)drop (1,5,0)obse (2,5,0)smoo] -> <= 5 blocks: 2 circuits in 0.0s
+[   59.0s]   group [(1,5,0)obse (2,5,0)smoo (3,4,0)drop] -> <= 5 blocks: 35 circuits in 0.0s
+[   59.0s]   group [(2,5,0)smoo (3,4,0)drop (4,4,0)obse] -> <= 5 blocks: 34 circuits in 0.0s
+[   59.1s]   group [(2,5,0)smoo (3,4,0)drop (4,3,0)obse] -> <= 5 blocks: 494 circuits in 0.1s
+[   76.4s]   group [(-2,3,0)smoo (-2,4,0)repe (-2,5,0)obse (-1,3,0)obse] -> <= 6 blocks: 54641 circuits in 17.1s
+[   83.7s]     size 5: 18963 candidates screened in 5.2s, 2 passed the screen
+[  100.9s]     size 6: 62082 candidates screened in 17.1s, 28 passed the screen
+[  101.0s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,3,0)obse (-1,5,0)obse] -> <= 6 blocks: 87802 circuits in 24.4s
+[  105.5s]     size 5: 10700 candidates screened in 3.3s, 2 passed the screen
+[  114.4s]     size 6: 27578 candidates screened in 8.9s, 11 passed the screen
+[  114.5s]   group [(-2,3,0)smoo (-2,5,0)obse (-1,3,0)obse (-1,4,0)smoo] -> <= 6 blocks: 41314 circuits in 13.3s
+[  127.2s]   group [(-2,3,0)smoo (-1,3,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 6 blocks: 41941 circuits in 12.5s
+[  130.9s]     size 5: 9181 candidates screened in 2.7s, 2 passed the screen
+[  137.9s]     size 6: 23564 candidates screened in 7.0s, 9 passed the screen
+[  138.0s]   group [(-2,3,0)smoo (-1,3,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 6 blocks: 35295 circuits in 10.5s
+[  152.9s]   group [(-2,3,0)smoo (-2,4,0)repe (-2,5,0)obse (-1,4,0)smoo] -> <= 6 blocks: 34566 circuits in 14.8s
+[  161.5s]   group [(-2,3,0)smoo (-2,4,0)repe (-2,5,0)obse (-1,5,0)obse] -> <= 6 blocks: 19458 circuits in 8.5s
+[  182.7s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,4,0)smoo (0,5,0)drop] -> <= 6 blocks: 50103 circuits in 21.0s
+[  201.7s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,4,0)smoo (-1,5,0)obse] -> <= 6 blocks: 44571 circuits in 18.9s
+[  212.1s]   group [(-2,3,0)smoo (-2,4,0)repe (-1,5,0)obse (0,5,0)drop] -> <= 6 blocks: 23634 circuits in 10.3s
+[  217.5s]   group [(-2,3,0)smoo (-2,5,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 6 blocks: 16031 circuits in 5.4s
+[  222.7s]   group [(-2,3,0)smoo (-2,5,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 6 blocks: 14975 circuits in 5.1s
+[  228.1s]   group [(-2,3,0)smoo (-1,4,0)smoo (-1,5,0)obse (0,5,0)drop] -> <= 6 blocks: 15551 circuits in 5.3s
+[  233.7s]   group [(-2,3,0)smoo (-1,4,0)smoo (0,5,0)drop (1,5,0)obse] -> <= 6 blocks: 16031 circuits in 5.6s
+[  241.2s]   group [(-2,4,0)repe (-2,5,0)obse (-1,3,0)obse (-1,4,0)smoo] -> <= 6 blocks: 26186 circuits in 7.3s
+[  245.8s]   group [(-2,4,0)repe (-2,5,0)obse (-1,3,0)obse (-1,5,0)obse] -> <= 6 blocks: 16076 circuits in 4.5s
+[  255.4s]   group [(-2,4,0)repe (-1,3,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 6 blocks: 33032 circuits in 9.3s
+[  263.3s]   group [(-2,4,0)repe (-1,3,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 6 blocks: 28836 circuits in 7.7s
+[  268.5s]   group [(-2,4,0)repe (-1,3,0)obse (-1,5,0)obse (0,5,0)drop] -> <= 6 blocks: 16862 circuits in 5.2s
+[  274.1s]   group [(-2,4,0)repe (-2,5,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 6 blocks: 13975 circuits in 5.5s
+[  279.4s]   group [(-2,4,0)repe (-2,5,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 6 blocks: 13434 circuits in 5.2s
+[  280.2s]   group [(-2,4,0)repe (-2,5,0)obse (-1,5,0)obse (0,5,0)drop] -> <= 6 blocks: 2000 circuits in 0.8s
+[  285.9s]   group [(-2,4,0)repe (-1,4,0)smoo (-1,5,0)obse (0,5,0)drop] -> <= 6 blocks: 15183 circuits in 5.6s
+[  291.6s]   group [(-2,4,0)repe (-1,4,0)smoo (0,5,0)drop (1,5,0)obse] -> <= 6 blocks: 15393 circuits in 5.6s
+[  292.4s]   group [(-2,4,0)repe (-1,5,0)obse (0,5,0)drop (1,5,0)obse] -> <= 6 blocks: 2232 circuits in 0.9s
+[  294.4s]   group [(-2,5,0)obse (-1,3,0)obse (-1,4,0)smoo (0,5,0)drop] -> <= 6 blocks: 7775 circuits in 1.9s
+[  295.9s]   group [(-2,5,0)obse (-1,3,0)obse (-1,4,0)smoo (-1,5,0)obse] -> <= 6 blocks: 6191 circuits in 1.4s
+[  296.2s]   group [(-2,5,0)obse (-1,4,0)smoo (-1,5,0)obse (0,5,0)drop] -> <= 6 blocks: 1457 circuits in 0.3s
+[  296.6s]   group [(-2,5,0)obse (-1,4,0)smoo (0,5,0)drop (1,5,0)obse] -> <= 6 blocks: 1502 circuits in 0.4s
+[  296.6s]   group [(-2,5,0)obse (-1,5,0)obse (0,5,0)drop (1,5,0)obse] -> <= 6 blocks: 5 circuits in 0.0s
+[  296.8s]   group [(-1,3,0)obse (-1,4,0)smoo (-1,5,0)obse (0,5,0)drop] -> <= 6 blocks: 780 circuits in 0.2s
+[  297.0s]   group [(-1,3,0)obse (-1,4,0)smoo (0,5,0)drop (1,5,0)obse] -> <= 6 blocks: 863 circuits in 0.2s
+[  297.0s]   group [(-1,4,0)smoo (-1,5,0)obse (0,5,0)drop (1,5,0)obse] -> <= 6 blocks: 161 circuits in 0.0s
+[  297.1s]   group [(-1,4,0)smoo (0,5,0)drop (1,5,0)obse (2,5,0)smoo] -> <= 6 blocks: 166 circuits in 0.0s
+[  297.1s]   group [(-1,5,0)obse (0,5,0)drop (1,5,0)obse (2,5,0)smoo] -> <= 6 blocks: 2 circuits in 0.0s
+[  297.1s]   group [(0,5,0)drop (1,5,0)obse (2,5,0)smoo (3,4,0)drop] -> <= 6 blocks: 170 circuits in 0.0s
+[  297.2s]   group [(1,5,0)obse (2,5,0)smoo (3,4,0)drop (4,4,0)obse] -> <= 6 blocks: 139 circuits in 0.0s
+[  297.7s]   group [(1,5,0)obse (2,5,0)smoo (3,4,0)drop (4,3,0)obse] -> <= 6 blocks: 1979 circuits in 0.5s
+[  298.0s]   group [(2,5,0)smoo (3,4,0)drop (4,3,0)obse (4,4,0)obse] -> <= 6 blocks: 1123 circuits in 0.3s
+[  303.9s]     size 5: 12110 candidates screened in 3.7s, 2 passed the screen
+[  322.6s]     size 6: 53401 candidates screened in 18.7s, 14 passed the screen
+[  379.7s]     size 7: 176046 candidates screened in 57.1s, 73 passed the screen
+[  380.0s]   group [(-2,3,0)smoo (-2,4,0)repe (-2,5,0)obse (-1,3,0)obse (-1,4,0)smoo] -> <= 7 blocks: 244616 circuits in 80.7s

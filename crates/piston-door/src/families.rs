@@ -37,6 +37,8 @@ const AIR: u8 = 0;
 const DOOR: u8 = 1;
 const STONE: u8 = 2;
 const OBS: u8 = 3;
+/// A redstone block (strip track): pushable, powers the pistons beside it (not through their front).
+const RB: u8 = 4;
 const BODY: u8 = 16;
 const HEAD: u8 = 48;
 /// East, west, up, down (mechsynth's D indices 0..3).
@@ -65,6 +67,8 @@ pub enum K {
     Obsidian,
     /// f: 0 E, 1 W, 2 U, 3 D.
     Piston { sticky: bool, f: u8, ext: bool },
+    /// A redstone block carried in the row line (strip track, `--rblocks`).
+    Redstone,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
@@ -79,6 +83,7 @@ impl Pc {
         match self.k {
             K::Stone => format!("stone({},{})", self.x, self.y),
             K::Obsidian => format!("obsidian({},{})", self.x, self.y),
+            K::Redstone => format!("R({},{})", self.x, self.y),
             K::Piston { sticky, f, ext } => format!("{}{}{}({},{})", if sticky { "S" } else { "N" }, FNAME[f as usize], if ext { "+" } else { "" }, self.x, self.y),
         }
     }
@@ -139,7 +144,21 @@ pub struct Mech {
     pub pid: Vec<usize>,
     /// Extended (powered) at rest, by piston id.
     pub ext_rest: Vec<bool>,
+    /// Cells a piston may not act from (strip track's `--forbid-fire`: door-plane x columns
+    /// that no wiring can reach); empty = no restriction.
+    pub forbid: Vec<bool>,
+    /// The mechanism has redstone blocks: pistons next to one (not through their front) are
+    /// powered, and every state is settled (powered pistons extend, unpowered ones retract).
+    pub has_r: bool,
 }
+
+/// `families --rows --forbid-fire`: x columns (door coordinates) no piston may fire from.
+pub static FORBID_X: std::sync::OnceLock<Vec<i8>> = std::sync::OnceLock::new();
+/// `families --rows --rblocks N`: redstone blocks per row candidate.
+pub static RMAX: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+/// `families --rows --r-both`: a redstone block powers the pistons on BOTH sides, front included
+/// (lockstep rows 0 and 1: the block in the row above quasi-powers both neighbours).
+pub static RBOTH: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct E {
@@ -180,6 +199,7 @@ impl Mech {
             match p.k {
                 K::Stone => g[bx.idx(p.x, p.y)] = STONE,
                 K::Obsidian => g[bx.idx(p.x, p.y)] = OBS,
+                K::Redstone => g[bx.idx(p.x, p.y)] = RB,
                 K::Piston { sticky, f, ext } => {
                     let id = info.len();
                     if id >= 16 {
@@ -199,7 +219,28 @@ impl Mech {
             }
         }
         let ext_rest: Vec<bool> = (0..info.len()).map(|id| pow & (1 << id) != 0).collect();
-        Some((Mech { bx, pieces, info, pid, ext_rest }, St { g, pow, pp }))
+        let forbid = match FORBID_X.get() {
+            Some(xs) if !xs.is_empty() => (0..bx.n()).map(|i| xs.contains(&bx.xy(i).0)).collect(),
+            _ => Vec::new(),
+        };
+        let has_r = pieces.iter().any(|p| matches!(p.k, K::Redstone));
+        let mut m = Mech { bx, pieces, info, pid, ext_rest, forbid, has_r };
+        let mut st = St { g, pow, pp };
+        if has_r {
+            // a piston held out at rest by a redstone block beside it is not wired: no level bit
+            for id in 0..m.info.len() {
+                if m.ext_rest[id] && m.rpow(&st, id) {
+                    st.pow &= !(1u16 << id);
+                    m.ext_rest[id] = false;
+                }
+            }
+            // the rest state must already be settled (pistons beside a block extended)
+            let mut t = st.clone();
+            if !m.settle(&mut t) || t != st {
+                return None;
+            }
+        }
+        Some((m, st))
     }
 
     fn step(&self, i: usize, f: u8) -> Option<usize> {
@@ -216,7 +257,7 @@ impl Mech {
 
     fn pushable(&self, s: &St, c: u8) -> bool {
         match c {
-            DOOR | STONE => true,
+            DOOR | STONE | RB => true,
             OBS => false,
             c if (BODY..HEAD).contains(&c) => !self.ext(s, (c - BODY) as usize),
             _ => false,
@@ -274,6 +315,79 @@ impl Mech {
         let bit = 1u16 << id;
         let powered = s.pow & bit != 0;
         let ext = self.ext(s, id);
+        if !self.forbid.is_empty() && self.forbid[p] {
+            return Out::Illegal;
+        }
+        if self.has_r && self.rpow(s, id) {
+            return Out::Illegal; // driven by its redstone block, not by wiring
+        }
+        let out = self.apply_raw(s, e, id, sticky, f, p, bit, powered, ext);
+        match out {
+            Out::Ok(mut n) if self.has_r => {
+                if self.settle(&mut n) { Out::Ok(n) } else { Out::Illegal }
+            }
+            o => o,
+        }
+    }
+
+    /// Is piston `id` powered by a redstone block beside it (its back; with `--r-both` also its
+    /// front)?
+    pub fn rpow(&self, s: &St, id: usize) -> bool {
+        let (_, f) = self.info[id];
+        let p = s.pp[id] as usize;
+        let both = RBOTH.get().copied().unwrap_or(false);
+        for d in 0..4u8 {
+            if d == f && !both {
+                continue;
+            }
+            if let Some(j) = self.step(p, d) {
+                if s.g[j] == RB {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Settle a state with redstone blocks: a piston powered (level bit or a block beside it)
+    /// and retracted extends if it can; one unpowered and extended retracts (sticky pull). False
+    /// = a move out of the box or no fixpoint.
+    pub fn settle(&self, s: &mut St) -> bool {
+        for _ in 0..32 {
+            let mut changed = false;
+            for id in 0..self.info.len() {
+                let (sticky, f) = self.info[id];
+                let p = s.pp[id] as usize;
+                let eff = s.pow & (1 << id) != 0 || self.rpow(s, id);
+                let ext = self.ext(s, id);
+                if eff && !ext {
+                    match self.push_list(s, self.step(p, f), f) {
+                        Err(true) => return false,
+                        Err(false) => {}
+                        Ok(list) => {
+                            self.move_list(s, &list, f);
+                            s.g[self.step(p, f).unwrap()] = HEAD + id as u8;
+                            changed = true;
+                        }
+                    }
+                } else if !eff && ext {
+                    let h = self.step(p, f).unwrap();
+                    s.g[h] = AIR;
+                    if sticky {
+                        self.pull(s, p, f);
+                    }
+                    changed = true;
+                }
+            }
+            if !changed {
+                return true;
+            }
+        }
+        false
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn apply_raw(&self, s: &St, e: E, id: usize, sticky: bool, f: u8, p: usize, bit: u16, powered: bool, ext: bool) -> Out {
         let mut n = s.clone();
         match e.act {
             Act::L => {
@@ -405,6 +519,7 @@ impl Mech {
                     DOOR => '#',
                     STONE => 's',
                     OBS => 'O',
+                    RB => 'R',
                     c if (BODY..HEAD).contains(&c) => {
                         let (sticky, f) = self.info[(c - BODY) as usize];
                         let ch = ['>', '<', '^', 'v'][f as usize];
@@ -574,6 +689,110 @@ pub fn solve(m: &Mech, rest: &St, cap: usize, levels: bool) -> Result<Option<Sol
 
 /// A* in the pulse model (for candidates whose pulse graph is too big to enumerate):
 /// Ok(Some) = a real solution; Err(()) = not found within the cap (still unresolved).
+/// Exhaustive reachability of an open state in the pulse model with a compact visited set (box
+/// cells + levels, boxes up to 64 cells): Ok(true) = some open state is reachable, Ok(false) =
+/// PROVEN none (the whole pulse graph explored), Err(()) = cap.
+pub fn reach_open(m: &Mech, rest: &St, cap: usize) -> Result<bool, ()> {
+    let n = m.bx.n();
+    if n > 64 {
+        return Err(());
+    }
+    let key = |s: &St| -> ([u8; 64], u16) {
+        let mut k = [0u8; 64];
+        k[..n].copy_from_slice(&s.g[..n]);
+        (k, s.pow)
+    };
+    let evs = m.events_pulse();
+    let mut seen: HashSet<([u8; 64], u16)> = HashSet::new();
+    seen.insert(key(rest));
+    let mut q: VecDeque<St> = VecDeque::from([rest.clone()]);
+    while let Some(s) = q.pop_front() {
+        for &e in &evs {
+            let Out::Ok(nx) = m.apply(&s, e) else { continue };
+            if m.is_open(&nx) {
+                return Ok(true);
+            }
+            if seen.insert(key(&nx)) {
+                if seen.len() > cap {
+                    return Err(());
+                }
+                q.push_back(nx);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// `--resolve <file> --boxes WxH`: the unresolved candidates of a run (one per line: box x0 y0
+/// then the pieces), re-checked by exhaustive reachability with a bigger cap.
+pub fn resolve_cli(path: &std::path::Path, w: i8, h: i8, cap: usize, threads: usize) -> Result<()> {
+    let text = std::fs::read_to_string(path)?;
+    let parse = |tok: &str| -> Result<Pc> {
+        let (head, rest) = tok.split_once('(').context("piece")?;
+        let (xs, ys) = rest.trim_end_matches(')').split_once(',').context("piece xy")?;
+        let mut ch = head.chars();
+        let sticky = ch.next() == Some('S');
+        let f = match ch.next() {
+            Some('E') => 0,
+            Some('W') => 1,
+            Some('U') => 2,
+            _ => 3,
+        };
+        Ok(Pc { x: xs.parse()?, y: ys.parse()?, k: K::Piston { sticky, f, ext: head.ends_with('+') } })
+    };
+    let mut items: Vec<(Bx, Vec<Pc>)> = Vec::new();
+    for line in text.lines().filter(|l| !l.trim().is_empty()) {
+        let t: Vec<&str> = line.split_whitespace().collect();
+        let bx = Bx { x0: t[0].parse()?, y0: t[1].parse()?, w, h };
+        let v: Vec<Pc> = t[2..].iter().map(|s| parse(s)).collect::<Result<_>>()?;
+        items.push((bx, v));
+    }
+    let t0 = std::time::Instant::now();
+    let (proven, open, capped) = (AtomicUsize::new(0), Mutex::new(Vec::new()), AtomicUsize::new(0));
+    let next = AtomicUsize::new(0);
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= items.len() {
+                    break;
+                }
+                let (bx, v) = &items[i];
+                let Some((m, rest)) = Mech::new(*bx, v) else { continue };
+                match reach_open(&m, &rest, cap) {
+                    Ok(false) => {
+                        proven.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Ok(true) => open.lock().unwrap().push(i),
+                    Err(()) => {
+                        capped.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            });
+        }
+    });
+    let open = open.into_inner().unwrap();
+    println!(
+        "{} candidates: {} PROVEN to have no open state (whole pulse graph), {} reach an open state, {} still over the cap ({cap}) ({:.0}s)",
+        items.len(),
+        proven.load(Ordering::Relaxed),
+        open.len(),
+        capped.load(Ordering::Relaxed),
+        t0.elapsed().as_secs_f64()
+    );
+    for i in open {
+        let (bx, v) = &items[i];
+        let Some((m, rest)) = Mech::new(*bx, v) else { continue };
+        let r = solve_pulse_astar(&m, &rest, cap.min(2_000_000));
+        println!("  open reachable: {} {} {} -> open+close: {}", bx.x0, bx.y0, v.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "), match r {
+            Ok(Some(s)) => format!("YES ({} + {})", s.open.len(), s.close.len()),
+            Ok(None) => "no".into(),
+            Err(()) => "unknown (cap)".into(),
+        });
+    }
+    Ok(())
+}
+
 pub fn solve_pulse_astar(m: &Mech, rest: &St, cap: usize) -> Result<Option<Sol>, ()> {
     solve_levels(m, rest, cap, &m.events_pulse()).map(|o| {
         o.map(|mut s| {
@@ -1199,6 +1418,8 @@ pub struct Entry {
     pub free_cells: usize,
     pub ring_quasi: usize,
     pub wire: Wire,
+    /// Track box56's `door topology` verdict: strict / permissive / no.
+    pub topo: String,
     pub verified: Option<String>,
     /// The pieces as solved in `bx` (the canonical form or its mirror image).
     pub orient: Vec<Pc>,
@@ -1488,6 +1709,7 @@ pub fn to_world(m: &Mech) -> (World, Vec<u8>) {
         let k = match p.k {
             K::Stone => Kind::Stone,
             K::Obsidian => Kind::Obsidian,
+            K::Redstone => Kind::Stone,
             K::Piston { sticky, f, ext } => Kind::Piston { sticky, f, ext },
         };
         b.push(([p.x, p.y, 0], k));
@@ -1505,6 +1727,15 @@ pub fn to_world(m: &Mech) -> (World, Vec<u8>) {
         })
         .collect();
     (w, map)
+}
+
+/// Track box56's `door topology` verdict for a solved mechanism in its box.
+pub fn topology_of(m: &Mech, sol: &Sol) -> String {
+    let (wld, map) = to_world(m);
+    let msol = mechsynth::Solution { open: ms_seq(&map, &sol.open), close: ms_seq(&map, &sol.close), sym: sol.sym.as_ref().map(|s| ms_seq(&map, s)), states: 0 };
+    let bx = m.bx;
+    let t = crate::topology::analyze(&wld, &msol, [bx.x0, bx.y0], [bx.x0 + bx.w - 1, bx.y0 + bx.h - 1]);
+    (if t.strict { "strict" } else if t.permissive { "permissive" } else if t.memory { "memory" } else { "no" }).to_string()
 }
 
 pub fn ms_seq(map: &[u8], s: &[E]) -> Vec<Ev> {
@@ -1533,7 +1764,48 @@ pub struct Opts {
 
 /// `--check <design>`: the mechanism of a design (wiring dropped) solved in its own bounding
 /// box grown by `margin`: open/close schedules, symmetric train, extent.
-pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize) -> Result<()> {
+/// `--check <design> --verify`: write the checked mechanism's ideal-input plans (separate open/close
+/// schedules, and the symmetric train when there is one) to `out_dir/ideal/` and replay each in the
+/// simulator (`door ideal` format: the files can be edited and re-run by hand).
+pub struct CheckVerify {
+    pub version: String,
+    pub out_dir: std::path::PathBuf,
+    pub gap: u32,
+    pub extra: u32,
+    pub name: String,
+}
+
+fn verify_one(v: &CheckVerify, m: &Mech, sol: &Sol, sym: Option<&Vec<E>>) -> Result<()> {
+    let cfg = mctas::sim::WorkerConfig { version: v.version.clone(), heap_mb: 768, ..Default::default() };
+    let pool = mctas::sim::Pool::spawn(1, &cfg)?;
+    let mut wk = pool.worker(0);
+    let (w, map) = to_world(m);
+    let msol = mechsynth::Solution { open: ms_seq(&map, &sol.open), close: ms_seq(&map, &sol.close), sym: sym.map(|s| ms_seq(&map, s)), states: 0 };
+    let dir = v.out_dir.join("ideal");
+    std::fs::create_dir_all(&dir)?;
+    for use_sym in [false, true] {
+        if use_sym && sym.is_none() {
+            continue;
+        }
+        let tag = if use_sym { "sym" } else { "oc" };
+        let name = format!("{}-{tag}", v.name);
+        let plan = mechsynth::ideal_plan(&w, &msol, use_sym, v.gap, &name)?;
+        let mut dd = plan.design.clone();
+        dd.name = name.clone();
+        let dpath = dir.join(format!("{name}.txt"));
+        dd.save(&dpath)?;
+        let text = plan.text.replace(&format!("design {name}.txt"), &format!("design {}", dpath.display()));
+        let ipath = dir.join(format!("{name}.ideal"));
+        std::fs::write(&ipath, text)?;
+        match mechsynth::verify_plan(&mut wk, &plan, v.extra) {
+            Ok(()) => println!("  {tag}: WORKS with ideal inputs ({} + {})", dpath.display(), ipath.display()),
+            Err(e) => println!("  {tag}: BROKEN with ideal inputs: {e:#} ({})", ipath.display()),
+        }
+    }
+    Ok(())
+}
+
+pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize, verify: Option<CheckVerify>) -> Result<()> {
     let d = crate::cli::load_design(path)?;
     let w = mechsynth::world_of_design(&d)?;
     let mut pieces = Vec::new();
@@ -1587,13 +1859,33 @@ pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize) -> 
             match best_sym(&m, &rest, &sol, sym_cap, 6) {
                 Some((s, lv)) => {
                     println!("  sym {}{}: {}", s.len(), if lv { " (levels)" } else { " (pulses only)" }, m.fmt_seq(&s));
+                    if let Some(v) = &verify {
+                        verify_one(v, &m, &sol, Some(&s))?;
+                    }
                     sol.sym = Some(s);
                     sol.sym_levels = lv;
                 }
-                None => println!("  no symmetric train"),
+                None => {
+                    println!("  no symmetric train");
+                    if let Some(v) = &verify {
+                        verify_one(v, &m, &sol, None)?;
+                    }
+                }
             }
             let w = wiring(&m, &rest, &sol);
             println!("  wire {} regions {:?} forced {} riders {}: {}", w.class, w.regions, w.forced, w.riders, w.why);
+            println!("  topology: {}", topology_of(&m, &sol));
+            let (wld, map) = to_world(&m);
+            let msol = mechsynth::Solution { open: ms_seq(&map, &sol.open), close: ms_seq(&map, &sol.close), sym: sol.sym.as_ref().map(|s| ms_seq(&map, s)), states: 0 };
+            for symq in [true, false] {
+                if symq && msol.sym.is_none() {
+                    continue;
+                }
+                match mechsynth::ideal_plan(&wld, &msol, symq, 6, "check") {
+                    Ok(p) => println!("  ideal plan ({}): {} input events", if symq { "sym" } else { "oc" }, p.events.len()),
+                    Err(e) => println!("  ideal plan ({}): FAILS: {e:#}", if symq { "sym" } else { "oc" }),
+                }
+            }
         }
         Ok(None) => println!("does not open (FULL seamless) and close in the macro model"),
         Err(()) => println!("state cap hit"),
@@ -1707,6 +1999,7 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
         // model); what it does not solve stays UNRESOLVED (reported per box)
         let capped_list = capped_list.into_inner().unwrap();
         let unresolved = AtomicUsize::new(0);
+        let unresolved_list: Mutex<Vec<String>> = Mutex::new(Vec::new());
         let next = AtomicUsize::new(0);
         std::thread::scope(|s| {
             for _ in 0..o.threads.max(1) {
@@ -1722,6 +2015,7 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                             Ok(None) => {}
                             Err(()) => {
                                 unresolved.fetch_add(1, Ordering::Relaxed);
+                                unresolved_list.lock().unwrap().push(format!("{} {} {}", bx.x0, bx.y0, v.iter().map(|p| p.code()).collect::<Vec<_>>().join(" ")));
                             }
                         }
                     }
@@ -1729,6 +2023,13 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
             }
         });
         let unresolved = unresolved.load(Ordering::Relaxed);
+        {
+            let mut v = unresolved_list.into_inner().unwrap();
+            v.sort();
+            let dir = o.out_dir.join("unresolved");
+            std::fs::create_dir_all(&dir)?;
+            std::fs::write(dir.join(format!("{w}x{h}.txt")), v.join("\n") + "\n")?;
+        }
         let capped = AtomicUsize::new(unresolved);
         let found = found.into_inner().unwrap();
         log(&format!("{w}x{h}: {} open+close ({} candidates unresolved: pulse graph over the cap and A* found nothing), minimizing", found.len(), capped.load(Ordering::Relaxed)));
@@ -1778,7 +2079,8 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                                 let np = n_pistons(&vv);
                                 let sticky = vv.iter().filter(|p| matches!(p.k, K::Piston { sticky: true, .. })).count();
                                 let wire = wiring(&m, &rest, &sol);
-                                got = Some(Entry { pieces: v.clone(), w, h, bx, sol, rest_clean: m.rest_ring_clean(&rest), pistons: np, sticky, free_cells: free, ring_quasi: rq, verified: None, orient: vv.clone(), wire });
+                                let topo = topology_of(&m, &sol);
+                                got = Some(Entry { pieces: v.clone(), w, h, bx, sol, rest_clean: m.rest_ring_clean(&rest), pistons: np, sticky, free_cells: free, ring_quasi: rq, verified: None, orient: vv.clone(), wire, topo });
                                 break;
                             }
                         }
@@ -1862,7 +2164,12 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
         'C' => 2,
         _ => 3,
     };
-    list.sort_by_key(|e| ((e.w as i32) * (e.h as i32), e.w.max(e.h), e.w, wrank(e.wire.class), e.wire.forced, std::cmp::Reverse(e.wire.regions.first().copied().unwrap_or(0)), e.pistons, e.sol.sym.as_ref().map_or(99, |s| s.len()), e.sol.open.len() + e.sol.close.len()));
+    let trank = |t: &str| match t {
+        "strict" => 0,
+        "permissive" => 1,
+        _ => 2,
+    };
+    list.sort_by_key(|e| ((e.w as i32) * (e.h as i32), e.w.max(e.h), e.w, trank(&e.topo), wrank(e.wire.class), e.wire.forced, std::cmp::Reverse(e.wire.regions.first().copied().unwrap_or(0)), e.pistons, e.sol.sym.as_ref().map_or(99, |s| s.len()), e.sol.open.len() + e.sol.close.len()));
     let mut md = String::new();
     md.push_str("# Flat (1-wide) seamless 3x3 door mechanisms: the catalog per box\n\n");
     md.push_str("Generated by `mctas door families` (crates/piston-door/src/families.rs). Do not edit by hand.\n\n");
@@ -1873,18 +2180,18 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
         if o.pushes { "" } else { " (pushes off)" },
         o.cap
     ));
-    md.push_str("Columns: box (W x H, door offset = columns left of / rows below the door), pistons (sticky), rest-ring = no piston/head in the ring at rest (the strict reading), sym = one pulse train for both lever edges (P = 2 gt pulse, L = level toggle; `+L` = needs levels), free = box cells the mechanism never touches (room for wiring), rq = pistons whose quasi-connectivity cell (above) is in the ring or the 3x3, wire = wiring feasibility (track box56's quadrant + parity argument, automated: free cells minus the ring, the swept cells and the cells behind open holes split into REGIONS; a piston is fed from a region touching it or the cell above it (QC) at every place it fires; a region with pistons only it can feed but no lever needs a LINK: a changing mechanism cell next to it an observer can watch, whose pulse count per lever edge must be odd where a piston there needs an odd count. Class A = one region feeds every piston; B = links needed, each with the right parity; C = some region only gets even links (needs a pulse merger, designs/gadgets/pulse-merge on explore/flat-seam); X = a piston no free cell feeds, or a region with no link), sim = `door ideal` replay with ideal inputs (oc = separate open/close schedules, sym = the shared train). Within a box, rows are ranked by wire class, forced regions, largest region, pistons, train length.\n\n");
+    md.push_str("Columns: box (W x H, door offset = columns left of / rows below the door), pistons (sticky), rest-ring = no piston/head in the ring at rest (the strict reading), topology = track box56's `door topology` (crates/piston-door/src/topology.rs) on the entry in its box: `strict` = wirable with links that carry their exact pulse parity (memoryless observers + pulse mergers); `permissive` = also when 3+ events may chain-merge into an odd count; `memory` = also with MEMORY links (a waxed copper bulb T flip-flop + comparator, 2 free cells, turns an even pulse count into one window); `no` = none of these (link types not modeled: piston/note-block latches reset on the other edge, sculk, entities), sym = one pulse train for both lever edges (P = 2 gt pulse, L = level toggle; `+L` = needs levels), free = box cells the mechanism never touches (room for wiring), rq = pistons whose quasi-connectivity cell (above) is in the ring or the 3x3, wire = wiring feasibility (track box56's quadrant + parity argument, automated: free cells minus the ring, the swept cells and the cells behind open holes split into REGIONS; a piston is fed from a region touching it or the cell above it (QC) at every place it fires; a region with pistons only it can feed but no lever needs a LINK: a changing mechanism cell next to it an observer can watch, whose pulse count per lever edge must be odd where a piston there needs an odd count. Class A = one region feeds every piston; B = links needed, each with the right parity; C = some region only gets even links (needs a pulse merger, designs/gadgets/pulse-merge on explore/flat-seam); X = a piston no free cell feeds, or a region with no link), sim = `door ideal` replay with ideal inputs (oc = separate open/close schedules, sym = the shared train). Within a box, rows are ranked by wire class, forced regions, largest region, pistons, train length.\n\n");
     md.push_str("| box | candidates | minimal mechanisms that fit | first fitting here | unresolved candidates |\n|---|---|---|---|---|\n");
     for (w, h, c, f, n, unres) in per_box {
         md.push_str(&format!("| {w}x{h} | {c} | {f} | {n} | {} |\n", if *unres == 0 { "0 (exhaustive within the bounds)".to_string() } else { format!("{unres} (pulse graph over the cap, A* found nothing)") }));
     }
     md.push('\n');
-    let mut tsv = String::from("id\tbox\tdoor_offset\tpistons\tsticky\trest_ring_clean\tsym_len\tsym_levels\topen_len\tclose_len\tfree_cells\tring_quasi\twire_class\tregions\tforced_regions\triders\twire_why\textent\tpieces\topen\tclose\tsym\tsim\tfiles\n");
+    let mut tsv = String::from("id\tbox\tdoor_offset\tpistons\tsticky\trest_ring_clean\tsym_len\tsym_levels\topen_len\tclose_len\tfree_cells\tring_quasi\twire_class\tregions\tforced_regions\triders\twire_why\textent\tpieces\topen\tclose\tsym\tsim\tfiles\ttopology\n");
     let mut cur_box = (0, 0);
     for (i, e) in list.iter().enumerate() {
         if (e.w, e.h) != cur_box {
             cur_box = (e.w, e.h);
-            md.push_str(&format!("\n## {}x{} (volume {})\n\n| id | offset | pistons | rest-ring | wire | sym | open/close | free | rq | pieces | sim |\n|---|---|---|---|---|---|---|---|---|---|---|\n", e.w, e.h, e.w as i32 * e.h as i32));
+            md.push_str(&format!("\n## {}x{} (volume {})\n\n| id | offset | pistons | rest-ring | topology | wire | sym | open/close | free | rq | pieces | sim |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n", e.w, e.h, e.w as i32 * e.h as i32));
         }
         let (m, _) = Mech::new(e.bx, &e.orient).unwrap();
         let sym = e.sol.sym.as_ref().map(|s| format!("{}{}: {}", s.len(), if e.sol.sym_levels { "+L" } else { "" }, m.fmt_seq(s))).unwrap_or("-".into());
@@ -1904,20 +2211,24 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
             if sym && msol.sym.is_none() {
                 continue;
             }
-            if let Ok(plan) = mechsynth::ideal_plan(&wld, &msol, sym, o.gap, &id) {
-                let tag = if sym { "sym" } else { "oc" };
-                let mut dd = plan.design.clone();
-                dd.name = format!("{id}-{tag}");
-                let dpath = mdir.join(format!("{id}-{tag}.txt"));
-                dd.save(&dpath)?;
-                let text = plan.text.replace(&format!("design {id}.txt"), &format!("design {}", dpath.display()));
-                std::fs::write(mdir.join(format!("{id}-{tag}.ideal")), text)?;
-                files.push(format!("mech/{id}-{tag}.ideal"));
+            match mechsynth::ideal_plan(&wld, &msol, sym, o.gap, &id) {
+                Ok(plan) => {
+                    let tag = if sym { "sym" } else { "oc" };
+                    let mut dd = plan.design.clone();
+                    dd.name = format!("{id}-{tag}");
+                    let dpath = mdir.join(format!("{id}-{tag}.txt"));
+                    dd.save(&dpath)?;
+                    let text = plan.text.replace(&format!("design {id}.txt"), &format!("design {}", dpath.display()));
+                    std::fs::write(mdir.join(format!("{id}-{tag}.ideal")), text)?;
+                    files.push(format!("mech/{id}-{tag}.ideal"));
+                }
+                Err(err) => files.push(format!("(no {} ideal plan: {})", if sym { "sym" } else { "oc" }, format!("{err:#}").replace(['\t', '|'], " "))),
             }
         }
         let files = files.join(" ");
+        let topo = e.topo.as_str();
         md.push_str(&format!(
-            "| {id} | {},{} | {} ({}) | {} | {} | {} | {}/{} | {} | {} | `{}` | {} |\n",
+            "| {id} | {},{} | {} ({}) | {} | {topo} | {} | {} | {}/{} | {} | {} | `{}` | {} |\n",
             -e.bx.x0,
             -e.bx.y0,
             e.pistons,
@@ -1933,7 +2244,7 @@ fn write_catalog(o: &Opts, entries: &BTreeMap<Vec<Pc>, Entry>, per_box: &[(i8, i
             e.verified.clone().unwrap_or("-".into())
         ));
         tsv.push_str(&format!(
-            "{id}\t{}x{}\t{},{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:?}\t{}\t{}\t{}\t{:?}\t{}\t{}\t{}\t{}\t{}\t{files}\n",
+            "{id}\t{}x{}\t{},{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:?}\t{}\t{}\t{}\t{:?}\t{}\t{}\t{}\t{}\t{}\t{files}\t{topo}\n",
             e.w,
             e.h,
             -e.bx.x0,
@@ -1991,7 +2302,18 @@ pub fn row_candidates(a: i8, b: i8, kmax: usize) -> Vec<Vec<Pc>> {
         }
         let x = cells[i];
         rec(i + 1, cells, lo, hi, kmax, cur, occ, out);
-        if occ.contains(&x) || cur.len() >= kmax {
+        if occ.contains(&x) {
+            return;
+        }
+        let nr = cur.iter().filter(|p| matches!(p.k, K::Redstone)).count();
+        if nr < RMAX.get().copied().unwrap_or(0) {
+            cur.push(Pc { x, y: 0, k: K::Redstone });
+            occ.insert(x);
+            rec(i + 1, cells, lo, hi, kmax, cur, occ, out);
+            cur.pop();
+            occ.remove(&x);
+        }
+        if cur.len() - nr >= kmax {
             return;
         }
         for sticky in [true, false] {
