@@ -21,20 +21,21 @@ report: [AUDIT.md](AUDIT.md); extracted mechanisms in catalog format: [MECH.tsv]
 * c79's only failing check was the repeater-input rig (lever left off -> 'not open'): fixed for both
   repeater implementations (4c483b9): c79 is record-ELIGIBLE (x32, 15/15).
 * Lever polarity was still hard-coded in minimize's lever moves, `door relever` (9b1074d), cosearch's
-  screen (main; fixed on cosearch2), cosearch's lever placement (fixed on explore/audit-cslever),
-  satwire (fixed on explore/satwire), boxproof and mech-wire (handed off).
+  screen, satwire and boxproof (all three fixed on main by their tracks after the report: satwire's
+  c79 check went from 157/485 piston-tick mismatches to 0/482), and mech-wire (handed off).
 * Periodic rest (main 96a62d6) mirrored into ideal, props-dyn, the local-search screen, the redsim
-  screen and the tile judge (one commit each).
+  screen and the tile judge (one commit each); cosearch's screen got it on main (pockets).
 * The redsim judge rejected EVERY gravity door (sand was not a full cube in `cosearch::full_cube`):
   fixed (088f15e).
-* cosearch's grid refused off-plane levers: added on explore/audit-cslever (f6de2a2), based on
-  explore/cosearch2 (its cosearch_search.rs is +1490 lines vs main).
+* cosearch's grid refused off-plane levers: added on explore/audit-cslever (f6de2a2); main took
+  pockets' parallel implementation (3d3f5c27).
 * Generators: c79 is outside families v3 / fullmech / mechspace default (retracted-only 1-move
   pullers), inside mechspace `--ext-pullers`; the solvers (macro and exact) solve its piece set.
   Over the archive: 65 flat doors are outside the generator under EVERY flag, for two bounds nobody
   had named: an extended-at-rest piston is never lifted / carried (Gen::providers `!ext`), and a
   piston that only acts away from its rest cell is never placed (reuse iterates placed pieces only).
-* connect accepts c79's mechanism in its real 7x9 placement; topology (heuristic) says no.
+* connect and topology accept c79 and all 68 flat archived doors in their own boxes (no exclusion);
+  `families --check` prints "topology: no" only because it runs in the mechanism's own box.
 
 ## Method notes
 * Mechanism extraction follows moving-block entities: a NEW entity has `progress_o == 0` (and the
@@ -59,7 +60,7 @@ report: [AUDIT.md](AUDIT.md); extracted mechanisms in catalog format: [MECH.tsv]
 ## Next ideas
 * Detect QC- and BUD-fired pistons in the extraction (power query at each firing tick) and check
   each wiring tool's model of them on real doors.
-* Run `door connect` / `door topology` in each door's own box for every archived flat door (done in
-  AUDIT.md's solver column) and treat any NOT as a model bug to fix.
 * Feed MECH.tsv's excluded mechanisms (fast-clean, hA, s4ff) to mechspace after the two generator
   bounds are relaxed, and to satwire / boxproof as known-answer tests.
+* Rerun `door audit` after every merge of a generator or wiring tool: a door that moves from IN to
+  OUT is a regression nobody would notice otherwise.
