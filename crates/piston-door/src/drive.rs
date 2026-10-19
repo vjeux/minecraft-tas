@@ -20,6 +20,12 @@
 //!
 //! Change log: `box x0 y0 z0 x1 y1 z1` sets a 3D watch box, `changes <n>` steps n ticks printing
 //! every block change inside it per tick, `mark <label>` prints a label and re-baselines the log.
+//!
+//! Block entities (item clocks): a design's `nbt:` lines are merged right after its raw paste
+//! (`design` and `place`); `place <path> [dx dy dz]` places like the clock judge WITHOUT settling
+//! (tick 0 = right after placement); `data x y z <snbt>` merges data now (the game's
+//! `data merge block`); `items x y z` prints a block entity's data; `probe_items <name> x y z`
+//! watches a container's total item count.
 
 use anyhow::{Context, Result, bail};
 use mctas::blockstate::BlockState;
@@ -132,6 +138,50 @@ pub struct DriveOutcome {
     pub failures: Vec<String>,
 }
 
+const PROBE_BLOCK: u8 = 0;
+const PROBE_SIGNAL: u8 = 1;
+const PROBE_ITEMS: u8 = 2;
+
+/// A `probe_items` value: the total item count of a container's data (`-` without a block
+/// entity, `?` when the data does not parse).
+pub fn items_value(nbt: Option<&str>) -> String {
+    use redsim::redstone::container::{Snbt, parse_snbt};
+    let Some(nbt) = nbt else { return "-".into() };
+    let Ok(Snbt::Compound(fields)) = parse_snbt(nbt) else { return "?".into() };
+    let mut total = 0i64;
+    for (k, v) in &fields {
+        if let (true, Snbt::List(items)) = (k == "Items", v) {
+            for it in items {
+                if let Snbt::Compound(f) = it {
+                    total += f.iter().find(|(k, _)| k == "count").map(|(_, v)| if let Snbt::Int(n) = v { *n } else { 0 }).unwrap_or(1);
+                }
+            }
+        }
+    }
+    total.to_string()
+}
+
+/// Place a design with block-entity data: the judge's sequence (`video.rs::place`: raw paste,
+/// wire shapes, a self update of every block, entities) with the `nbt:` lines merged right after
+/// the raw paste ([`mctas::design::apply_block_entities`]); `settle` steps until idle like the
+/// door judge, without it tick 0 is right after placement (clocks never settle).
+pub fn place_with_block_entities(w: &mut Worker, sb: u32, d: &Design, settle: bool) -> Result<()> {
+    let blocks = d.block_list();
+    w.set_blocks(sb, &blocks, PlaceMode::Raw)?;
+    mctas::design::apply_block_entities(w, sb, d)?;
+    let wires: Vec<Pos> = blocks.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
+    w.update(sb, &wires, "shape")?;
+    let positions: Vec<Pos> = blocks.iter().map(|(p, _)| *p).collect();
+    w.update(sb, &positions, "self")?;
+    if !d.entities.is_empty() {
+        w.summon(sb, &d.entities)?;
+    }
+    if settle {
+        w.step_until_idle(sb, 400)?;
+    }
+    Ok(())
+}
+
 /// Run a script; `verbose` prints planes and traces (otherwise only failures are reported).
 pub fn run(w: &mut Worker, script: &str) -> Result<DriveOutcome> {
     run_opts(w, script, true)
@@ -182,7 +232,8 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
     let mut tick = 0u32;
     let mut watch: Option<(Pos, Pos)> = None;
     let mut prev: Option<Region> = None;
-    let mut probes: Vec<(String, Pos, bool)> = Vec::new();
+    // Probe kinds: PROBE_BLOCK (the block's probe value), PROBE_SIGNAL, PROBE_ITEMS.
+    let mut probes: Vec<(String, Pos, u8)> = Vec::new();
     let mut out = DriveOutcome::default();
     let show = |w: &mut Worker, label: &str, plane: (i32, i32, i32, i32, i32), plane_x: Option<(i32, i32, i32, i32, i32)>| -> Result<()> {
         if let Some((x, z0, y0, z1, y1)) = plane_x {
@@ -199,19 +250,20 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
         let r = w.get_region(sb, p, p)?;
         Ok(r.get(p).unwrap_or("?").to_string())
     };
-    // A probe's value: the block's probe value, or for a `probe_signal` the best signal the
-    // cell's neighbors give into it (0-15: what a piston or lamp there would see).
-    let value = |w: &mut Worker, p: Pos, signal: bool| -> Result<String> {
-        if signal {
-            Ok(w.signals(sb, &[p])?.first().map(|s| s.0).unwrap_or(0).to_string())
-        } else {
-            Ok(probe_value(&read(w, p)?))
+    // A probe's value: the block's probe value, for a `probe_signal` the best signal the cell's
+    // neighbors give into it (0-15: what a piston or lamp there would see), for a `probe_items`
+    // the container's item count ([`items_value`]).
+    let value = |w: &mut Worker, p: Pos, kind: u8| -> Result<String> {
+        match kind {
+            PROBE_SIGNAL => Ok(w.signals(sb, &[p])?.first().map(|s| s.0).unwrap_or(0).to_string()),
+            PROBE_ITEMS => Ok(items_value(w.block_entities(sb, p, p)?.first().map(|b| b.nbt.as_str()))),
+            _ => Ok(probe_value(&read(w, p)?)),
         }
     };
-    let trace_line = |w: &mut Worker, probes: &[(String, Pos, bool)], tick: u32| -> Result<String> {
+    let trace_line = |w: &mut Worker, probes: &[(String, Pos, u8)], tick: u32| -> Result<String> {
         let mut line = format!("t={tick:<4}");
-        for (name, p, signal) in probes {
-            line.push_str(&format!(" {name}={}", value(w, *p, *signal)?));
+        for (name, p, kind) in probes {
+            line.push_str(&format!(" {name}={}", value(w, *p, *kind)?));
         }
         Ok(line)
     };
@@ -234,12 +286,44 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                 // behavior seen by the verifier; script coordinates stay design-relative only if
                 // you add the offset yourself.
                 let d = if parts.len() >= 5 { d.translated([int(2)?, int(3)?, int(4)?]) } else { d };
-                crate::video::place(w, sb, &d)?;
+                if d.block_entities.is_empty() {
+                    crate::video::place(w, sb, &d)?;
+                } else {
+                    place_with_block_entities(w, sb, &d, true)?;
+                }
                 if let Some((lo, hi)) = d.bounds() {
                     bx = Some(([lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3]));
                 }
                 if let Some(c) = collect.as_deref_mut() {
                     collect_cells(w, sb, bx, c)?;
+                }
+            }
+            // `place <path> [dx dy dz]`: place a design like the clock judge (raw paste, its
+            // `nbt:` block-entity data, wire shapes, self updates) WITHOUT settling: tick 0 is
+            // right after placement (a clock never settles).
+            "place" => {
+                let d: Design = crate::cli::load_design(std::path::Path::new(parts.get(1).context("place needs a design")?))?;
+                let d = if parts.len() >= 5 { d.translated([int(2)?, int(3)?, int(4)?]) } else { d };
+                place_with_block_entities(w, sb, &d, false)?;
+                if let Some((lo, hi)) = d.bounds() {
+                    bx = Some(([lo[0] - 3, lo[1] - 3, lo[2] - 3], [hi[0] + 3, hi[1] + 3, hi[2] + 3]));
+                }
+            }
+            // `data x y z <snbt>`: merge block-entity data now, exactly like the game's
+            // `data merge block x y z <snbt>` (container contents: setChanged notifies comparators).
+            "data" => {
+                let snbt = line.splitn(5, char::is_whitespace).nth(4).context("data needs x y z and SNBT")?.trim();
+                w.merge_block_entity(sb, pos(1)?, snbt)?;
+            }
+            // `items x y z`: print the block entity's data there (container items, cooldown).
+            "items" => {
+                let p = pos(1)?;
+                let be = w.block_entities(sb, p, p)?;
+                if verbose {
+                    match be.first() {
+                        Some(b) => println!("  t={tick} {:?} {} {}", p, b.kind, b.nbt),
+                        None => println!("  t={tick} {p:?} no block entity"),
+                    }
                 }
             }
             "plane" => {
@@ -380,9 +464,14 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                     show(w, &format!("t={tick}"), plane, plane_x)?
                 }
             }
-            "probe" | "probe_signal" => {
+            "probe" | "probe_signal" | "probe_items" => {
                 let name = parts.get(1).context("probe needs a name")?.to_string();
-                probes.push((name, pos(2)?, parts[0] == "probe_signal"));
+                let kind = match parts[0] {
+                    "probe_signal" => PROBE_SIGNAL,
+                    "probe_items" => PROBE_ITEMS,
+                    _ => PROBE_BLOCK,
+                };
+                probes.push((name, pos(2)?, kind));
             }
             "trace" => {
                 if verbose {
@@ -426,7 +515,7 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                     // One character per tick: dust and signals are 0 or + (powered), others
                     // their probe value.
                     let c = match v.parse::<u32>() {
-                        Ok(n) if signal => if n > 0 { '+' } else { '0' },
+                        Ok(n) if signal == PROBE_SIGNAL => if n > 0 { '+' } else { '0' },
                         Ok(n) if v.len() > 1 || n > 1 => '+',
                         _ => v.chars().next().unwrap_or('?'),
                     };
@@ -475,6 +564,30 @@ fn run_in(w: &mut Worker, sb: u32, script: &str, verbose: bool, mut collect: Opt
                 }
                 if verbose {
                     println!("== {} (t={tick})", parts[1..].join(" "));
+                }
+            }
+            // `bechanges <n>`: step n ticks in one recorded request (`record.block_entities`) and
+            // print, per tick, every block entity inside the `box` whose data changed (container
+            // items, hopper cooldowns, comparator output signals).
+            "bechanges" => {
+                let (lo, hi) = watch.context("`bechanges` needs a `box x0 y0 z0 x1 y1 z1` first")?;
+                let n = int(1)? as u32;
+                let before = w.block_entities(sb, lo, hi)?;
+                let r = w.step_record_be(sb, n, false, lo, hi)?;
+                let mut last: std::collections::BTreeMap<Pos, String> = before.into_iter().map(|b| (b.pos, b.nbt)).collect();
+                for dump in &r.block_entities {
+                    tick += 1;
+                    let now = mctas::sim::parse_block_entities(dump)?;
+                    let mut diffs = Vec::new();
+                    for b in &now {
+                        if last.get(&b.pos) != Some(&b.nbt) {
+                            diffs.push(format!("{:?} {}", b.pos, b.nbt));
+                        }
+                    }
+                    if verbose && !diffs.is_empty() {
+                        println!("t={tick:<3} {}", diffs.join("\n      "));
+                    }
+                    last = now.into_iter().map(|b| (b.pos, b.nbt)).collect();
                 }
             }
             other => bail!("line {}: unknown script command {other}", lineno + 1),
