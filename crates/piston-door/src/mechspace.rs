@@ -1872,6 +1872,17 @@ pub fn layouts(paths: &[std::path::PathBuf], w: i8, h: i8) -> Result<BTreeMap<St
     Ok(g.into_iter().map(|(k, (n, r, _))| (k, (n, r))).collect())
 }
 
+/// `gencheck`: is `v` (its pistons) a generated candidate (mirror included), and how many
+/// candidates of the same box contain it?
+pub fn gen_member(cands: &[(Bx, Vec<Pc>)], bx: &Bx, v: &[Pc]) -> (bool, usize) {
+    let pist: Vec<Pc> = v.iter().copied().filter(|p| matches!(p.k, K::Piston { .. })).collect();
+    let c = families::canon(&pist);
+    let mir: Vec<Pc> = pist.iter().map(|p| p.mirror()).collect();
+    let exact = cands.iter().any(|(_, w)| families::canon(w) == c);
+    let sup = cands.iter().filter(|(b, w)| b == bx && (pist.iter().all(|p| w.contains(p)) || mir.iter().all(|p| w.contains(p)))).count();
+    (exact, sup)
+}
+
 /// The reach-matching condition alone (see `reach_ok`).
 pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
     let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();

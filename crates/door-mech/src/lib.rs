@@ -260,6 +260,13 @@ pub enum DoorCmd {
         /// Only this door offset "dx,dy" (columns left of / rows below the door).
         #[arg(long)]
         door_offset: Option<String>,
+        /// Generator: audit bound (a), extended-at-rest pistons reused lifted / carried.
+        #[arg(long)]
+        lift_ext: bool,
+        /// Generator: audit bound (b), with --carry: new provider pistons carried in from 1-2
+        /// cells beside their action cell.
+        #[arg(long)]
+        carry_in: bool,
         /// export: ticks between macro steps of the ideal plans.
         #[arg(long, default_value_t = 6)]
         gap: u32,
@@ -357,6 +364,17 @@ pub enum DoorCmd {
         /// Strip mode: a redstone block also powers the piston whose FRONT touches it.
         #[arg(long)]
         r_both: bool,
+        /// Extended-at-rest pullers for 1-move exits too (as mechspace --ext-pullers; c79 is in
+        /// the space only with it).
+        #[arg(long)]
+        ext_pullers: bool,
+        /// Audit bound (a): a piston extended at rest may be reused as a lifted / carried provider.
+        #[arg(long)]
+        lift_ext: bool,
+        /// Audit bound (b), with --carry: a new provider piston may rest 1-2 cells beside its
+        /// action cell and be carried there (fast-clean's shuttled SD(0,3)).
+        #[arg(long)]
+        carry_in: bool,
     },
     /// Mechanism synthesis (mechsynth.rs): enumerate up to --add blocks (pistons, slime...) on a
     /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
@@ -596,6 +614,13 @@ pub enum DoorCmd {
         /// Replay a `door ideal` plan in the solver's world for each --check design.
         #[arg(long)]
         replay_ideal: Option<PathBuf>,
+        /// Generated candidates: extended-at-rest pullers for 1-move exits too (families'
+        /// --ext-pullers).
+        #[arg(long)]
+        ext_pullers: bool,
+        /// Generated candidates: audit bound (a), extended-at-rest pistons reused lifted / carried.
+        #[arg(long)]
+        lift_ext: bool,
     },
 }
 
@@ -960,7 +985,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             let _ = &schedule;
         }
-        DoorCmd::Mechspace { cmd, boxes, input, pistons, cap, fcap, threads, cap_local, max_group, out_dir, tag, limit, two, carry, vmid, catalog, n, walk, astar, gap, workers, extra_offsets, cap_lean, no_door_bodies, full_frame, ext_pullers, bottom_su, frame9, door_offset } => {
+        DoorCmd::Mechspace { cmd, boxes, input, pistons, cap, fcap, threads, cap_local, max_group, out_dir, tag, limit, two, carry, vmid, catalog, n, walk, astar, gap, workers, extra_offsets, cap_lean, no_door_bodies, full_frame, ext_pullers, bottom_su, frame9, door_offset, lift_ext, carry_in } => {
+            crate::families::LIFT_EXT.store(lift_ext, std::sync::atomic::Ordering::Relaxed);
+            crate::families::CARRY_IN.store(carry_in, std::sync::atomic::Ordering::Relaxed);
             use crate::mechspace as ms;
             if no_door_bodies {
                 ms::NO_DOOR_BODIES.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -1227,10 +1254,26 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     std::fs::write(out_dir.join(format!("{t}.txt")), reps.join("\n") + "\n")?;
                     eprintln!("[mechspace layouts] {} layouts", groups.len());
                 }
+                "gencheck" => {
+                    // is each input mechanism (pistons only, or a superset) among the generator's
+                    // candidates with the flags given?
+                    let f = input.ok_or_else(|| anyhow::anyhow!("gencheck needs --input"))?;
+                    anyhow::ensure!(bxs.len() == 1, "gencheck needs one --boxes WxH");
+                    let items = ms::read_list(&f, bxs[0].0, bxs[0].1)?;
+                    let cands = ms::candidates(bxs[0].0, bxs[0].1, pistons, two, carry, &vm);
+                    eprintln!("[mechspace gencheck] {} candidates", cands.len());
+                    for (bx, v) in &items {
+                        let (exact, sup) = ms::gen_member(&cands, bx, v);
+                        println!("{}: exact {exact}, supersets {sup}", ms::line_of(bx, v));
+                    }
+                }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }
         }
-        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both } => {
+        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, ext_pullers, lift_ext, carry_in } => {
+            crate::families::EXT_PULLERS.store(ext_pullers, std::sync::atomic::Ordering::Relaxed);
+            crate::families::LIFT_EXT.store(lift_ext, std::sync::atomic::Ordering::Relaxed);
+            crate::families::CARRY_IN.store(carry_in, std::sync::atomic::Ordering::Relaxed);
             let vmid: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {
                 None => Vec::new(),
                 Some("ml") => vec![vec![(0, 1)]],
@@ -1343,7 +1386,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut w = Worker::spawn(&cfg)?;
             crate::obschain::run(&mut w, &spec, &out, max_paths, secs, shift, restarts)?;
         }
-        DoorCmd::Fullmech { check, boxes, pistons, two, vmid, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink, replay_ideal } => {
+        DoorCmd::Fullmech { check, boxes, pistons, two, vmid, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink, replay_ideal, ext_pullers, lift_ext } => {
+            crate::families::EXT_PULLERS.store(ext_pullers, std::sync::atomic::Ordering::Relaxed);
+            crate::families::LIFT_EXT.store(lift_ext, std::sync::atomic::Ordering::Relaxed);
             let boxes = match boxes {
                 Some(b) => crate::families::parse_boxes(&b)?,
                 None => Vec::new(),
