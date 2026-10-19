@@ -1,0 +1,16 @@
+name: pulse-pulse-extender-L2-3b-00
+# Pulse census (clk-obs pulse prototype on redsim, k = 3 + input): pulse-extender L=2 delay=2 min-pulse=1.
+circuit: pulse-extender
+origin: 0 0 1
+port output: -1 1 2
+port input: 0 1 0
+palette:
+  A minecraft:redstone_block
+  B minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  C minecraft:slime_block
+layer 0:
+  A
+  .
+layer 1:
+  B
+  C

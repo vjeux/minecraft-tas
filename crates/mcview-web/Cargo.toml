@@ -1,0 +1,55 @@
+[package]
+name = "mcview-web"
+description = "The in-browser contraption viewer (docs/webrender.md): mcview compiled to wasm with a DOM front end (thumbnails through one shared WebGL2 context, live redsim viewers). Built by `mctas web bundle`; empty on native targets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+mcview = { path = "../mcview" }
+wgpu = { version = "30", default-features = false, features = ["wgsl", "webgl", "std"] }
+wasm-bindgen = "=0.2.129"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "AddEventListenerOptions",
+    "CanvasRenderingContext2d",
+    "CssStyleDeclaration",
+    "CustomEvent",
+    "CustomEventInit",
+    "Document",
+    "DomRect",
+    "DomTokenList",
+    "Element",
+    "Event",
+    "EventTarget",
+    "HtmlButtonElement",
+    "HtmlCanvasElement",
+    "HtmlDivElement",
+    "HtmlElement",
+    "HtmlOptionElement",
+    "HtmlSelectElement",
+    "ImageBitmap",
+    "IntersectionObserver",
+    "IntersectionObserverEntry",
+    "IntersectionObserverInit",
+    "KeyboardEvent",
+    "MouseEvent",
+    "MutationObserver",
+    "MutationObserverInit",
+    "MutationRecord",
+    "Node",
+    "NodeList",
+    "Performance",
+    "PointerEvent",
+    "ResizeObserver",
+    "ResizeObserverEntry",
+    "Response",
+    "WheelEvent",
+    "Window",
+    "console",
+] }

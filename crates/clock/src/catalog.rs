@@ -183,7 +183,8 @@ pub fn now_utc() -> String {
 }
 
 /// The caption: the given one, else the design's first comment block.
-fn default_caption(text: &str) -> String {
+/// A design's caption: its first comment block.
+pub fn default_caption(text: &str) -> String {
     let mut lines = Vec::new();
     for l in text.lines() {
         let t = l.trim();

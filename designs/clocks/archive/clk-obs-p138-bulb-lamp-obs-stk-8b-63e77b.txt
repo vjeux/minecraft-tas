@@ -1,0 +1,26 @@
+# archived 2026-10-19T23:18Z from designs/clocks/tracks/clk-obs/families9/p138-bulb-lamp-obs-stk-8b-63e77b.txt by mctas clock archive
+# CLOCK: clk-obs-p138-bulb-lamp-obs-stk-8b-63e77b period 138 gt (6.9 s), on 60/138, edges 30, warmup 27, family copper_bulb+observer+redstone_lamp+sticky_piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p138-bulb-lamp-obs-stk-8b-63e77b
+# clk-obs grow: P=138 (redsim), family observer+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  B
+  A
+layer 1:
+  C
+  D
+  E
+layer 2:
+  .
+  B
+  F
