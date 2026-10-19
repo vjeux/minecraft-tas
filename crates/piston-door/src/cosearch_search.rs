@@ -38,6 +38,9 @@ pub struct SearchArgs {
     /// Moves only in these cells (door coordinates `x0,y0:x1,y1`, inclusive), default the box.
     #[arg(long)]
     pub focus: Option<String>,
+    /// Moves only in these cells (door coordinates `x,y;x,y;...`), overrides --focus.
+    #[arg(long)]
+    pub focus_cells: Option<String>,
     /// Move the lever: `x,y` in door coordinates (it is re-hung on the block it touches first:
     /// the block above (ceiling lever), below (floor), west or east (wall)).
     #[arg(long)]
@@ -72,6 +75,10 @@ pub struct SearchArgs {
     /// still be added (moving power sources, relays).
     #[arg(long)]
     pub lock_pistons: bool,
+    /// Let the lever move too (to any empty cell next to a block, inside or around the box: the
+    /// community volume excludes the lever), hung on that block.
+    #[arg(long)]
+    pub lever_moves: bool,
     /// Shaping: a working door whose piston schedule the candidates should follow (each piston
     /// extension / retraction of the reference, same cell, within `--ref-slack` ticks, earns
     /// `--ref-weight` points; a perfect screen still only needs the door checks).
@@ -121,6 +128,8 @@ pub struct Grid {
     pub h: i32,
     pub z: i32,
     pub cells: Vec<Block>,
+    /// The lever's cell (world x, y); it may move (`--lever-moves`).
+    pub lever: (i32, i32),
 }
 
 impl Grid {
@@ -174,6 +183,7 @@ pub struct Problem {
     pub reference: Vec<Event>,
     pub ref_slack: u32,
     pub ref_weight: f64,
+    pub lever_moves: bool,
 }
 
 /// A piston starting to extend or retract: (phase, extending, cell, tick).
@@ -447,7 +457,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
         }
     }
     pts -= 2 * unsupported;
-    let lever = cs::bp(spec.lever);
+    let lever = BlockPos::new(g.lever.0, g.lever.1, g.z);
     if !matches!(w.get(lever), Block::Lever { powered: false, .. }) {
         return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
     }
@@ -605,6 +615,9 @@ fn refaced(b: &Block, rng: &mut Rng) -> Option<Block> {
 
 /// One random move at `at` (or a random focus cell). Returns the cell when something changed.
 fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>) -> Option<(i32, i32)> {
+    if p.lever_moves && at.is_none() && rng.below(25) == 0 {
+        return move_lever(p, g, rng).then_some(g.lever);
+    }
     let (x, y) = match at {
         Some(c) if p.free.contains(&c) => c,
         _ => p.free[rng.below(p.free.len())],
@@ -614,6 +627,9 @@ fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>) -> O
 
 fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool {
     let cur = g.get(x, y);
+    if (x, y) == g.lever {
+        return false;
+    }
     if matches!(cur, Block::PistonHead { .. }) {
         return false;
     }
@@ -671,6 +687,12 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
         let (nx, ny) = (x + d[0], y + d[1]);
         let other = g.get(nx, ny);
         if !p.free.contains(&(nx, ny)) || other == cur || head_of(&cur, x, y).is_some() || head_of(&other, nx, ny).is_some() || matches!(other, Block::PistonHead { .. }) {
+            return false;
+        }
+        if !p.mech && (is_piston(&cur) || is_piston(&other)) {
+            return false;
+        }
+        if (nx, ny) == g.lever {
             return false;
         }
         g.set(x, y, other);
@@ -734,7 +756,7 @@ fn grid_from_door(door: &RsDoor, p: &Problem) -> Result<Grid> {
     let gy = p.lo[1] - 2;
     let w = p.hi[0] - p.lo[0] + 5;
     let h = p.hi[1] - p.lo[1] + 5;
-    let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize] };
+    let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize], lever: (door.spec.lever[0], door.spec.lever[1]) };
     let lever = door.spec.lever;
     for (q, b) in &door.blocks {
         anyhow::ensure!(q[2] == z, "not flat: {q:?}");
@@ -777,6 +799,24 @@ fn place_lever(g: &mut Grid, x: i32, y: i32) {
         Block::Lever { face: Face::Wall, facing: Dir::West, powered: false }
     };
     g.set(x, y, lever);
+    g.lever = (x, y);
+}
+
+/// Move the lever to a random empty cell next to a block (inside the box or around it: the
+/// community volume excludes the lever), hung on that block.
+fn move_lever(p: &Problem, g: &mut Grid, rng: &mut Rng) -> bool {
+    let (x, y) = (rng.below((p.hi[0] - p.lo[0] + 3) as usize) as i32 + p.lo[0] - 1, rng.below((p.hi[1] - p.lo[1] + 3) as usize) as i32 + p.lo[1] - 1);
+    if (x, y) == g.lever || !g.get(x, y).is_air() || p.door_cells.contains(&(x, y)) {
+        return false;
+    }
+    let solid = |b: Block| !b.is_air() && !matches!(b, Block::Lever { .. } | Block::Wire { .. } | Block::Torch { .. } | Block::WallTorch { .. } | Block::PistonHead { .. });
+    if ![(0, 1), (0, -1), (1, 0), (-1, 0)].iter().any(|(dx, dy)| solid(g.get(x + dx, y + dy))) {
+        return false;
+    }
+    let (ox, oy) = g.lever;
+    g.set(ox, oy, Block::Air);
+    place_lever(g, x, y);
+    true
 }
 
 /// Drop the blocks that pop at placement (a dust or a repeater whose floor was cut away).
@@ -825,47 +865,23 @@ fn enumerate(p: &Problem, seed: &Grid, k: usize, keep: usize, threads: usize, sh
             s.spawn(|| {
                 let mut local: Vec<(Score, Grid)> = Vec::new();
                 loop {
-                    let i = next.fetch_add(1, Ordering::Relaxed);
-                    if i >= n || sh.stop.load(Ordering::Relaxed) {
+                    let wi = next.fetch_add(1, Ordering::Relaxed);
+                    if wi >= n * pal.len() || sh.stop.load(Ordering::Relaxed) {
                         break;
                     }
+                    // one work item = the first changed cell and its new block
+                    let (i, bi) = (wi / pal.len(), wi % pal.len());
                     let (x1, y1) = cells[i];
-                    for b1 in &pal {
+                    {
+                        let b1 = &pal[bi];
                         let mut g1 = seed.clone();
                         if g1.get(x1, y1) == *b1 || !clear(&mut g1, x1, y1) {
                             continue;
                         }
                         g1.set(x1, y1, *b1);
                         consider(&g1, &mut local);
-                        if k < 2 {
-                            continue;
-                        }
-                        for &(x2, y2) in &cells[i + 1..] {
-                            for b2 in &pal {
-                                let mut g2 = g1.clone();
-                                if g2.get(x2, y2) == *b2 || matches!(g2.get(x2, y2), Block::PistonHead { .. }) || !clear(&mut g2, x2, y2) {
-                                    continue;
-                                }
-                                g2.set(x2, y2, *b2);
-                                consider(&g2, &mut local);
-                                if k < 3 {
-                                    continue;
-                                }
-                                let j = cells.iter().position(|c| *c == (x2, y2)).unwrap();
-                                for &(x3, y3) in &cells[j + 1..] {
-                                    if sh.stop.load(Ordering::Relaxed) {
-                                        break;
-                                    }
-                                    for b3 in &pal {
-                                        let mut g3 = g2.clone();
-                                        if g3.get(x3, y3) == *b3 || matches!(g3.get(x3, y3), Block::PistonHead { .. }) || !clear(&mut g3, x3, y3) {
-                                            continue;
-                                        }
-                                        g3.set(x3, y3, *b3);
-                                        consider(&g3, &mut local);
-                                    }
-                                }
-                            }
+                        if k >= 2 {
+                            enum_rec(&g1, &cells, i + 1, k - 1, &pal, sh, &mut |g| consider(g, &mut local));
                         }
                     }
                 }
@@ -878,6 +894,28 @@ fn enumerate(p: &Problem, seed: &Grid, k: usize, keep: usize, threads: usize, sh
         }
     });
     best.into_inner().unwrap()
+}
+
+/// Every way to change `k` more cells among `cells[start..]` (each to a palette block other than
+/// its current one), depth first.
+fn enum_rec(g: &Grid, cells: &[(i32, i32)], start: usize, k: usize, pal: &[Block], sh: &Shared, consider: &mut dyn FnMut(&Grid)) {
+    for j in start..cells.len() {
+        if sh.stop.load(Ordering::Relaxed) {
+            return;
+        }
+        let (x, y) = cells[j];
+        for b in pal {
+            let mut g2 = g.clone();
+            if g2.get(x, y) == *b || matches!(g2.get(x, y), Block::PistonHead { .. }) || !clear(&mut g2, x, y) {
+                continue;
+            }
+            g2.set(x, y, *b);
+            consider(&g2);
+            if k >= 2 {
+                enum_rec(&g2, cells, j + 1, k - 1, pal, sh, consider);
+            }
+        }
+    }
 }
 
 /// A perfect screen: judge it in redsim (32 positions, FULL, hallway); a pass is a find.
@@ -909,6 +947,8 @@ fn try_find(p: &Problem, g: &Grid, sh: &Shared, jopts: &cs::JudgeOpts, a: &Searc
 }
 
 fn door_of(g: &Grid, spec: crate::DoorSpec) -> RsDoor {
+    let mut spec = spec;
+    spec.lever = [g.lever.0, g.lever.1, g.z];
     RsDoor { spec, blocks: g.blocks() }
 }
 
@@ -980,6 +1020,15 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
             }
         }
     }
+    if let Some(fc) = &a.focus_cells {
+        let mut want: Vec<(i32, i32)> = Vec::new();
+        for t in fc.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+            let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 2, "--focus-cells x,y;x,y");
+            want.push((v[0] + dx, v[1] + dy));
+        }
+        free = want.into_iter().filter(|(x, y)| in_box_raw(lo, hi, *x, *y) && !door_cells.contains(&(*x, *y)) && (*x, *y) != (lever_pos[0], lever_pos[1])).collect();
+    }
     let door_block = doors[0].2.blocks.iter().find(|(q, _)| q == &spec0.door).map(|(_, b)| *b).unwrap_or(Block::Simple(Simple::Stone));
     let mut spec = spec0;
     spec.lever = lever_pos;
@@ -998,12 +1047,13 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         reference: Vec::new(),
         ref_slack: a.ref_slack,
         ref_weight: a.ref_weight,
+        lever_moves: a.lever_moves,
     };
     let mut prob = prob;
     if let Some(r) = &a.reference {
         let (_, rd) = cs::load_door(r)?;
         anyhow::ensure!(rd.spec.door == spec0.door, "the reference needs the same door port");
-        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new() };
+        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new(), lever: (0, 0) };
         let _ = g;
         let ev = piston_events(&prob, &rd.blocks, rd.spec);
         println!("reference {}: {} piston events per cycle", r.display(), ev.len());
@@ -1082,7 +1132,7 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         let mut pool: Vec<(Score, Grid)> = Vec::new();
         for (i, g) in seeds.iter().enumerate() {
             let te = std::time::Instant::now();
-            let r = enumerate(&prob, g, a.enum_k.min(3), a.enum_keep, a.threads, &sh, &jopts, a);
+            let r = enumerate(&prob, g, a.enum_k.min(5), a.enum_keep, a.threads, &sh, &jopts, a);
             println!(
                 "enumeration from seed {i} (k = {}): {} screens in {:.1} s; best {}",
                 a.enum_k,
