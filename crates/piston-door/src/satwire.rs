@@ -243,6 +243,9 @@ impl Kind {
                 _ => (0, 0),
             }),
             n if n.ends_with("_wool") => Kind::Wool,
+            // any other quartz-like full block (concrete, quartz, terracotta...) is a plain
+            // conductor: the community 7x8's white-concrete statics were "not in the palette"
+            _ if crate::properties::quartz_like(s) => Kind::Block,
             _ => return None,
         })
     }
@@ -5041,7 +5044,8 @@ pub fn families_schedule(tsv: &std::path::Path, id: &str, sym: bool, gap: u32) -
     };
     let open = seq(row[col("open")?])?;
     let close = seq(row[col("close")?])?;
-    let symv = row.get(col("sym")?).filter(|s| !s.trim().is_empty()).map(|s| seq(s)).transpose()?;
+    // an empty or "-" sym (door audit --tsv writes "-") = no symmetric train
+    let symv = row.get(col("sym")?).filter(|s| !s.trim().is_empty() && s.trim() != "-").map(|s| seq(s)).transpose()?;
     let (wd, map) = crate::families::to_world(&m);
     let sol = crate::mechsynth::Solution {
         open: crate::families::ms_seq(&map, &open),

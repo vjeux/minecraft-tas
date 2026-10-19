@@ -1,0 +1,50 @@
+[families] 6x8: 65664 candidate mechanisms (65664 generated, 1.0s)
+[families]   6x8: 20000/65664 solved, 0 work, 69s
+[families]   6x8: 40000/65664 solved, 0 work, 188s
+[families]   6x8: 60000/65664 solved, 0 work, 290s
+[families] 6x8: 0 open+close (18874 candidates unresolved: pulse graph over the cap and A* found nothing), minimizing
+[families] 6x8: 0 minimal mechanisms fit (0 new) in 685s
+[families] 8x6: 65768 candidate mechanisms (65768 generated, 1.4s)
+[families]   8x6: 20000/65768 solved, 0 work, 71s
+[families]   8x6: 40000/65768 solved, 0 work, 169s
+[families]   8x6: 60000/65768 solved, 0 work, 270s
+[families] 8x6: 0 open+close (14421 candidates unresolved: pulse graph over the cap and A* found nothing), minimizing
+[families] 8x6: 0 minimal mechanisms fit (0 new) in 586s
+[families] 7x7: 746836 candidate mechanisms (746836 generated, 17.8s)
+[families]   7x7: 20000/746836 solved, 0 work, 107s
+[families]   7x7: 40000/746836 solved, 0 work, 231s
+[families]   7x7: 60000/746836 solved, 0 work, 286s
+[families]   7x7: 80000/746836 solved, 0 work, 347s
+[families]   7x7: 100000/746836 solved, 0 work, 459s
+[families]   7x7: 120000/746836 solved, 0 work, 531s
+[families]   7x7: 140000/746836 solved, 0 work, 665s
+[families]   7x7: 160000/746836 solved, 0 work, 823s
+[families]   7x7: 180000/746836 solved, 0 work, 930s
+[families]   7x7: 200000/746836 solved, 0 work, 1045s
+[families]   7x7: 220000/746836 solved, 0 work, 1153s
+[families]   7x7: 240000/746836 solved, 0 work, 1153s
+[families]   7x7: 260000/746836 solved, 0 work, 1279s
+[families]   7x7: 280000/746836 solved, 0 work, 1439s
+[families]   7x7: 300000/746836 solved, 0 work, 1559s
+[families]   7x7: 320000/746836 solved, 0 work, 1709s
+[families]   7x7: 340000/746836 solved, 0 work, 1878s
+[families]   7x7: 360000/746836 solved, 0 work, 2059s
+[families]   7x7: 380000/746836 solved, 0 work, 2263s
+[families]   7x7: 400000/746836 solved, 0 work, 2288s
+[families]   7x7: 420000/746836 solved, 0 work, 2288s
+[families]   7x7: 440000/746836 solved, 0 work, 2317s
+[families]   7x7: 460000/746836 solved, 0 work, 2505s
+[families]   7x7: 480000/746836 solved, 0 work, 2705s
+[families]   7x7: 500000/746836 solved, 0 work, 2854s
+[families]   7x7: 520000/746836 solved, 0 work, 2988s
+[families]   7x7: 540000/746836 solved, 0 work, 3128s
+[families]   7x7: 560000/746836 solved, 0 work, 3278s
+[families]   7x7: 580000/746836 solved, 0 work, 3451s
+[families]   7x7: 600000/746836 solved, 0 work, 3556s
+[families]   7x7: 620000/746836 solved, 0 work, 3680s
+[families]   7x7: 640000/746836 solved, 0 work, 3797s
+[families]   7x7: 660000/746836 solved, 0 work, 3921s
+[families]   7x7: 680000/746836 solved, 0 work, 3990s
+[families]   7x7: 700000/746836 solved, 0 work, 4122s
+[families]   7x7: 720000/746836 solved, 0 work, 4268s
+[families]   7x7: 740000/746836 solved, 0 work, 4379s
