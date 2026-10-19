@@ -151,7 +151,7 @@ fn main() -> Result<()> {
                             steps.push(redsim_fuzz::Step::Use([0, 1, 0]));
                         }
                         steps.push(redsim_fuzz::Step::Run(30));
-                        let c = redsim_fuzz::Case { blocks, steps, lo: [-2, -1, -2], hi: [4, 3, 2], update_place: false, items: Vec::new() };
+                        let c = redsim_fuzz::Case { blocks, steps, lo: [-2, -1, -2], hi: [4, 5, 2], update_place: false, items: Vec::new() };
                         let o = redsim_fuzz::check(&mut w, sb, &c)?;
                         total += 1;
                         if o.diff.is_none() && o.sim_errors.is_empty() {
