@@ -111,3 +111,26 @@ over the placement space, not yet a theorem about the game.
 * 02:00Z box2 (devvm53196) attached; 02:20Z the observer/torch free-cell bug found by a
   calibration (one erased cell UNSAT) and fixed; every run restarted on box2.
 * 02:35Z 5x5 all offsets UNSAT (`--nondet`, T=20).
+* 02:51Z find-mode calibration: e89b with 2 bottom wiring cells erased, full palette (pistons
+  allowed in the free cells): SAT in 617 s, the solver put back e89b's two observers (screen
+  Pass). 1 erased cell (observer+torch palette): 3.3 s. 3 and 6 erased cells, e89b's mechanism
+  in 7x8 (4 lever cubes + a wiring-only run), vb3 (2 cubes), vb2, vc1, f131L, 8x8-131, w63 top
+  (7x9): no answer by 03:15Z (35-50 min each). f131X stopped (wire131 proved its top link
+  unwirable in the plane).
+
+## Next ideas
+* The solver, not the encoding, is the wall: cost grows steeply with free cells (1 cell
+  seconds, 2 cells with pistons 10 min). Stronger SOUND pruning first: a door cell changes only
+  if a piston line can reach it (reachability of pistons over time, over-approximated);
+  per-cell kind restrictions from the mechanism (in fixed-pistons mode a free cell crossed by a
+  fixed piston's line can only hold air or a movable block); bound the number of pistons /
+  observers; symmetry breaking where the model is mirror-symmetric (it is, without position
+  order); seed the lever's region.
+* Abstraction refinement: solve a coarse model first (ideal-input mechanism level with wiring
+  reachability as necessary conditions); UNSAT there is a proof, SAT gives the timing skeleton to
+  constrain the exact model.
+* Incremental horizon (assumption literals per tick) and learned-clause reuse across door
+  offsets; a parallel portfolio (CaDiCaL configs, kissat) per instance on the 166-core box.
+* Exactness: the 6 residual fuzz mismatches (phase-4 placement order, a lamp re-schedule, a
+  close-phase piston chain), event write conflicts as either-order choices, dust shapes, CENTER
+  supports, more palette (bulb, comparator, trapdoors, dropper, slabs, leaves).

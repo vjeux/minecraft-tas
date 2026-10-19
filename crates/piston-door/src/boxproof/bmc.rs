@@ -553,6 +553,10 @@ pub fn cli(a: &Args) -> Result<()> {
                 let d = mctas::design::Design::parse(&text)?;
                 let mut offs = crate::VerifyOptions::default().offsets;
                 offs.extend(crate::extra_offsets(28));
+                // screen positions: 1 by default while searching (vjeux 03:02Z: positions and
+                // rotations are checked once a door exists); `--screen-positions 32` for all
+                let np: usize = a.get("screen-positions", 1);
+                offs.truncate(np.max(1));
                 let sc = crate::redsim_screen::screen(&d, &offs, 3, 400, true);
                 println!("SAT in {dt:.1}s (iter {it}): {path}: redsim screen {sc:?}");
                 if sc.passed() {
