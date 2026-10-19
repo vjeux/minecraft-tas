@@ -111,3 +111,16 @@ top-left cannot pass a level down past D/E/(-1,2). Same for 076 (TLc level-held)
   0: exactly 4 over 24 cells (26 states), right column / top-left refills k<=5 and --keep k<=4 (full palette).
 - h5 (solid 41) with a spare row (7x9: row -4 or row 5) or column (8x8: x=5 or x=-3): --keep k<=3 and exactly 4,
   --max-blocks 39/40: all 0. The spare space doesn't help without restructuring the bottom.
+
+## 7x7 (49b) campaign (20:03Z-): w1, the first sub-56 mechanism (ideal inputs)
+- seven/w1.txt + w1.ideal (fixed times) + w1v.ideal (variables): 13 sticky pistons, slime-free, flat, FULL 12/12 by
+  construction (statics (-1,0) (3,0) (3,2)). `door ideal-rs --between-ticks` WORKS (16 pos x 3 cycles), real game
+  `door ideal --between-ticks` WORKS (4x2). Tile phase: the plan's input for P QC-fires (1,-2) under it.
+- Mechanism: P (sticky up, ring cell (1,-1)) pushes BM/C/TM up and pulls BM back (the center emptied by a PULL: the
+  BM wiggle); corner (-1,3) pulls TM to (0,3); (1,4) pulls C to (1,3); Q (sticky east, ring cell (0,-1)) push-spits P
+  to (2,-1), margin pullers R (4,-1) / L (-2,-1) pull P / Q into the corners (3,-1) / (-1,-1); BL/BM/BR drop via
+  (0,-2)/(1,-2)/(2,-2); sides TL+ML (-2,2)/(-2,1), MR (4,1), TR (2,4). Close reverses with push-spits; Q pulls P back.
+- Windows (one at a time, between-ticks): see the board partial 7x7-w1.md.
+- Wiring obstruction: P is boxed in (neighbours Q, BM, the piston (1,-2), and the path cell (2,-1)); QC for P sees
+  only door cells. P needs ONE >= 3 gt pulse on open; it can only come from (2,-1) temporarily or a moving source.
+  (1,-2) is boxed in too; Q can be QC-fired through a strongly powered static (-1,0).

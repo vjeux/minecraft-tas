@@ -1,0 +1,70 @@
+design designs/piston-door-3x3/tracks/c77/seven/w1.txt
+let tl = 2
+let tr = 2
+let mr = 2
+let p = 10
+let pl = 6
+let tm = 20
+let c = 28
+let q = 36
+let r = 42
+let l = 42
+let bot = 50
+let cbot = 2
+let cl = 8
+let cr = 8
+let cq = 14
+let cmr = 22
+let ctl = 22
+let ctr = 22
+let cc1 = 28
+let ctm = 34
+let cc2 = 40
+open tl set -2 2 1 minecraft:redstone_block
+open tl+4 clear -2 2 1
+open tr set 2 4 1 minecraft:redstone_block
+open tr+4 clear 2 4 1
+open mr set 4 1 1 minecraft:redstone_block
+open mr+4 clear 4 1 1
+open p set 1 -1 1 minecraft:redstone_block
+open p+pl clear 1 -1 1
+open tm set -1 3 1 minecraft:redstone_block
+open tm+4 clear -1 3 1
+open c set 1 4 1 minecraft:redstone_block
+open c+4 clear 1 4 1
+open q set 0 -1 1 minecraft:redstone_block
+open q+2 clear 0 -1 1
+open r set 4 -1 1 minecraft:redstone_block
+open r+4 clear 4 -1 1
+open l set -2 -1 1 minecraft:redstone_block
+open l+4 clear -2 -1 1
+open bot set 0 -2 1 minecraft:redstone_block
+open bot+4 clear 0 -2 1
+open bot set 1 -2 1 minecraft:redstone_block
+open bot+4 clear 1 -2 1
+open bot set 2 -2 1 minecraft:redstone_block
+open bot+4 clear 2 -2 1
+close cbot set 0 -2 1 minecraft:redstone_block
+close cbot+2 clear 0 -2 1
+close cbot set 1 -2 1 minecraft:redstone_block
+close cbot+2 clear 1 -2 1
+close cbot set 2 -2 1 minecraft:redstone_block
+close cbot+2 clear 2 -2 1
+close cl set -2 -1 1 minecraft:redstone_block
+close cl+2 clear -2 -1 1
+close cr set 4 -1 1 minecraft:redstone_block
+close cr+2 clear 4 -1 1
+close cq set 0 -1 1 minecraft:redstone_block
+close cq+4 clear 0 -1 1
+close cmr set 4 1 1 minecraft:redstone_block
+close cmr+2 clear 4 1 1
+close ctl set -2 2 1 minecraft:redstone_block
+close ctl+2 clear -2 2 1
+close ctr set 2 4 1 minecraft:redstone_block
+close ctr+2 clear 2 4 1
+close cc1 set 1 4 1 minecraft:redstone_block
+close cc1+2 clear 1 4 1
+close ctm set -1 3 1 minecraft:redstone_block
+close ctm+2 clear -1 3 1
+close cc2 set 1 4 1 minecraft:redstone_block
+close cc2+2 clear 1 4 1
