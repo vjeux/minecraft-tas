@@ -1,0 +1,10 @@
+assist designs/piston-door-3x3/tracks/seq56/m2L.ideal: 9 input cells off the plane ([(1, 4), (-2, 2), (4, 2), (0, -2), (1, -2), (2, -2), (-1, 3), (1, 5), (1, 3)]), 22 / 16 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/seq56/m2L.txt: 24 blocks in the box, screen 79/79
+10 piston cells locked, 41 cells free
+box x -2..4, y -3..5 (7x9 = 63), 41 free cells, palette 56 states, 40 threads, 2400 s
+[   30s] 2564721 screens (85464/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=24949 assist=2790 lever=150 update-piston=0; best 73/79+0ev-2as(51b) 73/79+0ev-2as(52b) 73/79+0ev-2as(52b) 73/79+0ev-2as(53b) 73/79+0ev-2as(53b) 73/79+0ev-2as(53b)
+[   60s] 5866660 screens (97748/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=50041 assist=3849 lever=198 update-piston=1; best 75/79+0ev-2as(50b) 75/79+0ev-2as(51b) 75/79+0ev-2as(52b) 75/79+0ev-2as(52b) 75/79+0ev-2as(52b) 75/79+0ev-2as(53b)
+[   90s] 9088922 screens (100960/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=78815 assist=5862 lever=302 update-piston=1; best 75/79+0ev-2as(50b) 75/79+0ev-2as(51b) 75/79+0ev-2as(52b) 75/79+0ev-2as(52b) 75/79+0ev-2as(52b) 75/79+0ev-2as(53b)
+[  120s] 12657676 screens (105453/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=107370 assist=7600 lever=383 update-piston=2; best 75/79+0ev-2as(49b) 75/79+0ev-2as(50b) 75/79+0ev-2as(50b) 75/79+0ev-2as(51b) 75/79+0ev-2as(51b) 75/79+0ev-2as(51b)
+[  150s] 15983172 screens (106527/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=135151 assist=9019 lever=461 update-piston=2; best 75/79+0ev-2as(49b) 75/79+0ev-2as(50b) 75/79+0ev-2as(50b) 75/79+0ev-2as(51b) 75/79+0ev-2as(51b) 75/79+0ev-2as(51b)
+[  180s] 19510433 screens (108365/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=164643 assist=11212 lever=546 update-piston=4; best 75/79+0ev-2as(49b) 75/79+0ev-2as(50b) 75/79+0ev-2as(50b) 75/79+0ev-2as(51b) 75/79+0ev-2as(51b) 75/79+0ev-2as(51b)

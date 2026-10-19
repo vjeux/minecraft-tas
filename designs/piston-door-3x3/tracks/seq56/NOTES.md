@@ -23,3 +23,24 @@ Box target 7x8 = 56 (x -2..4, y -2..5), fallback 7x9 = 63.
   (4 positions x 2 cycles, open 33 / close 15); `door sheet`: frame 12/12. 7x8 box x -2..4, y -2..5.
 - The static stones are conductors in useful places: (2,3) touches A when it sits at (1,3) (A2's
   feed), (-1,0)/(3,0) touch (-2,0)/(4,0) and the corners (-1,-1)/(3,-1).
+
+## 3. Links between regions in 7 wide (why every approach dies, and the one clean crossing)
+- In 7 wide, rows 0..2 of each side are pistons + heads: the top and bottom wiring regions meet
+  only through the side pistons. A PULSE piston watched by an observer gives 2 pulses 4 gt apart
+  (extend, landing; the retract falls in the busy window): w2.txt/trace (L1 pulsed, the bottom
+  pullers pull on the 1st pulse and push back on the 2nd). Every push+spit piston needs <= 2 gt,
+  so a 2-pulse link needs a merger; in the 2-wide bottom-left every repeater spot outputs into
+  U0 (0,-2) or its QC cell (0,-1), so no merger fits there (7x8 or 7x9).
+- TORCH LEMMA: a torch can never hold a piston from directly above it: the torch's input block is
+  a horizontal neighbor of the torch's cell = the piston's QC cell, so whenever the torch is off,
+  the piston is QC-powered. (w1: torch at (-2,3) on the lever block (-1,3): L1 retracts, L2 stays.)
+  Torches hold pistons only from BELOW (or beside).
+- The lever next to a piston's QC cell powers it (lever weak power counts for pistons): a lever
+  under (-1,0) QC-powers U0 via (0,-1); a lever on top of the left stack QC-powers L2 (w2).
+- CLEAN CROSSING (bottom -> top, one pulse per edge): a single side piston L1 (-2,1) (TL goes UP,
+  BL goes DOWN, so (-2,2) and (-2,0) are free), held extended at rest by a STANDING torch at
+  (-2,0) on block (-2,-1), the lever OUTSIDE the box at (-3,-1) on that block's west face (no
+  neighbor of the lever is in the box; the lever is excluded from the volume). Lever on: torch off,
+  L1 retracts once (level piston: its watcher at (-2,2) fires exactly once). The lever block also
+  hands the lever's LEVEL to the bottom region ((-1,-1), (-2,-2)). Cost: TL up puts P_TL at (0,4),
+  so the elevator piston A (1,4) is then reachable only from the right ((2,4)) or through B's cell.

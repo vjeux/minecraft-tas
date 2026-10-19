@@ -1,0 +1,5 @@
+assist designs/piston-door-3x3/tracks/seq56/m2L.ideal: 9 input cells off the plane ([(1, 4), (-2, 2), (4, 2), (0, -2), (1, -2), (2, -2), (-1, 3), (1, 5), (1, 3)]), 22 / 16 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/seq56/m2L.txt: 24 blocks in the box, screen 79/79
+box x -2..4, y -3..5 (7x9 = 63), 51 free cells, palette 56 states, 40 threads, 3000 s
+[   30s] 3156354 screens (105178/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=26059 assist=3291 lever=67 update-piston=0; best 75/79+0ev-2as(53b) 75/79+0ev-2as(53b) 75/79+0ev-2as(53b) 75/79+0ev-2as(53b) 75/79+0ev-2as(54b) 75/79+0ev-2as(54b)
+[   60s] 6479788 screens (107966/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=50372 assist=5662 lever=105 update-piston=0; best 75/79+0ev-2as(51b) 75/79+0ev-2as(51b) 75/79+0ev-2as(52b) 75/79+0ev-2as(52b) 75/79+0ev-2as(52b) 75/79+0ev-2as(53b)
