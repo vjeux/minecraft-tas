@@ -1,0 +1,12 @@
+# door cosearch plan-from designs/piston-door-3x3/tracks/c79/c79-closed.txt: every piston cell's real power per lever edge, as a redstone
+# block behind it (z+1) while powered (a cell fed exactly like the one above it is left to that
+# block's quasi-connectivity)
+design designs/piston-door-3x3/tracks/c79/c79-closed.txt
+open 3 set 2 -2 1 minecraft:redstone_block
+open 3 set 3 -2 1 minecraft:redstone_block
+open 5 clear 2 -2 1
+open 5 clear 3 -2 1
+close 3 set 2 -2 1 minecraft:redstone_block
+close 3 set 3 -2 1 minecraft:redstone_block
+close 5 clear 2 -2 1
+close 5 clear 3 -2 1

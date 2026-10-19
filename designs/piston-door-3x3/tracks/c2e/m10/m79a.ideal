@@ -1,0 +1,12 @@
+# m79a: u7-m10 in 7x9 (box y -3..5): m10top's m10b top (levels + B watcher: A's last pull, L1/L2) + c79's
+# bottom chain (R-side shifted down one row: observer (4,-1) on R0 -> dust (4,-2) -> normal piston (3,-2)
+# into (3,-3) -> observer (2,-3) -> stone (1,-3) -> U + dropper (0,-3) -> observer (-1,-3) -> stone (-2,-3)
+# -> dust (-2,-2) -> observer (-2,-1) -> L0; observer (-1,-2) -> K; observer (0,-2) -> U again).
+# Only A's hold ideal.
+design designs/piston-door-3x3/tracks/c2e/m10/m79a.txt
+let ah0 = 2
+let ah = 4
+open 0 use 4 5 0
+open ah0 set 1 3 -1 minecraft:redstone_block
+open ah0+ah clear 1 3 -1
+close 0 use 4 5 0

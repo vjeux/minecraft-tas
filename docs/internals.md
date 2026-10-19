@@ -9,12 +9,50 @@ on are in [mechanics.md](mechanics.md).
 |---|---|
 | `bridge/` | the Java side: a headless `MinecraftServer` subclass and a JSON-lines protocol (compiled with plain `javac`, no mod loader) |
 | `crates/mctas` | Rust library: setup, source reading, bridge build, worker/sandbox API, design format, the static ffmpeg, the client font |
-| `crates/mctas-cli` | the `mctas` command |
+| `crates/mctas-cli` | the `mctas` command (`src/door.rs` flattens the door CLI crates into `mctas door`) |
 | `crates/piston-door` | the 3x3 door project: judge, boards, searches, synthesis, videos, vanilla cross-checks |
+| `crates/door-*` | the `mctas door` commands, one crate per area (judge, search, mech, sat, redsim, vanilla, video): clap definitions and dispatch only ([Build](#build)) |
+| `crates/redsim`, `crates/redsim-fuzz` | the exact Rust redstone model and its differential fuzzing against the game |
 | `designs/` | contraptions in the layer text format; `designs/gadgets/` (proven circuits), `designs/piston-door-3x3/` (doors, the archive, the agents' tracks) |
 
 Everything downloaded or generated (Java runtime, Minecraft jars, decompiled sources, worlds)
 lives in `$MCTAS_HOME` (default `~/.cache/mctas`), never in this repository.
+
+## Build
+
+`cargo build --release` builds everything and `target/release/mctas` is the binary. The release
+profile (workspace `Cargo.toml`) keeps the edit-build loop short without slowing the binary:
+* **One crate per door area.** The `mctas door` commands live in `crates/door-{judge,search,mech,
+  sat,redsim,vanilla,video}`, each with its own clap `DoorCmd` and its `run`;
+  `crates/mctas-cli/src/door.rs` flattens them into one command list. A new command goes in its
+  area's crate (a variant in `DoorCmd`, an arm in `run`); what several commands share
+  (`SearchArgs`, `load_design`) is in `crates/piston-door/src/cli.rs`. (They were one 61-command enum
+  and one match in piston-door: clap's generated parser alone was one 785 KB function, and every
+  build waited ~2.5 minutes for LLVM on it.)
+* **The door crates are compiled unoptimized** (`opt-level = 0`): they parse arguments and call
+  piston-door, mctas and redsim, which are optimized. Keep any heavy loop in a piston-door function:
+  code in a door crate (and generic library code a door crate instantiates with its own closures)
+  runs unoptimized.
+* **Incremental** (`incremental = true`) for the workspace crates, in 16 codegen units like a
+  non-incremental build (incremental's default 256 slowed boxproof's SAT encoding ~4%); redsim, the
+  engine of every redsim search, compiles non-incremental. Incremental caches make `target/` ~4 GB.
+* The linker is already rust-lld (the toolchain's default); `debug = 1` as before.
+
+Rebuild time after a one-line change, idle 72-core devserver (a loaded box takes ~2x longer;
+[tracks/buildtime](../designs/piston-door-3x3/tracks/buildtime/NOTES.md) has the measurements):
+
+| change | before | now |
+|---|---|---|
+| a door command (was piston-door/src/cli.rs, now crates/door-*) | 157 s | 3 s |
+| a piston-door module (sheet.rs) | 144 s | 25 s |
+| crates/redsim/src/world.rs | 153 s | 8 s |
+| crates/mctas/src/design.rs | 158 s | 7 s |
+| clean build (`cargo clean --release`, dependencies too) | 178 s | 82 s |
+
+The binary runs as fast as before: `door cosearch eval` (redsim), `door boxproof bmc` (SAT encoding)
+and `door boxproof fuzz` execute within 0.3% of the instructions, and their wall time and CPU cycles
+stay within run-to-run noise (+-2-3% on a shared box). `CARGO_INCREMENTAL=0 cargo build --release`
+still gives a non-incremental build.
 
 ## The simulator
 

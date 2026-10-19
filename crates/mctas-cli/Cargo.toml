@@ -16,4 +16,10 @@ clap.workspace = true
 regex.workspace = true
 serde_json.workspace = true
 mctas = { path = "../mctas" }
-piston-door = { path = "../piston-door" }
+door-judge = { path = "../door-judge" }
+door-search = { path = "../door-search" }
+door-mech = { path = "../door-mech" }
+door-sat = { path = "../door-sat" }
+door-redsim = { path = "../door-redsim" }
+door-vanilla = { path = "../door-vanilla" }
+door-video = { path = "../door-video" }

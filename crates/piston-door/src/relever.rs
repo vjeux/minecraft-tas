@@ -72,6 +72,9 @@ pub fn variants(d: &Design, subs: &[String]) -> Result<Vec<Variant>> {
     let l = spec.lever;
     let clear: HashSet<Pos> = crate::route::keep_clear(&spec).into_iter().collect();
     let support = d.blocks.get(&l).and_then(|s| crate::properties_dyn::lever_support(s, l));
+    // the moved lever keeps the design's rest polarity (either counts, vjeux 2026-10-19)
+    let rest_on = d.blocks.get(&l).is_some_and(|s| s.contains("powered=true"));
+    let polar = |lever: &str| if rest_on { lever.replace("powered=false", "powered=true") } else { lever.to_string() };
     let mut out = vec![Variant { label: "as-is".into(), design: d.clone(), fix: None }];
     for s in subs {
         let state = substitute_state(s).with_context(|| format!("unknown substitute {s:?} (note, dropper, dispenser, lamp, bulb, dust)"))?;
@@ -84,7 +87,7 @@ pub fn variants(d: &Design, subs: &[String]) -> Result<Vec<Variant>> {
                 }
                 let mut v = d.clone();
                 v.blocks.insert(l, state.to_string());
-                v.blocks.insert(p, lever.to_string());
+                v.blocks.insert(p, polar(lever));
                 v.ports.insert("lever".into(), p);
                 out.push(Variant { label: format!("{s}-{face}"), design: v, fix: Some(l) });
             }
@@ -104,7 +107,7 @@ pub fn variants(d: &Design, subs: &[String]) -> Result<Vec<Variant>> {
                 if floor {
                     v.blocks.insert(below, "minecraft:smooth_stone".to_string());
                 }
-                v.blocks.insert(p, lever.to_string());
+                v.blocks.insert(p, polar(lever));
                 v.ports.insert("lever".into(), p);
                 out.push(Variant { label: format!("{s}{}@support-{face}", if floor { "+floor" } else { "" }), design: v, fix: Some(l) });
             }

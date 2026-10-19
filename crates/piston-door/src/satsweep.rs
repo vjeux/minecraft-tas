@@ -525,6 +525,8 @@ fn run_job(j: &Job, o: &SweepOpts, log_path: &Path) -> (String, String, String, 
             levels: 15,
             blocked_dc: true,
             motion: true,
+            clusters: true,
+            full_frame: false,
         };
         let p = sw::build_prob(rec, &po)?;
         let out = o.out_dir.join(format!("{}.txt", j.name));

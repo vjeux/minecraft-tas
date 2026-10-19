@@ -1,0 +1,49 @@
+name: cosearch-partial-0-79of79
+port door: 0 0 0
+port lever: 0 -3 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:obsidian
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=west,triggered=false]
+  E minecraft:piston_head[facing=up,short=false,type=sticky]
+  F minecraft:piston_head[facing=west,short=false,type=sticky]
+  G minecraft:glass
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=true,facing=down]
+  K minecraft:sticky_piston[extended=true,facing=east]
+  L minecraft:lever[face=ceiling,facing=west,powered=false]
+  M minecraft:sticky_piston[extended=true,facing=up]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:sticky_piston[extended=true,facing=west]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  w minecraft:white_glazed_terracotta[facing=south]
+layer -3:
+  ..L
+layer -2:
+  NToMR.H
+layer -1:
+  O..E..A
+layer 0:
+  s.TTTFQ
+layer 1:
+  KpTTTFQ
+layer 2:
+  KpTTT.R
+layer 3:
+  RKp.P.D
+layer 4:
+  OHwSJGO
+layer 5:
+  BrwSICW

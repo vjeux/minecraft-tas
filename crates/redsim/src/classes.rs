@@ -36,6 +36,9 @@ pub struct Signature {
     pub analog: Option<i32>,
     /// Gives persistent leaves distance 0 (logs: the `PREVENTS_NEARBY_LEAF_DECAY` tag).
     pub leaf_source: bool,
+    /// Sculk sensors care (`sculk.rs`): bit 0 occludes vibrations (wool), bit 1 dampens them,
+    /// bit 2 resonates (amethyst).
+    pub vibration: u8,
     /// None: a plain block (no behavior of its own); Some(kind): behaves as that block type.
     pub behavior: Option<Kind>,
     pub instrument: Instrument,
@@ -90,6 +93,7 @@ pub fn signature(s: &Block) -> Signature {
             _ => -1,
         }),
         leaf_source: matches!(s, Block::Log { .. }),
+        vibration: (crate::sculk::occludes(s) as u8) | (crate::sculk::dampens(s) as u8) << 1 | (crate::sculk::is_resonator(s) as u8) << 2,
         behavior: behaves(s).then(|| s.kind()),
         instrument: bh::instrument(s),
     }

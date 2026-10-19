@@ -1,0 +1,13 @@
+[package]
+name = "door-video"
+description = "mctas door commands: videos, cards and worlds: video-all, card, gallery, montage, video, tick-video, world"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+piston-door = { path = "../piston-door" }

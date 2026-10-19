@@ -1,0 +1,13 @@
+[package]
+name = "door-judge"
+description = "mctas door commands: the judge and the boards: verify, blocks, properties, props-dyn, eligibility, relever, leaderboard, frontier, shapes, tiles, catalog, turn, trace, patch, gen, audit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+piston-door = { path = "../piston-door" }
