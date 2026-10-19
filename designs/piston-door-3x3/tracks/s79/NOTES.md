@@ -273,3 +273,11 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   t38 extension (diagonal neighbour, no wool can shield it), toggles the bulb again and L1/L2 push ML/TL back
   in at t43. M must then come from (2,5) (not solved).
 - satwire runs on the whole top free (bottom kept): c78F (TM up + left) and c78FR (TM up + right, TP2 (3,3)).
+- **satwire, whole top free (bottom kept), sculk palette, warps 8, holds, free order, retime:**
+  * c78F (TM up + LEFT, c78L1 plan): UNSAT in 1375 s (core: nearly every piston).
+  * c78FR (TM up + RIGHT into (2,3), sticky TP2 (3,3) facing west, (0,3) static): **SAT in the model** (first
+    model after 4611 s, 24-25 wiring blocks); the CEGAR then rejected 20 candidates on timing (their retimed
+    ideal plan fails in redsim) before the 7000 s cut. iter-0 candidate = `c78l/FRsw0.txt` (fails in redsim:
+    TP2 fires at t6, before TM arrives). Restarted with 8 h bounds: c78FR, c78FRw (wool door), c78FR6
+    (elevator shifted to sound-friendly ticks: s 8, TP2 12, M 16..26, s lowered 20, s 32; close s 8, TP2 14,
+    s 32; `c78FR6.ideal`, works in both phases).
