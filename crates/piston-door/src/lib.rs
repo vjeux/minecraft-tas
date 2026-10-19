@@ -1261,8 +1261,9 @@ fn verify_at(
 /// cycles (vjeux: internal state doesn't matter as long as the door works repeatedly).
 pub const MAX_PERIOD_EXTRA: u32 = 8;
 
-/// Same block state in every cell of two regions of the same box.
-fn same_region(a: &Region, b: &Region) -> bool {
+/// Same block state in every cell of two regions of the same box (the judge's periodic-rest test;
+/// shared by every tool that replays cycles: ideal, props-dyn, the search screens, tile).
+pub fn same_region(a: &Region, b: &Region) -> bool {
     a.from == b.from && a.size == b.size && a.iter().all(|(p, s)| b.get(p) == Some(s))
 }
 
