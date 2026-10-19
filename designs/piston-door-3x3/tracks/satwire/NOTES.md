@@ -137,3 +137,29 @@ lever/observer chains; not diagnosed yet).
 * Ideals checked with `door ideal` before SAT: box64 f102b (8x8-130) BROKEN (not back at rest),
   box72 m2w BROKEN (not open) -> their UNSATs are moot; m710b and wire56 m028 (7x8-013) work:
   UNSAT relative to the encoding, cores: m710b open pistons (3,3)+(1,3); m028-oc close (1,4)+(1,5).
+
+## Results 2026-10-19 (dedicated box devvm55676)
+* **BEST: 49 blocks solid 7x9 (63), FULL SEAMLESS, frame 12/12, lever ON at rest, open/close 15/15,
+  record-eligible as is (relever: repeater input 15/15)**: `archive/satwire-63b-49-49b.txt` (=
+  `BEST.txt`). pockets-63b-50's mechanism with ALL wiring erased, re-wired from scratch:
+  `--from-wired --full-frame --forbid-ring --one-warp --dmax 4 --skip 4 --sound --log-doors`,
+  palette block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,glass,leaves,upiston; door
+  and the 3 frame blocks are oak logs (the frame blocks patched from smooth stone to the same log).
+* Known answer c79 (the community 7x9): `--check` 0/482; wiring erased (11 pistons, door, 3 frame
+  blocks kept) and re-found from scratch: first judged door at 54b in 101 s, minimized to 51b (c79's
+  own count; `archive/satwire-c79-closed-51b.txt`), <= 50 UNSAT with one-warp 4.
+* m79q (m10top's 7x9 seed): the whole top-right (lever, R pair, TRp's drop, A's hold, B's 2 gt pulse
+  and pull) re-synthesized together with `--keep-ideal "1,4;-2,2"`: `p79q-sat.ideal` WORKS 32 x 2
+  with 50 blocks + L1/L2 ideal (A's last pull turned out real). Full synthesis (L1/L2 too) is open:
+  in that partial the B chain starts from TL's arrival, which only L2 causes (circular).
+* Batches over 262 mech-synth plans (mechspace incl. c78, frame/ff 90, seq56, ring56, vmid, w63top,
+  fam-8x8-131/135): 0 doors; plans whose timing came from real wiring (c79, pockets, m79p) are the
+  ones that solve. Plan timing (event order, simultaneous ideal pulses) is the blocker, not the model.
+* Model fixes of the night: lever ON at rest; dust dots (power only down); carried redstone blocks
+  (same-tick update); kept wiring keeps its rest state; un-updated QC holds may keep QC but not
+  direct power (only where the piston's room to extend is certain); room to extend reads kept wiring
+  (obsidian/droppers hold, components break); unmodeled blocks (sculk, rails, buttons, plates, glazed
+  terracotta, non-iron trapdoors) are refused.
+* New options: `--full-frame`, `--lever-on`, `--keep-ideal x,y;...` (partial synthesis), per-cluster
+  time warps (default; `--one-warp` off) with order kept only between interacting events, batch mode
+  (several plans: `--jobs N --out <dir>`, also with `--fixed`).
