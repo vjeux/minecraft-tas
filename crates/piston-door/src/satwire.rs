@@ -549,7 +549,15 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
 /// Replay an ideal schedule: the mechanism frames, and the power the redstone blocks give each
 /// piston (direct or quasi-connected) per tick.
 pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> Result<Rec> {
-    let d = s.design().clone();
+    // the plan as it runs under its phase rule (`phase tile`, satwire's default since main
+    // de6ecbce: an off-plane input becomes a wall torch on a support, lit in the tile ticks of its
+    // tick like a wired observer's output; `--between-ticks` / `phase between`: the old rule)
+    let (d, open_ev, close_ev, notes) = s.realize(s.vars())?;
+    if std::env::var("SATWIRE_PHASE_NOTES").is_ok() {
+        for n in &notes {
+            println!("plan phase note: {n}");
+        }
+    }
     let door = *d.ports.get("door").context("design has no 'port door'")?;
     let spec = DoorSpec { door, lever: door, along_z: false };
     let z = spec.door[2];
@@ -559,19 +567,26 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         lo[i] -= 3;
         hi[i] += 3;
     }
-    // In-plane blocks, plus the redstone blocks one cell in front of / behind the plane (ideal
-    // plans put some inputs right behind the piston they fire: that power is recorded too; the
-    // wiring then has to give it from the plane). Fix from wire56 (6d1c760).
+    // In-plane blocks, plus the inputs one cell in front of / behind the plane (ideal plans put
+    // some inputs right behind the piston they fire: that power is recorded too; the wiring then
+    // has to give it from the plane; fix from wire56, 6d1c760): redstone blocks, or the lit wall
+    // torches of the tile phase.
     let snap = |w: &mut Worker| -> Result<(HashMap<C2, String>, HashSet<C2>)> {
         let r = w.get_region(sb, lo, hi)?;
         let plane = r.iter().filter(|(p, s)| p[2] == z && !s.ends_with(":air")).map(|(p, s)| ((p[0], p[1]), s.to_string())).collect();
-        let oop = r.iter().filter(|(p, s)| (p[2] - z).abs() == 1 && short(s) == "redstone_block").map(|(p, _)| (p[0], p[1])).collect();
+        let oop = r
+            .iter()
+            .filter(|(p, s)| (p[2] - z).abs() == 1 && (short(s) == "redstone_block" || (short(s) == "redstone_wall_torch" && prop(s, "lit") == Some("true"))))
+            .map(|(p, _)| (p[0], p[1]))
+            .collect();
         Ok((plane, oop))
     };
     let is_input = |s: &str| matches!(short(s), "redstone_block" | "lever");
     // What the schedule writes into a cell (redstone blocks, glass pokes, a stone put back) is
     // input, not mechanism, while it stays there: a mechanism block under it keeps its last state.
-    let inputs: Vec<Pos> = s.input_cells();
+    let mut inputs: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).filter(|e| e.2.as_deref() != Some("@use")).map(|e| e.1).collect();
+    inputs.sort();
+    inputs.dedup();
     let mech = |f: &HashMap<C2, String>, prev: &HashMap<C2, String>, held: &mut HashMap<C2, String>| -> HashMap<C2, String> {
         let mut out = HashMap::new();
         held.retain(|c, st| f.get(c).map(String::as_str).unwrap_or("minecraft:air") == st.as_str());
@@ -627,11 +642,14 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             _ => matches!(mk(st), MK::Cond) && probes.iter().position(|p| p[0] == n.0 && p[1] == n.1).is_some_and(|i| sig[i].1 > 0),
         }
     };
-    let power_now = |w: &mut Worker, fr: &(HashMap<C2, String>, HashSet<C2>)| -> Result<HashMap<C2, bool>> {
+    let power_now = |w: &mut Worker, fr: &(HashMap<C2, String>, HashSet<C2>), pre: Option<&HashMap<C2, String>>| -> Result<HashMap<C2, bool>> {
         let (f, oop) = fr;
         let sig = w.signals(sb, &probes)?;
         let on = |c: C2| probes.iter().position(|p| p[0] == c.0 && p[1] == c.1).is_some_and(|i| sig[i].0 > 0);
-        Ok(f.iter()
+        // (the pistons of `pre`, the frame before the tick, when the power is read at its end)
+        Ok(pre
+            .unwrap_or(f)
+            .iter()
             .filter_map(|(c, st)| match mk(st) {
                 MK::Piston { f: fc, .. } => {
                     let front = add(*c, fc);
@@ -660,24 +678,26 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             })
             .collect()
     };
+    // tile phase: an input acts inside its tick (like a wired observer): the power a piston gets
+    // during tick j is read at the END of tick j, as `record_wired` reads a wired door; between
+    // ticks (the old rule): read after the events, before the tick runs
+    let tile = s.phase == crate::ideal::PlanPhase::Tile;
     let mut phases: [Phase; 2] = Default::default();
     for (ph, open) in [(0usize, true), (1usize, false)] {
-        let evs = s.events_of(open, s.vars())?;
+        let evs = if open { &open_ev } else { &close_ev };
         let before = snap(w)?;
         let mut held: HashMap<C2, String> = HashMap::new();
         let mut prev = mech(&before.0, &HashMap::new(), &mut held);
         let mut frames = Vec::new();
-        let mut power = vec![power_now(w, &before)?];
+        let mut power = vec![power_now(w, &before, None)?];
         let mut oops = vec![before.1.clone()];
         for t in 0..=ticks {
-            for (et, p, st) in &evs {
+            for (et, p, st) in evs {
                 if *et == t {
                     if st.as_deref() == Some("@use") {
                         w.use_block(sb, *p)?;
                         continue;
                     }
-
-
                     let state = st.clone().unwrap_or_else(|| "minecraft:air".to_string());
                     if p[2] == z {
                         held.insert((p[0], p[1]), state.clone());
@@ -689,9 +709,16 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             let mf = mech(&f.0, &prev, &mut held);
             prev = mf.clone();
             frames.push(mf);
-            power.push(power_now(w, &f)?);
-            oops.push(f.1.clone());
+            if !tile {
+                power.push(power_now(w, &f, None)?);
+                oops.push(f.1.clone());
+            }
             w.step(sb, 1)?;
+            if tile {
+                let f2 = snap(w)?;
+                power.push(power_now(w, &f2, Some(&f.0))?);
+                oops.push(f2.1.clone());
+            }
         }
         power.truncate(frames.len());
         oops.truncate(frames.len());
@@ -716,7 +743,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             lever = Some((*p, st.clone()));
             continue;
         }
-        if p[2] != z || (short(st) == "redstone_block" && s.input_cells().contains(p)) {
+        if p[2] != z || (short(st) == "redstone_block" && inputs.contains(p)) {
             continue;
         }
         let c = (p[0], p[1]);
@@ -2561,7 +2588,10 @@ fn retimed_plan(m: &Model, plan: &crate::ideal::Schedule) -> Result<crate::ideal
             evs.push((open, nt, pos, st.clone()));
         }
     }
-    Ok(crate::ideal::Schedule::from_events(plan.design().clone(), &evs))
+    // (the retimed plan runs under the plan's own phase rule, like the recording)
+    let mut s2 = crate::ideal::Schedule::from_events(plan.design().clone(), &evs);
+    s2.phase = plan.phase;
+    Ok(s2)
 }
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
@@ -3844,7 +3874,8 @@ fn ideal_judge(w: &mut Worker, p: &Prob, d: &Design) -> std::result::Result<(u32
             }
         }
     }
-    let s = crate::ideal::Schedule::from_events(d.clone(), &evs);
+    let mut s = crate::ideal::Schedule::from_events(d.clone(), &evs);
+    s.phase = plan.phase;
     let opts = crate::ideal::IdealOptions { cycles: 2, offsets: crate::ideal::offsets(0), trace: None };
     crate::ideal::run(w, &s, &BTreeMap::new(), &opts).map_err(|e| e.to_string())
 }
