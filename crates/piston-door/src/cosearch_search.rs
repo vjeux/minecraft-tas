@@ -335,7 +335,7 @@ fn parse_box(s: &str) -> Result<([i32; 2], [i32; 2])> {
 }
 
 pub fn palette(spec: &str) -> Result<Vec<Block>> {
-    let all = "stone,glass,dust,rblock,torch,walltorch,repeater,comparator,observer,sticky,piston,lamp,note,target,bulb";
+    let all = "stone,glass,dust,rblock,torch,walltorch,repeater,comparator,observer,sticky,piston,lamp,note,target,bulb,obsidian,trapdoor,dropper,slab,leaves,log,glazed";
     let spec = if spec == "all" { all } else { spec };
     let mut out = vec![Block::Air];
     for fam in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
@@ -355,6 +355,19 @@ pub fn palette(spec: &str) -> Result<Vec<Block>> {
             "note" => vec!["note_block".into()],
             "target" => vec!["target".into()],
             "bulb" => vec!["waxed_copper_bulb".into()],
+            // immovable conductors (pistons cannot push them)
+            "obsidian" => vec!["obsidian".into(), "crying_obsidian".into()],
+            // iron trapdoor: opens while powered (a non-conductor component; in the door plane it
+            // faces east or west, bottom or top half)
+            "trapdoor" => ["east", "west"].iter().flat_map(|f| ["bottom", "top"].map(|h| format!("iron_trapdoor[facing={f},half={h}]"))).collect(),
+            "dropper" => ["up", "down", "east", "west"].map(|f| format!("dropper[facing={f}]")).to_vec(),
+            // non-conductor floors: a top slab holds dust, a bottom slab does not
+            "slab" => vec!["smooth_stone_slab[type=bottom]".into(), "smooth_stone_slab[type=top]".into()],
+            // persistent leaves: their distance follows a log moved next to them (1 gt delay)
+            "leaves" => vec!["oak_leaves[persistent=true,distance=7]".into()],
+            "log" => vec!["oak_log[axis=x]".into(), "oak_log[axis=y]".into()],
+            // pushed but never pulled (sticky pistons leave it, slime cannot drag it)
+            "glazed" => ["north", "east", "south", "west"].map(|f| format!("white_glazed_terracotta[facing={f}]")).to_vec(),
             f => bail!("unknown palette family {f:?} ({all})"),
         };
         for s in states {
@@ -573,6 +586,19 @@ fn refaced(b: &Block, rng: &mut Rng) -> Option<Block> {
         Block::Repeater { delay, locked, powered, .. } => Block::Repeater { facing: h, delay, locked, powered },
         Block::Comparator { subtract, powered, .. } => Block::Comparator { facing: h, subtract, powered },
         Block::WallTorch { lit, .. } => Block::WallTorch { facing: h, lit },
+        Block::Dispenser { dropper, triggered, .. } => Block::Dispenser { dropper, facing: f, triggered },
+        Block::Trapdoor { iron, top, open, powered, .. } => {
+            if rng.below(2) == 0 {
+                Block::Trapdoor { iron, facing: h, top, open, powered }
+            } else {
+                Block::Trapdoor { iron, facing: h, top: !top, open, powered }
+            }
+        }
+        Block::Slab { kind } if kind < 2 => Block::Slab { kind: 1 - kind },
+        Block::Log { axis } => Block::Log { axis: if axis == 1 { 0 } else { 1 } },
+        Block::Glazed { .. } => Block::Glazed { facing: [Dir::North, Dir::East, Dir::South, Dir::West][rng.below(4)] },
+        Block::Simple(Simple::Obsidian) => Block::Simple(Simple::CryingObsidian),
+        Block::Simple(Simple::CryingObsidian) => Block::Simple(Simple::Obsidian),
         _ => return None,
     })
 }
