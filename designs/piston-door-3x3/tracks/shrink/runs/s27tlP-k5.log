@@ -1,0 +1,6 @@
+fill designs/piston-door-3x3/tracks/shrink/wip/s27-trbl51.txt: 7 region cells (7 free, 0 fixed), base 45 blocks (design 51), k 0..=5, global palette 40 states, gaps allowed
+119 subsets pass the connectivity rule; 2242273880 fillings to screen in 1401428 work items
+FIND designs/piston-door-3x3/tracks/shrink/finds/s27tlP/s27-trbl51-fill-50b-0.txt: s27-trbl51-fill-50b-0: WORKS open 39 close 45 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 50 blocks | 0.0 ms | (-3,3) sticky_piston[extended=false,facing=up] (-1,3) observer[facing=down,powered=false] (-1,4) redstone_lamp[lit=false] (0,4) observer[facing=west,powered=false] (-2,4) observer[facing=east,powered=false]
+[   120s] 12080002 screened (100592/s), 1146655794 pruned, item 724240/1401428, 1 pass the 1-position screen, 1 finds
+[   240s] 31432892 screened (130883/s), 1670148693 pruned, item 1063515/1401428, 1 pass the 1-position screen, 1 finds
+done in 356 s: 50055038 screened, 2192218842 pruned, 1 passed the screen, 1 finds

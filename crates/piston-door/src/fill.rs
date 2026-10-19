@@ -58,6 +58,9 @@ pub struct FillOpts {
     /// 180 and 270 degrees, checked on redsim like `door verify`: the boards rank rotation-safe
     /// doors).
     pub any_rotation: bool,
+    /// Keep only fillings that use at least one state containing one of these substrings (e.g.
+    /// `sculk_sensor`: a sculk variant), pruned before simulation.
+    pub require_any: Vec<String>,
 }
 
 /// Palette shorthands -> exact block states.
@@ -552,6 +555,12 @@ pub fn run(o: &FillOpts) -> Result<()> {
                             map.insert(it.cells[j], pal_states[it.pals[j]][idx[j]].1);
                         }
                         let mut ok = base_needs.iter().all(|sp| map.get(sp).is_some_and(|x| cs::full_cube(x)));
+                        if ok && !o.require_any.is_empty() {
+                            ok = (0..n).any(|j| {
+                                let s = &pal_states[it.pals[j]][idx[j]].0;
+                                o.require_any.iter().any(|r| s.contains(r.as_str()))
+                            });
+                        }
                         for j in 0..n {
                             if !ok {
                                 break;
