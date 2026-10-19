@@ -121,6 +121,27 @@ sensors = calibrated facing W/E/N + plain; ~10-20k combinations/s on 20 threads)
   than (4,-1), which the transplanted bottom needs as BR's watcher (sensors there: 0).
 - Top pullers of s1 accept 3 calibrated taps at any tick (`x/s1-tl3.ideal`: 651 of 651).
 
+## c077 (ceil's 8x7 = 56 mechanism, ceiling-held top) with sensors (10:35Z-, in progress)
+- Why c077 and not c079: c079's BM puller (1,-2) sits between the BL and BR pullers, so its only
+  feed would be (1,-3) below, where nothing can emit upward without a floor at y=-4 (8x9). In c077
+  F0/F2 are static and BM's puller has free side cells (0,-2)/(2,-2).
+- Schedule (plan `c077/c077v.ideal`, every event its own variable; windows with the others fixed):
+  BL's puller (-2,0) open 1, 7, 31 / close 1, 13; ML's puller (-2,1) open 1, 31 / close 13 (7, 9,
+  12, 15 only); TL corner (-1,3) 7 both (3..10 / 2..10); P3 (-3,1) open 13 + 25 (8..17, 21..26; or
+  one 10 gt hold 13..16); P1' at (-1,1) open 19 (13..21); BM/MR/BR open 31, close 19. MR, BR and BM
+  moved TOGETHER work at ANY common tick (61 of 61 starts, same on both edges).
+- Wired: MR + BR at t5 on both edges with 3 blocks: observer (3,3) facing west on TR's park (fires
+  once per edge, t3), note block (4,3) (basedrum: it sits on an observer; a harp note block flips
+  instrument and breaks the rest check), observer (4,2) facing up (MR direct, BR by QC). With MR/BR
+  there, BM must fire at >= 15 on both edges (`c077/c077-r1.txt` + `c077-r1.ideal`: WORKS with BM at
+  20 and the left side ideal). Park watchers of the pulse-type R0/BR pullers fire twice (4 gt apart),
+  so BM needs another single-pulse source (3 calibrated taps: 0).
+- Left side open/close asymmetry is the crux: ML+BL fire together at open 1 and 31 but at close 13,
+  BL alone at open 7 and close 1. An observer on TL's puller (t3 both edges) fits the open ML pulse
+  but not the close side.
+- Annealer runs: `door cosearch search --box=-3,-2:4,4 --assist c077/c077-r1.ideal --offplane
+  --no-mech --palette all,sculk,calibrated,wool` (runs/c077-r1-anneal.log, finds in c077/finds/).
+
 ## Tools (this track)
 
 - `door ideal-rs --vary x,y[,z]=state|state|keep|air` (repeatable: every combination, times the
