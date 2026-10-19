@@ -1,0 +1,13 @@
+set 4 -1 0 minecraft:observer[facing=up]
+set 4 -2 0 minecraft:redstone_wire[east=side,north=side,south=side,west=side]
+set 4 -3 0 minecraft:stone
+set 3 -2 0 minecraft:piston[facing=down]
+set 2 -3 0 minecraft:observer[facing=east]
+set 1 -3 0 minecraft:stone
+set 0 -3 0 minecraft:dropper[facing=south]
+set -1 -3 0 minecraft:observer[facing=east]
+set -2 -3 0 minecraft:stone
+set -2 -2 0 minecraft:redstone_wire[east=side,north=side,south=side,west=side]
+set -2 -1 0 minecraft:observer[facing=down]
+set -1 -2 0 minecraft:observer[facing=down]
+set 0 -2 0 minecraft:observer[facing=west]

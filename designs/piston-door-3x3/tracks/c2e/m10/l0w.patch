@@ -1,0 +1,4 @@
+set -2 -2 0 minecraft:note_block
+set -3 -2 0 minecraft:observer[facing=east]
+set -3 -1 0 minecraft:observer[facing=down]
+set -3 0 0 minecraft:stone
