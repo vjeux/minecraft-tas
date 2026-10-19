@@ -3095,17 +3095,18 @@ fn local_region(w: &mut Worker, p: &Prob, d: &Design) -> Option<HashSet<C2>> {
             if diff.is_empty() {
                 continue;
             }
-            let mut centers: HashSet<C2> = diff.iter().copied().collect();
+            // the misbehaving pistons: diff cells holding a piston base before or after (else every
+            // diff cell); their neighborhood (radius 2, QC cell included) holds the cause
+            let is_base = |fr: &HashMap<C2, String>, c: &C2| fr.get(c).is_some_and(|s| matches!(mk(s), MK::Piston { .. }));
             let prev = a.frame(t - 1);
-            for (c, s) in prev {
-                if matches!(mk(s), MK::Piston { .. }) && diff.iter().any(|x| (x.0 - c.0).abs() + (x.1 - c.1).abs() <= 1) {
-                    centers.insert(*c);
-                }
+            let mut centers: HashSet<C2> = diff.iter().copied().filter(|c| is_base(prev, c) || is_base(fa, c) || is_base(fb, c)).collect();
+            if centers.is_empty() {
+                centers = diff.iter().copied().collect();
             }
             let mut region = HashSet::new();
             for c in &centers {
-                for dx in -3..=3 {
-                    for dy in -3..=3 {
+                for dx in -2..=2 {
+                    for dy in -2..=3 {
                         region.insert((c.0 + dx, c.1 + dy));
                     }
                 }
