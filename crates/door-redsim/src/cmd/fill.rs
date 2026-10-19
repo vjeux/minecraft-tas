@@ -72,10 +72,17 @@ pub struct FillArgs {
     /// `keep` alternative and at most k cells off it, on the real door.
     #[arg(long)]
     keep: bool,
+    /// Accept only finds that open within this many ticks after the flip (worst cycle; 0: any),
+    /// checked on the 1-position screen first: a speed search.
+    #[arg(long, default_value_t = 0)]
+    max_open: u32,
+    /// Accept only finds that close within this many ticks (0: any).
+    #[arg(long, default_value_t = 0)]
+    max_close: u32,
 }
 
 pub fn cmd_fill(args: FillArgs) -> Result<()> {
-    let FillArgs { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, max_volume, count, require_any, report, any_seamless, allow_pistons, any_rotation, rotation_only, keep } = args;
+    let FillArgs { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, max_volume, count, require_any, report, any_seamless, allow_pistons, any_rotation, rotation_only, keep, max_open, max_close } = args;
     if rotation_only {
         let (_, door) = crate::cosearch::load_door(&design)?;
         let opts = crate::cosearch::JudgeOpts::with_extra(extra);
@@ -108,6 +115,8 @@ pub fn cmd_fill(args: FillArgs) -> Result<()> {
         any_rotation,
         require_any: require_any.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
         keep,
+        max_open,
+        max_close,
     };
     crate::fill::run(&o)
 }

@@ -1,0 +1,3 @@
+fill designs/piston-door-3x3/tracks/s79/c78l/L3a.txt: 7 region cells (7 free, 0 fixed), base 45 blocks (design 45), k 0..=3, global palette 49 states, gaps allowed, KEEP mode (k = changed cells)
+63 subsets pass the connectivity rule; 4168479 fillings to screen in 1743 work items
+done in 36 s: 2821742 screened, 1346737 pruned, 0 passed the screen, 0 finds
