@@ -62,3 +62,32 @@ open 43 / close 15).
 - ideal-rs --vary right 5 cells x 16 states (K at t11): 0 of 131k; top-right 5 x 10: 0 of 100k.
 - cosearch cs1 (B' assisted, left 9 cells): 0; cs2 (K + B2 assisted, right/top-right): K wired -> s11.
 - Running: cs3 (s11, B2 assisted, 18 cells); shrink fills on s11; pockets3 plan-assisted pockets on s11.
+
+## Record eligibility (coordinator 19:00Z): not reachable at 7x8 on this line
+- h5/h6 fail only the repeater input (the lever sits on the TM puller: no fixed support).
+- The ceiling puller TM (1,4) must be powered at rest, and its power cells are (1,5), its z sides and the
+  QC ring of (1,5) ((0,5) (2,5) (1,6) (1,5,z+-1)): all outside 7x8x1. Its in-box neighbours are TL/TR
+  (extended pistons do not conduct) and its own head. So every fixed lever support that can drive TM is
+  in row 5 = 7x9: `door relever h5` -> note@(1,5) ELIGIBLE, 42 blocks but volume 63; every in-box
+  support fails "not closed at rest".
+- An eligible 7x8 on this line needs a new top: TM driven from a non-piston at (0,4) or (2,4) (an
+  observer/repeater facing into it, or the lever support itself as a conductor), so at least one top
+  corner moves sideways (a third wall puller at (-2,2) or (4,2)) and the other side needs a trigger
+  that crosses the door (only TM's motion does: an observer at (2,4)/(0,4) watching TM). The extra
+  wall puller then breaks the bottom wall puller's QC firing (BL/BR are fired through the row-2 cell),
+  so the side wiring is redone too. Pulse-driven pullers do work with plain 2-gt observer pulses on
+  both edges (extend into air then pull; push a block then spit: the retraction finds the pushed block
+  still moving), as e78's wall pullers already show.
+- Community line (c77's community-56b-47-elig): `door minimize --eligible --seamless full --plateau`:
+  47; my ideal-rs --vary 5-7-cell groups (bottom, right, top-left, row 5): no removal. c77's 46
+  (c46-notelig) fails the repeater input because the rig delays the support's REDSTONE chain (dust
+  (3,5) -> comparator (4,5) -> right side) by 2 gt but the PISTON chain (observer (0,5) on the (1,5)
+  puller -> left side) by only 1 gt (a lever acts in the player phase; the rig's repeater ticks): the
+  right chain's re-extension pulse (observer (3,4) -> dust -> support, t14) and the left repeater (0,4)
+  into S (t15) collide at t16, the repeater (higher tick priority) wins and S blocks the (1,5) puller.
+  A design is rig-safe when every such left/right race has >= 2 gt of margin in the lever run (c47: 3).
+  Emulate the rig in ideal-rs: patch the lever off + repeater[delay=1,facing=north,powered=true] at
+  (sx,sy,-1) + redstone_block at (sx,sy,-2) + smooth_stone under the repeater; schedule
+  `open 0 clear sx sy -2` / `close 0 set sx sy -2 minecraft:redstone_block`; intersect its --vary
+  survivors with the lever run's. No c46 neighbourhood I tried (top-left 6 cells, right 7 cells, timing
+  cells on both chains, 2.9M) passes both.
