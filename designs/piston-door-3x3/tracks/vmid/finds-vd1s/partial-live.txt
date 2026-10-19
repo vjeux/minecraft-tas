@@ -1,49 +1,51 @@
-name: cosearch-live-73of79
+name: cosearch-live-75of79
 assisted: -2,2
 port door: 0 0 0
-port lever: 5 4 0
+port lever: 5 5 0
 origin: -2 0 0
 palette:
   A minecraft:dropper[facing=west,triggered=false]
-  B minecraft:observer[facing=down,powered=false]
+  B minecraft:observer[facing=west,powered=false]
   C minecraft:comparator[facing=east,mode=compare,powered=false]
   D minecraft:dropper[facing=down,triggered=false]
-  E minecraft:observer[facing=east,powered=false]
-  F minecraft:observer[facing=up,powered=false]
-  G minecraft:obsidian
-  H minecraft:sticky_piston[extended=false,facing=up]
-  I minecraft:iron_trapdoor[facing=east,half=top,open=false,powered=false,waterlogged=false]
-  J minecraft:sticky_piston[extended=false,facing=west]
-  K minecraft:stone
+  E minecraft:piston[extended=false,facing=west]
+  F minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  G minecraft:glass
+  H minecraft:sticky_piston[extended=false,facing=down]
+  I minecraft:iron_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:sticky_piston[extended=false,facing=up]
   L minecraft:lever[face=wall,facing=east,powered=false]
-  M minecraft:white_glazed_terracotta[facing=west]
-  N minecraft:note_block[instrument=harp,note=0,powered=false]
-  O minecraft:oak_log[axis=x]
+  M minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:stone
+  O minecraft:oak_log[axis=y]
   P minecraft:piston[extended=false,facing=east]
-  R minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
-  S minecraft:sticky_piston[extended=false,facing=down]
-  W minecraft:waxed_copper_bulb[lit=false,powered=false]
-  c minecraft:crying_obsidian
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone_slab[type=bottom,waterlogged=false]
+  T minecraft:target[power=0]
+  W minecraft:white_glazed_terracotta[facing=south]
+  c minecraft:comparator[facing=east,mode=subtract,powered=false]
   d minecraft:dropper[facing=up,triggered=false]
-  i minecraft:iron_trapdoor[facing=west,half=bottom,open=false,powered=false,waterlogged=false]
-  o minecraft:oak_log[axis=y]
-  s minecraft:sticky_piston[extended=false,facing=east]
-  w minecraft:white_glazed_terracotta[facing=east]
+  i minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  o minecraft:observer[facing=up,powered=false]
+  p minecraft:piston[extended=false,facing=up]
+  r minecraft:redstone_wall_torch[facing=west,lit=true]
+  s minecraft:smooth_stone_slab[type=top,waterlogged=false]
 layer -3:
-  PMoHB
+  ..SKDOo
 layer -2:
-  WwHHDGH
+  MBKKdcW
 layer -1:
-  Pco.FJ
+  pI...MB
 layer 0:
-  R.KKK.J
+  o.NNN.M
 layer 1:
-  s.KKK.J
+  J.NNN.M
 layer 2:
-  s.KKK.F
+  J.NNNNT
 layer 3:
-  IO...Ad
+  G..N.io
 layer 4:
-  CKSSSBGL
+  EsHHHPA
 layer 5:
-  i.SCGEN
+  RCHGFrTL

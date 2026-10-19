@@ -1,0 +1,32 @@
+name: ve1-lever
+# vmid's ve1 (mech/ve1.txt, 7x9: x -2..4, y -3..5, static stones in the left frame cells) with the
+# lever outside the box at (-3,1) on a glass block (-2,1) in the big left region.
+port door: 0 0 0
+port lever: -3 1 0
+origin: -3 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:glass
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer -3:
+  ....U...
+layer -2:
+  ...UU...
+layer -1:
+  ......W.
+layer 0:
+  ..SSSS.W
+layer 1:
+  LGSSSS.W
+layer 2:
+  ..SSSS.W
+layer 3:
+  ..E...W.
+layer 4:
+  ...DD...
+layer 5:
+  ...D....
