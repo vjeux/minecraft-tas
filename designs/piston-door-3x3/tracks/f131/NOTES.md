@@ -70,3 +70,23 @@ observer pulse (a repeater stretches a 2 gt pulse to at most 8 gt and never leng
   quasi cell (-1,6) (via (-2,6) = W and (0,6) = O_D); O_D's pulses + 2 would be exactly b and c, but
   the only cells that can watch O_D are (0,5) (its output then goes into (0,4), D1's trigger) and
   (1,6) (output east).
+
+## 4. PN and DE share E's window through a dust dot: only P3 and L1/L2 left (pn26b.txt, ideal WORKS)
+
+* The annealer (`cosearch search`, seed pn21b, focus x -2..4 y 3..6, assist PN window + P3 + L)
+  found it in 5 min: **(0,6) = a redstone dust DOT (power 0 at rest) on (0,5) = glazed terracotta**.
+  E (-1,6, delay 4) feeds the dot t10..18; a dot powers the block under it, and that block powers
+  BOTH its side neighbours PN (-1,5) and DE (1,5) (pistons take power from a weakly powered block),
+  while the dust's updates (two blocks around) wake them: PN and DE get one SHARED window t10..18,
+  W's pulse still gives PN its first shot (a) through (-1,6). S_R+: comparator (1,6) reads the dust,
+  feeds the bulb (2,6), comparator (3,6) -> S_R+ (level-held). Its bottom changed too (note block
+  (-2,-2) + observer (-2,-1) -> L0, comparator (3,4) in subtract mode, dropper (2,5)).
+* pn26b (the find without two junk blocks in the left column) + ppn26b.ideal: WORKS in redsim 4 x 2
+  with only P3 and L1/L2 ideal; open after 24 ticks, closed after 27.
+* P3 windows (ppn26c sweep, ideal ticks): open needs P3 to RETRACT at 8..9 (pull), any start; close
+  needs it to extend at 4..9. Windows working on both edges: [4,9), [5,9), [6,8), [7,9), [8,9).
+  L1/L2: any tick.
+* Not wired yet: P3. From W (t2) the left column gives an observer pulse at t4 (one hop) or t6 (two
+  hops, then a conductor at (-2,3)); t8 needs a third hop and the column has no room. Ideas:
+  P3 armed through its quasi cell (-1,4) (a conductor at (-2,4) powered by an observer does not
+  update P3) and retracted by the update of PN's head entering (-1,4) at t10.

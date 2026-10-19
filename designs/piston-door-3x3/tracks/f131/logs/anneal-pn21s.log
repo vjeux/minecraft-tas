@@ -1,0 +1,10 @@
+assist designs/piston-door-3x3/tracks/f131/ppn21-assist.ideal: 3 input cells off the plane ([(-1, 3), (-2, 2), (-1, 5)]), 6 / 6 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/f131/pn21b.txt: 45 blocks in the box, screen 79/79
+18 piston cells locked, 20 cells free
+box x -2..4, y -2..6 (7x9 = 63), 20 free cells, palette 61 states, 80 threads, 2700 s
+[  300s] 61472510 screens (204839/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=274804 assist=38748 lever=420 update-piston=2; best 75/79+0ev-0as+12.00dr(51b) 75/79+0ev-0as+12.00dr(52b) 75/79+0ev-0as+12.00dr(52b) 75/79+0ev-0as+12.00dr(53b) 75/79+0ev-0as+12.00dr(53b) 77/79+0ev-0as+8.50dr(49b)
+        best full-points partial: 2 assisted [-1,3 -2,2] drive -1.00 (49 blocks)
+[  600s] 126173470 screens (210234/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=550989 assist=74965 lever=887 update-piston=3; best 75/79+0ev-0as+12.00dr(51b) 75/79+0ev-0as+12.00dr(51b) 75/79+0ev-0as+12.00dr(52b) 75/79+0ev-0as+12.00dr(52b) 75/79+0ev-0as+12.00dr(52b) 75/79+0ev-0as+12.00dr(52b)
+        best full-points partial: 2 assisted [-1,3 -2,2] drive -1.00 (49 blocks)
+[  900s] 191792383 screens (213050/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=835288 assist=111803 lever=1349 update-piston=7; best 75/79+0ev-0as+12.00dr(51b) 75/79+0ev-0as+12.00dr(51b) 75/79+0ev-0as+12.00dr(51b) 75/79+0ev-0as+12.00dr(52b) 75/79+0ev-0as+12.00dr(52b) 75/79+0ev-0as+12.00dr(52b)
+        best full-points partial: 2 assisted [-1,3 -1,5] drive -4.00 (48 blocks)
