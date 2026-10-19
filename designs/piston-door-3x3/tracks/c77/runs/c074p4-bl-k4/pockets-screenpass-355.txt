@@ -1,0 +1,39 @@
+name: pockets-screenpass-355
+verdict: redsim: WORKS open 42 close 42 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 42 blocks | 0.0 ms
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  D minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:sticky_piston[extended=true,facing=down]
+  H minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  DB.EE.oF
+layer -1:
+  DO...H.A
+layer 0:
+  S.HHHH.F
+layer 1:
+  DD.HHH.F
+layer 2:
+  Ho.HHHHA
+layer 3:
+  .AsPPPBN
+layer 4:
+  SRAGGG
+layer 5:
+  ..CrL
