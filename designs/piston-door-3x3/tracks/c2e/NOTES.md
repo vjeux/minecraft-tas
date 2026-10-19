@@ -118,3 +118,16 @@ edges: pull, push, pull). U fired once per left-stack pulse, 5..6 ticks after it
 BL's puller (-2,-1) gives 2 pulses per move (6 per edge, even). An observer on BL's park (-1,-1) gives 2 per
 pull and 1 per push (open 5, close 4: parity differs). Only a watcher of (0,0) would give exactly 1, and
 (0,0)'s only free-able neighbor is the frame cell (0,-1). BR's puller (any tick) can then watch U from (2,-2).
+
+## 11. m79p's right HOLD family in 8x8 (07:00Z-07:15Z): blocked by the 2-row bottom
+- m88p0 = m88a's bottom + m10top's m79p top (A's hold real t4..t8 from TR + repeater (3,3); B pull-type): BREAKS
+  on open (BL, BM, MM stay). A's push at t4 moves BM into (1,-1) before U's earliest pulse (t5: R0 moves at t1,
+  two observers), so U's first pulse is blocked and the bottom-left (which only hears U) never wakes.
+- The hold can't come later in that family: it ends when (3,3)'s input (the lever dust (4,3)) dies + 8 gt = t8,
+  and it starts at TR's landing (>= t3). My 2-row bottom needs A's push at >= 7 (U pulls BM first).
+- m88q0 = K MIRRORED to the right (static frame stone (0,-1); K' (3,-1) sticky west pulls BM from (1,-1) into
+  (2,-1)): door ideal WORKS with K' ideal (open 4..8, close 7..9) and L0 ideal, everything else real or the top
+  ideal. But K' can only be fed from below: (4,-1) must be R0's watcher (facing up, output down), (3,0) is R0's
+  head / BR, and (3,-2) can only be powered by an observer at (2,-2) watching U, which moves too late (same
+  circle). So with the hold at t4 a 2-row bottom (7x8 or 8x8, K left or right) has no trigger for BM's sideways
+  move; c79's row -3 (7x9, m79p) is what breaks the circle.
