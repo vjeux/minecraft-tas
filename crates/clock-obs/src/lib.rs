@@ -12,7 +12,9 @@
 //! * `grow`: one block added or replaced around known clocks.
 
 pub mod census;
+pub mod cores;
 pub mod grow;
+pub mod pick;
 pub mod rings;
 pub mod sim;
 
@@ -73,6 +75,13 @@ pub enum Cmd {
         out_dir: Option<PathBuf>,
         #[arg(long, default_value_t = 0)]
         write_max_period: u32,
+        /// Rings with one relay instead of one observer: note, lamp, bulb, trap (comma-separated)
+        #[arg(long)]
+        relay: Option<String>,
+        /// Experiment: a 2 x n/2 ring of --max-len observers carrying pulses injected at these
+        /// ticks (comma-separated): the steady period of a multi-pulse pure observer ring
+        #[arg(long)]
+        pulses: Option<String>,
     },
     /// Exhaustive census: every assignment of --palette states to the cells of every polycube of
     /// --k cells (face-connected, one shape per horizontal rotation class), each with every kick
@@ -82,6 +91,12 @@ pub enum Cmd {
     /// Local search around known clocks: one block added or replaced, simulated, new minimal
     /// clocks per period
     Grow(grow::GrowArgs),
+    /// The smallest clocks per (period, family) from search outputs, re-run with the official
+    /// redsim judge, written with names that say what they are
+    Pick(pick::PickArgs),
+    /// Group clocks by their steady-state CORE (the changing cells + the static blocks they
+    /// need, up to translation, rotation and phase): structures vs distinct machines per period
+    Cores(cores::CoresArgs),
 }
 
 pub fn run_args(args: Args) -> Result<()> {
@@ -121,8 +136,14 @@ pub fn run_args(args: Args) -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Rings { max_len, out_dir, write_max_period } => rings::run(max_len, out_dir, write_max_period),
+        Cmd::Rings { max_len, out_dir, write_max_period, relay, pulses } => match (relay, pulses) {
+            (_, Some(p)) => rings::run_pulsetrain(max_len, &p.split(',').filter_map(|t| t.trim().parse().ok()).collect::<Vec<u32>>()),
+            (Some(k), None) => rings::run_relays(max_len, &k, out_dir, write_max_period),
+            (None, None) => rings::run(max_len, out_dir, write_max_period),
+        },
         Cmd::Census(a) => census::run(a),
         Cmd::Grow(a) => grow::run(a),
+        Cmd::Pick(a) => pick::run(a),
+        Cmd::Cores(a) => cores::run(a),
     }
 }

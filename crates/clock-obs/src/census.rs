@@ -121,6 +121,33 @@ pub fn rotate_block(b: Block) -> Block {
     }
 }
 
+/// A compact canonical key (128-bit digest) under translation and the 4 horizontal rotations: the
+/// smallest digest of the 4 rotated, translated, position-sorted forms.
+pub fn canon_hash(blocks: &[(BlockPos, Block)]) -> u128 {
+    use std::hash::{Hash, Hasher};
+    let mut cur: Vec<(P3, Block)> = blocks.iter().map(|(p, b)| (p.arr(), *b)).collect();
+    let mut best = u128::MAX;
+    for _ in 0..4 {
+        cur = cur.iter().map(|(p, b)| (rot(*p), rotate_block(*b))).collect();
+        let mut lo = [i32::MAX; 3];
+        for (p, _) in &cur {
+            for i in 0..3 {
+                lo[i] = lo[i].min(p[i]);
+            }
+        }
+        let mut v: Vec<(P3, Block)> = cur.iter().map(|(p, b)| ([p[0] - lo[0], p[1] - lo[1], p[2] - lo[2]], *b)).collect();
+        v.sort_by_key(|(p, _)| *p);
+        let mut h1 = std::collections::hash_map::DefaultHasher::new();
+        v.hash(&mut h1);
+        let mut h2 = std::collections::hash_map::DefaultHasher::new();
+        0x5eedu32.hash(&mut h2);
+        v.hash(&mut h2);
+        let d = ((h1.finish() as u128) << 64) | h2.finish() as u128;
+        best = best.min(d);
+    }
+    best
+}
+
 /// A structure's canonical key under translation and the 4 horizontal rotations.
 pub fn canon_structure(blocks: &[(BlockPos, Block)]) -> Vec<(P3, String)> {
     let mut cur: Vec<(P3, Block)> = blocks.iter().map(|(p, b)| (p.arr(), *b)).collect();

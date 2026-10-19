@@ -162,3 +162,127 @@ pub fn run(max_len: usize, out_dir: Option<PathBuf>, write_max_period: u32) -> R
     }
     Ok(())
 }
+
+/// Experiment (not a clock design): a 2 x n/2 rectangle ring of observers, with pulses injected
+/// at observer 0 at the given ticks (its tick scheduled directly, as if it saw a change), then
+/// run: the steady-state period of a ring carrying several pulses. Shows which pulse trains a
+/// pure observer ring can carry (spacing >= 4 or 5, both parities), i.e. what a starter would
+/// have to inject for an odd-period pure observer clock.
+pub fn run_pulsetrain(n: usize, times: &[u32]) -> Result<()> {
+    anyhow::ensure!(n >= 4 && n % 2 == 0, "ring length must be even >= 4");
+    let half = n / 2;
+    // cells in loop order: top row west->east, bottom row east->west
+    let mut cells: Vec<P3> = (0..half as i32).map(|x| [x, 0, 0]).collect();
+    cells.extend((0..half as i32).rev().map(|x| [x, 0, 1]));
+    let f: Form = (0..n).map(|i| (cells[i], sub(cells[(i + n - 1) % n], cells[i]))).collect();
+    let spec = Spec { name: "pulsetrain".into(), blocks: f.iter().map(|(c, d)| (BlockPos::new(c[0], c[1], c[2]), Block::Observer { facing: dir_of(*d), powered: false })).collect(), kick: Kick::None, output: None };
+    let mut w = sim::build(&spec, 4);
+    let o0 = BlockPos::new(cells[0][0], cells[0][1], cells[0][2]);
+    let mut keys: std::collections::HashMap<Vec<u8>, u32> = std::collections::HashMap::new();
+    let last = times.iter().copied().max().unwrap_or(0);
+    for t in 0..20000u32 {
+        if times.contains(&t) {
+            w.schedule_tick(o0, redsim::Kind::Observer, 2, redsim::ticks::Priority::Normal);
+        }
+        w.tick();
+        if t > last {
+            let k = w.state_key();
+            if let Some(t0) = keys.get(&k) {
+                let p = t - t0;
+                // the observer 0's on ticks in one period
+                let mut ons = Vec::new();
+                for i in 0..p {
+                    w.tick();
+                    if matches!(w.get(o0), Block::Observer { powered: true, .. }) {
+                        ons.push(i);
+                    }
+                }
+                println!("ring {n}, pulses injected at {times:?}: P = {p} (warmup {t0}), observer 0 on at {ons:?} of each period");
+                return Ok(());
+            }
+            keys.insert(k, t);
+        }
+        if w.idle() {
+            println!("ring {n}, pulses injected at {times:?}: stops at tick {t}");
+            return Ok(());
+        }
+    }
+    println!("ring {n}: no repeat");
+    Ok(())
+}
+/// of an observer: the observer before it (straight through: its back faces the relay) powers
+/// it, the observer after it watches it. A note block or an iron trapdoor follows its power at
+/// once (P = 2 x observers, so an odd number of observers gives P = 2 mod 4); a copper bulb also
+/// toggles (P doubles); a lamp goes dark 4 gt late (its watcher sees two edges per pass).
+pub fn run_relays(max_len: usize, kinds: &str, out_dir: Option<PathBuf>, write_max_period: u32) -> Result<()> {
+    if let Some(d) = &out_dir {
+        std::fs::create_dir_all(d)?;
+    }
+    let kinds: Vec<(&str, Block)> = kinds
+        .split(',')
+        .filter_map(|k| {
+            let s = match k {
+                "note" => "minecraft:note_block",
+                "lamp" => "minecraft:redstone_lamp[lit=false]",
+                "bulb" => "minecraft:waxed_copper_bulb[lit=false,powered=false]",
+                "trap" => "minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false]",
+                _ => return None,
+            };
+            Some((k, Block::parse(s).unwrap()))
+        })
+        .collect();
+    println!("| ring cells | observers | relay | types | periods (count) |");
+    println!("|---|---|---|---|---|");
+    for n in (4..=max_len).step_by(2) {
+        let mut forms: Vec<Form> = ring_forms(n).into_iter().collect();
+        forms.sort();
+        for (kname, kb) in &kinds {
+            let mut seen: HashSet<u128> = HashSet::new();
+            let mut periods: BTreeMap<String, usize> = BTreeMap::new();
+            let mut written_periods: HashSet<u32> = HashSet::new();
+            for f in &forms {
+                let at: std::collections::HashMap<P3, P3> = f.iter().copied().collect();
+                for (s, _) in f {
+                    // the predecessor p of s: the observer whose back faces s, straight through
+                    let Some((p, dp)) = f.iter().find(|(c, d)| add(*c, *d) != *s && sub(*c, *d) == *s && at.contains_key(&add(*c, *d))) else { continue };
+                    let _ = (p, dp);
+                    let mut spec = spec_of("", f);
+                    let sp = BlockPos::new(s[0], s[1], s[2]);
+                    for (q, b) in spec.blocks.iter_mut() {
+                        if *q == sp {
+                            *b = *kb;
+                        }
+                    }
+                    if !seen.insert(crate::census::canon_hash(&spec.blocks)) {
+                        continue;
+                    }
+                    let first_obs = spec.blocks.iter().find(|(q, _)| *q != sp).map(|(q, _)| *q).unwrap();
+                    spec.kick = Kick::Last(first_obs);
+                    spec.output = Some(first_obs);
+                    let r = sim::simulate(&spec, &sim::Opts { horizon: 2000, ..Default::default() });
+                    let key = match &r.verdict {
+                        sim::Verdict::Clock => format!("P={}", r.period),
+                        v => format!("{v:?}"),
+                    };
+                    *periods.entry(key).or_default() += 1;
+                    if let Some(d) = &out_dir {
+                        if r.verdict == sim::Verdict::Clock && r.period <= write_max_period && written_periods.insert(r.period) {
+                            let name = format!("clk-obs-{kname}ring{n}-p{}", r.period);
+                            spec.name = name.clone();
+                            let text = spec.to_text(&format!(
+                                "A ring of {} observers and one {kname} relay ({n} cells): the observer before the relay powers it, the next one watches it. P={} (redsim), family {}.",
+                                n - 1,
+                                r.period,
+                                r.family_name()
+                            ));
+                            std::fs::write(d.join(format!("{name}.txt")), text)?;
+                        }
+                    }
+                }
+            }
+            let p: Vec<String> = periods.iter().map(|(k, v)| format!("{k} ({v})")).collect();
+            println!("| {n} | {} | {kname} | {} | {} |", n - 1, seen.len(), p.join(", "));
+        }
+    }
+    Ok(())
+}
