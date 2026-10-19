@@ -1023,11 +1023,13 @@ impl Prob {
                     // the end of a long pulse (extended >= 3 gt: the retraction pulls) may come one tick
                     // later (redstone pulse widths are even: a 3 gt pulse is a 4 gt one)
                     let long = tau >= 4 && (2..=4).all(|j| ph.frame(tau - j).get(&c) == ph.frame(tau - 1).get(&c));
-                    if one_gt || long { None } else { Some(false) }
+                    // (only for ideal plans: a wired recording's timing is the wiring's own, exact)
+                    let ideal = self.rec.full.is_empty();
+                    if (one_gt || long) && ideal { None } else { Some(false) }
                 } else {
                     let started = tau >= 2 && ph.frame(tau - 2).get(&c) != ph.frame(tau - 1).get(&c);
                     let ends = ph.frame(tau + 1).get(&c) != ph.frame(tau).get(&c);
-                    if started && ends { None } else { Some(true) }
+                    if started && ends && self.rec.full.is_empty() { None } else { Some(true) }
                 }
             }
             MK::Other if tau >= 2 => {
