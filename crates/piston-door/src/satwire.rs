@@ -287,8 +287,16 @@ pub fn mk(s: &str) -> MK {
         "piston_head" | "moving_piston" => MK::Other,
         "redstone_block" => MK::RBlock,
         n if n.contains("glass") || n == "slime_block" || n == "honey_block" || n == "ice" => MK::Solid,
+        n if unsupported(n) => MK::Other,
         _ => MK::Cond,
     }
+}
+
+/// Blocks with redstone behavior satwire does not model (they must not pass as plain conductors).
+pub fn unsupported(n: &str) -> bool {
+    n.contains("sculk") || n.contains("rail") || n.ends_with("_button") || n.ends_with("pressure_plate") || n.ends_with("glazed_terracotta")
+        || (n.ends_with("trapdoor") && n != "iron_trapdoor") || (n.ends_with("_door") && n != "iron_door")
+        || matches!(n, "target" | "daylight_detector" | "tripwire" | "tripwire_hook" | "lectern" | "hopper" | "dispenser" | "calibrated_sculk_sensor" | "crafter" | "iron_door")
 }
 
 fn is_wiring_state(s: &str) -> bool {
@@ -305,6 +313,9 @@ pub struct Phase {
     /// `power[j]` = power each piston base of `frames[j-1]` gets during tick j; `power[0]` = the
     /// stable power before the flip (pistons of `frames[0]`).
     pub power: Vec<HashMap<C2, bool>>,
+    /// `oop[j]` = the cells with an ideal redstone block right in front of / behind them, read
+    /// with `power[j]` (ideal plans only; `--keep-ideal` keeps some of them as given sources).
+    pub oop: Vec<HashSet<C2>>,
 }
 
 impl Phase {
@@ -328,6 +339,14 @@ impl Phase {
         let keep = (last + 3).min(self.frames.len());
         self.frames.truncate(keep);
         self.power.truncate(keep);
+        self.oop.truncate(keep);
+    }
+    /// The ideal off-plane input at cell c is in place at power index j.
+    pub fn oop_at(&self, j: i32, c: C2) -> bool {
+        if self.oop.is_empty() {
+            return false;
+        }
+        self.oop[j.clamp(0, self.oop.len() as i32 - 1) as usize].contains(&c)
     }
     /// Repeat the last frame (and power) until there are `n` frames.
     pub fn pad(&mut self, n: usize) {
@@ -338,6 +357,10 @@ impl Phase {
         while self.power.len() < n {
             let p = self.power.last().cloned().unwrap_or_default();
             self.power.push(p);
+        }
+        while !self.oop.is_empty() && self.oop.len() < n {
+            let p = self.oop.last().cloned().unwrap_or_default();
+            self.oop.push(p);
         }
     }
 }
@@ -481,7 +504,7 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
             let row = &sigs[ph][j - 1];
             power.push(pistons(&frames[j - 1]).into_iter().map(|c| (c, row[idx(c).unwrap()] > 0 || idx(add(c, U)).is_some_and(|i| row[i] > 0))).collect());
         }
-        phases[ph] = Phase { frames, power };
+        phases[ph] = Phase { frames, power, oop: Vec::new() };
         phases[ph].trim();
     }
     let mut rest = BTreeMap::new();
@@ -619,6 +642,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         let mut prev = mech(&before.0, &HashMap::new(), &mut held);
         let mut frames = Vec::new();
         let mut power = vec![power_now(w, &before)?];
+        let mut oops = vec![before.1.clone()];
         for t in 0..=ticks {
             for (et, p, st) in &evs {
                 if *et == t {
@@ -640,10 +664,12 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             prev = mf.clone();
             frames.push(mf);
             power.push(power_now(w, &f)?);
+            oops.push(f.1.clone());
             w.step(sb, 1)?;
         }
         power.truncate(frames.len());
-        phases[ph] = Phase { frames, power };
+        oops.truncate(frames.len());
+        phases[ph] = Phase { frames, power, oop: oops };
         phases[ph].trim();
     }
     let _ = w.drop_sandbox(sb);
@@ -888,6 +914,8 @@ pub struct Prob {
     pub fixed_state: HashMap<C2, String>,
     /// The lever is ON at rest (it opens when switched off).
     pub lever_on_rest: bool,
+    /// `--keep-ideal`: the ideal plan, to judge candidates with its kept inputs.
+    pub plan: Option<crate::ideal::Schedule>,
     /// Independent-timing clusters of mechanism cells (`--one-warp` turns them off): each has
     /// its own time warp, so events of different clusters can be split or shifted apart.
     pub cluster: HashMap<C2, usize>,
@@ -1073,6 +1101,17 @@ pub struct ProbOpts {
 
 /// Free cells, palettes per cell, lever candidates.
 pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
+    // blocks whose redstone behavior is not modeled: refuse rather than treat them as conductors
+    for ph in &rec.phases {
+        for fr in &ph.frames {
+            if let Some((c, s)) = fr.iter().find(|(_, s)| unsupported(short(s))) {
+                bail!("satwire does not model {} (mechanism cell {c:?})", short(s));
+            }
+        }
+    }
+    if let Some((c, s)) = rec.wiring.iter().find(|(_, s)| unsupported(short(s))) {
+        bail!("satwire does not model {} (wiring cell {c:?})", short(s));
+    }
     let z = rec.z;
     let (dx, dy) = (rec.door[0], rec.door[1]);
     let mut mech: HashSet<C2> = HashSet::new();
@@ -1375,7 +1414,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         }
     }
     let lever_on_rest = rec.lever.as_ref().is_some_and(|(_, s)| prop(s, "powered") == Some("true")) || LEVER_ON.load(std::sync::atomic::Ordering::Relaxed);
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), lever_on_rest, cell_group, cluster, ncl })
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), lever_on_rest, plan: None, cell_group, cluster, ncl })
 }
 
 /// `--menu`: record each alternative schedule, keep the trace `tr` of those that start and end
@@ -1676,6 +1715,17 @@ impl<'a> Model<'a> {
     fn warp_at_c(&self, tr: usize, k: i32, cl: usize) -> Vec<(i32, Lit)> {
         if k <= 0 { vec![(0, self.e.t())] } else { self.warp[tr][cl][k as usize].clone() }
     }
+    /// `--keep-ideal`: the plan's own off-plane redstone block at cell c, kept as a given source
+    /// (timed by the cluster `cl` of the piston it drives).
+    fn given(&mut self, tr: usize, k: i32, c: C2, cl: usize) -> Lit {
+        if !KEEP_IDEAL.lock().unwrap().contains(&c) {
+            return self.e.f();
+        }
+        let ws = self.warp_at_c(tr, k, cl);
+        let ph = &self.p.rec.phases[tr];
+        let lits: Vec<Lit> = ws.iter().filter(|(tau, _)| ph.oop_at(*tau, c)).map(|x| x.1).collect();
+        self.e.or(&lits)
+    }
     fn is_mech(&self, c: C2) -> bool {
         self.p.mech.contains(&c)
     }
@@ -1942,6 +1992,8 @@ pub static SOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool:
 pub static LOG_DOORS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--lever-on`: the lever is ON at rest (detected from a wired source design).
 pub static LEVER_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--keep-ideal`: off-plane ideal inputs (by cell) that stay given sources instead of being wired.
+pub static KEEP_IDEAL: std::sync::Mutex<Vec<C2>> = std::sync::Mutex::new(Vec::new());
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     let diag = check_mode || DIAG.load(std::sync::atomic::Ordering::Relaxed);
@@ -2609,13 +2661,17 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     };
                     let d = tau;
                     let front = if fc == (0, 0) { None } else { Some(fc) };
-                    let direct = m.any_in(tr, k, c, front);
+                    let direct0 = m.any_in(tr, k, c, front);
+                    let cl = p.cl(c);
+                    let gd = m.given(tr, k, c, cl);
+                    let direct = m.e.or(&[direct0, gd]);
                     let q = add(c, U);
                     let mut qt = Vec::new();
                     for dd in [E, W, U] {
                         qt.push(m.sig(tr, k, add(q, dd), q, false));
                     }
                     qt.push(m.oop(tr, k, q));
+                    qt.push(m.given(tr, k, q, cl));
                     let qc = m.e.or(&qt);
                     let ds = match ga {
                         None => wl,
@@ -2934,6 +2990,29 @@ fn normalize_notes(w: &mut Worker, d: &mut Design) -> Result<()> {
     Ok(())
 }
 
+/// `--keep-ideal`: replay the candidate with the plan's kept ideal inputs (and its lever flips moved
+/// to the candidate's lever), like `door ideal`: 4 positions x 2 cycles.
+fn ideal_judge(w: &mut Worker, p: &Prob, d: &Design) -> std::result::Result<(u32, u32), String> {
+    let plan = p.plan.as_ref().ok_or("no plan")?;
+    let keep = KEEP_IDEAL.lock().unwrap().clone();
+    let lever = d.blocks.iter().find(|(_, s)| short(s) == "lever").map(|(pos, _)| *pos);
+    let mut evs = Vec::new();
+    for open in [true, false] {
+        for (t, pos, st) in plan.resolved(open).map_err(|e| e.to_string())? {
+            if st.as_deref() == Some("@use") {
+                if let Some(lp) = lever {
+                    evs.push((open, t, lp, st.clone()));
+                }
+            } else if keep.contains(&(pos[0], pos[1])) {
+                evs.push((open, t, pos, st.clone()));
+            }
+        }
+    }
+    let s = crate::ideal::Schedule::from_events(d.clone(), &evs);
+    let opts = crate::ideal::IdealOptions { cycles: 2, offsets: crate::ideal::offsets(0), trace: None };
+    crate::ideal::run(w, &s, &BTreeMap::new(), &opts).map_err(|e| e.to_string())
+}
+
 fn judge(w: &mut Worker, sb: u32, d: &Design, extra: u32) -> std::result::Result<String, String> {
     let mut o = crate::VerifyOptions::default();
     if extra > 0 {
@@ -3058,9 +3137,15 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
         ));
         // redsim (the judge's checks on the game-verified fast simulator) screens first
         let offs = crate::VerifyOptions::default().offsets;
-        let screened = match crate::redsim_screen::screen(&s.design, &offs, 3, 400, true) {
-            crate::redsim_screen::Screen::Fail(msg) => Err(format!("redsim: {msg}")),
-            _ => judge(w, sb, &s.design, 0),
+        let partial = p.plan.is_some() && !KEEP_IDEAL.lock().unwrap().is_empty();
+        let screened = if partial {
+            // --keep-ideal: the candidate wiring + the kept ideal inputs, replayed like `door ideal`
+            ideal_judge(w, p, &s.design).map(|(a, b)| format!("{} blocks, open {a} close {b} (with the kept ideal inputs)", s.design.blocks.len()))
+        } else {
+            match crate::redsim_screen::screen(&s.design, &offs, 3, 400, true) {
+                crate::redsim_screen::Screen::Fail(msg) => Err(format!("redsim: {msg}")),
+                _ => judge(w, sb, &s.design, 0),
+            }
         };
         match screened {
             Ok(rep) => {
@@ -3093,7 +3178,8 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
     let Some((d, _)) = best else { return Ok(None) };
     let Some((w, sb)) = ws.as_mut() else { return Ok(Some(d)) };
     let _ = w.drop_sandbox(*sb);
-    if o.extra > 0 {
+    let partial = p.plan.is_some() && !KEEP_IDEAL.lock().unwrap().is_empty();
+    if o.extra > 0 && !partial {
         let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
         match judge(w, sb, &d, o.extra) {
             Ok(rep) => log(format!("JUDGE OK with --extra-offsets {}: {rep}", o.extra)),

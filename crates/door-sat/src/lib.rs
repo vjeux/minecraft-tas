@@ -118,6 +118,11 @@ pub enum DoorCmd {
         /// source design.
         #[arg(long)]
         lever_on: bool,
+        /// Ideal plans: off-plane ideal inputs that stay GIVEN sources (their recorded on/off,
+        /// timed with the piston they drive) instead of being wired: cells "x,y;x,y" (the input's
+        /// in-plane cell, e.g. the piston it sits behind).
+        #[arg(long)]
+        keep_ideal: Option<String>,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -218,12 +223,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Boxproof { args } => {
             return crate::boxproof::cli(&args);
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             sw::SOUND.store(sound, std::sync::atomic::Ordering::Relaxed);
             sw::LOG_DOORS.store(log_doors, std::sync::atomic::Ordering::Relaxed);
             sw::LEVER_ON.store(lever_on, std::sync::atomic::Ordering::Relaxed);
+            if let Some(ki) = &keep_ideal {
+                let mut cells = Vec::new();
+                for t in ki.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                    let v: Vec<i32> = t.split(',').map(|x| x.trim().parse()).collect::<Result<_, _>>()?;
+                    anyhow::ensure!(v.len() >= 2, "--keep-ideal x,y;x,y");
+                    cells.push((v[0], v[1]));
+                }
+                *sw::KEEP_IDEAL.lock().unwrap() = cells;
+            }
             if check && mechanism.len() > 1 {
                 let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false, motion: !recorded_power, clusters: false, full_frame: false };
                 let next = std::sync::atomic::AtomicUsize::new(0);
@@ -302,6 +316,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                                     }
                                 };
                                 let mut p = sw::build_prob(rec, &po)?;
+                                if keep_ideal.is_some() && !from_wired {
+                                    p.plan = Some(crate::ideal::Schedule::parse(&std::fs::read_to_string(m)?)?);
+                                }
                                 if keep_wiring && !from_wired && !p.rec.wiring.is_empty() {
                                     let mut d = mctas::design::Design::default();
                                     for (cc, st) in &p.rec.wiring {
@@ -371,6 +388,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 full_frame,
             };
             let mut p = sw::build_prob(rec, &po)?;
+            if keep_ideal.is_some() && !from_wired && families.is_none() {
+                p.plan = Some(crate::ideal::Schedule::parse(&std::fs::read_to_string(&mechanism)?)?);
+            }
             if let Some(fp) = &fixed {
                 sw::fix_partial(&mut p, &load_design(fp)?)?;
             }
