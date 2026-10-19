@@ -1,0 +1,30 @@
+# archived 2026-10-19T19:28Z from designs/clocks/tracks/clk-obs/mech2/p104-bulb-obs-pis-rb-stk-7b-b-23a1aa.txt by mctas clock archive
+# CLOCK: clk-obs-p104-bulb-obs-pis-rb-stk-7b-b-23a1aa period 104 gt (5.2 s), on 48/104, edges 24, warmup 6, family copper_bulb+observer+piston+redstone_block+sticky_piston, 7 blocks, 1x5x3, robust
+name: clk-obs-p104-bulb-obs-pis-rb-stk-7b-b-23a1aa
+# P104: 1 copper bulb, 2 observers, 1 piston, 1 redstone block, 2 sticky pistons; changing in place: copper_bulb, observer, piston, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 0 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:redstone_block
+  C minecraft:sticky_piston[extended=false,facing=down]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:piston[extended=false,facing=up]
+  F minecraft:observer[facing=south,powered=false]
+layer -1:
+  .
+  A
+  .
+layer 0:
+  B
+  C
+  .
+layer 1:
+  C
+  D
+  E
+layer 2:
+  .
+  F
+  .

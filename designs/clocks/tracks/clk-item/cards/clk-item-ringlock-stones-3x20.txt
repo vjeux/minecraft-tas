@@ -1,0 +1,62 @@
+# Ring lock 3 x 20, item-count tuned (clk-item): the ring lock of 42 hoppers with 5 + n stones in the corner hopper: each stone adds one 8-gt hopper move to the queue in front of the locked hopper, P = 7 L + 8 N - 34, up to N = 33 (P 524).
+
+name: clk-item-ringlock-stones-3x20
+extend base: 0
+extend blocks: 44
+extend family: clk-item-ringlock-stones-3x20
+extend generator: mctas clock item gen ringlock --d 20 --n0 5 --n {n} --out {out}
+extend n: 0..28
+extend period: 300 + 8n
+extend rule: one more stone in the corner hopper (same blocks)
+port output: 1 1 1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:5}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  .
+  .S
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 1:
+  HHA
+  hCA
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  h.A
+  hBB
