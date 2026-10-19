@@ -1,0 +1,22 @@
+# archived 2026-10-19T16:58Z from /tmp/clk-in6/clk-rt--sweeps--uloop-k2--uloop-p440-c-rt-rw.txt by mctas clock archive
+# CLOCK: clk-rt-uloop-p440-c-rt-rw-12b period 440 gt, on 64/440, edges 16, warmup 0, family comparator+redstone_torch+redstone_wire, 12 blocks, 4x2x2, rotation-dependent
+# U-loop (clk-rt): a wall torch on block A (unlit at placement) -> top row [dust, comparator] ->
+# block F -> a wall torch on F -> bottom row [comparator, dust] -> A; 2 torches = a pulse ring of
+# loop delay 8 gt
+name: clk-rt-uloop-p440-c-rt-rw-12b
+uloop: t-d,c-c,d-T
+port output: 0 1 -1
+origin: 0 0 -1
+palette:
+  A minecraft:redstone_wire
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  R minecraft:redstone_wall_torch[facing=north,lit=false]
+  S minecraft:stone
+  c minecraft:comparator[facing=west,mode=compare,powered=false]
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+layer 0:
+  .SS
+  .SS
+layer 1:
+  RAcS
+  SCAr

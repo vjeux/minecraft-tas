@@ -1,0 +1,3 @@
+# Append-only tables written by `mctas clock archive` on several branches: keep both sides on merge.
+designs/clocks/archive/*.tsv merge=union
+designs/clocks/impossible.tsv merge=union
