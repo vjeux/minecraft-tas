@@ -445,6 +445,11 @@ pub enum DoorCmd {
         design: PathBuf,
         #[arg(long, default_value_t = 6)]
         flips: usize,
+        /// Write the settled state after this many flips (position 0) as a design to --out.
+        #[arg(long)]
+        write_state: Option<usize>,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Draw mechanisms by eye (sheet.rs): for each ideal schedule (or design), the door's plane at
     /// rest and once the opening settles (replayed in redsim, no Minecraft), as one markdown page.
@@ -2446,8 +2451,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => anyhow::bail!("no route"),
             }
         }
-        DoorCmd::Cycle { design, flips } => {
-            crate::cycle::cli(&design, flips)?;
+        DoorCmd::Cycle { design, flips, write_state, out } => {
+            crate::cycle::cli(&design, flips, write_state, out.as_deref())?;
         }
         DoorCmd::Sheet { files, out, heading, fill, fill_dir, single_up_below } => {
             crate::sheet::cli(&files, out.as_deref(), heading.as_deref(), fill, fill_dir.as_deref(), single_up_below)?;
