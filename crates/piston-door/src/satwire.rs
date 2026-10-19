@@ -2202,6 +2202,10 @@ pub static EXPLAIN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBoo
 /// `--period2`: four traces (two cycles) share the placement; the rest state may alternate between
 /// cycles (the judge accepts a periodic rest: copper bulbs toggled once per cycle).
 pub static PERIOD2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--exact-order` (with `--sound`): keep `--sound`'s QC holds but not its free read orders of
+/// repeaters and torches (torches read after the observer ticks: an observer pulse that powers a
+/// torch's block ends before the torch's tick reads it, FIFO; candidates exploited the free order).
+pub static EXACT_ORDER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--retime` (ideal plans): a timing CEGAR. Touching events of different clusters keep only their
 /// ORDER (ties allowed, no safe gap); each candidate's timing is checked by replaying the ideal plan
 /// with every input moved with its piston's cluster (redsim, 4 positions, 2 cycles): a timing that
@@ -2799,7 +2803,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                                 // fire: on = !on_prev | in_prev
                                 // --sound: repeaters of different priorities run in order within phase R: it
                                 // may read its input before or after a repeater feeding it fires
-                                let i_x = if SOUND.load(std::sync::atomic::Ordering::Relaxed) {
+                                let i_x = if SOUND.load(std::sync::atomic::Ordering::Relaxed) && !EXACT_ORDER.load(std::sync::atomic::Ordering::Relaxed) {
                                     let ch = m.e.var();
                                     let a = m.e.and(&[ch, i_k]);
                                     let b = m.e.and(&[!ch, i_p]);
@@ -2834,7 +2838,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             }
                             if k >= 1 {
                                 let g1 = m.e.and(&[g, s_k]);
-                                if SOUND.load(std::sync::atomic::Ordering::Relaxed) {
+                                if SOUND.load(std::sync::atomic::Ordering::Relaxed) && !EXACT_ORDER.load(std::sync::atomic::Ordering::Relaxed) {
                                     // its tick runs among the observer ticks (FIFO): it may read its input
                                     // before or after them
                                     let i_p = m.sig(tr, k - 1, src, c, false);
