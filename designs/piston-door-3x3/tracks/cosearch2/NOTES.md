@@ -66,4 +66,62 @@ still assisted): the only meaningful partial.
 * ring56 s1 (frame-12/12 7x8, ring56's hand mechanism): 4 pockets of 5-8 cells (BL 7, TL 5, BR 8,
   TR 5); windows: every top / side input fires once at t0 with window 0..40, the bottom elevator
   train A' 0 [0,3], K 6 [3,10], B' 12 [8,15], A' lifted 16 [13,19], B' 22 [19,24], A' 28 [26,68]
-  (open), A' 0, K 6, B' 12, B' 18 (close).
+  (open), A' 0, K 6, B' 12, B' 18 (close). k=3 (47 states, 94 s / 150 threads), k=4 (21 states,
+  125 s), k=5 (21 states; BL pocket 68M fillings in 427 s): fillings for every top / side input
+  and K, and at k=5 a 5-block WATCHER for both of B''s pulses on both edges (observer on BL's
+  puller -> stone -> delay-4 repeater -> observer: pulses at t13 and t21, into B' by QC through
+  A''s cell: `runs/pk-s1-k5/pocket0-set1.txt` on the dedicated box); no filling drives A'. The top
+  pockets are trigger-isolated (history.md "Below 72"): s1 cannot be wired with one lever.
+* f131X-ff (`seeds/f131X-ff.txt`: f131X + static frame stones (3,2), (0,-1), (2,-1), level inputs
+  moved off the plane by `--offplane`): screens 79/79 with frame 12/12 while assisted; pockets
+  k=3: the TR pocket drives D2+ both edges, the TL pocket D1's b shot; annealing (44 threads, 30
+  min, drive shaping): a true partial with 5 of 7 inputs left (P3+ and DE released).
+
+## 4. Known-answer calibration on the community 7x9 (c79-closed, main tracks/c79)
+
+`door cosearch plan-from <door> --region <cells>` writes the ideal plan of the pistons a wiring
+region feeds: at every tick, a powered piston that loses its power when the region's blocks are
+taken out (raw, put back) is fed by it; the plan's redstone block sits behind it (z+1) at exactly
+those ticks (the door's other wiring keeps its share), a cell fed like the one above it left to
+that block's QC. Then `pockets <door> --assist <plan> --region-cells <cells> --keep-lever
+--no-hallway --k <region size>` erases the region and searches it exhaustively.
+
+| region (blocks) | palette | fillings, time | result |
+|---|---|---|---|
+| top-left (6: dust line + observer on the elevator + stone on TL's puller) | stone, dust, observer (7 states) | 2.9M, 41 s / 44 threads | RE-FOUND: 3 finds, `door verify` WORKS (51 blocks) |
+| bottom-right (4: observer on MR's puller, dust, 2 stones) | same | 10k, 1 s | RE-FOUND: 2 finds |
+| bottom-left (6: observers / dust / stone into BL's puller, the corner puller, the bottom puller) | same | 249k, 23 s | RE-FOUND, plus a 5-block variant: **c79-pockets-50b.txt, 63b (7x9x1), 50 blocks, `verify --extra-offsets 28` WORKS, rotation-safe, FULL seamless, frame 12/12** (hallway: no, like c79) |
+| bottom-middle (3: observer on the signal piston's cell, stone, dropper) | stone, observers, dropper, dust | - | not testable alone: bottom-left's observer watches its dropper (a region must include the blocks other regions sense) |
+| top-right (7: lever line repeaters, observers, dust + dropper level) | the 6 used states | 722k, 22 s / 44 threads | PARTLY: the dropper-held right side (2 blocks) and the lever's repeater line into the elevator top (4 blocks) re-found, together (6 blocks); the observer on the dropper -> static stone -> elevator link (shared with top-left's dust line) not matched: (1,3)o2 / (1,4)c4 left |
+
+What it took (all fixed in the pocket search): (1) DOUBLE DRIVE: a filling and the plan's block
+on the same piston broke correct fillings (pulses of 3 gt instead of 2, spit vs pull): every input
+a filling feeds is screened again with that input RELEASED; (2) a plan block powers EVERY piston
+next to it (direct + QC): the real wiring stands in only when it powers all of them (else ML's QC
+was missed and the door failed with TL alone pulled); (3) plan-from emits only the region's own
+ticks, and a filling's traces are matched with the seed's remaining wiring taken out tick by tick;
+(4) the screen accepts a lever on at rest (either polarity), finds without the hallway check
+(`--no-hallway`: c79's lever on top of its block fails redsim's hallway check).
+
+## 5. Other wirings of c79 (the coordinator counts them as new doors)
+
+The same region runs with a 25-state palette (stone, dust, observers, note block, repeaters,
+torches, wall torches, lamp, redstone block, droppers): bottom-right k=4 (6M fillings, 43 s / 150
+threads): 12 finds (`c79var/br/pockets-63b-51-*.txt`, all 63b, 51 blocks, redsim judge + FULL +
+hallway + frame 12/12; `door verify` WORKS on the one checked); bottom-left k=5 (46M, 336 s): the
+50-block door again (the only 5-block full filling); top-left k=5 (296M fillings, 924 s / 150
+threads): no door: the 5-block fillings drive TL/ML (5 blocks) or the elevator's two pulses (4
+blocks) separately, and two disjoint fillings do not fit the 8-cell pocket; c79's own 6-block
+answer drives both from one shared dust line, so the top-left needs k = 6 with this palette (~25x
+the k = 5 run, ~6 h on 150 threads: not run).
+
+## 6. Next
+
+* Every region of c79 with the full palette and k = region size (other wirings, fewer blocks);
+  regions must include the blocks other regions SENSE (bottom-middle + bottom-left's dropper).
+* The periodic rest rule (main 96a62d6) in the screen; an off-plane lever in the grid; powered
+  rails in the palette.
+* Broad pocket runs on c79-family mechanisms (7x8: mechspace c78-*, w63top u7-m*, seq56 m4/m5,
+  ring56 t8/t10; 7x9 variants; 8x8 refits), seeding regions with c79's patterns; whole-mechanism
+  runs need the lever's pocket to reach every other pocket through the mechanism (ring56 s1 fails
+  this).

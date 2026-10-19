@@ -1131,15 +1131,21 @@ fn grid_from_door(door: &RsDoor, p: &Problem) -> Result<Grid> {
 
 /// Re-hang the lever at (x, y): on the first sturdy neighbour (above, below, west, east).
 fn place_lever(g: &mut Grid, x: i32, y: i32) {
+    // keep the rest polarity of the lever being moved (a door may rest with its lever on)
+    let powered = matches!(g.get(g.lever.0, g.lever.1), Block::Lever { powered: true, .. });
+    place_lever_p(g, x, y, powered);
+}
+
+fn place_lever_p(g: &mut Grid, x: i32, y: i32, powered: bool) {
     use redsim::block::Face;
     let lever = if !g.get(x, y + 1).is_air() {
-        Block::Lever { face: Face::Ceiling, facing: Dir::West, powered: false }
+        Block::Lever { face: Face::Ceiling, facing: Dir::West, powered }
     } else if !g.get(x, y - 1).is_air() {
-        Block::Lever { face: Face::Floor, facing: Dir::West, powered: false }
+        Block::Lever { face: Face::Floor, facing: Dir::West, powered }
     } else if !g.get(x - 1, y).is_air() {
-        Block::Lever { face: Face::Wall, facing: Dir::East, powered: false }
+        Block::Lever { face: Face::Wall, facing: Dir::East, powered }
     } else {
-        Block::Lever { face: Face::Wall, facing: Dir::West, powered: false }
+        Block::Lever { face: Face::Wall, facing: Dir::West, powered }
     };
     g.set(x, y, lever);
     g.lever = (x, y);
@@ -1157,8 +1163,9 @@ fn move_lever(p: &Problem, g: &mut Grid, rng: &mut Rng) -> bool {
         return false;
     }
     let (ox, oy) = g.lever;
+    let powered = matches!(g.get(ox, oy), Block::Lever { powered: true, .. });
     g.set(ox, oy, Block::Air);
-    place_lever(g, x, y);
+    place_lever_p(g, x, y, powered);
     true
 }
 
@@ -2495,7 +2502,13 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
         let mut o = tr.clone();
         for ph in 0..2 {
             for (t, r) in o[ph].iter_mut().enumerate() {
-                *r &= !base_tr[ph].get(t).copied().unwrap_or(0);
+                // the base's share, widened by 2 ticks (the mechanism's timing shifts a little
+                // when the filling replaces the plan)
+                let mut b = 0u64;
+                for dt in t.saturating_sub(2)..=t + 2 {
+                    b |= base_tr[ph].get(dt).copied().unwrap_or(0);
+                }
+                *r &= !b;
             }
         }
         o
