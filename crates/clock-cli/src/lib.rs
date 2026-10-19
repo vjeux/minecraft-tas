@@ -61,6 +61,26 @@ pub enum ClockCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Track clk-obs's commands (crates/clock-obs: observer / piston / bulb / note block clocks).
+    Obs {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track clk-rt's commands (crates/clock-rt: torch / repeater / comparator clocks).
+    Rt {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track clk-sculk's commands (crates/clock-sculk: sculk / vibration clocks).
+    Sculk {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track clk-item's commands (crates/clock-item: hopper / dropper / item clocks).
+    Item {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
@@ -112,6 +132,10 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
+        ClockCmd::Obs { args } => clock_obs::run(args)?,
+        ClockCmd::Rt { args } => clock_rt::run(args)?,
+        ClockCmd::Sculk { args } => clock_sculk::run(args)?,
+        ClockCmd::Item { args } => clock_item::run(args)?,
     }
     Ok(())
 }

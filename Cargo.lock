@@ -250,8 +250,44 @@ dependencies = [
  "anyhow",
  "clap",
  "clock",
+ "clock-item",
+ "clock-obs",
+ "clock-rt",
+ "clock-sculk",
  "mctas",
  "serde_json",
+]
+
+[[package]]
+name = "clock-item"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
+]
+
+[[package]]
+name = "clock-obs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
+]
+
+[[package]]
+name = "clock-rt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
+]
+
+[[package]]
+name = "clock-sculk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
 ]
 
 [[package]]

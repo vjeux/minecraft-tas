@@ -132,8 +132,11 @@ burnout memory or a sensor's last frequency settles later).
 
 ## For explorer crates
 
-A track's generator lives in its own crate (`crates/clock-<track>`, depending on `clock`); ask
-clockinfra to register its subcommand under `mctas clock`. The in-process API:
+A track's generator lives in its own crate, already created as a stub for each explorer:
+`crates/clock-obs`, `clock-rt`, `clock-sculk`, `clock-item` (each depends on `clock`; its owner
+replaces the stub freely). `mctas clock <obs|rt|sculk|item> <args...>` passes every argument after
+the track name to that crate's `pub fn run(args: Vec<String>) -> anyhow::Result<()>`, so a track's
+commands never touch the shared crates. The in-process API:
 
 ```rust
 let c = clock::Clock::load(path)?;            // or Clock::from_design(design)
