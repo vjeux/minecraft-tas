@@ -1,5 +1,32 @@
 # Track e88: an 8x8 = 64 flat FULL-seamless door from e89b (2026-10-19)
 
+## RESULT: t7b = 63 (7x9x1) solid, FULL seamless + hallway, 43 blocks (BEST.txt; t7a = 45)
+t7b: the row -4 chain shortened (observer (0,-4) east = D support, stone (-1,-4), dust (-1,-3) into D;
+P_M from (-1,-2) watching the dust), archive/e88-t7b-43b.txt, open/close 43/31.
+`door verify --extra-offsets 28` WORKS (32 positions x 3 cycles, rotation-safe, 20 cycles, hallway
+yes), open/close 47/35, archive/e88-t7a-45b.txt. Ties the 63 volume record (c79-pockets-50b) with 45
+blocks instead of 50. How it works (x -2..4, y -4..4, door 0..2 x 0..2):
+- Top: a lever ON at rest standing on the T puller (1,4) holds the three ceiling pullers (T direct,
+  TL/TR by QC); the lever flip pulls the whole ceiling up at t1 (zero wiring).
+- Walls: (-1,3) observer watching TL's park -> (-2,3) repeater -> (-2,2) observer up -> ML puller
+  (direct) + BL puller (QC); mirrored on the right ((3,3), (4,3), (4,2)).
+- Bottom right: (4,-1) observer watching BR's puller (two pulses) -> stone (4,-2) -> delay-2
+  repeater (3,-2) (merger) -> observer (2,-2) east = A's pulse 0 at t15 (pulls BM to (1,-1) on open,
+  pushes C up on close).
+- Bottom: (2,-3) up watches (2,-2) -> note block (2,-4) -> (1,-4) east -> note block (0,-4) ->
+  (-1,-4) east -> note block (-2,-4) -> (-2,-3) down -> (-1,-3) west = input of the delay-4
+  repeater D (0,-3) (on (0,-4)) at t25; (-1,-2) down watches (-1,-3) and fires P_M (-1,-1) at t27
+  (BM to (0,-1)). D holds B (1,-3) t33..t41 (A lifted to (1,-1)); the gate observer (0,-2) watches D
+  and powers BM (parked at (0,-1) only when open) at t35 and t43, exactly when A lands at (1,-1)
+  and back at (1,-2): pulses 1 and 2 pull C down to (1,0) then (1,-1). On close BM is not at (0,-1):
+  no pulses 1/2, B's 8 gt lift puts A, BM, C back.
+- Why it fits 7 wide: e89b needed 8 columns for the top-right block sent right; one lever on the T
+  puller sends the whole top row up instead, and the 9th row (row -4) gives D its support and the
+  bottom a horizontal channel from the right (cut) side to the left.
+
+## The 8x8 attempt (t3*): see below; bridge finished t3k with a calibrated sculk sensor (64b, 52
+blocks, sculk category, archive/bridge-e88-sculk-52b.txt on explore/bridge).
+
 Brief: shave a row off flat-seam-e89b-49b (8x9 = 72, FULL + hallway) to get 8 x 8, flat, 1 wide,
 frame 12/12 (all 12 frame cells hold the door block when open), no slime/honey.
 
