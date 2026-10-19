@@ -1,0 +1,46 @@
+# mech-synth ideal schedule (open/close on both edges)
+design designs/piston-door-3x3/tracks/frame/ff/7x8-t1-016-oc-ff.txt
+# open:  PSeast@(-2,1,0) LSup+@(0,-2,0) PSdown@(0,4,0) PSup@(1,-2,0) PSdown@(1,4,0) LSwest+@(3,3,0) PSdown@(1,5,0) PSdown@(1,4,0) PSdown@(1,5,0) PSdown@(1,4,0) PSwest@(4,0,0) PSwest@(4,2,0) PSwest@(4,1,0)
+# close: PSeast@(-2,1,0) LSup+@(0,-2,0) PSdown@(0,4,0) PSup@(1,-2,0) PSdown@(1,4,0) LSwest+@(3,3,0) PSdown@(1,4,0) PSwest@(4,0,0) PSwest@(4,2,0) PSwest@(4,1,0)
+open 0 set -2 0 0 minecraft:redstone_block
+open 2 clear -2 0 0
+open 6 clear 0 -3 0
+open 12 set -1 4 0 minecraft:redstone_block
+open 12 set 1 -3 0 minecraft:redstone_block
+open 12 set 1 4 1 minecraft:redstone_block
+open 14 clear -1 4 0
+open 14 clear 1 -3 0
+open 14 clear 1 4 1
+open 18 clear 3 4 0
+open 24 set 2 5 0 minecraft:redstone_block
+open 26 clear 2 5 0
+open 30 set 1 3 1 minecraft:redstone_block
+open 32 clear 1 3 1
+open 36 set 2 5 0 minecraft:redstone_block
+open 38 clear 2 5 0
+open 42 set 1 4 1 minecraft:redstone_block
+open 42 set 4 -1 0 minecraft:redstone_block
+open 42 set 5 2 0 minecraft:redstone_block
+open 42 set 5 1 0 minecraft:redstone_block
+open 44 clear 1 4 1
+open 44 clear 4 -1 0
+open 44 clear 5 2 0
+open 44 clear 5 1 0
+close 0 set -2 0 0 minecraft:redstone_block
+close 2 clear -2 0 0
+close 6 set 0 -3 0 minecraft:redstone_block
+close 12 set -1 4 0 minecraft:redstone_block
+close 12 set 1 -3 0 minecraft:redstone_block
+close 12 set 1 4 1 minecraft:redstone_block
+close 14 clear -1 4 0
+close 14 clear 1 -3 0
+close 14 clear 1 4 1
+close 18 set 3 4 0 minecraft:redstone_block
+close 24 set 1 4 1 minecraft:redstone_block
+close 24 set 4 -1 0 minecraft:redstone_block
+close 24 set 5 2 0 minecraft:redstone_block
+close 24 set 5 1 0 minecraft:redstone_block
+close 26 clear 1 4 1
+close 26 clear 4 -1 0
+close 26 clear 5 2 0
+close 26 clear 5 1 0
