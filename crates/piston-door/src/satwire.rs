@@ -1627,7 +1627,10 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     }
                     qt.push(m.oop(tr, k, q));
                     let qc = m.e.or(&qt);
-                    let qd = m.e.and(&[isd, qc]);
+                    // quasi-connected power re-arms a dropper only when a block update reaches it
+                    // (a BUD): not modeled; its `triggered` follows its direct power
+                    let _ = (isd, qc);
+                    let qd = m.e.f();
                     let inn = m.e.or(&[i, qd]);
                     let a = m.e.and(&[isi, inn]);
                     let v = m.npow[&(tr, k, c)];
