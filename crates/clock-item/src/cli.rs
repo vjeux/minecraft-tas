@@ -858,6 +858,7 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                 "ringlock" => (crate::extend::ringlock(d, (n0 + n) as u32), Some(crate::extend::ringlock_period(d, (n0 + n) as u32))),
                 "ringlockd" => (crate::extend::ringlock(d0 + n, n0 as u32), Some(crate::extend::ringlock_period(d0 + n, n0 as u32))),
                 "snowdisp" => (crate::extend::snowdisp((n + 1) as u8), Some(12 + 4 * (n as u32 + 1))),
+                "lockring" => (crate::extend::lockring(d, (n + 1) as u8, m as u32), Some(31 + 8 * (m as u32).saturating_sub(2) + 2 * (n as u32 + 1))),
                 "lockpair" => (crate::extend::lockpair((n + 1) as u8), Some(9 + 2 * (n as u32 + 1))),
                 other => bail!("unknown family {other:?} (loop, dropring, ringlock, ringlockd, snowdisp, lockpair)"),
             };

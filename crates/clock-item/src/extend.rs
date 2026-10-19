@@ -108,6 +108,8 @@ pub fn cards() -> Vec<Card> {
         Card { id: "clk-item-ringlock-stones-3x20", args: "ringlock --d 20 --n0 5 --n {n} --out {out}", p0: 300, dp: 8, b0: 44, db: 0, n_lo: 0, n_hi: 28, redsim: true, rule: "one more stone in the corner hopper (same blocks)", caption: "Ring lock 3 x 20, item-count tuned (clk-item): the ring lock of 42 hoppers with 5 + n stones in the corner hopper: each stone adds one 8-gt hopper move to the queue in front of the locked hopper, P = 7 L + 8 N - 34, up to N = 33 (P 524)." },
         Card { id: "clk-item-snowdisp", args: "snowdisp --n {n} --out {out}", p0: 16, dp: 4, b0: 5, db: 0, n_lo: 0, n_hi: 2, redsim: false, rule: "one more tick of delay on the repeater (same blocks)", caption: "Powder snow dispenser with a repeater (clk-item): a dispenser facing down holds a powder snow bucket; each fire toggles the cell under it (place / pick up); an observer watching that cell pulses into a stone whose dust feeds a repeater (delay n + 1) on the observer pointing into the dispenser: P = 2 x (2 + 2 (n + 1) + 4). Kicked once (a stone flashed 1 gt in the cell). Delay 4 stops: the repeater swallows the next pulse." },
         Card { id: "clk-item-lockpair", args: "lockpair --n {n} --out {out}", p0: 11, dp: 2, b0: 9, db: 0, n_lo: 0, n_hi: 2, redsim: true, rule: "one more tick of delay on the lock repeater (same blocks)", caption: "Hopper pair with a delayed lock (clk-item): 2 swords start in the west-facing hopper B; the comparator reading the east-facing hopper A powers a stone, the dust beside it feeds a repeater (delay n + 1) pointing into B, which locks B from 2 + 2 (n + 1) gt after A gets a sword until that long after it empties: P = 9 + 2 (n + 1). Delay 4 gives 25 (the lock misses a move)." },
+        Card { id: "clk-item-lockring-2s", args: "lockring --d 2 --m 2 --n {n} --out {out}", p0: 33, dp: 2, b0: 11, db: 0, n_lo: 0, n_hi: 3, redsim: true, rule: "one more tick of delay on the lock repeater (same blocks)", caption: "2x2 hopper ring with a delayed lock and 2 swords (clk-item): the lock pair's wiring on a 4-hopper ring: the comparator reads the first ring hopper and powers a stone, the dust beside it feeds a repeater (delay n + 1) into the second ring hopper, locking it while the first holds a sword; the 2 swords start in the last ring hopper: P = 31 + 2 (n + 1) (37 and 39 included)." },
+        Card { id: "clk-item-lockring-3s", args: "lockring --d 2 --m 3 --n {n} --out {out}", p0: 41, dp: 2, b0: 11, db: 0, n_lo: 0, n_hi: 3, redsim: true, rule: "one more tick of delay on the lock repeater (same blocks)", caption: "2x2 hopper ring with a delayed lock and 3 swords (clk-item): the lock pair's wiring on a 4-hopper ring (comparator on the first ring hopper, a repeater of delay n + 1 locking the second); the 3 swords start in the last ring hopper: P = 39 + 2 (n + 1)." },
     ];
     // The dropper rings, one card per residue of P mod 14: (id, args, P0, blocks0).
     let drops: [(&'static str, &'static str, i64, i64); 14] = [
@@ -130,6 +132,21 @@ pub fn cards() -> Vec<Card> {
         v.push(Card { id, args, p0, dp: 14, b0, db: 2, n_lo: 0, n_hi: 7, redsim: true, rule: "widen the dropper ring by one column (2 hoppers)", caption: DROP_CAPTION });
     }
     v
+}
+
+/// The 2 x d lock ring (families.rs `lock_ring`, d = 2: the 2x2 ring) with `swords` swords in its
+/// last ring hopper and a lock repeater of `delay` (1..=4). On the 2x2 ring: P = 31 + 2 delay with 2
+/// swords, 39 + 2 delay with 3 (11 blocks).
+pub fn lockring(d: i32, delay: u8, swords: u32) -> Option<Design> {
+    let l = loop_cells(2, d).len();
+    if !(1..=4).contains(&delay) || swords == 0 || swords > 5 {
+        return None;
+    }
+    let mut items: Vec<Vec<Stack>> = vec![Vec::new(); l];
+    items[l - 1] = (0..swords).map(|_| ("diamond_sword".to_string(), 1)).collect();
+    let mut des = crate::families::lock_ring(d, delay, &items)?;
+    des.name = format!("lockring2x{d}-{swords}s-r{delay}");
+    Some(des)
 }
 
 pub fn ringlock_period(d: i32, n: u32) -> u32 {
