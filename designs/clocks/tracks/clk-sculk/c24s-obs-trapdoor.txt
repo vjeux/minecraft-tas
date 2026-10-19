@@ -1,0 +1,12 @@
+name: clk-sculk-c24s-obs-trapdoor
+# Self-starting 3-block clock: calibrated C, observer O watching C, oak trapdoor E behind O placed
+# open+powered with no power: it closes on its placement update (BLOCK_CLOSE wakes C); then O's
+# pulses at A+2, A+12, A+22 open/close E and only the A+22 one is heard (C re-arms at A+20).
+origin: 0 0 0
+port output: 0 0 0
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:observer[facing=west,powered=false]
+  E minecraft:oak_trapdoor[facing=north,half=bottom,open=true,powered=true,waterlogged=false]
+layer 0:
+  COE
