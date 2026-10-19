@@ -3087,8 +3087,12 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                                 let sc2 = screen_core(&prob, &g2, &mut evs2, &mut tr2, true);
                                 let tr2 = own(&tr2);
                                 screened.fetch_add(1, Ordering::Relaxed);
+                                // the released inputs ran on the real wiring alone and the door
+                                // worked: their real edges need no plan group (an extra harmless
+                                // pulse, a long pulse for a push/pull pair, ...); only the inputs
+                                // still assisted are matched against their windows
                                 if sc2.pts >= max
-                                    && let Some(d2) = match_groups(&prob, &groups, seed.assist, &tr2, pa.width_tol)
+                                    && let Some(d2) = match_groups(&prob, &groups, seed.assist & !fed, &tr2, pa.width_tol)
                                 {
                                     // every group of a released input counts as covered: the door
                                     // ran without its plan
