@@ -176,3 +176,25 @@ E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
   via SW(4,2)) frees the top-left of P3 and lets the big right region feed D1, DE and P3'; but then
   the left stack (L2+L1 from (-2,3), L0 from the bottom-left) needs single pulses, and the only odd
   links left (level pistons) are fed from the right region and watched from nowhere on the left.
+
+### 131 in the 7-wide box (x -2..4, y -2..5 = 7x8 = 56b; the coordinator checked the mechanism stays inside)
+
+- satwire on both plans with --box=-2,-2,0:4,5,0 (28 free cells, 94 lever candidates, time warp
+  12/12, full palette): UNSAT, core P3 (-1,3) on close, groups (-2,3) (-2,4) (-1,4) (0,4) (-2,5)
+  (logs/sat-f131-{sym,oc}-7w.log). Also UNSAT in both 8-wide placements (x -2..5 and x -3..4).
+- Regions in 7x8: TL 7 cells, TR 8 + ring (3,2), BR 5 + ring (2,-1), BL 5 + ring (0,-1) (the x=5
+  column that joined TR and BR in 8 wide is gone). Pair feeds that work: (-2,3) powers L2 and
+  quasi-powers L1 (both left toggles at once); (4,2) powers R1 and quasi-powers R0 (so BR has no
+  duty). Odd links across regions: none. P3 (the only level piston) touches only TL cells; DE (TL
+  or TR fed) is a pulse/window piston (even); L0 can be fed only from BL's (-2,-1) (or a lever on it,
+  which makes it a level), and BL sees no piston driven from elsewhere (UM is fed from BL or BR,
+  BR sees nothing either). So BL needs the lever, while TL's P3 level, L2/L1, D1's three shots
+  ((0,4) is D1's only feed in both positions) and DE need the lever's timing too.
+- Inside TL: P3's level can only come from (-2,3) (also L2's feed: a conductor there powers L2,
+  so L2/L1 would be held), or from (-1,4)/its quasi neighbors: a wall torch at (-1,4) on (-2,4)
+  (lever at (-3,4) on (-2,4) gives P3 at t2 on both edges, too early on open: T must already be in
+  (1,3)); an observer at (0,4) for D1 must face west and watches (-1,4) (the torch: one pulse per
+  edge, D1 needs three).
+- Ideas not tried: BL exit DOWN with a LEVEL puller U0+ (0,-2) extended at rest, held by a wall
+  torch at (-1,-2) on (-2,-2) and a lever at (-3,-2) on (-2,-2) (BL moves at ~t2 on both edges; its
+  motion BUD-updates UM); or the 118 stopper idea applied to 131's D1/P3 coupling.
