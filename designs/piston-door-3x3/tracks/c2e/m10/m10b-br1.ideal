@@ -1,0 +1,29 @@
+# m10b (m10a with B's level line one repeater longer: (2,5) d4, B drops 16 gt after the flip) with ONLY the
+# top's pulses ideal (A's hold 8..12, A's last pull 20, L1/L2 20 on open / 0 on close): the bottom (U, K, L0)
+# must be real wiring in the design (watching R0 from (4,-1)).
+design designs/piston-door-3x3/tracks/c2e/m10/m10b-br1.txt
+let ah0 = 8
+let ah = 4
+let l12 = 20
+let af = 20
+let cl = 0
+open 0 use 4 5 0
+open ah0 set 1 3 -1 minecraft:redstone_block
+open ah0+ah clear 1 3 -1
+open l12 set -2 2 -1 minecraft:redstone_block
+open l12+2 clear -2 2 -1
+open af set 1 4 -1 minecraft:redstone_block
+open af+2 clear 1 4 -1
+close 0 use 4 5 0
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1
+let k = 8
+let l0 = 11
+open k set -1 -1 -1 minecraft:redstone_block
+open k+2 clear -1 -1 -1
+open l0 set -2 0 -1 minecraft:redstone_block
+open l0+2 clear -2 0 -1
+close k set -1 -1 -1 minecraft:redstone_block
+close k+2 clear -1 -1 -1
+close l0 set -2 0 -1 minecraft:redstone_block
+close l0+2 clear -2 0 -1
