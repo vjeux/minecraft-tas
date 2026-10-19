@@ -80,3 +80,16 @@ Files: tracks/c2e/m10/. Windows: logs/m10-windows.log, m10a-tied-windows.log, m1
   - With m10top's B-watcher top (m10d) it breaks on close: their watcher also fires A on close (TM spat to (1,1)),
     which needs U's second pulse at 16+. The bottom-right cannot delay U past 11 (no floor: no dust/repeaters;
     a lamp gives power end + 4, an observer + 2).
+
+## 8. m79a: u7-m10 in 7x9 (63) with c79's bottom: everything real except A's hold (06:17Z)
+tracks/c2e/m10/m79a.txt + m79a.ideal. m10top's m10b top unchanged (lever (4,5), dropper/dust levels, B watcher ->
+A's last pull + L1/L2) + c79's bottom chain, with the R side one row lower because R0 sits at (4,0):
+observer (4,-1) on R0 -> dust (4,-2) (on stone (4,-3)) -> normal piston (3,-2) firing into (3,-3) -> observer
+(2,-3) -> stone (1,-3) -> U + dropper (0,-3) -> observer (-1,-3) -> stone (-2,-3) -> dust (-2,-2) -> observer
+(-2,-1) -> L0; observer (-1,-2) -> K; observer (0,-2) -> U again. Row -3 lets the bottom-left hear the
+bottom-right under U, so c79's timing works unchanged (U's first pulse is blocked by A's head on open; no
+repeater change; A may fire on close). door ideal WORKS (4 positions x 2, frame 12/12) with only A's hold ideal
+(start 0..3, length 3..6), open/close 14/14, 15 pistons, 48 blocks + the hold. A's hold is m10's top wall: A's
+only feeds are the static (0,3) and QC through (1,4), both through the B-watcher dust ((0,4) on (0,3)), which
+also fires L1/L2 (a second pulse there makes their count even). The free top cells ((-1,3), (3,3), (-2,5)) see
+no early lever signal except (3,3) on the dust (4,3), whose output cell (2,3) holds TRp's head.
