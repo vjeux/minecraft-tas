@@ -96,9 +96,29 @@ palette `all` = 56 states, 1-position 2-cycle screen, lever fixed):
 | the 3 pocket cells (-2,4) (-2,5) (-1,5) | 3 | 175,615 | 2 s | none, best 77/79 |
 | pocket + (-1,4) (-2,3) (0,5) (0,4) (-2,6) (-1,6) | 3 | 14.1M | 33 s | none, best 77/79 |
 | the same 9 | 4 | 1.167 B | 21 min | none, best 77/79 |
-| pocket + (-1,4) (-2,3) (0,5) (0,4), 39-state palette | 5 | ~1.7 B | ~40 min | running |
-and boxproof (bulbs + comparators exact) with all 9 cells free (any number changed), t=48 x 3
-seeds and t=60, plus the 3-cell cross-check: running.
+| the same 9, PERIODIC rest rule (main 96a62d6, screen 2cd7dc3) | 4 | 1.167 B | 16 min | none |
+| the same 9, lever on the front face of (-2,6), (-1,5), (-1,4), (-2,3), (0,5), (0,4), (-2,5), (-2,4) | 3 | 14.1M each | ~11 s each | see log |
+(the k=5 run over 7 cells with a 39-state palette was stopped for the periodic re-run.)
+boxproof (bulbs + comparators exact) with all 9 cells free (any number changed): t=48 without
+split rounds and t=40 with `--split-rounds`: no answer yet.
+
+## Known-answer calibration: the community 7x9 (c79, tracks/c79)
+c79-closed (lever ON at rest, droppers, a normal piston firing into an empty cell, dust steps),
+every block fixed: UNSAT in the model at first; `door boxproof replay` (the design through the
+model and redsim tick by tick) showed why: two block events of ONE round meet at (1,-1) (the
+corner puller (-1,-1) pulls BM out, the bottom puller (1,-2) extends into the vacated cell, in
+queue order). `--split-rounds` (each round in two sub-rounds, the solver picks which pending
+events go first) admits it: c79 fully fixed SAT in 8.3 s, redsim screen Pass (open 14 / close 14).
+Then pockets of c79's wiring freed (full wiring palette, `--lever-on --frame12 --split-rounds`,
+t=22 per edge):
+| freed cells | vars / clauses | result |
+|---|---|---|
+| A3: the 3 hidden top-left dusts (-2,4) (-1,5) (0,4) | 11.5M / 40M | SAT 628 s: exactly c79's dust, screen Pass |
+| B5: top-right dropper (4,3), observers (2,4) (3,4) (3,3), dust (4,4) | 12.7M / 44M | running |
+| A3 + B5 | 13.7M / 48M | running |
+| C6: bottom chain (4,-1) (3,-1) (2,-3) (1,-3) (0,-3) (-1,-3) | 13.0M / 45M | running |
+(at t=50 the same pockets were 30-35M vars and gave no answer in 15-30 min: keep T near the door's
+own open/close time.)
 
 ## Sizes
 ~515k clauses per tick for a free 7x8 box, ~270k with fixed pistons (per-cell round, `round.rs`:
