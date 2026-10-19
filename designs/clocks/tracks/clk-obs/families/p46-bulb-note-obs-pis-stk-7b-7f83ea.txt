@@ -1,0 +1,21 @@
+name: clk-obs-p46-bulb-note-obs-pis-stk-7b-7f83ea
+# P46: 1 copper bulb, 1 note block, 2 observers, 1 piston, 2 sticky pistons; changing in place: copper_bulb, note_block, observer, piston, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:piston[extended=false,facing=east]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:waxed_copper_bulb[lit=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:note_block[instrument=harp,note=0,powered=false]
+layer -1:
+  ..
+  ..
+  AE
+layer 0:
+  B.
+  CF
+  DG

@@ -160,9 +160,25 @@ pub struct Mech {
     pub has_r: bool,
 }
 
-/// `--ext-pullers` (mechspace): the 1-move exits of non-core blocks may also use a sticky puller
-/// EXTENDED at rest (its head in the frame cell; the level-off pulls the block into it).
-pub static EXT_PULLERS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Extended-at-rest pullers (the DEFAULT since 2026-10-19; `--no-ext-pullers` turns it off): the
+/// 1-move exits of non-core blocks may also use a sticky puller EXTENDED at rest (its head in the
+/// frame cell; the level-off pulls the block into it). c79 and the community 7x8 exit that way
+/// (TR / MR released by the lever), so the retracted-only generator left both out.
+pub static EXT_PULLERS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+/// `--ext-max`: the most 1-move exits by a puller EXTENDED at rest per mechanism (each needs the
+/// level to hold it; the lever-held top of e78 / t7b / ring56 has 3: TL/TM/TR's pullers, c79 2:
+/// its MR and TR pullers, the community 7x8 1: its TR puller). Bounds the generator's blow-up:
+/// every non-core block's 1-move exit has twice the choices with extended pullers allowed.
+/// 7x8 (P <= 10, two 1; adjacent pullers, below): 124k candidates retracted-only, 690k with 1,
+/// 845k with 2, 870k with 3; with `--ext-apart` and 2: 1.75M; unbounded and apart, the generator
+/// ran > 7 min single-threaded without finishing.
+pub static EXT_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(3);
+/// `--ext-apart` turns this off: by default every 1-move exit by an extended puller after the
+/// first must sit next to an earlier one (8-neighbourhood), as one level holds them all (c79's
+/// MR/TR pullers (4,1)/(4,2); the lever-held top row (0..2,4)).
+pub static EXT_ADJACENT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+/// `--ext-dist`: how near an earlier extended-puller exit each later one must be (Chebyshev).
+pub static EXT_DIST: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
 /// `--bottom-su` (mechspace): exactly one piston in the box's bottom row, sticky facing up.
 pub static BOTTOM_SU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--lift-ext` (audit bound a): a piston extended at rest may be reused lifted / carried (it
@@ -1311,7 +1327,7 @@ struct Gen {
     /// Middle-row side blocks that must leave vertically (`--vmid`).
     vmid: Vec<(i8, i8)>,
     out: HashSet<Vec<Pc>>,
-    memo: HashSet<(usize, Vec<Pc>)>,
+    memo: HashSet<(usize, Vec<(i8, i8)>, Vec<Pc>)>,
     order: Vec<(i8, i8)>,
     /// `door audit`: only pieces of this set may be added (membership of a known door's
     /// mechanism in the generator's space, without enumerating the whole space).
@@ -1582,9 +1598,11 @@ impl Gen {
         v
     }
 
-    /// The other perimeter blocks: a 1-move exit by a pull-type puller (retracted), or, while
-    /// the budget allows (`two_left`), a 2-move path with any providers.
-    fn others(&mut self, i: usize, v: Vec<Pc>, two_left: usize) {
+    /// The other perimeter blocks: a 1-move exit by a pull-type puller (retracted, or extended at
+    /// rest: at most `--ext-max` of those, each next to an earlier one (`ext` = their cells)
+    /// unless `--ext-apart`), or, while the budget allows (`two_left`), a 2-move path with any
+    /// providers.
+    fn others(&mut self, i: usize, v: Vec<Pc>, two_left: usize, ext: Vec<(i8, i8)>) {
         if n_pistons(&v) > self.pmax {
             return;
         }
@@ -1592,7 +1610,7 @@ impl Gen {
             self.out.insert(v);
             return;
         }
-        if !self.memo.insert((i, v.clone())) {
+        if !self.memo.insert((i, ext.clone(), v.clone())) {
             return;
         }
         let b = self.order[i];
@@ -1604,7 +1622,7 @@ impl Gen {
                     continue;
                 }
                 for w in self.provide_path(&v, b, &path) {
-                    self.others(i + 1, w, two_left);
+                    self.others(i + 1, w, two_left, ext.clone());
                 }
             }
             return;
@@ -1615,12 +1633,25 @@ impl Gen {
                 continue;
             }
             let a = (b.0 + 2 * d.0, b.1 + 2 * d.1);
-            for ext in [false, true] {
-                if ext && !EXT_PULLERS.load(Ordering::Relaxed) {
-                    continue;
+            for is_ext in [false, true] {
+                if is_ext {
+                    if !EXT_PULLERS.load(Ordering::Relaxed) || ext.len() >= EXT_MAX.load(Ordering::Relaxed) {
+                        continue;
+                    }
+                    let dist = EXT_DIST.load(Ordering::Relaxed) as i8;
+                    if EXT_ADJACENT.load(Ordering::Relaxed) && !ext.is_empty() && !ext.iter().any(|f| (f.0 - a.0).abs() <= dist && (f.1 - a.1).abs() <= dist) {
+                        continue;
+                    }
                 }
-                if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext } }) {
-                    self.others(i + 1, w, two_left);
+                let ext2 = if is_ext {
+                    let mut e = ext.clone();
+                    e.push(a);
+                    e
+                } else {
+                    ext.clone()
+                };
+                if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext: is_ext } }) {
+                    self.others(i + 1, w, two_left, ext2);
                 }
             }
         }
@@ -1630,7 +1661,7 @@ impl Gen {
                     continue;
                 }
                 for w in self.provide_path(&v, b, &path) {
-                    self.others(i + 1, w, two_left - 1);
+                    self.others(i + 1, w, two_left - 1, ext.clone());
                 }
             }
         }
@@ -1683,21 +1714,33 @@ pub fn generate_within(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usiz
 
 #[allow(clippy::too_many_arguments)]
 fn generate_one_in(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize, vmid: &[(i8, i8)], allow: Option<HashSet<Pc>>) -> Vec<Vec<Pc>> {
+    // The 4 center exit directions are independent (each has its own memo): one thread each
+    // (extended-at-rest pullers made the generation ~14x bigger, 2026-10-19).
+    let outs: Vec<HashSet<Vec<Pc>>> = std::thread::scope(|s| {
+        let hs: Vec<_> = F
+            .iter()
+            .filter(|d| !vmid.contains(&(1 + d.0, 1 + d.1))) // a forced-vertical block is not the center's line edge
+            .map(|&d| {
+                let allow = allow.clone();
+                s.spawn(move || {
+                    let e = (1 + d.0, 1 + d.1);
+                    let order: Vec<(i8, i8)> = [(1, 0), (1, 2), (0, 1), (2, 1), (0, 0), (2, 0), (0, 2), (2, 2)].into_iter().filter(|&b| b != e).collect();
+                    let mut g = Gen { bx, pmax, lifts, pushes, carry, vmid: vmid.to_vec(), out: HashSet::new(), memo: HashSet::new(), order, allow };
+                    for c in g.core(d) {
+                        if n_pistons(&c) > pmax {
+                            continue;
+                        }
+                        g.others(0, c, two, Vec::new());
+                    }
+                    g.out
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().expect("generator thread")).collect()
+    });
     let mut all: HashSet<Vec<Pc>> = HashSet::new();
-    for d in F {
-        let e = (1 + d.0, 1 + d.1);
-        if vmid.contains(&e) {
-            continue; // a forced-vertical block is not the center's line edge
-        }
-        let order: Vec<(i8, i8)> = [(1, 0), (1, 2), (0, 1), (2, 1), (0, 0), (2, 0), (0, 2), (2, 2)].into_iter().filter(|&b| b != e).collect();
-        let mut g = Gen { bx, pmax, lifts, pushes, carry, vmid: vmid.to_vec(), out: HashSet::new(), memo: HashSet::new(), order, allow: allow.clone() };
-        for c in g.core(d) {
-            if n_pistons(&c) > pmax {
-                continue;
-            }
-            g.others(0, c, two);
-        }
-        all.extend(g.out);
+    for o in outs {
+        all.extend(o);
     }
     let mut v: Vec<Vec<Pc>> = all.into_iter().collect();
     v.sort();
@@ -1789,13 +1832,49 @@ pub fn explain_within(bx: Bx, pmax: usize, two: usize, carry: usize, allow: &Has
             if two_ok {
                 twos += 1;
             } else if ext_one {
-                why.push(format!("{} exits only by a puller EXTENDED at rest (1-move exits: retracted pullers unless --ext-pullers)", name(b)));
+                why.push(format!("{} exits only by a puller EXTENDED at rest (1-move exits: retracted pullers only with --no-ext-pullers)", name(b)));
             } else {
                 why.push(format!("{} has no exit among the pieces (no retracted sticky puller 2 ahead, no 2-move path with providers)", name(b)));
             }
         }
         if twos > two {
             why.push(format!("{twos} perimeter blocks need a 2-move path (budget --two {two})"));
+        }
+        // the extended-puller exits' bound (--ext-max, adjacency)
+        if EXT_PULLERS.load(Ordering::Relaxed) {
+            let mut cells: Vec<(i8, i8)> = Vec::new();
+            for &b in &order {
+                for dd in F {
+                    let c = (b.0 + dd.0, b.1 + dd.1);
+                    let a = (b.0 + 2 * dd.0, b.1 + 2 * dd.1);
+                    if !in_t(c.0, c.1) && !cells.contains(&a) && target.contains(&Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(dd)), ext: true } }) {
+                        cells.push(a);
+                    }
+                }
+            }
+            let max = EXT_MAX.load(Ordering::Relaxed);
+            if cells.len() > max {
+                why.push(format!("{} 1-move exits by pullers EXTENDED at rest > --ext-max {max}", cells.len()));
+            }
+            // connected within --ext-dist (the generator adds each near an earlier one)
+            let dist = EXT_DIST.load(Ordering::Relaxed) as i8;
+            let mut seen = vec![false; cells.len()];
+            if !cells.is_empty() {
+                seen[0] = true;
+                let mut grew = true;
+                while grew {
+                    grew = false;
+                    for j in 0..cells.len() {
+                        if !seen[j] && (0..cells.len()).any(|k| seen[k] && (cells[k].0 - cells[j].0).abs() <= dist && (cells[k].1 - cells[j].1).abs() <= dist) {
+                            seen[j] = true;
+                            grew = true;
+                        }
+                    }
+                }
+            }
+            if EXT_ADJACENT.load(Ordering::Relaxed) && seen.iter().any(|s| !s) {
+                why.push("its extended-puller exits are not next to each other (each must touch an earlier one unless --ext-apart)".into());
+            }
         }
         // pieces no option uses
         if why.is_empty() {

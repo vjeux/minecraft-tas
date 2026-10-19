@@ -1,0 +1,9 @@
+# c70b t8w: right chain B' pulses (t11/t15/t19), gate = observer W (0,-3) facing east on B' -> gate (0,-2) down; P_M ideal
+design designs/piston-door-3x3/tracks/c70b/t7b/t8w.txt
+let pm = 12
+open 0 use 1 5 0
+close 0 use 1 5 0
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+2 clear -1 -1 1
+close pm set -1 -1 1 minecraft:redstone_block
+close pm+2 clear -1 -1 1

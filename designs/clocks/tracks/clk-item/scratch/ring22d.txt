@@ -1,0 +1,13 @@
+# Skeleton: 2x2 ring with one dropper (H east, H south, D west, H north), a stone in the first hopper and one waiting in the dropper.
+name: ring22d
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: 1 1 1 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  E minecraft:hopper[enabled=true,facing=east]
+  S minecraft:hopper[enabled=true,facing=south]
+  D minecraft:dropper[facing=west,triggered=false]
+  N minecraft:hopper[enabled=true,facing=north]
+layer 1:
+  ES
+  ND

@@ -1,0 +1,24 @@
+name: clk-obs-p45-obs-pis-stk-7b-3e44c7
+# P45: 4 observers, 1 piston, 1 sticky piston, 1 stone; changing in place: observer, piston, sticky_piston (stone only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:piston[extended=false,facing=north]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:stone
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  E
+  E
+layer 2:
+  .
+  F
+  .

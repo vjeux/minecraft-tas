@@ -21,8 +21,70 @@ pub struct ObsArgs {
     /// Also: a stone block at the last observer's output, the emitter beside it.
     #[arg(long)]
     conductor: bool,
+    /// Also every candidate with ONE more block in any free cell touching the build:
+    /// sticky,piston,observer,stone (every facing), sculk / csculk (a second sensor: dividers,
+    /// frequency filters through a calibrated sensor's back), amethyst, wool. Found the
+    /// moving-observer hybrids (P 72-216).
+    #[arg(long, default_value = "")]
+    extra: String,
     #[command(flatten)]
     out: Out,
+}
+
+/// The extra blocks of `--extra`, every facing.
+fn extra_states(spec: &str) -> Vec<String> {
+    let mut v = Vec::new();
+    for w in spec.split(',') {
+        for d in DIRS {
+            match w {
+                "sticky" => v.push(format!("minecraft:sticky_piston[extended=false,facing={}]", dir_name(d))),
+                "piston" => v.push(format!("minecraft:piston[extended=false,facing={}]", dir_name(d))),
+                "observer" => v.push(format!("minecraft:observer[facing={},powered=false]", dir_name(d))),
+                _ => {}
+            }
+        }
+        if w == "stone" {
+            v.push(STONE.to_string());
+        }
+        if w == "sculk" {
+            v.push(Sensor::Plain.state([0, 0, 1]));
+        }
+        if w == "csculk" {
+            for d in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]] {
+                v.push(Sensor::Cal.state(d));
+            }
+        }
+        if w == "amethyst" {
+            v.push("minecraft:amethyst_block".to_string());
+        }
+        if w == "wool" {
+            v.push("minecraft:white_wool".to_string());
+        }
+    }
+    v
+}
+
+/// `b` plus one extra block in every free cell touching it.
+fn with_extras(b: &Build, states: &[String]) -> Vec<(Build, String)> {
+    let mut cells: Vec<Pos> = Vec::new();
+    for p in b.blocks.keys() {
+        for d in DIRS {
+            let q = add(*p, d);
+            if b.free(q) && !cells.contains(&q) && b.start.as_ref().is_none_or(|(k, _)| *k != q) {
+                cells.push(q);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for c in cells {
+        for s in states {
+            let mut b2 = b.clone();
+            if b2.put(c, s.clone()) {
+                out.push((b2, format!(" + {} at {},{},{}", clock::short(s), c[0], c[1], c[2])));
+            }
+        }
+    }
+    out
 }
 
 /// Self-avoiding observer paths from the sensor at the origin: `path[0]` = sensor, `path[j]` = the
@@ -68,8 +130,27 @@ fn observer(to_watch: Pos, at: Pos) -> String {
     format!("minecraft:observer[facing={},powered=false]", dir_name(sub(to_watch, at)))
 }
 
+/// Queue `b` (and, with extras, every one-more-block variant of it); returns how many.
+fn push_with_extras(cands: &mut Vec<(clock::Clock, String)>, b: &Build, how: String, extras: &[String]) -> usize {
+    let mut n = 0;
+    if let Some(c) = b.clock("cand") {
+        cands.push((c, how.clone()));
+        n += 1;
+    }
+    if !extras.is_empty() {
+        for (b2, tail) in with_extras(b, extras) {
+            if let Some(c) = b2.clock("cand") {
+                cands.push((c, format!("{how}{tail}")));
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
 pub fn obs(a: &ObsArgs) -> Result<()> {
     let ems = Emitter::parse_list(&a.emitters);
+    let extras = extra_states(&a.extra);
     let mut cands: Vec<(clock::Clock, String)> = Vec::new();
     let mut tried = 0usize;
     for sensor in Sensor::parse_list(&a.sensor) {
@@ -95,9 +176,7 @@ pub fn obs(a: &ObsArgs) -> Result<()> {
                 if b.emitter(out, e) {
                     tried += 1;
                     let how = format!("obs {} k={k} path {} emitter {} at the output (travel {})", sensor.tag(), how_path.join(" "), e.tag(), travel(path[0], out));
-                    if let Some(c) = b.clock("cand") {
-                        cands.push((c, how.clone()));
-                    }
+                    tried += push_with_extras(&mut cands, &b, how, &extras);
                 }
                 if a.conductor {
                     for u in DIRS {
@@ -112,9 +191,7 @@ pub fn obs(a: &ObsArgs) -> Result<()> {
                         if b.emitter(ep, e) {
                             tried += 1;
                             let how = format!("obs {} k={k} path {} stone at the output, emitter {} beside it (travel {})", sensor.tag(), how_path.join(" "), e.tag(), travel(path[0], ep));
-                            if let Some(c) = b.clock("cand") {
-                                cands.push((c, how.clone()));
-                            }
+                            tried += push_with_extras(&mut cands, &b, how, &extras);
                         }
                     }
                 }
@@ -312,10 +389,122 @@ pub fn chain(a: &ChainArgs) -> Result<()> {
 }
 
 #[derive(clap::Args)]
-pub struct RingArgs {
-    /// Hop lengths (floor(distance) from each amethyst to the next sensor), e.g. 15,15,15.
+pub struct RingBigArgs {
+    /// cal | plain (plain: radius 8, so hops <= 8, re-arm 40 gt: at least 6 sensors).
+    #[arg(long, default_value = "cal")]
+    sensor: String,
+    /// Sensors in the ring (each with its resonator: amethyst, the first one a note block that
+    /// is also the kick).
     #[arg(long)]
+    n: usize,
+    /// Target hop (floor(distance) from a resonator to the next sensor), <= 16.
+    #[arg(long, default_value_t = 15)]
+    hop: i32,
+    /// Most wool blocks shielding the kick.
+    #[arg(long, default_value_t = 2)]
+    wool: usize,
+    #[command(flatten)]
+    out: Out,
+}
+
+/// A ring of n calibrated sensors on a circle (side ~ hop): only consecutive sensors are within
+/// 16 of each other's resonators, so a big ring keeps its direction by distance; the first
+/// sensor's resonator is a note block, right-clicked as the kick. P = the sum of the hops.
+pub fn ring_big(a: &RingBigArgs) -> Result<()> {
+    let n = a.n;
+    let plain = a.sensor == "plain";
+    // The listener radius squared (plain 8, calibrated 16).
+    let r2 = if plain { 64 } else { 256 };
+    let mut cands: Vec<(clock::Clock, String)> = Vec::new();
+    // Try a few radii around the ideal one (side = hop + 1: resonator to next sensor = hop).
+    let side = a.hop as f64 + 1.0;
+    let r0 = side / (2.0 * (std::f64::consts::PI / n as f64).sin());
+    for dr in -6..=6 {
+        for phase in 0..8 {
+            let r = r0 + dr as f64 * 0.25;
+            let ph = phase as f64 * 0.1;
+            let s: Vec<Pos> = (0..n)
+                .map(|i| {
+                    let t = ph + 2.0 * std::f64::consts::PI * i as f64 / n as f64;
+                    [(r * t.cos()).round() as i32, 0, (r * t.sin()).round() as i32]
+                })
+                .collect();
+            // Resonators: the horizontal neighbor of s[i] nearest s[i+1].
+            let mut am: Vec<Pos> = Vec::new();
+            for i in 0..n {
+                let nx = s[(i + 1) % n];
+                let best = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].iter().map(|d| add(s[i], *d)).min_by_key(|q| dist2(*q, nx)).unwrap();
+                am.push(best);
+            }
+            let hops: Vec<i32> = (0..n).map(|i| travel(am[i], s[(i + 1) % n])).collect();
+            if (0..n).any(|i| dist2(am[i], s[(i + 1) % n]) > r2) {
+                continue;
+            }
+            let mut b = Build::default();
+            let mut ok = true;
+            for i in 0..n {
+                let res = if i == 0 { "minecraft:note_block[instrument=harp,note=0,powered=false]" } else { "minecraft:amethyst_block" };
+                ok &= b.put(am[i], res);
+            }
+            ok &= b.keep_air(add(am[0], [0, 1, 0]));
+            for i in 0..n {
+                let facing = if i == 0 { [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].iter().copied().find(|d| add(s[0], *d) != am[0]).unwrap() } else { [0, 0, -1] };
+                ok &= b.put(s[i], if plain { Sensor::Plain.state([0, 0, 1]) } else { format!("minecraft:calibrated_sculk_sensor[facing={},power=0,sculk_sensor_phase=inactive,waterlogged=false]", dir_name(neg(facing))) });
+            }
+            // A resonator must touch only its own sensor.
+            for i in 0..n {
+                for j in 0..n {
+                    if i != j && dist2(am[i], s[j]) == 1 {
+                        ok = false;
+                    }
+                }
+            }
+            if !ok {
+                continue;
+            }
+            // Shield the kick from every sensor but s[1] (and s[0]).
+            let mut lines: Vec<Vec<Pos>> = Vec::new();
+            for j in 2..n {
+                if dist2(am[0], s[j]) <= r2 {
+                    lines.push(segment_cells(am[0], s[j]).into_iter().filter(|c| b.free(*c)).take(3).collect());
+                }
+            }
+            if lines.len() > a.wool || lines.iter().any(|l| l.is_empty()) {
+                continue;
+            }
+            let mut combos: Vec<Vec<Pos>> = vec![Vec::new()];
+            for l in &lines {
+                combos = combos.iter().flat_map(|c| l.iter().map(move |cell| { let mut c2 = c.clone(); if !c2.contains(cell) { c2.push(*cell); } c2 })).collect();
+            }
+            b.output = Some(s[0]);
+            b.start = Some((am[0], "use".into()));
+            let hs: Vec<String> = hops.iter().map(|h| h.to_string()).collect();
+            for wools in combos {
+                let mut b2 = b.clone();
+                for w in &wools {
+                    b2.put(*w, "minecraft:white_wool");
+                }
+                let how = format!("ring of {n} {} sensors on a circle (r {r:.2}), hops [{}], first resonator a note block (the kick), the others amethyst{}", if plain { "plain" } else { "calibrated" }, hs.join(","), if wools.is_empty() { String::new() } else { format!(", {} wool", wools.len()) });
+                if let Some(c) = b2.clock("cand") {
+                    cands.push((c, how));
+                }
+            }
+        }
+    }
+    let found = simulate_all(cands, &a.out);
+    println!("ring-big: {} clocks", found.len());
+    report(found, &a.out)
+}
+
+#[derive(clap::Args)]
+pub struct RingArgs {
+    /// Hop lengths (floor(distance) from each resonator to the next sensor), e.g. 15,15,15;
+    /// several tuples separated by ';'.
+    #[arg(long, default_value = "")]
     hops: String,
+    /// Every hop tuple n:lo:hi (3-rings: consecutive pairs summing to >= 20).
+    #[arg(long)]
+    tuples: Option<String>,
     /// Random embeddings to try.
     #[arg(long, default_value_t = 20_000)]
     tries: u32,
@@ -328,6 +517,16 @@ pub struct RingArgs {
     /// Stop after this many valid embeddings.
     #[arg(long, default_value_t = 200)]
     max_embeddings: usize,
+    /// behind (a separate note block behind the first sensor) | note (the first sensor's
+    /// resonator is a note block, right-clicked as the kick).
+    #[arg(long, default_value = "behind")]
+    kick: String,
+    /// Most wool blocks shielding the kick from the sensors that must not hear it.
+    #[arg(long, default_value_t = 0)]
+    wool: usize,
+    /// Candidate wool cells tried per shielded line (nearest the kick first).
+    #[arg(long, default_value_t = 3)]
+    wool_choices: usize,
     #[command(flatten)]
     out: Out,
 }
@@ -346,9 +545,45 @@ impl Rng {
 }
 
 pub fn ring(a: &RingArgs) -> Result<()> {
-    let hops: Vec<i32> = a.hops.split(',').map(|s| s.trim().parse()).collect::<Result<_, _>>()?;
-    let n = hops.len();
+    // Hop tuples: --hops "15,15,15;11,10,14" or --tuples n:lo:hi (every tuple of n hops in lo..=hi
+    // whose consecutive pairs sum to >= 20, the steady-state condition of a 3-ring).
+    let mut tuples: Vec<Vec<i32>> = Vec::new();
+    if let Some(t) = &a.tuples {
+        let v: Vec<i32> = t.split(':').map(|s| s.parse()).collect::<Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "--tuples n:lo:hi");
+        let (n, lo, hi) = (v[0] as usize, v[1], v[2]);
+        let mut cur = vec![lo; n];
+        loop {
+            if (0..n).all(|i| n != 3 || cur[i] + cur[(i + 1) % n] >= 20) {
+                tuples.push(cur.clone());
+            }
+            let mut i = 0;
+            while i < n && cur[i] == hi {
+                cur[i] = lo;
+                i += 1;
+            }
+            if i == n {
+                break;
+            }
+            cur[i] += 1;
+        }
+    }
+    for h in a.hops.split(';').filter(|s| !s.is_empty()) {
+        tuples.push(h.split(',').map(|s| s.trim().parse()).collect::<Result<_, _>>()?);
+    }
     let mut rng = Rng(a.seed.max(1) * 0x9E37_79B9_7F4A_7C15);
+    let mut cands: Vec<(clock::Clock, String)> = Vec::new();
+    let mut tried = 0usize;
+    for hops in &tuples {
+        tried += ring_cands(a, hops, &mut rng, &mut cands);
+    }
+    let found = simulate_all(cands, &a.out);
+    println!("ring: {} hop tuples, {tried} embeddings simulated, {} clocks", tuples.len(), found.len());
+    report(found, &a.out)
+}
+
+fn ring_cands(a: &RingArgs, hops: &[i32], rng: &mut Rng, all: &mut Vec<(clock::Clock, String)>) -> usize {
+    let n = hops.len();
     let horiz = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
     let mut cands: Vec<(clock::Clock, String)> = Vec::new();
     let mut tried = 0usize;
@@ -396,35 +631,97 @@ pub fn ring(a: &RingArgs) -> Result<()> {
         if !ok {
             continue;
         }
-        // The kick: a note block K that only s[0] hears, placed behind s[0] (its back), touching
-        // nothing else.
-        let back = sub(s[0], am[0]);
-        let k = add(s[0], back);
-        if !(1..n).all(|j| dist2(k, s[j]) > 256) || am.iter().any(|p| dist2(*p, k) <= 1) {
+        // The kick. `behind`: a separate note block K behind s[0] (its back), that no other sensor
+        // may hear. `note`: s[0]'s own resonator is a note block (s[0] powers it, so it plays when
+        // s[0] fires, like an amethyst block resonating) and the kick right-clicks it: s[1] hears
+        // it as the first hop, s[0] fires at once (harmless), and every sensor from s[2] on must
+        // not hear it. A sensor that would hear the kick gets a wool block on the line
+        // (`sculk::is_occluded`), up to --wool of them.
+        let (kp, first_quiet) = if a.kick == "note" { (am[0], 2) } else { (add(s[0], sub(s[0], am[0])), 1) };
+        if a.kick == "note" {
+            b.blocks.insert(am[0], "minecraft:note_block[instrument=harp,note=0,powered=false]".into());
+            if !b.keep_air(add(am[0], [0, 1, 0])) {
+                continue;
+            }
+        } else if am.iter().any(|p| dist2(*p, kp) <= 1) || !b.free(kp) {
             continue;
         }
-        // s[0] faces away from K (no output into its back); the others face anywhere.
-        b.put(s[0], format!("minecraft:calibrated_sculk_sensor[facing={},power=0,sculk_sensor_phase=inactive,waterlogged=false]", dir_name(neg(back))));
+        // s[0] gives no power into its back: a separate kick note block sits there; with the note
+        // resonator, the back is any other horizontal side.
+        let facing_back = if a.kick == "note" { horiz.iter().copied().find(|d| add(s[0], *d) != am[0]).unwrap() } else { sub(s[0], am[0]) };
+        b.put(s[0], format!("minecraft:calibrated_sculk_sensor[facing={},power=0,sculk_sensor_phase=inactive,waterlogged=false]", dir_name(neg(facing_back))));
         for p in &s[1..] {
             ok &= b.put(*p, "minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]");
         }
-        ok &= b.put(k, "minecraft:note_block[instrument=harp,note=0,powered=false]") && b.keep_air(add(k, [0, 1, 0]));
+        if a.kick != "note" {
+            ok &= b.put(kp, "minecraft:note_block[instrument=harp,note=0,powered=false]") && b.keep_air(add(kp, [0, 1, 0]));
+        }
         if !ok {
             continue;
         }
+        // Lines to shield, each with its candidate wool cells (nearest the kick first).
+        let mut lines: Vec<Vec<Pos>> = Vec::new();
+        for j in first_quiet..n {
+            if dist2(kp, s[j]) <= 256 {
+                let cells: Vec<Pos> = segment_cells(kp, s[j]).into_iter().filter(|c| b.free(*c)).take(a.wool_choices).collect();
+                lines.push(cells);
+            }
+        }
+        if lines.len() > a.wool || lines.iter().any(|l| l.is_empty()) {
+            continue;
+        }
         b.output = Some(s[0]);
-        b.start = Some((k, "use".into()));
-        tried += 1;
+        b.start = Some((kp, "use".into()));
         let hs: Vec<String> = hops.iter().map(|h| h.to_string()).collect();
-        let how = format!("ring of {n} calibrated sensors + amethyst, hops [{}], kick: the note block behind the first", hs.join(","));
-        if let Some(c) = b.clock("cand") {
-            cands.push((c, how.clone()));
+        // Every combination of one wool cell per line.
+        let mut combos: Vec<Vec<Pos>> = vec![Vec::new()];
+        for l in &lines {
+            let mut next = Vec::new();
+            for c in &combos {
+                for cell in l {
+                    let mut c2 = c.clone();
+                    if !c2.contains(cell) {
+                        c2.push(*cell);
+                    }
+                    next.push(c2);
+                }
+            }
+            combos = next;
+        }
+        for wools in combos {
+            let mut b2 = b.clone();
+            for w in &wools {
+                b2.put(*w, "minecraft:white_wool");
+            }
+            tried += 1;
+            let how = format!(
+                "ring of {n} calibrated sensors, hops [{}], {}{}",
+                hs.join(","),
+                if a.kick == "note" { "the first sensor's resonator is a note block (the kick: right-click it)" } else { "kick: a note block behind the first sensor" },
+                if wools.is_empty() { String::new() } else { format!(", {} wool shielding the kick", wools.len()) }
+            );
+            if let Some(c) = b2.clock("cand") {
+                cands.push((c, how.clone()));
+            }
         }
         if cands.len() >= a.max_embeddings {
             break;
         }
     }
-    let found = simulate_all(cands, &a.out);
-    println!("ring: {tried} embeddings simulated, {} clocks", found.len());
-    report(found, &a.out)
+    all.extend(cands);
+    tried
+}
+
+/// The cells a center-to-center segment crosses, from `a` toward `b` (endpoints excluded).
+fn segment_cells(a: Pos, b: Pos) -> Vec<Pos> {
+    let mut out: Vec<Pos> = Vec::new();
+    let steps = 400;
+    for i in 1..steps {
+        let t = i as f64 / steps as f64;
+        let c = [0, 1, 2].map(|k| (a[k] as f64 + 0.5 + t * (b[k] - a[k]) as f64).floor() as i32);
+        if c != a && c != b && !out.contains(&c) {
+            out.push(c);
+        }
+    }
+    out
 }

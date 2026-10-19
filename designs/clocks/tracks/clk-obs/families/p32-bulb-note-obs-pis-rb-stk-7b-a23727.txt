@@ -1,0 +1,23 @@
+name: clk-obs-p32-bulb-note-obs-pis-rb-stk-7b-a23727
+# P32: 1 copper bulb, 1 note block, 1 observer, 1 piston, 1 redstone block, 2 sticky pistons; changing in place: copper_bulb, note_block, observer, piston, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+palette:
+  A minecraft:piston[extended=false,facing=north]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:note_block[instrument=harp,note=0,powered=false]
+  D minecraft:redstone_block
+  E minecraft:sticky_piston[extended=false,facing=north]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  .
+  E
+layer 2:
+  F
+  E
+  .

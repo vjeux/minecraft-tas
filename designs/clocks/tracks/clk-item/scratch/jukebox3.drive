@@ -1,0 +1,15 @@
+place designs/clocks/tracks/clk-item/scratch/jukebox3.txt
+probe_items J 0 1 0
+probe_items H 0 0 0
+probe_items L 1 0 0
+probe_items I 1 1 0
+probe dust 0 1 -1
+probe torch 2 1 0
+box -1 -1 -2 3 2 1
+changes 6
+quiet 1430
+changes 40
+items 0 1 0
+items 0 0 0
+items 1 0 0
+items 1 1 0

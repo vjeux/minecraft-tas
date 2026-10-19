@@ -1,0 +1,27 @@
+name: clk-obs-p16-lamp-obs-pis-7b-54604c
+# P16: 4 observers, 2 pistons, 1 redstone lamp; changing in place: observer, piston, redstone_lamp. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 -1
+port output: 0 1 -1
+port start: 0 0 0 last
+palette:
+  A minecraft:piston[extended=false,facing=north]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:piston[extended=false,facing=down]
+  F minecraft:redstone_lamp[lit=false]
+layer 0:
+  .
+  A
+  B
+  .
+layer 1:
+  C
+  C
+  D
+  E
+layer 2:
+  .
+  F
+  .
+  .

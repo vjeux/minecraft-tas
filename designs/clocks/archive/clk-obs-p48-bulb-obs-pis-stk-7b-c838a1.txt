@@ -1,0 +1,25 @@
+# archived 2026-10-19T19:14Z from designs/clocks/tracks/clk-obs/families/p48-bulb-obs-pis-stk-7b-c838a1.txt by mctas clock archive
+# CLOCK: clk-obs-p48-bulb-obs-pis-stk-7b-c838a1 period 48 gt (2.4 s), on 20/48, edges 10, warmup 2, family copper_bulb+observer+piston+sticky_piston, 7 blocks, 1x3x3, robust
+name: clk-obs-p48-bulb-obs-pis-stk-7b-c838a1
+# P48: 1 copper bulb, 4 observers, 1 piston, 1 sticky piston; changing in place: copper_bulb, observer, piston, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 0 last
+palette:
+  A minecraft:piston[extended=false,facing=south]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  A
+  .
+  B
+layer 0:
+  C
+  D
+  .
+layer 1:
+  D
+  B
+  E

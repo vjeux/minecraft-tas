@@ -1,0 +1,111 @@
+name: clk-obs-p193-obs-pis-rb-stk-100b-fe0e02
+# Construction for P = 193: odd piston stage + observer tower (crates/clock-obs/src/construct.rs). redsim: P = 193, family observer+piston+redstone_block+slime_block+sticky_piston.
+origin: 0 0 0
+port output: 0 1 0
+port start: 2 3 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=east,powered=false]
+  D minecraft:slime_block
+  E minecraft:redstone_block
+  F minecraft:observer[facing=down,powered=false]
+  G minecraft:piston[extended=false,facing=up]
+layer 0:
+  ADE.
+layer 1:
+  B..G
+layer 2:
+  B.C.
+layer 3:
+  B.F.
+layer 4:
+  B.F.
+layer 5:
+  B.F.
+layer 6:
+  B.F.
+layer 7:
+  B.F.
+layer 8:
+  B.F.
+layer 9:
+  B.F.
+layer 10:
+  B.F.
+layer 11:
+  B.F.
+layer 12:
+  B.F.
+layer 13:
+  B.F.
+layer 14:
+  B.F.
+layer 15:
+  B.F.
+layer 16:
+  B.F.
+layer 17:
+  B.F.
+layer 18:
+  B.F.
+layer 19:
+  B.F.
+layer 20:
+  B.F.
+layer 21:
+  B.F.
+layer 22:
+  B.F.
+layer 23:
+  B.F.
+layer 24:
+  B.F.
+layer 25:
+  B.F.
+layer 26:
+  B.F.
+layer 27:
+  B.F.
+layer 28:
+  B.F.
+layer 29:
+  B.F.
+layer 30:
+  B.F.
+layer 31:
+  B.F.
+layer 32:
+  B.F.
+layer 33:
+  B.F.
+layer 34:
+  B.F.
+layer 35:
+  B.F.
+layer 36:
+  B.F.
+layer 37:
+  B.F.
+layer 38:
+  B.F.
+layer 39:
+  B.F.
+layer 40:
+  B.F.
+layer 41:
+  B.F.
+layer 42:
+  B.F.
+layer 43:
+  B.F.
+layer 44:
+  B.F.
+layer 45:
+  B.F.
+layer 46:
+  B.F.
+layer 47:
+  B.F.
+layer 48:
+  CCF.

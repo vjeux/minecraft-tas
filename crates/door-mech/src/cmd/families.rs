@@ -62,9 +62,21 @@ pub struct MechspaceArgs {
     /// FULL FRAME 12/12 when open (static stones in the frame cells the cycle leaves air).
     #[arg(long)]
     full_frame: bool,
-    /// Generator: non-core 1-move exits may use sticky pullers extended at rest.
+    /// Generator: non-core 1-move exits use sticky pullers RETRACTED at rest only (the old
+    /// generator; by default they may also use pullers extended at rest, as c79 and the
+    /// community 7x8 do).
     #[arg(long)]
+    no_ext_pullers: bool,
+    /// Accepted for old command lines: extended-at-rest pullers are the default now.
+    #[arg(long, hide = true)]
     ext_pullers: bool,
+    /// Generator: most 1-move exits by a puller EXTENDED at rest per mechanism (a lever-held top
+    /// row has 3, c79 2, the community 7x8 1; each one doubles a block's choices).
+    #[arg(long, default_value_t = 3)]
+    ext_max: usize,
+    /// Generator: extended-puller exits may sit anywhere (default: each next to an earlier one).
+    #[arg(long)]
+    ext_apart: bool,
     /// Generator: exactly one piston in the box's bottom row, sticky facing up.
     #[arg(long)]
     bottom_su: bool,
@@ -247,7 +259,7 @@ pub fn cmd_mechspace(version: &str, args: MechspaceArgs) -> Result<()> {
 
 /// The model's switches (families' and mechspace's atomics, --door-offset).
 fn mechspace_switches(args: &MechspaceArgs) -> Result<()> {
-    let MechspaceArgs { no_door_bodies, full_frame, ext_pullers, bottom_su, frame9, ref door_offset, lift_ext, carry_in, .. } = *args;
+    let MechspaceArgs { no_door_bodies, full_frame, no_ext_pullers, ext_max, ext_apart, bottom_su, frame9, ref door_offset, lift_ext, carry_in, .. } = *args;
     crate::families::LIFT_EXT.store(lift_ext, std::sync::atomic::Ordering::Relaxed);
     crate::families::CARRY_IN.store(carry_in, std::sync::atomic::Ordering::Relaxed);
     use crate::mechspace as ms;
@@ -263,8 +275,11 @@ fn mechspace_switches(args: &MechspaceArgs) -> Result<()> {
         ms::FULL_FRAME.store(true, std::sync::atomic::Ordering::Relaxed);
         eprintln!("[mechspace] FULL FRAME: frame cells air when open stay air on the cycle (static stones there), frame 12/12 checked on the augmented mechanism");
     }
-    if ext_pullers {
-        crate::families::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_PULLERS.store(!no_ext_pullers, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_MAX.store(ext_max, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_ADJACENT.store(!ext_apart, std::sync::atomic::Ordering::Relaxed);
+    if no_ext_pullers {
+        eprintln!("[mechspace] generator: 1-move exits use retracted pullers only (--no-ext-pullers)");
     }
     if bottom_su {
         crate::families::BOTTOM_SU.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -506,10 +521,24 @@ pub struct FamiliesArgs {
     /// Strip mode: a redstone block also powers the piston whose FRONT touches it.
     #[arg(long)]
     r_both: bool,
-    /// Extended-at-rest pullers for 1-move exits too (as mechspace --ext-pullers; c79 is in
-    /// the space only with it).
+    /// Pullers RETRACTED at rest only for 1-move exits (the old generator; by default
+    /// extended-at-rest pullers are allowed too: c79 is in the space only with them).
     #[arg(long)]
+    no_ext_pullers: bool,
+    /// Accepted for old command lines: extended-at-rest pullers are the default now.
+    #[arg(long, hide = true)]
     ext_pullers: bool,
+    /// Most 1-move exits by a puller EXTENDED at rest per mechanism (a lever-held top row has 3,
+    /// c79 2, the community 7x8 1; each one doubles a block's choices).
+    #[arg(long, default_value_t = 3)]
+    ext_max: usize,
+    /// Extended-puller exits may sit anywhere (default: each next to an earlier one, as one level
+    /// holds them all, like c79's MR/TR pullers or a lever-held top row; halves the candidates).
+    #[arg(long)]
+    ext_apart: bool,
+    /// How near (Chebyshev) an earlier extended-puller exit each later one must be.
+    #[arg(long, default_value_t = 1)]
+    ext_dist: usize,
     /// Audit bound (a): a piston extended at rest may be reused as a lifted / carried provider.
     #[arg(long)]
     lift_ext: bool,
@@ -520,8 +549,11 @@ pub struct FamiliesArgs {
 }
 
 pub fn cmd_families(version: &str, args: FamiliesArgs) -> Result<()> {
-    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, ext_pullers, lift_ext, carry_in } = args;
-    crate::families::EXT_PULLERS.store(ext_pullers, std::sync::atomic::Ordering::Relaxed);
+    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in } = args;
+    crate::families::EXT_DIST.store(ext_dist, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_PULLERS.store(!no_ext_pullers, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_MAX.store(ext_max, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_ADJACENT.store(!ext_apart, std::sync::atomic::Ordering::Relaxed);
     crate::families::LIFT_EXT.store(lift_ext, std::sync::atomic::Ordering::Relaxed);
     crate::families::CARRY_IN.store(carry_in, std::sync::atomic::Ordering::Relaxed);
     let vmid: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {

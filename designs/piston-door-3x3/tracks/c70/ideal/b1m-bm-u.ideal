@@ -1,0 +1,8 @@
+# c70: U+BL search frame: b1m + BM real (c77 chain); M's watched cell (-1,4) toggled at gm (open) / gmc (close); bottom-left varied; no other ideal input
+design designs/piston-door-3x3/tracks/c70/wip/b1m-bm.txt
+let gm = 14
+let gmc = 30
+open 0 use 1 5 0
+open gm set -1 4 0 minecraft:glass
+close 0 use 1 5 0
+close gmc clear -1 4 0

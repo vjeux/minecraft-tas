@@ -1,0 +1,25 @@
+# archived 2026-10-19T17:26Z from /tmp/clk-in7/clk-obs--best--p54-bulb-obs-stk-6b.txt by mctas clock archive
+# CLOCK: clk-obs-p54-bulb-obs-stk-6b period 54 gt, on 24/54, edges 12, warmup 5, family observer+sticky_piston, 6 blocks, 1x4x3, robust
+name: clk-obs-p54-bulb-obs-stk-6b
+# CLOCK: grow-p54-6b-0007 period 54 gt, on 42/54, edges 12, warmup 5, family copper_bulb+observer+sticky_piston, 6 blocks, 1x4x3, kick: last 0,1,2
+# (clk-obs, found by grow-p54-6b-0007.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  .
+  .
+layer 1:
+  B
+  C
+  A
+layer 2:
+  .
+  B
+  D

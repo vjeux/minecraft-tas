@@ -1,0 +1,19 @@
+# c70b t8s: hybrid B search frame: P_M ideal (pm), R shuttle X ideal (sr, sr2), NO B east input: vary the right cells for B's east pulse
+design designs/piston-door-3x3/tracks/c70b/t7b/t8t.txt
+let pm = 12
+let sr = 30
+let sr2 = 40
+open 0 use 1 5 0
+close 0 use 1 5 0
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+2 clear -1 -1 1
+close pm set -1 -1 1 minecraft:redstone_block
+close pm+2 clear -1 -1 1
+open sr set -2 -3 1 minecraft:redstone_block
+open sr+2 clear -2 -3 1
+open sr2 set -2 -3 1 minecraft:redstone_block
+open sr2+2 clear -2 -3 1
+close sr set -2 -3 1 minecraft:redstone_block
+close sr+2 clear -2 -3 1
+close sr2 set -2 -3 1 minecraft:redstone_block
+close sr2+2 clear -2 -3 1

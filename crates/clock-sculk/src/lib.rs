@@ -14,7 +14,11 @@
 //! and a vibration posted at T lands at T + max(1, floor(distance)), so P >= 21 / P >= 41.
 
 mod build;
+mod caption;
+mod climb;
+mod family;
 mod gens;
+mod outputs;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -52,6 +56,9 @@ pub struct Out {
     /// Simulation horizon (gt).
     #[arg(long, default_value_t = 4_000)]
     pub horizon: u32,
+    /// Simulation threads (0: every core, at most 64).
+    #[arg(long, default_value_t = 0)]
+    pub threads: usize,
 }
 
 #[derive(Subcommand)]
@@ -67,12 +74,59 @@ enum Cmd {
     /// change state): random embeddings for given hop lengths, kicked by a note block that only
     /// the first sensor hears.
     Ring(gens::RingArgs),
+    /// A big ring of n calibrated sensors on a circle (long periods: P = sum of hops <= 16 n).
+    RingBig(gens::RingBigArgs),
+    /// Long-period hunt: random walkers mutate seed clocks one cell at a time, keeping clocks with
+    /// at most --max-blocks blocks and longer periods.
+    Climb(climb::ClimbArgs),
+    /// Check (and with --fix move) each design's output to a cell whose own period is the
+    /// clock's (the "period = output's period" ruling); flags composites.
+    Outputs(outputs::OutputsArgs),
+    /// Rewrite generated designs' headers into a one-line caption (what `clock archive` keeps).
+    Caption(caption::CaptionArgs),
+    /// The extendable families (replin, racetrack): one design per n.
+    Family(family::FamilyArgs),
+    /// Archived designs that are instances of the extendable families (`--remove` deletes them).
+    FamilyDupes(family::DupesArgs),
     /// Simulate designs and print one line each, sorted by period (`--best`: the smallest per
     /// period only).
     Table {
         files: Vec<PathBuf>,
         #[arg(long)]
         best: bool,
+        /// A markdown table (P, blocks, box, family, start, output, design, how).
+        #[arg(long)]
+        md: bool,
+    },
+    /// Keep the smallest design per (period, family) among the given files (by blocks, then
+    /// swept volume, then name) and copy them into --out-dir: the batch to judge with
+    /// `mctas clock verify`.
+    Select {
+        files: Vec<PathBuf>,
+        #[arg(long)]
+        out_dir: PathBuf,
+        /// Only periods in this range.
+        #[arg(long, default_value_t = 1)]
+        min_p: u32,
+        #[arg(long, default_value_t = 100_000)]
+        max_p: u32,
+        /// Skip (period, family) pairs already present (with at most as many blocks) in these
+        /// files (e.g. the track's verified designs).
+        #[arg(long, num_args = 1..)]
+        known: Vec<PathBuf>,
+        /// One design per PERIOD (the smallest of any family) instead of per (period, family).
+        #[arg(long)]
+        per_period: bool,
+        /// Also up to this many more designs per group with a different mechanism class (the
+        /// generator line without its geometry).
+        #[arg(long, default_value_t = 0)]
+        mechanisms: usize,
+        /// Skip designs from which one block can go with the period kept (decorations).
+        #[arg(long)]
+        minimal: bool,
+        /// Skip composites: designs in which no cell has the clock's full period.
+        #[arg(long)]
+        no_composite: bool,
     },
 }
 
@@ -82,8 +136,122 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Obs(a) => gens::obs(&a),
         Cmd::Chain(a) => gens::chain(&a),
         Cmd::Ring(a) => gens::ring(&a),
-        Cmd::Table { files, best } => table(&files, best),
+        Cmd::RingBig(a) => gens::ring_big(&a),
+        Cmd::Climb(a) => climb::climb(&a),
+        Cmd::Outputs(a) => outputs::outputs(&a),
+        Cmd::Caption(a) => caption::caption(&a),
+        Cmd::Family(a) => family::family(&a),
+        Cmd::FamilyDupes(a) => family::dupes(&a),
+        Cmd::Table { files, best, md } => table(&files, best, md),
+        Cmd::Select { files, out_dir, min_p, max_p, known, per_period, mechanisms, minimal, no_composite } => select(&files, &out_dir, min_p, max_p, &known, per_period, mechanisms, minimal, no_composite),
     }
+}
+
+/// (period, family, blocks, volume) of a design by `clock::sim`, `None` unless it is a clock.
+fn sim_key(path: &std::path::Path) -> Option<(u32, String, usize, i32)> {
+    let c = clock::Clock::load(path).ok()?;
+    let r = clock::sim::simulate(&c, &clock::sim::SimOptions::default());
+    (r.verdict == clock::sim::Verdict::Clock).then(|| (r.period, r.analysis.family.join("+"), r.blocks, r.volume()))
+}
+
+/// A design's mechanism class for `select --mechanisms`: its generator line (`# built by`) with the
+/// geometry dropped (coordinates, distances, delays, facings), or the file name for a hand-made one.
+fn mech_sig(path: &std::path::Path) -> String {
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    let Some(how) = text.lines().find_map(|l| l.strip_prefix("# built by `mctas clock sculk`: ")) else {
+        return path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    };
+    how.split_whitespace()
+        .filter(|t| t.starts_with("k=") || !t.chars().any(|c| c.is_ascii_digit()))
+        .map(|t| t.split('[').next().unwrap_or(t).trim_matches(|c: char| c == ',' || c == '(' || c == ')'))
+        .filter(|t| !t.is_empty() && *t != "travel")
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Some single block can go with the clock and its period kept (a decoration: it can only add to
+/// the family, never to the mechanism).
+fn reducible(path: &std::path::Path) -> bool {
+    let Ok(c) = clock::Clock::load(path) else { return false };
+    let o = clock::sim::SimOptions::default();
+    let r = clock::sim::simulate(&c, &o);
+    if r.verdict != clock::sim::Verdict::Clock {
+        return false;
+    }
+    let kick = c.kick.as_ref().map(|k| k.pos());
+    for p in c.design.blocks.keys() {
+        if Some(*p) == kick {
+            continue;
+        }
+        let mut d = c.design.clone();
+        d.blocks.remove(p);
+        let Ok(c2) = clock::Clock::from_design(d) else { continue };
+        let r2 = clock::sim::simulate(&c2, &o);
+        if r2.verdict == clock::sim::Verdict::Clock && r2.period == r.period {
+            return true;
+        }
+    }
+    false
+}
+
+fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, known: &[PathBuf], per_period: bool, mechanisms: usize, minimal: bool, no_composite: bool) -> Result<()> {
+    let group = |fam: &str| if per_period { String::new() } else { fam.to_string() };
+    let mut have: BTreeMap<(u32, String), usize> = BTreeMap::new();
+    for k in known {
+        if let Some((p, f, b, _)) = sim_key(k) {
+            let e = have.entry((p, group(&f))).or_insert(b);
+            *e = (*e).min(b);
+        }
+    }
+    // Evaluate every file on all cores: (period, family, blocks, volume) and the filters.
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let evals: std::sync::Mutex<Vec<(PathBuf, u32, String, usize, i32)>> = std::sync::Mutex::new(Vec::new());
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(64);
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(f) = files.get(i) else { break };
+                    let Some((p, fam, b, v)) = sim_key(f) else { continue };
+                    let g = group(&fam);
+                    if p < min_p || p > max_p || have.get(&(p, g)).is_some_and(|hb| *hb <= b) {
+                        continue;
+                    }
+                    if minimal && reducible(f) {
+                        continue;
+                    }
+                    if no_composite && clock::Clock::load(f).ok().and_then(|c| outputs::has_full_period_cell(&c)) != Some(true) {
+                        continue;
+                    }
+                    evals.lock().unwrap().push((f.clone(), p, fam, b, v));
+                }
+            });
+        }
+    });
+    let mut all: BTreeMap<(u32, String), Vec<(usize, i32, PathBuf, String, String)>> = BTreeMap::new();
+    for (f, p, fam, b, v) in evals.into_inner().unwrap() {
+        let sig = mech_sig(&f);
+        all.entry((p, group(&fam))).or_default().push((b, v, f, fam, sig));
+    }
+    std::fs::create_dir_all(out_dir)?;
+    let mut n = 0;
+    for ((p, _), mut v) in all {
+        v.sort();
+        let mut taken: Vec<String> = Vec::new();
+        for (b, _, f, fam, sig) in v {
+            if taken.len() > mechanisms || taken.contains(&sig) {
+                continue;
+            }
+            taken.push(sig.clone());
+            let name = f.file_name().context("file name")?;
+            std::fs::copy(&f, out_dir.join(name))?;
+            n += 1;
+            println!("P={p:<4} {b:>3} blocks  {fam}  <{}>  [{sig}]", f.display());
+        }
+    }
+    println!("selected {n} designs into {}", out_dir.display());
+    Ok(())
 }
 
 /// One clock found by a generator.
@@ -121,7 +289,7 @@ pub fn try_clock(c: &clock::Clock, how: &str, out: &Out) -> Option<Found> {
 
 /// Simulate every candidate on all cores.
 pub fn simulate_all(cands: Vec<(clock::Clock, String)>, out: &Out) -> Vec<Found> {
-    let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(64);
+    let n = if out.threads > 0 { out.threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(64) };
     let next = std::sync::atomic::AtomicUsize::new(0);
     let found = std::sync::Mutex::new(Vec::new());
     std::thread::scope(|s| {
@@ -199,15 +367,44 @@ pub fn report(found: Vec<Found>, out: &Out) -> Result<()> {
     Ok(())
 }
 
-fn table(files: &[PathBuf], best: bool) -> Result<()> {
+fn table(files: &[PathBuf], best: bool, md: bool) -> Result<()> {
     let mut rows: Vec<(u32, usize, i32, String)> = Vec::new();
     for f in files {
         let c = clock::Clock::load(f)?;
         let r = clock::sim::simulate(&c, &clock::sim::SimOptions::default());
         let p = if r.verdict == clock::sim::Verdict::Clock { r.period } else { 0 };
-        rows.push((p, r.blocks, r.volume(), format!("{}  <{}>", r.summary(), f.display())));
+        let line = if md {
+            // The design's "built by" / description comment, if any.
+            let text = std::fs::read_to_string(f).unwrap_or_default();
+            let how = text
+                .lines()
+                .find_map(|l| l.strip_prefix("# built by `mctas clock sculk`: ").map(str::to_string))
+                .or_else(|| text.lines().filter(|l| l.starts_with("# ") && !l.starts_with("# CLOCK")).map(|l| l[2..].to_string()).next())
+                .unwrap_or_default();
+            let (on, edges) = r.output.as_ref().map(|o| (o.wave.on, o.wave.edges)).unwrap_or((0, 0));
+            let [w, h, d] = r.dims();
+            format!(
+                "| {p} | {} | {}x{}x{} | {} | {} | on {on}/{p}, {edges} edge(s) | [{}]({}) | {} |",
+                r.blocks,
+                w,
+                h,
+                d,
+                clock::wave::signature(&r.analysis.family),
+                r.start,
+                f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+                f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+                how.replace('|', "/")
+            )
+        } else {
+            format!("{}  <{}>", r.summary(), f.display())
+        };
+        rows.push((p, r.blocks, r.volume(), line));
     }
     rows.sort();
+    if md {
+        println!("| P | blocks | box | family | start | output | design | how |");
+        println!("|---|---|---|---|---|---|---|---|");
+    }
     let mut last_p = None;
     for (p, _, _, line) in rows {
         if best && last_p == Some(p) {

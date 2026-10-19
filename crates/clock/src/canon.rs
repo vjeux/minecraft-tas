@@ -174,8 +174,17 @@ fn encode(cells: &[(Pos, String)]) -> String {
 }
 
 /// The canonical type key of a set of blocks: the smallest encoding (cells moved to the origin,
-/// sorted, `x,y,z=state;...`, structural states) over the 4 rotations.
+/// sorted, `x,y,z=state;...`, structural states) over the 4 rotations AND their mirror images
+/// (a mirror pair is one type; [`chiral`] tells them apart).
 pub fn type_key<'a>(blocks: impl IntoIterator<Item = (&'a Pos, &'a String)> + Clone) -> String {
+    let direct = rotation_key(blocks.clone());
+    let m: Vec<(Pos, String)> = blocks.into_iter().map(|(p, s)| ([-p[0], p[1], p[2]], mirror_state(s))).collect();
+    let mirrored = rotation_key(m.iter().map(|(p, s)| (p, s)));
+    direct.min(mirrored)
+}
+
+/// The smallest encoding over the 4 rotations only (no mirror).
+pub fn rotation_key<'a>(blocks: impl IntoIterator<Item = (&'a Pos, &'a String)> + Clone) -> String {
     (0..4u8)
         .map(|t| {
             let cells: Vec<(Pos, String)> = blocks.clone().into_iter().map(|(p, s)| (crate::rotate_pos(*p, t), structural(&rotate_state(s, t)))).collect();
@@ -185,10 +194,41 @@ pub fn type_key<'a>(blocks: impl IntoIterator<Item = (&'a Pos, &'a String)> + Cl
         .unwrap_or_default()
 }
 
+/// Is the structure different from its mirror image (up to rotation)?
+pub fn chiral<'a>(blocks: impl IntoIterator<Item = (&'a Pos, &'a String)> + Clone) -> bool {
+    let m: Vec<(Pos, String)> = blocks.clone().into_iter().map(|(p, s)| ([-p[0], p[1], p[2]], mirror_state(s))).collect();
+    rotation_key(blocks) != rotation_key(m.iter().map(|(p, s)| (p, s)))
+}
+
+/// The type key of a whole design: its blocks with their block-entity data (`nbt:` lines, e.g.
+/// container contents) attached to the cells, over rotations and mirror images.
+pub fn design_type_key(d: &crate::Design) -> String {
+    let mut best: Option<String> = None;
+    for mirror in [false, true] {
+        for t in 0..4u8 {
+            let cells: Vec<(Pos, String)> = d
+                .blocks
+                .iter()
+                .map(|(p, s)| {
+                    let (p, s) = if mirror { ([-p[0], p[1], p[2]], mirror_state(s)) } else { (*p, s.clone()) };
+                    let st = structural(&rotate_state(&s, t));
+                    let nbt = d.block_entities.get(&(if mirror { [-p[0], p[1], p[2]] } else { p })).cloned().unwrap_or_default();
+                    (crate::rotate_pos(p, t), format!("{st}{nbt}"))
+                })
+                .collect();
+            let e = encode(&cells);
+            if best.as_ref().is_none_or(|b| e < *b) {
+                best = Some(e);
+            }
+        }
+    }
+    best.unwrap_or_default()
+}
+
 /// The type key of the mirror image (to tell chiral types: key != mirror key).
 pub fn mirror_type_key<'a>(blocks: impl IntoIterator<Item = (&'a Pos, &'a String)> + Clone) -> String {
     let m: Vec<(Pos, String)> = blocks.into_iter().map(|(p, s)| ([-p[0], p[1], p[2]], mirror_state(s))).collect();
-    type_key(m.iter().map(|(p, s)| (p, s)))
+    rotation_key(m.iter().map(|(p, s)| (p, s)))
 }
 
 #[cfg(test)]
@@ -222,5 +262,24 @@ mod tests {
         let b: BTreeMap<Pos, String> = [([5, 2, 3], "minecraft:observer[facing=south]".to_string()), ([5, 2, 4], "minecraft:observer[facing=north]".to_string())].into();
         assert_eq!(type_key(a.iter()), type_key(b.iter()));
         assert_eq!(type_key(a.iter()), mirror_type_key(a.iter()));
+        // the two 4-observer rings (clockwise, counterclockwise) are mirror images: one type, chiral
+        let cw: BTreeMap<Pos, String> = [
+            ([0, 0, 0], "minecraft:observer[facing=east]".to_string()),
+            ([0, 0, 1], "minecraft:observer[facing=north]".to_string()),
+            ([1, 0, 0], "minecraft:observer[facing=south]".to_string()),
+            ([1, 0, 1], "minecraft:observer[facing=west]".to_string()),
+        ]
+        .into();
+        let ccw: BTreeMap<Pos, String> = [
+            ([0, 0, 0], "minecraft:observer[facing=south]".to_string()),
+            ([0, 0, 1], "minecraft:observer[facing=east]".to_string()),
+            ([1, 0, 0], "minecraft:observer[facing=west]".to_string()),
+            ([1, 0, 1], "minecraft:observer[facing=north]".to_string()),
+        ]
+        .into();
+        assert_ne!(rotation_key(cw.iter()), rotation_key(ccw.iter()));
+        assert_eq!(type_key(cw.iter()), type_key(ccw.iter()));
+        assert!(chiral(cw.iter()));
+        assert!(!chiral(a.iter()));
     }
 }

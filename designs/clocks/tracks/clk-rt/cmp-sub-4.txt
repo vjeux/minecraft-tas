@@ -1,0 +1,16 @@
+# Comparator subtract clock (draft, clk-rt): rear = redstone block (15), output -> 3 dust -> side.
+# Expected: output alternates 15 / 2 every 2 gt (period 4), the last dust 13 / 0.
+name: clk-rt-cmp-sub-4
+origin: -1 0 0
+port output: 0 1 1
+palette:
+  S minecraft:stone
+  R minecraft:redstone_block
+  C minecraft:comparator[facing=west,mode=subtract,powered=false]
+  w minecraft:redstone_wire
+layer 0:
+  .SS
+  .SS
+layer 1:
+  RCw
+  .ww

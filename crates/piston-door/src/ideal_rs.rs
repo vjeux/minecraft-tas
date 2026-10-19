@@ -172,7 +172,7 @@ pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], of
 /// `--vary` axis: `x,y[,z]=alt|alt|...` (door-plane coordinates of the design; z defaults to 0).
 /// An alternative is a block state (`minecraft:` optional), `air`, or `keep` (the design's own
 /// block). Returns the cell and its alternatives.
-fn parse_vary(v: &str) -> Result<(Pos, Vec<Option<Option<String>>>)> {
+pub(crate) fn parse_vary(v: &str) -> Result<(Pos, Vec<Option<Option<String>>>)> {
     let (c, alts) = v.split_once('=').context("--vary x,y[,z]=state|state|...")?;
     let n: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().context("--vary cell")?;
     let p = match n.as_slice() {

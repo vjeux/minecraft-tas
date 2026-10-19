@@ -1,0 +1,25 @@
+name: clk-obs-p48-note-obs-pis-rb-stk-7b-b-5b65fb
+# P48: 1 note block, 3 observers, 1 piston, 1 redstone block, 1 sticky piston; changing in place: note_block, observer, piston, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:piston[extended=false,facing=north]
+  B minecraft:redstone_block
+  C minecraft:sticky_piston[extended=false,facing=north]
+  D minecraft:note_block[instrument=harp,note=0,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:observer[facing=east,powered=false]
+  G minecraft:observer[facing=west,powered=false]
+layer -1:
+  ..
+  A.
+  ..
+layer 0:
+  B.
+  ..
+  C.
+layer 1:
+  D.
+  E.
+  FG

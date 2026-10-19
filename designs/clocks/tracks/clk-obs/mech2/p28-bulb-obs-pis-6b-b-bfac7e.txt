@@ -1,0 +1,24 @@
+name: clk-obs-p28-bulb-obs-pis-6b-b-bfac7e
+# P28: 1 copper bulb, 3 observers, 2 pistons; changing in place: copper_bulb, observer, piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 -1
+port output: 0 0 -1
+port start: 0 0 0 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:piston[extended=false,facing=north]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:piston[extended=false,facing=south]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  .
+  D
+  E
+layer 2:
+  .
+  F
+  .
