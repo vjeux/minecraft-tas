@@ -1,0 +1,12 @@
+designs/piston-door-3x3/tracks/c77/seven/w2.txt: 12 pieces in 7x7: SE(-2,-1) SE(-2,1) SE(-2,2) SE(-1,3) SU(0,-2) SE(0,-1) SU(1,-2) SU(1,-1) SD(1,4) SD(2,4) SW(4,-1) SW(4,1)
+  4 ...vv..
+  3 .>.....
+  2 >.###..
+  1 >.###.<
+  0 ..###..
+ -1 >.>^..<
+ -2 ..^^...
+  open 14 + close 14 (645219 states, 11 of 12 inputs used)
+  open:  P3SU(1,-1) P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SE(0,-1) P1SU(1,-2) P1SU(1,-1) P3SE(0,-1) P1SU(1,-1) P1SW(4,1) P1SE(-2,-1) P1SU(0,-2) P1SE(-1,3) P1SD(1,4)
+  close: P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) P1SE(-2,-1) P1SE(-1,3) P1SD(1,4) P1SU(1,-1) P1SW(4,-1) P1SU(1,-1) P1SW(4,1) P1SE(0,-1) [100.9s]
+  piston removal + one helper: 0 working variants with one piston fewer [25s]
