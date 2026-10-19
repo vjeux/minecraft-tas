@@ -1,0 +1,43 @@
+name: u7-m10i
+# w63top single-U 7x8 (x -2..4, y -2..5) = c79 squeezed: BR goes RIGHT (R0 (4,0)) and TR goes UP
+# (TRp (2,4)), so the right side is a 2-stack R0/R1 (level-held at rest through one input, like
+# c79's dropper (4,3)), the only bottom-row piston is U (1,-2). A rests in (1,3), B extended
+# (head (1,4)) and TRp extended (head (2,3)) are level-held; L0-L2 (TL left), K (-1,-1), U, A pulse.
+# Static frame stones (0,3), (3,2), (2,-1). Ideal level inputs present at rest at z=-1.
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=true,facing=west]
+  w minecraft:piston_head[facing=west,short=false,type=sticky]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  X minecraft:sticky_piston[extended=true,facing=down]
+  x minecraft:piston_head[facing=down,short=false,type=sticky]
+  C minecraft:stone
+  F minecraft:smooth_stone
+  R minecraft:redstone_block
+layer -2:
+  ...U
+  .......
+layer -1:
+  .E..F
+  .......
+layer 0:
+  E.CCCwW
+  .......
+layer 1:
+  E.CCCwW
+  ......R
+layer 2:
+  E.CCCF
+  .......
+layer 3:
+  ..FDx
+  .......
+layer 4:
+  ...xX
+  ....R..
+layer 5:
+  ...X
+  ...R...
