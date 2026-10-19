@@ -49,3 +49,25 @@
   3 needs two inputs into one right-column cell; only the lever and (3,5)/(3,6) reach it. DEAD
   unless (3,5)'s double pulse is merged (no repeater can point into (3,5): its inputs would be
   (1,5) = B or (5,5) outside).
+
+## The wall, stated once (hand case analysis, bounded: flat, slime-free, this mechanism and bottom)
+1. A (both positions) is driven only by (2,4) = observer facing east watching (3,4).
+2. (3,4) may not hold an emitter's target (QC-fires P_T and updates it); it holds an observer
+   (facing east: watches (4,4); facing down: watches P_T) or a non-updating block (trapdoor,
+   lamp, dropper) fed only through a CONDUCTOR at (3,5) or (4,4).
+3. P_T's real drivers: (3,5) observer facing up (watches (3,6)), (4,3) (observer facing east on
+   a lever at (5,3), or a conductor that also fires the right stack), (4,4) emitting west
+   (only on a lever at (5,4)), (3,4) observer facing up (A = P_T + 2).
+4. The right stack's only feed is (4,3) facing up (or the shared conductor of 3).
+5. A2 and A3 must not be P_T-coupled: on close, any P_T pulse between B1 and B2+2 pulls A out of
+   (1,3); on open, any P_T pulse after its real pull pushes T into an empty (1,3) unless (1,3)
+   and (0,3) are full and (-1,3) is immovable.
+6. Watching B (the only other late motion near A) gives TWO pulses per B motion (+2, +6), so A
+   gets even counts per phase; no repeater can point into (3,5) to merge them (its input would
+   be (1,5) = B or (5,5) outside).
+=> A's late pulses need the right column (4,4)<-(4,5)<-(4,6) fed from (3,5)/(3,6) or a lever;
+   with P_T at (3,5) every such input is P_T-coupled (1+5), and with (3,5) used as the column's
+   input or A's conductor, P_T has no driver left (3+4). A stone at (3,6) is an invisible relay
+   (power is no state) but then P_T's observer never sees its one change.
+- Tested and failed: r7 (P_T-coupled 7-pulse run feeding A, the stack and P_T, every B1/B2
+  timing): 0/561.
