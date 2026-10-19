@@ -1210,6 +1210,23 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     std::fs::write(&p, lines.join("\n") + "\n")?;
                     eprintln!("[mechspace variants] {} layouts -> {} variants in {}", items.len(), lines.len(), p.display());
                 }
+                "layouts" => {
+                    // group FULL-FRAME finds (<tag>.frame.tsv: augmented line \t stone-free line ...)
+                    // by layout (extension states dropped, mirror images merged); one stone-free
+                    // representative per layout (fewest extended pistons)
+                    let f = input.ok_or_else(|| anyhow::anyhow!("layouts needs --input (frame.tsv files, comma-separated)"))?;
+                    anyhow::ensure!(bxs.len() == 1, "layouts needs one --boxes WxH");
+                    let paths: Vec<PathBuf> = f.to_string_lossy().split(',').map(PathBuf::from).collect();
+                    let groups = ms::layouts(&paths, bxs[0].0, bxs[0].1)?;
+                    let t = tag.clone().unwrap_or_else(|| "layouts".into());
+                    let mut reps = Vec::new();
+                    for (k, (n, rep)) in &groups {
+                        println!("{n}\t{k}\t{rep}");
+                        reps.push(rep.clone());
+                    }
+                    std::fs::write(out_dir.join(format!("{t}.txt")), reps.join("\n") + "\n")?;
+                    eprintln!("[mechspace layouts] {} layouts", groups.len());
+                }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }
         }

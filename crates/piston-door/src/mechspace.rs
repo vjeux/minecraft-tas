@@ -1836,6 +1836,42 @@ pub fn parse_lines(text: &str, w: i8, h: i8) -> Result<Vec<(Bx, Vec<Pc>)>> {
     Ok(items)
 }
 
+/// `layouts`: FULL-FRAME finds grouped by layout: key = pistons with extension states dropped,
+/// the smaller of the layout and its mirror image; value = (cycles found, the stone-free
+/// representative with the fewest extended pistons).
+pub fn layouts(paths: &[std::path::PathBuf], w: i8, h: i8) -> Result<BTreeMap<String, (usize, String)>> {
+    let mut g: BTreeMap<String, (usize, String, usize)> = BTreeMap::new();
+    for p in paths {
+        for l in std::fs::read_to_string(p)?.lines() {
+            let cols: Vec<&str> = l.split('\t').collect();
+            if cols.len() < 2 {
+                continue;
+            }
+            let Ok(items) = parse_lines(cols[1], w, h) else { continue };
+            let Some((bx, v)) = items.into_iter().next() else { continue };
+            let strip = |v: &[Pc]| -> Vec<Pc> {
+                let mut s: Vec<Pc> = v.iter().map(|p| match p.k {
+                    K::Piston { sticky, f, .. } => Pc { x: p.x, y: p.y, k: K::Piston { sticky, f, ext: false } },
+                    _ => *p,
+                }).collect();
+                s.sort();
+                s
+            };
+            let a = strip(&v);
+            let b = strip(&v.iter().map(|p| p.mirror()).collect::<Vec<_>>());
+            let key = line_of(&bx, if a <= b { &a } else { &b });
+            let next = v.iter().filter(|p| matches!(p.k, K::Piston { ext: true, .. })).count();
+            let e = g.entry(key).or_insert((0, cols[1].to_string(), usize::MAX));
+            e.0 += 1;
+            if next < e.2 {
+                e.1 = cols[1].to_string();
+                e.2 = next;
+            }
+        }
+    }
+    Ok(g.into_iter().map(|(k, (n, r, _))| (k, (n, r))).collect())
+}
+
 /// The reach-matching condition alone (see `reach_ok`).
 pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
     let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();
@@ -2201,7 +2237,7 @@ pub fn find_cycle(cx: &Cx, cap: usize) -> Option<(Vec<E>, Vec<E>)> {
     let tcells: Vec<usize> = (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).filter(|&(x, y)| bx.has(x, y)).map(|(x, y)| bx.idx(x, y)).collect();
     let h_open = |s: &St| -> u32 { tcells.iter().map(|&i| if s.g[i] == AIR { 0 } else if i == ci { 2 } else { 1 }).sum() };
     let none = Fp::default();
-    let (opens, _) = astar_sub(cx, &cx.rest, &|s| m.is_open(s), &h_open, cap, 8, &none);
+    let (opens, _) = astar_sub(cx, &cx.rest, &|s| cx.is_goal(&Goal::Open, s), &h_open, cap, 8, &none);
     let rest = cx.rest.clone();
     let n = bx.n();
     let h_close = |s: &St| -> u32 {
@@ -2215,6 +2251,24 @@ pub fn find_cycle(cx: &Cx, cap: usize) -> Option<(Vec<E>, Vec<E>)> {
     };
     for (o, open) in &opens {
         let mask = bad_holes(m, o);
+        // FULL FRAME: the cells kept air must be air on the open path too (static stones go there)
+        if FULL_FRAME.load(Ordering::Relaxed) && !mask.is_empty() {
+            let mut s = rest.clone();
+            let mut ok = mask.ones().all(|i| s.g[i] == AIR);
+            for e in open {
+                if !ok {
+                    break;
+                }
+                match m.apply(&s, *e) {
+                    Out::Ok(nx) => s = nx,
+                    _ => ok = false,
+                }
+                ok = ok && mask.ones().all(|i| s.g[i] == AIR);
+            }
+            if !ok {
+                continue;
+            }
+        }
         let (back, _) = astar_sub(cx, o, &|s| *s == rest, &h_close, cap, 1, &mask);
         if let Some((_, close)) = back.into_iter().next() {
             if replay_ok(m, &rest, open, &close) {
