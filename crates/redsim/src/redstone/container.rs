@@ -131,19 +131,27 @@ fn container_at(w: &mut World, p: BlockPos) -> Option<BlockPos> {
     }
 }
 
+/// `setItem`: a dropper notifies (`setChanged`); a hopper's override does not.
 fn set_item(w: &mut World, pos: BlockPos, slot: usize, st: Option<Stack>) {
+    let mut hopper = false;
     if let Some(c) = w.containers.map.get_mut(&pos) {
         c.slots[slot] = st;
+        hopper = c.hopper;
     }
-    set_changed(w, pos);
+    if !hopper {
+        set_changed(w, pos);
+    }
 }
 
-/// `removeItem(slot, 1)`: the split item (the original keeps count - 1, maybe 0 = empty).
+/// `removeItem(slot, 1)`: the split item (the original keeps count - 1, maybe 0 = empty); a
+/// dropper notifies, a hopper's override does not.
 fn remove_one(w: &mut World, pos: BlockPos, slot: usize) -> Option<Stack> {
     let c = w.containers.map.get_mut(&pos)?;
     let s = c.slots[slot]?;
     c.slots[slot] = if s.count > 1 { Some(Stack { item: s.item, count: s.count - 1 }) } else { None };
-    set_changed(w, pos);
+    if !c.hopper {
+        set_changed(w, pos);
+    }
     Some(Stack { item: s.item, count: 1 })
 }
 
@@ -211,7 +219,10 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     let Block::Dispenser { facing, .. } = w.get(pos) else { return };
     let remaining = match container_at(w, pos.rel(facing)) {
         None => {
-            w.errors.push(format!("dropper at {pos} spits an item into the world (item entity, not modeled)"));
+            // the item flies out as an entity: harmless to blocks unless a hopper can catch it
+            if w.containers.map.values().any(|c| c.hopper) {
+                w.errors.push(format!("dropper at {pos} spits an item into the world (item entity, not modeled)"));
+            }
             (st.count > 1).then_some(Stack { item: st.item, count: st.count - 1 })
         }
         Some(into) => {

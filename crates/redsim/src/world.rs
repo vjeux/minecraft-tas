@@ -96,6 +96,8 @@ pub struct World {
     pub handling_tick: bool,
     /// Comparator block entities: their output signal.
     pub comparator_out: HashMap<BlockPos, u8>,
+    /// Container block entities (droppers, dispensers, hoppers): contents, hopper cooldowns.
+    pub containers: crate::redstone::container::Containers,
     /// `RedstoneTorchBlock.RECENT_TOGGLES` of this level.
     pub torch_toggles: Vec<(BlockPos, i64)>,
     /// `RedstoneWireBlock.shouldSignal`.
@@ -130,6 +132,7 @@ impl World {
             nu_count: 0,
             handling_tick: false,
             comparator_out: HashMap::new(),
+            containers: Default::default(),
             torch_toggles: Vec::new(),
             wire_signal: Cell::new(true),
             piston: Default::default(),
@@ -257,13 +260,18 @@ impl World {
                 self.comparator_out.remove(&pos);
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
+            Kind::Dispenser(_) | Kind::Hopper => crate::redstone::container::remove(self, pos),
             _ => {}
         }
     }
 
     fn ensure_block_entity(&mut self, pos: BlockPos, state: Block) {
-        if let Kind::Comparator = state.kind() {
-            self.comparator_out.entry(pos).or_insert(0);
+        match state.kind() {
+            Kind::Comparator => {
+                self.comparator_out.entry(pos).or_insert(0);
+            }
+            Kind::Dispenser(_) | Kind::Hopper => crate::redstone::container::create(self, pos, &state),
+            _ => {}
         }
     }
 
@@ -537,6 +545,9 @@ impl World {
         }
         self.handling_tick = false;
         crate::gravity::tick_entities(self);
+        // block entities: a design's hoppers exist before any moving block is created, so they
+        // come first in `blockEntityTickers`
+        crate::redstone::container::tick_hoppers(self);
         crate::piston::tick_block_entities(self);
     }
 
@@ -598,9 +609,20 @@ impl World {
     /// shape update of every wire, a `self` update of every block (in this order); then the
     /// caller settles (`run_until_idle`).
     pub fn place_like_judge(&mut self, blocks: &[(BlockPos, Block)]) {
+        self.place_raw(blocks);
+        self.place_updates(blocks);
+    }
+
+    /// The judge's placement, first half: raw writes in this order.
+    pub fn place_raw(&mut self, blocks: &[(BlockPos, Block)]) {
         for (p, s) in blocks {
             self.set_block(*p, *s, flags::RAW);
         }
+    }
+
+    /// The judge's placement, second half: a shape update of every wire, then a `self` update of
+    /// every block.
+    pub fn place_updates(&mut self, blocks: &[(BlockPos, Block)]) {
         for (p, s) in blocks {
             if matches!(s, Block::Wire { .. }) {
                 let cur = self.get(*p);

@@ -20,13 +20,15 @@ struct Fixture {
     hi: [i32; 3],
     update_place: bool,
     blocks: Vec<(BlockPos, Block)>,
+    /// container contents set after the blocks (`data merge block` in the game)
+    items: Vec<(BlockPos, usize, String, u8)>,
     steps: Vec<Step>,
     /// per frame: changed cells
     frames: Vec<Vec<(BlockPos, String)>>,
 }
 
 fn parse(text: &str) -> Fixture {
-    let mut f = Fixture { lo: [0; 3], hi: [0; 3], update_place: false, blocks: Vec::new(), steps: Vec::new(), frames: Vec::new() };
+    let mut f = Fixture { lo: [0; 3], hi: [0; 3], update_place: false, blocks: Vec::new(), items: Vec::new(), steps: Vec::new(), frames: Vec::new() };
     for line in text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
         let t: Vec<&str> = line.split_whitespace().collect();
         let int = |i: usize| t[i].parse::<i32>().unwrap();
@@ -38,6 +40,7 @@ fn parse(text: &str) -> Fixture {
             }
             "place" => f.update_place = t[1] == "update",
             "block" => f.blocks.push((pos(1), Block::parse(t[4]).unwrap())),
+            "item" => f.items.push((pos(1), int(4) as usize, t[5].to_string(), int(6) as u8)),
             "run" => f.steps.push(Step::Run(int(1) as u32)),
             "use" => f.steps.push(Step::Use(pos(1))),
             "set" => f.steps.push(Step::Set(pos(1), Block::parse(t[4]).unwrap())),
@@ -49,6 +52,22 @@ fn parse(text: &str) -> Fixture {
     f
 }
 
+/// Fill the containers (grouped per container, in first-appearance order).
+fn fill(w: &mut World, f: &Fixture) {
+    use redsim::redstone::container::{Stack, item_id, set_contents};
+    let mut groups: Vec<(BlockPos, Vec<(usize, Stack)>)> = Vec::new();
+    for (p, slot, item, count) in &f.items {
+        let st = Stack { item: item_id(item).expect("known item"), count: *count };
+        match groups.iter_mut().find(|(q, _)| q == p) {
+            Some((_, v)) => v.push((*slot, st)),
+            None => groups.push((*p, vec![(*slot, st)])),
+        }
+    }
+    for (p, v) in groups {
+        set_contents(w, p, &v);
+    }
+}
+
 fn run(f: &Fixture) -> Result<(), String> {
     let m = 6;
     let mut w = World::new(BlockPos::new(f.lo[0] - m, f.lo[1] - m, f.lo[2] - m), [f.hi[0] - f.lo[0] + 1 + 2 * m, f.hi[1] - f.lo[1] + 1 + 2 * m, f.hi[2] - f.lo[2] + 1 + 2 * m]);
@@ -56,8 +75,11 @@ fn run(f: &Fixture) -> Result<(), String> {
         for (p, b) in &f.blocks {
             w.set_block(*p, *b, flags::ALL);
         }
+        fill(&mut w, f);
     } else {
-        w.place_like_judge(&f.blocks);
+        w.place_raw(&f.blocks);
+        fill(&mut w, f);
+        w.place_updates(&f.blocks);
     }
     let mut expected: HashMap<BlockPos, String> = HashMap::new();
     let mut frame = 0usize;

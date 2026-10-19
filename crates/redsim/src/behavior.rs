@@ -243,6 +243,7 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         }
         Block::Composter { level } => level as i32,
         Block::RespawnAnchor { charges } => (charges as f32 / 4.0 * 15.0).floor() as i32,
+        Block::Dispenser { .. } | Block::Hopper { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
     }
 }
@@ -433,8 +434,11 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Leaves { .. } => leaves::tick(w, s, p),
         Block::Composter { .. } => composter::tick(w, s, p),
         Block::Falling { .. } => crate::gravity::tick(w, s, p), // pistmodel
-        // Dispensers, droppers, crafters: dispensing from an empty inventory changes no block.
-        Block::Dispenser { .. } | Block::Crafter { .. } => {}
+        // Droppers push one item into a facing container; dispensers with items spawn entities
+        // (noted); crafters: crafting from an empty grid changes no block.
+        Block::Dispenser { dropper: true, .. } => crate::redstone::container::dropper_dispense(w, p),
+        Block::Dispenser { dropper: false, .. } => crate::redstone::container::dispenser_dispense(w, p),
+        Block::Crafter { .. } => {}
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::tick(w, s, p),
         _ => {}
     }

@@ -39,6 +39,10 @@ enum Cmd {
         /// Run this many batches of n (seeds seed, seed+1, ...), printing the running total.
         #[arg(long, default_value_t = 1)]
         batches: usize,
+        /// Case generator: `random` (palette circuits) or `containers` (droppers/hoppers with
+        /// items, comparators, nothing that can pop).
+        #[arg(long = "gen", default_value = "random")]
+        generator: String,
     },
     /// Print redsim's block equivalence classes (representative, members, properties).
     Classes,
@@ -59,6 +63,10 @@ enum Cmd {
         out: PathBuf,
         #[arg(long, default_value_t = 8)]
         workers: usize,
+    },
+    /// Run a case in redsim only and print every cell change per frame (debugging).
+    Trace {
+        case: PathBuf,
     },
     /// Shrink a mismatching case file (redsim vs the game) and print it.
     Shrink {
@@ -91,7 +99,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let cfg = WorkerConfig { version: cli.version.clone(), heap_mb: 768, ..Default::default() };
     match cli.cmd {
-        Cmd::Fuzz { n, seed, size, density, palette, out, no_shrink, max_report, workers, batches } => {
+        Cmd::Fuzz { n, seed, size, density, palette, out, no_shrink, max_report, workers, batches, generator } => {
             let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
             anyhow::ensure!(sz.len() == 3, "--size x,y,z");
             let pool = Pool::spawn(workers, &cfg)?;
@@ -106,6 +114,7 @@ fn main() -> Result<()> {
                     out: out.clone(),
                     shrink: !no_shrink,
                     max_report,
+                    generator: generator.clone(),
                 };
                 let (t, m) = redsim_fuzz::fuzz(&pool, &o, &|s| eprintln!("{s}"))?;
                 total += t;
@@ -139,6 +148,25 @@ fn main() -> Result<()> {
             let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
             let pool = Pool::spawn(workers, &cfg)?;
             redsim_fuzz::classfuzz(&pool, n, seed, &redsim_fuzz::palette(&palette)?, [sz[0], sz[1], sz[2]], density, &out, &|s| eprintln!("{s}"))?;
+        }
+        Cmd::Trace { case } => {
+            let c = redsim_fuzz::Case::parse(&std::fs::read_to_string(&case)?)?;
+            let (frames, notes) = redsim_fuzz::run_sim(&c)?;
+            let cells = c.cells();
+            for (i, f) in frames.iter().enumerate() {
+                if i == 0 {
+                    continue;
+                }
+                for (k, s) in f.iter().enumerate() {
+                    if *s != frames[i - 1][k] {
+                        let p = cells[k];
+                        println!("frame {i} ({}): {} {} {} {s}", redsim_fuzz::frame_label(&c, i), p[0], p[1], p[2]);
+                    }
+                }
+            }
+            for n in notes {
+                println!("note: {n}");
+            }
         }
         Cmd::Shrink { case } => {
             let mut w = Worker::spawn(&cfg)?;
