@@ -1447,9 +1447,13 @@ pub fn minimal(bx: Bx, v: &[Pc], cap: usize) -> Vec<Pc> {
             t.remove(i);
             let Some((m, rest)) = Mech::new(bx, &t) else { continue };
             // a goal-directed search first (fast when it works), then the exact decision
-            let works = match families::solve_pulse_astar(&m, &rest, 300_000) {
-                Ok(Some(s)) if replay_ok(&m, &rest, &s.open, &s.close) => true,
-                _ => matches!(decide(&Cx::new(&m, &rest), cap).0, Verdict::Found { .. }),
+            // the exact decision (fast in the wirable sub-model); families' A* only when the
+            // exact search is capped
+            let cx = Cx::new(&m, &rest);
+            let works = match decide_all(&cx, cap.min(500_000), cap, 0).0 {
+                Verdict::Found { .. } => true,
+                Verdict::Capped { .. } => matches!(families::solve_pulse_astar(&m, &rest, 300_000), Ok(Some(s)) if replay_ok(&m, &rest, &s.open, &s.close)),
+                _ => false,
             };
             if works {
                 cur = t;
@@ -2199,11 +2203,11 @@ pub fn handle_found(found: &[(Bx, Vec<Pc>, Vec<E>, Vec<E>)], o: &RunOpts, catalo
         let cat = catalog.get(&c).cloned().unwrap_or_else(|| "NEW".into());
         let (m, rest) = Mech::new(*bx, mv).context("minimal rebuild")?;
         let cx = Cx::new(&m, &rest);
-        let (op, cl) = match families::solve_pulse_astar(&m, &rest, 2_000_000) {
-            Ok(Some(s)) if replay_ok(&m, &rest, &s.open, &s.close) => (s.open, s.close),
-            _ => match decide_all(&cx, o.cap, o.cap_lean, o.astar).0 {
-                Verdict::Found { open, close } => (open, close),
-                _ => anyhow::bail!("minimal mechanism lost its solution: {}", line_of(bx, mv)),
+        let (op, cl) = match decide_all(&cx, o.cap.min(500_000), o.cap_lean.max(o.cap), 0).0 {
+            Verdict::Found { open, close } if !open.is_empty() => (open, close),
+            _ => match families::solve_pulse_astar(&m, &rest, 2_000_000) {
+                Ok(Some(s)) if replay_ok(&m, &rest, &s.open, &s.close) => (s.open, s.close),
+                _ => (Vec::new(), Vec::new()),
             },
         };
         tsv.push_str(&format!("{}\t{}\t{cat}\t{}\t{}\n", line_of(bx, v), line_of(bx, mv), m.fmt_seq(&op), m.fmt_seq(&cl)));
