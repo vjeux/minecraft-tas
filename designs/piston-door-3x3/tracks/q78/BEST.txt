@@ -1,6 +1,6 @@
-# verified WORKS: 38 blocks, open after 36 ticks, closed after 19 ticks
-# archived 2026-10-19 17:03Z from designs/piston-door-3x3/tracks/q78/e78s/h3.txt (repo at e755e4de)
-name: e78k-h3
+# verified WORKS: 42 blocks, open after 36 ticks, closed after 19 ticks
+# archived 2026-10-19 17:11Z from designs/piston-door-3x3/tracks/q78/e78s/h4.txt (repo at 697e62ec)
+name: e78k-h4
 port door: 0 0 0
 port lever: 1 5 0
 origin: -2 0 0
@@ -26,15 +26,15 @@ layer -3:
 layer -2:
   ERBsOTr
 layer -1:
-  A....CA
+  A.E..CA
 layer 0:
   S.EEE.C
 layer 1:
   S.EEE.C
 layer 2:
-  EoEEE.A
+  EEEEEEA
 layer 3:
-  ..PPPBN
+  roPPPBN
 layer 4:
   ..DDD
 layer 5:
