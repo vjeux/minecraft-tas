@@ -12,10 +12,13 @@
 //! The official judge is `mctas clock verify` (crates/clock, docs/clocks.md); this crate builds
 //! and searches.
 
+pub mod boat;
 pub mod cart;
 pub mod crafter;
 pub mod rename;
 pub mod ring;
+pub mod trace;
+pub mod trace_export;
 pub mod unarchive;
 
 use clap::{Parser, Subcommand};
@@ -51,6 +54,15 @@ enum Cmd {
     /// Take archived clocks back out (design, verdict and caption rows, the family's extend rows)
     /// to re-archive a rebuilt version under the same name.
     Unarchive(unarchive::UnarchiveArgs),
+    /// Build a design in the real game like `clock verify` and print every entity's position and
+    /// motion and the changed cells, tick by tick (boats, minecarts).
+    Trace(trace::TraceArgs),
+    /// A redstone-less boat ring: a boat circling a water ring around an A x B island, pushed by
+    /// four one-way currents cut by rows of wooden pressure plates (which it presses).
+    BoatRing(boat::RingArgs),
+    /// Record real-game traces of archived clocks for the in-browser viewer (JSON Lines, one file
+    /// per clock in designs/clocks/traces/; format agreed with webrender).
+    TraceExport(trace_export::ExportArgs),
 }
 
 /// `mctas clock misc <args...>`.
@@ -70,5 +82,8 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::CartLoop(l) => cart::run_loop(l),
         Cmd::Rename(r) => rename::run(r),
         Cmd::Unarchive(u) => unarchive::run(u),
+        Cmd::Trace(t) => trace::run(t),
+        Cmd::BoatRing(r) => boat::run(r),
+        Cmd::TraceExport(e) => trace_export::run(e),
     }
 }

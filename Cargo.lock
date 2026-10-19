@@ -183,6 +183,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "circuit-delay",
+ "circuit-fly",
+ "circuit-gates",
+ "circuit-memory",
+ "circuit-pext",
+ "circuit-pulse",
+ "circuit-tff",
+ "clap",
+ "clock",
+ "mctas",
+]
+
+[[package]]
+name = "circuit-delay"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "circuit-fly"
 version = "0.1.0"
 dependencies = [
@@ -191,6 +226,41 @@ dependencies = [
  "clock",
  "mctas",
  "redsim",
+]
+
+[[package]]
+name = "circuit-gates"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "circuit-memory"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "circuit-pext"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "circuit-pulse"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "circuit-tff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]
@@ -289,6 +359,7 @@ dependencies = [
  "clap",
  "clock",
  "mctas",
+ "serde_json",
 ]
 
 [[package]]
@@ -711,6 +782,7 @@ name = "mctas-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit-cli",
  "clap",
  "clock-cli",
  "door-judge",
@@ -723,6 +795,7 @@ dependencies = [
  "mctas",
  "regex",
  "serde_json",
+ "site",
 ]
 
 [[package]]
@@ -1005,6 +1078,28 @@ name = "simd-adler32"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
+
+[[package]]
+name = "site"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "clap",
+ "clock",
+ "mctas",
+ "piston-door",
+ "serde",
+ "serde_json",
+ "site-model",
+]
+
+[[package]]
+name = "site-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "slab"

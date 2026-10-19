@@ -511,6 +511,61 @@ fn checks() -> Vec<Check> {
             Ok("cart kept: robust P6; cart lost: rejected".into())
         }),
     });
+    // 9. the circuit judge (docs/circuits.md): known metrics on redsim and in the real game, a
+    // false claim refused
+    const CIRC: &str = "designs/circuits/calibration";
+    let circ: Vec<(&str, &str)> = vec![
+        ("observer-dual-edge", "cal-observer-dual-edge dual-edge L 2 gt, delay 2 gt, min-pulse 4 gt, 1 blocks, 1x1x1"),
+        ("subtract-rising-edge", "cal-subtract-rising-edge rising-edge L 4 gt, delay 2 gt, min-pulse 4 gt, 12 blocks, 2x2x3"),
+        ("bulb-tff", "cal-bulb-tff tff latency 2 gt, edge rising, min-pulse 1 gt, min-period 2 gt, 3 blocks, 2x2x1"),
+        ("repeater-delay", "cal-repeater-delay delay N 4 gt, min-pulse 4 gt, min-gap 4 gt, 2 blocks, 1x2x1"),
+        ("torch-not", "cal-torch-not gate not function not, latency 2 gt, 4 blocks, 3x2x1"),
+        ("dust-or", "cal-dust-or gate or function or, latency 0 gt, class instant, 2 blocks, 1x2x1"),
+        ("repeater-dlatch", "cal-repeater-dlatch d-latch latency 4 gt, enable low, 4 blocks, 1x2x2"),
+        ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, 6 blocks, 4x2x1"),
+    ];
+    let mut s = args("circuit sim");
+    s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
+    s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
+    let circ2 = circ.clone();
+    let n = circ.len();
+    v.push(Check {
+        name: "circuit:sim-calibration".into(),
+        what: "`circuit sim` (redsim) on the 8 calibration circuits (edge detectors, T flip-flop, delay, NOT, OR, D latch, divider): their known metrics; the OR gate claiming AND refused",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(move |o| {
+            for (f, want) in &circ {
+                if !o[0].lines().any(|l| l.starts_with("CIRCUIT: ") && l.contains(want) && l.ends_with("redsim")) {
+                    return Err(format!("{f}: expected `{want}`: {}", tail(&o[0])));
+                }
+            }
+            has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim refused"))
+        }),
+    });
+    v.push(Check {
+        name: "circuit:verify-calibration".into(),
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 8 calibration circuits: robust, the same metrics as redsim",
+        quick: false,
+        jvm: true,
+        steps: vec![{
+            let mut s = args("circuit verify --positions 2 --workers 8");
+            s.extend(circ2.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
+            s
+        }],
+        timeout: 600,
+        pred: Box::new(move |o| {
+            for (f, want) in &circ2 {
+                if !o[0].lines().any(|l| l.starts_with("CIRCUIT: ") && l.contains(want) && l.ends_with("robust")) {
+                    return Err(format!("{f}: expected `{want}`, robust: {}", tail(&o[0])));
+                }
+            }
+            Ok(format!("{} calibration circuits robust, redsim's metrics", circ2.len()))
+        }),
+    });
     v
 }
 
