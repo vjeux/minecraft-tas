@@ -1,0 +1,9 @@
+ideal reference designs/piston-door-3x3/tracks/wire131/p131N2-seed.ideal: 68 piston events per cycle
+assist designs/piston-door-3x3/tracks/wire131/p131N2-seed.ideal: 4 input cells off the plane ([(-2, 4), (-1, 3), (0, 5), (4, 6)]), 11 / 11 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/wire131/f131N-live1.txt: 46 blocks in the box, screen 23/79
+17 piston cells locked, 5 cells free
+box x -2..4, y -2..6 (7x9 = 63), 5 free cells, palette 56 states, 32 threads, 900 s
+enumeration from seed 0 (k = 3): 1694275 screens in 44.3 s; best 45/79+43ev(47b) 45/79+43ev(47b) 45/79+43ev(47b) 45/79+43ev(47b) 45/79+43ev(47b) 45/79+43ev(47b) 45/79+42ev(45b) 45/79+42ev(46b)
+[   44s] 1705029 screens (38089/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=119 assist=28 lever=0 update-piston=0; best 79/79+66ev-2as(46b) 79/79+66ev-2as(46b) 79/79+66ev-2as(46b) 79/79+66ev-2as(46b) 79/79+66ev-2as(46b) 79/79+66ev-2as(46b)
+[   74s] 2677496 screens (36049/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=9471 assist=33 lever=0 update-piston=0; best 79/79+66ev-2as(45b) 79/79+66ev-2as(45b) 79/79+66ev-2as(45b) 79/79+66ev-2as(45b) 79/79+66ev-2as(45b) 79/79+66ev-2as(45b)
+[  104s] 3838436 screens (36809/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=16498 assist=35 lever=0 update-piston=0; best 79/79+66ev-2as(45b) 79/79+66ev-2as(45b) 79/79+66ev-2as(45b) 79/79+66ev-2as(45b) 79/79+66ev-2as(45b) 79/79+66ev-2as(45b)

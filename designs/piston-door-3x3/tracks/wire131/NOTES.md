@@ -67,3 +67,25 @@ whose toggling pulse also powers DE (e1 < px, fails on both edges). This is cons
 (X / L2+ on the left, wire64). Bound: in-plane palette (dust, torches, repeaters, comparators, observers, bulbs,
 note blocks, redstone blocks moved by pistons), 7x8 box x -2..4, y -2..5, mechanism 8x8-131 with level or pull-type
 side pullers, D2 up, MR/BR right.
+
+## 6. 131 in 7 x 9 (x -2..4, y -2..6 = 63b): everything wired but N's train (f131F-b2.txt + p131F-b2.ideal)
+
+The extra row 6 joins the top-left and the top-right through (1,6) (DE's quasi cell) and gives the right side
+room for a clean switching level:
+- RIGHT: redstone block K_R (4,4) feeds a dot dust (4,3) on stone (4,2) (holds R1+ direct, R0+ quasi: nothing
+  around (4,2) emits when open, so no quasi leak) and the comparator (3,4) (holds D2+). S_R+ (4,6) (level, head
+  (4,5) at rest) pulls K_R up into (4,5) on open.
+- S_R+'s level: G (repeater (0,6), delay 4) -> waxed copper bulb (1,6) lit at rest (toggles on G's rising edge
+  only; G still quasi-powers DE through (1,6)) -> comparator (2,6) on stone (2,5) -> repeater (3,6) delay 4 on
+  stone (3,5) (the delay keeps UM+ after the close's no-op D1 shot) -> S_R+.
+- TOP-LEFT (cosearch partial, real game checked): lever (-3,6) -> observer (-2,6) -> repeater F (-1,6) d2 ->
+  G; P3 (pull-type now) via observer (-1,5) watching F (one pulse: F's falling edge comes while it is on);
+  D1 via observers (0,4) <- (-1,4) <- iron trapdoor N (-2,4); L2/L1 (pull-type) via observer (-2,3) watching N.
+- BOTTOM: as in section 4, plus the three static frame stones (0,-1), (2,-1), (3,2) (FULL FRAME 12/12 open).
+- `door ideal p131F-b2.ideal` WORKS (4 positions) with ONE ideal input: N's train (redstone block behind N):
+  three changes per edge, windows n1 0..1, n2 12..13, n3 open 20+ / close 18..27 (real lever flip = 0).
+- Why N's train is stuck: N's only free neighbour is (-2,5) (cosearch2: all 47 states screened, none works);
+  (-2,5) can be powered only by (-2,6) (the lever watcher, one change), the lever at (-3,5) (a level: N stays
+  powered while open) or (-1,5) (P3's isolated emitter). Every D1 shot must come through the observer (0,4)
+  (only it updates D1 at (1,3) when it turns off: a stone at (0,4) fed by an observer on G gives a silent hold,
+  f131F-d1g / f131N-d1g), and (-1,4) must stay an observer (anything emitting into it quasi-powers P3).

@@ -1,0 +1,12 @@
+# f131N-d1g: D1's lifted shots from G's edges (observer (0,5) up -> stone (0,4)); N's train reduced to its first change.
+design designs/piston-door-3x3/tracks/wire131/f131N-d1g.txt
+let on1 = 0
+let cn1 = 0
+open 0 use -3 6 0
+close 0 use -3 6 0
+open on1 set -2 4 1 minecraft:redstone_block
+close cn1 clear -2 4 1
+open 30 set 4 6 1 minecraft:redstone_block
+open 32 clear 4 6 1
+close 30 set 4 6 1 minecraft:redstone_block
+close 32 clear 4 6 1

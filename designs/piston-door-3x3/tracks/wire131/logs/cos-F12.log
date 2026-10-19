@@ -1,0 +1,30 @@
+ideal reference designs/piston-door-3x3/tracks/wire131/p131F-assist.ideal: 68 piston events per cycle
+assist designs/piston-door-3x3/tracks/wire131/p131F-assist.ideal: 4 input cells off the plane ([(-2, 4), (-1, 3), (0, 5), (4, 6)]), 11 / 11 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/wire131/f131F-live.txt: 49 blocks in the box, screen 79/79
+17 piston cells locked, 21 cells free
+box x -2..4, y -2..6 (7x9 = 63), 21 free cells, palette 56 states, 30 threads, 2400 s
+[   30s] 1255560 screens (41842/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=12041 assist=1187 lever=41 update-piston=0; best 
+[   60s] 2787607 screens (46451/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=21099 assist=1498 lever=55 update-piston=0; best 
+[   90s] 4753314 screens (52805/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=34876 assist=2373 lever=100 update-piston=0; best 
+[  120s] 6723935 screens (56020/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=47211 assist=3194 lever=130 update-piston=0; best 
+[  150s] 8713832 screens (58080/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=60828 assist=4009 lever=162 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  180s] 10628320 screens (59034/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=72807 assist=4600 lever=185 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  210s] 12572384 screens (59856/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=86156 assist=5368 lever=222 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  240s] 14477769 screens (60312/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=98165 assist=5986 lever=251 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  270s] 16316302 screens (60419/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=110002 assist=6680 lever=292 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  300s] 18212312 screens (60696/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=122143 assist=7256 lever=323 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  330s] 20144870 screens (61033/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=134807 assist=8010 lever=361 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  360s] 22087611 screens (61343/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=147397 assist=8603 lever=397 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  390s] 23807405 screens (61033/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=158496 assist=9192 lever=420 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  420s] 25475191 screens (60644/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=170369 assist=9923 lever=452 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  450s] 27145051 screens (60311/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=180982 assist=10518 lever=479 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  480s] 28770539 screens (59927/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=192006 assist=11206 lever=509 update-piston=0; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  510s] 30501956 screens (59797/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=203121 assist=11692 lever=539 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  540s] 32166431 screens (59556/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=213533 assist=12206 lever=570 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  570s] 33801442 screens (59290/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=225256 assist=12862 lever=609 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  600s] 35459724 screens (59089/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=235848 assist=13427 lever=633 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  630s] 37149191 screens (58956/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=247204 assist=14091 lever=662 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  660s] 38807125 screens (58788/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=258435 assist=14790 lever=695 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  690s] 40440549 screens (58599/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=269266 assist=15324 lever=716 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  720s] 42179370 screens (58571/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=280810 assist=15988 lever=745 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b) 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
+[  750s] 43834828 screens (58435/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=291181 assist=16604 lever=772 update-piston=1; best 79/79+66ev-2as(48b) 79/79+66ev-2as(48b) 79/79+66ev-2as(48b) 79/79+66ev-2as(48b)
