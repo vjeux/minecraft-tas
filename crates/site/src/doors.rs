@@ -109,6 +109,9 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>)>
         let my_leads = leads.get(&a.stem).cloned().unwrap_or_default();
         let video = format!("{}.mp4", a.stem);
         let video = o.release_assets.contains(&video).then(|| showcase::asset_url(&o.release_tag, &video));
+        // the board leaders' GIFs (door gallery) as interim pictures until the 3D viewer
+        let gif = format!("{}.gif", a.stem);
+        let picture = o.release_assets.contains(&gif).then(|| showcase::asset_url(&o.release_tag, &gif));
         let buildable = builds_v.get(&a.stem).map(|(v, _)| v.clone());
         let text = std::fs::read_to_string(&a.path).unwrap_or_default();
         let shape = f.shape;
@@ -183,6 +186,8 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>)>
             }),
             clock: None,
             circuit: None,
+            trace: None,
+            picture,
         });
     }
     out.sort_by(|a, b| (a.volume.unwrap_or(u32::MAX), a.blocks, &a.name).cmp(&(b.volume.unwrap_or(u32::MAX), b.blocks, &b.name)));

@@ -129,6 +129,16 @@ button { font: inherit; }
 .k-clock { --kind-color: var(--clock); }
 .k-circuit { --kind-color: var(--circuit); }
 .mcview-ready > .fallback { display: none; }
+/* interim pictures (until the 3D viewer renders): the picture fills the box, the labels overlay it */
+.fallback.has-pic { justify-content: flex-end; align-items: flex-start; padding: 0; background: #1e1d1b; }
+.fallback .pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.fallback .pic.contain { object-fit: contain; }
+.fallback.has-pic .fb-big, .fallback.has-pic .fb-small, .fallback.has-pic .fb-note {
+  position: relative; background: rgba(0, 0, 0, .55); color: #fff; padding: 1px 7px; border-radius: 6px; margin: 0 0 6px 6px;
+}
+.fallback.has-pic .fb-big { font-size: 15px; }
+.fallback.has-pic .fb-small { display: none; }
+video.video { width: 100%; max-height: 560px; background: #000; border-radius: var(--radius); }
 .fb-big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .fb-small { font-size: 12px; opacity: .8; word-break: break-all; }
 .fb-note { font-size: 12px; opacity: .6; }
