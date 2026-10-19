@@ -137,21 +137,31 @@ pub enum ClockCmd {
         strip: Option<u32>,
         #[arg(long, default_value_t = 800)]
         width: u32,
-        /// Wait after moving to a clock (ms; the per-sandbox shooter, used with --strip or
-        /// --one-by-one).
-        #[arg(long, default_value_t = 5000)]
+        /// Wait after the camera enters a clock's sandbox (ms; the default shooter: two sandboxes
+        /// used in turn, ~2 s a clock).
+        #[arg(long, default_value_t = 1500)]
         hold_ms: u64,
         /// One-world shooter: wait after a camera move (ms, plus 15 ms per block moved).
         #[arg(long, default_value_t = 700)]
         settle_ms: u64,
-        /// ONE world for all the clocks (clocks frozen at their moments by staggered starts, only
-        /// the camera moves: ~1-4 s a clock instead of ~13); not the default until far clocks stop
-        /// coming out blank. --strip uses the per-sandbox shooter.
+        /// EXPERIMENTAL, not recommended: ONE world per batch of clocks (staggered starts, only the
+        /// camera moves); neighbors show in the frames. The default shooter is as fast now (~2 s a
+        /// clock) with every clock alone on its floor.
         #[arg(long)]
         grid: bool,
         /// Take pictures that exist again.
         #[arg(long)]
         redo: bool,
+    },
+    /// Compare the pictures of a directory with the same-named ones of another (SSIM, lowest
+    /// first): checks one shooter's output against a trusted set.
+    ShotCompare {
+        dir: PathBuf,
+        #[arg(long, default_value = clock::shot::IMG_DIR)]
+        against: PathBuf,
+        /// Print only the pictures below this SSIM.
+        #[arg(long, default_value_t = 1.0)]
+        below: f64,
     },
     /// (videos: the real client) For each period, every given clock's labeled video (each filmed
     /// alone, >= 2 periods; clips already filmed are reused) after a title card, concatenated into
@@ -325,6 +335,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             for l in lines {
                 println!("{l}");
             }
+        }
+        ClockCmd::ShotCompare { dir, against, below } => {
+            let r = clock::shot::compare(&dir, &against)?;
+            let n = r.len();
+            for (name, v) in r.iter().filter(|(_, v)| *v < below) {
+                println!("{v:.3} {name}");
+            }
+            let mean = if n > 0 { r.iter().map(|(_, v)| v).sum::<f64>() / n as f64 } else { 0.0 };
+            println!("{n} pictures compared, mean SSIM {mean:.3}");
         }
         ClockCmd::Montage { designs, out_dir, periods, min_secs } => {
             let mut items = Vec::new();
