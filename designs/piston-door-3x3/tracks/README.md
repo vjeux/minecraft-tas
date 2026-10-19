@@ -76,3 +76,4 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 
 - [box64](box64/NOTES.md): flat FULL-seamless doors in 8x8 / 9x7 boxes (volume <= 64): ideal-input mechanism checks in the box, region/crossing analysis of the wiring
 - [vmid](vmid/NOTES.md): 7x8 mechanisms whose middle-row side blocks leave VERTICALLY (no row-1 wall): vm1 (twin elevators), vc1 / vb2 / vb3 (the carried puller: a corner piston pushed into the ring pulls ML in 2 rows), all ideal at 32 positions; `door connect` and cosearch on them, no wired door yet
+- [m56](m56/NOTES.md): the first 7x8 from the u7-m10 family: L0 real with K at U+2 when U's first pulse is 1 gt (p3); the mechanism mirrored vertically (mm10, corner region on a dust floor: K' + TL + ML real); the 1 gt walls of both orientations and the structural B/TRp top wall (also 8x8)
