@@ -86,6 +86,15 @@ Generated and verified batches: `verified/` (see its README).
   the output; a design where no cell has the full period is a composite of independent parts
   (e.g. 30 and 20 -> 60) and is excluded (../composite/).
 
+## Frequency filter that matters (filter/, 19:57Z)
+A calibrated sensor hears only vibrations whose frequency equals its back signal (0 = all).
+filter9-trapdoor: C watched by an observer whose pulses reach a trapdoor through a stone + dust;
+a plain sensor S at C's back, sqrt(11) from the trapdoor, outputs 15 - floor(15 * 3.32 / 8) = 9
+when it hears it: while S is active (30 gt) C ignores the trapdoor opening (block_open, 10) and
+fires on its closing (block_close, 9) 2 gt later. S is deaf 40 gt, so it hears every other cycle:
+cycles of 26 and 24 gt, P = 50 (redsim; the same build without S: P24). Same with a fence gate or
+an iron trapdoor (open 10 / close 9). A note block or a dispenser (10 only) would make C deaf.
+
 ## Extendable families (one catalog card each; extend/README.md)
 `mctas clock sculk family <name> --n <n>`: replin (P = 9n + 4, 3 <= n <= 14), hairpin (16n + 3,
 n >= 2; plain n >= 3), racetrack (32m + 28; plain 16m + 12, m >= 3). Every P >= 21 is reachable:
