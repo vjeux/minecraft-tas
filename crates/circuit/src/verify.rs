@@ -32,27 +32,39 @@ impl Default for Options {
 }
 
 /// The checkers' test spacing: the time the circuit takes to come back to rest after every input
-/// turns on for 40 gt and after they turn off (on redsim), plus 10 gt; `None` when redsim does not
-/// model it or it never comes back to rest within 2000 gt.
+/// turns on (held until rest, at most 1000 gt) and after they turn off (on redsim), plus 10 gt;
+/// `None` when redsim does not model it or it never rests.
 pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
     if c.inputs.is_empty() {
         return None;
     }
-    let mut s = Schedule::new(c.inputs.len());
+    let n = c.inputs.len();
     let on = c.clock.free_from() + SETTLE;
-    for i in 0..c.inputs.len() {
-        s.pulse(i, on, 40);
+    let hold = 1000u32;
+    let last_change = |t: &Trace, from: u32, to: u32| -> u32 { (from as usize + 1..=to as usize).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0) };
+    // every input on and held: the time to rest
+    let mut s = Schedule::new(n);
+    for i in 0..n {
+        s.set(i, on, true);
     }
-    s.ticks = on + 40 + 2000;
+    s.ticks = on + hold;
     let t = run::sim_trace(c, &s, margin).ok()?;
-    let last_change = |from: usize, to: usize| -> Option<usize> { (from + 1..to).rev().find(|&f| t.cells[f] != t.cells[f - 1]) };
-    let (on, off, end) = (on as usize, on as usize + 40, s.ticks as usize + 1);
-    let r_on = last_change(on, off).map(|f| f - on).unwrap_or(0);
-    let r_off = last_change(off, end).map(|f| f - off).unwrap_or(0);
-    if off + r_off >= end - 1 {
+    let r_on = last_change(&t, on, on + hold);
+    if r_on + 10 >= hold {
         return None;
     }
-    Some((r_on.max(r_off) + 10) as u32)
+    // then every input off: the time to rest again
+    let off = on + r_on + 10;
+    for i in 0..n {
+        s.set(i, off, false);
+    }
+    s.ticks = off + hold;
+    let t = run::sim_trace(c, &s, margin).ok()?;
+    let r_off = last_change(&t, off, off + hold);
+    if r_off + 10 >= hold {
+        return None;
+    }
+    Some(r_on.max(r_off) + 10)
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
@@ -97,8 +109,14 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
-/// The box of every non-air cell over the run, the input cells left out: width x height x depth.
+/// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
+/// flying machine: the design's own box, not its path).
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
+    if c.kind == Some(Kind::FlyingMachine)
+        && let Some((lo, hi)) = c.clock.design.bounds()
+    {
+        return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
+    }
     let ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
@@ -136,8 +154,17 @@ fn line(c: &Circuit, k: &Kind, out: &Outcome, d: [i32; 3], how: &str) -> String 
 pub struct Build {
     pub turns: u8,
     pub offset: Pos,
-    /// The checker's verdict, or why the run broke a rule.
-    pub result: std::result::Result<(Outcome, [i32; 3]), String>,
+    /// The checker's verdict, the box and the family, or why the run broke a rule.
+    pub result: std::result::Result<BuildOk, String>,
+}
+
+/// A build that ran to the end.
+#[derive(Clone, Debug)]
+pub struct BuildOk {
+    pub outcome: Outcome,
+    pub dims: [i32; 3],
+    /// The kinds of the blocks whose state changes during the run ([`family`]).
+    pub family: String,
 }
 
 /// Result of [`verify`].
@@ -154,18 +181,58 @@ pub struct VerifyReport {
 
 impl VerifyReport {
     /// The reference build: as built at the first position, else the first passing one.
-    pub fn base(&self) -> Option<&(Outcome, [i32; 3])> {
-        self.builds.iter().find(|b| b.turns == 0 && b.offset == [0, 0, 0]).and_then(|b| b.result.as_ref().ok()).filter(|(o, _)| o.pass).or_else(|| self.builds.iter().find_map(|b| b.result.as_ref().ok().filter(|(o, _)| o.pass)))
+    pub fn base(&self) -> Option<&BuildOk> {
+        self.builds.iter().find(|b| b.turns == 0 && b.offset == [0, 0, 0]).and_then(|b| b.result.as_ref().ok()).filter(|b| b.outcome.pass).or_else(|| self.builds.iter().find_map(|b| b.result.as_ref().ok().filter(|b| b.outcome.pass)))
     }
 
     /// `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD>, robust` or `FAIL: ...`.
     pub fn summary(&self, c: &Circuit) -> String {
         match (&self.kind, self.base()) {
-            (Some(k), Some((o, d))) if self.pass => line(c, k, o, *d, &self.verdict),
+            (Some(k), Some(b)) if self.pass => line(c, k, &b.outcome, b.dims, &self.verdict),
             (Some(k), _) => format!("FAIL: {} {}: {}", self.name, k.name(), self.verdict),
             (None, _) => format!("RUN: {}: {}", self.name, self.verdict),
         }
     }
+}
+
+/// The family of a run: the kinds of the blocks whose state changes (or that appear or vanish),
+/// input cells left out, as `Clock::kinds` names them (a wall torch is a torch, every copper bulb
+/// a copper bulb; piston heads and moving blocks are their piston's), `+`-joined.
+pub fn family(c: &Circuit, t: &Trace) -> String {
+    let ins: std::collections::BTreeSet<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    let mut first: std::collections::HashMap<Pos, u32> = std::collections::HashMap::new();
+    let mut seen: std::collections::HashMap<Pos, usize> = std::collections::HashMap::new();
+    let mut varying: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
+    for f in &t.cells {
+        for (p, id) in f {
+            *seen.entry(*p).or_default() += 1;
+            if *first.entry(*p).or_insert(*id) != *id {
+                varying.insert(*p);
+            }
+        }
+    }
+    varying.extend(seen.iter().filter(|(_, n)| **n < t.frames()).map(|(p, _)| *p));
+    let mut kinds: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for f in &t.cells {
+        for (p, id) in f {
+            if varying.contains(p) && !ins.contains(p) {
+                let s = &t.names[*id as usize];
+                let k = s.split(['[', '{']).next().unwrap_or(s);
+                let k = k.strip_prefix("minecraft:").unwrap_or(k);
+                let k = if k == "redstone_wall_torch" {
+                    "redstone_torch"
+                } else if k.contains("copper_bulb") {
+                    "copper_bulb"
+                } else {
+                    k
+                };
+                if !matches!(k, "piston_head" | "moving_piston" | "air") {
+                    kinds.insert(k.to_string());
+                }
+            }
+        }
+    }
+    kinds.into_iter().collect::<Vec<_>>().join("+")
 }
 
 /// The judge: see the module doc.
@@ -194,7 +261,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
                 Some(k) => check::check(&rc, k, &schedule, &tr),
                 None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
             };
-            (out, dims(&rc, &tr))
+            BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }
         }))
     });
     let mut builds = Vec::new();
@@ -203,27 +270,26 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         builds.push(Build { turns: t, offset: off, result });
     }
     let mut rep = VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false };
-    let failed = rep.builds.iter().find(|b| !b.result.as_ref().is_ok_and(|(o, _)| o.pass));
-    let ok_count = rep.builds.iter().filter(|b| b.result.as_ref().is_ok_and(|(o, _)| o.pass)).count();
+    let failed = rep.builds.iter().find(|b| !b.result.as_ref().is_ok_and(|b| b.outcome.pass));
+    let ok_count = rep.builds.iter().filter(|b| b.result.as_ref().is_ok_and(|b| b.outcome.pass)).count();
     if ok_count == 0 {
         let b = &rep.builds[0];
         rep.verdict = match &b.result {
-            Ok((o, _)) => o.why.clone(),
+            Ok(b) => b.outcome.why.clone(),
             Err(e) => e.clone(),
         };
         return Ok(rep);
     }
     if let Some(b) = failed {
-        // some builds pass, some do not: allowed only as a flagged dependence when the metrics
-        // agree among the passing ones; a failing build is reported
+        // some builds pass, some do not: a failing build is reported
         let why = match &b.result {
-            Ok((o, _)) => o.why.clone(),
+            Ok(b) => b.outcome.why.clone(),
             Err(e) => e.clone(),
         };
         rep.verdict = format!("fails at rotation {} offset {:?}: {why}", b.turns, b.offset);
         return Ok(rep);
     }
-    let sig = |b: &Build| b.result.as_ref().map(|(o, _)| o.metrics_text()).unwrap_or_default();
+    let sig = |b: &Build| b.result.as_ref().map(|b| b.outcome.metrics_text()).unwrap_or_default();
     let base = sig(rep.builds.iter().find(|b| b.turns == 0 && b.offset == [0, 0, 0]).unwrap_or(&rep.builds[0]));
     let pos_dep = rep.builds.iter().filter(|b| b.turns == 0).any(|b| sig(b) != base);
     let rot_dep = rep.builds.iter().filter(|b| b.turns != 0).any(|b| sig(b) != base);

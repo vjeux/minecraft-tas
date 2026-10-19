@@ -32,13 +32,23 @@ pub fn watch_box(c: &Circuit, margin: i32) -> (Pos, Pos) {
     (from, to)
 }
 
-/// Run a circuit on redsim with a schedule (its own kick inputs included).
+/// Run a circuit on redsim with a schedule (its own kick inputs included). A flying machine that
+/// reaches the box's far end along `travel` ends its run there ([`Trace::ended`]).
 pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<Trace, String> {
     let actions = c.actions(s);
     let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
     let (from, to) = watch_box(c, margin);
     match clock::sim::drive(&c.clock, &actions, s.ticks, &probes, from, to) {
-        Ok(d) => Ok(Trace::new(c, d.cells, d.signals)),
+        Ok(d) => {
+            let ended = match d.stopped {
+                None => None,
+                Some((t, why)) if c.kind == Some(Kind::FlyingMachine) && (why.contains("outside the box") || why.contains("escapes")) => Some(format!("reached the corridor end at frame {t}")),
+                Some((_, why)) => return Err(why),
+            };
+            let mut t = Trace::new(c, d.cells, d.signals);
+            t.ended = ended;
+            Ok(t)
+        }
         Err((_, why)) => Err(why),
     }
 }
@@ -108,18 +118,31 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
         signals.extend(st.signals.iter().map(|v| best_of(v)));
         t = next;
     }
-    // nothing may reach the outer layer of the watched box (it escaped the margin), and no entity
-    // may appear (a drop, a popped block) except the design's own
+    // nothing may reach the outer layer of the watched box (it escaped the margin), except a flying
+    // machine reaching its far end along `travel` (it flew the corridor: the run ends there); and no
+    // entity may appear (a drop, a popped block) except the design's own
+    let far = |p: &Pos| -> bool { c.kind == Some(Kind::FlyingMachine) && c.travel.is_some_and(|tr| (0..3).any(|i| (tr[i] > 0 && p[i] == to[i]) || (tr[i] < 0 && p[i] == from[i]))) };
+    let mut ended = None;
     for (k, frame) in cells.iter().enumerate() {
         if let Some((p, st)) = frame.iter().find(|(p, _)| (0..3).any(|i| p[i] == from[i] || p[i] == to[i])) {
+            if far(p) {
+                ended = Some(k);
+                break;
+            }
             return Ok(Err(format!("frame {k}: {} at {p:?} reached the edge of the watched box (margin {margin})", clock::short(st))));
         }
     }
+    if let Some(k) = ended {
+        cells.truncate(k);
+        signals.truncate(k);
+    }
     let ents = w.entities(sb)?;
     let foreign = ents.len().saturating_sub(c.clock.design.entities.len());
-    if foreign > 0 {
+    if foreign > 0 && ended.is_none() {
         let e = &ents[0];
         return Ok(Err(format!("{} entit{} at the end ({} at {:.1?}...): a drop or a popped block", ents.len(), if ents.len() == 1 { "y" } else { "ies" }, clock::short(&e.kind), e.pos)));
     }
-    Ok(Ok(Trace::new(c, cells, signals)))
+    let mut t = Trace::new(c, cells, signals);
+    t.ended = ended.map(|k| format!("reached the corridor end at frame {k}"));
+    Ok(Ok(t))
 }

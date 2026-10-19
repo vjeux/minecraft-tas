@@ -1,0 +1,60 @@
+# m76.ideal = m75 with the open reordered: C's first pull (carried s1, 2 gt) happens while RP0 is extended (wiggle), M1 [14,30).
+# Close right side: s1 spits C to (2,1) (QC: RP0 at (4,0) spits BR home); P3t' spits MR to (3,1); M1's level
+# LINE-PUSHES s1 + MR + C (MR and C home) and its QC coupling makes R5 push RP0 home; RP0's long pulse spans M1's
+# release (R5's coupled pull fails on the extended RP0), pushing BR to (1,0) and pulling it back.
+# Lever trio (use at t0), everything else ideal (redstone blocks behind the pistons, z = -1).
+# QC couplings used on purpose: U1 (-2,1) fires U0 (-2,0) below it; M1 (5,1) fires R5 (5,0); carried s1 at (3,1)
+# fires RP0 at (3,0); s1 at home fires RP0 once RP0 escaped to (4,0).
+design designs/piston-door-3x3/tracks/s79/c69/w86/m73.txt
+phase tile
+open 0 use 1 5 0
+# ML west (QC: U0 pulls BL west); MR east
+open 2 set -2 1 -1 minecraft:redstone_block
+open 6 clear -2 1 -1
+open 2 set 4 1 -1 minecraft:redstone_block
+open 6 clear 4 1 -1
+# ML / MR climb the walls
+open 8 set -1 3 -1 minecraft:redstone_block
+open 12 clear -1 3 -1
+open 8 set 3 3 -1 minecraft:redstone_block
+open 12 clear 3 3 -1
+# RP0 (3,0) wiggle: BR+BM left, BR pulled back (BM to (0,0)); C's first pull happens WHILE RP0 is extended
+# (its QC coupling under carried s1 then does nothing), so carried s1's pull is a short pulse.
+# M1 carries s1 into (3,1) [14,30) (QC: R5 extends into (4,0)); RP0 long [18,26); carried s1 pulls C at 20 (2 gt);
+# M1 off at 30: s1 home and R5 pulls RP0 out to (4,0)
+open 14 set 5 1 -1 minecraft:redstone_block
+open 18 set 3 0 -1 minecraft:redstone_block
+open 20 set 3 1 -1 minecraft:redstone_block
+open 22 clear 3 1 -1
+open 26 clear 3 0 -1
+open 30 clear 5 1 -1
+# W'' pushes BL up the left wall; U0 pulls BM into (-1,0)
+open 36 set -1 -1 -1 minecraft:redstone_block
+open 38 clear -1 -1 -1
+open 42 set -2 0 -1 minecraft:redstone_block
+open 46 clear -2 0 -1
+# s1 pulls C into (3,1) (QC: RP0 at (4,0) pulls BR into (3,0))
+open 50 set 4 1 -1 minecraft:redstone_block
+open 52 clear 4 1 -1
+# close
+close 0 use 1 5 0
+# s1 spits C (3,1) -> (2,1) (QC: RP0 at (4,0) spits BR home)
+close 2 set 4 1 -1 minecraft:redstone_block
+close 4 clear 4 1 -1
+# P3t' spits MR down to (3,1)
+close 8 set 3 3 -1 minecraft:redstone_block
+close 10 clear 3 3 -1
+# M1 level [14,22): line s1 + MR + C (MR, C home; QC: R5 pushes RP0 home); RP0 long [18,26) spans M1's release
+close 14 set 5 1 -1 minecraft:redstone_block
+close 18 set 3 0 -1 minecraft:redstone_block
+close 22 clear 5 1 -1
+close 26 clear 3 0 -1
+# left: U0 spits BM (-1,0) -> (0,0); W'' pulls BL down to (-1,0); P3b' spits ML down; U1 spits ML home (QC: U0 pushes the line BL+BM home)
+close 30 set -2 0 -1 minecraft:redstone_block
+close 32 clear -2 0 -1
+close 36 set -1 -1 -1 minecraft:redstone_block
+close 40 clear -1 -1 -1
+close 42 set -1 3 -1 minecraft:redstone_block
+close 44 clear -1 3 -1
+close 48 set -2 1 -1 minecraft:redstone_block
+close 50 clear -2 1 -1

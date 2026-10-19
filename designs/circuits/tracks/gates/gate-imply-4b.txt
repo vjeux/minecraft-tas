@@ -1,0 +1,21 @@
+# IMPLY gate a -> b, instant (track gates): a dust on a stone, powered by a redstone block south of
+# it, is a straight line pointing north into a stone that powers the output cell (NOT a); input a
+# (west) bends it into a corner; input b sits next to the output cell (OR b). Dust redirection: 0 gt.
+name: gate-imply-4b
+circuit: gate imply
+port input.a: -1 1 1
+port input.b: 1 1 -1
+port output: 0 1 -1
+origin: 0 0 0
+palette:
+  R minecraft:redstone_block
+  S minecraft:stone
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  .
+  S
+  .
+layer 1:
+  S
+  r
+  R

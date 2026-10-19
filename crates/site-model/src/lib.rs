@@ -72,6 +72,14 @@ pub struct Build {
     pub clock: Option<ClockInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub circuit: Option<Circuit>,
+    /// A real-game recording for the viewer's replay (`designs/clocks/traces/<stem>.trace`:
+    /// entities and fluids redsim does not model), path from the site root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trace: Option<String>,
+    /// An interim picture (absolute URL: a clock's real-game picture, a door's board GIF) shown
+    /// until the 3D viewer renders the build.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picture: Option<String>,
 }
 
 /// A 3x3 piston door's facts (designs/piston-door-3x3/archive and its caches).
@@ -167,20 +175,32 @@ fn is_false(b: &bool) -> bool {
     !*b
 }
 
-/// A circuit's facts (designs/circuits/<kind>: the contraption studies), as its kind's judge
-/// reports them: the main number of its kind (pulse length, delay, reach...) and the other
-/// metrics as key/value rows.
+/// A circuit's facts (designs/circuits: the contraption studies, docs/circuits.md): its kind, the
+/// value of its study's axis (pulse length, delay, reach...) and the other metrics, as the
+/// judge's checker reports them.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct Circuit {
     /// The study (`pulse`, `tff`, `delay`, `gates`, `memory`, `pext`, `fly`).
     pub study: String,
-    /// The value of the study's axis (`L = 4 gt`, `AND`, `N = 3`), and its number when numeric.
+    /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
+    #[serde(default)]
+    pub kind: String,
+    /// The value of the study's axis (`L 4 gt`, `xor`, `N 3`), and its number when numeric.
     #[serde(default)]
     pub axis: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<i64>,
+    /// Every metric in report order: (name, value).
     #[serde(default)]
     pub metrics: Vec<(String, String)>,
+    /// Where the metrics come from: the judge's verdict line, else the redsim screen's.
+    #[serde(default)]
+    pub verdict: String,
+    /// Inputs and outputs (port names), the markers of the 3D view.
+    #[serde(default)]
+    pub inputs: Vec<String>,
+    #[serde(default)]
+    pub outputs: Vec<String>,
 }
 
 /// A period or block-count formula in n (the clock study's `extend period:`).
@@ -280,6 +300,9 @@ pub struct Member {
     /// The archived build of this exact member, if any (its base design, or an archived instance).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<String>,
+    /// An interim picture (absolute URL), for the members the catalog pictured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picture: Option<String>,
 }
 
 pub const STATUS_JUDGED: &str = "judged";
@@ -319,6 +342,9 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("extendable", "extendable family", "clock"),
     ("variant", "variant of a smaller clock", "clock"),
     ("composite", "composite (beat)", "clock"),
+    ("calibration", "judge calibration design", "circuit"),
+    ("instant", "instant (0 gt latency)", "circuit"),
+    ("traced", "real-game replay", "clock"),
 ];
 
 pub fn flag_label(key: &str) -> &str {
@@ -930,6 +956,7 @@ mod tests {
                 volume: Some(4 + 2 * n as u32),
                 status: if n < 3 { STATUS_JUDGED.into() } else { STATUS_FORMULA.into() },
                 build: (n == 0).then(|| "clocks/obs-ring".to_string()),
+                picture: None,
             })
             .collect();
         Site {

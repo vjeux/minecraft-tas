@@ -93,9 +93,15 @@ pub fn badges(b: &Build) -> Vec<String> {
     v
 }
 
-fn thumb(prefix: &str, design: &str, kind: &str, big: &str, small: &str) -> String {
+fn thumb(prefix: &str, design: &str, trace: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
+    let trace = trace.map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
+    // the interim picture (until the 3D viewer renders): lazy, under the headline label
+    let (pic, cls) = match picture {
+        Some(p) => (format!("<img class=\"pic\" src=\"{}\" alt=\"\" loading=\"lazy\" decoding=\"async\">", esc(p)), " has-pic"),
+        None => (String::new(), ""),
+    };
     format!(
-        "<div class=\"thumb k-{kind}\" data-mcview=\"thumb\" data-src=\"{}\" data-kind=\"{kind}\"><div class=\"fallback\"><span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>",
+        "<div class=\"thumb k-{kind}\" data-mcview=\"thumb\" data-src=\"{}\"{trace} data-kind=\"{kind}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>",
         esc(&format!("{prefix}{design}")),
         esc(big),
         esc(small)
@@ -118,7 +124,7 @@ pub fn build_card(b: &Build, prefix: &str) -> String {
     format!(
         "<a class=\"card\" href=\"{}\">{}<div class=\"meta\"><div class=\"title\">{}</div><div class=\"sub\">{}</div><div class=\"badges\">{badges}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
-        thumb(prefix, &b.design, &b.kind, &headline(b), &fallback_line(b)),
+        thumb(prefix, &b.design, b.trace.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         esc(&b.name),
         esc(&subline(b))
     )
@@ -146,7 +152,7 @@ pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
     format!(
         "<a class=\"card member\" href=\"{}\">{}<div class=\"meta\"><div class=\"title\">{} <span class=\"n\">n = {}</span></div><div class=\"sub\">{} · {} blocks · {}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div></div></a>",
         esc(&format!("{prefix}{}", member_href(m, site))),
-        thumb(prefix, &m.design, "clock", &format!("{} gt", m.period), &format!("{} n={}", m.family, m.n)),
+        thumb(prefix, &m.design, None, m.picture.as_deref(), "clock", &format!("{} gt", m.period), &format!("{} n={}", m.family, m.n)),
         esc(&m.family),
         m.n,
         esc(&gt_time(m.period)),

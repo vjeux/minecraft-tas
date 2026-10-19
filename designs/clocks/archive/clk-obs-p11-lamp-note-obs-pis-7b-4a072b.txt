@@ -1,0 +1,26 @@
+# archived 2026-10-19T23:04Z from designs/clocks/tracks/clk-obs/families9/p11-lamp-note-obs-pis-7b-4a072b.txt by mctas clock archive
+# CLOCK: clk-obs-p11-lamp-note-obs-pis-7b-4a072b period 11 gt (0.55 s), on 4/11, edges 2, warmup 5, family note_block+observer+piston+redstone_lamp, 7 blocks, 1x5x2, robust
+name: clk-obs-p11-lamp-note-obs-pis-7b-4a072b
+# clk-obs grow: P=11 (redsim), family note_block+observer+piston+redstone_lamp, kick last 0 0 0, swept volume 10.
+origin: 0 0 0
+port output: 0 1 0
+port start: 0 0 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:piston[extended=false,facing=down]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:note_block[instrument=basedrum,note=0,powered=false]
+layer -1:
+  .
+  A
+layer 0:
+  B
+  C
+layer 1:
+  D
+  E
+layer 2:
+  F
+  B
