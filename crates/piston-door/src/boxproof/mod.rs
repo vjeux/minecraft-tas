@@ -62,6 +62,7 @@ pub fn cli(raw: &[String]) -> Result<()> {
         Some("fill-column") => fill_column(&a),
         Some("watch") => watch(&a),
         Some("replay") => replay(&a),
+        Some("run-list") => run_list(&a),
         _ => bail!("usage: door boxproof fuzz|case|bmc|catalog|batch [--flags]"),
     }
 }
@@ -308,6 +309,34 @@ fn replay(a: &Args) -> Result<()> {
         }
         None => println!("match ({t} ticks per edge)"),
     }
+    Ok(())
+}
+
+/// Run mctas commands from a list, `--jobs N` at a time (default 1, in order): `--list FILE`
+/// with one `name arg arg ...` per line (whitespace-separated, no quoting: values carry no
+/// spaces), each logged to `--logs DIR/name.log`; `#` lines are skipped.
+fn run_list(a: &Args) -> Result<()> {
+    let list = std::fs::read_to_string(a.s("list").ok_or_else(|| anyhow::anyhow!("--list"))?)?;
+    let logs = a.s("logs").unwrap_or("/tmp/boxproof-runs").to_string();
+    std::fs::create_dir_all(&logs)?;
+    let jobs: usize = a.get("jobs", 1);
+    let items: Vec<Vec<String>> = list.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).map(|l| l.split_whitespace().map(String::from).collect()).collect();
+    let exe = std::env::current_exe()?;
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|s| {
+        for _ in 0..jobs.max(1) {
+            s.spawn(|| loop {
+                let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let Some(it) = items.get(k) else { break };
+                let log = format!("{logs}/{}.log", it[0]);
+                let Ok(f) = std::fs::File::create(&log) else { continue };
+                let Ok(f2) = f.try_clone() else { continue };
+                let t0 = std::time::Instant::now();
+                let st = std::process::Command::new(&exe).args(&it[1..]).stdout(f).stderr(f2).status();
+                println!("{} {:.0}s {:?}", it[0], t0.elapsed().as_secs_f64(), st.map(|s| s.code()));
+            });
+        }
+    });
     Ok(())
 }
 
