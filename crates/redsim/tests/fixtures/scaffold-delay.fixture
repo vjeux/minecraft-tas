@@ -1,0 +1,52 @@
+# Gadget designs/gadgets/scaffold-delay (ScaffoldingBlock: any shape update schedules a tick 1 gt later; the tick recomputes distance and setBlockAndUpdate, whose onPlace schedules another tick). Breaking W: A turns distance 1 (bottom) at tick 1, C at tick 2, the observer on C pulses 2 gt later; W back: A 0 at tick 1, C 0 at tick 2, a second pulse.
+box -1 -1 -1 2 4 1
+block 0 0 0 minecraft:stone
+block 1 0 0 minecraft:stone
+block 0 1 0 minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+block 1 1 0 minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+block 0 2 0 minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+block 0 3 0 minecraft:observer[facing=down,powered=false]
+run 4
+set 0 0 0 minecraft:air
+run 8
+set 0 0 0 minecraft:stone
+run 8
+frame 0
+cell 0 0 0 minecraft:stone
+cell 1 0 0 minecraft:stone
+cell 0 1 0 minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+cell 1 1 0 minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+cell 0 2 0 minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+cell 0 3 0 minecraft:observer[facing=down,powered=false]
+frame 1
+frame 2
+frame 3
+frame 4
+frame 5
+cell 0 0 0 minecraft:air
+frame 6
+cell 0 1 0 minecraft:scaffolding[bottom=true,distance=1,waterlogged=false]
+frame 7
+cell 0 2 0 minecraft:scaffolding[bottom=false,distance=1,waterlogged=false]
+frame 8
+frame 9
+cell 0 3 0 minecraft:observer[facing=down,powered=true]
+frame 10
+frame 11
+cell 0 3 0 minecraft:observer[facing=down,powered=false]
+frame 12
+frame 13
+frame 14
+cell 0 0 0 minecraft:stone
+frame 15
+cell 0 1 0 minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+frame 16
+cell 0 2 0 minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+frame 17
+frame 18
+cell 0 3 0 minecraft:observer[facing=down,powered=true]
+frame 19
+frame 20
+cell 0 3 0 minecraft:observer[facing=down,powered=false]
+frame 21
+frame 22
