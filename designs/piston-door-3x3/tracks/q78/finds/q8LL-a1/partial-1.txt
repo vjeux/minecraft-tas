@@ -1,0 +1,39 @@
+name: cosearch-partial-1-77of79
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:dropper[facing=west,triggered=false]
+  E minecraft:stone
+  F minecraft:white_glazed_terracotta[facing=south]
+  I minecraft:iron_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false]
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:oak_log[axis=y]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  w minecraft:white_glazed_terracotta[facing=north]
+layer -2:
+  ....A
+layer -1:
+  ...E.E
+layer 0:
+  .s.EEE.B
+layer 1:
+  .CPEEE.B
+layer 2:
+  LCPEEE.B
+layer 3:
+  ..oO.EB
+layer 4:
+  ..ERSAW
+layer 5:
+  .DFwSrIN

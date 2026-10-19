@@ -1,0 +1,41 @@
+name: cosearch-partial-2-77of79
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=down,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:piston_head[facing=east,short=false,type=sticky]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:sticky_piston[extended=true,facing=east]
+  J minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:smooth_stone_slab[type=top,waterlogged=false]
+  W minecraft:white_glazed_terracotta[facing=north]
+  d minecraft:dropper[facing=west,triggered=false]
+  o minecraft:oak_log[axis=y]
+  p minecraft:piston[extended=false,facing=east]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ....G
+layer -1:
+  ...J.J
+layer 0:
+  .F.JJJ.H
+layer 1:
+  .IEJJJ.H
+layer 2:
+  LIEJJJ.H
+layer 3:
+  .sAo.OHd
+layer 4:
+  .BRDsW.C
+layer 5:
+  ..PSs..p
