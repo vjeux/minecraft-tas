@@ -66,6 +66,10 @@ pub struct FillOpts {
     /// held a block. `ideal-rs --vary` with a `keep` alternative per cell and at most k cells off
     /// `keep`, judged as the real door: re-screen a near-door's existing wiring plus new blocks.
     pub keep: bool,
+    /// Accept only finds that open / close within this many ticks after the flip, worst cycle (0:
+    /// any), checked on the 1-position screen before the full evaluation: a SPEED search.
+    pub max_open: u32,
+    pub max_close: u32,
 }
 
 /// Palette shorthands -> exact block states.
@@ -611,13 +615,19 @@ pub fn run(o: &FillOpts) -> Result<()> {
                                 break;
                             }
                         }
+                        // --max-blocks pruned before simulation (the judge's own count: every block
+                        // but piston heads), so a shrink search screens only smaller fillings
+                        if ok && o.max_blocks > 0 && map.values().filter(|b| !matches!(b, Block::PistonHead { .. })).count() > o.max_blocks {
+                            ok = false;
+                        }
                         if ok {
                             let door = RsDoor { spec, blocks: map.iter().map(|(p, b)| (*p, *b)).collect() };
                             screened.fetch_add(1, Ordering::Relaxed);
-                            if cs::judge(&door, &screen_opts).is_ok() {
+                            let fast = |c: &cs::Cycles| (o.max_open == 0 || c.iter().all(|x| x.0 <= o.max_open)) && (o.max_close == 0 || c.iter().all(|x| x.1 <= o.max_close));
+                            if cs::judge(&door, &screen_opts).is_ok_and(|c| fast(&c)) {
                                 passed.fetch_add(1, Ordering::Relaxed);
                                 let e = cs::evaluate(&door, &full_opts, false);
-                                let mut good = e.judge.is_ok()
+                                let mut good = e.judge.as_ref().is_ok_and(|c| fast(c))
                                     && (o.any_seamless || e.record_ok())
                                     && (o.max_blocks == 0 || e.blocks <= o.max_blocks)
                                     && (o.max_volume == 0 || e.volume.is_some_and(|(v, _)| v <= o.max_volume));
