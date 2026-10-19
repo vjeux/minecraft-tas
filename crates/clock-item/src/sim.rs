@@ -177,9 +177,8 @@ pub struct Wave {
 /// A clock's behavior over one period.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Character {
-    /// The clock's period: the smallest P over which every block state and every pending
-    /// scheduled tick repeat (what the game shows; the brief's definition). It divides
-    /// `whole_period`.
+    /// The clock's period: the smallest P over which every block state and every comparator's
+    /// output strength repeat (the visible state, docs/clocks.md). It divides `whole_period`.
     pub period: u32,
     /// The period of the WHOLE state (container contents and hopper cooldowns included): larger
     /// when items move in a way no block state shows.
@@ -198,6 +197,9 @@ pub struct Character {
     pub output: Option<BlockPos>,
     pub on_ticks: u32,
     pub rising: u32,
+    /// The output never goes to 0 (only its strength changes: a comparator between two fill
+    /// levels).
+    pub analog: bool,
 }
 
 /// A compact per-tick value of a cell: comparator output signal, dust power, 1/0 for powered or
@@ -233,7 +235,9 @@ pub fn short_name(b: &Block) -> String {
     s.split('[').next().unwrap_or(s).to_string()
 }
 
-/// The visible part of the state: every block and every pending scheduled tick (relative).
+/// The visible part of the state (the clock judge's definition, docs/clocks.md): every block
+/// state and every comparator's output strength. Container contents, hopper cooldowns and
+/// pending ticks are hidden state.
 pub fn visible_key(w: &World) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     for y in w.min.y..w.min.y + w.size[1] {
@@ -243,9 +247,9 @@ pub fn visible_key(w: &World) -> u64 {
             }
         }
     }
-    for t in w.ticks.all() {
-        (t.pos, t.kind, t.trigger - w.time, t.priority).hash(&mut h);
-    }
+    let mut cmp: Vec<(&BlockPos, &u8)> = w.comparator_out.iter().collect();
+    cmp.sort();
+    cmp.hash(&mut h);
     h.finish()
 }
 
@@ -297,20 +301,23 @@ pub fn characterize(w: &mut World, spec: &Spec, period: u32, transient: u32, out
     let mut names: Vec<String> = waves.iter().map(|w| w.name.clone()).collect();
     names.sort();
     names.dedup();
-    let signal = waves.iter().any(|w| w.block_changes);
+    let signal = waves.iter().any(|w| w.block_changes || (w.name == "comparator" && w.values.iter().any(|v| *v != w.values[0])));
     // the visible period: the smallest divisor of the whole period over which blocks and pending
     // ticks repeat
     let whole = period as usize;
     let vis_period = (1..=whole).find(|d| whole % d == 0 && (0..whole).all(|t| vis[t] == vis[(t + d) % whole])).unwrap_or(whole);
     let out = output
         .or_else(|| waves.iter().find(|w| w.name == "comparator" && w.block_changes).map(|w| w.pos))
+        .or_else(|| waves.iter().find(|w| w.name == "comparator" && w.values.iter().any(|v| *v != w.values[0])).map(|w| w.pos))
         .or_else(|| waves.iter().find(|w| w.block_changes).map(|w| w.pos));
     let (mut on_ticks, mut rising) = (0, 0);
+    let mut analog = false;
     if let Some(o) = out
         && let Some(i) = cells.iter().position(|p| *p == o)
     {
         let on: Vec<bool> = values[i][..vis_period].iter().map(|v| *v > 0).collect();
         on_ticks = on.iter().filter(|b| **b).count() as u32;
+        analog = on.iter().all(|b| *b);
         for t in 0..on.len() {
             let prev = on[(t + on.len() - 1) % on.len()];
             if on[t] && !prev {
@@ -318,7 +325,7 @@ pub fn characterize(w: &mut World, spec: &Spec, period: u32, transient: u32, out
             }
         }
     }
-    Ok(Character { period: vis_period as u32, whole_period: period, transient, waves, family: names.join("+"), signal, output: out, on_ticks, rising })
+    Ok(Character { period: vis_period as u32, whole_period: period, transient, waves, family: names.join("+"), signal, output: out, on_ticks, rising, analog })
 }
 
 /// Everything about one design: place, find the cycle, characterize it.

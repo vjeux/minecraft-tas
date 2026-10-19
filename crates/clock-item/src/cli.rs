@@ -71,6 +71,105 @@ pub enum ItemClockCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Fill a skeleton: every filling of k of the free cells (a box minus the skeleton's cells)
+    /// from a palette, judged in redsim; irreducible item clocks by period and type (designs +
+    /// clocks.tsv + SUMMARY.md in --out). The skeleton keeps its `nbt:` contents.
+    Fill {
+        skeleton: PathBuf,
+        /// Free box `x0,y0,z0:x1,y1,z1` (inclusive; the skeleton's own cells are skipped).
+        #[arg(long)]
+        free: String,
+        /// Cells to fill, `2` or `1..3`.
+        #[arg(long, default_value = "1..2")]
+        k: String,
+        /// Palette shorthands (see census) or block states, comma separated.
+        #[arg(long, default_value = "stone,dust,repeater,torch,comparator")]
+        palette: String,
+        #[arg(long, default_value_t = 4000)]
+        ticks: u32,
+        #[arg(long, default_value_t = 64)]
+        jobs: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// The constructive census (ccensus.rs): every flow cycle of containers (hoppers push into
+    /// what they face and pull from above; droppers push when triggered) in a box, every
+    /// comparator reading one of them (beside it or through one conductor) with a floor, up to
+    /// --extra more blocks from --palette next to the structure, every contents choice of the
+    /// cycle containers; irreducible item clocks by period and type.
+    Ccensus {
+        /// Box the cycle's containers lie in, x,y,z.
+        #[arg(long, default_value = "3,2,3")]
+        size: String,
+        /// Cycle lengths, `2..4`.
+        #[arg(long, default_value = "2..4")]
+        cycle: String,
+        /// Allow droppers in the cycle.
+        #[arg(long)]
+        droppers: bool,
+        /// Comparators per design (1 or 2).
+        #[arg(long, default_value_t = 1)]
+        comparators: usize,
+        #[arg(long, default_value_t = 0)]
+        extra: usize,
+        #[arg(long, default_value = "stone,dust,repeater1,torch")]
+        palette: String,
+        #[arg(long, default_value = "stone:1;stone:2")]
+        contents: String,
+        /// At most this many cycle containers hold items.
+        #[arg(long, default_value_t = 2)]
+        max_filled: usize,
+        #[arg(long, default_value_t = 4000)]
+        ticks: u32,
+        #[arg(long, default_value_t = 64)]
+        jobs: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Sweep the contents of a design: every combination of item counts (one stack of --item per
+    /// container, or N unstackables) in the listed containers; prints the period of each and the
+    /// longest / every distinct period, and writes the best design per period to --out.
+    Sweep {
+        design: PathBuf,
+        /// Containers `x,y,z;x,y,z` (their `nbt:` lines are replaced).
+        #[arg(long)]
+        at: String,
+        /// Counts per container, `0..64` (0 = empty).
+        #[arg(long, default_value = "0..8")]
+        counts: String,
+        /// Item ids to try (one kind per run of the product), comma separated.
+        #[arg(long, default_value = "stone")]
+        items: String,
+        #[arg(long, default_value_t = 200000)]
+        ticks: u32,
+        #[arg(long, default_value_t = 64)]
+        jobs: usize,
+        /// Print every combination (not only new periods).
+        #[arg(long)]
+        all: bool,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Sweep the hopper-loop family (families.rs): every rectangular loop up to --max-w x --max-d
+    /// (the facing pair is 2x1), with m items of one kind placed as one stack in hopper 0
+    /// (`stack`), one per hopper side by side (`row`) or evenly spaced (`spread`); prints the
+    /// period, blocks and waveform of each, and writes the first design of every new period to
+    /// --out.
+    SweepLoop {
+        #[arg(long, default_value_t = 4)]
+        max_w: i32,
+        #[arg(long, default_value_t = 4)]
+        max_d: i32,
+        #[arg(long, default_value_t = 3)]
+        max_items: u32,
+        /// Item id (stone, diamond_sword, snowball...).
+        #[arg(long, default_value = "stone")]
+        item: String,
+        #[arg(long, default_value_t = 20000)]
+        ticks: u32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn load(p: &PathBuf) -> Result<Design> {
@@ -190,6 +289,236 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
             let summary = census::report(&found, &out)?;
             println!("{summary}");
             println!("{} clock variants written to {}", found.len(), out.display());
+        }
+        ItemClockCmd::Fill { skeleton, free, k, palette, ticks, jobs, out } => {
+            let d = load(&skeleton)?;
+            let base = Spec::from_design(&d).map_err(|e| anyhow!("{}: {e}", skeleton.display()))?;
+            let (a, b) = free.split_once(':').context("--free takes x0,y0,z0:x1,y1,z1")?;
+            let parse3 = |s: &str| -> Result<[i32; 3]> {
+                let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                if v.len() != 3 {
+                    bail!("bad corner {s:?}");
+                }
+                Ok([v[0], v[1], v[2]])
+            };
+            let (lo, hi) = (parse3(a)?, parse3(b)?);
+            let taken: std::collections::HashSet<BlockPos> = base.blocks.iter().map(|(p, _)| *p).collect();
+            let mut cells = Vec::new();
+            for y in lo[1].min(hi[1])..=lo[1].max(hi[1]) {
+                for z in lo[2].min(hi[2])..=lo[2].max(hi[2]) {
+                    for x in lo[0].min(hi[0])..=lo[0].max(hi[0]) {
+                        let p = BlockPos::new(x, y, z);
+                        if !taken.contains(&p) {
+                            cells.push(p);
+                        }
+                    }
+                }
+            }
+            let (k_min, k_max) = parse_k(&k)?;
+            let mut pal = Vec::new();
+            for name in palette.split(',').filter(|s| !s.is_empty()) {
+                for st in census::palette_entry(name.trim()).map_err(|e| anyhow!(e))? {
+                    pal.push(redsim::Block::parse(&st).map_err(|e| anyhow!("{st}: {e}"))?);
+                }
+            }
+            eprintln!("fill: {} free cells, k {k_min}..={k_max}, {} palette states", cells.len(), pal.len());
+            let o = crate::fill::FillOpts { base, free: cells, k_min, k_max, palette: pal, max_ticks: ticks, jobs };
+            let found = crate::fill::run(&o, true);
+            let summary = census::report(&found, &out)?;
+            println!("{summary}");
+            println!("{} clock variants written to {}", found.len(), out.display());
+        }
+        ItemClockCmd::Ccensus { size, cycle, droppers, comparators, extra, palette, contents, max_filled, ticks, jobs, out } => {
+            let s: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>().context("bad --size")?;
+            if s.len() != 3 {
+                bail!("--size takes x,y,z");
+            }
+            let (min_cycle, max_cycle) = parse_k(&cycle)?;
+            let mut pal = Vec::new();
+            for name in palette.split(',').filter(|s| !s.is_empty()) {
+                for st in census::palette_entry(name.trim()).map_err(|e| anyhow!(e))? {
+                    pal.push(redsim::Block::parse(&st).map_err(|e| anyhow!("{st}: {e}"))?);
+                }
+            }
+            let mut cont = Vec::new();
+            for c in contents.split(';').filter(|s| !s.trim().is_empty()) {
+                cont.push(census::contents_entry(c.trim()).map_err(|e| anyhow!(e))?);
+            }
+            let o = crate::ccensus::COpts {
+                size: [s[0], s[1], s[2]],
+                max_cycle,
+                min_cycle,
+                droppers,
+                comparators,
+                extra,
+                extra_palette: pal,
+                contents: cont,
+                max_filled,
+                max_ticks: ticks,
+                jobs,
+            };
+            let found = crate::ccensus::run(&o, true);
+            let summary = census::report(&found, &out)?;
+            println!("{summary}");
+            println!("{} clock variants written to {}", found.len(), out.display());
+        }
+        ItemClockCmd::Sweep { design, at, counts, items, ticks, jobs, all, out } => {
+            let d = load(&design)?;
+            let mut cells: Vec<[i32; 3]> = Vec::new();
+            for c in at.split(';').filter(|s| !s.trim().is_empty()) {
+                let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>().context("bad --at")?;
+                if v.len() != 3 {
+                    bail!("bad --at cell {c:?}");
+                }
+                cells.push([v[0], v[1], v[2]]);
+            }
+            let (lo, hi) = parse_k(&counts)?;
+            let kinds: Vec<String> = items.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            let mut jobs_list: Vec<(String, Vec<usize>)> = Vec::new();
+            let n = hi - lo + 1;
+            for kind in &kinds {
+                let total = n.pow(cells.len() as u32);
+                for c in 0..total {
+                    let mut x = c;
+                    let mut v = Vec::new();
+                    for _ in &cells {
+                        v.push(lo + x % n);
+                        x /= n;
+                    }
+                    if v.iter().all(|k| *k == 0) {
+                        continue;
+                    }
+                    jobs_list.push((kind.clone(), v));
+                }
+            }
+            eprintln!("sweep: {} contents combinations", jobs_list.len());
+            let results: std::sync::Mutex<Vec<(String, Vec<usize>, Result<(u32, u32, u32, u32, bool, u32), String>)>> = std::sync::Mutex::new(Vec::new());
+            let next = std::sync::atomic::AtomicUsize::new(0);
+            std::thread::scope(|sc| {
+                for _ in 0..jobs.max(1) {
+                    sc.spawn(|| {
+                        loop {
+                            let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            if i >= jobs_list.len() {
+                                break;
+                            }
+                            let (kind, v) = &jobs_list[i];
+                            let mut dd = d.clone();
+                            for (cell, k) in cells.iter().zip(v) {
+                                dd.block_entities.remove(cell);
+                                if *k > 0 {
+                                    dd.block_entities.insert(*cell, census::contents_entry(&format!("{kind}:{k}")).unwrap());
+                                }
+                            }
+                            let r = (|| -> Result<(u32, u32, u32, u32, bool, u32), String> {
+                                let spec = Spec::from_design(&dd)?;
+                                match sim::judge(&spec, ticks, output_port(&dd))? {
+                                    Ok(ch) if ch.signal && ch.period >= 2 => Ok((ch.period, ch.whole_period, ch.on_ticks, ch.rising, ch.analog, ch.transient)),
+                                    Ok(ch) => Err(format!("static (P={})", ch.period)),
+                                    Err(v) => Err(format!("{v:?}")),
+                                }
+                            })();
+                            results.lock().unwrap().push((kind.clone(), v.clone(), r));
+                        }
+                    });
+                }
+            });
+            let mut results = results.into_inner().unwrap();
+            results.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
+            let mut by_p: std::collections::BTreeMap<u32, (String, Vec<usize>)> = std::collections::BTreeMap::new();
+            for (kind, v, r) in &results {
+                match r {
+                    Ok((p, whole, on, edges, analog, tr)) => {
+                        let new = !by_p.contains_key(p);
+                        if all || new {
+                            println!("{kind} {v:?}: P={p} whole {whole} transient {tr} on {on} edges {edges}{}", if *analog { " analog" } else { "" });
+                        }
+                        // keep the fewest items per period
+                        let items: usize = v.iter().sum();
+                        let better = by_p.get(p).is_none_or(|(_, w)| items < w.iter().sum::<usize>());
+                        if better {
+                            by_p.insert(*p, (kind.clone(), v.clone()));
+                        }
+                    }
+                    Err(e) => {
+                        if all {
+                            println!("{kind} {v:?}: {e}");
+                        }
+                    }
+                }
+            }
+            println!("{} distinct periods: {:?}", by_p.len(), by_p.keys().collect::<Vec<_>>());
+            if let Some(dir) = &out {
+                std::fs::create_dir_all(dir)?;
+                for (p, (kind, v)) in &by_p {
+                    let mut dd = d.clone();
+                    for (cell, k) in cells.iter().zip(v) {
+                        dd.block_entities.remove(cell);
+                        if *k > 0 {
+                            dd.block_entities.insert(*cell, census::contents_entry(&format!("{kind}:{k}")).map_err(|e| anyhow!(e))?);
+                        }
+                    }
+                    let counts: Vec<String> = v.iter().map(|k| k.to_string()).collect();
+                    dd.name = format!("{}-p{p}-{kind}-{}", d.name, counts.join("-"));
+                    dd.meta.insert("period".into(), p.to_string());
+                    dd.save(&dir.join(format!("{}.txt", dd.name)))?;
+                }
+            }
+        }
+        ItemClockCmd::SweepLoop { max_w, max_d, max_items, item, ticks, out } => {
+            use crate::families::{Stack, hopper_loop, loop_cells, measure};
+            let mut seen_p = std::collections::BTreeMap::new();
+            println!("w x d  L  items  placement  blocks  P  whole  on  edges");
+            for w in 1..=max_w {
+                for d in 1..=max_d {
+                    let l = loop_cells(w, d).len();
+                    if l == 0 || (w > d && d > 1 && false) {
+                        continue;
+                    }
+                    for m in 1..=max_items {
+                        for placement in ["stack", "row", "spread"] {
+                            let mut items: Vec<Vec<Stack>> = vec![Vec::new(); l];
+                            match placement {
+                                "stack" => items[0].push((item.clone(), m)),
+                                "row" => {
+                                    if m as usize > l || m == 1 {
+                                        continue;
+                                    }
+                                    for i in 0..m as usize {
+                                        items[i].push((item.clone(), 1));
+                                    }
+                                }
+                                _ => {
+                                    if m as usize > l || m == 1 || l % m as usize != 0 {
+                                        continue;
+                                    }
+                                    for i in 0..m as usize {
+                                        items[i * l / m as usize].push((item.clone(), 1));
+                                    }
+                                }
+                            }
+                            let Some(des) = hopper_loop(w, d, &items) else { continue };
+                            match measure(&des, ticks) {
+                                Ok((p, whole, on, edges)) => {
+                                    println!("{w} x {d}  {l}  {m} {item}  {placement}  {}  {p}  {whole}  {on}  {edges}", des.blocks.len());
+                                    if let Some(dir) = &out
+                                        && !seen_p.contains_key(&p)
+                                    {
+                                        std::fs::create_dir_all(dir)?;
+                                        let mut des = des.clone();
+                                        des.name = format!("loop-{w}x{d}-{m}{item}-{placement}");
+                                        des.meta.insert("period".into(), p.to_string());
+                                        des.save(&dir.join(format!("{}.txt", des.name)))?;
+                                    }
+                                    seen_p.entry(p).or_insert(des.blocks.len());
+                                }
+                                Err(e) => println!("{w} x {d}  {l}  {m} {item}  {placement}  {}  -  {e}", des.blocks.len()),
+                            }
+                        }
+                    }
+                }
+            }
+            println!("periods reached (smallest blocks): {seen_p:?}");
         }
     }
     Ok(())

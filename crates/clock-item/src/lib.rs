@@ -16,8 +16,11 @@
 //! The official judge is `mctas clock verify` (crates/clock, docs/clocks.md); this crate is the
 //! item family's search and measuring tool.
 
+pub mod ccensus;
 pub mod census;
 pub mod cli;
+pub mod families;
+pub mod fill;
 pub mod jvm;
 pub mod sim;
 

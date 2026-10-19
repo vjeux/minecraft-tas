@@ -89,12 +89,12 @@ pub struct Found {
     pub ch: sim::Character,
 }
 
-fn is_container(b: &Block) -> bool {
+pub(crate) fn is_container(b: &Block) -> bool {
     matches!(b, Block::Hopper { .. } | Block::Dispenser { .. } | Block::Crafter { .. })
 }
 
 /// What a block needs below it (None: nothing).
-fn needs_floor(b: &Block) -> Option<Support> {
+pub(crate) fn needs_floor(b: &Block) -> Option<Support> {
     match b {
         Block::Comparator { .. } | Block::Repeater { .. } => Some(Support::Rigid),
         Block::Wire { .. } => Some(Support::Full),
@@ -103,7 +103,7 @@ fn needs_floor(b: &Block) -> Option<Support> {
     }
 }
 
-fn floor_ok(below: &Block, need: Support, b: &Block) -> bool {
+pub(crate) fn floor_ok(below: &Block, need: Support, b: &Block) -> bool {
     if matches!(b, Block::Wire { .. }) && matches!(below, Block::Hopper { .. }) {
         return true;
     }
@@ -226,7 +226,7 @@ fn has_reader(blocks: &[(BlockPos, Block)]) -> bool {
     })
 }
 
-fn wall_torches_ok(blocks: &[(BlockPos, Block)]) -> bool {
+pub(crate) fn wall_torches_ok(blocks: &[(BlockPos, Block)]) -> bool {
     let at: HashMap<BlockPos, Block> = blocks.iter().copied().collect();
     blocks.iter().all(|(p, b)| match b {
         Block::WallTorch { facing, .. } => at.get(&p.rel(facing.opposite())).is_some_and(|s| sturdy_of(s, *facing, Support::Full)),
@@ -493,8 +493,8 @@ pub fn report(found: &[Found], out_dir: &std::path::Path) -> anyhow::Result<Stri
         by_period.entry(f.ch.period).or_default().push(f);
     }
     let mut summary = String::new();
-    summary.push_str("| period | mechanisms | types | variants | smallest (blocks) | families |\n|---|---|---|---|---|---|\n");
-    let mut tsv = String::from("period\tblocks\tfamily\tmechanism\ttype\tvariant\ttransient\ton_ticks\trising\tfile\n");
+    summary.push_str("| period | mechanisms | types | variants | smallest (blocks) | smallest digital | families |\n|---|---|---|---|---|---|---|\n");
+    let mut tsv = String::from("period\tblocks\tfamily\tmechanism\ttype\tvariant\ttransient\ton_ticks\trising\tanalog\twhole\tfile\n");
     for (p, list) in &by_period {
         let mut types: BTreeMap<String, Vec<&Found>> = BTreeMap::new();
         let mut mechs: HashSet<String> = HashSet::new();
@@ -503,12 +503,13 @@ pub fn report(found: &[Found], out_dir: &std::path::Path) -> anyhow::Result<Stri
             mechs.insert(mechanism_key(f));
         }
         let smallest = list.iter().map(|f| f.spec.blocks.len()).min().unwrap_or(0);
+        let digital = list.iter().filter(|f| !f.ch.analog).map(|f| f.spec.blocks.len().to_string()).min_by_key(|s| s.parse::<usize>().unwrap_or(0)).unwrap_or("-".into());
         let mut fams: Vec<String> = list.iter().map(|f| f.ch.family.clone()).collect();
         fams.sort();
         fams.dedup();
-        summary.push_str(&format!("| {p} | {} | {} | {} | {smallest} | {} |\n", mechs.len(), types.len(), list.len(), fams.join(", ")));
+        summary.push_str(&format!("| {p} | {} | {} | {} | {smallest} | {digital} | {} |\n", mechs.len(), types.len(), list.len(), fams.join(", ")));
         let mut sorted: Vec<&&Found> = list.iter().collect();
-        sorted.sort_by_key(|f| (f.spec.blocks.len(), type_key(&f.spec, true)));
+        sorted.sort_by_key(|f| (f.spec.blocks.len(), f.ch.analog, type_key(&f.spec, true)));
         for f in sorted {
             let tk = type_key(&f.spec, false);
             let vk = type_key(&f.spec, true);
@@ -516,12 +517,22 @@ pub fn report(found: &[Found], out_dir: &std::path::Path) -> anyhow::Result<Stri
             let file = format!("p{p}-{}b-{}-{}.txt", f.spec.blocks.len(), short_hash(&tk), short_hash(&vk));
             let mut d = f.spec.to_design(&file.trim_end_matches(".txt").to_string(), f.ch.output);
             d.meta.insert("period".into(), p.to_string());
+            if f.ch.whole_period != *p {
+                d.meta.insert("whole-state-period".into(), f.ch.whole_period.to_string());
+            }
             d.meta.insert("family".into(), f.ch.family.clone());
             d.meta.insert("mechanism".into(), short_hash(&mk));
-            d.meta.insert("waveform".into(), format!("output on {} of {} gt, {} rising edge(s)", f.ch.on_ticks, p, f.ch.rising));
+            d.meta.insert(
+                "waveform".into(),
+                if f.ch.analog {
+                    "analog: the output comparator only changes strength".to_string()
+                } else {
+                    format!("output on {} of {} gt, {} rising edge(s)", f.ch.on_ticks, p, f.ch.rising)
+                },
+            );
             d.save(&out_dir.join(&file))?;
             tsv.push_str(&format!(
-                "{p}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{file}\n",
+                "{p}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{file}\n",
                 f.spec.blocks.len(),
                 f.ch.family,
                 short_hash(&mk),
@@ -529,7 +540,9 @@ pub fn report(found: &[Found], out_dir: &std::path::Path) -> anyhow::Result<Stri
                 short_hash(&vk),
                 f.ch.transient,
                 f.ch.on_ticks,
-                f.ch.rising
+                f.ch.rising,
+                f.ch.analog,
+                f.ch.whole_period
             ));
         }
     }
