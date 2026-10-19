@@ -145,8 +145,9 @@ kick) before the first input.
 axis value, metrics, blocks, box, family = the kinds of the blocks whose state changes,
 robustness, block kinds, type key) and its caption in `captions.tsv` (default: the design's first
 comment block). Refused: a failing design, or a structure already archived as the same kind (the
-TYPE: up to translation, the 4 rotations and the mirror image, input cells marked whatever drives
-them, output and payload cells marked, after the swaps that keep the run identical on redsim under
+TYPE: up to translation, the 4 rotations and the mirror image, input cells marked with their
+device (a lever, a stone or wooden button, the judge's redstone block: their timings differ; not
+their facing), output and payload cells marked, after the swaps that keep the run identical on redsim under
 the kind's stimulus, as for clocks: sticky pistons that never pull = pistons, inert solids =
 stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind and type in every
 study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,

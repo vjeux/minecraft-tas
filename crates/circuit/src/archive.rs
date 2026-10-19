@@ -189,7 +189,18 @@ pub fn type_key(c: &Circuit) -> String {
     let c = &n;
     let mut d = c.clock.design.clone();
     for i in &c.inputs {
-        d.blocks.insert(i.pos, "circuit:input".into());
+        // the input DEVICE is part of the type (a lever, a stone or a wooden button, a judge-placed
+        // block: different timings, coordinator 2026-10-19); its facing is not
+        let id = |s: &str| -> String {
+            let s = s.split('[').next().unwrap_or(s);
+            s.strip_prefix("minecraft:").unwrap_or(s).to_string()
+        };
+        let dev = match &i.how {
+            crate::InputHow::Block { on, .. } => id(on),
+            crate::InputHow::Lever => "lever".to_string(),
+            crate::InputHow::Button => c.clock.design.blocks.get(&i.pos).map(|s| id(s)).unwrap_or_else(|| "button".into()),
+        };
+        d.blocks.insert(i.pos, format!("circuit:input_{dev}"));
         d.block_entities.remove(&i.pos);
     }
     for (tag, probes) in [("circuit:output", &c.outputs), ("circuit:payload", &c.payloads)] {
