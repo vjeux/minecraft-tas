@@ -157,6 +157,12 @@ impl ULoop {
         h + t + self.top.iter().chain(&self.bottom).filter(|c| matches!(c, Cell::Torch { .. })).count()
     }
 
+    /// Family-specific name prefix of generated designs: `fade` (fading ring) or `uloop<n>t`
+    /// (n = torches in the loop), so archive names of different families never collide.
+    pub fn kind(&self) -> String {
+        if matches!(self.tail, Tail::Fade { .. }) { "fade".into() } else { format!("uloop{}t", self.torches()) }
+    }
+
     /// Loop delay in redstone ticks.
     pub fn loop_rt(&self) -> u32 {
         let h = matches!(self.head, Head::Torch { .. }) as u32;

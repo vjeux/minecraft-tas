@@ -3,7 +3,7 @@
 # wall torch on F -> bottom row [delay-4 repeater (powered at placement), delay-4 repeater (powered
 # at placement), delay-4 repeater (powered at placement)] -> A; 1 torch(es) = an inverter loop of
 # delay 44 gt (period 2 x delay)
-name: clk-rt-uloop-p88-17b
+name: clk-rt-uloop1t-p88-17b
 uloop: C-1*,4*,4*-4*,4*,4*-T
 port output: 0 1 -1
 origin: 0 0 -1

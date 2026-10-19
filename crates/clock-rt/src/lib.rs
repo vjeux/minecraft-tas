@@ -268,7 +268,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
     match cli.cmd {
         Cmd::Uloop { head, top, bottom, tail, name, out } => {
             let u = ULoop { head: parse_head(&head)?, top: parse_row(&top)?, bottom: parse_row(&bottom)?, tail: parse_tail(&tail)? };
-            let name = name.unwrap_or_else(|| format!("clk-rt-uloop-{}", u.label()));
+            let name = name.unwrap_or_else(|| format!("clk-rt-{}-{}", u.kind(), u.label()));
             let b = u.build(&name)?;
             if b.conflict {
                 bail!("conflicting blocks");
@@ -708,13 +708,16 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             if let Some(dir) = out_dir {
                 std::fs::create_dir_all(&dir)?;
-                let cap_of = |label: &str| -> String {
+                let of = |label: &str| -> Option<&ULoop> {
                     let l = label.trim_start_matches("clk-rt-uloop-");
-                    loops.iter().find(|u| u.label() == l).map(|u| u.caption()).unwrap_or_default()
+                    loops.iter().find(|u| u.label() == l)
                 };
+                let cap_of = |label: &str| -> String { of(label).map(|u| u.caption()).unwrap_or_default() };
+                // family-specific name prefix (fade, uloop1t, uloop2t, ...): archive names never collide
+                let kind_of = |label: &str| -> String { of(label).map(|u| u.kind()).unwrap_or_else(|| "uloop".into()) };
                 for (p, f) in &t.best {
                     let l = f.label.trim_start_matches("clk-rt-uloop-");
-                    write_design(&dir.join(format!("uloop-p{p}.txt")), &f.design, &format!("clk-rt-uloop-p{p}-{}b", f.blocks), l, &cap_of(&f.label))?;
+                    write_design(&dir.join(format!("uloop-p{p}.txt")), &f.design, &format!("clk-rt-{}-p{p}-{}b", kind_of(&f.label), f.blocks), l, &cap_of(&f.label))?;
                 }
                 if per_family {
                     // the smallest design of every (period, family) pair
@@ -728,7 +731,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     for ((p, family), f) in fam {
                         let short: String = family.split('+').map(|w| w.split('_').map(|s| &s[..1]).collect::<String>()).collect::<Vec<_>>().join("-");
                         let l = f.label.trim_start_matches("clk-rt-uloop-");
-                        write_design(&dir.join(format!("uloop-p{p}-{short}.txt")), &f.design, &format!("clk-rt-uloop-p{p}-{short}-{}b", f.blocks), l, &cap_of(&f.label))?;
+                        write_design(&dir.join(format!("uloop-p{p}-{short}.txt")), &f.design, &format!("clk-rt-{}-p{p}-{short}-{}b", kind_of(&f.label), f.blocks), l, &cap_of(&f.label))?;
                     }
                 }
             }
