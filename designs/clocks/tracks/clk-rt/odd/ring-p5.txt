@@ -1,4 +1,8 @@
-name: clk-rt-uloop-C-1*,1,1-1,1,d-d-kick-p5
+# ODD period 5 (clk-rt): a ring of 5 delay-1 repeaters + dust (loop delay 10 gt) holds TWO
+# identical 2 gt pulses 5 gt apart: one loaded at placement (a powered repeater), the other started
+# by a 1 gt redstone block next to the corner dust at tick 3 (odd: a second parity class; every
+# redstone-tick delay is even, so one class alone only reaches even periods).
+name: clk-rt-odd-ring-p5
 port output: 0 1 -1
 port start: -1 1 -1 minecraft:redstone_block 1 at 3
 origin: 0 0 -1

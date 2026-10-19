@@ -153,3 +153,21 @@ pub fn chain(d1: u8, d2: u8, stages: usize, name: &str) -> Option<B> {
     b.port("output", out);
     Some(b)
 }
+
+/// The same stages on a comparator FADING ring (families.rs: head dust2, `c` comparators per
+/// row, tail fade): its refill torch T hangs on the east face of block F, so the first stage's
+/// frame has north = east (T east of F) and is built north of the ring.
+pub fn chain_fade(c: usize, stages: usize, name: &str) -> Option<B> {
+    let y = 1;
+    let u = crate::families::Fade { c, loss: 1 }.uloop();
+    let mut b = u.build(name).ok()?;
+    b.ports.clear();
+    let k = c as i32;
+    let fpos = [k + 1, y, -1];
+    let tpos = [k + 2, y, -1];
+    // frame: A = F, frame-north = world east (T - F), frame-east = world south
+    let f = Frame { a: fpos, ex: [0, 0, 1], ez: [-1, 0, 0] };
+    let (mut b, out) = dfs(&b, f, y, stages, tpos)?;
+    b.port("output", out);
+    Some(b)
+}

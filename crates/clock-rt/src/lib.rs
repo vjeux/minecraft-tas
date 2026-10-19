@@ -156,6 +156,10 @@ enum Cmd {
         d1: u8,
         #[arg(long, default_value_t = 2)]
         d2: u8,
+        /// Base = a comparator fading ring with this many comparators per row (instead of the
+        /// torch-repeater U-loop).
+        #[arg(long)]
+        fade: Option<usize>,
         #[arg(long, default_value_t = 1)]
         stages: usize,
         #[arg(long)]
@@ -473,7 +477,20 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Divider { d1, d2, stages, out } => {
+        Cmd::Divider { d1, d2, fade, stages, out } => {
+            if let Some(c) = fade {
+                let name = format!("clk-rt-div-fade{c}-x{stages}");
+                let Some(b) = divider::chain_fade(c, stages, &name) else { bail!("stage {stages} collides with the chain") };
+                let cap = format!(
+                    "Divider chain (clk-rt): a base comparator FADING ring ({c} + {c} compare comparators keep a strength that drops one level per lap; a wall torch refills the empty ring) and {stages} master-slave T flip-flop stage(s) (two latch repeaters locked alternately by repeaters reading the previous torch and its block; the slave's dust bends into a target block holding a torch whose output runs back to the master): period = the ring's x 2^{stages}"
+                );
+                let text = b.design().to_text();
+                match out {
+                    Some(p) => write_design(&p, &text, &name, "", &cap)?,
+                    None => print!("{text}"),
+                }
+                return Ok(());
+            }
             let name = format!("clk-rt-div-{d1}{d2}-x{stages}");
             let Some(b) = divider::chain(d1, d2, stages, &name) else { bail!("stage {stages} collides with the chain") };
             let base = 4 * (1 + d1 as u32 + d2 as u32);
