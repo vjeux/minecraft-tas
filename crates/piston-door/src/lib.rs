@@ -70,6 +70,7 @@ pub mod mechspace;
 pub mod world;
 pub mod sheet;
 pub mod cycle;
+pub mod audit;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;

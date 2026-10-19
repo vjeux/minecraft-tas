@@ -438,6 +438,42 @@ pub enum DoorCmd {
         #[arg(long)]
         quiet: bool,
     },
+    /// What our rules, checks, generators and wiring tools silently exclude (audit.rs, track
+    /// audit): on working doors (default: the community 7x9, tracks/c79/c79-closed.txt), (1) every
+    /// check that rejects or mislabels it, (2) its mechanism extracted from a redsim cycle and its
+    /// membership in each generator's space (families' own generator restricted to its pistons,
+    /// every bound relaxed in turn) with the bounds its real moves break, (3) the blocks and
+    /// mechanics each wiring tool cannot represent, (4) every hard-coded rule (file:line, live).
+    Audit {
+        /// Design files or folders (default: tracks/c79/c79-closed.txt).
+        designs: Vec<PathBuf>,
+        /// Comma list of checks, mech, wiring, rules (or all).
+        #[arg(long, default_value = "all")]
+        sections: String,
+        /// Also run the JVM checks (the real judge, props, props-dyn, eligible) in section 1.
+        #[arg(long)]
+        jvm: bool,
+        /// Write the markdown here instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Write every extracted flat mechanism with a macro solution as a families catalog TSV.
+        #[arg(long)]
+        tsv: Option<PathBuf>,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        /// State cap of the macro solve.
+        #[arg(long, default_value_t = 200_000)]
+        cap: usize,
+        /// Sources scanned by the rules section.
+        #[arg(long, default_value = "crates/piston-door/src")]
+        src: PathBuf,
+        /// Section 2: skip designs with no flat mechanism.
+        #[arg(long)]
+        only_flat: bool,
+        /// Print one design's extracted mechanism (paths, moves, providers, membership) instead.
+        #[arg(long)]
+        explain: bool,
+    },
     /// Flip a design's lever N times in redsim at the judge's 4 positions and check it alternates
     /// between an open state (opening clear, frame 12/12) and a closed one (cycle.rs). Accepts a
     /// door that rests open, e.g. a community design read from a screenshot of its open state.
@@ -2464,6 +2500,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     }
                 }
                 None => anyhow::bail!("no route"),
+            }
+        }
+        DoorCmd::Audit { designs, sections, jvm, out, tsv, threads, cap, src, only_flat, explain } => {
+            let designs = if designs.is_empty() { vec![PathBuf::from("designs/piston-door-3x3/tracks/c79/c79-closed.txt")] } else { designs };
+            if explain {
+                for d in &designs {
+                    crate::audit::explain(d)?;
+                }
+            } else {
+                crate::audit::run(&crate::audit::Opts { designs, sections, jvm, out, tsv, threads, cap, version: version.to_string(), src, only_flat })?;
             }
         }
         DoorCmd::Cycle { design, flips, write_state, out } => {

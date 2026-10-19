@@ -16,3 +16,4 @@ redsim = { path = "../redsim" }
 redsim-fuzz = { path = "../redsim-fuzz" }
 rustsat = "0.7"
 rustsat-cadical = "0.7"
+regex.workspace = true
