@@ -1561,6 +1561,8 @@ pub struct PCheck {
     pub req: bool,
     pub direct: Lit,
     pub qc: Lit,
+    /// --sound: a QC hold is allowed here unless this update literal is true.
+    pub bud: Option<Lit>,
 }
 
 pub struct Model<'a> {
@@ -1773,6 +1775,38 @@ impl<'a> Model<'a> {
         self.e.or(&lits)
     }
     /// Out-of-plane levers next to c (weak power into c).
+    /// A block update reaches the piston at c during SAT tick k: one of its neighbors changes (a
+    /// moving block, a wiring state), or a diode/observer whose output block is one of its
+    /// neighbors changes (it updates that block's neighbors too).
+    fn update_at(&mut self, tr: usize, k: i32, c: C2) -> Lit {
+        let mut t = Vec::new();
+        for d in DIRS {
+            let n = add(c, d);
+            let a = self.chg(tr, k, n, 0);
+            // (wiring changes only: a moving mechanism block's own updates are not counted; the
+            // known BUD holds of real doors survive a neighbor piston firing)
+            let b = self.chg(tr, k, n, 3);
+            t.push(a);
+            t.push(b);
+            for d2 in DIRS {
+                let n2 = add(n, d2);
+                if n2 == c || !self.p.is_free(n2) {
+                    continue;
+                }
+                let ks = self.p.kinds.get(&n2).cloned().unwrap_or_default();
+                let lits: Vec<Lit> = ks.iter().filter(|kk| matches!(kk, Kind::Rep(..) | Kind::Obs(_) | Kind::Cmp(_)) && kk.out_to().contains(&neg(d2))).map(|kk| self.kl[&(n2, *kk)]).collect();
+                if lits.is_empty() {
+                    continue;
+                }
+                let isd = self.e.or(&lits);
+                let o1 = self.out(tr, k, n2);
+                let o0 = self.out(tr, k - 1, n2);
+                let x = self.e.xor(o1, o0);
+                t.push(self.e.and(&[isd, x]));
+            }
+        }
+        self.e.or(&t)
+    }
     fn oop(&mut self, tr: usize, k: i32, c: C2) -> Lit {
         let z = self.p.z;
         self.lever_on_lits(tr, k, |l| l.pos[2] != z && l.pos[0] == c.0 && l.pos[1] == c.1)
@@ -2708,7 +2742,11 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         }
                     };
                     if check_mode {
-                        m.checks.push(PCheck { tr, k, c, d, req, direct, qc });
+                        // --sound: a QC hold of a piston that stays retracted is fine while no update
+                        // reaches it
+                        let stays_ret_c = matches!(ph.frame(tau - 1).get(&c).map(|s| mk(s)), Some(MK::Piston { ext: false, .. })) && ph.frame(tau - 1).get(&c) == ph.frame(tau).get(&c);
+                        let bud = if !req && k >= 0 && stays_ret_c && SOUND.load(std::sync::atomic::Ordering::Relaxed) { Some(m.update_at(tr, k, c)) } else { None };
+                        m.checks.push(PCheck { tr, k, c, d, req, direct, qc, bud });
                         continue;
                     }
                     // a retracted piston that stays retracted while powered (blocked, or QC-armed
@@ -2749,6 +2787,10 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         // rest fires; vjeux: no QC-armed pistons at rest)
                         if !(SOUND.load(std::sync::atomic::Ordering::Relaxed) && stays_retracted && k >= 0) {
                             m.e.add(&[!ds, !sel, !qc]);
+                        } else {
+                            // a QC hold survives only while no block update reaches the piston
+                            let upd = m.update_at(tr, k, c);
+                            m.e.add(&[!ds, !sel, !qc, !upd]);
                         }
                     }
                   }
@@ -3303,7 +3345,8 @@ pub fn check(p: &Prob) -> Result<()> {
     for c in &m.checks {
         let dir = m.e.val(c.direct);
         let qc = m.e.val(c.qc);
-        let ok = if c.req { dir || (p.qc && qc) } else { !dir && !qc };
+        let held = c.bud.is_some_and(|u| !m.e.val(u));
+        let ok = if c.req { dir || (p.qc && qc) } else { !dir && (!qc || held) };
         if !ok {
             bad += 1;
             if bad <= 40 {
@@ -3483,7 +3526,8 @@ pub fn check_line(w: &mut Worker, path: &std::path::Path, o: &ProbOpts) -> Strin
         for c in &m.checks {
             let dir = m.e.val(c.direct);
             let qc = m.e.val(c.qc);
-            let ok = if c.req { dir || (p.qc && qc) } else { !dir && !qc };
+            let held = c.bud.is_some_and(|u| !m.e.val(u));
+            let ok = if c.req { dir || (p.qc && qc) } else { !dir && (!qc || held) };
             if !ok {
                 bad.push(format!("{} t{} {:?} req {}", ["open", "close"][c.tr], c.k, c.c, c.req));
             }
