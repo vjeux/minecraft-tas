@@ -47,3 +47,40 @@ down into F1 then right into F2 by the corner pull-type K (3,-1). Free ring cell
 ## Log
 * 03:17Z j1 mechanism WORKS with ideal inputs (open/close schedules).
 * 03:22Z j1-sym: one pulse train for both edges WORKS (top late).
+
+## 3. FULL FRAME (vjeux 03:36Z): layout J is 12/12 as it stands
+
+Static plain stones in the three free frame cells L2, R2, F0 (nothing ever passes through them):
+`mech/jf.txt` + `jf.ideal`: frame 12/12 at open (`door sheet`), WORKS with ideal inputs.
+
+## 4. The BM gate: edge-dependent bottom with ONE pulse train
+
+The bottom elevator needs open = A1 K B1 A2 B2 A3, close = A1 K B1 B2 (A2/A3 on close would undo).
+BM parks in F2 only while the door is open (from K's pull on open until K's push on close), and A'
+touches F2 at its high position and QC-reads it (through F1) at its low one. So an observer at (2,-2)
+facing down that powers F2 is a GATE: its pulses reach A' only when BM is parked there. A2 = A' placed
+high (by B''s spit) while the gate is on (onPlace extends it); A3 = A' landing low (B2) while the gate
+is on. `mech/j7.ideal`, `j10.ideal`, `j11.ideal`: the SAME pulse train on both edges WORKS.
+
+## 5. Single-U 7x8 (vjeux's hint 04:04Z): s1 (mechanism only, NOT wirable)
+
+`mech/s1.txt` + `s1.ideal`: 7x8 (y -3..4), one sticky piston facing up in the bottom row, frame 12/12,
+WORKS with ideal inputs. But its 2-row top is cut by D(0,4)+D(1,4)+C0/C1 into two halves that cannot
+see each other, and the bottom cannot reach either: one lever wakes only one top half.
+
+## 6. Wiring jf (7x9): top by hand, bottom by cosearch (assist mode)
+
+* `mech/j6.txt`: real top (13 blocks): lever on an observer, observer chain along row 5 QC-fires the
+  three top pullers, a trapdoor/observer column fires MR+BR.
+* cosearch run 1 (j9 seed = jf + j6 top, `--assist j9.ideal`): wired A' (low and high) and B' for real,
+  only K left assisted: `mech/p1.txt` (p2 = p1 minus a junk piston that left the box). `door ideal
+  mech/p2.ideal`: WORKS at 32 positions with K as an ideal 2 gt pulse at tick 16..20.
+  Left: watcher (-2,-1) on BL's puller -> a flag piston (-2,-2) facing down -> observer (-1,-2) ->
+  oak log (0,-2) -> A' (three pulses: pull, push, pull = one net pull). Right: watcher (4,-1) on BR's
+  puller -> lamp (4,-2) (lit at once, dark 4 gt late: two edges 10 apart) -> observer (4,-3) ->
+  observer (3,-3) -> dropper (2,-3) (conductor) -> B' (B1, B2), and the gate observer (2,-2) watching
+  the dropper -> F2 (A2, A3).
+* K's only feeds are (4,-1) (the right watcher's cell) and (3,-2) (needs an upward emitter), and the
+  right half wakes at 20 with j6's top: too late. `mech/j12.txt`: a DUST top (dust on the three top
+  pullers, k2; MR+BR at k4) so the right half wakes at 6; its right half must now be re-timed (cosearch
+  run 3).
