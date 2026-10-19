@@ -13,8 +13,8 @@ page), each track owns its crate (`crates/circuit-<track>`, `mctas circuit <trac
 | 3 delay lines | delay | delay | N | min-pulse, min-gap (one-edge delays flagged) |
 | 4 logic gates | gates | gate [not, and, or, xor, xnor, nand, nor, imply, nimply] | the function | latency, glitches, instant class |
 | 5 memory | memory | rs-latch, d-latch, counter N | the function (N) | latency, enable polarity, output style |
-| 6 piston extenders | pext | piston-extender N | reach N | extend, retract (next push) |
-| 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency (next push; `mctas circuit fly` meanwhile) |
+| 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
+| 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -117,9 +117,21 @@ kick) before the first input.
   `latency`: the worst change time. **counter N**: 3N + 1 pulses of 4 gt; the output must change
   once every N pulses (`toggles`), pulse once every N pulses (`pulses`), or its level at the end of
   each pulse must repeat with period exactly N (`level`, comparator counters).
-* **piston-extender N** and **flying-machine**: the next push (the stimulus is ready: 3 cycles of
-  on for the gap then off; a 200 gt flight). Flying machines: `mctas circuit fly verify` (track
-  fly's tracker, robust 16/16 on fly-d1) until the judge takes it.
+* **piston-extender N** (payload, travel): 3 cycles of the input on for the gap then off for it
+  (a button: one press, then 2 gaps). The payload's state must be unique in the design. Per
+  cycle: from some frame after the on edge to the off edge (a button: at some frame) the payload
+  stands at p0 + N x travel, nothing moving; after the off edge the whole rest state (every cell)
+  comes back and stays. `extend`: on edge to the first frame of the held extension; `retract`: off
+  edge (a button: the press) to the first frame of the final rest; every cycle must give the same
+  numbers (track pext's own measure).
+* **flying-machine** (kick, travel, distance): one flight of 200 + 60 x distance gt in a corridor
+  swept `distance` + 3 cells along travel (a machine reaching its far end ends the run there; any
+  other face fails). Track fly's tracker ([`crate::fly`], from crates/circuit-fly): per frame the
+  machine's translation (structural states, piston heads part of their piston, a moving block = in
+  motion) and a canonical frame; the steady state is frame t + P = frame t shifted by d cells for
+  at least 2 periods. It must fly along `travel` and stay intact over `distance` cells (or to the
+  corridor's end); a steady shuttle in place over 2+ positions passes as two-way. `speed`: P / d gt
+  per block; `latency`: the kick to the first change; the box is the design's own.
 
 ## Commands
 

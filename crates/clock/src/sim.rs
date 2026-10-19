@@ -340,12 +340,16 @@ pub struct Driven {
     pub cells: Vec<Vec<(Pos, String)>>,
     /// The best signal the neighbors give into each probe cell (what a lamp there would see).
     pub signals: Vec<Vec<u8>>,
+    /// The run stopped early: the tick and why (a drop, a write outside the box, a case redsim does
+    /// not model); `cells` and `signals` hold the frames before it.
+    pub stopped: Option<(u32, String)>,
 }
 
 /// Run a design on redsim in the world box `from`..=`to`: placed like the judge places it, its own
 /// kick inputs and `extra` inputs applied between ticks (inputs due at tick t are applied after t
 /// ticks, before frame t is recorded, like the real-game judge), recording [`Driven`] after every
-/// tick 0..=ticks. Fails on a block redsim does not model, a drop, or a write outside the box.
+/// tick 0..=ticks. Fails on a block redsim does not model; a problem during the run (a drop, a write
+/// outside the box) stops it ([`Driven::stopped`]).
 pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos) -> Result<Driven, (Verdict, String)> {
     if !c.design.entities.is_empty() {
         return Err((Verdict::Unmodeled, "not modeled by redsim: entities (minecarts...)".into()));
@@ -360,9 +364,12 @@ pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], fro
     let mut s = start_box(c, &blocks, from, to)?;
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1) };
+    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None };
     for t in 0..=ticks {
-        between_ticks(&mut s, t)?;
+        if let Err((_, why)) = between_ticks(&mut s, t) {
+            out.stopped = Some((t, why));
+            break;
+        }
         let mut v: Vec<(Pos, String)> = s.world.blocks().into_iter().map(|(p, b)| (p.arr(), wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect();
         v.sort_by_key(|(p, _)| *p);
         out.cells.push(v);

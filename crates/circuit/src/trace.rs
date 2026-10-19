@@ -17,6 +17,8 @@ pub struct Trace {
     /// [frame]: every non-air cell (position, index into `names`; full state: block state +
     /// comparator strength + container contents), sorted by position.
     pub cells: Vec<Vec<(Pos, u32)>>,
+    /// The run ended early on purpose: a flying machine reached the far end of its corridor.
+    pub ended: Option<String>,
 }
 
 impl Trace {
