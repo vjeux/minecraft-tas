@@ -1573,7 +1573,9 @@ pub struct Model<'a> {
     pub kl: HashMap<(C2, Kind), Lit>,
     preds: HashMap<(C2, u8), Lit>,
     pub lever: Vec<Lit>,
-    pub warp: [Vec<Vec<Vec<(i32, Lit)>>>; 2],
+    pub warp: Vec<Vec<Vec<Vec<(i32, Lit)>>>>,
+    /// Number of traces (2; 4 with `--period2`): trace tr plays phase tr % 2.
+    pub nt: usize,
     out: HashMap<Key, Lit>,
     sched: HashMap<Key, Lit>,
     /// Observers: the tick due at s was scheduled only by a block-event-phase change (a moving
@@ -1636,7 +1638,7 @@ impl<'a> Model<'a> {
     }
     fn on(&self, tr: usize, k: i32) -> bool {
         // trace 0 = the first flip from rest; a lever ON at rest (`lever_on_rest`) flips off
-        ((tr == 0) == (k >= 0)) != self.p.lever_on_rest
+        ((tr % 2 == 0) == (k >= 0)) != self.p.lever_on_rest
     }
     fn out(&self, tr: usize, k: i32, c: C2) -> Lit {
         self.out.get(&(tr, k, c)).copied().unwrap_or(self.e.f())
@@ -1663,7 +1665,7 @@ impl<'a> Model<'a> {
         }
         let ws = self.warp_at_c(tr, k, self.p.cl(c));
         let p = self.p;
-        let opts = p.frame_opts(tr, c);
+        let opts = p.frame_opts(tr % 2, c);
         let mut lits = Vec::new();
         let mut every = opts.len() == 1;
         for (ga, ph) in &opts {
@@ -1710,7 +1712,7 @@ impl<'a> Model<'a> {
         let logs = LOG_DOORS.load(std::sync::atomic::Ordering::Relaxed);
         let fix = |v: u8| if logs && v == 1 { 2 } else { v };
         let ws = self.warp_at_c(tr, k, self.p.cl(c));
-        let ph = &self.p.rec.phases[tr];
+        let ph = &self.p.rec.phases[tr % 2];
         let lits: Vec<Lit> = ws.iter().filter(|(tau, _)| *tau >= 1 && fix(class(ph.frame(*tau).get(&c))) != fix(class(ph.frame(*tau - 1).get(&c)))).map(|(_, l)| *l).collect();
         let l = self.e.or(&lits);
         self.mc.insert((tr, k, c, 10), l);
@@ -1723,7 +1725,7 @@ impl<'a> Model<'a> {
         let ws = self.warp_at_c(tr, k, self.p.cl(c));
         let p = self.p;
         let mut lits: Vec<Lit> = Vec::new();
-        for (ga, ph) in p.frame_opts(tr, c) {
+        for (ga, ph) in p.frame_opts(tr % 2, c) {
             for (tau, wl) in &ws {
                 if *tau >= 1 && ph.frame(*tau).get(&c) != ph.frame(*tau - 1).get(&c) {
                     match ga {
@@ -1754,7 +1756,7 @@ impl<'a> Model<'a> {
             return self.e.f();
         }
         let ws = self.warp_at_c(tr, k, cl);
-        let ph = &self.p.rec.phases[tr];
+        let ph = &self.p.rec.phases[tr % 2];
         let lits: Vec<Lit> = ws.iter().filter(|(tau, _)| ph.oop_at(*tau, c)).map(|x| x.1).collect();
         self.e.or(&lits)
     }
@@ -2197,6 +2199,9 @@ pub static LOCAL_NOGOOD: std::sync::atomic::AtomicBool = std::sync::atomic::Atom
 pub static UPDATE_ORDER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--explain`: guard the update-order clauses with selectors (an UNSAT core names them).
 pub static EXPLAIN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--period2`: four traces (two cycles) share the placement; the rest state may alternate between
+/// cycles (the judge accepts a periodic rest: copper bulbs toggled once per cycle).
+pub static PERIOD2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--retime` (ideal plans): a timing CEGAR. Touching events of different clusters keep only their
 /// ORDER (ties allowed, no safe gap); each candidate's timing is checked by replaying the ideal plan
 /// with every input moved with its piston's cluster (redsim, 4 positions, 2 cycles): a timing that
@@ -2296,8 +2301,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     }
     // the time warp: SAT tick k plays recorded tick tau (k <= 0: tau 0); a static recorded tick
     // may be replayed (a stall) and static ticks may be skipped; motion plays at full speed
-    let mut warp: [Vec<Vec<Vec<(i32, Lit)>>>; 2] = [Vec::new(), Vec::new()];
-    for tr in 0..2 {
+    // --period2: four traces (open, close, open, close) share the placement; trace tr plays the
+    // recording of phase tr % 2 and has its own time warp
+    let nt = if PERIOD2.load(std::sync::atomic::Ordering::Relaxed) { 4 } else { 2 };
+    let mut warp: Vec<Vec<Vec<Vec<(i32, Lit)>>>> = vec![Vec::new(); nt];
+    for tr0 in 0..nt {
+        let tr = tr0 % 2;
         for cl in 0..p.ncl {
             let mut wc: Vec<Vec<(i32, Lit)>> = vec![vec![(0, e.t())]];
             for k in 1..=p.h {
@@ -2331,7 +2340,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     e.add(&[!l]);
                 }
             }
-            warp[tr].push(wc);
+            warp[tr0].push(wc);
         }
     }
     // cluster timings keep the recorded ORDER of events across clusters: when cluster Y starts its
@@ -2340,7 +2349,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     // min(3, gap) ticks earlier (its motion has completed); ties of the recording stay free
     if p.ncl > 2 {
         let mut ge_cache: HashMap<(usize, usize, i32, i32), Lit> = HashMap::new();
-        let mut ge = |e: &mut Enc, warp: &[Vec<Vec<Vec<(i32, Lit)>>>; 2], tr: usize, cl: usize, k: i32, t: i32| -> Lit {
+        let mut ge = |e: &mut Enc, warp: &Vec<Vec<Vec<Vec<(i32, Lit)>>>>, tr: usize, cl: usize, k: i32, t: i32| -> Lit {
             if k <= 0 {
                 return e.konst(t <= 0);
             }
@@ -2352,7 +2361,8 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             ge_cache.insert((tr, cl, k, t), l);
             l
         };
-        for tr in 0..2 {
+        for tr0 in 0..nt {
+            let tr = tr0 % 2;
             let kk = p.rec.phases[tr].k();
             let motion: Vec<Vec<i32>> = (0..p.ncl).map(|cl| (1..=kk).filter(|t| !p.static_tick_c(tr, *t, cl)).collect()).collect();
             // event starts: a motion tick whose previous tick was static
@@ -2388,10 +2398,10 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         // --retime: only the order is kept (ties allowed); the gap is checked by
                         // replaying the retimed ideal plan (a timing nogood when it breaks)
                         let d = if RETIME.load(std::sync::atomic::Ordering::Relaxed) { 0 } else { dmin };
-                        pairs.push((tr, x, a, y, b, dmin));
+                        pairs.push((tr0, x, a, y, b, dmin));
                         for k in 1..=p.h {
-                            let gy = ge(&mut e, &warp, tr, y, k, b);
-                            let gx = ge(&mut e, &warp, tr, x, k - d, a);
+                            let gy = ge(&mut e, &warp, tr0, y, k, b);
+                            let gx = ge(&mut e, &warp, tr0, x, k - d, a);
                             e.add(&[!gy, gx]);
                         }
                     }
@@ -2406,6 +2416,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         preds: HashMap::new(),
         lever,
         warp,
+        nt,
         out: HashMap::new(),
         sched: HashMap::new(),
         sched_e: HashMap::new(),
@@ -2498,7 +2509,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     }
     m.e.guard.clear();
     // ---- allocate the dynamic variables
-    for tr in 0..2 {
+    for tr in 0..nt {
         for k in -1..=h {
             for c in p.free.clone() {
                 if p.can(c, |kk| kk.has_out()) {
@@ -2553,7 +2564,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         }
     }
     // ---- per trace, per tick
-    for tr in 0..2 {
+    for tr in 0..nt {
         for k in -1..=h {
             for c in p.free.clone() {
                 let ks = p.kinds[&c].clone();
@@ -2924,7 +2935,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         let ks: Vec<i32> = std::iter::once(-1).chain(1..=h).collect();
         for &k in &ks {
             for &c in &mech {
-                let opts = p.frame_opts(tr, c);
+                let opts = p.frame_opts(tr % 2, c);
                 for (tau, wl) in m.warp_at_c(tr, k, p.cl(c)) {
                   for (ga, ph) in &opts {
                     let Some(fc) = p.req_facing(ph, tau, c) else { continue };
@@ -3101,7 +3112,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     // a retracted piston that stays retracted while powered (blocked, or QC-armed
                     // without an update) does not care about its power at that tick
                     let blocked = !p.motion && req && p.blocked_dc && k >= 1 && {
-                        let ph = &p.rec.phases[tr];
+                        let ph = &p.rec.phases[tr % 2];
                         let a = ph.frame(tau - 1).get(&c);
                         let b = ph.frame(tau).get(&c);
                         a == b && a.is_some_and(|s| matches!(mk(s), MK::Piston { ext: false, .. }))
@@ -3109,7 +3120,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     // the 2nd tick of a pulse of at most 2 gt (or the tick right after a 1 gt pulse):
                     // a 1 gt and a 2 gt pulse do the same (a push spits, a gap-extension pulls)
                     let pulse_tol = !p.motion && p.blocked_dc && k >= 1 && {
-                        let ph = &p.rec.phases[tr];
+                        let ph = &p.rec.phases[tr % 2];
                         let pw = |j: i32| ph.pow(j).get(&c).copied().unwrap_or(false);
                         let same = |j: i32| ph.frame(j).get(&c) == ph.frame(tau - 1).get(&c) || j >= tau;
                         tau >= 2 && !pw(tau - 2) && pw(tau - 1) && !pw(tau + 1) && same(tau - 2)
@@ -3204,9 +3215,11 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             _ => {}
         }
     }
-    // ---- each trace ends where the other starts
+    // ---- each trace ends where the next starts (period 1: open <-> close; --period2: open1 ->
+    // close1 -> open2 -> close2 -> open1, so a T flip-flop may alternate between cycles)
     for c in p.free.clone() {
-        for (a, b) in [(0usize, 1usize), (1, 0)] {
+        for a in 0..nt {
+            let b = (a + 1) % nt;
             let x = m.out(a, h, c);
             let y = m.out(b, -1, c);
             m.e.eq(x, y);
@@ -3218,8 +3231,8 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     }
     m.e.guard.clear();
     if check_mode {
-        for tr in 0..2 {
-            let kk = p.rec.phases[tr].k();
+        for tr in 0..nt {
+            let kk = p.rec.phases[tr % 2].k();
             for k in 1..=h {
                 let want = k.min(kk);
                 for cl in 0..p.ncl {
