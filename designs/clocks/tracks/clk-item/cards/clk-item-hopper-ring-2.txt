@@ -5,7 +5,7 @@ extend base: 1
 extend blocks: 4 + 2n
 extend family: clk-item-hopper-ring-2
 extend generator: mctas clock item gen loop --m 2 --n {n} --out {out}
-extend n: 1..12
+extend n: 1..40
 extend period: 7 + 7n
 extend rule: lengthen the 2-wide hopper ring by one column (2 hoppers); the two items stay half a ring apart
 port output: 0 1 -1
