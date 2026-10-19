@@ -1,0 +1,8 @@
+fill designs/piston-door-3x3/tracks/q78/e78/e78wsT.txt: 5 region cells (5 free, 0 fixed), base 38 blocks (design 41), k 0..=5, global palette 37 states, gaps allowed
+24 subsets pass the connectivity rule; 79178964 fillings to screen in 57840 work items
+[    60s] 3563454 screened (59320/s), 8141316 pruned, item 8572/57840, 0 pass the 1-position screen, 0 finds
+[   120s] 7608330 screened (63340/s), 13323156 pruned, item 15311/57840, 0 pass the 1-position screen, 0 finds
+[   180s] 11790776 screened (65438/s), 22798012 pruned, item 25292/57840, 0 pass the 1-position screen, 0 finds
+[   240s] 15759092 screened (65601/s), 52979604 pruned, item 50234/57840, 0 pass the 1-position screen, 0 finds
+[   300s] 19925755 screened (66341/s), 58208107 pruned, item 57100/57840, 0 pass the 1-position screen, 0 finds
+done in 306 s: 20227769 screened, 58951195 pruned, 0 passed the screen, 0 finds
