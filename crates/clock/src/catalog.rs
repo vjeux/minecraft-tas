@@ -13,6 +13,8 @@ use std::path::{Path, PathBuf};
 pub const ARCHIVE_DIR: &str = "designs/clocks/archive";
 pub const VERDICTS: &str = "verdicts-v1.tsv";
 pub const CAPTIONS: &str = "captions.tsv";
+/// Designs removed as duplicates of an archived type: kept file, alias file, alias name.
+pub const ALIASES: &str = "aliases.tsv";
 pub const CATALOG: &str = "designs/clocks/CATALOG.md";
 pub const COVERAGE: &str = "designs/clocks/coverage.md";
 /// Hand-edited: `family<TAB>periods<TAB>why` rows (a reason or the census that proves it).
@@ -150,6 +152,73 @@ fn default_caption(text: &str) -> String {
     lines.join(" ")
 }
 
+/// The type key of an archived design, from its file (the current canonical form; rows written by
+/// older versions kept an older key), else the row's.
+pub fn archived_type_key(dir: &Path, r: &Row) -> String {
+    match Clock::load(&dir.join(&r.file)) {
+        Ok(c) => canon::design_type_key(&c.design),
+        Err(_) => r.type_key.clone(),
+    }
+}
+
+/// `clock archive --dedupe`: keep ONE archived design per type (the earliest archived: the first
+/// row of verdicts-v1.tsv), remove the others (design, pictures, verdict and caption rows) and
+/// record them in `aliases.tsv` (kept file, alias file, alias name), which the catalog lists as
+/// "also found as". Returns one line per removed design.
+pub fn dedupe(dir: &Path, img_dir: &Path) -> Result<Vec<String>> {
+    let rows = read_rows(dir)?;
+    let mut kept: BTreeMap<String, Row> = BTreeMap::new();
+    let mut removed: Vec<(Row, Row)> = Vec::new();
+    for r in &rows {
+        let tk = archived_type_key(dir, r);
+        match kept.get(&tk) {
+            Some(k) => removed.push((k.clone(), r.clone())),
+            None => {
+                kept.insert(tk, r.clone());
+            }
+        }
+    }
+    if removed.is_empty() {
+        return Ok(vec!["no duplicate types".into()]);
+    }
+    let gone: BTreeSet<String> = removed.iter().map(|(_, r)| r.file.clone()).collect();
+    let mut lines = Vec::new();
+    let mut aliases = std::fs::read_to_string(dir.join(ALIASES)).unwrap_or_else(|_| "kept\talias_file\talias_name\n".into());
+    for (k, r) in &removed {
+        let name = Clock::load(&dir.join(&r.file)).map(|c| c.name().to_string()).unwrap_or_else(|_| r.file.trim_end_matches(".txt").to_string());
+        aliases.push_str(&format!("{}\t{}\t{name}\n", k.file, r.file));
+        let stem = r.file.trim_end_matches(".txt");
+        for p in [dir.join(&r.file), img_dir.join(format!("{stem}.jpg")), img_dir.join(format!("{stem}.strip.jpg"))] {
+            let _ = std::fs::remove_file(p);
+        }
+        lines.push(format!("REMOVED {} ({name}): same type as {} (kept, archived first)", r.file, k.file));
+    }
+    std::fs::write(dir.join(ALIASES), aliases)?;
+    // rewrite the verdict and caption files without the removed designs
+    let vp = dir.join(VERDICTS);
+    let text = std::fs::read_to_string(&vp)?;
+    let kept_lines: Vec<&str> = text.lines().filter(|l| l.split('\t').nth(1).is_none_or(|f| !gone.contains(f))).collect();
+    std::fs::write(&vp, kept_lines.join("\n") + "\n")?;
+    let cp = dir.join(CAPTIONS);
+    if let Ok(text) = std::fs::read_to_string(&cp) {
+        let kept_lines: Vec<&str> = text.lines().filter(|l| l.split('\t').next().is_none_or(|f| !gone.contains(f))).collect();
+        std::fs::write(&cp, kept_lines.join("\n") + "\n")?;
+    }
+    Ok(lines)
+}
+
+/// Alias rows written by [`dedupe`]: kept file -> (alias file, alias name).
+pub fn read_aliases(dir: &Path) -> BTreeMap<String, Vec<String>> {
+    let mut m: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for l in std::fs::read_to_string(dir.join(ALIASES)).unwrap_or_default().lines().skip(1) {
+        let f: Vec<&str> = l.split('\t').collect();
+        if f.len() >= 3 {
+            m.entry(f[0].to_string()).or_default().push(f[2].to_string());
+        }
+    }
+    m
+}
+
 /// Result of [`archive`].
 pub struct Archived {
     pub file: PathBuf,
@@ -168,6 +237,11 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     let rows = read_rows(dir)?;
     if let Some(r) = rows.iter().find(|r| r.hash == hash) {
         return Ok(Archived { file: dir.join(&r.file), summary: r.summary.clone(), new: false });
+    }
+    // one archived design per TYPE (the structure up to translation, rotation and mirror image)
+    let tk = canon::design_type_key(&c.design);
+    if let Some(r) = rows.iter().find(|r| archived_type_key(dir, r) == tk) {
+        return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it): not archived", r.file), new: false });
     }
     let rep = verify_in_pool(pool, &c, o)?;
     if rep.verdict != Verdict::Clock {
@@ -188,7 +262,6 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     std::fs::write(dir.join(&file), format!("{header}{text}"))?;
     let [w, h, d] = base.dims;
     let (on, edges, pulses) = base.output.as_ref().map(|o| (o.wave.on, o.wave.edges, format!("{:?}", o.wave.widths))).unwrap_or_default();
-    let tk = canon::type_key(c.design.blocks.iter());
     let row = Row {
         hash,
         file: file.clone(),
@@ -203,7 +276,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         volume: (w * h * d) as i64,
         robustness: rep.robustness.clone(),
         start: c.start_label(),
-        chiral: canon::mirror_type_key(c.design.blocks.iter()) != tk,
+        chiral: canon::chiral(c.design.blocks.iter()),
         type_key: tk,
         summary: summary.clone(),
     };
@@ -247,13 +320,24 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file)).cloned().collect();
     // one instance per type: the smallest (blocks, volume, then file name)
     let mut by_type: BTreeMap<(u32, String), Row> = BTreeMap::new();
+    // each archived design's type (recomputed from its file: rotations and mirror images are one
+    // type) and the names of the other designs of that type (aliases, also those removed by
+    // `clock archive --dedupe`)
+    let type_of: BTreeMap<String, String> = rows.iter().map(|r| (r.file.clone(), archived_type_key(dir, r))).collect();
+    let removed_aliases = read_aliases(dir);
     for r in &rows {
-        let k = (r.period, r.type_key.clone());
+        let k = (r.period, type_of[&r.file].clone());
         let better = by_type.get(&k).is_none_or(|b| (r.blocks, r.volume, &r.file) < (b.blocks, b.volume, &b.file));
         if better {
             by_type.insert(k, r.clone());
         }
     }
+    let aliases_of = |r: &Row| -> Vec<String> {
+        let tk = &type_of[&r.file];
+        let mut v: Vec<String> = rows.iter().filter(|o| o.file != r.file && &type_of[&o.file] == tk).map(|o| o.file.trim_end_matches(".txt").to_string()).collect();
+        v.extend(removed_aliases.get(&r.file).cloned().unwrap_or_default());
+        v
+    };
     let periods: BTreeSet<u32> = rows.iter().map(|r| r.period).collect();
     let mut fam_count: BTreeMap<String, usize> = BTreeMap::new();
     for r in by_type.values() {
@@ -322,14 +406,16 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     };
     md.push_str("\n## Gallery\n\nEvery archived clock in the real game (`mctas clock shot`: the most active moment of a period), by period; click a picture for its design.\n");
     for p in &periods {
-        let mut rs: Vec<&Row> = rows.iter().filter(|r| r.period == *p).collect();
+        let mut rs: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).collect();
         rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
         let cells: Vec<String> = rs
             .iter()
             .filter_map(|r| {
                 let stem = r.file.trim_end_matches(".txt");
+                let al = aliases_of(r);
+                let also = if al.is_empty() { String::new() } else { format!("; also found as {}", al.join(", ")) };
                 img_dir.join(format!("{stem}.jpg")).exists().then(|| {
-                    format!("<a href=\"archive/{}\"><img src=\"img/{stem}.jpg\" width=\"260\" title=\"P {} gt, {}, {} blocks, {}\"></a>", r.file, r.period, r.family, r.blocks, r.dims)
+                    format!("<a href=\"archive/{}\"><img src=\"img/{stem}.jpg\" width=\"260\" title=\"P {} gt, {}, {} blocks, {}{also}\"></a>", r.file, r.period, r.family, r.blocks, r.dims)
                 })
             })
             .collect();
@@ -368,7 +454,11 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
                 r.file.trim_end_matches(".txt"),
                 r.file,
                 strip(&r.file),
-                caps.get(&r.file).cloned().unwrap_or_default().replace('|', "/")
+                {
+                    let al = aliases_of(r);
+                    let cap = caps.get(&r.file).cloned().unwrap_or_default().replace('|', "/");
+                    if al.is_empty() { cap } else { format!("{cap} (also found as {})", al.join(", ")) }
+                }
             ));
         }
     }

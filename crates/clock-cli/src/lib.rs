@@ -69,6 +69,10 @@ pub enum ClockCmd {
         /// One line: how it works (default: the design's first comment block).
         #[arg(long)]
         caption: Option<String>,
+        /// Keep ONE archived design per type (the earliest archived), remove the others (design,
+        /// pictures, rows) and record them in aliases.tsv; no judging.
+        #[arg(long)]
+        dedupe: bool,
         #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
         dir: PathBuf,
         #[arg(long, default_value_t = 8)]
@@ -135,6 +139,19 @@ pub enum ClockCmd {
         #[arg(long)]
         redo: bool,
     },
+    /// (videos: the real client) For each period, every given clock's labeled video (each filmed
+    /// alone, >= 2 periods; clips already filmed are reused) after a title card, concatenated into
+    /// <out-dir>/montage-p<P>.mp4 (the per-clock videos stay in <out-dir>/clips/).
+    Montage {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        out_dir: PathBuf,
+        /// Only these periods (comma list).
+        #[arg(long, value_delimiter = ',')]
+        periods: Vec<u32>,
+        #[arg(long, default_value_t = 6.0)]
+        min_secs: f64,
+    },
     /// (COORDINATOR ONLY: the X displays are shared) The clock running in the real client, a
     /// still camera framing its swept box, >= 2 periods (and >= --min-secs of footage) after its
     /// warmup, with a corner label (period; family, blocks, box; duty, start; name) and an optional
@@ -157,6 +174,14 @@ pub enum ClockCmd {
         relabel: bool,
         #[arg(long)]
         dry_run: bool,
+    },
+    /// Merge census runs (their parts/ and params.txt) into one report: per (period, family) the
+    /// fewest blocks among MINIMAL clocks, its box and census, the minimal type count; the periods
+    /// never found below the largest. Writes Markdown to --out (default: stdout).
+    CensusReport {
+        dirs: Vec<PathBuf>,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Write designs/clocks/CATALOG.md (per period: the distinct types, families and the smallest
     /// of each; the period x family coverage matrix; the impossibility table from
@@ -242,7 +267,14 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        ClockCmd::Archive { designs, caption, dir, positions, horizon, margin, workers } => {
+        ClockCmd::Archive { designs, caption, dedupe, dir, positions, horizon, margin, workers } => {
+            if dedupe {
+                let img = dir.parent().map(|p| p.join("img")).unwrap_or_else(|| PathBuf::from(clock::shot::IMG_DIR));
+                for l in clock::catalog::dedupe(&dir, &img)? {
+                    println!("{l}");
+                }
+                return Ok(());
+            }
             if designs.is_empty() {
                 bail!("clock archive <design>...");
             }
@@ -252,6 +284,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             for path in &designs {
                 match clock::catalog::archive(&pool, path, &o, &dir, caption.as_deref()) {
                     Ok(a) if a.new => println!("ARCHIVED {}: {}", a.file.display(), a.summary),
+                    Ok(a) if a.summary.starts_with("same type") => println!("SAME TYPE {}: {}", path.display(), a.summary),
                     Ok(a) => println!("ALREADY {}: {}", a.file.display(), a.summary),
                     Err(e) => {
                         failed += 1;
@@ -274,6 +307,18 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("{l}");
             }
         }
+        ClockCmd::Montage { designs, out_dir, periods, min_secs } => {
+            let mut items = Vec::new();
+            for p in &designs {
+                let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                items.push((stem, Clock::load(p)?));
+            }
+            let o = clock::video::ClockVideoOptions { min_secs, ..Default::default() };
+            let ps = (!periods.is_empty()).then_some(periods.as_slice());
+            for l in clock::video::montage(version, &items, &out_dir, ps, &o)? {
+                println!("{l}");
+            }
+        }
         ClockCmd::Video { design, out, periods, min_secs, tps, card, relabel, dry_run } => {
             let c = Clock::load(&design)?;
             let o = clock::video::ClockVideoOptions { periods, min_secs, tps, card, relabel, dry_run, ..Default::default() };
@@ -290,6 +335,16 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 p.ticks as f64 / p.tps,
                 if dry_run { format!("; label: {}", out.with_extension("label.png").display()) } else { String::new() }
             );
+        }
+        ClockCmd::CensusReport { dirs, out } => {
+            let md = clock::census::report(&dirs)?;
+            match out {
+                Some(p) => {
+                    std::fs::write(&p, &md)?;
+                    println!("{}", p.display());
+                }
+                None => print!("{md}"),
+            }
         }
         ClockCmd::Catalog { dir, out, coverage } => {
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
