@@ -33,18 +33,18 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub const MAXC: usize = 144;
-const AIR: u8 = 0;
-const DOOR: u8 = 1;
-const STONE: u8 = 2;
-const OBS: u8 = 3;
+pub const AIR: u8 = 0;
+pub const DOOR: u8 = 1;
+pub const STONE: u8 = 2;
+pub const OBS: u8 = 3;
 /// A redstone block (strip track): pushable, powers the pistons beside it (not through their front).
-const RB: u8 = 4;
-const BODY: u8 = 16;
-const HEAD: u8 = 48;
+pub const RB: u8 = 4;
+pub const BODY: u8 = 16;
+pub const HEAD: u8 = 48;
 /// East, west, up, down (mechsynth's D indices 0..3).
-const F: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-const FNAME: [&str; 4] = ["E", "W", "U", "D"];
-const MAX_PUSH: usize = 12;
+pub const F: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+pub const FNAME: [&str; 4] = ["E", "W", "U", "D"];
+pub const MAX_PUSH: usize = 12;
 
 fn opp(f: u8) -> u8 {
     f ^ 1
@@ -93,7 +93,7 @@ impl Pc {
             _ => vec![(self.x, self.y)],
         }
     }
-    fn mirror(&self) -> Pc {
+    pub fn mirror(&self) -> Pc {
         let k = match self.k {
             K::Piston { sticky, f, ext } => K::Piston { sticky, f: if f < 2 { opp(f) } else { f }, ext },
             k => k,
@@ -115,13 +115,13 @@ impl Bx {
     pub fn has(&self, x: i8, y: i8) -> bool {
         x >= self.x0 && x < self.x0 + self.w && y >= self.y0 && y < self.y0 + self.h
     }
-    fn idx(&self, x: i8, y: i8) -> usize {
+    pub fn idx(&self, x: i8, y: i8) -> usize {
         ((y - self.y0) as usize) * (self.w as usize) + (x - self.x0) as usize
     }
-    fn xy(&self, i: usize) -> (i8, i8) {
+    pub fn xy(&self, i: usize) -> (i8, i8) {
         (self.x0 + (i % self.w as usize) as i8, self.y0 + (i / self.w as usize) as i8)
     }
-    fn n(&self) -> usize {
+    pub fn n(&self) -> usize {
         (self.w as usize) * (self.h as usize)
     }
 }
@@ -265,7 +265,7 @@ impl Mech {
         Some((m, st))
     }
 
-    fn step(&self, i: usize, f: u8) -> Option<usize> {
+    pub fn step(&self, i: usize, f: u8) -> Option<usize> {
         let (x, y) = self.bx.xy(i);
         let (dx, dy) = F[f as usize];
         let (nx, ny) = (x + dx, y + dy);
@@ -696,7 +696,7 @@ pub fn ring() -> Vec<(i8, i8)> {
     v
 }
 
-fn outward(x: i8, y: i8) -> (i8, i8) {
+pub fn outward(x: i8, y: i8) -> (i8, i8) {
     if x == -1 {
         (-2, y)
     } else if x == 3 {
@@ -2192,7 +2192,7 @@ pub fn parse_boxes(s: &str) -> Result<Vec<(i8, i8)>> {
 }
 
 /// Every door offset of a W x H box (door coordinates of the box).
-fn offsets(w: i8, h: i8) -> Vec<Bx> {
+pub fn offsets(w: i8, h: i8) -> Vec<Bx> {
     let mut v = Vec::new();
     for dx in 0..=(w - 3) {
         for dy in 0..=(h - 3) {
