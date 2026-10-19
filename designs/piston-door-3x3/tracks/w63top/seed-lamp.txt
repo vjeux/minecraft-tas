@@ -1,0 +1,42 @@
+name: w63t-seed-lamp
+# w63top seed for cosearch: w63-014-bottom + obsidian (-1,3) + A's driver (2,4) observer facing
+# east watching a LAMP at (3,4) (it merges pulse bursts: one on edge, one off edge), the lamp fed
+# through a stone at (3,5) by (2,5) = observer facing west watching B. Lever on (4,6)'s top.
+port door: 0 0 0
+port lever: 4 7 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  U minecraft:observer[facing=up,powered=false]
+  W minecraft:observer[facing=west,powered=false]
+  E minecraft:observer[facing=east,powered=false]
+  I minecraft:stone
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  D minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  O minecraft:obsidian
+  L minecraft:redstone_lamp[lit=false]
+  V minecraft:lever[face=floor,facing=north,powered=false]
+layer -2:
+  INWAAII
+layer -1:
+  U....DI
+layer 0:
+  s.CCC.U
+layer 1:
+  s.CCC.B
+layer 2:
+  ..CCC.B
+layer 3:
+  .O...B
+layer 4:
+  ..SSEL
+layer 5:
+  ...SWI
+layer 6:
+  ......U
+layer 7:
+  ......V

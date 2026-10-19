@@ -1,0 +1,45 @@
+# v4: the dust (3,6) pulsed 3 times (d, d+6, d+12) by a redstone block at (3,7); everything on the
+# right real (lamp chain for A, column for P_T + the right stack); B, U, the left triple ideal.
+design designs/piston-door-3x3/tracks/w63top/w63t-4.txt
+let d = 10
+let b1 = 30
+let b2 = 38
+let u = 50
+let t0 = 60
+let g = 6
+open d set 3 7 0 minecraft:redstone_block
+open d+2 clear 3 7 0
+open d+6 set 3 7 0 minecraft:redstone_block
+open d+8 clear 3 7 0
+open d+12 set 3 7 0 minecraft:redstone_block
+open d+14 clear 3 7 0
+open b1 set 1 5 -1 minecraft:redstone_block
+open b1+2 clear 1 5 -1
+open b2 set 1 5 -1 minecraft:redstone_block
+open b2+2 clear 1 5 -1
+open u set 0 4 1 minecraft:redstone_block
+open u+2 clear 0 4 1
+open t0 set -2 1 1 minecraft:redstone_block
+open t0+2 clear -2 1 1
+open t0+g set -2 1 1 minecraft:redstone_block
+open t0+g+2 clear -2 1 1
+open t0+g+g set -2 1 1 minecraft:redstone_block
+open t0+g+g+2 clear -2 1 1
+close d set 3 7 0 minecraft:redstone_block
+close d+2 clear 3 7 0
+close d+6 set 3 7 0 minecraft:redstone_block
+close d+8 clear 3 7 0
+close d+12 set 3 7 0 minecraft:redstone_block
+close d+14 clear 3 7 0
+close b1 set 1 5 -1 minecraft:redstone_block
+close b1+2 clear 1 5 -1
+close b2 set 1 5 -1 minecraft:redstone_block
+close b2+2 clear 1 5 -1
+close u set 0 4 1 minecraft:redstone_block
+close u+2 clear 0 4 1
+close t0 set -2 1 1 minecraft:redstone_block
+close t0+2 clear -2 1 1
+close t0+g set -2 1 1 minecraft:redstone_block
+close t0+g+2 clear -2 1 1
+close t0+g+g set -2 1 1 minecraft:redstone_block
+close t0+g+g+2 clear -2 1 1
