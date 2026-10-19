@@ -137,11 +137,17 @@ observer pulse (a repeater stretches a 2 gt pulse to at most 8 gt and never leng
 
 ## Next ideas
 
-* P3 needs ONE more 2 gt stage on the left (a power edge at t8..t10 into (-2,3) or (-1,4)); the
-  7x9 column has 3 cells and L1/L2 + the t6 chain fill them. A 7x9 needs either a second source
-  for L1/L2 (so the column can chain three hops into a conductor at (-2,3) for P3), or P3 armed
-  silently through (-1,4) by a 4 gt source (two observers on one conductor at (-2,4)), or a lamp
-  watched by an observer that outputs into (-2,3).
+* P3 needs ONE more 2 gt stage on the left (a power edge at t8..t10 into (-2,3) or (-1,4)). Even
+  with L1/L2 fed elsewhere the column cannot chain it: (-2,3) is powered only by an observer at
+  (-2,4) facing up, which can only watch (-2,5), which can only watch W (fires t4) or PN (t4 and
+  t8): P3 gets t6, or t6 and t10. (-1,4) is powered only through a conductor at (-2,4), fed by
+  (-2,5) facing up (t4) or by (-2,3) facing down watching L2. The one route left in a 7x9: L2
+  moving at t4 from a source outside the column, watched by (-2,3) facing down -> conductor (-2,4)
+  -> P3 armed t6..8 through (-1,4) and extended by L2's own move at t6 (open retracts at t9 on its
+  head finishing at t8); close then needs its second arm (t10..12) to push the block back. Tested
+  with L1/L2 ideal at every tick 0..14 on both edges and (-2,4) = stone / note block / lamp / target
+  / dust, (-2,5) = air / observer / glass: 0 of 3375 work.
+  Otherwise P3 armed silently by a 4 gt source, or a lamp watched by an observer into (-2,3).
 * An 8x8/7x10 version has room: one more column at x=-3 holds the third hop.
 * DE could start 1 tick after PN (b >= e1 - 1 allows DE at ideal 10): then P3's retraction on PN's
   head update at t10 comes first; DE would need its update from a block-entity-phase event.
