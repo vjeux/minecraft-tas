@@ -1,0 +1,44 @@
+name: cosearch-partial-0-43of79
+port door: 0 0 0
+port lever: -3 4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:glass
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:target[power=0]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=up,powered=false]
+  p minecraft:piston[extended=false,facing=east]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  .o.AAsF
+layer -2:
+  .R.GFFIP
+layer -1:
+  .GNCOWTN
+layer 0:
+  .srIIIp
+layer 1:
+  .s.IIITH
+layer 2:
+  .s.IIIDH
+layer 3:
+  .oFS..Hr
+layer 4:
+  LA.ASAFs
+layer 5:
+  .EABST.D

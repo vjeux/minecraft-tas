@@ -126,9 +126,16 @@ impl Sat {
     /// A solver with one of CaDiCaL's preset configurations (`sat` for find mode, `unsat` for
     /// proofs).
     pub fn with_config(mode: FlagMode, cfg: Option<rustsat_cadical::Config>) -> Sat {
+        Self::with_config_seed(mode, cfg, None)
+    }
+    /// ... and a CaDiCaL `seed` (a portfolio of seeds for heavy-tailed instances).
+    pub fn with_config_seed(mode: FlagMode, cfg: Option<rustsat_cadical::Config>, seed: Option<i32>) -> Sat {
         let mut solver = rustsat_cadical::CaDiCaL::default();
         if let Some(c) = cfg {
             let _ = solver.set_configuration(c);
+        }
+        if let Some(n) = seed {
+            let _ = solver.set_option("seed", n);
         }
         let mut s = Sat { s: solver, n: 1, tru: Lit::positive(0), cache: HashMap::new(), bigcache: HashMap::new(), xcache: HashMap::new(), clauses: 0, mode, flags: Vec::new(), reqs: 0 };
         let t = s.tru;

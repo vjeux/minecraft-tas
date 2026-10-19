@@ -1,0 +1,61 @@
+7x8-t1-005 in 7x8 x -2..4 y -2..5: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+25 free cells, 4 regions [5, 7, 8, 5], 3 hops
+    5 111#222
+    4 111#222
+    3 1###h22
+    2 ##ooo##
+    1 #.ooo.#
+    0 0hoooh3
+   -1 00###33
+   -2 00###33
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+  lever K1: no open state reachable (regions ever awake 0b1111; pistons never fed from an awake region: Sup@(1,-2))
+  lever K2: no open state reachable (regions ever awake 0b1111; pistons never fed from an awake region: Sup@(1,-2))
+  lever K3: no open state reachable (regions ever awake 0b1000; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sup+@(0,-2) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,2))
+  NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-t1-006 in 7x8 x -2..4 y -2..5: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+25 free cells, 4 regions [5, 7, 8, 5], 3 hops
+    5 111#222
+    4 111#222
+    3 1###h22
+    2 ##ooo##
+    1 #.ooo.#
+    0 0hoooh3
+   -1 00###33
+   -2 00###33
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+  lever K1: no open state reachable (regions ever awake 0b1111; pistons never fed from an awake region: Sup@(1,-2))
+  lever K2: no open state reachable (regions ever awake 0b1111; pistons never fed from an awake region: Sup@(1,-2))
+  lever K3: no open state reachable (regions ever awake 0b1000; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sup+@(0,-2) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,2))
+  NOT wirable: lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Sup@(2,-2) Swest@(4,1) Swest@(4,2))
+7x8-t1-007 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,0) Swest@(4,1) Swest@(4,2))
+25 free cells, 4 regions [5, 7, 5, 8], 3 hops
+    5 111#333
+    4 111#333
+    3 1###h33
+    2 ##ooo##
+    1 #.ooo.#
+    0 0hooo##
+   -1 00##h22
+   -2 00##222
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,0) Swest@(4,1) Swest@(4,2))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b100; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast@(-1,3) Sup+@(0,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,1) Swest@(4,2))
+  lever K3: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: none)
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,0) Swest@(4,1) Swest@(4,2))
+7x8-t1-008 in 7x8 x -2..4 y -2..5: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,0) Swest@(4,1) Swest@(4,2))
+25 free cells, 4 regions [5, 7, 5, 8], 3 hops
+    5 111#333
+    4 111#333
+    3 1###h33
+    2 ##ooo##
+    1 #.ooo.#
+    0 0hooo##
+   -1 00##h22
+   -2 00##222
+  lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,0) Swest@(4,1) Swest@(4,2))
+  lever K1: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: none)
+  lever K2: no open state reachable (regions ever awake 0b100; pistons never fed from an awake region: Seast@(-2,1) Seast@(-2,2) Seast+@(-1,3) Sup+@(0,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,1) Swest@(4,2))
+  lever K3: no open state reachable (cap hit) (regions ever awake 0b1111; pistons never fed from an awake region: none)
+  UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Seast@(-2,2) Seast+@(-1,3) Sup@(1,-2) Sdown@(1,4) Sdown@(1,5) Swest@(4,0) Swest@(4,1) Swest@(4,2))
+4 placements checked, 0 wirable (connectivity + order): 

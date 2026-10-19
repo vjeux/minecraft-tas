@@ -1,4 +1,5 @@
 mod bench;
+mod door;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -37,7 +38,7 @@ enum Cmd {
     /// 3x3 piston door project.
     Door {
         #[command(subcommand)]
-        command: piston_door::cli::DoorCmd,
+        command: door::DoorCmd,
     },
 }
 
@@ -112,7 +113,7 @@ fn main() -> Result<()> {
         Cmd::Src { command } => src(&cli.version, command)?,
         Cmd::Sim { command } => sim(&cli.version, command)?,
         Cmd::Bench(args) => bench::run(&cli.version, args)?,
-        Cmd::Door { command } => piston_door::cli::run(&cli.version, command)?,
+        Cmd::Door { command } => door::run(&cli.version, command)?,
     }
     Ok(())
 }

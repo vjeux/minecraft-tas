@@ -1,0 +1,2 @@
+set -1 0 -1 minecraft:lever[face=wall,facing=north]
+port lever -1 0 -1

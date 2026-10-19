@@ -1,0 +1,39 @@
+ideal reference designs/piston-door-3x3/tracks/cosearch2/seeds/p131X-brbl.ideal: 38 piston events per cycle
+assist designs/piston-door-3x3/tracks/cosearch2/seeds/p131X-brbl.ideal: 7 input cells off the plane ([(1, 4), (-1, 3), (-2, 2), (1, 5), (1, 3), (2, 4), (4, 1)]), 12 / 12 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/cosearch2/seeds/f131X-ff.txt: 31 blocks in the box, screen 79/79
+18 piston cells locked, 17 cells free
+box x -2..4, y -2..5 (7x8 = 56), 17 free cells, palette 56 states, 44 threads, 1800 s
+[  120s] 10427848 screens (86881/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=128737 assist=9926 lever=874 update-piston=1; best 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(44b) 79/79+38ev-5as+0.50dr(45b) 79/79+38ev-5as+0.30dr(43b) 79/79+38ev-5as+0.30dr(44b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[  240s] 21487275 screens (89512/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=261764 assist=19714 lever=1737 update-piston=1; best 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(44b) 79/79+38ev-5as+0.50dr(44b) 79/79+38ev-5as+0.50dr(44b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[  360s] 32527134 screens (90335/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=390352 assist=29202 lever=2562 update-piston=2; best 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(44b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[  480s] 43595507 screens (90806/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=515059 assist=35566 lever=3323 update-piston=2; best 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[  600s] 54753703 screens (91238/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=648880 assist=44846 lever=4180 update-piston=2; best 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[  720s] 65914736 screens (91530/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=782916 assist=55083 lever=5090 update-piston=4; best 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[  840s] 77062650 screens (91724/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=914684 assist=64767 lever=5938 update-piston=4; best 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[  960s] 88189432 screens (91846/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1043487 assist=73593 lever=6714 update-piston=4; best 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[ 1080s] 99275223 screens (91904/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1171772 assist=80149 lever=7574 update-piston=5; best 79/79+38ev-5as+1.00dr(44b) 79/79+38ev-5as+1.00dr(45b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-6as+1.00dr(45b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[ 1200s] 110389271 screens (91974/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1306051 assist=90226 lever=8453 update-piston=7; best 79/79+38ev-5as+1.00dr(44b) 79/79+38ev-5as+1.00dr(45b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-6as+1.00dr(45b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[ 1320s] 121542724 screens (92061/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1438186 assist=99883 lever=9329 update-piston=8; best 79/79+38ev-5as+1.00dr(44b) 79/79+38ev-5as+1.00dr(45b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-6as+1.00dr(45b) 79/79+38ev-5as+0.50dr(43b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[ 1440s] 132698878 screens (92135/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1569476 assist=109136 lever=10215 update-piston=8; best 79/79+38ev-5as+1.00dr(44b) 79/79+38ev-5as+1.00dr(45b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-6as+1.00dr(45b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[ 1560s] 143452450 screens (91940/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1693948 assist=117007 lever=10982 update-piston=9; best 79/79+38ev-5as+1.00dr(44b) 79/79+38ev-5as+1.00dr(45b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-6as+1.00dr(45b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[ 1680s] 153240849 screens (91198/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1811451 assist=125454 lever=11747 update-piston=10; best 79/79+38ev-5as+1.00dr(44b) 79/79+38ev-5as+1.00dr(45b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-6as+1.00dr(45b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+[ 1800s] 162797182 screens (90426/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1922591 assist=132193 lever=12447 update-piston=10; best 79/79+38ev-5as+1.00dr(44b) 79/79+38ev-5as+1.00dr(45b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-5as+0.50dr(42b) 79/79+38ev-6as+1.00dr(45b) 79/79+38ev-5as+0.50dr(43b)
+        best full-points partial: 5 assisted [1,4 -2,2 1,3 2,4 4,1] drive 0.50 (42 blocks)
+best partial 0: 79/79 +38 events, 5 assisted [(1, 4), (-2, 2), (1, 5), (2, 4), (4, 1)] (44 blocks) -> designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-0.txt
+best partial 1: 79/79 +38 events, 5 assisted [(1, 4), (-2, 2), (1, 5), (2, 4), (4, 1)] (45 blocks) -> designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-1.txt
+best partial 2: 79/79 +38 events, 5 assisted [(1, 4), (-2, 2), (1, 3), (2, 4), (4, 1)] (42 blocks) -> designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-2.txt
+162797262 screens in 1800 s; 0 finds

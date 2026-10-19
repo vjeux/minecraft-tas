@@ -155,6 +155,8 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         // support shape = collision shape with the empty context = SHAPE_STABLE: the top plate
         // (14-16 px) and four 2x2 px legs
         Block::Scaffolding { .. } => face == Dir::Up,
+        // SculkSensorBlock.SHAPE = column(16, 0, 8): only the bottom face is full
+        Block::Sculk { .. } => face == Dir::Down,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         _ => false,
     }
@@ -172,7 +174,8 @@ pub fn is_signal_source(w: &World, s: &Block) -> bool {
         | Block::Repeater { .. }
         | Block::Comparator { .. }
         | Block::Observer { .. }
-        | Block::Target { .. } => true,
+        | Block::Target { .. }
+        | Block::Sculk { .. } => true,
         _ => false,
     }
 }
@@ -191,6 +194,7 @@ pub fn get_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         Block::Repeater { .. } | Block::Comparator { .. } => diode::get_signal(w, s, p, d),
         Block::Observer { .. } => observer::get_signal(s, d),
         Block::Target { power } => power as i32,
+        Block::Sculk { .. } => crate::sculk::get_signal(s, d),
         _ => 0,
     }
 }
@@ -203,6 +207,7 @@ pub fn get_direct_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         Block::Lever { .. } | Block::Button { .. } => attached::get_direct_signal(s, d),
         Block::Repeater { .. } | Block::Comparator { .. } => diode::get_signal(w, s, p, d),
         Block::Observer { .. } => observer::get_signal(s, d),
+        Block::Sculk { .. } => crate::sculk::get_direct_signal(s, d),
         _ => 0,
     }
 }
@@ -228,6 +233,7 @@ pub fn has_analog_output(s: &Block) -> bool {
             | Block::EndPortalFrame { .. }
             | Block::Composter { .. }
             | Block::RespawnAnchor { .. }
+            | Block::Sculk { .. }
     )
 }
 
@@ -247,6 +253,7 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
             }
         }
         Block::Composter { level } => level as i32,
+        Block::Sculk { .. } => crate::sculk::analog_output(w, s, p),
         Block::RespawnAnchor { charges } => (charges as f32 / 4.0 * 15.0).floor() as i32,
         Block::Dispenser { .. } | Block::Hopper { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
@@ -308,7 +315,7 @@ pub fn unbreakable(s: &Block) -> bool {
 pub fn has_block_entity(s: &Block) -> bool {
     matches!(
         s,
-        Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. }
+        Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
     )
 }
 
@@ -391,6 +398,8 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
             v
         }
         Block::Skull { .. } => vec![[4, 12, 0, 8, 4, 12]],
+        // SculkSensorBlock.SHAPE = column(16, 0, 8)
+        Block::Sculk { .. } => vec![[0, 16, 0, 8, 0, 16]],
         // WallSkullBlock.SHAPES = rotateHorizontal(boxZ(8, 8, 16)): against the wall behind it
         Block::WallSkull { facing, .. } => vec![match facing {
             Dir::North => [4, 12, 4, 12, 8, 16],
@@ -505,6 +514,7 @@ pub fn on_place(w: &mut World, s: Block, p: BlockPos, old: Block, moved: bool) {
         Block::Composter { .. } => composter::on_place(w, s, p),
         Block::Scaffolding { .. } => scaffolding::schedule(w, p),
         Block::Falling { .. } => crate::gravity::on_place(w, s, p, old, moved), // pistmodel
+        Block::Sculk { .. } => crate::sculk::on_place(w, s, p, old),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::on_place(w, s, p, old, moved),
         _ => {}
     }
@@ -520,6 +530,7 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         Block::Observer { .. } => observer::affect_neighbors_after_removal(w, s, p, moved),
         Block::Rail { .. } => rail::affect_neighbors_after_removal(w, s, p, moved),
         Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } => dispenser::affect_neighbors_after_removal(w, s, p),
+        Block::Sculk { .. } => crate::sculk::affect_neighbors_after_removal(w, s, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }
@@ -545,6 +556,7 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Scaffolding { .. } => scaffolding::tick(w, s, p),
         Block::Composter { .. } => composter::tick(w, s, p),
         Block::Falling { .. } => crate::gravity::tick(w, s, p), // pistmodel
+        Block::Sculk { .. } => crate::sculk::tick(w, s, p),
         // Droppers push one item into a facing container; dispensers with items spawn entities
         // (noted); crafters: crafting from an empty grid changes no block.
         Block::Dispenser { dropper: true, .. } => crate::redstone::container::dropper_dispense(w, p),
