@@ -167,6 +167,30 @@ enum Cmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// The n-th member of an extendable family (EXTEND.md): uloop2t (P 20 + 16n), uloop1t
+    /// (36 + 32n), rect-pulse (32 + 16n), rect-inv (52 + 32n), odd-rect (23 + 8n), fade
+    /// (114 + 56n), div (36 x 2^n), div-fade (114 x 2^n), counter (114 x 14^n, n >= 1).
+    Family {
+        name: String,
+        #[arg(long)]
+        n: u32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Also write the family's `extend` headers (the catalog card's base design).
+        #[arg(long)]
+        card: bool,
+    },
+    /// Remove from the archive every clk-rt clock that is exactly an instance of one of the
+    /// extendable families (same type key and period as the generator's design for some n in the
+    /// family's range): the family card covers it. Dry run unless --apply.
+    PruneMembers {
+        /// Family names (default: all).
+        names: Vec<String>,
+        #[arg(long, default_value = "designs/clocks/archive")]
+        dir: PathBuf,
+        #[arg(long)]
+        apply: bool,
+    },
     /// Even periods from..=to on RECTANGLE rings (ring.rs): a 0-torch pulse ring (one loaded
     /// pulse, repeater delays summing to P / 2) and, for P = 0 mod 4, a 1-torch inverter ring
     /// (torch on a corner block, a dust corner after it, delays summing to P / 4 - 1); the
@@ -263,6 +287,9 @@ enum Cmd {
         corner: String,
         #[arg(long, default_value_t = 2)]
         max_powered: usize,
+        /// At most this many delay cells (repeaters, comparators, torches): fast loops (burnout).
+        #[arg(long)]
+        max_delay_cells: Option<usize>,
         #[arg(long, default_value_t = 20000)]
         horizon: u32,
         #[arg(long, default_value_t = 16)]
@@ -473,6 +500,88 @@ pub fn run(args: Vec<String>) -> Result<()> {
             match out {
                 Some(p) => write_design(&p, &text, &name, "", &cap)?,
                 None => print!("{text}"),
+            }
+        }
+        Cmd::Family { name, n, out, card } => {
+            let (dname, text, cap) = family_member(&name, n)?;
+            let text = if card {
+                let c = family_card(&name)?;
+                let mut d = mctas::design::Design::parse(&text)?;
+                d.meta.insert("extend family".into(), c.id.clone());
+                d.meta.insert("extend period".into(), c.period.to_string());
+                d.meta.insert("extend blocks".into(), c.blocks.to_string());
+                d.meta.insert("extend rule".into(), c.rule.to_string());
+                d.meta.insert("extend n".into(), format!("{}..{}", c.lo, c.hi));
+                d.meta.insert("extend base".into(), n.to_string());
+                d.meta.insert("extend generator".into(), format!("mctas clock rt family {name} --n {{n}} --out {{out}}"));
+                d.to_text()
+            } else {
+                text
+            };
+            let dname = if card { family_card(&name)?.id } else { dname };
+            match out {
+                Some(p) => write_design(&p, &text, &dname, "", &cap)?,
+                None => print!("{text}"),
+            }
+        }
+        Cmd::PruneMembers { names, dir, apply } => {
+            let names: Vec<String> = if names.is_empty() { FAMILIES.iter().map(|s| s.to_string()).collect() } else { names };
+            let vpath = dir.join("verdicts-v1.tsv");
+            let verdicts = std::fs::read_to_string(&vpath)?;
+            // (file, period, type key) of every archived clk-rt clock: the key recomputed from the
+            // archived design like the catalog does (stored keys may predate canon changes)
+            let rows: Vec<(String, u32, String)> = verdicts
+                .lines()
+                .skip(1)
+                .filter_map(|l| {
+                    let f: Vec<&str> = l.split('\t').collect();
+                    if f.len() <= 13 || !f[1].starts_with("clk-rt-") {
+                        return None;
+                    }
+                    let key = match mctas::design::Design::load(&dir.join(f[1])) {
+                        // a family card's base design is the card, not an instance to remove
+                        Ok(d) if d.meta.contains_key("extend family") => return None,
+                        Ok(d) => clock::canon::design_type_key(&d),
+                        Err(_) => f[13].to_string(),
+                    };
+                    Some((f[1].to_string(), f[2].parse().unwrap_or(0), key))
+                })
+                .collect();
+            let mut remove: std::collections::BTreeSet<String> = Default::default();
+            for name in &names {
+                let c = family_card(name)?;
+                let pf = clock::extend::Formula::parse(c.period)?;
+                for n in c.lo..=c.hi {
+                    let (_, text, _) = family_member(name, n)?;
+                    let d = mctas::design::Design::parse(&text)?;
+                    let key = clock::canon::design_type_key(&d);
+                    let p = pf.eval(n as i64) as u32;
+                    for (file, period, k) in &rows {
+                        if *period == p && *k == key {
+                            println!("{}: n = {n} (P{p}) = {file}", c.id);
+                            remove.insert(file.clone());
+                        }
+                    }
+                }
+            }
+            println!("{} archived clk-rt clock(s) are family instances", remove.len());
+            if apply {
+                let keep_line = |l: &str, col: usize| -> bool { l.split('\t').nth(col).is_none_or(|f| !remove.contains(f)) };
+                let v: String = verdicts.lines().filter(|l| keep_line(l, 1)).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&vpath, v)?;
+                let cpath = dir.join("captions.tsv");
+                let caps = std::fs::read_to_string(&cpath)?;
+                let c: String = caps.lines().filter(|l| keep_line(l, 0)).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&cpath, c)?;
+                let apath = dir.join("aliases.tsv");
+                if let Ok(al) = std::fs::read_to_string(&apath) {
+                    let a: String = al.lines().filter(|l| keep_line(l, 0)).map(|l| format!("{l}\n")).collect();
+                    std::fs::write(&apath, a)?;
+                }
+                for f in &remove {
+                    let _ = std::fs::remove_file(dir.join(f));
+                }
+                println!("removed {} design(s) and their verdicts/captions rows", remove.len());
             }
         }
         Cmd::EvenRect { from, to, kind, out_dir } => {
@@ -732,10 +841,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 None => print!("{text}"),
             }
         }
-        Cmd::SweepRing { w, h, straight, corner, max_powered, horizon, threads, out_dir, waves } => {
+        Cmd::SweepRing { w, h, straight, corner, max_powered, max_delay_cells, horizon, threads, out_dir, waves } => {
             let st = parse_row(&straight)?;
             let co = parse_row(&corner)?;
-            let all = ring::assignments(w, h, &st, &co, max_powered);
+            let all = ring::assignments_max(w, h, &st, &co, max_powered, max_delay_cells.unwrap_or(usize::MAX));
             let mut caps: std::collections::HashMap<String, String> = Default::default();
             let cands: Vec<(String, String)> = all
                 .iter()
@@ -1186,6 +1295,128 @@ fn rect_cells(straight: &[Cell], corner_override: &[(usize, Cell)]) -> Option<(i
         cells[i % len] = c;
     }
     Some((w, h, cells))
+}
+
+/// The extendable families (`family <name>`), in card order.
+const FAMILIES: [&str; 9] = ["uloop2t", "uloop1t", "rect-pulse", "rect-inv", "odd-rect", "fade", "div", "div-fade", "counter"];
+
+/// A family's catalog card: id, formulas, rule, judged n range.
+struct Card {
+    id: String,
+    period: &'static str,
+    blocks: &'static str,
+    rule: &'static str,
+    lo: u32,
+    hi: u32,
+}
+
+fn family_card(name: &str) -> Result<Card> {
+    let (period, blocks, rule, lo, hi) = match name {
+        "uloop2t" => ("20 + 16n", "8 + 4n", "add one delay-4 repeater (powered at placement) to each row of the 2-torch U-ring (wall torch on block A -> top row -> block F -> wall torch on F -> bottom row -> A)", 0, 10),
+        "uloop1t" => ("36 + 32n", "9 + 4n", "add one delay-4 repeater (powered at placement) to each row of the 1-torch inverter U-loop (block A + a dust corner -> top row -> block F -> wall torch on F -> bottom row -> A)", 0, 8),
+        "rect-pulse" => ("32 + 16n", "12 + 4n", "lengthen the 3 x (3+n) ring of delay-4 repeaters with corner blocks by one row: one more repeater on each long side (one pulse loaded at placement)", 0, 10),
+        "rect-inv" => ("52 + 32n", "12 + 4n", "lengthen the 3 x (3+n) inverter ring (delay-4 repeaters, corner blocks, a wall torch on one corner block, the next corner dust) by one row: one more repeater on each long side", 0, 8),
+        "odd-rect" => ("23 + 8n", "16 + 4n", "lengthen the 3 x (4+n) ring (delay-4 repeaters, one delay-3, corner blocks) by one row: one more repeater on each long side; two pulses 23 + 8n gt apart, the second started by a temporary torch at an odd tick", 0, 9),
+        "fade" => ("114 + 56n", "18 + 4n", "add one compare-mode comparator to each row of the comparator fading ring (2 + 2 comparators at n = 0, a lossy two-dust turn, a refill torch)", 0, 10),
+        "div" => ("36 * 2^n", "9 + 18n", "append one master-slave T flip-flop stage (18 blocks: 2 latch repeaters, 2 lock repeaters, a target block with a wall torch, dust) to the chain on the P36 torch + repeater loop: the period doubles", 1, 7),
+        "div-fade" => ("114 * 2^n", "18 + 18n", "append one master-slave T flip-flop stage (18 blocks) to the chain on the P114 comparator fading ring: the period doubles", 1, 5),
+        "counter" => ("114 * 14^n", "18 + 26n", "wrap one more counter level around the clock (a lossless 2 + 2 comparator ring with one subtract comparator, its pulse shaper and refill torch: 26 blocks): the period x 14", 1, 3),
+        _ => bail!("family: {}", FAMILIES.join(" | ")),
+    };
+    Ok(Card { id: format!("clk-rt-{name}"), period, blocks, rule, lo, hi })
+}
+
+/// The n-th member of an extendable family: (design name, design text, caption).
+fn family_member(name: &str, n: u32) -> Result<(String, String, String)> {
+    let k = n as usize;
+    let rep4 = |on_first: bool, count: usize| -> Vec<Cell> { (0..count).map(|i| Cell::Rep { d: 4, on: on_first && i == 0 }).collect() };
+    let all4 = |count: usize| -> Vec<Cell> { (0..count).map(|_| Cell::Rep { d: 4, on: true }).collect() };
+    let uloop = |u: ULoop, dname: String, what: &str| -> Result<(String, String, String)> {
+        let b = u.build(&dname)?;
+        Ok((dname, b.design().to_text(), format!("{what}: {}", u.caption())))
+    };
+    match name {
+        "uloop2t" => {
+            let u = ULoop { head: Head::Torch { lit: true }, top: all4(k + 1), bottom: all4(k + 1), tail: Tail::Torch { lit: true } };
+            uloop(u, format!("clk-rt-uloop2t-x{n}"), &format!("EXTENDABLE 2-torch U-ring, n = {n} (P = 20 + 16n)"))
+        }
+        "uloop1t" => {
+            let u = ULoop { head: Head::Corner, top: all4(k + 1), bottom: all4(k + 1), tail: Tail::Torch { lit: true } };
+            uloop(u, format!("clk-rt-uloop1t-x{n}"), &format!("EXTENDABLE 1-torch inverter U-loop, n = {n} (P = 36 + 32n)"))
+        }
+        "fade" => {
+            let row = vec![Cell::Cmp; k + 2];
+            let u = ULoop { head: Head::Dust2, top: row.clone(), bottom: row, tail: Tail::Fade { lit: true } };
+            uloop(u, format!("clk-rt-fade-x{n}"), &format!("EXTENDABLE comparator fading ring, n = {n} (P = 114 + 56n)"))
+        }
+        "rect-pulse" => {
+            let st = rep4(true, 4 + 2 * k);
+            let (w, h, cells) = rect_cells(&st, &[]).ok_or_else(|| anyhow::anyhow!("rect"))?;
+            let dname = format!("clk-rt-rect-pulse-x{n}");
+            let b = ring::build(w, h, &cells, &dname).ok_or_else(|| anyhow::anyhow!("ring"))?;
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE repeater pulse ring, n = {n} (P = 32 + 16n): {}", ring::caption(w, h, &cells))))
+        }
+        "rect-inv" => {
+            let (w, h) = (3i32, 3 + n as i32);
+            let per = ring::perimeter(w, h);
+            let len = per.len();
+            let is_corner = |i: usize| -> bool {
+                let (x, z) = per[i];
+                let a = per[(i + len - 1) % len];
+                let b = per[(i + 1) % len];
+                !((a.0 - x) == -(b.0 - x) && (a.1 - z) == -(b.1 - z))
+            };
+            let ti = (h + 2) as usize;
+            let mut cells = vec![Cell::Block; len];
+            cells[ti] = Cell::Torch { lit: true };
+            cells[(ti + 1) % len] = Cell::Dust;
+            for i in 0..len {
+                if !is_corner(i) && i != ti {
+                    cells[i] = Cell::Rep { d: 4, on: false };
+                }
+            }
+            let dname = format!("clk-rt-rect-inv-x{n}");
+            let b = ring::build(w, h, &cells, &dname).ok_or_else(|| anyhow::anyhow!("ring"))?;
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE 1-torch inverter rectangle ring, n = {n} (P = 52 + 32n): {}", ring::caption(w, h, &cells))))
+        }
+        "div" => {
+            let dname = format!("clk-rt-div-44-x{n}");
+            let b = divider::chain(4, 4, k, &dname).ok_or_else(|| anyhow::anyhow!("stage collides"))?;
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE divider chain, n = {n} stages on a 1-torch U-loop (delays 4/4, P36): P = 36 x 2^n; each stage a master-slave T flip-flop (18 blocks)")))
+        }
+        "div-fade" => {
+            let dname = format!("clk-rt-div-fade2-x{n}");
+            let b = divider::chain_fade(2, k, &dname).ok_or_else(|| anyhow::anyhow!("stage collides"))?;
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE divider chain, n = {n} stages on a comparator fading ring (P114): P = 114 x 2^n; each stage a master-slave T flip-flop (18 blocks)")))
+        }
+        "counter" => {
+            anyhow::ensure!(n >= 1, "counter: n >= 1");
+            let ks = vec![2usize; k];
+            let dname = format!("clk-rt-count-x{n}");
+            let b = counter::build_nested(2, &ks, &dname);
+            Ok((dname, b.design().to_text(), format!("EXTENDABLE comparator counters, n = {n} levels over a fading ring (P114): P = 114 x 14^n; each level a lossless 2 + 2 comparator ring decremented by one level per pulse of the level inside it and refilled by its own torch (26 blocks)")))
+        }
+        "odd-rect" => {
+            // P = 23 + 8n: delays 4 x (5 + 2n) and a 3, two pulses; the kick found by search
+            let p = 23 + 8 * n;
+            let mut ds: Vec<Cell> = (0..5 + 2 * k).map(|i| Cell::Rep { d: 4, on: i == 0 }).collect();
+            ds.push(Cell::Rep { d: 3, on: false });
+            let (w, h, cells) = rect_cells(&ds, &[]).ok_or_else(|| anyhow::anyhow!("rect"))?;
+            let dname = format!("clk-rt-odd-rect-x{n}");
+            let b = ring::build(w, h, &cells, &dname).ok_or_else(|| anyhow::anyhow!("ring"))?;
+            let d = b.design();
+            let kc = kick::kick_cells(&d);
+            let ats: Vec<u32> = (1..=(2 * p + 3)).filter(|a| a % 2 == 1).collect();
+            let best = kick::search(&d, &kc, &[1, 2], &ats, 4 * p + 400, 8)
+                .into_iter()
+                .filter(|r| r.4.period == p)
+                .min_by(|a, b| (a.4.blocks, a.4.volume, a.3, a.2, a.0, &a.1).cmp(&(b.4.blocks, b.4.volume, b.3, b.2, b.0, &b.1)))
+                .ok_or_else(|| anyhow::anyhow!("no odd kick for P{p}"))?;
+            let how = format!("{} at {:?} for {} gt at tick {}", clock::short(&best.1), best.0, best.2, best.3);
+            Ok((dname, best.4.design, format!("EXTENDABLE odd two-pulse ring, n = {n} (P = 23 + 8n): {}; the second pulse started by a {how} (an odd tick)", ring::caption(w, h, &cells))))
+        }
+        _ => bail!("family: uloop2t | uloop1t | fade | rect-pulse | rect-inv | odd-rect | div | div-fade | counter"),
+    }
 }
 
 /// Write a generated design with its name, its `uloop:` spec and a leading comment (the catalog's
