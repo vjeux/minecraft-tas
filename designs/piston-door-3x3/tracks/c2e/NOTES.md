@@ -50,3 +50,33 @@ watching B from (2,5), so TL must fire B too. Inside TL only P_T's motion is obs
 facing down): A and B are watched only from their own feeder cells. So TL must produce the whole interleaved
 train a1 t b1 a2 b2 a3 (>= 13 gt long) from one lever event, with no feedback from A or B, in 7 cells: the
 same K1 wall wire64b (8x8-105) and w63top (7x8-014 in 7x9) hit. Not solved.
+
+## 6. c78 (mechspace's community-7x9 in 7x8): the bottom cannot learn the lever (05:10Z)
+c79's top->bottom link is the observer (4,0) on the level-held SW+(4,1); in c78 BR goes right, so (4,0) is BR's
+puller and the bottom rows (-1/-2) only touch bottom-fed pistons. The one lever reaches two adjacent stack
+pistons at most ((5,1) holds (4,1) + (4,0) by QC, then the top hears nothing). w63top found the same; vjeux
+ruled out QC-armed pistons at rest (05:07Z). Dropped for w63top's u7-m10 (right 2-stack R0/R1, so (4,-1) can
+watch R0).
+
+## 7. u7-m10 bottom (K (-1,-1), U (1,-2), L0 (-2,0)) from the observer (4,-1) on R0 (05:15Z-06:15Z)
+Files: tracks/c2e/m10/. Windows: logs/m10-windows.log, m10a-tied-windows.log, m10b-tied-windows.log.
+- The bottom-left (4 cells: (-2,-1) (-2,-2) (-1,-2) (0,-2)) can only learn anything by watching U from (0,-2).
+  On open, U's first move must come before K. So U must pull BM down FIRST (equivalent to A pushing it),
+  BEFORE A's column push. With c79's timing (A's hold at 2, U's first pulse blocked by A's head) the
+  bottom-left never wakes on open.
+- So the top must change: B's repeater (2,5) d1 -> d4 (B drops at 16 instead of 10) and A's hold starts at 8..9
+  (m10b.txt, m10b-tied.ideal: one symmetric bottom train U 5, K 11, U 15, L0 any on BOTH edges works).
+- Wired for real (m10b-uk.txt + .ideal, WORKS with the top ideal and L0 ideal, L0 at any tick 0..40):
+  - BR: observer (4,-1) on R0 -> LAMP (4,-2) -> observer (3,-2) -> stone (2,-2): U at 5 and at 11 (the lamp's off
+    edge = power end + 4). Obsidian (3,-1) stops K's late push (BM, MM, the frame stone (2,-1)).
+  - BL: observer (0,-2) on U -> observer (-1,-2) -> stone (-2,-2) -> dust (-2,-1) -> K at 9. K must come 4 gt
+    after U: K's retraction has to find BM (pulled down by U, landing at U + 4) already landed. With K at U + 2
+    (a conductor at (-1,-2) right behind (0,-2)) it is one tick early and the open fails.
+- What is left, and why it is hard:
+  - L0 has no feed: its only feeder is (-2,-1) (its QC cell is L1's cell), and K's +4 needs (-2,-1) as dust, which
+    does not power upward. K's other feeder cells, read by an observer, would watch outside the box. So the
+    4-cell bottom-left cannot give both. Ways out: a 1-gt U pulse (then K at U + 2 works: one K pulse, three
+    (0,-2) pulses, so L0 odd, and no obsidian), a 10th bottom cell, or a top-fed L0.
+  - With m10top's B-watcher top (m10d) it breaks on close: their watcher also fires A on close (TM spat to (1,1)),
+    which needs U's second pulse at 16+. The bottom-right cannot delay U past 11 (no floor: no dust/repeaters;
+    a lamp gives power end + 4, an observer + 2).
