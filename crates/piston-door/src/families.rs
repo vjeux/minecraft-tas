@@ -177,6 +177,8 @@ pub static EXT_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUs
 /// first must sit next to an earlier one (8-neighbourhood), as one level holds them all (c79's
 /// MR/TR pullers (4,1)/(4,2); the lever-held top row (0..2,4)).
 pub static EXT_ADJACENT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+/// `--ext-dist`: how near an earlier extended-puller exit each later one must be (Chebyshev).
+pub static EXT_DIST: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
 /// `--bottom-su` (mechspace): exactly one piston in the box's bottom row, sticky facing up.
 pub static BOTTOM_SU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--lift-ext` (audit bound a): a piston extended at rest may be reused lifted / carried (it
@@ -1636,7 +1638,8 @@ impl Gen {
                     if !EXT_PULLERS.load(Ordering::Relaxed) || ext.len() >= EXT_MAX.load(Ordering::Relaxed) {
                         continue;
                     }
-                    if EXT_ADJACENT.load(Ordering::Relaxed) && !ext.is_empty() && !ext.iter().any(|f| (f.0 - a.0).abs() <= 1 && (f.1 - a.1).abs() <= 1) {
+                    let dist = EXT_DIST.load(Ordering::Relaxed) as i8;
+                    if EXT_ADJACENT.load(Ordering::Relaxed) && !ext.is_empty() && !ext.iter().any(|f| (f.0 - a.0).abs() <= dist && (f.1 - a.1).abs() <= dist) {
                         continue;
                     }
                 }
@@ -1853,7 +1856,8 @@ pub fn explain_within(bx: Bx, pmax: usize, two: usize, carry: usize, allow: &Has
             if cells.len() > max {
                 why.push(format!("{} 1-move exits by pullers EXTENDED at rest > --ext-max {max}", cells.len()));
             }
-            // connected in the 8-neighbourhood (the generator adds each next to an earlier one)
+            // connected within --ext-dist (the generator adds each near an earlier one)
+            let dist = EXT_DIST.load(Ordering::Relaxed) as i8;
             let mut seen = vec![false; cells.len()];
             if !cells.is_empty() {
                 seen[0] = true;
@@ -1861,7 +1865,7 @@ pub fn explain_within(bx: Bx, pmax: usize, two: usize, carry: usize, allow: &Has
                 while grew {
                     grew = false;
                     for j in 0..cells.len() {
-                        if !seen[j] && (0..cells.len()).any(|k| seen[k] && (cells[k].0 - cells[j].0).abs() <= 1 && (cells[k].1 - cells[j].1).abs() <= 1) {
+                        if !seen[j] && (0..cells.len()).any(|k| seen[k] && (cells[k].0 - cells[j].0).abs() <= dist && (cells[k].1 - cells[j].1).abs() <= dist) {
                             seen[j] = true;
                             grew = true;
                         }

@@ -78,7 +78,7 @@ track's fixes (and main's d975c15 / 96a62d6). Full output: CHECKS-c79.md.
 Columns (since 2026-10-19, c70b): g1 families v3 `--no-ext-pullers` (the catalog generator before
 then: 1-move exits by RETRACTED pullers only), g2 families v3 (catalog: P <= 10, two 1, lifts,
 pushes; fullmech uses the same generator), g3 mechspace gen default (P <= 11), g4 `--two 7`, g5
-`--two 7 --carry 2 --vmid any`, g6 every flag (P <= 16). Extended-at-rest pullers are every
+`--two 7 --carry 2 --vmid any`, g6 every flag (P <= 16, `--ext-max 12 --ext-apart`). Extended-at-rest pullers are every
 generator's default now (`--no-ext-pullers` turns them off), bounded: at most `--ext-max` (default 3)
 1-move exits by such a puller per mechanism, each next to an earlier one (one level holds them all;
 `--ext-apart` drops that). A lever-held top row (e78, t7b, ring56 layout J) has 3 in a row, c79 2
@@ -91,8 +91,15 @@ the generation runs the 4 center exit directions on 4 threads since this change)
 | `--ext-max 1` | 690k (5.6x) | 26 s | ~5 h |
 | `--ext-max 2` (adjacent) | 845k (6.8x) | 34 s | ~6 h |
 | default (`--ext-max 3`, adjacent) | 870k (7.0x) | 36 s, 1.6 GB | ~6 h (~2 h on 48 threads) |
+| `--ext-dist 2` | 930k (7.5x) | 38 s | ~6.5 h |
+| `--ext-dist 3` (admits the u7-m10 family: m79s, s88i, cosearch-63b-50) | 1.32M (10.7x) | 56 s, 2.5 GB | ~9.5 h |
 | `--ext-max 2 --ext-apart` | 1.75M (14x) | 61 s, 2.3 GB | ~13 h |
 | unbounded and apart | - | > 7 min single-threaded, unfinished | - |
+
+The default bound leaves out one known family: u7-m10 (m79s-sculk-63b-50, m79s-sculk-8x8-64b,
+s88i-50b, cosearch-63b-50-1/-2) releases BR and MR right (SW+(4,0)/(4,1)) and TR up (SD+(2,4)),
+3 cells apart from the right pair: IN with `--ext-dist 3` or `--ext-apart` (g6 drops the bound:
+`--ext-max 12 --ext-apart`).
 
 Membership and audits use the default. Catalog sweeps: `--ext-max 1` when the run time matters
 (the community 7x8's mechanism stays IN; c79 needs 2, a lever-held top 3), else the default (26%
