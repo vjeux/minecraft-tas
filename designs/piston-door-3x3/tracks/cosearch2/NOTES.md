@@ -102,3 +102,23 @@ was missed and the door failed with TL alone pulled); (3) plan-from emits only t
 ticks, and a filling's traces are matched with the seed's remaining wiring taken out tick by tick;
 (4) the screen accepts a lever on at rest (either polarity), finds without the hallway check
 (`--no-hallway`: c79's lever on top of its block fails redsim's hallway check).
+
+## 5. Other wirings of c79 (the coordinator counts them as new doors)
+
+The same region runs with a 25-state palette (stone, dust, observers, note block, repeaters,
+torches, wall torches, lamp, redstone block, droppers): bottom-right k=4 (6M fillings, 43 s / 150
+threads): 12 finds (`c79var/br/pockets-63b-51-*.txt`, all 63b, 51 blocks, redsim judge + FULL +
+hallway + frame 12/12; `door verify` WORKS on the one checked); bottom-left k=5 (46M, 336 s): the
+50-block door again (the only 5-block full filling); top-left k=5 (283M fillings) still running on
+the dedicated box when this was written (`runs/c79var-tl.log`, out dir `c79var/tl` there).
+
+## 6. Next
+
+* Every region of c79 with the full palette and k = region size (other wirings, fewer blocks);
+  regions must include the blocks other regions SENSE (bottom-middle + bottom-left's dropper).
+* The periodic rest rule (main 96a62d6) in the screen; an off-plane lever in the grid; powered
+  rails in the palette.
+* Broad pocket runs on c79-family mechanisms (7x8: mechspace c78-*, w63top u7-m*, seq56 m4/m5,
+  ring56 t8/t10; 7x9 variants; 8x8 refits), seeding regions with c79's patterns; whole-mechanism
+  runs need the lever's pocket to reach every other pocket through the mechanism (ring56 s1 fails
+  this).
