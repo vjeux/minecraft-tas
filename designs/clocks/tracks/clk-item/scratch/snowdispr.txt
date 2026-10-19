@@ -1,0 +1,16 @@
+# Powder snow dispenser clock with a repeater (draft): the observer's pulse goes into a stone, the dust on it feeds a repeater standing on the observer that points into the dispenser.
+name: snowdispr
+port output: 0 0 0
+port start: 0 0 0 minecraft:stone 1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:powder_snow_bucket",count:1}]}
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  D minecraft:dispenser[facing=down,triggered=false]
+  O minecraft:observer[facing=west,powered=false]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  .OS
+layer 1:
+  DRr

@@ -75,15 +75,34 @@ track's fixes (and main's d975c15 / 96a62d6). Full output: CHECKS-c79.md.
 
 ## 2. Mechanism generators
 
-Columns: g1 families v3 (catalog: P <= 10, two 1, lifts, pushes; fullmech uses the same
-generator), g2 mechspace gen default (P <= 11), g3 mechspace `--ext-pullers`, g6 every flag (P <= 16,
-two 7, carry 2, vmid any, ext-pullers). Archive (main dfe893a): 189 designs with a flat mechanism;
-IN under g1 / g2: 95, under g3..g6: 99 (+ c79, c79-ff and the two archived 63b c79 doors); 65 OUT
-under every flag (the mechanisms below + 2 gadget rows).
+Columns (since 2026-10-19, c70b): g1 families v3 `--no-ext-pullers` (the catalog generator before
+then: 1-move exits by RETRACTED pullers only), g2 families v3 (catalog: P <= 10, two 1, lifts,
+pushes; fullmech uses the same generator), g3 mechspace gen default (P <= 11), g4 `--two 7`, g5
+`--two 7 --carry 2 --vmid any`, g6 every flag (P <= 16). Extended-at-rest pullers are every
+generator's default now (`--no-ext-pullers` turns them off), bounded: at most `--ext-max` (default 2)
+1-move exits by such a puller per mechanism, and a second one must sit next to the first (one level
+holds both; `--ext-apart` drops that). c79 needs 2 adjacent ones (its MR/TR pullers (4,1)/(4,2)),
+the community 7x8 1. Cost on 7x8 (P <= 10, two 1; the generation runs the 4 center exit directions
+on 4 threads since this change):
+
+| generator | candidates | generation | the macro solve of every candidate |
+|---|---|---|---|
+| `--no-ext-pullers` (before) | 124k | 4.1 s (9.4 s single-threaded) | ~54 min on 16 threads |
+| `--ext-max 1` | 690k (5.6x) | 26 s | ~5 h |
+| default (`--ext-max 2`, adjacent) | 845k (6.8x) | 32 s, 1.4 GB | ~6 h (~2 h on 48 threads) |
+| `--ext-max 2 --ext-apart` | 1.75M (14x) | 61 s, 2.3 GB | ~13 h |
+| unbounded | - | > 7 min single-threaded, unfinished | - |
+
+Membership and audits use the default. Catalog sweeps: `--ext-max 1` when the run time matters
+(the community 7x8's mechanism stays IN, c79's needs 2), else the default (only 22% more than
+`--ext-max 1`). Before the change (main dfe893a): 189
+archived designs with a flat mechanism; IN under g1 / g2: 95, under g3..g6: 99 (+ c79, c79-ff and
+the two archived 63b c79 doors); 65 OUT under every flag (the mechanisms below + 2 gadget rows).
 
 | door (files) | mechanism | g1 | g2 | g3 | g6 | the exact bound that excludes it |
 |---|---|---|---|---|---|---|
-| c79, c79-ff | 10 pistons: SE(-2,0..2) SW+(4,1) SW+(4,2) SE(-1,-1) SU(1,-2) SU(2,-2) SD(1,3) SD+(1,5) (+ signal ND(3,-2)); static frame (0,3) (2,3) (3,0); mechanism box 7x8 (the volume's 7x9 comes from the y=-3 wiring row) | out | out | IN | IN | 1-move exits use RETRACTED sticky pullers only (`Gen::others`, families.rs `if ext && !EXT_PULLERS`): MR/TR leave pulled by SW+(4,1)/(4,2) extended at rest. `--ext-pullers` exists only in mechspace; the catalog and fullmech never set it. Harmless path-level mismatches: BM is pushed from 3 behind through TM and C (providers: 1-2 behind), TM moves 3 times and back (paths: 1-2 moves, no reversal); the set is generated anyway via other nominal paths |
+| c79, c79-ff | 10 pistons: SE(-2,0..2) SW+(4,1) SW+(4,2) SE(-1,-1) SU(1,-2) SU(2,-2) SD(1,3) SD+(1,5) (+ signal ND(3,-2)); static frame (0,3) (2,3) (3,0); mechanism box 7x8 (the volume's 7x9 comes from the y=-3 wiring row) | out | IN | IN | IN | only `--no-ext-pullers` (g1) excludes it: MR/TR leave pulled by SW+(4,1)/(4,2) extended at rest (`Gen::others`). Harmless path-level mismatches: BM is pushed from 3 behind through TM and C (providers: 1-2 behind), TM moves 3 times and back (paths: 1-2 moves, no reversal); the set is generated anyway via other nominal paths |
+| community 7x8 (tracks/c70b/community-7x8.txt) | 10 pistons: SE(-2,0..2) SW(4,0..1) SE(-1,-1) SU(1,-2) SD(1,3) SD+(1,5) SD+(2,4); static frame (0,3) (2,-1) (3,2) | out | IN | IN | IN | only g1: TR leaves pulled by SD+(2,4) extended at rest. Its real moves (TL/ML/BL/TR 3 times, TM 5 times on open) are outside every generator's paths; the macro solver finds a clean schedule for its pistons (open 10 + close 8) |
 | fast-clean (21) + speed-wire (18): a1c, s4c, n3c, c1r, o2... | 11: SU+(1,-2) SE+(-2,0..2) SW+(4,0..2) SE(-1,3) SD(0,3) NW/SW(3,3) SD+(1,4) | out | out | out | out | a piston that only acts AWAY from its rest cell is never placed: SD(0,3) is pushed sideways to (1,3) by SE(-1,3) and only then pulls C; `Gen::providers` reuses (lifts / carries) only pieces an earlier provider already placed, and (0,3) is no provider position |
 | hA-full-rl-dropper (14), eligible-s4ff (3), fresh-a-sf1-w2 (2) | 10: SU(1,-2) SE/SW(-2/4,0..2) SE+(-1,3) or SW(3,3), SD+(1,4) SD(2,4)/SD(1,5) | out | out | out | out | a piston EXTENDED at rest that is later lifted / carried is never reused: SD+(1,4) retracts, is pushed down to (1,3) by SD(1,5), then pulls C; lifts and `--carry` require `!ext` (`Gen::providers`, families.rs:1400/1406/1413) |
 | gravity-sf1 (5) | 9 pistons, sand door blocks | out | out | out | out | door blocks FALL (BM (1,0)->(1,-2), C (1,1)->(1,-1)->(1,-3)): families' macro model has no gravity blocks |
@@ -139,7 +158,7 @@ fixed since: [audit-rules.md](audit-rules.md). The ones still open on main dfe89
 |---|---|---|
 | families: a lifted / carried provider must be RETRACTED at rest | families.rs:1400, 1406, 1413 | 19 archived flat doors under every flag (hA-full-rl-dropper, eligible-s4ff, fresh-a-sf1-w2) |
 | families: only pieces an earlier provider PLACED are reused | families.rs:1399 | 39 archived flat doors under every flag (fast-clean, speed-wire) |
-| families: 1-move exits use RETRACTED pullers unless `--ext-pullers` (mechspace only) | families.rs:1581 | c79 and the 63b c79 doors under the catalog and fullmech |
+| families: 1-move exits by RETRACTED pullers only with `--no-ext-pullers` (the default allows extended-at-rest pullers since 2026-10-19: at most `--ext-max` 2 per mechanism, the second next to the first unless `--ext-apart`) | families.rs `Gen::others` | c79 and the community 7x8 only under `--no-ext-pullers`; under the default, a door with 3+ level-released exits or 2 apart |
 | families: paths of 1-2 unit moves, center straight in 2, providers 1-2 behind / 2 ahead, pistons only, P <= 10 / 11 / 10 defaults | families.rs:1474, 1521, 1353, 1324; door-mech/src/lib.rs:283, 526 | none alone among known doors (c79's TM 3 moves and BM chain push are generated via other paths) |
 | close = EXACT rest | boxproof/bmc.rs:4, satwire.rs:28, fullmech.rs:19 | periodic-rest doors (the judge accepts them since 96a62d6): boxproof UNSATs and satwire / fullmech / families searches do not cover them |
 | acceptance needs the 4 default positions at least | search.rs:39 | a door working at 1-3 positions (vjeux: a 1-position pass counts as a find): no search reports it |
@@ -168,7 +187,7 @@ fixed since: [audit-rules.md](audit-rules.md). The ones still open on main dfe89
 
 ## 6. Handed off (one line each; done ones removed)
 
-* families / mechspace / fullmech: (a) reuse a piston EXTENDED at rest as a lifted / carried provider (drop `!ext` in the lift and carry branches; it retracts first); (b) let a carried-only piston be placed (seed the reuse candidates with pistons 1-2 cells beside each provider position, not only placed ones); (c) `--ext-pullers` in the catalog and in fullmech. Admits fast-clean / speed-wire (39 files), hA-full-rl-dropper / eligible-s4ff / fresh-a-sf1-w2 (19), c79.
+* families / mechspace / fullmech: (a) reuse a piston EXTENDED at rest as a lifted / carried provider (drop `!ext` in the lift and carry branches; it retracts first); (b) let a carried-only piston be placed (seed the reuse candidates with pistons 1-2 cells beside each provider position, not only placed ones). Admits fast-clean / speed-wire (39 files), hA-full-rl-dropper / eligible-s4ff / fresh-a-sf1-w2 (19). (c) extended-at-rest pullers in the catalog and fullmech: DONE (the default since 2026-10-19, c70b; c79 and the community 7x8 are IN g2+).
 * satwire: `mk()` models unknown blocks (sculk, rails, buttons, pressure plates, glazed terracotta, copper trapdoors...) as plain conductors without a word: make them an error or model them.
 * boxproof: sweep door placements (`--dx/--dy`) before an UNSAT claim (default = centered only); a periodic-rest close.
 * mech-wire: a `--lever-on` mode (the lever's level held at rest; every wave inverted).

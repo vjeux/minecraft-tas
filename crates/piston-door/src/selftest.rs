@@ -335,13 +335,13 @@ fn checks() -> Vec<Check> {
     });
     // 7. generator membership (docs/audit.md acceptance list)
     let expect: Vec<(&str, [&str; 6])> = vec![
-        ("c79-closed", ["out", "out", "IN", "IN", "IN", "IN"]),
+        ("c79-closed", ["out", "IN", "IN", "IN", "IN", "IN"]),
         ("fast-clean-a1c-107b", ["out", "out", "out", "out", "out", "out"]),
         ("eligible-s4ff-49b", ["out", "out", "out", "out", "out", "out"]),
     ];
     v.push(Check {
         name: "audit:generator-membership".into(),
-        what: "docs/audit.md's acceptance list: c79 only with --ext-pullers (g3+), fast-clean and eligible-s4ff outside every generator (update here when a generator fix admits them)",
+        what: "docs/audit.md's acceptance list: c79 IN every default generator (g2+: extended-at-rest pullers are the default since 2026-10-19), out only of g1 = --no-ext-pullers; fast-clean and eligible-s4ff outside every generator (update here when a generator fix admits them)",
         quick: true,
         jvm: false,
         steps: vec![args(&format!("door audit --sections mech --only-flat {C79} {A}/fast-clean-a1c-107b.txt {A}/eligible-s4ff-49b.txt"))],
