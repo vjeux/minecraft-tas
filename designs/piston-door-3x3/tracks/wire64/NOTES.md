@@ -227,3 +227,11 @@ E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
   link (a watcher at (4,-1) sees R0+ move once per edge) to fire UM; UM's two motions then reach BL
   ((0,-2)) as a pair 2-4 gt apart, which a merger (observer + delay-2 repeater) could turn into L0's
   single pulse, if it fits in BL's 5 cells. Not tried.
+- f131M (f131L + MR and BR pulled by LEVEL pistons SW+(4,1), SW+(4,0), held together by one cell
+  (4,2): direct for R1+, quasi through R1+'s cell for R0+): WORKS at 32 positions x 2 cycles for ANY
+  switch time 0..44 (symmetric). So the right pair is a free level: e.g. a wall torch at (4,2) on a
+  note block (4,3) with the lever at (5,3) outside (2 blocks), and R0+ watched from (4,-1) is an odd
+  link for the bottom-right (UM). But the top-left needs the lever's timing (X, D1, DE) and sees
+  nothing driven from the right, so the lever must stay top-left; the right then needs an odd link
+  from the top-left, and the only top-left-fed pistons the right can watch are DE (two motions per
+  edge) and nothing else. Open problem: an odd TL -> right link in 7x8.
