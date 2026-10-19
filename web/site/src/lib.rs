@@ -1,0 +1,463 @@
+//! REDSTONEPEDIA's filtering UI, in the browser (Rust compiled to WebAssembly).
+//!
+//! index.html holds the empty shell (`#filters`, `#summary`, `#grid`, `#more`); this module
+//! fetches `data/site.json` ([`site_model::Site`]), draws the filter panel, runs every
+//! [`site_model::Query`] with the engine of crates/site-model (unit-tested natively) and draws
+//! the result cards with the same markup as the static pages ([`site_model::html`]). The query
+//! lives in the URL fragment, so every search is a link. The cards' 3D thumbnails are
+//! `data-mcview` elements that webrender's viewer (viewer/mcview.js) renders when it is loaded.
+
+use site_model::html::{esc, hit_card};
+use site_model::{FLAGS, Facets, Hit, Query, Range, Site, Sort, flag_label, gt_time};
+use std::cell::RefCell;
+use std::collections::BTreeSet;
+use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{Document, Element, HtmlElement, HtmlInputElement, HtmlSelectElement};
+
+/// Cards drawn per page (more on scroll).
+const PAGE: usize = 60;
+
+struct App {
+    site: Site,
+    q: Query,
+    hits: Vec<Hit>,
+    facets: Facets,
+    shown: usize,
+    /// The block-kind chips' own filter text.
+    kind_filter: String,
+    error: String,
+}
+
+thread_local! {
+    static APP: RefCell<Option<App>> = const { RefCell::new(None) };
+}
+
+fn doc() -> Document {
+    web_sys::window().and_then(|w| w.document()).expect("a document")
+}
+
+fn by_id(id: &str) -> Option<Element> {
+    doc().get_element_by_id(id)
+}
+
+fn input(id: &str) -> Option<HtmlInputElement> {
+    by_id(id).and_then(|e| e.dyn_into::<HtmlInputElement>().ok())
+}
+
+fn log(msg: &str) {
+    web_sys::console::log_1(&JsValue::from_str(msg));
+}
+
+#[wasm_bindgen(start)]
+pub fn start() {
+    // only the index page has a filter panel
+    if by_id("filters").is_none() {
+        return;
+    }
+    wasm_bindgen_futures::spawn_local(async {
+        if let Err(e) = load().await {
+            log(&format!("redstonepedia: {e:?}"));
+            if let Some(f) = by_id("filters") {
+                f.set_inner_html(&format!("<p class=\"error\">Could not load the data: {}. <a href=\"all.html\">The list of everything</a> works without it.</p>", esc(&format!("{e:?}"))));
+            }
+        }
+    });
+}
+
+async fn load() -> Result<(), JsValue> {
+    let window = web_sys::window().ok_or("no window")?;
+    let resp: web_sys::Response = JsFuture::from(window.fetch_with_str("data/site.json")).await?.dyn_into()?;
+    if !resp.ok() {
+        return Err(JsValue::from_str(&format!("data/site.json: HTTP {}", resp.status())));
+    }
+    let text = JsFuture::from(resp.text()?).await?.as_string().ok_or("data/site.json: not text")?;
+    let site: Site = serde_json::from_str(&text).map_err(|e| JsValue::from_str(&format!("data/site.json: {e}")))?;
+    let hash = window.location().hash().unwrap_or_default();
+    let q = Query::from_fragment(&hash);
+    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new() }));
+    draw_panel()?;
+    sync_inputs();
+    refresh(true);
+    if hash.contains("time=") {
+        if let Some(t) = input("f-time") {
+            let _ = t.focus();
+        }
+    }
+    Ok(())
+}
+
+fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
+    APP.with(|a| a.borrow_mut().as_mut().map(f))
+}
+
+/// The static part of the panel (inputs keep their focus while typing), its listeners, and the
+/// summary bar.
+fn draw_panel() -> Result<(), JsValue> {
+    let filters = by_id("filters").ok_or("no #filters")?;
+    let range = |id: &str, label: &str| -> String {
+        format!(
+            "<div class=\"range-label\">{label}</div><div class=\"range\"><input id=\"f-{id}-min\" type=\"number\" min=\"0\" placeholder=\"min\" aria-label=\"{label} min\"><input id=\"f-{id}-max\" type=\"number\" min=\"0\" placeholder=\"max\" aria-label=\"{label} max\"></div>"
+        )
+    };
+    let html = format!(
+        "<h3>Kind</h3><div id=\"f-kinds\" class=\"tabs\"></div>\
+         <h3>Find a clock by time</h3><div class=\"time\"><input id=\"f-time\" type=\"search\" placeholder=\"48 gt, 2.5 s, 1 min, 40-60 gt, 2-3 s\" aria-label=\"clock period\"><p id=\"f-time-msg\" class=\"hint\">A period in game ticks (20 gt = 1 s) or a time, or a range: every clock of that period, and every extendable family's member that hits it.</p></div>\
+         <h3>Search</h3><input id=\"f-text\" type=\"search\" placeholder=\"name, how it works, block…\" aria-label=\"search\">\
+         <h3 id=\"f-groups-title\">Category</h3><div id=\"f-groups\" class=\"chips\"></div>\
+         <h3>Block kinds</h3><p class=\"hint\">Click: must use it. Again: must not. Again: either.</p><input id=\"f-kind-filter\" type=\"search\" placeholder=\"filter the block kinds\" aria-label=\"filter block kinds\"><div id=\"f-blocks\" class=\"chips\"></div>\
+         <h3>Properties</h3><div id=\"f-flags\" class=\"chips\"></div>\
+         <h3>Ranges</h3>{}{}{}{}{}\
+         <label class=\"check\"><input id=\"f-variants\" type=\"checkbox\"> Show variants (clocks that only add block kinds to a smaller one) and archived family members</label>\
+         <button id=\"f-reset\" class=\"reset\" type=\"button\">Reset all filters</button>",
+        range("blocks", "Blocks placed"),
+        range("volume", "Volume"),
+        range("period", "Clock period (gt)"),
+        range("open", "Door opens in (gt)"),
+        range("close", "Door closes in (gt)")
+    );
+    filters.set_inner_html(&html);
+    let sorts: String = Sort::ALL.iter().map(|(_, k, label)| format!("<option value=\"{k}\">{label}</option>")).collect();
+    if let Some(s) = by_id("summary") {
+        s.set_inner_html(&format!("<span id=\"f-count\"></span><label>Sort by <select id=\"f-sort\">{sorts}</select></label>"));
+    }
+    // one delegated click listener for every chip and tab
+    listen(&filters, "click", |e| {
+        let Some(t) = e.target().and_then(|t| t.dyn_into::<Element>().ok()) else { return };
+        let Ok(Some(el)) = t.closest("[data-act]") else { return };
+        let act = el.get_attribute("data-act").unwrap_or_default();
+        let val = el.get_attribute("data-val").unwrap_or_default();
+        with_app(|a| {
+            let q = &mut a.q;
+            match act.as_str() {
+                "kind" => {
+                    q.kind = val;
+                    q.groups.clear();
+                }
+                "group" => toggle(&mut q.groups, &val),
+                "block" => tri(&mut q.kinds_in, &mut q.kinds_out, &val),
+                "flag" => tri(&mut q.flags_in, &mut q.flags_out, &val),
+                _ => {}
+            }
+        });
+        refresh(true);
+    })?;
+    for id in ["f-text", "f-time", "f-kind-filter"] {
+        if let Some(el) = by_id(id) {
+            listen(&el, "input", |_| {
+                read_inputs();
+                refresh(true);
+            })?;
+        }
+    }
+    for id in ["blocks", "volume", "period", "open", "close"] {
+        for end in ["min", "max"] {
+            if let Some(el) = by_id(&format!("f-{id}-{end}")) {
+                listen(&el, "input", |_| {
+                    read_inputs();
+                    refresh(true);
+                })?;
+            }
+        }
+    }
+    for id in ["f-variants", "f-sort"] {
+        if let Some(el) = by_id(id) {
+            listen(&el, "change", |_| {
+                read_inputs();
+                refresh(true);
+            })?;
+        }
+    }
+    if let Some(el) = by_id("f-reset") {
+        listen(&el, "click", |_| {
+            with_app(|a| {
+                a.q = Query::default();
+                a.kind_filter.clear();
+            });
+            sync_inputs();
+            refresh(true);
+        })?;
+    }
+    if let Some(el) = by_id("more") {
+        listen(&el, "click", |_| more())?;
+        // infinite scroll: the button loads the next page when it comes into view
+        let cb = Closure::<dyn FnMut(js_sys::Array)>::new(|entries: js_sys::Array| {
+            let visible = entries.iter().any(|e| e.dyn_into::<web_sys::IntersectionObserverEntry>().map(|x| x.is_intersecting()).unwrap_or(false));
+            if visible {
+                more();
+            }
+        });
+        let opts = web_sys::IntersectionObserverInit::new();
+        opts.set_root_margin("600px");
+        let io = web_sys::IntersectionObserver::new_with_options(cb.as_ref().unchecked_ref(), &opts)?;
+        io.observe(&el);
+        cb.forget();
+        std::mem::forget(io);
+    }
+    // nav links to index.html#... on this page, back/forward
+    let window = web_sys::window().ok_or("no window")?;
+    let cb = Closure::<dyn FnMut(web_sys::Event)>::new(|_e: web_sys::Event| {
+        let hash = web_sys::window().map(|w| w.location().hash().unwrap_or_default()).unwrap_or_default();
+        let q = Query::from_fragment(&hash);
+        let same = with_app(|a| a.q == q).unwrap_or(true);
+        if !same {
+            with_app(|a| a.q = q);
+            sync_inputs();
+            refresh(false);
+        }
+        if hash.contains("time=") {
+            if let Some(t) = input("f-time") {
+                let _ = t.focus();
+            }
+        }
+    });
+    window.add_event_listener_with_callback("hashchange", cb.as_ref().unchecked_ref())?;
+    cb.forget();
+    Ok(())
+}
+
+fn listen(el: &Element, event: &str, f: impl FnMut(web_sys::Event) + 'static) -> Result<(), JsValue> {
+    let cb = Closure::<dyn FnMut(web_sys::Event)>::new(f);
+    el.add_event_listener_with_callback(event, cb.as_ref().unchecked_ref())?;
+    cb.forget();
+    Ok(())
+}
+
+fn toggle(set: &mut BTreeSet<String>, v: &str) {
+    if !set.remove(v) {
+        set.insert(v.to_string());
+    }
+}
+
+/// either -> must -> must not -> either.
+fn tri(inc: &mut BTreeSet<String>, exc: &mut BTreeSet<String>, v: &str) {
+    if inc.remove(v) {
+        exc.insert(v.to_string());
+    } else if !exc.remove(v) {
+        inc.insert(v.to_string());
+    }
+}
+
+fn num(id: &str) -> Option<i64> {
+    input(id).and_then(|i| i.value().trim().parse::<i64>().ok())
+}
+
+/// Read the static inputs into the query.
+fn read_inputs() {
+    let text = input("f-text").map(|i| i.value()).unwrap_or_default();
+    let time = input("f-time").map(|i| i.value()).unwrap_or_default();
+    let kind_filter = input("f-kind-filter").map(|i| i.value()).unwrap_or_default();
+    let variants = input("f-variants").map(|i| i.checked()).unwrap_or(false);
+    let sort = by_id("f-sort").and_then(|e| e.dyn_into::<HtmlSelectElement>().ok()).map(|s| Sort::from_key(&s.value())).unwrap_or_default();
+    let r = |id: &str| Range { min: num(&format!("f-{id}-min")), max: num(&format!("f-{id}-max")) };
+    let (blocks, volume, period, open, close) = (r("blocks"), r("volume"), r("period"), r("open"), r("close"));
+    with_app(|a| {
+        // typing a time while looking at doors: show the clocks
+        if !time.trim().is_empty() && a.q.time.trim().is_empty() && a.q.kind == "door" {
+            a.q.kind = "clock".into();
+            a.q.groups.clear();
+        }
+        let q = &mut a.q;
+        q.text = text;
+        q.time = time;
+        q.variants = variants;
+        q.sort = sort;
+        q.blocks = blocks;
+        q.volume = volume;
+        q.period = period;
+        q.open = open;
+        q.close = close;
+        a.kind_filter = kind_filter;
+    });
+}
+
+/// Write the query into the static inputs (after a reset or a fragment change).
+fn sync_inputs() {
+    let Some((q, kf)) = with_app(|a| (a.q.clone(), a.kind_filter.clone())) else { return };
+    let set = |id: &str, v: &str| {
+        if let Some(i) = input(id) {
+            if i.value() != v {
+                i.set_value(v);
+            }
+        }
+    };
+    set("f-text", &q.text);
+    set("f-time", &q.time);
+    set("f-kind-filter", &kf);
+    let opt = |v: Option<i64>| v.map(|x| x.to_string()).unwrap_or_default();
+    for (id, r) in [("blocks", q.blocks), ("volume", q.volume), ("period", q.period), ("open", q.open), ("close", q.close)] {
+        set(&format!("f-{id}-min"), &opt(r.min));
+        set(&format!("f-{id}-max"), &opt(r.max));
+    }
+    if let Some(i) = input("f-variants") {
+        i.set_checked(q.variants);
+    }
+    if let Some(s) = by_id("f-sort").and_then(|e| e.dyn_into::<HtmlSelectElement>().ok()) {
+        s.set_value(q.sort.key());
+    }
+}
+
+/// Run the query and redraw the dynamic parts; `write_hash`: record the query in the URL.
+fn refresh(write_hash: bool) {
+    let done = with_app(|a| {
+        match a.site.run(&a.q) {
+            Ok((hits, facets)) => {
+                a.hits = hits;
+                a.facets = facets;
+                a.error.clear();
+            }
+            Err(e) => a.error = e,
+        }
+        a.shown = 0;
+    });
+    if done.is_none() {
+        return;
+    }
+    if write_hash {
+        let frag = with_app(|a| a.q.to_fragment()).unwrap_or_default();
+        if let Some(w) = web_sys::window() {
+            if let Ok(h) = w.history() {
+                let path = w.location().pathname().unwrap_or_default();
+                let url = if frag.is_empty() { path } else { format!("#{frag}") };
+                let _ = h.replace_state_with_url(&JsValue::NULL, "", Some(&url));
+            }
+        }
+    }
+    draw_dynamic();
+    if let Some(g) = by_id("grid") {
+        g.set_inner_html("");
+    }
+    more();
+}
+
+/// Append the next page of cards.
+fn more() {
+    let Some((html, shown, total)) = with_app(|a| {
+        if !a.error.is_empty() {
+            return (String::new(), 0, 0);
+        }
+        let end = (a.shown + PAGE).min(a.hits.len());
+        let html: String = a.hits[a.shown..end].iter().map(|h| hit_card(&a.site, *h, "")).collect();
+        a.shown = end;
+        (html, end, a.hits.len())
+    }) else {
+        return;
+    };
+    if let Some(g) = by_id("grid") {
+        if !html.is_empty() {
+            let _ = g.insert_adjacent_html("beforeend", &html);
+        }
+    }
+    if let Some(m) = by_id("more").and_then(|e| e.dyn_into::<HtmlElement>().ok()) {
+        m.set_hidden(shown >= total);
+        m.set_text_content(Some(&format!("Show more ({} more)", total.saturating_sub(shown))));
+    }
+}
+
+fn chip(act: &str, val: &str, label: &str, count: usize, state: &str) -> String {
+    format!(
+        "<button type=\"button\" class=\"chip {state}{}\" data-act=\"{act}\" data-val=\"{}\">{}<span class=\"count\">{count}</span></button>",
+        if count == 0 && state.is_empty() { " zero" } else { "" },
+        esc(val),
+        esc(label)
+    )
+}
+
+/// Tabs, chips, the time hint and the result count.
+fn draw_dynamic() {
+    let Some(parts) = with_app(|a| {
+        let q = &a.q;
+        let f = &a.facets;
+        let total: usize = f.kinds.values().sum();
+        let mut tabs = format!(
+            "<button type=\"button\" class=\"tab{}\" data-act=\"kind\" data-val=\"\">All <span class=\"count\">{total}</span></button>",
+            if q.kind.is_empty() { " on" } else { "" }
+        );
+        for (k, label) in [("door", "Doors"), ("clock", "Clocks"), ("circuit", "Circuits")] {
+            let n = f.kinds.get(k).copied().unwrap_or(0);
+            if n == 0 && q.kind != k && !a.site.builds.iter().any(|b| b.kind == k) {
+                continue;
+            }
+            tabs.push_str(&format!("<button type=\"button\" class=\"tab{}\" data-act=\"kind\" data-val=\"{k}\">{label} <span class=\"count\">{n}</span></button>", if q.kind == k { " on" } else { "" }));
+        }
+        // groups: the selected first, then by count
+        let mut groups: Vec<(&String, usize)> = f.groups.iter().map(|(k, v)| (k, *v)).collect();
+        for g in &q.groups {
+            if !f.groups.contains_key(g) {
+                groups.push((g, 0));
+            }
+        }
+        groups.sort_by(|x, y| (!q.groups.contains(x.0), std::cmp::Reverse(x.1), x.0).cmp(&(!q.groups.contains(y.0), std::cmp::Reverse(y.1), y.0)));
+        let groups_html: String = groups.iter().map(|(g, n)| chip("group", g, &g.replace('+', " + "), *n, if q.groups.contains(*g) { "in" } else { "" })).collect();
+        let kf = a.kind_filter.trim().to_lowercase();
+        let mut blocks: Vec<(&String, usize)> = f.block_kinds.iter().map(|(k, v)| (k, *v)).collect();
+        for k in q.kinds_in.iter().chain(&q.kinds_out) {
+            if !f.block_kinds.contains_key(k) {
+                blocks.push((k, 0));
+            }
+        }
+        let state = |k: &String| if q.kinds_in.contains(k) { "in" } else if q.kinds_out.contains(k) { "out" } else { "" };
+        blocks.retain(|(k, _)| !state(k).is_empty() || kf.is_empty() || k.replace('_', " ").contains(&kf) || k.contains(&kf));
+        blocks.sort_by(|x, y| (state(x.0).is_empty(), std::cmp::Reverse(x.1), x.0).cmp(&(state(y.0).is_empty(), std::cmp::Reverse(y.1), y.0)));
+        let blocks_html: String = blocks.iter().map(|(k, n)| chip("block", k, &k.replace('_', " "), *n, state(k))).collect();
+        let flags_html: String = FLAGS
+            .iter()
+            .filter(|(k, _, kind)| q.kind.is_empty() || q.kind == *kind || q.flags_in.contains(*k) || q.flags_out.contains(*k))
+            .filter_map(|(k, _, _)| {
+                let n = f.flags.get(*k).copied().unwrap_or(0);
+                let st = if q.flags_in.contains(*k) { "in" } else if q.flags_out.contains(*k) { "out" } else { "" };
+                (n > 0 || !st.is_empty()).then(|| chip("flag", k, flag_label(k), n, st))
+            })
+            .collect();
+        let groups_title = match q.kind.as_str() {
+            "door" => "Category",
+            "clock" => "Clock family (the blocks that change state)",
+            "circuit" => "Circuit kind",
+            _ => "Category or family",
+        };
+        let time_msg = if !a.error.is_empty() {
+            (format!("{}", a.error), true)
+        } else if q.time.trim().is_empty() {
+            ("A period in game ticks (20 gt = 1 s) or a time, or a range: every clock of that period, and every extendable family's member that hits it.".to_string(), false)
+        } else {
+            match site_model::parse_time_query(&q.time) {
+                Ok((lo, hi)) if lo == hi => (format!("= {}", gt_time(lo)), false),
+                Ok((lo, hi)) if hi == u32::MAX => (format!("from {}", gt_time(lo)), false),
+                Ok((lo, hi)) => (format!("from {} to {}", gt_time(lo), gt_time(hi)), false),
+                Err(e) => (e, true),
+            }
+        };
+        let members = a.hits.iter().filter(|h| matches!(h, Hit::Member(_))).count();
+        let count = if a.error.is_empty() {
+            let mut s = format!("<strong>{}</strong> result{}", a.hits.len(), if a.hits.len() == 1 { "" } else { "s" });
+            if members > 0 {
+                s.push_str(&format!(" ({members} of them extendable family members)"));
+            }
+            s
+        } else {
+            "the time search did not parse".to_string()
+        };
+        (tabs, groups_html, groups_title, blocks_html, flags_html, time_msg, count)
+    }) else {
+        return;
+    };
+    let (tabs, groups_html, groups_title, blocks_html, flags_html, (time_msg, time_err), count) = parts;
+    let set = |id: &str, html: &str| {
+        if let Some(e) = by_id(id) {
+            e.set_inner_html(html);
+        }
+    };
+    set("f-kinds", &tabs);
+    set("f-groups", &groups_html);
+    set("f-blocks", &blocks_html);
+    set("f-flags", &if flags_html.is_empty() { "<span class=\"hint\">none for this kind</span>".to_string() } else { flags_html });
+    set("f-count", &count);
+    if let Some(e) = by_id("f-groups-title") {
+        e.set_text_content(Some(groups_title));
+    }
+    if let Some(e) = by_id("f-time-msg") {
+        e.set_text_content(Some(&time_msg));
+        e.set_class_name(if time_err { "error" } else { "hint" });
+    }
+}

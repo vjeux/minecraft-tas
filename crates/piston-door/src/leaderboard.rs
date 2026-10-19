@@ -338,6 +338,36 @@ pub fn only_cached(cands: &mut Vec<(String, Design)>, dir: &Path) -> usize {
     before - cands.len()
 }
 
+/// The entries [`judge`] would return, from the caches in `dir` alone (verdicts, swept shapes,
+/// ground checks, volumes; nothing is simulated, no JVM): `mctas site build` exports the archive
+/// this way. A candidate with no cached verdict is left out and its source returned; a working
+/// design missing from the shape or properties cache keeps `None` there.
+pub fn cached_entries(cands: Vec<(String, Design)>, dir: &Path) -> (Vec<Entry>, Vec<String>) {
+    let cache = load_cache(dir);
+    let shapes = load_shapes(dir);
+    let props = crate::properties::load_cache(dir);
+    let mut entries = Vec::new();
+    let mut uncached = Vec::new();
+    for (source, d) in cands {
+        let h = design_hash(&d);
+        let Some((verdict, open_ticks, close_ticks, rotation)) = cache.get(&h).cloned() else {
+            uncached.push(source);
+            continue;
+        };
+        let ok = verdict.is_ok();
+        let (swept, ground) = match shapes.get(&h) {
+            Some((s, g)) if ok => (Some(*s), g.clone()),
+            _ => (None, None),
+        };
+        let (volume, volume_dims) = match props.get(&h).and_then(crate::properties::cached_volume) {
+            Some((v, dims)) if ok => (Some(v), Some(dims)),
+            _ => (None, None),
+        };
+        entries.push(Entry { source, blocks: block_count(&d), category: category(&d), verdict, design: d, open_ticks, close_ticks, rotation, ground, swept, volume, volume_dims });
+    }
+    (entries, uncached)
+}
+
 /// Verify every candidate in parallel, then run the rotation check on the working ones. With
 /// `cache_dir`, verdicts and timings are cached by design content (main's verifier is
 /// deterministic), so only new designs are simulated.

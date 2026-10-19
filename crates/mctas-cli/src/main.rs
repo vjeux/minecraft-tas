@@ -51,6 +51,11 @@ enum Cmd {
         #[command(subcommand)]
         command: circuit_cli::CircuitCmd,
     },
+    /// REDSTONEPEDIA, the website of every build (docs/site.md): build, deploy.
+    Site {
+        #[command(subcommand)]
+        command: site::SiteCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -127,6 +132,7 @@ fn main() -> Result<()> {
         Cmd::Door { command } => door::run(&cli.version, command)?,
         Cmd::Clock { command } => clock_cli::run(&cli.version, command)?,
         Cmd::Circuit { command } => circuit_cli::run(&cli.version, command)?,
+        Cmd::Site { command } => site::run(command)?,
     }
     Ok(())
 }
