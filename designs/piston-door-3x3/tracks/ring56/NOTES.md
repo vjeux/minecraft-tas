@@ -155,3 +155,17 @@ see each other, and the bottom cannot reach either: one lever wakes only one top
   edge into a door-state level for level-held pullers; (c) make U lever-held through dust into the
   static F2 (QC) so its watchers are clean crossings, which needs an edge-aware (asymmetric) top
   because the symmetric train needs BM's move >= 36 ticks after the flip.
+
+## 10. The parity wall cracked by the search (06:15Z)
+
+* cosearch run 6 on t8L (7x8) ended with partials whose LEFT side is wired (`mech/q6-0.txt`; with stone
+  frame cells: `mech/q8seed.txt`): the observer on B (0,5) -> repeater delay 4 (-1,5) -> lamp (-2,5) ->
+  lamp (-2,4), watched by observers (-2,3) facing up (into the stone (-2,2): ML's puller directly, BL's
+  by QC) and (-1,4) facing west (into TL's puller (0,4)). The repeater merges each of B's doubles and the
+  lamps' 4-tick off delay plus the observers' busy windows give the pullers an odd net count per edge.
+  With the periodic-rest screen (boxproof 2cd7dc3 + 911a18a, cherry-picked) q8seed screens 79/79 with
+  5 assists left: A (high, low), B, U and BR's puller. Run 6 had earlier wired exactly those (A, B, U,
+  TL's puller) with the left stack + BR's puller assisted (`mech/q6a.txt`, transcribed). Run 8 wires q8seed.
+* `mech/t8e.txt` (+ `t8e.ideal`, windows `t8ew.ideal`): 8x8, t8x's lever-held right side, TM goes LEFT
+  into C0 (corner E (-1,3)) so the left owns E (moves once per edge, window A1+3..A1+9) and can watch A
+  from (0,4); TL/ML/BL left (x=-2), BM down. Ideal WORKS; left stack and BL free 0..60, BM >= 36.
