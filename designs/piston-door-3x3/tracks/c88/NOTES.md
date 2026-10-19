@@ -125,3 +125,17 @@ level-held left pullers + K, U's dropper/observer chain):
   block feed both halves (dust (-3,2) up, dust (-3,0) down). K also needs its 8 gt delay exactly
   (repeater delays 1-3 fail in redsim): a repeater into K must sit at (-2,-1) reading (-3,-1). So no
   7x8 for this mechanism; 8x7 is out too (B at y=5, U/BR's puller at y=-2).
+
+## 6. mechspace's n88 8x8 layouts (coordinator redirect, 04:20Z-)
+- n88-123 (10 pistons, extent 8x7, x -2..5): a fully SYMMETRIC 2 gt train works in redsim (a 1, k 6, f1
+  12, m 18, f2 24, t2 24, z 30 on both edges; widths 1-2 gt only). Windows (independent): a 0..3,
+  k 3..10, f1 8..17, m 13..21, f2 21..26, z >= 28 (close >= 21); pockets reports the left pullers' close
+  window as exactly t30. Wiring wall: the right cascade (SW(4,1) t1, SU(3,-1), SW(5,1) x2, the pushed-in
+  piston at (3,1), SW(4,2)) must start near the lever, but the final batch reaches both left halves,
+  which the left puller wall separates: in box y -3..4 the bottom row crosses to L0/U/BR but the top
+  piston (1,4) blocks the only top crossing to TL/ML; in box y -2..5 row 5 crosses to TL/ML and the
+  top piston, but U/BR's pullers block row -2, so L0 and U (fed from (0,-2)/(-2,-1)/(0,-1) only) hear
+  nothing but each other. pockets k=3 (box -2,-3:5,4): only the top piston, (3,1)o18, (4,2)o24 and
+  (4,1)o30 drivable; 20 groups undriven.
+- n88-109 / n88-112 / n88-059 share the split (2-3 left pullers on x=-2) and start with right-side
+  events (n88-112 also has ML at t12 mid-train, fed from x=-3): same wall.
