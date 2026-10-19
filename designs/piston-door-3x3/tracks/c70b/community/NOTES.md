@@ -67,3 +67,24 @@ diamond = redstone lamp (off), teal = cyan wool, lime = lime wool, purple = obsi
 open. Fixed (cycle.rs): every flip must alternate open/closed from the rest state's kind, the
 periodicity test uses the closed parity; `--vary x,y=a|b` judges every combination of a
 transcription's uncertain cells.
+
+## What our tools see (`door audit`, audit.md here)
+- Blocks / ticks: 48 blocks with the (3,3) repeater (the community's own count is 47 or 48),
+  open 42 / close 38, vs our e78 line: solid e78k-h5 41 blocks open 36 / close 19, sculk 37. It is
+  record-eligible (c77: repeater input at the lever works at 32 positions; the e78 doors fail it),
+  and c77's stone copy shrinks to 47 (explore/c77 tracks/c77/community-56b-47-elig.txt).
+- Mechanism: 10 sticky pistons (3 left pull-type, 2 right pull-type, TR's puller lever-held at
+  rest, the elevator top lever-held with the lower piston carried, the bottom puller up, the
+  corner puller). IN mechspace with --ext-pullers (g3..g6), OUT of families v3 (the catalog's
+  generator) and mechspace's default: TR exits through a puller EXTENDED at rest. The macro solver
+  finds a clean schedule for these pistons (open 10 + close 8 events) and calls it WIRABLE in its
+  own 7x8 box, so the community's wiggle choreography is not needed for this mechanism.
+- Real moves outside every generator: on open TL, ML, BL and TR move 3 times (in, out, in), TM 5
+  times (families.rs Gen::paths: 1-2 unit moves that never reverse). Searches that judge in redsim
+  (cosearch, pockets, door fill) can still reach such wirings; satwire only wires the ideal plan it
+  is given, so it can wire the mechanism but never this choreography.
+- Wiring blocks: satwire and cosearch hold every block used (dropper, comparator, lamps, wool,
+  lever on the front face, lever ON at rest); boxproof treats wool/concrete as stone (harmless).
+- Fixed on this branch: cosearch's `quartz_like` (the FULL / frame check of every redsim search)
+  listed 9 materials; a white-concrete door read as circuitry ("not FULL", frame 0/12). Now every
+  quartz-like block redsim models natively counts (FULL, frame 12/12, as `door properties` says).

@@ -4,7 +4,7 @@
 
 | design | check | result |
 |---|---|---|
-| community-7x8 | redsim judge + FULL + hallway + volume (cosearch eval) | community-7x8: WORKS open 42 close 38 / not FULL (open: minecraft:white_concrete at [2, -1, 0]) / hallway ok / frame 0/12 / 56b (7x8x1), 48 blocks / 42.5 ms |
+| community-7x8 | redsim judge + FULL + hallway + volume (cosearch eval) | community-7x8: WORKS open 42 close 38 / FULL / hallway ok / frame 12/12 / 56b (7x8x1), 48 blocks / 42.6 ms |
 | community-7x8 | door cycle (6 flips x 4 positions, frame 12/12 open) | CYCLES |
 | community-7x8 | door sheet piston label | 10 pistons (heads excluded since add7f90; before: 12 with the 2 heads) |
 | community-7x8 | flat label (single_layer) | flat |
