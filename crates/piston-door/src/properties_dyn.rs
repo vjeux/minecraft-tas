@@ -298,7 +298,8 @@ pub fn env_run(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, env: &Env, 
         bail!("not closed at rest: {}", problems.join("; "));
     }
     let lever = rest.get(spec.lever).unwrap_or("?");
-    if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {
+    // Either rest polarity counts (vjeux, 2026-10-19), like `crate::verify`.
+    if !lever.starts_with("minecraft:lever") {
         bail!("port lever {:?} is {lever}", spec.lever);
     }
     entity_check(w, sb, d, "at rest")?;
