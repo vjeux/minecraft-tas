@@ -32,6 +32,14 @@ section 12; what each tool models: docs/coverage.md. Inventory: [INVENTORY.md](I
 * **Block equivalence classes** (`redsim::classes`): 70 plain states in 22 classes (11 ignoring
   note-block instruments), proven in the game by `redsim-fuzz classfuzz` (3000 circuits vs
   class-swapped variants: 0 differ). Sent to satwire, boxproof and cosearch.
+* **Scaffolding** (vjeux's ask: a second 1 gt delay element after leaves): distance/bottom in a
+  1 gt tick after any shape update or placement, break at 7, fall when placed at 7; 0/30,000
+  scaffold-heavy circuits (no pistons), the gadget designs/gadgets/scaffold-delay as a fixture,
+  two link-table rows (112/112 identical in the game: a tower passes edges up 1 gt per block and
+  swallows 1 gt pulses). `behavior::collision_boxes` (every block's collision shape) added for
+  pistmodel: its moving-block shapes (all full cubes) and falling-entity collisions (full or
+  nothing) were the only mismatches the scaffold fuzz found (a moving open trapdoor is not a floor;
+  a falling scaffold lands on a top trapdoor); pending on its side.
 * **Hopper T flip-flop** gadget (two hoppers facing each other, each locked by a torch under it,
   one item; a 2 gt pulse on both torch supports moves the item once: the receiver's 7 gt cooldown
   stops it coming back before the relock), identical to the game over 99 frames

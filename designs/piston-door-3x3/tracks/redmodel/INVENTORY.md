@@ -18,7 +18,8 @@ blocks: [../pistmodel/INVENTORY.md](../pistmodel/INVENTORY.md).
   redstone lamp, waxed copper bulbs (4 oxidation levels, all waxed), note block (instruments, mob
   heads), target block, iron/oak trapdoors, iron/oak doors, fence gates (redstone only), powered
   and activator rails (incl. `RailState` reshaping), dispenser, dropper, crafter (empty), hopper
-  (locking and items), persistent leaves + logs, cake, composter (7 -> 8 tick), end portal frame,
+  (locking and items), persistent leaves + logs, scaffolding (distance, bottom, break, fall),
+  cake, composter (7 -> 8 tick), end portal frame,
   respawn anchor, skulls / wall skulls, slabs, glazed terracotta, 60 plain blocks (stones,
   concretes, wools, planks, glass, obsidian, slime, honey, pumpkin, soul sand, mud...).
 * Containers: dropper -> facing container, hopper push / pull / cooldown / lock, comparator fill
