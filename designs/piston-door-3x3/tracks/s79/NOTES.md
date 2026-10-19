@@ -354,3 +354,10 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   to (1,2); RP1 escapes up by E1 (1,5); RP1 then reach-pulls TM into (1,3)) replaces the bottom elevator, with
   the same QC trap (E1's feeds QC-fire RP1 at (1,4)); (c) W (-1,3) can push TL + TM east in ONE push, but the
   close still needs P3t (3,3) to push them back, so both top corners stay occupied.
+- 9x6 rotation for w86 (`c69/m69t.txt` + `m69t.ideal` = m69a/m69b turned (x,y) -> (y, 2-x), box x -3..5
+  y -2..3): the plan with m69b's timings is BROKEN (frame 8/12): turning makes s0' (4,2) sit right above
+  s1' (4,1), so every home pulse of s0' QC-fires s1' (open t28 = ML's final pull: s1' then pushes TL' out
+  of (3,1); close t2 / t24 likewise). The bottom pair is harmless in this turn (U0' (-2,2) over U1' (-2,1):
+  U0' only fires at open 2 / close 2, when U1' fires anyway). The other turn ((x,y) -> (2-y, x)) has the
+  opposite problem (top pair fine with t0 = t1 = 2 and ct0 = ct1 = 28; U1' over U0' breaks at open 24 /
+  close 22). Needs a re-timed plan or a mechanism tweak (or fullmech's exact export).
