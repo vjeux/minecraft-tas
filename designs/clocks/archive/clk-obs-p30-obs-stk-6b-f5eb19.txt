@@ -1,0 +1,23 @@
+# archived 2026-10-19T17:28Z from designs/clocks/tracks/clk-obs/families/p30-obs-stk-6b-f5eb19.txt by mctas clock archive
+# CLOCK: clk-obs-p30-obs-stk-6b-f5eb19 period 30 gt, on 12/30, edges 6, warmup 6, family observer+sticky_piston, 6 blocks, 1x2x4, robust
+name: clk-obs-p30-obs-stk-6b-f5eb19
+# P30: 1 note block, 4 observers, 1 sticky piston; changing in place: observer, sticky_piston (note block only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 -1
+port output: 0 1 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=north]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+layer 0:
+  .
+  A
+  B
+  C
+layer 1:
+  D
+  D
+  E
+  .
