@@ -817,6 +817,13 @@ pub enum DoorCmd {
         /// trace ends) with selectors and print the conflicting groups.
         #[arg(long)]
         diag: bool,
+        /// A partly wired ideal plan: keep the wiring already in its design (and its lever).
+        #[arg(long)]
+        keep_wiring: bool,
+        /// Exact recorded power everywhere (default: a retracted piston that stays retracted while
+        /// powered, blocked or QC-armed, may get any power at that tick).
+        #[arg(long)]
+        exact: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -2639,11 +2646,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, diag, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, diag, keep_wiring, exact, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             if check && mechanism.len() > 1 {
-                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels };
+                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false };
                 let next = std::sync::atomic::AtomicUsize::new(0);
                 let out = std::sync::Mutex::new(Vec::new());
                 std::thread::scope(|sc| {
@@ -2708,12 +2715,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 settle,
                 qc: !no_qc,
                 levels,
+                blocked_dc: !exact && !check,
             };
             let mut p = sw::build_prob(rec, &po)?;
             if let Some(fp) = &fixed {
                 sw::fix_partial(&mut p, &load_design(fp)?)?;
             }
-            if fixed.is_none() && !from_wired && !check && !p.rec.wiring.is_empty() {
+            if keep_wiring && fixed.is_none() && !from_wired && !check && !p.rec.wiring.is_empty() {
                 let mut d = mctas::design::Design::default();
                 for (cc, st) in &p.rec.wiring {
                     d.blocks.insert([cc.0, cc.1, p.z], st.clone());
