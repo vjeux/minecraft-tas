@@ -87,6 +87,17 @@ pub struct SearchArgs {
     pub assist: Option<std::path::PathBuf>,
     #[arg(long, default_value_t = 4.0)]
     pub assist_weight: f64,
+    /// Drive shaping weight per plan edge (0 = off): while an input is assisted, every on/off
+    /// edge of its plan input that the real wiring alone also delivers to the input's piston
+    /// (within `--drive-slack` ticks) earns this many points, every extra real edge costs half.
+    #[arg(long, default_value_t = 0.0)]
+    pub drive_weight: f64,
+    #[arg(long, default_value_t = 2)]
+    pub drive_slack: u32,
+    /// Extra judge positions for the redsim judge of perfect screens and the JVM confirmation
+    /// (0 = the judge's 4 default positions; 28 = the record judge's 32).
+    #[arg(long, default_value_t = 0)]
+    pub judge_extra: u32,
     /// Start with only these plan inputs assisted (door coordinates `x,y;x,y`; default all): to
     /// continue from a partial whose other inputs are already wired.
     #[arg(long)]
@@ -205,6 +216,20 @@ pub struct Problem {
     pub assist_weight: f64,
     /// Plan input cells IN the door plane: reserved while their input is assisted.
     pub assist_in_plane: HashSet<(i32, i32)>,
+    /// Assisted inputs' blocks present at rest (an off-plane level input: its block is placed with
+    /// the design while the input stays assisted): (input, position, block).
+    pub assist_rest: Vec<(usize, BlockPos, Block)>,
+    /// Every input's rest blocks, in the plane too (the plan's state at rest).
+    pub assist_rest_all: Vec<(usize, BlockPos, Block)>,
+    /// Every position each input's events touch.
+    pub assist_pos: Vec<Vec<BlockPos>>,
+    /// Drive shaping (`--drive-weight`): per assisted input, the plan's on/off edges matched by
+    /// what the REAL wiring alone would feed its piston (the assist blocks removed for the check).
+    pub drive_weight: f64,
+    pub drive_slack: u32,
+    /// Max drive points per input (its plan edges over the screened cycles): a released input
+    /// earns them all (the screen checks the door works without it).
+    pub drive_max: Vec<i32>,
 }
 
 /// A piston starting to extend or retract: (phase, extending, cell, tick).
@@ -422,11 +447,13 @@ pub struct Score {
     /// Pistons still driven by the assist plan, and their cost.
     pub assisted: i32,
     pub asw: f64,
+    /// Drive shaping points (already weighted).
+    pub dr: f64,
 }
 
 impl Score {
     fn energy(&self) -> f64 {
-        -(self.pts as f64) - self.ev_w * self.ev as f64 + 0.02 * self.blocks as f64 + self.asw * self.assisted as f64
+        -(self.pts as f64) - self.ev_w * self.ev as f64 + 0.02 * self.blocks as f64 + self.asw * self.assisted as f64 - self.dr
     }
     pub fn perfect(&self) -> bool {
         self.pts >= self.max && self.assisted == 0
@@ -441,7 +468,13 @@ fn in_box(p: &Problem, x: i32, y: i32) -> bool {
 /// reference-schedule shaping when there is a reference).
 pub fn screen(p: &Problem, g: &Grid) -> Score {
     let mut evs = Vec::new();
-    let mut s = screen_core(p, g, &mut evs);
+    let mut drive = 0.0;
+    let measure = p.drive_weight > 0.0 && !p.assist_pistons.is_empty();
+    let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
+    let mut s = screen_core(p, g, &mut evs, &mut traces, measure);
+    if measure {
+        drive = drive_points(p, &traces);
+    }
     if !p.reference.is_empty() {
         s.ev = match_events(&p.reference, &evs, p.ref_slack) as i32;
         s.ev_w = p.ref_weight;
@@ -449,18 +482,153 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
     if !p.assist_pistons.is_empty() {
         s.assisted = g.assist.count_ones() as i32;
         s.asw = p.assist_weight;
+        s.dr = p.drive_weight * drive;
     }
     s
 }
 
+/// The plan's on/off state of input `k` after the events of ticks <= t of a phase, starting from
+/// the rest state.
+/// The plan's on/off state of input `k` when a phase starts (the close starts from the open's end).
+fn plan_phase_start(p: &Problem, k: usize, phase: usize) -> bool {
+    let mut on: HashSet<BlockPos> = p.assist_rest_all.iter().filter(|r| r.0 == k).map(|r| r.1).collect();
+    if phase == 1 {
+        for (_, kk, q, b) in &p.assist_events[0] {
+            if *kk == k {
+                if b.is_air() {
+                    on.remove(q);
+                } else {
+                    on.insert(*q);
+                }
+            }
+        }
+    }
+    !on.is_empty()
+}
+
+fn plan_bits(p: &Problem, phase: usize, k: usize, n: usize) -> Vec<bool> {
+    let mut on: HashSet<BlockPos> = p.assist_rest_all.iter().filter(|r| r.0 == k).map(|r| r.1).collect();
+    if phase == 1 {
+        // the close starts from the open's end
+        for (_, kk, q, b) in &p.assist_events[0] {
+            if *kk == k {
+                if b.is_air() {
+                    on.remove(q);
+                } else {
+                    on.insert(*q);
+                }
+            }
+        }
+    }
+    let mut out = Vec::with_capacity(n);
+    let evs = &p.assist_events[phase];
+    let mut i = 0;
+    for t in 0..n as u32 {
+        while i < evs.len() && evs[i].0 <= t {
+            let (_, kk, q, b) = evs[i];
+            if kk == k {
+                if b.is_air() {
+                    on.remove(&q);
+                } else {
+                    on.insert(q);
+                }
+            }
+            i += 1;
+        }
+        out.push(!on.is_empty());
+    }
+    out
+}
+
+/// What the real wiring alone feeds each input's pistons now (bit k): the assist blocks of the
+/// still-assisted inputs are taken out for the check (raw writes, put back after), then every
+/// piston the input's positions power (directly or by quasi-connectivity) is asked
+/// `getNeighborSignal`.
+fn real_drive(p: &Problem, g: &Grid, w: &mut World) -> u64 {
+    let z = p.spec.door[2];
+    let mut saved: Vec<(BlockPos, Block)> = Vec::new();
+    for k in 0..p.assist_pistons.len() {
+        if (g.assist >> k) & 1 == 1 {
+            for q in &p.assist_pos[k] {
+                let b = w.get(*q);
+                if !b.is_air() {
+                    saved.push((*q, b));
+                    w.put(*q, Block::Air);
+                }
+            }
+        }
+    }
+    let mut real = 0u64;
+    for k in 0..p.assist_pistons.len() {
+        'k: for q in &p.assist_pos[k] {
+            let ns: Vec<BlockPos> = if q.z != z {
+                vec![BlockPos::new(q.x, q.y, z)]
+            } else {
+                PLANE_DIRS.iter().map(|d| {
+                    let s = d.step();
+                    BlockPos::new(q.x + s[0], q.y + s[1], z)
+                }).collect()
+            };
+            for n in ns {
+                for c in [n, BlockPos::new(n.x, n.y - 1, z)] {
+                    if let Block::Piston { facing, .. } = w.get(c)
+                        && redsim::piston::base::neighbor_signal(w, c, facing)
+                    {
+                        real |= 1u64 << k;
+                        break 'k;
+                    }
+                }
+            }
+        }
+    }
+    for (q, b) in saved.iter().rev() {
+        w.put(*q, *b);
+    }
+    real
+}
+
+/// Plan edges matched by real edges of the same polarity within `slack` ticks, minus half the
+/// unmatched real edges.
+fn edge_match(plan: &[bool], real: &[bool], slack: u32) -> f64 {
+    let edges = |v: &[bool]| -> Vec<(usize, bool)> { (1..v.len()).filter(|&i| v[i] != v[i - 1]).map(|i| (i, v[i])).collect() };
+    let pe = edges(plan);
+    let re = edges(real);
+    let mut used = vec![false; re.len()];
+    let mut m = 0;
+    for (t, up) in pe {
+        let mut best: Option<(usize, usize)> = None;
+        for (j, (rt, rup)) in re.iter().enumerate() {
+            if used[j] || *rup != up {
+                continue;
+            }
+            let d = rt.abs_diff(t);
+            if d <= slack as usize && best.is_none_or(|(_, bd)| d < bd) {
+                best = Some((j, d));
+            }
+        }
+        if let Some((j, _)) = best {
+            used[j] = true;
+            m += 1;
+        }
+    }
+    m as f64 - 0.5 * used.iter().filter(|u| !**u).count() as f64
+}
+
 /// One phase after a flip: the assisted pistons' plan inputs applied at their ticks (before the
 /// tick, like `door ideal`), ticking until idle (at least once) and until every input was
-/// applied; `on_tick` sees the world after every tick. Returns whether it went idle.
-fn run_phase(p: &Problem, g: &Grid, w: &mut World, phase: usize, mut on_tick: impl FnMut(&World)) -> bool {
+/// applied; `on_tick` sees the world after every tick. Returns whether it went idle. With
+/// `traces`, what the real wiring feeds each input (bit k) is recorded per tick (index 0 = right
+/// after the flip, i = after tick i).
+fn run_phase(p: &Problem, g: &Grid, w: &mut World, phase: usize, traces: Option<&mut Vec<u64>>, mut on_tick: impl FnMut(&World)) -> bool {
     let evs = &p.assist_events[phase];
     let mut i = 0;
     let mut t = 0u32;
-    loop {
+    let measure = traces.is_some();
+    let mut real: Vec<u64> = Vec::new();
+    if measure {
+        real.push(real_drive(p, g, w));
+    }
+    let idle = loop {
         while i < evs.len() && evs[i].0 == t {
             let (_, k, pos, b) = evs[i];
             if (g.assist >> k) & 1 == 1 {
@@ -471,16 +639,41 @@ fn run_phase(p: &Problem, g: &Grid, w: &mut World, phase: usize, mut on_tick: im
         w.tick();
         t += 1;
         on_tick(w);
+        if measure {
+            real.push(real_drive(p, g, w));
+        }
         if i >= evs.len() && w.idle() {
-            return true;
+            break true;
         }
         if t >= p.max_ticks {
-            return false;
+            break false;
         }
+    };
+    if let Some(tr) = traces {
+        *tr = real;
     }
+    idle
 }
 
-fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
+/// Drive shaping points from the recorded traces (both phases of the first cycle).
+fn drive_points(p: &Problem, traces: &[Vec<u64>; 2]) -> f64 {
+    let mut d = 0.0;
+    for phase in 0..2 {
+        let real = &traces[phase];
+        if real.is_empty() {
+            continue;
+        }
+        let n = real.len();
+        for k in 0..p.assist_pistons.len() {
+            let pb = plan_bits(p, phase, k, n);
+            let rb: Vec<bool> = real.iter().map(|r| (r >> k) & 1 == 1).collect();
+            d += edge_match(&pb, &rb, p.drive_slack);
+        }
+    }
+    d
+}
+
+fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<u64>; 2], measure: bool) -> Score {
     let max = 11 + p.cycles as i32 * 34;
     let blocks = g.count();
     let mut pts = 0;
@@ -488,15 +681,21 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
     let spec = p.spec;
     let (wlo, whi) = cs::watch_box(&list, &spec);
     let mut w = World::new(BlockPos::new(wlo[0] - 3, wlo[1] - 3, wlo[2] - 3), [whi[0] - wlo[0] + 7, whi[1] - wlo[1] + 7, whi[2] - wlo[2] + 7]);
-    let placed: Vec<(BlockPos, Block)> = list.iter().map(|(q, b)| (cs::bp(*q), *b)).collect();
+    let mut placed: Vec<(BlockPos, Block)> = list.iter().map(|(q, b)| (cs::bp(*q), *b)).collect();
+    // still-assisted off-plane level inputs: their blocks are there at rest
+    for (k, q, b) in &p.assist_rest {
+        if (g.assist >> k) & 1 == 1 {
+            placed.push((*q, *b));
+        }
+    }
     w.place_like_judge(&placed);
     let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |_| {});
     if !idle || !w.errors.is_empty() {
-        return Score { pts: 0, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+        return Score { pts: 0, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
     }
     if !w.drops.is_empty() {
         // something popped at placement (a dust or a repeater without a floor...)
-        return Score { pts: 1, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+        return Score { pts: 1, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
     }
     let z = g.z;
     let at = |x: i32, y: i32| BlockPos::new(x, y, z);
@@ -513,13 +712,14 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
     }
     pts -= 2 * unsupported;
     let lever = BlockPos::new(g.lever.0, g.lever.1, g.z);
-    // Either rest polarity counts (vjeux, 2026-10-19), like the judge: the first flip opens.
+    // either rest polarity counts (vjeux 2026-10-19, the judge on main): a lever powered at rest is
+    // flipped off first, and that first flip opens
     if !matches!(w.get(lever), Block::Lever { .. }) {
-        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
     }
     pts += 1;
     if door_ok < 9 || unsupported > 0 {
-        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
     }
     pts += 1;
     // the plane's cells (the box + 1) compared after each close
@@ -530,7 +730,8 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
         let rec = cycle == 0 && !rec_cells.is_empty();
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
-        let idle = run_phase(p, g, &mut w, 0, |w| {
+        let measure = cycle == 0 && measure;
+        let idle = run_phase(p, g, &mut w, 0, if measure { Some(&mut traces[0]) } else { None }, |w| {
             if rec {
                 t += 1;
                 tick_events(&prev, w, 0, t, evs);
@@ -554,13 +755,13 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
             pts -= outside;
         }
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
         }
         pts += 1;
         w.use_block(lever);
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
-        let idle = run_phase(p, g, &mut w, 1, |w| {
+        let idle = run_phase(p, g, &mut w, 1, if measure { Some(&mut traces[1]) } else { None }, |w| {
             if rec {
                 t += 1;
                 tick_events(&prev, w, 1, t, evs);
@@ -570,7 +771,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
         let back = p.door_cells.iter().filter(|(x, y)| w.get(at(*x, *y)) == p.door_block).count() as i32;
         pts += back;
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
         }
         let now: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
         let same = now.iter().zip(rest.iter()).filter(|(a, b)| a == b).count() as i32;
@@ -579,10 +780,10 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
             pts += 3;
         } else {
             pts -= (n - same).min(3);
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
         }
     }
-    Score { pts, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 }
+    Score { pts, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 }
 }
 
 fn plane_cells(p: &Problem, z: i32) -> Vec<BlockPos> {
@@ -1095,6 +1296,9 @@ struct Shared {
     finds: AtomicUsize,
     seen: Mutex<HashSet<u64>>,
     best: Mutex<Vec<(Score, Grid)>>,
+    /// The best candidate with full screen points (fewest assisted inputs, then fewest blocks):
+    /// a true partial (the door works with only those inputs still plan-driven).
+    best_full: Mutex<Option<(Score, Grid)>>,
     log: Mutex<Vec<String>>,
     /// Strict screen improvements per move kind (MOVE_KINDS).
     improved: [AtomicU64; 4],
@@ -1107,7 +1311,9 @@ fn grid_hash(g: &Grid) -> u64 {
     h.finish()
 }
 
-pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
+/// The search problem and its seeds from the command line (shared by `search` and `pockets`):
+/// (problem, seeds, door x, door y).
+pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
     anyhow::ensure!(!a.seeds.is_empty(), "give at least one seed design");
     let mut doors = Vec::new();
     for s in &a.seeds {
@@ -1187,6 +1393,12 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         assist_events: [Vec::new(), Vec::new()],
         assist_weight: a.assist_weight,
         assist_in_plane: HashSet::new(),
+        assist_rest: Vec::new(),
+        assist_rest_all: Vec::new(),
+        assist_pos: Vec::new(),
+        drive_weight: a.drive_weight,
+        drive_slack: a.drive_slack,
+        drive_max: Vec::new(),
     };
     let mut prob = prob;
     if let Some(r) = &a.reference {
@@ -1204,36 +1416,16 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         prob.reference = ev;
     }
     if let Some(path) = &a.assist {
-        let text = std::fs::read_to_string(path)?;
-        let s = crate::ideal::Schedule::parse(&text)?;
-        let mut skipped = 0;
-        for (ph, open) in [(0usize, true), (1usize, false)] {
-            for (t, pos, st) in s.resolved(open)? {
-                if st.as_deref() == Some("@use") {
-                    skipped += 1;
-                    continue;
-                }
-                if pos[2] == spec0.door[2] {
-                    // an in-plane input: its cell is reserved (no block may go there) while the
-                    // input stays assisted
-                    prob.assist_in_plane.insert((pos[0], pos[1]));
-                }
-                let cell = (pos[0], pos[1]);
-                let k = match prob.assist_pistons.iter().position(|c| *c == cell) {
-                    Some(k) => k,
-                    None => {
-                        prob.assist_pistons.push(cell);
-                        prob.assist_pistons.len() - 1
-                    }
-                };
-                let b = match st {
-                    Some(x) => cs::convert_state(&x).map_err(|e| anyhow::anyhow!(e))?,
-                    None => Block::Air,
-                };
-                prob.assist_events[ph].push((t, k, cs::bp(pos), b));
-            }
-            prob.assist_events[ph].sort_by_key(|e| e.0);
-        }
+        let asst = load_assist(path, spec0.door[2])?;
+        prob.assist_in_plane = asst.in_plane;
+        prob.assist_pistons = asst.cells;
+        prob.assist_events = asst.events;
+        // off-plane rest blocks only (an in-plane input's rest block is in the design)
+        prob.assist_rest_all = asst.rest.clone();
+        prob.assist_rest = asst.rest.into_iter().filter(|r| r.1.z != spec0.door[2]).collect();
+        prob.assist_pos = asst.pos;
+        prob.drive_max = asst.edges.iter().map(|e| e * a.cycles as i32).collect();
+        let skipped = asst.skipped;
         anyhow::ensure!(prob.assist_pistons.len() <= 64, "at most 64 assisted inputs");
         println!(
             "assist {}: {} input cells off the plane ({:?}), {} / {} events, {skipped} in-plane or `use` events ignored",
@@ -1294,6 +1486,12 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         prob.free.retain(|c| !locked.contains(c));
         println!("{} piston cells locked, {} cells free", locked.len(), prob.free.len());
     }
+    Ok((prob, seeds, dx, dy))
+}
+
+pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
+    let (prob, seeds, dx, dy) = setup(a)?;
+    let (lo, hi) = (prob.lo, prob.hi);
     std::fs::create_dir_all(&a.out_dir)?;
     println!(
         "box x {}..{}, y {}..{} ({}x{} = {}), {} free cells, palette {} states, {} threads, {} s",
@@ -1317,10 +1515,11 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         finds: AtomicUsize::new(0),
         seen: Mutex::new(HashSet::new()),
         best: Mutex::new(Vec::new()),
+        best_full: Mutex::new(None),
         log: Mutex::new(Vec::new()),
         improved: [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
     };
-    let jopts = cs::JudgeOpts::with_extra(28);
+    let jopts = cs::JudgeOpts::with_extra(a.judge_extra);
     let t0 = std::time::Instant::now();
     let mut seeds = seeds;
     if a.enum_k > 0 {
@@ -1355,12 +1554,13 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         drop(tx);
         // confirmer: JVM checks of finds, in this thread
         let confirm = a.confirm;
+        let judge_extra = a.judge_extra;
         let sh2 = &sh;
         s.spawn(move || {
             let mut w = if confirm { mctas::sim::Worker::spawn(&mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() }).ok() } else { None };
             for (path, d) in rx {
                 let line = match w.as_mut() {
-                    Some(w) => match jvm_confirm(w, &d) {
+                    Some(w) => match jvm_confirm(w, &d, judge_extra) {
                         Ok(l) => l,
                         Err(e) => format!("JVM error: {e:#}"),
                     },
@@ -1379,7 +1579,7 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
             if el >= last + a.report {
                 last = el;
                 let best = sh.best.lock().unwrap();
-                let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}+{}ev-{}as({}b)", s.pts, s.max, s.ev, s.assisted, g.count())).collect();
+                let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}+{}ev-{}as+{:.2}dr({}b)", s.pts, s.max, s.ev, s.assisted, s.dr, g.count())).collect();
                 println!(
                     "[{el:>5}s] {} screens ({:.0}/s), {} perfect screens, {} redsim judge runs, {} finds; improvements by move {}; best {}",
                     sh.evals.load(Ordering::Relaxed),
@@ -1402,6 +1602,20 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
                     }
                     let _ = d.save(&a.out_dir.join("partial-live.txt"));
                 }
+                drop(best);
+                // the best full-points partial (the door works with only these inputs assisted)
+                if let Some((s, g)) = sh.best_full.lock().unwrap().as_ref() {
+                    let still: Vec<String> = (0..prob.assist_pistons.len())
+                        .filter(|k| (g.assist >> k) & 1 == 1)
+                        .map(|k| format!("{},{}", prob.assist_pistons[k].0 - dx, prob.assist_pistons[k].1 - dy))
+                        .collect();
+                    println!("        best full-points partial: {} assisted [{}] drive {:.2} ({} blocks)", s.assisted, still.join(" "), s.dr, g.count());
+                    let mut d = door_of(g, prob.spec).to_design(&format!("cosearch-full-{}as", s.assisted));
+                    if !still.is_empty() {
+                        d.meta.insert("assisted".into(), still.join(";"));
+                    }
+                    let _ = d.save(&a.out_dir.join("partial-full-live.txt"));
+                }
             }
         }
         sh.stop.store(true, Ordering::Relaxed);
@@ -1423,9 +1637,137 @@ fn in_box_raw(lo: [i32; 2], hi: [i32; 2], x: i32, y: i32) -> bool {
     x >= lo[0] && x <= hi[0] && y >= lo[1] && y <= hi[1]
 }
 
-fn jvm_confirm(w: &mut mctas::sim::Worker, d: &mctas::design::Design) -> Result<String> {
+/// A `door ideal` plan's inputs as assist events: the input cells (x, y; an input off the plane
+/// counts for the cell in front of it), per phase (0 open, 1 close) the events (tick, input index,
+/// position, state set there; air = cleared), the in-plane input cells, `use` events skipped.
+pub struct Assist {
+    pub cells: Vec<(i32, i32)>,
+    pub events: [Vec<(u32, usize, BlockPos, Block)>; 2],
+    pub in_plane: HashSet<(i32, i32)>,
+    pub skipped: usize,
+    /// Every position each input touches, and the blocks present at rest (the state after a
+    /// whole open + close cycle of events, e.g. a level input's redstone block).
+    pub pos: Vec<Vec<BlockPos>>,
+    pub rest: Vec<(usize, BlockPos, Block)>,
+    /// Plan on/off edges per input over one open + close cycle.
+    pub edges: Vec<i32>,
+}
+
+pub fn load_assist(path: &std::path::Path, door_z: i32) -> Result<Assist> {
+    let text = std::fs::read_to_string(path)?;
+    let s = crate::ideal::Schedule::parse(&text)?;
+    let mut a = Assist { cells: Vec::new(), events: [Vec::new(), Vec::new()], in_plane: HashSet::new(), skipped: 0, pos: Vec::new(), rest: Vec::new(), edges: Vec::new() };
+    for (ph, open) in [(0usize, true), (1usize, false)] {
+        for (t, pos, st) in s.resolved(open)? {
+            if st.as_deref() == Some("@use") {
+                a.skipped += 1;
+                continue;
+            }
+            if pos[2] == door_z {
+                // an in-plane input: its cell is reserved (no block may go there) while the
+                // input stays assisted
+                a.in_plane.insert((pos[0], pos[1]));
+            }
+            let cell = (pos[0], pos[1]);
+            let k = match a.cells.iter().position(|c| *c == cell) {
+                Some(k) => k,
+                None => {
+                    a.cells.push(cell);
+                    a.cells.len() - 1
+                }
+            };
+            let b = match st {
+                Some(x) => cs::convert_state(&x).map_err(|e| anyhow::anyhow!(e))?,
+                None => Block::Air,
+            };
+            a.events[ph].push((t, k, cs::bp(pos), b));
+        }
+        a.events[ph].sort_by_key(|e| e.0);
+    }
+    // positions, rest state (after a whole cycle), edges per cycle
+    a.pos = vec![Vec::new(); a.cells.len()];
+    let mut state: std::collections::HashMap<BlockPos, Block> = std::collections::HashMap::new();
+    for ph in 0..2 {
+        for (_, k, p, b) in &a.events[ph] {
+            if !a.pos[*k].contains(p) {
+                a.pos[*k].push(*p);
+            }
+            state.insert(*p, *b);
+        }
+    }
+    for k in 0..a.cells.len() {
+        for p in &a.pos[k] {
+            if let Some(b) = state.get(p)
+                && !b.is_air()
+            {
+                a.rest.push((k, *p, *b));
+            }
+        }
+    }
+    for k in 0..a.cells.len() {
+        let mut on: HashSet<BlockPos> = a.rest.iter().filter(|r| r.0 == k).map(|r| r.1).collect();
+        let mut edges = 0;
+        for ph in 0..2 {
+            for (_, kk, p, b) in &a.events[ph] {
+                if *kk != k {
+                    continue;
+                }
+                let was = !on.is_empty();
+                if b.is_air() {
+                    on.remove(p);
+                } else {
+                    on.insert(*p);
+                }
+                if was != !on.is_empty() {
+                    edges += 1;
+                }
+            }
+        }
+        a.edges.push(edges);
+    }
+    Ok(a)
+}
+
+/// Three characters for a block in a plane picture (`cosearch trace --grid`).
+pub fn cell3(b: &Block) -> String {
+    let d = |f: Dir| match f {
+        Dir::Up => '^',
+        Dir::Down => 'v',
+        Dir::East => '>',
+        Dir::West => '<',
+        Dir::North => 'n',
+        Dir::South => 's',
+    };
+    match *b {
+        Block::Air => " . ".into(),
+        Block::Simple(Simple::Glass) => "gls".into(),
+        Block::Simple(_) => "###".into(),
+        Block::Glazed { .. } => "GT ".into(),
+        Block::Wire { power, .. } => format!("r{power:<2}"),
+        Block::RedstoneBlock => "RB ".into(),
+        Block::Torch { lit } => if lit { "T* ".into() } else { "T  ".into() },
+        Block::WallTorch { facing, lit } => format!("T{}{}", d(facing), if lit { '*' } else { ' ' }),
+        Block::Lever { powered, .. } => if powered { "L* ".into() } else { "L  ".into() },
+        Block::Repeater { facing, delay, powered, .. } => format!("{}{}{delay}", if powered { 'D' } else { 'd' }, d(facing.opposite())),
+        Block::Comparator { facing, subtract, powered } => format!("{}{}{}", if powered { 'C' } else { 'c' }, d(facing.opposite()), if subtract { 's' } else { ' ' }),
+        Block::Observer { facing, powered } => format!("O{}{}", d(facing), if powered { '*' } else { ' ' }),
+        Block::Lamp { lit } => if lit { "La*".into() } else { "La ".into() },
+        Block::Bulb { lit, powered, .. } => format!("B{}{}", if lit { '*' } else { ' ' }, if powered { 'p' } else { ' ' }),
+        Block::Note { powered, .. } => if powered { "N* ".into() } else { "N  ".into() },
+        Block::Target { power } => format!("t{power:<2}"),
+        Block::Dispenser { facing, triggered, .. } => format!("Q{}{}", d(facing), if triggered { '*' } else { ' ' }),
+        Block::Piston { sticky, facing, extended } => format!("{}{}{}", if sticky { 'S' } else { 'P' }, d(facing), if extended { '+' } else { ' ' }),
+        Block::PistonHead { facing, .. } => format!("h{} ", d(facing)),
+        Block::MovingPiston { facing, .. } => format!("~{} ", d(facing)),
+        Block::Leaves { distance, .. } => format!("lv{distance}"),
+        Block::Log { .. } => "log".into(),
+        _ => "???".into(),
+    }
+}
+
+fn jvm_confirm(w: &mut mctas::sim::Worker, d: &mctas::design::Design, extra: u32) -> Result<String> {
     let mut opts = crate::VerifyOptions::default();
-    opts.offsets.extend(crate::extra_offsets(28));
+    opts.offsets.extend(crate::extra_offsets(extra));
     let r = crate::verify(w, d, &opts);
     let j = match &r {
         Ok(rep) => format!("JVM WORKS {} blocks open {} close {}", rep.blocks, rep.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0), rep.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0)),
@@ -1503,6 +1845,16 @@ fn anneal(
                     best.dedup_by(|x, y| x.1 == y.1);
                     best.truncate(32);
                 }
+                if s.pts >= s.max {
+                    let mut bf = sh.best_full.lock().unwrap();
+                    let better = match bf.as_ref() {
+                        None => true,
+                        Some((b, bg)) => (s.assisted, -s.ev, cur.count()) < (b.assisted, -b.ev, bg.count()),
+                    };
+                    if better {
+                        *bf = Some((s, cur.clone()));
+                    }
+                }
                 if s.perfect() {
                     sh.perfect.fetch_add(1, Ordering::Relaxed);
                     try_find(p, &cur, sh, jopts, a, Some(&tx));
@@ -1510,4 +1862,734 @@ fn anneal(
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------- pockets
+
+/// `mctas door cosearch pockets`: pocket-exhaustive wiring. The free cells the plan never sweeps
+/// split into pockets (connected regions); every filling of up to `--k` blocks of each pocket
+/// (connected, touching the build; a moved lever counts as one block) is simulated with the rest
+/// of the door driven by the plan, and kept when the door still works and the real wiring alone
+/// feeds some plan input's piston every pulse / level edge inside that edge's timing window
+/// (windows measured by shifting each plan edge alone). Then one filling per pocket is combined
+/// to cover every input and verified in redsim (screen, then the redsim judge at 4 positions +
+/// FULL + hallway), finds written and confirmed by the JVM (`--confirm`).
+#[derive(clap::Args, Clone, Debug)]
+pub struct PocketArgs {
+    #[command(flatten)]
+    pub s: SearchArgs,
+    /// Most blocks per filling (a moved lever counts as one).
+    #[arg(long, default_value_t = 3)]
+    pub k: usize,
+    /// Palette of the fillings (families as in --palette); ring cells take stone only.
+    #[arg(long, default_value = "stone,glass,dust,rblock,torch,walltorch,repeater,comparator,observer,lamp,note,target,bulb,dropper,trapdoor,leaves,log,sticky,piston")]
+    pub fill_palette: String,
+    /// Window scan (ticks) around each plan pulse / level edge.
+    #[arg(long, default_value_t = 24)]
+    pub win: i32,
+    /// Accepted fillings kept per (pocket, driven input set), fewest blocks first.
+    #[arg(long, default_value_t = 24)]
+    pub keep: usize,
+    /// Most combinations verified.
+    #[arg(long, default_value_t = 200000)]
+    pub max_combos: usize,
+    /// Skip pockets with more cells than this.
+    #[arg(long, default_value_t = 16)]
+    pub max_pocket: usize,
+    /// Lever candidate cells (door coordinates `x,y;...`): default the air cells next to a pocket
+    /// cell that the plan never sweeps (inside or outside the box).
+    #[arg(long)]
+    pub lever_cells: Option<String>,
+    /// Pulse width tolerance (ticks over the plan's pulse width).
+    #[arg(long, default_value_t = 4)]
+    pub width_tol: u32,
+    /// Only these pockets (indices as printed), default all.
+    #[arg(long)]
+    pub only_pockets: Option<String>,
+    /// Debug: screen this design as one filling (same assist) and print each input's real drive
+    /// trace and the plan groups it matches, then stop.
+    #[arg(long)]
+    pub debug_fill: Option<std::path::PathBuf>,
+    /// Save the N cheapest fillings of every (pocket, driven input set) as designs in `--out-dir`
+    /// (`pocket<i>-<inputs>-<j>.txt`: the seed plus that filling, header `assisted:` = the inputs
+    /// it does not drive), to reuse one region's wiring by hand (0 = none).
+    #[arg(long, default_value_t = 0)]
+    pub dump: usize,
+}
+
+/// One plan pulse (on, then off) or level edge of one input in one phase, with its window.
+#[derive(Clone, Debug)]
+struct PGroup {
+    k: usize,
+    phase: usize,
+    /// Indices into `assist_events[phase]`.
+    evi: Vec<usize>,
+    t: u32,
+    width: Option<u32>,
+    up: bool,
+    lo: i32,
+    hi: i32,
+}
+
+#[derive(Clone, Debug)]
+struct Filling {
+    blocks: Vec<((i32, i32), Block)>,
+    lever: Option<(i32, i32)>,
+    driven: u64,
+}
+
+impl Filling {
+    fn cost(&self) -> usize {
+        self.blocks.len() + self.lever.is_some() as usize
+    }
+}
+
+fn plan_groups(p: &Problem) -> Vec<PGroup> {
+    let mut out = Vec::new();
+    for phase in 0..2 {
+        let evs = &p.assist_events[phase];
+        let mut used = vec![false; evs.len()];
+        for i in 0..evs.len() {
+            if used[i] {
+                continue;
+            }
+            used[i] = true;
+            let (t, k, q, b) = evs[i];
+            if !b.is_air() {
+                // a pulse: the next event of the same input at the same position clears it
+                if let Some(j) = (i + 1..evs.len()).find(|&j| !used[j] && evs[j].1 == k && evs[j].2 == q) {
+                    if evs[j].3.is_air() {
+                        used[j] = true;
+                        out.push(PGroup { k, phase, evi: vec![i, j], t, width: Some(evs[j].0 - t), up: true, lo: 0, hi: 0 });
+                        continue;
+                    }
+                }
+            }
+            out.push(PGroup { k, phase, evi: vec![i], t, width: None, up: !b.is_air(), lo: 0, hi: 0 });
+        }
+    }
+    out
+}
+
+/// Each group's window: the shifts (others at the plan's ticks) that keep the screen perfect.
+fn measure_windows(p: &Problem, seed: &Grid, groups: &mut [PGroup], win: i32, threads: usize) {
+    let max = 11 + p.cycles as i32 * 34;
+    let jobs: Vec<(usize, i32)> = (0..groups.len()).flat_map(|gi| (-win..=win).filter(|d| *d != 0).map(move |d| (gi, d))).collect();
+    let res = cs::par_map(&jobs, threads, |&(gi, d)| {
+        let gr = &groups[gi];
+        if (gr.t as i32) + d < 0 {
+            return false;
+        }
+        let mut p2 = p.clone();
+        for &i in &gr.evi {
+            let e = &mut p2.assist_events[gr.phase][i];
+            e.0 = (e.0 as i32 + d) as u32;
+        }
+        p2.assist_events[gr.phase].sort_by_key(|e| e.0);
+        p2.drive_weight = 0.0;
+        screen(&p2, seed).pts >= max
+    });
+    for (gi, gr) in groups.iter_mut().enumerate() {
+        let ok = |d: i32| d == 0 || jobs.iter().zip(res.iter()).any(|(j, r)| j.0 == gi && j.1 == d && *r);
+        let mut lo = 0;
+        while lo > -win && ok(lo - 1) {
+            lo -= 1;
+        }
+        let mut hi = 0;
+        while hi < win && ok(hi + 1) {
+            hi += 1;
+        }
+        gr.lo = lo;
+        gr.hi = hi;
+    }
+}
+
+/// Which plan groups the real traces reproduce: every real pulse / level edge on a still-assisted
+/// input must fall in the window of one of that input's groups (one real pulse per group, width
+/// within tolerance); a real edge no group explains rejects the filling (None). Returns the
+/// covered groups (bit = index in `groups`).
+fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2], width_tol: u32) -> Option<u64> {
+    let mut covered = 0u64;
+    for k in 0..p.assist_pistons.len() {
+        if (need >> k) & 1 == 0 {
+            continue;
+        }
+        // an input the filling never feeds (its real drive is off throughout) is not touched
+        if traces.iter().all(|tr| tr.iter().all(|r| (r >> k) & 1 == 0)) {
+            continue;
+        }
+        for phase in 0..2 {
+            let real = &traces[phase];
+            if real.is_empty() {
+                return None;
+            }
+            // the phase's starting state (the close starts from the open's end)
+            let rest_on = plan_phase_start(p, k, phase);
+            let rb: Vec<bool> = real.iter().map(|r| (r >> k) & 1 == 1).collect();
+            let mut edges: Vec<(i32, bool)> = Vec::new();
+            if rb[0] != rest_on {
+                edges.push((0, rb[0]));
+            }
+            for i in 1..rb.len() {
+                if rb[i] != rb[i - 1] {
+                    edges.push((i as i32, rb[i]));
+                }
+            }
+            if edges.is_empty() {
+                continue;
+            }
+            // the input's groups in this phase
+            let gs: Vec<usize> = (0..groups.len()).filter(|&gi| groups[gi].k == k && groups[gi].phase == phase).collect();
+            let mut e = 0;
+            while e < edges.len() {
+                let (t1, u1) = edges[e];
+                // a pulse (rising then falling) or a single level edge
+                let mut hit = None;
+                for &gi in &gs {
+                    let g = &groups[gi];
+                    if (covered >> gi) & 1 == 1 {
+                        continue;
+                    }
+                    let (lo, hi) = (g.t as i32 + g.lo, g.t as i32 + g.hi);
+                    if t1 < lo || t1 > hi {
+                        continue;
+                    }
+                    match g.width {
+                        Some(w) => {
+                            if !u1 || e + 1 >= edges.len() {
+                                continue;
+                            }
+                            let (t2, u2) = edges[e + 1];
+                            let wd = (t2 - t1) as u32;
+                            if u2 || wd + 1 < w || wd > w + width_tol {
+                                continue;
+                            }
+                            hit = Some((gi, 2));
+                        }
+                        None => {
+                            if u1 != g.up {
+                                continue;
+                            }
+                            hit = Some((gi, 1));
+                        }
+                    }
+                    break;
+                }
+                match hit {
+                    Some((gi, n)) => {
+                        covered |= 1u64 << gi;
+                        e += n;
+                    }
+                    None => return None,
+                }
+            }
+        }
+    }
+    Some(covered)
+}
+
+/// Does the real trace of input `k` (both phases) reproduce its plan groups inside their windows,
+/// with no extra edge?
+#[allow(dead_code)]
+fn accepts(p: &Problem, groups: &[PGroup], k: usize, traces: &[Vec<u64>; 2], width_tol: u32) -> bool {
+    for phase in 0..2 {
+        let real = &traces[phase];
+        if real.is_empty() {
+            return false;
+        }
+        let rb: Vec<bool> = real.iter().map(|r| (r >> k) & 1 == 1).collect();
+        let rest_on = p.assist_rest_all.iter().any(|r| r.0 == k);
+        let mut edges: Vec<(i32, bool)> = Vec::new();
+        if rb[0] != rest_on {
+            edges.push((0, rb[0]));
+        }
+        for i in 1..rb.len() {
+            if rb[i] != rb[i - 1] {
+                edges.push((i as i32, rb[i]));
+            }
+        }
+        let gs: Vec<&PGroup> = groups.iter().filter(|g| g.k == k && g.phase == phase).collect();
+        let mut e = 0;
+        for g in gs {
+            let (lo, hi) = (g.t as i32 + g.lo, g.t as i32 + g.hi);
+            match g.width {
+                Some(w) => {
+                    if e + 1 >= edges.len() {
+                        return false;
+                    }
+                    let (t1, u1) = edges[e];
+                    if !u1 || t1 < lo || t1 > hi {
+                        return false;
+                    }
+                    let (t2, u2) = edges[e + 1];
+                    let wd = (t2 - t1) as u32;
+                    if u2 || wd + 1 < w || wd > w + width_tol {
+                        return false;
+                    }
+                    e += 2;
+                }
+                None => {
+                    if e >= edges.len() {
+                        return false;
+                    }
+                    let (t1, u1) = edges[e];
+                    if u1 != g.up || t1 < lo || t1 > hi {
+                        return false;
+                    }
+                    e += 1;
+                }
+            }
+        }
+        if e != edges.len() {
+            return false;
+        }
+    }
+    true
+}
+
+fn connected(cells: &[(i32, i32)]) -> bool {
+    if cells.is_empty() {
+        return false;
+    }
+    let mut seen = vec![false; cells.len()];
+    let mut stack = vec![0];
+    seen[0] = true;
+    while let Some(i) = stack.pop() {
+        for j in 0..cells.len() {
+            if !seen[j] && (cells[i].0 - cells[j].0).abs() + (cells[i].1 - cells[j].1).abs() == 1 {
+                seen[j] = true;
+                stack.push(j);
+            }
+        }
+    }
+    seen.iter().all(|s| *s)
+}
+
+fn subsets_upto(n: usize, k: usize) -> Vec<Vec<usize>> {
+    let mut out = Vec::new();
+    fn rec(n: usize, k: usize, start: usize, cur: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
+        if !cur.is_empty() {
+            out.push(cur.clone());
+        }
+        if cur.len() == k {
+            return;
+        }
+        for i in start..n {
+            cur.push(i);
+            rec(n, k, i + 1, cur, out);
+            cur.pop();
+        }
+    }
+    rec(n, k, 0, &mut Vec::new(), &mut out);
+    out
+}
+
+pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
+    let a = &pa.s;
+    let (prob, seeds, dx, dy) = setup(a)?;
+    let seed = seeds[0].clone();
+    std::fs::create_dir_all(&a.out_dir)?;
+    let max = 11 + prob.cycles as i32 * 34;
+    let s0 = screen(&prob, &seed);
+    println!("seed screen {}/{} with {} inputs assisted", s0.pts, s0.max, seed.assist.count_ones());
+    anyhow::ensure!(s0.pts >= max, "the seed must screen perfect with its assisted inputs");
+    let names: Vec<String> = prob.assist_pistons.iter().map(|(x, y)| format!("({},{})", x - dx, y - dy)).collect();
+    let t0 = std::time::Instant::now();
+    // ---- windows
+    let mut groups = plan_groups(&prob);
+    groups.retain(|g| (seed.assist >> g.k) & 1 == 1);
+    measure_windows(&prob, &seed, &mut groups, pa.win, a.threads);
+    anyhow::ensure!(groups.len() <= 64, "at most 64 plan groups ({})", groups.len());
+    let glabels: Vec<String> = groups.iter().map(|g| format!("{}{}{}", names[g.k], if g.phase == 0 { "o" } else { "c" }, g.t)).collect();
+    if let Some(dbg) = &pa.debug_fill {
+        let (_, r) = cs::load_door(dbg)?;
+        let mut g = grid_from_door(&r, &prob)?;
+        g.assist = seed.assist;
+        let mut evs = Vec::new();
+        let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
+        let sc = screen_core(&prob, &g, &mut evs, &mut traces, true);
+        println!("debug filling {}: screen {}/{}", dbg.display(), sc.pts, sc.max);
+        for k in 0..prob.assist_pistons.len() {
+            for phase in 0..2 {
+                let s: String = traces[phase].iter().map(|r| if (r >> k) & 1 == 1 { '#' } else { '.' }).collect();
+                let pb: String = plan_bits(&prob, phase, k, traces[phase].len()).iter().map(|b| if *b { '#' } else { '.' }).collect();
+                println!("  input {} {}: real {s}\n  {:>w$}   plan {pb}", names[k], if phase == 0 { "open " } else { "close" }, "", w = names[k].len() + 8);
+            }
+        }
+        match match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol) {
+            Some(c) => println!("  matched groups: {}", (0..64).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" ")),
+            None => println!("  rejected: a real edge no group explains"),
+        }
+        return Ok(());
+    }
+    println!("windows ({} groups, {:.1} s):", groups.len(), t0.elapsed().as_secs_f64());
+    for g in &groups {
+        println!(
+            "  input {} {} t{} {}: window [{:+}, {:+}]",
+            names[g.k],
+            if g.phase == 0 { "open " } else { "close" },
+            g.t,
+            match g.width {
+                Some(w) => format!("pulse {w} gt"),
+                None => (if g.up { "on" } else { "off" }).to_string(),
+            },
+            g.lo,
+            g.hi
+        );
+    }
+    // ---- swept cells and pockets
+    let z = seed.z;
+    let mut rest_occ: HashSet<(i32, i32)> = HashSet::new();
+    let mut swept: HashSet<(i32, i32)> = HashSet::new();
+    {
+        let list = seed.blocks();
+        let (wlo, whi) = cs::watch_box(&list, &prob.spec);
+        let mut w = World::new(BlockPos::new(wlo[0] - 3, wlo[1] - 3, wlo[2] - 3), [whi[0] - wlo[0] + 7, whi[1] - wlo[1] + 7, whi[2] - wlo[2] + 7]);
+        let mut placed: Vec<(BlockPos, Block)> = list.iter().map(|(q, b)| (cs::bp(*q), *b)).collect();
+        for (k, q, b) in &prob.assist_rest {
+            if (seed.assist >> k) & 1 == 1 {
+                placed.push((*q, *b));
+            }
+        }
+        w.place_like_judge(&placed);
+        cs::step_until_idle(&mut w, prob.max_ticks, |_| {});
+        let cells = plane_cells(&prob, z);
+        for q in &cells {
+            if !w.get(*q).is_air() {
+                rest_occ.insert((q.x, q.y));
+            }
+        }
+        let lever = BlockPos::new(seed.lever.0, seed.lever.1, z);
+        for phase in 0..2 {
+            w.use_block(lever);
+            run_phase(&prob, &seed, &mut w, phase, None, |w| {
+                for q in &cells {
+                    if !w.get(*q).is_air() {
+                        swept.insert((q.x, q.y));
+                    }
+                }
+            });
+        }
+    }
+    let ring: HashSet<(i32, i32)> = prob.ring.iter().copied().collect();
+    let pocket_cell = |c: &(i32, i32)| prob.free.contains(c) && !rest_occ.contains(c) && !swept.contains(c) && !prob.assist_in_plane.contains(c);
+    let cand: Vec<(i32, i32)> = prob.free.iter().copied().filter(|c| pocket_cell(c)).collect();
+    let mut pockets: Vec<Vec<(i32, i32)>> = Vec::new();
+    let mut seen: HashSet<(i32, i32)> = HashSet::new();
+    for &c in &cand {
+        if seen.contains(&c) {
+            continue;
+        }
+        let mut comp = vec![c];
+        seen.insert(c);
+        let mut i = 0;
+        while i < comp.len() {
+            let (x, y) = comp[i];
+            for (ddx, ddy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let n = (x + ddx, y + ddy);
+                if cand.contains(&n) && seen.insert(n) {
+                    comp.push(n);
+                }
+            }
+            i += 1;
+        }
+        comp.sort();
+        pockets.push(comp);
+    }
+    let lever_cands: Vec<(i32, i32)> = match &pa.lever_cells {
+        Some(s) => s
+            .split(';')
+            .filter_map(|t| {
+                let v: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                (v.len() == 2).then(|| (v[0] + dx, v[1] + dy))
+            })
+            .collect(),
+        None => {
+            let mut v = Vec::new();
+            for x in prob.lo[0] - 1..=prob.hi[0] + 1 {
+                for y in prob.lo[1] - 1..=prob.hi[1] + 1 {
+                    let c = (x, y);
+                    if rest_occ.contains(&c) || swept.contains(&c) || prob.door_cells.contains(&c) || ring.contains(&c) || prob.assist_in_plane.contains(&c) {
+                        continue;
+                    }
+                    if cand.iter().any(|q| (q.0 - x).abs() + (q.1 - y).abs() == 1) || cand.contains(&c) {
+                        v.push(c);
+                    }
+                }
+            }
+            v
+        }
+    };
+    println!("{} pocket cells in {} pockets; {} lever candidates; {} swept cells", cand.len(), pockets.len(), lever_cands.len(), swept.len());
+    for (i, pk) in pockets.iter().enumerate() {
+        println!("  pocket {i}: {} cells {:?}", pk.len(), pk.iter().map(|(x, y)| (x - dx, y - dy)).collect::<Vec<_>>());
+    }
+    let only: Option<Vec<usize>> = pa.only_pockets.as_ref().map(|s| s.split([',', ';']).filter_map(|t| t.trim().parse().ok()).collect());
+    let pal = palette(&pa.fill_palette)?;
+    let pal: Vec<Block> = pal.into_iter().filter(|b| !b.is_air()).collect();
+    let stone_pal: Vec<Block> = pal.iter().copied().filter(|b| matches!(b, Block::Simple(Simple::Stone) | Block::Simple(Simple::SmoothStone))).collect();
+    // ---- per pocket enumeration
+    let mut accepted: Vec<Vec<Filling>> = Vec::new();
+    for (pi, pk) in pockets.iter().enumerate() {
+        if only.as_ref().is_some_and(|o| !o.contains(&pi)) || pk.len() > pa.max_pocket {
+            println!("pocket {pi}: skipped");
+            accepted.push(Vec::new());
+            continue;
+        }
+        let tp = std::time::Instant::now();
+        let touches_context = |cells: &[(i32, i32)]| cells.iter().any(|(x, y)| [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(ddx, ddy)| rest_occ.contains(&(x + ddx, y + ddy))));
+        // work items: (subset of pocket cell indices, lever option)
+        let mut items: Vec<(Vec<usize>, Option<(i32, i32)>)> = Vec::new();
+        for sub in subsets_upto(pk.len(), pa.k) {
+            let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
+            if !connected(&cells) {
+                continue;
+            }
+            if touches_context(&cells) {
+                items.push((sub.clone(), None));
+            }
+            if sub.len() < pa.k {
+                for &l in &lever_cands {
+                    if cells.contains(&l) {
+                        continue;
+                    }
+                    if cells.iter().any(|q| (q.0 - l.0).abs() + (q.1 - l.1).abs() == 1) {
+                        items.push((sub.clone(), Some(l)));
+                    }
+                }
+            }
+        }
+        let total: u64 = items.iter().map(|(sub, _)| sub.iter().map(|&i| if ring.contains(&pk[i]) { stone_pal.len() as u64 } else { pal.len() as u64 }).product::<u64>()).sum();
+        println!("pocket {pi}: {} cells, {} subset/lever items, {} fillings to screen", pk.len(), items.len(), total);
+        let next = AtomicUsize::new(0);
+        let screened = AtomicU64::new(0);
+        let ok_door = AtomicU64::new(0);
+        let found: Mutex<std::collections::HashMap<u64, Vec<Filling>>> = Mutex::new(std::collections::HashMap::new());
+        std::thread::scope(|s| {
+            for _ in 0..a.threads {
+                s.spawn(|| {
+                    let mut local: std::collections::HashMap<u64, Vec<Filling>> = std::collections::HashMap::new();
+                    loop {
+                        let ii = next.fetch_add(1, Ordering::Relaxed);
+                        if ii >= items.len() {
+                            break;
+                        }
+                        let (sub, lev) = &items[ii];
+                        let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
+                        let pals: Vec<&Vec<Block>> = cells.iter().map(|c| if ring.contains(c) { &stone_pal } else { &pal }).collect();
+                        if pals.iter().any(|p| p.is_empty()) {
+                            continue;
+                        }
+                        let mut idx = vec![0usize; cells.len()];
+                        loop {
+                            let mut g = seed.clone();
+                            for (j, c) in cells.iter().enumerate() {
+                                g.set(c.0, c.1, pals[j][idx[j]]);
+                            }
+                            if let Some((lx, ly)) = lev {
+                                g.set(seed.lever.0, seed.lever.1, Block::Air);
+                                place_lever(&mut g, *lx, *ly);
+                            }
+                            let mut evs = Vec::new();
+                            let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
+                            let sc = screen_core(&prob, &g, &mut evs, &mut traces, true);
+                            screened.fetch_add(1, Ordering::Relaxed);
+                            if sc.pts >= max {
+                                ok_door.fetch_add(1, Ordering::Relaxed);
+                                if let Some(driven) = match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol)
+                                    && driven != 0
+                                {
+                                    let f = Filling { blocks: cells.iter().enumerate().map(|(j, c)| (*c, pals[j][idx[j]])).collect(), lever: *lev, driven };
+                                    let v = local.entry(driven).or_default();
+                                    v.push(f);
+                                    if v.len() > 4 * pa.keep {
+                                        v.sort_by_key(|f| f.cost());
+                                        v.truncate(pa.keep);
+                                    }
+                                }
+                            }
+                            // next assignment
+                            let mut j = 0;
+                            loop {
+                                if j == idx.len() {
+                                    break;
+                                }
+                                idx[j] += 1;
+                                if idx[j] < pals[j].len() {
+                                    break;
+                                }
+                                idx[j] = 0;
+                                j += 1;
+                            }
+                            if j == idx.len() {
+                                break;
+                            }
+                        }
+                    }
+                    let mut f = found.lock().unwrap();
+                    for (k, mut v) in local {
+                        let e = f.entry(k).or_default();
+                        e.append(&mut v);
+                        e.sort_by_key(|f| f.cost());
+                        e.truncate(pa.keep);
+                    }
+                });
+            }
+        });
+        let found = found.into_inner().unwrap();
+        let mut sets: Vec<(&u64, &Vec<Filling>)> = found.iter().collect();
+        sets.sort_by_key(|(k, _)| std::cmp::Reverse(k.count_ones()));
+        println!(
+            "pocket {pi}: {} screened, {} keep the door working, {:.1} s; driven input sets: {}",
+            screened.load(Ordering::Relaxed),
+            ok_door.load(Ordering::Relaxed),
+            tp.elapsed().as_secs_f64(),
+            if sets.is_empty() {
+                "none".to_string()
+            } else {
+                sets.iter().map(|(k, v)| format!("{{{}}} x{} (best {} blocks)", (0..64).filter(|i| (**k >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "), v.len(), v[0].cost())).collect::<Vec<_>>().join(", ")
+            }
+        );
+        if pa.dump > 0 {
+            std::fs::create_dir_all(&a.out_dir)?;
+            for (set, fills) in &sets {
+                let tag: Vec<String> = (0..64).filter(|i| (**set >> i) & 1 == 1).map(|i| glabels[i].replace(['(', ')'], "").replace(',', "_")).collect();
+                for (j, f) in fills.iter().take(pa.dump).enumerate() {
+                    let mut g = seed.clone();
+                    for (q, b) in &f.blocks {
+                        g.set(q.0, q.1, *b);
+                    }
+                    if let Some((lx, ly)) = f.lever {
+                        g.set(g.lever.0, g.lever.1, Block::Air);
+                        place_lever(&mut g, lx, ly);
+                    }
+                    let name = format!("pocket{pi}-{}-{j}", tag.join("+"));
+                    let mut d = door_of(&g, prob.spec).to_design(&name);
+                    d.meta.insert("driven".into(), tag.join(" "));
+                    d.save(&a.out_dir.join(format!("{name}.txt")))?;
+                }
+            }
+        }
+        let mut all: Vec<Filling> = found.into_values().flatten().collect();
+        all.sort_by_key(|f| f.cost());
+        accepted.push(all);
+    }
+    // ---- combinations
+    let need: u64 = if groups.len() >= 64 { u64::MAX } else { (1u64 << groups.len()) - 1 };
+    let coverable: u64 = accepted.iter().flatten().fold(0, |acc, f| acc | f.driven);
+    if coverable & need != need {
+        println!(
+            "plan groups no filling drives: {}",
+            (0..64).filter(|i| (need >> i) & 1 == 1 && (coverable >> i) & 1 == 0).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" ")
+        );
+    }
+    // the inputs whose every group is covered by a group set
+    let released_by = |cov: u64| -> u64 {
+        let mut r = 0u64;
+        for k in 0..prob.assist_pistons.len() {
+            if (seed.assist >> k) & 1 == 0 {
+                continue;
+            }
+            if groups.iter().enumerate().filter(|(_, g)| g.k == k).all(|(gi, _)| (cov >> gi) & 1 == 1) {
+                r |= 1u64 << k;
+            }
+        }
+        r
+    };
+    // combinations: a set of fillings with disjoint cells (at most one moves the lever) covering
+    // every input; depth first over the lowest uncovered input, cheapest fillings first; an input
+    // no filling drives stays assisted (a true partial when the screen is perfect)
+    let cands: Vec<Filling> = {
+        let mut v: Vec<Filling> = accepted.iter().flatten().cloned().collect();
+        v.sort_by_key(|f| f.cost());
+        v
+    };
+    let mut combos_tried = 0usize;
+    let mut best_partial: Option<(u32, Grid)> = None;
+    let jopts = cs::JudgeOpts::with_extra(a.judge_extra);
+    let mut finds = 0usize;
+    let mut verified: HashSet<Vec<usize>> = HashSet::new();
+    let mut stack: Vec<(Vec<usize>, u64, u64)> = vec![(Vec::new(), 0, 0)];
+    while let Some((chosen, cov, skipped)) = stack.pop() {
+        if combos_tried >= pa.max_combos || finds >= a.max_finds {
+            break;
+        }
+        let mut key = chosen.clone();
+        key.sort();
+        if !chosen.is_empty() && verified.insert(key) {
+            combos_tried += 1;
+            let mut g = seed.clone();
+            for &c in &chosen {
+                let f = &cands[c];
+                for (q, b) in &f.blocks {
+                    g.set(q.0, q.1, *b);
+                }
+                if let Some((lx, ly)) = f.lever {
+                    g.set(g.lever.0, g.lever.1, Block::Air);
+                    place_lever(&mut g, lx, ly);
+                }
+            }
+            g.assist = seed.assist & !released_by(cov);
+            let sc = screen(&prob, &g);
+            if sc.pts >= max {
+                if g.assist == 0 {
+                    let door = door_of(&g, prob.spec);
+                    let e = cs::evaluate(&door, &jopts, false);
+                    println!("combination {combos_tried}: perfect screen; redsim judge: {}", cs::eval_line("combo", &e, 0.0));
+                    if e.record_ok() {
+                        let vol = e.volume.map(|v| v.0).unwrap_or(0);
+                        let name = format!("pockets-{vol}b-{}-{finds}", door.block_count());
+                        let d = door.to_design(&name);
+                        let path = a.out_dir.join(format!("{name}.txt"));
+                        d.save(&path)?;
+                        println!("FIND {}", path.display());
+                        finds += 1;
+                        if a.confirm {
+                            let mut w = mctas::sim::Worker::spawn(&mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+                            println!("  JVM: {}", jvm_confirm(&mut w, &d, a.judge_extra)?);
+                        }
+                    }
+                } else {
+                    let left = g.assist.count_ones();
+                    if best_partial.as_ref().is_none_or(|(l, _)| left < *l) {
+                        let still: Vec<String> = (0..prob.assist_pistons.len()).filter(|k| (g.assist >> k) & 1 == 1).map(|k| format!("{},{}", prob.assist_pistons[k].0 - dx, prob.assist_pistons[k].1 - dy)).collect();
+                        println!("combination {combos_tried}: true partial, {left} inputs still assisted [{}] ({} blocks)", still.join(" "), g.count());
+                        best_partial = Some((left, g.clone()));
+                        let mut d = door_of(&g, prob.spec).to_design(&format!("pockets-partial-{left}as"));
+                        d.meta.insert("assisted".into(), still.join(";"));
+                        d.save(&a.out_dir.join(format!("pockets-partial-{left}as.txt")))?;
+                    }
+                }
+            } else {
+                // a failing combination: nothing more along this branch
+                continue;
+            }
+        }
+        let open = need & !cov & !skipped;
+        if open == 0 {
+            continue;
+        }
+        let i = open.trailing_zeros() as usize;
+        let used: HashSet<(i32, i32)> = chosen.iter().flat_map(|&c| cands[c].blocks.iter().map(|(q, _)| *q).chain(cands[c].lever)).collect();
+        let has_lever = chosen.iter().any(|&c| cands[c].lever.is_some());
+        let mut kids: Vec<(Vec<usize>, u64, u64)> = Vec::new();
+        for (c, f) in cands.iter().enumerate() {
+            if (f.driven >> i) & 1 == 0 || (has_lever && f.lever.is_some()) {
+                continue;
+            }
+            if f.blocks.iter().map(|(q, _)| *q).chain(f.lever).any(|q| used.contains(&q)) {
+                continue;
+            }
+            let mut ch = chosen.clone();
+            ch.push(c);
+            kids.push((ch, cov | f.driven, skipped));
+        }
+        // leaving input i assisted is the last resort (explored after every filling for it)
+        stack.push((chosen.clone(), cov, skipped | (1u64 << i)));
+        for k in kids.into_iter().rev() {
+            stack.push(k);
+        }
+    }
+    println!("{combos_tried} combinations verified, {finds} finds, {:.0} s total", t0.elapsed().as_secs_f64());
+    Ok(())
 }
