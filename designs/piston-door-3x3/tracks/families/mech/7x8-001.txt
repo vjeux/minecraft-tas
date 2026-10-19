@@ -16,9 +16,9 @@ layer -1:
 layer 0:
   ..CCC
 layer 1:
-  s.CCC
-layer 2:
   s.CCC.B
+layer 2:
+  s.CCC
 layer 3:
   .
 layer 4:
