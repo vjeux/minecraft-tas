@@ -1,0 +1,26 @@
+name: hf-s78-1125
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=west]
+  B minecraft:sticky_piston[extended=true,facing=east]
+  C minecraft:stone
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -2:
+  .s.s
+layer -1:
+  ..C.C
+layer 0:
+  BPCCC.A
+layer 1:
+  BPCCC.A
+layer 2:
+  BPCCC.A
+layer 3:
+  ..C..A
+layer 4:
+  ...S
+layer 5:
+  ..SS
