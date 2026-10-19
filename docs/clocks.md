@@ -138,7 +138,20 @@ each (period, family); every one of them verified `robust` in the game by `clock
 
 Every other filling of these boxes with that many blocks is not a clock (on redsim, with these
 starts): with <= 2 blocks the observer pair is the only clock; with <= 3 blocks in a 3x1x1 row, the
-pair alone or with a bulb.
+pair alone or with a bulb. The bigger boxes (3x2x1, 3x1x2, 2x2x2, 3x1x3, 3x3x1, 3x2x2 with k 4,
+3x3x2 with k 3) are merged by `clock census-report` into `designs/clocks/census/README.md`.
+
+### Periods 2 and 3 (vjeux's question; period 1 is no signal by definition)
+
+`clock census --palette full --max-period 3 --warmup 60` (every modeled component that needs no
+item or entity: the `core` palette plus honey, obsidian, oak and iron trapdoors, powered and
+activator rails, fence gates, droppers, leaves; ~100 states; self-start or one block placed last;
+a candidate whose whole state does not repeat within 12 gt is dropped early) finds NO clock of
+period 2 or 3 in: 2x1x1 (k 2), 3x1x1 (k 3), 2x2x1, 2x1x2, 3x2x1, 3x1x2, 2x2x2, 3x3x1 (k 4), 3x1x3,
+3x3x2 (k 3). The same runs with `--max-period 4` find the P4 clocks (24 observer types and 2
+observer + piston types in 3x2x1), so the pruning keeps real clocks. The game-source arguments for
+the families that cannot reach P2/P3 at any size are in `designs/clocks/impossible.tsv` (clk-rt,
+clk-obs).
 
 Types: `clock::canon` turns and mirrors block states on their text (facing, axis, the four side
 properties, rotation, rail shapes, crafter orientation, hinge) and drops the dynamic properties
