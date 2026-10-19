@@ -48,6 +48,10 @@ pub enum SiteCmd {
         /// Virtual time each page gets to run its scripts (ms).
         #[arg(long, default_value_t = 20_000)]
         budget: u32,
+        /// Check the deployed site at this URL instead of serving `dir` (e.g.
+        /// https://vjeux.github.io/minecraft-tas/); `dir` still gives the expected answers.
+        #[arg(long)]
+        url: Option<String>,
     },
 }
 
@@ -57,9 +61,16 @@ pub struct BuildArgs {
     #[arg(long, default_value = "site")]
     pub out: PathBuf,
     /// webrender's viewer bundle (a folder with mcview.js + mcview_bg.wasm), copied to viewer/.
-    /// Without it the pages show text cards where the 3D views go.
+    /// Without it the pages show the interim pictures or text cards where the 3D views go.
     #[arg(long)]
     pub viewer: Option<PathBuf>,
+    /// Take the viewer bundle from a git ref instead: its `web/viewer/` files
+    /// (e.g. `origin/explore/webrender`, or `HEAD` once merged).
+    #[arg(long, conflicts_with = "viewer")]
+    pub viewer_ref: Option<String>,
+    /// No 3D viewer even when the checkout has one (`web/viewer/`, used by default).
+    #[arg(long)]
+    pub no_viewer: bool,
     /// A prebuilt filtering UI (wasm-bindgen output of web/site), copied to pkg/ instead of
     /// building it.
     #[arg(long)]
@@ -103,8 +114,8 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         SiteCmd::Build(a) => generate::build(&a),
         SiteCmd::Deploy(a) => deploy::deploy(&a),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Smoke { dir, chrome, budget } => {
-            let fails = serve::smoke(&dir, chrome.as_deref(), budget)?;
+        SiteCmd::Smoke { dir, chrome, budget, url } => {
+            let fails = serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?;
             if fails > 0 {
                 bail!("{fails} smoke check(s) failed");
             }

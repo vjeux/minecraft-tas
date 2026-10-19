@@ -1647,6 +1647,7 @@ dependencies = [
  "circuit",
  "clap",
  "clock",
+ "flate2",
  "mctas",
  "piston-door",
  "serde",
