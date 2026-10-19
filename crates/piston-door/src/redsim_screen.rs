@@ -163,7 +163,15 @@ fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_w
     }
     let closed_door: Vec<String> = spec.door_cells().iter().map(|p| rest.get(*p).unwrap_or("?").to_string()).collect();
     let mut worst = (0, 0);
-    for cycle in 0..cycles {
+    // periodic rest state (main 96a62d6, like `verify` and the redsim judge): every cycle opens
+    // and closes; some closed state must repeat an earlier one (the rest included) within
+    // cycles + MAX_PERIOD_EXTRA cycles
+    let mut seen_closed: Vec<Vec<(Pos, String)>> = vec![rest.iter().map(|(p, s)| (p, s.to_string())).collect()];
+    let mut periodic = false;
+    for cycle in 0..cycles + crate::MAX_PERIOD_EXTRA as usize {
+        if cycle >= cycles && periodic {
+            break;
+        }
         w.use_block(bp(spec.lever));
         let (open, idle) = run_recorded(&mut w, max_ticks, wlo, whi);
         if !w.errors.is_empty() {
@@ -194,15 +202,21 @@ fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_w
         if door_now != closed_door {
             return Screen::Fail(format!("cycle {cycle}: door not restored"));
         }
-        let diffs: Vec<String> = rest.iter().filter(|(p, s)| last.get(*p) != Some(*s)).take(8).map(|(p, s)| format!("{p:?} {s} -> {}", last.get(p).unwrap_or("?"))).collect();
-        if !diffs.is_empty() {
-            return Screen::Fail(format!("cycle {cycle}: the build did not return to its rest state: {}", diffs.join("; ")));
+        let snap: Vec<(Pos, String)> = last.iter().map(|(p, s)| (p, s.to_string())).collect();
+        if seen_closed.iter().any(|s| *s == snap) {
+            periodic = true;
+        } else {
+            seen_closed.push(snap);
         }
         if !w.drops.is_empty() {
             return Screen::Fail(format!("cycle {cycle}: entities appeared while closing (something broke): {:?}", w.drops));
         }
         let close_ticks = settled_from(&close, |f| spec.door_cells().iter().zip(closed_door.iter()).all(|(p, s)| f.get(*p) == Some(s.as_str()))).unwrap_or(0);
         worst = (worst.0.max(open_ticks), worst.1.max(close_ticks));
+    }
+    if !periodic {
+        let diffs: Vec<String> = rest.iter().filter(|(p, s)| seen_closed.last().and_then(|l| l.iter().find(|(q, _)| q == p)).map(|(_, t)| t.as_str()) != Some(*s)).take(8).map(|(p, s)| format!("{p:?} {s}")).collect();
+        return Screen::Fail(format!("the build never comes back to a closed state it had before within {} cycles (the build did not return to its rest state: {})", cycles + crate::MAX_PERIOD_EXTRA as usize, diffs.join("; ")));
     }
     Screen::Pass { open: worst.0, close: worst.1 }
 }
