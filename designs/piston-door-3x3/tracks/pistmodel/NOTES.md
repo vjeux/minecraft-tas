@@ -88,8 +88,31 @@ Families' candidates re-solved exactly (<= 10 pistons, pulses 1/3, cap 30k state
   pistons.
 * 8x8 (64 mechanisms) and 8x7 (32) exported the same way ([fullmech/8x8/](fullmech/8x8/),
   [fullmech/8x7/](fullmech/8x7/)): every one needs 3 signals; 192/192 plans replay in the real
-  simulator.
+  simulator. With `--levels --pulses 1,2,3,5` the count stays 3 (fm-7x8-000): the center's
+  two-piston column needs its own two interleaved signals.
+
+## What did not work, and why
+* No new door: this track builds models and mechanism tools; the 7x8 wiring problem is open. The
+  exact solver finds the same mechanisms as the macro model (families' candidates), plus ones the
+  macro model capped; nothing in 7x7, 9x6, 6x9 (11x5 / 12x5 need families' rows mode).
+* Helpers placed one at a time (inputs, signals, piston removal) never help in the 7x8 catalog:
+  the pullers' timing and the center column's 2-signal shuffle are rigid.
+* Annealing from scratch (pistons anywhere) finds nothing in 90 s: the space is too large for an
+  unseeded search scored only by the 3x3 occupancy.
+* Gravity: falling entities pushed by moving pistons (`moveCollidedEntities`, with
+  `limitPistonMovement` and horizontal collisions) are not modeled; 2975/3000.
+
+## Next ideas
+* Region-aware signals for 7x8: at rest the wiring cells split into ~4 corner regions (the door
+  rows, row y=1 and the center columns cut them); the big puller group spans all four. Search for
+  per-region signal derivation: observers watching moving door blocks in the regions without the
+  lever (2+ helpers per region, `--groups` per region).
+* Seed `--anneal` from the 7x8 / 8x8 catalog and score signals (min_groups) instead of occupancy.
+* Use the 3-signal group plans as `door cosearch --reference-ideal` / satwire targets.
+* Model `moveCollidedEntities` for falling blocks (gravity category to 100%).
 
 ## Log
 * 22:33Z inventory; 23:02Z pistons in, 2000/2000; 23:11Z 100k/100k; 23:25Z gadgets + archived doors
-  + mixed; 23:38Z `door fullmech`; 00:03Z families' boxes re-solved; 00:26Z 7x8 export verified.
+  + mixed; 23:38Z `door fullmech`; 00:03Z families' boxes re-solved; 00:26Z 7x8 export verified;
+  00:47Z input merging (3 signals); 01:20Z redmodel's collision boxes + scaffolding integrated;
+  01:39Z 8x8 / 8x7 exports; mixed 100k (97,541 identical, 0 mismatches).
