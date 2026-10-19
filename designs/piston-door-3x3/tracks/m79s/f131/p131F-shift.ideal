@@ -1,0 +1,19 @@
+# f131N-sr: the real lever plus ONE ideal input left, N's train (a redstone block behind (-2,4)).
+design designs/piston-door-3x3/tracks/cosearch2/seeds/f131F-b2.txt
+let d = 0
+let g = 12
+let h = 10
+let on1 = d
+let on2 = d+g
+let on3 = d+g+h
+let cn1 = d
+let cn2 = d+g
+let cn3 = d+g+h
+open 0 use -3 6 0
+close 0 use -3 6 0
+open on1 set -2 4 1 minecraft:redstone_block
+open on2 clear -2 4 1
+open on3 set -2 4 1 minecraft:redstone_block
+close cn1 clear -2 4 1
+close cn2 set -2 4 1 minecraft:redstone_block
+close cn3 clear -2 4 1

@@ -1,0 +1,18 @@
+assist designs/piston-door-3x3/tracks/pockets/plans/m88a-hold.ideal: 1 input cells off the plane ([(1, 3)]), 2 / 0 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/seeds/m88a-top.txt: 48 blocks in the box, screen 79/79
+14 piston cells locked, 40 cells free
+seed screen 79/79 with 1 inputs assisted
+windows (1 groups, 0.0 s):
+  input (1,3) open  t8 pulse 4 gt: window [-1, +0]
+7 pocket cells in 3 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 57 swept cells
+  pocket 0: 5 cells [(-3, 1), (-3, 2), (-3, 3), (-3, 4), (-3, 5)]
+  pocket 1: 1 cells [(-1, 3)]
+  pocket 2: 1 cells [(3, 3)]
+pocket 0: 5 cells, 184 subset/lever items, 3134950 fillings to screen
+pocket 0: 3733358 screened, 995653 keep the door working, 31.9 s; driven input sets: none
+pocket 1: 1 cells, 1 subset/lever items, 35 fillings to screen
+pocket 1: 35 screened, 20 keep the door working, 0.0 s; driven input sets: none
+pocket 2: 1 cells, 1 subset/lever items, 35 fillings to screen
+pocket 2: 36 screened, 30 keep the door working, 0.0 s; driven input sets: none
+plan groups no filling drives: (1,3)o8
+0 combinations verified, 0 finds, 32 s total

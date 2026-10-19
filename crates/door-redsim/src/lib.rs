@@ -130,10 +130,6 @@ pub enum DoorCmd {
         /// Sweep each --sweep variable on its own (others at their values) instead of the grid.
         #[arg(long)]
         independent: bool,
-        /// With --sweep: each variable on its own (implies --independent), one line per variable
-        /// with the working values as ranges (the timing windows at a glance)
-        #[arg(long)]
-        ranges: bool,
         /// Extra pseudo-random positions on top of the default four.
         #[arg(long, default_value_t = 0)]
         extra_offsets: u32,
@@ -142,12 +138,20 @@ pub enum DoorCmd {
         /// Print every block change of the first cycle at the first position.
         #[arg(long)]
         trace: bool,
-        /// With --trace: only changes of these cells (design coordinates `x,y;x,y`, any z), one
-        /// short line per tick
-        #[arg(long)]
-        trace_cells: Option<String>,
         #[arg(long, default_value_t = 16)]
         threads: usize,
+        /// Block variants, `x,y[,z]=state|state|...` (repeatable: every combination, times the
+        /// --sweep grid): the design's cell is replaced in memory before each run (`air`
+        /// clears it, `keep` leaves the design's block, `minecraft:` is optional).
+        #[arg(long)]
+        vary: Vec<String>,
+        /// Print only the combinations that work (and a count on stderr).
+        #[arg(long)]
+        ok_only: bool,
+        /// Also try every subset of up to N blocks removed (door cells, the lever and piston
+        /// heads excepted), on top of each --vary combination: a redsim block minimizer.
+        #[arg(long, default_value_t = 0)]
+        drop: usize,
     },
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
@@ -323,8 +327,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
-        DoorCmd::IdealRs { schedule, set, sweep, independent, ranges, extra_offsets, cycles, trace, trace_cells, threads } => {
-            crate::ideal_rs::cli(&schedule, &set, &sweep, independent || ranges, ranges, extra_offsets, cycles, trace || trace_cells.is_some(), trace_cells.as_deref(), threads)?;
+        DoorCmd::IdealRs { schedule, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop } => {
+            crate::ideal_rs::cli(&schedule, &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop)?;
         }
         DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace, sculk, border } => {
             let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace, sculk, border };

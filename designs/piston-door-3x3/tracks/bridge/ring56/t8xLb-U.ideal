@@ -1,0 +1,9 @@
+design designs/piston-door-3x3/tracks/bridge/ring56/t8xL-b.txt
+# t8xL-b: only U ideal (A and B from real wiring)
+let u = 42
+open 0 use 6 1 0
+close 0 use 6 1 0
+open u set 1 -2 1 minecraft:redstone_block
+open u+2 clear 1 -2 1
+close u set 1 -2 1 minecraft:redstone_block
+close u+2 clear 1 -2 1

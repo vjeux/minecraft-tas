@@ -1,0 +1,46 @@
+name: cosearch-live-77of79
+assisted: 1,4;-2,2
+port door: 0 0 0
+port lever: 4 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:piston_head[facing=down,short=false,type=sticky]
+  D minecraft:dropper[facing=south,triggered=false]
+  E minecraft:piston_head[facing=west,short=false,type=sticky]
+  F minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  G minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=true,facing=down]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  W minecraft:white_glazed_terracotta[facing=west]
+  d minecraft:dropper[facing=south,triggered=true]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=west]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  KoDKo.K
+layer -2:
+  rOBH.Pr
+layer -1:
+  Os..K.A
+layer 0:
+  s.KKKEJ
+layer 1:
+  s.KKKEJ
+layer 2:
+  s.KKKKd
+layer 3:
+  ..KSCGF
+layer 4:
+  ....IpW
+layer 5:
+  ...SWRL
