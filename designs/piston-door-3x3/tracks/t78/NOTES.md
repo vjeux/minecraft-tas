@@ -78,3 +78,12 @@ prints the `satwire --keep-ideal` list). Results in a78/ (holds-rank30-sym-cpt.t
   A lamp gives only 2 taps. U's sensor must wake exactly 7 ticks after (3,4)'s and hear nothing earlier.
 - --vary screens on r70-v (U observer + E observer real, sensors/wool at (-1,5),(-2,5),(-2,4),(0,5),(3,4),(3,5),
   (4,4),(2,5),(-2,3),(3,3), pullers at 2..6): 0 of 103,680; the stone/wool-door variant r70-w: 0 of 1,200.
+- r70-s1 (sound-wired attempt, lever (5,2) on (4,2): holds (4,2)+(4,1); E-sensor (3,4) calibrated -> E-observer
+  (2,4); D-holder (2,5) calibrated facing west; U-sensor (-2,5) plain -> observer (-2,4) up -> wool (-2,3) -> U at
+  t9, which also fires SE(-2,1)/SE(-2,2) through (-2,3)): U and the left pullers work, but
+  (a) any source that powers D from (2,5) also QC-powers E (E sits right under D): E stays extended 4..14 and E1
+      is late. c77's D-holder trick is unusable in r70.
+  (b) a strongly powered conductor at (3,3) (obsidian under the E-sensor) QC-fires (4,2) through (4,3).
+  (c) timing: with E's taps W+2/W+12/W+22 from one calibrated sensor, U's sensor must wake exactly 7 ticks after
+      the E-sensor. With the lever as the common source that needs d(U-sensor) = d(E-sensor) + 7, impossible
+      near U in a 7-wide box (the E-sensor sits next to the lever, max d to (-2,5) is ~7.6).
