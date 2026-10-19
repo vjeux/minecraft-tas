@@ -1,0 +1,46 @@
+name: cosearch-live-75of79
+assisted: -2,2
+port door: 0 0 0
+port lever: 5 -1 0
+origin: -2 0 0
+palette:
+  A minecraft:comparator[facing=west,mode=subtract,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:dropper[facing=up,triggered=false]
+  E minecraft:smooth_stone_slab[type=top,waterlogged=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:sticky_piston[extended=true,facing=up]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  N minecraft:note_block[instrument=harp,note=0,powered=true]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=up,short=false,type=sticky]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  T minecraft:target[power=0]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  c minecraft:comparator[facing=west,mode=compare,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  s minecraft:smooth_stone
+  w minecraft:white_wool
+layer -2:
+  DsoIsoN
+layer -1:
+  O.KPKRsL
+layer 0:
+  G.KKKpJ
+layer 1:
+  G.KKK.H
+layer 2:
+  G.KKK.H
+layer 3:
+  GG..K.B
+layer 4:
+  ..wFoWc
+layer 5:
+  CTAF.SE

@@ -1,0 +1,13 @@
+# c78l L3e: TP + L1/L2 REAL from one sensor (-2,5) + observer (-2,4) facing up -> wool (-2,3) (TP's back, L2's top, L1's QC). M (in-plane (2,5)) and s lowered ideal.
+design designs/piston-door-3x3/tracks/s79/c78l/L3e.txt
+let mo = 15
+let mc = 13
+let s2 = 17
+open 0 use 5 -1 0
+open mo set 2 5 0 minecraft:redstone_block
+open mo+10 clear 2 5 0
+open s2 set 1 3 -1 minecraft:redstone_block
+open s2+2 clear 1 3 -1
+close 0 use 5 -1 0
+close mc set 2 5 0 minecraft:redstone_block
+close mc+10 clear 2 5 0

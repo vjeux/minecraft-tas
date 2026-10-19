@@ -1,0 +1,8 @@
+# c78l L3d: L3a with the LEFT STACK L1/L2 and TP LEVEL-HELD (extended at closed rest, heads at (-1,1) (-1,2) (0,3)) by ONE in-plane redstone block at (-2,3) (TP's back, L2's top, L1's QC cell neighbor): open = clear it (they retract, pulling ML, TL, TM), close = set it (they push them back).
+design designs/piston-door-3x3/tracks/s79/c78l/L3d.txt
+let lo = 13
+let lc = 10
+open 0 use 5 -1 0
+open lo clear -2 3 0
+close 0 use 5 -1 0
+close lc set -2 3 0 minecraft:redstone_block
