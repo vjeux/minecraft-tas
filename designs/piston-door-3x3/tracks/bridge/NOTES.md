@@ -141,6 +141,19 @@ sensors = calibrated facing W/E/N + plain; ~10-20k combinations/s on 20 threads)
   but not the close side.
 - Annealer runs: `door cosearch search --box=-3,-2:4,4 --assist c077/c077-r1.ideal --offplane
   --no-mech --palette all,sculk,calibrated,wool` (runs/c077-r1-anneal.log, finds in c077/finds/).
+  After 8 min (23M screens): it wires P1' (the 18-tick input at (-1,1)) but keeps BL, ML, the TL
+  corner, P3 and BM assisted; no find.
+- Dead ends measured: P3 as a sensor hold (13..16): a sensor at (-3,0) is adjacent to BL's puller
+  (hears it at t1), at (-3,2) it can only be shielded by wool at (-2,2), which is ML's only feed
+  cell. BM as one pulse >= 15: the bottom-right has no floor for a comparator (no copper-bulb
+  T flip-flop: an observer on a bulb also sees its `powered` flag, 2 pulses), park watchers of the
+  pulse-type R0/F1 cells fire twice, a calibrated sensor at (4,-2) hears the lever at t7 and
+  re-arms into the late door events (3 activations). The TL corner from TL's puller watcher (-1,4)
+  is QC-only (no update reaches (-1,3) until TL lands at (0,3) at t3 = plan 2, open needs 3..10).
+- Next ideas: a lamp turns a 2 gt pulse into two pulses 6 apart (on edge, off edge + 4), the exact
+  rhythm of the left side (open 1, 7, 13, 19, 25, 31; close 1, 7, 13): a lamp ladder from TL's
+  puller watcher could drive BL / TL corner / P3 / P1' in turn; BM from the left side (it may fire
+  at any open tick and >= 15 on close).
 
 ## Tools (this track)
 

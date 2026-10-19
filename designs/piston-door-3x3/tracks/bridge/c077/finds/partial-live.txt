@@ -1,49 +1,51 @@
 name: cosearch-live-73of79
-assisted: 1,-2;4,1
+assisted: 1,-2
 port door: 0 0 0
 port lever: 1 5 0
 origin: -3 0 0
 palette:
-  A minecraft:dropper[facing=west,triggered=false]
-  B minecraft:oak_log[axis=y]
-  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
-  D minecraft:dropper[facing=east,triggered=false]
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:observer[facing=west,powered=false]
   E minecraft:obsidian
-  F minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
-  G minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
-  H minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
-  I minecraft:smooth_stone_slab[type=top,waterlogged=false]
+  F minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  G minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  H minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  I minecraft:iron_trapdoor[facing=east,half=top,open=false,powered=false,waterlogged=false]
   J minecraft:sticky_piston[extended=false,facing=down]
   K minecraft:sticky_piston[extended=false,facing=east]
   L minecraft:lever[face=floor,facing=north,powered=true]
   M minecraft:sticky_piston[extended=false,facing=up]
   N minecraft:note_block[instrument=harp,note=0,powered=false]
-  O minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  O minecraft:oak_log[axis=y]
   P minecraft:piston_head[facing=down,short=false,type=sticky]
   Q minecraft:sticky_piston[extended=false,facing=west]
-  R minecraft:redstone_torch[lit=true]
-  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:smooth_stone
   T minecraft:sticky_piston[extended=true,facing=down]
   U minecraft:stone
-  W minecraft:white_glazed_terracotta[facing=north]
+  V minecraft:white_glazed_terracotta[facing=south]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  X minecraft:white_wool
   c minecraft:crying_obsidian
-  d minecraft:dropper[facing=up,triggered=false]
-  o minecraft:oak_log[axis=x]
-  r minecraft:redstone_wall_torch[facing=east,lit=true]
-  s minecraft:smooth_stone
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:smooth_stone_slab[type=bottom,waterlogged=false]
+  w minecraft:white_glazed_terracotta[facing=east]
 layer -2:
-  ....MDrW
+  SR.sMwWo
 layer -1:
-  WENo.BNH
+  CIDS.X.F
 layer 0:
-  dKUUUU.Q
+  BKOUUU.Q
 layer 1:
-  KK.UUU.Q
+  KK.UUUrQ
 layer 2:
-  s.CUUUUc
+  EIAUUUOw
 layer 3:
-  OAJPPPWI
+  HoJPPPGr
 layer 4:
-  SFGTTTWR
+  oNVTTTDc
 layer 5:
   ....L
