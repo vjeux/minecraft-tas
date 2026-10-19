@@ -11,6 +11,7 @@
 pub mod build;
 pub mod divider;
 pub mod families;
+pub mod counter;
 pub mod kick;
 pub mod odd;
 pub mod ring;
@@ -135,6 +136,46 @@ enum Cmd {
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
+    /// A comparator COUNTER clock (counter.rs): an inner fading ring decrements a lossless
+    /// comparator ring by one level per refill pulse; the counter's refill torch is the output.
+    Counter {
+        #[arg(long, default_value_t = 1)]
+        k_in: usize,
+        #[arg(long, default_value_t = 1)]
+        k_out: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Odd periods from..=to on RECTANGLE rings (ring.rs): 3 x h perimeter, corner blocks, the
+    /// straight cells repeaters with delays summing to P (an odd count leaves one relay block or
+    /// dust), one pulse loaded at placement, the second started by the best odd-tick kick.
+    OddRect {
+        #[arg(long, default_value_t = 5)]
+        from: u32,
+        #[arg(long, default_value_t = 99)]
+        to: u32,
+        #[arg(long, default_value_t = 2)]
+        max_len: u32,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
+    /// Odd periods from..=to: for each odd P a corner-head U-loop pulse ring of repeaters with
+    /// delays summing to P (two pulses P apart in a ring of delay 2P), one pulse loaded at
+    /// placement, the second started by the best odd-tick kick; the smallest kick per P is written.
+    OddRange {
+        #[arg(long, default_value_t = 25)]
+        from: u32,
+        #[arg(long, default_value_t = 99)]
+        to: u32,
+        #[arg(long, default_value_t = 4)]
+        max_len: u32,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
     /// Odd periods on rectangle rings (ring.rs): every assignment with an odd half loop delay and
     /// an even torch count, every loading; one-pulse loadings kicked at odd ticks (odd.rs).
     SweepOddRing {
@@ -150,6 +191,9 @@ enum Cmd {
         max_len: u32,
         #[arg(long, default_value_t = 2)]
         per_base: usize,
+        /// Only loadings with exactly one powered repeater (much fewer than every loading).
+        #[arg(long)]
+        single_load: bool,
         #[arg(long, default_value_t = 4000)]
         horizon: u32,
         #[arg(long, default_value_t = 16)]
@@ -317,14 +361,165 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     std::fs::create_dir_all(dir)?;
                     let path = dir.join(format!("kick-p{}.txt", f.period));
                     if !path.exists() {
-                        let mut dd = mctas::design::Design::parse(&f.design)?;
-                        dd.name = format!("{}-kick-p{}", d.name, f.period);
-                        std::fs::write(path, dd.to_text())?;
+                        // caption: the source design's leading comment + how the kick works
+                        let src = std::fs::read_to_string(&design).unwrap_or_default();
+                        let lead: Vec<&str> = src.lines().take_while(|l| l.starts_with('#')).map(|l| l.trim_start_matches('#').trim()).collect();
+                        let parity = if f.period % 2 == 1 { "ODD period: " } else { "" };
+                        let cap = format!(
+                            "{}{}; kicked by a {} at {:?} for {l} gt at tick {a}{}",
+                            parity,
+                            lead.join(" "),
+                            clock::short(st),
+                            c,
+                            if a % 2 == 1 { " (an odd tick: a second parity class; every redstone-tick delay is even)" } else { "" }
+                        );
+                        let name = format!("{}-kick-p{}", d.name, f.period);
+                        write_design(&path, &f.design, &name, "", &cap)?;
                     }
                 }
             }
         }
-        Cmd::SweepOddRing { w, h, straight, corner, max_len, per_base, horizon, threads, out_dir } => {
+        Cmd::Counter { k_in, k_out, out } => {
+            let name = format!("clk-rt-count-i{k_in}-o{k_out}");
+            let b = counter::build(k_in, k_out, &name);
+            if b.conflict {
+                bail!("conflicting blocks");
+            }
+            let cap = format!(
+                "Comparator COUNTER clock (clk-rt): an inner comparator fading ring ({k_in} + {k_in} compare comparators, one level lost per lap, a wall torch refills it) whose refill pulse, turned into strength 1 by a subtract comparator (side = 14 from a redstone block + 2 dust), decrements a LOSSLESS comparator ring ({k_out} + {k_out} comparators, one in subtract mode) by exactly one level; when the counter is empty its own torch refills it: period = about 14 inner periods"
+            );
+            let text = b.design().to_text();
+            match out {
+                Some(p) => write_design(&p, &text, &name, "", &cap)?,
+                None => print!("{text}"),
+            }
+        }
+        Cmd::OddRect { from, to, max_len, threads, out_dir } => {
+            std::fs::create_dir_all(&out_dir)?;
+            for p in (from..=to).filter(|p| p % 2 == 1) {
+                // pulses and gaps of at least 2d (+1 between chained repeaters) must fit in P
+                let dmax: u32 = ((p - 1) / 4).clamp(1, 4);
+                let mut ds: Vec<u8> = Vec::new();
+                let mut left = p;
+                while left > 0 {
+                    let d = left.min(dmax);
+                    ds.push(d as u8);
+                    left -= d;
+                }
+                let n = ds.len();
+                let w = 3i32;
+                let h = (n.div_ceil(2) + 1).max(3) as i32;
+                let per = ring::perimeter(w, h);
+                let len = per.len();
+                let corner = |i: usize| -> bool {
+                    let (x, z) = per[i];
+                    let a = per[(i + len - 1) % len];
+                    let b = per[(i + 1) % len];
+                    !((a.0 - x) == -(b.0 - x) && (a.1 - z) == -(b.1 - z))
+                };
+                let straights: Vec<usize> = (0..len).filter(|&i| !corner(i)).collect();
+                let extra = straights.len() - n; // 0 or 1 (2 when h was raised to 3)
+                // a relay block needs repeaters on both sides along a straight run: the middle of
+                // the right side (indices w .. w + h - 3)
+                let right: Vec<usize> = straights.iter().copied().filter(|&i| i >= w as usize && i < (w + h - 2) as usize).collect();
+                let relay: Vec<usize> = if extra >= 1 && right.len() >= 3 { vec![right[right.len() / 2]] } else { vec![] };
+                let mut cells: Vec<Cell> = vec![Cell::Block; len];
+                let mut di = 0;
+                let mut fill_left = extra - relay.len();
+                for &i in &straights {
+                    if relay.contains(&i) {
+                        cells[i] = Cell::Block;
+                    } else if di < n {
+                        cells[i] = Cell::Rep { d: ds[di], on: di == 0 };
+                        di += 1;
+                    } else if fill_left > 0 {
+                        cells[i] = Cell::Dust;
+                        fill_left -= 1;
+                    }
+                }
+                let name = format!("clk-rt-odd-{}", ring::label(w, h, &cells));
+                let Some(b) = ring::build(w, h, &cells, &name) else {
+                    println!("P={p}: ring does not build ({})", ring::label(w, h, &cells));
+                    continue;
+                };
+                let d = b.design();
+                let kc = kick::kick_cells(&d);
+                let lens: Vec<u32> = (1..=max_len).collect();
+                let ats: Vec<u32> = (1..=(2 * p + 3)).filter(|a| a % 2 == 1).collect();
+                let mut best: Option<(sweep::Found, String)> = None;
+                for (c, st, l, a, f) in kick::search(&d, &kc, &lens, &ats, 4 * p + 400, threads) {
+                    if f.period != p {
+                        continue;
+                    }
+                    if best.as_ref().is_none_or(|(o, _)| (f.blocks, f.volume) < (o.blocks, o.volume)) {
+                        best = Some((f, format!("{} at {:?} for {l} gt at tick {a}", clock::short(&st), c)));
+                    }
+                }
+                match best {
+                    Some((f, how)) => {
+                        println!("P={p} {} blocks {} | kick {how} | {}", f.blocks, f.wave(), ring::label(w, h, &cells));
+                        let cap = format!(
+                            "ODD period {p}: {}; two pulses {p} gt apart: one loaded at placement, the other started by a {how} (an odd tick: a second parity class; every redstone-tick delay is even)",
+                            ring::caption(w, h, &cells)
+                        );
+                        write_design(&out_dir.join(format!("odd-rect-p{p}.txt")), &f.design, &format!("clk-rt-odd-rect-p{p}-{}b", f.blocks), "", &cap)?;
+                    }
+                    None => println!("P={p}: no kick found ({})", ring::label(w, h, &cells)),
+                }
+            }
+        }
+        Cmd::OddRange { from, to, max_len, threads, out_dir } => {
+            std::fs::create_dir_all(&out_dir)?;
+            for p in (from..=to).filter(|p| p % 2 == 1) {
+                // delays: as many 4s as possible (pulses and gaps of 8-9 gt fit when P >= 17)
+                let dmax: u32 = ((p - 1) / 4).clamp(1, 4);
+                let mut ds: Vec<u8> = Vec::new();
+                let mut left = p;
+                while left > 0 {
+                    let d = left.min(dmax);
+                    ds.push(d as u8);
+                    left -= d;
+                }
+                let k = ds.len().div_ceil(2);
+                let mut cells: Vec<Cell> = ds.iter().map(|&d| Cell::Rep { d, on: false }).collect();
+                cells.sort_by_key(|c| std::cmp::Reverse(c.rt()));
+                while cells.len() < 2 * k {
+                    cells.push(Cell::Dust);
+                }
+                cells[0] = match cells[0] {
+                    Cell::Rep { d, .. } => Cell::Rep { d, on: true },
+                    x => x,
+                };
+                let u = ULoop { head: Head::Corner, top: cells[..k].to_vec(), bottom: cells[k..].to_vec(), tail: Tail::Dust };
+                let name = format!("clk-rt-odd-{}", u.label());
+                let b = u.build(&name)?;
+                let d = b.design();
+                let kc = kick::kick_cells(&d);
+                let lens: Vec<u32> = (1..=max_len).collect();
+                let ats: Vec<u32> = (1..=(2 * p + 3)).filter(|a| a % 2 == 1).collect();
+                let mut best: Option<(sweep::Found, String)> = None;
+                for (c, st, l, a, f) in kick::search(&d, &kc, &lens, &ats, 4 * p + 400, threads) {
+                    if f.period != p {
+                        continue;
+                    }
+                    if best.as_ref().is_none_or(|(o, _)| (f.blocks, f.volume) < (o.blocks, o.volume)) {
+                        best = Some((f, format!("{} at {:?} for {l} gt at tick {a}", clock::short(&st), c)));
+                    }
+                }
+                match best {
+                    Some((f, how)) => {
+                        println!("P={p} {} blocks {} | kick {how} | {}", f.blocks, f.wave(), u.label());
+                        let cap = format!(
+                            "ODD period {p}: {}; two pulses {p} gt apart: one loaded at placement, the other started by a {how} (an odd tick: a second parity class; every redstone-tick delay is even)",
+                            u.caption()
+                        );
+                        write_design(&out_dir.join(format!("odd-p{p}.txt")), &f.design, &format!("clk-rt-odd-p{p}-{}b", f.blocks), &u.label(), &cap)?;
+                    }
+                    None => println!("P={p}: no kick found ({})", u.label()),
+                }
+            }
+        }
+        Cmd::SweepOddRing { w, h, straight, corner, max_len, per_base, single_load, horizon, threads, out_dir } => {
             let st = parse_row(&straight)?;
             let co = parse_row(&corner)?;
             let all = ring::assignments(w, h, &st, &co, 0);
@@ -339,6 +534,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 // every loading: each repeater powered or not, each torch lit or not
                 let slots: Vec<usize> = (0..cells.len()).filter(|&i| matches!(cells[i], Cell::Rep { .. } | Cell::Torch { .. })).collect();
                 for mask in 0u32..(1 << slots.len()) {
+                    if single_load && mask.count_ones() != 1 {
+                        continue;
+                    }
                     let mut v = cells.clone();
                     for (b, &i) in slots.iter().enumerate() {
                         let on = mask >> b & 1 == 1;
