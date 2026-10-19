@@ -76,6 +76,12 @@ fn run_recorded(w: &mut World, max: u32, lo: Pos, hi: Pos) -> (Vec<Region>, bool
 
 /// Screen one design at these offsets (`cycles` open/close cycles each, at most `max_ticks`
 /// ticks per settle).
+/// `screen` with boxproof's lever-polarity argument: main's screen accepts either rest polarity
+/// (vjeux 2026-10-19), so the flag is not needed any more.
+pub fn screen_ext(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, empty_walkway: bool, _lever_on_rest: bool) -> Screen {
+    screen(design, offsets, cycles, max_ticks, empty_walkway)
+}
+
 pub fn screen(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, empty_walkway: bool) -> Screen {
     if !design.entities.is_empty() {
         return Screen::Unsupported("the design has entities".into());
