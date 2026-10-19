@@ -331,3 +331,8 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   and 1 has 3 blocks for 2 vertical frame cells, so one middle block per column must slide along a frame row;
   with one piston row on one side, both middle blocks must go the same way (4 blocks for one 3-cell row).
   Only 2 rows above AND below (9 tall) let ML and C go opposite ways: 6x9 m69.
+- **m69e** (`c69/m69e.txt` + `.ideal`, 13 pistons): the top-left corner W replaced by a RING-RESTING sticky Q
+  at (2,3) facing west (reach-2 pull TL (0,3) -> (1,3)), lifted into (2,4) by QL (2,5) facing down; then P3t
+  pulls TL to (2,3), s1 lifts TM into (1,3), the s0 + M0 elevator brings ML up 2. Ideal WORKS (redsim 32
+  positions, open 42 / close 25). satwire: solid UNSAT (core: close s1; Q parks on (2,4), so s1's only feed
+  left is (1,5), which also touches M0 and QL), sculk UNSAT (core close QL + close s1).
