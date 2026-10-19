@@ -1,0 +1,28 @@
+name: m105r-pure
+# variant of families 8x8-105 with the T parker SE(-1,3) RETRACTED at rest (pulse-driven: it
+# pulls T from (1,3) to (0,3) on open, pushes it back and spits on close; no level, rest ring
+# clean); left 3-stack pullers SE(-2,0..2), BM puller SU(1,-2),
+# elevator A = SD(1,4) + B = SD(1,5), TR puller SD(2,4), right pullers SW(4,0), SW(4,1).
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  J minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  X minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ...U
+layer 0:
+  E.JJJ.W
+layer 1:
+  E.JJJ.W
+layer 2:
+  E.JJJ
+layer 3:
+  .X
+layer 4:
+  ...DD
+layer 5:
+  ...D

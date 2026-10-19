@@ -1,0 +1,30 @@
+name: w102-left
+# 8x8-102 + real left core: note block N (-3,2) under dust (-3,3) carries E3 window; observer W (-2,2) facing west watches N (lifted L1)
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  J minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  X minecraft:sticky_piston[extended=true,facing=down]
+  h minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  G minecraft:glass
+  N minecraft:note_block
+  w minecraft:observer[facing=west,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,south=side,west=side,power=0]
+layer -2:
+  ....UU
+layer 0:
+  .E.JJJ
+layer 1:
+  EE.JJJ.W
+layer 2:
+  NwhJJJ
+layer 3:
+  r.X
+layer 4:
+  ...DDD
+  ..R
