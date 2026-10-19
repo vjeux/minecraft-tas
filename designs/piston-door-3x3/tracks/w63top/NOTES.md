@@ -27,3 +27,25 @@
   a P_T pulse 8 gt earlier: fine for A2a (P_T 6 -> A 14), the question is A2b/A2c/A3.
   P_T extra pulses are harmless before A1 (open: pulls from an empty (1,3); close: blocked if
   TL is at (0,3) and (-1,3) is immovable) and on close after B2+4 (pull from an empty (1,3)).
+
+## v2 (P_T and the right stack share one conductor at (4,3)) and why both plans stop (by hand)
+- ideal/v2.ideal on w63t-2.txt (obsidian at (-1,3)): P_T may pulse BEFORE A1 (open: it pulls from
+  an empty (1,3); close: its push T, C, TL, obsidian is blocked, so it does not even extend). With
+  P_T + the right stack as ONE run of 3 (A1-8, A1-2, A1+4) the mechanism WORKS (4 positions);
+  windows (pt = 4): B1 7..16, A2 12..21, B2 21..26, A3 28..40, U >= -4, left triple >= 26.
+- Forced cells (each checked against the source rules): (2,4) observer facing east (A's only
+  driver with updates at both edges, both A positions); (3,4) holds an observer or a block that
+  is never powered by an emitter (an emitter into (3,4) QC-fires P_T AND updates it); the right
+  stack's only feed is (4,3) (observer facing up, or a conductor that also fires P_T); P_T's
+  drivers: (3,5) observer facing up, (3,4) observer facing up (A = P_T + 2: fails on close),
+  (4,3) (the right stack's feed), the lever at (5,3).
+- v1 (shared (4,4), P_T at (3,5)): the right column (4,4)<-(4,5)<-(4,6) can only be driven by
+  the lever or through (3,5)/(3,6), and every (3,6)/(3,5) change fires P_T. A P_T pulse is
+  harmless only before A1 or (both edges) after A3+4, but A3 itself needs a (4,4) change at
+  A3-4 (P_T at A3-8: on open it pushes T into the empty (1,3)). DEAD.
+- v2 (shared (4,3)): A's chain (2,4) <- trapdoor (3,4) <- conductor (3,5); (3,5) can be powered
+  only by (2,5) (an observer watching B: TWO pulses per B motion, so A2/A3 get even counts), by
+  (3,6) (dust, or an observer facing up on the lever) or (4,5) (the run chain: shared). The run of
+  3 needs two inputs into one right-column cell; only the lever and (3,5)/(3,6) reach it. DEAD
+  unless (3,5)'s double pulse is merged (no repeater can point into (3,5): its inputs would be
+  (1,5) = B or (5,5) outside).
