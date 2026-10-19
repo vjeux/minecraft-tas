@@ -1,0 +1,9 @@
+design designs/piston-door-3x3/tracks/bridge/x/t3k.txt
+let h = 26
+let hl = 10
+open 0 use 1 5 0
+close 0 use 1 5 0
+open h set -2 -3 1 minecraft:redstone_block
+open h+hl clear -2 -3 1
+close h set -2 -3 1 minecraft:redstone_block
+close h+hl clear -2 -3 1

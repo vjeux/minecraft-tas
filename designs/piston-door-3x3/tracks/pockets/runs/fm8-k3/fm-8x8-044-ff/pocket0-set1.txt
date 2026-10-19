@@ -1,0 +1,28 @@
+name: pocket0-set1
+covers: (0,-2)o30 (0,-2)c30
+port door: 0 0 0
+port lever: 6 6 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  O minecraft:observer[facing=up,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=west,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ..AAA
+layer -1:
+  Wo...A
+layer 0:
+  OCCCC
+layer 1:
+  s.CCC.BB
+layer 2:
+  .CCCC.B
+layer 3:
+  ....C
+layer 4:
+  ..SS

@@ -1,0 +1,141 @@
+===== 7x8-r8x8-131-oc-ff: box -2,-2:4,5
+assist designs/piston-door-3x3/tracks/pockets/mech/7x8-r8x8-131-oc-ff.ideal: 11 input cells off the plane ([(-2, -1), (-3, 2), (-3, 1), (1, -3), (1, 4), (-1, 4), (0, 5), (1, 3), (3, 4), (5, 1), (4, -1)]), 25 / 19 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/7x8-r8x8-131-oc-ff.txt: 24 blocks in the box, screen 8/79
+11 piston cells locked, 36 cells free
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (-2,-1) open  t0 pulse 2 gt: window [+0, +3]
+  input (-3,2) open  t0 pulse 2 gt: window [+0, +3]
+  input (-3,1) open  t0 pulse 2 gt: window [+0, +3]
+  input (1,-3) open  t0 pulse 2 gt: window [+0, +24]
+  input (1,4) open  t0 pulse 2 gt: window [+0, +1]
+  input (-1,4) open  t6 off: window [-1, +6]
+  input (0,5) open  t12 pulse 2 gt: window [-6, +5]
+  input (1,3) open  t18 pulse 2 gt: window [-5, +3]
+  input (0,5) open  t24 pulse 2 gt: window [-3, +2]
+  input (1,4) open  t30 pulse 2 gt: window [-2, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (5,1) open  t30 pulse 2 gt: window [-3, +3]
+  input (4,-1) open  t30 pulse 2 gt: window [-3, +3]
+  input (-2,-1) close t0 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t0 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t0 pulse 2 gt: window [+0, +0]
+  input (1,-3) close t0 pulse 2 gt: window [+0, +24]
+  input (1,4) close t0 pulse 2 gt: window [+0, +3]
+  input (-1,4) close t6 on: window [-3, +4]
+  input (1,4) close t12 pulse 2 gt: window [-4, +24]
+  input (3,4) close t12 pulse 2 gt: window [-12, +24]
+  input (5,1) close t12 pulse 2 gt: window [+0, +0]
+  input (4,-1) close t12 pulse 2 gt: window [+0, +0]
+20 pocket cells in 5 pockets; 40 lever candidates in the plane, 3 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 40 swept cells
+  pocket 0: 4 cells [(-2, -2), (-1, -2), (-1, -1), (0, -2)]
+  pocket 1: 4 cells [(-2, 3), (-2, 4), (-2, 5), (-1, 5)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 4 cells [(2, -2), (3, -2), (3, -1), (4, -2)]
+  pocket 4: 7 cells [(2, 5), (3, 3), (3, 5), (4, 2), (4, 3), (4, 4), (4, 5)]
+pocket 0: 4 cells, 166 subset/lever items, 119820 fillings to screen
+pocket 0: 141450 screened, 23948 keep the door working, 3.0 s; driven input sets: {(1,-3)o0 (1,-3)c0} x32 (best 2 blocks), {(-2,-1)o0 (-2,-1)c0} x32 (best 2 blocks)
+pocket 1: 4 cells, 132 subset/lever items, 90090 fillings to screen
+pocket 1: 130900 screened, 17753 keep the door working, 3.3 s; driven input sets: none
+pocket 2: 1 cells, 3 subset/lever items, 90 fillings to screen
+pocket 2: 133 screened, 18 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 4 cells, 166 subset/lever items, 119820 fillings to screen
+pocket 3: 141096 screened, 26432 keep the door working, 3.0 s; driven input sets: {(1,-3)o0 (1,-3)c0} x32 (best 2 blocks), {(4,-1)o30 (4,-1)c12} x32 (best 2 blocks)
+pocket 4: 7 cells, 260 subset/lever items, 182670 fillings to screen
+pocket 4: 236256 screened, 44440 keep the door working, 6.8 s; driven input sets: {(5,1)o30 (4,-1)o30} x7 (best 3 blocks), {(3,4)o30 (3,4)c12} x32 (best 3 blocks), {(3,4)c12} x32 (best 2 blocks), {(3,4)o30} x32 (best 2 blocks)
+plan groups no filling drives: (-3,2)o0 (-3,1)o0 (1,4)o0 (-1,4)o6 (0,5)o12 (1,3)o18 (0,5)o24 (1,4)o30 (-3,2)c0 (-3,1)c0 (1,4)c0 (-1,4)c6 (1,4)c12 (5,1)c12
+combination 1: true partial, 10 inputs still assisted [-3,2 -3,1 1,-3 1,4 -1,4 0,5 1,3 3,4 5,1 4,-1] (25 blocks)
+combination 24306: true partial, 9 inputs still assisted [-3,2 -3,1 1,4 -1,4 0,5 1,3 3,4 5,1 4,-1] (26 blocks)
+50000 combinations verified, 0 finds, 27 s total
+===== 7x8-r8x8-135-oc-ff: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/pockets/mech/7x8-r8x8-135-oc-ff.ideal: 11 input cells off the plane ([(-3, 0), (-3, 2), (-3, 1), (0, -2), (-1, -2), (1, -4), (1, -1), (2, 4), (3, -2), (5, 2), (4, 0)]), 25 / 19 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/7x8-r8x8-135-oc-ff.txt: 24 blocks in the box, screen 8/79
+11 piston cells locked, 36 cells free
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (-3,0) open  t0 pulse 2 gt: window [+0, +3]
+  input (-3,2) open  t0 pulse 2 gt: window [+0, +3]
+  input (-3,1) open  t0 pulse 2 gt: window [+0, +3]
+  input (0,-2) open  t0 pulse 2 gt: window [+0, +1]
+  input (-1,-2) open  t6 off: window [-1, +6]
+  input (1,-4) open  t12 pulse 2 gt: window [-6, +5]
+  input (1,-1) open  t18 pulse 2 gt: window [-5, +3]
+  input (1,-4) open  t24 pulse 2 gt: window [-3, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (3,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (5,2) open  t30 pulse 2 gt: window [-3, +3]
+  input (4,0) open  t30 pulse 2 gt: window [-3, +3]
+  input (-3,0) close t0 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t0 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t0 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t0 pulse 2 gt: window [+0, +3]
+  input (-1,-2) close t6 on: window [-6, +4]
+  input (0,-2) close t12 pulse 2 gt: window [-4, +24]
+  input (2,4) close t12 pulse 2 gt: window [-12, +24]
+  input (3,-2) close t12 pulse 2 gt: window [-12, +24]
+  input (5,2) close t12 pulse 2 gt: window [+0, +0]
+  input (4,0) close t12 pulse 2 gt: window [+0, +0]
+20 pocket cells in 4 pockets; 41 lever candidates in the plane, 3 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 5 cells [(-2, -3), (-2, -2), (-2, -1), (-1, -3), (0, -3)]
+  pocket 1: 5 cells [(-2, 3), (-2, 4), (-1, 3), (-1, 4), (0, 4)]
+  pocket 2: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 3: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 5 cells, 184 subset/lever items, 129060 fillings to screen
+pocket 0: 174539 screened, 29654 keep the door working, 3.0 s; driven input sets: {(0,-2)c0 (0,-2)c12} x32 (best 2 blocks)
+pocket 1: 5 cells, 301 subset/lever items, 230010 fillings to screen
+pocket 1: 280999 screened, 48215 keep the door working, 6.8 s; driven input sets: {(2,4)o30 (2,4)c12} x3 (best 3 blocks)
+pocket 2: 6 cells, 170 subset/lever items, 111240 fillings to screen
+pocket 2: 131651 screened, 23919 keep the door working, 3.0 s; driven input sets: {(0,-2)o30 (3,-2)o30 (3,-2)c12} x26 (best 2 blocks), {(3,-2)o30 (3,-2)c12} x32 (best 2 blocks), {(3,-2)o30 (4,0)o30} x32 (best 3 blocks), {(4,0)o30 (4,0)c12} x32 (best 2 blocks), {(0,-2)o30} x6 (best 3 blocks), {(3,-2)o30} x32 (best 2 blocks), {(3,-2)c12} x32 (best 2 blocks)
+pocket 3: 4 cells, 211 subset/lever items, 158580 fillings to screen
+pocket 3: 195885 screened, 27173 keep the door working, 5.0 s; driven input sets: {(2,4)o30 (2,4)c12} x32 (best 2 blocks), {(2,4)o30} x32 (best 2 blocks), {(2,4)c12} x32 (best 2 blocks)
+plan groups no filling drives: (-3,0)o0 (-3,2)o0 (-3,1)o0 (0,-2)o0 (-1,-2)o6 (1,-4)o12 (1,-1)o18 (1,-4)o24 (5,2)o30 (-3,0)c0 (-3,2)c0 (-3,1)c0 (-1,-2)c6 (5,2)c12
+combination 1: true partial, 10 inputs still assisted [-3,0 -3,2 -3,1 0,-2 -1,-2 1,-4 1,-1 2,4 5,2 4,0] (25 blocks)
+combination 10: true partial, 9 inputs still assisted [-3,0 -3,2 -3,1 0,-2 -1,-2 1,-4 1,-1 5,2 4,0] (30 blocks)
+49853 combinations verified, 0 finds, 49 s total
+===== c78-001-oc-ff: box -2,-2:4,5
+assist designs/piston-door-3x3/tracks/pockets/mech/c78-001-oc-ff.ideal: 11 input cells off the plane ([(-3, 0), (-3, 2), (-3, 1), (2, 5), (1, 3), (-1, -2), (1, -3), (2, 4), (4, -1), (5, 1), (5, 2)]), 23 / 17 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/c78-001-oc-ff.txt: 24 blocks in the box, screen 6/79
+13 piston cells locked, 34 cells free
+seed screen 8/79 with 11 inputs assisted
+===== c78-001-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+===== c78-003-oc-ff: box -2,-2:4,5
+assist designs/piston-door-3x3/tracks/pockets/mech/c78-003-oc-ff.ideal: 11 input cells off the plane ([(-3, 0), (-3, 1), (-3, 2), (2, 5), (1, 3), (-1, -2), (1, -3), (2, 4), (4, -1), (5, 2), (5, 1)]), 23 / 17 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/c78-003-oc-ff.txt: 23 blocks in the box, screen 5/79
+13 piston cells locked, 34 cells free
+seed screen 7/79 with 11 inputs assisted
+===== c78-003-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+===== c78-004-oc-ff: box -2,-2:4,5
+assist designs/piston-door-3x3/tracks/pockets/mech/c78-004-oc-ff.ideal: 12 input cells off the plane ([(-3, 0), (-3, 2), (-3, 1), (1, -3), (-1, -2), (2, 5), (1, 3), (2, -2), (2, 4), (4, -1), (5, 1), (5, 2)]), 24 / 16 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/c78-004-oc-ff.txt: 24 blocks in the box, screen 5/79
+14 piston cells locked, 33 cells free
+seed screen 7/79 with 12 inputs assisted
+===== c78-004-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+===== c78-005-oc-ff: box -2,-2:4,5
+assist designs/piston-door-3x3/tracks/pockets/mech/c78-005-oc-ff.ideal: 12 input cells off the plane ([(-3, 0), (-3, 2), (-3, 1), (2, 4), (2, 5), (1, 3), (-1, -2), (1, -3), (0, 4), (4, -1), (5, 1), (5, 2)]), 24 / 16 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/c78-005-oc-ff.txt: 25 blocks in the box, screen 6/79
+14 piston cells locked, 33 cells free
+seed screen 8/79 with 12 inputs assisted
+===== c78-005-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+===== c78-006-oc-ff: box -2,-2:4,5
+assist designs/piston-door-3x3/tracks/pockets/mech/c78-006-oc-ff.ideal: 11 input cells off the plane ([(-3, 0), (-3, 2), (-3, 1), (2, 5), (1, 3), (-1, -2), (1, -3), (2, 4), (4, -1), (5, 1), (5, 2)]), 22 / 16 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/c78-006-oc-ff.txt: 25 blocks in the box, screen 6/79
+14 piston cells locked, 33 cells free
+seed screen 8/79 with 11 inputs assisted
+===== c78-006-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+===== t10-ff: box -2,-2:4,5
+assist designs/piston-door-3x3/tracks/pockets/mech/t10-ff.ideal: 9 input cells off the plane ([(-3, 2), (1, 4), (-1, 4), (0, 5), (1, 3), (2, 4), (4, 1), (0, -2), (1, -3)]), 21 / 21 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/mech/t10-ff.txt: 23 blocks in the box, screen 6/79
+12 piston cells locked, 35 cells free
+seed screen 8/79 with 9 inputs assisted
+===== t10-ff: ERROR the seed must screen perfect with its assisted inputs
+
+batch summary (8 seeds):
+  7x8-r8x8-131-oc-ff [-2,-2:4,5]: 23 groups, 14 undriven ((-3,2)o0 (-3,1)o0 (1,4)o0 (-1,4)o6 (0,5)o12 (1,3)o18 (0,5)o24 (1,4)o30 (-3,2)c0 (-3,1)c0 (1,4)c0 (-1,4)c6 (1,4)c12 (5,1)c12), best partial 9 inputs left, 0 finds, 27 s
+  7x8-r8x8-135-oc-ff [-2,-3:4,4]: 23 groups, 14 undriven ((-3,0)o0 (-3,2)o0 (-3,1)o0 (0,-2)o0 (-1,-2)o6 (1,-4)o12 (1,-1)o18 (1,-4)o24 (5,2)o30 (-3,0)c0 (-3,2)c0 (-3,1)c0 (-1,-2)c6 (5,2)c12), best partial 9 inputs left, 0 finds, 49 s
+  c78-001-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+  c78-003-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+  c78-004-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+  c78-005-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+  c78-006-oc-ff: ERROR the seed must screen perfect with its assisted inputs
+  t10-ff: ERROR the seed must screen perfect with its assisted inputs

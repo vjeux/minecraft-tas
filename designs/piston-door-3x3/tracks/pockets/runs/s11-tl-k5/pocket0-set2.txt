@@ -1,0 +1,39 @@
+name: pocket0-set2
+covers: (1,4)o24
+port door: 0 0 0
+port lever: -4 1 0
+origin: -4 0 0
+palette:
+  A minecraft:obsidian
+  B minecraft:repeater[delay=4,facing=west,locked=false,powered=true]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:dropper[facing=up,triggered=false]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=true,facing=east]
+  G minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  S minecraft:smooth_stone
+  T minecraft:target[power=0]
+  d minecraft:dropper[facing=up,triggered=true]
+  o minecraft:observer[facing=west,powered=false]
+  r minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .dodoCC
+layer -1:
+  .GBFP..A
+layer 0:
+  .RFPGGGG
+layer 1:
+  LSFPGGG.E
+layer 2:
+  .RFPGGG.E
+layer 3:
+  ....GsG
+layer 4:
+  ...Do
+layer 5:
+  ..TrOs

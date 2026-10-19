@@ -1,0 +1,31 @@
+name: pocket1-set0
+covers: (0,5)o0 (0,5)c0 (0,5)c24 (-3,1)c36
+port door: 0 0 0
+port lever: 5 6 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:stone
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=up,powered=false]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...B
+layer -1:
+  ..D..C
+layer 0:
+  A.DDD.C
+layer 1:
+  A.DDD.C
+layer 2:
+  A.DDDD
+layer 3:
+  .OD
+layer 4:
+  .R.ss
+layer 5:
+  SN.s

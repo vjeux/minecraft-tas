@@ -1,0 +1,48 @@
+name: s88g
+port door: 0 0 0
+port lever: 4 5 0
+origin: -3 0 0
+palette:
+  c minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  u minecraft:observer[facing=up,powered=false]
+  w minecraft:white_wool
+  X minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  V minecraft:observer[facing=west,powered=false]
+  Z minecraft:redstone_lamp[lit=false]
+  Y minecraft:observer[facing=east,powered=false]
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:obsidian
+  D minecraft:dropper[facing=up,triggered=true]
+  E minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  F minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=true,facing=down]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:oak_log[axis=y]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=down,powered=false]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  r minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  X...HYAR
+layer -1:
+  ZVG..OCB
+layer 0:
+  .G.OOOpJ
+layer 1:
+  KG.OOOpJ
+layer 2:
+  EG.OOOOD
+layer 3:
+  wwoOsPFr
+layer 4:
+  u.Sw.IOO
+layer 5:
+  c.Ews.rL

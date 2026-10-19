@@ -1,0 +1,8 @@
+# m88a-top: only A's hold ideal (m88a's top inputs L1/L2 and A's last pull are real: m10f's top)
+design designs/piston-door-3x3/tracks/pockets/seeds/m88a-top.txt
+let ah0 = 8
+let ah = 4
+open 0 use 4 5 0
+open ah0 set 1 3 -1 minecraft:redstone_block
+open ah0+ah clear 1 3 -1
+close 0 use 4 5 0
