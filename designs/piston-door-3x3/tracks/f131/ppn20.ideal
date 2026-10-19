@@ -1,0 +1,14 @@
+# pn20: everything real except PN's b/c: lever, W (-2,6), E (-1,6) d4, O_D (0,6) (DE pulses through
+# (1,6)), R1 (1,6) d4 merging O_D's two pulses into one window -> bulb (2,6) -> comparator (3,6) ->
+# S_R+ level; P3 + L1/L2 from observers (-2,5), (-2,4) and the target (-2,3). Ideal: PN window [pw, pw+pl).
+design designs/piston-door-3x3/tracks/f131/pn20.txt
+let pw = 11
+let pl = 12
+let cpw = 11
+let cpl = 12
+open 0 use -3 6 0
+close 0 use -3 6 0
+open pw set -1 5 1 minecraft:redstone_block
+open pw+pl clear -1 5 1
+close cpw set -1 5 1 minecraft:redstone_block
+close cpw+cpl clear -1 5 1

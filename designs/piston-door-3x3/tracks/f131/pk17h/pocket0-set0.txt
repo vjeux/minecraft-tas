@@ -1,0 +1,47 @@
+name: pocket0-set0
+covers: (-1,3)o7 (-2,2)o8 (-1,3)c7 (-2,2)c8
+port door: 0 0 0
+port lever: -3 6 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=true]
+  D minecraft:piston_head[facing=up,short=false,type=sticky]
+  E minecraft:piston_head[facing=west,short=false,type=sticky]
+  F minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:sticky_piston[extended=true,facing=down]
+  I minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=true,facing=up]
+  K minecraft:sticky_piston[extended=true,facing=west]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  M minecraft:stone
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:target[power=0]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:redstone_wire[east=none,north=none,power=15,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  .NMoJR.G
+layer -1:
+  .O.MDM.A
+layer 0:
+  .s.MMMEK
+layer 1:
+  .s.MMMEK
+layer 2:
+  .s.MMMMM
+layer 3:
+  .Ts..pIr
+layer 4:
+  .A.BSHCR
+layer 5:
+  .AP.SMM
+layer 6:
+  LBFB...S

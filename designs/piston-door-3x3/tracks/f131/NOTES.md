@@ -43,3 +43,30 @@ ow 10 an odd window start). A top lever (y = 7) or a left lever at y 3..5 only m
 18 s, core = close PN (-1,5), DE (1,5), P3 (-1,3).
 A DE window of >= 9 gt (for the DE watcher variant) is also out of reach of repeaters fed by an
 observer pulse (a repeater stretches a 2 gt pulse to at most 8 gt and never lengthens a longer one).
+
+## 3. DE and S_R+ wired; PN's b/c window and P3's tick left (pn21.txt + ppn21.ideal: ideal WORKS)
+
+* **S_R+ can be a pull-type pulse piston** (pn13/ppn13: retracted at rest, (4,5) empty, one 2 gt pulse
+  per edge pulls K_R up / pushes and spits it back): WORKS; or keep it level-held (below).
+* **Every top input as a 2 gt pulse** (pn15/ppn15.ideal WORKS): PN a/b/c, DE e1 (push + spit) and
+  e2 (pull), P3, L1/L2, S_R+. Windows (ideal): e1 11..17, e2 21..24 (open), b in [e1-1, e2-5],
+  c >= e2 + 2; e1=11, e2=19, b=13, c=21 WORKS on both edges (`--set`), and b = e1, c = e2 fails.
+* **DE's two pulses are real**: E (-1,6) delay 4 (W's pulse stretched to t10..18), an observer O_D
+  (0,6) facing west WATCHING E fires at t12 and t20 into (1,6) = DE's quasi cell (pn17b/ppn17b).
+* **S_R+ level from O_D**: a delay-4 repeater R1 at (1,6) fed by O_D MERGES its two pulses into ONE
+  window t20..t30 (a pulse arriving while it is on is swallowed), so the waxed bulb (2,6) after it
+  toggles once per edge; comparator (3,6) -> S_R+ (level-held, as in f131F-b2). pn21/ppn21: WORKS
+  (redsim 4 x 2) with only PN's window, P3 and L1/L2 ideal; windows: PN window start 10..14 open /
+  11..14 close, length 10..24 / 8..15; P3 6..9 / 6..8; L1/L2 any.
+* A DE watcher at (0,5) (observer facing east) cannot feed PN when DE is pulsed: each DE pulse
+  changes DE's base 3 times, the watcher fires twice per pulse and D1 gets extra shots (pn17c,
+  ppn12/16 BROKEN). PN fed at e1 and e2 plus one late shot (>= e2+2) also WORKS (ppn17d), and so
+  does a PN WINDOW from about e1 to >= e2+2 (ppn17g/17h).
+* P3 + L1/L2 by pocket search (pk17h/pocket0-set0): observers (-2,5), (-2,4) facing up and a target
+  (-2,3) (the target powers P3 and L2, L1 by QC) give them at t6: L1/L2 accept it, P3 is 2 gt early
+  (D1's shot-a block lands on (1,3) only at t8); P3 needs t8 = three observer hops from W, and the
+  third hop cannot face P3 in this corner.
+* Still missing: PN's window (or b at e1..e1+2 and c >= e2+2). PN's feeds are (-2,5), (0,5) and its
+  quasi cell (-1,6) (via (-2,6) = W and (0,6) = O_D); O_D's pulses + 2 would be exactly b and c, but
+  the only cells that can watch O_D are (0,5) (its output then goes into (0,4), D1's trigger) and
+  (1,6) (output east).
