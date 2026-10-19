@@ -111,6 +111,9 @@ pub enum Kind {
     Obsid,
     /// glass: a full block that is NOT a conductor (holds dust, repeaters, torches; never powered).
     Glass,
+    /// persistent oak leaves: re-read their distance 1 gt after a neighbor changes (a 1 gt
+    /// delay when a LOG door block moves next to them, `--log-doors`); observers see it.
+    Leaves,
 }
 
 impl Kind {
@@ -169,6 +172,7 @@ impl Kind {
             Kind::Dropper => format!("minecraft:dropper[facing=up,triggered={b}]"),
             Kind::Obsid => "minecraft:obsidian".into(),
             Kind::Glass => "minecraft:glass".into(),
+            Kind::Leaves => format!("minecraft:oak_leaves[distance={lvl},persistent=true,waterlogged=false]"),
         }
     }
     /// The kind of a wiring block state (None: not wiring).
@@ -189,6 +193,7 @@ impl Kind {
             "dropper" | "dispenser" => Kind::Dropper,
             "obsidian" => Kind::Obsid,
             "glass" => Kind::Glass,
+            n if n.ends_with("_leaves") => Kind::Leaves,
             _ => return None,
         })
     }
@@ -222,6 +227,7 @@ pub fn palette(spec: &str) -> Result<Vec<Kind>> {
             "dropper" => v.push(Kind::Dropper),
             "obsidian" => v.push(Kind::Obsid),
             "glass" => v.push(Kind::Glass),
+            "leaves" => v.push(Kind::Leaves),
             _ => bail!("unknown palette entry {t:?} (block,dust,rep,rep1..4,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian,glass)"),
         }
     }
@@ -1263,6 +1269,7 @@ const P_MOVABLE: u8 = 10;
 const P_LAMP: u8 = 11;
 const P_IND: u8 = 12;
 const P_DROP: u8 = 13;
+const P_LEAVES: u8 = 14;
 
 fn pred_fn(t: u8) -> fn(Kind) -> bool {
     match t {
@@ -1279,6 +1286,7 @@ fn pred_fn(t: u8) -> fn(Kind) -> bool {
         P_LAMP => |k| k == Kind::Lamp,
         P_IND => |k| matches!(k, Kind::Note | Kind::Trap | Kind::Dropper),
         P_DROP => |k| k == Kind::Dropper,
+        P_LEAVES => |k| k == Kind::Leaves,
         _ => |k| k.movable(),
     }
 }
@@ -1317,6 +1325,8 @@ pub struct Model<'a> {
     bpow: HashMap<Key, Lit>,
     blit: HashMap<Key, Lit>,
     npow: HashMap<Key, Lit>,
+    /// Leaves: distance >= j (j = 2..7) at the end of each tick.
+    leaves: HashMap<(usize, i32, C2, u8), Lit>,
     sigc: HashMap<(usize, i32, C2, C2, bool), Lit>,
     mc: HashMap<(usize, i32, C2, u8), Lit>,
     chgc: HashMap<(usize, i32, C2, u8), Lit>,
@@ -1625,6 +1635,11 @@ impl<'a> Model<'a> {
                     }
                     t.push(self.e.or(&x));
                 }
+                for j in 2..=7u8 {
+                    if let (Some(a), Some(b)) = (self.leaves.get(&(tr, k, w, j)).copied(), self.leaves.get(&(tr, k - 1, w, j)).copied()) {
+                        t.push(self.e.xor(a, b));
+                    }
+                }
                 for m in 0..2 {
                     let map = if m == 0 { &self.npow } else { &self.bpow };
                     let a = Self::get(map, (tr, k, w), f);
@@ -1658,6 +1673,8 @@ pub static DIAG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 /// `--sound`: every remaining under-approximation that is cheap to flip is flipped (QC holds,
 /// repeater and torch read orders): an UNSAT then over-approximates the game in those respects.
 pub static SOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--log-doors`: the mechanism's stone blocks are oak logs (same mechanics; leaves read them).
+pub static LOG_DOORS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     let diag = check_mode || DIAG.load(std::sync::atomic::Ordering::Relaxed);
@@ -1734,6 +1751,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         bpow: HashMap::new(),
         blit: HashMap::new(),
         npow: HashMap::new(),
+        leaves: HashMap::new(),
         sigc: HashMap::new(),
         mc: HashMap::new(),
         chgc: HashMap::new(),
@@ -1819,6 +1837,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                 if p.can(c, |kk| kk == Kind::Lamp) {
                     let a = m.e.var();
                     m.ltrans.insert((tr, k, c), a);
+                }
+                if p.can(c, |kk| kk == Kind::Leaves) {
+                    for j in 2..=7u8 {
+                        let a = m.e.var();
+                        m.leaves.insert((tr, k, c, j), a);
+                    }
                 }
                 if p.can(c, |kk| matches!(kk, Kind::Note | Kind::Trap | Kind::Dropper)) {
                     let a = m.e.var();
@@ -1906,6 +1930,43 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     }
                 }
                 // note blocks, bulbs
+                // leaves: distance = min(7, 1 + min over neighbors (log 0, leaves d, else 7)),
+                // recomputed 1 gt after any neighbor change (a moving log reads as 7)
+                if ks.contains(&Kind::Leaves) {
+                    let isl = m.pred(c, P_LEAVES);
+                    let kk = if k >= 1 { k - 1 } else { -1 };
+                    if k == 0 {
+                        for j in 2..=7u8 {
+                            let a = m.leaves[&(tr, 0, c, j)];
+                            let b = m.leaves[&(tr, -1, c, j)];
+                            m.e.eq(a, b);
+                        }
+                    } else {
+                        let logs = LOG_DOORS.load(std::sync::atomic::Ordering::Relaxed);
+                        for j in 2..=7u8 {
+                            let mut all = Vec::new();
+                            for d in DIRS {
+                                let n = add(c, d);
+                                if m.p.mech.contains(&n) {
+                                    if logs {
+                                        let lg = m.mprop(tr, k.max(-1), n, 0);
+                                        all.push(!lg);
+                                    }
+                                } else if m.p.is_free(n) && m.p.can(n, |x| x == Kind::Leaves) {
+                                    if j - 1 >= 2 {
+                                        let nl = m.pred(n, P_LEAVES);
+                                        let g = m.leaves[&(tr, kk, n, j - 1)];
+                                        all.push(m.e.or(&[!nl, g]));
+                                    }
+                                }
+                            }
+                            let tgt = m.e.and(&all);
+                            let rhs = m.e.and(&[isl, tgt]);
+                            let a = m.leaves[&(tr, k, c, j)];
+                            m.e.eq(a, rhs);
+                        }
+                    }
+                }
                 // note blocks, iron trapdoors, droppers: a powered state observers can watch
                 if ks.iter().any(|kk| matches!(kk, Kind::Note | Kind::Trap | Kind::Dropper)) {
                     let isi = m.pred(c, P_IND);
@@ -2319,7 +2380,9 @@ pub fn decode(m: &Model, name: &str) -> Sol {
     let mut kinds = BTreeMap::new();
     let mut d = Design { name: name.to_string(), ..Default::default() };
     for (pos, s) in &p.rec.rest {
-        d.blocks.insert(*pos, s.clone());
+        let logs = LOG_DOORS.load(std::sync::atomic::Ordering::Relaxed);
+        let st = if logs && short(s) == "stone" { "minecraft:oak_log[axis=y]".to_string() } else { s.clone() };
+        d.blocks.insert(*pos, st);
     }
     for c in &p.free {
         let k = p.kinds[c].iter().copied().find(|k| m.e.val(m.kl[&(*c, *k)])).unwrap_or(Kind::Empty);
@@ -2328,7 +2391,7 @@ pub fn decode(m: &Model, name: &str) -> Sol {
         }
         kinds.insert(*c, k);
         let out = m.e.val(m.out(0, -1, *c));
-        let lvl = (m.lo()..=15).rev().find(|j| m.e.val(m.lvl(0, -1, *c, *j))).unwrap_or(0);
+        let lvl = if k == Kind::Leaves { (2..=7u8).rev().find(|j| m.leaves.get(&(0, -1, *c, *j)).is_some_and(|l| m.e.val(*l))).unwrap_or(1) } else { (m.lo()..=15).rev().find(|j| m.e.val(m.lvl(0, -1, *c, *j))).unwrap_or(0) };
         let a = m.e.val(Model::get(&m.blit, (0, -1, *c), f));
         let b = m.e.val(Model::get(&m.bpow, (0, -1, *c), f)) || m.e.val(Model::get(&m.npow, (0, -1, *c), f));
         d.blocks.insert([c.0, c.1, z], k.state(out, lvl, a, b));
@@ -2400,6 +2463,7 @@ pub fn render(p: &Prob, s: &Sol) -> String {
                     Kind::Dropper => 'D',
                     Kind::Obsid => 'X',
                     Kind::Glass => 'g',
+                    Kind::Leaves => '%',
                     Kind::Empty => '.',
                 }
             } else if let Some(st) = p.rec.phases[0].frames[0].get(&c) {
