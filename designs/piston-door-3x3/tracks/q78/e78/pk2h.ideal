@@ -1,0 +1,17 @@
+design designs/piston-door-3x3/tracks/q78/e78/pk2as.txt
+# pockets2's left A' filling (stone): K ideal, B' as one hold [b, b+bl] on both edges (or asymmetric via cb)
+let k = 14
+let b = 20
+let bl = 10
+let cb = 20
+let cbl = 10
+open 0 use 1 5 0
+close 0 use 1 5 0
+open k set 3 -1 1 minecraft:redstone_block
+open k+2 clear 3 -1 1
+open b set 1 -3 1 minecraft:redstone_block
+open b+bl clear 1 -3 1
+close k set 3 -1 1 minecraft:redstone_block
+close k+2 clear 3 -1 1
+close cb set 1 -3 1 minecraft:redstone_block
+close cb+cbl clear 1 -3 1
