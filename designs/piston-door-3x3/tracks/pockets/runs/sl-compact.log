@@ -1,0 +1,275 @@
+designs/piston-door-3x3/tracks/mechspace/mech/sl-004-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not open: [1, 0, 0] is minecraft:stone
+designs/piston-door-3x3/tracks/mechspace/mech/sl-005-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not open: [1, 0, 0] is minecraft:stone
+designs/piston-door-3x3/tracks/mechspace/mech/sl-008-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-009-oc.ideal: 33 groups, last input t62, open 63 / close 33
+pass 1: 27 groups moved earlier, last input t29
+pass 2: 2 groups moved earlier, last input t27
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-009-oc-cpt.ideal (last input t27, open 28 / close 11)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-010-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-011-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-012-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-013-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-014-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-015-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-016-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-018-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-021-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-025-oc.ideal: 26 groups, last input t50, open 51 / close 21
+pass 1: 18 groups moved earlier, last input t12
+pass 2: 0 groups moved earlier, last input t12
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-025-oc-cpt.ideal (last input t12, open 13 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-026-oc.ideal: 26 groups, last input t50, open 51 / close 21
+pass 1: 18 groups moved earlier, last input t20
+pass 2: 0 groups moved earlier, last input t20
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-026-oc-cpt.ideal (last input t20, open 21 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-027-oc.ideal: 23 groups, last input t32, open 33 / close 15
+pass 1: 15 groups moved earlier, last input t29
+pass 2: 2 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-027-oc-cpt.ideal (last input t26, open 24 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-028-oc.ideal: 27 groups, last input t44, open 45 / close 27
+pass 1: 19 groups moved earlier, last input t41
+pass 2: 2 groups moved earlier, last input t38
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-028-oc-cpt.ideal (last input t38, open 36 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-029-oc.ideal: 30 groups, last input t62, open 63 / close 33
+pass 1: 22 groups moved earlier, last input t27
+pass 2: 0 groups moved earlier, last input t27
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-029-oc-cpt.ideal (last input t27, open 28 / close 11)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-030-oc.ideal: 23 groups, last input t32, open 33 / close 15
+pass 1: 15 groups moved earlier, last input t29
+pass 2: 4 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-030-oc-cpt.ideal (last input t26, open 24 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-031-oc.ideal: 25 groups, last input t44, open 45 / close 15
+pass 1: 17 groups moved earlier, last input t41
+pass 2: 2 groups moved earlier, last input t38
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-031-oc-cpt.ideal (last input t38, open 36 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-032-oc.ideal: 26 groups, last input t56, open 57 / close 21
+pass 1: 18 groups moved earlier, last input t20
+pass 2: 0 groups moved earlier, last input t20
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-032-oc-cpt.ideal (last input t20, open 21 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-033-oc.ideal: 27 groups, last input t44, open 45 / close 27
+pass 1: 18 groups moved earlier, last input t41
+pass 2: 2 groups moved earlier, last input t38
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-033-oc-cpt.ideal (last input t38, open 36 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-034-oc.ideal: 33 groups, last input t74, open 75 / close 33
+pass 1: 25 groups moved earlier, last input t34
+pass 2: 0 groups moved earlier, last input t34
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-034-oc-cpt.ideal (last input t34, open 35 / close 9)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-035-oc.ideal: 29 groups, last input t56, open 57 / close 27
+pass 1: 21 groups moved earlier, last input t53
+pass 2: 2 groups moved earlier, last input t50
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-035-oc-cpt.ideal (last input t50, open 48 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-036-oc.ideal: 30 groups, last input t68, open 69 / close 33
+pass 1: 22 groups moved earlier, last input t26
+pass 2: 0 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-036-oc-cpt.ideal (last input t26, open 27 / close 11)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-037-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not open: [0, 0, 0] is minecraft:stone
+designs/piston-door-3x3/tracks/mechspace/mech/sl-038-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not open: [0, 0, 0] is minecraft:stone
+designs/piston-door-3x3/tracks/mechspace/mech/sl-039-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not open: [0, 0, 0] is minecraft:stone
+designs/piston-door-3x3/tracks/mechspace/mech/sl-040-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not open: [0, 0, 0] is minecraft:stone
+designs/piston-door-3x3/tracks/mechspace/mech/sl-041-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not open: [0, 0, 0] is minecraft:stone
+designs/piston-door-3x3/tracks/mechspace/mech/sl-042-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-043-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [0, -2, 0] air -> smooth_stone; [0, -1, 0] smooth_stone -> stone; [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air; [1, 1, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-044-oc.ideal: 28 groups, last input t50, open 51 / close 27
+pass 1: 20 groups moved earlier, last input t47
+pass 2: 2 groups moved earlier, last input t44
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-044-oc-cpt.ideal (last input t44, open 42 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-045-oc.ideal: 28 groups, last input t50, open 51 / close 27
+pass 1: 20 groups moved earlier, last input t47
+pass 2: 4 groups moved earlier, last input t44
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-045-oc-cpt.ideal (last input t44, open 42 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-046-oc.ideal: 35 groups, last input t62, open 63 / close 39
+pass 1: 29 groups moved earlier, last input t35
+pass 2: 1 groups moved earlier, last input t28
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-046-oc-cpt.ideal (last input t28, open 29 / close 14)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-047-oc.ideal: 26 groups, last input t50, open 51 / close 21
+pass 1: 16 groups moved earlier, last input t15
+pass 2: 0 groups moved earlier, last input t15
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-047-oc-cpt.ideal (last input t15, open 16 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-048-oc.ideal: 26 groups, last input t50, open 51 / close 21
+pass 1: 16 groups moved earlier, last input t24
+pass 2: 0 groups moved earlier, last input t24
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-048-oc-cpt.ideal (last input t24, open 25 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-049-oc.ideal: 23 groups, last input t32, open 33 / close 15
+pass 1: 13 groups moved earlier, last input t29
+pass 2: 2 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-049-oc-cpt.ideal (last input t26, open 24 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-050-oc.ideal: 27 groups, last input t50, open 51 / close 21
+pass 1: 17 groups moved earlier, last input t40
+pass 2: 6 groups moved earlier, last input t25
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-050-oc-cpt.ideal (last input t25, open 26 / close 12)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-051-oc.ideal: 33 groups, last input t50, open 51 / close 45
+pass 1: 26 groups moved earlier, last input t41
+pass 2: 12 groups moved earlier, last input t29
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-051-oc-cpt.ideal (last input t29, open 27 / close 28)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-052-oc.ideal: 27 groups, last input t44, open 45 / close 27
+pass 1: 17 groups moved earlier, last input t41
+pass 2: 2 groups moved earlier, last input t38
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-052-oc-cpt.ideal (last input t38, open 36 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-053-oc.ideal: 23 groups, last input t32, open 33 / close 15
+pass 1: 13 groups moved earlier, last input t29
+pass 2: 4 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-053-oc-cpt.ideal (last input t26, open 24 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-054-oc.ideal: 24 groups, last input t32, open 33 / close 15
+pass 1: 13 groups moved earlier, last input t29
+pass 2: 2 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-054-oc-cpt.ideal (last input t26, open 24 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-055-oc.ideal: 27 groups, last input t50, open 45 / close 21
+pass 1: 13 groups moved earlier, last input t26
+pass 2: 1 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-055-oc-cpt.ideal (last input t26, open 22 / close 12)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-056-oc.ideal: 28 groups, last input t56, open 51 / close 15
+pass 1: 15 groups moved earlier, last input t39
+pass 2: 7 groups moved earlier, last input t29
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-056-oc-cpt.ideal (last input t29, open 25 / close 9)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-057-oc.ideal: 30 groups, last input t62, open 57 / close 15
+pass 1: 14 groups moved earlier, last input t30
+pass 2: 0 groups moved earlier, last input t30
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-057-oc-cpt.ideal (last input t30, open 26 / close 9)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-058-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-059-oc.ideal: 33 groups, last input t68, open 69 / close 33
+pass 1: 19 groups moved earlier, last input t33
+pass 2: 0 groups moved earlier, last input t33
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-059-oc-cpt.ideal (last input t33, open 34 / close 22)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-060-oc.ideal: 30 groups, last input t62, open 63 / close 39
+pass 1: 20 groups moved earlier, last input t59
+pass 2: 2 groups moved earlier, last input t56
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-060-oc-cpt.ideal (last input t56, open 54 / close 30)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-061-oc.ideal: 31 groups, last input t68, open 69 / close 39
+pass 1: 21 groups moved earlier, last input t31
+pass 2: 6 groups moved earlier, last input t31
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-061-oc-cpt.ideal (last input t31, open 32 / close 19)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-062-oc.ideal: 27 groups, last input t44, open 45 / close 27
+pass 1: 16 groups moved earlier, last input t41
+pass 2: 2 groups moved earlier, last input t38
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-062-oc-cpt.ideal (last input t38, open 36 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-063-oc.ideal: 32 groups, last input t68, open 69 / close 27
+pass 1: 22 groups moved earlier, last input t65
+pass 2: 2 groups moved earlier, last input t62
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-063-oc-cpt.ideal (last input t62, open 60 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-064-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-065-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, 0, 0] air -> stone; [0, 0, 0] stone -> air; [-1, 1, 0] air -> stone; [0, 1, 0] stone -> air
+designs/piston-door-3x3/tracks/mechspace/mech/sl-068-oc.ideal: 36 groups, last input t56, open 57 / close 33
+pass 1: 25 groups moved earlier, last input t53
+pass 2: 9 groups moved earlier, last input t50
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-068-oc-cpt.ideal (last input t50, open 48 / close 30)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-073-oc.ideal: the plan itself is BROKEN: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone; [1, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone
+designs/piston-door-3x3/tracks/mechspace/mech/sl-076-oc.ideal: 26 groups, last input t50, open 51 / close 21
+pass 1: 17 groups moved earlier, last input t12
+pass 2: 1 groups moved earlier, last input t12
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-076-oc-cpt.ideal (last input t12, open 13 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-077-oc.ideal: 26 groups, last input t44, open 45 / close 21
+pass 1: 17 groups moved earlier, last input t20
+pass 2: 1 groups moved earlier, last input t20
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-077-oc-cpt.ideal (last input t20, open 21 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-078-oc.ideal: 23 groups, last input t32, open 33 / close 15
+pass 1: 13 groups moved earlier, last input t29
+pass 2: 2 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-078-oc-cpt.ideal (last input t26, open 24 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-079-oc.ideal: 26 groups, last input t38, open 39 / close 21
+pass 1: 12 groups moved earlier, last input t35
+pass 2: 1 groups moved earlier, last input t32
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-079-oc-cpt.ideal (last input t32, open 30 / close 12)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-080-oc.ideal: 35 groups, last input t56, open 57 / close 39
+pass 1: 24 groups moved earlier, last input t29
+pass 2: 6 groups moved earlier, last input t25
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-080-oc-cpt.ideal (last input t25, open 26 / close 16)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-081-oc.ideal: 28 groups, last input t50, open 51 / close 33
+pass 1: 19 groups moved earlier, last input t29
+pass 2: 1 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-081-oc-cpt.ideal (last input t26, open 24 / close 24)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-083-oc.ideal: 36 groups, last input t68, open 69 / close 39
+pass 1: 26 groups moved earlier, last input t29
+pass 2: 7 groups moved earlier, last input t29
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-083-oc-cpt.ideal (last input t29, open 30 / close 15)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-085-oc.ideal: 27 groups, last input t44, open 45 / close 21
+pass 1: 18 groups moved earlier, last input t41
+pass 2: 2 groups moved earlier, last input t38
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-085-oc-cpt.ideal (last input t38, open 36 / close 12)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-086-oc.ideal: 30 groups, last input t56, open 57 / close 33
+pass 1: 22 groups moved earlier, last input t27
+pass 2: 1 groups moved earlier, last input t27
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-086-oc-cpt.ideal (last input t27, open 28 / close 11)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-088-oc.ideal: 28 groups, last input t44, open 45 / close 27
+pass 1: 18 groups moved earlier, last input t35
+pass 2: 2 groups moved earlier, last input t32
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-088-oc-cpt.ideal (last input t32, open 30 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-089-oc.ideal: 25 groups, last input t44, open 45 / close 15
+pass 1: 14 groups moved earlier, last input t41
+pass 2: 2 groups moved earlier, last input t22
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-089-oc-cpt.ideal (last input t22, open 23 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-090-oc.ideal: 26 groups, last input t56, open 57 / close 21
+pass 1: 16 groups moved earlier, last input t26
+pass 2: 1 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-090-oc-cpt.ideal (last input t26, open 27 / close 8)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-091-oc.ideal: 31 groups, last input t50, open 51 / close 21
+pass 1: 23 groups moved earlier, last input t50
+pass 2: 9 groups moved earlier, last input t47
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-091-oc-cpt.ideal (last input t47, open 48 / close 12)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-092-oc.ideal: 26 groups, last input t32, open 33 / close 21
+pass 1: 12 groups moved earlier, last input t29
+pass 2: 1 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-092-oc-cpt.ideal (last input t26, open 24 / close 12)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-093-oc.ideal: 30 groups, last input t38, open 39 / close 39
+pass 1: 19 groups moved earlier, last input t29
+pass 2: 4 groups moved earlier, last input t18
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-093-oc-cpt.ideal (last input t18, open 19 / close 16)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-094-oc.ideal: 33 groups, last input t68, open 69 / close 33
+pass 1: 23 groups moved earlier, last input t65
+pass 2: 2 groups moved earlier, last input t34
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-094-oc-cpt.ideal (last input t34, open 35 / close 24)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-096-oc.ideal: 38 groups, last input t62, open 63 / close 45
+pass 1: 26 groups moved earlier, last input t33
+pass 2: 5 groups moved earlier, last input t33
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-096-oc-cpt.ideal (last input t33, open 34 / close 22)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-097-oc.ideal: 33 groups, last input t62, open 63 / close 39
+pass 1: 23 groups moved earlier, last input t23
+pass 2: 2 groups moved earlier, last input t23
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-097-oc-cpt.ideal (last input t23, open 24 / close 15)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-098-oc.ideal: 36 groups, last input t74, open 75 / close 39
+pass 1: 26 groups moved earlier, last input t33
+pass 2: 3 groups moved earlier, last input t31
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-098-oc-cpt.ideal (last input t31, open 32 / close 15)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-100-oc.ideal: 33 groups, last input t68, open 69 / close 21
+pass 1: 19 groups moved earlier, last input t28
+pass 2: 0 groups moved earlier, last input t28
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-100-oc-cpt.ideal (last input t28, open 29 / close 10)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-101-oc.ideal: 31 groups, last input t56, open 57 / close 39
+pass 1: 21 groups moved earlier, last input t35
+pass 2: 1 groups moved earlier, last input t32
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-101-oc-cpt.ideal (last input t32, open 25 / close 30)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-102-oc.ideal: 32 groups, last input t62, open 63 / close 39
+pass 1: 22 groups moved earlier, last input t26
+pass 2: 7 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-102-oc-cpt.ideal (last input t26, open 27 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-105-oc.ideal: 27 groups, last input t44, open 45 / close 21
+pass 1: 17 groups moved earlier, last input t41
+pass 2: 2 groups moved earlier, last input t38
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-105-oc-cpt.ideal (last input t38, open 36 / close 12)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-106-oc.ideal: 33 groups, last input t74, open 75 / close 33
+pass 1: 24 groups moved earlier, last input t34
+pass 2: 1 groups moved earlier, last input t34
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-106-oc-cpt.ideal (last input t34, open 35 / close 9)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-107-oc.ideal: 33 groups, last input t50, open 51 / close 51
+pass 1: 21 groups moved earlier, last input t47
+pass 2: 2 groups moved earlier, last input t44
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-107-oc-cpt.ideal (last input t44, open 42 / close 42)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-108-oc.ideal: 29 groups, last input t50, open 51 / close 21
+pass 1: 20 groups moved earlier, last input t47
+pass 2: 2 groups moved earlier, last input t44
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-108-oc-cpt.ideal (last input t44, open 42 / close 12)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-109-oc.ideal: 30 groups, last input t62, open 63 / close 27
+pass 1: 21 groups moved earlier, last input t26
+pass 2: 1 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-109-oc-cpt.ideal (last input t26, open 27 / close 11)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-111-oc.ideal: 41 groups, last input t74, open 75 / close 57
+pass 1: 30 groups moved earlier, last input t39
+pass 2: 9 groups moved earlier, last input t37
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-111-oc-cpt.ideal (last input t37, open 38 / close 28)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-112-oc.ideal: 32 groups, last input t74, open 75 / close 33
+pass 1: 28 groups moved earlier, last input t36
+pass 2: 5 groups moved earlier, last input t36
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-112-oc-cpt.ideal (last input t36, open 37 / close 18)
+designs/piston-door-3x3/tracks/mechspace/mech/sl-113-oc.ideal: 35 groups, last input t62, open 63 / close 39
+pass 1: 24 groups moved earlier, last input t28
+pass 2: 3 groups moved earlier, last input t26
+wrote designs/piston-door-3x3/tracks/pockets/cpt/sl-113-oc-cpt.ideal (last input t26, open 27 / close 18)

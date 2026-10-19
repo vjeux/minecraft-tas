@@ -150,3 +150,45 @@ su8r-03 17/33 and su8r-05 23/36 undriven at k=4 (their oc plans run to t66), su8
   started by TL's cell (-1,2)), A's top pull with 5 alone, never both within 5, A's t3 push/hold never.
 * m79s s78b (7x8, seed `finds/s78-a1/partial-full-live.txt`, K + L0 assisted): the bottom-left pocket is 3
   cells; exhaustive (64 states, sculk/calibrated/wool): L0 with 2 blocks, K never.
+
+## 8. pockets2 (2026-10-19 09:24Z ->, same box and branch)
+
+Tools (explore/pockets, one commit each):
+* `bc96adfe` `--pocket-k x,y=K` / `--pocket-fill x,y=<families>|states:<..>`: per-pocket depth and palette
+  (cross-region runs: a k=7 pocket next to a k=6 one in one run).
+* `4ad28287` finer work items for big palettes (a 4-cell pocket x 61 states had 61 items for 160 threads).
+* `c6c4d7e2` a RELEASED input's real edges need no plan group: the released re-screen (the door running on
+  the real wiring alone) already proves them. Before, a filling with an extra harmless pulse (c88 s11: A's
+  push on close too) or ONE long pulse for a push/pull pair (e88 t3k's shuttle) was rejected.
+* `0b6a8c43` `door ideal-rs --compact-dir DIR <schedules...>`: every input group as early as the mechanism
+  allows (others fixed, 2 passes, merged pulses tidied), `<name>-cpt.ideal` with each group's window.
+
+Results:
+* 48 cross-region, TL + TR of the 49 (`plans/c79-49-tltr.ideal`, union plan; TL k=6 x 14 states, TR k=7 x
+  14 states, 400M screens, `runs/c79-49-tltr-k67.log`): no 48. TR can take TL's elevator pulses (1,4)o12 +
+  (1,3)c12 together with R, (1,3)o2, (1,4)c4 in 7 blocks, but never with B's level; TL alone then still
+  needs 5 for TL/ML. With sculk: TL k=5 x 18 states incl. plain/calibrated sensors + wool
+  (`runs/c79-49-tl-sculk-k5`): TL/ML both edges with 3 blocks (plain sensor (-2,5) -> observer (-2,4) up
+  -> wool (-2,3), a conductor, -> TL's puller + ML by QC) but the elevator pulses still 4: no 5-block TL;
+  40 combinations = 7x9 SCULK doors with 51 blocks (`pockets-63b-51-0` verify WORKS, rotation-safe,
+  open/close 50): new wirings, no record (sculk board: 50). TR with sculk k=6: `runs/c79-49-tr-sculk-k6`.
+* e88 t3k (8x8, only the shuttle ideal): ideal-rs: ONE long pulse (start 24..50, width >= 7) replaces the
+  push + pull pair. The 4-cell pocket (full palette + sculk, k=4): plain sensor (-3,-3) next to the shuttle
+  piston + wool (-3,-2) and (-1,-2): hears B' (1,-3) at ~t25 and holds the shuttle t30..t59; 24 such
+  fillings screen perfect, the redsim judge passes 2 of 4 positions (at #2/#3 the wool's occlusion of P_M's
+  t19 vibration flips: the line runs through a block corner) (`runs/t3k-k4/pockets-repair-2of4-*`).
+  bridge finished t3k first (archive/bridge-e88-sculk-52b.txt, a calibrated sensor in a wool pocket).
+* c88 s11 (top-left k=5 x 18 states, with the released-input rule, `runs/s11-tl-k5fix`): A's push
+  (1,3)o3 real with 5 blocks: observer (-3,3) down on the lever's dust (-3,2) -> dust (-3,4) (-2,4) ->
+  lamp (-2,3) -> observer (-1,3) west into the static (0,3) (true partial with B, A's top pull, R, BR
+  assisted); B's 4-block chain also needs (-1,3): no A + B. s19 (B real): A has no path (the free
+  top-left cells are cut off from (0,3)/(1,4) by B's x=-1 chain). ideal-rs: A's push on close too is
+  harmless (s11: close push 0..19; s19: 0..3), window start 0..4, end <= 7, length >= 3.
+* f131 pn26b (P3 + L2 ideal, `runs/pn26b-k4`): the only pocket is (-2,3..5); observers (-2,5) up, (-2,4)
+  up + glazed terracotta (-2,3) (a conductor) give P3 and L2 at t6-8 and screen perfect with the plan
+  double-driving, but fully real the door fails (center (1,1) never opens) although ideal-rs with both
+  pulsed at t6..8 WORKS: the real drive differs from the plan (placement transient / in-tick timing).
+* mechspace single-U oc plans compacted (`cpt/`, `runs/sl-compact.log`): 63 working plans, last input
+  t62..66 -> t12 (sl-025, sl-076), t15 (sl-047), t18..30 for 30 more. pockets k=3 (default palette, lever
+  both polarities) on the 12 most compact (`runs/slc-k3.log`): 8..22 of 25..33 groups undriven (sl-076 8,
+  sl-025 9, sl-047 11), best partials 8..13 inputs left; the same plans uncompacted: `runs/slo-k3.log`.
