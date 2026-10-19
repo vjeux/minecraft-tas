@@ -1,0 +1,4 @@
+set -1 -2 0 minecraft:note_block[instrument=harp,note=0,powered=false]
+set -2 -2 0 minecraft:note_block[instrument=harp,note=0,powered=false]
+set -2 -1 0 minecraft:observer[facing=down,powered=false]
+clear 2 -2 0

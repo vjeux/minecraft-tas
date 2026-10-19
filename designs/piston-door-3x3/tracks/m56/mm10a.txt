@@ -1,0 +1,46 @@
+name: mm10a
+port door: 0 0 0
+port lever: 4 3 -1
+origin: -2 0 -1
+palette:
+  U minecraft:sticky_piston[extended=false,facing=down]
+  K minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:stone
+  s minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:sticky_piston[extended=true,facing=west]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  R minecraft:redstone_block
+  A minecraft:sticky_piston[extended=false,facing=up]
+  h minecraft:piston_head[facing=up,short=false,type=sticky]
+  B minecraft:sticky_piston[extended=true,facing=up]
+  L minecraft:lever[face=wall,facing=north,powered=true]
+  o minecraft:observer[facing=east,powered=false]
+  v minecraft:observer[facing=down,powered=false]
+  b minecraft:redstone_lamp[lit=false]
+  w minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 4:
+  .......
+  DooUob.
+layer 3:
+  ......L
+  wK..DvD
+layer 2:
+  .......
+  s.DDDpC
+layer 1:
+  .......
+  s.DDDpC
+layer 0:
+  .......
+  s.DDDD.
+layer -1:
+  .......
+  ..DAh..
+layer -2:
+  .......
+  ...hB..
+  ....R
+layer -3:
+  .......
+  ...B...
+  ...R

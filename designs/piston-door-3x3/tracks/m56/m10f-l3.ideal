@@ -1,0 +1,23 @@
+# m10f with L0 fed THREE pulses per edge (like K's real pulses t9, t13, t17): does an odd L0 train work?
+design designs/piston-door-3x3/tracks/m56/src/m10f.txt
+let ah0 = 8
+let ah = 4
+let la = 9
+let lb = 13
+let lc = 17
+open 0 use 4 5 0
+open ah0 set 1 3 -1 minecraft:redstone_block
+open ah0+ah clear 1 3 -1
+open la set -2 0 -1 minecraft:redstone_block
+open la+2 clear -2 0 -1
+open lb set -2 0 -1 minecraft:redstone_block
+open lb+2 clear -2 0 -1
+open lc set -2 0 -1 minecraft:redstone_block
+open lc+2 clear -2 0 -1
+close 0 use 4 5 0
+close la set -2 0 -1 minecraft:redstone_block
+close la+2 clear -2 0 -1
+close lb set -2 0 -1 minecraft:redstone_block
+close lb+2 clear -2 0 -1
+close lc set -2 0 -1 minecraft:redstone_block
+close lc+2 clear -2 0 -1

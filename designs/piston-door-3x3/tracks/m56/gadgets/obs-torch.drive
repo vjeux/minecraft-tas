@@ -1,0 +1,19 @@
+design designs/piston-door-3x3/tracks/m56/gadgets/obs-torch.txt
+probe T -1 0 0
+probe O 0 0 0
+plane 0 -1 -1 2 0
+print
+set 1 0 0 minecraft:stone
+step 1
+print
+step 1
+print
+step 1
+print
+step 1
+print
+step 1
+print
+step 1
+print
+trace

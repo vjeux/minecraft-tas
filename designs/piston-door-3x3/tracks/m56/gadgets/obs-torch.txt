@@ -1,0 +1,10 @@
+name: obs-torch
+origin: -1 0 0
+palette:
+  S minecraft:stone
+  T minecraft:redstone_wall_torch[facing=west,lit=true]
+  O minecraft:observer[facing=east,powered=false]
+layer -1:
+  SSSS
+layer 0:
+  TO.

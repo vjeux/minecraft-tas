@@ -1,0 +1,23 @@
+assist designs/piston-door-3x3/tracks/m56/p3b.ideal: 2 input cells off the plane ([(1, -2), (1, 3)]), 6 / 4 events, 2 in-plane or `use` events ignored
+pinned (stay ideal, free): 1,3
+seed designs/piston-door-3x3/tracks/m56/p3.txt: 44 blocks in the box, screen 79/79
+seed screen 79/79 with 2 inputs assisted
+windows (5 groups, 0.0 s):
+  input (1,-2) open  t5 pulse 1 gt: window [-5, +1]
+  input (1,3) open  t8 pulse 4 gt: window [-1, +0]
+  input (1,-2) open  t11 pulse 2 gt: window [-2, +24]
+  input (1,-2) close t5 pulse 1 gt: window [-5, +2]
+  input (1,-2) close t11 pulse 2 gt: window [-2, +24]
+6 pocket cells in 3 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 50 swept cells
+  pocket 0: 1 cells [(-1, 3)]
+  pocket 1: 4 cells [(2, -2), (3, -2), (4, -2), (4, -1)]
+  pocket 2: 1 cells [(3, 3)]
+pocket 0: 1 cells, 1 subset/lever items, 47 fillings to screen
+pocket 0: 47 screened, 24 keep the door working, 0.0 s; driven input sets: none
+pocket 1: 4 cells, 147 subset/lever items, 5094095 fillings to screen
+pocket 1: 5663959 screened, 1453336 keep the door working, 52.0 s; driven input sets: none
+pocket 2: 1 cells, 1 subset/lever items, 47 fillings to screen
+pocket 2: 54 screened, 36 keep the door working, 0.0 s; driven input sets: none
+plan groups no filling drives: (1,-2)o5 (1,3)o8 (1,-2)o11 (1,-2)c5 (1,-2)c11
+0 combinations verified, 0 finds, 52 s total
+done
