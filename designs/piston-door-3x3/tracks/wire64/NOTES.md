@@ -103,3 +103,32 @@ E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
   bottom-left must act first (L0, then U pulls ML down) and the top-left next (L1's first shot), then
   E3, then the bottom-left again (lift, U's second shot). Both regions need lever-early signals, but
   their only link (E3, a level piston) changes in the middle of the sequence on open (at t0 on close).
+
+## 5. Minimal change that unblocks 118's top-left: a STOPPER (MR's puller held extended, SW+(4,1))
+
+- Change: MR's puller R1 (4,1) is extended at rest (head at (3,1), a ring cell at rest only: closed
+  checks skip the door plane's ring, and when open R1 is retracted with MR in (3,1), so FULL still
+  holds; 118 already rests L1 and D in the ring). Open: R1 released at >= t35 (pulls MR), close: any time.
+  f118c.ideal (118 + stopper, ideal inputs) WORKS.
+- Why it helps: the L1 observer u (-1,3) watches N4 (-1,4), the only cell that can arm D. Every N4
+  pulse fires L1 2 gt later; at D's first shot ML still blocks L1's head, and L1's push line
+  ML, C, MR now ends on R1's head: a blocked push, nothing moves. When D pulls ML out, ML's departure
+  updates L1 while u is still on: L1 fires right then and pulls C. The coupling now produces exactly
+  the needed order.
+- Real top-left core (f118d.txt): repeater r (-2,4) facing west (input (-3,4)) -> note block N4
+  (-1,4) [instrument=basedrum: the observer under it]; observer u (-1,3) facing up; stone J (-2,3)
+  (r's floor); observer o (-3,2) facing west = L2's driver (it can watch a lever at (-4,2) outside the
+  box). D at (0,3) is quasi-armed by N4 silently (it only fires when TL's moves update it: N4 must be
+  on exactly when L2's retract makes TL leave (0,2), and off when TL lands), D at (0,4) fires on N4
+  directly; L1 at (-2,1) fires on landing (u on as E3's pull lands it).
+- f118f.ideal: WORKS at 32 positions x 2 cycles (open 39 / close 27). Windows (others fixed):
+  N4 window start = L2 poke + 2 exactly, end 0..2 later; L1's second pulse = E3 release - 1 exactly;
+  D's second pulse >= E5 release + 1 (31..44 with E5 at 30); E5 release 26..33; R1 release >= 35.
+- f118g/f118h: L2's pulse and N4's three pulses can be IDENTICAL on both edges (still WORKS); only
+  levels and toggles differ: E3+ must re-extend at t0..1 on close but release at t18 on open (an
+  edge-asymmetric level: E3 = NOT lever OR NOT lever_d16, two torches), E5+ re-extension on close has
+  a window that includes its open release time (8..15, 17..18, 23..32, 34..35), toggles: L0 and UM
+  any time on close, D1/D2/R0 most times, R1 0..37.
+- satwire: first run UNSAT with core "L2 (-2,2)": its recorder counted the signal into L2's cell from
+  its FRONT (TL strongly powered by u), which a piston ignores. Fixed in satwire.rs (record_ideal: a
+  piston's direct power is dropped when only its front neighbor emits into it); re-running.
