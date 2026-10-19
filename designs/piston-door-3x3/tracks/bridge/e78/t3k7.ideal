@@ -1,0 +1,18 @@
+design designs/piston-door-3x3/tracks/bridge/e78/t3k7.txt
+# P_M (-1,-1) pulse/hold [pm, pm+pl], shuttle (-2,-3) hold [s, s+sl]
+let pm = 19
+let pl = 2
+let s = 26
+let sl = 10
+let cpm = 19
+let cs = 26
+open 0 use 1 5 0
+close 0 use 1 5 0
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+pl clear -1 -1 1
+open s set -2 -3 1 minecraft:redstone_block
+open s+sl clear -2 -3 1
+close cpm set -1 -1 1 minecraft:redstone_block
+close cpm+pl clear -1 -1 1
+close cs set -2 -3 1 minecraft:redstone_block
+close cs+sl clear -2 -3 1
