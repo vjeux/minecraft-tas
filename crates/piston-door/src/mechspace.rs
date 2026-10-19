@@ -1842,6 +1842,43 @@ pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
     reach_ok(bx, v, &frame)
 }
 
+/// Every retracted / extended-at-rest combination of a layout's pistons (a head needs a free cell
+/// in the box outside the 3x3), as `x0 y0 pieces` lines; at most `max` of them.
+pub fn ext_variants(bx: &Bx, v: &[Pc], max: usize) -> Vec<Vec<Pc>> {
+    let base: Vec<Pc> = v.iter().map(|p| match p.k {
+        K::Piston { sticky, f, .. } => Pc { x: p.x, y: p.y, k: K::Piston { sticky, f, ext: false } },
+        _ => *p,
+    }).collect();
+    let pist: Vec<usize> = (0..base.len()).filter(|&i| matches!(base[i].k, K::Piston { .. })).collect();
+    let mut out = Vec::new();
+    for mask in 0u32..(1u32 << pist.len().min(20)) {
+        let mut w = base.clone();
+        let mut ok = true;
+        let mut occ: HashSet<(i8, i8)> = w.iter().map(|p| (p.x, p.y)).collect();
+        for (j, &i) in pist.iter().enumerate() {
+            if mask & (1 << j) == 0 {
+                continue;
+            }
+            let K::Piston { sticky, f, .. } = w[i].k else { continue };
+            let (dx, dy) = families::F[f as usize];
+            let h = (w[i].x + dx, w[i].y + dy);
+            if !bx.has(h.0, h.1) || families::in_t(h.0, h.1) || !occ.insert(h) {
+                ok = false;
+                break;
+            }
+            w[i].k = K::Piston { sticky, f, ext: true };
+        }
+        if ok && Mech::new(*bx, &w).is_some() {
+            w.sort();
+            out.push(w);
+            if out.len() >= max {
+                break;
+            }
+        }
+    }
+    out
+}
+
 /// `reachtest`: tally (verdict, passes) over a partial TSV (`line \t verdict ...`).
 pub fn reach_tally(path: &std::path::Path, w: i8, h: i8) -> Result<BTreeMap<(String, bool), usize>> {
     let mut tally: BTreeMap<(String, bool), usize> = BTreeMap::new();
