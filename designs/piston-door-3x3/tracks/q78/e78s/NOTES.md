@@ -1,5 +1,23 @@
 # e78s: a SOLID 7x8 (no sculk) from the e78 mechanism (e78k, 2026-10-19 from 15:34Z)
 
+## RESULT: the first solid 7x8 doors (all volume 56, solid, slime-free, flat, rotation-safe, verify --extra-offsets 28 WORKS)
+| design | blocks | seamless | open/close | what changed |
+|---|---|---|---|---|
+| archive/e78k-h2-45b | 45 | FULL | 44/15 | THE FIRST (coordinator-verified on main 16:56Z): s11 + B1 fed from the RIGHT + a B'-watcher loop |
+| archive/e78k-h3-38b | 38 | QUART (frame 9/12: NOT a record) | 36/19 | frame cells (-1,2) (3,2) (0,-1) changed: do not do this |
+| archive/e78k-h4-42b | 42 | FULL | 36/19 | top-left watcher (-1,3) E + bottom-left loop = sticky piston (-1,-3) pushing the lamp |
+| archive/e78k-h5-41b | 41 | FULL | 36/19 | right bottom = droppers: BR watcher QC-triggers dropper (4,-3) -> observer (3,-3) E -> dropper (2,-3) (B1 + gate), observer (3,-2) down -> K |
+
+How h2 works (open): A1 t7 (lamp observer), K pulls BM at t13, B1 at t13 = observer (2,-3) facing EAST on a note
+block (3,-3) under K's target (K's driver pulses toggle it), 2-gt spit; the gate (2,-2) watches (2,-3) (not B'), so
+ONE gate pulse 2 gt after the B' pulse = A2 exactly at A's landing in F1. The late signal is a LOOP: observer (0,-3)
+facing EAST on B' -> observer (-1,-3) E -> note (-2,-3) -> observer (-2,-2) down -> stone (-2,-1) re-fires BL's puller
+(BL bounces into (0,0) and back) -> the BL-park watcher (-1,-1) keeps the lamp lit -> the lamp observer (0,-2) QC-fires
+B' while A' is up (B2, t23) and the lamp's final off-edge fires A' (A3, t42). Found by `door ideal-rs --vary` over 4
+cells of h1 (= rr2 + loop stone, which failed only at the final lamp edge) — no ideal inputs: ideal-rs is then a fast
+4-position redsim screen, ~100k combos/s at 40 threads. h4/h5 came from the same --vary rounds (6 cells x 11-13 states).
+Records need FULL: keep the three static frame stones (-1,2) (3,2) (0,-1).
+
 Goal (coordinator 15:33Z): the first SOLID 7x8 = 56 door. Base mechanism = e78 (ring56's jf/layout J =
 t7b mirrored): top row lever-held, sides fired at t3, bottom elevator A' (1,-2) / B' (1,-3), corner piston
 K (3,-1) parks BM in F2 (2,-1), C goes down 2 into F1 (1,-1). The 7x9 solid t7b-ob40 times B' with a
