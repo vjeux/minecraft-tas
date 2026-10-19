@@ -886,6 +886,8 @@ pub struct Prob {
     pub fixed_only: bool,
     /// The rest state of each fixed cell (its design state): pinned in the model.
     pub fixed_state: HashMap<C2, String>,
+    /// The lever is ON at rest (it opens when switched off).
+    pub lever_on_rest: bool,
     /// Independent-timing clusters of mechanism cells (`--one-warp` turns them off): each has
     /// its own time warp, so events of different clusters can be split or shifted apart.
     pub cluster: HashMap<C2, usize>,
@@ -1170,7 +1172,9 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     // to a block); a frame cell the mechanism leaves empty or holds a piston/head in at open makes
     // the mechanism ineligible
     if o.full_frame {
-        let open = rec.phases[1].frames[0].clone();
+        // the open stable state: the one whose 3x3 is empty (a door may rest open)
+        let empty3 = |fr: &HashMap<C2, String>| (0..3).all(|i| (0..3).all(|j| fr.get(&(dx + i, dy + j)).is_none_or(|s| mk(s) == MK::Air)));
+        let open = if empty3(&rec.phases[0].frames[0]) { rec.phases[0].frames[0].clone() } else { rec.phases[1].frames[0].clone() };
         let mut ring_v: Vec<C2> = ring.iter().copied().collect();
         ring_v.sort();
         for r in ring_v {
@@ -1354,7 +1358,8 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             cell_group.insert((g.tr, *c), gi);
         }
     }
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), cell_group, cluster, ncl })
+    let lever_on_rest = rec.lever.as_ref().is_some_and(|(_, s)| prop(s, "powered") == Some("true")) || LEVER_ON.load(std::sync::atomic::Ordering::Relaxed);
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), lever_on_rest, cell_group, cluster, ncl })
 }
 
 /// `--menu`: record each alternative schedule, keep the trace `tr` of those that start and end
@@ -1543,7 +1548,8 @@ impl<'a> Model<'a> {
         self.kl.get(&(c, k)).copied().unwrap_or(self.e.f())
     }
     fn on(&self, tr: usize, k: i32) -> bool {
-        (tr == 0) == (k >= 0)
+        // trace 0 = the first flip from rest; a lever ON at rest (`lever_on_rest`) flips off
+        ((tr == 0) == (k >= 0)) != self.p.lever_on_rest
     }
     fn out(&self, tr: usize, k: i32, c: C2) -> Lit {
         self.out.get(&(tr, k, c)).copied().unwrap_or(self.e.f())
@@ -1808,7 +1814,8 @@ impl<'a> Model<'a> {
             4 => {
                 let m = if self.is_mech(w) { self.mchg(tr, k, w) } else { f };
                 let z = self.p.z;
-                let lv = if k == 0 { self.lever_on_lits(0, 0, |l| l.pos == [w.0, w.1, z]) } else { f };
+                // the lever flips at k = 0 in both traces (either polarity)
+                let lv = if k == 0 { let ls: Vec<Lit> = self.p.levers.iter().enumerate().filter(|(_, l)| l.pos == [w.0, w.1, z]).map(|(i, _)| self.lever[i]).collect(); self.e.or(&ls) } else { f };
                 // a note block's instrument follows the block below it: a mechanism change below that
                 // flips its instrument class changes the note block (observers see it)
                 let below = add(w, DN);
@@ -1917,6 +1924,8 @@ pub static DIAG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 pub static SOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--log-doors`: the mechanism's stone blocks are oak logs (same mechanics; leaves read them).
 pub static LOG_DOORS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--lever-on`: the lever is ON at rest (detected from a wired source design).
+pub static LEVER_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     let diag = check_mode || DIAG.load(std::sync::atomic::Ordering::Relaxed);
@@ -2301,7 +2310,9 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             up.push(m.chg(tr, k, n, 2));
                             if k == 0 {
                                 let z = m.p.z;
-                                up.push(m.lever_on_lits(0, 0, |l| l.att == [n.0, n.1, z]));
+                                let z = m.p.z;
+                                let ls: Vec<Lit> = m.p.levers.iter().enumerate().filter(|(_, l)| l.att == [n.0, n.1, z]).map(|(i, _)| m.lever[i]).collect();
+                                up.push(m.e.or(&ls));
                             }
                         }
                         let upd = m.e.or(&up);
@@ -2744,7 +2755,8 @@ pub fn decode(m: &Model, name: &str) -> Sol {
     }
     let lever = (0..p.levers.len()).find(|i| m.e.val(m.lever[*i])).unwrap_or(0);
     let lc = &p.levers[lever];
-    d.blocks.insert(lc.pos, lc.state.clone());
+    let lstate = if p.lever_on_rest { lc.state.replace("powered=false", "powered=true") } else { lc.state.clone() };
+    d.blocks.insert(lc.pos, lstate);
     d.ports.insert("door".into(), p.rec.door);
     d.ports.insert("lever".into(), lc.pos);
     let warp = |tr: usize| -> String {

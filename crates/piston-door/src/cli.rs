@@ -887,6 +887,10 @@ pub enum DoorCmd {
         /// (a mechanism door block, or static stone forced into a free frame cell).
         #[arg(long)]
         full_frame: bool,
+        /// The lever is ON at rest (the door opens when it is switched off); detected from a wired
+        /// source design.
+        #[arg(long)]
+        lever_on: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -2998,11 +3002,12 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Boxproof { args } => {
             return crate::boxproof::cli(&args);
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, diag, sound, log_doors, one_warp, full_frame, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             sw::SOUND.store(sound, std::sync::atomic::Ordering::Relaxed);
             sw::LOG_DOORS.store(log_doors, std::sync::atomic::Ordering::Relaxed);
+            sw::LEVER_ON.store(lever_on, std::sync::atomic::Ordering::Relaxed);
             if check && mechanism.len() > 1 {
                 let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false, motion: !recorded_power, clusters: false, full_frame: false };
                 let next = std::sync::atomic::AtomicUsize::new(0);
