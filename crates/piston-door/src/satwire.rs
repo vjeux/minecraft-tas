@@ -2206,6 +2206,8 @@ pub static PERIOD2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBoo
 /// repeaters and torches (torches read after the observer ticks: an observer pulse that powers a
 /// torch's block ends before the torch's tick reads it, FIFO; candidates exploited the free order).
 pub static EXACT_ORDER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--hint` (with `--from-wired`): phase the solver toward the source design's wiring.
+pub static HINT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--retime` (ideal plans): a timing CEGAR. Touching events of different clusters keep only their
 /// ORDER (ties allowed, no safe gap); each candidate's timing is checked by replaying the ideal plan
 /// with every input moved with its piston's cluster (redsim, 4 positions, 2 cycles): a timing that
@@ -3539,6 +3541,40 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
     ));
     let used: Vec<Lit> = m.used.iter().map(|u| u.1).collect();
     let tot = m.e.totalizer(&used);
+    // --hint: steer the solver's decisions toward the source design's wiring (a wired source:
+    // its first model is found at once and the search continues from there)
+    if HINT.load(std::sync::atomic::Ordering::Relaxed) && !p.rec.wiring.is_empty() {
+        use rustsat::solvers::PhaseLit;
+        let mut n = 0;
+        for c in &p.free {
+            let want = p.rec.wiring.get(c).and_then(|s| Kind::of_state(s)).unwrap_or(Kind::Empty);
+            for k in &p.kinds[c] {
+                let l = m.kl[&(*c, *k)];
+                let _ = m.e.s.phase_lit(if *k == want { l } else { !l });
+            }
+            n += (want != Kind::Empty) as usize;
+        }
+        if let Some((lp, ls)) = &p.rec.lever {
+            for (i, lc) in p.levers.iter().enumerate() {
+                let same = lc.pos == *lp && prop(&lc.state, "face") == prop(ls, "face") && prop(&lc.state, "facing") == prop(ls, "facing");
+                let _ = m.e.s.phase_lit(if same { m.lever[i] } else { !m.lever[i] });
+            }
+        }
+        log(format!("--hint: decisions steered toward the source wiring ({n} cells)"));
+        // solve once with the source wiring assumed: the solver keeps that full assignment as its
+        // saved phases for the searches that follow
+        let mut a: Vec<Lit> = Vec::new();
+        for c in &p.free {
+            let want = p.rec.wiring.get(c).and_then(|s| Kind::of_state(s)).unwrap_or(Kind::Empty);
+            if let Some(l) = m.kl.get(&(*c, want)) {
+                a.push(*l);
+            }
+        }
+        a.extend(m.sels.iter().map(|s| s.2));
+        let ts = std::time::Instant::now();
+        let r = m.e.s.solve_assumps(&a)?;
+        log(format!("--hint: the source wiring is {} in this model ({:.1}s)", if r == SolverResult::Sat { "accepted" } else { "REJECTED" }, ts.elapsed().as_secs_f64()));
+    }
     let mut bound = o.max_blocks.unwrap_or(used.len()).min(used.len());
     let cfg = mctas::sim::WorkerConfig { version: o.version.clone(), heap_mb: 1024, ..Default::default() };
     // The judge's JVM starts with the first model (an UNSAT run never holds a worker).

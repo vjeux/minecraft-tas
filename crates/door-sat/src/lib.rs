@@ -148,6 +148,10 @@ pub enum DoorCmd {
         /// read after observer ticks, FIFO).
         #[arg(long)]
         exact_order: bool,
+        /// With --from-wired: steer the solver's decisions toward the source design's wiring (the
+        /// first model comes at once; minimization and CEGAR continue from it).
+        #[arg(long)]
+        hint: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -253,7 +257,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Boxproof { args } => {
             return crate::boxproof::cli(&args);
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, hint, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             sw::SOUND.store(sound, std::sync::atomic::Ordering::Relaxed);
@@ -264,6 +268,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             sw::RETIME.store(retime, std::sync::atomic::Ordering::Relaxed);
             sw::PERIOD2.store(period2, std::sync::atomic::Ordering::Relaxed);
             sw::EXACT_ORDER.store(exact_order, std::sync::atomic::Ordering::Relaxed);
+            sw::HINT.store(hint, std::sync::atomic::Ordering::Relaxed);
             if let Some(ki) = &keep_ideal {
                 let mut cells = Vec::new();
                 for t in ki.split(';').map(str::trim).filter(|t| !t.is_empty()) {
