@@ -131,3 +131,23 @@ sensors = calibrated facing W/E/N + plain; ~10-20k combinations/s on 20 threads)
   the orientation-only obsidian can go).
 - Pitfalls: `--vary=-1,4=...` (with `=`) for negative x; `door patch` starts a JVM (~40 s), use
   `--vary` instead.
+- `door ideal-rs <plan> --holds N`: for EVERY ideal input cell of a plan, what a sculk sensor can
+  give it instead (10/30 gt hold, 3 taps 10 apart = observer on a calibrated sensor, 2 taps 14
+  apart = sensor -> lamp -> observer, one pulse), every start 0..=N (or none) on each edge
+  independently, other inputs as planned; prints the working starts per edge and those that work
+  with the same tick on both edges (one sensor hearing the lever). ~1 s per plan. Reproduces p2's
+  K (hold10 open 8..13 / close 8,9,14,15) and e88's shuttle (hold10 >= 24).
+
+## Screens with --holds (10:15Z-10:35Z, for the coordinator)
+- f131 pn31 (7x9, only P3 (-1,3) ideal): P3 = one pulse at plan 6..7 (both edges) or 2 taps 14
+  apart from 6..7; holds and 3 taps fail. Unwirable as laid out: P3's only feed is the conductor
+  (-2,3) powered from (-2,4); the column above is (-2,5) and the lever's support (-2,6) (a full
+  block), so sensor -> lamp -> observer does not fit and every other stage is 2 gt off (the real
+  chain fires P3 at t6 = plan 5). 2520 column variants: 0.
+- s79 c78z (7x8, U's 1 gt first pulse + U2 + R0 ideal): R0 = any pulse or 3 calibrated taps (any
+  start); U2 = 3 calibrated taps only, open 7..45 but close 9..10 exactly; plain taps, holds: 0. A
+  sensor at (3,-2) fits the 4 free bottom-right cells with three observers but hears R1/R2 at t1
+  (activation t4) and has no room for wool.
+- ceil's 9 ceiling-held mechanisms (`ceil/holds/c*.txt`): 8-10 inputs each; side/bottom pullers
+  take 3 taps at any start, the 8x7 family's two-pulse left input (-3,0) is one 10 gt hold at
+  13..16, (-1,1) a hold at 5..13; (-2,-1) only a pulse 3..9 or 2 taps 4..8.
