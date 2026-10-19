@@ -16,6 +16,7 @@ pub mod cart;
 pub mod crafter;
 pub mod rename;
 pub mod ring;
+pub mod unarchive;
 
 use clap::{Parser, Subcommand};
 
@@ -47,6 +48,9 @@ enum Cmd {
     /// Set each design's `name:` to `<prefix>-<file stem>` (search tools name their picks after
     /// their own track; the archive keys designs by name).
     Rename(rename::RenameArgs),
+    /// Take archived clocks back out (design, verdict and caption rows, the family's extend rows)
+    /// to re-archive a rebuilt version under the same name.
+    Unarchive(unarchive::UnarchiveArgs),
 }
 
 /// `mctas clock misc <args...>`.
@@ -65,5 +69,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::CartPingpong(p) => cart::run(p),
         Cmd::CartLoop(l) => cart::run_loop(l),
         Cmd::Rename(r) => rename::run(r),
+        Cmd::Unarchive(u) => unarchive::run(u),
     }
 }
