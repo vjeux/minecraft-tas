@@ -2909,12 +2909,18 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         // 150 threads stay busy to the end)
         let mut items: Vec<(Vec<usize>, Option<LeverAt>, Vec<usize>)> = Vec::new();
         let mut push = |items: &mut Vec<(Vec<usize>, Option<LeverAt>, Vec<usize>)>, sub: &Vec<usize>, lev: Option<LeverAt>| {
-            let fixed = match sub.len() {
+            let mut fixed = match sub.len() {
                 0..=2 => 0,
                 3..=4 => 1,
                 5 => 2,
                 _ => 3,
             };
+            // big palettes (61 states with sculk) leave few, huge items at the end of a pocket:
+            // fix more cells until an item holds at most ~50k fillings (threads stay busy)
+            let n_of = |i: usize| if ring.contains(&pk[i]) { stone_pal.len().max(1) } else { pal.len().max(1) };
+            while fixed + 1 < sub.len() && sub.iter().skip(fixed).map(|&i| n_of(i) as u64).product::<u64>() > 50_000 {
+                fixed += 1;
+            }
             let ns: Vec<usize> = sub.iter().take(fixed).map(|&i| if ring.contains(&pk[i]) { stone_pal.len() } else { pal.len() }).collect();
             let mut pre = vec![0usize; fixed];
             loop {
