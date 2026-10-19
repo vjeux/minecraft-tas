@@ -114,6 +114,24 @@ decided in the wirable sub-model on two boxes (MECHSPACE_SHARD), fewest pistons 
   variants each). families' generator with --ext-pullers (two 0, all offsets) in the full-frame
   sub-model: 8 distinct 7x8 layouts (552 cycles) and 16 in 7x9 (partial), all catalog-like.
 
+### Single-U results (vjeux 05:29Z: "keep searching, there are probably many")
+* Enumerator passes on 7x8 offset 2,2 with `--bottom-su`: (1) extended-at-rest variants, free <= 4:
+  free <= 3 complete, free 4 ~55%, then (2) all-retracted (`MECHSPACE_RET_ONLY`), free <= 6
+  (1.45M sets). Caps: 50k states exact, A* 20k found-first; ~14% of the large sets over the cap.
+* `layouts` groups the cycles by layout (extension states dropped, mirror merged, sets containing a
+  smaller found layout dropped); `frame-export` re-decides each, adds the stones, replays the plans
+  in the simulator. su-layouts-e.tsv: 114 minimal layouts, 112 re-decided, 63 with a working plan:
+  6 sym + oc (c78, c78t, su8-d, the r131 and 009 families, sl-079 with 11 pistons), 57 oc only.
+* Bug fixed on the way: the sweep's A* accepted open states with a door block outside the frame
+  and did not keep the stone cells air on the open path (su8-a: 4 stones, simulator BROKEN).
+
+### Audit bounds (coordinator 05:49Z / 07:21Z) as opt-in generator flags
+`--lift-ext` (a piston extended at rest may be reused lifted / carried), `--carry-in` (with
+`--carry`: a new provider piston resting 1-2 cells beside its action cell, carried in), and
+`--ext-pullers` on `door families` / `door fullmech` too. Acceptance (gencheck, exact membership):
+eligible-s4ff with --lift-ext (7x8, two 0); c79 with --carry 1 --carry-in --ext-pullers (7x9 offset
+2,3); fast-clean with --carry 1 --carry-in --lift-ext --ext-pullers (7x7, P <= 11: 6.9M candidates).
+
 ## Log
 * 01:03Z selftest 0 mismatches; 01:19Z pretest 0 missing; 01:27Z refit; 01:48Z corrected list.
 * 03:20Z sub-model; 03:05Z c2e; 03:21Z t1a; 03:50Z full frame; 04:25Z single-U sweep.
