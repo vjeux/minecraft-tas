@@ -346,3 +346,11 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
 - pockets3 m69b k=4: the top-right 8 cells drive R1+R2 (o2 + c2) or s1 + P3t, the bottom-right R0, the
   bottom-left U0; never U1 (home or raised), MB, P3b, s0, W, M0. The walls are the bottom elevator
   (U1/MB/P3b share (2,-2)/(2,-3)/(3,-2)) and the top-left (W, s0, M0 from (-1,4)/(-1,5) only).
+- 21:21Z coordinator: keep going on 6x9 (ring-escape variant, w1/a3s tricks, c70b's mechmut variants).
+  Paper notes: (a) a ring pusher P0 at (0,-1) facing up (push column 0 up, retract pulls BL back) replaces
+  the top elevator (ML left at (0,2), s0 reach-pulls it into (0,3); M0 gone), but its escape puller E0 (0,-3)
+  sits right under the escaped P0, so any feed of P0 at (0,-2) QC-fires E0 (E0 then pushes P0 back up);
+  (b) the same ring push for column 1 from the top (RP1 (1,3) facing down: BM -> (1,-1), C -> (1,0), TM back
+  to (1,2); RP1 escapes up by E1 (1,5); RP1 then reach-pulls TM into (1,3)) replaces the bottom elevator, with
+  the same QC trap (E1's feeds QC-fire RP1 at (1,4)); (c) W (-1,3) can push TL + TM east in ONE push, but the
+  close still needs P3t (3,3) to push them back, so both top corners stay occupied.
