@@ -1,4 +1,8 @@
-name: bridge-p2-sculk
+name: bridge-p2-sculk-r
+# bridge-p2-sculk made rotation-safe: the iron trapdoor (-1,-1) (unused) becomes OBSIDIAN. Turned 180
+# degrees, the gate observer's update reaches K (3,-1) before A' (1,-1) (west-first order mirrored),
+# so K (still held by the sensor's second activation, t33-43) pushed A' and the bottom row west;
+# the obsidian makes that push fail in every orientation.
 # ring56's p2 (7x9, layout J: everything wired but the corner piston K (3,-1)) finished with two
 # calibrated sculk sensors: (3,-2) facing west replaces the delay-4 repeater there (it hears the
 # lever and powers K from below for its 10-tick window, and still holds the dropper (2,-3) by QC
@@ -16,7 +20,7 @@ palette:
   F minecraft:sticky_piston[extended=false,facing=east]
   G minecraft:sticky_piston[extended=false,facing=up]
   H minecraft:sticky_piston[extended=false,facing=west]
-  I minecraft:iron_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false]
+  I minecraft:obsidian
   J minecraft:stone
   L minecraft:lever[face=floor,facing=east,powered=false]
   O minecraft:oak_log[axis=y]

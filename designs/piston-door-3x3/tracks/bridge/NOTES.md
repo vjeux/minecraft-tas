@@ -5,8 +5,21 @@ calibrated sculk sensor. Apply the same bridge to the other near-complete partia
 (8x8), ring56's t8xL / t8xL-b (8x8), q8seed (7x8) and p2 / jf (7x9), wire131's f131F-b2 (f131's).
 
 ## RESULT 1 (09:20Z): bridge-p2-sculk, 7x9 = 63b, 49 blocks, sculk, slime-free, flat, FULL
+## RESULT 1b (09:27Z): bridge-p2-sculk-r = the same + OBSIDIAN at (-1,-1): ROTATION-SAFE
 
-`jf/p2-sculk.txt` (= BEST.txt). `door verify` WORKS (4 positions x 3 cycles, open 49 / close 20),
+`jf/p2-sculk-r.txt` (= BEST.txt): `door verify` WORKS (4 positions x 3 cycles, open 49 / close 20)
+and rotation-safe (90, 180, 270 at 4 positions each); redsim eval WORKS at 32 positions in all 4
+orientations. Why p2-sculk broke at 180 degrees (traced in redsim on `door turn`'s output): the K
+sensor's SECOND activation (it re-arms at t29 and hears A' high extend at t31: active t33-43)
+leaves K powered but blocked (A' is moving) until the gate observer (2,-2) fires at t35 and updates
+both A' (west of F2) and K (east of F2). Updates go west first, so as built A' queues its block
+event first, extends and becomes immovable, and K's push fails; mirrored, K goes first and pushes
+F2's BM, A', the frame stone, the trapdoor and the BL watcher one cell west. The iron trapdoor
+(-1,-1) was unused (air works as built: 48 blocks, but only facing one way); obsidian there makes
+K's stray push fail in every orientation. 162 variants of the free cells / sensor facings worked
+as built and 0 turned: the push line, not the sensors' placement, was the cause.
+
+`jf/p2-sculk.txt`: `door verify` WORKS (4 positions x 3 cycles, open 49 / close 20),
 NOT rotation-safe (180 degrees); redsim: `cosearch eval` WORKS at 32 positions, FULL, hallway ok,
 frame 12/12; `door sheet --fill`: frame 12/12 (the three static frame cells changed from smooth
 stone to the door block, stone); `door properties`: FULL seamless, dentless, volume 63 (7x9x1).
