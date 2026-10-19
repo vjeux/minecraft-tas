@@ -88,3 +88,10 @@ transcription's uncertain cells.
 - Fixed on this branch: cosearch's `quartz_like` (the FULL / frame check of every redsim search)
   listed 9 materials; a white-concrete door read as circuitry ("not FULL", frame 0/12). Now every
   quartz-like block redsim models natively counts (FULL, frame 12/12, as `door properties` says).
+- satwire on this door (sat/*.log): the macro solver's clean schedule (`door audit --tsv` +
+  `satwire --families --oc`) is UNSAT in its own 7x8 box (core: TR's puller on close: the schedule
+  wants it held from t25, the lever reaches it at once); `--from-wired` (the door's own wiggle
+  recording) is UNSAT too (core: BL's puller and the corner puller on close), and `--check` of the
+  door's own wiring is REJECTED structurally ("supports, lever, fixed cells"), so satwire's model
+  cannot hold this wiring: a blind spot still to pin down (fixed on the way: a "-" sym column, and
+  white concrete / any quartz-like block as a plain block in `Kind::of_state`).

@@ -243,6 +243,9 @@ impl Kind {
                 _ => (0, 0),
             }),
             n if n.ends_with("_wool") => Kind::Wool,
+            // any other quartz-like full block (concrete, quartz, terracotta...) is a plain
+            // conductor: the community 7x8's white-concrete statics were "not in the palette"
+            _ if crate::properties::quartz_like(s) => Kind::Block,
             _ => return None,
         })
     }
