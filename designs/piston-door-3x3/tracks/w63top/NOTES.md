@@ -71,3 +71,18 @@
    (power is no state) but then P_T's observer never sees its one change.
 - Tested and failed: r7 (P_T-coupled 7-pulse run feeding A, the stack and P_T, every B1/B2
   timing): 0/561.
+
+## Full frame (vjeux 03:36Z) and the lamp trick
+- With the 3 static frame stones (0,-1), (-1,2), (3,0) (frame-stones.patch): t1f (w63t-1f, the
+  real A chain + right-stack observer) and lamp-f WORK at 4 positions; `door sheet` says frame
+  12/12 when open. So nothing in this track depends on those 3 cells being empty.
+- LAMP TRICK (new): a redstone lamp watched by an observer gives exactly one observer pulse per
+  lit interval edge, and an interval that ends 4 gt after its power ends MERGES with a power
+  pulse starting that tick (the lamp's off tick was scheduled first: off then on in one tick,
+  one observer pulse). B watched from (2,5) gives two pulses 4 gt apart per B motion; through a
+  conductor (3,5) into a lamp at (3,4) (flag-2 state changes: no update reaches P_T), B1 at A1+8
+  and B2 at A1+16 keep the lamp lit from A1+10 to A1+28: the observer (2,4) fires exactly at
+  A2 = A1+12 (the merge) and A3 = A1+30 (the off edge). ideal/lamp(-f).ideal: WORKS (open/close
+  81) with P_T pre at A1-2 + real A1+4 and the right stack run A1-8, A1-2, A1+4.
+- What the lamp plan still lacks: A1's interval (power into (3,5) at A1-2 for 8 gt) and the stack
+  run before A1, both from the right column, which has no clean input (the wall above).
