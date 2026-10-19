@@ -105,7 +105,9 @@ top-left cannot pass a level down past D/E/(-1,2). Same for 076 (TLc level-held)
   In stone material door fill's FULL/frame checks pass (white concrete frame was rejected; pockets3 fixed fill.rs) and
   --keep k<=3 gives **community-56b-47-elig** (47, eligible, verified at 28). The e78 doors are NOT eligible (no free
   side of the lever's support for a repeater; sculk also fails footsteps). 46 found (top-left --keep k<=4: (-2,3) obs
-  up, (-2,4) dropper, (0,4) repeater d3, (-2,5) removed) but it fails repeater input (community/c46-notelig.txt).
+  up, (-2,4) dropper, (0,4) repeater d3, (-2,5) removed) but it fails repeater input (community/c46-notelig.txt): the rig delays the support chain by 2 gt but the
+  piston chain by 1 gt, and the 46 has only a 1-gt margin where the 47 has 3 (e78k; no neighbourhood passes both runs;
+  rig-emulation recipe in HANDOFF.md).
   0: exactly 4 over 24 cells (26 states), right column / top-left refills k<=5 and --keep k<=4 (full palette).
 - h5 (solid 41) with a spare row (7x9: row -4 or row 5) or column (8x8: x=5 or x=-3): --keep k<=3 and exactly 4,
   --max-blocks 39/40: all 0. The spare space doesn't help without restructuring the bottom.
