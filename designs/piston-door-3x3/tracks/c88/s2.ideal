@@ -1,0 +1,30 @@
+# c88 s2: c79's mechanism in 8x8 with a LATE bottom (after the top-left's B-watcher pulse at t12,
+# the only signal the bottom-left can hear through a left column). Asymmetric by edge:
+# open K 16, U 18 (K's retraction and U's extension share a tick, as in c79), L0 16;
+# close U1 14 (pushes C up one), K 16, U2 18 (pushes BM, C and TM up: A's t13 push already spat TM
+# into (1,1)), L0 16. Ideal set at t = piston moves in tick t+1.
+design designs/piston-door-3x3/tracks/c88/s1.txt
+let ok = 16
+let ou = 18
+let ol = 16
+let cu1 = 14
+let ck = 16
+let cu2 = 18
+let cl = 16
+let w = 2
+open 0 use 4 6 0
+open ok set -1 -1 -1 minecraft:redstone_block
+open ok+w clear -1 -1 -1
+open ou set 1 -2 -1 minecraft:redstone_block
+open ou+w clear 1 -2 -1
+open ol set -2 0 -1 minecraft:redstone_block
+open ol+w clear -2 0 -1
+close 0 use 4 6 0
+close cu1 set 1 -2 -1 minecraft:redstone_block
+close cu1+w clear 1 -2 -1
+close ck set -1 -1 -1 minecraft:redstone_block
+close ck+w clear -1 -1 -1
+close cu2 set 1 -2 -1 minecraft:redstone_block
+close cu2+w clear 1 -2 -1
+close cl set -2 0 -1 minecraft:redstone_block
+close cl+w clear -2 0 -1
