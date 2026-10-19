@@ -23,6 +23,13 @@ bells, leaves, scaffolding, crafters) and clk-item (crafters, chiseled bookshelf
 | boat-lift-l{3,4}h2-tripwire | 173, 188 | 103, 111 | oak_boat+oak_pressure_plate+tripwire+tripwire_hook |
 | boat-lift-l{3,4}h2-dripleaf | 187, 201 | 99, 107 | big_dripleaf+oak_boat+oak_pressure_plate |
 | item loops with a minecart lift: bookshelf-cart, -b2, hopper-cart | 56, 28, 46 | 20, 20, 17 | chiseled_bookshelf+hopper+hopper_minecart, hopper+hopper_minecart |
+| clk-misc-bubble-flip | 16 | 12 | bubble_column+observer+redstone_wire+sticky_piston |
+| clk-misc-dripleaf-stand | 4 | 8 (7 + an armor stand) | armor_stand+big_dripleaf+observer+redstone_wire |
+
+Not archived on purpose (same mechanism, another block; available on request): the boat rings with light / heavy
+weighted pressure plates (P380 like ring4c, new families light_weighted_pressure_plate+oak_boat and
+heavy_weighted_pressure_plate+oak_boat); the 8 other tripwire / dripleaf lift sizes; an oak shelf (1.21.9, a
+ListBackedContainer: hoppers fill it, its contents count as its state) in place of the chiseled bookshelf.
 
 ## Tools (crates/clock-misc)
 - `clock misc ring --relay R --n N [--check K]`: relay rings.
@@ -69,9 +76,8 @@ bells, leaves, scaffolding, crafters) and clk-item (crafters, chiseled bookshelf
 - Leaves / scaffolding: distance updates are 1 gt scheduled ticks; persistent leaves never decay; scaffolding falls at 7.
 
 ## Next ideas
-- A bubble-column drag clock (soul sand <-> magma under a water cell, on a slime platform moved by a sticky piston): the
-  observer watching the water cell has its back two layers above the piston; dust on an extending piston pops. Needs a
-  relay (dust staircase) or another layout.
-- Kelp / water updates; a dripleaf + observer clock (an entity resting on the leaf, power resets it before it drops).
-- Faster crafter item loops (two crafters facing each other exchanging 1 block <-> 9 items).
+- Faster crafter item loops (two crafters facing each other exchanging 1 block <-> 9 items: an observer can never watch one
+  crafter and power the other, so each direction needs a relay).
+- Daylight variants (P is a multiple of 20; 40 is the minimum, longer ones only add delay).
+- Kelp / seagrass / coral / dripstone / composters: random ticks, no exact clock.
 - Deterministic lava; leaf chains of 2..4 (P12-P16) with other geometries.
