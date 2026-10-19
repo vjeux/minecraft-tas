@@ -293,6 +293,161 @@ fn holds_cli(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles
     Ok(())
 }
 
+/// `--holds-rank`: screen many plans for sensor wake-ups. For every ideal input cell, try the
+/// sensor modes of `--holds` (hold10, hold30, taps3, taps2) with the SAME start on both edges,
+/// starts 0..=max_tick, the other inputs at their plan events. Prints one line per plan, plans
+/// with the fewest exact-only inputs (no sensor mode works) first.
+pub fn holds_rank(paths: &[std::path::PathBuf], extra_offsets: u32, cycles: u32, threads: usize, max_tick: i64) -> Result<()> {
+    let offsets = crate::ideal::offsets(extra_offsets);
+    let modes: [(&str, Vec<(i64, i64)>); 4] = [
+        ("hold10", vec![(0, 10)]),
+        ("hold30", vec![(0, 30)]),
+        ("taps3", vec![(0, 2), (10, 12), (20, 22)]),
+        ("taps2", vec![(0, 2), (14, 16)]),
+    ];
+    let mut lines: Vec<(usize, usize, String)> = Vec::new();
+    for path in paths {
+        let text = match std::fs::read_to_string(path) {
+            Ok(t) => t,
+            Err(e) => {
+                println!("{}: {e}", path.display());
+                continue;
+            }
+        };
+        let s = match Schedule::parse_with(&text, &BTreeMap::new()) {
+            Ok(s) => s,
+            Err(e) => {
+                println!("{}: {e:#}", path.display());
+                continue;
+            }
+        };
+        let vars = s.vars().clone();
+        if run(&s, &vars, &offsets, cycles, false).is_err() {
+            println!("{}: the plan itself fails", path.display());
+            continue;
+        }
+        let ev_open = s.events_of(true, &vars)?;
+        let ev_close = s.events_of(false, &vars)?;
+        let cells = s.input_cells();
+        // jobs: (input index, mode index, start)
+        let mut jobs: Vec<(usize, usize, i64)> = Vec::new();
+        for i in 0..cells.len() {
+            for m in 0..modes.len() {
+                for st in 0..=max_tick {
+                    jobs.push((i, m, st));
+                }
+            }
+        }
+        let results = cs::par_map(&jobs, threads, |(i, m, st)| {
+            let p = cells[*i];
+            let state = ev_open
+                .iter()
+                .chain(ev_close.iter())
+                .find(|e| e.1 == p && e.2.is_some())
+                .and_then(|e| e.2.clone())
+                .unwrap_or_else(|| "minecraft:redstone_block".to_string());
+            let mut evs: Vec<(bool, u32, Pos, Option<String>)> = ev_open
+                .iter()
+                .map(|e| (true, e.0, e.1, e.2.clone()))
+                .chain(ev_close.iter().map(|e| (false, e.0, e.1, e.2.clone())))
+                .filter(|e| e.2 != p)
+                .collect();
+            for open in [true, false] {
+                for (a, b) in &modes[*m].1 {
+                    evs.push((open, (st + a) as u32, p, Some(state.clone())));
+                    evs.push((open, (st + b) as u32, p, None));
+                }
+            }
+            let sched = Schedule::from_events(s.design().clone(), &evs);
+            run(&sched, &BTreeMap::new(), &offsets, cycles, false).is_ok()
+        });
+        let mut friendly: Vec<String> = Vec::new();
+        let mut exact: Vec<String> = Vec::new();
+        for (i, p) in cells.iter().enumerate() {
+            let mut parts: Vec<String> = Vec::new();
+            for (m, (name, _)) in modes.iter().enumerate() {
+                let starts: Vec<i64> = jobs.iter().zip(results.iter()).filter(|((ji, jm, _), r)| *ji == i && *jm == m && **r).map(|((_, _, st), _)| *st).collect();
+                if !starts.is_empty() {
+                    parts.push(format!("{name}:{}", ranges(&starts)));
+                }
+            }
+            let cell = format!("{},{},{}", p[0], p[1], p[2]);
+            if parts.is_empty() {
+                exact.push(cell);
+            } else {
+                friendly.push(format!("{cell}({})", parts.join("|")));
+            }
+        }
+        let line = format!(
+            "{}: {} inputs, {} sensor-friendly, {} exact-only [{}]; friendly: {}",
+            path.display(),
+            cells.len(),
+            friendly.len(),
+            exact.len(),
+            exact.join(" "),
+            friendly.join(" ")
+        );
+        eprintln!("{line}");
+        lines.push((exact.len(), cells.len(), line));
+    }
+    lines.sort_by_key(|l| (l.0, l.1));
+    for (_, _, l) in &lines {
+        println!("{l}");
+    }
+    Ok(())
+}
+
+/// `--offplane-dir`: write each plan with its in-plane input cells below row `door.y + below`
+/// (the sealed bottom; air in the design) moved behind the pistons they feed: one input at
+/// (x, y, z+1) per in-plane neighbor holding a piston or standing on one (direct + QC, as the
+/// in-plane block powered them). Prints, per plan, the `satwire --keep-ideal` list of those
+/// cells: wire the rest, let sensors drive the kept ones.
+pub fn offplane_dir(paths: &[std::path::PathBuf], dir: &std::path::Path, below: i32) -> Result<()> {
+    std::fs::create_dir_all(dir)?;
+    for path in paths {
+        let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let design_line = text.lines().find(|l| l.trim_start().starts_with("design ")).context("no design line")?.trim().to_string();
+        let s = Schedule::parse_with(&text, &BTreeMap::new())?;
+        let vars = s.vars().clone();
+        let d = s.design();
+        let door = *d.ports.get("door").context("design has no door port")?;
+        let is_piston = |p: Pos| d.blocks.get(&p).is_some_and(|b| b.contains("piston[") && !b.contains("moving_piston") && !b.contains("piston_head"));
+        let mut kept: std::collections::BTreeSet<(i32, i32)> = std::collections::BTreeSet::new();
+        let mut lines = vec![format!("# door ideal-rs --offplane-dir {}: in-plane inputs below row {} moved behind the pistons they feed", path.display(), door[1] + below), design_line];
+        for (open, ph) in [(true, "open"), (false, "close")] {
+            for (t, q, st) in s.events_of(open, &vars)? {
+                let mut targets = vec![q];
+                if q[2] == door[2] && q[1] < door[1] + below && !d.blocks.contains_key(&q) && st.as_deref() != Some("@use") {
+                    let mut moved = Vec::new();
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        let n = [q[0] + dx, q[1] + dy, q[2]];
+                        if is_piston(n) || is_piston([n[0], n[1] - 1, n[2]]) {
+                            moved.push([n[0], n[1], n[2] + 1]);
+                            kept.insert((n[0], n[1]));
+                        }
+                    }
+                    if !moved.is_empty() {
+                        targets = moved;
+                    }
+                }
+                for p in targets {
+                    lines.push(match st.as_deref() {
+                        Some("@use") => format!("{ph} {t} use {} {} {}", p[0], p[1], p[2]),
+                        Some(b) => format!("{ph} {t} set {} {} {} {b}", p[0], p[1], p[2]),
+                        None => format!("{ph} {t} clear {} {} {}", p[0], p[1], p[2]),
+                    });
+                }
+            }
+        }
+        let stem = path.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+        let out = dir.join(format!("{stem}-off.ideal"));
+        std::fs::write(&out, lines.join("\n") + "\n")?;
+        let keep: Vec<String> = kept.iter().map(|(x, y)| format!("{x},{y}")).collect();
+        println!("{} --keep-ideal={}", out.display(), keep.join(";"));
+    }
+    Ok(())
+}
+
 /// CLI: run once, or sweep variables (`name=lo..hi`; several = grid, `--independent` = one axis
 /// at a time) and/or block variants (`--vary`: every combination of alternatives per cell,
 /// applied in memory before each run: screening hand-built wiring variants in milliseconds).
