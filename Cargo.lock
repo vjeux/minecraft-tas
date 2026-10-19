@@ -183,6 +183,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-delay"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-gates"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit-delay",
+ "clap",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
 name = "clang-sys"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -296,6 +318,8 @@ name = "clock-rt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit-delay",
+ "circuit-gates",
  "clap",
  "clock",
  "mctas",

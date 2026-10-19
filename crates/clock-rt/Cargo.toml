@@ -10,5 +10,7 @@ repository.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clock = { path = "../clock" }
+circuit-delay = { path = "../circuit-delay" }
+circuit-gates = { path = "../circuit-gates" }
 mctas = { path = "../mctas" }
 redsim = { path = "../redsim" }
