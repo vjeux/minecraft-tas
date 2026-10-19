@@ -2047,6 +2047,9 @@ pub static LOG_DOORS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicB
 pub static LEVER_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--keep-ideal`: off-plane ideal inputs (by cell) that stay given sources instead of being wired.
 pub static KEEP_IDEAL: std::sync::Mutex<Vec<C2>> = std::sync::Mutex::new(Vec::new());
+/// `--local-nogood`: a failing candidate (exact timing) blocks only its choices near the first
+/// misbehaving piston.
+pub static LOCAL_NOGOOD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     let diag = check_mode || DIAG.load(std::sync::atomic::Ordering::Relaxed);
@@ -3078,6 +3081,41 @@ fn normalize_notes(w: &mut Worker, d: &mut Design) -> Result<()> {
     Ok(())
 }
 
+/// `--local-nogood`: replay the failing candidate, find the first recorded tick where its
+/// mechanism differs from the recording, and return the cells within 3 of that difference (and of
+/// the pistons next to it). None when the run cannot be compared (then the whole design is blocked).
+fn local_region(w: &mut Worker, p: &Prob, d: &Design) -> Option<HashSet<C2>> {
+    let r = record_wired(w, d, 80).ok()?;
+    for tr in 0..2 {
+        let (a, b) = (&p.rec.phases[tr], &r.phases[tr]);
+        let n = a.frames.len().max(b.frames.len());
+        for t in 0..n as i32 {
+            let (fa, fb) = (a.frame(t), b.frame(t));
+            let diff: Vec<C2> = fa.keys().chain(fb.keys()).copied().filter(|c| fa.get(c) != fb.get(c)).collect();
+            if diff.is_empty() {
+                continue;
+            }
+            let mut centers: HashSet<C2> = diff.iter().copied().collect();
+            let prev = a.frame(t - 1);
+            for (c, s) in prev {
+                if matches!(mk(s), MK::Piston { .. }) && diff.iter().any(|x| (x.0 - c.0).abs() + (x.1 - c.1).abs() <= 1) {
+                    centers.insert(*c);
+                }
+            }
+            let mut region = HashSet::new();
+            for c in &centers {
+                for dx in -3..=3 {
+                    for dy in -3..=3 {
+                        region.insert((c.0 + dx, c.1 + dy));
+                    }
+                }
+            }
+            return Some(region);
+        }
+    }
+    None
+}
+
 /// `--keep-ideal`: replay the candidate with the plan's kept ideal inputs (and its lever flips moved
 /// to the candidate's lever), like `door ideal`: 4 positions x 2 cycles.
 fn ideal_judge(w: &mut Worker, p: &Prob, d: &Design) -> std::result::Result<(u32, u32), String> {
@@ -3255,11 +3293,31 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
                     let _ = s.design.save(&path.with_extension("fail.txt"));
                 }
                 let mut cl: Vec<Lit> = Vec::new();
-                for c in &p.free {
-                    let k = s.kinds.get(c).copied().unwrap_or(Kind::Empty);
-                    cl.push(!m.kl[&(*c, k)]);
+                // --local-nogood (exact timing): block only the candidate's choices around the
+                // first piston that misbehaves in its real run (the failure is local)
+                let local = if LOCAL_NOGOOD.load(std::sync::atomic::Ordering::Relaxed) && p.dmax == 0 && p.skip == 0 { local_region(w, p, &s.design) } else { None };
+                match &local {
+                    Some(region) => {
+                        for c in &p.free {
+                            if region.contains(c) {
+                                let k = s.kinds.get(c).copied().unwrap_or(Kind::Empty);
+                                cl.push(!m.kl[&(*c, k)]);
+                            }
+                        }
+                        let lp = p.levers[s.lever].pos;
+                        if region.contains(&(lp[0], lp[1])) || region.contains(&(p.levers[s.lever].att[0], p.levers[s.lever].att[1])) {
+                            cl.push(!m.lever[s.lever]);
+                        }
+                        log(format!("  local nogood: {} literals", cl.len()));
+                    }
+                    None => {
+                        for c in &p.free {
+                            let k = s.kinds.get(c).copied().unwrap_or(Kind::Empty);
+                            cl.push(!m.kl[&(*c, k)]);
+                        }
+                        cl.push(!m.lever[s.lever]);
+                    }
                 }
-                cl.push(!m.lever[s.lever]);
                 m.e.add(&cl);
             }
         }
