@@ -1655,6 +1655,9 @@ impl<'a> Model<'a> {
 /// Build the whole encoding.
 /// `--diag`: guard constraint groups with selectors (UNSAT cores name the groups).
 pub static DIAG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--sound`: every remaining under-approximation that is cheap to flip is flipped (QC holds,
+/// repeater and torch read orders): an UNSAT then over-approximates the game in those respects.
+pub static SOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     let diag = check_mode || DIAG.load(std::sync::atomic::Ordering::Relaxed);
@@ -2031,12 +2034,22 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             if k >= 1 {
                                 let i_p = m.sig(tr, k - 1, add(c, fd), c, false);
                                 // fire: on = !on_prev | in_prev
-                                let fire_val = m.e.or(&[!o_p, i_p]);
+                                // --sound: repeaters of different priorities run in order within phase R: it
+                                // may read its input before or after a repeater feeding it fires
+                                let i_x = if SOUND.load(std::sync::atomic::Ordering::Relaxed) {
+                                    let ch = m.e.var();
+                                    let a = m.e.and(&[ch, i_k]);
+                                    let b = m.e.and(&[!ch, i_p]);
+                                    m.e.or(&[a, b])
+                                } else {
+                                    i_p
+                                };
+                                let fire_val = m.e.or(&[!o_p, i_x]);
                                 let g1 = m.e.and(&[g, s_k]);
                                 m.e.eq_if(g1, o_k, fire_val);
                                 let g2 = m.e.and(&[g, !s_k]);
                                 m.e.eq_if(g2, o_k, o_p);
-                                why.push(m.e.and(&[s_k, !o_p, !i_p]));
+                                why.push(m.e.and(&[s_k, !o_p, !i_x]));
                             }
                             let mis = m.e.xor(o_k, i_k);
                             let pend: Vec<Lit> = (k + 1..k + dd).map(|j| m.sched(tr, j, c)).collect();
@@ -2058,7 +2071,15 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             }
                             if k >= 1 {
                                 let g1 = m.e.and(&[g, s_k]);
-                                m.e.eq_if(g1, o_k, !i_k);
+                                if SOUND.load(std::sync::atomic::Ordering::Relaxed) {
+                                    // its tick runs among the observer ticks (FIFO): it may read its input
+                                    // before or after them
+                                    let i_p = m.sig(tr, k - 1, src, c, false);
+                                    m.e.add(&[!g1, o_k, i_k, i_p]);
+                                    m.e.add(&[!g1, !o_k, !i_k, !i_p]);
+                                } else {
+                                    m.e.eq_if(g1, o_k, !i_k);
+                                }
                                 let g2 = m.e.and(&[g, !s_k]);
                                 m.e.eq_if(g2, o_k, o_p);
                             }
@@ -2208,7 +2229,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         }
                     } else {
                         m.e.add(&[!ds, !sel, !direct]);
-                        m.e.add(&[!ds, !sel, !qc]);
+                        // --sound: a retracted piston that stays retracted may hold QC power (no block
+                        // update reaches it: a BUD); an extended one that retracts may not
+                        let stays_retracted = matches!(ph.frame(tau - 1).get(&c).map(|s| mk(s)), Some(MK::Piston { ext: false, .. })) && ph.frame(tau - 1).get(&c) == ph.frame(tau).get(&c);
+                        if !(SOUND.load(std::sync::atomic::Ordering::Relaxed) && stays_retracted) {
+                            m.e.add(&[!ds, !sel, !qc]);
+                        }
                     }
                   }
                 }
