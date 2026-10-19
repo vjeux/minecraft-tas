@@ -75,6 +75,90 @@ pub fn family_name(state: &str) -> Option<String> {
     }
 }
 
+/// The block-entity part of a cell's state that the clock judge compares and a family counts,
+/// from the game's saved data (`kind` = `minecraft:comparator`, SNBT with sorted keys): a
+/// comparator's output strength `{out=N}`; a container's items `{items=slot:count:id,...}` (and a
+/// hopper's `cd=TransferCooldown`). Other block-entity data is left out: moving blocks are implied
+/// by the block states, and sculk sensors carry absolute game times.
+pub fn be_extra_from_nbt(kind: &str, nbt: &str) -> Option<String> {
+    let kind = kind.strip_prefix("minecraft:").unwrap_or(kind);
+    let int_after = |key: &str| -> Option<i64> {
+        let i = nbt.find(key)? + key.len();
+        let digits: String = nbt[i..].chars().take_while(|c| c.is_ascii_digit() || *c == '-').collect();
+        digits.parse().ok()
+    };
+    match kind {
+        "comparator" => Some(format!("{{out={}}}", int_after("OutputSignal:").unwrap_or(0))),
+        "hopper" | "dropper" | "dispenser" | "crafter" => {
+            let mut items: Vec<(i64, i64, String)> = Vec::new();
+            if let Some(start) = nbt.find("Items:[") {
+                let body = &nbt[start + 7..];
+                let end = body.find("}]").map(|e| e + 1).unwrap_or(0);
+                for it in body[..end].split("},") {
+                    let get = |key: &str| -> Option<String> {
+                        let i = it.find(key)? + key.len();
+                        Some(it[i..].chars().take_while(|c| !matches!(c, ',' | '}' | 'b')).collect::<String>().trim_matches('"').to_string())
+                    };
+                    if let (Some(slot), Some(count), Some(id)) = (get("Slot:"), get("count:"), get("id:")) {
+                        items.push((slot.parse().unwrap_or(0), count.parse().unwrap_or(1), id.strip_prefix("minecraft:").unwrap_or(&id).to_string()));
+                    }
+                }
+            }
+            items.sort();
+            let list: Vec<String> = items.iter().map(|(s, c, i)| format!("{s}:{c}:{i}")).collect();
+            let cd = if kind == "hopper" { format!(",cd={}", int_after("TransferCooldown:").unwrap_or(-1)) } else { String::new() };
+            Some(format!("{{items={}{cd}}}", list.join(",")))
+        }
+        _ => None,
+    }
+}
+
+/// [`be_extra_from_nbt`] from a redsim world: the same text for the same state.
+pub fn be_extra_redsim(w: &redsim::World, p: redsim::BlockPos, b: &redsim::Block) -> Option<String> {
+    match b {
+        redsim::Block::Comparator { .. } => Some(format!("{{out={}}}", w.comparator_out.get(&p).copied().unwrap_or(0))),
+        redsim::Block::Hopper { .. } | redsim::Block::Dispenser { .. } | redsim::Block::Crafter { .. } => {
+            let c = w.containers.map.get(&p);
+            let mut list: Vec<String> = Vec::new();
+            if let Some(c) = c {
+                for (slot, st) in c.slots.iter().enumerate() {
+                    if let Some(st) = st {
+                        list.push(format!("{slot}:{}:{}", st.count, redsim::redstone::container::item_name(st.item).trim_start_matches("minecraft:")));
+                    }
+                }
+            }
+            let cd = if matches!(b, redsim::Block::Hopper { .. }) { format!(",cd={}", c.map(|c| c.cooldown).unwrap_or(-1)) } else { String::new() };
+            Some(format!("{{items={}{cd}}}", list.join(",")))
+        }
+        _ => None,
+    }
+}
+
+/// A block state with its compared block-entity part appended (`minecraft:comparator[...]{out=15}`).
+pub fn with_extra(state: &str, extra: Option<&str>) -> String {
+    match extra {
+        Some(e) => format!("{state}{e}"),
+        None => state.to_string(),
+    }
+}
+
+/// The part of a block-entity extra that belongs to the clock's VISIBLE state (what decides the
+/// period): a comparator's output strength. Container contents and hopper cooldowns are hidden
+/// state (seen only through a comparator, whose strength is visible): they count for the family
+/// and the waveform tables, not for the period.
+pub fn visible_extra(extra: Option<&str>) -> Option<&str> {
+    extra.filter(|e| e.starts_with("{out="))
+}
+
+/// The block state of a cell state that may carry a block-entity part.
+pub fn block_part(s: &str) -> &str {
+    match (s.find(']'), s.find('{')) {
+        (Some(b), Some(e)) if e > b => &s[..e],
+        (None, Some(e)) => &s[..e],
+        _ => s,
+    }
+}
+
 /// On-ticks, rising edges and pulse widths of a cyclic boolean sequence (one period). A
 /// sequence that is always on has one pulse of the whole period and no rising edge.
 pub fn bool_wave(seq: &[bool]) -> (u32, u32, Vec<u32>) {
@@ -157,10 +241,10 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
                 seen.push(st);
             }
         }
-        let mut kinds: Vec<String> = seen.iter().filter_map(|s| family_name(s)).collect();
+        let mut kinds: Vec<String> = seen.iter().filter_map(|s| family_name(block_part(s))).collect();
         kinds.sort();
         kinds.dedup();
-        let seq: Vec<bool> = states.iter().map(|s| active(s[i])).collect();
+        let seq: Vec<bool> = states.iter().map(|s| active(block_part(s[i]))).collect();
         let (on, edges, widths) = bool_wave(&seq);
         fam.extend(kinds.iter().cloned());
         out.cells.push(CellWave { pos: *pos, states: seen, kinds, on, edges, widths });
@@ -272,5 +356,12 @@ mod tests {
         assert_eq!(family_name("minecraft:stone"), None);
         assert_eq!(family_name("minecraft:redstone_wall_torch[facing=north,lit=true]").as_deref(), Some("redstone_torch"));
         assert_eq!(family_name("minecraft:waxed_copper_bulb[lit=true,powered=false]").as_deref(), Some("copper_bulb"));
+        assert_eq!(be_extra_from_nbt("minecraft:comparator", "{OutputSignal:13}").as_deref(), Some("{out=13}"));
+        assert_eq!(
+            be_extra_from_nbt("minecraft:hopper", "{Items:[{Slot:0b,count:3,id:\"minecraft:stone\"},{Slot:4b,count:1,id:\"minecraft:redstone\"}],TransferCooldown:7}").as_deref(),
+            Some("{items=0:3:stone,4:1:redstone,cd=7}")
+        );
+        assert_eq!(be_extra_from_nbt("minecraft:hopper", "{Items:[],TransferCooldown:-1}").as_deref(), Some("{items=,cd=-1}"));
+        assert_eq!(block_part("minecraft:comparator[facing=west,mode=subtract,powered=true]{out=2}"), "minecraft:comparator[facing=west,mode=subtract,powered=true]");
     }
 }

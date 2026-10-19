@@ -588,9 +588,15 @@ impl Worker {
     /// Advance `ticks` (or until idle, capped) recording, after every tick, the signal into each
     /// of `probes` (see [`StepResult::signals`]) and optionally a region.
     pub fn step_probe(&mut self, sandbox: u32, ticks: u32, until_idle: bool, probes: &[Pos], record: Option<(Pos, Pos)>) -> Result<StepResult> {
+        self.step_probe_be(sandbox, ticks, until_idle, probes, record, false)
+    }
+
+    /// [`Worker::step_probe`] that also captures every block entity of the recorded region after
+    /// every tick when `block_entities` ([`StepResult::block_entities`]).
+    pub fn step_probe_be(&mut self, sandbox: u32, ticks: u32, until_idle: bool, probes: &[Pos], record: Option<(Pos, Pos)>, block_entities: bool) -> Result<StepResult> {
         let mut req = json!({"op": "step", "sandbox": sandbox, "ticks": ticks, "until_idle": until_idle, "signals": probes});
         if let Some((from, to)) = record {
-            req["record"] = json!({"from": from, "to": to});
+            req["record"] = if block_entities { json!({"from": from, "to": to, "block_entities": true}) } else { json!({"from": from, "to": to}) };
         }
         let v = self.call(req)?;
         Ok(parse_steps(&v)?.remove(0))
