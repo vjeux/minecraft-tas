@@ -1,0 +1,60 @@
+# wire131: f131M (wire64) with every input on its own variable, open (o*) and close (c*) apart,
+# to measure each input's window with `door ideal --sweep v=lo..hi --independent`.
+# D1 shots a/b/c (b lifted at (1,3)), X level px, DE pulses e1/e2, L0 l0, UM um, D2 d2, R pair level pr.
+design designs/piston-door-3x3/tracks/wire64/f131/f131M.txt
+let oa = 0
+let ca = 0
+let opx = 6
+let cpx = 6
+let oe1 = 12
+let ce1 = 12
+let ob = 18
+let cb = 18
+let oe2 = 24
+let ce2 = 24
+let oc = 30
+let cc = 30
+let ol0 = 30
+let cl0 = 30
+let oum = 36
+let cum = 36
+let od2 = 36
+let cd2 = 36
+let opr = 36
+let cpr = 36
+open oa set 1 4 1 minecraft:redstone_block
+open oa+2 clear 1 4 1
+open opx clear -2 3 0
+open oe1 set 0 5 0 minecraft:redstone_block
+open oe1+2 clear 0 5 0
+open ob set 1 3 1 minecraft:redstone_block
+open ob+2 clear 1 3 1
+open oe2 set 0 5 0 minecraft:redstone_block
+open oe2+2 clear 0 5 0
+open oc set 1 4 1 minecraft:redstone_block
+open oc+2 clear 1 4 1
+open ol0 set -2 -1 0 minecraft:redstone_block
+open ol0+2 clear -2 -1 0
+open oum set 1 -3 0 minecraft:redstone_block
+open oum+2 clear 1 -3 0
+open od2 set 3 4 0 minecraft:redstone_block
+open od2+2 clear 3 4 0
+open opr clear 4 2 0
+close ca set 1 4 1 minecraft:redstone_block
+close ca+2 clear 1 4 1
+close cpx set -2 3 0 minecraft:redstone_block
+close ce1 set 0 5 0 minecraft:redstone_block
+close ce1+2 clear 0 5 0
+close cb set 1 3 1 minecraft:redstone_block
+close cb+2 clear 1 3 1
+close ce2 set 0 5 0 minecraft:redstone_block
+close ce2+2 clear 0 5 0
+close cc set 1 4 1 minecraft:redstone_block
+close cc+2 clear 1 4 1
+close cl0 set -2 -1 0 minecraft:redstone_block
+close cl0+2 clear -2 -1 0
+close cum set 1 -3 0 minecraft:redstone_block
+close cum+2 clear 1 -3 0
+close cd2 set 3 4 0 minecraft:redstone_block
+close cd2+2 clear 3 4 0
+close cpr set 4 2 0 minecraft:redstone_block

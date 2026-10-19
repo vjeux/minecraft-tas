@@ -1,0 +1,32 @@
+name: f131R
+# wire131: f131X with TR leaving RIGHT (R2+ (4,2), head (3,2) at rest) instead of up (no D2): the right column is
+# three level pullers R2+/R1+ (held from (4,3): R2+ direct, R1+ quasi) and R0+ (held from (4,-1)).
+# Left: L2+/L1+/P3+ held by X (-2,3), L0+ by (-2,-1). UM+ by (2,-2). D1 (1,4) + DE (1,5) as in 8x8-131.
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  Q minecraft:sticky_piston[extended=true,facing=west]
+  q minecraft:piston_head[facing=west,short=false,type=sticky]
+  A minecraft:sticky_piston[extended=true,facing=up]
+  a minecraft:piston_head[facing=up,short=false,type=sticky]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...AR
+layer -1:
+  R..a..R
+layer 0:
+  CPDDDqQ
+layer 1:
+  CPDDDqQ
+layer 2:
+  CPDDDqQ
+layer 3:
+  RCP...R
+layer 4:
+  ...S
+layer 5:
+  ...S

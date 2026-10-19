@@ -1,0 +1,36 @@
+name: f131X-br
+# wire131: wire64's f131M with EVERY puller level-held (extended at rest, heads in the ring at rest only):
+# L0+ (-2,0), L1+ (-2,1), L2+ (-2,2), P3+ (-1,3) [X (-2,3)], R1+ (4,1), R0+ (4,0) [(4,2)], D2+ (2,4) [(3,4)],
+# UM+ (1,-2) [(2,-2)]. Only D1 (1,4) and DE (1,5) stay pulse/window pistons. Ideal holders are redstone blocks.
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  W minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:observer[facing=up,powered=false]
+  Q minecraft:sticky_piston[extended=true,facing=west]
+  q minecraft:piston_head[facing=west,short=false,type=sticky]
+  A minecraft:sticky_piston[extended=true,facing=up]
+  a minecraft:piston_head[facing=up,short=false,type=sticky]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:sticky_piston[extended=true,facing=down]
+  t minecraft:piston_head[facing=down,short=false,type=sticky]
+layer -2:
+  ...AR.W
+layer -1:
+  R..a..O
+layer 0:
+  CPDDDqQ
+layer 1:
+  CPDDDqQ
+layer 2:
+  CPDDD.R
+layer 3:
+  RCP.t
+layer 4:
+  ...STR
+layer 5:
+  ...S
