@@ -210,6 +210,35 @@ pub struct StepResult {
     pub entity_escape: Option<String>,
     /// With an entity watch: the first entity the design did not declare (a drop...).
     pub entity_foreign: Option<String>,
+    /// With `record` + block entities ([`Worker::step_record_be`]): after every tick, every block
+    /// entity of the recorded region as text (one line `x y z <type> <SNBT>` each, block order,
+    /// keys sorted: equal states give equal text; "" when there is none).
+    pub block_entities: Vec<String>,
+}
+
+/// A block entity read from a sandbox ([`Worker::block_entities`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockEntityInfo {
+    pub pos: Pos,
+    /// Its type (`minecraft:hopper`).
+    pub kind: String,
+    /// Its data (`saveWithoutMetadata`, SNBT with sorted keys).
+    pub nbt: String,
+}
+
+/// Parse a block-entity dump (`x y z <type> <SNBT>` per line, the bridge's
+/// `Region.captureBlockEntities`).
+pub fn parse_block_entities(dump: &str) -> Result<Vec<BlockEntityInfo>> {
+    let mut out = Vec::new();
+    for line in dump.lines().filter(|l| !l.is_empty()) {
+        let mut it = line.splitn(5, ' ');
+        let mut num = || -> Result<i32> { it.next().ok_or_else(|| anyhow!("short block-entity line {line:?}"))?.parse::<i32>().map_err(Into::into) };
+        let pos = [num()?, num()?, num()?];
+        let kind = it.next().ok_or_else(|| anyhow!("short block-entity line {line:?}"))?.to_string();
+        let nbt = it.next().unwrap_or("{}").to_string();
+        out.push(BlockEntityInfo { pos, kind, nbt });
+    }
+    Ok(out)
 }
 
 /// What is still pending in a sandbox.
@@ -436,6 +465,22 @@ impl Worker {
         parse_region(&v, &v["data"])
     }
 
+    /// Every block entity in a box (inclusive corners), in block order (x fastest, then z, then
+    /// y): its position, type and data (container items, a hopper's `TransferCooldown`...).
+    pub fn block_entities(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<Vec<BlockEntityInfo>> {
+        let v = self.call(json!({"op": "get", "sandbox": sandbox, "from": from, "to": to, "block_entities": true}))?;
+        parse_block_entities(v["block_entities"].as_str().unwrap_or_default())
+    }
+
+    /// Merge SNBT into the block entity at `pos` exactly like `data merge block x y z <snbt>`
+    /// (old data merged with the tag, then `loadWithComponents` + `setChanged` when it changed:
+    /// comparators reading a container are notified). Fails when there is no block entity there
+    /// or the SNBT does not parse. Returns whether anything changed.
+    pub fn merge_block_entity(&mut self, sandbox: u32, pos: Pos, snbt: &str) -> Result<bool> {
+        let v = self.call(json!({"op": "bedata", "sandbox": sandbox, "pos": pos, "nbt": snbt}))?;
+        Ok(v["changed"].as_bool().unwrap_or(false))
+    }
+
     /// [`Worker::get_region`] plus every block in motion inside the box (a piston's moving block
     /// entity): what it carries, its piston's facing, extending or retracting.
     pub fn get_region_moving(&mut self, sandbox: u32, from: Pos, to: Pos) -> Result<(Region, Vec<MovingBlock>)> {
@@ -523,6 +568,17 @@ impl Worker {
         Ok(parse_steps(&v)?.remove(0))
     }
 
+    /// [`Worker::step_record`] that also captures every block entity of the region after every
+    /// tick ([`StepResult::block_entities`]): what a periodic check of a design with containers
+    /// must compare too (items, hopper cooldowns).
+    pub fn step_record_be(&mut self, sandbox: u32, ticks: u32, until_idle: bool, from: Pos, to: Pos) -> Result<StepResult> {
+        let v = self.call(json!({
+            "op": "step", "sandbox": sandbox, "ticks": ticks, "until_idle": until_idle,
+            "record": {"from": from, "to": to, "block_entities": true}
+        }))?;
+        Ok(parse_steps(&v)?.remove(0))
+    }
+
     /// Advance several sandboxes of this worker in one request.
     pub fn step_many(&mut self, sandboxes: &[u32], ticks: u32, until_idle: bool) -> Result<Vec<StepResult>> {
         let v = self.call(json!({"op": "step", "sandboxes": sandboxes, "ticks": ticks, "until_idle": until_idle}))?;
@@ -532,9 +588,15 @@ impl Worker {
     /// Advance `ticks` (or until idle, capped) recording, after every tick, the signal into each
     /// of `probes` (see [`StepResult::signals`]) and optionally a region.
     pub fn step_probe(&mut self, sandbox: u32, ticks: u32, until_idle: bool, probes: &[Pos], record: Option<(Pos, Pos)>) -> Result<StepResult> {
+        self.step_probe_be(sandbox, ticks, until_idle, probes, record, false)
+    }
+
+    /// [`Worker::step_probe`] that also captures every block entity of the recorded region after
+    /// every tick when `block_entities` ([`StepResult::block_entities`]).
+    pub fn step_probe_be(&mut self, sandbox: u32, ticks: u32, until_idle: bool, probes: &[Pos], record: Option<(Pos, Pos)>, block_entities: bool) -> Result<StepResult> {
         let mut req = json!({"op": "step", "sandbox": sandbox, "ticks": ticks, "until_idle": until_idle, "signals": probes});
         if let Some((from, to)) = record {
-            req["record"] = json!({"from": from, "to": to});
+            req["record"] = if block_entities { json!({"from": from, "to": to, "block_entities": true}) } else { json!({"from": from, "to": to}) };
         }
         let v = self.call(req)?;
         Ok(parse_steps(&v)?.remove(0))
@@ -683,6 +745,14 @@ fn parse_steps(v: &Value) -> Result<Vec<StepResult>> {
                 signals.push(row.as_array().map(|a| a.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect()).unwrap_or_default());
             }
         }
+        let mut block_entities = Vec::new();
+        if let (Some(pal), Some(ids)) = (r["be_palette"].as_array(), r["be_frames"].as_array()) {
+            let pal: Vec<&str> = pal.iter().map(|s| s.as_str().unwrap_or_default()).collect();
+            for id in ids {
+                let i = id.as_u64().ok_or_else(|| anyhow!("bad be_frames entry {id}"))? as usize;
+                block_entities.push(pal.get(i).ok_or_else(|| anyhow!("be_frames index {i} out of range"))?.to_string());
+            }
+        }
         out.push(StepResult {
             sandbox: r["sandbox"].as_u64().unwrap_or(0) as u32,
             ticked: r["ticked"].as_u64().unwrap_or(0) as u32,
@@ -693,6 +763,7 @@ fn parse_steps(v: &Value) -> Result<Vec<StepResult>> {
             entity_blocked: r["entity_blocked"].as_array().map(|a| a.iter().map(|v| v.as_bool().unwrap_or(false)).collect()).unwrap_or_default(),
             entity_escape: entity_event(&r["entity_escape"]),
             entity_foreign: entity_event(&r["entity_foreign"]),
+            block_entities,
         });
     }
     Ok(out)
