@@ -1,0 +1,18 @@
+name: clk-obs-p23-obs-rb-stk-7b-03e6a0
+# clk-obs grow: P=23 (redsim), family observer+redstone_block+sticky_piston, kick last 0 0 2, swept volume 10.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=north]
+  E minecraft:sticky_piston[extended=false,facing=south]
+  F minecraft:redstone_block
+layer 0:
+  A.
+  BC
+  CE
+  .F
+  D.

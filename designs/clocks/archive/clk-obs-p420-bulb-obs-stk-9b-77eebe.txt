@@ -1,0 +1,28 @@
+# archived 2026-10-19T22:43Z from designs/clocks/tracks/clk-obs/smallest9/p420-bulb-obs-stk-9b-77eebe.txt by mctas clock archive
+# CLOCK: clk-obs-p420-bulb-obs-stk-9b-77eebe period 420 gt (21 s), on 184/420, edges 92, warmup 0, family copper_bulb+observer+sticky_piston, 9 blocks, 1x4x4, robust
+name: clk-obs-p420-bulb-obs-stk-9b-77eebe
+# clk-obs grow: P=420 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 16.
+origin: 0 0 -1
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  A
+  B
+  A
+layer 1:
+  C
+  B
+  D
+  E
+layer 2:
+  .
+  .
+  D
+  .

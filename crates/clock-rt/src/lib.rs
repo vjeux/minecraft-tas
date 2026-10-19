@@ -32,16 +32,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// TEMPORARY (until clockinfra's `mctas circuit delay` dispatch is merged): track delay.
-    Delay {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
-    },
-    /// TEMPORARY (until clockinfra's `mctas circuit gates` dispatch is merged): track gates.
-    Gates {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
-    },
     /// Write one U-loop design.
     Uloop {
         /// torch | torch-off | corner
@@ -395,8 +385,6 @@ fn parse_tail(s: &str) -> Result<Tail> {
 pub fn run(args: Vec<String>) -> Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("rt".to_string()).chain(args)).map_err(|e| anyhow::anyhow!("{e}"))?;
     match cli.cmd {
-        Cmd::Delay { args } => circuit_delay::run(args)?,
-        Cmd::Gates { args } => circuit_gates::run(args)?,
         Cmd::Uloop { head, top, bottom, tail, name, out } => {
             let u = ULoop { head: parse_head(&head)?, top: parse_row(&top)?, bottom: parse_row(&bottom)?, tail: parse_tail(&tail)? };
             let name = name.unwrap_or_else(|| format!("clk-rt-{}-{}", u.kind(), u.label()));

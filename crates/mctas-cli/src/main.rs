@@ -45,6 +45,12 @@ enum Cmd {
         #[command(subcommand)]
         command: clock_cli::ClockCmd,
     },
+    /// Contraption studies: pulse circuits, T flip-flops, delay lines, gates, memory, piston
+    /// extenders, flying machines (docs/circuits.md).
+    Circuit {
+        #[command(subcommand)]
+        command: circuit_cli::CircuitCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -120,6 +126,7 @@ fn main() -> Result<()> {
         Cmd::Bench(args) => bench::run(&cli.version, args)?,
         Cmd::Door { command } => door::run(&cli.version, command)?,
         Cmd::Clock { command } => clock_cli::run(&cli.version, command)?,
+        Cmd::Circuit { command } => circuit_cli::run(&cli.version, command)?,
     }
     Ok(())
 }

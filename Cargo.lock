@@ -183,7 +183,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "circuit-delay",
+ "circuit-fly",
+ "circuit-gates",
+ "circuit-memory",
+ "circuit-pext",
+ "circuit-pulse",
+ "circuit-tff",
+ "clap",
+ "clock",
+ "mctas",
+]
+
+[[package]]
 name = "circuit-delay"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-fly"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -202,6 +241,34 @@ dependencies = [
  "clap",
  "mctas",
  "redsim",
+]
+
+[[package]]
+name = "circuit-memory"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "circuit-pext"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "circuit-pulse"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "circuit-tff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]
@@ -300,6 +367,7 @@ dependencies = [
  "clap",
  "clock",
  "mctas",
+ "serde_json",
 ]
 
 [[package]]
@@ -318,8 +386,6 @@ name = "clock-rt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "circuit-delay",
- "circuit-gates",
  "clap",
  "clock",
  "mctas",
@@ -724,6 +790,7 @@ name = "mctas-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit-cli",
  "clap",
  "clock-cli",
  "door-judge",

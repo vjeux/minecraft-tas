@@ -1,0 +1,22 @@
+# archived 2026-10-19T22:40Z from designs/clocks/tracks/clk-obs/smallest9/p148-obs-stk-8b-91e3bc.txt by mctas clock archive
+# CLOCK: clk-obs-p148-obs-stk-8b-91e3bc period 148 gt (7.4 s), on 64/148, edges 32, warmup 3, family observer+sticky_piston, 8 blocks, 3x3x3, robust
+name: clk-obs-p148-obs-stk-8b-91e3bc
+# clk-obs grow: P=148 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 27.
+origin: -1 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=west]
+layer -1:
+  ...
+  A..
+  ..A
+layer 0:
+  .C.
+  BDE
+  .DF

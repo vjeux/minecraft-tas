@@ -30,6 +30,13 @@ pub struct PickArgs {
     /// (files or folders): e.g. what another batch already archives
     #[arg(long)]
     pub skip_structures: Vec<PathBuf>,
+    /// Keep only designs SMALLER than every clock of the same (period, family) in this verdict
+    /// table (e.g. designs/clocks/archive/verdicts-v1.tsv), or of a (period, family) it lacks
+    #[arg(long)]
+    pub only_smaller_than: Option<PathBuf>,
+    /// With --only-smaller-than: compare with every clock of the same PERIOD (any family)
+    #[arg(long)]
+    pub any_family: bool,
     /// Keep designs of a group only when their steady-state MECHANISMS differ (`cores`: the
     /// changing cells and the static blocks they need, canonical over phases), not just their
     /// structures (a different starter or inert block is the same mechanism)
@@ -154,6 +161,15 @@ pub fn run(a: PickArgs) -> Result<()> {
         }
     }
     let mut skip_keys: HashSet<u128> = HashSet::new();
+    let mut smallest_known: BTreeMap<(u32, String), usize> = BTreeMap::new();
+    if let Some(t) = &a.only_smaller_than {
+        for l in std::fs::read_to_string(t)?.lines().skip(1) {
+            let v: Vec<&str> = l.split('\t').collect();
+            let (Some(p), Some(fam), Some(b)) = (v.get(2).and_then(|s| s.parse::<u32>().ok()), v.get(7), v.get(8).and_then(|s| s.parse::<usize>().ok())) else { continue };
+            let e = smallest_known.entry((p, if a.any_family { String::new() } else { fam.to_string() })).or_insert(usize::MAX);
+            *e = (*e).min(b);
+        }
+    }
     for f in files(&a.skip_structures)? {
         if let Ok(s) = Spec::load(&f) {
             skip_keys.insert(crate::census::canon_hash(&s.blocks));
@@ -179,6 +195,10 @@ pub fn run(a: PickArgs) -> Result<()> {
                     continue;
                 }
                 if known.contains(&(r.period, clock::wave::signature(&r.analysis.family))) {
+                    continue;
+                }
+                let fam_key = if a.any_family { String::new() } else { clock::wave::signature(&r.analysis.family) };
+                if smallest_known.get(&(r.period, fam_key)).is_some_and(|m| r.blocks >= *m) {
                     continue;
                 }
                 if let Some(m) = a.max_edges {

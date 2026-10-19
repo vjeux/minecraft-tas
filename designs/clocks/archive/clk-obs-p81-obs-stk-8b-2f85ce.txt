@@ -1,0 +1,27 @@
+# archived 2026-10-19T22:45Z from designs/clocks/tracks/clk-obs/smallest9/p81-obs-stk-8b-2f85ce.txt by mctas clock archive
+# CLOCK: clk-obs-p81-obs-stk-8b-2f85ce period 81 gt (4.05 s), on 36/81, edges 18, warmup 14, family observer+sticky_piston, 8 blocks, 2x4x3, robust
+name: clk-obs-p81-obs-stk-8b-2f85ce
+# clk-obs grow: P=81 (redsim), family observer+sticky_piston, kick last 0 1 2, swept volume 24.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=south]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  A.
+  ..
+  ..
+layer 1:
+  B.
+  C.
+  A.
+layer 2:
+  D.
+  E.
+  FG
