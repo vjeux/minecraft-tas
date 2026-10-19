@@ -68,6 +68,7 @@ pub mod fullmech;
 pub mod mechspace;
 pub mod world;
 pub mod sheet;
+pub mod cycle;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
