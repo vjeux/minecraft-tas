@@ -1,0 +1,53 @@
+# ceil c077d: c077 (BL left by SE(-2,0), ML up into (-1,2) by SD(-1,3), C left 2 by the D/E double,
+# BM down) with D tapped on BOTH edges and M + E2 on OPEN only. Natural gates: BL parked at (-1,0)
+# (its puller's FRONT, so a source at (-1,-1) powering BL reaches only E at (-1,1) = M) and ML parked
+# at (-1,2) (a source at (-2,2) powering ML reaches E at (-2,1) by QC = E2). Everything ideal.
+design designs/piston-door-3x3/tracks/ceil/wip/c077.txt
+let bl = 2
+let e1 = 4
+let s = 10
+let d1 = 16
+let m = 22
+let d2 = 28
+let e2 = 34
+let bm = 20
+let r = 8
+let blc = 2
+open 0 use 1 5 0
+open bl set -2 0 1 minecraft:redstone_block
+open bl+2 clear -2 0 1
+open e1 set -2 1 1 minecraft:redstone_block
+open e1+2 clear -2 1 1
+open s set -1 3 1 minecraft:redstone_block
+open s+2 clear -1 3 1
+open d1 set -3 1 1 minecraft:redstone_block
+open d1+2 clear -3 1 1
+open m set -1 1 1 minecraft:redstone_block
+open m+2 clear -1 1 1
+open d2 set -3 1 1 minecraft:redstone_block
+open d2+2 clear -3 1 1
+open e2 set -2 1 1 minecraft:redstone_block
+open e2+2 clear -2 1 1
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+open r set 4 1 1 minecraft:redstone_block
+open r set 4 0 1 minecraft:redstone_block
+open r+2 clear 4 1 1
+open r+2 clear 4 0 1
+close 0 use 1 5 0
+close blc set -2 0 1 minecraft:redstone_block
+close blc+2 clear -2 0 1
+close e1 set -2 1 1 minecraft:redstone_block
+close e1+2 clear -2 1 1
+close s set -1 3 1 minecraft:redstone_block
+close s+2 clear -1 3 1
+close d1 set -3 1 1 minecraft:redstone_block
+close d1+2 clear -3 1 1
+close d2 set -3 1 1 minecraft:redstone_block
+close d2+2 clear -3 1 1
+close bm set 1 -2 1 minecraft:redstone_block
+close bm+2 clear 1 -2 1
+close r set 4 1 1 minecraft:redstone_block
+close r set 4 0 1 minecraft:redstone_block
+close r+2 clear 4 1 1
+close r+2 clear 4 0 1
