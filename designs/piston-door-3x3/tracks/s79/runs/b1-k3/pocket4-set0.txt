@@ -1,0 +1,45 @@
+name: pocket4-set0
+covers: (4,0)o4 (4,0)c4
+port door: 0 0 0
+port lever: 4 6 0
+origin: -2 0 0
+palette:
+  A minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  B minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  C minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  D minecraft:dropper[facing=south,triggered=true]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:sticky_piston[extended=true,facing=down]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  W minecraft:white_wool
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  s minecraft:smooth_stone
+layer -2:
+  .sOGON
+layer -1:
+  .F..KSG
+layer 0:
+  F.KKK.H
+layer 1:
+  F.KKKpJ
+layer 2:
+  F.KKKpJ
+layer 3:
+  s.KEK.D
+layer 4:
+  BsrPssA
+layer 5:
+  .ROICCW
+layer 6:
+  ......L

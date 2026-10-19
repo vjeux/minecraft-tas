@@ -1,0 +1,33 @@
+# m69m: m69 mirrored top <-> bottom: top: s0' (0,4) pulls TL up, s1' (1,4) + M1' (1,5) bring TM up and C up 2,
+# corner P3t' (3,3) slides TM east; bottom: U0' (0,-2) + MB0' (0,-3) bring BL down and ML down 2, U1' (1,-2)
+# pulls BM down, corner P3b' (3,-1) slides BM east, corner W' (-1,-1) facing east pushes BL east.
+name: c78l-m69m
+port door: 0 0 0
+port lever: 5 5 0
+origin: -1 0 0
+palette:
+  Q minecraft:stone
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  S minecraft:smooth_stone
+  L minecraft:lever[face=wall,facing=east,powered=false]
+layer -3:
+  .U....
+layer -2:
+  .UU...
+layer -1:
+  E...T.
+layer 0:
+  QQQQ.T
+layer 1:
+  QQQQ.T
+layer 2:
+  QQQQ.T
+layer 3:
+  ....T.
+layer 4:
+  .DD...
+layer 5:
+  ..D..SL

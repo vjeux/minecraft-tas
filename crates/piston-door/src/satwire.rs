@@ -979,6 +979,10 @@ pub struct Prob {
     pub mech: HashSet<C2>,
     pub static_sturdy: HashSet<C2>,
     pub sturdy_up: HashSet<C2>,
+    /// Bottom face sturdy at every recorded tick (a retracted piston, or an extended one facing up:
+    /// its back is its bottom): a lever may hang under it (`face=ceiling`), e.g. the door's lever
+    /// under a lever-held puller of the bottom row.
+    pub sturdy_down: HashSet<C2>,
     pub levers: Vec<LeverCand>,
     /// Most stalls (recorded static ticks replayed) per trace before any tick.
     pub dmax: i32,
@@ -1273,6 +1277,23 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             })
         })
         .collect();
+    // bottom face sturdy at every recorded tick (the mirror of sturdy_up: an extended piston
+    // facing up keeps a full bottom face, its back; a retracting base is a moving piston for 2 gt
+    // placed without shape updates, so a lever hanging under it stays)
+    let sturdy_down: HashSet<C2> = mech
+        .iter()
+        .copied()
+        .filter(|c| {
+            rec.all_phases().iter().all(|ph| {
+                ph.frames.iter().all(|f| match f.get(c).map(|s| mk(s)) {
+                    Some(MK::Cond | MK::Solid | MK::Piston { ext: false, .. }) => true,
+                    Some(MK::Piston { ext: true, f: fc, .. }) => fc == U,
+                    Some(MK::Other) => rec.all_phases().iter().all(|p| p.frames[0].get(c).is_some_and(|s| matches!(mk(s), MK::Piston { .. }))),
+                    _ => false,
+                })
+            })
+        })
+        .collect();
     let bx = match o.bx {
         Some(b) => b,
         None if rec.src_box.is_some() => rec.src_box.unwrap(),
@@ -1435,7 +1456,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         }
         for d in DIRS {
             let a = add(c, d);
-            if !sturdy_possible(a) {
+            if !sturdy_possible(a) && !(d == U && sturdy_down.contains(&a)) {
                 continue;
             }
             let st = match d {
@@ -1546,7 +1567,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         }
     }
     let lever_on_rest = rec.lever.as_ref().is_some_and(|(_, s)| prop(s, "powered") == Some("true")) || LEVER_ON.load(std::sync::atomic::Ordering::Relaxed);
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), lever_on_rest, plan: None, cell_group, cluster, ncl })
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, sturdy_down, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), lever_on_rest, plan: None, cell_group, cluster, ncl })
 }
 
 /// `--menu`: record each alternative schedule, keep the trace `tr` of those that start and end
@@ -3329,7 +3350,11 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     for (i, lc) in p.levers.iter().enumerate() {
         let l = m.lever[i];
         let att = (lc.att[0], lc.att[1]);
-        let s = m.sturdy_static(att, lc.pos[1] > lc.att[1]);
+        let s = if lc.pos[2] == p.z && lc.pos[1] < lc.att[1] && p.sturdy_down.contains(&att) {
+            m.e.konst(true)
+        } else {
+            m.sturdy_static(att, lc.pos[1] > lc.att[1])
+        };
         m.e.add(&[!l, s]);
         if lc.pos[2] == p.z {
             let c = (lc.pos[0], lc.pos[1]);

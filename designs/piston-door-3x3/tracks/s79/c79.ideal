@@ -1,0 +1,4 @@
+# c79 (the community 7x9) driven only by its lever: a schedule with no inputs, for --vary screening of its wiring.
+design designs/piston-door-3x3/tracks/s79/c79.txt
+open 0 use 4 6 0
+close 0 use 4 6 0

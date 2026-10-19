@@ -1,0 +1,27 @@
+# archived 2026-10-19T21:33Z from designs/clocks/tracks/clk-misc/leaves/leaf-chain5-p18.txt by mctas clock archive
+# CLOCK: clk-misc-leaf-chain5-p18 period 18 gt (0.9 s), on 13/18, edges 1, warmup 3, family oak_leaves+observer+sticky_piston, 8 blocks, 1x4x3, robust
+name: clk-misc-leaf-chain5-p18
+# A leaf delay line: a sticky piston spits a log under the first of 5 persistent oak leaves in a chain and pulls it back; the
+# distance wave runs along the chain one leaf per gt (1 gt scheduled leaf ticks) to the last leaf, which an observer watches
+# (its back quasi-powers the piston). When the log leaves, the distances count up to 7 and the last leaf changes once more.
+port start: 0 1 0 minecraft:redstone_block 2
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:oak_log[axis=y]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+layer 0:
+  A
+  B
+layer 1:
+  .
+  .
+  D
+layer 2:
+  C
+  .
+  D
+layer 3:
+  D
+  D
+  D
