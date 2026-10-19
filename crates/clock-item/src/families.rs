@@ -80,19 +80,27 @@ pub fn hopper_loop(w: i32, d: i32, items: &[Vec<Stack>]) -> Option<Design> {
 /// 0, 1, 2 are set (the side ones fire through the strongly powered middle one), the rest hoppers;
 /// all face the next cell. `reversed` runs the ring counter-clockwise. `items[i]` = ring cell i.
 pub fn drop_ring(w: i32, xc: i32, drop_mask: u8, reversed: bool, items: &[Vec<Stack>]) -> Option<Design> {
-    if w < 3 || xc < 1 || xc > w - 2 {
+    drop_ring_delayed(w, xc, drop_mask, reversed, &[], items)
+}
+
+/// `drop_ring` with repeaters (these delays, 1..=4) between the comparator and the fired dropper:
+/// the ring is 3 + delays.len() deep, the comparator at (xc, 1), the repeaters below it in the
+/// inner column (each on stone), the droppers in the bottom row.
+pub fn drop_ring_delayed(w: i32, xc: i32, drop_mask: u8, reversed: bool, delays: &[u8], items: &[Vec<Stack>]) -> Option<Design> {
+    let depth = 3 + delays.len() as i32;
+    if w < 3 || xc < 1 || xc > w - 2 || delays.iter().any(|d| !(1..=4).contains(d)) {
         return None;
     }
-    let mut cells = loop_cells(w, 3);
+    let mut cells = loop_cells(w, depth);
     if reversed {
         cells.reverse();
     }
-    let mut des = Design { name: format!("dropring-{w}x3"), ..Default::default() };
+    let mut des = Design { name: format!("dropring-{w}x{depth}"), ..Default::default() };
     let n = cells.len();
     for (i, c) in cells.iter().enumerate() {
         let next = cells[(i + 1) % n];
         let f = facing(*c, next);
-        let dropper = c.1 == 2 && (c.0 - xc).abs() <= 1 && drop_mask & (1 << (c.0 - xc + 1)) != 0;
+        let dropper = c.1 == depth - 1 && (c.0 - xc).abs() <= 1 && drop_mask & (1 << (c.0 - xc + 1)) != 0;
         let state = if dropper {
             format!("minecraft:dropper[facing={f},triggered=false]")
         } else {
@@ -107,6 +115,11 @@ pub fn drop_ring(w: i32, xc: i32, drop_mask: u8, reversed: bool, items: &[Vec<St
     }
     des.blocks.insert([xc, 1, 1], "minecraft:comparator[facing=north,mode=compare,powered=false]".into());
     des.blocks.insert([xc, 0, 1], "minecraft:stone".into());
+    for (k, d) in delays.iter().enumerate() {
+        let z = 2 + k as i32;
+        des.blocks.insert([xc, 1, z], format!("minecraft:repeater[delay={d},facing=north,locked=false,powered=false]"));
+        des.blocks.insert([xc, 0, z], "minecraft:stone".into());
+    }
     des.ports.insert("output".into(), [xc, 1, 1]);
     Some(des)
 }

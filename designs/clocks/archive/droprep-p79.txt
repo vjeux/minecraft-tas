@@ -1,0 +1,32 @@
+# archived 2026-10-19T17:59Z from designs/clocks/tracks/clk-item/droprep-p79.txt by mctas clock archive
+# CLOCK: droprep-p79 period 79 gt, on 7/79, edges 1, warmup 30, family comparator+dropper+hopper+repeater, 22 blocks, 5x2x5, robust
+# Dropper ring with a delayed fire (clock item sweep-dropring --delays): a hopper ring 4 or 5 deep with 1 or 2 droppers in the bottom row; the comparator in the inner column reads the top-row hopper above it and fires the dropper at the bottom through 1 or 2 repeaters (each on stone). Two stones: one waits in a dropper until the other passes the read hopper; the repeater delays (2 gt each step) shift the period off the multiples of 7, so ring size x dropper count x delays reach every P from 42 up (and 29-40 odd/even below). Here P = 79.
+# redsim: P=79 gt, warmup 30, family comparator+dropper+hopper+repeater, 22 blocks, output on 7/79 gt, 1 rising edge(s)
+
+name: droprep-p79
+port output: 1 1 1
+nbt: 0 1 1 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: 3 1 4 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  R minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+  r minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+layer 0:
+  .
+  .S
+  .S
+  .S
+  .
+layer 1:
+  ABBBB
+  AC..h
+  AR..h
+  Ar..h
+  HDHHh

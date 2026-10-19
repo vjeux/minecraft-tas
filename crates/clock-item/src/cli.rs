@@ -140,6 +140,9 @@ pub enum ItemClockCmd {
         /// Item ids to try (one kind per run of the product), comma separated.
         #[arg(long, default_value = "stone")]
         items: String,
+        /// Transfer cooldowns to try per filled container (hoppers), comma separated.
+        #[arg(long, default_value = "0")]
+        cooldowns: String,
         #[arg(long, default_value_t = 200000)]
         ticks: u32,
         #[arg(long, default_value_t = 64)]
@@ -180,6 +183,10 @@ pub enum ItemClockCmd {
         /// Also two filled cells (else one).
         #[arg(long)]
         pairs: bool,
+        /// Repeater chains between the comparator and the dropper, comma separated, each a string
+        /// of delays (`-` = none): `-,1,2,3,4,11` .
+        #[arg(long, default_value = "-")]
+        delays: String,
         #[arg(long, default_value_t = 20000)]
         ticks: u32,
         #[arg(long, default_value_t = 64)]
@@ -250,40 +257,62 @@ fn parse_k(s: &str) -> Result<(usize, usize)> {
     }
 }
 
+/// A sweep cell value (count * 16 + transfer cooldown) as container SNBT.
+fn packed_contents(kind: &str, k: usize) -> Result<String, String> {
+    let (count, cd) = (k / 16, k % 16);
+    let mut s = census::contents_entry(&format!("{kind}:{count}"))?;
+    if cd > 0 {
+        s.pop();
+        s.push_str(&format!(",TransferCooldown:{cd}}}"));
+    }
+    Ok(s)
+}
+
+/// A sweep cell value for humans: `count` or `count@cooldown`.
+fn packed_label(k: usize) -> String {
+    if k % 16 == 0 { (k / 16).to_string() } else { format!("{}@{}", k / 16, k % 16) }
+}
+
 /// One dropper-ring case: (w, comparator column, dropper mask, reversed, filled cells as
-/// (ring index, count), item kind).
-type DropCase = (i32, i32, u8, bool, Vec<(usize, u32)>, String);
+/// (ring index, count), item kind, repeater delays).
+type DropCase = (i32, i32, u8, bool, Vec<(usize, u32)>, String, Vec<u8>);
 
 fn drop_case_design(c: &DropCase) -> Option<Design> {
-    let (w, xc, mask, rev, fill, kind) = c;
-    let l = (2 * w + 2) as usize;
+    let (w, xc, mask, rev, fill, kind, delays) = c;
+    let l = (2 * w + 2 * (1 + delays.len() as i32)) as usize;
     let mut items: Vec<Vec<crate::families::Stack>> = vec![Vec::new(); l];
     for (i, n) in fill {
+        if *i >= l {
+            return None;
+        }
         if kind == "diamond_sword" {
             items[*i] = (0..*n).map(|_| (kind.clone(), 1)).collect();
         } else {
             items[*i] = vec![(kind.clone(), *n)];
         }
     }
-    crate::families::drop_ring(*w, *xc, *mask, *rev, &items)
+    crate::families::drop_ring_delayed(*w, *xc, *mask, *rev, delays, &items)
 }
 
-fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, ticks: u32, jobs: usize, out: Option<&std::path::Path>) -> Result<()> {
+#[allow(clippy::too_many_arguments)]
+fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, chains: &[Vec<u8>], ticks: u32, jobs: usize, out: Option<&std::path::Path>) -> Result<()> {
     let kinds: Vec<String> = items.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
     let mut cases: Vec<DropCase> = Vec::new();
-    for w in 3..=max_w {
-        let l = (2 * w + 2) as usize;
-        for xc in 1..=w - 2 {
-            for mask in [2u8, 3, 6, 7] {
-                for rev in [false, true] {
-                    for kind in &kinds {
-                        for i in 0..l {
-                            for n in 1..=max_n {
-                                cases.push((w, xc, mask, rev, vec![(i, n)], kind.clone()));
-                                if pairs {
-                                    for j in i + 1..l {
-                                        for m in 1..=max_n {
-                                            cases.push((w, xc, mask, rev, vec![(i, n), (j, m)], kind.clone()));
+    for delays in chains {
+        for w in 3..=max_w {
+            let l = (2 * w + 2 * (1 + delays.len() as i32)) as usize;
+            for xc in 1..=w - 2 {
+                for mask in [2u8, 3, 6, 7] {
+                    for rev in [false, true] {
+                        for kind in &kinds {
+                            for i in 0..l {
+                                for n in 1..=max_n {
+                                    cases.push((w, xc, mask, rev, vec![(i, n)], kind.clone(), delays.clone()));
+                                    if pairs {
+                                        for j in i + 1..l {
+                                            for m in 1..=max_n {
+                                                cases.push((w, xc, mask, rev, vec![(i, n), (j, m)], kind.clone(), delays.clone()));
+                                            }
                                         }
                                     }
                                 }
@@ -323,14 +352,14 @@ fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, ticks: u32, 
     let found = found.into_inner().unwrap();
     println!("{} distinct periods: {:?}", found.len(), found.keys().collect::<Vec<_>>());
     for (p, (blocks, _, i)) in &found {
-        let (w, xc, mask, rev, fill, kind) = &cases[*i];
-        println!("P={p}: {blocks} blocks, ring {w}x3, comparator column {xc}, droppers {mask:03b}{}, {kind} {fill:?}", if *rev { ", reversed" } else { "" });
+        let (w, xc, mask, rev, fill, kind, delays) = &cases[*i];
+        println!("P={p}: {blocks} blocks, ring {w}x{}, comparator column {xc}, repeaters {delays:?}, droppers {mask:03b}{}, {kind} {fill:?}", 3 + delays.len(), if *rev { ", reversed" } else { "" });
     }
     if let Some(dir) = out {
         std::fs::create_dir_all(dir)?;
         for (p, (_, _, i)) in &found {
             if let Some(mut des) = drop_case_design(&cases[*i]) {
-                des.name = format!("dropring-{}x3-p{p}", cases[*i].0);
+                des.name = format!("dropring-{}x{}-p{p}", cases[*i].0, 3 + cases[*i].6.len());
                 des.save(&dir.join(format!("{}.txt", des.name)))?;
             }
         }
@@ -552,7 +581,7 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
             println!("{summary}");
             println!("{} clock variants written to {}", found.len(), out.display());
         }
-        ItemClockCmd::Sweep { design, at, counts, items, ticks, jobs, all, out } => {
+        ItemClockCmd::Sweep { design, at, counts, items, cooldowns, ticks, jobs, all, out } => {
             let d = load(&design)?;
             let mut cells: Vec<[i32; 3]> = Vec::new();
             for c in at.split(';').filter(|s| !s.trim().is_empty()) {
@@ -564,15 +593,28 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
             }
             let (lo, hi) = parse_k(&counts)?;
             let kinds: Vec<String> = items.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            let cds: Vec<usize> = cooldowns.split(',').map(|s| s.trim().parse::<usize>()).collect::<Result<_, _>>().context("bad --cooldowns")?;
+            if cds.iter().any(|c| *c >= 16) {
+                bail!("--cooldowns must be below 16");
+            }
+            // One value per cell: count * 16 + transfer cooldown.
+            let mut opts: Vec<usize> = Vec::new();
+            for count in lo..=hi {
+                if count == 0 {
+                    opts.push(0);
+                } else {
+                    opts.extend(cds.iter().map(|cd| count * 16 + cd));
+                }
+            }
             let mut jobs_list: Vec<(String, Vec<usize>)> = Vec::new();
-            let n = hi - lo + 1;
+            let n = opts.len();
             for kind in &kinds {
                 let total = n.pow(cells.len() as u32);
                 for c in 0..total {
                     let mut x = c;
                     let mut v = Vec::new();
                     for _ in &cells {
-                        v.push(lo + x % n);
+                        v.push(opts[x % n]);
                         x /= n;
                     }
                     if v.iter().all(|k| *k == 0) {
@@ -597,7 +639,7 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                             for (cell, k) in cells.iter().zip(v) {
                                 dd.block_entities.remove(cell);
                                 if *k > 0 {
-                                    dd.block_entities.insert(*cell, census::contents_entry(&format!("{kind}:{k}")).unwrap());
+                                    dd.block_entities.insert(*cell, packed_contents(kind, *k).unwrap());
                                 }
                             }
                             let r = (|| -> Result<(u32, u32, u32, u32, bool, u32), String> {
@@ -617,22 +659,24 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
             results.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
             let mut by_p: std::collections::BTreeMap<u32, (String, Vec<usize>)> = std::collections::BTreeMap::new();
             for (kind, v, r) in &results {
+                let labels: Vec<String> = v.iter().map(|k| packed_label(*k)).collect();
+                let labels = labels.join(", ");
                 match r {
                     Ok((p, whole, on, edges, analog, tr)) => {
                         let new = !by_p.contains_key(p);
                         if all || new {
-                            println!("{kind} {v:?}: P={p} whole {whole} transient {tr} on {on} edges {edges}{}", if *analog { " analog" } else { "" });
+                            println!("{kind} [{labels}]: P={p} whole {whole} transient {tr} on {on} edges {edges}{}", if *analog { " analog" } else { "" });
                         }
                         // keep the fewest items per period
-                        let items: usize = v.iter().sum();
-                        let better = by_p.get(p).is_none_or(|(_, w)| items < w.iter().sum::<usize>());
+                        let items: usize = v.iter().map(|k| k / 16).sum();
+                        let better = by_p.get(p).is_none_or(|(_, w)| items < w.iter().map(|k| k / 16).sum::<usize>());
                         if better {
                             by_p.insert(*p, (kind.clone(), v.clone()));
                         }
                     }
                     Err(e) => {
                         if all {
-                            println!("{kind} {v:?}: {e}");
+                            println!("{kind} [{labels}]: {e}");
                         }
                     }
                 }
@@ -645,10 +689,10 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                     for (cell, k) in cells.iter().zip(v) {
                         dd.block_entities.remove(cell);
                         if *k > 0 {
-                            dd.block_entities.insert(*cell, census::contents_entry(&format!("{kind}:{k}")).map_err(|e| anyhow!(e))?);
+                            dd.block_entities.insert(*cell, packed_contents(kind, *k).map_err(|e| anyhow!(e))?);
                         }
                     }
-                    let counts: Vec<String> = v.iter().map(|k| k.to_string()).collect();
+                    let counts: Vec<String> = v.iter().map(|k| packed_label(*k)).collect();
                     dd.name = format!("{}-p{p}-{kind}-{}", d.name, counts.join("-"));
                     dd.meta.insert("period".into(), p.to_string());
                     dd.save(&dir.join(format!("{}.txt", dd.name)))?;
@@ -660,8 +704,14 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                 promote(&design, &name, &caption, &dir)?;
             }
         }
-        ItemClockCmd::SweepDropring { max_w, max_n, items, pairs, ticks, jobs, out } => {
-            sweep_dropring(max_w, max_n, &items, pairs, ticks, jobs, out.as_deref())?;
+        ItemClockCmd::SweepDropring { max_w, max_n, items, pairs, delays, ticks, jobs, out } => {
+            let chains: Vec<Vec<u8>> = delays
+                .split(',')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| if s == "-" { Vec::new() } else { s.bytes().map(|b| b - b'0').collect() })
+                .collect();
+            sweep_dropring(max_w, max_n, &items, pairs, &chains, ticks, jobs, out.as_deref())?;
         }
         ItemClockCmd::SweepRinglock { min_d, max_d, max_row, max_hopper, all, max_items, item, ticks, jobs, out } => {
             use crate::families::{Stack, measure, ring_lock};
