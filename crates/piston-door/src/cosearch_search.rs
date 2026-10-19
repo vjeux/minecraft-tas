@@ -799,6 +799,23 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
     let mut seen: Vec<Vec<Block>> = vec![rest.clone()];
     let mut periodic = false;
     let rec_cells = if p.reference.is_empty() { Vec::new() } else { plane_cells_wide(&w, z) };
+    // the ring of plane cells just outside the box (the lever excepted): the community volume
+    // is the bounding box over EVERY tick of the cycle, so a piston head or a pushed block that
+    // pokes out of the box mid-cycle makes the door bigger than the box (the open-state check
+    // below does not see it)
+    let halo: Vec<BlockPos> = {
+        let mut v = Vec::new();
+        for y in p.lo[1] - 1..=p.hi[1] + 1 {
+            for x in p.lo[0] - 1..=p.hi[0] + 1 {
+                let q = BlockPos::new(x, y, z);
+                if !in_box(p, x, y) && q != lever {
+                    v.push(q);
+                }
+            }
+        }
+        v
+    };
+    let mut escaped = false;
     for cycle in 0..p.cycles {
         w.use_block(lever);
         let rec = cycle == 0 && !rec_cells.is_empty();
@@ -806,12 +823,18 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
         let mut t = 0;
         let measure = cycle == 0 && measure;
         let idle = run_phase(p, g, &mut w, 0, if measure { Some(&mut traces[0]) } else { None }, |w| {
+            if !escaped && halo.iter().any(|q| !w.get(*q).is_air()) {
+                escaped = true;
+            }
             if rec {
                 t += 1;
                 tick_events(&prev, w, 0, t, evs);
                 prev = piston_cells(w, &rec_cells);
             }
         });
+        if escaped {
+            return Score { pts: (pts - 2).min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
+        }
         let open_n = p.door_cells.iter().filter(|(x, y)| {
             let s = w.get(at(*x, *y));
             !cs::collides(&s) && !cs::is_moving(&s)
@@ -834,12 +857,18 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
         let idle = run_phase(p, g, &mut w, 1, if measure { Some(&mut traces[1]) } else { None }, |w| {
+            if !escaped && halo.iter().any(|q| !w.get(*q).is_air()) {
+                escaped = true;
+            }
             if rec {
                 t += 1;
                 tick_events(&prev, w, 1, t, evs);
                 prev = piston_cells(w, &rec_cells);
             }
         });
+        if escaped {
+            return Score { pts: (pts - 2).min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
+        }
         let back = p.door_cells.iter().filter(|(x, y)| w.get(at(*x, *y)) == p.door_block).count() as i32;
         pts += back;
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
