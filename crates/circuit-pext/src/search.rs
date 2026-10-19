@@ -20,12 +20,19 @@ pub fn palette(spec: &str) -> Result<Vec<String>> {
     let rest: Vec<&str> = spec
         .split(',')
         .filter(|s| {
-            if s.trim() == "cross" {
-                extra.push("minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".to_string());
-                false
-            } else {
-                true
+            let s = s.trim();
+            let faces = |id: &str| -> Vec<String> {
+                let mut v = vec![format!("minecraft:{id}[face=floor,facing=north]"), format!("minecraft:{id}[face=ceiling,facing=north]")];
+                v.extend(["north", "east", "south", "west"].iter().map(|f| format!("minecraft:{id}[face=wall,facing={f}]")));
+                v
+            };
+            match s {
+                "cross" => extra.push("minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".to_string()),
+                "lever" => extra.extend(faces("lever")),
+                "button" => extra.extend(faces("stone_button")),
+                _ => return true,
             }
+            false
         })
         .collect();
     let mut v = if rest.iter().all(|s| s.trim().is_empty()) { Vec::new() } else { clock::census::expand_palette(&rest.join(","))? };
@@ -80,14 +87,33 @@ fn bp(p: Pos) -> BlockPos {
     BlockPos::new(p[0], p[1], p[2])
 }
 
-fn with_added(base: &Prepared, added: &[(Pos, Block)]) -> Prepared {
-    let mut p = base.clone();
-    p.blocks.extend(added.iter().map(|(q, b)| (bp(*q), *b)));
-    p
+fn input_kind_of(b: &Block) -> Option<crate::spec::InputKind> {
+    match b {
+        Block::Lever { .. } => Some(crate::spec::InputKind::Lever),
+        Block::Button { .. } => Some(crate::spec::InputKind::Button),
+        _ => None,
+    }
 }
 
-fn screen_ok(prep: &Prepared) -> bool {
-    rs::judge(prep, &Params::screen(), false).0.works()
+/// The base with blocks added; a base without an input takes the one added lever or button as
+/// its input (None: not exactly one).
+fn with_added(base: &Prepared, added: &[(Pos, Block)]) -> Option<Prepared> {
+    let mut p = base.clone();
+    if base.input.x == i32::MIN {
+        let mut inputs = added.iter().filter_map(|(q, b)| input_kind_of(b).map(|k| (*q, k)));
+        let (q, k) = inputs.next()?;
+        if inputs.next().is_some() {
+            return None;
+        }
+        p.input = bp(q);
+        p.kind = k;
+    }
+    p.blocks.extend(added.iter().map(|(q, b)| (bp(*q), *b)));
+    Some(p)
+}
+
+fn screen_ok(prep: &Option<Prepared>) -> bool {
+    prep.as_ref().is_some_and(|p| rs::judge(p, &Params::screen(), false).0.works())
 }
 
 fn combos(n: usize, k: usize) -> Vec<Vec<usize>> {
@@ -178,7 +204,7 @@ pub fn grow(p: &Pext, o: &GrowOptions, progress: &(dyn Fn(usize, usize, usize) +
         let found = found.into_inner().unwrap();
         // full judge + minimality (no added block removable)
         for added in found {
-            let cand = with_added(&base, &added);
+            let Some(cand) = with_added(&base, &added) else { continue };
             let (r, _) = rs::judge(&cand, &Params::default(), false);
             if !r.works() {
                 continue;
@@ -193,7 +219,7 @@ pub fn grow(p: &Pext, o: &GrowOptions, progress: &(dyn Fn(usize, usize, usize) +
                     continue;
                 }
             }
-            let blocks = p.blocks() + added.len();
+            let blocks = p.blocks() + added.len() - usize::from(!p.has_input());
             finds.push(Find { added: added.iter().map(|(q, b)| (*q, b.to_string())).collect(), report: r, blocks });
         }
     }
@@ -201,11 +227,16 @@ pub fn grow(p: &Pext, o: &GrowOptions, progress: &(dyn Fn(usize, usize, usize) +
     Ok(finds)
 }
 
-/// The base design with the find's blocks added, renamed.
+/// The base design with the find's blocks added, renamed (a base without an input gets the
+/// added lever or button as its `port input`).
 pub fn find_design(p: &Pext, f: &Find, name: &str) -> mctas::design::Design {
     let mut d = p.design.clone();
     for (q, s) in &f.added {
         d.blocks.insert(*q, s.clone());
+        if !p.has_input() && (s.contains("minecraft:lever") || s.contains("_button")) {
+            d.ports.insert("input".into(), *q);
+            d.meta.insert("port input".into(), if s.contains("lever") { "lever".into() } else { "button".into() });
+        }
     }
     d.name = name.to_string();
     d
@@ -273,7 +304,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
                         d.blocks.remove(b);
                         let Ok(np) = Pext::from_design(d) else { continue };
                         let Ok(pr) = Prepared::new(&np, 2) else { continue };
-                        if screen_ok(&pr) && rs::judge(&pr, &Params::default(), false).0.works() {
+                        if screen_ok(&Some(pr.clone())) && rs::judge(&pr, &Params::default(), false).0.works() {
                             let mut h = hit.lock().unwrap();
                             if h.is_none() {
                                 *h = Some(np);

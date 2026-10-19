@@ -94,6 +94,20 @@ impl Pext {
     }
 
     pub fn from_design(design: Design) -> Result<Pext> {
+        Self::parse(design, false)
+    }
+
+    /// A search base: like [`Pext::from_design`] but the input may be missing (the search then
+    /// places the lever or button itself); `input` is then `[i32::MIN; 3]`.
+    pub fn base(design: Design) -> Result<Pext> {
+        Self::parse(design, true)
+    }
+
+    pub fn has_input(&self) -> bool {
+        self.input[0] != i32::MIN
+    }
+
+    fn parse(design: Design, allow_no_input: bool) -> Result<Pext> {
         let kind = design.meta.get("circuit").ok_or_else(|| anyhow!("no `circuit: piston-extender N` header"))?;
         let mut words = kind.split_whitespace();
         if words.next() != Some("piston-extender") {
@@ -104,6 +118,21 @@ impl Pext {
             bail!("reach {reach} < 1");
         }
         let travel = parse_travel(design.meta.get("travel").ok_or_else(|| anyhow!("no `travel: dx dy dz` header"))?)?;
+        let (input, input_kind) = if allow_no_input && !design.ports.contains_key("input") {
+            ([i32::MIN; 3], InputKind::Lever)
+        } else {
+            Self::parse_input(&design)?
+        };
+        let payload = *design.ports.get("payload").ok_or_else(|| anyhow!("no `port payload: x y z`"))?;
+        let payload_state = design.blocks.get(&payload).cloned().ok_or_else(|| anyhow!("port payload {payload:?}: no block there"))?;
+        let twins: Vec<Pos> = design.blocks.iter().filter(|(p, s)| **p != payload && **s == payload_state).map(|(p, _)| *p).collect();
+        if !twins.is_empty() {
+            bail!("the payload's state {payload_state} must be unique in the design (also at {twins:?}): pick a block used nowhere else (gold_block, emerald_block...)");
+        }
+        Ok(Pext { design, reach, travel, input, input_kind, payload, payload_state })
+    }
+
+    fn parse_input(design: &Design) -> Result<(Pos, InputKind)> {
         let input = *design.ports.get("input").ok_or_else(|| anyhow!("no `port input: x y z lever|button`"))?;
         let input_word = design.meta.get("port input").map(|s| s.trim().to_string()).unwrap_or_default();
         let at_input = design.blocks.get(&input).cloned().unwrap_or_default();
@@ -122,13 +151,7 @@ impl Pext {
         if at_input.contains("powered=true") {
             bail!("the input device must be off at rest");
         }
-        let payload = *design.ports.get("payload").ok_or_else(|| anyhow!("no `port payload: x y z`"))?;
-        let payload_state = design.blocks.get(&payload).cloned().ok_or_else(|| anyhow!("port payload {payload:?}: no block there"))?;
-        let twins: Vec<Pos> = design.blocks.iter().filter(|(p, s)| **p != payload && **s == payload_state).map(|(p, _)| *p).collect();
-        if !twins.is_empty() {
-            bail!("the payload's state {payload_state} must be unique in the design (also at {twins:?}): pick a block used nowhere else (gold_block, emerald_block...)");
-        }
-        Ok(Pext { design, reach, travel, input, input_kind, payload, payload_state })
+        Ok((input, input_kind))
     }
 
     pub fn name(&self) -> &str {

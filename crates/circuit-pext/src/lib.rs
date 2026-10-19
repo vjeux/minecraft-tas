@@ -153,7 +153,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
 }
 
 fn cmd_grow(base: &PathBuf, o: &search::GrowOptions, show: usize) -> Result<()> {
-    let p = Pext::load(base)?;
+    let p = Pext::base(mctas::design::Design::load(base)?)?;
     let t0 = std::time::Instant::now();
     let finds = search::grow(&p, o, &|k, d, n| eprintln!("  k={k}: {d}/{n} units ({:.0} s)", t0.elapsed().as_secs_f64()))?;
     println!("{} minimal finds in {:.1} s", finds.len(), t0.elapsed().as_secs_f64());
