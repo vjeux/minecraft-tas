@@ -28,3 +28,16 @@ close 24/25/26/30).
 - m2 KEEP mode, k<=3 changed cells over (-3,-2) (-2,-2) (-1,-2) (-3,-1) (-2,-1) (-3,0) (-3,2) (-3,3) (-3,4)
   (3,-1), 42-state palette incl. pistons/sculk/calib/obsidian: 0 of 4.6M screened.
 - m2w (wool) k<=5 on the 5 bottom-left cells, same palette: 0 of 147M (39M screened, rest pruned, 138 s).
+
+## 4. More screens (16:40Z), all 0
+- pockets3 (explore/pockets runs/): m2 and m2w cross-region KEEP k<=3 over all 23 wiring cells (47.1M each);
+  m2 bottom-left 5 cells cleared, every filling of up to 5 cells x 47 states incl. pistons (70.8M screened).
+- mine: w1b (wool, U at t11 from the sensor-pushed piston head) KEEP k<=3 over 25 cells (93.6M screened).
+- m2xl: an E chain with a LAMP instead of the bulb (E2 at t39) fails: the lamp is a conductor and relays the
+  plain sensor's strong power into E's QC cell (-2,2), so E stays extended t5..t36.
+
+## 5. Why c077w / c074 do not help in 8x7
+- Their S (-1,3) needs the same one-shot 2-gt pulse at an exact tick. The only one-shot (an observer pushed from
+  (-2,4) into (-1,4) by a piston at (-3,4)) can only be fed from (-3,3), and any sensor there powers D: strongly
+  through a conductor at (-3,2), or by QC (signal into the cell above D) when (-3,2) is air or glass.
+- Every other S feed ((-2,3), QC via (-2,4)) slaves E1 to S (E1 after S), ceil's finding.
