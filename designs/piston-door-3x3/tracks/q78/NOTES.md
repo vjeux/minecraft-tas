@@ -99,3 +99,16 @@ Frees (0,4) so A can be fed from the LEFT while W keeps the top-right. ideal-rs 
     while BM is still moving into F1). The torch can only turn off at T+2 where T = when (4,-2) hears BR's
     puller (t5; MR's puller at d=3 would give t6 but BR's at d=2 wins and both lines pass (4,-1)).
     Exhaustive right-cell screens (14x14x14x8x5 states on (3,-2) (4,-1) (4,-2) (4,-3) (3,-3)): 0.
+
+## 4. Report (05:22)
+- No verified 7x8. Best partial `e78/e78wsT.txt` (wool, sculk): only K ideal, 41 blocks; `e78/e78wsK.txt` (39) with
+  the (3,-2) wool shield instead of the torch.
+- Timing chain that blocks K: BR's puller at t3 -> (4,-2) hears it at d=2 (t5) -> torch off t7 -> observer (3,-2)
+  K at 9..11, but BM only lands in F1 at t12 (A1 = left lamp at t6 + observer = t8; A1 cannot move: (2,-3) must
+  activate one tick after (0,-3), which hears BR's puller at d=5 = t8).
+- Other regimes that work in ideal-rs (B' sensors only, `e78wsB2.ideal`): A1 4/5/7 with K = A1+3..4, and a LATE
+  regime A1 27..28 with K 30..32. With A1 = 4, K [8,10] works: BL's watcher gives A' at t5 through dust, but it
+  fires twice (t5, t9) and the t9 pulse pushes BM back.
+- Next: make (4,-2) hear MR's puller (d=3) instead of BR's (BR's puller must move later than MR's, without a
+  second pulse); a 4 gt K pulse; the late regime from the sensors' re-arm edges; a bottom mirror with K' at
+  (-1,-1) fed by dust (-2,-1) (does not power BL's puller) with obsidian stopping K' pushes past F1.
