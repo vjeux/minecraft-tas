@@ -66,4 +66,10 @@ start exactly 2 gt after P2's power, like an observer watching P2's repeater).
 | m7, right pair at 14/16/18, bottom at 24..30 (sweep/a_*) | 7x10 (-2..4, -3..6) | UNSAT (30 s .. 5 min each) |
 | m7u (TR up, MR held extended at rest = torch link), bottom at 26 | 7x10 | UNSAT (32 s) |
 | top half alone (no bottom pullers), P_M#2 one tick late | 7x4 top (-2..4, 3..6) | UNSAT (4.5 min) |
+| top half alone, P_M#2 2 gt after P2, p=4, a=8 | 7x4 top | UNSAT (25 min) |
+| top half alone, p=4, a=10..12 | 7x4 top | **SAT** (~15 min): the top IS wirable (lever at (-1,7) outside the box; P2's window from a delay-4 repeater at (0,5) facing west; an observer at (1,6) facing west; note blocks; ~19 blocks) |
+| top half alone + right pair at r = 10..22 (a = 8) | 7x4 top | UNSAT |
+
+`door topology` (main) on m7 in x -2..4, y -3..6: WIRABLE with the lever in the top component (links:
+the right puller (4,1) watched from (4,0), the left puller (-2,1) watched from (-2,0)).
 
