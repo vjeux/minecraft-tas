@@ -697,6 +697,242 @@ pub fn reduce(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usize) -> V
     v
 }
 
+// ---- stochastic search over mechanisms (not tied to families' exit plans) ----
+
+pub struct AnnealOpts {
+    pub bx: Bx,
+    pub seconds: u64,
+    pub threads: usize,
+    pub seed: u64,
+    pub cap: usize,
+    pub max_pistons: usize,
+    /// Helper kinds allowed: redstone blocks, observers, stone, obsidian.
+    pub helpers: bool,
+    pub pulses: Vec<u8>,
+    pub pairs: bool,
+}
+
+struct Rng(u64);
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+    fn below(&mut self, n: usize) -> usize {
+        if n == 0 { 0 } else { (self.next() % n as u64) as usize }
+    }
+    fn unit(&mut self) -> f64 {
+        (self.next() >> 11) as f64 / (1u64 << 53) as f64
+    }
+}
+
+/// A* toward an open state that also reports the best heuristic reached (door blocks left in the
+/// 3x3, the center counting 2).
+fn explore(ctx: &Ctx, rest: &Key, cap: usize) -> (u32, Option<(Vec<A>, u16, Key)>) {
+    let mut keys: Vec<Key> = vec![rest.clone()];
+    let mut parent: Vec<Option<(usize, A, u16)>> = vec![None];
+    let mut index: HashMap<Key, usize> = HashMap::new();
+    index.insert(rest.clone(), 0);
+    let mut heap = BinaryHeap::new();
+    let h0 = ctx.h_open(rest);
+    let mut best = h0;
+    heap.push(Node { f: 2 * h0, g: 0, id: 0 });
+    while let Some(Node { g, id, .. }) = heap.pop() {
+        let h = ctx.h_open(&keys[id]);
+        best = best.min(h);
+        if id != 0 && ctx.is_open(&keys[id]) {
+            let mut path = Vec::new();
+            let mut swept = 0u16;
+            let mut cur = id;
+            while let Some((p, a, s)) = parent[cur] {
+                path.push(a);
+                swept |= s;
+                cur = p;
+            }
+            path.reverse();
+            return (0, Some((path, swept, keys[id].clone())));
+        }
+        if keys.len() >= cap {
+            break;
+        }
+        let cur = keys[id].clone();
+        for &a in &ctx.actions {
+            let Some((nk, swept)) = ctx.step(&cur, a) else { continue };
+            if index.contains_key(&nk) {
+                continue;
+            }
+            let j = keys.len();
+            index.insert(nk.clone(), j);
+            heap.push(Node { f: g + 1 + 2 * ctx.h_open(&nk), g: g + 1, id: j });
+            keys.push(nk);
+            parent.push(Some((id, a, swept)));
+        }
+    }
+    (best, None)
+}
+
+/// Score of a mechanism (lower is better) and its solution when it opens and closes.
+fn score(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> (f64, Option<Found>) {
+    let Some((ctx, rest)) = build(bx, pieces, o) else { return (1e9, None) };
+    let np = ctx.n_pistons as f64;
+    let nh = (pieces.len() - ctx.n_pistons) as f64;
+    let (best, open) = explore(&ctx, &rest, cap);
+    let Some((path, swept, open_key)) = open else { return (10.0 * best as f64 + 0.3 * np + 0.1 * nh, None) };
+    let diff = |k: &Key| -> u32 { k.g.iter().zip(rest.g.iter()).filter(|(a, b)| a != b).count() as u32 + (k.inp ^ rest.inp).count_ones() };
+    let (r2, _) = astar(&ctx, &open_key, &|k| *k == rest, &diff, cap, &HashSet::new());
+    if let Ok(Some((close, cswept, _))) = r2 {
+        if ctx.holes_ok(&open_key, swept | cswept) {
+            let mut used = vec![false; ctx.n_pistons];
+            for a in path.iter().chain(close.iter()) {
+                match *a {
+                    A::L(i) | A::P(i, _) => used[i as usize] = true,
+                    A::S { a, b, .. } => {
+                        used[a as usize] = true;
+                        used[b as usize] = true;
+                    }
+                }
+            }
+            return (0.3 * np + 0.1 * nh - 100.0, Some(Found { open: path, close, states: 0, used }));
+        }
+    }
+    (5.0 + 0.3 * np + 0.1 * nh, None)
+}
+
+fn random_piece(r: &mut Rng, c: (i8, i8), helpers: bool) -> FPc {
+    let k = if helpers && r.below(5) == 0 {
+        match r.below(4) {
+            0 => FK::RedstoneBlock,
+            1 => FK::Observer { f: r.below(4) as u8 },
+            2 => FK::Stone,
+            _ => FK::Obsidian,
+        }
+    } else {
+        FK::Piston { sticky: r.below(3) != 0, f: r.below(4) as u8, ext: r.below(6) == 0 }
+    };
+    FPc { x: c.0, y: c.1, k }
+}
+
+fn free_cells(bx: Bx, pieces: &[FPc]) -> Vec<(i8, i8)> {
+    let mut occ: HashSet<(i8, i8)> = HashSet::new();
+    for x in 0..3 {
+        for y in 0..3 {
+            occ.insert((x, y));
+        }
+    }
+    for p in pieces {
+        for c in p.cells() {
+            occ.insert(c);
+        }
+    }
+    let mut v = Vec::new();
+    for y in bx.y0..bx.y0 + bx.h {
+        for x in bx.x0..bx.x0 + bx.w {
+            if !occ.contains(&(x, y)) {
+                v.push((x, y));
+            }
+        }
+    }
+    v
+}
+
+fn mutate(r: &mut Rng, bx: Bx, pieces: &[FPc], o: &AnnealOpts) -> Vec<FPc> {
+    let mut v = pieces.to_vec();
+    let np = v.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count();
+    let free = free_cells(bx, &v);
+    match r.below(6) {
+        0 | 1 if np < o.max_pistons && !free.is_empty() => {
+            let c = free[r.below(free.len())];
+            v.push(random_piece(r, c, o.helpers));
+        }
+        2 if !v.is_empty() => {
+            let i = r.below(v.len());
+            v.remove(i);
+        }
+        3 if !v.is_empty() && !free.is_empty() => {
+            let i = r.below(v.len());
+            let c = free[r.below(free.len())];
+            v[i].x = c.0;
+            v[i].y = c.1;
+        }
+        _ if !v.is_empty() => {
+            let i = r.below(v.len());
+            if let FK::Piston { sticky, f, ext } = v[i].k {
+                v[i].k = match r.below(3) {
+                    0 => FK::Piston { sticky: !sticky, f, ext },
+                    1 => FK::Piston { sticky, f: r.below(4) as u8, ext },
+                    _ => FK::Piston { sticky, f, ext: !ext },
+                };
+            } else {
+                v[i] = random_piece(r, (v[i].x, v[i].y), o.helpers);
+            }
+        }
+        _ => {
+            if !free.is_empty() {
+                let c = free[r.below(free.len())];
+                v.push(random_piece(r, c, o.helpers));
+            }
+        }
+    }
+    v
+}
+
+/// Simulated annealing over mechanisms in one box, every candidate scored by the exact model.
+pub fn anneal(o: &AnnealOpts) -> Vec<(Vec<FPc>, Found)> {
+    let so = Opts { pulses: o.pulses.clone(), levels: false, cap: o.cap, max_ticks: 80, pairs: o.pairs };
+    let found: Mutex<Vec<(Vec<FPc>, Found)>> = Mutex::new(Vec::new());
+    let seen: Mutex<HashSet<Vec<FPc>>> = Mutex::new(HashSet::new());
+    let evals = AtomicUsize::new(0);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(o.seconds);
+    std::thread::scope(|s| {
+        for t in 0..o.threads.max(1) {
+            let (found, seen, evals, so) = (&found, &seen, &evals, &so);
+            s.spawn(move || {
+                let mut r = Rng(o.seed.wrapping_mul(1_000_003).wrapping_add(t as u64 * 7919 + 1));
+                while std::time::Instant::now() < deadline {
+                    // a restart: a few random pistons
+                    let mut cur: Vec<FPc> = Vec::new();
+                    for _ in 0..(4 + r.below(o.max_pistons.saturating_sub(3).max(1))) {
+                        let free = free_cells(o.bx, &cur);
+                        if free.is_empty() {
+                            break;
+                        }
+                        let c = free[r.below(free.len())];
+                        cur.push(random_piece(&mut r, c, o.helpers));
+                    }
+                    let (mut cs, _) = score(o.bx, &cur, so, o.cap);
+                    let mut temp = 3.0;
+                    for _step in 0..400 {
+                        if std::time::Instant::now() >= deadline {
+                            break;
+                        }
+                        let cand = mutate(&mut r, o.bx, &cur, o);
+                        let (sc, sol) = score(o.bx, &cand, so, o.cap);
+                        evals.fetch_add(1, Ordering::Relaxed);
+                        if let Some(f) = sol {
+                            let mut key = cand.clone();
+                            key.sort();
+                            if seen.lock().unwrap().insert(key.clone()) {
+                                eprintln!("[anneal] FOUND {} pieces: {}", key.len(), key.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "));
+                                found.lock().unwrap().push((key, f));
+                            }
+                        }
+                        if sc <= cs || r.unit() < ((cs - sc) / temp).exp() {
+                            cur = cand;
+                            cs = sc;
+                        }
+                        temp = (temp * 0.99).max(0.2);
+                    }
+                }
+            });
+        }
+    });
+    eprintln!("[anneal] {} evaluations", evals.load(Ordering::Relaxed));
+    found.into_inner().unwrap()
+}
+
 // ---- the command ----
 
 pub struct CliOpts {
@@ -715,6 +951,12 @@ pub struct CliOpts {
     pub reduce: bool,
     pub reduce_cap: usize,
     pub pairs: bool,
+    /// Simulated annealing box (W x H) and its door offsets ("dx,dy;dx,dy" or all).
+    pub anneal: Option<(i8, i8)>,
+    pub offsets: Option<String>,
+    pub seconds: u64,
+    pub seed: u64,
+    pub helpers: bool,
 }
 
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
@@ -752,6 +994,50 @@ fn describe(ctx: &Ctx, f: &Found) -> String {
 
 pub fn cli(o: &CliOpts) -> Result<()> {
     let so = Opts { pulses: o.pulses.clone(), levels: o.levels, cap: o.cap, max_ticks: 80, pairs: o.pairs };
+    if let Some((w, h)) = o.anneal {
+        let mut offs: Vec<(i8, i8)> = Vec::new();
+        match o.offsets.as_deref() {
+            None | Some("all") => {
+                for dx in 0..=(w - 3) {
+                    for dy in 0..=(h - 3) {
+                        if dx <= (w - 3) - dx {
+                            offs.push((dx, dy));
+                        }
+                    }
+                }
+            }
+            Some(s) => {
+                for t in s.split(';') {
+                    let (a, b) = t.split_once(',').context("offset dx,dy")?;
+                    offs.push((a.trim().parse()?, b.trim().parse()?));
+                }
+            }
+        }
+        let per = (o.seconds / offs.len().max(1) as u64).max(10);
+        let mut report = String::new();
+        for (dx, dy) in offs {
+            let bx = Bx { x0: -dx, y0: -dy, w, h };
+            let ao = AnnealOpts { bx, seconds: per, threads: o.threads, seed: o.seed, cap: o.cap, max_pistons: o.pmax, helpers: o.helpers, pulses: o.pulses.clone(), pairs: o.pairs };
+            let found = anneal(&ao);
+            let line = format!("anneal {w}x{h} door offset ({dx},{dy}): {} mechanisms open+close exactly in {per}s", found.len());
+            println!("{line}");
+            report.push_str(&line);
+            report.push('\n');
+            let mut found = found;
+            found.sort_by_key(|(v, f)| (v.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count(), v.len(), f.open.len() + f.close.len()));
+            for (v, f) in found.iter().take(20) {
+                if let Some((ctx, rest)) = build(bx, v, &so) {
+                    let s = format!("  {}\n{}  {}\n", v.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "), ctx.render(&rest), describe(&ctx, f));
+                    print!("{s}");
+                    report.push_str(&s);
+                }
+            }
+        }
+        if let Some(out) = &o.out {
+            std::fs::write(out, &report).with_context(|| format!("writing {}", out.display()))?;
+        }
+        return Ok(());
+    }
     for path in &o.check {
         let pieces = pieces_of_design(path)?;
         let (mut x0, mut y0, mut x1, mut y1) = (0i8, 0i8, 2i8, 2i8);
@@ -874,14 +1160,32 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             let fp: Vec<FPc> = v.iter().map(FPc::from_pc).collect();
             if let Some((ctx, rest)) = build(*bx, &fp, &so) {
                 let s = format!(
-                    "  [{}] {}\n{}  {}\n",
+                    "  [{}] box x0 {} y0 {}: {}\n{}  {}\n",
                     if *m { "macro too" } else { "EXACT ONLY" },
+                    bx.x0,
+                    bx.y0,
                     fp.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
                     ctx.render(&rest),
                     describe(&ctx, f)
                 );
                 print!("{s}");
                 report.push_str(&s);
+            }
+        }
+        if o.reduce {
+            for (bx, v, _, _) in found.iter() {
+                let fp: Vec<FPc> = v.iter().map(FPc::from_pc).collect();
+                let t1 = std::time::Instant::now();
+                let r = reduce(*bx, &fp, &so, o.reduce_cap, o.threads);
+                let line = format!(
+                    "  reduce {}: {} (undriven piston, helper) pairs work [{:.0}s]{}\n",
+                    fp.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                    r.len(),
+                    t1.elapsed().as_secs_f64(),
+                    r.iter().take(6).map(|(p, h, f)| format!("\n    {} undriven, helper {} ({} + {} actions)", p.code(), h.code(), f.open.len(), f.close.len())).collect::<String>()
+                );
+                print!("{line}");
+                report.push_str(&line);
             }
         }
     }
