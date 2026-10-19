@@ -187,8 +187,10 @@ for 008 016 031 in rows -2..6 / 7x8 and for the center-down 021-034 group in y -
   piston (3,3), close piston (1,4)": B, the T parker and A on the CLOSE edge cannot get their
   recorded power together. The side triples, U and the bottom pockets are not in the core: the
   top's wall is the elevator trio's close-edge feeds (on close T and C sit in (2,3)/(1,3) and TL in
-  (0,3), so the cells next to A, B and P_T conduct differently than on open). v2/v3/families-timed
-  cores: see logs/sat-014-{v2,v3,top}.log.
+  (0,3), so the cells next to A, B and P_T conduct differently than on open). The v2, v3 and
+  families-timed runs hit their 3000 s bound while still minimizing the core (no core printed).
+  They keep v1's elevator timing and differ only in when U and the two triples fire, so the same
+  core is expected there, but not proven: U's head at (0,3) changes what touches A's cells.
 
 ### 4e. The top of 7x8-014, by hand (where it stands)
 Feeds the cells allow (x -2..4, rows 3..6, plus (-2,2) and (4,3)):
