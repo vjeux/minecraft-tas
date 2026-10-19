@@ -1,0 +1,269 @@
+open: 40 frames, powered piston-ticks t2:1,-3 t2:1,-2 t3:1,-3 t3:1,-2 t6:-1,-1 t7:-1,-1 t10:4,0 t11:4,0 t12:1,-3 t13:1,-3 t14:-2,2 t14:1,-3 t14:-2,1 t14:-2,0 t15:-2,2 t15:-2,0 t15:1,-1 t15:-2,1 t15:1,-3 t16:1,-3 t17:1,-3 t18:1,-3 t19:1,-3 t23:1,-2 t24:1,4 t25:1,4 t32:4,1 t32:4,2 t33:4,1 t33:4,2
+close: 40 frames, powered piston-ticks t2:1,-2 t2:1,-3 t3:1,-2 t3:1,-3 t6:-1,-1 t7:-1,-1 t10:4,0 t11:4,0 t12:1,-3 t13:1,-3 t14:-2,0 t14:-2,2 t14:-2,1 t14:1,-3 t15:1,-1 t15:1,-3 t15:-2,2 t15:-2,1 t15:-2,0 t16:1,-3 t17:1,-3 t18:1,-3 t19:1,-3 t23:1,-2 t24:1,4 t25:1,4 t32:4,2 t32:4,1 t33:4,1 t33:4,2
+[   1.7s] encoded: 44 free cells, 153 lever candidates, offsets 0..=8, horizon 53 ticks, 1260714 vars, 4804265 clauses
+[ 746.4s] iter 0: SAT (solve 736.4s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dX 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::#Xd 
+ -2  dDdXPddw 
+ -3  e{edP⇐++ 
+ -4  LQwtwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 750.0s] iter 1: SAT (solve 0.5s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dX 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::#Xd 
+ -2  dDdXPddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 753.1s] iter 2: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dX 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::#Xd 
+ -2  dDd#Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 756.1s] iter 3: SAT (solve 0.4s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#d# 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::#Xd 
+ -2  dDd#Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 938.7s] iter 4: SAT (solve 179.7s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#d# 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDd#Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 942.1s] iter 5: SAT (solve 0.4s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#d# 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDdXPddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 945.4s] iter 6: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dX 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDdXPddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 948.9s] iter 7: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dN 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDdXPddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 952.1s] iter 8: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dD 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDdXPddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 955.5s] iter 9: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dQ 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDdXPddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 958.8s] iter 10: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dX 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDd#Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 962.4s] iter 11: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dX 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDdNPddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 965.5s] iter 12: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dX 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDdDPddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minecraft:stone
+[ 968.6s] iter 13: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dX 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDd+Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone
+[ 971.9s] iter 14: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dN 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDd+Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone
+[ 975.4s] iter 15: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dD 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDd+Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone
+[ 978.8s] iter 16: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  twB#:#dQ 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDd+Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone
+[ 982.0s] iter 17: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  NwB#:#dN 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDd+Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone
+[ 985.2s] iter 18: SAT (solve 0.3s): 43 wiring blocks; timing open: t1=stall t2=stall t3=stall t4=stall t5=skip1 t33=skip2 t35=stall t36=stall t42=stall t43=stall t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall; close: t1=stall t2=stall t3=stall t4=stall t5=stall t6=stall t7=stall t8=skip1 t36=skip2 t38=stall t39=stall t44=skip1 t45=stall t46=stall t47=stall t48=stall t49=stall t50=stall t51=stall t52=stall t53=stall
+  5           
+  4  dw}wPw}+ 
+  3  DwB#:#dN 
+  2  QP:HHH:P 
+  1  dP:HHH:P 
+  0  BP:HHH:P 
+ -1  #dP::##d 
+ -2  dDd+Pddw 
+ -3  e{edP⇐++ 
+ -4  LQwNwBwQ 
+ -5           
+
+  JUDGE FAILS: redsim: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minecraft:stone; [0, 0, 0] is minecraft:stone; [1, 0, 0] is minecraft:stone

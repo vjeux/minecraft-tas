@@ -45,7 +45,9 @@ pub mod place;
 pub mod properties;
 pub mod relever;
 pub mod rowsfire;
+pub mod satsweep;
 pub mod satwire;
+pub mod boxproof;
 pub mod cosearch;
 pub mod cosearch_search;
 pub mod search;
@@ -65,6 +67,7 @@ pub mod pistfuzz;
 pub mod fullmech;
 pub mod mechspace;
 pub mod world;
+pub mod sheet;
 
 use anyhow::{Context, Result, bail};
 use mctas::design::Design;
