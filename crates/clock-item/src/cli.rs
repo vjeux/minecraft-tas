@@ -783,15 +783,25 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                     bail!("{} is not archived", p.display());
                 }
             }
-            for table in ["verdicts-v1.tsv", "captions.tsv"] {
+            for table in ["verdicts-v1.tsv", "captions.tsv", "extend.tsv"] {
                 let path = dir.join(table);
+                if !path.exists() {
+                    continue;
+                }
                 let text = std::fs::read_to_string(&path).with_context(|| path.display().to_string())?;
                 let header: Vec<&str> = text.lines().next().unwrap_or("").split('\t').collect();
-                let col = header.iter().position(|h| *h == "file").ok_or_else(|| anyhow!("{table}: no file column"))?;
+                // extend.tsv rows belong to a family card: its file stem
+                let (col, keys): (usize, std::collections::HashSet<String>) = if table == "extend.tsv" {
+                    let c = header.iter().position(|h| *h == "family").ok_or_else(|| anyhow!("{table}: no family column"))?;
+                    (c, files.iter().map(|f| f.trim_end_matches(".txt").to_string()).collect())
+                } else {
+                    let c = header.iter().position(|h| *h == "file").ok_or_else(|| anyhow!("{table}: no file column"))?;
+                    (c, drop.iter().map(|s| s.to_string()).collect())
+                };
                 let mut out = String::new();
                 let mut removed = 0;
                 for (i, line) in text.lines().enumerate() {
-                    if i > 0 && line.split('\t').nth(col).is_some_and(|f| drop.contains(f)) {
+                    if i > 0 && line.split('\t').nth(col).is_some_and(|f| keys.contains(f)) {
                         removed += 1;
                         continue;
                     }

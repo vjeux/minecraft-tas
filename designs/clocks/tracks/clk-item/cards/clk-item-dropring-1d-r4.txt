@@ -5,7 +5,7 @@ extend base: 0
 extend blocks: 14 + 2n
 extend family: clk-item-dropring-1d-r4
 extend generator: mctas clock item gen dropring --one --delays 4 --n {n} --out {out}
-extend n: 0..7
+extend n: 0..30
 extend period: 42 + 14n
 extend rule: widen the dropper ring by one column (2 hoppers)
 port output: 1 1 1

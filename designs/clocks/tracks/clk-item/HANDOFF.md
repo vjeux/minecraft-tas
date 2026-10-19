@@ -38,29 +38,33 @@ positions x 4 rotations) and is archived in `designs/clocks/archive/` by `clock 
 
 ## Results (archived; r = rotation-dependent, p = position-dependent)
 - Cards (FAMILIES.md): hopper rings (14 + 14n, 7 + 7n), ring locks (76 + 14n, 104 + 8n,
-  300 + 8n), lock pair (11 + 2n), powder snow dispenser (16 + 4n), 14 dropper-ring cards (every
-  P >= 42 and 27, 31, 33-36, 38, 40).
-- Individual: 8 analog (pair + 3 swords, 4b), 9 (pair + lock, 8b), 12 (powder snow dispenser, 5b),
-  14 (hop2, 4b), 15/17/20 (self-locking pair, 9b), 18 (pair + lock, 1 stone), 13 (double-torch
-  locks x2), 25 (pair + lock delay 4), 18/19/21/22/23/25/26/28/32 (dropper rings, 3 filled
-  cells), 20/29 (dropper rings, other starts), 54/81 (3x3 dropper rings with swords), ring locks
-  with sword placements (3x3: 15r, 30, 46, 49, 56, 98, 106, 158, 218, 654; 3x4: 44, 52, 74, 76, 78,
-  148, 156, 228, 236; 3x5: 58, 84, 90, 102r, 103r, 104, 107, 206r, 211r, 214, 275, 306r, 314, 414,
-  422, 1230r), burnout hybrids (64, 65, 84, 126, 129, 140, 210 robust; 192r, 195r, 384p, 389r,
-  882r, 1344r), jukebox carousels 1446, 6926, 17978 (9 blocks).
-- Coverage of the item family: every P from 11 to 160+ except 37, 39 (and 10); digital 8 missing.
+  300 + 8n), lock pair (11 + 2n), lock rings 2x2 (33 + 2n, 41 + 2n), powder snow dispenser
+  (16 + 4n), 14 dropper-ring cards (every P from 42 to ~460, and 27, 31, 33-36, 38, 40).
+- Individual: 8 analog (pair + 3 swords, 4b), 8 DIGITAL (the same pair read by a subtract
+  comparator against a constant 3 from a dead-end hopper, 7b), 9 (pair + lock, 8b), 12 (powder
+  snow dispenser, 5b), 14 (hop2, 4b), 15/17/20 (self-locking pair, 9b), 18 (pair + lock, 1 stone),
+  13 (double-torch locks x2), 16r/24 (digital 2x2 mixed-item rings, 9b), 25 (pair + lock delay 4),
+  18/19/21/22/23/25/26/28/32 (dropper rings, 3 filled cells), 20/29 (dropper rings, other
+  starts), 54/81 (3x3 dropper rings with swords), ring locks with sword placements (3x3: 15r, 30,
+  46, 49, 56, 98, 106, 158, 218, 654; 3x4: 44, 52, 74, 76, 78, 148, 156, 228, 236; 3x5: 58, 84,
+  90, 102r, 103r, 104, 107, 206r, 211r, 214, 275, 306r, 314, 414, 422, 1230r), burnout hybrids
+  (64, 65, 84, 126, 129, 140, 210 robust; 192r, 195r, 384p, 389r, 882r, 1344r), jukebox
+  carousels 1446, 6926, 17978 (9 blocks).
+- Coverage of the item family: every P from 8 to ~460 except 10, plus the long ones above.
 
 ## Negative results (exhaustive searches)
 - No item clock <= 3 blocks; pure hopper/dropper/comparator/stone <= 5 blocks: only 14.
 - Cycles <= 4 containers + comparator + <= 2 extras: only 14, 28. Vertical dropper rings: none.
 - Dropper-hopper pair: no self-trigger with <= 4 wiring blocks; 2x2 ring + dropper: none <= 4.
 - Pair + lock fills k = 5 (stone, dust, repeater, torch; 1 stone / 2 swords / 3 swords): the
-  periods above only; no 10, 37 or 39.
+  periods above only (no 10; 37 and 39 came later from the same wiring on a 2x2 ring).
 - Two-torch burnout loops: always position/rotation-dependent (12 of 12 judged).
 - Classic shuttle / latch hopper clock (P ~ 16N): no completion with <= 3 wiring blocks; a bulb
   latch version needs ~20 blocks (not built).
 
 ## Next ideas
-- 10, 37, 39 (dropper rings cannot: 37/39 need 27 + 2s with s = 5, 6 in a 3x4 ring).
-- Latch hopper clock (copper bulb T flip-flop toggled by "A empty or B empty"): P = 16N + c.
-- Crafter clocks (9 dust <-> block between two crafters; observers + relays, JVM only).
+- P10: not found. Every redstone delay is even and a hop is 7 (empty receiver) or 8 gt, so 10 needs
+  an 8-gt hop + 2 gt per cycle; the analog pair + delayed lock variants re-synchronize to 8.
+- Latch hopper clock (copper bulb T flip-flop toggled by "A empty or B empty"): P = 16N + c up to
+  N = 320 (~5000 gt) but ~20+ blocks in every layout I drew (the OR and the lock routing).
+- Crafter clocks: handed to clk-misc (session da291dc5).

@@ -1,0 +1,23 @@
+# Test: digital P=8 pair (subtract comparator) whose output locks hopper B through stone S, a dust and a delay-1 repeater.
+name: hop2x3sublockr1
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1}],TransferCooldown:7}
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}],TransferCooldown:2}
+nbt: -2 1 -1 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1}]}
+origin: -2 0 -2
+palette:
+  S minecraft:stone
+  X minecraft:comparator[facing=south,mode=subtract,powered=false]
+  K minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:hopper[enabled=true,facing=down]
+  A minecraft:hopper[enabled=true,facing=east]
+  B minecraft:hopper[enabled=true,facing=west]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  r minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+layer 0:
+  ...S
+  .SSS
+layer 1:
+  ..SR
+  DKXr
+  ..AB

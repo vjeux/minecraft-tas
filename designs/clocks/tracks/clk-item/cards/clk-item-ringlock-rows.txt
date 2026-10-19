@@ -5,7 +5,7 @@ extend base: 0
 extend blocks: 12 + 2n
 extend family: clk-item-ringlock-rows
 extend generator: mctas clock item gen ringlockd --n0 5 --n {n} --out {out}
-extend n: 0..12
+extend n: 0..30
 extend period: 76 + 14n
 extend rule: lengthen the 3-wide ring by one row (2 hoppers), still 5 stones
 port output: 1 1 1
