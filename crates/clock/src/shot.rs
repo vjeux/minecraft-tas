@@ -52,17 +52,99 @@ pub fn strip_path(dir: &Path, stem: &str) -> PathBuf {
     dir.join(format!("{stem}.strip.jpg"))
 }
 
-/// What to picture: the ticks (ascending) and the box to frame.
+/// What to picture: the ticks (ascending), the box to frame and the output cell.
 struct Plan {
     ticks: Vec<u32>,
     lo: Pos,
     hi: Pos,
+    output: Option<Pos>,
 }
+
+/// The output marker (vjeux's pick): an orange stained glass block where the output signal is,
+/// written with no block updates only for the picture, then removed.
+pub const MARKER: &str = "minecraft:orange_stained_glass";
+
+/// The camera looks from this direction (west, above, south of the clock).
+const CAM_DIR: [f64; 3] = [-0.55, 0.6, 1.0];
+
+/// Where the marker goes: the output cell when it is air; else the air cell the output component
+/// powers (an observer's back, a repeater's or comparator's front, above a standing torch) when
+/// that is air, else its air neighbor most visible from the camera. `None`: no air around.
+fn marker_cell(w: &mut Worker, sb: u32, out: Pos) -> Result<Option<Pos>> {
+    let region = w.get_region(sb, [out[0] - 1, out[1] - 1, out[2] - 1], [out[0] + 1, out[1] + 1, out[2] + 1])?;
+    let air = |p: Pos| region.get(p).is_none_or(mctas::blockstate::is_air);
+    if air(out) {
+        return Ok(Some(out));
+    }
+    let state = region.get(out).unwrap_or("").to_string();
+    let dir = |f: &str| -> Option<Pos> {
+        Some(match f {
+            "north" => [0, 0, -1],
+            "south" => [0, 0, 1],
+            "east" => [1, 0, 0],
+            "west" => [-1, 0, 0],
+            "up" => [0, 1, 0],
+            "down" => [0, -1, 0],
+            _ => return None,
+        })
+    };
+    let facing: Option<String> = mctas::blockstate::BlockState::parse(&state).ok().and_then(|b| b.get("facing").map(|s| s.to_string()));
+    let id = mctas::blockstate::block_name(&state);
+    let preferred: Option<Pos> = match id {
+        "minecraft:observer" | "minecraft:repeater" | "minecraft:comparator" => facing.as_deref().and_then(dir).map(|d| [-d[0], -d[1], -d[2]]),
+        "minecraft:redstone_torch" => Some([0, 1, 0]),
+        _ => None,
+    };
+    let mut cands: Vec<Pos> = [[0, 0, 1], [0, 1, 0], [-1, 0, 0], [1, 0, 0], [0, 0, -1], [0, -1, 0]].to_vec();
+    cands.sort_by(|a, b| {
+        let dot = |d: &Pos| d[0] as f64 * CAM_DIR[0] + d[1] as f64 * CAM_DIR[1] + d[2] as f64 * CAM_DIR[2];
+        dot(b).total_cmp(&dot(a))
+    });
+    if let Some(d) = preferred {
+        cands.retain(|c| *c != d);
+        cands.insert(0, d);
+    }
+    Ok(cands.into_iter().map(|d| [out[0] + d[0], out[1] + d[1], out[2] + d[2]]).find(|p| air(*p)))
+}
+
+/// Take one picture with the marker in place. A block written between ticks reaches the client
+/// only with the next tick's broadcast (none here: the clock must not move), so the marker is
+/// written BEFORE the camera arrives (`camera_to`: the client then loads the chunks with it), or,
+/// with the camera already there, the camera leaves beyond the view distance and comes back (the
+/// chunks are sent again). Removed (raw) after the picture.
+#[allow(clippy::too_many_arguments)]
+fn screenshot_marked(w: &mut Worker, sb: u32, marker: Option<Pos>, camera_to: Option<(Pos3, f32, f32)>, here: (Pos3, f32, f32), drop_after: Option<u32>, display: &Display, rw: u32, rh: u32, hold_ms: u64, path: &Path) -> Result<()> {
+    if let Some(m) = marker {
+        w.set_blocks(sb, &[(m, MARKER)], PlaceMode::Raw)?;
+    }
+    match camera_to {
+        Some((eye, yaw, pitch)) => w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?,
+        None if marker.is_some() => {
+            let (eye, yaw, pitch) = here;
+            w.camera(sb, [eye[0] + 4096.0, eye[1] - 1.62, eye[2]], yaw, pitch)?;
+            w.hold(1500)?;
+            w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
+        }
+        None => {}
+    }
+    // the sandbox the camera left (never the one it is in: the client would lose its world)
+    if let Some(old) = drop_after {
+        let _ = w.drop_sandbox(old);
+    }
+    w.hold(hold_ms)?;
+    let r = video::screenshot(display, rw, rh, path);
+    if let Some(m) = marker {
+        w.set_blocks(sb, &[(m, "minecraft:air")], PlaceMode::Raw)?;
+    }
+    r
+}
+
+type Pos3 = [f64; 3];
 
 fn plan(version: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
     let so = SimOptions::default();
     let r = simulate(c, &so);
-    let (main, strip, lo, hi) = match activity(c, &so) {
+    let (main, strip, lo, hi, output) = match activity(c, &so) {
         Some((w0, p, counts)) => {
             // the most active moment with nothing in motion (a moving block is invisible in a
             // still picture), else the least motion
@@ -81,7 +163,7 @@ fn plan(version: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
             let mut strip = strip;
             strip.sort();
             strip.dedup();
-            (o.tick.unwrap_or(w0 + best), strip, r.swept.0, r.swept.1)
+            (o.tick.unwrap_or(w0 + best), strip, r.swept.0, r.swept.1, r.output.as_ref().map(|o| o.pos))
         }
         None => {
             // redsim does not model it (or says it is no clock): one game build gives W and P
@@ -94,12 +176,12 @@ fn plan(version: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
             let (lo, _) = c.bounds();
             let hi = [lo[0] + k.dims[0] - 1, lo[1] + k.dims[1] - 1, lo[2] + k.dims[2] - 1];
             let strip: Vec<u32> = o.strip.map(|n| (0..n).map(|i| k.warmup + i * k.period / n.max(1)).collect()).unwrap_or_default();
-            (o.tick.unwrap_or(k.warmup + k.period / 2), strip, lo, hi)
+            (o.tick.unwrap_or(k.warmup + k.period / 2), strip, lo, hi, k.output.as_ref().map(|o| o.pos))
         }
     };
     let mut ticks = vec![main];
     ticks.extend(strip);
-    Ok(Plan { ticks, lo, hi })
+    Ok(Plan { ticks, lo, hi, output })
 }
 
 fn ffmpeg_run(args: &[String]) -> Result<()> {
@@ -168,11 +250,19 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
             }
         };
         let aspect = rw as f64 / rh as f64;
-        let lo = [p.lo[0] as f64 - 0.25, p.lo[1] as f64 - 0.25, p.lo[2] as f64 - 0.25];
-        let hi = [p.hi[0] as f64 + 1.25, p.hi[1] as f64 + 1.25, p.hi[2] as f64 + 1.25];
-        let (eye, yaw, pitch) = video::frame_box(lo, hi, [-0.55, 0.6, 1.0], VFOV, aspect, 0.85);
         // the main picture
         step_to(&mut w, p.ticks[0], &mut t, &mut actions)?;
+        let marker = match p.output {
+            Some(op) => marker_cell(&mut w, sb, op)?,
+            None => None,
+        };
+        let (mut flo, mut fhi) = (p.lo, p.hi);
+        if let Some(mk) = marker {
+            crate::grow(&mut flo, &mut fhi, mk);
+        }
+        let lo = [flo[0] as f64 - 0.25, flo[1] as f64 - 0.25, flo[2] as f64 - 0.25];
+        let hi = [fhi[0] as f64 + 1.25, fhi[1] as f64 + 1.25, fhi[2] as f64 + 1.25];
+        let (eye, yaw, pitch) = video::frame_box(lo, hi, CAM_DIR, VFOV, aspect, 0.85);
         if client.is_none() {
             let cl = Client::launch(&client_build, &display, port, rw, rh, &run.join("client"))?;
             client = Some(cl);
@@ -187,13 +277,11 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
                 w.hold(500)?;
             }
         }
-        w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
-        if let Some(old) = prev.take() {
-            let _ = w.drop_sandbox(old);
-        }
-        w.hold(if i == 0 { o.hold_ms.max(12_000) } else { o.hold_ms })?;
         let raw = run.join(format!("{stem}.png"));
-        video::screenshot(&display, rw, rh, &raw)?;
+        // the camera arrives with the marker already written (the client loads the chunks with
+        // it); the previous clock's sandbox goes once the camera has left it
+        let old = prev.take();
+        screenshot_marked(&mut w, sb, marker, Some((eye, yaw, pitch)), (eye, yaw, pitch), old, &display, rw, rh, if i == 0 { o.hold_ms.max(12_000) } else { o.hold_ms }, &raw)?;
         let out = shot_path(&o.out_dir, stem);
         // the camera aims at the box's center: keep the middle 64% of the frame (the clock bigger,
         // less grass and sky), scaled to the requested width
@@ -203,8 +291,8 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
         if p.ticks.len() > 1 {
             let mut frames: Vec<PathBuf> = Vec::new();
             let strip_ticks: Vec<u32> = p.ticks[1..].to_vec();
-            if strip_ticks[0] < t {
-                // restart the clock in a second sandbox at the same place
+            {
+                // the strip restarts the clock in a second sandbox at the same place
                 let sb2 = w.create(&SandboxOptions { chunks, seed: 0 })?;
                 place(&mut w, sb2, c)?;
                 w.fill(sb2, [p.lo[0] - m, fy, p.lo[2] - m], [p.hi[0] + m, fy, p.hi[2] + m], "minecraft:grass_block", PlaceMode::Raw)?;
@@ -225,20 +313,24 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
                         w.step(sb2, next - t2)?;
                         t2 = next;
                     }
-                    if k == 0 {
-                        w.camera(sb2, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
-                        let _ = w.drop_sandbox(sb);
-                        w.hold(o.hold_ms)?;
-                    } else {
-                        w.hold(700)?;
-                    }
+                    let mk = match p.output {
+                        Some(op) => marker_cell(&mut w, sb2, op)?,
+                        None => None,
+                    };
                     let f = run.join(format!("{stem}-strip{k}.png"));
-                    video::screenshot(&display, rw, rh, &f)?;
+                    if k == 0 {
+                        screenshot_marked(&mut w, sb2, mk, Some((eye, yaw, pitch)), (eye, yaw, pitch), Some(sb), &display, rw, rh, o.hold_ms, &f)?;
+                    } else {
+                        screenshot_marked(&mut w, sb2, mk, None, (eye, yaw, pitch), None, &display, rw, rh, 1500, &f)?;
+                    }
                     frames.push(f);
                 }
                 prev = Some(sb2);
             }
             let n = frames.len();
+            if n < 2 {
+                bail!("{stem}: the strip has {n} distinct moment(s)");
+            }
             let each = (o.width * 2 / 3).max(200);
             let mut args: Vec<String> = Vec::new();
             for f in &frames {

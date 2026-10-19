@@ -75,7 +75,7 @@ impl Plan {
     pub fn label_lines(&self) -> Vec<(String, u32, [u8; 3])> {
         let [w, h, d] = self.dims;
         vec![
-            (format!("P = {} gt", self.period), 4, YELLOW),
+            (format!("P = {}", crate::gt_time(self.period)), 4, YELLOW),
             (format!("{}, {} blocks, {w}x{h}x{d}", self.family.replace('+', " + "), self.blocks), 2, WHITE),
             (format!("on {}, {}", self.duty, self.start), 2, GRAY),
             (self.name.clone(), 2, AQUA),
@@ -87,6 +87,7 @@ impl Plan {
         vec![
             ("redstone clock".to_string(), 4, GRAY),
             (format!("{} gt", self.period), 12, YELLOW),
+            (crate::real_time(self.period), 4, YELLOW),
             (self.family.replace('+', " + "), 4, WHITE),
             (format!("{} blocks, {w}x{h}x{d}", self.blocks), 3, WHITE),
             (format!("on {}, {}", self.duty, self.start), 3, GRAY),
@@ -239,9 +240,9 @@ pub fn record_clip(version: &str, c: &Clock, p: &Plan, clip: &Path, o: &ClockVid
         w.hold(500)?;
     }
     let aspect = o.width as f64 / o.height as f64;
-    let lo = [p.lo[0] as f64, p.lo[1] as f64, p.lo[2] as f64];
-    let hi = [p.hi[0] as f64 + 1.0, p.hi[1] as f64 + 1.0, p.hi[2] as f64 + 1.0];
-    let (eye, yaw, pitch) = video::frame_box(lo, hi, [-0.55, 0.55, 1.0], VFOV, aspect, 0.55);
+    let lo = [p.lo[0] as f64 - 0.25, p.lo[1] as f64 - 0.25, p.lo[2] as f64 - 0.25];
+    let hi = [p.hi[0] as f64 + 1.25, p.hi[1] as f64 + 1.25, p.hi[2] as f64 + 1.25];
+    let (eye, yaw, pitch) = video::frame_box(lo, hi, [-0.55, 0.6, 1.0], VFOV, aspect, 0.8);
     w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
     w.hold(12_000)?;
     video::screenshot(&display, o.width, o.height, &clip.with_extension("png"))?;
@@ -363,6 +364,7 @@ pub fn montage(version: &str, items: &[(String, Clock)], out_dir: &Path, periods
         let lines_card = vec![
             ("redstone clocks".to_string(), 4, GRAY),
             (format!("{period} gt"), 12, YELLOW),
+            (crate::real_time(period), 4, YELLOW),
             (format!("{} clock{}, smallest first", vids.len(), if vids.len() == 1 { "" } else { "s" }), 4, WHITE),
         ];
         card_image(&font, &dirt, o.width, o.height, &lines_card).save_png(&card)?;

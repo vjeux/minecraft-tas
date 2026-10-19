@@ -475,7 +475,7 @@ pub fn write_outputs(o: &CensusOptions, found: &[Found]) -> Result<(usize, usize
             let n: BTreeSet<&str> = all.iter().filter(|f| f.period == *p && f.family == *fam).map(|f| f.type_key.as_str()).collect();
             let nm: BTreeSet<&str> = all.iter().filter(|f| f.period == *p && f.family == *fam && f.minimal).map(|f| f.type_key.as_str()).collect();
             if let Some(b) = best.get(&(*p, fam.to_string())) {
-                md.push_str(&format!("| {p} | {fam} | {} | {} | {}, {}x{}x{} | {} |\n", n.len(), nm.len(), b.blocks, b.dims[0], b.dims[1], b.dims[2], b.start));
+                md.push_str(&format!("| {} | {fam} | {} | {} | {}, {}x{}x{} | {} |\n", crate::gt_time(*p), n.len(), nm.len(), b.blocks, b.dims[0], b.dims[1], b.dims[2], b.start));
             }
         }
     }
@@ -527,7 +527,8 @@ pub fn report(dirs: &[PathBuf]) -> Result<String> {
     ));
     for ((p, fam), b) in &best {
         md.push_str(&format!(
-            "| {p} | {fam} | {} | {} | {}x{}x{} | {} | {} | `{}` |\n",
+            "| {} | {fam} | {} | {} | {}x{}x{} | {} | {} | `{}` |\n",
+            crate::gt_time(*p),
             types[&(*p, fam.clone())].len(),
             b.blocks,
             b.dims[0],

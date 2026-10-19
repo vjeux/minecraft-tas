@@ -85,16 +85,16 @@ impl VerifyReport {
         self.runs.iter().find(|r| r.turns == 0 && r.offset == [0, 0, 0]).and_then(|r| r.result.as_ref().ok()).or_else(|| self.runs.iter().find_map(|r| r.result.as_ref().ok()))
     }
 
-    /// `CLOCK: <name> period P gt, on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust`.
+    /// `CLOCK: <name> period P gt (T), on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust`.
     pub fn summary(&self) -> String {
         match (self.verdict, self.base()) {
             (Verdict::Clock, Some(b)) => {
                 let (on, edges) = b.output.as_ref().map(|o| (o.wave.on, o.wave.edges)).unwrap_or((0, 0));
                 let [w, h, d] = b.dims;
                 format!(
-                    "CLOCK: {} period {} gt, on {on}/{}, edges {edges}, warmup {}, family {}, {} blocks, {w}x{h}x{d}, {}",
+                    "CLOCK: {} period {}, on {on}/{}, edges {edges}, warmup {}, family {}, {} blocks, {w}x{h}x{d}, {}",
                     self.name,
-                    b.period,
+                    crate::gt_time(b.period),
                     b.period,
                     b.warmup,
                     wave::signature(&b.analysis.family),
