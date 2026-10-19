@@ -144,8 +144,10 @@ JVM's `door ideal` on m10a/m10/m8/m9. Windows measured with it (plans in `seeds/
   calibrated re-arm (T+20) echoes into A. Not wirable this way.
 * cosearch with the sculk palette (all 25-min runs, 40 threads, ~150k screens/s): m10a (lever
   levels real, the rest assisted) best 75/79 with 1 assist / 73/79 with none; m10s 75/79; t10s
-  69-75/79 (2 assists); m9L 73/79; t8L far side (elevator pinned) 69/79 (2 assists); m10s's
-  bottom (top pinned) 71/79; m10b's K (5 cells, enumeration k=3 + anneal) no find.
+  69-75/79 (2 assists); m9L 73/79; m10s's bottom (top pinned) 71/79; m10b's K (5 cells,
+  enumeration k=3 + anneal) no find; far sides with the elevator pinned (`--pin-assist`, 20 min):
+  t10s 75/79 with MR+BR still assisted, t8L 75/79 with ML+BL still assisted (both partials place
+  calibrated sensors, t8L's with a bulb: `finds-kept/`), no find.
 
 ## 6. Next ideas
 
