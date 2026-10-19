@@ -1,0 +1,193 @@
+# Item T flip-flop: two hoppers facing each other (east/west), both locked by a torch under each; one item. Each 2 gt lever pulse on both torch supports unlocks both for 2 gt: the holder pushes its item (8 gt cooldown), the receiver gets cooldown 7 (wasEmpty, ticked after the sender) and cannot push back before the hoppers relock. A comparator reading the west hopper drives a lamp: on, off, on, off.
+box -3 -1 -2 3 3 2
+block -2 0 0 minecraft:stone
+block -1 0 0 minecraft:stone
+block 0 0 0 minecraft:stone
+block 1 0 0 minecraft:stone
+block -1 1 0 minecraft:stone
+block 0 1 0 minecraft:redstone_torch[lit=true]
+block 1 1 0 minecraft:redstone_torch[lit=true]
+block 0 2 0 minecraft:hopper[enabled=false,facing=east]
+block 1 2 0 minecraft:hopper[enabled=false,facing=west]
+block -1 2 0 minecraft:comparator[facing=east,mode=compare,powered=false]
+block -2 1 0 minecraft:stone
+block -2 2 0 minecraft:redstone_lamp[lit=false]
+block 0 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+block 1 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+item 0 2 0 0 stone 1
+run 20
+use 0 0 -1
+use 1 0 -1
+run 2
+use 0 0 -1
+use 1 0 -1
+run 20
+use 0 0 -1
+use 1 0 -1
+run 2
+use 0 0 -1
+use 1 0 -1
+run 20
+use 0 0 -1
+use 1 0 -1
+run 2
+use 0 0 -1
+use 1 0 -1
+run 20
+frame 0
+cell 0 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+cell 1 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+cell -2 0 0 minecraft:stone
+cell -1 0 0 minecraft:stone
+cell 0 0 0 minecraft:stone
+cell 1 0 0 minecraft:stone
+cell -2 1 0 minecraft:stone
+cell -1 1 0 minecraft:stone
+cell 0 1 0 minecraft:redstone_torch[lit=true]
+cell 1 1 0 minecraft:redstone_torch[lit=true]
+cell -2 2 0 minecraft:redstone_lamp[lit=false]
+cell -1 2 0 minecraft:comparator[facing=east,mode=compare,powered=false]
+cell 0 2 0 minecraft:hopper[enabled=false,facing=east]
+cell 1 2 0 minecraft:hopper[enabled=false,facing=west]
+frame 1
+frame 2
+cell -2 2 0 minecraft:redstone_lamp[lit=true]
+cell -1 2 0 minecraft:comparator[facing=east,mode=compare,powered=true]
+frame 3
+frame 4
+frame 5
+frame 6
+frame 7
+frame 8
+frame 9
+frame 10
+frame 11
+frame 12
+frame 13
+frame 14
+frame 15
+frame 16
+frame 17
+frame 18
+frame 19
+frame 20
+frame 21
+cell 0 0 -1 minecraft:lever[face=wall,facing=north,powered=true]
+frame 22
+cell 1 0 -1 minecraft:lever[face=wall,facing=north,powered=true]
+frame 23
+frame 24
+cell 0 1 0 minecraft:redstone_torch[lit=false]
+cell 1 1 0 minecraft:redstone_torch[lit=false]
+cell 0 2 0 minecraft:hopper[enabled=true,facing=east]
+cell 1 2 0 minecraft:hopper[enabled=true,facing=west]
+frame 25
+cell 0 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+frame 26
+cell 1 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+frame 27
+frame 28
+cell 0 1 0 minecraft:redstone_torch[lit=true]
+cell 1 1 0 minecraft:redstone_torch[lit=true]
+cell -1 2 0 minecraft:comparator[facing=east,mode=compare,powered=false]
+cell 0 2 0 minecraft:hopper[enabled=false,facing=east]
+cell 1 2 0 minecraft:hopper[enabled=false,facing=west]
+frame 29
+frame 30
+frame 31
+frame 32
+cell -2 2 0 minecraft:redstone_lamp[lit=false]
+frame 33
+frame 34
+frame 35
+frame 36
+frame 37
+frame 38
+frame 39
+frame 40
+frame 41
+frame 42
+frame 43
+frame 44
+frame 45
+frame 46
+frame 47
+cell 0 0 -1 minecraft:lever[face=wall,facing=north,powered=true]
+frame 48
+cell 1 0 -1 minecraft:lever[face=wall,facing=north,powered=true]
+frame 49
+frame 50
+cell 0 1 0 minecraft:redstone_torch[lit=false]
+cell 1 1 0 minecraft:redstone_torch[lit=false]
+cell 0 2 0 minecraft:hopper[enabled=true,facing=east]
+cell 1 2 0 minecraft:hopper[enabled=true,facing=west]
+frame 51
+cell 0 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+frame 52
+cell 1 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+frame 53
+frame 54
+cell 0 1 0 minecraft:redstone_torch[lit=true]
+cell 1 1 0 minecraft:redstone_torch[lit=true]
+cell -2 2 0 minecraft:redstone_lamp[lit=true]
+cell -1 2 0 minecraft:comparator[facing=east,mode=compare,powered=true]
+cell 0 2 0 minecraft:hopper[enabled=false,facing=east]
+cell 1 2 0 minecraft:hopper[enabled=false,facing=west]
+frame 55
+frame 56
+frame 57
+frame 58
+frame 59
+frame 60
+frame 61
+frame 62
+frame 63
+frame 64
+frame 65
+frame 66
+frame 67
+frame 68
+frame 69
+frame 70
+frame 71
+frame 72
+frame 73
+cell 0 0 -1 minecraft:lever[face=wall,facing=north,powered=true]
+frame 74
+cell 1 0 -1 minecraft:lever[face=wall,facing=north,powered=true]
+frame 75
+frame 76
+cell 0 1 0 minecraft:redstone_torch[lit=false]
+cell 1 1 0 minecraft:redstone_torch[lit=false]
+cell 0 2 0 minecraft:hopper[enabled=true,facing=east]
+cell 1 2 0 minecraft:hopper[enabled=true,facing=west]
+frame 77
+cell 0 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+frame 78
+cell 1 0 -1 minecraft:lever[face=wall,facing=north,powered=false]
+frame 79
+frame 80
+cell 0 1 0 minecraft:redstone_torch[lit=true]
+cell 1 1 0 minecraft:redstone_torch[lit=true]
+cell -1 2 0 minecraft:comparator[facing=east,mode=compare,powered=false]
+cell 0 2 0 minecraft:hopper[enabled=false,facing=east]
+cell 1 2 0 minecraft:hopper[enabled=false,facing=west]
+frame 81
+frame 82
+frame 83
+frame 84
+cell -2 2 0 minecraft:redstone_lamp[lit=false]
+frame 85
+frame 86
+frame 87
+frame 88
+frame 89
+frame 90
+frame 91
+frame 92
+frame 93
+frame 94
+frame 95
+frame 96
+frame 97
+frame 98

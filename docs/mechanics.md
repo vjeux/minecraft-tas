@@ -11,8 +11,9 @@ observer pulse); this page uses game ticks throughout.
 
 Sections: 1. one tick, 2. pistons, 3. redstone dust, 4. other blocks, 5. timing of every
 component, 6. what happens in 0 gt, 7. odd ticks, 8. techniques the doors use, 9. floors for the
-fastest 3x3 door, 10. gadget catalog, 11. vanilla confirmation. (Sections 5-9 and 11 are the
-tick-study track's timing study.)
+fastest 3x3 door, 10. gadget catalog, 11. vanilla confirmation, 12. redsim, the exact model
+(where each rule lives in `crates/redsim`, with source lines and evidence). (Sections 5-9 and 11
+are the tick-study track's timing study.)
 
 ## 1. One tick (`ServerLevel.tick`, 358-460)
 
@@ -326,6 +327,45 @@ Every redstone component delays by an even number of game ticks. Odd ticks come 
 * **In one plane** (flat): repeaters cannot be locked (their sides face out of the plane), and a
   lever powers its neighbors, so it must stay off every piston and quasi cell.
 
+### Wiring tricks for tight flat boxes (found 2026-10-18 evening, below-72 hunt)
+
+Read these before wiring a flat door in a box smaller than 8x9. Each names its proof (gadget or
+track notes).
+
+* **Pulse merger** (`pulse-merge`, flat-seam e89): observer -> delay-2 repeater -> observer turns a
+  double pulse (two 2 gt pulses up to 4 gt apart) into ONE 2 gt pulse; 8 gt apart stays two
+  (`merger-gap`).
+* **Observer busy window** (wire56 NOTES sec 5): an observer ignores changes while it is powered or
+  has a tick pending, so a piston firing twice exactly 6 gt apart gives its watcher 3 pulses (an
+  odd count), and an observer on a door block's PARKING cell can see 3 changes per edge. Links
+  between wiring regions are therefore not always even (this refutes the parity premise of box56's
+  7x8 proof and of `door topology`).
+* **Memory link** (`memory-link`, wire56): waxed bulb B1 -> comparator C1 -> bulb B2 -> comparator
+  C2 -> observer gives exactly one 2 gt pulse per lever edge from any even input (~7 cells with the
+  comparator floors). A single bulb + comparator window FAILS on close for a pull-type piston
+  (`memory-window`: the long window pushes the block back, the sticky retract pulls it out again).
+* **Torch link** (`torch-link`, box72): a side piston held extended by a torch on the lever's
+  block moves once per flip, so the observer watching it fires once (a parity-clean link). Any
+  LEVEL-held piston is such a link (wire64 on 8x8-118: E3+ and E5+).
+* **Lever outside the box** (box72 m2w): only the lever is excluded from the volume; hang it on a
+  box cell from outside (its support block is inside).
+* **Conductor feeds do not update** (box64): a powered plain block above a piston quasi-arms it
+  without updating it, so pist19r's B can be fed by a conductor at (2,5) without firing A.
+* **Note-block window** (wire64 w102-left): a note block under a cross dust carries a window into a
+  piston; an observer watching the note block fires at both ends of the window.
+* **Pitfall: a real observer next to a pull-type piston fires twice per pulse** (start of the
+  extension and end of the spit retraction), 4 gt apart (flat-seam cd8-bw).
+* **Dropper/dispenser = QC power sensor**: immovable full conductor whose `triggered` follows
+  power including the cell above (QC), re-read on neighbor updates only and set WITHOUT neighbor
+  updates; an observer facing it fires on each flip.
+* **Non-conducting full blocks** (glass, tinted glass, glowstone, sea lantern, waxed copper grate):
+  sturdy (they hold dust, diodes, torches) but never powered, so they stop leaks into neighboring
+  pistons and quasi cells.
+* **The only 1 gt delay**: a scheduled leaves distance update (persistent leaves next to a log);
+  every other component delays an even number of ticks.
+* **In-plane limits**: no repeater locking and no comparator side inputs (both need a diode at
+  z+-1).
+
 Notes for builders of fast doors:
 
 * Pistons react to a landing one tick late (landing = block-entity phase): spit (2 gt pulse) or
@@ -536,6 +576,7 @@ behavior: `mctas door drive --quiet designs/gadgets/*.drive` prints PASS/FAIL pe
 | `rail-line` | powered rails, observer, piston | (exotic) rails 1..9 power up in the click's tick (slope included), rail 10 never; an observer above rail 9 pulses 2 gt after each edge; a piston under rail 5 never moves (rails power nothing) |
 | `dispenser-qc` | dispenser, crafter, observer | (exotic) a dispenser triggers through quasi-connectivity on both edges (observer pulse 2 gt later) and cannot be pushed; a crafter ignores the same quasi signal and triggers only when powered directly |
 | `scaffold-delay` | scaffolding, observer | (exotic) breaking the block under scaffold A: A turns distance 1 one tick later, the scaffold above it one tick after that, an observer watching it pulses 2 gt later; placing it back reverses it (a 1 gt delay chain) |
+| `torch-link` | lever, block, torch, sticky piston (extended at rest), observer | (box72) a LEVEL-driven link piston: a torch on the lever's block holds a sticky piston extended (head stuck to its block); lever on: torch off 2 gt later, the piston retracts and pulls its block; lever off: it pushes it back. It moves once per edge, so an observer watching it pulses exactly ONCE per edge (a pull-type pulse piston gives two: the parity problem). A 7-wide flat door's side middle puller held this way (torch at (-2,0) on the lever's block (-2,-1)) is watched from (-2,2): a parity-clean link from below the side cut at y = 1 to above it, no merger |
 
 The library also holds `hold-2rep`, `note-watch`, `sculk-hold-cm` and `silent-hold-rb` (variants
 used by single tracks; their drive scripts say what they prove).
@@ -663,3 +704,106 @@ behaves identically in the official server.**
   line: activation floor(d) gt after each flip, d up to 16. Echo rule for every sensor: once it
   is INACTIVE again (wake + 20 calibrated, + 40 normal) any piston move within its radius wakes
   it, so whatever it drives must stop moving before then, or the re-run must be a no-op.
+
+## 12. redsim: the exact model (track redmodel)
+
+`crates/redsim` is a pure-Rust, dependency-free tick-level copy of the 26.3 code paths above,
+shared by the search tools (`door redsim-verify`, `cosearch`, `fullmech`, satwire's screen). It
+replays every rule of sections 1-7 exactly; this section says where each rule lives and what the
+differential tests found. Evidence: `redsim-fuzz fuzz` compares every block state after every tick
+with the bridge sandbox (0/100,000 random circuits with `--palette all`, 0/20,000 container
+circuits with `--gen containers`), pistmodel's `door pistfuzz` does the same for pistons (0/100,000,
+plus 328/328 archived doors and 72/72 gadgets), `door redsim-verify --judge` gives the judge's
+verdict on all 263 supported archived designs, and every regression found is a fixture in
+`crates/redsim/tests/fixtures/` (`cargo test --release -p redsim --tests`). Owners: redmodel
+(engine, redstone, containers, classes), pistmodel (`piston/`, `gravity.rs`).
+
+**Engine** (`world.rs`, `ticks.rs`, `pos.rs`):
+
+| rule | game source | redsim |
+|---|---|---|
+| `setBlock` side effects: block entity swap, `onPlace`/removal, flag 1 neighbor updates, shape updates with `flags & -34` (changes made by shape updates notify no neighbors), flag 16/512 cuts | `Level.setBlock` 216, `LevelChunk.setBlockState` 267 | `World::set_block_limit` (fixture shape-update-no-neighbor-updates) |
+| neighbor updates W,E,D,U,N,S through a FIFO that runs nested updates after the current one | `CollectingNeighborUpdater.addAndRun` 68, `runUpdates` 87 | `World::add_and_run`, `Nu::{Full, Multi, Shape, Simple}` |
+| scheduled ticks: per-chunk queues merged by (trigger, priority, sub-tick); collected first, then run; `willTickThisTick` | `LevelTicks.tick` 81, `collectTicks` 93, `runCollectedTicks` 182 | `ticks.rs` |
+| block events FIFO with dedup, events added meanwhile run in the same phase | `ServerLevel.runBlockEvents` 1267 | `World::tick` |
+| tick phases: time+1, block ticks, block events, entities (falling blocks), block entities (hoppers, then moving pistons) | `ServerLevel.tick` 358-460 | `World::tick` |
+| comparator notification of a changed container or analog source: horizontal comparators, and the comparator behind one conductor | `Level.updateNeighbourForOutputSignal` 1015 | `World::update_neighbour_for_output_signal` |
+| dust update order = `HashSet<BlockPos>` order, `hash = (y + 31z) * 31 + x`, bucket `(h ^ h >>> 16) & 15` | `DefaultRedstoneWireEvaluator.updatePowerStrength` 18 | `pos::java_hashset_order` |
+| judge placement: raw writes (flags 2\|16\|32\|256\|512), a shape update of every wire, a `self` update of every block | `video.rs::place` | `World::place_like_judge` (`place_raw` + `place_updates`) |
+
+**Components** (`behavior.rs` dispatches by block; one module per component family):
+
+| component | game source | redsim | rules the fuzzer pinned down |
+|---|---|---|---|
+| dust | `RedstoneWireBlock.getConnectionState` 117, `updatePowerStrength` 264, `getSignal` 361; `DefaultRedstoneWireEvaluator.calculateTargetStrength` 40 | `redstone/wire.rs` | dots stay dots, placed crosses stay crosses; step connections cut by a conductor above / beside; wire signals off while computing (no dust-to-dust through blocks) |
+| repeater | `DiodeBlock.tick` 50, `checkTickOnNeighbor` 84, `getInputSignal` 109, `shouldPrioritize` 196; `RepeaterBlock.isLocked` 84 | `redstone/diode.rs` | priorities -3/-2/-1 (section 5), locking read in `updateShape`, pulse stretching |
+| comparator | `ComparatorBlock.calculateOutputSignal` 64, `getInputSignal` 90 (analog through one conductor), `checkTickOnNeighbor` 140, `refreshOutputState` 151 | `redstone/diode.rs` | compare mode updates its front on every tick it runs, even with an unchanged output (a BUD source) |
+| torch, wall torch | `RedstoneTorchBlock.tick` 61, `neighborChanged` 83, `isToggledTooFrequently` 126 | `redstone/attach.rs` (`torch`) | burnout list per position (8 toggles in 60 gt -> 160 gt) |
+| lever, buttons | `LeverBlock.pull` 82, `updateNeighbours` 133; `ButtonBlock.press` 94, `tick` 133 | `redstone/attach.rs` | stone 20 gt, wood 30 gt; the bridge's `use` calls `press` even on a pressed button: the pending release tick is kept (dedup) |
+| observer | `ObserverBlock.updateShape` 57, `tick` 45, `startSignal` 74 | `redstone/blocks.rs` (`observer`) | fires on shape updates only, not while powered or with a tick pending |
+| lamp | `RedstoneLampBlock.neighborChanged` 29, `tick` 45 | `blocks.rs` (`lamp`) | on in the powering update (flags 2), off by a 4 gt NORMAL tick from the first unpowered update, never rescheduled |
+| waxed copper bulb | `CopperBulbBlock.checkAndFlip` 42, `getAnalogOutputSignal` 66 | `blocks.rs` (`bulb`) | toggles on the rising edge seen by a neighbor update; comparator 15/0 |
+| note block | `NoteBlock.neighborChanged` 81, `setInstrument` 47, `triggerEvent` 141 | `blocks.rs` (`note`) | instrument from the block below, or the mob head above (a wall skull is a harp: its state has no `instrument` override; fixture note-under-wall-skull) |
+| target | `TargetBlock` (signal source, power 0 unhit) | `blocks.rs` (`target`) | dust always connects |
+| trapdoors, doors, fence gates | `TrapDoorBlock.neighborChanged` 116, `DoorBlock.updateShape` 78 / `neighborChanged` 215, `FenceGateBlock.neighborChanged` 172 | `blocks.rs` (`indicator`) | a door half copies the other half's state in `updateShape`; oak use = flags 10 / 2 |
+| powered, activator rails | `PoweredRailBlock.findPoweredRailSignal` 23, `updateState` 121; `RailState` | `blocks.rs` (`rail`) | 8-rail search; `RailState` reshapes neighbors on place (found by the fuzzer) |
+| dropper, dispenser, crafter | `DispenserBlock.neighborChanged` 121, `tick` 135; `CrafterBlock.neighborChanged` 67, `tick` 84 | `blocks.rs` (`dispenser`) | QC (power at the cell above), 4 gt trigger, `triggered` cleared with flags 2 |
+| containers (items) | `DropperBlock.dispenseFrom` 41; `HopperBlockEntity.pushItemsTick` 97, `tryMoveItems` 106, `ejectItems` 143, `suckInItems` 218, `tryMoveInItem` 314, `removeItem` 74; `AbstractContainerMenu.getRedstoneSignalFromContainer` | `redstone/container.rs` | a hopper's `removeItem`/`setItem` do NOT notify comparators, a dropper's do (fixture hopper-remove-no-setchanged); wasEmpty cooldown 8, or 7 when the sender ticked no later; fill level in floats: `floor(14 f) + (f > 0)`; T flip-flop gadget: fixture hopper-t-flip-flop |
+| hopper (lock) | `HopperBlock.checkPoweredState` 118 | `blocks.rs` (`hopper`) | `enabled` follows `!hasNeighborSignal`, flags 2 |
+| leaves | `LeavesBlock.updateShape` 86, `tick` 76, `updateDistance` 108 | `blocks.rs` (`leaves`) | distance from logs (the only 1 gt element) |
+| analog blocks | `CakeBlock.canSurvive` 123 / `getAnalogOutputSignal` 133, `ComposterBlock.tick` 218 / 231, end portal frame, respawn anchor | `behavior.rs` | a cake needs a SOLID block below (it pops off repeaters: fixture cake-on-unsupported-repeater) |
+| plain blocks | `Blocks.java` properties (conductor, collision, support shape, instrument, push reaction) | `block.rs` (`SIMPLES`), `behavior.rs` | slime conducts and is a floor; honey and leaves conduct nothing and hold nothing (fixtures slime-is-a-conductor, leaves-honey-hold-nothing) |
+| pistons, moving blocks, gravity | section 2; `PistonBaseBlock.checkIfExtend` 93, `getNeighborSignal` 116, `triggerEvent` 139, `isPushable` 215, `moveBlocks` 259; `PistonMovingBlockEntity.finalTick` 262, `tick` 294 | `piston/`, `gravity.rs` (pistmodel) | a retracting base keeps its extended box as support; a head popped by `updateShape` drops nothing |
+
+**Block equivalence classes** (`redsim::classes`, `redsim-fuzz classes`; list in
+`designs/redsim/CLASSES.txt`): two block states are interchangeable when every property the model
+reads agrees (conductor; `isFaceSturdy` per face for FULL, CENTER and RIGID support; `isSolid`;
+collision; push reaction; slime/honey; block entity; unbreakable; drops; analog output; leaf
+distance source; own behavior). 70 plain states fall in 22 classes, 11 if note-block instruments
+are ignored (they matter only directly above/below a note block): stone-like conductors, obsidian
+(immovable), glass-like non-conductors, slime, honey, pumpkin (popped by pistons), glazed
+terracotta (push-only), logs (leaf source), soul sand/mud (14 px collision), bottom slab, top slab.
+`redsim-fuzz classfuzz` proves them in the game: 3000 random circuits against the same circuit with
+every plain block replaced by a random member of its class, 0 differ modulo the classes.
+
+**Out of scope** (a model note is recorded, never a silent difference): random ticks, weather and
+time, entities and players (pressure plates, tripwire, item entities: a dropper spitting into the
+world, hoppers catching drops), a dropper holding 2+ stacks (random slot), dispensers' item
+behaviors, sculk, fluids and waterlogging, fence-gate `use` (needs the player's facing), unwaxed
+copper. Unknown blocks are rejected (`Block::parse`), so a screen answers Unsupported instead of
+guessing.
+
+**Link table** (`redsim::links`, `redsim-fuzz links [--verify]`): what each component does to a
+pulse train, measured in redsim and replayed in the game (`--verify`: 96/96 identical). Input: a
+floor lever toggled between ticks (a pulse k = on before tick 1, off k ticks later); cells: the
+component's output windows, first tick on - first tick off ("1.." = stays on). Pulse COUNTS
+change along a chain: an observer merges changes inside its 4 gt busy window (one pulse for a
+1-2 gt input pulse), an observer watching a level (lamp, note block) emits two pulses per window,
+a lamp merges pulses closer than its 4 gt fall, a comparator swallows a 1 gt pulse, repeaters
+stretch to their delay and merge gaps shorter than it, and a copper bulb (directly, or fed by an
+observer) halves the count: 2 input pulses = 1 window, an odd link from an even source.
+
+| component | pulse 1 | pulse 2 | pulse 4 | pulse 8 | 2x pulse 2, gap 1 | 2x pulse 2, gap 2 | 2x pulse 2, gap 4 | 2x pulse 2, gap 8 |
+|---|---|---|---|---|---|---|---|---|
+| repeater d1 | 2-4 | 2-4 | 2-6 | 2-10 | 2-7 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
+| repeater d2 | 4-8 | 4-8 | 4-8 | 4-12 | 4-9 | 4-8 | 4-12 | 4-8 14-18 |
+| repeater d4 | 8-16 | 8-16 | 8-16 | 8-16 | 8-16 | 8-16 | 8-16 | 8-16 |
+| comparator | - | 2-4 | 2-6 | 2-10 | 2-7 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
+| torch (inverts) | 0.. | 0-2 4.. | 0-2 6.. | 0-2 10.. | 0-2 7.. | 0-2 4-6 8.. | 0-2 4-8 10.. | 0-2 4-12 14.. |
+| lamp | 1-5 | 1-6 | 1-8 | 1-12 | 1-6 | 1-10 | 1-6 7-12 | 1-6 11-16 |
+| note block | 1-2 | 1-3 | 1-5 | 1-9 | 1-3 4-6 | 1-3 5-7 | 1-3 7-9 | 1-3 11-13 |
+| observer on the lever | 2-4 | 2-4 | 2-4 6-8 | 2-4 10-12 | 2-4 7-9 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
+| observer on a lamp | 2-4 7-9 | 2-4 8-10 | 2-4 10-12 | 2-4 14-16 | 2-4 8-10 | 2-4 12-14 | 2-4 8-10 14-16 | 2-4 8-10 12-14 18-20 |
+| observer on a note block | 2-4 | 2-4 | 2-4 6-8 | 2-4 10-12 | 2-4 7-9 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
+| copper bulb | 1.. | 1.. | 1.. | 1.. | 1-4 | 1-5 | 1-7 | 1-11 |
+| observer -> bulb (T flip-flop) | 2.. | 2.. | 2-6 | 2-10 | 2-7 | 2-6 | 2-8 | 2-12 |
+
+(The torch row starts lit: "0-2 4.." = lit, off from tick 2 to 4, lit again. The note block's
+`powered` follows the lever with no delay, so the observer watching it behaves like one watching the
+lever.) A pulse-count planner (`door topology`) should take its link rules from this table (or call
+`links::response` with its own trains) rather than assume every change is one pulse.
+
+**Harness notes:** the bridge's `set`/`fill` used to hand ONE `MutableBlockPos` to every
+`setBlock` of a request, and a block event queued by an `onPlace` (a piston placed with updates)
+kept that object, so it ran at the next block's cell; fixed on main (4a4fd3e), and the fuzzer places
+update-mode blocks one per request anyway.

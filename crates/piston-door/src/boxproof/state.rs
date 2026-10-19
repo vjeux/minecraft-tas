@@ -27,8 +27,15 @@ pub const PISTON: usize = 9;
 pub const HEAD: usize = 10;
 pub const MOVING: usize = 11;
 pub const LEVER: usize = 12;
-pub const NK: usize = 13;
-pub const KNAMES: [&str; NK] = ["air", "stone", "obsidian", "rblock", "dust", "repeater", "observer", "torch", "wtorch", "piston", "head", "moving", "lever"];
+/// glass: a full sturdy block that pistons move, not a redstone conductor
+pub const GLASS: usize = 13;
+/// note block: a conductor whose `powered` follows its input at each neighbor update
+/// (setBlockAndUpdate) and whose instrument follows the block below (observers see both)
+pub const NOTE: usize = 14;
+/// redstone lamp: a conductor, lit at once when powered, unlit 4 gt after losing power
+pub const LAMP: usize = 15;
+pub const NK: usize = 16;
+pub const KNAMES: [&str; NK] = ["air", "stone", "obsidian", "rblock", "dust", "repeater", "observer", "torch", "wtorch", "piston", "head", "moving", "lever", "glass", "note", "lamp"];
 
 /// Moving-block contents.
 pub const MC_STONE: usize = 0;
@@ -36,7 +43,10 @@ pub const MC_RB: usize = 1;
 pub const MC_OBSV: usize = 2;
 pub const MC_PISTON: usize = 3;
 pub const MC_HEAD: usize = 4;
-pub const NMK: usize = 5;
+pub const MC_GLASS: usize = 5;
+pub const MC_NOTE: usize = 6;
+pub const MC_LAMP: usize = 7;
+pub const NMK: usize = 8;
 
 /// One cell at one checkpoint. `f` is the facing of repeaters (input side), observers (watched
 /// side), wall torches (away from the wall), pistons, heads, and the BE direction of moving
@@ -246,7 +256,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
     /// Signals of `s` with dust levels taken as given (`lvl`), no dust recomputation.
     pub fn derive_lvl(&mut self, s: &[Cell<A::B>], lon: bool, lvl: Vec<[A::B; 15]>) -> Der<A::B> {
         let n = self.g.n();
-        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI]])).collect();
+        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[NOTE], s[i].k[LAMP]])).collect();
         let mut strong = Vec::with_capacity(n);
         let mut weak = Vec::with_capacity(n);
         for i in 0..n {
@@ -279,7 +289,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
 
     pub fn derive(&mut self, s: &[Cell<A::B>], lon: bool) -> Der<A::B> {
         let n = self.g.n();
-        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI]])).collect();
+        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[NOTE], s[i].k[LAMP]])).collect();
         let mut ds = Vec::with_capacity(n);
         for i in 0..n {
             let mut t = Vec::new();
@@ -415,10 +425,34 @@ impl<'g, A: Alg> Ctx<'g, A> {
         self.or(&v)
     }
 
+    /// `hasNeighborSignal` of a conductor-like receiver at i (note block, lamp): any neighbor's
+    /// signal toward it, an out-of-plane lever on its face included.
+    pub fn nin(&mut self, s: &[Cell<A::B>], der: &Der<A::B>, i: usize, lon: bool) -> A::B {
+        let (x, y) = self.g.xy(i);
+        let mut v = Vec::new();
+        for d in 0..4 {
+            v.push(self.sig_at(s, der, x, y, d, lon, false));
+        }
+        v.push(self.levers_oop(i, lon));
+        self.or(&v)
+    }
+
+    /// Note-block instrument class of the block at `i` (as the block below a note block):
+    /// 0 harp, 1 basedrum (stone, obsidian, observer), 2 hat (glass), 3 bass (note block).
+    pub fn instr(&mut self, s: &[Cell<A::B>], below: Option<usize>) -> [A::B; 3] {
+        match below {
+            None => [self.fl(); 3],
+            Some(b) => {
+                let bd = self.or(&[s[b].k[STONE], s[b].k[OBSI], s[b].k[OBSV]]);
+                [bd, s[b].k[GLASS], s[b].k[NOTE]]
+            }
+        }
+    }
+
     pub fn pushable(&mut self, c: &Cell<A::B>) -> A::B {
         let ne = self.not(c.ext);
         let p = self.and(&[c.k[PISTON], ne]);
-        self.or(&[c.k[STONE], c.k[RB], c.k[OBSV], p])
+        self.or(&[c.k[STONE], c.k[RB], c.k[OBSV], c.k[GLASS], c.k[NOTE], c.k[LAMP], p])
     }
     pub fn popped(&mut self, c: &Cell<A::B>) -> A::B {
         self.or(&[c.k[DUST], c.k[REP], c.k[TORCH], c.k[WTORCH], c.k[LEVER]])
@@ -431,7 +465,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let eb = self.and(&[c.k[PISTON], c.ext, c.f[opp(face)]]);
         // head: its front plate face is full
         let hd = self.and(&[c.k[HEAD], c.f[face]]);
-        self.or(&[c.k[STONE], c.k[OBSI], c.k[RB], c.k[OBSV], rp, eb, hd])
+        self.or(&[c.k[STONE], c.k[OBSI], c.k[RB], c.k[OBSV], c.k[GLASS], c.k[NOTE], c.k[LAMP], rp, eb, hd])
     }
 
     /// Same block state (what a shape update reports as a change).
@@ -449,7 +483,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
                         eqs.push(self.eqv(a.lvl[j], b.lvl[j]));
                     }
                 }
-                REP | TORCH | WTORCH => eqs.push(self.eqv(a.on, b.on)),
+                REP | TORCH | WTORCH | NOTE | LAMP => eqs.push(self.eqv(a.on, b.on)),
                 OBSV => {
                     eqs.push(self.eqv(a.on, b.on));
                     for f in 0..4 {

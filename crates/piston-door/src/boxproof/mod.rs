@@ -151,7 +151,11 @@ fn batch(a: &Args) -> Result<()> {
                 }
                 let it = &items[k];
                 let log = format!("{logs}/{}.log", it[0]);
-                let mut args: Vec<String> = vec!["door".into(), "boxproof".into(), "bmc".into(), "--w".into(), it[1].clone(), "--h".into(), it[2].clone(), "--dx".into(), it[3].clone(), "--dy".into(), it[4].clone(), "--fix".into(), it[5].clone(), "--out".into(), format!("{logs}/{}", it[0])];
+                let mut args: Vec<String> = vec!["door".into(), "boxproof".into(), "bmc".into(), "--w".into(), it[1].clone(), "--h".into(), it[2].clone(), "--dx".into(), it[3].clone(), "--dy".into(), it[4].clone(), "--out".into(), format!("{logs}/{}", it[0])];
+                if it.len() > 5 && it[5] != "-" {
+                    args.push("--fix".into());
+                    args.push(it[5].clone());
+                }
                 args.extend(extra.iter().cloned());
                 let t0 = std::time::Instant::now();
                 let f = std::fs::File::create(&log).unwrap();

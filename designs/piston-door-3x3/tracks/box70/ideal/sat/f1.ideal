@@ -1,0 +1,55 @@
+# m7 full (7x10): P_M, P_TL + left pair, P2 window (8 gt), P_M at (1,3) 2 gt after P2, P_M back,
+# right pair at r (pulse; its observer below fires twice), bottom pullers at b / b / br.
+design designs/piston-door-3x3/tracks/box70/ideal/sat/m7.txt
+let p = 4
+let a = 8
+let r = 16
+let b = 26
+open 0 set 1 4 1 minecraft:redstone_block
+open 2 clear 1 4 1
+open p set -1 3 1 minecraft:redstone_block
+open p set -2 1 1 minecraft:redstone_block
+open p set -2 2 1 minecraft:redstone_block
+open p+2 clear -1 3 1
+open p+2 clear -2 1 1
+open p+2 clear -2 2 1
+open a set 1 5 1 minecraft:redstone_block
+open a+2 set 1 3 1 minecraft:redstone_block
+open a+4 clear 1 3 1
+open a+8 clear 1 5 1
+open a+10 set 1 4 1 minecraft:redstone_block
+open a+12 clear 1 4 1
+open r set 4 1 1 minecraft:redstone_block
+open r set 4 2 1 minecraft:redstone_block
+open r+2 clear 4 1 1
+open r+2 clear 4 2 1
+open b set 0 -2 1 minecraft:redstone_block
+open b+2 clear 0 -2 1
+open b set 1 -2 1 minecraft:redstone_block
+open b+2 clear 1 -2 1
+open b set 2 -2 1 minecraft:redstone_block
+open b+2 clear 2 -2 1
+close 0 set 1 4 1 minecraft:redstone_block
+close 2 clear 1 4 1
+close p set -1 3 1 minecraft:redstone_block
+close p set -2 1 1 minecraft:redstone_block
+close p set -2 2 1 minecraft:redstone_block
+close p+2 clear -1 3 1
+close p+2 clear -2 1 1
+close p+2 clear -2 2 1
+close a set 1 5 1 minecraft:redstone_block
+close a+2 set 1 3 1 minecraft:redstone_block
+close a+4 clear 1 3 1
+close a+8 clear 1 5 1
+close a+10 set 1 4 1 minecraft:redstone_block
+close a+12 clear 1 4 1
+close r set 4 1 1 minecraft:redstone_block
+close r set 4 2 1 minecraft:redstone_block
+close r+2 clear 4 1 1
+close r+2 clear 4 2 1
+close b set 0 -2 1 minecraft:redstone_block
+close b+2 clear 0 -2 1
+close b set 1 -2 1 minecraft:redstone_block
+close b+2 clear 1 -2 1
+close b set 2 -2 1 minecraft:redstone_block
+close b+2 clear 2 -2 1

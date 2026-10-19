@@ -45,6 +45,9 @@ pub fn cell_state(c: &Cell<bool>, lever: &str) -> String {
         AIR => "minecraft:air".into(),
         STONE => "minecraft:stone".into(),
         OBSI => "minecraft:obsidian".into(),
+        GLASS => "minecraft:glass".into(),
+        NOTE => format!("minecraft:note_block[instrument=harp,note=0,powered={}]", c.on),
+        LAMP => format!("minecraft:redstone_lamp[lit={}]", c.on),
         RB => "minecraft:redstone_block".into(),
         DUST => format!("minecraft:redstone_wire[east=side,north=side,power={lvl},south=side,west=side]"),
         REP => format!("minecraft:repeater[delay={},facing={f},locked=false,powered={}]", c.dl.iter().position(|&b| b).unwrap_or(0) + 1, c.on),
@@ -67,6 +70,9 @@ pub fn cell_of_state(s: &str) -> Option<Cell<bool>> {
         "air" | "cave_air" => konst_cell(&a, AIR),
         "stone" | "smooth_stone" | "cobblestone" => konst_cell(&a, STONE),
         "obsidian" => konst_cell(&a, OBSI),
+        "glass" => konst_cell(&a, GLASS),
+        "note_block" => konst_cell(&a, NOTE),
+        "redstone_lamp" => konst_cell(&a, LAMP),
         "redstone_block" => konst_cell(&a, RB),
         "redstone_wire" => {
             let mut c = konst_cell(&a, DUST);
@@ -104,10 +110,36 @@ pub fn cell_of_state(s: &str) -> Option<Cell<bool>> {
             c.f[f] = true;
         }
     }
-    if c.k[REP] || c.k[OBSV] || c.k[TORCH] || c.k[WTORCH] {
+    if c.k[REP] || c.k[OBSV] || c.k[TORCH] || c.k[WTORCH] || c.k[NOTE] || c.k[LAMP] {
         c.on = on;
     }
     Some(c)
+}
+
+/// Note-block instrument a block state gives the note block above it (`harp` for others).
+pub fn instrument_below(s: &str) -> &'static str {
+    match short(s) {
+        "stone" | "smooth_stone" | "cobblestone" | "obsidian" | "observer" => "basedrum",
+        "glass" => "hat",
+        "note_block" => "bass",
+        _ => "harp",
+    }
+}
+
+/// Give every note block of a W x H grid of states the instrument of the block below it.
+pub fn fix_instruments(w: i32, h: i32, cells: &mut [String]) {
+    for y in 0..h {
+        for x in 0..w {
+            let i = (y * w + x) as usize;
+            if short(&cells[i]) != "note_block" {
+                continue;
+            }
+            let below = if y > 0 { cells[i - w as usize].clone() } else { "minecraft:air".into() };
+            let ins = instrument_below(&below);
+            let powered = prop(&cells[i], "powered").unwrap_or("false").to_string();
+            cells[i] = format!("minecraft:note_block[instrument={ins},note=0,powered={powered}]");
+        }
+    }
 }
 
 /// Read redsim's world into model cells (z = 0 plane at a tick boundary). None: the world
@@ -132,6 +164,14 @@ pub fn read_world(w: &World, g: &Geo) -> Result<Vec<Cell<bool>>, String> {
             let mc = cell_of_state(&ms).ok_or_else(|| format!("unmodeled moving content {ms}"))?;
             if mc.k[STONE] {
                 c.mk[MC_STONE] = true;
+            } else if mc.k[GLASS] {
+                c.mk[MC_GLASS] = true;
+            } else if mc.k[NOTE] {
+                c.mk[MC_NOTE] = true;
+                c.mon = mc.on;
+            } else if mc.k[LAMP] {
+                c.mk[MC_LAMP] = true;
+                c.mon = mc.on;
             } else if mc.k[RB] {
                 c.mk[MC_RB] = true;
             } else if mc.k[OBSV] {
@@ -174,6 +214,9 @@ pub fn read_world(w: &World, g: &Geo) -> Result<Vec<Cell<bool>>, String> {
         }
     }
     for e in w.events.iter() {
+        if !matches!(e.kind, redsim::Kind::Piston(_)) {
+            continue;
+        }
         if let Some(i) = g.idx(e.pos.x, e.pos.y) {
             if e.pos.z == 0 && (0..3).contains(&e.a) {
                 v[i].ev[e.a as usize] = true;
@@ -227,8 +270,11 @@ pub fn diff_cells(g: &Geo, a: &[Cell<bool>], b: &[Cell<bool>]) -> Vec<String> {
         if k == PISTON && p.ext != q.ext {
             fields.push("extended");
         }
-        if matches!(k, REP | OBSV | TORCH | WTORCH) && p.on != q.on {
+        if matches!(k, REP | OBSV | TORCH | WTORCH | NOTE | LAMP) && p.on != q.on {
             fields.push("powered");
+        }
+        if k == MOVING && (p.mk[MC_OBSV] || p.mk[MC_NOTE] || p.mk[MC_LAMP]) && p.mon != q.mon {
+            fields.push("moving content power");
         }
         if k == DUST && p.lvl != q.lvl {
             fields.push("power");
@@ -270,16 +316,16 @@ impl Rng {
 /// A random flat box and lever (cells as block states, lever candidate).
 pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) {
     let mut cells: Vec<String> = Vec::new();
-    let full = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer") || s.contains("extended=false");
+    let full = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp") || s.contains("extended=false");
     for i in 0..(w * h) as usize {
         let f = dname(r.below(4) as usize);
         let fh = dname(r.below(2) as usize);
         let below_full = i >= w as usize && full(&cells[i - w as usize]);
         let left_full = i % (w as usize) > 0 && full(&cells[i - 1]);
-        let mut s = match r.below(20) {
+        let mut s = match r.below(22) {
             0..=4 => "minecraft:air".to_string(),
             5..=7 => "minecraft:stone".to_string(),
-            8 => "minecraft:obsidian".to_string(),
+            8 => if r.below(2) == 0 { "minecraft:obsidian".to_string() } else { "minecraft:glass".to_string() },
             9 => "minecraft:redstone_block".to_string(),
             10..=11 => "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".to_string(),
             12 => format!("minecraft:repeater[delay={},facing={fh},locked=false,powered=false]", r.below(4) + 1),
@@ -287,6 +333,8 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
             15 => "minecraft:redstone_torch[lit=true]".to_string(),
             16 => "minecraft:redstone_wall_torch[facing=east,lit=true]".to_string(),
             17 => format!("minecraft:piston[extended=false,facing={f}]"),
+            19 => "minecraft:note_block[instrument=harp,note=0,powered=false]".to_string(),
+            20 => "minecraft:redstone_lamp[lit=false]".to_string(),
             _ => format!("minecraft:sticky_piston[extended=false,facing={f}]"),
         };
         let needs_below = matches!(short(&s), "redstone_wire" | "repeater" | "redstone_torch");
@@ -297,7 +345,7 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
     }
     // lever: in-box air cell with a sturdy neighbor, or outside the box, or out of the plane
     let geo0 = Geo { w, h, door: (0, 0), levers: vec![], rounds: 3 };
-    let sturdy = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer");
+    let sturdy = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp");
     let mut lev = None;
     for _ in 0..200 {
         let mode = r.below(3);
@@ -334,6 +382,7 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
         LeverCand { pos: (0, 0), oop: true, sup: (0, 0) }
     });
     let g = Geo { w, h, door: (0, 0), levers: vec![lev.clone()], rounds: 3 };
+    fix_instruments(w, h, &mut cells);
     (g, cells, lev)
 }
 

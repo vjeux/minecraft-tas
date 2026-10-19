@@ -36,6 +36,9 @@ pub fn parse_palette(s: &str) -> Result<Vec<usize>> {
             "stone" => STONE,
             "obsidian" | "obsi" => OBSI,
             "rblock" | "rb" => RB,
+            "glass" => GLASS,
+            "note" => NOTE,
+            "lamp" => LAMP,
             "dust" => DUST,
             "rep" => REP,
             "obs" => OBSV,
@@ -43,7 +46,7 @@ pub fn parse_palette(s: &str) -> Result<Vec<usize>> {
             "wtorch" => WTORCH,
             "piston" => PISTON,
             "all" => {
-                v.extend([STONE, OBSI, RB, DUST, REP, OBSV, TORCH, WTORCH, PISTON]);
+                v.extend([STONE, OBSI, RB, DUST, REP, OBSV, TORCH, WTORCH, PISTON, GLASS, NOTE, LAMP]);
                 continue;
             }
             _ => bail!("unknown palette entry {t}"),
@@ -116,7 +119,7 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             for d in 0..4 {
                 c.dl[d] = sat.k(fc.dl[d]);
             }
-            c.on = if fc.k[REP] || fc.k[OBSV] || fc.k[TORCH] || fc.k[WTORCH] { sat.var() } else { f };
+            c.on = if fc.k[REP] || fc.k[OBSV] || fc.k[TORCH] || fc.k[WTORCH] || fc.k[NOTE] || fc.k[LAMP] { sat.var() } else { f };
             rest.push(c);
             continue;
         }
@@ -167,7 +170,7 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
         sat.at_most_one(&dv);
         sat.add(&[!c.k[REP], dv[0], dv[1], dv[2], dv[3]]);
         let onv = sat.var();
-        let can_on = sat.or(&[c.k[REP], c.k[OBSV], c.k[TORCH], c.k[WTORCH]]);
+        let can_on = sat.or(&[c.k[REP], c.k[OBSV], c.k[TORCH], c.k[WTORCH], c.k[NOTE], c.k[LAMP]]);
         sat.add(&[!onv, can_on]);
         c.on = onv;
         rest.push(c);
@@ -223,6 +226,13 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
         let m = cx.xor(rest[i].on, rin);
         let bad = cx.and(&[rest[i].k[REP], m]);
         cx.a.add(&[!bad]);
+        let nl = cx.or(&[rest[i].k[NOTE], rest[i].k[LAMP]]);
+        if cx.a.val(nl) != Some(false) {
+            let ni = cx.nin(&rest, &der, i, false);
+            let m = cx.xor(rest[i].on, ni);
+            let bad = cx.and(&[nl, m]);
+            cx.a.add(&[!bad]);
+        }
         let tin = cx.tin(&rest, &der, i, false);
         let tk = cx.or(&[rest[i].k[TORCH], rest[i].k[WTORCH]]);
         let tm = cx.eqv(rest[i].on, tin);
@@ -326,9 +336,9 @@ fn check_static(cx: &mut Ctx<Sat>, s: &[Cell<Lit>], is_sup: &[Lit], rest: &[Cell
             cx.a.add(&[!wt, ok]);
         }
         // a lever support keeps its kind and stays sturdy
-        let st_ok = cx.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[RB], s[i].k[OBSV]]);
+        let st_ok = cx.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[RB], s[i].k[OBSV], s[i].k[GLASS], s[i].k[NOTE], s[i].k[LAMP]]);
         cx.a.add(&[!is_sup[i], st_ok]);
-        for k in [STONE, OBSI, RB, OBSV] {
+        for k in [STONE, OBSI, RB, OBSV, GLASS, NOTE, LAMP] {
             let e = cx.eqv(s[i].k[k], rest[i].k[k]);
             cx.a.add(&[!is_sup[i], e]);
         }
@@ -359,12 +369,14 @@ pub fn design_text(g: &Geo, cells: &[Cell<bool>], lev: &LeverCand, name: &str) -
         y1 = y1.max(lev.pos.1);
     }
     let mut layers = String::new();
+    let mut states: Vec<String> = (0..g.n()).map(|i| cell_state(&cells[i], &lstate)).collect();
+    super::diff::fix_instruments(g.w, g.h, &mut states);
     for y in y0..=y1 {
         let mut row0 = String::new();
         let mut row1 = String::new();
         for x in x0..=x1 {
             let st = match g.idx(x, y) {
-                Some(i) => cell_state(&cells[i], &lstate),
+                Some(i) => states[i].clone(),
                 None => {
                     if !lev.oop && lev.pos == (x, y) {
                         lstate.clone()
@@ -449,7 +461,7 @@ pub fn cli(a: &Args) -> Result<()> {
     let dy: i32 = a.get("dy", (h - 3) / 2);
     let t: usize = a.get("t", 30);
     let rounds: usize = a.get("rounds", 2);
-    let palette = parse_palette(a.s("palette").unwrap_or(if a.has("fix") && !a.has("fix-all") { "stone,obsidian,rb,dust,rep,obs,torch,wtorch" } else { "all" }))?;
+    let palette = parse_palette(a.s("palette").unwrap_or(if a.has("fix") && !a.has("fix-all") { "stone,obsidian,rb,dust,rep,obs,torch,wtorch,glass,note,lamp" } else { "all" }))?;
     let mut g = Geo { w, h, door: (dx, dy), levers: vec![], rounds };
     let oop = a.has("oop");
     g.levers = lever_cands(&g, oop);

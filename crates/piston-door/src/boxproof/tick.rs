@@ -106,13 +106,17 @@ impl<'g, A: Alg> Ctx<'g, A> {
         c.sch = m.sch;
         c.k[AIR] = self.fl();
         c.k[STONE] = m.mk[MC_STONE];
+        c.k[GLASS] = m.mk[MC_GLASS];
         c.k[RB] = m.mk[MC_RB];
         c.k[OBSV] = m.mk[MC_OBSV];
         c.k[PISTON] = m.mk[MC_PISTON];
         c.k[HEAD] = m.mk[MC_HEAD];
+        c.k[NOTE] = m.mk[MC_NOTE];
+        c.k[LAMP] = m.mk[MC_LAMP];
         c.f = m.mf;
         c.st = m.mst;
-        c.on = self.and(&[m.mk[MC_OBSV], m.mon]);
+        let has_on = self.or(&[m.mk[MC_OBSV], m.mk[MC_NOTE], m.mk[MC_LAMP]]);
+        c.on = self.and(&[has_on, m.mon]);
         c
     }
 
@@ -123,12 +127,16 @@ impl<'g, A: Alg> Ctx<'g, A> {
         c.f[f] = self.t();
         c.st = st;
         c.mk[MC_STONE] = src.k[STONE];
+        c.mk[MC_GLASS] = src.k[GLASS];
         c.mk[MC_RB] = src.k[RB];
         c.mk[MC_OBSV] = src.k[OBSV];
         c.mk[MC_PISTON] = src.k[PISTON];
+        c.mk[MC_NOTE] = src.k[NOTE];
+        c.mk[MC_LAMP] = src.k[LAMP];
         c.mf = src.f;
         c.mst = src.st;
-        c.mon = self.and(&[src.k[OBSV], src.on]);
+        let has_on = self.or(&[src.k[OBSV], src.k[NOTE], src.k[LAMP]]);
+        c.mon = self.and(&[has_on, src.on]);
         c.mext = ext;
         c.msrc = self.fl();
         c.mnew = self.t();
@@ -187,6 +195,49 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let any = self.or(&ds);
             ncd.push(any);
             self.add_nc(&mut nc, i, any);
+        }
+        // note blocks and lamps react at once to their neighbor updates (their own state does
+        // not change any signal): a note block re-reads its input and, if it differs, updates
+        // its 6 neighbors; a lamp lights at once or schedules its unlighting 4 gt later
+        for i in 0..n {
+            let isn = post[i].k[NOTE];
+            let isl = post[i].k[LAMP];
+            if self.a.val(isn) == Some(false) && self.a.val(isl) == Some(false) {
+                continue;
+            }
+            let inp = self.nin(post, &der, i, lon);
+            let diff = self.xor(inp, post[i].on);
+            let flip = self.and(&[nc[i], isn, diff]);
+            let noff = self.not(post[i].on);
+            let light = self.and(&[nc[i], isl, noff, inp]);
+            let ch = self.or(&[flip, light]);
+            if self.a.val(ch) != Some(false) {
+                post[i].on = self.ite(flip, inp, post[i].on);
+                post[i].on = self.or(&[post[i].on, light]);
+                chg[i] = self.or(&[chg[i], ch]);
+                for j in self.g.nbs(i) {
+                    self.add_nc(&mut nc, j, flip);
+                }
+            }
+            let busy = self.or(&[bk.pend[i], bk.schd[i]]);
+            let free = self.not(busy);
+            let ninp = self.not(inp);
+            let off = self.and(&[nc[i], isl, post[i].on, ninp, free]);
+            self.sched(bk, i, 4, off);
+            // the instrument follows the block below
+            let both = self.and(&[pre[i].k[NOTE], isn]);
+            if self.a.val(both) != Some(false) {
+                let b = self.g.nb(i, D);
+                let a0 = self.instr(pre, b);
+                let a1 = self.instr(post, b);
+                let mut d = Vec::new();
+                for j in 0..3 {
+                    d.push(self.xor(a0[j], a1[j]));
+                }
+                let dd = self.or(&d);
+                let ic = self.and(&[both, dd]);
+                chg[i] = self.or(&[chg[i], ic]);
+            }
         }
         // components updated only by the step's own actions check before dust settles
         let pre_lvl: Vec<[A::B; 15]> = pre.iter().map(|c| c.lvl).collect();
@@ -348,6 +399,8 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let sel = self.lsel[j];
             if let Some(si) = self.g.idx(l.sup.0, l.sup.1) {
                 self.add_nbs(&mut nc0, si, sel);
+                // the lever's own neighbor update reaches its support
+                self.add_nc(&mut nc0, si, sel);
             }
             if !l.oop {
                 match self.g.idx(l.pos.0, l.pos.1) {
@@ -431,6 +484,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let mut tdue = vec![fl; n];
         let mut tin0 = vec![fl; n];
         let mut dchg_n = vec![fl; n];
+        let mut lamp_chk: Vec<(usize, A::B, A::B)> = Vec::new();
         for i in 0..n {
             let od = self.and(&[due[i], s1[i].k[OBSV]]);
             if self.a.val(od) != Some(false) {
@@ -444,6 +498,18 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 let f = s1[i].f;
                 self.add_front(&mut nc0, i, &f, od);
                 dchg_n[i] = od;
+            }
+            let ld = self.and(&[due[i], s1[i].k[LAMP]]);
+            if self.a.val(ld) != Some(false) {
+                let inp = self.nin(&s1, &der1, i, lon);
+                let ninp = self.not(inp);
+                let off = self.and(&[ld, s1[i].on, ninp]);
+                let noff = self.not(off);
+                post[i].on = self.and(&[post[i].on, noff]);
+                dchg_n[i] = self.or(&[dchg_n[i], off]);
+                if self.flags_on {
+                    lamp_chk.push((i, ld, inp));
+                }
             }
             let tk = self.or(&[s1[i].k[TORCH], s1[i].k[WTORCH]]);
             let td = self.and(&[due[i], tk]);
@@ -470,6 +536,12 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let ch = self.xor(t1, tin0[i]);
             let race = self.and(&[tdue[i], ch]);
             self.a.flag(race, "torch input changes within the torch phase");
+        }
+        for (i, ld, inp0) in lamp_chk {
+            let inp1 = self.nin(&post, &der2, i, lon);
+            let ch = self.xor(inp0, inp1);
+            let race = self.and(&[ld, ch]);
+            self.a.flag(race, "lamp input changes within the lamp phase");
         }
         // ---- phase 2: block events
         let mut q: Vec<[A::B; 3]> = (0..n).map(|i| {
