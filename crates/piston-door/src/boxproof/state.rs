@@ -42,8 +42,12 @@ pub const BULB: usize = 16;
 /// entity's output signal, `dl[0]` = its pending tick has HIGH priority (front is a diode not
 /// facing back)
 pub const COMP: usize = 17;
-pub const NK: usize = 18;
-pub const KNAMES: [&str; NK] = ["air", "stone", "obsidian", "rblock", "dust", "repeater", "observer", "torch", "wtorch", "piston", "head", "moving", "lever", "glass", "note", "lamp", "bulb", "comparator"];
+/// dropper (empty): an immovable conductor and power sensor (its own cell or, by
+/// quasi-connectivity, the cell above); `on` = triggered (set with flags 2: observers see it, no
+/// neighbor updates), a rising input schedules a dispense tick 4 gt later (empty: no effect)
+pub const DROP: usize = 18;
+pub const NK: usize = 19;
+pub const KNAMES: [&str; NK] = ["air", "stone", "obsidian", "rblock", "dust", "repeater", "observer", "torch", "wtorch", "piston", "head", "moving", "lever", "glass", "note", "lamp", "bulb", "comparator", "dropper"];
 
 /// Moving-block contents.
 pub const MC_STONE: usize = 0;
@@ -291,7 +295,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
     fn strong_lvl(&mut self, s: &[Cell<A::B>], lon: bool) -> (Vec<A::B>, Vec<A::B>, Vec<[A::B; 15]>) {
         let n = self.g.n();
         // copper bulbs are full sturdy blocks but not redstone conductors
-        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[NOTE], s[i].k[LAMP]])).collect();
+        let cond: Vec<A::B> = (0..n).map(|i| self.a.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[NOTE], s[i].k[LAMP], s[i].k[DROP]])).collect();
         let mut ds = Vec::with_capacity(n);
         let mut sl = Vec::with_capacity(n);
         for i in 0..n {
@@ -581,13 +585,24 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 let lit = self.and(&[c.k[BULB], c.on]);
                 for j in 0..15 {
                     v[j] = self.ite(c.k[BULB], lit, v[j]);
+                    // an (empty) dropper is an analog source too: 0
+                    let nd = self.not(c.k[DROP]);
+                    v[j] = self.and(&[v[j], nd]);
                 }
                 if let Some(r2) = self.g.nb(r, f) {
                     let n14 = self.not(v[14]);
-                    let behind = self.and(&[cnd, n14, s[r2].k[BULB]]);
+                    let ndr = self.not(c.k[DROP]);
+                    let behind = self.and(&[cnd, ndr, n14, s[r2].k[BULB]]);
                     if self.a.val(behind) != Some(false) {
                         for j in 0..15 {
                             v[j] = self.ite(behind, s[r2].on, v[j]);
+                        }
+                    }
+                    let behind_d = self.and(&[cnd, ndr, n14, s[r2].k[DROP]]);
+                    if self.a.val(behind_d) != Some(false) {
+                        let nb = self.not(behind_d);
+                        for j in 0..15 {
+                            v[j] = self.and(&[v[j], nb]);
                         }
                     }
                 }
@@ -620,10 +635,24 @@ impl<'g, A: Alg> Ctx<'g, A> {
         match below {
             None => [self.fl(); 3],
             Some(b) => {
-                let bd = self.or(&[s[b].k[STONE], s[b].k[OBSI], s[b].k[OBSV]]);
+                let bd = self.or(&[s[b].k[STONE], s[b].k[OBSI], s[b].k[OBSV], s[b].k[DROP]]);
                 [bd, s[b].k[GLASS], s[b].k[NOTE]]
             }
         }
+    }
+
+    /// Quasi-connectivity sensor at i: a signal into the cell above (E, W, U sides, an
+    /// out-of-plane lever on its face).
+    pub fn qcin(&mut self, s: &[Cell<A::B>], der: &Der<A::B>, i: usize, lon: bool) -> A::B {
+        let (x, y) = self.g.xy(i);
+        let mut qc = Vec::new();
+        for d in [E, W, U] {
+            qc.push(self.sig_at(s, der, x, y + 1, d, lon, false));
+        }
+        if let Some(up) = self.g.nb(i, U) {
+            qc.push(self.levers_oop(up, lon));
+        }
+        self.or(&qc)
     }
 
     pub fn pushable(&mut self, c: &Cell<A::B>) -> A::B {
@@ -642,7 +671,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let eb = self.and(&[c.k[PISTON], c.ext, c.f[opp(face)]]);
         // head: its front plate face is full
         let hd = self.and(&[c.k[HEAD], c.f[face]]);
-        self.or(&[c.k[STONE], c.k[OBSI], c.k[RB], c.k[OBSV], c.k[GLASS], c.k[NOTE], c.k[LAMP], c.k[BULB], rp, eb, hd])
+        self.or(&[c.k[STONE], c.k[OBSI], c.k[RB], c.k[OBSV], c.k[GLASS], c.k[NOTE], c.k[LAMP], c.k[BULB], c.k[DROP], rp, eb, hd])
     }
 
     /// Same block state (what a shape update reports as a change).
@@ -660,7 +689,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
                         eqs.push(self.eqv(a.lvl[j], b.lvl[j]));
                     }
                 }
-                REP | TORCH | WTORCH | NOTE | LAMP | COMP => eqs.push(self.eqv(a.on, b.on)),
+                REP | TORCH | WTORCH | NOTE | LAMP | COMP | DROP => eqs.push(self.eqv(a.on, b.on)),
                 BULB => {
                     eqs.push(self.eqv(a.on, b.on));
                     eqs.push(self.eqv(a.ext, b.ext));

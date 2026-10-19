@@ -30,6 +30,8 @@ pub struct Opts {
     pub ring_rest: bool,
     /// FRAME 12/12: all 12 ring cells plain and non-air when open (`--frame12`)
     pub frame12: bool,
+    /// the door rests CLOSED with the lever ON (opens on lever off; `--lever-on`)
+    pub lever_on_rest: bool,
     pub flags: FlagMode,
     pub max_blocks: Option<usize>,
 }
@@ -46,6 +48,7 @@ pub fn parse_palette(s: &str) -> Result<Vec<usize>> {
             "lamp" => LAMP,
             "bulb" => BULB,
             "comp" | "comparator" => COMP,
+            "dropper" => DROP,
             "dust" => DUST,
             "rep" => REP,
             "obs" => OBSV,
@@ -53,7 +56,7 @@ pub fn parse_palette(s: &str) -> Result<Vec<usize>> {
             "wtorch" => WTORCH,
             "piston" => PISTON,
             "all" => {
-                v.extend([STONE, OBSI, RB, DUST, REP, OBSV, TORCH, WTORCH, PISTON, GLASS, NOTE, LAMP, BULB, COMP]);
+                v.extend([STONE, OBSI, RB, DUST, REP, OBSV, TORCH, WTORCH, PISTON, GLASS, NOTE, LAMP, BULB, COMP, DROP]);
                 continue;
             }
             _ => bail!("unknown palette entry {t}"),
@@ -126,7 +129,7 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             for d in 0..4 {
                 c.dl[d] = sat.k(fc.dl[d]);
             }
-            c.on = if fc.k[REP] || fc.k[OBSV] || fc.k[TORCH] || fc.k[WTORCH] || fc.k[NOTE] || fc.k[LAMP] || fc.k[COMP] { sat.var() } else if fc.k[BULB] { sat.k(fc.on) } else { f };
+            c.on = if fc.k[REP] || fc.k[OBSV] || fc.k[TORCH] || fc.k[WTORCH] || fc.k[NOTE] || fc.k[LAMP] || fc.k[COMP] || fc.k[DROP] { sat.var() } else if fc.k[BULB] { sat.k(fc.on) } else { f };
             if fc.k[COMP] {
                 for j in 0..15 {
                     c.lvl[j] = sat.var();
@@ -183,7 +186,7 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
         sat.at_most_one(&dv);
         sat.add(&[!c.k[REP], dv[0], dv[1], dv[2], dv[3]]);
         let onv = sat.var();
-        let can_on = sat.or(&[c.k[REP], c.k[OBSV], c.k[TORCH], c.k[WTORCH], c.k[NOTE], c.k[LAMP], c.k[BULB], c.k[COMP]]);
+        let can_on = sat.or(&[c.k[REP], c.k[OBSV], c.k[TORCH], c.k[WTORCH], c.k[NOTE], c.k[LAMP], c.k[BULB], c.k[COMP], c.k[DROP]]);
         sat.add(&[!onv, can_on]);
         c.on = onv;
         if o.palette.contains(&COMP) {
@@ -236,8 +239,9 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             }
         }
     }
-    // stability of the rest state (lever off) and its dust levels
-    let der = cx.derive(&rest, false);
+    // stability of the rest state (lever off, or on with `--lever-on`) and its dust levels
+    let lr = o.lever_on_rest;
+    let der = cx.derive(&rest, lr);
     for i in 0..n {
         let keep = rest[i].k[COMP];
         for j in 0..15 {
@@ -248,13 +252,22 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
     for i in 0..n {
         // a bulb's `powered` follows its input; a comparator's output is its rear input
         if cx.a.val(rest[i].k[BULB]) != Some(false) {
-            let ni = cx.nin(&rest, &der, i, false);
+            let ni = cx.nin(&rest, &der, i, lr);
             let m = cx.xor(rest[i].ext, ni);
             let bad = cx.and(&[rest[i].k[BULB], m]);
             cx.a.add(&[!bad]);
         }
+        // a dropper's `triggered` follows its input (own cell or QC)
+        if cx.a.val(rest[i].k[DROP]) != Some(false) {
+            let ni = cx.nin(&rest, &der, i, lr);
+            let qc = cx.qcin(&rest, &der, i, lr);
+            let di = cx.or(&[ni, qc]);
+            let m = cx.xor(rest[i].on, di);
+            let bad = cx.and(&[rest[i].k[DROP], m]);
+            cx.a.add(&[!bad]);
+        }
         if cx.a.val(rest[i].k[COMP]) != Some(false) {
-            let r = cx.crear(&rest, &der, i, false);
+            let r = cx.crear(&rest, &der, i, lr);
             for j in 0..15 {
                 let m = cx.xor(rest[i].lvl[j], r[j]);
                 let bad = cx.and(&[rest[i].k[COMP], m]);
@@ -264,23 +277,23 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             let bad = cx.and(&[rest[i].k[COMP], m]);
             cx.a.add(&[!bad]);
         }
-        let rin = cx.rin(&rest, &der, i, false);
+        let rin = cx.rin(&rest, &der, i, lr);
         let m = cx.xor(rest[i].on, rin);
         let bad = cx.and(&[rest[i].k[REP], m]);
         cx.a.add(&[!bad]);
         let nl = cx.or(&[rest[i].k[NOTE], rest[i].k[LAMP]]);
         if cx.a.val(nl) != Some(false) {
-            let ni = cx.nin(&rest, &der, i, false);
+            let ni = cx.nin(&rest, &der, i, lr);
             let m = cx.xor(rest[i].on, ni);
             let bad = cx.and(&[nl, m]);
             cx.a.add(&[!bad]);
         }
-        let tin = cx.tin(&rest, &der, i, false);
+        let tin = cx.tin(&rest, &der, i, lr);
         let tk = cx.or(&[rest[i].k[TORCH], rest[i].k[WTORCH]]);
         let tm = cx.eqv(rest[i].on, tin);
         let bad = cx.and(&[tk, tm]);
         cx.a.add(&[!bad]);
-        let pw = cx.ppow(&rest, &der, i, false);
+        let pw = cx.ppow(&rest, &der, i, lr);
         let npw = cx.not(pw);
         let bad = cx.and(&[rest[i].k[PISTON], rest[i].ext, npw]);
         cx.a.add(&[!bad]);
@@ -297,9 +310,9 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
     let mut rest_ok = Vec::new();
     check_static(&mut cx, &rest, &is_sup, &rest, &mut rest_ok);
     // ---- the traces
-    let mut s = cx.flip(&rest, true);
+    let mut s = cx.flip(&rest, !lr);
     for _ in 0..o.t {
-        s = cx.tick(&s, true);
+        s = cx.tick(&s, !lr);
         check_static(&mut cx, &s, &is_sup, &rest, &mut rest_ok);
     }
     let open_end = s.clone();
@@ -315,9 +328,9 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             cx.a.add(&[ok]);
         }
     }
-    let mut s = cx.flip(&s, false);
+    let mut s = cx.flip(&s, lr);
     for _ in 0..o.t {
-        s = cx.tick(&s, false);
+        s = cx.tick(&s, lr);
         check_static(&mut cx, &s, &is_sup, &rest, &mut rest_ok);
     }
     for i in 0..n {
@@ -380,20 +393,20 @@ fn check_static(cx: &mut Ctx<Sat>, s: &[Cell<Lit>], is_sup: &[Lit], rest: &[Cell
             cx.a.add(&[!wt, ok]);
         }
         // a lever support keeps its kind and stays sturdy
-        let st_ok = cx.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[RB], s[i].k[OBSV], s[i].k[GLASS], s[i].k[NOTE], s[i].k[LAMP], s[i].k[BULB]]);
+        let st_ok = cx.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[RB], s[i].k[OBSV], s[i].k[GLASS], s[i].k[NOTE], s[i].k[LAMP], s[i].k[BULB], s[i].k[DROP]]);
         cx.a.add(&[!is_sup[i], st_ok]);
-        for k in [STONE, OBSI, RB, OBSV, GLASS, NOTE, LAMP, BULB] {
+        for k in [STONE, OBSI, RB, OBSV, GLASS, NOTE, LAMP, BULB, DROP] {
             let e = cx.eqv(s[i].k[k], rest[i].k[k]);
             cx.a.add(&[!is_sup[i], e]);
         }
     }
 }
 
-/// Design text from a solved rest state.
-pub fn design_text(g: &Geo, cells: &[Cell<bool>], lev: &LeverCand, name: &str) -> String {
+/// Design text from a solved rest state (`lever_on`: the lever is powered at rest).
+pub fn design_text(g: &Geo, cells: &[Cell<bool>], lev: &LeverCand, name: &str, lever_on: bool) -> String {
     let mut pal: Vec<(String, char)> = Vec::new();
     let chars: Vec<char> = "ABCDEFGHIJKMNOPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz0123456789".chars().collect();
-    let lstate = lever_state(lev, false);
+    let lstate = lever_state(lev, lever_on);
     let mut ch = |s: &str, pal: &mut Vec<(String, char)>| -> char {
         if s == "minecraft:air" {
             return '.';
@@ -604,7 +617,7 @@ pub fn cli(a: &Args) -> Result<()> {
     }
     // the original design, for screening partial placements (`--fix-all`): freed cells only change
     let base = if a.has("fix-all") { a.s("fix").map(|p| mctas::design::Design::load(std::path::Path::new(p))).transpose()? } else { None };
-    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), frame12: a.has("frame12"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
+    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), frame12: a.has("frame12"), lever_on_rest: a.has("lever-on"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
     let t0 = Instant::now();
     let cfg = match a.s("cfg") {
         Some("sat") => Some(rustsat_cadical::Config::Sat),
@@ -629,7 +642,7 @@ pub fn cli(a: &Args) -> Result<()> {
                 let j = b.ctx_lsel.iter().position(|&l| sat.value(l)).unwrap();
                 let lev = g.levers[j].clone();
                 let name = format!("boxproof-{}x{}-{}", w, h, it);
-                let mut text = design_text(&g, &rest, &lev, &name);
+                let mut text = design_text(&g, &rest, &lev, &name, o.lever_on_rest);
                 if let Some(base) = &base {
                     // merge: the original design with the freed cells taken from the model
                     std::fs::write(format!("{out_dir}/{name}-model.txt"), &text)?;
@@ -667,7 +680,7 @@ pub fn cli(a: &Args) -> Result<()> {
                 // rotations are checked once a door exists); `--screen-positions 32` for all
                 let np: usize = a.get("screen-positions", 1);
                 offs.truncate(np.max(1));
-                let sc = crate::redsim_screen::screen(&d, &offs, 3, 400, true);
+                let sc = crate::redsim_screen::screen_ext(&d, &offs, 3, 400, true, o.lever_on_rest);
                 println!("SAT in {dt:.1}s (iter {it}): {path}: redsim screen {sc:?}");
                 if sc.passed() {
                     println!("{text}");

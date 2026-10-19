@@ -77,6 +77,12 @@ fn run_recorded(w: &mut World, max: u32, lo: Pos, hi: Pos) -> (Vec<Region>, bool
 /// Screen one design at these offsets (`cycles` open/close cycles each, at most `max_ticks`
 /// ticks per settle).
 pub fn screen(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, empty_walkway: bool) -> Screen {
+    screen_ext(design, offsets, cycles, max_ticks, empty_walkway, false)
+}
+
+/// `screen` with the lever polarity as an option: `lever_on_rest` = the door rests closed with
+/// the lever ON (the community 7x9's polarity; the judge itself wants the lever off at rest).
+pub fn screen_ext(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, empty_walkway: bool, lever_on_rest: bool) -> Screen {
     if !design.entities.is_empty() {
         return Screen::Unsupported("the design has entities".into());
     }
@@ -92,7 +98,7 @@ pub fn screen(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, e
     for off in offsets {
         let d = design.translated(*off);
         let s = spec.translated(*off);
-        match screen_at(&d, &s, cycles, max_ticks, empty_walkway) {
+        match screen_at(&d, &s, cycles, max_ticks, empty_walkway, lever_on_rest) {
             Screen::Pass { open, close } => worst = (worst.0.max(open), worst.1.max(close)),
             Screen::Fail(m) => return Screen::Fail(format!("at offset {off:?}: {m}")),
             u => return u,
@@ -101,7 +107,7 @@ pub fn screen(design: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32, e
     Screen::Pass { open: worst.0, close: worst.1 }
 }
 
-fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_walkway: bool) -> Screen {
+fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_walkway: bool, lever_on_rest: bool) -> Screen {
     let (wlo, whi) = watch_box(d, spec);
     let m = 14;
     let min = BlockPos::new(wlo[0] - m, wlo[1] - m, wlo[2] - m);
@@ -150,8 +156,9 @@ fn screen_at(d: &Design, spec: &DoorSpec, cycles: usize, max_ticks: u32, empty_w
         }
     }
     let lever = rest.get(spec.lever).unwrap_or("?").to_string();
-    if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {
-        return Screen::Fail(format!("port lever {:?} is {lever}, expected an unpowered lever", spec.lever));
+    let want = if lever_on_rest { "powered=true" } else { "powered=false" };
+    if !lever.starts_with("minecraft:lever") || !lever.contains(want) {
+        return Screen::Fail(format!("port lever {:?} is {lever}, expected a lever with {want}", spec.lever));
     }
     let closed_door: Vec<String> = spec.door_cells().iter().map(|p| rest.get(*p).unwrap_or("?").to_string()).collect();
     let mut worst = (0, 0);

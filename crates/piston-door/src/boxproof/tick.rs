@@ -205,17 +205,65 @@ impl<'g, A: Alg> Ctx<'g, A> {
             ncd.push(any);
             self.add_nc(&mut nc, i, any);
         }
+        // components updated only by the step's own actions check before dust settles
+        let pre_lvl: Vec<[A::B; 15]> = pre.iter().map(|c| c.lvl).collect();
+        let early = if self.flags_on { Some(self.derive_lvl(post, lon, pre_lvl)) } else { None };
+        // a reactive block (note, lamp, bulb, dropper) updated only by the step's own actions
+        // may read dust that has not settled yet: its input then differs between the stale and
+        // the settled dust (a race: flagged, or either outcome)
+        let mut react_race = vec![self.fl(); n];
+        if let Some(early) = &early {
+            for i in 0..n {
+                let r = self.or(&[post[i].k[NOTE], post[i].k[LAMP], post[i].k[BULB], post[i].k[DROP]]);
+                if self.a.val(r) == Some(false) {
+                    continue;
+                }
+                let a = self.nin(post, &der, i, lon);
+                let b = self.nin(post, early, i, lon);
+                let mut d = vec![self.xor(a, b)];
+                if self.a.val(post[i].k[DROP]) != Some(false) {
+                    let qa = self.qcin(post, &der, i, lon);
+                    let qb = self.qcin(post, early, i, lon);
+                    let x = self.xor(qa, qb);
+                    d.push(self.and(&[post[i].k[DROP], x]));
+                }
+                let ch = self.or(&d);
+                let nd = self.not(ncd[i]);
+                react_race[i] = self.and(&[nc0[i], nd, r, ch]);
+            }
+        }
         // note blocks and lamps react at once to their neighbor updates (their own state does
         // not change any signal): a note block re-reads its input and, if it differs, updates
-        // its 6 neighbors; a lamp lights at once or schedules its unlighting 4 gt later
+        // its 6 neighbors; a lamp lights at once or schedules its unlighting 4 gt later. Two
+        // passes: an update a reacting block sends reaches blocks visited before it.
+        for _pass in 0..2 {
         for i in 0..n {
             let isn = post[i].k[NOTE];
             let isl = post[i].k[LAMP];
             let isb = post[i].k[BULB];
-            if self.a.val(isn) == Some(false) && self.a.val(isl) == Some(false) && self.a.val(isb) == Some(false) {
+            let isd = post[i].k[DROP];
+            if self.a.val(isn) == Some(false) && self.a.val(isl) == Some(false) && self.a.val(isb) == Some(false) && self.a.val(isd) == Some(false) {
                 continue;
             }
             let inp = self.nin(post, &der, i, lon);
+            // a dropper: triggered follows (own input or QC) at once with flags 2 (observers
+            // see it, no neighbor updates); a rising input schedules its dispense tick at +4
+            if self.a.val(isd) != Some(false) {
+                let qc = self.qcin(post, &der, i, lon);
+                let di = self.or(&[inp, qc]);
+                let noff = self.not(post[i].on);
+                let ndi = self.not(di);
+                let trig = self.and(&[nc[i], isd, di, noff]);
+                let untrig = self.and(&[nc[i], isd, ndi, post[i].on]);
+                let nu = self.not(untrig);
+                let keep = self.and(&[post[i].on, nu]);
+                post[i].on = self.or(&[keep, trig]);
+                chg[i] = self.or(&[chg[i], trig, untrig]);
+                let busy = self.or(&[bk.pend[i], bk.schd[i]]);
+                let free = self.not(busy);
+                let c = self.and(&[trig, free]);
+                self.sched(bk, i, 4, c);
+            }
             // a bulb: `powered` follows its input at once, a rising edge toggles `lit`; the
             // setBlock updates its 6 neighbors and (analog output) comparators behind one
             // conductor east and west
@@ -276,9 +324,40 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 chg[i] = self.or(&[chg[i], ic]);
             }
         }
-        // components updated only by the step's own actions check before dust settles
-        let pre_lvl: Vec<[A::B; 15]> = pre.iter().map(|c| c.lvl).collect();
-        let early = if self.flags_on { Some(self.derive_lvl(post, lon, pre_lvl)) } else { None };
+        }
+        if self.flags_on {
+            // a third reaction would be needed: the cascade is deeper than modeled
+            let mut v = Vec::new();
+            for i in 0..n {
+                let r = self.or(&[post[i].k[NOTE], post[i].k[BULB], post[i].k[DROP]]);
+                if self.a.val(r) == Some(false) {
+                    continue;
+                }
+                let inp = self.nin(post, &der, i, lon);
+                let dn = self.xor(inp, post[i].on);
+                let db = self.xor(inp, post[i].ext);
+                let a = self.and(&[nc[i], post[i].k[NOTE], dn]);
+                let b = self.and(&[nc[i], post[i].k[BULB], db]);
+                let qc = self.qcin(post, &der, i, lon);
+                let di = self.or(&[inp, qc]);
+                let dd = self.xor(di, post[i].on);
+                let c = self.and(&[nc[i], post[i].k[DROP], dd]);
+                v.push(self.or(&[a, b, c]));
+            }
+            let deep = self.or(&v);
+            self.a.flag(deep, "note-block / bulb update cascade deeper than 2");
+        }
+        for i in 0..n {
+            let rr = react_race[i];
+            if self.a.val(rr) == Some(false) {
+                continue;
+            }
+            let why = "reactive block checked before dust settled";
+            post[i].on = self.relax(rr, post[i].on, why);
+            let isb = post[i].k[BULB];
+            let bx = self.and(&[rr, isb]);
+            post[i].ext = self.relax(bx, post[i].ext, why);
+        }
         let c2 = self.a.cost();
         // observers
         for o in 0..n {

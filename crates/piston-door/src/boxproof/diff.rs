@@ -50,6 +50,7 @@ pub fn cell_state(c: &Cell<bool>, lever: &str) -> String {
         LAMP => format!("minecraft:redstone_lamp[lit={}]", c.on),
         BULB => format!("minecraft:waxed_copper_bulb[lit={},powered={}]", c.on, c.ext),
         COMP => format!("minecraft:comparator[facing={f},mode=compare,powered={}]", c.on),
+        DROP => format!("minecraft:dropper[facing=south,triggered={}]", c.on),
         RB => "minecraft:redstone_block".into(),
         DUST => format!("minecraft:redstone_wire[east=side,north=side,power={lvl},south=side,west=side]"),
         REP => format!("minecraft:repeater[delay={},facing={f},locked=false,powered={}]", c.dl.iter().position(|&b| b).unwrap_or(0) + 1, c.on),
@@ -86,6 +87,11 @@ pub fn cell_of_state(s: &str) -> Option<Cell<bool>> {
                 return None;
             }
             konst_cell(&a, COMP)
+        }
+        "dropper" => {
+            let mut c = konst_cell(&a, DROP);
+            c.on = prop(s, "triggered") == Some("true");
+            return Some(c);
         }
         "redstone_block" => konst_cell(&a, RB),
         "redstone_wire" => {
@@ -133,7 +139,7 @@ pub fn cell_of_state(s: &str) -> Option<Cell<bool>> {
 /// Note-block instrument a block state gives the note block above it (`harp` for others).
 pub fn instrument_below(s: &str) -> &'static str {
     match short(s) {
-        "stone" | "smooth_stone" | "cobblestone" | "obsidian" | "observer" => "basedrum",
+        "stone" | "smooth_stone" | "cobblestone" | "obsidian" | "observer" | "dropper" => "basedrum",
         "glass" => "hat",
         "note_block" => "bass",
         _ => "harp",
@@ -294,7 +300,7 @@ pub fn diff_cells(g: &Geo, a: &[Cell<bool>], b: &[Cell<bool>]) -> Vec<String> {
         if k == PISTON && p.ext != q.ext {
             fields.push("extended");
         }
-        if matches!(k, REP | OBSV | TORCH | WTORCH | NOTE | LAMP | COMP) && p.on != q.on {
+        if matches!(k, REP | OBSV | TORCH | WTORCH | NOTE | LAMP | COMP | DROP) && p.on != q.on {
             fields.push("powered");
         }
         if k == BULB && (p.on != q.on || p.ext != q.ext) {
@@ -349,13 +355,13 @@ impl Rng {
 /// A random flat box and lever (cells as block states, lever candidate).
 pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) {
     let mut cells: Vec<String> = Vec::new();
-    let full = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp" | "waxed_copper_bulb") || s.contains("extended=false");
+    let full = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp" | "waxed_copper_bulb" | "dropper") || s.contains("extended=false");
     for i in 0..(w * h) as usize {
         let f = dname(r.below(4) as usize);
         let fh = dname(r.below(2) as usize);
         let below_full = i >= w as usize && full(&cells[i - w as usize]);
         let left_full = i % (w as usize) > 0 && full(&cells[i - 1]);
-        let mut s = match r.below(25) {
+        let mut s = match r.below(27) {
             0..=4 => "minecraft:air".to_string(),
             5..=7 => "minecraft:stone".to_string(),
             8 => if r.below(2) == 0 { "minecraft:obsidian".to_string() } else { "minecraft:glass".to_string() },
@@ -370,6 +376,7 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
             20 => "minecraft:redstone_lamp[lit=false]".to_string(),
             21 => format!("minecraft:waxed_copper_bulb[lit={},powered=false]", r.below(2) == 0),
             22..=23 => format!("minecraft:comparator[facing={fh},mode=compare,powered=false]"),
+            25..=26 => "minecraft:dropper[facing=south,triggered=false]".to_string(),
             _ => format!("minecraft:sticky_piston[extended=false,facing={f}]"),
         };
         let needs_below = matches!(short(&s), "redstone_wire" | "repeater" | "redstone_torch" | "comparator");
@@ -380,7 +387,7 @@ pub fn random_box(r: &mut Rng, w: i32, h: i32) -> (Geo, Vec<String>, LeverCand) 
     }
     // lever: in-box air cell with a sturdy neighbor, or outside the box, or out of the plane
     let geo0 = Geo { w, h, door: (0, 0), levers: vec![], rounds: 3 };
-    let sturdy = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp" | "waxed_copper_bulb");
+    let sturdy = |s: &str| matches!(short(s), "stone" | "obsidian" | "redstone_block" | "observer" | "glass" | "note_block" | "redstone_lamp" | "waxed_copper_bulb" | "dropper");
     let mut lev = None;
     for _ in 0..200 {
         let mode = r.below(3);
