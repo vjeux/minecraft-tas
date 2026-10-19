@@ -67,12 +67,34 @@ enum Cmd {
     /// change state): random embeddings for given hop lengths, kicked by a note block that only
     /// the first sensor hears.
     Ring(gens::RingArgs),
+    /// A big ring of n calibrated sensors on a circle (long periods: P = sum of hops <= 16 n).
+    RingBig(gens::RingBigArgs),
     /// Simulate designs and print one line each, sorted by period (`--best`: the smallest per
     /// period only).
     Table {
         files: Vec<PathBuf>,
         #[arg(long)]
         best: bool,
+    },
+    /// Keep the smallest design per (period, family) among the given files (by blocks, then
+    /// swept volume, then name) and copy them into --out-dir: the batch to judge with
+    /// `mctas clock verify`.
+    Select {
+        files: Vec<PathBuf>,
+        #[arg(long)]
+        out_dir: PathBuf,
+        /// Only periods in this range.
+        #[arg(long, default_value_t = 1)]
+        min_p: u32,
+        #[arg(long, default_value_t = 100_000)]
+        max_p: u32,
+        /// Skip (period, family) pairs already present (with at most as many blocks) in these
+        /// files (e.g. the track's verified designs).
+        #[arg(long, num_args = 1..)]
+        known: Vec<PathBuf>,
+        /// One design per PERIOD (the smallest of any family) instead of per (period, family).
+        #[arg(long)]
+        per_period: bool,
     },
 }
 
@@ -82,8 +104,48 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Obs(a) => gens::obs(&a),
         Cmd::Chain(a) => gens::chain(&a),
         Cmd::Ring(a) => gens::ring(&a),
+        Cmd::RingBig(a) => gens::ring_big(&a),
         Cmd::Table { files, best } => table(&files, best),
+        Cmd::Select { files, out_dir, min_p, max_p, known, per_period } => select(&files, &out_dir, min_p, max_p, &known, per_period),
     }
+}
+
+/// (period, family, blocks, volume) of a design by `clock::sim`, `None` unless it is a clock.
+fn sim_key(path: &std::path::Path) -> Option<(u32, String, usize, i32)> {
+    let c = clock::Clock::load(path).ok()?;
+    let r = clock::sim::simulate(&c, &clock::sim::SimOptions::default());
+    (r.verdict == clock::sim::Verdict::Clock).then(|| (r.period, r.analysis.family.join("+"), r.blocks, r.volume()))
+}
+
+fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, known: &[PathBuf], per_period: bool) -> Result<()> {
+    let group = |fam: &str| if per_period { String::new() } else { fam.to_string() };
+    let mut have: BTreeMap<(u32, String), usize> = BTreeMap::new();
+    for k in known {
+        if let Some((p, f, b, _)) = sim_key(k) {
+            let e = have.entry((p, group(&f))).or_insert(b);
+            *e = (*e).min(b);
+        }
+    }
+    let mut best: BTreeMap<(u32, String), (usize, i32, PathBuf, String)> = BTreeMap::new();
+    for f in files {
+        let Some((p, fam, b, v)) = sim_key(f) else { continue };
+        let g = group(&fam);
+        if p < min_p || p > max_p || have.get(&(p, g.clone())).is_some_and(|hb| *hb <= b) {
+            continue;
+        }
+        let e = best.entry((p, g)).or_insert((b, v, f.clone(), fam.clone()));
+        if (b, v, f) < (e.0, e.1, &e.2) {
+            *e = (b, v, f.clone(), fam);
+        }
+    }
+    std::fs::create_dir_all(out_dir)?;
+    for ((p, _), (b, _, f, fam)) in &best {
+        let name = f.file_name().context("file name")?;
+        std::fs::copy(f, out_dir.join(name))?;
+        println!("P={p:<4} {b:>3} blocks  {fam}  <{}>", f.display());
+    }
+    println!("selected {} designs into {}", best.len(), out_dir.display());
+    Ok(())
 }
 
 /// One clock found by a generator.
