@@ -1,0 +1,21 @@
+name: clk-misc-scaffold-a
+# A scaffolding clock: scaffolding S2 stands next to scaffolding S1 (on stone, distance 0); a sticky piston toggles a stone
+# under S2 (2 gt observer pulses spit / pull it), so S2's distance and bottom flip between 0 (supported) and 1 (held by S1)
+# one 1 gt scaffolding tick later; an observer watches S2, its back quasi-powering the piston through the air above it.
+port start: 0 0 -2 minecraft:redstone_block 2
+port output: 1 1 0
+origin: 0 0 -2
+palette:
+  S minecraft:stone
+  F minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]
+  G minecraft:scaffolding[bottom=true,distance=1,waterlogged=false]
+  P minecraft:sticky_piston[extended=false,facing=south]
+  O minecraft:observer[facing=south,powered=false]
+layer 0:
+  .P
+  .S
+  S
+layer 1:
+  .
+  .O
+  FG
