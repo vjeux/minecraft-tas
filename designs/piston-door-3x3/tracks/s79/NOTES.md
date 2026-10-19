@@ -69,3 +69,13 @@ s pushes only TM + C down afterwards (e >= u0 + 3), with a hold >= 3 gt (push la
   130k drive K (L0 ideal); pockets' 3-block hits use headless extended pistons (not legal play).
 - Top: the s open push at t9..10 with a 3..4 gt hold has no source in the top-right (only (3,3) is free;
   (2,4)/(3,4) carry the repeaters; the natural ticks are 2/4 (lever observers), 8/10 ((3,5)), 16 (M)).
+- **1 gt first U pulse fixes it (03:08Z)**: if U's first pulse is 1 gt (extend X, retract X+1: on close
+  the push is spit, on open the 1-tick sticky retraction still pulls BM from (1,0)), the U watcher sees
+  only U's extension (the retraction and its landing at X+3 fall in its busy window): ONE K pulse at
+  X+2, which pulls BM on open (landed at X+3 < K's retraction at X+4) and pushes BM on close. ideal-rs:
+  never works with a 2 gt first pulse, works with 1 gt for u0 = 2..6 (obsidian at (3,-1) stops K's later
+  pushes on open: BM -> C -> static (2,-1)).
+- `c78y.txt` + `c78y.ideal`: the bottom-left REAL: observer (0,-2) east (watches U) -> stone (-1,-2) -> K;
+  dropper (-2,-2) (triggered by the powered (-1,-2)) -> observer (-2,-1) down -> L0 (3 pulses per edge:
+  odd), obsidian (3,-1). ideal-rs WORKS (open 31 / close 31) with only U (1 gt first pulse + U2),
+  R0 and s ideal. s open window: e >= u0 + 2, eh 3.., e + eh <= 12 (u0 = 2: e 4..9).
