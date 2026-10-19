@@ -1527,6 +1527,9 @@ pub struct EnumOpts {
 }
 
 pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
+    // MECHSPACE_RET_ONLY: every piston retracted at rest (layout discovery; the extended
+    // variants of each found layout are decided afterwards)
+    let ret_only = std::env::var("MECHSPACE_RET_ONLY").is_ok();
     let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();
     let in_t = |x: i8, y: i8| families::in_t(x, y);
     let target = |x: i8, y: i8| in_t(x, y) || frame.contains(&(x, y));
@@ -1567,7 +1570,7 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
                     continue;
                 }
                 for ext in [false, true] {
-                    if ext && in_t(h1.0, h1.1) {
+                    if ext && (in_t(h1.0, h1.1) || ret_only) {
                         continue;
                     }
                     opts.push(Pc { x, y, k: K::Piston { sticky, f, ext } });
@@ -1590,7 +1593,7 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
         if (ns as u32 - mask.count_ones()) as usize > o.side_absent {
             continue;
         }
-        for exts in 0..4u8 {
+        for exts in 0..(if ret_only { 1u8 } else { 4u8 }) {
             let mut v = Vec::new();
             for (j, &(x, y, f)) in side_cells.iter().enumerate() {
                 if mask & (1 << j) == 0 {
@@ -1837,6 +1840,21 @@ pub fn parse_lines(text: &str, w: i8, h: i8) -> Result<Vec<(Bx, Vec<Pc>)>> {
 pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
     let frame: HashSet<(i8, i8)> = families::ring().into_iter().collect();
     reach_ok(bx, v, &frame)
+}
+
+/// `reachtest`: tally (verdict, passes) over a partial TSV (`line \t verdict ...`).
+pub fn reach_tally(path: &std::path::Path, w: i8, h: i8) -> Result<BTreeMap<(String, bool), usize>> {
+    let mut tally: BTreeMap<(String, bool), usize> = BTreeMap::new();
+    for l in std::fs::read_to_string(path)?.lines() {
+        let mut it = l.split('\t');
+        let (Some(line), Some(vd)) = (it.next(), it.next()) else { continue };
+        let Ok(items) = parse_lines(line, w, h) else { continue };
+        for (bx, v) in items {
+            let ok = reach_test(&bx, &v);
+            *tally.entry((vd.to_string(), ok)).or_default() += 1;
+        }
+    }
+    Ok(tally)
 }
 
 /// `--door-offset dx,dy`: only this door offset in the box (columns left of / rows below the door).
