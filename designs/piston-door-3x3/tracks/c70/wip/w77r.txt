@@ -1,0 +1,37 @@
+name: c70-w77r
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  a minecraft:observer[facing=west,powered=false]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  X minecraft:observer[facing=south,powered=false]
+layer -2:
+  ....B
+layer -1:
+  ..OE.E
+layer 0:
+  .s.EEE.C
+layer 1:
+  ss.EEE.C
+layer 2:
+  Eo.EEEEu
+layer 3:
+  .ASPPPar
+  ..X
+layer 4:
+  ...DDD
+layer 5:
+  ....L
