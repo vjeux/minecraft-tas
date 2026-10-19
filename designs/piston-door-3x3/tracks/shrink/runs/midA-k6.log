@@ -1,0 +1,19 @@
+fill designs/piston-door-3x3/tracks/shrink/wip/t7b-nb2.txt: 15 region cells (15 free, 0 fixed), base 36 blocks (design 43), k 0..=6, global palette 17 states
+130 subsets pass the connectivity rule; 686574053 fillings to screen in 2158803 work items
+[    60s] 19864172 screened (330888/s), 7708878 pruned, item 75386/2158803, 0 pass the 1-position screen, 0 finds
+[   120s] 38890242 screened (323919/s), 16074459 pruned, item 175492/2158803, 0 pass the 1-position screen, 0 finds
+[   180s] 58550748 screened (325116/s), 16781535 pruned, item 192625/2158803, 0 pass the 1-position screen, 0 finds
+[   240s] 78049165 screened (325040/s), 17371359 pruned, item 197528/2158803, 0 pass the 1-position screen, 0 finds
+[   300s] 97343947 screened (324313/s), 18074763 pruned, item 214203/2158803, 0 pass the 1-position screen, 0 finds
+[   360s] 115283607 screened (320070/s), 20686806 pruned, item 288674/2158803, 0 pass the 1-position screen, 0 finds
+[   420s] 137905681 screened (328181/s), 35263647 pruned, item 418330/2158803, 0 pass the 1-position screen, 0 finds
+[   480s] 168897964 screened (351697/s), 36324100 pruned, item 536169/2158803, 0 pass the 1-position screen, 0 finds
+[   540s] 206062164 screened (381411/s), 36888543 pruned, item 603928/2158803, 0 pass the 1-position screen, 0 finds
+[   600s] 238591455 screened (397461/s), 42340707 pruned, item 697777/2158803, 0 pass the 1-position screen, 0 finds
+[   660s] 263685327 screened (399332/s), 70986370 pruned, item 887818/2158803, 0 pass the 1-position screen, 0 finds
+[   720s] 296511179 screened (411625/s), 85046270 pruned, item 1056235/2158803, 0 pass the 1-position screen, 0 finds
+[   780s] 331310439 screened (424556/s), 133299168 pruned, item 1352326/2158803, 0 pass the 1-position screen, 0 finds
+[   840s] 367955225 screened (437835/s), 172763420 pruned, item 1627517/2158803, 0 pass the 1-position screen, 0 finds
+[   900s] 396467732 screened (440313/s), 217990649 pruned, item 1893708/2158803, 0 pass the 1-position screen, 0 finds
+[   960s] 421517697 screened (438873/s), 261957162 pruned, item 2147435/2158803, 0 pass the 1-position screen, 0 finds
+done in 965 s: 423293678 screened, 263280375 pruned, 0 passed the screen, 0 finds
