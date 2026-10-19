@@ -14,6 +14,7 @@
 
 pub mod cart;
 pub mod crafter;
+pub mod rename;
 pub mod ring;
 
 use clap::{Parser, Subcommand};
@@ -40,6 +41,9 @@ enum Cmd {
     /// bouncing between two bumpers, powered rails at the ends, a detector rail, n more powered
     /// rails in the middle. Prints or writes the design (judge it with `clock verify`: entities).
     CartPingpong(cart::PingpongArgs),
+    /// Set each design's `name:` to `<prefix>-<file stem>` (search tools name their picks after
+    /// their own track; the archive keys designs by name).
+    Rename(rename::RenameArgs),
 }
 
 /// `mctas clock misc <args...>`.
@@ -56,5 +60,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::Ring(r) => ring::run(r),
         Cmd::CrafterLoop(l) => crafter::run(l),
         Cmd::CartPingpong(p) => cart::run(p),
+        Cmd::Rename(r) => rename::run(r),
     }
 }
