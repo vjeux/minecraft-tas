@@ -158,7 +158,16 @@ pub fn run_bridge(w: &mut Worker, sb: u32, c: &Case) -> Result<Vec<Frame>> {
     let mut cache = HashMap::new();
     w.clear(sb)?;
     if !c.blocks.is_empty() {
-        w.set_blocks(sb, &c.blocks, if c.update_place { PlaceMode::Update } else { PlaceMode::Raw })?;
+        if c.update_place {
+            // One block per request: the bridge's `set` reuses ONE MutableBlockPos for all its
+            // blocks, and a block event queued by an onPlace (a piston) keeps that object, so
+            // the next block's position overwrites the event's (it then runs at the wrong cell).
+            for b in &c.blocks {
+                w.set_blocks(sb, std::slice::from_ref(b), PlaceMode::Update)?;
+            }
+        } else {
+            w.set_blocks(sb, &c.blocks, PlaceMode::Raw)?;
+        }
     }
     if !c.update_place {
         let wires: Vec<Pos> = c.blocks.iter().filter(|(_, s)| s.contains("redstone_wire")).map(|(p, _)| *p).collect();
@@ -340,6 +349,9 @@ pub fn palette(spec: &str) -> Result<Vec<(String, u32)>> {
         ("log", 1),
         ("analog", 2),
         ("door", 1),
+        // plain blocks of every equivalence class and pistons: `--palette core,plain:10,piston:4`
+        ("plain", 0),
+        ("piston", 0),
     ];
     let mut out: Vec<(String, u32)> = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -379,6 +391,12 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
         "simple" => st(r
             .pick(&["white_wool", "oak_planks", "gold_block", "soul_sand", "slime_block", "honey_block", "waxed_copper_grate[waterlogged=false]", "glowstone", "obsidian", "smooth_stone", "packed_ice", "clay", "sea_lantern", "tinted_glass", "iron_block", "emerald_block"])
             .to_string()),
+        // any plain block of the class universe (redsim::classes)
+        "plain" => {
+            let u = redsim::classes::universe();
+            vec![r.pick(&u).to_string()]
+        }
+        "piston" => vec![format!("minecraft:{}[extended=false,facing={}]", if r.chance(0.5) { "sticky_piston" } else { "piston" }, anydir(r))],
         "dust" => {
             let side = |r: &mut Rng| *r.pick(&["none", "side", "side", "up"]);
             let (n, e, s, w) = match r.below(4) {
@@ -813,4 +831,142 @@ pub fn fixture(w: &mut Worker, c: &Case, note: &str) -> Result<String> {
         prev = f.clone();
     }
     Ok(s)
+}
+
+// ---------------------------------------------------------------------- equivalence classes
+
+/// A state's class representative (as a string), or the state itself when it is not a plain
+/// block of the class universe.
+pub fn class_canon(s: &str) -> String {
+    match Block::parse(s) {
+        Ok(b) => match redsim::classes::representative(&b) {
+            Some(r) => r.to_string(),
+            None => b.to_string(),
+        },
+        Err(_) => s.to_string(),
+    }
+}
+
+/// The same case with every plain block replaced by a random member of its class.
+pub fn class_variant(r: &mut Rng, c: &Case, classes: &[redsim::classes::Class]) -> Case {
+    let mut v = c.clone();
+    for (_, s) in v.blocks.iter_mut() {
+        if let Ok(b) = Block::parse(s)
+            && let Some(cl) = classes.iter().find(|cl| cl.members.contains(&b))
+        {
+            *s = r.pick(&cl.members).to_string();
+        }
+    }
+    v
+}
+
+/// Do a case and its variant differ in the game modulo classes?
+pub fn class_differs(w: &mut Worker, sb: u32, a: &Case, b: &Case) -> Result<bool> {
+    let fa = run_bridge(w, sb, a)?;
+    let fb = run_bridge(w, sb, b)?;
+    let canon = |fs: &[Frame]| -> Vec<Frame> { fs.iter().map(|f| f.iter().map(|s| class_canon(s)).collect()).collect() };
+    Ok(canon(&fa) != canon(&fb))
+}
+
+/// Shrink a class violation: revert swaps one by one, then drop blocks (from both), while the
+/// pair still differs; returns the minimal pair.
+pub fn class_shrink(w: &mut Worker, sb: u32, mut a: Case, mut b: Case) -> Result<(Case, Case)> {
+    loop {
+        let mut better = false;
+        for i in 0..a.blocks.len() {
+            if a.blocks[i].1 != b.blocks[i].1 {
+                let mut t = b.clone();
+                t.blocks[i].1 = a.blocks[i].1.clone();
+                if class_differs(w, sb, &a, &t)? {
+                    b = t;
+                    better = true;
+                }
+            }
+        }
+        let mut i = a.blocks.len();
+        while i > 0 {
+            i -= 1;
+            let (mut ta, mut tb) = (a.clone(), b.clone());
+            let (p, _) = ta.blocks.remove(i);
+            tb.blocks.remove(i);
+            ta.steps.retain(|s| *s != Step::Use(p));
+            tb.steps.retain(|s| *s != Step::Use(p));
+            if class_differs(w, sb, &ta, &tb)? {
+                a = ta;
+                b = tb;
+                better = true;
+            }
+        }
+        if !better {
+            return Ok((a, b));
+        }
+    }
+}
+
+/// Game-only proof of the classes: run a case and its class variant IN THE GAME and compare
+/// every frame after mapping every state to its class representative. Returns the number of
+/// differing pairs (and saves them).
+pub fn classfuzz(pool: &Pool, n: usize, seed: u64, pal: &[(String, u32)], size: [i32; 3], density: f64, out: &Path, log: &dyn Fn(&str)) -> Result<usize> {
+    std::fs::create_dir_all(out)?;
+    let classes = redsim::classes::classes();
+    let mut rng = Rng::new(seed);
+    let pairs: Vec<(usize, Case, Case)> = (0..n)
+        .map(|i| {
+            let mut c = random_case(&mut rng, pal, size, density);
+            // no mid-run edits: replacing a member by another of its class is itself a block
+            // change an observer sees; the classes are about what a design is built from
+            c.steps.retain(|s| !matches!(s, Step::Set(..)));
+            let v = class_variant(&mut rng, &c, &classes);
+            (i, c, v)
+        })
+        .collect();
+    let sbs: Vec<Mutex<Option<u32>>> = (0..pool.len()).map(|_| Mutex::new(None)).collect();
+    let t0 = std::time::Instant::now();
+    let res = pool.map(pairs, |w, wi, (i, c, v)| {
+        let mut s = sbs[wi].lock().unwrap();
+        let sb = match *s {
+            Some(sb) => sb,
+            None => {
+                let sb = w.create(&SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+                *s = Some(sb);
+                sb
+            }
+        };
+        let a = run_bridge(w, sb, &c)?;
+        let b = run_bridge(w, sb, &v)?;
+        let canon = |fs: &[Frame]| -> Vec<Frame> { fs.iter().map(|f| f.iter().map(|s| class_canon(s)).collect()).collect() };
+        let same = canon(&a) == canon(&b);
+        // and redsim on the variant, as a plain differential
+        let (sim, notes) = run_sim(&v)?;
+        let model_ok = notes.is_empty() && first_diff(&v, &sim, &b).is_none();
+        Ok((i, c, v, same, model_ok))
+    });
+    let (mut bad, mut model_bad, mut errors) = (0, 0, 0);
+    for r in res {
+        match r {
+            Ok((i, c, v, same, model_ok)) => {
+                if !same {
+                    bad += 1;
+                    if bad <= 6 {
+                        std::fs::write(out.join(format!("class-{seed}-{i}-a.txt")), c.to_text())?;
+                        std::fs::write(out.join(format!("class-{seed}-{i}-b.txt")), v.to_text())?;
+                    }
+                }
+                if !model_ok {
+                    model_bad += 1;
+                    if model_bad <= 12 {
+                        std::fs::write(out.join(format!("model-{seed}-{i}.txt")), v.to_text())?;
+                    }
+                }
+            }
+            Err(e) => {
+                if errors < 3 {
+                    log(&format!("error: {e:#}"));
+                }
+                errors += 1;
+            }
+        }
+    }
+    log(&format!("{n} class swaps in {:.1}s: {bad} traces differ modulo classes, {model_bad} redsim mismatches on the variants, {errors} errors", t0.elapsed().as_secs_f64()));
+    Ok(bad)
 }

@@ -38,7 +38,7 @@ pub fn collides(s: &Block) -> bool {
 /// `isCollisionShapeFullBlock` (the judge's `full` flag: a door cell must be a full cube).
 pub fn full_cube(s: &Block) -> bool {
     match *s {
-        Block::Simple(x) => x.full() && !matches!(x, Simple::SoulSand | Simple::HoneyBlock),
+        Block::Simple(x) => x.full() && !matches!(x, Simple::SoulSand | Simple::HoneyBlock | Simple::Mud),
         Block::Glazed { .. }
         | Block::RedstoneBlock
         | Block::Observer { .. }

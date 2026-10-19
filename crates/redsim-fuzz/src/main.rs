@@ -40,6 +40,35 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         batches: usize,
     },
+    /// Print redsim's block equivalence classes (representative, members, properties).
+    Classes,
+    /// Prove the classes in the GAME: random circuits and their class-swapped variants must give
+    /// the same traces modulo classes.
+    Classfuzz {
+        #[arg(long, default_value_t = 2000)]
+        n: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value = "6,3,6")]
+        size: String,
+        #[arg(long, default_value_t = 0.5)]
+        density: f64,
+        #[arg(long, default_value = "core,plain:14,piston:4,note:4")]
+        palette: String,
+        #[arg(long, default_value = "designs/redsim/class-fails")]
+        out: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
+    /// Shrink a mismatching case file (redsim vs the game) and print it.
+    Shrink {
+        case: PathBuf,
+    },
+    /// Shrink a class violation pair (files from classfuzz) and print the minimal pair.
+    Classshrink {
+        a: PathBuf,
+        b: PathBuf,
+    },
     /// Replay every case file of a folder (in parallel); one line per case.
     Cases {
         dir: PathBuf,
@@ -85,6 +114,46 @@ fn main() -> Result<()> {
                     eprintln!("running total: {bad} mismatches in {total} cases ({:.4}%)", 100.0 * bad as f64 / total.max(1) as f64);
                 }
             }
+        }
+        Cmd::Classes => {
+            let cls = redsim::classes::classes();
+            for (i, c) in cls.iter().enumerate() {
+                let members: Vec<String> = c.members.iter().map(|b| b.to_string().trim_start_matches("minecraft:").to_string()).collect();
+                println!("class {i}: {}\n  rep {}\n  members ({}): {}", c.describe(), c.representative, members.len(), members.join(", "));
+            }
+            // classes that differ only by the note-block instrument
+            let mut groups: Vec<(redsim::classes::Signature, Vec<usize>)> = Vec::new();
+            for (i, c) in cls.iter().enumerate() {
+                let f = c.instrument_free();
+                match groups.iter_mut().find(|(s, _)| *s == f) {
+                    Some((_, v)) => v.push(i),
+                    None => groups.push((f, vec![i])),
+                }
+            }
+            for (_, v) in groups.iter().filter(|(_, v)| v.len() > 1) {
+                println!("same except next to a note block: classes {v:?}");
+            }
+            eprintln!("{} blocks in {} classes ({} ignoring note-block instruments)", cls.iter().map(|c| c.members.len()).sum::<usize>(), cls.len(), groups.len());
+        }
+        Cmd::Classfuzz { n, seed, size, density, palette, out, workers } => {
+            let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+            let pool = Pool::spawn(workers, &cfg)?;
+            redsim_fuzz::classfuzz(&pool, n, seed, &redsim_fuzz::palette(&palette)?, [sz[0], sz[1], sz[2]], density, &out, &|s| eprintln!("{s}"))?;
+        }
+        Cmd::Shrink { case } => {
+            let mut w = Worker::spawn(&cfg)?;
+            let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+            let c = redsim_fuzz::Case::parse(&std::fs::read_to_string(&case)?)?;
+            let s = redsim_fuzz::shrink(&mut w, sb, c)?;
+            print!("{}", s.to_text());
+        }
+        Cmd::Classshrink { a, b } => {
+            let mut w = Worker::spawn(&cfg)?;
+            let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+            let ca = redsim_fuzz::Case::parse(&std::fs::read_to_string(&a)?)?;
+            let cb = redsim_fuzz::Case::parse(&std::fs::read_to_string(&b)?)?;
+            let (sa, sbb) = redsim_fuzz::class_shrink(&mut w, sb, ca, cb)?;
+            println!("--- a\n{}--- b\n{}", sa.to_text(), sbb.to_text());
         }
         Cmd::Cases { dir, workers } => {
             let mut paths: Vec<PathBuf> = std::fs::read_dir(&dir)?.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "txt")).collect();

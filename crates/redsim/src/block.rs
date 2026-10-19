@@ -178,12 +178,53 @@ pub enum Simple {
     HoneyBlock,
     WaxedCopperGrate,
     SeaLantern,
+    // plain blocks for the equivalence classes (`classes.rs`)
+    Granite,
+    PolishedGranite,
+    Diorite,
+    Andesite,
+    MossyCobblestone,
+    StoneBricks,
+    Tuff,
+    Calcite,
+    Bricks,
+    Sandstone,
+    NetherBricks,
+    EndStone,
+    Blackstone,
+    QuartzBlock,
+    Prismarine,
+    PurpurBlock,
+    Terracotta,
+    CoalBlock,
+    RawIronBlock,
+    MudBricks,
+    WhiteConcrete,
+    BlackConcrete,
+    DiamondBlock,
+    LapisBlock,
+    NetheriteBlock,
+    SoulSoil,
+    DriedKelpBlock,
+    Shroomlight,
+    NetherWartBlock,
+    WarpedWartBlock,
+    AmethystBlock,
+    Bookshelf,
+    CraftingTable,
+    SprucePlanks,
+    OrangeWool,
+    BlackWool,
+    Pumpkin,
+    WhiteStainedGlass,
+    BlackStainedGlass,
+    Mud,
     // ---- pistmodel ----
     CryingObsidian,
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 20] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 60] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -206,11 +247,57 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 20] = [
     (Simple::HoneyBlock, "honey_block", false, false, Instrument::Harp, PushReaction::PushPull),
     (Simple::WaxedCopperGrate, "waxed_copper_grate", false, true, Instrument::Harp, PushReaction::PushPull),
     (Simple::SeaLantern, "sea_lantern", false, true, Instrument::Hat, PushReaction::PushPull),
+    (Simple::Granite, "granite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::PolishedGranite, "polished_granite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Diorite, "diorite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Andesite, "andesite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::MossyCobblestone, "mossy_cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::StoneBricks, "stone_bricks", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Tuff, "tuff", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Calcite, "calcite", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Bricks, "bricks", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Sandstone, "sandstone", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::NetherBricks, "nether_bricks", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::EndStone, "end_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Blackstone, "blackstone", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::QuartzBlock, "quartz_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Prismarine, "prismarine", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::PurpurBlock, "purpur_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::Terracotta, "terracotta", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::CoalBlock, "coal_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::RawIronBlock, "raw_iron_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::MudBricks, "mud_bricks", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::WhiteConcrete, "white_concrete", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::BlackConcrete, "black_concrete", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    (Simple::DiamondBlock, "diamond_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::LapisBlock, "lapis_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::NetheriteBlock, "netherite_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::SoulSoil, "soul_soil", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::DriedKelpBlock, "dried_kelp_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::Shroomlight, "shroomlight", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::NetherWartBlock, "nether_wart_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::WarpedWartBlock, "warped_wart_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::AmethystBlock, "amethyst_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::Bookshelf, "bookshelf", true, true, Instrument::Bass, PushReaction::PushPull),
+    (Simple::CraftingTable, "crafting_table", true, true, Instrument::Bass, PushReaction::PushPull),
+    (Simple::SprucePlanks, "spruce_planks", true, true, Instrument::Bass, PushReaction::PushPull),
+    (Simple::OrangeWool, "orange_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::BlackWool, "black_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    // pumpkins break when a piston pushes them (POPPED)
+    (Simple::Pumpkin, "pumpkin", true, true, Instrument::Didgeridoo, PushReaction::Popped),
+    (Simple::WhiteStainedGlass, "white_stained_glass", false, true, Instrument::Hat, PushReaction::PushPull),
+    (Simple::BlackStainedGlass, "black_stained_glass", false, true, Instrument::Hat, PushReaction::PushPull),
+    // mud: like soul sand (always a conductor, 14 px collision, full support), dirt's harp
+    (Simple::Mud, "mud", true, true, Instrument::Harp, PushReaction::PushPull),
     // ---- pistmodel ----
     (Simple::CryingObsidian, "crying_obsidian", true, true, Instrument::Basedrum, PushReaction::Immoveable),
 ];
 
 impl Simple {
+    /// Every plain block's id (what `Block::parse` accepts).
+    pub fn names() -> Vec<&'static str> {
+        SIMPLES.iter().map(|r| r.1).collect()
+    }
     fn row(self) -> &'static (Simple, &'static str, bool, bool, Instrument, PushReaction) {
         SIMPLES.iter().find(|r| r.0 == self).unwrap()
     }
