@@ -1,0 +1,42 @@
+name: ring56-t9a
+port door: 0 0 0
+port lever: 5 2 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:obsidian
+  D minecraft:piston_head[facing=west,short=false,type=sticky]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:sticky_piston[extended=true,facing=west]
+  I minecraft:iron_trapdoor[facing=east,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=down,powered=false]
+  p minecraft:piston[extended=false,facing=west]
+  r minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...F
+layer -1:
+  ..J.J
+layer 0:
+  E.JJJ.G
+layer 1:
+  E.JJJDH
+layer 2:
+  .JJJJDHL
+layer 3:
+  .....Go
+layer 4:
+  ..ssSAI
+layer 5:
+  ..PsSBo
+layer 6:
+  O.p.rRC

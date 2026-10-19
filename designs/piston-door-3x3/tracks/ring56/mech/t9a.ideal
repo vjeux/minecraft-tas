@@ -1,0 +1,22 @@
+design designs/piston-door-3x3/tracks/ring56/mech/t9a.txt
+# real lever (ON at rest, first flip opens); every other piston by an off-plane ideal input
+let e0 = 6
+let s = 42
+open 0 use 5 2 0
+close 0 use 5 2 0
+open s set 0 4 1 minecraft:redstone_block
+open s+2 clear 0 4 1
+open s set -2 1 1 minecraft:redstone_block
+open s+2 clear -2 1 1
+open s set 4 0 1 minecraft:redstone_block
+open s+2 clear 4 0 1
+open s set 1 -2 1 minecraft:redstone_block
+open s+2 clear 1 -2 1
+close s set 0 4 1 minecraft:redstone_block
+close s+2 clear 0 4 1
+close s set -2 1 1 minecraft:redstone_block
+close s+2 clear -2 1 1
+close s set 4 0 1 minecraft:redstone_block
+close s+2 clear 4 0 1
+close s set 1 -2 1 minecraft:redstone_block
+close s+2 clear 1 -2 1
