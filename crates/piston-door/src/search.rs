@@ -1389,7 +1389,16 @@ pub(crate) fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, op
                 !(r.flags_at(p).is_some_and(|f| f.collides) || moving(s))
             })
         };
-        for _ in 0..opts.cycles {
+        // Periodic rest, like the judge (96a62d6, vjeux: internal state doesn't matter as long as
+        // the door works repeatedly): each close leaves the door closed (its rest door blocks, the
+        // walkway clear) and some closed state repeats an earlier one within cycles +
+        // MAX_PERIOD_EXTRA.
+        let mut seen_closed: Vec<Region> = vec![rest.clone()];
+        let mut periodic = false;
+        for cycle in 0..opts.cycles + crate::MAX_PERIOD_EXTRA {
+            if cycle >= opts.cycles && periodic {
+                break;
+            }
             w.use_block(sb, spec.lever)?;
             if w.step_until_idle(sb, opts.max_ticks)?.idle != Some(true) {
                 bail!("still moving after opening");
@@ -1402,9 +1411,18 @@ pub(crate) fn screen_in(w: &mut mctas::sim::Worker, sb: u32, design: &Design, op
                 bail!("still moving after closing");
             }
             let last = w.get_region(sb, wlo, whi)?;
-            if rest.iter().any(|(p, s)| last.get(p) != Some(s)) || !w.entities(sb)?.is_empty() {
-                bail!("not back at rest");
+            let closed = spec.door_cells().iter().all(|p| last.get(*p) == rest.get(*p)) && !spec.corridor_cells().iter().any(|p| last.flags_at(*p).is_some_and(|f| f.collides));
+            if !closed || !w.entities(sb)?.is_empty() {
+                bail!("not closed after closing");
             }
+            if seen_closed.iter().any(|s| crate::same_region(s, &last)) {
+                periodic = true;
+            } else {
+                seen_closed.push(last);
+            }
+        }
+        if !periodic {
+            bail!("not back at rest (nor at any earlier closed state)");
         }
     }
     Ok(())
