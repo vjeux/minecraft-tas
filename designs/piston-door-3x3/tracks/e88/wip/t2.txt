@@ -1,0 +1,34 @@
+# e88 t2: lever ON at rest on TOP of the TR puller (2,4): it holds the TR puller directly and the T
+# puller (1,4) by quasi-connectivity (the lever is a neighbour of (1,5)); both extended at rest.
+# TR goes UP into (2,3), T up into (1,3); right stack = MR (4,1) + BR (4,0) only; static frame
+# stones (0,3), (3,2), (2,-1). Everything else ideal.
+name: e88-t2
+port door: 0 0 0
+port lever: 2 5 0
+origin: -3 0 0
+palette:
+  E minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  s minecraft:sticky_piston[extended=true,facing=down]
+  h minecraft:piston_head[facing=down,short=false,type=sticky]
+  H minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+layer -3:
+  ....F...
+layer -2:
+  ....F...
+layer -1:
+  ..E..H..
+layer 0:
+  .E.HHH.G
+layer 1:
+  .E.HHH.G
+layer 2:
+  .E.HHHH.
+layer 3:
+  ...Hhh..
+layer 4:
+  ....ss..
+layer 5:
+  .....L..

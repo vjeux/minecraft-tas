@@ -458,6 +458,24 @@ Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and unde
   carry no power: both need the lever, which cannot touch both. A mechanism needs a piston both top
   pockets touch (f131X's DE). Its bottom train is drivable piecewise: B' (both pulses, both edges)
   by 5 blocks watching BL's puller (`runs/pk-s1-k5/pocket0-set1.txt`).
+* **One lever holds the whole ceiling (e88, 8x8 from e89b)**: a lever ON at rest standing on TOP of
+  the T puller (1,4) (face=floor at (1,5), outside the volume) powers it directly and the TL/TR
+  pullers (0,4)/(2,4) by QC (the lever is a neighbour of (0,5)/(2,5); its `updateNeighbours` reaches
+  them); the extended puller's top face stays full, so the lever survives. The whole top row goes up
+  with zero wiring and the TL/TR park watchers give one clean pulse each at t3 to both sides
+  (`tracks/e88/wip/t3.txt`, `ideal/t3.ideal`; t3k: everything wired but one piston).
+* **A lamp as merger input + delay (e88 t3n)**: the BR-puller watcher's two pulses (t9, t13) light a
+  lamp (4,-2) that is also the input of a merger repeater (one A pulse at t15); observers on the lamp
+  fire on both edges: the on-edge copy reaches B' while A' is busy (harmless), the off-edge copy
+  (dark at t19) is B's boost at t25. Bottom right of an 8x8 fully wired with 8 blocks.
+* **Left of a redstone-block shuttle (e88 t3k, 8x8)**: P_M (single pulse, t18..23) and the shuttle
+  piston (push >= 25, pull >= push+5: A' sits at (1,-1) until the gate's pulse 1 ends, placed only
+  at push+6) cannot both be driven from the 6-7 cells left of the shuttle plus an observer column:
+  every P_M driver and every shuttle driver share one source, natural doubles are 4 gt apart
+  (watchers of 2 gt pull-type pistons; the 2nd copy absorbed by the shuttle's own retraction still
+  pulls one phase early), and any trigger off the redstone block (gate, lamp lit by it) re-fires when
+  it returns: a clock. Pockets exhaustive to k=6 (78M fillings) and k=5 on 7 cells: no joint
+  filling (`tracks/e88/NOTES.md`).
 
 ## Tools built that night
 

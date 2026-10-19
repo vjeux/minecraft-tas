@@ -1,0 +1,10 @@
+# t3g: t3c + P_M driver (-2,-1) observer west + gate watcher (-1,-2) observer east -> stone (-2,-2)
+# -> shuttle piston (pull pulse); only the shuttle's first (push) pulse ideal.
+design designs/piston-door-3x3/tracks/e88/wip/t3g.txt
+let s1 = 26
+open 0 use 1 5 0
+close 0 use 1 5 0
+open s1 set -2 -3 1 minecraft:redstone_block
+open s1+2 clear -2 -3 1
+close s1 set -2 -3 1 minecraft:redstone_block
+close s1+2 clear -2 -3 1

@@ -1,0 +1,16 @@
+# t3n: t3w + bottom right: lamp (4,-2) lit by the BR watcher, merger repeater (3,-2) -> observer
+# (2,-2) = A' pulse 0; observers (4,-3) up, (3,-3) east, (2,-3) east = B' boost (on edge blocked by A').
+design designs/piston-door-3x3/tracks/e88/wip/t3b2.txt
+let pm = 18
+let s1 = 26
+let s2 = 36
+open 0 use 1 5 0
+close 0 use 1 5 0
+open s1 set -2 -3 1 minecraft:redstone_block
+open s1+2 clear -2 -3 1
+close s1 set -2 -3 1 minecraft:redstone_block
+close s1+2 clear -2 -3 1
+open s2 set -2 -3 1 minecraft:redstone_block
+open s2+2 clear -2 -3 1
+close s2 set -2 -3 1 minecraft:redstone_block
+close s2+2 clear -2 -3 1
