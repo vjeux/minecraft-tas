@@ -287,9 +287,10 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
     let mut seen: HashSet<Vec<Pc>> = HashSet::new();
     let mut kept: Vec<Var> = Vec::new();
     let mut beam: Vec<Var> = Vec::new();
-    for (bx, p) in seeds {
+    let seed_res = cs::par_map(seeds, o.threads, |(bx, p)| eval(*bx, p, o.cap, None, &o.reserve));
+    for ((bx, p), res) in seeds.iter().zip(seed_res) {
         seen.insert(p.clone());
-        match eval(*bx, p, o.cap, None, &o.reserve) {
+        match res {
             Some(v) => {
                 eprintln!("[mechmut] seed {}: connect {} never-fed {} unfed {} class {} pistons {} events {}", v.line(), v.connect, v.never, v.unfed, v.class, v.pistons, v.events);
                 beam.push(v.clone());

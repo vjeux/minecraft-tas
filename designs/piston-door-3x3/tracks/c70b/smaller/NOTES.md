@@ -74,9 +74,18 @@ states each (w1 5M / 35 s / 3.4 GB; a3s, m69a 3M), 5-25x the catalog's 200k cap.
 |---|---|
 | families defaults, 6x8 (x -1..4 or mirrored, every offset) | 0 of 65,664 open+close; 18,874 unresolved at the 200k cap |
 | families defaults, 8x6 | 0 of 65,768; 14,421 unresolved |
-| families defaults, 7x7 | running (746,836 candidates; 0 of the first 460k) |
+| families defaults, 7x7 | 0 of the first 740k of 746,836 (stopped in the slow tail) |
 | families --ring-escape --ring-escape-only --feedable P<=12, 7x7 | 223,260 candidates; stopped at 20k (cap 400k: the w1-like ones need ~5M) |
-| `door mechmut` from w1 / a3r / a3s / m69a (cap 5M, beam 4, 2 rounds) | running: smaller/mm/ |
+| families 6x6 two 2, P<=12 | 0 of 9,952, every one decided (no 6x6 mechanism with <= 2 two-move blocks); two 3: 667,646 candidates, running |
+| `door mechmut` 7x6 from a3s (3 rounds) | 91 variants; best 11 pistons, 1 unfed (smaller/mm/seed3-7x6.tsv, v7x6/a3s-11.txt); W fires inside the opening, so its plan needs w86's input trick |
+| `door mechmut` 7x7 from w1 (3 rounds) | 198 variants (mm-w1/w1.tsv); mm01 = 11 pistons (L and BL's puller dropped, Q in the corner (-1,-1)), unfed = P only; mm01..03 WORK in redsim at 32 positions (`ideal-rs --between-ticks`) |
+| `door mechmut` 9x6 from w86's m69g (top trio kept, (3,4) reserved for the crossing observer) | 126 variants; m69g-12 (v9x6/): the only unfed piston is the lever's own SD+(1,4); WORKS in redsim at 32 positions; satwire (w86): UNSAT, core W' (3,-1) (a bottom pocket only row-0 movers touch) |
+| m69a turned 90 degrees = 9x6 | fullmech plan WORKS at 32 positions (turned/m69a-9x6-fm.*), unfed SU(1,-2); pockets3 / c78l / w86 wire the same mechanism (w86's m69t) |
+
+mechmut's rank (best first): `door connect` WIRABLE, then the pistons no lever-woken free-cell
+region ever feeds (connect's report; w86's metric), then families' per-piston unfed count (a
+static ring stone a free off-ring cell can power counts as a feed; one edge piston may be the
+lever's own), pistons, wiring class, events. All of these are optimistic: satwire / pockets decide.
 
 ## Tools added (explore/c70b)
 - families `--ring-escape` (+ `--ring-escape-max`, `--ring-escape-only`): pistons resting in ring
