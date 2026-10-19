@@ -58,6 +58,27 @@ pub enum CircuitCmd {
         #[arg(long, default_value_t = 3)]
         margin: i32,
     },
+    /// Judge designs in the real game and keep the passing ones in their study's archive
+    /// (designs/circuits/<study>/archive/: the design with its judge line, a verdict row, a
+    /// caption); a structure already archived as the same kind is refused.
+    Archive {
+        designs: Vec<PathBuf>,
+        /// The caption (default: the design's first comment block).
+        #[arg(long)]
+        caption: Option<String>,
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+        #[arg(long, default_value_t = 4)]
+        positions: usize,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
+    /// Write every study's CATALOG.md and variants.md, the index designs/circuits/CATALOG.md and
+    /// the website's data designs/circuits/catalog.tsv from the archives (no game).
+    Catalog {
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+    },
     /// Track pulse's commands (crates/circuit-pulse).
     Pulse {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -154,16 +175,16 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             for p in &designs {
                 let c = Circuit::load(p)?;
                 let rep = circuit::verify::verify_in_pool(&pool, &c, &o)?;
-                if table && let Some((out, _)) = rep.base() {
-                    for l in &out.table {
+                if table && let Some(b) = rep.base() {
+                    for l in &b.outcome.table {
                         println!("  {l}");
                     }
                 }
                 if !rep.pass {
                     failed += 1;
-                    for b in rep.builds.iter().filter(|b| !b.result.as_ref().is_ok_and(|(o, _)| o.pass)).take(3) {
+                    for b in rep.builds.iter().filter(|b| !b.result.as_ref().is_ok_and(|b| b.outcome.pass)).take(3) {
                         let why = match &b.result {
-                            Ok((o, _)) => o.why.clone(),
+                            Ok(b) => b.outcome.why.clone(),
                             Err(e) => e.clone(),
                         };
                         println!("  rotation {} at {:?}: {why}", b.turns, b.offset);
@@ -174,6 +195,22 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             if failed > 0 {
                 std::process::exit(1);
             }
+        }
+        CircuitCmd::Archive { designs, caption, root, positions, workers } => {
+            let o = Options { positions, workers, version: version.to_string(), ..Default::default() };
+            let pool = circuit::verify::spawn_pool(&o)?;
+            for p in &designs {
+                match circuit::archive::archive(&pool, p, &o, &root, caption.as_deref()) {
+                    Ok(a) => println!("{} {}: {}", if a.new { "ARCHIVED" } else { "SKIPPED" }, a.file.display(), a.summary),
+                    Err(e) => println!("REFUSED {}: {e:#}", p.display()),
+                }
+            }
+        }
+        CircuitCmd::Catalog { root } => {
+            for l in circuit::archive::catalog(&root)? {
+                println!("{l}");
+            }
+            println!("{}/CATALOG.md, {}/catalog.tsv", root.display(), root.display());
         }
         CircuitCmd::Pulse { args } => circuit_pulse::run(args)?,
         CircuitCmd::Tff { args } => circuit_tff::run(args)?,

@@ -133,6 +133,32 @@ kick) before the first input.
   corridor's end); a steady shuttle in place over 2+ positions passes as two-way. `speed`: P / d gt
   per block; `latency`: the kick to the first change; the box is the design's own.
 
+## Archive and catalog
+
+`mctas circuit archive <design>... [--caption '...'] [--root designs/circuits]` judges each design
+(`circuit verify`) and keeps a passing one in its study's archive,
+`designs/circuits/<study>/archive/`: the design with two header lines (`# archived <date> from
+<path> by mctas circuit archive`, `# CIRCUIT: ...`), its row in `verdicts.tsv` (kind, the study's
+axis value, metrics, blocks, box, family = the kinds of the blocks whose state changes,
+robustness, block kinds, type key) and its caption in `captions.tsv` (default: the design's first
+comment block). Refused: a failing design, or a structure already archived as the same kind (the
+TYPE: up to translation, the 4 rotations and the mirror image, input cells marked whatever drives
+them, output and payload cells marked: `same type as <file>`). A name taken by another structure
+gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
+gates the function, T flip-flops their family, latches the kind, `counter N`, extenders `N = <N>`,
+flying machines their speed (or `two-way`).
+
+`mctas circuit catalog [--root designs/circuits]` (no game) writes, per study,
+`designs/circuits/<study>/CATALOG.md` (by axis value, numbers ascending, the smallest design first:
+design link, kind, metrics, blocks, box, robustness, caption) and `variants.md` (the dominance fold,
+as for clocks: within a kind and axis value, a design with more blocks that uses every block kind of
+a smaller one, plus others, is its variant, listed under it with the kinds it adds); the index
+`designs/circuits/CATALOG.md`; and `designs/circuits/catalog.tsv`, one row per archived design
+(study, kind, axis, name, path, metrics, blocks, box, family, robustness, variant_of, caption): the
+data the website renders.
+
+Extendable families (`extend` headers, cards with groups, as for clocks) come next.
+
 ## Commands
 
 | command | what |
@@ -140,7 +166,9 @@ kick) before the first input.
 | `mctas circuit info <design>...` | parse: kind (study), inputs and how they are driven, outputs, payloads, block count |
 | `mctas circuit sim <design>... [--table] [--wave] [--stimulus S] [--gap N]` | the redsim screen: the kind's stimulus, the checker's table (`--table`), the waveform (`--wave`: `#` on, `.` off, an output's level as a hex digit), the CIRCUIT line |
 | `mctas circuit verify <design>... [--positions 4] [--no-rotations] [--workers 8] [--table] [--stimulus S] [--gap N]` | the judge in the real game (exit 1 unless every design passes) |
+| `mctas circuit archive <design>... [--caption C] [--root designs/circuits]` | (coordinator) judge and keep in `designs/circuits/<study>/archive/` |
+| `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
 | `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
 
-The archive and the catalog per kind (`designs/circuits/<study>/`, type identity, dominance fold,
-extendable cards with groups) come next, from the clock machinery.
+Tracks: put your designs in `designs/circuits/<study>/tracks/<track>/`; the coordinator archives
+the verified ones.
