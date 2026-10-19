@@ -1,0 +1,54 @@
+# A hopper's removeItem/setItem do NOT call setChanged (HopperBlockEntity overrides them): ejecting its only item and sucking a new one leaves no transient empty reading, so the compare-mode comparator reading it schedules no tick and never updates its front (the QC dropper there stays untriggered). Dropper removeItem/setItem do notify.
+box -11 1 6 -5 5 10
+block -9 2 8 minecraft:stone
+block -9 3 7 minecraft:hopper[enabled=true,facing=east]
+block -8 3 7 minecraft:dropper[facing=west,triggered=false]
+block -9 3 8 minecraft:comparator[facing=north,mode=compare,powered=false]
+block -8 3 9 minecraft:dropper[facing=south,triggered=false]
+block -9 4 7 minecraft:dropper[facing=east,triggered=false]
+block -10 4 8 minecraft:dropper[facing=west,triggered=false]
+block -10 4 9 minecraft:dropper[facing=north,triggered=false]
+block -9 4 9 minecraft:dropper[facing=west,triggered=false]
+block -8 4 9 minecraft:comparator[facing=east,mode=compare,powered=false]
+block -7 4 9 minecraft:stone
+block -6 4 9 minecraft:hopper[enabled=true,facing=west]
+item -9 3 7 0 ender_pearl 1
+item -8 3 7 0 ender_pearl 1
+item -9 4 7 0 ender_pearl 3
+item -10 4 8 0 ender_pearl 1
+item -10 4 9 0 ender_pearl 1
+item -9 4 9 0 ender_pearl 4
+item -6 4 9 3 ender_pearl 1
+run 3
+run 1
+run 1
+run 3
+run 3
+frame 0
+cell -9 2 8 minecraft:stone
+cell -9 3 7 minecraft:hopper[enabled=true,facing=east]
+cell -8 3 7 minecraft:dropper[facing=west,triggered=false]
+cell -9 3 8 minecraft:comparator[facing=north,mode=compare,powered=false]
+cell -8 3 9 minecraft:dropper[facing=south,triggered=false]
+cell -9 4 7 minecraft:dropper[facing=east,triggered=false]
+cell -10 4 8 minecraft:dropper[facing=west,triggered=false]
+cell -10 4 9 minecraft:dropper[facing=north,triggered=false]
+cell -9 4 9 minecraft:dropper[facing=west,triggered=false]
+cell -8 4 9 minecraft:comparator[facing=east,mode=compare,powered=false]
+cell -7 4 9 minecraft:stone
+cell -6 4 9 minecraft:hopper[enabled=true,facing=west]
+frame 1
+frame 2
+cell -9 3 8 minecraft:comparator[facing=north,mode=compare,powered=true]
+cell -10 4 9 minecraft:dropper[facing=north,triggered=true]
+cell -9 4 9 minecraft:dropper[facing=west,triggered=true]
+cell -8 4 9 minecraft:comparator[facing=east,mode=compare,powered=true]
+frame 3
+frame 4
+frame 5
+frame 6
+frame 7
+frame 8
+frame 9
+frame 10
+frame 11

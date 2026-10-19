@@ -3154,6 +3154,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 out,
                 shrink: !no_shrink,
                 max_report,
+                generator: "random".into(),
             };
             redsim_fuzz::fuzz(&pool, &o, &|s| eprintln!("{s}"))?;
         }
