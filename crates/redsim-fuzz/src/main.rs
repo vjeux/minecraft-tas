@@ -44,6 +44,12 @@ enum Cmd {
         #[arg(long = "gen", default_value = "random")]
         generator: String,
     },
+    /// Print redsim's link table: each component's output windows for standard input trains.
+    Links {
+        /// Also replay every (gadget, train) in the game and compare block by block.
+        #[arg(long)]
+        verify: bool,
+    },
     /// Print redsim's block equivalence classes (representative, members, properties).
     Classes,
     /// Prove the classes in the GAME: random circuits and their class-swapped variants must give
@@ -122,6 +128,63 @@ fn main() -> Result<()> {
                 if batches > 1 {
                     eprintln!("running total: {bad} mismatches in {total} cases ({:.4}%)", 100.0 * bad as f64 / total.max(1) as f64);
                 }
+            }
+        }
+        Cmd::Links { verify } => {
+            if verify {
+                let mut w = Worker::spawn(&cfg)?;
+                let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-1, -1, 0, 0], seed: 0 })?;
+                let (mut same, mut total) = (0, 0);
+                for g in redsim::links::GADGETS {
+                    for (n, toggles) in redsim::links::TRAINS {
+                        let mut blocks: Vec<([i32; 3], String)> = vec![([0, 0, 0], "minecraft:stone".into()), ([0, 1, 0], "minecraft:lever[face=floor,facing=north,powered=false]".into())];
+                        for ((x, y, z), s) in g.blocks {
+                            blocks.push(([*x, *y, *z], redsim::Block::parse(s).map_err(|e| anyhow::anyhow!(e))?.to_string()));
+                        }
+                        let mut steps = vec![redsim_fuzz::Step::Run(10)];
+                        let mut t = 0i64;
+                        for &tg in toggles.iter() {
+                            if tg > t {
+                                steps.push(redsim_fuzz::Step::Run((tg - t) as u32));
+                                t = tg;
+                            }
+                            steps.push(redsim_fuzz::Step::Use([0, 1, 0]));
+                        }
+                        steps.push(redsim_fuzz::Step::Run(30));
+                        let c = redsim_fuzz::Case { blocks, steps, lo: [-2, -1, -2], hi: [4, 3, 2], update_place: false, items: Vec::new() };
+                        let o = redsim_fuzz::check(&mut w, sb, &c)?;
+                        total += 1;
+                        if o.diff.is_none() && o.sim_errors.is_empty() {
+                            same += 1;
+                        } else {
+                            eprintln!("{} / {n}: {:?} {:?}", g.name, o.diff.map(|(f, _)| f), o.sim_errors);
+                        }
+                    }
+                }
+                eprintln!("links verified in the game: {same}/{total} identical");
+            }
+            let fmt = |ws: &[(i64, i64)]| -> String {
+                if ws.is_empty() {
+                    return "-".into();
+                }
+                ws.iter().map(|(a, b)| if *b == i64::MAX { format!("{a}..") } else { format!("{a}-{b}") }).collect::<Vec<_>>().join(" ")
+            };
+            print!("| component |");
+            for (n, _) in redsim::links::TRAINS {
+                print!(" {n} |");
+            }
+            println!();
+            print!("|---|");
+            for _ in redsim::links::TRAINS {
+                print!("---|");
+            }
+            println!();
+            for (g, row) in redsim::links::table() {
+                print!("| {g} |");
+                for (_, ws) in row {
+                    print!(" {} |", fmt(&ws));
+                }
+                println!();
             }
         }
         Cmd::Classes => {

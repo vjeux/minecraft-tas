@@ -67,16 +67,19 @@ fails the fixture: the harness sees model errors.
   the powering update, off by a 4 gt tick from the first unpowered update), and redsim as its CEGAR
   screen (it now screens every SAT model with redsim before the judge).
 * boxproof: the same rules + the screen API + the classes; cosearch: the screen API + the classes.
-* `door topology` link types: NOT derived from redsim yet (topology works on macro events with no
-  tick times; the observer busy window that breaks its parity premise is documented in mechanics
-  section 8 and coverage.md). Next step below.
+* `door topology` link types: the model now provides them: `redsim::links` (`redsim-fuzz links
+  [--verify]`) measures each component's output windows for standard pulse trains in redsim and
+  replays every (gadget, train) in the game (96/96 identical); the table is in docs/mechanics.md
+  section 12 (observer busy window merges 1-2 gt pulses, observers on a level double the count,
+  lamps merge gaps < 4 gt, comparators swallow 1 gt pulses, bulbs halve the count). topology itself
+  works on macro events without tick times, so wiring the table into its verdict is its owner's
+  next step (`links::response(gadget, toggles, ticks)` answers any train).
 
 ## Next ideas
 
-* `redsim::links`: exact transfer functions per component (observer response to a change train,
-  bulb toggles, lamp merge window, repeater stretch, comparator swallow), each tested against the
-  full simulation, so topology (or any planner) can compute pulse counts from event TIMES instead
-  of change counts.
+* Wire `redsim::links` into `door topology`'s verdict (event times from the mechanism's ideal
+  plan instead of change counts), and add more link gadgets (dropper/hopper flip-flops, leaves,
+  latches made of a piston or a note block reset on the other edge).
 * A container palette in cosearch/satwire (dropper/hopper flip-flops as memory links, 2-4 cells).
 * Dispensers' block-placing behaviors (shulker boxes, blocks?) and droppers with several stacks are
   random or entity-based: keep them out unless a door needs them.

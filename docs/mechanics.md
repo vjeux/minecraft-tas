@@ -773,6 +773,36 @@ behaviors, sculk, fluids and waterlogging, fence-gate `use` (needs the player's 
 copper. Unknown blocks are rejected (`Block::parse`), so a screen answers Unsupported instead of
 guessing.
 
+**Link table** (`redsim::links`, `redsim-fuzz links [--verify]`): what each component does to a
+pulse train, measured in redsim and replayed in the game (`--verify`: 96/96 identical). Input: a
+floor lever toggled between ticks (a pulse k = on before tick 1, off k ticks later); cells: the
+component's output windows, first tick on - first tick off ("1.." = stays on). Pulse COUNTS
+change along a chain: an observer merges changes inside its 4 gt busy window (one pulse for a
+1-2 gt input pulse), an observer watching a level (lamp, note block) emits two pulses per window,
+a lamp merges pulses closer than its 4 gt fall, a comparator swallows a 1 gt pulse, repeaters
+stretch to their delay and merge gaps shorter than it, and a copper bulb (directly, or fed by an
+observer) halves the count: 2 input pulses = 1 window, an odd link from an even source.
+
+| component | pulse 1 | pulse 2 | pulse 4 | pulse 8 | 2x pulse 2, gap 1 | 2x pulse 2, gap 2 | 2x pulse 2, gap 4 | 2x pulse 2, gap 8 |
+|---|---|---|---|---|---|---|---|---|
+| repeater d1 | 2-4 | 2-4 | 2-6 | 2-10 | 2-7 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
+| repeater d2 | 4-8 | 4-8 | 4-8 | 4-12 | 4-9 | 4-8 | 4-12 | 4-8 14-18 |
+| repeater d4 | 8-16 | 8-16 | 8-16 | 8-16 | 8-16 | 8-16 | 8-16 | 8-16 |
+| comparator | - | 2-4 | 2-6 | 2-10 | 2-7 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
+| torch (inverts) | 0.. | 0-2 4.. | 0-2 6.. | 0-2 10.. | 0-2 7.. | 0-2 4-6 8.. | 0-2 4-8 10.. | 0-2 4-12 14.. |
+| lamp | 1-5 | 1-6 | 1-8 | 1-12 | 1-6 | 1-10 | 1-6 7-12 | 1-6 11-16 |
+| note block | 1-2 | 1-3 | 1-5 | 1-9 | 1-3 4-6 | 1-3 5-7 | 1-3 7-9 | 1-3 11-13 |
+| observer on the lever | 2-4 | 2-4 | 2-4 6-8 | 2-4 10-12 | 2-4 7-9 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
+| observer on a lamp | 2-4 7-9 | 2-4 8-10 | 2-4 10-12 | 2-4 14-16 | 2-4 8-10 | 2-4 12-14 | 2-4 8-10 14-16 | 2-4 8-10 12-14 18-20 |
+| observer on a note block | 2-4 | 2-4 | 2-4 6-8 | 2-4 10-12 | 2-4 7-9 | 2-4 6-8 | 2-4 8-10 | 2-4 12-14 |
+| copper bulb | 1.. | 1.. | 1.. | 1.. | 1-4 | 1-5 | 1-7 | 1-11 |
+| observer -> bulb (T flip-flop) | 2.. | 2.. | 2-6 | 2-10 | 2-7 | 2-6 | 2-8 | 2-12 |
+
+(The torch row starts lit: "0-2 4.." = lit, off from tick 2 to 4, lit again. The note block's
+`powered` follows the lever with no delay, so the observer watching it behaves like one watching the
+lever.) A pulse-count planner (`door topology`) should take its link rules from this table (or call
+`links::response` with its own trains) rather than assume every change is one pulse.
+
 **Harness notes:** the bridge's `set`/`fill` used to hand ONE `MutableBlockPos` to every
 `setBlock` of a request, and a block event queued by an `onPlace` (a piston placed with updates)
 kept that object, so it ran at the next block's cell; fixed on main (4a4fd3e), and the fuzzer places
