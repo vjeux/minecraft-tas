@@ -1,0 +1,43 @@
+name: ring56-j7
+# j6 + the BM gate: observer (2,-2) facing down powers F2; BM parked there (open edge only) feeds A' (A2 high, A3 at its landing).
+# Lever on top of an observer (-2,5) that watches it. Left stack (ML+BL pullers) from the stone
+# (-2,2) under a dot dust lit by the stone (-2,4) the lever observer powers (k2). Row 5 observer
+# chain: (-1,5) QC-fires TL's puller (k4), (0,5) TM's (k6), (1,5) TR's (k8); down the right side
+# (4,5) -> (4,4) -> iron trapdoor (4,3) -> observer (4,2) fires MR+BR's pullers (k20).
+port door: 0 0 0
+port lever: -2 6 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  w minecraft:observer[facing=west,powered=false]
+  H minecraft:stone
+  d minecraft:redstone_wire[east=none,north=none,south=none,west=none,power=0]
+  t minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  o minecraft:observer[facing=down,powered=false]
+  N minecraft:note_block
+layer -3:
+  ...UN..
+layer -2:
+  ...Uo..
+layer -1:
+  .....W.
+layer 0:
+  E.SSS.W
+layer 1:
+  E.SSS.W
+layer 2:
+  H.SSS.u
+layer 3:
+  d.....t
+layer 4:
+  H.DDD.u
+layer 5:
+  uwwwwww
+layer 6:
+  L......
