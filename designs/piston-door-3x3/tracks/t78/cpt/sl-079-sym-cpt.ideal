@@ -1,0 +1,96 @@
+# door ideal-rs --compact designs/piston-door-3x3/tracks/t78/mech/sl-079-sym.ideal: every input group pulled as early as it goes (others fixed, 2 passes);
+# open 48 / close 48 (was 57 / 57); windows: the group's own shifts that keep it working
+design designs/piston-door-3x3/tracks/t78/mech/sl-079-sym.txt
+# open  t0 [0, 4, 0] pulse 2 gt: window [+0, +0]
+# open  t0 [1, -3, 0] pulse 2 gt: window [+0, +24]
+# open  t3 [3, 3, 1] pulse 2 gt: window [+0, +0]
+# open  t5 [0, 5, 0] pulse 2 gt: window [+0, +0]
+# open  t6 [0, 3, 0] pulse 2 gt: window [+0, +0]
+# open  t9 [0, 5, 0] pulse 2 gt: window [+0, +0]
+# open  t11 [5, 3, 0] pulse 2 gt: window [+0, +0]
+# open  t13 [2, 3, 1] pulse 2 gt: window [+0, +0]
+# open  t14 [0, 4, 0] pulse 2 gt: window [+0, +24]
+# open  t16 [5, 3, 0] pulse 2 gt: window [+0, +0]
+# open  t18 [2, 4, 1] pulse 2 gt: window [+0, +24]
+# open  t45 [-2, -1, 0] pulse 2 gt: window [-24, +0]
+# open  t45 [-3, 2, 0] pulse 2 gt: window [+0, +6]
+# open  t45 [5, 1, 0] pulse 2 gt: window [+0, +6]
+# open  t48 [-3, 1, 0] pulse 2 gt: window [-6, +0]
+# open  t48 [4, -1, 0] pulse 2 gt: window [-6, +0]
+# close t0 [0, 4, 0] pulse 2 gt: window [+0, +0]
+# close t0 [1, 3, 1] pulse 2 gt: window [+0, +9]
+# close t3 [3, 3, 1] pulse 2 gt: window [+0, +0]
+# close t6 [0, 5, 0] pulse 4 gt: window [+0, +0]
+# close t7 [5, 3, 0] pulse 2 gt: window [+0, +2]
+# close t7 [1, -3, 0] pulse 2 gt: window [-7, +24]
+# close t10 [2, 3, 1] pulse 2 gt: window [+0, +0]
+# close t13 [5, 3, 0] pulse 2 gt: window [+0, +0]
+# close t17 [3, 3, 1] pulse 2 gt: window [+0, +0]
+# close t21 [2, 4, 1] pulse 2 gt: window [+0, +24]
+# close t39 [-2, -1, 0] pulse 2 gt: window [+0, +0]
+# close t39 [-3, 2, 0] pulse 2 gt: window [+0, +0]
+# close t42 [-3, 1, 0] pulse 2 gt: window [+0, +0]
+# close t45 [5, 1, 0] pulse 2 gt: window [+0, +0]
+# close t48 [4, -1, 0] pulse 2 gt: window [+0, +0]
+open 0 set 0 4 0 minecraft:redstone_block
+open 0 set 1 -3 0 minecraft:redstone_block
+open 2 clear 0 4 0
+open 2 clear 1 -3 0
+open 3 set 3 3 1 minecraft:redstone_block
+open 5 clear 3 3 1
+open 5 set 0 5 0 minecraft:redstone_block
+open 6 set 0 3 0 minecraft:redstone_block
+open 7 clear 0 5 0
+open 8 clear 0 3 0
+open 9 set 0 5 0 minecraft:redstone_block
+open 11 clear 0 5 0
+open 11 set 5 3 0 minecraft:redstone_block
+open 13 clear 5 3 0
+open 13 set 2 3 1 minecraft:redstone_block
+open 14 set 0 4 0 minecraft:redstone_block
+open 15 clear 2 3 1
+open 16 set 5 3 0 minecraft:redstone_block
+open 16 clear 0 4 0
+open 18 clear 5 3 0
+open 18 set 2 4 1 minecraft:redstone_block
+open 20 clear 2 4 1
+open 45 set -2 -1 0 minecraft:redstone_block
+open 45 set -3 2 0 minecraft:redstone_block
+open 45 set 5 1 0 minecraft:redstone_block
+open 47 clear -2 -1 0
+open 47 clear -3 2 0
+open 47 clear 5 1 0
+open 48 set -3 1 0 minecraft:redstone_block
+open 48 set 4 -1 0 minecraft:redstone_block
+open 50 clear -3 1 0
+open 50 clear 4 -1 0
+close 0 set 0 4 0 minecraft:redstone_block
+close 0 set 1 3 1 minecraft:redstone_block
+close 2 clear 0 4 0
+close 2 clear 1 3 1
+close 3 set 3 3 1 minecraft:redstone_block
+close 5 clear 3 3 1
+close 6 set 0 5 0 minecraft:redstone_block
+close 7 set 5 3 0 minecraft:redstone_block
+close 7 set 1 -3 0 minecraft:redstone_block
+close 9 clear 5 3 0
+close 9 clear 1 -3 0
+close 10 clear 0 5 0
+close 10 set 2 3 1 minecraft:redstone_block
+close 12 clear 2 3 1
+close 13 set 5 3 0 minecraft:redstone_block
+close 15 clear 5 3 0
+close 17 set 3 3 1 minecraft:redstone_block
+close 19 clear 3 3 1
+close 21 set 2 4 1 minecraft:redstone_block
+close 23 clear 2 4 1
+close 39 set -2 -1 0 minecraft:redstone_block
+close 39 set -3 2 0 minecraft:redstone_block
+close 41 clear -2 -1 0
+close 41 clear -3 2 0
+close 42 set -3 1 0 minecraft:redstone_block
+close 44 clear -3 1 0
+close 45 set 5 1 0 minecraft:redstone_block
+close 47 clear 5 1 0
+close 48 set 4 -1 0 minecraft:redstone_block
+close 50 clear 4 -1 0

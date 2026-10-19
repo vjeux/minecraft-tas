@@ -61,6 +61,30 @@ pub struct State {
 }
 
 impl State {
+    /// The live moving blocks in ticker order (pending tickers are appended to the list at the
+    /// next block-entity phase, so the concatenation is the order they will tick in), their last
+    /// tick relative to `now`, and the ideal-input bookkeeping, for
+    /// [`crate::world::World::state_key`]. Wrapper and entity ids only name entities: left out.
+    pub(crate) fn key_into<H: std::hash::Hasher>(&self, now: i64, h: &mut H) {
+        use std::hash::Hash;
+        for wid in self.tickers.iter().chain(self.pending.iter()) {
+            if let Some(id) = self.wrappers[*wid as usize].filter(|id| self.is_live(*id)) {
+                let (p, _, be) = self.bes.iter().find(|(_, i, _)| *i == id).unwrap();
+                (p, be.moved, be.direction, be.extending, be.source, be.progress, be.progress_o, now - be.last_ticked).hash(h);
+            }
+        }
+        0xfeu8.hash(h);
+        // Entities without a live ticker (none in practice) and the wrapper positions still bound.
+        let mut rest: Vec<_> = self.bes.iter().map(|(p, _, be)| (*p, be.moved, be.direction, be.extending, be.source, be.progress, be.progress_o)).collect();
+        rest.sort_by_key(|r| r.0);
+        rest.hash(h);
+        let mut bound: Vec<BlockPos> = self.wrapper_at.iter().filter(|(_, w)| self.wrappers[*w as usize].is_some()).map(|(p, _)| *p).collect();
+        bound.sort();
+        bound.hash(h);
+        self.tracked.hash(h);
+        self.ideal_src.hash(h);
+    }
+
     pub fn be(&self, p: BlockPos) -> Option<&MovingBe> {
         self.bes.iter().find(|(q, _, _)| *q == p).map(|(_, _, b)| b)
     }

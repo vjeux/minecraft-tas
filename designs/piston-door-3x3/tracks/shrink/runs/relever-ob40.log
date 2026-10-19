@@ -1,0 +1,9 @@
+seamless pre-screen: 1 of 1 designs reach the tier
+1 designs, 8 variants (as-is included), 32 positions
+  t7b-ob40-40b note@support-north: judge (screen): not closed at rest
+  t7b-ob40-40b note@support-south: judge (screen): not closed at rest
+| t7b-ob40-40b | 40 | solid | no: repeater input fails at offset [0, 0, 0]: no free side of the lever's support block for a  | note-top (41, 41/29, rep 41/29, FULL, volume 70 (7x10x1)); note-north (41, 41/29, rep 41/29, FULL, volume 70 (7x10x1)); note-south (41, 41/29, rep 41/29, FULL, volume 70 (7x10x1)); note-east (41, 41/29, rep 41/29, FULL, volume 70 (7x10x1)); note-west (41, 41/29, rep 41/29, FULL, volume 70 (7x10x1)) |
+
+real	1m23.600s
+user	7m20.984s
+sys	0m13.800s
