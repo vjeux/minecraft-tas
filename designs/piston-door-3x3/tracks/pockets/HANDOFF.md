@@ -17,9 +17,13 @@
   crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
 
 ## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
-- `h5-all5`: e78k's h5 (41 FULL), exactly 5 changed over all 25 wiring cells, 13 states, --max-blocks 40 (20G).
-- `h6-bot5`: e78k's h6 (42 FULL, 29/15), exactly 5 over the 15 bottom cells, 20 states, --max-blocks 41.
-  A find = a FULL solid 7x8 below the leader: door verify --extra-offsets 28, ping the coordinator, tell e78k.
+- nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
+  same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
+  c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
+  m69 k=4: right stack + U0 + s1/P3t drivable, bottom elevator + top-left never; w1 k=3: only TR + MR (top-right 5
+  cells), P/Q/bottom boxed in; a3s k=4: 2 of 30 groups. These mechanisms lack free feed cells: wiring needs variants.
+- pockets with plans that never `use` the lever: run WITHOUT --keep-lever (w1's lever ON at rest QC-powers its TL
+  puller); a plan with `phase tile` ignores --between-ticks: strip the line (svc/c77-w1bt.ideal).
 
 ## Exact next steps
 1. Shrink the solid 44 (k=4 result; then k=5 on e78k's likely-removable cells with a ~15-state palette and the
