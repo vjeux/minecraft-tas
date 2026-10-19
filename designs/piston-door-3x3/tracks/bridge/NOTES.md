@@ -42,15 +42,50 @@ p2 with sculk sensors, observers, wool, note blocks... screened in 7 s with only
 
 ## The other partials (why the bridge does not fit, all measured with ideal-rs)
 
+Every count below is an exhaustive `door ideal-rs --vary` screen (only the lever real unless noted;
+sensors = calibrated facing W/E/N + plain; ~10-20k combinations/s on 20 threads).
+
 - c2e's m88c (8x8): A's hold must start 7..9 and last 3..5 gt (extend 8..10, retract 11..13);
   a sensor gives 10 (calibrated) or 30 gt windows, an observer on it 2 gt taps (a 2 gt pulse
   makes A spit). On close A sits at (1,3) from t18 and any update + power there breaks the close
   (ideal close pulse at (1,3) ok only if it ends by t17), so A's last pull must stay c2e's
   side-powered stone (0,4), which leaves (0,3) (fed only from an observer at (-1,3), 2 gt) for the
-  hold. 117,600 top-left variants and 33,600 top-right + top-left variants (sensors, observers,
-  repeaters, dust, wool, note blocks, lamps; the TR-at-(2,3) trick with every (3,5)/(2,5)/(3,3)
-  delay): 0 work.
-- t8xL-b (8x8): B's two pulses must be 12 apart (16 for b1 15..16), tied to the left side's parity
-  chain; A at a1 4..6, a2 20..27, a3 34..42. A calibrated sensor's taps are 10 apart: no (a1, b1)
-  pair fits A at a, a+10, a+20 (swept). B as ONE hold (push down + pull up) works only for 16 gt.
-  U (1,-2): any 2 gt pulse on open, >= 36 on close (holds fail on close: U must spit).
+  hold. A's last pull itself: open only, start >= 15..17, ANY length (a 30 gt hold works); L2/L1:
+  one 2 gt pulse, open any tick, close any but 13, 15..17 (holds fail on close: L2/L1 must spit).
+  Screens: top-left 5 cells 117,600; top-right + top-left (the TR-at-(2,3) trick with every
+  (3,5)/(2,5)/(3,3) delay) 33,600 + 80; sensors in 6 cells top + bottom 374,220; sensors replacing
+  bottom-chain parts + the top 97,200: 0 work. (m79s has since made an 8x8 of this family with
+  satwire's m79q top, whose hold is real.)
+- t8xL-b (8x8): A at a1 4..6, a2 20..27, a3 34..42; B's two 2 gt pulses must be 12 apart (16 for
+  b1 15..16), tied to the left side's parity chain. With that chain's repeater (-1,5) at delay 2
+  B may be 10 apart (calibrated observer taps) and at delay 3 14 apart (sensor -> lamp -> observer),
+  and B may even be ONE 10 gt hold (b 15..30, A2 = b+2, A3 >= b+12, delay 1 or 2). But A's three
+  taps would need a sensor active at t0..2 (t2+2, +12, +22 with b = t2+9..11): nothing that early is
+  within reach of the top-right; with W held by the same sensor instead of its real chain: 0. Screens
+  with only U ideal (A and B real), A+U ideal, B+U ideal (52,920 each), B with the left repeater
+  varied (306,180), sensor/observer placements for A and B at once (40,000): 0 work. U (1,-2): any
+  2 gt pulse on open, >= 36 on close; 10/30 gt holds fail on both edges (U must spit on close).
+- q8seed (7x8): the same top elevator as t8xL (A x3 from (2,4) only, B x2 from (2,5) only) plus U
+  and BR's puller: not attempted beyond the t8xL-b result.
+- ring56 t10 (7x8): its elevator accepts A at a, a+10, a+20 (sculk track), but A's only feed is the
+  observer (0,4) watching (-1,4), and a sensor there holds the corner puller E (-1,3) below it for
+  10 gt (E must pull TM before B1 pushes A into (1,3)); a sensor at (-2,4) QC-holds TL's puller
+  (the sculk track's t10-sk1 failure). Not wirable this way.
+- ring56 j12 (jf with the dust top): does not work with K ideal at any tick (its right half needs
+  re-timing), and 161,280 bottom-right sensor variants: 0.
+- wire131's f131F-b2 (f131's): N needs a LEVEL while open plus a blip (off 12..22 on open, on 12..22
+  on close); all 11 sensor/observer states of its one free neighbour (-2,5): 0.
+- Seen while scanning every explore/* plan with <= 2 ideal pulses per edge: e88 t3k (8x8, only the
+  shuttle ideal; agent e88 active), m56 p1 (7x8, A's hold + L0; the TR relay is 1 gt short), s79
+  c78m (BR's puller only, but U/K/L0 unwired), m79s s88f (K, L0, L1/L2; m79s finished an 8x8 there).
+
+## Tools (this track)
+
+- `door ideal-rs --vary x,y[,z]=state|state|keep|air` (repeatable: every combination, times the
+  `--sweep` grid) and `--ok-only`: block variants applied in memory to the plan's design before each
+  run (redsim, no JVM): the exhaustive screen that found p2-sculk (151,200 variants in 7 s).
+- `door ideal-rs --drop N`: also every subset of up to N removable blocks (not the door cells, the
+  lever or heads) taken out: a redsim block minimizer (p2-sculk-r: only its static frame stones and
+  the orientation-only obsidian can go).
+- Pitfalls: `--vary=-1,4=...` (with `=`) for negative x; `door patch` starts a JVM (~40 s), use
+  `--vary` instead.
