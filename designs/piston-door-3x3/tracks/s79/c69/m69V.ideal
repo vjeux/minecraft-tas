@@ -1,0 +1,72 @@
+# m69V.ideal: open: lever (R1/R2 t1); R0 2; P0 push [2,6); RP1 push [2,6); P3b 8; E1 lifts RP1 [8,12); E0 [10,14);
+# U1 12; Q pulls TL at q1 (needs (1,3) empty); QE pulls Q at qe; Q pulls TL at q2; P0 reach-pulls BL 18 (in-plane);
+# RP1 reach-pulls TM at rt; s0 reach-pulls ML at s3.
+# close: lever; R0 spit 2; s0 spit ML 2; RP1 spit TM 2; E0 spit P0+BL 2; U1 spit C 2; Q spits TL west at cq2;
+# QE spits Q back at cqe; Q spits TL west at cq1; E1 spits RP1 down at ce1 (in-plane); s0 spits TL+ML at cs;
+# P3b spits BM back 8; U1 spits BM+C up at cub.
+design designs/piston-door-3x3/tracks/s79/c69/m69V.txt
+phase tile
+let r = 2
+let q1 = 14
+let qe = 18
+let q2 = 26
+let rt = 32
+let s3 = 36
+open 0 use 5 2 0
+open r set 4 0 -1 minecraft:redstone_block
+open r+2 clear 4 0 -1
+open 2 set 0 -1 -1 minecraft:redstone_block
+open 6 clear 0 -1 -1
+open 2 set 1 3 -1 minecraft:redstone_block
+open 6 clear 1 3 -1
+open 8 set 3 -1 -1 minecraft:redstone_block
+open 10 clear 3 -1 -1
+open 8 set 1 5 -1 minecraft:redstone_block
+open 12 clear 1 5 -1
+open 10 set 0 -3 -1 minecraft:redstone_block
+open 14 clear 0 -3 -1
+open 12 set 1 -2 -1 minecraft:redstone_block
+open 14 clear 1 -2 -1
+open q1 set 2 3 -1 minecraft:redstone_block
+open q1+2 clear 2 3 -1
+open qe set 4 3 -1 minecraft:redstone_block
+open qe+4 clear 4 3 -1
+open q2 set 3 3 -1 minecraft:redstone_block
+open q2+2 clear 3 3 -1
+open 18 set -1 -2 0 minecraft:redstone_block
+open 20 clear -1 -2 0
+open rt set 1 4 -1 minecraft:redstone_block
+open rt+2 clear 1 4 -1
+open s3 set 0 4 -1 minecraft:redstone_block
+open s3+2 clear 0 4 -1
+let cq2 = 6
+let cqe = 10
+let cq1 = 14
+let ce1 = 18
+let cs = 22
+let cub = 26
+close 0 use 5 2 0
+close 2 set 4 0 -1 minecraft:redstone_block
+close 4 clear 4 0 -1
+close 2 set 0 4 -1 minecraft:redstone_block
+close 4 clear 0 4 -1
+close 2 set 1 4 -1 minecraft:redstone_block
+close 4 clear 1 4 -1
+close 2 set 0 -3 -1 minecraft:redstone_block
+close 4 clear 0 -3 -1
+close 2 set 1 -2 -1 minecraft:redstone_block
+close 4 clear 1 -2 -1
+close cq2 set 3 3 -1 minecraft:redstone_block
+close cq2+2 clear 3 3 -1
+close cqe set 4 3 -1 minecraft:redstone_block
+close cqe+2 clear 4 3 -1
+close cq1 set 2 3 -1 minecraft:redstone_block
+close cq1+2 clear 2 3 -1
+close ce1 set 2 5 0 minecraft:redstone_block
+close ce1+2 clear 2 5 0
+close cs set 0 4 -1 minecraft:redstone_block
+close cs+2 clear 0 4 -1
+close 8 set 3 -1 -1 minecraft:redstone_block
+close 10 clear 3 -1 -1
+close cub set 1 -2 -1 minecraft:redstone_block
+close cub+2 clear 1 -2 -1
