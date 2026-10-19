@@ -167,3 +167,12 @@ E5+ at (0,5)); 122-125/128 lift it down (U at (0,-1), lift at (0,-3)).
 - The 102 window trick carries over (DE held for a window, D1's lifted shot from a watcher of DE's
   carrier), but its carrier would have to sit at (0,5) and the watcher at (0,4) must face west to
   feed D1 (so it watches (-1,4), not the carrier): same cell conflict as above.
+- All four plans UNSAT under satwire (time warp 12/12, full palette block,dust,rep,obs,torch,note,
+  bulb,cmp, lever anywhere around the box, front fix): 131-sym and 131-oc core = P3 (-1,3) on close
+  (groups: top-left cells (-2,3) (-2,4) (-1,4) (0,4) (-2,5)); 135-sym core = UB (2,-2) + M's cell
+  (1,-1) on close, 135-oc core = L0 (-2,0) + P3 (-1,-1) on close (groups: the top-left/left cells).
+  Logs: logs/sat-f131-{sym,oc}.log, logs/sat-f135-{sym,oc}.log.
+- Mechanism changes considered for 131 (not validated): T aside to the RIGHT (SW+(3,3), TR right
+  via SW(4,2)) frees the top-left of P3 and lets the big right region feed D1, DE and P3'; but then
+  the left stack (L2+L1 from (-2,3), L0 from the bottom-left) needs single pulses, and the only odd
+  links left (level pistons) are fed from the right region and watched from nowhere on the left.
