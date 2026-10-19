@@ -181,3 +181,20 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
 - `door cosearch search` (annealer, 39M screens in 570 s, `runs/top-anneal.log`) on b2 (U real, L0 + R0
   pinned ideal, s REAL from c78z's top) over all 16 non-piston top cells with the full palette + sculk +
   calibrated + wool and lever moves: stuck at 75/79 (the seed's score): no top wiring re-times s.
+
+## 7. c78l (2026-10-19 12:25Z-): U's level F real; only a long open U pulse missing
+- `c78l/lb3.txt` = lb2 without U's ideal input; `c78l/lb3p2.ideal` (top ideal, late: e 10, m 26).
+- Bottom-right, all REAL: repeater (3,-1) facing east delay 4 (reads the lever block (4,-1), powers
+  (2,-1): U by QC), observer (3,-2) east (the repeater's floor) watching a note block (4,-2) (flips with
+  (4,-1) at t0), stone (2,-2) -> U. On open F drops at t8 and updates U through its head (U retracts,
+  pulls BM). On close the observer pulse extends U at t2 and spits C (t4), and F's rise at t8 is SILENT
+  ((2,-1)'s neighbour (1,-1) holds air, U is not a neighbour of (2,-1)): U stays retracted, armed, until
+  K places BM in (1,-1) (that update fires U: the column goes up). ideal-rs: WORKS with ONE ideal input
+  left, an open-only U pulse (P2) at plan >= 10..11 lasting >= 4 gt (also works symmetric: swallowed on
+  close). Open 33 / close 20.
+- P2 must last >= 4 gt: a 2-3 gt U2 lets the watcher see U2's landing, K then pushes BM, C, (2,-1) and
+  POPS the repeater at (3,-1) (trace: entity at t27). >= 4 gt: the watcher sees the retraction start
+  instead, K's push meets C still moving and is refused.
+- `--vary` over (2,-2), (3,-2), (4,-2) x 28 states and (3,-1) x 34 (sensors, bulbs, lamps, pistons,
+  torches, diodes): 0 of 746k (no 4-cell bottom-right gives P1 + P2 + F: (2,-2) is U's only free feed and
+  carries either a 2 gt observer pulse or a 10/30 gt sensor window, never both).
