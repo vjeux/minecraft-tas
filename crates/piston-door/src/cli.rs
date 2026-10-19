@@ -764,7 +764,11 @@ pub enum DoorCmd {
     /// judged by the real simulator (CEGAR) and the wiring is minimized.
     Satwire {
         /// An ideal schedule (`.ideal`) or a design (with --from-wired).
-        mechanism: PathBuf,
+        #[arg(required = true, num_args = 1..)]
+        mechanism: Vec<PathBuf>,
+        /// Parallel jobs (--check over many designs).
+        #[arg(long, default_value_t = 8)]
+        jobs: usize,
         /// The mechanism is a wired design: record its pistons' real power, strip its wiring.
         #[arg(long)]
         from_wired: bool,
@@ -785,9 +789,12 @@ pub enum DoorCmd {
         palette: String,
         #[arg(long)]
         max_blocks: Option<usize>,
-        /// Largest delay (ticks) of the whole schedule after each flip (per trace, solver's pick).
+        /// Most recorded static ticks replayed (stalls) per trace: the solver retimes the schedule.
         #[arg(long, default_value_t = 8)]
         dmax: i32,
+        /// Most recorded static ticks skipped per trace (pauses of the schedule shortened).
+        #[arg(long, default_value_t = 8)]
+        skip: i32,
         /// Ticks after the mechanism settles that the wiring must also settle in.
         #[arg(long, default_value_t = 6)]
         settle: i32,
@@ -806,6 +813,22 @@ pub enum DoorCmd {
         /// CEGAR iterations.
         #[arg(long, default_value_t = 300)]
         iters: usize,
+        /// Diagnose UNSAT: guard constraint groups (supports, each cell's semantics, scheduling,
+        /// trace ends) with selectors and print the conflicting groups.
+        #[arg(long)]
+        diag: bool,
+        /// Keep this design's wiring cells and lever as they are; solve only the other cells.
+        #[arg(long)]
+        fixed: Option<PathBuf>,
+        /// The mechanism is a families catalog entry: MECHANISM = CATALOG.tsv, this = the entry id.
+        #[arg(long)]
+        families: Option<String>,
+        /// With --families: ticks per macro step of the ideal schedule.
+        #[arg(long, default_value_t = 6)]
+        gap: u32,
+        /// With --families: use the open/close schedules even when a symmetric train exists.
+        #[arg(long)]
+        oc: bool,
         /// Stop at the first judged design (no minimization).
         #[arg(long)]
         first: bool,
@@ -813,14 +836,6 @@ pub enum DoorCmd {
         extra_offsets: u32,
         #[arg(long)]
         out: Option<PathBuf>,
-        /// Override a schedule variable, name=value (repeatable; `.ideal` mechanisms only).
-        #[arg(long = "set")]
-        set_vars: Vec<String>,
-        /// Sweep a schedule variable, name=lo..hi or name=lo..hi:step (repeatable: every
-        /// combination, in order); each timing is recorded and solved in turn, and the sweep stops
-        /// at the first one whose model passes the judge (UNSAT timings are listed).
-        #[arg(long)]
-        sweep: Vec<String>,
     },
     /// The catalog of flat (1-wide) seamless mechanisms per box (families.rs): every door block
     /// leaves the 3x3 in 1-2 unit moves (center 2), each move provided by a pull or push piston
@@ -1160,6 +1175,13 @@ pub enum DoorCmd {
         /// Write to this file instead of stdout.
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+    /// Pure-Rust door judge on redsim (no JVM: the judge's checks, FULL seamless, the hallway
+    /// check, the volume), its agreement with the real judge, and the joint mechanism + wiring
+    /// search on top of it (track cosearch, cosearch.rs / cosearch_search.rs).
+    Cosearch {
+        #[command(subcommand)]
+        cmd: crate::cosearch::CosearchCmd,
     },
     /// Differential fuzzing of the redsim model (crates/redsim) against the real game: random
     /// circuits run in both, every block state compared after placement and every tick and flip;
@@ -2635,49 +2657,55 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, settle, rec_ticks, no_qc, levels, check, iters, first, extra_offsets, out, set_vars, sweep } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, diag, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
-            let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
-            // Schedule variable assignments: the --set values, then every combination of --sweep.
-            let mut base_vars = std::collections::BTreeMap::new();
-            for kv in &set_vars {
-                let (k, v) = anyhow::Context::with_context(kv.split_once('='), || format!("--set name=value, got {kv:?}"))?;
-                base_vars.insert(k.to_string(), v.parse::<i64>()?);
-            }
-            let mut assigns = vec![base_vars.clone()];
-            for sv in &sweep {
-                let (k, r) = anyhow::Context::with_context(sv.split_once('='), || format!("--sweep name=lo..hi, got {sv:?}"))?;
-                let (r, step) = match r.split_once(':') {
-                    Some((r, s)) => (r, s.parse::<i64>()?),
-                    None => (r, 1),
-                };
-                let (lo, hi) = anyhow::Context::with_context(r.split_once(".."), || format!("--sweep name=lo..hi, got {sv:?}"))?;
-                let (lo, hi) = (lo.parse::<i64>()?, hi.parse::<i64>()?);
-                let mut next = Vec::new();
-                for a in &assigns {
-                    let mut v = lo;
-                    while v <= hi {
-                        let mut b = a.clone();
-                        b.insert(k.to_string(), v);
-                        next.push(b);
-                        v += step.max(1);
+            sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
+            if check && mechanism.len() > 1 {
+                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels };
+                let next = std::sync::atomic::AtomicUsize::new(0);
+                let out = std::sync::Mutex::new(Vec::new());
+                std::thread::scope(|sc| {
+                    for _ in 0..jobs.min(mechanism.len()) {
+                        sc.spawn(|| {
+                            let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
+                            let Ok(mut w) = Worker::spawn(&cfg) else { return };
+                            loop {
+                                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                let Some(p) = mechanism.get(i) else { break };
+                                let line = sw::check_line(&mut w, p, &po);
+                                println!("{}: {line}", p.display());
+                                out.lock().unwrap().push((p.clone(), line));
+                            }
+                        });
                     }
+                });
+                let res = out.into_inner().unwrap();
+                let mut groups: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+                for (_, l) in &res {
+                    let key = if l.starts_with("MISMATCH") { "MISMATCH".to_string() } else { l.split(" (").next().unwrap_or(l).to_string() };
+                    *groups.entry(key).or_default() += 1;
                 }
-                assigns = next;
+                println!("== {} designs", res.len());
+                for (k, n) in groups {
+                    println!("{n:5}  {k}");
+                }
+                return Ok(());
             }
-            for (ai, vars) in assigns.iter().enumerate() {
-            if assigns.len() > 1 {
-                let desc: Vec<String> = vars.iter().map(|(k, v)| format!("{k}={v}")).collect();
-                println!("== timing {}/{}: {}", ai + 1, assigns.len(), desc.join(" "));
-            }
+            let mechanism = mechanism[0].clone();
+            let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
+            let mut fam_box = None;
             let rec = {
                 let mut w = Worker::spawn(&cfg)?;
-                if from_wired || check {
+                if let Some(id) = &families {
+                    let (s, b) = sw::families_schedule(&mechanism, id, !oc, gap)?;
+                    fam_box = Some(b);
+                    sw::record_ideal(&mut w, &s, rec_ticks)?
+                } else if from_wired || check {
                     let d = load_design(&mechanism)?;
                     sw::record_wired(&mut w, &d, rec_ticks)?
                 } else {
                     let text = std::fs::read_to_string(&mechanism)?;
-                    let s = crate::ideal::Schedule::parse_with(&text, vars)?;
+                    let s = crate::ideal::Schedule::parse(&text)?;
                     sw::record_ideal(&mut w, &s, rec_ticks)?
                 }
             };
@@ -2688,27 +2716,38 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("{}: {} frames, powered piston-ticks {}", ["open", "close"][i], ph.frames.len(), on.join(" "));
             }
             let po = sw::ProbOpts {
-                bx: bx.as_deref().map(sw::parse_box).transpose()?,
+                bx: bx.as_deref().map(sw::parse_box).transpose()?.or(fam_box),
                 palette: sw::palette(&palette)?,
                 forbid_ring,
                 levers: lever.as_deref().map(crate::synth::parse_cells).transpose()?,
                 lever_oop,
                 dmax: if check { 0 } else { dmax },
+                skip: if check { 0 } else { skip },
                 settle,
                 qc: !no_qc,
                 levels,
             };
             let mut p = sw::build_prob(rec, &po)?;
+            if let Some(fp) = &fixed {
+                sw::fix_partial(&mut p, &load_design(fp)?)?;
+            }
+            if fixed.is_none() && !from_wired && !check && !p.rec.wiring.is_empty() {
+                let mut d = mctas::design::Design::default();
+                for (cc, st) in &p.rec.wiring {
+                    d.blocks.insert([cc.0, cc.1, p.z], st.clone());
+                }
+                if let Some((lp, ls)) = &p.rec.lever {
+                    d.blocks.insert(*lp, ls.clone());
+                }
+                sw::fix_partial(&mut p, &d)?;
+            }
             if check {
                 sw::fix_wiring(&mut p)?;
                 return sw::check(&p);
             }
-            let name = format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default());
-            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out: out.clone(), name, version: version.to_string() };
-            if sw::run(&p, &o)?.is_some() {
-                break;
-            }
-            }
+            let name = match &families { Some(id) => format!("satwire-{id}"), None => format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default()) };
+            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
+            sw::run(&p, &o)?;
         }
         DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, forbid_fire, rblocks, r_both } => {
             if let Some(f) = resolve {
@@ -3031,6 +3070,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("{} {} {} {}", p[0], p[1], p[2], s.strip_prefix("minecraft:").unwrap_or(s));
             }
         }
+        DoorCmd::Cosearch { cmd } => crate::cosearch::run(version, cmd)?,
         DoorCmd::RedsimFuzz { n, seed, size, density, palette, out, no_shrink, max_report, workers } => {
             let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
             anyhow::ensure!(sz.len() == 3, "--size x,y,z");

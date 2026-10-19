@@ -381,6 +381,10 @@ Read in the 26.3 source, each proven by a [gadget](../designs/gadgets/) or a jud
 
 ### Below 72: flat, slime-free, FULL seamless + hallway (2026-10-18 evening)
 
+**Community existence (vjeux, 00:00Z): flat doors 7 wide x 8 tall = 56 and 7 wide x 9 tall = 63
+exist** (no designs; never look them up). So every "7 wide is blocked" verdict below is an
+artifact of our bounds, not of the box: look for what the bounds exclude.
+
 Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and under which bounds
 (every "none" is bounded; tricks that may break a bound are in
 [mechanics.md](mechanics.md#wiring-tricks-for-tight-flat-boxes-found-2026-10-18-evening-below-72-hunt)):

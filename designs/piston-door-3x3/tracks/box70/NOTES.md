@@ -68,6 +68,27 @@ start exactly 2 gt after P2's power, like an observer watching P2's repeater).
 | top half alone (no bottom pullers), P_M#2 one tick late | 7x4 top (-2..4, 3..6) | UNSAT (4.5 min) |
 | top half alone, P_M#2 2 gt after P2, p=4, a=8 | 7x4 top | UNSAT (25 min) |
 | top half alone, p=4, a=10..12 | 7x4 top | **SAT** (~15 min): the top IS wirable (lever at (-1,7) outside the box; P2's window from a delay-4 repeater at (0,5) facing west; an observer at (1,6) facing west; note blocks; ~19 blocks) |
+| top half alone, p=4, a=10 (re-run, captured) | 7x4 top | **SAT**, 23 wiring blocks, lever at (2,7) on an observer, below |
+| top half + right pair, a=10, r=14/18/22 | 7x4 top | UNSAT |
+| full m7, a=10, r=16, bottom at b/b+2/b+4 (BR, M_B, BL), b=22..30 | 7x10 | UNSAT x5 |
+| full m7, a=10/12, r=16..22, all bottom at b=24..36 | 7x10 | UNSAT (every timing finished so far) |
+
+The satwire top (rows 3..7 shown, x -3..5; P = mechanism pistons, `:` = swept ring cells, `#` block,
+`+` dust, `e/w/u` observers facing east/west/up, `{` delay-2 repeater facing east, `⇒` delay-4
+repeater facing west, `N` note block, `L` lever outside the box):
+
+```
+  7      L
+  6  +e{euww
+  5  N⇒#Pw+u
+  4  u##P+#+
+  3  #P::#e#
+  2  P:HHH
+```
+Notable: the TR -> TL link runs along row 6 through an observer at (1,6) facing east and a repeater
+at (0,6) facing EAST (P2's quasi cells are safe as long as nothing there emits toward x = 1), and
+an observer at (2,5) facing west watches P2 itself. What does not fit is the right pair on top of
+it (UNSAT for every right-pair time tried), so the bottom never gets its trigger in 7x10 with m7.
 | top half alone + right pair at r = 10..22 (a = 8) | 7x4 top | UNSAT |
 
 `door topology` (main) on m7 in x -2..4, y -3..6: WIRABLE with the lever in the top component (links:
