@@ -1,0 +1,18 @@
+# c70: U-side search frame: t78 b1m (E1+E2 real from sensor (-2,4) -> bulb (-2,3) -> observer (-2,2); M observer (-1,3) up into the static (-1,2));
+# the plan toggles M's watched cell (-1,4) at gm (open) / gmc (close); U and its bottom-left driver are varied; BL/BM ideal.
+design designs/piston-door-3x3/tracks/c70/wip/b1m.txt
+let gm = 14
+let gmc = 30
+let bl = 46
+open 0 use 1 5 0
+open gm set -1 4 0 minecraft:glass
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+open bl set 1 -2 1 minecraft:redstone_block
+open bl+2 clear 1 -2 1
+close 0 use 1 5 0
+close gmc clear -1 4 0
+close bl set 0 -2 1 minecraft:redstone_block
+close bl+2 clear 0 -2 1
+close bl set 1 -2 1 minecraft:redstone_block
+close bl+2 clear 1 -2 1

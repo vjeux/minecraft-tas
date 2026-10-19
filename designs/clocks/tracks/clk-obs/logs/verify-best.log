@@ -1,0 +1,152 @@
+CLOCK: clk-obs-p10-obs-stk-4b period 10 gt, on 4/10, edges 2, warmup 2, family observer+sticky_piston, 4 blocks, 1x2x3, robust
+  kick: last 0,1,2; 32 builds periodic of 32 (18.3 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p116-bulb-obs-10b period 116 gt, on 48/116, edges 24, warmup 32, family copper_bulb+observer, 10 blocks, 1x3x4, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (20.9 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p11-obs-pis-6b period 11 gt, on 4/11, edges 2, warmup 22, family observer+piston, 6 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (16.9 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p13-obs-pis-4b period 13 gt, on 6/13, edges 3, warmup 5, family observer+piston, 4 blocks, 1x2x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (17.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p14-obs-pis-5b period 14 gt, on 6/14, edges 3, warmup 6, family observer+piston, 5 blocks, 3x1x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.8 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p15-lamp-obs-pis-5b period 15 gt, on 4/15, edges 2, warmup 0, family observer+piston+redstone_lamp, 5 blocks, 2x1x3, robust
+  kick: last 0,0,2; 32 builds periodic of 32 (13.3 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p16-bulb-obs-rb-stk-4b period 16 gt, on 8/16, edges 4, warmup 3, family copper_bulb+observer+redstone_block+sticky_piston, 4 blocks, 1x2x3, robust
+  kick: last 0,1,2; 32 builds periodic of 32 (13.8 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p17-obs-stk-5b period 17 gt, on 8/17, edges 4, warmup 7, family observer+sticky_piston, 5 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.9 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p18-obs-stk-4b period 18 gt, on 8/18, edges 4, warmup 2, family observer+sticky_piston, 4 blocks, 1x2x3, robust
+  kick: last 0,1,2; 32 builds periodic of 32 (14.7 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p19-obs-stk-6b period 19 gt, on 8/19, edges 4, warmup 8, family observer+sticky_piston, 6 blocks, 1x3x3, robust
+  kick: last 0,1,0; 32 builds periodic of 32 (13.8 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p20-obs-stk-5b period 20 gt, on 10/20, edges 5, warmup 5, family observer+sticky_piston, 5 blocks, 1x2x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p21-obs-rb-stk-6b period 21 gt, on 8/21, edges 4, warmup 8, family observer+redstone_block+sticky_piston, 6 blocks, 1x4x3, rotation-dependent
+  kick: last 0,2,0; 32 builds periodic of 32 (13.7 s)
+    rotation 0 at [0, 0, 0]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 0 at [-7, 3, 5]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 0 at [5, -11, -6]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 0 at [-3, 40, 2]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 0 at [-1, -4, -7]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 0 at [8, 1, 8]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 0 at [12, -28, 3]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 0 at [0, 9, 10]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 1 at [0, 0, 0]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 1 at [-7, 3, 5]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 1 at [5, -11, -6]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 1 at [-3, 40, 2]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 1 at [-1, -4, -7]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 1 at [8, 1, 8]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 1 at [12, -28, 3]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 1 at [0, 9, 10]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 2 at [0, 0, 0]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 2 at [-7, 3, 5]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 2 at [5, -11, -6]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 2 at [-3, 40, 2]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 2 at [-1, -4, -7]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 2 at [8, 1, 8]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 2 at [12, -28, 3]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 2 at [0, 9, 10]: P=21 W=8 family observer+redstone_block+sticky_piston output on 8/21, 4 edges, pulses [2, 2, 2, 2]
+    rotation 3 at [0, 0, 0]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 3 at [-7, 3, 5]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 3 at [5, -11, -6]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 3 at [-3, 40, 2]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 3 at [-1, -4, -7]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 3 at [8, 1, 8]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 3 at [12, -28, 3]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+    rotation 3 at [0, 9, 10]: P=8 W=18 family observer+redstone_block+sticky_piston output on 4/8, 2 edges, pulses [2, 2]
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p22-obs-stk-6b period 22 gt, on 10/22, edges 5, warmup 5, family observer+sticky_piston, 6 blocks, 1x3x5, robust
+  kick: last 0,0,2; 32 builds periodic of 32 (18.7 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p23-obs-stk-5b period 23 gt, on 10/23, edges 5, warmup 3, family observer+sticky_piston, 5 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (14.3 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p24-bulb-obs-stk-4b period 24 gt, on 8/24, edges 4, warmup 2, family copper_bulb+observer+sticky_piston, 4 blocks, 1x3x3, robust
+  kick: last 0,1,1; 32 builds periodic of 32 (12.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p26-obs-stk-5b period 26 gt, on 12/26, edges 6, warmup 5, family observer+sticky_piston, 5 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p27-obs-stk-5b period 27 gt, on 12/27, edges 6, warmup 5, family observer+sticky_piston, 5 blocks, 1x3x3, robust
+  kick: last 0,1,2; 32 builds periodic of 32 (13.6 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p28-obs-stk-5b period 28 gt, on 12/28, edges 6, warmup 4, family observer+sticky_piston, 5 blocks, 1x4x3, robust
+  kick: last 0,1,2; 32 builds periodic of 32 (13.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p30-obs-stk-6b period 30 gt, on 12/30, edges 6, warmup 6, family observer+sticky_piston, 6 blocks, 1x2x4, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (14.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p32-bulb-obs-stk-6b period 32 gt, on 8/32, edges 4, warmup 2, family copper_bulb+observer+sticky_piston, 6 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p35-obs-rb-stk-6b period 35 gt, on 16/35, edges 8, warmup 8, family observer+redstone_block+sticky_piston, 6 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.8 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p36-obs-stk-6b period 36 gt, on 12/36, edges 6, warmup 7, family observer+sticky_piston, 6 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.7 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p37-obs-stk-6b period 37 gt, on 16/37, edges 8, warmup 3, family observer+sticky_piston, 6 blocks, 3x3x3, robust
+  kick: last 0,0,2; 32 builds periodic of 32 (13.9 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p38-obs-stk-6b period 38 gt, on 12/38, edges 6, warmup 3, family observer+sticky_piston, 6 blocks, 1x3x4, robust
+  kick: last 0,0,2; 32 builds periodic of 32 (13.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p40-bulb-obs-stk-6b period 40 gt, on 20/40, edges 10, warmup 5, family copper_bulb+observer+sticky_piston, 6 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p42-obs-pis-6b period 42 gt, on 18/42, edges 9, warmup 6, family observer+piston, 6 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (14.1 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p43-obs-rb-stk-6b period 43 gt, on 18/43, edges 9, warmup 2, family observer+redstone_block+sticky_piston, 6 blocks, 1x3x3, robust
+  kick: last 0,2,1; 32 builds periodic of 32 (13.4 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p46-obs-stk-6b period 46 gt, on 22/46, edges 11, warmup 3, family observer+sticky_piston, 6 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (14.1 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p48-bulb-obs-rb-stk-5b period 48 gt, on 24/48, edges 12, warmup 3, family copper_bulb+observer+redstone_block+sticky_piston, 5 blocks, 1x3x3, robust
+  kick: last 0,2,2; 32 builds periodic of 32 (13.7 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p4-obs-4b period 4 gt, on 2/4, edges 1, warmup 3, family observer, 4 blocks, 1x2x3, robust
+  self-start; 32 builds periodic of 32 (12.7 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p52-bulb-obs-stk-5b period 52 gt, on 24/52, edges 12, warmup 5, family copper_bulb+observer+sticky_piston, 5 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (14.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p54-bulb-obs-stk-6b period 54 gt, on 24/54, edges 12, warmup 5, family copper_bulb+observer+sticky_piston, 6 blocks, 1x4x3, robust
+  kick: last 0,1,2; 32 builds periodic of 32 (13.8 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p58-obs-trap-10b period 58 gt, on 24/58, edges 12, warmup 32, family iron_trapdoor+observer, 10 blocks, 1x3x4, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.8 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p5-obs-pis-6b period 5 gt, on 2/5, edges 1, warmup 6, family observer+piston, 6 blocks, 1x3x3, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p60-obs-stk-6b period 60 gt, on 20/60, edges 10, warmup 0, family observer+sticky_piston, 6 blocks, 1x4x3, robust
+  kick: last 0,1,2; 32 builds periodic of 32 (13.2 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p78-obs-pis-6b period 78 gt, on 36/78, edges 18, warmup 6, family observer+piston, 6 blocks, 1x3x3, robust
+  kick: last 0,1,0; 32 builds periodic of 32 (14.3 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p7-obs-stk-5b period 7 gt, on 1/7, edges 1, warmup 3, family observer+sticky_piston, 5 blocks, 1x4x2, robust
+  self-start; 32 builds periodic of 32 (13.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-p9-obs-pis-5b period 9 gt, on 4/9, edges 2, warmup 2, family observer+piston, 5 blocks, 1x4x2, robust
+  kick: last 0,0,0; 32 builds periodic of 32 (13.5 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-notering6 period 10 gt, on 2/10, edges 1, warmup 2, family note_block+observer, 6 blocks, 3x1x2, robust
+  kick: last 1,0,1; 32 builds periodic of 32 (13.0 s)
+  redsim AGREES (period, warmup, output waveform, family, box)
+CLOCK: clk-obs-div3 period 48 gt, on 24/48, edges 1, warmup 0, family comparator+copper_bulb+observer, 9 blocks, 7x2x1, robust
+  kick: last 1,0,0; 32 builds periodic of 32 (14.9 s)
+  redsim AGREES (period, warmup, output waveform, family, box)

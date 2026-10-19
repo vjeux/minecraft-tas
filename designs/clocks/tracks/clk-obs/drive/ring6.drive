@@ -1,0 +1,10 @@
+design designs/clocks/tracks/clk-obs/ring6.txt
+probe A 0 0 0
+probe B 1 0 0
+probe C 2 0 0
+probe D 2 0 1
+probe E 1 0 1
+probe F 0 0 1
+clear 1 0 0
+set 1 0 0 minecraft:observer[facing=west,powered=false]
+trace 40

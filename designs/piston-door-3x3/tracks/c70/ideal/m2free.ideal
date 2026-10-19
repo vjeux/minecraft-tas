@@ -1,0 +1,4 @@
+# c70 m2free: m1 + BM real (c77); the bottom-left (U + BL) is varied; no ideal input
+design designs/piston-door-3x3/tracks/c70/wip/m2free.txt
+open 0 use 1 5 0
+close 0 use 1 5 0

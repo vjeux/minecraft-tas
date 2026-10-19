@@ -1,0 +1,8 @@
+# c70 m2L: m2 with BL's puller LEVEL-held (extended at rest, head at (0,-1)); the test redstone block (0,-2,1) is cleared on open at bl, set on close at blc
+design designs/piston-door-3x3/tracks/c70/wip/m2L.txt
+let bl = 10
+let blc = 10
+open 0 use 1 5 0
+open bl clear 0 -2 1
+close 0 use 1 5 0
+close blc set 0 -2 1 minecraft:redstone_block

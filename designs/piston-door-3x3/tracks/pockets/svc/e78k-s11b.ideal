@@ -1,0 +1,15 @@
+design designs/piston-door-3x3/tracks/pockets/svc/e78k-s11.txt
+# pockets3 for e78k: s11 with its B1 chain re-found too: B1 = a 2-gt pulse into B' at [b1, b1+2) and B2 = a 2-gt
+# pulse at q >= 29, both edges (the B1 chain (-2,-2) (-2,-3) (-1,-3) (0,-3) + filler (3,-3) cleared in the screen)
+let b1 = 21
+let q = 33
+open 0 use 1 5 0
+close 0 use 1 5 0
+open b1 set 1 -3 1 minecraft:redstone_block
+open b1+2 clear 1 -3 1
+open q set 1 -3 1 minecraft:redstone_block
+open q+2 clear 1 -3 1
+close b1 set 1 -3 1 minecraft:redstone_block
+close b1+2 clear 1 -3 1
+close q set 1 -3 1 minecraft:redstone_block
+close q+2 clear 1 -3 1

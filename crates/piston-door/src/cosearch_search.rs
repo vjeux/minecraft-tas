@@ -937,7 +937,7 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
         if open_n >= 7 {
             // the frame: the 12 cells around the opening must hold plain full blocks when open
             // (door blocks or static quartz-like blocks: vjeux 03:36Z, FULL FRAME)
-            let clean = p.ring.iter().filter(|(x, y)| cs::frame_filled(&w.get(at(*x, *y)))).count() as i32;
+            let clean = p.ring.iter().filter(|(x, y)| cs::frame_filled_door(&w.get(at(*x, *y)), &p.door_block)).count() as i32;
             pts += clean;
             // nothing of the build outside the box
             let outside = plane_cells(p, z).iter().filter(|q| !in_box(p, q.x, q.y) && *q != &lever && !p.assist_in_plane.contains(&(q.x, q.y)) && !w.get(**q).is_air()).count() as i32;
@@ -1004,7 +1004,7 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
                 let s = w.get(at(*x, *y));
                 !cs::collides(&s) && !cs::is_moving(&s)
             }).count();
-            let clean = p.ring.iter().filter(|(x, y)| cs::frame_filled(&w.get(at(*x, *y)))).count();
+            let clean = p.ring.iter().filter(|(x, y)| cs::frame_filled_door(&w.get(at(*x, *y)), &p.door_block)).count();
             if !idle || open_n < 9 || clean < 12 || !w.drops.is_empty() || !w.errors.is_empty() {
                 return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
             }

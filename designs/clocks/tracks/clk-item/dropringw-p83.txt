@@ -1,0 +1,24 @@
+# Dropper ring, w x 3 (clock item sweep-dropring): a hopper ring 3 deep with 1 or 2 droppers in the bottom row; the comparator in the inner row reads the top-row hopper above it and fires the dropper below it (a second dropper beside it fires through it). Two stones: one waits in a dropper until the other passes the read hopper. With L = 2w + 2 containers (L + 2 blocks): P = 7L - 29 with one dropper, 7L - 36 with two, so every P = 6 mod 7 from 20 up. Here P = 83.
+# redsim: P=83 gt, warmup 24, family comparator+dropper+hopper, 18 blocks, output on 7/83 gt, 1 rising edge(s)
+
+name: dropringw-p83
+port output: 1 1 1
+nbt: 0 1 1 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: 2 1 2 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  .
+  .S
+  .
+layer 1:
+  ABBBBBB
+  AC....h
+  HDHHHHh

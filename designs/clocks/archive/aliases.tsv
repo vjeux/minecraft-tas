@@ -1,0 +1,6 @@
+kept	alias_file	alias_name
+clk-obs-obs2.txt	census-p6-observer-2b.txt	census-p6-observer-2b
+clk-obs-obs2.txt	census-p6-observer-2b-2.txt	census-p6-observer-2b
+clk-obs-ring4h.txt	census-p8-observer-4b.txt	census-p8-observer-4b
+census-p12-copper_bulb-observer-3b.txt	clk-obs-p12-bulb-obs-3b.txt	clk-obs-p12-bulb-obs-3b
+clk-obs-ring4h.txt	clk-obs-p8-obs-4b.txt	clk-obs-p8-obs-4b

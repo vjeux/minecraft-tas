@@ -1,0 +1,40 @@
+# t78 c070x-b1: c070x with E1 + E2 from a plain sensor (-2,4) -> waxed copper bulb (-2,3) -> observer (-2,2) (pockets --gaps sculk, k 3); U, M, BL, BM ideal
+name: c70b-w1
+covers: (-2,1)o7 (-2,1)o30 (-2,1)c7 (-2,1)c30
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:white_wool
+  G minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  K minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=up,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:sticky_piston[extended=false,facing=east]
+  V minecraft:observer[facing=down,powered=false]
+layer -2:
+  BSABB.OC
+layer -1:
+  .AB..E.o
+layer 0:
+  GO.EEE.C
+layer 1:
+  ss.EEE.C
+layer 2:
+  .oEEEEEo
+layer 3:
+  .WoPPPAR
+layer 4:
+  .SKDDD
+layer 5:
+  ....L

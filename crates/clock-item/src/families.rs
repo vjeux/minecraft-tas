@@ -74,6 +74,56 @@ pub fn hopper_loop(w: i32, d: i32, items: &[Vec<Stack>]) -> Option<Design> {
     Some(des)
 }
 
+/// A dropper ring: a hopper ring `w` wide and 3 deep (x 0..w-1, z 0..2) at y = 1 with a comparator
+/// in the inner row at x = `xc` (on stone) that reads the top-row container (xc, 0) and points into
+/// the bottom-row one (xc, 2). Bottom-row cells xc-1, xc, xc+1 are droppers where `drop_mask` bits
+/// 0, 1, 2 are set (the side ones fire through the strongly powered middle one), the rest hoppers;
+/// all face the next cell. `reversed` runs the ring counter-clockwise. `items[i]` = ring cell i.
+pub fn drop_ring(w: i32, xc: i32, drop_mask: u8, reversed: bool, items: &[Vec<Stack>]) -> Option<Design> {
+    drop_ring_delayed(w, xc, drop_mask, reversed, &[], items)
+}
+
+/// `drop_ring` with repeaters (these delays, 1..=4) between the comparator and the fired dropper:
+/// the ring is 3 + delays.len() deep, the comparator at (xc, 1), the repeaters below it in the
+/// inner column (each on stone), the droppers in the bottom row.
+pub fn drop_ring_delayed(w: i32, xc: i32, drop_mask: u8, reversed: bool, delays: &[u8], items: &[Vec<Stack>]) -> Option<Design> {
+    let depth = 3 + delays.len() as i32;
+    if w < 3 || xc < 1 || xc > w - 2 || delays.iter().any(|d| !(1..=4).contains(d)) {
+        return None;
+    }
+    let mut cells = loop_cells(w, depth);
+    if reversed {
+        cells.reverse();
+    }
+    let mut des = Design { name: format!("dropring-{w}x{depth}"), ..Default::default() };
+    let n = cells.len();
+    for (i, c) in cells.iter().enumerate() {
+        let next = cells[(i + 1) % n];
+        let f = facing(*c, next);
+        let dropper = c.1 == depth - 1 && (c.0 - xc).abs() <= 1 && drop_mask & (1 << (c.0 - xc + 1)) != 0;
+        let state = if dropper {
+            format!("minecraft:dropper[facing={f},triggered=false]")
+        } else {
+            format!("minecraft:hopper[enabled=true,facing={f}]")
+        };
+        des.blocks.insert([c.0, 1, c.1], state);
+        if let Some(st) = items.get(i)
+            && !st.is_empty()
+        {
+            des.block_entities.insert([c.0, 1, c.1], items_snbt(st));
+        }
+    }
+    des.blocks.insert([xc, 1, 1], "minecraft:comparator[facing=north,mode=compare,powered=false]".into());
+    des.blocks.insert([xc, 0, 1], "minecraft:stone".into());
+    for (k, d) in delays.iter().enumerate() {
+        let z = 2 + k as i32;
+        des.blocks.insert([xc, 1, z], format!("minecraft:repeater[delay={d},facing=north,locked=false,powered=false]"));
+        des.blocks.insert([xc, 0, z], "minecraft:stone".into());
+    }
+    des.ports.insert("output".into(), [xc, 1, 1]);
+    Some(des)
+}
+
 /// A ring lock: a rectangular hopper ring 3 wide (x 0..2) and `d` deep (z), clockwise, with a
 /// comparator in the inner column at z = `zc` (standing on stone below it) that reads the west
 /// ring hopper (0, zc) and points into the east one (2, zc), locking it while the west one holds

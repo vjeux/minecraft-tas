@@ -1,0 +1,24 @@
+name: clk-obs-p19-lamp-obs-stk-6b-3ebb3e
+# P19: 3 observers, 1 redstone lamp, 2 sticky pistons; changing in place: observer, redstone_lamp, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:redstone_lamp[lit=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  A
+  .
+  .
+layer 0:
+  B
+  C
+  .
+layer 1:
+  D
+  E
+  F

@@ -1,0 +1,12 @@
+# c70 m2: m1 + U real (plain sensor (-3,-1) over sticky piston (-3,-2) pushes observer (-2,-2) facing down into (-1,-2): U at t11;
+# calibrated sensor (-2,-1) facing west) + BM real (c77: observer (4,-1) up on BR's puller -> sticky (4,-2) W pushes observer (3,-2) E to (2,-2)).
+# Only BL ideal.
+design designs/piston-door-3x3/tracks/c70b/wip/m2w.txt
+let bl = 30
+let blc = 30
+open 0 use 1 5 0
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+close 0 use 1 5 0
+close blc set 0 -2 1 minecraft:redstone_block
+close blc+2 clear 0 -2 1

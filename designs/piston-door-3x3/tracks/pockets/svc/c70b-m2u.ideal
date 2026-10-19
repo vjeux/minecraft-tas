@@ -1,0 +1,17 @@
+design designs/piston-door-3x3/tracks/pockets/svc/c70b-m2.txt
+# pockets3 for c70b: c70's m2.ideal (BL ideal) + U (-1,-1) ideal too: one 2-gt pulse at t11 on both edges
+# (U's real chain = T (-3,-2), V (-2,-2), sensors (-3,-1) (-2,-1) cleared with --region-cells in the screen)
+let bl = 30
+let blc = 30
+let u = 11
+let uc = 11
+open 0 use 1 5 0
+open u set -1 -1 1 minecraft:redstone_block
+open u+2 clear -1 -1 1
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+close 0 use 1 5 0
+close uc set -1 -1 1 minecraft:redstone_block
+close uc+2 clear -1 -1 1
+close blc set 0 -2 1 minecraft:redstone_block
+close blc+2 clear 0 -2 1

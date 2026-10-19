@@ -1,0 +1,25 @@
+name: clk-obs-oddring13
+# Variant B of the odd piston stage (oddring11): S pushes a slime block that drags the redstone
+# block R one cell further, so Q and J sit one cell over and the ring back to O1 has an odd
+# number of observers: O1 fires at t, J at t + 5, then J -> K1 -> K2 -> K3 -> O1: P = 5 + 8 = 13.
+# S pulls the slime back and the slime drags R home.
+origin: 0 0 0
+port output: 2 2 0
+port start: 2 3 0 last
+palette:
+  S minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:slime_block
+  R minecraft:redstone_block
+  Q minecraft:piston[extended=false,facing=up]
+  U minecraft:observer[facing=up,powered=false]
+  J minecraft:observer[facing=east,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=east,powered=false]
+layer 0:
+  SLR
+layer 1:
+  U..Q
+layer 2:
+  U.J
+layer 3:
+  EED
