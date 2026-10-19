@@ -19,6 +19,7 @@ pub mod divider;
 pub mod grow;
 pub mod pick;
 pub mod prune;
+pub mod pulse;
 pub mod report;
 pub mod rings;
 pub mod sim;
@@ -115,6 +116,11 @@ pub enum Cmd {
     Family(family::FamilyArgs),
     /// Remove archived instances of the extendable families (design, every TSV row, picture)
     Prune(prune::PruneArgs),
+    /// Pulse circuits (study 1, prototype judge on redsim): classify each design's output
+    /// (rising/falling/dual edge, limiter, extender, stretch, delay) over input pulses of 1..30 gt
+    Pulse(pulse::PulseArgs),
+    /// Pulse-circuit census: every structure of k blocks + an input cell, every output cell
+    PulseCensus(pulse::PulseCensusArgs),
 }
 
 pub fn run_args(args: Args) -> Result<()> {
@@ -168,5 +174,7 @@ pub fn run_args(args: Args) -> Result<()> {
         Cmd::Every(a) => construct::run(a),
         Cmd::Family(a) => family::run(a),
         Cmd::Prune(a) => prune::run(a),
+        Cmd::Pulse(a) => pulse::run(a),
+        Cmd::PulseCensus(a) => pulse::census(a),
     }
 }
