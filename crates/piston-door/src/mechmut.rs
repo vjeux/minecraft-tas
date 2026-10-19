@@ -343,8 +343,10 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
 
 /// Write the ideal-input design + plan (open/close schedule) of a variant into `dir`; when the
 /// plan cannot be built (a piston firing from inside the opening has no input cell), the bare
-/// design (`{tag}.txt`) for `door fullmech --check --export`.
+/// design (`{tag}.txt`) for `door fullmech --check --export`. Inputs may sit in the hallway (test
+/// only, see `mechsynth::CORRIDOR_INPUTS`): the plan header says so.
 pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
+    crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
     let (m, rest) = Mech::new(v.bx, &v.pieces).context("pieces overlap")?;
     let (o, c) = (from_sched(&m, &v.so, None), from_sched(&m, &v.sc, None));
     let sol = fam::Sol { open: o, close: c, sym: None, sym_levels: false, states: 0, extent: (0, 0, 0, 0), levels: false };
@@ -357,7 +359,19 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
         let mut dd = p.design.clone();
         dd.name = format!("{tag}-{stag}");
         dd.save(&dpath)?;
-        std::fs::write(dir.join(format!("{tag}-{stag}.ideal")), p.text.replace(&format!("design {tag}.txt"), &format!("design {}", dpath.display())))?;
+        let ipath = dir.join(format!("{tag}-{stag}.ideal"));
+        let text = format!("phase between\n{}", p.text.replace(&format!("design {tag}.txt"), &format!("design {}", dpath.display())));
+        std::fs::write(&ipath, &text)?;
+        // replay it in redsim (between-ticks inputs, 32 positions, 2 cycles): the macro model
+        // and the simulator can disagree (quasi-connectivity, timing)
+        let verdict = match crate::ideal::Schedule::parse(&text) {
+            Ok(s) => match crate::ideal_rs::run(&s, &std::collections::BTreeMap::new(), &crate::ideal::offsets(28), 2, false) {
+                Ok((o, c)) => format!("WORKS in redsim (32 positions x 2 cycles): open after {o} ticks / closed after {c} ticks"),
+                Err(e) => format!("BROKEN in redsim: {}", e.chars().take(160).collect::<String>()),
+            },
+            Err(e) => format!("plan does not parse: {e:#}"),
+        };
+        eprintln!("[mechmut] {}: {verdict}", ipath.display());
     }
     Ok(())
 }
