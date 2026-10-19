@@ -165,6 +165,12 @@ pub struct Mech {
 pub static EXT_PULLERS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--bottom-su` (mechspace): exactly one piston in the box's bottom row, sticky facing up.
 pub static BOTTOM_SU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--lift-ext` (audit bound a): a piston extended at rest may be reused lifted / carried (it
+/// retracts first).
+pub static LIFT_EXT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--carry-in` (audit bound b, with --carry): a new provider piston may rest 1-2 cells beside its
+/// action position and be carried there.
+pub static CARRY_IN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// `families --rows --forbid-fire`: x columns (door coordinates) no piston may fire from.
 pub static FORBID_X: std::sync::OnceLock<Vec<i8>> = std::sync::OnceLock::new();
@@ -1397,25 +1403,57 @@ impl Gen {
                         continue;
                     }
                     // lifted toward its facing: rest + f = action; lift at rest - f facing f
-                    if p.x + fx == ax && p.y + fy == ay && !ext {
+                    // (`LIFT_EXT`: also a piston extended at rest: it retracts, then is lifted)
+                    let ext_ok = !ext || LIFT_EXT.load(Ordering::Relaxed);
+                    if p.x + fx == ax && p.y + fy == ay && ext_ok {
                         if let Some(w) = self.add(v, Pc { x: p.x - fx, y: p.y - fy, k: K::Piston { sticky: true, f, ext: false } }) {
                             out.push(w);
                         }
                     }
                     // pulled back: rest - f = action; lift extended at rest - 2f facing f
-                    if p.x - fx == ax && p.y - fy == ay && !ext {
+                    if p.x - fx == ax && p.y - fy == ay && ext_ok {
                         if let Some(w) = self.add(v, Pc { x: p.x - 2 * fx, y: p.y - 2 * fy, k: K::Piston { sticky: true, f, ext: true } }) {
                             out.push(w);
                         }
                     }
                     // general CARRYING (--carry N): displaced by 1-2 cells in any direction
                     // (sideways too), moved there by carriers that may be carried themselves
-                    if self.carry > 0 && !ext {
+                    if self.carry > 0 && ext_ok {
                         let (dx, dy) = (ax - p.x, ay - p.y);
                         let k = dx.abs() + dy.abs();
                         if (dx == 0 || dy == 0) && (1..=2).contains(&k) {
                             let u = (dx.signum(), dy.signum());
                             for w in self.carry_by(v, (p.x, p.y), u, k, self.carry) {
+                                out.push(w);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // CARRY IN (`CARRY_IN`, with --carry): a NEW provider piston resting 1-2 cells beside its
+        // action position, carried there first (fast-clean's SD(0,3) shuttled by SE(-1,3))
+        if self.carry > 0 && CARRY_IN.load(Ordering::Relaxed) {
+            let mut acts: Vec<((i8, i8), K)> = vec![((c.0 + 2 * d.0, c.1 + 2 * d.1), K::Piston { sticky: true, f: fpull, ext: false })];
+            if self.pushes {
+                for k in 1..=2i8 {
+                    for sticky in [false, true] {
+                        acts.push(((c.0 - k * d.0, c.1 - k * d.1), K::Piston { sticky, f: fd, ext: false }));
+                    }
+                }
+            }
+            for (a, kind) in acts {
+                if in_t(a.0, a.1) || !self.bx.has(a.0, a.1) {
+                    continue;
+                }
+                for u in [(1i8, 0i8), (-1, 0), (0, 1), (0, -1)] {
+                    for j in 1..=2i8 {
+                        let r = (a.0 - j * u.0, a.1 - j * u.1);
+                        if in_t(r.0, r.1) {
+                            continue;
+                        }
+                        if let Some(w0) = self.add(v, Pc { x: r.0, y: r.1, k: kind }) {
+                            for w in self.carry_by(&w0, r, u, j, self.carry) {
                                 out.push(w);
                             }
                         }

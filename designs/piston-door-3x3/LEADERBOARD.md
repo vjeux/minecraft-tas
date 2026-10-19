@@ -18,27 +18,29 @@ The night, board by board (records by blocks placed, from the archive):
 
 9 identical plain door blocks, no sculk sensors; rotation-safe.
 
-**63b** (volume 7x9x1, 49 blocks placed), solid, slime-free, flat, opens in 15 ticks, closes in 15 (worst cycle): [satwire-63b-49-49b](archive/satwire-63b-49-49b.txt). Agent satwire (SAT wiring synthesis): pockets-63b-50's mechanism (the community 7x9's pistons) with ALL wiring erased and re-synthesized from scratch (`door satwire --from-wired --full-frame --log-doors`): 63b (7x9x1), 49 blocks, oak-log door and frame (axis y), FULL seamless, frame 12/12, lever ON at rest on the east face of the top-right block.
+![c79-49-bl5-br3-49b](https://github.com/vjeux/minecraft-tas/releases/download/videos/c79-49-bl5-br3-49b.gif)
+
+**63b** (volume 7x9x1, 49 blocks placed), solid, slime-free, flat, opens in 15 ticks, closes in 15 (worst cycle): [c79-49-bl5-br3-49b](archive/c79-49-bl5-br3-49b.txt). Agent pockets (pocket search): the community 7x9 mechanism with cosearch2's 5-block bottom-left and a 3-block bottom-right (observer (4,0) facing up on R1 -> a TARGET block (4,-1) -> dust (3,-1) on the normal piston (3,-2); c79 used observer, dust and 2 stones): 63b, 49 blocks, ties satwire-63b-49.
 
 Every record of this board by blocks placed (the history before sizes were volumes) in one video: [solid-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 1 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/c79-49-bl5-br3-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
-| 3 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
-| 4 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
-| 5 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
-| 6 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
-| 7 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
-| 8 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
-| 9 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
-| 10 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
+| 2 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 3 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
+| 4 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
+| 5 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl1-63b-50.txt` |
+| 6 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl12-63b-50.txt` |
+| 7 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 8 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
+| 9 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
+| 10 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
 
 </details>
 
@@ -46,27 +48,27 @@ Every record of this board by blocks placed (the history before sizes were volum
 
 same, and not a single slime or honey block anywhere; rotation-safe.
 
-Same leader as [Solid (main ranking)](#solid-main-ranking): **63b** (volume 7x9x1, 49 blocks placed), opens in 15 ticks, closes in 15, [satwire-63b-49-49b](archive/satwire-63b-49-49b.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **63b** (volume 7x9x1, 49 blocks placed), opens in 15 ticks, closes in 15, [c79-49-bl5-br3-49b](archive/c79-49-bl5-br3-49b.txt).
 
 Every record of this board by blocks placed (the history before sizes were volumes) in one video: [slime-free-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.jpg)).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 1 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/c79-49-bl5-br3-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
-| 3 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
-| 4 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
-| 5 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
-| 6 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
-| 7 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
-| 8 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
-| 9 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
-| 10 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
+| 2 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 3 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
+| 4 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
+| 5 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl1-63b-50.txt` |
+| 6 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl12-63b-50.txt` |
+| 7 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 8 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
+| 9 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
+| 10 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
 
 </details>
 
@@ -74,27 +76,27 @@ Every record of this board by blocks placed (the history before sizes were volum
 
 slime-free, and every block (door, pistons, wiring, lever) in the door's plane: the whole machine is one block thick; rotation-safe.
 
-Same leader as [Solid (main ranking)](#solid-main-ranking): **63b** (volume 7x9x1, 49 blocks placed), opens in 15 ticks, closes in 15, [satwire-63b-49-49b](archive/satwire-63b-49-49b.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **63b** (volume 7x9x1, 49 blocks placed), opens in 15 ticks, closes in 15, [c79-49-bl5-br3-49b](archive/c79-49-bl5-br3-49b.txt).
 
 Every record of this board by blocks placed (the history before sizes were volumes) in one video: [flat-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.jpg)).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 1 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/c79-49-bl5-br3-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
-| 3 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
-| 4 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
-| 5 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
-| 6 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
-| 7 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
-| 8 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
-| 9 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
-| 10 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
+| 2 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 3 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
+| 4 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
+| 5 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl1-63b-50.txt` |
+| 6 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl12-63b-50.txt` |
+| 7 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 8 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
+| 9 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
+| 10 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
 
 </details>
 
@@ -102,25 +104,25 @@ Every record of this board by blocks placed (the history before sizes were volum
 
 every block within one layer of the door's plane (z = door.z-1..door.z+1), at rest and while it moves: the whole machine hides inside a wall 3 blocks thick; rotation-safe.
 
-Same leader as [Solid (main ranking)](#solid-main-ranking): **63b** (volume 7x9x1, 49 blocks placed), opens in 15 ticks, closes in 15, [satwire-63b-49-49b](archive/satwire-63b-49-49b.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **63b** (volume 7x9x1, 49 blocks placed), opens in 15 ticks, closes in 15, [c79-49-bl5-br3-49b](archive/c79-49-bl5-br3-49b.txt).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 1 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/c79-49-bl5-br3-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
-| 3 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
-| 4 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
-| 5 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
-| 6 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
-| 7 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
-| 8 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
-| 9 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
-| 10 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
+| 2 | 63b (7x9x1) | 49 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 3 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
+| 4 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
+| 5 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl1-63b-50.txt` |
+| 6 | 63b (7x9x1) | 50 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl12-63b-50.txt` |
+| 7 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 8 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
+| 9 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
+| 10 | 63b (7x9x1) | 51 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
 
 </details>
 
@@ -149,29 +151,29 @@ no block below the door's bottom row, at rest or while it moves, so it stands on
 
 uses sculk sensors (footsteps or mobs nearby can trigger them); rotation-safe.
 
-![sculk-ew-s4br-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-ew-s4br-36b.gif)
+![m79s-sculk-63b-50-50b](https://github.com/vjeux/minecraft-tas/releases/download/videos/m79s-sculk-63b-50-50b.gif)
 
-**252b** (volume 7x9x4, 36 blocks placed), sculk, opens in 22 ticks, closes in 36 (worst cycle): [sculk-ew-s4br-36b](archive/sculk-ew-s4br-36b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-ew-s4br-36b.mp4)). 
+**63b** (volume 7x9x1, 50 blocks placed), sculk, slime-free, flat, opens in 43 ticks, closes in 35 (worst cycle): [m79s-sculk-63b-50-50b](archive/m79s-sculk-63b-50-50b.txt). Agents w63top/m10top/c2e/satwire/m79s: a NEW 7x9 mechanism (u7-m10: single sticky U under the door, BR goes right, TR goes up, elevator with a PULL-TYPE B so A's hold is real); the top-right (lever, R pair, TRp drop, A's hold, B's pulse) re-synthesized by satwire with oak-log doors; the sealed top-left gets the lever wirelessly: a calibrated sculk sensor (-2,5) hears the right side, an observer (-2,4) fires L2 (+L1 by QC) through wool (-2,3); wool at (0,4)/(0,5) occludes the re-arm echo. 63b, 50 blocks, sculk category, FULL seamless, frame 12/12.
 
 Every record of this board by blocks placed (the history before sizes were volumes) in one video: [sculk-progression.mp4](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) ([poster](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.jpg)).
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 1 | 252b (7x9x4) | 36 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4br-36b.txt` |
+| 1 | 63b (7x9x1) | 50 | clean | `HEAD:designs/piston-door-3x3/archive/m79s-sculk-63b-50-50b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | blocks | walkway | source |
 |---|---|---|---|---|
-| 2 | 252b (7x9x4) | 36 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4r-36b.txt` |
-| 3 | 252b (7x9x4) | 36 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4r-ew-36b.txt` |
-| 4 | 252b (7x9x4) | 38 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s1r-38b.txt` |
-| 5 | 252b (7x9x4) | 38 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s1r-ew-38b.txt` |
-| 6 | 252b (7x9x4) | 42 | clean | `HEAD:designs/piston-door-3x3/archive/st43-bmobs-42b.txt` |
-| 7 | 252b (7x9x4) | 43 | clean | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-43b.txt` |
-| 8 | 252b (7x9x4) | 46 | clean | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-m51-sculk-48b-46b.txt` |
-| 9 | 252b (7x9x4) | 47 | clean | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-47b.txt` |
-| 10 | 252b (7x9x4) | 48 | clean | `HEAD:designs/piston-door-3x3/archive/m51-sculk-48b.txt` |
+| 2 | 63b (7x9x1) | 50 | clean | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/finds/a1/cosearch-63b-50-1.txt` |
+| 3 | 63b (7x9x1) | 50 | clean | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/finds/a1/cosearch-63b-50-2.txt` |
+| 4 | 63b (7x9x1) | 51 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-92.txt` |
+| 5 | 252b (7x9x4) | 36 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4br-36b.txt` |
+| 6 | 252b (7x9x4) | 36 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4r-36b.txt` |
+| 7 | 252b (7x9x4) | 36 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4r-ew-36b.txt` |
+| 8 | 252b (7x9x4) | 38 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s1r-38b.txt` |
+| 9 | 252b (7x9x4) | 38 | clean | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s1r-ew-38b.txt` |
+| 10 | 252b (7x9x4) | 42 | clean | `HEAD:designs/piston-door-3x3/archive/st43-bmobs-42b.txt` |
 
 </details>
 
@@ -209,25 +211,25 @@ Every record of this board by blocks placed (the history before sizes were volum
 
 solid doors that may also use entities (minecarts, armor stands, boats...; category `entity`). Entities are counted apart from blocks: ranked by size (the volume), then entities, then blocks placed. Every entity must be back exactly where it rested, at rest, after each close, and nothing else may appear; every other board bans entities. Solid designs compete here too (0 entities); rotation-safe.
 
-Same leader as [Solid (main ranking)](#solid-main-ranking): **63b** (volume 7x9x1, 49 blocks placed), opens in 15 ticks, closes in 15, [satwire-63b-49-49b](archive/satwire-63b-49-49b.txt).
+Same leader as [Solid (main ranking)](#solid-main-ranking): **63b** (volume 7x9x1, 49 blocks placed), opens in 15 ticks, closes in 15, [c79-49-bl5-br3-49b](archive/c79-49-bl5-br3-49b.txt).
 
 | # | size | entities | blocks | open / close | walkway | source |
 |---|---|---|---|---|---|---|
-| 1 | 63b (7x9x1) | 0 | 49 | 15 / 15 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 1 | 63b (7x9x1) | 0 | 49 | 15 / 15 | clean | `HEAD:designs/piston-door-3x3/archive/c79-49-bl5-br3-49b.txt` |
 
 <details><summary>9 more</summary>
 
 | # | size | entities | blocks | open / close | walkway | source |
 |---|---|---|---|---|---|---|
-| 2 | 63b (7x9x1) | 0 | 50 | 15 / 15 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
-| 3 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
-| 4 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
-| 5 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
-| 6 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
-| 7 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
-| 8 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
-| 9 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
-| 10 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
+| 2 | 63b (7x9x1) | 0 | 49 | 15 / 15 | clean | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 3 | 63b (7x9x1) | 0 | 50 | 14 / 14 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
+| 4 | 63b (7x9x1) | 0 | 50 | 15 / 15 | clean | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
+| 5 | 63b (7x9x1) | 0 | 50 | 18 / 18 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl1-63b-50.txt` |
+| 6 | 63b (7x9x1) | 0 | 50 | 18 / 18 | clean | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl12-63b-50.txt` |
+| 7 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 8 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
+| 9 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
+| 10 | 63b (7x9x1) | 0 | 51 | 14 / 14 | clean | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
 
 </details>
 
@@ -261,15 +263,15 @@ solid doors with a SEAMLESS tier of the community regulation (QUART: nothing vis
 
 | # | seamless | hallway | size | blocks | source |
 |---|---|---|---|---|---|
-| 2 | FULL | no | 63b (7x9x1) | 49 | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
-| 3 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
-| 4 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
-| 5 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
-| 6 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
-| 7 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
-| 8 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
-| 9 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
-| 10 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
+| 2 | FULL | no | 63b (7x9x1) | 49 | `HEAD:designs/piston-door-3x3/archive/c79-49-bl5-br3-49b.txt` |
+| 3 | FULL | no | 63b (7x9x1) | 49 | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 4 | FULL | no | 63b (7x9x1) | 50 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
+| 5 | FULL | no | 63b (7x9x1) | 50 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl1-63b-50.txt` |
+| 6 | FULL | no | 63b (7x9x1) | 50 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl12-63b-50.txt` |
+| 7 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 8 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
+| 9 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
+| 10 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
 
 </details>
 
@@ -287,15 +289,15 @@ Same leader as [Seamless](#seamless): **63b** (volume 7x9x1, 50 blocks placed), 
 
 | # | seamless | hallway | size | blocks | source |
 |---|---|---|---|---|---|
-| 2 | FULL | no | 63b (7x9x1) | 49 | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
-| 3 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
-| 4 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
-| 5 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
-| 6 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
-| 7 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
-| 8 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
-| 9 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
-| 10 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
+| 2 | FULL | no | 63b (7x9x1) | 49 | `HEAD:designs/piston-door-3x3/archive/c79-49-bl5-br3-49b.txt` |
+| 3 | FULL | no | 63b (7x9x1) | 49 | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 4 | FULL | no | 63b (7x9x1) | 50 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
+| 5 | FULL | no | 63b (7x9x1) | 50 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl1-63b-50.txt` |
+| 6 | FULL | no | 63b (7x9x1) | 50 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl12-63b-50.txt` |
+| 7 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 8 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
+| 9 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
+| 10 | FULL | no | 63b (7x9x1) | 51 | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
 
 </details>
 
@@ -311,22 +313,24 @@ doors that meet the regulation's record eligibility (section 3): a SEAMLESS tier
 
 Working designs (they pass the judge as built) that break when turned 90, 180 or 270 degrees, by size (the volume), then blocks placed; the first failing turn and the judge's reason.
 
-![sculk2-s4b-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.gif)
-
-**252b** (volume 7x9x4, 36 blocks placed), sculk, opens in 20 ticks, closes in 36 (worst cycle): [sculk2-s4b-36b](archive/sculk2-s4b-36b.txt) ([video](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.mp4)). Agent sculk-2: a twin of s4 (the left pusher's retracting base blocks an early pull); works facing north or south only (breaks turned 90 degrees).
+**63b** (volume 7x9x1, 51 blocks placed), solid, slime-free, flat, opens in 14 ticks, closes in 14 (worst cycle): [pockets/pockets-63b-51-35](https://github.com/vjeux/minecraft-tas/blob/explore/pockets/designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-35.txt). From track pockets: [tracks/pockets/NOTES.md](tracks/pockets/NOTES.md).
 
 | # | size | blocks | category | slime-free | flat | breaks turned | why | source |
 |---|---|---|---|---|---|---|---|---|
-| 1 | 252b (7x9x4) | 36 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s4b-36b.txt` |
+| 1 | 63b (7x9x1) | 51 | solid | yes | yes | 90 degrees | at offset [-7, 3, 5]: cycle 0: not open after the lever was switched on: [-7, 3, 6] is minecraft:stone; [-7, 3 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-35.txt` |
 
-<details><summary>4 more</summary>
+<details><summary>8 more</summary>
 
 | # | size | blocks | category | slime-free | flat | breaks turned | why | source |
 |---|---|---|---|---|---|---|---|---|
-| 2 | 252b (7x9x4) | 36 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s4-36b.txt` |
-| 3 | 252b (7x9x4) | 38 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s1-38b.txt` |
-| 4 | 315b (7x9x5) | 36 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s4c-36b.txt` |
-| 5 | 630b (9x10x7) | 103 | solid | yes |  | 180 degrees | at offset [5, -11, -6]: cycle 0: door not restored: [4, -9, -6] is minecraft:piston_head[facing=down,short=fal | `HEAD:designs/piston-door-3x3/archive/fast-clean-c1r-103b.txt` |
+| 2 | 63b (7x9x1) | 51 | solid | yes | yes | 90 degrees | at offset [-7, 3, 5]: cycle 0: not open after the lever was switched on: [-7, 3, 6] is minecraft:stone; [-7, 3 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-37.txt` |
+| 3 | 63b (7x9x1) | 51 | solid | yes | yes | 90 degrees | at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 1] is minecraft:stone; [0, 0, 2 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-65.txt` |
+| 4 | 63b (7x9x1) | 51 | solid | yes | yes | 90 degrees | at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 1] is minecraft:stone; [0, 0, 2 | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-68.txt` |
+| 5 | 252b (7x9x4) | 36 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s4b-36b.txt` |
+| 6 | 252b (7x9x4) | 36 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s4-36b.txt` |
+| 7 | 252b (7x9x4) | 38 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s1-38b.txt` |
+| 8 | 315b (7x9x5) | 36 | sculk |  |  | 90 degrees | at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft:stone; [0, 1, 1] is | `HEAD:designs/piston-door-3x3/archive/sculk2-s4c-36b.txt` |
+| 9 | 630b (9x10x7) | 103 | solid | yes |  | 180 degrees | at offset [5, -11, -6]: cycle 0: door not restored: [4, -9, -6] is minecraft:piston_head[facing=down,short=fal | `HEAD:designs/piston-door-3x3/archive/fast-clean-c1r-103b.txt` |
 
 </details>
 
@@ -336,7 +340,7 @@ Every door that no other door beats on open ticks, close ticks and size (the vol
 
 | size | blocks | open | close | category | slime-free | rotations | source |
 |---|---|---|---|---|---|---|---|
-| 63b (7x9x1) | 51 | 14 | 14 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 63b (7x9x1) | 50 | 14 | 14 | solid | yes | safe | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
 | 126b (7x9x2) | 33 | 5 | 16 | gravity |  | safe | `HEAD:designs/piston-door-3x3/archive/gravity2-g33-33b.txt` |
 | 126b (7x9x2) | 46 | 14 | 13 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/exotic-pm46-trap-46b.txt` |
 | 144b (8x9x2) | 41 | 22 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
@@ -351,7 +355,7 @@ Every door that no other door beats on open ticks, close ticks and size (the vol
 
 | size | blocks | open | close | category | slime-free | rotations | source |
 |---|---|---|---|---|---|---|---|
-| 63b (7x9x1) | 51 | 14 | 14 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 63b (7x9x1) | 50 | 14 | 14 | solid | yes | safe | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
 | 126b (7x9x2) | 46 | 14 | 13 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/exotic-pm46-trap-46b.txt` |
 | 144b (8x9x2) | 41 | 22 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
 | 252b (7x9x4) | 50 | 14 | 11 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/exotic-pm50-trap-50b.txt` |
@@ -364,7 +368,7 @@ Every door that no other door beats on open ticks, close ticks and size (the vol
 
 | size | blocks | open | close | category | slime-free | rotations | source |
 |---|---|---|---|---|---|---|---|
-| 63b (7x9x1) | 51 | 14 | 14 | solid | yes | safe | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 63b (7x9x1) | 50 | 14 | 14 | solid | yes | safe | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
 | 126b (7x9x2) | 46 | 14 | 13 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/exotic-pm46-trap-46b.txt` |
 | 144b (8x9x2) | 41 | 22 | 9 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
 | 252b (7x9x4) | 50 | 14 | 11 | solid |  | safe | `HEAD:designs/piston-door-3x3/archive/exotic-pm50-trap-50b.txt` |
@@ -583,1094 +587,1309 @@ Same leader as [Fastest open (solid only)](#fastest-open-solid-only): **720b** (
 
 ## Everything
 
-<details><summary>All 1085 designs (working and broken) with their verdicts</summary>
+<details><summary>All 1300 designs (working and broken) with their verdicts</summary>
 
 | # | size | blocks | category | slime-free | rotations | verdict | source |
 |---|---|---|---|---|---|---|---|
-| 1 | 63b (7x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
-| 2 | 63b (7x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
-| 3 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
-| 4 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
-| 5 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
-| 6 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
-| 7 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
-| 8 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
-| 9 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
-| 10 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
-| 11 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-11.txt` |
-| 12 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-2.txt` |
-| 13 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-3.txt` |
-| 14 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-4.txt` |
-| 15 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-5.txt` |
-| 16 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-6.txt` |
-| 17 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-7.txt` |
-| 18 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-8.txt` |
-| 19 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-9.txt` |
-| 20 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/satwire/archive/satwire-c79-closed-51b.txt` |
-| 21 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-0.txt` |
-| 22 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-10.txt` |
-| 23 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-11.txt` |
-| 24 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-13.txt` |
-| 25 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-14.txt` |
-| 26 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-15.txt` |
-| 27 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-16.txt` |
-| 28 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-2.txt` |
-| 29 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-21.txt` |
-| 30 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-23.txt` |
-| 31 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-24.txt` |
-| 32 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-28.txt` |
-| 33 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-3.txt` |
-| 34 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-6.txt` |
-| 35 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-8.txt` |
-| 36 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-9.txt` |
-| 37 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-0.txt` |
-| 38 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-1.txt` |
-| 39 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-2.txt` |
-| 40 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-3.txt` |
-| 41 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-4.txt` |
-| 42 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pockets-63b-51-1.txt` |
-| 43 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-18.txt` |
-| 44 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-19.txt` |
-| 45 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-20.txt` |
-| 46 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-22.txt` |
-| 47 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-25.txt` |
-| 48 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-4.txt` |
-| 49 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-5.txt` |
-| 50 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-7.txt` |
-| 51 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-1.txt` |
-| 52 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-12.txt` |
-| 53 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-17.txt` |
-| 54 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-26.txt` |
-| 55 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-27.txt` |
-| 56 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-29.txt` |
-| 57 | 72b (8x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
-| 58 | 72b (8x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/satwire/e89b-sat29.txt` |
-| 59 | 72b (8x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
-| 60 | 72b (8x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
-| 61 | 72b (8x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/flat-seam-e89b-49b-ff.txt` |
-| 62 | 72b (8x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
-| 63 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
-| 64 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/eligible-fl72m-50b-ff.txt` |
-| 65 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
-| 66 | 72b (8x9x1) | 53 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/flat-seam-e89-51b-ff.txt` |
-| 67 | 72b (8x9x1) | 54 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/eligible-fl72f-52b-ff.txt` |
-| 68 | 72b (8x9x1) | 54 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/eligible-fl72n-52b-ff.txt` |
-| 69 | 72b (8x9x1) | 62 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/satwire/e89b-sat42.txt` |
-| 70 | 80b (8x10x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
-| 71 | 80b (8x10x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v6-45b.txt` |
-| 72 | 80b (8x10x1) | 46 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v5-46b.txt` |
-| 73 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-47b.txt` |
-| 74 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v3-47b.txt` |
-| 75 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-47b.txt` |
-| 76 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80m-48b.txt` |
-| 77 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-bottom-48b.txt` |
-| 78 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-north-48b.txt` |
-| 79 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-south-48b.txt` |
-| 80 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-west-48b.txt` |
-| 81 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper@support-north-48b.txt` |
-| 82 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper@support-south-48b.txt` |
-| 83 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-bottom-48b.txt` |
-| 84 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-north-48b.txt` |
-| 85 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-south-48b.txt` |
-| 86 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-bottom-48b.txt` |
-| 87 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-north-48b.txt` |
-| 88 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-south-48b.txt` |
-| 89 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-west-48b.txt` |
-| 90 | 80b (8x10x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-50b.txt` |
-| 91 | 80b (8x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80f-51b.txt` |
-| 92 | 80b (8x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80n-51b.txt` |
-| 93 | 80b (8x10x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-52b.txt` |
-| 94 | 81b (9x9x1) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-flat43-43b.txt` |
-| 95 | 81b (9x9x1) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-43b.txt` |
-| 96 | 81b (9x9x1) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/wire64b/w79/f43m.txt` |
-| 97 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81f-44b.txt` |
-| 98 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81m-44b.txt` |
-| 99 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-h44-44b.txt` |
-| 100 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-44b.txt` |
-| 101 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/box72/wip/f43m.txt` |
-| 102 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/f43-b1-44b.txt` |
-| 103 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81n-45b.txt` |
-| 104 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-east-45b.txt` |
-| 105 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-north-45b.txt` |
-| 106 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-south-45b.txt` |
-| 107 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-top-45b.txt` |
-| 108 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-north-45b.txt` |
-| 109 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-south-45b.txt` |
-| 110 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-top-45b.txt` |
-| 111 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-east-45b.txt` |
-| 112 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-north-45b.txt` |
-| 113 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-south-45b.txt` |
-| 114 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-top-45b.txt` |
-| 115 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-h45-45b.txt` |
-| 116 | 88b (8x11x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v2-48b.txt` |
-| 117 | 90b (9x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-fbv7-full-trap-48b.txt` |
-| 118 | 90b (9x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-48b.txt` |
-| 119 | 90b (9x10x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v8-49b.txt` |
-| 120 | 90b (9x10x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v7-50b.txt` |
-| 121 | 90b (9x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v6-51b.txt` |
-| 122 | 90b (9x10x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v5-52b.txt` |
-| 123 | 90b (9x10x1) | 55 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-s55-55b.txt` |
-| 124 | 99b (9x11x1) | 54 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v7-full-54b.txt` |
-| 125 | 100b (10x10x1) | 57 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v2-57b.txt` |
-| 126 | 100b (10x10x1) | 58 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fv58n-58b.txt` |
-| 127 | 100b (10x10x1) | 60 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v2-60b.txt` |
-| 128 | 110b (11x10x1) | 54 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v2-54b.txt` |
-| 129 | 110b (11x10x1) | 55 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v2-55b.txt` |
-| 130 | 126b (7x9x2) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp8-leafU-43b.txt` |
-| 131 | 126b (7x9x2) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp8-43b.txt` |
-| 132 | 126b (7x9x2) | 44 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp8-lampU-44b.txt` |
-| 133 | 126b (7x9x2) | 45 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-pm45-trap-45b.txt` |
-| 134 | 126b (7x9x2) | 45 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-b-mp6-45b.txt` |
-| 135 | 126b (7x9x2) | 45 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp7-45b.txt` |
-| 136 | 126b (7x9x2) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-pm46-trap-46b.txt` |
-| 137 | 126b (7x9x2) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-leafC-46b.txt` |
-| 138 | 126b (7x9x2) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp6-46b.txt` |
-| 139 | 126b (7x9x2) | 47 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-dustU-47b.txt` |
-| 140 | 140b (7x10x2) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-repU-46b.txt` |
-| 141 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-fc2-trapL-40b.txt` |
-| 142 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-2.txt` |
-| 143 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-3.txt` |
-| 144 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-4.txt` |
-| 145 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-5.txt` |
-| 146 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-6.txt` |
-| 147 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b.txt` |
-| 148 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-min-40b.txt` |
-| 149 | 144b (8x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
-| 150 | 144b (8x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-seamL-41b.txt` |
-| 151 | 144b (8x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-seamR-41b.txt` |
-| 152 | 144b (8x9x2) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-d-s4-45b-2.txt` |
-| 153 | 162b (9x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-40b.txt` |
-| 154 | 162b (9x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-40b-2.txt` |
-| 155 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-3.txt` |
-| 156 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-5.txt` |
-| 157 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-6.txt` |
-| 158 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-8.txt` |
-| 159 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b.txt` |
-| 160 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-2.txt` |
-| 161 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-4.txt` |
-| 162 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-7.txt` |
-| 163 | 162b (9x9x2) | 42 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-42b.txt` |
-| 164 | 162b (9x9x2) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-43b.txt` |
-| 165 | 189b (7x9x3) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-fx1-40b.txt` |
-| 166 | 189b (7x9x3) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-fx1-40b-2.txt` |
-| 167 | 189b (7x9x3) | 41 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-w41-41b.txt` |
-| 168 | 189b (7x9x3) | 41 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-e41-41b.txt` |
-| 169 | 189b (7x9x3) | 42 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc1-42b.txt` |
-| 170 | 189b (7x9x3) | 42 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w42-42b.txt` |
-| 171 | 189b (7x9x3) | 42 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w42e-42b.txt` |
-| 172 | 189b (7x9x3) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w43-43b.txt` |
-| 173 | 189b (7x9x3) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w43e-43b.txt` |
-| 174 | 189b (7x9x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-w45-44-trap-44b.txt` |
-| 175 | 189b (7x9x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w45-44b.txt` |
-| 176 | 210b (7x10x3) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-w41-43b.txt` |
-| 177 | 210b (7x10x3) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-e41-43b.txt` |
-| 178 | 210b (7x10x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-44b.txt` |
-| 179 | 210b (7x10x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-w41-44b.txt` |
-| 180 | 210b (7x10x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w42-44b.txt` |
-| 181 | 210b (7x10x3) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-d-s4-48b.txt` |
-| 182 | 210b (7x10x3) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-s4ff-49b.txt` |
-| 183 | 216b (8x9x3) | 46 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/synth-sf46-46b.txt` |
-| 184 | 216b (8x9x3) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-combo-48b.txt` |
-| 185 | 216b (8x9x3) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-transplant-HEAD-logic-min-slime-free-50b-49b.txt` |
-| 186 | 216b (8x9x3) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-50b.txt` |
-| 187 | 216b (9x8x3) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym_steps__1__5__11__13__19__21__23_-51b-51b.txt` |
-| 188 | 216b (8x9x3) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-bgrow-51b.txt` |
-| 189 | 216b (8x9x3) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-51b.txt` |
-| 190 | 216b (8x9x3) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-52b.txt` |
-| 191 | 216b (8x9x3) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-tlup-52b.txt` |
-| 192 | 216b (8x9x3) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-walk-52b.txt` |
-| 193 | 216b (8x9x3) | 53 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-53b.txt` |
-| 194 | 216b (8x9x3) | 55 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-55b.txt` |
-| 195 | 225b (9x5x5) | 98 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-v225b-98b.txt` |
-| 196 | 225b (9x5x5) | 108 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-v225-108b.txt` |
-| 197 | 243b (9x9x3) | 49 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-49b.txt` |
-| 198 | 243b (9x9x3) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-50b-2.txt` |
-| 199 | 243b (9x9x3) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-50b.txt` |
-| 200 | 243b (9x9x3) | 52 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-52b.txt` |
-| 201 | 243b (9x9x3) | 52 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m02-21b-sym_steps__1__5__9__11__17__19__21_-52b-52b.txt` |
-| 202 | 243b (9x9x3) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-53b.txt` |
-| 203 | 243b (9x9x3) | 54 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-54b.txt` |
-| 204 | 252b (7x9x4) | 38 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b38-38b-2.txt` |
-| 205 | 252b (7x9x4) | 38 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b38-38b.txt` |
-| 206 | 252b (7x9x4) | 38 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b38r-38b.txt` |
-| 207 | 252b (7x9x4) | 39 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-b39n-39b.txt` |
-| 208 | 252b (7x9x4) | 39 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b39-39b.txt` |
-| 209 | 252b (7x9x4) | 40 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b40-40b.txt` |
-| 210 | 252b (7x9x4) | 40 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b40r-40b.txt` |
-| 211 | 252b (7x9x4) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-w43n-43b.txt` |
-| 212 | 252b (7x9x4) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-r3-43b.txt` |
-| 213 | 252b (7x9x4) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/st43-bmobs-43b.txt` |
-| 214 | 252b (7x9x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w45-45b.txt` |
-| 215 | 252b (7x9x4) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-r2-46b.txt` |
-| 216 | 252b (7x9x4) | 49 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-pm49-trap-49b.txt` |
-| 217 | 252b (7x9x4) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-pm50-trap-50b.txt` |
-| 218 | 252b (7x9x4) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-leafC-pgF-50b.txt` |
-| 219 | 252b (7x9x4) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-dustU-pgF-51b.txt` |
-| 220 | 252b (7x9x4) | 57 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-fast-57b.txt` |
-| 221 | 252b (7x9x4) | 60 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-fast-60b.txt` |
-| 222 | 252b (7x9x4) | 61 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb9-61b.txt` |
-| 223 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-bottom-45b.txt` |
-| 224 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-east-45b.txt` |
-| 225 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-north-45b.txt` |
-| 226 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-top-45b.txt` |
-| 227 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-west-45b.txt` |
-| 228 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-bottom-45b.txt` |
-| 229 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-east-45b.txt` |
-| 230 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-north-45b.txt` |
-| 231 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-top-45b.txt` |
-| 232 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-f45n-45b.txt` |
-| 233 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-bottom-45b.txt` |
-| 234 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-east-45b.txt` |
-| 235 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-north-45b.txt` |
-| 236 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-top-45b.txt` |
-| 237 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-west-45b.txt` |
-| 238 | 280b (7x10x4) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-repU-pgF-50b.txt` |
-| 239 | 280b (7x8x5) | 58 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s6-58b.txt` |
-| 240 | 288b (8x9x4) | 47 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/rb6-bmobs-47b.txt` |
-| 241 | 288b (8x9x4) | 48 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb6-48b.txt` |
-| 242 | 288b (8x9x4) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb2-hold-51b.txt` |
-| 243 | 288b (8x9x4) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb2-hold-53b.txt` |
-| 244 | 288b (9x8x4) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/chain-53b-53b-2.txt` |
-| 245 | 315b (7x9x5) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-hA-43b.txt` |
-| 246 | 315b (7x9x5) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w43b-43b.txt` |
-| 247 | 324b (9x9x4) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym_steps__1__5__11__13__19__21__23_-53b-53b.txt` |
-| 248 | 324b (9x9x4) | 59 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-logic-min-BEST-59b.txt` |
-| 249 | 324b (9x9x4) | 60 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-60b.txt` |
-| 250 | 350b (7x10x5) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-hA-48b.txt` |
-| 251 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-bottom-49b.txt` |
-| 252 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-east-49b.txt` |
-| 253 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-north-49b.txt` |
-| 254 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-top-49b.txt` |
-| 255 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-bottom-49b.txt` |
-| 256 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-east-49b.txt` |
-| 257 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-north-49b.txt` |
-| 258 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-top-49b.txt` |
-| 259 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-bottom-49b.txt` |
-| 260 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-east-49b.txt` |
-| 261 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-north-49b.txt` |
-| 262 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-top-49b.txt` |
-| 263 | 360b (10x9x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-obs7-45b.txt` |
-| 264 | 360b (9x10x4) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wired00-54b-51b.txt` |
-| 265 | 360b (9x10x4) | 54 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wired00-54b-54b.txt` |
-| 266 | 360b (9x8x5) | 62 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s5-62b.txt` |
-| 267 | 378b (7x9x6) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-s7q-44b.txt` |
-| 268 | 378b (7x9x6) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-s7-45b.txt` |
-| 269 | 378b (7x9x6) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-bchain-50b.txt` |
-| 270 | 378b (7x9x6) | 52 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb5-52b.txt` |
-| 271 | 378b (7x9x6) | 69 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-69b.txt` |
-| 272 | 378b (7x9x6) | 71 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-71b.txt` |
-| 273 | 385b (7x11x5) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3d-53b.txt` |
-| 274 | 385b (7x11x5) | 54 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3c-54b.txt` |
-| 275 | 385b (7x11x5) | 59 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3b-59b.txt` |
-| 276 | 385b (7x11x5) | 61 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3-61b.txt` |
-| 277 | 396b (11x9x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-obs8b-45b.txt` |
-| 278 | 396b (11x9x4) | 46 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-obs8-46b.txt` |
-| 279 | 396b (11x9x4) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-bus8-52b.txt` |
-| 280 | 405b (9x9x5) | 90 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-s4c-90b.txt` |
-| 281 | 405b (9x9x5) | 91 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-s4c-91b.txt` |
-| 282 | 405b (9x9x5) | 93 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-s4c-93b.txt` |
-| 283 | 432b (8x9x6) | 71 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt` |
-| 284 | 441b (7x9x7) | 47 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m48-bmobs-47b.txt` |
-| 285 | 441b (7x9x7) | 48 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-hold-48b.txt` |
-| 286 | 448b (7x16x4) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-vobs9m-49b.txt` |
-| 287 | 448b (7x16x4) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-vobs9-50b.txt` |
-| 288 | 462b (11x6x7) | 99 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-g99-99b.txt` |
-| 289 | 480b (12x10x4) | 89 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-89b.txt` |
-| 290 | 480b (12x10x4) | 90 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-90b.txt` |
-| 291 | 480b (12x10x4) | 91 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-91b.txt` |
-| 292 | 504b (7x9x8) | 57 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb2-57b.txt` |
-| 293 | 504b (9x8x7) | 65 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s4-65b.txt` |
-| 294 | 520b (13x10x4) | 99 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-slime-free-99b.txt` |
-| 295 | 540b (10x9x6) | 101 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-s4c-101b.txt` |
-| 296 | 594b (9x11x6) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/chain-53b-53b.txt` |
-| 297 | 594b (11x9x6) | 85 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-85b.txt` |
-| 298 | 594b (11x9x6) | 87 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v3c-87b.txt` |
-| 299 | 594b (11x9x6) | 108 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-s4-108b.txt` |
-| 300 | 594b (11x9x6) | 109 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-109b.txt` |
-| 301 | 594b (11x9x6) | 116 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-116b.txt` |
-| 302 | 600b (10x10x6) | 88 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2u2-88b.txt` |
-| 303 | 600b (10x10x6) | 88 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-center-mech-88b.txt` |
-| 304 | 630b (7x10x9) | 67 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb1-67b.txt` |
-| 305 | 630b (7x10x9) | 73 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb1-73b.txt` |
-| 306 | 630b (9x10x7) | 103 | solid | yes | breaks at 180 | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-c1r-103b.txt` |
-| 307 | 650b (13x10x5) | 104 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-slime-free-104b.txt` |
-| 308 | 693b (11x9x7) | 125 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-125b.txt` |
-| 309 | 700b (10x10x7) | 96 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2u2-96b.txt` |
-| 310 | 720b (9x10x8) | 107 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-c1r-107b.txt` |
-| 311 | 720b (9x10x8) | 107 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-a1c-107b.txt` |
-| 312 | 720b (9x10x8) | 107 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-a1-107-107b.txt` |
-| 313 | 720b (9x10x8) | 107 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-o6-107-107b.txt` |
-| 314 | 720b (9x10x8) | 108 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-c1r-108b.txt` |
-| 315 | 720b (9x10x8) | 109 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-c2-109b.txt` |
-| 316 | 720b (9x10x8) | 112 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-c1-112b.txt` |
-| 317 | 726b (11x11x6) | 114 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w1-114b.txt` |
-| 318 | 726b (11x11x6) | 123 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w1-123b.txt` |
-| 319 | 770b (11x10x7) | 109 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-v2-min-109b.txt` |
-| 320 | 810b (9x10x9) | 111 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-a1c-111b.txt` |
-| 321 | 810b (9x10x9) | 116 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-n3c-116b.txt` |
-| 322 | 819b (13x9x7) | 84 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s2-84b.txt` |
-| 323 | 819b (13x9x7) | 89 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s1-89b.txt` |
-| 324 | 840b (12x10x7) | 113 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-v2-min-113b.txt` |
-| 325 | 840b (12x10x7) | 115 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-115b.txt` |
-| 326 | 840b (12x10x7) | 116 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-116b.txt` |
-| 327 | 840b (12x10x7) | 117 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-117b.txt` |
-| 328 | 840b (12x10x7) | 118 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-118b.txt` |
-| 329 | 880b (11x10x8) | 118 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-m117-118b.txt` |
-| 330 | 880b (11x10x8) | 119 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-119b.txt` |
-| 331 | 880b (11x10x8) | 120 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b-2.txt` |
-| 332 | 880b (11x10x8) | 120 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b.txt` |
-| 333 | 880b (11x10x8) | 122 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-a1m-122b.txt` |
-| 334 | 880b (11x10x8) | 122 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o5-122b.txt` |
-| 335 | 880b (11x10x8) | 123 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-a1m-123b.txt` |
-| 336 | 880b (11x10x8) | 125 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-a1-125b.txt` |
-| 337 | 880b (11x10x8) | 135 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o2-135b.txt` |
-| 338 | 880b (11x10x8) | 137 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o2-137b.txt` |
-| 339 | 910b (13x10x7) | 126 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-sf1-126b.txt` |
-| 340 | 910b (13x10x7) | 128 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-sf1-128b.txt` |
-| 341 | 910b (13x10x7) | 133 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-133b-2.txt` |
-| 342 | 924b (11x12x7) | 128 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-128b.txt` |
-| 343 | 968b (11x11x8) | 121 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-121b.txt` |
-| 344 | 968b (11x11x8) | 122 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-122b.txt` |
-| 345 | 980b (14x10x7) | 133 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-133b.txt` |
-| 346 | 980b (14x10x7) | 135 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-135b.txt` |
-| 347 | 1056b (11x12x8) | 134 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-134b.txt` |
-| 348 | 1089b (11x11x9) | 126 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w2-126b.txt` |
-| 349 | 1089b (11x11x9) | 138 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w4-138b.txt` |
-| 350 | 1089b (11x11x9) | 139 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w2-139b.txt` |
-| 351 | 1089b (11x11x9) | 140 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-140b.txt` |
-| 352 | 1200b (12x10x10) | 126 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-126b.txt` |
-| 353 | 1200b (12x10x10) | 128 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-128b.txt` |
-| 354 | 1560b (10x13x12) | 122 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-a-sf1-w2-122b.txt` |
-| 355 | 1716b (11x13x12) | 126 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-a-sf1-w2-126b.txt` |
-| 356 | 126b (7x9x2) | 33 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-g33-33b.txt` |
-| 357 | 126b (7x9x2) | 33 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-t5-33b.txt` |
-| 358 | 189b (7x9x3) | 35 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-g35-35b.txt` |
-| 359 | 189b (7x9x3) | 42 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/synth-g42-42b.txt` |
-| 360 | 210b (7x10x3) | 36 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-g36-36b.txt` |
-| 361 | 210b (7x10x3) | 36 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-t3-36b.txt` |
-| 362 | 252b (7x9x4) | 36 | sculk |  | breaks at 90 | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk2-s4b-36b.txt` |
-| 363 | 252b (7x9x4) | 36 | sculk |  | breaks at 90 | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk2-s4-36b.txt` |
-| 364 | 252b (7x9x4) | 36 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4br-36b.txt` |
-| 365 | 252b (7x9x4) | 36 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4r-36b.txt` |
-| 366 | 252b (7x9x4) | 36 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4r-ew-36b.txt` |
-| 367 | 252b (7x9x4) | 38 | sculk |  | breaks at 90 | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk2-s1-38b.txt` |
-| 368 | 252b (7x9x4) | 38 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s1r-38b.txt` |
-| 369 | 252b (7x9x4) | 38 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s1r-ew-38b.txt` |
-| 370 | 252b (7x9x4) | 38 | entity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/test-static-armor-39b.txt` |
-| 371 | 252b (7x9x4) | 42 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/st43-bmobs-42b.txt` |
-| 372 | 252b (7x9x4) | 43 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-43b.txt` |
-| 373 | 252b (7x9x4) | 46 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-m51-sculk-48b-46b.txt` |
-| 374 | 252b (7x9x4) | 47 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-47b.txt` |
-| 375 | 252b (7x9x4) | 48 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m51-sculk-48b.txt` |
-| 376 | 280b (7x10x4) | 45 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g10-45b.txt` |
-| 377 | 280b (7x10x4) | 45 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-transplant-HEAD-search-tool-from-HEAD-gravity-g6-49b-46b-45b.txt` |
-| 378 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g9-46b.txt` |
-| 379 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g4-51b-46b.txt` |
-| 380 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g6-49b-46b.txt` |
-| 381 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-fresh-b-gravity-g6-49b-46b.txt` |
-| 382 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-gravity-BEST-46b.txt` |
-| 383 | 280b (7x10x4) | 48 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g8-48b.txt` |
-| 384 | 280b (7x10x4) | 48 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g4-51b-48b.txt` |
-| 385 | 280b (7x10x4) | 48 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g6-49b-48b.txt` |
-| 386 | 280b (7x10x4) | 48 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-gravity-BEST-48b.txt` |
-| 387 | 280b (7x10x4) | 49 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g6-49b.txt` |
-| 388 | 280b (7x10x4) | 49 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g7-49b.txt` |
-| 389 | 280b (7x10x4) | 51 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g4-51b.txt` |
-| 390 | 280b (7x10x4) | 62 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf4-62b.txt` |
-| 391 | 280b (7x10x4) | 64 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf3-64b.txt` |
-| 392 | 280b (7x10x4) | 64 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf3w-64b.txt` |
-| 393 | 280b (7x10x4) | 66 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-66b.txt` |
-| 394 | 280b (7x10x4) | 68 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-68b.txt` |
-| 395 | 315b (7x9x5) | 36 | sculk |  | breaks at 90 | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk2-s4c-36b.txt` |
-| 396 | 315b (7x9x5) | 36 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4cr-36b.txt` |
-| 397 | 350b (7x10x5) | 40 | entity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/test-lift-stand-40b.txt` |
-| 398 | 350b (7x10x5) | 58 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-58b.txt` |
-| 399 | 350b (7x10x5) | 59 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-59b.txt` |
-| 400 | 350b (7x10x5) | 60 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g3-60b.txt` |
-| 401 | 378b (7x9x6) | 46 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-46b.txt` |
-| 402 | 378b (7x9x6) | 47 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-47b.txt` |
-| 403 | 378b (7x9x6) | 48 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb2-sculk-48b.txt` |
-| 404 | 378b (7x9x6) | 50 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb2-sculk-50b.txt` |
-| 405 | 378b (7x9x6) | 50 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb2s2-50b.txt` |
-| 406 | 450b (9x10x5) | 67 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g1-67b.txt` |
-| 407 | 450b (9x10x5) | 69 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g1-69b.txt` |
-| 408 | - | 4 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 2, 0] is minecraft:air; door cell [ | `HEAD:designs/piston-door-3x3/tracks/buildable/selftest-observer-pair.txt` |
-| 409 | - | 13 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vanilla-check/selftest-bud.txt` |
-| 410 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/fm-7x8-000-lever.txt` |
-| 411 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/w63-012-seed.txt` |
-| 412 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/w63-014-seed.txt` |
-| 413 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/w63-016-seed.txt` |
-| 414 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m1L.txt` |
-| 415 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/f131L-lever.txt` |
-| 416 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/fam-8x8-131-lever.txt` |
-| 417 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/vm1-lever.txt` |
-| 418 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vd1-lever.txt` |
-| 419 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vm1-7x9-leverT.txt` |
-| 420 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/vc1-lever.txt` |
-| 421 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/sf-mech.txt` |
-| 422 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/sf-mech2.txt` |
-| 423 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vb2-lever.txt` |
-| 424 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vb3-lever.txt` |
-| 425 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vb3-leverK0.txt` |
-| 426 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/u7/m8-seed.txt` |
-| 427 | - | 24 | solid |  |  | broken: at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/pulse-mech.txt` |
-| 428 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t8L.txt` |
-| 429 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/ideal-ptpulse.txt` |
-| 430 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/sf2-ideal.txt` |
-| 431 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket0-set0.txt` |
-| 432 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket0-set1.txt` |
-| 433 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket2-set0.txt` |
-| 434 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket2-set1.txt` |
-| 435 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket3-set0.txt` |
-| 436 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket3-set1.txt` |
-| 437 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket4-set0.txt` |
-| 438 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket4-set1.txt` |
-| 439 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket0-set1.txt` |
-| 440 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket1-set0.txt` |
-| 441 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket1-set1.txt` |
-| 442 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket3-set0.txt` |
-| 443 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket3-set1.txt` |
-| 444 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket0-set0.txt` |
-| 445 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket1-set0.txt` |
-| 446 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket1-set1.txt` |
-| 447 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket2-set0.txt` |
-| 448 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set0.txt` |
-| 449 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set1.txt` |
-| 450 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket0-set0.txt` |
-| 451 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket1-set0.txt` |
-| 452 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket1-set1.txt` |
-| 453 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket2-set0.txt` |
-| 454 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket3-set0.txt` |
-| 455 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket3-set2.txt` |
-| 456 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pocket1-set0.txt` |
-| 457 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pocket1-set1.txt` |
-| 458 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set4.txt` |
-| 459 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set5.txt` |
-| 460 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set1.txt` |
-| 461 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set2.txt` |
-| 462 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set3.txt` |
-| 463 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set4.txt` |
-| 464 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket3-set0.txt` |
-| 465 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set0.txt` |
-| 466 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set2.txt` |
-| 467 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set4.txt` |
-| 468 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set5.txt` |
-| 469 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket0-set0.txt` |
-| 470 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket1-set0.txt` |
-| 471 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket1-set3.txt` |
-| 472 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket0-set0.txt` |
-| 473 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket1-set0.txt` |
-| 474 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket1-set3.txt` |
-| 475 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket0-set0.txt` |
-| 476 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket1-set2.txt` |
-| 477 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket1-set3.txt` |
-| 478 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket0-set0.txt` |
-| 479 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket1-set0.txt` |
-| 480 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket1-set3.txt` |
-| 481 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket0-set0.txt` |
-| 482 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket1-set0.txt` |
-| 483 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket1-set2.txt` |
-| 484 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pocket0-set0.txt` |
-| 485 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pocket2-set1.txt` |
-| 486 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket0-set0.txt` |
-| 487 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket2-set1.txt` |
-| 488 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket2-set2.txt` |
-| 489 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-014-ff/pocket0-set0.txt` |
-| 490 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-014-ff/pocket2-set0.txt` |
-| 491 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-016-ff/pocket0-set0.txt` |
-| 492 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-016-ff/pocket2-set0.txt` |
-| 493 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pocket0-set0.txt` |
-| 494 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pocket1-set0.txt` |
-| 495 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pocket0-set1.txt` |
-| 496 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pocket2-set0.txt` |
-| 497 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket0-set1.txt` |
-| 498 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket2-set1.txt` |
-| 499 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket2-set2.txt` |
-| 500 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-024-ff/pocket0-set0.txt` |
-| 501 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-024-ff/pocket2-set0.txt` |
-| 502 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-026-ff/pocket0-set0.txt` |
-| 503 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-026-ff/pocket2-set0.txt` |
-| 504 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket0-set0.txt` |
-| 505 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket1-set1.txt` |
-| 506 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket1-set3.txt` |
-| 507 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket1-set0.txt` |
-| 508 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket1-set3.txt` |
-| 509 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-032-ff/pocket0-set0.txt` |
-| 510 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-032-ff/pocket2-set1.txt` |
-| 511 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pocket0-set0.txt` |
-| 512 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pocket2-set0.txt` |
-| 513 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pocket2-set2.txt` |
-| 514 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-036-ff/pocket2-set0.txt` |
-| 515 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pocket2-set0.txt` |
-| 516 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pockets-partial-8as.txt` |
-| 517 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-040-ff/pocket2-set0.txt` |
-| 518 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pocket2-set0.txt` |
-| 519 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pocket2-set1.txt` |
-| 520 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-044-ff/pocket2-set0.txt` |
-| 521 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pocket2-set0.txt` |
-| 522 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pockets-partial-9as.txt` |
-| 523 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket1-set1.txt` |
-| 524 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket3-set0.txt` |
-| 525 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m2L.txt` |
-| 526 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/t1/t1-001-zl.txt` |
-| 527 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set3.txt` |
-| 528 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set5.txt` |
-| 529 | - | 25 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mech3p.txt` |
-| 530 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/seeds/m9L.txt` |
-| 531 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/ideal-asteady.txt` |
-| 532 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/sf3-ideal.txt` |
-| 533 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket1-set0.txt` |
-| 534 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket4-set2.txt` |
-| 535 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket0-set0.txt` |
-| 536 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket2-set0.txt` |
-| 537 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket2-set1.txt` |
-| 538 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set2.txt` |
-| 539 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set3.txt` |
-| 540 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set4.txt` |
-| 541 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket1-set2.txt` |
-| 542 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket3-set1.txt` |
-| 543 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pocket1-set2.txt` |
-| 544 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pocket2-set0.txt` |
-| 545 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m9-ff/pocket0-set0.txt` |
-| 546 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m9-ff/pocket2-set0.txt` |
-| 547 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m9-ff/pocket3-set0.txt` |
-| 548 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket0-set0.txt` |
-| 549 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set0.txt` |
-| 550 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set1.txt` |
-| 551 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set2.txt` |
-| 552 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set3.txt` |
-| 553 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set0.txt` |
-| 554 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set1.txt` |
-| 555 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set3.txt` |
-| 556 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket0-set1.txt` |
-| 557 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket1-set1.txt` |
-| 558 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket1-set2.txt` |
-| 559 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket0-set1.txt` |
-| 560 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket1-set1.txt` |
-| 561 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket1-set2.txt` |
-| 562 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket0-set1.txt` |
-| 563 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket1-set0.txt` |
-| 564 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket1-set1.txt` |
-| 565 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket0-set1.txt` |
-| 566 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket1-set1.txt` |
-| 567 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket1-set2.txt` |
-| 568 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket0-set1.txt` |
-| 569 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket1-set1.txt` |
-| 570 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pocket0-set1.txt` |
-| 571 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pocket2-set0.txt` |
-| 572 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket0-set1.txt` |
-| 573 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket2-set0.txt` |
-| 574 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-014-ff/pocket0-set1.txt` |
-| 575 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-016-ff/pocket0-set1.txt` |
-| 576 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-016-ff/pocket2-set1.txt` |
-| 577 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pocket0-set1.txt` |
-| 578 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pocket1-set1.txt` |
-| 579 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pocket0-set0.txt` |
-| 580 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pocket2-set1.txt` |
-| 581 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket0-set0.txt` |
-| 582 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket2-set0.txt` |
-| 583 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-024-ff/pocket0-set1.txt` |
-| 584 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-026-ff/pocket0-set1.txt` |
-| 585 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-026-ff/pocket2-set1.txt` |
-| 586 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket1-set0.txt` |
-| 587 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket1-set2.txt` |
-| 588 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket0-set0.txt` |
-| 589 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket1-set1.txt` |
-| 590 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket1-set2.txt` |
-| 591 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-032-ff/pocket2-set0.txt` |
-| 592 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pocket2-set1.txt` |
-| 593 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-036-ff/pocket0-set0.txt` |
-| 594 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pocket0-set0.txt` |
-| 595 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pocket2-set1.txt` |
-| 596 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-040-ff/pocket0-set0.txt` |
-| 597 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-040-ff/pocket0-set1.txt` |
-| 598 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pocket0-set0.txt` |
-| 599 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pocket0-set1.txt` |
-| 600 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-044-ff/pocket0-set0.txt` |
-| 601 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-044-ff/pocket0-set1.txt` |
-| 602 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pocket0-set0.txt` |
-| 603 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pocket0-set1.txt` |
-| 604 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pocket2-set1.txt` |
-| 605 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket3-set2.txt` |
-| 606 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket3-set3.txt` |
-| 607 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket3-set4.txt` |
-| 608 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nfd-mech.txt` |
-| 609 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set0.txt` |
-| 610 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/cdown-mech.txt` |
-| 611 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mech2.txt` |
-| 612 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mech3.txt` |
-| 613 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/solid/sz-mech.txt` |
-| 614 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/solid/sz2-mech.txt` |
-| 615 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/k1chain.txt` |
-| 616 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pockets-partial-7as.txt` |
-| 617 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pockets-partial-7as.txt` |
-| 618 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m9-ff/pocket3-set1.txt` |
-| 619 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pockets-partial-9as.txt` |
-| 620 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pockets-partial-9as.txt` |
-| 621 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pockets-partial-9as.txt` |
-| 622 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pockets-partial-9as.txt` |
-| 623 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-032-ff/pockets-partial-9as.txt` |
-| 624 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pockets-partial-8as.txt` |
-| 625 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pockets-partial-9as.txt` |
-| 626 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/seeds/ve1-lever.txt` |
-| 627 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket0--1_-2o0+-1_-2c0-0.txt` |
-| 628 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket0--1_-2o0+-1_-2c0-1.txt` |
-| 629 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket0--1_-2o0+-1_-2c0-2.txt` |
-| 630 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket0--1_-2o0+-1_-2c0-3.txt` |
-| 631 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/pockets-partial-9as.txt` |
-| 632 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [-3, 4, 0] is minecraft:air, expected a lever | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set1.txt` |
-| 633 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set2.txt` |
-| 634 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [-3, 4, 0] is minecraft:air, expected a lever | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set4.txt` |
-| 635 | - | 27 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp-mech.txt` |
-| 636 | - | 27 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp5-mech.txt` |
-| 637 | - | 27 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/pump-mech.txt` |
-| 638 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/sf1-mech.txt` |
-| 639 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t10s.txt` |
-| 640 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t8e.txt` |
-| 641 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t8x.txt` |
-| 642 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 1] is minecraft:air, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-1.txt` |
-| 643 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/w19-cluster.txt` |
-| 644 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/w19e-cluster.txt` |
-| 645 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pockets-partial-8as.txt` |
-| 646 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pockets-partial-7as.txt` |
-| 647 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pockets-partial-8as.txt` |
-| 648 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pockets-partial-7as.txt` |
-| 649 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-036-ff/pockets-partial-8as.txt` |
-| 650 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pockets-partial-7as.txt` |
-| 651 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-040-ff/pockets-partial-9as.txt` |
-| 652 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pockets-partial-9as.txt` |
-| 653 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-044-ff/pockets-partial-9as.txt` |
-| 654 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pockets-partial-8as.txt` |
-| 655 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket2-1_-2o36+1_-2c42-0.txt` |
-| 656 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket3-4_1o36+4_1c42-0.txt` |
-| 657 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf-mech.txt` |
-| 658 | - | 28 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/e1-mech.txt` |
-| 659 | - | 28 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/wip/v2-mech.txt` |
-| 660 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10a.txt` |
-| 661 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b.txt` |
-| 662 | - | 29 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/mechanics/rb-pulsed-ideal-mech.txt` |
-| 663 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pockets-partial-10as.txt` |
-| 664 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pockets-partial-7as.txt` |
-| 665 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pockets-partial-8as.txt` |
-| 666 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pockets-partial-8as.txt` |
-| 667 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pockets-partial-7as.txt` |
-| 668 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pockets-partial-8as.txt` |
-| 669 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pockets-partial-8as.txt` |
-| 670 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/seeds/vd1L-lever.txt` |
-| 671 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/anneal/partial-live.txt` |
-| 672 | - | 30 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/c1-mech.txt` |
-| 673 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/w63-lever.txt` |
-| 674 | - | 30 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/redstone-block/m2-mech.txt` |
-| 675 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-2.txt` |
-| 676 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/w19e-pt.txt` |
-| 677 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pockets-partial-7as.txt` |
-| 678 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pockets-partial-7as.txt` |
-| 679 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pockets-partial-8as.txt` |
-| 680 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pockets-partial-7as.txt` |
-| 681 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pockets-partial-7as.txt` |
-| 682 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pockets-partial-7as.txt` |
-| 683 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pockets-partial-7as.txt` |
-| 684 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/anneal/partial-full-live.txt` |
-| 685 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131X-ff.txt` |
-| 686 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131X-lever.txt` |
-| 687 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/flat/v0-left.txt` |
-| 688 | - | 31 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-c/ideal-mech.txt` |
-| 689 | - | 31 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/observer-seq/wip/toggle-mech.txt` |
-| 690 | - | 31 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/l1-mech.txt` |
-| 691 | - | 31 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/redstone-block/m3-mech.txt` |
-| 692 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/w19-pt.txt` |
-| 693 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-f131xff-k3/pocket0-set0.txt` |
-| 694 | - | 32 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/mechanics/fast-ideal-mech.txt` |
-| 695 | - | 32 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/observer-seq/wip/toggle-window.txt` |
-| 696 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s4-core.txt` |
-| 697 | - | 32 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut32.txt` |
-| 698 | - | 32 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut32m.txt` |
-| 699 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pockets-partial-5as.txt` |
-| 700 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pockets-partial-6as.txt` |
-| 701 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b-br1.txt` |
-| 702 | - | 33 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/c3-mech.txt` |
-| 703 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-f131xff-k3/pocket2-set0.txt` |
-| 704 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-f131xff-k3/pocket2-set1.txt` |
-| 705 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/flat-b/v1base.txt` |
-| 706 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/sf1-mech.txt` |
-| 707 | - | 33 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/redstone-block/m4-mech.txt` |
-| 708 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j6.txt` |
-| 709 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/m10b.txt` |
-| 710 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-3.txt` |
-| 711 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-6.txt` |
-| 712 | - | 33 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut33tl.txt` |
-| 713 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pockets-partial-7as.txt` |
-| 714 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pockets-partial-8as.txt` |
-| 715 | - | 34 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/t1-lever0.txt` |
-| 716 | - | 34 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/l2-mech.txt` |
-| 717 | - | 34 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut34.txt` |
-| 718 | - | 34 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut34o.txt` |
-| 719 | - | 34 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/top1.txt` |
-| 720 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/top-m10b.txt` |
-| 721 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/c2-mech.txt` |
-| 722 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-f131xff-k3/pockets-partial-6as.txt` |
-| 723 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/lo2-35.txt` |
-| 724 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/m05x.txt` |
-| 725 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j7.txt` |
-| 726 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t8xL.txt` |
-| 727 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/finds-kept/m10s-bottom-L0.txt` |
-| 728 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/b40nom.txt` |
-| 729 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/bld-ideal.txt` |
-| 730 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/sb-ideal.txt` |
-| 731 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-4.txt` |
-| 732 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/seed-lamp.txt` |
-| 733 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut35.txt` |
-| 734 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp2.txt` |
-| 735 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp8-ideal-PU.txt` |
-| 736 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/cut-plpm.txt` |
-| 737 | - | 36 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j9.txt` |
-| 738 | - | 36 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-7.txt` |
-| 739 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut36.txt` |
-| 740 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut36tl.txt` |
-| 741 | - | 36 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/w1.txt` |
-| 742 | - | 37 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b-b1.txt` |
-| 743 | - | 37 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/t1-lever.txt` |
-| 744 | - | 37 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/cutxpl-37.txt` |
-| 745 | - | 37 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/lo-37.txt` |
-| 746 | - | 37 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/pb-37.txt` |
-| 747 | - | 37 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/cut3.txt` |
-| 748 | - | 37 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/finds12/partial-full-live.txt` |
-| 749 | - | 37 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/w2.txt` |
-| 750 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b-k1.txt` |
-| 751 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b-uk.txt` |
-| 752 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/e2-base.txt` |
-| 753 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/plmove0.txt` |
-| 754 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/plmove1.txt` |
-| 755 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp8-ideal-PUr.txt` |
-| 756 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noOb.txt` |
-| 757 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noPL.txt` |
-| 758 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noPM.txt` |
-| 759 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noRq.txt` |
-| 760 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j10.txt` |
-| 761 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/b40p.txt` |
-| 762 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/seed-lamp-f.txt` |
-| 763 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/e-base.txt` |
-| 764 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: still moving 400 ticks after opening | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/w3.txt` |
-| 765 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a2-full4.txt` |
-| 766 | - | 39 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-c/fc1-nopl.txt` |
-| 767 | - | 39 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/mechanics/fc2-split-ideal-mech.txt` |
-| 768 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j11.txt` |
-| 769 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/b40core.txt` |
-| 770 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-base.txt` |
-| 771 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-5.txt` |
-| 772 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/synth-m-ctx.txt` |
-| 773 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/v4-base.txt` |
-| 774 | - | 39 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/drv5.txt` |
-| 775 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a2/partial-0.txt` |
-| 776 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131N-seed.txt` |
-| 777 | - | 40 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/fa-mech.txt` |
-| 778 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/synth-m16-ctx.txt` |
-| 779 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/v3-base.txt` |
-| 780 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set6.txt` |
-| 781 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 1, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set7.txt` |
-| 782 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m3w.txt` |
-| 783 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/box72/wip/m2w.txt` |
-| 784 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m88a.txt` |
-| 785 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a2/partial-1.txt` |
-| 786 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-b1-full4.txt` |
-| 787 | - | 41 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp1-top.txt` |
-| 788 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-a.txt` |
-| 789 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/L0.txt` |
-| 790 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/o4.txt` |
-| 791 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w1.txt` |
-| 792 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/audit-cslever:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-test/partial-0.txt` |
-| 793 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/audit-cslever:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-test/partial-1.txt` |
-| 794 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/audit-cslever:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-test/partial-2.txt` |
-| 795 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 1, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set2.txt` |
-| 796 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:piston_head[faci | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set4.txt` |
-| 797 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:piston_head[faci | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set9.txt` |
-| 798 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a1/partial-live.txt` |
-| 799 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a2/partial-2.txt` |
-| 800 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-b1/partial-1.txt` |
-| 801 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-2.txt` |
-| 802 | - | 42 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/riders/wip/st-v1.txt` |
-| 803 | - | 42 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/riders/wip/st-v2.txt` |
-| 804 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/f43-89.txt` |
-| 805 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/h1-ctx.txt` |
-| 806 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/hA2.txt` |
-| 807 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-cutleft.txt` |
-| 808 | - | 42 | solid |  |  | broken: at offset [0, 0, 0]: unsupported blocks (they could not stand there in survival): [2, 0, 2 | `HEAD:designs/piston-door-3x3/tracks/vanilla-check/fuzz/fuzz-1034-error.txt` |
-| 809 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/c88:designs/piston-door-3x3/tracks/c88/s1.txt` |
-| 810 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/enum-best-0.txt` |
-| 811 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/enum-best-1.txt` |
-| 812 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/enum-best-2.txt` |
-| 813 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/partial-full-live.txt` |
-| 814 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set3.txt` |
-| 815 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pockets-partial-4as.txt` |
-| 816 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/finds12/partial-live.txt` |
-| 817 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/finds13/partial-live.txt` |
-| 818 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m3x.txt` |
-| 819 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m3y.txt` |
-| 820 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/vm1-5as.txt` |
-| 821 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/w63-2as.txt` |
-| 822 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-b1/partial-2.txt` |
-| 823 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/wip/s2-cut.txt` |
-| 824 | - | 43 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:piston_head[facing | `HEAD:designs/piston-door-3x3/tracks/riders/r1.txt` |
-| 825 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/f43-stone.txt` |
-| 826 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-c.txt` |
-| 827 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-c3.txt` |
-| 828 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/o4b.txt` |
-| 829 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/wire19sf/v3-m.txt` |
-| 830 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/m88p0.txt` |
-| 831 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/top-m79p.txt` |
-| 832 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/partial-live.txt` |
-| 833 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/m79q.txt` |
-| 834 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set1.txt` |
-| 835 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 0, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set5.txt` |
-| 836 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10c.txt` |
-| 837 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10d.txt` |
-| 838 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/t1-2as.txt` |
-| 839 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-0.txt` |
-| 840 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/wip/s1-unrouted.txt` |
-| 841 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/m10top/m10e.txt` |
-| 842 | - | 44 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp7-leafC-idealF.txt` |
-| 843 | - | 44 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp7-repU-idealF.txt` |
-| 844 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds/partial-0.txt` |
-| 845 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds10/partial-live.txt` |
-| 846 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds8/partial-live.txt` |
-| 847 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q6a.txt` |
-| 848 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q8seed.txt` |
-| 849 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/f43-disp.txt` |
-| 850 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/f43-drop.txt` |
-| 851 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/o4c.txt` |
-| 852 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vb3/partial-live.txt` |
-| 853 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds/partial-live.txt` |
-| 854 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/m88q0.txt` |
-| 855 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set0.txt` |
-| 856 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set8.txt` |
-| 857 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79q-B1-k3/pocket0-set0.txt` |
-| 858 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79q-B1-k3/pocket0-set1.txt` |
-| 859 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79q-B1-k3/pocket0-set2.txt` |
-| 860 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: blocks that change by themselves over time (random ticks, e.g. unwaxe | `HEAD:designs/piston-door-3x3/archive/fresh-d-s4-45b-invalid.txt` |
-| 861 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/box72/wip/v1.txt` |
-| 862 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/fm-7x8-000-2as.txt` |
-| 863 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/fm-7x8-000-leftlever-3as.txt` |
-| 864 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/vc1-6as.txt` |
-| 865 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-1.txt` |
-| 866 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/flat-b/v4.txt` |
-| 867 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/wip/s2-unrouted.txt` |
-| 868 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/m10top/m10f.txt` |
-| 869 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds/partial-1.txt` |
-| 870 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j13.txt` |
-| 871 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/fbv7-89m.txt` |
-| 872 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/cut-tl48.txt` |
-| 873 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-b.txt` |
-| 874 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vb2/partial-live.txt` |
-| 875 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vb2L/partial-live.txt` |
-| 876 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/finds-m8/partial-live.txt` |
-| 877 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set4.txt` |
-| 878 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set5.txt` |
-| 879 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131N-sr.txt` |
-| 880 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds2/partial-live.txt` |
-| 881 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds3/partial-live.txt` |
-| 882 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/e89b-cut.txt` |
-| 883 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set4.txt` |
-| 884 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket1-set0.txt` |
-| 885 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k2/pocket0-set0.txt` |
-| 886 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6d/pocket0-set4.txt` |
-| 887 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tr3/pocket2-set2.txt` |
-| 888 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131N-live1.txt` |
-| 889 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds/partial-2.txt` |
-| 890 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/s4-varB.txt` |
-| 891 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set2.txt` |
-| 892 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set3.txt` |
-| 893 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set1.txt` |
-| 894 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pocket3-set3.txt` |
-| 895 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131N-d1g.txt` |
-| 896 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131N-sr2.txt` |
-| 897 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131N-sr3.txt` |
-| 898 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds/partial-1.txt` |
-| 899 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: blocks that change by themselves over time (random ticks, e.g. unwaxe | `HEAD:designs/piston-door-3x3/archive/fresh-d-s3-47b-invalid.txt` |
-| 900 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r1.txt` |
-| 901 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r1f.txt` |
-| 902 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r3.txt` |
-| 903 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r4.txt` |
-| 904 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/e89b-8x8-77of79.txt` |
-| 905 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pocket0-set3.txt` |
-| 906 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/satwire/m79q-sat-topright.txt` |
-| 907 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 0, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/fbv7-s.txt` |
-| 908 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/s4-varA.txt` |
-| 909 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `HEAD:designs/piston-door-3x3/tracks/slime-free/asteady48.txt` |
-| 910 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/m88b.txt` |
-| 911 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set4.txt` |
-| 912 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set2.txt` |
-| 913 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pockets-partial-2as.txt` |
-| 914 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pocket3-set2.txt` |
-| 915 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-tl-k6/pocket0-set0.txt` |
-| 916 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds/partial-2.txt` |
-| 917 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds3/enum-best-0.txt` |
-| 918 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds3/enum-best-1.txt` |
-| 919 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds3/enum-best-2.txt` |
-| 920 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m79a.txt` |
-| 921 | - | 48 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/m51-hold16.txt` |
-| 922 | - | 48 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/m51-hold16b.txt` |
-| 923 | - | 48 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/m51-hold16c.txt` |
-| 924 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pocket0-set2.txt` |
-| 925 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tr3/pocket2-set1.txt` |
-| 926 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/bl/pocket0-set4.txt` |
-| 927 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/p2.txt` |
-| 928 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/fbv7-t.txt` |
-| 929 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set6.txt` |
-| 930 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set0.txt` |
-| 931 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set3.txt` |
-| 932 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pocket3-set4.txt` |
-| 933 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pockets-partial-1as.txt` |
-| 934 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-tl-k6/pocket0-set1.txt` |
-| 935 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-tl-k6/pockets-partial-2as.txt` |
-| 936 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/seeds/m88a-top.txt` |
-| 937 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/findsF11/partial-live.txt` |
-| 938 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/findsF12/partial-live.txt` |
-| 939 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/box70/wip/w1.txt` |
-| 940 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pocket0-set1.txt` |
-| 941 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pocket0-set4.txt` |
-| 942 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set1.txt` |
-| 943 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pocket0-set2.txt` |
-| 944 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pocket0-set3.txt` |
-| 945 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6b/pocket0-set2.txt` |
-| 946 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6d/pocket0-set1.txt` |
-| 947 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set1.txt` |
-| 948 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131N-ff.txt` |
-| 949 | - | 49 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp7-repU-pgF-idealU.txt` |
-| 950 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j12.txt` |
-| 951 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/p1.txt` |
-| 952 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q4.txt` |
-| 953 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/cut-bchain.txt` |
-| 954 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/cut-r1.txt` |
-| 955 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/lever44.txt` |
-| 956 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/tl-up.txt` |
-| 957 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/finds/partial-0.txt` |
-| 958 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set0.txt` |
-| 959 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set1.txt` |
-| 960 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tl-k6/pocket0-set2.txt` |
-| 961 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tl-k6/pocket0-set3.txt` |
-| 962 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set3.txt` |
-| 963 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set5.txt` |
-| 964 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set7.txt` |
-| 965 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pocket3-set0.txt` |
-| 966 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/seeds/m79p-tl10f.txt` |
-| 967 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/seeds/m88a-top-r13.txt` |
-| 968 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/mech/q11a.txt` |
-| 969 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/finds2/partial-live.txt` |
-| 970 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/finds-ve1b/partial-live.txt` |
-| 971 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131F-b.txt` |
-| 972 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131F-live.txt` |
-| 973 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 2, 0] is minecraft:air; door cell [ | `HEAD:designs/piston-door-3x3/tracks/c79/c79-open-a.txt` |
-| 974 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r5.txt` |
-| 975 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set2.txt` |
-| 976 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pockets-partial-2as.txt` |
-| 977 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tr3/pocket2-set0.txt` |
-| 978 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/tl/pocket0-set0.txt` |
-| 979 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131F-b2.txt` |
-| 980 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/flat-b/v1.txt` |
-| 981 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds9/partial-0.txt` |
-| 982 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q1.txt` |
-| 983 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/cut-rdust.txt` |
-| 984 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/finds/partial-1.txt` |
-| 985 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/finds/partial-2.txt` |
-| 986 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tl-k6/pocket0-set1.txt` |
-| 987 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tl-k6/pocket0-set4.txt` |
-| 988 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set1.txt` |
-| 989 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pockets-partial-2as.txt` |
-| 990 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/finds11/partial-full-live.txt` |
-| 991 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 2, 0] is minecraft:air; door cell [ | `HEAD:designs/piston-door-3x3/tracks/c79/c79-open-b.txt` |
-| 992 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r6.txt` |
-| 993 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set3.txt` |
-| 994 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pocket0-set0.txt` |
-| 995 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pocket0-set1.txt` |
-| 996 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds9/partial-1.txt` |
-| 997 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds9/partial-2.txt` |
-| 998 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q7.txt` |
-| 999 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q9seed.txt` |
-| 1000 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/slime-free/xblock.txt` |
-| 1001 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vm1-79B/partial-live.txt` |
-| 1002 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/partial-77a.txt` |
-| 1003 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set2.txt` |
-| 1004 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/p75.txt` |
-| 1005 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/finds-vd1s/partial-live.txt` |
-| 1006 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/finds-vd1w/partial-live.txt` |
-| 1007 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pockets-partial-1as.txt` |
-| 1008 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds/partial-live.txt` |
-| 1009 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/cs88/partial-full-live.txt` |
-| 1010 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/m88c.txt` |
-| 1011 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/finds3/partial-live.txt` |
-| 1012 | - | 53 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/finds-ve1a/partial-live.txt` |
-| 1013 | - | 54 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/sf1-a.txt` |
-| 1014 | - | 54 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vm1-79T/partial-live.txt` |
-| 1015 | - | 54 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-0.txt` |
-| 1016 | - | 55 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-8.txt` |
-| 1017 | - | 55 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-1.txt` |
-| 1018 | - | 55 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds014/partial-0.txt` |
-| 1019 | - | 56 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 0, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/redstone-block/rb3.txt` |
-| 1020 | - | 56 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-2.txt` |
-| 1021 | - | 56 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds014/partial-1.txt` |
-| 1022 | - | 56 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds014/partial-2.txt` |
-| 1023 | - | 57 | solid |  |  | broken: at offset [0, 0, 0]: unsupported blocks (they could not stand there in survival): [0, 3, 5 | `HEAD:designs/piston-door-3x3/tracks/vanilla-check/fuzz/fuzz-2061.txt` |
-| 1024 | - | 58 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 0, 0] is minecraft:air, but the doo | `HEAD:designs/piston-door-3x3/tracks/box70/wip/w0.txt` |
-| 1025 | - | 58 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-9.txt` |
-| 1026 | - | 58 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w2.txt` |
-| 1027 | - | 58 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds016/partial-0.txt` |
-| 1028 | - | 59 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/flat/v1.txt` |
-| 1029 | - | 59 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds016/partial-1.txt` |
-| 1030 | - | 60 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds016/partial-2.txt` |
-| 1031 | - | 62 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-10.txt` |
-| 1032 | - | 62 | solid |  |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/top-control/v3a-skel.txt` |
-| 1033 | - | 67 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-11.txt` |
-| 1034 | - | 72 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/sf1-w1.txt` |
-| 1035 | - | 78 | solid |  |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/top-control/v3b-skel.txt` |
-| 1036 | - | 82 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2u-0.txt` |
-| 1037 | - | 86 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2u2-0.txt` |
-| 1038 | - | 86 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w5.txt` |
-| 1039 | - | 87 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/top-control/v3b.txt` |
-| 1040 | - | 88 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w4.txt` |
-| 1041 | - | 91 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2nf-0.txt` |
-| 1042 | - | 98 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w6.txt` |
-| 1043 | - | 103 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2nf-1.txt` |
-| 1044 | - | 107 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/n1.txt` |
-| 1045 | - | 109 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/e1.txt` |
-| 1046 | - | 110 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed-2/p1.txt` |
-| 1047 | - | 111 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o0.txt` |
-| 1048 | - | 112 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/archive/speed-2-n3-112b.txt` |
-| 1049 | - | 112 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/e2.txt` |
-| 1050 | - | 113 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/archive/speed-2-n2-113b.txt` |
-| 1051 | - | 114 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o1.txt` |
-| 1052 | - | 115 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/p0.txt` |
-| 1053 | - | 117 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/top-control/sf-skel.txt` |
-| 1054 | - | 121 | solid |  |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:slime_block, but | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v1-min-invalid.txt` |
-| 1055 | - | 121 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o4.txt` |
-| 1056 | - | 122 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-2.txt` |
-| 1057 | - | 122 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w7.txt` |
-| 1058 | - | 123 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-0.txt` |
-| 1059 | - | 123 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-3.txt` |
-| 1060 | - | 125 | solid |  |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:slime_block, but | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v1-invalid.txt` |
-| 1061 | - | 125 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-4.txt` |
-| 1062 | - | 128 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2nf-2.txt` |
-| 1063 | - | 129 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-1.txt` |
-| 1064 | - | 129 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed-2/a9.txt` |
-| 1065 | - | 137 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-13.txt` |
-| 1066 | - | 138 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/speed/wire/w3.txt` |
-| 1067 | - | 140 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/speed/wire/w6b.txt` |
-| 1068 | - | 24 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [20, 2, 0] is mine | `HEAD:designs/piston-door-3x3/tracks/sculk/tflipflop.txt` |
-| 1069 | - | 29 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/t10-sk1.txt` |
-| 1070 | - | 30 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t1.txt` |
-| 1071 | - | 30 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t5.txt` |
-| 1072 | - | 31 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t2.txt` |
-| 1073 | - | 32 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t3.txt` |
-| 1074 | - | 33 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/g2-ideal.txt` |
-| 1075 | - | 33 | gravity | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/sf-ideal.txt` |
-| 1076 | - | 34 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t4.txt` |
-| 1077 | - | 35 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/g1-ideal.txt` |
-| 1078 | - | 36 | sculk |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/sculk-ew/s4-ew0.txt` |
-| 1079 | - | 44 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/finds-kept/t8L-far-75.txt` |
-| 1080 | - | 44 | sculk |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/top-control/rb2s.txt` |
-| 1081 | - | 45 | sculk |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/rb2-sculk.txt` |
-| 1082 | - | 45 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/finds-kept/t10s-far-75.txt` |
-| 1083 | - | 49 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/g5.txt` |
-| 1084 | - | 51 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/g1-base.txt` |
-| 1085 | - | 115 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/v2-sand.txt` |
+| 1 | 63b (7x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/c79-49-bl5-br3-49b.txt` |
+| 2 | 63b (7x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/satwire-63b-49-49b.txt` |
+| 3 | 63b (7x9x1) | 50 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set0.txt` |
+| 4 | 63b (7x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pockets-63b-50-0-50b.txt` |
+| 5 | 63b (7x9x1) | 50 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl1-63b-50.txt` |
+| 6 | 63b (7x9x1) | 50 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79bl50-tl12-63b-50.txt` |
+| 7 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/c79-community-63b-51b.txt` |
+| 8 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/audit/c79-closed-ff.txt` |
+| 9 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set0.txt` |
+| 10 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-1.txt` |
+| 11 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pockets-63b-51-2.txt` |
+| 12 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set0.txt` |
+| 13 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-1.txt` |
+| 14 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-10.txt` |
+| 15 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-11.txt` |
+| 16 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-2.txt` |
+| 17 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-3.txt` |
+| 18 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-4.txt` |
+| 19 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-5.txt` |
+| 20 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-6.txt` |
+| 21 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-7.txt` |
+| 22 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-8.txt` |
+| 23 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pockets-63b-51-9.txt` |
+| 24 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/satwire/archive/satwire-c79-closed-51b.txt` |
+| 25 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-0.txt` |
+| 26 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-10.txt` |
+| 27 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-11.txt` |
+| 28 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-13.txt` |
+| 29 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-14.txt` |
+| 30 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-15.txt` |
+| 31 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-16.txt` |
+| 32 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-2.txt` |
+| 33 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-21.txt` |
+| 34 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-23.txt` |
+| 35 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-24.txt` |
+| 36 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-28.txt` |
+| 37 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-3.txt` |
+| 38 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-6.txt` |
+| 39 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-8.txt` |
+| 40 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-9.txt` |
+| 41 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-0.txt` |
+| 42 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-1.txt` |
+| 43 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-2.txt` |
+| 44 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-3.txt` |
+| 45 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tr-63b-51-4.txt` |
+| 46 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-1.txt` |
+| 47 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-10.txt` |
+| 48 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-11.txt` |
+| 49 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-12.txt` |
+| 50 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-13.txt` |
+| 51 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-14.txt` |
+| 52 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-15.txt` |
+| 53 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-16.txt` |
+| 54 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-17.txt` |
+| 55 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-18.txt` |
+| 56 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-19.txt` |
+| 57 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-2.txt` |
+| 58 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-20.txt` |
+| 59 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-21.txt` |
+| 60 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-22.txt` |
+| 61 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-23.txt` |
+| 62 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-24.txt` |
+| 63 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-25.txt` |
+| 64 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-26.txt` |
+| 65 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-27.txt` |
+| 66 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-28.txt` |
+| 67 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-29.txt` |
+| 68 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-3.txt` |
+| 69 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-30.txt` |
+| 70 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-31.txt` |
+| 71 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-32.txt` |
+| 72 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-33.txt` |
+| 73 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-34.txt` |
+| 74 | 63b (7x9x1) | 51 | solid | yes | breaks at 90 | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-35.txt` |
+| 75 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-36.txt` |
+| 76 | 63b (7x9x1) | 51 | solid | yes | breaks at 90 | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-37.txt` |
+| 77 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-38.txt` |
+| 78 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-39.txt` |
+| 79 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-4.txt` |
+| 80 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-40.txt` |
+| 81 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-41.txt` |
+| 82 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-42.txt` |
+| 83 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-43.txt` |
+| 84 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-44.txt` |
+| 85 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-45.txt` |
+| 86 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-46.txt` |
+| 87 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-47.txt` |
+| 88 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-48.txt` |
+| 89 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-49.txt` |
+| 90 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-5.txt` |
+| 91 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-50.txt` |
+| 92 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-51.txt` |
+| 93 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-52.txt` |
+| 94 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-53.txt` |
+| 95 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-54.txt` |
+| 96 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-55.txt` |
+| 97 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-56.txt` |
+| 98 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-57.txt` |
+| 99 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-58.txt` |
+| 100 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-59.txt` |
+| 101 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-6.txt` |
+| 102 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-60.txt` |
+| 103 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-61.txt` |
+| 104 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-62.txt` |
+| 105 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-63.txt` |
+| 106 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-64.txt` |
+| 107 | 63b (7x9x1) | 51 | solid | yes | breaks at 90 | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-65.txt` |
+| 108 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-66.txt` |
+| 109 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-67.txt` |
+| 110 | 63b (7x9x1) | 51 | solid | yes | breaks at 90 | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-68.txt` |
+| 111 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-69.txt` |
+| 112 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-7.txt` |
+| 113 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-70.txt` |
+| 114 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-71.txt` |
+| 115 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-72.txt` |
+| 116 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-73.txt` |
+| 117 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-74.txt` |
+| 118 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-75.txt` |
+| 119 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-76.txt` |
+| 120 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-77.txt` |
+| 121 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-78.txt` |
+| 122 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-79.txt` |
+| 123 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-8.txt` |
+| 124 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-80.txt` |
+| 125 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-81.txt` |
+| 126 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-82.txt` |
+| 127 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-83.txt` |
+| 128 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-84.txt` |
+| 129 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-85.txt` |
+| 130 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-86.txt` |
+| 131 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-87.txt` |
+| 132 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-88.txt` |
+| 133 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-89.txt` |
+| 134 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-9.txt` |
+| 135 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-90.txt` |
+| 136 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-91.txt` |
+| 137 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pockets-63b-51-1.txt` |
+| 138 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-18.txt` |
+| 139 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-19.txt` |
+| 140 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-20.txt` |
+| 141 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-22.txt` |
+| 142 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-25.txt` |
+| 143 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-4.txt` |
+| 144 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-5.txt` |
+| 145 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-7.txt` |
+| 146 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-1.txt` |
+| 147 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-12.txt` |
+| 148 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-17.txt` |
+| 149 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-26.txt` |
+| 150 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-27.txt` |
+| 151 | 63b (7x9x1) | 51 | solid | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/finds/c79tl-63b-51-29.txt` |
+| 152 | 72b (8x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89b-49b.txt` |
+| 153 | 72b (8x9x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/satwire/e89b-sat29.txt` |
+| 154 | 72b (8x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72m-50b.txt` |
+| 155 | 72b (8x9x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89el-50b.txt` |
+| 156 | 72b (8x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/flat-seam-e89b-49b-ff.txt` |
+| 157 | 72b (8x9x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-e89-51b.txt` |
+| 158 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72f-52b.txt` |
+| 159 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/eligible-fl72m-50b-ff.txt` |
+| 160 | 72b (8x9x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl72n-52b.txt` |
+| 161 | 72b (8x9x1) | 53 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/flat-seam-e89-51b-ff.txt` |
+| 162 | 72b (8x9x1) | 54 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/eligible-fl72f-52b-ff.txt` |
+| 163 | 72b (8x9x1) | 54 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/frame/ff-records/eligible-fl72n-52b-ff.txt` |
+| 164 | 72b (8x9x1) | 62 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/satwire/e89b-sat42.txt` |
+| 165 | 80b (8x10x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-44b.txt` |
+| 166 | 80b (8x10x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v6-45b.txt` |
+| 167 | 80b (8x10x1) | 46 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v5-46b.txt` |
+| 168 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-47b.txt` |
+| 169 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v3-47b.txt` |
+| 170 | 80b (8x10x1) | 47 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-47b.txt` |
+| 171 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80m-48b.txt` |
+| 172 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-bottom-48b.txt` |
+| 173 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-north-48b.txt` |
+| 174 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-south-48b.txt` |
+| 175 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper-west-48b.txt` |
+| 176 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper@support-north-48b.txt` |
+| 177 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-dropper@support-south-48b.txt` |
+| 178 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-bottom-48b.txt` |
+| 179 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-north-48b.txt` |
+| 180 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-note-south-48b.txt` |
+| 181 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-bottom-48b.txt` |
+| 182 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-north-48b.txt` |
+| 183 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-south-48b.txt` |
+| 184 | 80b (8x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-rl-lamp-west-48b.txt` |
+| 185 | 80b (8x10x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-full-50b.txt` |
+| 186 | 80b (8x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80f-51b.txt` |
+| 187 | 80b (8x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl80n-51b.txt` |
+| 188 | 80b (8x10x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-52b.txt` |
+| 189 | 81b (9x9x1) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-flat43-43b.txt` |
+| 190 | 81b (9x9x1) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-43b.txt` |
+| 191 | 81b (9x9x1) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/wire64b/w79/f43m.txt` |
+| 192 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81f-44b.txt` |
+| 193 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81m-44b.txt` |
+| 194 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-h44-44b.txt` |
+| 195 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-44b.txt` |
+| 196 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/tracks/box72/wip/f43m.txt` |
+| 197 | 81b (9x9x1) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/f43-b1-44b.txt` |
+| 198 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fl81n-45b.txt` |
+| 199 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-east-45b.txt` |
+| 200 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-north-45b.txt` |
+| 201 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-south-45b.txt` |
+| 202 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-dropper-top-45b.txt` |
+| 203 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-north-45b.txt` |
+| 204 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-south-45b.txt` |
+| 205 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-note-top-45b.txt` |
+| 206 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-east-45b.txt` |
+| 207 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-north-45b.txt` |
+| 208 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-south-45b.txt` |
+| 209 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat43-full-rl-lamp-top-45b.txt` |
+| 210 | 81b (9x9x1) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-h45-45b.txt` |
+| 211 | 88b (8x11x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v2-48b.txt` |
+| 212 | 90b (9x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-fbv7-full-trap-48b.txt` |
+| 213 | 90b (9x10x1) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-b-v7-48b.txt` |
+| 214 | 90b (9x10x1) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v8-49b.txt` |
+| 215 | 90b (9x10x1) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v7-50b.txt` |
+| 216 | 90b (9x10x1) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v6-51b.txt` |
+| 217 | 90b (9x10x1) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v5-52b.txt` |
+| 218 | 90b (9x10x1) | 55 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-seam-s55-55b.txt` |
+| 219 | 99b (9x11x1) | 54 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v7-full-54b.txt` |
+| 220 | 100b (10x10x1) | 57 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v2-57b.txt` |
+| 221 | 100b (10x10x1) | 58 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-fv58n-58b.txt` |
+| 222 | 100b (10x10x1) | 60 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v2-60b.txt` |
+| 223 | 110b (11x10x1) | 54 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v2-54b.txt` |
+| 224 | 110b (11x10x1) | 55 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/flat-v2-55b.txt` |
+| 225 | 126b (7x9x2) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp8-leafU-43b.txt` |
+| 226 | 126b (7x9x2) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp8-43b.txt` |
+| 227 | 126b (7x9x2) | 44 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp8-lampU-44b.txt` |
+| 228 | 126b (7x9x2) | 45 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-pm45-trap-45b.txt` |
+| 229 | 126b (7x9x2) | 45 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-b-mp6-45b.txt` |
+| 230 | 126b (7x9x2) | 45 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp7-45b.txt` |
+| 231 | 126b (7x9x2) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-pm46-trap-46b.txt` |
+| 232 | 126b (7x9x2) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-leafC-46b.txt` |
+| 233 | 126b (7x9x2) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-mp6-46b.txt` |
+| 234 | 126b (7x9x2) | 47 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-dustU-47b.txt` |
+| 235 | 140b (7x10x2) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-repU-46b.txt` |
+| 236 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-fc2-trapL-40b.txt` |
+| 237 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-2.txt` |
+| 238 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-3.txt` |
+| 239 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-4.txt` |
+| 240 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-5.txt` |
+| 241 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b-6.txt` |
+| 242 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-40b.txt` |
+| 243 | 144b (8x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-min-40b.txt` |
+| 244 | 144b (8x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2f-41b.txt` |
+| 245 | 144b (8x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-seamL-41b.txt` |
+| 246 | 144b (8x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc2-seamR-41b.txt` |
+| 247 | 144b (8x9x2) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-d-s4-45b-2.txt` |
+| 248 | 162b (9x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-40b.txt` |
+| 249 | 162b (9x9x2) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-40b-2.txt` |
+| 250 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-3.txt` |
+| 251 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-5.txt` |
+| 252 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-6.txt` |
+| 253 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-8.txt` |
+| 254 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b.txt` |
+| 255 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-2.txt` |
+| 256 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-4.txt` |
+| 257 | 162b (9x9x2) | 41 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-41b-7.txt` |
+| 258 | 162b (9x9x2) | 42 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-42b.txt` |
+| 259 | 162b (9x9x2) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym-43b.txt` |
+| 260 | 189b (7x9x3) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-fx1-40b.txt` |
+| 261 | 189b (7x9x3) | 40 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-fx1-40b-2.txt` |
+| 262 | 189b (7x9x3) | 41 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-w41-41b.txt` |
+| 263 | 189b (7x9x3) | 41 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-e41-41b.txt` |
+| 264 | 189b (7x9x3) | 42 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fc1-42b.txt` |
+| 265 | 189b (7x9x3) | 42 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w42-42b.txt` |
+| 266 | 189b (7x9x3) | 42 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w42e-42b.txt` |
+| 267 | 189b (7x9x3) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w43-43b.txt` |
+| 268 | 189b (7x9x3) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w43e-43b.txt` |
+| 269 | 189b (7x9x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-w45-44-trap-44b.txt` |
+| 270 | 189b (7x9x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w45-44b.txt` |
+| 271 | 210b (7x10x3) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-w41-43b.txt` |
+| 272 | 210b (7x10x3) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-e41-43b.txt` |
+| 273 | 210b (7x10x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-44b.txt` |
+| 274 | 210b (7x10x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-w41-44b.txt` |
+| 275 | 210b (7x10x3) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w42-44b.txt` |
+| 276 | 210b (7x10x3) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-d-s4-48b.txt` |
+| 277 | 210b (7x10x3) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-s4ff-49b.txt` |
+| 278 | 216b (8x9x3) | 46 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/synth-sf46-46b.txt` |
+| 279 | 216b (8x9x3) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-combo-48b.txt` |
+| 280 | 216b (8x9x3) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-transplant-HEAD-logic-min-slime-free-50b-49b.txt` |
+| 281 | 216b (8x9x3) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-50b.txt` |
+| 282 | 216b (9x8x3) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym_steps__1__5__11__13__19__21__23_-51b-51b.txt` |
+| 283 | 216b (8x9x3) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-bgrow-51b.txt` |
+| 284 | 216b (8x9x3) | 51 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-51b.txt` |
+| 285 | 216b (8x9x3) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-52b.txt` |
+| 286 | 216b (8x9x3) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-tlup-52b.txt` |
+| 287 | 216b (8x9x3) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-walk-52b.txt` |
+| 288 | 216b (8x9x3) | 53 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-53b.txt` |
+| 289 | 216b (8x9x3) | 55 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-slime-free-55b.txt` |
+| 290 | 225b (9x5x5) | 98 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-v225b-98b.txt` |
+| 291 | 225b (9x5x5) | 108 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-v225-108b.txt` |
+| 292 | 243b (9x9x3) | 49 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-49b.txt` |
+| 293 | 243b (9x9x3) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-50b-2.txt` |
+| 294 | 243b (9x9x3) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-50b.txt` |
+| 295 | 243b (9x9x3) | 52 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/logic-min-v2-52b.txt` |
+| 296 | 243b (9x9x3) | 52 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m02-21b-sym_steps__1__5__9__11__17__19__21_-52b-52b.txt` |
+| 297 | 243b (9x9x3) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-53b.txt` |
+| 298 | 243b (9x9x3) | 54 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-54b.txt` |
+| 299 | 252b (7x9x4) | 38 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b38-38b-2.txt` |
+| 300 | 252b (7x9x4) | 38 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b38-38b.txt` |
+| 301 | 252b (7x9x4) | 38 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b38r-38b.txt` |
+| 302 | 252b (7x9x4) | 39 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-b39n-39b.txt` |
+| 303 | 252b (7x9x4) | 39 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b39-39b.txt` |
+| 304 | 252b (7x9x4) | 40 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b40-40b.txt` |
+| 305 | 252b (7x9x4) | 40 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-b40r-40b.txt` |
+| 306 | 252b (7x9x4) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-w43n-43b.txt` |
+| 307 | 252b (7x9x4) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-r3-43b.txt` |
+| 308 | 252b (7x9x4) | 43 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/st43-bmobs-43b.txt` |
+| 309 | 252b (7x9x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w45-45b.txt` |
+| 310 | 252b (7x9x4) | 46 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/riders-r2-46b.txt` |
+| 311 | 252b (7x9x4) | 49 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-pm49-trap-49b.txt` |
+| 312 | 252b (7x9x4) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/exotic-pm50-trap-50b.txt` |
+| 313 | 252b (7x9x4) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-leafC-pgF-50b.txt` |
+| 314 | 252b (7x9x4) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-dustU-pgF-51b.txt` |
+| 315 | 252b (7x9x4) | 57 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-fast-57b.txt` |
+| 316 | 252b (7x9x4) | 60 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-fast-60b.txt` |
+| 317 | 252b (7x9x4) | 61 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb9-61b.txt` |
+| 318 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-bottom-45b.txt` |
+| 319 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-east-45b.txt` |
+| 320 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-north-45b.txt` |
+| 321 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-top-45b.txt` |
+| 322 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-dropper-west-45b.txt` |
+| 323 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-bottom-45b.txt` |
+| 324 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-east-45b.txt` |
+| 325 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-north-45b.txt` |
+| 326 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-note-top-45b.txt` |
+| 327 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/eligible-f45n-45b.txt` |
+| 328 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-bottom-45b.txt` |
+| 329 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-east-45b.txt` |
+| 330 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-north-45b.txt` |
+| 331 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-top-45b.txt` |
+| 332 | 280b (7x10x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/e41-full-rl-lamp-west-45b.txt` |
+| 333 | 280b (7x10x4) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/pareto-mid-mp7-repU-pgF-50b.txt` |
+| 334 | 280b (7x8x5) | 58 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s6-58b.txt` |
+| 335 | 288b (8x9x4) | 47 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/rb6-bmobs-47b.txt` |
+| 336 | 288b (8x9x4) | 48 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb6-48b.txt` |
+| 337 | 288b (8x9x4) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb2-hold-51b.txt` |
+| 338 | 288b (8x9x4) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb2-hold-53b.txt` |
+| 339 | 288b (9x8x4) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/chain-53b-53b-2.txt` |
+| 340 | 315b (7x9x5) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-hA-43b.txt` |
+| 341 | 315b (7x9x5) | 43 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wire19sf-w43b-43b.txt` |
+| 342 | 324b (9x9x4) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m05-21b-sym_steps__1__5__11__13__19__21__23_-53b-53b.txt` |
+| 343 | 324b (9x9x4) | 59 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-logic-min-BEST-59b.txt` |
+| 344 | 324b (9x9x4) | 60 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-lm1-60b.txt` |
+| 345 | 350b (7x10x5) | 48 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sf-holdA-hA-48b.txt` |
+| 346 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-bottom-49b.txt` |
+| 347 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-east-49b.txt` |
+| 348 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-north-49b.txt` |
+| 349 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-dropper-top-49b.txt` |
+| 350 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-bottom-49b.txt` |
+| 351 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-east-49b.txt` |
+| 352 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-north-49b.txt` |
+| 353 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-note-top-49b.txt` |
+| 354 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-bottom-49b.txt` |
+| 355 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-east-49b.txt` |
+| 356 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-north-49b.txt` |
+| 357 | 350b (7x10x5) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/hA-full-rl-lamp-top-49b.txt` |
+| 358 | 360b (10x9x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-obs7-45b.txt` |
+| 359 | 360b (9x10x4) | 51 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wired00-54b-51b.txt` |
+| 360 | 360b (9x10x4) | 54 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/wired00-54b-54b.txt` |
+| 361 | 360b (9x8x5) | 62 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s5-62b.txt` |
+| 362 | 378b (7x9x6) | 44 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-s7q-44b.txt` |
+| 363 | 378b (7x9x6) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/slime-free-s7-45b.txt` |
+| 364 | 378b (7x9x6) | 50 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-bchain-50b.txt` |
+| 365 | 378b (7x9x6) | 52 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb5-52b.txt` |
+| 366 | 378b (7x9x6) | 69 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-69b.txt` |
+| 367 | 378b (7x9x6) | 71 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb8-71b.txt` |
+| 368 | 385b (7x11x5) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3d-53b.txt` |
+| 369 | 385b (7x11x5) | 54 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3c-54b.txt` |
+| 370 | 385b (7x11x5) | 59 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3b-59b.txt` |
+| 371 | 385b (7x11x5) | 61 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-fresh-b-pd3-61b.txt` |
+| 372 | 396b (11x9x4) | 45 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-obs8b-45b.txt` |
+| 373 | 396b (11x9x4) | 46 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-obs8-46b.txt` |
+| 374 | 396b (11x9x4) | 52 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-bus8-52b.txt` |
+| 375 | 405b (9x9x5) | 90 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-s4c-90b.txt` |
+| 376 | 405b (9x9x5) | 91 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-s4c-91b.txt` |
+| 377 | 405b (9x9x5) | 93 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-s4c-93b.txt` |
+| 378 | 432b (8x9x6) | 71 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb7-71b.txt` |
+| 379 | 441b (7x9x7) | 47 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m48-bmobs-47b.txt` |
+| 380 | 441b (7x9x7) | 48 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-rb5-hold-48b.txt` |
+| 381 | 448b (7x16x4) | 49 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-vobs9m-49b.txt` |
+| 382 | 448b (7x16x4) | 50 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/b38h-vobs9-50b.txt` |
+| 383 | 462b (11x6x7) | 99 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/ground-g99-99b.txt` |
+| 384 | 480b (12x10x4) | 89 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-89b.txt` |
+| 385 | 480b (12x10x4) | 90 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-90b.txt` |
+| 386 | 480b (12x10x4) | 91 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-ta-91b.txt` |
+| 387 | 504b (7x9x8) | 57 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb2-57b.txt` |
+| 388 | 504b (9x8x7) | 65 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s4-65b.txt` |
+| 389 | 520b (13x10x4) | 99 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-slime-free-99b.txt` |
+| 390 | 540b (10x9x6) | 101 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-s4c-101b.txt` |
+| 391 | 594b (9x11x6) | 53 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/chain-53b-53b.txt` |
+| 392 | 594b (11x9x6) | 85 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-85b.txt` |
+| 393 | 594b (11x9x6) | 87 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v3c-87b.txt` |
+| 394 | 594b (11x9x6) | 108 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-s4-108b.txt` |
+| 395 | 594b (11x9x6) | 109 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-109b.txt` |
+| 396 | 594b (11x9x6) | 116 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-116b.txt` |
+| 397 | 600b (10x10x6) | 88 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2u2-88b.txt` |
+| 398 | 600b (10x10x6) | 88 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-center-mech-88b.txt` |
+| 399 | 630b (7x10x9) | 67 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb1-67b.txt` |
+| 400 | 630b (7x10x9) | 73 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb1-73b.txt` |
+| 401 | 630b (9x10x7) | 103 | solid | yes | breaks at 180 | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-c1r-103b.txt` |
+| 402 | 650b (13x10x5) | 104 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/mechanics-slime-free-104b.txt` |
+| 403 | 693b (11x9x7) | 125 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-125b.txt` |
+| 404 | 700b (10x10x7) | 96 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2u2-96b.txt` |
+| 405 | 720b (9x10x8) | 107 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-c1r-107b.txt` |
+| 406 | 720b (9x10x8) | 107 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-a1c-107b.txt` |
+| 407 | 720b (9x10x8) | 107 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-a1-107-107b.txt` |
+| 408 | 720b (9x10x8) | 107 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/lamp-sweep-o6-107-107b.txt` |
+| 409 | 720b (9x10x8) | 108 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-c1r-108b.txt` |
+| 410 | 720b (9x10x8) | 109 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-c2-109b.txt` |
+| 411 | 720b (9x10x8) | 112 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-c1-112b.txt` |
+| 412 | 726b (11x11x6) | 114 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w1-114b.txt` |
+| 413 | 726b (11x11x6) | 123 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w1-123b.txt` |
+| 414 | 770b (11x10x7) | 109 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-v2-min-109b.txt` |
+| 415 | 810b (9x10x9) | 111 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-a1c-111b.txt` |
+| 416 | 810b (9x10x9) | 116 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fast-clean-n3c-116b.txt` |
+| 417 | 819b (13x9x7) | 84 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s2-84b.txt` |
+| 418 | 819b (13x9x7) | 89 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-obs-s1-89b.txt` |
+| 419 | 840b (12x10x7) | 113 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-v2-min-113b.txt` |
+| 420 | 840b (12x10x7) | 115 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-115b.txt` |
+| 421 | 840b (12x10x7) | 116 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-116b.txt` |
+| 422 | 840b (12x10x7) | 117 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-117b.txt` |
+| 423 | 840b (12x10x7) | 118 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-118b.txt` |
+| 424 | 880b (11x10x8) | 118 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-m117-118b.txt` |
+| 425 | 880b (11x10x8) | 119 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-119b.txt` |
+| 426 | 880b (11x10x8) | 120 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b-2.txt` |
+| 427 | 880b (11x10x8) | 120 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o6-120b.txt` |
+| 428 | 880b (11x10x8) | 122 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-a1m-122b.txt` |
+| 429 | 880b (11x10x8) | 122 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o5-122b.txt` |
+| 430 | 880b (11x10x8) | 123 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-a1m-123b.txt` |
+| 431 | 880b (11x10x8) | 125 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-2-a1-125b.txt` |
+| 432 | 880b (11x10x8) | 135 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o2-135b.txt` |
+| 433 | 880b (11x10x8) | 137 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-o2-137b.txt` |
+| 434 | 910b (13x10x7) | 126 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-sf1-126b.txt` |
+| 435 | 910b (13x10x7) | 128 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-sf1-128b.txt` |
+| 436 | 910b (13x10x7) | 133 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-133b-2.txt` |
+| 437 | 924b (11x12x7) | 128 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-128b.txt` |
+| 438 | 968b (11x11x8) | 121 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-121b.txt` |
+| 439 | 968b (11x11x8) | 122 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-122b.txt` |
+| 440 | 980b (14x10x7) | 133 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-133b.txt` |
+| 441 | 980b (14x10x7) | 135 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-135b.txt` |
+| 442 | 1056b (11x12x8) | 134 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w6-134b.txt` |
+| 443 | 1089b (11x11x9) | 126 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w2-126b.txt` |
+| 444 | 1089b (11x11x9) | 138 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w4-138b.txt` |
+| 445 | 1089b (11x11x9) | 139 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w2-139b.txt` |
+| 446 | 1089b (11x11x9) | 140 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/speed-wire-w5-140b.txt` |
+| 447 | 1200b (12x10x10) | 126 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-126b.txt` |
+| 448 | 1200b (12x10x10) | 128 | solid |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v2-128b.txt` |
+| 449 | 1560b (10x13x12) | 122 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-a-sf1-w2-122b.txt` |
+| 450 | 1716b (11x13x12) | 126 | solid | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/fresh-a-sf1-w2-126b.txt` |
+| 451 | 63b (7x9x1) | 50 | sculk | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m79s-sculk-63b-50-50b.txt` |
+| 452 | 63b (7x9x1) | 50 | sculk | yes | safe | WORKS | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/finds/a1/cosearch-63b-50-1.txt` |
+| 453 | 63b (7x9x1) | 50 | sculk | yes | safe | WORKS | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/finds/a1/cosearch-63b-50-2.txt` |
+| 454 | 63b (7x9x1) | 51 | sculk | yes | safe | WORKS | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-63b-51-92.txt` |
+| 455 | 126b (7x9x2) | 33 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-g33-33b.txt` |
+| 456 | 126b (7x9x2) | 33 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-t5-33b.txt` |
+| 457 | 189b (7x9x3) | 35 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-g35-35b.txt` |
+| 458 | 189b (7x9x3) | 42 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/synth-g42-42b.txt` |
+| 459 | 210b (7x10x3) | 36 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-g36-36b.txt` |
+| 460 | 210b (7x10x3) | 36 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity2-t3-36b.txt` |
+| 461 | 252b (7x9x4) | 36 | sculk |  | breaks at 90 | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk2-s4b-36b.txt` |
+| 462 | 252b (7x9x4) | 36 | sculk |  | breaks at 90 | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk2-s4-36b.txt` |
+| 463 | 252b (7x9x4) | 36 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4br-36b.txt` |
+| 464 | 252b (7x9x4) | 36 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4r-36b.txt` |
+| 465 | 252b (7x9x4) | 36 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4r-ew-36b.txt` |
+| 466 | 252b (7x9x4) | 38 | sculk |  | breaks at 90 | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk2-s1-38b.txt` |
+| 467 | 252b (7x9x4) | 38 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s1r-38b.txt` |
+| 468 | 252b (7x9x4) | 38 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s1r-ew-38b.txt` |
+| 469 | 252b (7x9x4) | 38 | entity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/test-static-armor-39b.txt` |
+| 470 | 252b (7x9x4) | 42 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/st43-bmobs-42b.txt` |
+| 471 | 252b (7x9x4) | 43 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-43b.txt` |
+| 472 | 252b (7x9x4) | 46 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-m51-sculk-48b-46b.txt` |
+| 473 | 252b (7x9x4) | 47 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-top-control-BEST-47b.txt` |
+| 474 | 252b (7x9x4) | 48 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/m51-sculk-48b.txt` |
+| 475 | 280b (7x10x4) | 45 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g10-45b.txt` |
+| 476 | 280b (7x10x4) | 45 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-transplant-HEAD-search-tool-from-HEAD-gravity-g6-49b-46b-45b.txt` |
+| 477 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g9-46b.txt` |
+| 478 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g4-51b-46b.txt` |
+| 479 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g6-49b-46b.txt` |
+| 480 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-fresh-b-gravity-g6-49b-46b.txt` |
+| 481 | 280b (7x10x4) | 46 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-gravity-BEST-46b.txt` |
+| 482 | 280b (7x10x4) | 48 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g8-48b.txt` |
+| 483 | 280b (7x10x4) | 48 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g4-51b-48b.txt` |
+| 484 | 280b (7x10x4) | 48 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g6-49b-48b.txt` |
+| 485 | 280b (7x10x4) | 48 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-gravity-BEST-48b.txt` |
+| 486 | 280b (7x10x4) | 49 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g6-49b.txt` |
+| 487 | 280b (7x10x4) | 49 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g7-49b.txt` |
+| 488 | 280b (7x10x4) | 51 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g4-51b.txt` |
+| 489 | 280b (7x10x4) | 62 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf4-62b.txt` |
+| 490 | 280b (7x10x4) | 64 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf3-64b.txt` |
+| 491 | 280b (7x10x4) | 64 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf3w-64b.txt` |
+| 492 | 280b (7x10x4) | 66 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-66b.txt` |
+| 493 | 280b (7x10x4) | 68 | gravity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-sf1-68b.txt` |
+| 494 | 315b (7x9x5) | 36 | sculk |  | breaks at 90 | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk2-s4c-36b.txt` |
+| 495 | 315b (7x9x5) | 36 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/sculk-ew-s4cr-36b.txt` |
+| 496 | 350b (7x10x5) | 40 | entity | yes | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/test-lift-stand-40b.txt` |
+| 497 | 350b (7x10x5) | 58 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-58b.txt` |
+| 498 | 350b (7x10x5) | 59 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-gravity-g3-60b-59b.txt` |
+| 499 | 350b (7x10x5) | 60 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g3-60b.txt` |
+| 500 | 378b (7x9x6) | 46 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-46b.txt` |
+| 501 | 378b (7x9x6) | 47 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/search-tool-from-HEAD-piston-door-3x3-rb2-sculk-48b-47b.txt` |
+| 502 | 378b (7x9x6) | 48 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb2-sculk-48b.txt` |
+| 503 | 378b (7x9x6) | 50 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb2-sculk-50b.txt` |
+| 504 | 378b (7x9x6) | 50 | sculk |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-rb2s2-50b.txt` |
+| 505 | 450b (9x10x5) | 67 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g1-67b.txt` |
+| 506 | 450b (9x10x5) | 69 | gravity |  | safe | WORKS | `HEAD:designs/piston-door-3x3/archive/gravity-g1-69b.txt` |
+| 507 | - | 4 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 2, 0] is minecraft:air; door cell [ | `HEAD:designs/piston-door-3x3/tracks/buildable/selftest-observer-pair.txt` |
+| 508 | - | 13 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vanilla-check/selftest-bud.txt` |
+| 509 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/fm-7x8-000-lever.txt` |
+| 510 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/w63-012-seed.txt` |
+| 511 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/w63-014-seed.txt` |
+| 512 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/w63-016-seed.txt` |
+| 513 | - | 21 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m1L.txt` |
+| 514 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/f131L-lever.txt` |
+| 515 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/fam-8x8-131-lever.txt` |
+| 516 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/vm1-lever.txt` |
+| 517 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vd1-lever.txt` |
+| 518 | - | 22 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vm1-7x9-leverT.txt` |
+| 519 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/vc1-lever.txt` |
+| 520 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/sf-mech.txt` |
+| 521 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/sf-mech2.txt` |
+| 522 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vb2-lever.txt` |
+| 523 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vb3-lever.txt` |
+| 524 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/seeds/vb3-leverK0.txt` |
+| 525 | - | 23 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/u7/m8-seed.txt` |
+| 526 | - | 24 | solid |  |  | broken: at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/pulse-mech.txt` |
+| 527 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t8L.txt` |
+| 528 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/ideal-ptpulse.txt` |
+| 529 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/sf2-ideal.txt` |
+| 530 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket0-set0.txt` |
+| 531 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket0-set1.txt` |
+| 532 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket2-set0.txt` |
+| 533 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket2-set1.txt` |
+| 534 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket3-set0.txt` |
+| 535 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket3-set1.txt` |
+| 536 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket4-set0.txt` |
+| 537 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket4-set1.txt` |
+| 538 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket0-set1.txt` |
+| 539 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket1-set0.txt` |
+| 540 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket1-set1.txt` |
+| 541 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket3-set0.txt` |
+| 542 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket3-set1.txt` |
+| 543 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket0-set0.txt` |
+| 544 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket1-set0.txt` |
+| 545 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket1-set1.txt` |
+| 546 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket2-set0.txt` |
+| 547 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set0.txt` |
+| 548 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set1.txt` |
+| 549 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket0-set0.txt` |
+| 550 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket1-set0.txt` |
+| 551 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket1-set1.txt` |
+| 552 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket2-set0.txt` |
+| 553 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket3-set0.txt` |
+| 554 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket3-set2.txt` |
+| 555 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pocket1-set0.txt` |
+| 556 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pocket1-set1.txt` |
+| 557 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set4.txt` |
+| 558 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set5.txt` |
+| 559 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set1.txt` |
+| 560 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set2.txt` |
+| 561 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set3.txt` |
+| 562 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set4.txt` |
+| 563 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket3-set0.txt` |
+| 564 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set0.txt` |
+| 565 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set2.txt` |
+| 566 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set4.txt` |
+| 567 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set5.txt` |
+| 568 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket0-set0.txt` |
+| 569 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-002-oc-ff/pocket0-set0.txt` |
+| 570 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-002-oc-ff/pocket0-set1.txt` |
+| 571 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-002-oc-ff/pocket2-set0.txt` |
+| 572 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-002-oc-ff/pocket3-set0.txt` |
+| 573 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket0-set0.txt` |
+| 574 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket1-set0.txt` |
+| 575 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket1-set3.txt` |
+| 576 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket0-set0.txt` |
+| 577 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket1-set0.txt` |
+| 578 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket1-set3.txt` |
+| 579 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket0-set0.txt` |
+| 580 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket1-set2.txt` |
+| 581 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket1-set3.txt` |
+| 582 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket0-set0.txt` |
+| 583 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket1-set0.txt` |
+| 584 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket1-set3.txt` |
+| 585 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket0-set0.txt` |
+| 586 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket1-set0.txt` |
+| 587 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket1-set2.txt` |
+| 588 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pocket0-set0.txt` |
+| 589 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pocket2-set1.txt` |
+| 590 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket0-set0.txt` |
+| 591 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket2-set1.txt` |
+| 592 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket2-set2.txt` |
+| 593 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-014-ff/pocket0-set0.txt` |
+| 594 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-014-ff/pocket2-set0.txt` |
+| 595 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-016-ff/pocket0-set0.txt` |
+| 596 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-016-ff/pocket2-set0.txt` |
+| 597 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pocket0-set0.txt` |
+| 598 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pocket1-set0.txt` |
+| 599 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pocket0-set1.txt` |
+| 600 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pocket2-set0.txt` |
+| 601 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket0-set1.txt` |
+| 602 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket2-set1.txt` |
+| 603 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket2-set2.txt` |
+| 604 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-024-ff/pocket0-set0.txt` |
+| 605 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-024-ff/pocket2-set0.txt` |
+| 606 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-026-ff/pocket0-set0.txt` |
+| 607 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-026-ff/pocket2-set0.txt` |
+| 608 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket0-set0.txt` |
+| 609 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket1-set1.txt` |
+| 610 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket1-set3.txt` |
+| 611 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket1-set0.txt` |
+| 612 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket1-set3.txt` |
+| 613 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-032-ff/pocket0-set0.txt` |
+| 614 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-032-ff/pocket2-set1.txt` |
+| 615 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pocket0-set0.txt` |
+| 616 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pocket2-set0.txt` |
+| 617 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pocket2-set2.txt` |
+| 618 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-036-ff/pocket2-set0.txt` |
+| 619 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pocket2-set0.txt` |
+| 620 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pockets-partial-8as.txt` |
+| 621 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-040-ff/pocket2-set0.txt` |
+| 622 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pocket2-set0.txt` |
+| 623 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pocket2-set1.txt` |
+| 624 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-044-ff/pocket2-set0.txt` |
+| 625 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pocket2-set0.txt` |
+| 626 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pockets-partial-9as.txt` |
+| 627 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/jf79-k3/jf-ff/pocket0-set0.txt` |
+| 628 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket1-set1.txt` |
+| 629 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket3-set0.txt` |
+| 630 | - | 24 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m2L.txt` |
+| 631 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/t1/t1-001-zl.txt` |
+| 632 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set3.txt` |
+| 633 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set5.txt` |
+| 634 | - | 25 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mech3p.txt` |
+| 635 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/seeds/m9L.txt` |
+| 636 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/ideal-asteady.txt` |
+| 637 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/sf3-ideal.txt` |
+| 638 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket1-set0.txt` |
+| 639 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pocket4-set2.txt` |
+| 640 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket0-set0.txt` |
+| 641 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket2-set0.txt` |
+| 642 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pocket2-set1.txt` |
+| 643 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set2.txt` |
+| 644 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set3.txt` |
+| 645 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pocket3-set4.txt` |
+| 646 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket1-set2.txt` |
+| 647 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pocket3-set1.txt` |
+| 648 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pocket1-set2.txt` |
+| 649 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pocket2-set0.txt` |
+| 650 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m9-ff/pocket0-set0.txt` |
+| 651 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m9-ff/pocket2-set0.txt` |
+| 652 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m9-ff/pocket3-set0.txt` |
+| 653 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket0-set0.txt` |
+| 654 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set0.txt` |
+| 655 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set1.txt` |
+| 656 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set2.txt` |
+| 657 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket1-set3.txt` |
+| 658 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket2-set0.txt` |
+| 659 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set1.txt` |
+| 660 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pocket4-set3.txt` |
+| 661 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pocket0-set0.txt` |
+| 662 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pocket0-set1.txt` |
+| 663 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pocket3-set0.txt` |
+| 664 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pocket3-set1.txt` |
+| 665 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pocket4-set2.txt` |
+| 666 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pocket4-set3.txt` |
+| 667 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket0-set0.txt` |
+| 668 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket2-set0.txt` |
+| 669 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket2-set1.txt` |
+| 670 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket2-set3.txt` |
+| 671 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket2-set5.txt` |
+| 672 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket2-set6.txt` |
+| 673 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket3-set0.txt` |
+| 674 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket3-set1.txt` |
+| 675 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket3-set2.txt` |
+| 676 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket0-set1.txt` |
+| 677 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket1-set0.txt` |
+| 678 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket2-set0.txt` |
+| 679 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket3-set0.txt` |
+| 680 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket3-set1.txt` |
+| 681 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket4-set2.txt` |
+| 682 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket4-set3.txt` |
+| 683 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-135-sym-ff/pocket0-set0.txt` |
+| 684 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-135-sym-ff/pocket2-set6.txt` |
+| 685 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-135-sym-ff/pocket3-set1.txt` |
+| 686 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-135-sym-ff/pocket3-set2.txt` |
+| 687 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-002-oc-ff/pocket4-set2.txt` |
+| 688 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pockets-partial-9as.txt` |
+| 689 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket1-set0.txt` |
+| 690 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket1-set2.txt` |
+| 691 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket1-set3.txt` |
+| 692 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket2-set0.txt` |
+| 693 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket0-set1.txt` |
+| 694 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket1-set1.txt` |
+| 695 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pocket1-set2.txt` |
+| 696 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket0-set1.txt` |
+| 697 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket1-set1.txt` |
+| 698 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pocket1-set2.txt` |
+| 699 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket0-set1.txt` |
+| 700 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket1-set0.txt` |
+| 701 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pocket1-set1.txt` |
+| 702 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket0-set1.txt` |
+| 703 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket1-set1.txt` |
+| 704 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pocket1-set2.txt` |
+| 705 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket0-set1.txt` |
+| 706 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pocket1-set1.txt` |
+| 707 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pocket0-set1.txt` |
+| 708 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pocket2-set0.txt` |
+| 709 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket0-set1.txt` |
+| 710 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pocket2-set0.txt` |
+| 711 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-014-ff/pocket0-set1.txt` |
+| 712 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-016-ff/pocket0-set1.txt` |
+| 713 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-016-ff/pocket2-set1.txt` |
+| 714 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pocket0-set1.txt` |
+| 715 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pocket1-set1.txt` |
+| 716 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pocket0-set0.txt` |
+| 717 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pocket2-set1.txt` |
+| 718 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket0-set0.txt` |
+| 719 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pocket2-set0.txt` |
+| 720 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-024-ff/pocket0-set1.txt` |
+| 721 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-026-ff/pocket0-set1.txt` |
+| 722 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-026-ff/pocket2-set1.txt` |
+| 723 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket1-set0.txt` |
+| 724 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pocket1-set2.txt` |
+| 725 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket0-set0.txt` |
+| 726 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket1-set1.txt` |
+| 727 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pocket1-set2.txt` |
+| 728 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-032-ff/pocket2-set0.txt` |
+| 729 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pocket2-set1.txt` |
+| 730 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-036-ff/pocket0-set0.txt` |
+| 731 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pocket0-set0.txt` |
+| 732 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pocket2-set1.txt` |
+| 733 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-040-ff/pocket0-set0.txt` |
+| 734 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-040-ff/pocket0-set1.txt` |
+| 735 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pocket0-set0.txt` |
+| 736 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pocket0-set1.txt` |
+| 737 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-044-ff/pocket0-set0.txt` |
+| 738 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-044-ff/pocket0-set1.txt` |
+| 739 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pocket0-set0.txt` |
+| 740 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pocket0-set1.txt` |
+| 741 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [6, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pocket2-set1.txt` |
+| 742 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/jf79-k3/jf-ff/pocket0-set1.txt` |
+| 743 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/jf79-k3/jf-ff/pocket2-set0.txt` |
+| 744 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/jf79-k3/jf-ff/pocket2-set1.txt` |
+| 745 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket3-set2.txt` |
+| 746 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket3-set3.txt` |
+| 747 | - | 25 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pocket3-set4.txt` |
+| 748 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nfd-mech.txt` |
+| 749 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set0.txt` |
+| 750 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: port lever [4, 5, 0] is minecraft:air, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/cdown-mech.txt` |
+| 751 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mech2.txt` |
+| 752 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mech3.txt` |
+| 753 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/solid/sz-mech.txt` |
+| 754 | - | 26 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/solid/sz2-mech.txt` |
+| 755 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/k1chain.txt` |
+| 756 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m5/pockets-partial-7as.txt` |
+| 757 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m8-ff/pockets-partial-7as.txt` |
+| 758 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m9-ff/pocket3-set1.txt` |
+| 759 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pocket4-set0.txt` |
+| 760 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pocket4-set1.txt` |
+| 761 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-131-oc-ff/pockets-partial-9as.txt` |
+| 762 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket1-set0.txt` |
+| 763 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket2-set2.txt` |
+| 764 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pocket2-set4.txt` |
+| 765 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket4-set1.txt` |
+| 766 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pocket4-set4.txt` |
+| 767 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-135-sym-ff/pocket1-set0.txt` |
+| 768 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-135-sym-ff/pocket2-set1.txt` |
+| 769 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-001-oc-ff/pocket3-set0.txt` |
+| 770 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket1-set1.txt` |
+| 771 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket3-set0.txt` |
+| 772 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket4-set0.txt` |
+| 773 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket4-set1.txt` |
+| 774 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pocket4-set2.txt` |
+| 775 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-010-ff/pockets-partial-9as.txt` |
+| 776 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pockets-partial-9as.txt` |
+| 777 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pockets-partial-9as.txt` |
+| 778 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pockets-partial-9as.txt` |
+| 779 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-032-ff/pockets-partial-9as.txt` |
+| 780 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pockets-partial-8as.txt` |
+| 781 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-034-ff/pockets-partial-9as.txt` |
+| 782 | - | 26 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/seeds/ve1-lever.txt` |
+| 783 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket0--1_-2o0+-1_-2c0-0.txt` |
+| 784 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket0--1_-2o0+-1_-2c0-1.txt` |
+| 785 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket0--1_-2o0+-1_-2c0-2.txt` |
+| 786 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket0--1_-2o0+-1_-2c0-3.txt` |
+| 787 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/pockets-partial-9as.txt` |
+| 788 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [-3, 4, 0] is minecraft:air, expected a lever | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set1.txt` |
+| 789 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set2.txt` |
+| 790 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [-3, 4, 0] is minecraft:air, expected a lever | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-s1-k5/pocket0-set4.txt` |
+| 791 | - | 27 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp-mech.txt` |
+| 792 | - | 27 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp5-mech.txt` |
+| 793 | - | 27 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/pump-mech.txt` |
+| 794 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/fresh-b/sf1-mech.txt` |
+| 795 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t10s.txt` |
+| 796 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t8e.txt` |
+| 797 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t8x.txt` |
+| 798 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 1] is minecraft:air, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-1.txt` |
+| 799 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/w19-cluster.txt` |
+| 800 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/w19e-cluster.txt` |
+| 801 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pockets-partial-8as.txt` |
+| 802 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 5, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-135-sym-ff/pockets-partial-10as.txt` |
+| 803 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-001-oc-ff/pocket0-set0.txt` |
+| 804 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-001-oc-ff/pocket0-set1.txt` |
+| 805 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-001-oc-ff/pocket2-set0.txt` |
+| 806 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-001-oc-ff/pocket2-set1.txt` |
+| 807 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-001-oc-ff/pocket4-set0.txt` |
+| 808 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket0-set0.txt` |
+| 809 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket0-set1.txt` |
+| 810 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket1-set0.txt` |
+| 811 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket1-set1.txt` |
+| 812 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket2-set0.txt` |
+| 813 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket2-set1.txt` |
+| 814 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket2-set2.txt` |
+| 815 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket3-set0.txt` |
+| 816 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket3-set1.txt` |
+| 817 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket4-set0.txt` |
+| 818 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-003-oc-ff/pocket4-set1.txt` |
+| 819 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-005-oc-ff/pocket3-set0.txt` |
+| 820 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-006-oc-ff/pocket3-set0.txt` |
+| 821 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-018-ff/pockets-partial-7as.txt` |
+| 822 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-028-ff/pockets-partial-8as.txt` |
+| 823 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-029-ff/pockets-partial-7as.txt` |
+| 824 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-036-ff/pockets-partial-8as.txt` |
+| 825 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-038-ff/pockets-partial-7as.txt` |
+| 826 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-040-ff/pockets-partial-9as.txt` |
+| 827 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pockets-partial-9as.txt` |
+| 828 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-044-ff/pockets-partial-9as.txt` |
+| 829 | - | 27 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-046-ff/pockets-partial-8as.txt` |
+| 830 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket2-1_-2o36+1_-2c42-0.txt` |
+| 831 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/pockets/k3/pocket3-4_1o36+4_1c42-0.txt` |
+| 832 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf-mech.txt` |
+| 833 | - | 28 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/e1-mech.txt` |
+| 834 | - | 28 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/wip/v2-mech.txt` |
+| 835 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-131-sym-ff/pockets-partial-9as.txt` |
+| 836 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-001-oc-ff/pocket1-set0.txt` |
+| 837 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-001-oc-ff/pocket4-set1.txt` |
+| 838 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-004-oc-ff/pocket0-set0.txt` |
+| 839 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-004-oc-ff/pocket0-set1.txt` |
+| 840 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-004-oc-ff/pocket2-set0.txt` |
+| 841 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-004-oc-ff/pocket2-set1.txt` |
+| 842 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-004-oc-ff/pocket3-set0.txt` |
+| 843 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-004-oc-ff/pocket4-set0.txt` |
+| 844 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-005-oc-ff/pocket0-set0.txt` |
+| 845 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-005-oc-ff/pocket0-set1.txt` |
+| 846 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-005-oc-ff/pocket2-set0.txt` |
+| 847 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-005-oc-ff/pocket2-set1.txt` |
+| 848 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-006-oc-ff/pocket4-set0.txt` |
+| 849 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/t10-ff/pockets-partial-8as.txt` |
+| 850 | - | 28 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/jf79-k3/jf-ff/pockets-partial-8as.txt` |
+| 851 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10a.txt` |
+| 852 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b.txt` |
+| 853 | - | 29 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/mechanics/rb-pulsed-ideal-mech.txt` |
+| 854 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/c78-002-oc-ff/pockets-partial-10as.txt` |
+| 855 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-002-oc-ff/pockets-partial-10as.txt` |
+| 856 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-005-oc-ff/pocket4-set0.txt` |
+| 857 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: port lever [5, 6, 0] is minecraft:air, expected a lever | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-006-oc-ff/pocket1-set0.txt` |
+| 858 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/c78-006-oc-ff/pocket4-set1.txt` |
+| 859 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-008-ff/pockets-partial-7as.txt` |
+| 860 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-012-ff/pockets-partial-8as.txt` |
+| 861 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-020-ff/pockets-partial-8as.txt` |
+| 862 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pockets-partial-7as.txt` |
+| 863 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-022-ff/pockets-partial-8as.txt` |
+| 864 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-042-ff/pockets-partial-8as.txt` |
+| 865 | - | 29 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/seeds/vd1L-lever.txt` |
+| 866 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/anneal/partial-live.txt` |
+| 867 | - | 30 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/c1-mech.txt` |
+| 868 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/w63-lever.txt` |
+| 869 | - | 30 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/redstone-block/m2-mech.txt` |
+| 870 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-2.txt` |
+| 871 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/w19e-pt.txt` |
+| 872 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pockets-partial-7as.txt` |
+| 873 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/m4/pockets-partial-7as.txt` |
+| 874 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78b-k3/7x8-r8x8-135-oc-ff/pockets-partial-9as.txt` |
+| 875 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-000-ff/pockets-partial-8as.txt` |
+| 876 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-001-ff/pockets-partial-7as.txt` |
+| 877 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-002-ff/pockets-partial-7as.txt` |
+| 878 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/fm8-k3/fm-8x8-003-ff/pockets-partial-7as.txt` |
+| 879 | - | 30 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m4-k3/pockets-partial-7as.txt` |
+| 880 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/anneal/partial-full-live.txt` |
+| 881 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131X-ff.txt` |
+| 882 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131X-lever.txt` |
+| 883 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/flat/v0-left.txt` |
+| 884 | - | 31 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-c/ideal-mech.txt` |
+| 885 | - | 31 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/observer-seq/wip/toggle-mech.txt` |
+| 886 | - | 31 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/l1-mech.txt` |
+| 887 | - | 31 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/redstone-block/m3-mech.txt` |
+| 888 | - | 31 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/w19-pt.txt` |
+| 889 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-f131xff-k3/pocket0-set0.txt` |
+| 890 | - | 32 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/mechanics/fast-ideal-mech.txt` |
+| 891 | - | 32 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/observer-seq/wip/toggle-window.txt` |
+| 892 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s4-core.txt` |
+| 893 | - | 32 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut32.txt` |
+| 894 | - | 32 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut32m.txt` |
+| 895 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pockets-partial-5as.txt` |
+| 896 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/jf-ff/pockets-partial-6as.txt` |
+| 897 | - | 32 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78c-k3/7x8-r8x8-135-sym-ff/pockets-partial-9as.txt` |
+| 898 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b-br1.txt` |
+| 899 | - | 33 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/c3-mech.txt` |
+| 900 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-f131xff-k3/pocket2-set0.txt` |
+| 901 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-f131xff-k3/pocket2-set1.txt` |
+| 902 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/flat-b/v1base.txt` |
+| 903 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/sf1-mech.txt` |
+| 904 | - | 33 | solid |  |  | broken: at offset [0, 0, 0]: port lever [9, 9, 9] is ?, expected an unpowered lever | `HEAD:designs/piston-door-3x3/tracks/redstone-block/m4-mech.txt` |
+| 905 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j6.txt` |
+| 906 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/m10b.txt` |
+| 907 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-3.txt` |
+| 908 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-6.txt` |
+| 909 | - | 33 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut33tl.txt` |
+| 910 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pockets-partial-7as.txt` |
+| 911 | - | 33 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/b78-k3/t8-ff/pockets-partial-8as.txt` |
+| 912 | - | 34 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/t1-lever0.txt` |
+| 913 | - | 34 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/l2-mech.txt` |
+| 914 | - | 34 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut34.txt` |
+| 915 | - | 34 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut34o.txt` |
+| 916 | - | 34 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/top1.txt` |
+| 917 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/top-m10b.txt` |
+| 918 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/c2-mech.txt` |
+| 919 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/pk-f131xff-k3/pockets-partial-6as.txt` |
+| 920 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/lo2-35.txt` |
+| 921 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/m05x.txt` |
+| 922 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j7.txt` |
+| 923 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/t8xL.txt` |
+| 924 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/finds-kept/m10s-bottom-L0.txt` |
+| 925 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/b40nom.txt` |
+| 926 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/bld-ideal.txt` |
+| 927 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/sb-ideal.txt` |
+| 928 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-4.txt` |
+| 929 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/seed-lamp.txt` |
+| 930 | - | 35 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut35.txt` |
+| 931 | - | 35 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/finds12/partial-full-live.txt` |
+| 932 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp2.txt` |
+| 933 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp8-ideal-PU.txt` |
+| 934 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/cut-plpm.txt` |
+| 935 | - | 36 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j9.txt` |
+| 936 | - | 36 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-7.txt` |
+| 937 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut36.txt` |
+| 938 | - | 36 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/cut36tl.txt` |
+| 939 | - | 36 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/w1.txt` |
+| 940 | - | 37 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b-b1.txt` |
+| 941 | - | 37 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/seeds/t1-lever.txt` |
+| 942 | - | 37 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/cutxpl-37.txt` |
+| 943 | - | 37 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/lo-37.txt` |
+| 944 | - | 37 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/pb-37.txt` |
+| 945 | - | 37 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/q-free/cut3.txt` |
+| 946 | - | 37 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/w2.txt` |
+| 947 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b-k1.txt` |
+| 948 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10b-uk.txt` |
+| 949 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/e2-base.txt` |
+| 950 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/plmove0.txt` |
+| 951 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-e/plmove1.txt` |
+| 952 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp8-ideal-PUr.txt` |
+| 953 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noOb.txt` |
+| 954 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noPL.txt` |
+| 955 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noPM.txt` |
+| 956 | - | 38 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/riders/wip/fc2-noRq.txt` |
+| 957 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j10.txt` |
+| 958 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/b40p.txt` |
+| 959 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/seed-lamp-f.txt` |
+| 960 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/e-base.txt` |
+| 961 | - | 38 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: still moving 400 ticks after opening | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/w3.txt` |
+| 962 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a2-full4.txt` |
+| 963 | - | 39 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-c/fc1-nopl.txt` |
+| 964 | - | 39 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/mechanics/fc2-split-ideal-mech.txt` |
+| 965 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j11.txt` |
+| 966 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/b40core.txt` |
+| 967 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-base.txt` |
+| 968 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/ideal-5.txt` |
+| 969 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/synth-m-ctx.txt` |
+| 970 | - | 39 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/v4-base.txt` |
+| 971 | - | 39 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire21/drv5.txt` |
+| 972 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a2/partial-0.txt` |
+| 973 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131N-seed.txt` |
+| 974 | - | 40 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/fa-mech.txt` |
+| 975 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/synth-m16-ctx.txt` |
+| 976 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire19sf/v3-base.txt` |
+| 977 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set6.txt` |
+| 978 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 1, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set7.txt` |
+| 979 | - | 40 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m3w.txt` |
+| 980 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/box72/wip/m2w.txt` |
+| 981 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m88a.txt` |
+| 982 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a2/partial-1.txt` |
+| 983 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-b1-full4.txt` |
+| 984 | - | 41 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/mp1-top.txt` |
+| 985 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-a.txt` |
+| 986 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/L0.txt` |
+| 987 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/o4.txt` |
+| 988 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w1.txt` |
+| 989 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/audit-cslever:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-test/partial-0.txt` |
+| 990 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/audit-cslever:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-test/partial-1.txt` |
+| 991 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/audit-cslever:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-test/partial-2.txt` |
+| 992 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 1, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set2.txt` |
+| 993 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:piston_head[faci | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set4.txt` |
+| 994 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:piston_head[faci | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set9.txt` |
+| 995 | - | 41 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/finds13/partial-live.txt` |
+| 996 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a1/partial-live.txt` |
+| 997 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-a2/partial-2.txt` |
+| 998 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-b1/partial-1.txt` |
+| 999 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-2.txt` |
+| 1000 | - | 42 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/riders/wip/st-v1.txt` |
+| 1001 | - | 42 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/riders/wip/st-v2.txt` |
+| 1002 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/f43-89.txt` |
+| 1003 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/h1-ctx.txt` |
+| 1004 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sf-holdA/hA2.txt` |
+| 1005 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-cutleft.txt` |
+| 1006 | - | 42 | solid |  |  | broken: at offset [0, 0, 0]: unsupported blocks (they could not stand there in survival): [2, 0, 2 | `HEAD:designs/piston-door-3x3/tracks/vanilla-check/fuzz/fuzz-1034-error.txt` |
+| 1007 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/c88:designs/piston-door-3x3/tracks/c88/s1.txt` |
+| 1008 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/enum-best-0.txt` |
+| 1009 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/enum-best-1.txt` |
+| 1010 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/enum-best-2.txt` |
+| 1011 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/partial-full-live.txt` |
+| 1012 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set3.txt` |
+| 1013 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pockets-partial-4as.txt` |
+| 1014 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/finds12/partial-live.txt` |
+| 1015 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m3x.txt` |
+| 1016 | - | 42 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/m3y.txt` |
+| 1017 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/vm1-5as.txt` |
+| 1018 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/w63-2as.txt` |
+| 1019 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131x-b1/partial-2.txt` |
+| 1020 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/wip/s2-cut.txt` |
+| 1021 | - | 43 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:piston_head[facing | `HEAD:designs/piston-door-3x3/tracks/riders/r1.txt` |
+| 1022 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/f43-stone.txt` |
+| 1023 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-c.txt` |
+| 1024 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-c3.txt` |
+| 1025 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/o4b.txt` |
+| 1026 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/wire19sf/v3-m.txt` |
+| 1027 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/m88p0.txt` |
+| 1028 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/top-m79p.txt` |
+| 1029 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/finds/partial-live.txt` |
+| 1030 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/m10top:designs/piston-door-3x3/tracks/m10top/m79q.txt` |
+| 1031 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set1.txt` |
+| 1032 | - | 43 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 0, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set5.txt` |
+| 1033 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10c.txt` |
+| 1034 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m10d.txt` |
+| 1035 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/t1-2as.txt` |
+| 1036 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-0.txt` |
+| 1037 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/wip/s1-unrouted.txt` |
+| 1038 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/m10top/m10e.txt` |
+| 1039 | - | 44 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp7-leafC-idealF.txt` |
+| 1040 | - | 44 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp7-repU-idealF.txt` |
+| 1041 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds/partial-0.txt` |
+| 1042 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds10/partial-live.txt` |
+| 1043 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds8/partial-live.txt` |
+| 1044 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q6a.txt` |
+| 1045 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q8seed.txt` |
+| 1046 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/f43-disp.txt` |
+| 1047 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/f43-drop.txt` |
+| 1048 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/o4c.txt` |
+| 1049 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vb3/partial-live.txt` |
+| 1050 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds/partial-live.txt` |
+| 1051 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/m88q0.txt` |
+| 1052 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79f-tr8-k7/pocket2-set2.txt` |
+| 1053 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set0.txt` |
+| 1054 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-trB-k6/pocket2-set8.txt` |
+| 1055 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79q-B1-k3/pocket0-set0.txt` |
+| 1056 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79q-B1-k3/pocket0-set1.txt` |
+| 1057 | - | 44 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79q-B1-k3/pocket0-set2.txt` |
+| 1058 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: blocks that change by themselves over time (random ticks, e.g. unwaxe | `HEAD:designs/piston-door-3x3/archive/fresh-d-s4-45b-invalid.txt` |
+| 1059 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/box72/wip/v1.txt` |
+| 1060 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/fm-7x8-000-2as.txt` |
+| 1061 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/fm-7x8-000-leftlever-3as.txt` |
+| 1062 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/vc1-6as.txt` |
+| 1063 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/runs/f131xff-s1/partial-1.txt` |
+| 1064 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/flat-b/v4.txt` |
+| 1065 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-d/wip/s2-unrouted.txt` |
+| 1066 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/m10top/m10f.txt` |
+| 1067 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds/partial-1.txt` |
+| 1068 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j13.txt` |
+| 1069 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/fbv7-89m.txt` |
+| 1070 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/cut-tl48.txt` |
+| 1071 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/s7-b.txt` |
+| 1072 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vb2/partial-live.txt` |
+| 1073 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vb2L/partial-live.txt` |
+| 1074 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/finds-m8/partial-live.txt` |
+| 1075 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set4.txt` |
+| 1076 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set5.txt` |
+| 1077 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131N-sr.txt` |
+| 1078 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds2/partial-live.txt` |
+| 1079 | - | 45 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds3/partial-live.txt` |
+| 1080 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/e89b-cut.txt` |
+| 1081 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set4.txt` |
+| 1082 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket1-set0.txt` |
+| 1083 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k2/pocket0-set0.txt` |
+| 1084 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6d/pocket0-set4.txt` |
+| 1085 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tr3/pocket2-set2.txt` |
+| 1086 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131N-live1.txt` |
+| 1087 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds/partial-2.txt` |
+| 1088 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/s4-varB.txt` |
+| 1089 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set2.txt` |
+| 1090 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set3.txt` |
+| 1091 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set1.txt` |
+| 1092 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pocket3-set3.txt` |
+| 1093 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131N-d1g.txt` |
+| 1094 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131N-sr2.txt` |
+| 1095 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131N-sr3.txt` |
+| 1096 | - | 46 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds/partial-1.txt` |
+| 1097 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: blocks that change by themselves over time (random ticks, e.g. unwaxe | `HEAD:designs/piston-door-3x3/archive/fresh-d-s3-47b-invalid.txt` |
+| 1098 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r1.txt` |
+| 1099 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r1f.txt` |
+| 1100 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r3.txt` |
+| 1101 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r4.txt` |
+| 1102 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch/partials/e89b-8x8-77of79.txt` |
+| 1103 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pocket0-set3.txt` |
+| 1104 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/satwire/m79q-sat-topright.txt` |
+| 1105 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 0, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/fbv7-s.txt` |
+| 1106 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/s4-varA.txt` |
+| 1107 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `HEAD:designs/piston-door-3x3/tracks/slime-free/asteady48.txt` |
+| 1108 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/m88b.txt` |
+| 1109 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set4.txt` |
+| 1110 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79f-tr8-k7/pocket2-set3.txt` |
+| 1111 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set2.txt` |
+| 1112 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pockets-partial-2as.txt` |
+| 1113 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pocket3-set2.txt` |
+| 1114 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-tl-k6/pocket0-set0.txt` |
+| 1115 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds/partial-2.txt` |
+| 1116 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds3/enum-best-0.txt` |
+| 1117 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds3/enum-best-1.txt` |
+| 1118 | - | 47 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/finds3/enum-best-2.txt` |
+| 1119 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c2e/m10/m79a.txt` |
+| 1120 | - | 48 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/m51-hold16.txt` |
+| 1121 | - | 48 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/m51-hold16b.txt` |
+| 1122 | - | 48 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/m51-hold16c.txt` |
+| 1123 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pocket0-set2.txt` |
+| 1124 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tr3/pocket2-set1.txt` |
+| 1125 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/bl/pocket0-set4.txt` |
+| 1126 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/p2.txt` |
+| 1127 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/seamless/wip/fbv7-t.txt` |
+| 1128 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set6.txt` |
+| 1129 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79f-tr8-k7/pocket2-set0.txt` |
+| 1130 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set0.txt` |
+| 1131 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k5/pocket3-set3.txt` |
+| 1132 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pocket3-set4.txt` |
+| 1133 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pockets-partial-1as.txt` |
+| 1134 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-tl-k6/pocket0-set1.txt` |
+| 1135 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79p-tl-k6/pockets-partial-2as.txt` |
+| 1136 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/seeds/m88a-top.txt` |
+| 1137 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/findsF11/partial-live.txt` |
+| 1138 | - | 48 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/findsF12/partial-live.txt` |
+| 1139 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/box70/wip/w1.txt` |
+| 1140 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pocket0-set1.txt` |
+| 1141 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/bl2/pocket0-set4.txt` |
+| 1142 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set1.txt` |
+| 1143 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pocket0-set2.txt` |
+| 1144 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pocket0-set3.txt` |
+| 1145 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6b/pocket0-set2.txt` |
+| 1146 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6d/pocket0-set1.txt` |
+| 1147 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/br/pocket2-set1.txt` |
+| 1148 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131N-ff.txt` |
+| 1149 | - | 49 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/pareto-mid/mp7-repU-pgF-idealU.txt` |
+| 1150 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/j12.txt` |
+| 1151 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/p1.txt` |
+| 1152 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q4.txt` |
+| 1153 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/cut-bchain.txt` |
+| 1154 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/cut-r1.txt` |
+| 1155 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/lever44.txt` |
+| 1156 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/tl-up.txt` |
+| 1157 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/finds/partial-0.txt` |
+| 1158 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set0.txt` |
+| 1159 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-bmbl-k6/pocket0-set1.txt` |
+| 1160 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tl-k6/pocket0-set2.txt` |
+| 1161 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tl-k6/pocket0-set3.txt` |
+| 1162 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set3.txt` |
+| 1163 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set5.txt` |
+| 1164 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set7.txt` |
+| 1165 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79f-tr8-k7/pocket2-set1.txt` |
+| 1166 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79f-tr8-k7/pocket2-set4.txt` |
+| 1167 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79f-tr8-k7/pocket2-set5.txt` |
+| 1168 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 1, 0] is minecraft:stone, but the d | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79f-tr8-k7/pocket2-set6.txt` |
+| 1169 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/m79a-trA-k6s/pocket3-set0.txt` |
+| 1170 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/seeds/m79p-tl10f.txt` |
+| 1171 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/seeds/m88a-top-r13.txt` |
+| 1172 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/mech/q11a.txt` |
+| 1173 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/finds2/partial-live.txt` |
+| 1174 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/finds-ve1b/partial-live.txt` |
+| 1175 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131F-b.txt` |
+| 1176 | - | 49 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/wire131:designs/piston-door-3x3/tracks/wire131/f131F-live.txt` |
+| 1177 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 2, 0] is minecraft:air; door cell [ | `HEAD:designs/piston-door-3x3/tracks/c79/c79-open-a.txt` |
+| 1178 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r5.txt` |
+| 1179 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set2.txt` |
+| 1180 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pockets-partial-2as.txt` |
+| 1181 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:air, but the doo | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tr3/pocket2-set0.txt` |
+| 1182 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79var/tl/pocket0-set0.txt` |
+| 1183 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/seeds/f131F-b2.txt` |
+| 1184 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/flat-b/v1.txt` |
+| 1185 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds9/partial-0.txt` |
+| 1186 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q1.txt` |
+| 1187 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 0, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/slime-free/cut-rdust.txt` |
+| 1188 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/finds/partial-1.txt` |
+| 1189 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/finds/partial-2.txt` |
+| 1190 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set2.txt` |
+| 1191 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tl-k6/pocket0-set1.txt` |
+| 1192 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tl-k6/pocket0-set4.txt` |
+| 1193 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set1.txt` |
+| 1194 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pockets-partial-2as.txt` |
+| 1195 | - | 50 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/ring56:designs/piston-door-3x3/tracks/ring56/finds11/partial-full-live.txt` |
+| 1196 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 2, 0] is minecraft:air; door cell [ | `HEAD:designs/piston-door-3x3/tracks/c79/c79-open-b.txt` |
+| 1197 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/c79/c79-r6.txt` |
+| 1198 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-final/pocket0-set3.txt` |
+| 1199 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pocket0-set0.txt` |
+| 1200 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pocket0-set1.txt` |
+| 1201 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds9/partial-1.txt` |
+| 1202 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds9/partial-2.txt` |
+| 1203 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q7.txt` |
+| 1204 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/mech/q9seed.txt` |
+| 1205 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/slime-free/xblock.txt` |
+| 1206 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vm1-79B/partial-live.txt` |
+| 1207 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/w63top/partial-77a.txt` |
+| 1208 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 0, 0] is minec | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pocket2-set3.txt` |
+| 1209 | - | 51 | solid | yes |  | broken: at offset [-7, 3, 5]: cycle 0: not open after the lever was switched on: [-6, 3, 5] is min | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-repair-2of4-32.txt` |
+| 1210 | - | 51 | solid | yes |  | broken: at offset [-7, 3, 5]: cycle 0: not open after the lever was switched on: [-6, 3, 5] is min | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-br-all-k4/pockets-repair-2of4-34.txt` |
+| 1211 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:air, but the doo | `origin/explore/pockets:designs/piston-door-3x3/tracks/pockets/runs/c79-tr-k7/pocket2-set2.txt` |
+| 1212 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/p75.txt` |
+| 1213 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/finds-vd1s/partial-live.txt` |
+| 1214 | - | 51 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/finds-vd1w/partial-live.txt` |
+| 1215 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/cosearch2/c79cal/tl-k6/pockets-partial-1as.txt` |
+| 1216 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/ring56/finds/partial-live.txt` |
+| 1217 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/cs88/partial-full-live.txt` |
+| 1218 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `origin/explore/c2e:designs/piston-door-3x3/tracks/c2e/m10/m88c.txt` |
+| 1219 | - | 52 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `origin/explore/seq56:designs/piston-door-3x3/tracks/seq56/finds3/partial-live.txt` |
+| 1220 | - | 53 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/vmid:designs/piston-door-3x3/tracks/vmid/finds-ve1a/partial-live.txt` |
+| 1221 | - | 54 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-b/sf1-a.txt` |
+| 1222 | - | 54 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/vmid/finds-vm1-79T/partial-live.txt` |
+| 1223 | - | 54 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-0.txt` |
+| 1224 | - | 55 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-8.txt` |
+| 1225 | - | 55 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-1.txt` |
+| 1226 | - | 55 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds014/partial-0.txt` |
+| 1227 | - | 56 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 0, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/redstone-block/rb3.txt` |
+| 1228 | - | 56 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-2.txt` |
+| 1229 | - | 56 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds014/partial-1.txt` |
+| 1230 | - | 56 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds014/partial-2.txt` |
+| 1231 | - | 57 | solid |  |  | broken: at offset [0, 0, 0]: unsupported blocks (they could not stand there in survival): [0, 3, 5 | `HEAD:designs/piston-door-3x3/tracks/vanilla-check/fuzz/fuzz-2061.txt` |
+| 1232 | - | 58 | solid | yes |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [0, 0, 0] is minecraft:air, but the doo | `HEAD:designs/piston-door-3x3/tracks/box70/wip/w0.txt` |
+| 1233 | - | 58 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-9.txt` |
+| 1234 | - | 58 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w2.txt` |
+| 1235 | - | 58 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds016/partial-0.txt` |
+| 1236 | - | 59 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/flat/v1.txt` |
+| 1237 | - | 59 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds016/partial-1.txt` |
+| 1238 | - | 60 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/wire64b/w63/finds016/partial-2.txt` |
+| 1239 | - | 62 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-10.txt` |
+| 1240 | - | 62 | solid |  |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [2, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/top-control/v3a-skel.txt` |
+| 1241 | - | 67 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-11.txt` |
+| 1242 | - | 72 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/sf1-w1.txt` |
+| 1243 | - | 78 | solid |  |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:stone, but the d | `HEAD:designs/piston-door-3x3/tracks/top-control/v3b-skel.txt` |
+| 1244 | - | 82 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2u-0.txt` |
+| 1245 | - | 86 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2u2-0.txt` |
+| 1246 | - | 86 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w5.txt` |
+| 1247 | - | 87 | solid |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 2, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/top-control/v3b.txt` |
+| 1248 | - | 88 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w4.txt` |
+| 1249 | - | 91 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2nf-0.txt` |
+| 1250 | - | 98 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w6.txt` |
+| 1251 | - | 103 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2nf-1.txt` |
+| 1252 | - | 107 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/n1.txt` |
+| 1253 | - | 109 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/e1.txt` |
+| 1254 | - | 110 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed-2/p1.txt` |
+| 1255 | - | 111 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o0.txt` |
+| 1256 | - | 112 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/archive/speed-2-n3-112b.txt` |
+| 1257 | - | 112 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/e2.txt` |
+| 1258 | - | 113 | solid | yes |  | broken: at offset [0, 0, 0]: blocks in front of or behind the door (nothing may stand in the 3x3 c | `HEAD:designs/piston-door-3x3/tracks/speed-2/archive/speed-2-n2-113b.txt` |
+| 1259 | - | 114 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o1.txt` |
+| 1260 | - | 115 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/p0.txt` |
+| 1261 | - | 117 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/top-control/sf-skel.txt` |
+| 1262 | - | 121 | solid |  |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:slime_block, but | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v1-min-invalid.txt` |
+| 1263 | - | 121 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed/wire/o4.txt` |
+| 1264 | - | 122 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-2.txt` |
+| 1265 | - | 122 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/tick-door/w7.txt` |
+| 1266 | - | 123 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-0.txt` |
+| 1267 | - | 123 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-3.txt` |
+| 1268 | - | 125 | solid |  |  | broken: at offset [0, 0, 0]: not closed at rest: door cell [1, 2, 0] is minecraft:slime_block, but | `HEAD:designs/piston-door-3x3/archive/piston-door-3x3-v1-invalid.txt` |
+| 1269 | - | 125 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-4.txt` |
+| 1270 | - | 128 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/v2nf-2.txt` |
+| 1271 | - | 129 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/center-mech/wip/nf2-1.txt` |
+| 1272 | - | 129 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/speed-2/a9.txt` |
+| 1273 | - | 137 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/speed/wire/ideal-13.txt` |
+| 1274 | - | 138 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/speed/wire/w3.txt` |
+| 1275 | - | 140 | solid | yes |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/speed/wire/w6b.txt` |
+| 1276 | - | 24 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [20, 2, 0] is mine | `HEAD:designs/piston-door-3x3/tracks/sculk/tflipflop.txt` |
+| 1277 | - | 29 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [2, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/t10-sk1.txt` |
+| 1278 | - | 30 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t1.txt` |
+| 1279 | - | 30 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t5.txt` |
+| 1280 | - | 31 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t2.txt` |
+| 1281 | - | 32 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t3.txt` |
+| 1282 | - | 33 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/g2-ideal.txt` |
+| 1283 | - | 33 | gravity | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/sf-ideal.txt` |
+| 1284 | - | 34 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity-2/t4.txt` |
+| 1285 | - | 35 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/g1-ideal.txt` |
+| 1286 | - | 36 | sculk |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [0, 2, 2] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/sculk-ew/s4-ew0.txt` |
+| 1287 | - | 44 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [0, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/finds-kept/t8L-far-75.txt` |
+| 1288 | - | 44 | sculk |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/top-control/rb2s.txt` |
+| 1289 | - | 45 | sculk |  |  | broken: at offset [0, 0, 0]: cycle 0: door not restored: [1, 1, 0] is minecraft:air, was minecraft | `HEAD:designs/piston-door-3x3/tracks/fresh-a/wip/rb2-sculk.txt` |
+| 1290 | - | 45 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/sculk/finds-kept/t10s-far-75.txt` |
+| 1291 | - | 48 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/cand/s1.txt` |
+| 1292 | - | 48 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/cand/s2.txt` |
+| 1293 | - | 49 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/g5.txt` |
+| 1294 | - | 49 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: still moving 400 ticks after opening | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/cand/s3.txt` |
+| 1295 | - | 49 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: still moving 400 ticks after opening | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/cand/s4.txt` |
+| 1296 | - | 49 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: still moving 400 ticks after opening | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/cand/v2.txt` |
+| 1297 | - | 49 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/cand/v3.txt` |
+| 1298 | - | 50 | sculk | yes |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 2, 0] is minec | `origin/explore/m79s:designs/piston-door-3x3/tracks/m79s/cand/v4.txt` |
+| 1299 | - | 51 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/g1-base.txt` |
+| 1300 | - | 115 | gravity |  |  | broken: at offset [0, 0, 0]: cycle 0: not open after the lever was switched on: [1, 1, 0] is minec | `HEAD:designs/piston-door-3x3/tracks/gravity/v2-sand.txt` |
 
 </details>
