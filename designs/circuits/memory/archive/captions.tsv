@@ -1,0 +1,3 @@
+file	caption
+d-latch-repeater.txt	Repeater-lock D latch, 4 blocks (track memory census): the data input feeds repeater M (on stone) whose output is q; the enable input feeds a second repeater L pointing into M's side. While L is on M is locked and holds q; while it is off M follows d. Transparent while e is OFF (`enable low`), latency 4 gt.
+rs-dropper.txt	Dropper RS latch, 4 blocks (track memory): droppers A (facing east) and B (facing west) face each other and hold one stone. s (next to A) fires A and the stone goes to B; r (next to B) fires B and it comes back; firing the empty one does nothing, so repeated s or r change nothing. A comparator on stone reads B: q is its output (1). Latency 6 gt (dropper 4 + comparator 2).
