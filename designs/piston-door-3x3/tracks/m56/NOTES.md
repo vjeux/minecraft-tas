@@ -51,5 +51,44 @@ TR relay: TRp drop at t_d (dust: 0, repeater d1: 2), TR lands t_d+2, A fires t_d
 t_d + 8 >= 11 and 8 - (t_d + 3) >= 3 cannot both hold. With p3's bottom (A's hold start >= u1+2 >= 5) the
 only fit is TRp at t2, A t5..t8, B at t10: one tick early.
 
+## 4. What the family needs, stated once (by hand, 08:00Z-08:40Z)
+- The corner region next to K (4 cells) wakes only from U's motion. It can drive K AND the outer side
+  puller (L0 / TL+ML) with an ODD count only if U's first visible change is followed by BM's landing
+  within 3 gt, i.e. U's first move is a RETRACTION (U level-held, extended at rest) or a <= 1 gt pulse.
+  Then (0,-2) / (0,4) fire 1 + 2 = 3 times per edge.
+- Original orientation: U's feeders are (2,-2) and its QC cell (1,-1) (via the static (2,-1) or BM's park
+  (0,-1)); the bottom-right learns the lever only as R0's single watcher pulse; no level (no floor for a
+  comparator next to a bulb, torches cannot be toggled by 2 gt pulses), no room for a 0-tick pusher.
+  A lever hung on the static (2,-1) holds U by QC SILENTLY (U is not a neighbour of (2,-1)): the open
+  edge then works (U retracts at the first (2,-2) update), but on close U is QC-powered from t0 and can
+  never spit C, which the close needs (K pushes BM into (1,-1) only after U's head left it).
+- Mirror: U' level-held works ideally (mm10h-i, windows: close level rise 8..10 gt after the close pulse,
+  open pulse >= drop + 6..7) but its one feeder (2,4) needs OR(lever delayed ~10, pulse at t2, late open
+  pulse): ~7 blocks in a 4-cell region (lever (5,3), dropper (4,3) and the K'-push stop take the rest).
+  Closest fit: dust (4,4) on the lever's dropper -> repeater (3,4) d4 on an observer (3,3) watching the
+  dropper -> dust (2,4) on the static (2,3) (pulse via (2,3)): close level at t8 needs the pulse at t0.
+- The c78t elevator variant with A extended at rest (level) lets the top-left watch A at (1,4) from (0,4)
+  and wake at the open edge: worth trying for the ORIGINAL top's 1 gt wall (A's hold from (0,3) timed by
+  the top-left), but its bottom then needs the c79 order (K before U), which the 7x8 corner cannot learn.
+
+- su8-d (mechspace, K' at (3,-1) facing west, BM parks at (2,-1), static (0,-1)): the bottom-left then only
+  drives L0 (p3's chain minus K works: 3 pulses), but in the m10f style the bottom-right's 4 cells cannot
+  feed both U ((2,-2)) and K' ((3,-2), the only free cell next to it) from R0's single watcher at (4,-1)
+  (its output goes down into (4,-2); (3,-2) would have to power K' upward AND pass the signal west to
+  (2,-2)); fed from U's watcher (2,-2) K' has the same 1 gt problem as K at U+2.
+- Structural top wall (7x8 AND 8x8 with the same top, m88c): B's east feeder (2,5) is TRp's QC cell, so
+  B moves at most 8 gt after TRp (one repeater), while the TR relay needs B >= TRp + 9; B's west feeder
+  (0,5) is in the top-left, which wakes only when B moves. A wider box does not help.
+
+## 5. Next ideas (not done)
+- c78t-013's elevator (A EXTENDED at rest at (1,4), held by QC through (1,5) from a repeater at (2,5);
+  B pull-type): the top-left watches A from (0,4) and wakes at A's level drop, then drives B's push, A's
+  hold (via the static (0,3)) and the rest of the elevator from its 8 cells; the lever chain (3,5)->(2,5)
+  gives A's drop/rise at 16 gt on both edges. Breaks the top wall; the bottom then needs the c79 order
+  (K before U) or a level-held U.
+- The lever in the BOTTOM-LEFT (L0 lever-held, U held by QC through the static (0,-1)) with every other
+  region woken in a chain from U.
+- A door-block-type change (oak logs, `satwire --log-doors`) for 1 gt leaves delays next to a log path.
+
 ## Files
 p1/p2 (failed bottom-left variants: bulb, torch follower), p3 (1 gt U works), mm10* (mirror), runs/*.
