@@ -1008,16 +1008,32 @@ impl Prob {
     /// A retracted piston at c facing f could extend in this frame (conservative: a non-mechanism
     /// cell in its push line counts as room).
     pub fn can_extend(&self, fr: &HashMap<C2, String>, c: C2, f: C2) -> bool {
+        self.extend_room(fr, c, f, false)
+    }
+    /// The piston at c certainly has room to extend in frame fr (every cell of its line is known:
+    /// no other timing cluster, no wiring cell the solver still chooses).
+    pub fn can_extend_sure(&self, fr: &HashMap<C2, String>, c: C2, f: C2) -> bool {
+        self.extend_room(fr, c, f, true)
+    }
+    fn extend_room(&self, fr: &HashMap<C2, String>, c: C2, f: C2, sure: bool) -> bool {
         let mut x = c;
         for _ in 0..13 {
             x = add(x, f);
             // a cell of another timing cluster: its state at this recorded tick is not its state
             // at this SAT tick: count it as room (the safe side: power stays off)
             if self.ncl > 1 && self.cl(x) != 0 && self.cl(x) != self.cl(c) {
-                return true;
+                return !sure;
             }
             match fr.get(&x) {
-                None => return true,
+                // a wiring cell: kept wiring is known (a solid is pushed, obsidian and droppers
+                // hold, components break); a cell the solver fills is unknown
+                None => match self.fixed.get(&x) {
+                    Some(Kind::Block | Kind::Note | Kind::Lamp | Kind::Bulb | Kind::Glass | Kind::Obs(_) | Kind::RBlock | Kind::Leaves) => continue,
+                    Some(Kind::Obsid | Kind::Dropper) => return false,
+                    Some(Kind::Dust | Kind::Dot | Kind::Rep(..) | Kind::Torch | Kind::WTorch(_)) => return true,
+                    Some(_) => return !sure,
+                    None => return !(sure && self.kinds.contains_key(&x)),
+                },
                 Some(s) => match mk(s) {
                     MK::Air => return true,
                     MK::Cond | MK::Solid | MK::RBlock if !short(s).contains("obsidian") => continue,
@@ -2580,8 +2596,10 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     let mreq = mraw.filter(|v| *v == recp);
                     // a piston that must stay off while the recording holds it powered (a QC hold the
                     // game never updated): QC power may stay, DIRECT power may not (it always comes
-                    // with an update of the piston, which would fire it)
-                    let qc_only = p.motion && mraw == Some(false) && recp && k >= 1;
+                    // with an update of the piston, which would fire it); only where its room to
+                    // extend is certain (else the game may simply have been blocked)
+                    let stays_ret = tau >= 1 && matches!(ph.frame(tau - 1).get(&c).map(|s| mk(s)), Some(MK::Piston { ext: false, .. })) && ph.frame(tau - 1).get(&c) == ph.frame(tau).get(&c);
+                    let qc_only = p.motion && mraw == Some(false) && recp && k >= 1 && stays_ret && p.can_extend_sure(&ph.frame(tau - 1), c, fc) && p.can_extend_sure(&ph.frame(tau), c, fc);
                     if p.motion && mreq.is_none() && !qc_only {
                         continue;
                     }
