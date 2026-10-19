@@ -1,0 +1,4 @@
+# c70b w1: wool door; bottom-left: plain sensor (-2,-2) hears E1 -> sticky (-3,-2) up -> head into (-3,-1) -> observer (-2,-1) W -> U; observer (-1,-2) W on the sensor -> BL puller. No ideal input.
+design designs/piston-door-3x3/tracks/c70b/wip/w1.txt
+open 0 use 1 5 0
+close 0 use 1 5 0

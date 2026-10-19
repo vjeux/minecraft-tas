@@ -183,6 +183,9 @@ pub enum ItemClockCmd {
         /// Also two filled cells (else one).
         #[arg(long)]
         pairs: bool,
+        /// Also three filled cells (counts up to 2 each).
+        #[arg(long)]
+        triples: bool,
         /// Repeater chains between the comparator and the dropper, comma separated, each a string
         /// of delays (`-` = none): `-,1,2,3,4,11` .
         #[arg(long, default_value = "-")]
@@ -295,7 +298,7 @@ fn drop_case_design(c: &DropCase) -> Option<Design> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, chains: &[Vec<u8>], ticks: u32, jobs: usize, out: Option<&std::path::Path>) -> Result<()> {
+fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, triples: bool, chains: &[Vec<u8>], ticks: u32, jobs: usize, out: Option<&std::path::Path>) -> Result<()> {
     let kinds: Vec<String> = items.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
     let mut cases: Vec<DropCase> = Vec::new();
     for delays in chains {
@@ -308,10 +311,19 @@ fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, chains: &[Ve
                             for i in 0..l {
                                 for n in 1..=max_n {
                                     cases.push((w, xc, mask, rev, vec![(i, n)], kind.clone(), delays.clone()));
-                                    if pairs {
+                                    if pairs || triples {
                                         for j in i + 1..l {
                                             for m in 1..=max_n {
-                                                cases.push((w, xc, mask, rev, vec![(i, n), (j, m)], kind.clone(), delays.clone()));
+                                                if pairs {
+                                                    cases.push((w, xc, mask, rev, vec![(i, n), (j, m)], kind.clone(), delays.clone()));
+                                                }
+                                                if triples && n <= 2 && m <= 2 {
+                                                    for q in j + 1..l {
+                                                        for r in 1..=max_n.min(2) {
+                                                            cases.push((w, xc, mask, rev, vec![(i, n), (j, m), (q, r)], kind.clone(), delays.clone()));
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -512,6 +524,9 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
         ItemClockCmd::Fill { skeleton, free, k, palette, ticks, jobs, out } => {
             let d = load(&skeleton)?;
             let base = Spec::from_design(&d).map_err(|e| anyhow!("{}: {e}", skeleton.display()))?;
+            // The skeleton must place (its nbt lines on real containers): else every candidate
+            // fails the same way and the fill silently finds nothing.
+            let _ = sim::judge(&base, 4, None).map_err(|e| anyhow!("{}: the skeleton does not place: {e}", skeleton.display()))?;
             let (a, b) = free.split_once(':').context("--free takes x0,y0,z0:x1,y1,z1")?;
             let parse3 = |s: &str| -> Result<[i32; 3]> {
                 let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
@@ -704,14 +719,14 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                 promote(&design, &name, &caption, &dir)?;
             }
         }
-        ItemClockCmd::SweepDropring { max_w, max_n, items, pairs, delays, ticks, jobs, out } => {
+        ItemClockCmd::SweepDropring { max_w, max_n, items, pairs, triples, delays, ticks, jobs, out } => {
             let chains: Vec<Vec<u8>> = delays
                 .split(',')
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .map(|s| if s == "-" { Vec::new() } else { s.bytes().map(|b| b - b'0').collect() })
                 .collect();
-            sweep_dropring(max_w, max_n, &items, pairs, &chains, ticks, jobs, out.as_deref())?;
+            sweep_dropring(max_w, max_n, &items, pairs, triples, &chains, ticks, jobs, out.as_deref())?;
         }
         ItemClockCmd::SweepRinglock { min_d, max_d, max_row, max_hopper, all, max_items, item, ticks, jobs, out } => {
             use crate::families::{Stack, measure, ring_lock};

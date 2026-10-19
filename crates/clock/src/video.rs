@@ -199,78 +199,114 @@ pub fn clip_path(out: &Path) -> PathBuf {
 /// Film the clean clip: the clock placed and kicked like the judge, its warmup stepped unseen, then
 /// `plan.ticks` ticks played at `plan.tps` for a still camera; its first frame as `<clip>.png`.
 pub fn record_clip(version: &str, c: &Clock, p: &Plan, clip: &Path, o: &ClockVideoOptions) -> Result<()> {
-    static RUN_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let client_build = video::build_client(version)?;
-    let display = Display::start(o.width, o.height)?;
-    let port = {
-        let l = std::net::TcpListener::bind("127.0.0.1:0")?;
-        l.local_addr()?.port()
-    };
-    let n = RUN_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let run = mctas::paths::run_dir().join(format!("clock-video-{}-{n}", std::process::id()));
-    std::fs::create_dir_all(&run)?;
-    let cfg = WorkerConfig { version: version.to_string(), listen: Some(port), stderr_log: Some(run.join("server.log")), ..Default::default() };
-    let mut w = Worker::spawn(&cfg)?;
-    let sb = w.create(&SandboxOptions { chunks: [-7, -7, 6, 6], seed: 0 })?;
-    place(&mut w, sb, c)?;
-    let fy = p.lo[1] - 2;
-    w.fill(sb, [-110, fy, -110], [109, fy, 109], "minecraft:grass_block", PlaceMode::Raw)?;
-    w.exec(sb, "time set noon")?;
-    w.view_distance(sb, 8)?;
-    // the kick and the warmup, unseen
-    let mut actions = c.actions();
-    for t in 0..=p.skip {
-        while actions.first().is_some_and(|(at, _)| *at == t) {
-            let (_, a) = actions.remove(0);
-            apply(&mut w, sb, &a)?;
+    let mut s = VideoSession::start(version, o)?;
+    s.record(c, p, clip, o)
+}
+
+/// One client session for many clips (the montage): two sandboxes used in turn (cleared, never
+/// dropped: dropping a level the client has visited takes ~10 s), the camera always entering the
+/// next clock's sandbox from the other one (the client loads it fresh).
+pub struct VideoSession {
+    display: Display,
+    client: Client,
+    w: Worker,
+    pair: [u32; 2],
+    cam_in: Option<u32>,
+    run: PathBuf,
+    clips: usize,
+}
+
+impl VideoSession {
+    pub fn start(version: &str, o: &ClockVideoOptions) -> Result<VideoSession> {
+        static RUN_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let client_build = video::build_client(version)?;
+        let display = Display::start(o.width, o.height)?;
+        let port = {
+            let l = std::net::TcpListener::bind("127.0.0.1:0")?;
+            l.local_addr()?.port()
+        };
+        let n = RUN_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let run = mctas::paths::run_dir().join(format!("clock-video-{}-{n}", std::process::id()));
+        std::fs::create_dir_all(&run)?;
+        let cfg = WorkerConfig { version: version.to_string(), listen: Some(port), stderr_log: Some(run.join("server.log")), ..Default::default() };
+        let mut w = Worker::spawn(&cfg)?;
+        let pair = [w.create(&SandboxOptions { chunks: [-7, -7, 6, 6], seed: 0 })?, w.create(&SandboxOptions { chunks: [-7, -7, 6, 6], seed: 0 })?];
+        for sb in pair {
+            w.view_distance(sb, 6)?;
         }
-        if t < p.skip {
-            w.step(sb, 1)?;
-        }
-    }
-    let mut client = Client::launch(&client_build, &display, port, o.width, o.height, &run.join("client"))?;
-    let deadline = Instant::now() + Duration::from_secs(240);
-    while w.viewers()? == 0 {
-        if !client.alive() {
-            bail!("the client exited; see {}", client.log.display());
-        }
-        if Instant::now() > deadline {
-            bail!("the client never joined; see {}", client.log.display());
-        }
-        w.hold(500)?;
-    }
-    let aspect = o.width as f64 / o.height as f64;
-    let lo = [p.lo[0] as f64 - 0.25, p.lo[1] as f64 - 0.25, p.lo[2] as f64 - 0.25];
-    let hi = [p.hi[0] as f64 + 1.25, p.hi[1] as f64 + 1.25, p.hi[2] as f64 + 1.25];
-    let (eye, yaw, pitch) = video::frame_box(lo, hi, [-0.55, 0.6, 1.0], VFOV, aspect, 0.8);
-    w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
-    w.hold(12_000)?;
-    video::screenshot(&display, o.width, o.height, &clip.with_extension("png"))?;
-    let raw = run.join("raw.mkv");
-    let rec = Recorder::start(&display, o.width, o.height, o.fps, &raw)?;
-    let t0 = Instant::now();
-    let wait = |w: &mut Worker, until: f64| -> Result<()> {
-        loop {
-            let now = t0.elapsed().as_secs_f64();
-            if now >= until {
-                return Ok(());
+        let mut client = Client::launch(&client_build, &display, port, o.width, o.height, &run.join("client"))?;
+        let deadline = Instant::now() + Duration::from_secs(240);
+        while w.viewers()? == 0 {
+            if !client.alive() {
+                bail!("the client exited; see {}", client.log.display());
             }
-            w.hold((((until - now) * 1000.0) as u64).clamp(1, 20))?;
+            if Instant::now() > deadline {
+                bail!("the client never joined; see {}", client.log.display());
+            }
+            w.hold(500)?;
         }
-    };
-    let mut clock = 1.0;
-    wait(&mut w, clock)?;
-    for _ in 0..p.ticks {
-        w.play(sb, 1, 1000.0)?;
-        clock += 1.0 / p.tps;
-        wait(&mut w, clock)?;
+        Ok(VideoSession { display, client, w, pair, cam_in: None, run, clips: 0 })
     }
-    clock += 1.0;
-    wait(&mut w, clock)?;
-    let raw = rec.stop()?;
-    drop(client);
-    video::encode_crf(&raw, clip, 1.0, o.crf)?;
-    Ok(())
+
+    /// Film one clock: built and run through its kick and warmup unseen in the sandbox the camera
+    /// is not in, then the camera enters, settles, and `p.ticks` ticks are played and recorded.
+    pub fn record(&mut self, c: &Clock, p: &Plan, clip: &Path, o: &ClockVideoOptions) -> Result<()> {
+        let w = &mut self.w;
+        let sb = if self.cam_in == Some(self.pair[0]) { self.pair[1] } else { self.pair[0] };
+        w.clear(sb)?;
+        place(w, sb, c)?;
+        let fy = p.lo[1] - 2;
+        w.fill(sb, [-110, fy, -110], [109, fy, 109], "minecraft:grass_block", PlaceMode::Raw)?;
+        w.exec(sb, "time set noon")?;
+        // the kick and the warmup, unseen
+        let mut actions = c.actions();
+        for t in 0..=p.skip {
+            while actions.first().is_some_and(|(at, _)| *at == t) {
+                let (_, a) = actions.remove(0);
+                apply(w, sb, &a)?;
+            }
+            if t < p.skip {
+                w.step(sb, 1)?;
+            }
+        }
+        if !self.client.alive() || w.viewers()? == 0 {
+            bail!("the client left; see {}", self.client.log.display());
+        }
+        let aspect = o.width as f64 / o.height as f64;
+        let lo = [p.lo[0] as f64 - 0.25, p.lo[1] as f64 - 0.25, p.lo[2] as f64 - 0.25];
+        let hi = [p.hi[0] as f64 + 1.25, p.hi[1] as f64 + 1.25, p.hi[2] as f64 + 1.25];
+        let (eye, yaw, pitch) = video::frame_box(lo, hi, [-0.55, 0.6, 1.0], VFOV, aspect, 0.8);
+        w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
+        self.cam_in = Some(sb);
+        w.hold(if self.clips == 0 { 12_000 } else { 3_000 })?;
+        self.clips += 1;
+        video::screenshot(&self.display, o.width, o.height, &clip.with_extension("png"))?;
+        let raw = self.run.join(format!("raw-{}.mkv", self.clips));
+        let rec = Recorder::start(&self.display, o.width, o.height, o.fps, &raw)?;
+        let t0 = Instant::now();
+        let wait = |w: &mut Worker, until: f64| -> Result<()> {
+            loop {
+                let now = t0.elapsed().as_secs_f64();
+                if now >= until {
+                    return Ok(());
+                }
+                w.hold((((until - now) * 1000.0) as u64).clamp(1, 20))?;
+            }
+        };
+        let mut clock = 1.0;
+        wait(w, clock)?;
+        for _ in 0..p.ticks {
+            w.play(sb, 1, 1000.0)?;
+            clock += 1.0 / p.tps;
+            wait(w, clock)?;
+        }
+        clock += 1.0;
+        wait(w, clock)?;
+        let raw = rec.stop()?;
+        video::encode_crf(&raw, clip, 1.0, o.crf)?;
+        let _ = std::fs::remove_file(&raw);
+        Ok(())
+    }
 }
 
 /// The published video: the clean clip with the corner label (and the title card first).
@@ -337,6 +373,7 @@ pub fn montage(version: &str, items: &[(String, Clock)], out_dir: &Path, periods
     std::fs::create_dir_all(&clips)?;
     let mut by_period: std::collections::BTreeMap<u32, Vec<(String, PathBuf, Plan)>> = std::collections::BTreeMap::new();
     let mut lines = Vec::new();
+    let mut session: Option<VideoSession> = None;
     for (stem, c) in items {
         let p = match plan(version, c, o) {
             Ok(p) => p,
@@ -350,11 +387,22 @@ pub fn montage(version: &str, items: &[(String, Clock)], out_dir: &Path, periods
         }
         let out = clips.join(format!("{stem}.mp4"));
         let vo = ClockVideoOptions { relabel: true, card: false, dry_run: false, ..o.clone() };
-        match video(version, c, &out, &vo) {
+        // every clip is filmed in ONE client session (a clip already filmed is reused)
+        let clip = clip_path(&out);
+        let filmed = if clip.exists() {
+            Ok(())
+        } else {
+            if session.is_none() {
+                session = Some(VideoSession::start(version, &vo)?);
+            }
+            session.as_mut().unwrap().record(c, &p, &clip, &vo)
+        };
+        match filmed.and_then(|_| compose(version, &p, &clip, &out, &vo)) {
             Ok(_) => by_period.entry(p.period).or_default().push((stem.clone(), out, p)),
             Err(e) => lines.push(format!("SKIP {stem}: {e:#}")),
         }
     }
+    drop(session);
     let font = Font::minecraft(version)?;
     let dirt = mcfont::texture(version, "block/dirt")?;
     for (period, mut vids) in by_period {
