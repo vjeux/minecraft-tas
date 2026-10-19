@@ -54,6 +54,10 @@ pub struct FillOpts {
     /// Region cells may hold pistons (wiring pistons such as s27's parity reshaper); the door's
     /// mechanism pistons must stay out of the region.
     pub allow_pistons: bool,
+    /// Accept finds that fail the rotation check (by default every find must also work turned 90,
+    /// 180 and 270 degrees, checked on redsim like `door verify`: the boards rank rotation-safe
+    /// doors).
+    pub any_rotation: bool,
 }
 
 /// Palette shorthands -> exact block states.
@@ -240,6 +244,86 @@ fn support_of(b: &Block, p: Pos) -> Option<Pos> {
         }
         _ => None,
     }
+}
+
+/// A horizontal direction turned `turns` quarter turns clockwise seen from above (N -> E -> S -> W),
+/// like [`crate::rotate_pos`].
+fn rot_dir(d: redsim::Dir, turns: u8) -> redsim::Dir {
+    use redsim::Dir;
+    let mut d = d;
+    for _ in 0..turns % 4 {
+        d = match d {
+            Dir::North => Dir::East,
+            Dir::East => Dir::South,
+            Dir::South => Dir::West,
+            Dir::West => Dir::North,
+            x => x,
+        };
+    }
+    d
+}
+
+/// A redsim block state turned like the game's `BlockState.rotate` (clockwise quarter turns seen
+/// from above); None for states this does not cover (rails, crafters, standing skulls).
+pub fn rot_block(b: Block, turns: u8) -> Option<Block> {
+    let t = turns % 4;
+    let r = |d| rot_dir(d, t);
+    Some(match b {
+        Block::Glazed { facing } => Block::Glazed { facing: r(facing) },
+        Block::Wire { north, east, south, west, power } => {
+            let mut s = [north, east, south, west];
+            for _ in 0..t {
+                s = [s[3], s[0], s[1], s[2]];
+            }
+            Block::Wire { north: s[0], east: s[1], south: s[2], west: s[3], power }
+        }
+        Block::WallTorch { facing, lit } => Block::WallTorch { facing: r(facing), lit },
+        Block::Lever { face, facing, powered } => Block::Lever { face, facing: r(facing), powered },
+        Block::Button { wood, face, facing, powered } => Block::Button { wood, face, facing: r(facing), powered },
+        Block::Repeater { facing, delay, locked, powered } => Block::Repeater { facing: r(facing), delay, locked, powered },
+        Block::Comparator { facing, subtract, powered } => Block::Comparator { facing: r(facing), subtract, powered },
+        Block::Observer { facing, powered } => Block::Observer { facing: r(facing), powered },
+        Block::Trapdoor { iron, facing, top, open, powered } => Block::Trapdoor { iron, facing: r(facing), top, open, powered },
+        Block::Door { iron, facing, upper, hinge_right, open, powered } => Block::Door { iron, facing: r(facing), upper, hinge_right, open, powered },
+        Block::FenceGate { facing, in_wall, open, powered } => Block::FenceGate { facing: r(facing), in_wall, open, powered },
+        Block::Dispenser { dropper, facing, triggered } => Block::Dispenser { dropper, facing: r(facing), triggered },
+        Block::Hopper { facing, enabled } => Block::Hopper { facing: r(facing), enabled },
+        Block::WallSkull { facing, powered } => Block::WallSkull { facing: r(facing), powered },
+        Block::EndPortalFrame { facing, eye } => Block::EndPortalFrame { facing: r(facing), eye },
+        Block::Piston { sticky, facing, extended } => Block::Piston { sticky, facing: r(facing), extended },
+        Block::PistonHead { sticky, facing, short } => Block::PistonHead { sticky, facing: r(facing), short },
+        Block::MovingPiston { sticky, facing } => Block::MovingPiston { sticky, facing: r(facing) },
+        Block::Sculk { calibrated, facing, phase, power } => Block::Sculk { calibrated, facing: if calibrated { r(facing) } else { facing }, phase, power },
+        Block::Log { axis } => Block::Log { axis: if t % 2 == 1 && axis != 1 { 2 - axis } else { axis } },
+        Block::Rail { .. } | Block::Crafter { .. } | Block::Skull { .. } => return None,
+        other => other,
+    })
+}
+
+/// The door turned `turns` quarter turns (positions by [`crate::rotate_pos`], states by
+/// [`rot_block`]), with its spec: what `door verify`'s rotation check judges, without the JVM.
+pub fn rotate_rsdoor(d: &RsDoor, turns: u8) -> Option<RsDoor> {
+    let t = turns % 4;
+    let mut blocks: BTreeMap<Pos, Block> = BTreeMap::new();
+    for (p, b) in &d.blocks {
+        blocks.insert(crate::rotate_pos(*p, t), rot_block(*b, t)?);
+    }
+    let cells: Vec<Pos> = d.spec.door_cells().iter().map(|p| crate::rotate_pos(*p, t)).collect();
+    let min = |i: usize| cells.iter().map(|p| p[i]).min().unwrap();
+    let spec = DoorSpec { door: [min(0), min(1), min(2)], lever: crate::rotate_pos(d.spec.lever, t), along_z: d.spec.along_z != (t % 2 == 1) };
+    Some(RsDoor { spec, blocks: blocks.into_iter().collect() })
+}
+
+/// `door verify`'s rotation check on redsim: the judge with `opts` on the door turned 90, 180 and
+/// 270 degrees. Ok(()) or the first turn that fails and why.
+pub fn rotation_check_rs(d: &RsDoor, opts: &JudgeOpts) -> std::result::Result<(), String> {
+    for t in 1..4u8 {
+        let Some(rd) = rotate_rsdoor(d, t) else { return Err("a block state this rotation does not cover".into()) };
+        if let Err(e) = cs::judge(&rd, opts) {
+            return Err(format!("turned {} degrees: {e}", 90 * t as u32));
+        }
+    }
+    Ok(())
 }
 
 fn combos(n: usize, s: usize) -> Vec<Vec<usize>> {
@@ -486,10 +570,17 @@ pub fn run(o: &FillOpts) -> Result<()> {
                             if cs::judge(&door, &screen_opts).is_ok() {
                                 passed.fetch_add(1, Ordering::Relaxed);
                                 let e = cs::evaluate(&door, &full_opts, false);
-                                let good = e.judge.is_ok()
+                                let mut good = e.judge.is_ok()
                                     && (o.any_seamless || e.record_ok())
                                     && (o.max_blocks == 0 || e.blocks <= o.max_blocks)
                                     && (o.max_volume == 0 || e.volume.is_some_and(|(v, _)| v <= o.max_volume));
+                                let mut rot_note = String::new();
+                                if good && !o.any_rotation {
+                                    if let Err(why) = rotation_check_rs(&door, &full_opts) {
+                                        good = false;
+                                        rot_note = format!(" | NOT rotation-safe: {}", why.chars().take(160).collect::<String>());
+                                    }
+                                }
                                 let desc: Vec<String> = (0..n).map(|j| format!("({},{}) {}", it.cells[j][0] - spec.door[0], it.cells[j][1] - spec.door[1], pal_states[it.pals[j]][idx[j]].0.trim_start_matches("minecraft:"))).collect();
                                 if good {
                                     let key = desc.join(" ");
@@ -506,7 +597,7 @@ pub fn run(o: &FillOpts) -> Result<()> {
                                         }
                                     }
                                 } else {
-                                    println!("screen pass, rejected: {} | {}", cs::eval_line("cand", &e, 0.0), desc.join(" "));
+                                    println!("screen pass, rejected: {}{rot_note} | {}", cs::eval_line("cand", &e, 0.0), desc.join(" "));
                                 }
                             }
                         } else {

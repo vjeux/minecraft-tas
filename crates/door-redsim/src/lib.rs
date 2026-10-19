@@ -23,7 +23,7 @@ pub enum DoorCmd {
     Fill {
         design: PathBuf,
         /// Region cells, door coordinates `x,y;x,y` (ranges `x0..x1,y` allowed).
-        #[arg(long)]
+        #[arg(long, default_value = "")]
         cells: String,
         /// Cells always filled, `x,y=state|state;...` (shorthands as --palette); not counted in --k.
         #[arg(long, default_value = "")]
@@ -72,6 +72,13 @@ pub enum DoorCmd {
         /// Region cells may hold (wiring) pistons; put piston states in the palette to re-grow them.
         #[arg(long)]
         allow_pistons: bool,
+        /// Accept finds that are not rotation-safe (by default each find must also pass the judge
+        /// turned 90/180/270 degrees, on redsim).
+        #[arg(long)]
+        any_rotation: bool,
+        /// Only run the redsim rotation check on these designs and exit (calibration).
+        #[arg(long)]
+        rotation_only: bool,
     },
     /// Flip a design's lever N times in redsim at the judge's 4 positions and check it alternates
     /// between an open state (opening clear, frame 12/12) and a closed one (cycle.rs). Accepts a
@@ -290,7 +297,16 @@ pub enum DoorCmd {
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
-    if let DoorCmd::Fill { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, max_volume, count, report, any_seamless, allow_pistons } = cmd {
+    if let DoorCmd::Fill { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, max_volume, count, report, any_seamless, allow_pistons, any_rotation, rotation_only } = cmd {
+        if rotation_only {
+            let (_, door) = crate::cosearch::load_door(&design)?;
+            let opts = crate::cosearch::JudgeOpts::with_extra(extra);
+            match crate::fill::rotation_check_rs(&door, &opts) {
+                Ok(()) => println!("{}: rotation-safe on redsim (turned 90, 180, 270 degrees, {} positions each)", design.display(), opts.offsets.len()),
+                Err(e) => println!("{}: NOT rotation-safe on redsim: {e}", design.display()),
+            }
+            return Ok(());
+        }
         let o = crate::fill::FillOpts {
             design,
             cells: crate::fill::parse_cells(&cells)?,
@@ -311,6 +327,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             report,
             any_seamless,
             allow_pistons,
+            any_rotation,
         };
         let _ = version;
         return crate::fill::run(&o);
