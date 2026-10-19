@@ -466,6 +466,13 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
 /// Replay an ideal schedule: the mechanism frames, and the power the redstone blocks give each
 /// piston (direct or quasi-connected) per tick.
 pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> Result<Rec> {
+    record_ideal_only(w, s, ticks, None)
+}
+
+/// [`record_ideal`]; with `only = Some(tr)` the other phase is played without snapshots (its
+/// Phase stays empty) and the recorded phase stops 24 ticks after its last event: the fast path
+/// for menu alternatives.
+pub fn record_ideal_only(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32, only: Option<usize>) -> Result<Rec> {
     let d = s.design().clone();
     let door = *d.ports.get("door").context("design has no 'port door'")?;
     let spec = DoorSpec { door, lever: door, along_z: false };
@@ -537,6 +544,26 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
     let mut phases: [Phase; 2] = Default::default();
     for (ph, open) in [(0usize, true), (1usize, false)] {
         let evs = s.events_of(open, s.vars())?;
+        let ticks = match only {
+            Some(_) => ticks.min(evs.iter().map(|e| e.0).max().unwrap_or(0) + 24),
+            None => ticks,
+        };
+        if only.is_some_and(|o| o != ph) {
+            for t in 0..=ticks {
+                for (et, p, st) in &evs {
+                    if *et == t {
+                        if st.as_deref() == Some("@use") {
+                            w.use_block(sb, *p)?;
+                            continue;
+                        }
+                        let state = st.clone().unwrap_or_else(|| "minecraft:air".to_string());
+                        w.set_blocks(sb, &[(*p, state)], PlaceMode::Update)?;
+                    }
+                }
+                w.step(sb, 1)?;
+            }
+            continue;
+        }
         let before = snap(w)?;
         let mut held: HashMap<C2, String> = HashMap::new();
         let mut prev = mech(&before.0, &HashMap::new(), &mut held);
@@ -597,8 +624,10 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         ph.trim();
     }
     let mut rest = BTreeMap::new();
-    for (c, st) in &phases[0].frames[0] {
-        rest.insert([c.0, c.1, z], st.clone());
+    if let Some(f0) = phases.iter().find_map(|p| p.frames.first()) {
+        for (c, st) in f0 {
+            rest.insert([c.0, c.1, z], st.clone());
+        }
     }
     Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: None, groups: Vec::new() })
 }
@@ -1067,7 +1096,7 @@ pub fn add_menu(w: &mut Worker, rec: &mut Rec, items: &[(String, usize, String, 
     let mut log = Vec::new();
     let mut by: BTreeMap<(usize, String), Vec<(String, Phase)>> = BTreeMap::new();
     for (g, tr, label, s) in items {
-        let r = match record_ideal(w, s, ticks) {
+        let r = match record_ideal_only(w, s, ticks, Some(*tr)) {
             Ok(r) => r,
             Err(e) => {
                 log.push(format!("menu {g} {label}: recording failed: {e:#}"));

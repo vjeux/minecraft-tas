@@ -63,3 +63,29 @@ SU(1,-2) SD(1,4) SW(4,0) SW(4,1) SW(4,2) (= v3 7x8-022 = fm-7x8-019: it FITS 7x8
 one more column (x=-3) and one more row (y=-4). Its lifted SU(1,-2) at the ring cell (1,-1) is fed
 through a smooth stone in the never-swept ring cell (2,-1) (observer below it): families' NO-FEED
 filter misses such relays, satwire models them.
+* `satwire --check` on e89b: 0 / 864 piston-tick mismatches (the encoding admits its wiring).
+* `--from-wired` e89b in its own 8x9 box (real power trains, `--forbid-ring`, small palette): SAT,
+  judge OK at 32 positions, 61 blocks (calib/e89b-real-8x9-nohall.log).
+* families' IDEAL plans of the same mechanism (calib/ideal/e89b-{sym,oc}.ideal) in the same box:
+  UNSAT (sym and oc), and the elevator-hold variants UNSAT in all four 8x9 placements
+  (CALIB.tsv). So the PLAN is what fails, not the mechanism: e89b's real trains hold the elevator
+  8 gt (one level instead of push-spit + pull-back pulses), give the lifted SU(1,-2) and the resting
+  SU(1,-2) 1 gt pulses, fire BR at t10 but MR/TR at t32, the left column during the elevator hold.
+  Every UNSAT of this sweep is therefore "this train (+- warp) cannot be wired in this encoding"
+  (UNSAT-train), never "this mechanism cannot be wired".
+* e89b's real trains in a 7x8 box (x -2..4, y -3..4, warp 12/12): UNSAT. Geometrically its 7x8 box
+  has no top-bottom link at all: both side columns are full walls of pullers, the top pockets see
+  only SD(1,4) and each other, the bottom pockets only the elevator column; e89b's x=-3 observer
+  column is exactly that missing link.
+
+## Menus (18:00Z): let the solver pick the timing per toggle and the core variant
+`satwire` alternative groups (`Rec.groups`, `add_menu`): a group's cells read their frames and
+piston power from the alternative the solver picks (one selector per alternative, exactly one per
+group); everything else from the base. `door satsweep --menu-core --menu-shifts=... --menu-widths
+... --menu-triples` builds them: one group per toggle (input pulsed once outside the core span:
+shifted, re-widthed, tripled) and one CORE group (one core pulse shifted -3..+6 or re-widthed
+1/3/4 gt, or two pulses of one input held as one level). Alternatives are recorded one by one (the
+other phase played without snapshots) and kept when they start and end like the base trace;
+groups whose cells meet an earlier group's are dropped. satwire's owner (session 1e942b23) adds
+motion-derived requirements and measured windows on top (agreed design: menus as they are,
+windows replace the shift lists).
