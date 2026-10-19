@@ -45,6 +45,11 @@ enum Cmd {
         #[command(subcommand)]
         command: clock_cli::ClockCmd,
     },
+    /// The in-browser viewer (docs/webrender.md): offscreen PNG shots, checks, the wasm bundle.
+    Web {
+        #[command(subcommand)]
+        command: web_cli::WebCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -120,6 +125,7 @@ fn main() -> Result<()> {
         Cmd::Bench(args) => bench::run(&cli.version, args)?,
         Cmd::Door { command } => door::run(&cli.version, command)?,
         Cmd::Clock { command } => clock_cli::run(&cli.version, command)?,
+        Cmd::Web { command } => web_cli::run(&cli.version, command)?,
     }
     Ok(())
 }
