@@ -1030,11 +1030,28 @@ impl Prob {
                     if started && ends { None } else { Some(true) }
                 }
             }
+            MK::Other if tau >= 2 => {
+                // the retraction that started one tick ago (the base is a moving piston now): a
+                // 1 gt or a long pulse may end one tick late, but not later: off from here
+                let b2 = ph.frame(tau - 2).get(&c).map_or(MK::Air, |s| mk(s));
+                let moving = ph.frame(tau - 1).get(&c).is_some_and(|s| short(s) == "moving_piston");
+                if moving && matches!(b2, MK::Piston { ext: true, .. }) { Some(false) } else { None }
+            }
             _ => None,
         }
     }
-    /// A retracted piston at c facing f could extend in this frame (conservative: a non-mechanism
-    /// cell in its push line counts as room).
+    /// The facing of the piston whose power matters at recorded tick tau: the piston in frame
+    /// tau-1, or the extended piston that started retracting at tau-1 (now a moving piston).
+    pub fn req_facing(&self, ph: &Phase, tau: i32, c: C2) -> Option<C2> {
+        match ph.frame(tau - 1).get(&c).map(|s| mk(s)) {
+            Some(MK::Piston { f, .. }) => Some(f),
+            _ if tau >= 2 && ph.frame(tau - 1).get(&c).is_some_and(|s| short(s) == "moving_piston") => match ph.frame(tau - 2).get(&c).map(|s| mk(s)) {
+                Some(MK::Piston { f, ext: true, .. }) if self.motion => Some(f),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
     pub fn can_extend(&self, fr: &HashMap<C2, String>, c: C2, f: C2) -> bool {
         self.extend_room(fr, c, f, false)
     }
@@ -2639,7 +2656,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                 let opts = p.frame_opts(tr, c);
                 for (tau, wl) in m.warp_at_c(tr, k, p.cl(c)) {
                   for (ga, ph) in &opts {
-                    let MK::Piston { f: fc, .. } = ph.frame(tau - 1).get(&c).map_or(MK::Air, |s| mk(s)) else { continue };
+                    let Some(fc) = p.req_facing(ph, tau, c) else { continue };
                     // motion mode: the power matters only where the motion needs it AND the recording
                     // agrees (a recorded disagreement is the game tolerating it: a QC-held piston
                     // without an update, the 2nd tick of a short pulse...)
