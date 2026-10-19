@@ -1978,6 +1978,46 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             warp[tr].push(wc);
         }
     }
+    // cluster timings keep the recorded ORDER of events across clusters: when cluster Y starts its
+    // event of recorded tick b, every cluster X has started its last event before b, at least
+    // min(3, gap) ticks earlier (its motion has completed); ties of the recording stay free
+    if p.ncl > 2 {
+        let mut ge_cache: HashMap<(usize, usize, i32, i32), Lit> = HashMap::new();
+        let mut ge = |e: &mut Enc, warp: &[Vec<Vec<Vec<(i32, Lit)>>>; 2], tr: usize, cl: usize, k: i32, t: i32| -> Lit {
+            if k <= 0 {
+                return e.konst(t <= 0);
+            }
+            if let Some(l) = ge_cache.get(&(tr, cl, k, t)) {
+                return *l;
+            }
+            let lits: Vec<Lit> = warp[tr][cl][k as usize].iter().filter(|x| x.0 >= t).map(|x| x.1).collect();
+            let l = e.or(&lits);
+            ge_cache.insert((tr, cl, k, t), l);
+            l
+        };
+        for tr in 0..2 {
+            let kk = p.rec.phases[tr].k();
+            let motion: Vec<Vec<i32>> = (0..p.ncl).map(|cl| (1..=kk).filter(|t| !p.static_tick_c(tr, *t, cl)).collect()).collect();
+            // event starts: a motion tick whose previous tick was static
+            let starts: Vec<Vec<i32>> = motion.iter().map(|v| v.iter().copied().filter(|t| !v.contains(&(t - 1))).collect()).collect();
+            for y in 1..p.ncl {
+                for &b in &starts[y] {
+                    for x in 1..p.ncl {
+                        if x == y {
+                            continue;
+                        }
+                        let Some(&a) = starts[x].iter().filter(|a| **a < b).max() else { continue };
+                        let d = (b - a).min(3);
+                        for k in 1..=p.h {
+                            let gy = ge(&mut e, &warp, tr, y, k, b);
+                            let gx = ge(&mut e, &warp, tr, x, k - d, a);
+                            e.add(&[!gy, gx]);
+                        }
+                    }
+                }
+            }
+        }
+    }
     let mut m = Model {
         p,
         e,
