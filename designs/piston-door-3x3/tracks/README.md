@@ -86,3 +86,4 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
   t3n works in redsim with walls, A pulse 0 and the B boost wired, only P_M and a left redstone-block
   shuttle ideal; the shuttle's push/pull (>= 5 gt apart) and P_M share every source left of it.
 - [vmid](vmid/NOTES.md): 7x8 mechanisms whose middle-row side blocks leave VERTICALLY (no row-1 wall): vm1 (twin elevators), vc1 / vb2 / vb3 (the carried puller: a corner piston pushed into the ring pulls ML in 2 rows), all ideal at 32 positions; `door connect` and cosearch on them, no wired door yet
+- [c70](c70/NOTES.md): ceil's c070x (8x7 = 56) wired: M by a calibrated sensor (-1,4) facing west (taps t4/t14/t24), U by a sensor-pushed observer (lands in (-1,-2), fires t11), BM by c77's chain: wip/m2.txt works with only BL ideal (redsim 32x3, JVM 4x2); BL's only feed (-1,-2) is the U observer's cell
