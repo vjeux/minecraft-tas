@@ -823,7 +823,8 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
         for y in p.lo[1] - 1..=p.hi[1] + 1 {
             for x in p.lo[0] - 1..=p.hi[0] + 1 {
                 let q = BlockPos::new(x, y, z);
-                if !in_box(p, x, y) && q != lever {
+                // (an in-plane plan input's cell holds the plan's own block, not the build's)
+                if !in_box(p, x, y) && q != lever && !p.assist_in_plane.contains(&(x, y)) {
                     v.push(q);
                 }
             }
@@ -861,7 +862,7 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
             let clean = p.ring.iter().filter(|(x, y)| cs::frame_filled(&w.get(at(*x, *y)))).count() as i32;
             pts += clean;
             // nothing of the build outside the box
-            let outside = plane_cells(p, z).iter().filter(|q| !in_box(p, q.x, q.y) && *q != &lever && !w.get(**q).is_air()).count() as i32;
+            let outside = plane_cells(p, z).iter().filter(|q| !in_box(p, q.x, q.y) && *q != &lever && !p.assist_in_plane.contains(&(q.x, q.y)) && !w.get(**q).is_air()).count() as i32;
             pts -= outside;
         }
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
@@ -1736,6 +1737,13 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
             place_lever(&mut g, x, y);
         }
         clean_seed(&prob, &mut g);
+        // in-plane plan inputs ON at rest (a mechanism file without its ideal inputs): their
+        // redstone blocks join the seed (released inputs clear them in the combinations)
+        for (_, q, b) in &prob.assist_rest_all {
+            if q.z == g.z && g.get(q.x, q.y).is_air() {
+                g.set(q.x, q.y, *b);
+            }
+        }
         if !prob.assist_pistons.is_empty() {
             g.assist = if prob.assist_pistons.len() == 64 { u64::MAX } else { (1u64 << prob.assist_pistons.len()) - 1 };
             if let Some(cells) = &a.assist_cells {
