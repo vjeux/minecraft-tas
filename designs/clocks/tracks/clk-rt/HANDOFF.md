@@ -23,9 +23,14 @@ Space memory `minecraft-tas/clocks/families/rt.md`.
   x2), comparator COUNTERS (+26 blocks per x14): P1596 at 44 blocks, P22344 (18.6 min) at 70,
   P312816 (4 h 20 min) at 96; odd long periods with count-7 counters over an odd ring: P161 (44b),
   P1127 (72b).
+- Burnout clocks: P200, P205 (odd kick), P210, P220, P410, P440 (odd kick), P872 (8-16 blocks).
+- Families: torch+repeater, torch+dust+repeater, repeater only, dust+repeater, comparator only
+  (kicked rings), comparator+dust (P4), comparator+repeater, torch+dust only (P12, 14 blocks),
+  and the comparator/torch/dust/repeater mixes (U-loop per-family sweep, fading rings, counters).
 - Theory (impossible.tsv rows, NOTES "Theory"): P1-3 impossible; odd periods need a second parity
-  class (a kick at an odd tick); families with a torch cannot reach P4-8; inverter loops are 0 mod 4
-  and never odd; clean counter decrements need the pulse within L - 1 .. L + 1 gt of the lap.
+  class (a kick at an odd tick); families with a torch cannot reach P4-8; torches alone or dust
+  alone make no clock; inverter loops are 0 mod 4 and never odd; clean counter decrements need the
+  pulse within L - 1 .. L + 1 gt of the lap.
 
 ## Next steps (ideas not done)
 1. Smaller divider stages (18 blocks now) and k = 1 counters (lap 4 gt) that are robust: the
