@@ -2938,6 +2938,23 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     for (i, pk) in pockets.iter().enumerate() {
         println!("  pocket {i}: {} cells {:?}", pk.len(), pk.iter().map(|(x, y)| (x - dx, y - dy)).collect::<Vec<_>>());
     }
+    // FEED REPORT (at rest): per assisted input, the pocket cells next to its piston (direct) or
+    // next to the cell above it (quasi-connectivity). An input with none can only be fed through
+    // blocks (a static, a door block, another piston's body) or by a moving source: the first
+    // thing to fix in a variant when a screen never drives it.
+    let n4 = |x: i32, y: i32| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
+    for &(px, py) in prob.assist_pistons.iter() {
+        let mut feeds: Vec<String> = Vec::new();
+        for (tag, cells) in [("direct", n4(px, py).to_vec()), ("QC", n4(px, py + 1).into_iter().filter(|c| *c != (px, py)).collect::<Vec<_>>())] {
+            for c in cells {
+                if let Some(i) = pockets.iter().position(|pk| pk.contains(&c)) {
+                    feeds.push(format!("{tag} ({},{}) pocket {i}", c.0 - dx, c.1 - dy));
+                }
+            }
+        }
+        let what = if feeds.is_empty() { "NO FREE CELL (only through blocks or a moving source)".to_string() } else { feeds.join(", ") };
+        println!("  feed of the piston at ({},{}): {what}", px - dx, py - dy);
+    }
     let only: Option<Vec<usize>> = pa.only_pockets.as_ref().map(|s| s.split([',', ';']).filter_map(|t| t.trim().parse().ok()).collect());
     let pal = match &pa.fill_states {
         Some(s) => {
