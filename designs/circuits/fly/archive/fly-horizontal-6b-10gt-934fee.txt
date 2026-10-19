@@ -1,0 +1,23 @@
+# archived 2026-10-19T23:52Z from designs/circuits/tracks/fly/c6/fly-horizontal-6b-10gt-934fee.txt by mctas circuit archive
+# CIRCUIT: fly-horizontal-6b-10gt-934fee flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 6 blocks, 3x2x2, robust
+# flies horizontally: piston facing forward + sticky piston facing back; observers watching back + down; 2 slime
+
+# census: 6 blocks, 10 gt per 1 cell(s), first move t2
+name: fly-horizontal-6b-10gt-934fee
+circuit: flying-machine
+distance: 24
+travel: -1 0 0
+port start: 3 1 1 minecraft:stone 1
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  O
+  .
+layer 1:
+  SP
+  sSo
