@@ -143,3 +143,24 @@ That holds with j6's top (the right wakes at 18) and with j12's dust top (the ri
 torch at (3,-2) on the watcher's block makes K level-held, but the watcher gives a pulse, not a level, so K
 pushes BM back. A lever on K's front face fires K at t0. Not tried: a different bottom-right (e.g. B' fed
 from the left, or the gate watching something else) that frees (3,-3) for K.
+
+## 13. cosearch on m88c's top-right (A's hold the only assist), 25 min (07:19Z-07:44Z)
+`door cosearch search --box=-3,-2:4,5 --assist m88c.ideal --lock-pistons --focus-cells='2,5;3,5;3,4;3,3;4,3;-2,3'`:
+80M screens, 0 finds; the best partial is the seed itself (A's hold assisted, 52 blocks). The B/TRp levels and
+the hold can't share the six top-right cells.
+
+## Final report (c2e, 2026-10-19 07:45Z)
+- No wired 7x8 / 7x9 / 8x8 door. Best partials (all door ideal WORKS, 4 positions x 2, frame 12/12):
+  - m10/m88c.txt + .ideal (8x8 = 64): everything real except A's hold (start 7..9, length 3..5); 52 blocks.
+  - m10/m79a.txt + .ideal (7x9 = 63): everything real except A's hold (start 0..3, length 3..6). m10top's
+    m79p since made that hold real with the right family (B pull-type) and works on B/A's last pull/L1-2.
+  - m10/m10b-uk.txt (7x8 = 56): bottom real except L0 (no feed cell left), top ideal.
+- Mechanism: u7-m10 (w63top), the community 7x9 squeezed: BR right, TR up by a level-held TRp, single U, A resting
+  in (1,3). The bottom learns the lever from an observer on R0 (4,-1) -> lamp -> observer -> U twice (5, 11);
+  the bottom-left hears only U ((0,-2) -> ... -> K at U+4), so U must pull BM down BEFORE A's column push.
+- What failed and why: c78 (bottom can't learn the lever, sec 6); 7x8 L0 (feed conflict with K's delay,
+  sec 7); m79p's hold family in 8x8 (A pushes at t4, before U can move: closed circle, sec 11); the q8seed/t8xL
+  bottom (only even-count watchers of the left stack, sec 10); jf's K (sec 12).
+- Next: a hold source on at ~t8..t12 for m88c (two delay paths from the lever into the top-right: no room in
+  6 cells); 8x8 with K mirrored (m88q0) needs a K feed that fires before U; jf with a bottom-right that frees
+  (3,-3) for K.
