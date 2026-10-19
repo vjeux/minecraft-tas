@@ -1,6 +1,6 @@
 [package]
 name = "circuit-pext"
-description = "Contraption study 6, track pext (mctas circuit pext ...): piston extenders; owned by the track, see docs/circuits.md"
+description = "Contraption study 6, track pext (mctas circuit pext ...): piston extenders (push a block out N cells and bring it back exactly from one lever or button): redsim and real-game runners, generators and searches; see designs/circuits/pext/"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,3 +8,7 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clap.workspace = true
+clock = { path = "../clock" }
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }
