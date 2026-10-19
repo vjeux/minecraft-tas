@@ -65,7 +65,9 @@ pub struct SearchArgs {
     #[arg(long, default_value_t = 160)]
     pub max_ticks: u32,
     /// Palette: comma list of families (stone, glass, dust, rblock, torch, walltorch, repeater,
-    /// comparator, observer, sticky, piston, lamp, note, target, bulb) or `all`.
+    /// comparator, observer, sticky, piston, lamp, note, target, bulb, obsidian, trapdoor, dropper,
+    /// slab, leaves, log, glazed; sculk boards: sculk, calibrated, wool, amethyst) or `all` (every
+    /// non-sculk family; `all,sculk,calibrated` adds sensors).
     #[arg(long, default_value = "all")]
     pub palette: String,
     /// Lock the mechanism: no piston is added, removed, moved or re-faced (wiring only).
@@ -448,7 +450,9 @@ fn parse_box(s: &str) -> Result<([i32; 2], [i32; 2])> {
 
 pub fn palette(spec: &str) -> Result<Vec<Block>> {
     let all = "stone,glass,dust,rblock,torch,walltorch,repeater,comparator,observer,sticky,piston,lamp,note,target,bulb,obsidian,trapdoor,dropper,slab,leaves,log,glazed";
-    let spec = if spec == "all" { all } else { spec };
+    // "all" may also stand among other families ("all,sculk,calibrated": the sculk board)
+    let spec: String = spec.split(',').map(str::trim).map(|f| if f == "all" { all } else { f }).collect::<Vec<_>>().join(",");
+    let all = format!("{all},sculk,calibrated,wool,amethyst");
     let mut out = vec![Block::Air];
     for fam in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
         let states: Vec<String> = match fam {
@@ -480,6 +484,17 @@ pub fn palette(spec: &str) -> Result<Vec<Block>> {
             "log" => vec!["oak_log[axis=x]".into(), "oak_log[axis=y]".into()],
             // pushed but never pulled (sticky pistons leave it, slime cannot drag it)
             "glazed" => ["north", "east", "south", "west"].map(|f| format!("white_glazed_terracotta[facing={f}]")).to_vec(),
+            // sculk (its own board, redsim's sculk.rs): a sensor hears game events (pistons
+            // moving, levers, note blocks...) within 8 blocks, wirelessly; active 30 gt then 10 gt
+            // cooldown; weak power on every side, strong into the block below
+            "sculk" => vec!["sculk_sensor".into()],
+            // calibrated: 16 blocks, active 10 gt, no output into its back (facing.opposite()),
+            // whose signal (if any) admits only that frequency (piston extend 10, retract 9)
+            "calibrated" => ["north", "east", "south", "west"].map(|f| format!("calibrated_sculk_sensor[facing={f}]")).to_vec(),
+            // wool hides a vibration whose 6 nudged lines all cross wool
+            "wool" => vec!["white_wool".into()],
+            // amethyst next to an activated sensor re-emits the vibration (resonate_<frequency>)
+            "amethyst" => vec!["amethyst_block".into()],
             f => bail!("unknown palette family {f:?} ({all})"),
         };
         for s in states {
@@ -1014,6 +1029,7 @@ fn refaced(b: &Block, rng: &mut Rng) -> Option<Block> {
         Block::Glazed { .. } => Block::Glazed { facing: [Dir::North, Dir::East, Dir::South, Dir::West][rng.below(4)] },
         Block::Simple(Simple::Obsidian) => Block::Simple(Simple::CryingObsidian),
         Block::Simple(Simple::CryingObsidian) => Block::Simple(Simple::Obsidian),
+        Block::Sculk { calibrated: true, phase, power, .. } => Block::Sculk { calibrated: true, facing: [Dir::North, Dir::East, Dir::South, Dir::West][rng.below(4)], phase, power },
         _ => return None,
     })
 }
