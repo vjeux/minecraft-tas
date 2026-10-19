@@ -12,10 +12,11 @@ use std::process::Command;
 pub const PAGES_URL: &str = "https://vjeux.github.io/minecraft-tas/";
 const REPO: &str = "vjeux/minecraft-tas";
 
-fn git(args: &[&str], env: &[(&str, &Path)], work_tree: Option<&Path>) -> Result<String> {
+fn git(args: &[&str], env: &[(&str, &Path)], work_tree: Option<(&Path, &str)>) -> Result<String> {
     let mut c = Command::new("git");
-    if let Some(w) = work_tree {
-        c.arg("--work-tree").arg(w);
+    if let Some((w, git_dir)) = work_tree {
+        // run inside the folder (so `.` is all of it) against the repository's git dir
+        c.arg("-C").arg(w).arg("--git-dir").arg(git_dir).arg("--work-tree").arg(w);
     }
     c.args(args);
     for (k, v) in env {
@@ -33,11 +34,12 @@ pub fn deploy(a: &DeployArgs) -> Result<()> {
     if !dir.join("index.html").exists() || !dir.join("data/site.json").exists() {
         bail!("{} is not a generated site (no index.html / data/site.json): run `mctas site build` first", dir.display());
     }
+    let git_dir = git(&["rev-parse", "--absolute-git-dir"], &[], None)?;
     let index = std::env::temp_dir().join(format!("mctas-site-index-{}", std::process::id()));
     let _ = std::fs::remove_file(&index);
     let env = [("GIT_INDEX_FILE", index.as_path())];
-    git(&["add", "-A", "-f", "."], &env, Some(&dir))?;
-    let tree = git(&["write-tree"], &env, None)?;
+    git(&["add", "-A", "-f", "."], &env, Some((&dir, &git_dir)))?;
+    let tree = git(&["write-tree"], &env, Some((&dir, &git_dir)))?;
     let _ = std::fs::remove_file(&index);
     let head = git(&["rev-parse", "--short=9", "HEAD"], &[], None).unwrap_or_default();
     let msg = format!("REDSTONEPEDIA: site built by `mctas site build` from {head}");
