@@ -1,0 +1,28 @@
+# archived 2026-10-19T17:24Z from designs/clocks/tracks/clk-item/hopburn-p129.txt by mctas clock archive
+# CLOCK: hopburn-p129 period 129 gt, on 63/129, edges 9, warmup 10, family comparator+hopper+redstone_torch+redstone_wire, 8 blocks, 2x3x3, robust
+# Burnout hybrid, 1 stone (fill on the hopper pair): layout of hopburn-p65 with one stone: the burnout torch locks the west-facing hopper while its dust is lit, which delays the stone by 3 gt once per cycle; the comparator pokes relight the torch: P = 129.
+# redsim: P=129 gt, warmup 27, family comparator+hopper+redstone_wall_torch+redstone_wire, 8 blocks, output on 63/129 gt, 9 rising edge(s)
+
+name: hopburn-p129
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 -2
+palette:
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=west]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  .
+  S
+  .
+layer 1:
+  .R
+  CS
+  Hh
+layer 2:
+  .S
+  .r
+  .

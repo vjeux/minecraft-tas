@@ -1,0 +1,25 @@
+# Hopper ring of 6 (2x3) with two items three hops apart, 8 blocks (clk-item): the state shifts by half a ring every 3 hops of 7 gt: an odd period, 21 gt, from hoppers alone.
+# redsim: P=21 gt, warmup 3, family comparator+hopper, 8 blocks, output on 7/21 gt, 1 rising edge(s)
+
+name: loop6x2-p21
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: 1 1 2 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 -1
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  S
+  .
+  .
+  .
+layer 1:
+  C
+  HA
+  hA
+  hB

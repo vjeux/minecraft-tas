@@ -1,0 +1,29 @@
+# Burnout hybrid, 1 stone (fill on the hopper pair): same layout as hopburn-p64 with one stone sloshing (P 14 slosh): every slosh the compare-mode comparator updates the cell in front of it and pokes the burnt-out wall torch (dust on its own stone); the torch relights after the 60-gt window at the first poke, flips 8 times and burns out again: P = 9 sloshes = 126.
+# redsim: P=126 gt, warmup 96, family comparator+hopper+redstone_wall_torch+redstone_wire, 8 blocks, output on 63/126 gt, 9 rising edge(s)
+
+name: hopburn-p126
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 -3
+palette:
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  R minecraft:redstone_wall_torch[facing=west,lit=true]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=west]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  .
+  .
+  S
+  .
+layer 1:
+  RS
+  .
+  C
+  Hh
+layer 2:
+  Sr
+  .
+  .
+  .

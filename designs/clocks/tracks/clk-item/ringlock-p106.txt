@@ -1,0 +1,23 @@
+# Ring lock, 10 blocks (contents sweep of ringlock-p654): 8 hoppers around a 3x3 square, the middle comparator (on stone) reads one middle hopper and points into the opposite one, locking it while the read hopper holds items, so swords queue up in front of the locked hopper. The period depends only on where the swords start (see the nbt lines): here P = 106.
+# redsim: P=106 gt, warmup 35, family comparator+hopper, 10 blocks, output on 52/106 gt, 4 rising edge(s)
+
+name: ringlock-p106
+port output: 1 0 1
+nbt: 0 0 1 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
+nbt: 0 0 2 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=north,mode=subtract,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer -1:
+  .
+  .S
+  .
+layer 0:
+  ABB
+  ACh
+  HHh

@@ -1,0 +1,14 @@
+# Two hoppers facing each other, one item, a comparator reading the west hopper (first probe).
+name: h2-slosh
+port output: -1 1 0
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -1 0 0
+palette:
+  S minecraft:stone
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  A minecraft:hopper[enabled=true,facing=east]
+  B minecraft:hopper[enabled=true,facing=west]
+layer 0:
+  S
+layer 1:
+  CAB
