@@ -1,6 +1,6 @@
 [package]
 name = "clock-sculk"
-description = "Track clk-sculk's clock commands (mctas clock sculk ...): owned by clk-sculk; see docs/clocks.md"
+description = "Track clk-sculk's clock commands (mctas clock sculk ...): vibration clock generators (sculk / calibrated sensors, amethyst, every vibration source); owned by clk-sculk; see docs/clocks.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,4 +8,6 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clap.workspace = true
 clock = { path = "../clock" }
+mctas = { path = "../mctas" }

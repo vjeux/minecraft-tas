@@ -1,0 +1,12 @@
+# archived 2026-10-19T16:03Z from /tmp/clk-in3/clk-sculk--c31-obs2line-disp.txt by mctas clock archive
+# CLOCK: clk-sculk-c31-obs2line-disp period 31 gt, on 10/31, edges 1, warmup 2, family calibrated_sculk_sensor+dispenser+observer, 4 blocks, 4x1x2, robust
+name: clk-sculk-c31-obs2line-disp
+origin: 0 0 0
+port output: 0 0 0
+port start: 3 0 1 minecraft:redstone_block 1
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:observer[facing=west,powered=false]
+  D minecraft:dispenser[facing=up,triggered=false]
+layer 0:
+  COOD

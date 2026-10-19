@@ -1,0 +1,8 @@
+mark c27-obs3curl-note
+design designs/clocks/tracks/clk-sculk/c27-obs3curl-note.txt
+probe C 1 0 0
+quiet 3
+set 0 0 2 minecraft:redstone_block
+step 1
+clear 0 0 2
+edges C 150

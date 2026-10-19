@@ -50,9 +50,12 @@ pub struct RunOk {
 }
 
 impl RunOk {
-    /// What must agree between builds: period, output waveform, family.
+    /// What must agree between builds: period, output waveform (pulse widths up to a cyclic
+    /// shift: where a period "starts" is arbitrary), family.
     fn signature(&self) -> String {
         let (on, edges, widths) = self.output.as_ref().map(|o| (o.wave.on, o.wave.edges, o.wave.widths.clone())).unwrap_or_default();
+        let n = widths.len();
+        let widths = (0..n.max(1)).map(|k| widths.iter().cycle().skip(k).take(n).copied().collect::<Vec<u32>>()).min().unwrap_or_default();
         format!("P={} on {on} edges {edges} pulses {widths:?} family {}", self.period, wave::signature(&self.analysis.family))
     }
 }
@@ -131,7 +134,8 @@ pub fn rotated(w: &mut Worker, c: &Clock, turns: u8) -> Result<Clock> {
     Clock::from_design(d)
 }
 
-fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
+/// Place a clock like the judge (the kick's inputs are applied by [`apply`] at their ticks).
+pub fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
     let blocks = c.design.block_list();
     let last = c.withheld();
     let kept: Vec<(Pos, String)> = blocks.iter().filter(|(p, _)| Some(*p) != last).cloned().collect();
@@ -162,7 +166,8 @@ fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
     Ok(())
 }
 
-fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
+/// Apply one input of the start kick between ticks.
+pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
     match a {
         Action::Place { pos, state, nbt } => {
             w.set_blocks(sb, &[(*pos, state.clone())], PlaceMode::Update)?;
@@ -255,7 +260,6 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     let mut per_frame: Vec<Vec<u32>> = Vec::with_capacity(frames.len());
     for (t, f) in frames.iter().enumerate() {
         let mut v = Vec::with_capacity(f.data.len());
-        let mut vis = Vec::with_capacity(f.data.len());
         let first = cells.is_empty();
         for (p, s) in f.iter() {
             if first {
@@ -267,13 +271,12 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
                 }
                 crate::grow(&mut slo, &mut shi, p);
             }
+            // the full cell state (block state + comparator strength + container contents)
+            // decides the period, exactly like clock sim
             let extra = extras[t].get(&p).map(|e| e.as_str());
-            // the visible state decides the period; the full one (container contents) feeds the
-            // family and the tables
-            vis.push(int.state(&wave::with_extra(s, wave::visible_extra(extra))));
             v.push(int.state(&wave::with_extra(s, extra)));
         }
-        ids.push(int.frame(&vis));
+        ids.push(int.frame(&v));
         per_frame.push(v);
     }
     let end = c.free_from() as usize;
@@ -285,7 +288,13 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     if analysis.cells.is_empty() {
         return Ok(Err(if p == 1 { format!("goes still at tick {w0}") } else { format!("no block changes in its period ({p} gt)") }));
     }
-    let output = match c.output {
+    let cell_period = |pos: Pos| -> usize {
+        match cells.iter().position(|q| *q == pos) {
+            Some(i) => wave::cyclic_period(&states.iter().map(|v| v[i]).collect::<Vec<_>>()),
+            None => p,
+        }
+    };
+    let (output, output_period) = match c.output {
         Some(op) => {
             let idx = cells.iter().position(|q| *q == op).ok_or_else(|| anyhow!("output outside the box"))?;
             let seq: Vec<bool> = (w0..w0 + p)
@@ -294,12 +303,22 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
                     if wave::family_name(s).is_some() { wave::active(s) } else { signals.get(t).and_then(|v| v.first()).copied().unwrap_or(0) > 0 }
                 })
                 .collect();
+            let levels: Vec<u8> = (w0..w0 + p).map(|t| signals.get(t).and_then(|v| v.first()).copied().unwrap_or(0)).collect();
             let (on, edges, widths) = wave::bool_wave(&seq);
             let states = analysis.cells.iter().find(|w| w.pos == op).map(|w| w.states.clone()).unwrap_or_default();
-            Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths } })
+            let own = if states.is_empty() { wave::cyclic_period(&levels) } else { cell_period(op) };
+            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths } }), own)
         }
-        None => analysis.cells.iter().max_by(|a, b| (a.edges, a.on).cmp(&(b.edges, b.on)).then(b.pos.cmp(&a.pos))).map(|w| Output { pos: w.pos, auto: true, wave: w.clone() }),
+        None => match analysis.cells.iter().max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos))) {
+            Some(w) => (Some(Output { pos: w.pos, auto: true, wave: w.clone() }), cell_period(w.pos)),
+            None => (None, p),
+        },
     };
+    let groups = wave::spatial_groups(&analysis.cells.iter().map(|w| w.pos).collect::<Vec<_>>(), &wave::sensors_of(&c.design.blocks));
+    if output_period < p && output_period > 1 && groups > 1 {
+        let pos = output.as_ref().map(|o| o.pos).unwrap_or([0, 0, 0]);
+        return Ok(Err(format!("COMPOSITE: the output {pos:?} repeats every {output_period} gt but the whole structure every {p} gt, and its changing cells form {groups} independent groups (sub-clocks side by side)")));
+    }
     let dims = [shi[0] - slo[0] + 1, shi[1] - slo[1] + 1, shi[2] - slo[2] + 1];
     Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims }))
 }
@@ -325,6 +344,17 @@ pub fn spawn_pool(o: &VerifyOptions) -> Result<Pool> {
 
 /// [`verify`] with existing workers.
 pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<VerifyReport> {
+    // No `port output`: pick the output cell once (redsim's auto output on the unrotated clock)
+    // and carry it through every rotation and position, so builds compare the same cell.
+    let mut fixed = c.clone();
+    if fixed.output.is_none() {
+        let r = crate::sim::simulate(c, &crate::sim::SimOptions::default());
+        if let (Verdict::Clock, Some(out)) = (r.verdict, r.output) {
+            fixed.design.ports.insert("output".into(), out.pos);
+            fixed.output = Some(out.pos);
+        }
+    }
+    let c = &fixed;
     let offsets = crate::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
@@ -342,6 +372,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
     if ok.is_empty() {
         rep.verdict = Verdict::Invalid;
         rep.robustness = rep.runs.first().and_then(|r| r.result.as_ref().err().cloned()).unwrap_or_default();
+        if rep.robustness.starts_with("COMPOSITE") {
+            rep.verdict = Verdict::Composite;
+        }
         return Ok(rep);
     }
     let base_sig = rep.base().unwrap().signature();
