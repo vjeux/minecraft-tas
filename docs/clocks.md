@@ -47,7 +47,19 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   `redstone_block+sticky_piston`, `redstone_torch+redstone_wire+repeater`.
 * **Type**: the structure (block states with their facings, container contents) up to
   translation, the 4 horizontal rotations and the mirror image (a mirror pair is one type, noted
-  `chiral`).
+  `chiral`), and up to the swaps that leave the run identical (vjeux 2026-10-19, `clock::ident`):
+  sticky pistons count as pistons when they never pull a block, any inert full solid (stone,
+  wool, planks, metal blocks, obsidian...) as stone when its kind changes nothing (both checked
+  per design on redsim: every block state, comparator strength and container content at every
+  tick of warmup + 2 periods must match modulo the swap). `clock archive --dedupe` removes such
+  twins (aliases.tsv: "built with sticky_piston, without piston"). The keys are cached in
+  `designs/clocks/archive/type-keys.tsv` (not committed).
+* **Dominance fold** (the gallery only, vjeux 2026-10-19): within a period, a clock is a variant of
+  a clock with strictly fewer blocks whose block kinds are a subset of its own (the observer pair,
+  2 blocks, hosts the observer + note block clock, 3); the galleries show only the hosts, and the
+  variants are listed apart on `gallery/variants.md` (per period, per host a table: variant,
+  blocks, the kinds it adds), linked once from the index; coverage.md counts types shown and
+  variants (variants are left out of the matrix). The archive keeps them.
 * **Size**: blocks placed (piston heads are part of their piston; a temporary start block is not
   counted) and the SWEPT box: every cell non-air at any tick of the run, plus the design's box and
   the start cell (a piston head poking out of the design counts). Ranking inside a period: fewest
@@ -100,6 +112,16 @@ layer 0:
   Items of its item table and TransferCooldown; anything else is UNMODELED for `clock sim`.
 * Extra words on any `port` line are kept: `Design.meta["port <name>"]`, written back on the port
   line.
+* `entity: <type> <x> <y> <z> [{snbt}]` (header, the door format's; track clk-misc: minecart
+  clocks): a design entity, summoned once the blocks stand (before the kick), turned with the
+  design (position like the cells, `Rotation` by the game, `Motion` by the judge). `clock verify`
+  then fails on any entity that is NOT the design's (a drop, a popped block) and on a design
+  entity lost, duplicated or outside the watched box at the end; the period stays the block
+  states' (a detector rail, a comparator reading a hopper minecart). Each entity counts as one
+  piece in `blocks`, its kind joins the family (`detector_rail+minecart`) and its cell joins the
+  type key. `clock sim` answers UNMODELED (redsim has no entities). Example: a minecart on a 3x3
+  rail loop with two powered rails on redstone blocks over a detector rail is a robust P476 clock
+  (warmup 556; the detector's 20 gt re-check against the lap time).
 
 ### Extendable clocks (`extend` headers, vjeux 2026-10-19)
 
@@ -123,10 +145,32 @@ builds and judges instances with `clock verify` (period and blocks must equal th
 first, refuses the family when one fails, and records the instances in
 `designs/clocks/archive/extend.tsv` (family, n, period, blocks, type key, verdict). A family's
 base is archived even when its instance is already archived (the family card is another entry).
-`clock catalog` shows one card per family in an "Extendable clocks" section (picture of the base,
-P in gt and in seconds, blocks, the rule, the n range and the judged n) and leaves the recorded
-instances out of the per-period gallery, with a line "Also reachable by: <family> (n = k)" under
-every period a family reaches.
+`clock catalog` shows one card per family in an "Extendable clocks" section (the period formula as
+the heading, the two smallest members pictured, P in gt and in seconds, blocks, the rule, the n
+range and the judged n) and leaves the recorded instances out of the per-period gallery, with a
+line "Also reachable by: <family> (n = k)" under every period a family reaches.
+
+Families of one mechanism split into several cards (one per residue, per relay block, per item
+count) share ONE card (vjeux: "can we not have 300 variations of this one?") when their base designs
+carry the same group:
+
+```text
+extend group: clk-item-dropring                  # the group's id, on every member
+extend group title: dropper ring                 # optional: the card's name
+extend group period: 20 + 14 (W - 3) + 7 (depth - 3) + 7 [one dropper] + 2 Σ delays   # optional: the general formula (the heading)
+extend group note: W = ring width, depth = 3 + its repeaters   # optional: one line under the name
+```
+
+(title, period and note are read from the first member carrying them; set them with `mctas clock
+group --id <id> [--title ...] [--period ...] [--note ...] <designs>...`, `--clear` removes them).
+The group's card pictures the simplest member (fewest blocks at its low n, then volume, then
+archived first), takes the general formula as its heading (else the formula all members share,
+else `a + b·n gt, a in {...}`, else each formula), lists the blocks that work in the relay place
+when every member differs from the others by one block kind ("Works with any one of these 10
+blocks in place of the note block: ..."), the periods the members reach together ("every period
+from 40 gt to 460 gt"), and every member in a collapsed table (formula, blocks, n range, judged n,
+design link), with no picture rows. Families without a group header that share a period formula
+and differ by one block kind only (a relay block, a calibrated or plain sensor) share a card too.
 
 Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives verified clocks in
 `designs/clocks/archive/` with a caption line in `captions.tsv`.
@@ -136,21 +180,24 @@ Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives v
 | command | what |
 |---|---|
 | `mctas clock sim <design>... [--horizon 50000] [--margin 4] [--json] [-q] [--trace N]` | the exact period on redsim in milliseconds: place, kick, run until the whole state repeats (W, P), then replay one period for the waveform per changing cell and at the output, the family, the blocks and the swept box. `CLOCK:` line, or `STOPS` (it goes still, or only hidden state changes), `NO-REPEAT` (horizon), `UNMODELED` (a block or case redsim does not model exactly: judge it with `clock verify`), `INVALID` (a drop, or a write beyond the margin). `--trace N` prints every cell change of the first N ticks |
-| `mctas clock verify <design>... [--positions 4] [--no-rotations] [--horizon 4000] [--margin 3] [--workers 8] [-v] [--json]` | THE judge, in the real game: every build in a cleared sandbox at the door judge's positions (4 by default, vjeux 2026-10-19) x 4 rotations = 16 builds (the game turns every block state, and a temporary start block), placed and kicked like `clock sim`, every tick of the watched box recorded (block states and block entities); the horizon grows with redsim's period (warmup + 4 periods, up to 20000 gt); exact periodicity of the full cell state for >= 3 periods after warmup, no entity, never reaching the watched box's edge, the same period/output waveform/family everywhere. Prints `CLOCK: <name> period P gt (T s), on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust\|position-dependent\|rotation-dependent`, the builds that differ or fail, and the redsim agreement (`redsim AGREES (period, warmup, output waveform, family, box)` or what redsim says); exits 1 unless it is a clock |
+| `mctas clock verify <design>... [--positions 4] [--no-rotations] [--horizon 4000] [--margin 3] [--workers 8] [-v] [--json]` | THE judge, in the real game: every build in a cleared sandbox at the door judge's positions (4 by default, vjeux 2026-10-19) x 4 rotations = 16 builds (the game turns every block state, and a temporary start block), placed and kicked like `clock sim`, every tick of the watched box recorded (block states and block entities); the horizon grows with redsim's period (warmup + 4 periods, up to 20000 gt); exact periodicity of the full cell state for >= 3 periods after warmup, no entity but the design's own (`entity:` lines: still there, same counts, inside the box), never reaching the watched box's edge, the same period/output waveform/family everywhere. Prints `CLOCK: <name> period P gt (T s), on Q/P, edges E, warmup W, family <sig>, <blocks> blocks, <WxHxD>, robust\|position-dependent\|rotation-dependent`, the builds that differ or fail, and the redsim agreement (`redsim AGREES (period, warmup, output waveform, family, box)` or what redsim says); exits 1 unless it is a clock |
 | `mctas clock archive <design>... [--caption '...'] [--dir designs/clocks/archive] [--dedupe]` | (coordinator) the judge, then a copy in the archive (header: date, source, the judge's line), its row in `verdicts-v1.tsv` (period, warmup, output duty and edges, family, blocks, box, robustness, start, type key, chirality) and its caption in `captions.tsv` (default: the design's first comment block); a clock already archived (same blocks, ports, kick, block entities) is skipped, and a design of an already archived TYPE at the same period (a rotation, mirror image or move of it) is refused (`SAME TYPE ... same type as <file>`); a name already taken by another structure is archived as `<name>-<6 hex digits of its type hash>.txt` (the same structure gets the same name on every branch). `--dedupe` (no judging): keep one archived design per type (the earliest archived), remove the others (design, pictures, rows) and record them in `aliases.tsv` (the catalog lists them as "also found as") |
 | `mctas clock census-report <census dir>... [--out F]` | the MINIMAL clocks of several census runs merged: per (period, family) the fewest blocks, its box and census, the minimal type count, the periods never found below the largest (`designs/clocks/census/README.md`) |
 | `mctas clock extend-check <design> [--n a..b \| a,b,c] [--positions 4] [--record] [--dir designs/clocks/archive]` | judges instances of an extendable family (its `extend` headers, above): builds each n with the generator, `clock verify`, period and blocks against the formulas; `OK`/`FAIL` line per n; `--record` adds the passing ones to `extend.tsv` (default n: low, low+1, low+2, middle, high) |
-| `mctas clock catalog` | (coordinator) writes `designs/clocks/CATALOG.md` from the archive's verdicts (no game): the GALLERY only (vjeux 2026-10-19): per period (ascending) a grid of every distinct type's picture (linked to its design) with one caption line (`20 gt (1 s) · observer+piston · 6 blocks`, the other designs of the type as "also found as"; "(picture pending)" without a picture), a one-line legend (orange glass = output) and the composite (beat) clocks in a final section; and `designs/clocks/coverage.md` (the period x family matrix, mirrored on the board's `minecraft-tas/clocks/coverage.md`). The periods a family cannot reach stay data in `designs/clocks/impossible.tsv` (family, periods, why) |
+| `mctas clock catalog` | (coordinator) from the archive's verdicts (no game): `designs/clocks/CATALOG.md` = the INDEX (a one-line intro and legend, the "Extendable clocks" cards: one per row, one per family or [group](#extendable-clocks-extend-headers-vjeux-2026-10-19), the period formula as a heading `### P = 8 + 4n gt`, the two smallest members side by side (`img/<base stem>.jpg` and `img/<base stem>.n<k>.jpg`, labelled with n, period and blocks), then the seconds and blocks formulas, the rule and the judged n range; then a table of period ranges with their clock types linking to the gallery pages, and one link to the variants page); `designs/clocks/gallery/p<lo>-<hi>.md` = the pictures by period (ascending; consecutive periods while a page stays under 120 KB and 300 pictures, a period never split; stale pages removed), per period a 3-wide grid of every distinct type's picture (linked to its design) with one caption line (`20 gt (1 s) · observer+piston · 6 blocks`, "also found as" aliases; "(picture pending)" without a picture) and "Also reachable by: <family> (n = k)"; `gallery/variants.md` the variants of the dominance fold; `gallery/composite.md` the composite (beat) clocks; `designs/clocks/coverage.md` (the period x family matrix of the types shown, mirrored on the board's `minecraft-tas/clocks/coverage.md`); pictures of designs no longer archived are pruned (a family member's `<stem>.n<k>.jpg` stays with its base). The periods a family cannot reach stay data in `designs/clocks/impossible.tsv` (family, periods, why). `clock shot` of a family base also pictures its two smallest members, built with the family's generator |
+| `mctas clock group --id <id> [--title T] [--period P] [--note N] <designs>... \| --clear` | set (or clear) the `extend group` headers of family base designs (after their `extend family:` line): the catalog renders one card per group |
 | `mctas clock census --box AxBxC --k N [--kmin 1] [--palette core] [--max-period 500] [--margin 2] [--no-kick] [--workers W] --out DIR` | the exhaustive census on redsim: every filling of the box with kmin..=k blocks of the palette (every facing of every component: shorthands `core` = stone, glass, rblock, dust, torch (standing + 4 wall), repeater (4 facings x 4 delays), comparator (4 x 2 modes), observer (6), piston (6), sticky (6), lamp, bulb, note, target, slime; also sculk, csculk, hopper, dropper, dispenser, trapdoor, itrapdoor, leaves, scaffold, honey, wool, obsidian, amethyst, or block states), one per class up to translation (it touches the box's low faces) and the 4 rotations (smallest encoding among the rotations that fit), only fillings with a delay element (torch, repeater, comparator, observer, piston, lamp, sculk, hopper, dropper...); judged self-starting, then with each block placed last; a found clock gets the full `clock sim` analysis and a MINIMAL flag (no single block can go with its period kept). Writes `DIR/clocks.tsv` (every clock: period, whole-state period, warmup, family, blocks, box, duty, edges, pulses, start, type key, canonical encoding, minimal), `minimal.tsv`, `designs/` (the smallest clock of each (period, family)), `summary.md`. Resumable: `DIR/parts/` holds one file per finished chunk (a cell set and its first cell's state); a rerun skips them |
 
-| `mctas clock shot <design>... [--out-dir designs/clocks/img] [--tick T] [--strip N] [--width 800] [--hold-ms 1500] [--redo]` | pictures in the REAL client (uses an X display: vjeux allowed it on clockinfra's dedicated box), one client session for all clocks, ~2 s a clock: each clock alone on a grass floor at noon (two sandboxes used in turn, cleared, never dropped; the camera always enters from the other one so the client loads it fresh), kicked like the judge, at the most active moment of a period after its warmup with nothing in motion (or `--tick`; for clocks redsim does not model, mid-period from the archive's judge line), an orange stained glass block where the output signal is (the output cell when air, else the air cell the output powers or its neighbor most visible; written raw only for the picture), a still camera framing its swept box (center crop; an elongated clock, longest side over 16 blocks and 5x the next, gets a 16-block close-up around its output), saved as `<out-dir>/<design stem>.jpg`. A dark (mean luma < 70) or nearly uniform frame is taken again after a longer wait (`BAD` after 2 retakes). `--strip N` also tiles N moments of one period (`<stem>.strip.jpg`). Existing pictures are kept unless `--redo`. `--grid` (experimental: neighbors show) puts many clocks in one world. `mctas clock shot-compare DIR [--against designs/clocks/img]` prints the SSIM of each picture against a trusted set |
-| `mctas clock video <design> --out f.mp4 [--periods 2] [--min-secs 8] [--tps T] [--card] [--relabel] [--dry-run]` | (coordinator: shared X displays) the clock running in the real client: the kick and warmup stepped unseen, then >= 2 periods and >= 8 s filmed (10 tps, faster for long periods: <= 60 s), a still camera framing the swept box, a corner label (period; family, blocks, box; duty, start; name), an optional title card; H.264. The clean clip is kept as `f.clip.mp4` (`--relabel` recuts in seconds); `--dry-run` prints the plan and writes the label image |
+| `mctas clock shot <design>... [--out-dir designs/clocks/img] [--tick T] [--strip N] [--width 800] [--hold-ms 1500] [--redo]` | NOT part of the archive flow any more (vjeux 2026-10-19: "we don't need images anymore, we should render them": the website renders every build with redsim; the existing pictures stay). Pictures in the REAL client (uses an X display: vjeux allowed it on clockinfra's dedicated box), one client session for all clocks, ~2 s a clock: each clock alone on a grass floor at noon (two sandboxes used in turn, cleared, never dropped; the camera always enters from the other one so the client loads it fresh), kicked like the judge, at the most active moment of a period after its warmup with nothing in motion (or `--tick`; for clocks redsim does not model, mid-period from the archive's judge line), an orange stained glass block where the output signal is (the output cell when air, else the air cell the output powers or its neighbor most visible; written raw only for the picture), a still camera framing its swept box (center crop; an elongated clock, longest side over 16 blocks and 5x the next, gets a 16-block close-up around its output), saved as `<out-dir>/<design stem>.jpg`. The clock is built with its lowest cell at y = 72 (the camera then stands above the client's horizon height, below which the sky beyond the floor is drawn black); the floor reaches 96 blocks around it and the client gets chunks 6 chunks around the camera. A design with entities (a minecart) stops one tick short of its moment, the camera arrives, and the last tick runs with the viewer there (a frozen level never sends its entities to a viewer). A dark (mean luma < 70), nearly uniform, or dark-topped (mean luma < 70 in the top 12%) frame is taken again after a longer wait (`BAD` after 2 retakes); `--redo-bad` takes again only the pictures that are missing or fail these checks. `--strip N` also tiles N moments of one period (`<stem>.strip.jpg`). Existing pictures are kept unless `--redo`. `--grid` (experimental: neighbors show) puts many clocks in one world. `mctas clock shot-compare DIR [--against designs/clocks/img]` prints the SSIM of each picture against a trusted set |
+| `mctas clock video <design> --out f.mp4 [--periods 2] [--min-secs 8] [--tps T] [--card] [--relabel] [--dry-run]` | (coordinator: shared X displays) the clock running in the real client: the kick and warmup stepped unseen, then >= 2 periods and >= 8 s filmed (10 tps, faster for long periods: <= 60 s), a still camera framing the swept box (the clock filmed with its lowest cell at y = 72, above the client's horizon height: no black sky band), a corner label (period; family, blocks, box; duty, start; name), an optional title card; H.264. The clean clip is kept as `f.clip.mp4` (`--relabel` recuts in seconds); `--dry-run` prints the plan and writes the label image |
 | `mctas clock montage <design>... --out-dir DIR [--periods 6,8] [--min-secs 6]` | (videos) per period, every given clock's labeled video (each filmed alone; clips already filmed are reused) after a title card (`P gt, N clocks, smallest first`), concatenated into `DIR/montage-p<P>.mp4`; the per-clock videos stay in `DIR/clips/` |
 
 Clock checks in `door selftest`: `clock:sim-calibration` (quick: the 8 calibration clocks' known
 period, warmup, output, family, blocks and box), `clock:sim-negative` (quick: the observer pair
 placed silently: STOPS), `clock:verify-calibration` (full suite, the real game: observer pair and
-subtract comparator robust, redsim agrees), `clock:verify-negative` (full suite).
+subtract comparator robust, redsim agrees), `clock:verify-negative` (full suite),
+`clock:verify-entities` (full suite: the observer pair beside a minecart on a rail is robust; with
+the cart in the air, falling away, it is rejected).
 
 ## Census results (redsim, `core` palette, self-start or one block placed last)
 

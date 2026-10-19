@@ -1,0 +1,12 @@
+name: census-p6-observer-sticky_piston-3b
+census: box 3x1x3 k<=4 (0,0,0=observer[facing=south,powered=false];0,0,1=observer[facing=north,powered=false];0,0,2=sticky_piston[extended=false,facing=south])
+port start: 0 0 0 last
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=north,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=south]
+  o minecraft:observer[facing=south,powered=false]
+layer 0:
+  o
+  O
+  S

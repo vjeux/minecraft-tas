@@ -1,0 +1,13 @@
+[package]
+name = "clock-misc"
+description = "Track clk-misc's clock commands (mctas clock misc ...): crafters, rails, doors, fence gates, heads and the other blocks no other clock track covers; owned by clk-misc, see docs/clocks.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+clock = { path = "../clock" }
+mctas = { path = "../mctas" }

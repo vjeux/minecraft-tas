@@ -1,0 +1,23 @@
+# c78L2: c78L1 with s's (1,4) pulses REAL: observer (2,4) facing east watches the R1/R2 chain's waxed bulb (3,4) (sensor (3,5) window: bulb powered t6..t36) -> s pulses t8 and t38 on both edges. Ideal: TP, M (open only), s at (1,3) (open only), L1/L2.
+design designs/piston-door-3x3/tracks/s79/c78l/c78L2.txt
+let a2 = 12
+let a3 = 16
+let a4 = 20
+let a5 = 26
+let l = 12
+let c5 = 20
+let cl = 12
+open 0 use 5 -1 0
+open a2 set -1 3 -1 minecraft:redstone_block
+open a2+2 clear -1 3 -1
+open a3 set 2 5 0 minecraft:redstone_block
+open a5 clear 2 5 0
+open a4 set 1 3 -1 minecraft:redstone_block
+open a4+2 clear 1 3 -1
+open l set -2 2 -1 minecraft:redstone_block
+open l+2 clear -2 2 -1
+close 0 use 5 -1 0
+close c5 set -1 3 -1 minecraft:redstone_block
+close c5+2 clear -1 3 -1
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1

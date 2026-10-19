@@ -1,0 +1,16 @@
+# archived 2026-10-19T20:04Z from /tmp/gen/arch2/hyb3b-p51-5.txt by mctas clock archive
+# CLOCK: clk-sculk-hyb3b-p51-5 period 51 gt (2.55 s), on 20/51, edges 2, warmup 14, family calibrated_sculk_sensor+oak_fence_gate+observer+sticky_piston, 6 blocks, 5x3x1, robust
+# A calibrated sculk sensor watched by a chain of 3 observer(s) (each watching the previous); an oak fence gate at the last output, 4 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a sticky piston beside the chain (moves parts of it: the hybrid)
+name: clk-sculk-hyb3b-p51-5
+# how: obs cal k=3 path 1,0,0 2,0,0 3,0,0 emitter gate at the output (travel 4) + sticky_piston[extended=false,facing=up] at 3,-1,0
+port output: 0 0 0
+origin: 0 0 0
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:oak_fence_gate[facing=north,in_wall=false,open=true,powered=true]
+  S minecraft:sticky_piston[extended=false,facing=up]
+  o minecraft:observer[facing=west,powered=false]
+layer -1:
+  ...S
+layer 0:
+  CoooO

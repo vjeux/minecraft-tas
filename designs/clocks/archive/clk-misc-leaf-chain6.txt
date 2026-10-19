@@ -1,0 +1,19 @@
+# archived 2026-10-19T21:33Z from designs/clocks/tracks/clk-misc/leaves/leaf-chain6-p20.txt by mctas clock archive
+# CLOCK: clk-misc-leaf-chain6 period 20 gt (1 s), on 14/20, edges 1, warmup 3, family oak_leaves+observer+sticky_piston, 9 blocks, 4x2x3, robust
+name: clk-misc-leaf-chain6
+# A leaf delay line of 6 persistent oak leaves: a sticky piston spits a log under the first leaf and pulls it back; the distance
+# wave runs one leaf per gt (1 gt scheduled leaf ticks) to the sixth leaf, which an observer watches, its back powering the piston.
+# When the log leaves, the distances count up to 7 and the sixth leaf changes once more.
+port start: -1 0 0 minecraft:redstone_block 2
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:oak_log[axis=y]
+  C minecraft:observer[facing=east,powered=false]
+  D minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+layer 0:
+  ACD
+  B
+layer 1:
+  ..D
+  ..D
+  DDD

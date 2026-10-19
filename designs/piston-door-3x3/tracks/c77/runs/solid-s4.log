@@ -1,0 +1,3 @@
+fill designs/piston-door-3x3/tracks/c77/e78s/e78st40-s4.txt: 6 region cells (6 free, 0 fixed), base 39 blocks (design 39), k 0..=4, global palette 42 states, gaps allowed, KEEP mode (k = changed cells)
+56 subsets pass the connectivity rule; 50492491 fillings to screen in 28047 work items
+done in 99 s: 16319990 screened, 34172501 pruned, 0 passed the screen, 0 finds

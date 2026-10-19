@@ -11,8 +11,12 @@ Space memory `minecraft-tas/clocks/families/rt.md`.
   clock), divider chains, odd-period constructions (kicks at odd ticks), burnout sweep, shrink.
 - Archive: clk-rt archives its own clocks (coordinator protocol of 10-19): `mctas clock archive
   <files> --workers 16 [--horizon N]`, commit designs/clocks/archive/, push, send the coordinator
-  ONE line with the commit. About 330 clk-rt clocks archived (all robust except a few flagged
-  rotation-dependent burnout clocks).
+  ONE line with the commit. About 300 individual clk-rt clocks + 9 EXTENDABLE family cards
+  ([EXTEND.md](EXTEND.md), base designs in `families/`, instances in archive/extend.tsv); the
+  individual clocks that were exact card instances were removed (`mctas clock rt prune-members`).
+  A new member of a family: extend its range (`extend n:`), `mctas clock extend-check <base> --n
+  a..b --record`, re-archive the base. Never rebuild mctas while an extend-check or a family
+  archive runs: the generator is run as the current executable.
 
 ## Results (all `clock verify` robust, 32 builds)
 - Every period from 4 to 100 has a clock: even periods with 8-31 blocks (2-torch U-rings, 1-torch

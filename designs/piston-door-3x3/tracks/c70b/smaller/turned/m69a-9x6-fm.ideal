@@ -1,0 +1,52 @@
+# exact plan from door fullmech (m69a-9x6-fm): every input = a redstone block behind the piston (z = 1)
+design designs/piston-door-3x3/tracks/c70b/smaller/turned/m69a-9x6-fm.txt
+open 0 set 4 2 1 minecraft:redstone_block
+open 1 clear 4 2 1
+open 6 set -2 2 1 minecraft:redstone_block
+open 7 clear -2 2 1
+open 12 set 2 -2 1 minecraft:redstone_block
+open 13 clear 2 -2 1
+open 18 set 1 -2 1 minecraft:redstone_block
+open 19 clear 1 -2 1
+open 24 set 0 -2 1 minecraft:redstone_block
+open 25 clear 0 -2 1
+open 30 set -1 -1 1 minecraft:redstone_block
+open 31 clear -1 -1 1
+open 36 set -3 1 1 minecraft:redstone_block
+open 37 clear -3 1 1
+open 42 set -1 1 1 minecraft:redstone_block
+open 43 clear -1 1 1
+open 48 set 3 3 1 minecraft:redstone_block
+open 49 clear 3 3 1
+open 54 set 5 2 1 minecraft:redstone_block
+open 55 clear 5 2 1
+open 60 set 3 2 1 minecraft:redstone_block
+open 61 clear 3 2 1
+open 66 set 5 2 1 minecraft:redstone_block
+open 67 clear 5 2 1
+open 72 set 4 2 1 minecraft:redstone_block
+open 75 clear 4 2 1
+open 80 set -3 1 1 minecraft:redstone_block
+open 81 clear -3 1 1
+open 86 set -2 1 1 minecraft:redstone_block
+open 87 clear -2 1 1
+close 0 set 4 2 1 minecraft:redstone_block
+close 1 clear 4 2 1
+close 6 set -2 2 1 minecraft:redstone_block
+close 7 clear -2 2 1
+close 12 set 2 -2 1 minecraft:redstone_block
+close 13 clear 2 -2 1
+close 18 set 1 -2 1 minecraft:redstone_block
+close 19 clear 1 -2 1
+close 24 set 0 -2 1 minecraft:redstone_block
+close 25 clear 0 -2 1
+close 30 set -1 -1 1 minecraft:redstone_block
+close 31 clear -1 -1 1
+close 36 set -3 1 1 minecraft:redstone_block
+close 39 clear -3 1 1
+close 44 set 3 -1 1 minecraft:redstone_block
+close 45 clear 3 -1 1
+close 50 set 3 3 1 minecraft:redstone_block
+close 51 clear 3 3 1
+close 56 set 5 2 1 minecraft:redstone_block
+close 59 clear 5 2 1

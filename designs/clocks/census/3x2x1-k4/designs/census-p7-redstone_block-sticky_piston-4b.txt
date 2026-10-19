@@ -1,0 +1,12 @@
+name: census-p7-redstone_block-sticky_piston-4b
+census: box 3x2x1 k<=4 (0,0,0=observer[facing=west,powered=false];1,0,0=slime_block;1,1,0=redstone_block;2,0,0=sticky_piston[extended=false,facing=west])
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=west,powered=false]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  s minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  OSs
+layer 1:
+  .R

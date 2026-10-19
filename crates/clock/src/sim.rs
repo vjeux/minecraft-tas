@@ -224,8 +224,13 @@ pub fn parse_blocks(c: &Clock) -> Result<Vec<(BlockPos, Block)>, String> {
 
 fn start(c: &Clock, blocks: &[(BlockPos, Block)], margin: i32) -> Result<Started, (Verdict, String)> {
     let (lo, hi) = c.bounds();
-    let min = BlockPos::new(lo[0] - margin, lo[1] - margin, lo[2] - margin);
-    let size = [hi[0] - lo[0] + 1 + 2 * margin, hi[1] - lo[1] + 1 + 2 * margin, hi[2] - lo[2] + 1 + 2 * margin];
+    start_box(c, blocks, [lo[0] - margin, lo[1] - margin, lo[2] - margin], [hi[0] + margin, hi[1] + margin, hi[2] + margin])
+}
+
+/// [`start`] in a given world box (`from`..=`to`).
+fn start_box(c: &Clock, blocks: &[(BlockPos, Block)], from: Pos, to: Pos) -> Result<Started, (Verdict, String)> {
+    let min = BlockPos::new(from[0], from[1], from[2]);
+    let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
     let mut w = World::new(min, size);
     let last = c.withheld().map(bp);
     let be_lines = |w: &mut World, only: Option<BlockPos>| -> Result<(), (Verdict, String)> {
@@ -327,6 +332,68 @@ pub fn trace(c: &Clock, o: &SimOptions, ticks: u32) -> Vec<String> {
     out
 }
 
+/// One driven run on redsim (the circuit judge's screen, `mctas circuit sim`): what [`drive`]
+/// recorded after every tick 0..=ticks.
+pub struct Driven {
+    /// Every non-air cell's full state (block state + comparator strength + container contents),
+    /// sorted by position.
+    pub cells: Vec<Vec<(Pos, String)>>,
+    /// The best signal the neighbors give into each probe cell (what a lamp there would see).
+    pub signals: Vec<Vec<u8>>,
+}
+
+/// Run a design on redsim in the world box `from`..=`to`: placed like the judge places it, its own
+/// kick inputs and `extra` inputs applied between ticks (inputs due at tick t are applied after t
+/// ticks, before frame t is recorded, like the real-game judge), recording [`Driven`] after every
+/// tick 0..=ticks. Fails on a block redsim does not model, a drop, or a write outside the box.
+pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos) -> Result<Driven, (Verdict, String)> {
+    if !c.design.entities.is_empty() {
+        return Err((Verdict::Unmodeled, "not modeled by redsim: entities (minecarts...)".into()));
+    }
+    let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
+    for (_, a) in extra {
+        if let Action::Place { state, .. } = a {
+            Block::parse(state).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
+        }
+    }
+    blocks.sort_by_key(|(p, _)| *p);
+    let mut s = start_box(c, &blocks, from, to)?;
+    s.actions.extend(extra.iter().cloned());
+    s.actions.sort_by_key(|(t, _)| *t);
+    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1) };
+    for t in 0..=ticks {
+        between_ticks(&mut s, t)?;
+        let mut v: Vec<(Pos, String)> = s.world.blocks().into_iter().map(|(p, b)| (p.arr(), wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect();
+        v.sort_by_key(|(p, _)| *p);
+        out.cells.push(v);
+        out.signals.push(probes.iter().map(|q| s.world.best_neighbor_signal(bp(*q)).clamp(0, 15) as u8).collect());
+        if t < ticks {
+            s.world.tick();
+        }
+    }
+    Ok(out)
+}
+
+/// Every block of the world (with comparator strengths and container contents) after each tick
+/// 0..=ticks, sorted by position: for comparing two runs (`ident`). `None` when redsim does not
+/// model the design or the run meets something it does not model.
+pub fn run_states(c: &Clock, o: &SimOptions, ticks: u32) -> Option<Vec<Vec<(BlockPos, String)>>> {
+    if !c.design.entities.is_empty() {
+        return None;
+    }
+    let blocks = parse_blocks(c).ok()?;
+    let mut s = start(c, &blocks, o.margin).ok()?;
+    let mut out = Vec::with_capacity(ticks as usize + 1);
+    for t in 0..=ticks {
+        between_ticks(&mut s, t).ok()?;
+        let mut v: Vec<(BlockPos, String)> = s.world.blocks().into_iter().map(|(p, b)| (p, wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect();
+        v.sort_by_key(|(p, _)| *p);
+        out.push(v);
+        s.world.tick();
+    }
+    Some(out)
+}
+
 /// The census's fast screen (no waveform, no strings): place `blocks` like the judge (raw writes,
 /// wire shapes, self updates), the block at index `last` withheld and placed last with updates
 /// when given, then run until the whole state repeats. `Some((state_warmup, state_period))` for a
@@ -394,6 +461,9 @@ pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<(u32, u32)>)
 
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
+    if !c.design.entities.is_empty() {
+        return SimReport::fail(c, Verdict::Unmodeled, "not modeled by redsim: entities (minecarts...): judge it with clock verify".into());
+    }
     let blocks = match parse_blocks(c) {
         Ok(b) => b,
         Err(e) => return SimReport::fail(c, Verdict::Unmodeled, format!("not modeled by redsim: {e}")),

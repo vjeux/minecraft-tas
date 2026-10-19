@@ -1,0 +1,21 @@
+name: m69a-9x6-fm
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:stone
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...AAA
+layer -1:
+  ..A...A
+layer 0:
+  ...BBB
+layer 1:
+  CC.BBB.D
+layer 2:
+  .C.BBB.DD
+layer 3:
+  ...BBBE

@@ -78,24 +78,41 @@ track's fixes (and main's d975c15 / 96a62d6). Full output: CHECKS-c79.md.
 Columns (since 2026-10-19, c70b): g1 families v3 `--no-ext-pullers` (the catalog generator before
 then: 1-move exits by RETRACTED pullers only), g2 families v3 (catalog: P <= 10, two 1, lifts,
 pushes; fullmech uses the same generator), g3 mechspace gen default (P <= 11), g4 `--two 7`, g5
-`--two 7 --carry 2 --vmid any`, g6 every flag (P <= 16). Extended-at-rest pullers are every
-generator's default now (`--no-ext-pullers` turns them off), bounded: at most `--ext-max` (default 2)
-1-move exits by such a puller per mechanism, and a second one must sit next to the first (one level
-holds both; `--ext-apart` drops that). c79 needs 2 adjacent ones (its MR/TR pullers (4,1)/(4,2)),
-the community 7x8 1. Cost on 7x8 (P <= 10, two 1; the generation runs the 4 center exit directions
-on 4 threads since this change):
+`--two 7 --carry 2 --vmid any`, g6 every flag (P <= 16, `--ext-max 12 --ext-apart`). Extended-at-rest pullers are every
+generator's default now (`--no-ext-pullers` turns them off), bounded: at most `--ext-max` (default 3)
+1-move exits by such a puller per mechanism, each next to an earlier one (one level holds them all;
+`--ext-apart` drops that). A lever-held top row (e78, t7b, ring56 layout J) has 3 in a row, c79 2
+adjacent ones (its MR/TR pullers (4,1)/(4,2)), the community 7x8 1. Cost on 7x8 (P <= 10, two 1;
+the generation runs the 4 center exit directions on 4 threads since this change):
 
 | generator | candidates | generation | the macro solve of every candidate |
 |---|---|---|---|
 | `--no-ext-pullers` (before) | 124k | 4.1 s (9.4 s single-threaded) | ~54 min on 16 threads |
 | `--ext-max 1` | 690k (5.6x) | 26 s | ~5 h |
-| default (`--ext-max 2`, adjacent) | 845k (6.8x) | 32 s, 1.4 GB | ~6 h (~2 h on 48 threads) |
+| `--ext-max 2` (adjacent) | 845k (6.8x) | 34 s | ~6 h |
+| default (`--ext-max 3`, adjacent) | 870k (7.0x) | 36 s, 1.6 GB | ~6 h (~2 h on 48 threads) |
+| `--ext-dist 2` | 930k (7.5x) | 38 s | ~6.5 h |
+| `--ext-dist 3` (admits the u7-m10 family: m79s, s88i, cosearch-63b-50) | 1.32M (10.7x) | 56 s, 2.5 GB | ~9.5 h |
 | `--ext-max 2 --ext-apart` | 1.75M (14x) | 61 s, 2.3 GB | ~13 h |
-| unbounded | - | > 7 min single-threaded, unfinished | - |
+| unbounded and apart | - | > 7 min single-threaded, unfinished | - |
+
+The default bound leaves out one known family: u7-m10 (m79s-sculk-63b-50, m79s-sculk-8x8-64b,
+s88i-50b, cosearch-63b-50-1/-2) releases BR and MR right (SW+(4,0)/(4,1)) and TR up (SD+(2,4)),
+3 cells apart from the right pair: IN with `--ext-dist 3` or `--ext-apart` (g6 drops the bound:
+`--ext-max 12 --ext-apart`).
 
 Membership and audits use the default. Catalog sweeps: `--ext-max 1` when the run time matters
-(the community 7x8's mechanism stays IN, c79's needs 2), else the default (only 22% more than
-`--ext-max 1`). Before the change (main dfe893a): 189
+(the community 7x8's mechanism stays IN; c79 needs 2, a lever-held top 3), else the default (26%
+more candidates than `--ext-max 1`).
+
+Archive recount (main 402a25676, 2026-10-19 19:50Z): 877 designs with a flat mechanism. IN under g1
+(`--no-ext-pullers`, the old catalog): 106; under the defaults g2..g5: 768 (+662: every lever-held
+door, c79, the community 7x8, the e78 / t7b / ring56 lever-held tops); under g6 (bound dropped): 773
+(+ the u7-m10 family). OUT under every flag: 104 — 39 whose core needs a piston that only acts away
+from its rest cell (fast-clean, speed-wire: rule (b) below), 19 whose center move needs a lifted
+EXTENDED-at-rest piston (hA-full-rl-*, fresh-a-sf1, eligible-s4ff: rule (a)), 7 with pieces no exit
+option uses, 16 t7b-nb2 / t7b-p42 doors whose mechanism pistons also move stone, 7 gravity doors, the
+rest gadget rows. Before the change (main dfe893a): 189
 archived designs with a flat mechanism; IN under g1 / g2: 95, under g3..g6: 99 (+ c79, c79-ff and
 the two archived 63b c79 doors); 65 OUT under every flag (the mechanisms below + 2 gadget rows).
 
@@ -158,7 +175,7 @@ fixed since: [audit-rules.md](audit-rules.md). The ones still open on main dfe89
 |---|---|---|
 | families: a lifted / carried provider must be RETRACTED at rest | families.rs:1400, 1406, 1413 | 19 archived flat doors under every flag (hA-full-rl-dropper, eligible-s4ff, fresh-a-sf1-w2) |
 | families: only pieces an earlier provider PLACED are reused | families.rs:1399 | 39 archived flat doors under every flag (fast-clean, speed-wire) |
-| families: 1-move exits by RETRACTED pullers only with `--no-ext-pullers` (the default allows extended-at-rest pullers since 2026-10-19: at most `--ext-max` 2 per mechanism, the second next to the first unless `--ext-apart`) | families.rs `Gen::others` | c79 and the community 7x8 only under `--no-ext-pullers`; under the default, a door with 3+ level-released exits or 2 apart |
+| families: 1-move exits by RETRACTED pullers only with `--no-ext-pullers` (the default allows extended-at-rest pullers since 2026-10-19: at most `--ext-max` 3 per mechanism, each next to an earlier one unless `--ext-apart`) | families.rs `Gen::others` | c79, the community 7x8 and the lever-held tops (e78, t7b) only under `--no-ext-pullers`; under the default, a door with 4+ level-released exits or exits apart |
 | families: paths of 1-2 unit moves, center straight in 2, providers 1-2 behind / 2 ahead, pistons only, P <= 10 / 11 / 10 defaults | families.rs:1474, 1521, 1353, 1324; door-mech/src/lib.rs:283, 526 | none alone among known doors (c79's TM 3 moves and BM chain push are generated via other paths) |
 | close = EXACT rest | boxproof/bmc.rs:4, satwire.rs:28, fullmech.rs:19 | periodic-rest doors (the judge accepts them since 96a62d6): boxproof UNSATs and satwire / fullmech / families searches do not cover them |
 | acceptance needs the 4 default positions at least | search.rs:39 | a door working at 1-3 positions (vjeux: a 1-position pass counts as a find): no search reports it |

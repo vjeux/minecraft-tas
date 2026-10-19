@@ -1,0 +1,13 @@
+name: census-p7-sticky_piston-4b
+census: box 3x2x2 k<=4 (0,0,0=sticky_piston[extended=false,facing=east];1,0,0=slime_block;1,1,0=observer[facing=east,powered=false];2,1,0=glass)
+port start: 2 1 0 last
+origin: 0 0 0
+palette:
+  G minecraft:glass
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:slime_block
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  sS
+layer 1:
+  .OG

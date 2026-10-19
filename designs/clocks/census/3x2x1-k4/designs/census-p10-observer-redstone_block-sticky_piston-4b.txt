@@ -1,0 +1,13 @@
+name: census-p10-observer-redstone_block-sticky_piston-4b
+census: box 3x2x1 k<=4 (0,0,0=redstone_block;0,1,0=observer[facing=down,powered=false];1,1,0=observer[facing=west,powered=false];2,0,0=sticky_piston[extended=false,facing=west])
+port start: 0 0 0 last
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=west]
+  o minecraft:observer[facing=west,powered=false]
+layer 0:
+  R.S
+layer 1:
+  Oo

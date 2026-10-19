@@ -1,0 +1,4 @@
+fill designs/piston-door-3x3/tracks/c77/solid/h5.txt: 7 region cells (7 free, 0 fixed), base 35 blocks (design 41), k 0..=5, global palette 34 states, gaps allowed
+79 subsets pass the connectivity rule; 944211688 fillings to screen in 816796 work items
+[   600s] 123632339 screened (205990/s), 146191971 pruned, item 233447/816796, 0 pass the 1-position screen, 0 finds
+[  1200s] 243231550 screened (202636/s), 284065463 pruned, item 456196/816796, 0 pass the 1-position screen, 0 finds

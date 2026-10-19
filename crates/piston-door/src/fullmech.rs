@@ -2011,6 +2011,17 @@ pub fn cli(o: &CliOpts) -> Result<()> {
         match r {
             Ok(Some(f)) => {
                 println!("  {} [{:.1}s]", describe(&ctx, &f), t0.elapsed().as_secs_f64());
+                // --export with --check: this design's exact mechanism as a design + `door ideal` plan
+                if let Some(dir) = &o.export {
+                    std::fs::create_dir_all(dir)?;
+                    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("check");
+                    let dpath = dir.join(format!("{stem}-fm.txt"));
+                    if let Some((d, plan)) = export(&ctx, &rest, &f, &format!("{stem}-fm"), &dpath.display().to_string(), 2) {
+                        std::fs::write(&dpath, d)?;
+                        std::fs::write(dir.join(format!("{stem}-fm.ideal")), plan)?;
+                        println!("  exported {} (+ .ideal)", dpath.display());
+                    }
+                }
                 if o.groups {
                     let (gs, gf) = merge_on_solution(&ctx, &rest, &f);
                     let pid = |i: usize| ctx.pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).nth(i).map(|p| p.code()).unwrap_or_default();

@@ -1,0 +1,7 @@
+dims [3, 3, 1]
+k 1..=6
+horizon 3000
+max_period 500
+margin 2
+kick_last true
+palette minecraft:observer[facing=down,powered=false] minecraft:observer[facing=up,powered=false] minecraft:observer[facing=north,powered=false] minecraft:observer[facing=south,powered=false] minecraft:observer[facing=west,powered=false] minecraft:observer[facing=east,powered=false] minecraft:stone minecraft:crafter[crafting=false,orientation=north_up,triggered=false] minecraft:crafter[crafting=false,orientation=east_up,triggered=false] minecraft:crafter[crafting=false,orientation=south_up,triggered=false] minecraft:crafter[crafting=false,orientation=west_up,triggered=false]

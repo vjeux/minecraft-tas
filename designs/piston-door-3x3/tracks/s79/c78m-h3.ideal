@@ -1,0 +1,34 @@
+# c78m with s (1,3) HELD on open by an ideal block until plan h (so a late first U pulse is blocked),
+# M (1,5) moved later if needed (its repeater chain is real; set m via the chain later), and ONE
+# symmetric bottom train: U1 @a, K @k, U2 @u2, L0, BRp.
+design designs/piston-door-3x3/tracks/s79/c78m-d3.txt
+let h = 10
+let a = 8
+let k = a+3
+let u2 = k+2
+let l0 = k
+let br = 2
+open 0 use 4 6 0
+open 1 set 1 3 -1 minecraft:redstone_block
+open h clear 1 3 -1
+open br set 2 -2 -1 minecraft:redstone_block
+open br+2 clear 2 -2 -1
+open k set -1 -1 -1 minecraft:redstone_block
+open k+2 clear -1 -1 -1
+open l0 set -2 0 -1 minecraft:redstone_block
+open l0+2 clear -2 0 -1
+open a set 1 -2 -1 minecraft:redstone_block
+open a+2 clear 1 -2 -1
+open u2 set 1 -2 -1 minecraft:redstone_block
+open u2+2 clear 1 -2 -1
+close 0 use 4 6 0
+close br set 2 -2 -1 minecraft:redstone_block
+close br+2 clear 2 -2 -1
+close k set -1 -1 -1 minecraft:redstone_block
+close k+2 clear -1 -1 -1
+close l0 set -2 0 -1 minecraft:redstone_block
+close l0+2 clear -2 0 -1
+close a set 1 -2 -1 minecraft:redstone_block
+close a+2 clear 1 -2 -1
+close u2 set 1 -2 -1 minecraft:redstone_block
+close u2+2 clear 1 -2 -1

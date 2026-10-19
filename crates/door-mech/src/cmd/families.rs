@@ -5,6 +5,67 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 #[derive(clap::Args)]
+pub struct MechmutArgs {
+    /// Seed mechanisms: lines `W H x0 y0 piece piece ...` (box in door coordinates).
+    input: PathBuf,
+    /// State cap of the seeds' exact solve (the smaller-door mechanisms need 1-5M).
+    #[arg(long, default_value_t = 5_000_000)]
+    cap: usize,
+    /// State cap of a neighbour's exact solve when its parent's schedule does not replay
+    /// (0 = replay only: fast).
+    #[arg(long, default_value_t = 0)]
+    bfs_cap: usize,
+    /// Parallel solves (each holds up to ~0.7 GB per million states).
+    #[arg(long, default_value_t = 12)]
+    threads: usize,
+    #[arg(long, default_value_t = 4)]
+    rounds: usize,
+    /// Best new variants that seed the next round.
+    #[arg(long, default_value_t = 6)]
+    beam: usize,
+    /// Ranked TSV of every kept variant (stdout when absent).
+    #[arg(long)]
+    out: Option<PathBuf>,
+    /// Write the best `--top` variants as ideal-input designs + plans here.
+    #[arg(long)]
+    ideal_out: Option<PathBuf>,
+    #[arg(long, default_value_t = 5)]
+    top: usize,
+    /// Search from seeds that do not solve too (their neighbours may: a turned mechanism whose
+    /// stacked pistons now couple by quasi-connectivity).
+    #[arg(long)]
+    repair: bool,
+    /// Pieces never changed, space- or ';'-separated (e.g. a lever-held top trio
+    /// "SD+(0,4) SD+(1,4) SD+(2,4)").
+    #[arg(long)]
+    keep: Option<String>,
+    /// Cells no piece may cover and the cycle may never occupy, "x,y;x,y" (room for an observer).
+    #[arg(long)]
+    reserve: Option<String>,
+}
+
+pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve } = args;
+    let keep: Vec<crate::families::Pc> = match keep {
+        Some(s) => s.split(|c: char| c == ';' || c.is_whitespace()).map(str::trim).filter(|t| !t.is_empty()).map(crate::mechspace::parse_piece).collect::<Result<_>>()?,
+        None => Vec::new(),
+    };
+    let reserve: Vec<(i8, i8)> = match reserve {
+        Some(s) => s
+            .split(';')
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .map(|t| -> Result<(i8, i8)> {
+                let (a, b) = t.split_once(',').ok_or_else(|| anyhow::anyhow!("reserve cell {t:?}: x,y"))?;
+                Ok((a.trim().parse()?, b.trim().parse()?))
+            })
+            .collect::<Result<_>>()?,
+        None => Vec::new(),
+    };
+    crate::mechmut::run(&input, &crate::mechmut::Opts { cap, bfs_cap, threads, rounds, beam, top, repair, keep, reserve }, out.as_deref(), ideal_out.as_deref())
+}
+
+#[derive(clap::Args)]
 pub struct MechspaceArgs {
     /// selftest | validate | decide | gen
     cmd: String,
@@ -70,11 +131,11 @@ pub struct MechspaceArgs {
     /// Accepted for old command lines: extended-at-rest pullers are the default now.
     #[arg(long, hide = true)]
     ext_pullers: bool,
-    /// Generator: most 1-move exits by a puller EXTENDED at rest per mechanism (c79 has 2, the
-    /// community 7x8 1; each one doubles a block's choices).
-    #[arg(long, default_value_t = 2)]
+    /// Generator: most 1-move exits by a puller EXTENDED at rest per mechanism (a lever-held top
+    /// row has 3, c79 2, the community 7x8 1; each one doubles a block's choices).
+    #[arg(long, default_value_t = 3)]
     ext_max: usize,
-    /// Generator: a second extended-puller exit may sit anywhere (default: next to the first).
+    /// Generator: extended-puller exits may sit anywhere (default: each next to an earlier one).
     #[arg(long)]
     ext_apart: bool,
     /// Generator: exactly one piston in the box's bottom row, sticky facing up.
@@ -528,14 +589,17 @@ pub struct FamiliesArgs {
     /// Accepted for old command lines: extended-at-rest pullers are the default now.
     #[arg(long, hide = true)]
     ext_pullers: bool,
-    /// Most 1-move exits by a puller EXTENDED at rest per mechanism (c79 has 2, the community
-    /// 7x8 1; each one doubles a block's choices).
-    #[arg(long, default_value_t = 2)]
+    /// Most 1-move exits by a puller EXTENDED at rest per mechanism (a lever-held top row has 3,
+    /// c79 2, the community 7x8 1; each one doubles a block's choices).
+    #[arg(long, default_value_t = 3)]
     ext_max: usize,
-    /// A second extended-puller exit may sit anywhere (default: next to the first, as one level
-    /// holds both, like c79's MR/TR pullers; halves the candidates).
+    /// Extended-puller exits may sit anywhere (default: each next to an earlier one, as one level
+    /// holds them all, like c79's MR/TR pullers or a lever-held top row; halves the candidates).
     #[arg(long)]
     ext_apart: bool,
+    /// How near (Chebyshev) an earlier extended-puller exit each later one must be.
+    #[arg(long, default_value_t = 1)]
+    ext_dist: usize,
     /// Audit bound (a): a piston extended at rest may be reused as a lifted / carried provider.
     #[arg(long)]
     lift_ext: bool,
@@ -543,10 +607,29 @@ pub struct FamiliesArgs {
     /// action cell and be carried there (fast-clean's shuttled SD(0,3)).
     #[arg(long)]
     carry_in: bool,
+    /// Pistons resting IN ring cells get escape providers (carried along the ring into a corner
+    /// or out of the frame by a pull / push carrier that escapes too; c77's 7x7 w1).
+    #[arg(long)]
+    ring_escape: bool,
+    /// --ring-escape: most escapes per candidate.
+    #[arg(long, default_value_t = 3)]
+    ring_escape_max: usize,
+    /// --ring-escape: emit only candidates with at least one ring escape (the new space).
+    #[arg(long)]
+    ring_escape_only: bool,
+    /// Keep only candidates whose every piston has a free cell wiring could feed it from at rest
+    /// (structural, optimistic: a neighbour, or the QC cell above and its neighbours).
+    #[arg(long)]
+    feedable: bool,
 }
 
 pub fn cmd_families(version: &str, args: FamiliesArgs) -> Result<()> {
-    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, lift_ext, carry_in } = args;
+    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable } = args;
+    crate::families::RING_ESCAPE_ONLY.store(ring_escape_only, std::sync::atomic::Ordering::Relaxed);
+    crate::families::RING_ESCAPE.store(ring_escape, std::sync::atomic::Ordering::Relaxed);
+    crate::families::RING_ESCAPE_MAX.store(ring_escape_max, std::sync::atomic::Ordering::Relaxed);
+    crate::families::FEEDABLE.store(feedable, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_DIST.store(ext_dist, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_PULLERS.store(!no_ext_pullers, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_MAX.store(ext_max, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_ADJACENT.store(!ext_apart, std::sync::atomic::Ordering::Relaxed);

@@ -1,0 +1,56 @@
+# c77: c074 (ceil's 8x7-074 + ceiling-held top) with every event its own variable (for windows).
+# E = SE(-2,1) (inner left), D = SE(-3,1) (outer, shuttles E), M = E fired at (-1,1), TLc = SD(-1,3).
+design designs/piston-door-3x3/tracks/c77/wip/c074.txt
+let e1o = 0
+let e1c = 0
+let tlo = 6
+let tlc = 6
+let d1 = 12
+let m = 18
+let d2 = 24
+let e2o = 30
+let e2c = 12
+let blo = 30
+let blc = 12
+let bmo = 30
+let bmc = 12
+let bro = 30
+let brc = 12
+let mro = 30
+let mrc = 12
+open 0 use 1 5 0
+open e1o set -2 1 1 minecraft:redstone_block
+open e1o+2 clear -2 1 1
+open tlo set -1 3 1 minecraft:redstone_block
+open tlo+2 clear -1 3 1
+open d1 set -3 1 1 minecraft:redstone_block
+open d1+2 clear -3 1 1
+open m set -1 1 1 minecraft:redstone_block
+open m+2 clear -1 1 1
+open d2 set -3 1 1 minecraft:redstone_block
+open d2+2 clear -3 1 1
+open e2o set -2 1 1 minecraft:redstone_block
+open e2o+2 clear -2 1 1
+open blo set 0 -2 1 minecraft:redstone_block
+open blo+2 clear 0 -2 1
+open bmo set 1 -2 1 minecraft:redstone_block
+open bmo+2 clear 1 -2 1
+open bro set 4 0 1 minecraft:redstone_block
+open bro+2 clear 4 0 1
+open mro set 4 1 1 minecraft:redstone_block
+open mro+2 clear 4 1 1
+close 0 use 1 5 0
+close e1c set -2 1 1 minecraft:redstone_block
+close e1c+2 clear -2 1 1
+close tlc set -1 3 1 minecraft:redstone_block
+close tlc+2 clear -1 3 1
+close e2c set -2 1 1 minecraft:redstone_block
+close e2c+2 clear -2 1 1
+close blc set 0 -2 1 minecraft:redstone_block
+close blc+2 clear 0 -2 1
+close bmc set 1 -2 1 minecraft:redstone_block
+close bmc+2 clear 1 -2 1
+close brc set 4 0 1 minecraft:redstone_block
+close brc+2 clear 4 0 1
+close mrc set 4 1 1 minecraft:redstone_block
+close mrc+2 clear 4 1 1

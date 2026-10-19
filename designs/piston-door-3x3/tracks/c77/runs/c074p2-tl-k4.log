@@ -1,0 +1,18 @@
+assist designs/piston-door-3x3/tracks/c77/ideal/c074p2.ideal: 2 input cells off the plane ([(-2, 1), (0, -2)]), 6 / 6 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/c77/wip/c074p2.txt: 38 blocks in the box, screen 79/79
+seed screen 79/79 with 2 inputs assisted
+windows (6 groups, 0.0 s):
+  input (-2,1) open  t4 pulse 2 gt: window [-3, +0]
+  input (0,-2) open  t20 pulse 2 gt: window [-15, +4]
+  input (-2,1) open  t45 pulse 2 gt: window [-8, +24]
+  input (-2,1) close t4 pulse 2 gt: window [-1, +0]
+  input (0,-2) close t20 pulse 2 gt: window [-12, +24]
+  input (-2,1) close t45 pulse 2 gt: window [-15, +24]
+15 pocket cells in 5 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 49 swept cells
+  pocket 0: 2 cells [(-3, -2), (-3, -1)]
+  pocket 1: 6 cells [(-3, 3), (-3, 4), (-3, 5), (-2, 3), (-2, 4), (-2, 5)]
+  pocket 2: 1 cells [(-1, -1)]
+  pocket 3: 5 cells [(2, 5), (3, 4), (3, 5), (4, 4), (4, 5)]
+  pocket 4: 1 cells [(3, -1)]
+pocket 0: skipped
+pocket 1: 6 cells, 53022 subset/lever items, 197280222 fillings to screen
