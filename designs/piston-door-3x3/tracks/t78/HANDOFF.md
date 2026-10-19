@@ -1,6 +1,7 @@
 # t78 handoff (2026-10-19 ~13:50Z)
 
 ## State
+- #1 lead (14:40Z): hs23-0008 (tracks/t78/hs23/h8Q.*): A + BR real, SU(0,-2)/SE(-1,3)/B separately drivable; TR+MR+SD(1,4) pocket pending. pockets3 re-running h8Q + the 24-plan batch on devvm49255; satwire3 running sculk SAT on the 24 plans. See NOTES section 6.
 - No verified door. Best leads: r70 (c070x rotated into 7x8, works with ideal inputs + a real U observer; E's
   three pulses and U's exact offset are the open problem) and the a78/s78/hfh78 screens (all elevator tops
   satwire-UNSAT from one lever with the sensor bottom kept). c070x itself handed to c70 (tracks/t78/c070x/NOTES.md).

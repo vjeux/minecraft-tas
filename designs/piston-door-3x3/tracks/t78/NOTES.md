@@ -100,3 +100,16 @@ E (the carried piston under D) needs exactly 3 pulses per edge (E1, M = U+3, E2 
 - Frequency filters (calibrated back signal: 10 = extensions + lever-on, 9 = retractions + lever-off) would let a
   sensor skip the lever and the door's early moves; a cake with 2 bites read by a comparator is the only
   block-state 10 found (too bulky for these pockets so far).
+
+## 6. hs23: the best fully-sculk lead (hs23/)
+- mechspace's hs23 batch (7x8 with the door 3 rows up, one sticky-up piston in the bottom row, held-first tile
+  plans): `door ideal-rs --holds-rank 30` finds 24 plans whose only exact-only inputs are the held stack's two
+  lever levels (holds-rank30-hs23-oc.txt). Every pulse input has a sensor window, same start on both edges.
+- hs23-0008 with the real lever (-3,2) on (-2,2)'s west face (h8L: holds (-2,2) direct, (-2,1) by QC) WORKS.
+  Pockets (sculk palette, --gaps, k4/k5) make A (bottom elevator's upper piston, at (1,-1) and at home) and the
+  BR puller real with 4 blocks: calibrated sensor (4,-3), observer (3,-2) east, normal piston (4,-2) up,
+  observer (3,-1) east -> h8Q (assists of the 6 other inputs off-plane).
+- Separately drivable: SU(0,-2) (2 blocks bottom-left), SE(-1,3) both edges (3 blocks top-left), B (1 block
+  bottom-right). Open: TR+MR (exactly t30 / t18) + SD(1,4) (o30, c6, c18) in the 5-cell top-right pocket.
+- Pitfall: in-plane assist blocks leaked into pocket fillings (h8P5's TR driver was dust fed by SD(1,4)'s
+  assist at (2,4)); pockets3 fixed it on main b272d3c4. Keep assists off-plane.
