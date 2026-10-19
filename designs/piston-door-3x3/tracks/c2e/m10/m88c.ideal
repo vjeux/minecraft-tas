@@ -1,0 +1,11 @@
+# m88c = m88a (8x8, bottom real) + a real top-left: B watcher (0,5) -> stone (-1,5) -> dust (-2,5) -> stone (-2,4)
+# -> repeater (-1,4) -> stone (0,4) next to A at (1,4) (A's last pull; side-powered so A at (1,3) is never
+# updated while armed on close) and dust (-3,5) -> stone (-3,4) -> dust (-3,3) -> stone (-3,2) -> L2 + L1 (QC).
+# Only A's hold ideal.
+design designs/piston-door-3x3/tracks/c2e/m10/m88c.txt
+let ah0 = 8
+let ah = 4
+open 0 use 4 5 0
+open ah0 set 1 3 -1 minecraft:redstone_block
+open ah0+ah clear 1 3 -1
+close 0 use 4 5 0
