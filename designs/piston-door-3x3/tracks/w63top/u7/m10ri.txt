@@ -2,38 +2,37 @@ name: u7-m10i
 port door: 0 0 0
 origin: -2 0 0
 palette:
-  A minecraft:sticky_piston[extended=false,facing=east]
-  B minecraft:sticky_piston[extended=false,facing=up]
-  C minecraft:sticky_piston[extended=true,facing=down]
-  D minecraft:sticky_piston[extended=true,facing=west]
-  E minecraft:stone
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=true,facing=down]
+  C minecraft:sticky_piston[extended=true,facing=west]
+  D minecraft:stone
   P minecraft:piston_head[facing=down,short=false,type=sticky]
   R minecraft:redstone_block
-  S minecraft:smooth_stone
+  S minecraft:sticky_piston[extended=false,facing=down]
   p minecraft:piston_head[facing=west,short=false,type=sticky]
   r minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
-  s minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
 layer -2:
-  ...B
+  ...A
   .
 layer -1:
-  .A..S
+  .s..D
   .
 layer 0:
-  A.EEEpD
+  s.DDDpC
   .
 layer 1:
-  A.EEEpD
+  s.DDDpC
   ......R
 layer 2:
-  A.EEES
+  s.DDDD
   .
 layer 3:
-  ..SsPr
+  ..DSPr
   .
 layer 4:
-  ...PC
+  ...PB
   ....R
 layer 5:
-  ...C
+  ...B
   ...R
