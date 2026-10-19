@@ -5,6 +5,7 @@
 //! and steady-state tracking, shared by both runners), [`report`] (the verdict), [`sim`] (redsim
 //! runner).
 
+pub mod census;
 pub mod machine;
 pub mod report;
 pub mod sim;
@@ -65,6 +66,36 @@ enum Cmd {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// Exhaustive census on redsim: every face-connected filling of the box with kmin..=k blocks
+    /// of the palette (one per rotation class), kicked once per observer; writes DIR/found.tsv and
+    /// one design per type to DIR/designs/.
+    Census {
+        /// Box AxBxC (x, y, z), or several: 4x2x1,2x2x2.
+        #[arg(long = "box")]
+        dims: String,
+        #[arg(long)]
+        k: usize,
+        #[arg(long, default_value_t = 1)]
+        kmin: usize,
+        /// Palette shorthands (clock census names) or block states.
+        #[arg(long, default_value = "slime,honey,stone,observer,piston,sticky")]
+        palette: String,
+        #[arg(long, default_value_t = 3)]
+        max_pistons: usize,
+        #[arg(long, default_value_t = 3)]
+        max_observers: usize,
+        #[arg(long, default_value_t = 160)]
+        horizon: u32,
+        #[arg(long, default_value_t = 6)]
+        margin: i32,
+        #[arg(long, default_value_t = 96)]
+        workers: usize,
+        /// Keep observers whose output feeds nothing.
+        #[arg(long)]
+        loose: bool,
+        #[arg(long)]
+        out: PathBuf,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -115,6 +146,18 @@ pub fn run(args: Vec<String>) -> Result<()> {
             if !all_ok {
                 std::process::exit(1);
             }
+        }
+        Cmd::Census { dims, k, kmin, palette, max_pistons, max_observers, horizon, margin, workers, loose, out } => {
+            let mut boxes: Vec<[i32; 3]> = Vec::new();
+            for b in dims.split(',') {
+                let d: Vec<i32> = b.split('x').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().map_err(|e| anyhow::anyhow!("--box AxBxC[,AxBxC...]: {e}"))?;
+                if d.len() != 3 {
+                    bail!("--box AxBxC[,AxBxC...]");
+                }
+                boxes.push([d[0], d[1], d[2]]);
+            }
+            let o = census::CensusOptions { dims: boxes[0], k, kmin, palette: clock::census::expand_palette(&palette)?, max_pistons, max_observers, horizon, margin, workers, out, loose };
+            census::run_census(&o, &boxes)?;
         }
     }
     Ok(())
