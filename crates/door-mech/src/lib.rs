@@ -1003,6 +1003,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 crate::mechsynth::INPUTS_Z1.store(true, std::sync::atomic::Ordering::Relaxed);
                 eprintln!("[mechspace] export: every input a redstone block at z = 1 behind its piston");
             }
+            // exported plans in the tile-tick phase (main's `door ideal` default) unless asked
+            if std::env::var("MECHSPACE_BETWEEN").is_err() {
+                crate::mechsynth::PLAN_TILE.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
             if no_door_bodies {
                 ms::NO_DOOR_BODIES.store(true, std::sync::atomic::Ordering::Relaxed);
                 eprintln!("[mechspace] sub-model: no piston body inside the 3x3");

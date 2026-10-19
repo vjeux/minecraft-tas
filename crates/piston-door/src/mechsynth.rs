@@ -459,6 +459,9 @@ pub static INPUTS_Z1: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicB
 /// Ideal plans: consecutive level toggles of different pistons that commute share one tick (a
 /// lever-held stack releases at once).
 pub static GROUP_LEVELS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Ideal plans in the TILE-TICK phase (main de6ecbce: `door ideal`'s default): the text says
+/// `phase tile` and `verify_plan` replays them that way.
+pub static PLAN_TILE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--seamless-open`: open states must also pass `World::ring_clean`.
 pub static SEAMLESS_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Where the split symmetric search puts the "edge" pulses: 0 both, 1 start, 2 end (`--edges`).
@@ -1579,6 +1582,9 @@ pub fn ideal_plan(rest: &World, sol: &Solution, sym: bool, gap: u32, name: &str)
     }
     events.sort_by_key(|e| (!e.0, e.1));
     let mut text = format!("# mech-synth ideal schedule ({} on both edges)\ndesign {name}.txt\n", if sym { "symmetric" } else { "open/close" });
+    if PLAN_TILE.load(Ordering::Relaxed) {
+        text.push_str("phase tile\n");
+    }
     text.push_str(&format!("# open:  {}\n# close: {}\n", fmt_seq(rest, &open_seq), fmt_seq(rest, &close_seq)));
     for (op, t, p, st) in &events {
         match st {
@@ -1599,7 +1605,10 @@ pub fn parse_p(s: &str) -> Result<P> {
 
 /// Replay a plan in the simulator with ideal inputs; Ok(()) = works at every position.
 pub fn verify_plan(w: &mut mctas::sim::Worker, plan: &IdealPlan, extra: u32) -> Result<()> {
-    let s = crate::ideal::Schedule::from_events(plan.design.clone(), &plan.events);
+    let mut s = crate::ideal::Schedule::from_events(plan.design.clone(), &plan.events);
+    if PLAN_TILE.load(Ordering::Relaxed) {
+        s.phase = crate::ideal::PlanPhase::Tile;
+    }
     let opts = crate::ideal::IdealOptions { cycles: 2, offsets: crate::ideal::offsets(extra), trace: None };
     crate::ideal::run(w, &s, &Default::default(), &opts).map(|_| ())
 }
