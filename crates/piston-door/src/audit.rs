@@ -586,12 +586,14 @@ pub struct GenCfg {
 }
 
 pub fn gen_cfgs() -> Vec<GenCfg> {
+    // g1 is the catalog generator as it was before 2026-10-19 (1-move exits by RETRACTED pullers
+    // only); since then extended-at-rest pullers are every generator's default (g2..g6).
     vec![
-        GenCfg { name: "families v3 (catalog: P<=10, two 1, lifts, pushes)", tool: "families / fullmech", pmax: 10, two: 1, carry: 0, vmid: "", ext_pullers: false },
-        GenCfg { name: "mechspace gen default (P<=11, two 1)", tool: "mechspace", pmax: 11, two: 1, carry: 0, vmid: "", ext_pullers: false },
-        GenCfg { name: "mechspace --ext-pullers", tool: "mechspace", pmax: 11, two: 1, carry: 0, vmid: "", ext_pullers: true },
-        GenCfg { name: "mechspace --ext-pullers --two 7", tool: "mechspace", pmax: 11, two: 7, carry: 0, vmid: "", ext_pullers: true },
-        GenCfg { name: "mechspace --ext-pullers --two 7 --carry 2 --vmid any", tool: "mechspace", pmax: 11, two: 7, carry: 2, vmid: "any", ext_pullers: true },
+        GenCfg { name: "families v3 --no-ext-pullers (the catalog before 2026-10-19)", tool: "families / fullmech", pmax: 10, two: 1, carry: 0, vmid: "", ext_pullers: false },
+        GenCfg { name: "families v3 (catalog: P<=10, two 1, lifts, pushes)", tool: "families / fullmech", pmax: 10, two: 1, carry: 0, vmid: "", ext_pullers: true },
+        GenCfg { name: "mechspace gen default (P<=11, two 1)", tool: "mechspace", pmax: 11, two: 1, carry: 0, vmid: "", ext_pullers: true },
+        GenCfg { name: "mechspace --two 7", tool: "mechspace", pmax: 11, two: 7, carry: 0, vmid: "", ext_pullers: true },
+        GenCfg { name: "mechspace --two 7 --carry 2 --vmid any", tool: "mechspace", pmax: 11, two: 7, carry: 2, vmid: "any", ext_pullers: true },
         GenCfg { name: "every flag, P<=16", tool: "(widest)", pmax: 16, two: 7, carry: 2, vmid: "any", ext_pullers: true },
     ]
 }
@@ -624,7 +626,7 @@ pub fn member(target: &[Pc], bx: Bx, c: &GenCfg) -> bool {
     let mirrored: Vec<Pc> = target.iter().map(|p| p.mirror()).collect();
     let mbx = Bx { x0: 2 - (bx.x0 + bx.w - 1), y0: bx.y0, w: bx.w, h: bx.h };
     let r = try_one(target, bx) || try_one(&mirrored, mbx);
-    fam::EXT_PULLERS.store(false, std::sync::atomic::Ordering::Relaxed);
+    fam::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
     r
 }
 
@@ -684,7 +686,7 @@ pub fn path_rules(m: &Mechanism) -> Vec<String> {
                 let first = m.paths_open[i].len() == 2;
                 if first {
                     out.push(format!(
-                        "{name} exits in 1 move pulled by {} EXTENDED at rest (1-move exits use retracted pullers only: Gen::others; mechspace --ext-pullers)",
+                        "{name} exits in 1 move pulled by {} EXTENDED at rest (only the --no-ext-pullers generator, g1, refuses that: Gen::others)",
                         m.pname(j)
                     ))
                 }
@@ -817,12 +819,21 @@ pub fn mech_row(m: &Mechanism, cap: usize) -> MechRow {
                 for w in fam::explain_within(bx, widest.pmax, widest.two, widest.carry, &allow, prefer) {
                     rules.push(format!("generator (every flag): {w}"));
                 }
-                fam::EXT_PULLERS.store(false, std::sync::atomic::Ordering::Relaxed);
-            } else if members.first().is_some_and(|(_, v)| v == "out") {
+            } else if members.get(1).is_some_and(|(_, v)| v == "out") {
+                // the catalog's default generator (g2) leaves it out
                 let _guard = GEN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+                fam::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
                 for w in fam::explain_within(bx, 10, 1, 0, &allow, prefer) {
                     rules.push(format!("generator (catalog defaults): {w}"));
                 }
+            } else if members.first().is_some_and(|(_, v)| v == "out") {
+                // only the retracted-pullers generator (before 2026-10-19) leaves it out
+                let _guard = GEN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+                fam::EXT_PULLERS.store(false, std::sync::atomic::Ordering::Relaxed);
+                for w in fam::explain_within(bx, 10, 1, 0, &allow, prefer) {
+                    rules.push(format!("generator (--no-ext-pullers): {w}"));
+                }
+                fam::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             // the macro model on the piece set (+ the static frame stones)
             let mut with_st = p.clone();
@@ -1206,7 +1217,7 @@ pub fn rules() -> Vec<Rule> {
         Rule { name: "satwire: written levers keep the rest polarity (FIXED main)", file: "satwire.rs", pattern: r"if p\.lever_on_rest \{ lc\.state\.replace", excludes: "-" },
         Rule { name: "boxproof: rest lever ON option (FIXED main fd8c52b3)", file: "boxproof/bmc.rs", pattern: r"lever_on_rest", excludes: "before fd8c52b3: lever-ON doors" },
         Rule { name: "boxproof: cells = air/stone/obsidian/glass/note/lamp/rblock/dust/rep/obs/torch/piston + dropper, copper bulb, comparator (fd8c52b3)", file: "boxproof/diff.rs", pattern: r"pub fn cell_of_state", excludes: "slime, honey, iron trapdoors, slabs, subtract-mode comparators, leaves and logs, rails, sculk (droppers, bulbs, comparators added in fd8c52b3)" },
-        Rule { name: "families: 1-move exits use RETRACTED sticky pullers (unless --ext-pullers, mechspace only)", file: "families.rs", pattern: r"if ext && !EXT_PULLERS", excludes: "level-held pullers released by the lever (c79's MR/TR, SW+(4,1) SW+(4,2)); fullmech and the catalog never set the flag" },
+        Rule { name: "families: 1-move exits by RETRACTED sticky pullers only with --no-ext-pullers (extended-at-rest pullers are every generator's default since 2026-10-19)", file: "families.rs", pattern: r"if ext && \(!EXT_PULLERS", excludes: "with --no-ext-pullers only: level-held pullers released by the lever (c79's MR/TR, SW+(4,1) SW+(4,2); the community 7x8's TR, SD+(2,4)); by default at most --ext-max (2) such exits per mechanism" },
         Rule { name: "families: paths of 1-2 unit moves, no reversal", file: "families.rs", pattern: r"fn paths\(", excludes: "a door block moving 3 times or back (c79's TM: down, up, up) - only harmless when the pieces are generated for another nominal path" },
         Rule { name: "families: the center leaves straight in exactly 2 moves", file: "families.rs", pattern: r"fn core\(", excludes: "a center that exits in 1 move sideways, 3 moves, or bends" },
         Rule { name: "families: providers = a sticky puller 2 ahead or a pusher 1-2 behind", file: "families.rs", pattern: r"fn providers\(", excludes: "a block pushed through a chain from 3+ cells (c79's BM is pushed from (1,3) through TM and C; generated anyway via its (1,-2) pull)" },
