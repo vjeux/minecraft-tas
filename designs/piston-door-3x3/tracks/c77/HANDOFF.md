@@ -12,3 +12,4 @@
   c074-64b-42 (sculk 8x8). Details in NOTES.md.
 
 ## Running processes: none.
+## 7x7 next: wire mm01-11 (only P unfed) — pockets3 asked (sculk at (0,-2)); w2 is the observer-helper variant.

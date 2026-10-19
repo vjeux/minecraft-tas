@@ -131,3 +131,12 @@ top-left cannot pass a level down past D/E/(-1,2). Same for 076 (TLc level-held)
   holds its pusher (it must escape sideways to a corner and come back; margin moves are one-way in 7x7). Its only feed is
   the path cell, temporarily. Fixes need a temporary source there (an observer fired twice = a 4 gt pulse, a sensor) that
   leaves before the escape; every variant tried by hand leaves the ring cell e short of a door block (2 pushes needed).
+- Variants (all 7x7, ideal inputs WORK with --between-ticks; P stays the one unfed piston):
+  w2 (mine, explore/c77 seven/w2.txt): w1 minus BR's down-puller + observer (4,0) facing up firing R from MR's puller;
+  12 pistons, fullmech exact solve open 14 + close 14 (fullmech --check w2 --shrink: no 11-piston variant).
+  c70b's mechmut (198 variants from w1): mm01 = 11 pistons (w1 minus L and BL's down-puller, Q moved into the corner
+  (-1,-1)); copied as seven/mm01-11.txt + .ideal. In mm01 P has two inputs: at (0,-1) t6 (P pulled there by Q; BM's
+  down-puller fires at t6 too) and at (1,-1) t48 (a plain 2 gt center pull, P flanked by stones at (0,-1) and (2,-1),
+  (0,-2) free). Lead: a component at (0,-2) (sensor / wall torch / observer) feeding P at t6 directly and at t48
+  through the stone above it. ideal-rs --vary over 14 states at (0,-2) x 17 at (-1,-2) with P's inputs removed: 0/238.
+  Handed to pockets3 (sculk pockets with the plan as assist).
