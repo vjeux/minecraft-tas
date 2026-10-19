@@ -768,7 +768,12 @@ pub fn resolve_cli(path: &std::path::Path, w: i8, h: i8, cap: usize, threads: us
                 }
                 let (bx, v) = &items[i];
                 let Some((m, rest)) = Mech::new(*bx, v) else { continue };
-                match reach_open(&m, &rest, cap) {
+                let r = reach_open(&m, &rest, cap);
+                let d = i + 1;
+                if d % 50 == 0 {
+                    eprintln!("[families resolve] {d}/{} ({} proven, {} capped, {:.0}s)", items.len(), proven.load(Ordering::Relaxed), capped.load(Ordering::Relaxed), t0.elapsed().as_secs_f64());
+                }
+                match r {
                     Ok(false) => {
                         proven.fetch_add(1, Ordering::Relaxed);
                     }

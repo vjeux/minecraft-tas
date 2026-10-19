@@ -106,3 +106,38 @@ mirror-merged. Results (k = pistons per row):
 * 21:48Z v1 catalog (P <= 10): 7x8 50, 8x7 49, 7x9 +1, 9x7 +2, 8x8 +8, 8x9 +2.
 * 22:05Z strip rows; 22:20Z memory links in topology; 22:33Z regeneration with P <= 11, thin boxes,
   mech files, topology column, simulator replays.
+* 22:59Z v2 pushed (e39cb4b: boxes <= 64 final, mech files for every 7x8 / 8x7 entry).
+* 23:10Z QC coupling in the macro model; 00:07Z v3 pushed (6bdcca5): 23 boxes, every entry replayed
+  in the simulator with ideal inputs (4 positions x 2 cycles): 85 oc + 44 sym schedules WORK.
+  Counts (minimal mechanisms that fit / first fitting there): 7x7 0 (1639 unresolved), 7x8 49/49,
+  8x7 49/49, 7x9 55/7, 9x7 58/11, 8x8 131/41, 8x9 137/2, 8x10 137/2, 9x8 / 10x8 / 9x9 nothing new;
+  every 6xN / Nx6 / 5xN / Nx5 box: 0.
+  Replay-passing and topology strict / memory: 7x8-014 / 015 (memory, train of 11), 8x8-116, 123,
+  124, 125, 127 (strict, oc), 8x8-130 (strict, oc + sym), 8x8-131 / 135 (memory, oc + sym),
+  8x9-158 (memory, oc + sym).
+* Not finished: the exhaustive re-check of 7x7's unresolved candidates (20M states each, 12
+  threads) ran out of its 90-minute bound without output (no progress printing: a mistake);
+  9x6 / 6x9 with two non-core 2-move blocks (1.3M candidates) and with `--carry 1` (P <= 12) were
+  still running at the end; `--carry 1` on 7x7 / 7x8 generates 1.9M / 2.6M candidates (hours to
+  solve with this solver).
+
+## What did not work / caveats
+* The first generator (every block every 1-2 move path, every provider, DFS over 9 blocks) never
+  finished even 7x7: the core + others split made it tractable.
+* Full-graph BFS blows up on independent toggles (each pull-type side piston doubles the space):
+  ~40 % of candidates hit 300k states. A* resolves the working ones fast; proving the rest
+  impossible needs a smarter method (partial-order reduction / decomposition): the main gap in the
+  "exhaustive" claim.
+* The macro model ignored quasi-connectivity until v3: v2's 8x8-118..129 plans failed in the
+  simulator (an elevator piston pulled back above BL's puller QC-fires it).
+* door topology's parity rule is a heuristic (wire56: observer timing gives odd counts from
+  double firings); rider shuffles get "strict" from topology but fire pistons inside the 3x3.
+* mech-synth's ideal_plan finds no input cell for 68 entries (pistons boxed in by the mechanism).
+
+## Next ideas
+* A sound and fast exhaustive solver: decompose independent pull-type toggles, partial-order
+  reduction, or a SAT/BMC encoding of the pulse model; then rerun with `--carry 1`, helpers and
+  3-move paths (vjeux's extension list: carrying is in the generator, helpers and 3-move paths not).
+* QC coupling in the strip rows (the same piston in the row above sits right above): fire the three
+  rows together.
+* Wire the replay-passing strict / memory entries (wire56, wire64, satwire, sweep56 are on them).
