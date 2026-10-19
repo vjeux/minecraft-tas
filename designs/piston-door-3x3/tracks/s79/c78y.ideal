@@ -1,16 +1,16 @@
 # c78y: c78x with a 1 gt first U pulse and the bottom-left REAL (observer (0,-2) east watching U -> stone (-1,-2) -> K; dropper (-2,-2) -> observer (-2,-1) -> L0; obsidian (3,-1)); s, U, R0 ideal.
 design designs/piston-door-3x3/tracks/s79/c78y.txt
-let u0 = 5
+let u0 = 4
 let uw = 1
 let e = 8
 let eh = 3
 let k = 11
-let u2 = 20
+let u2 = 24
 let r0 = 4
 let l0 = 8
 let cu1 = 5
 let ck = 11
-let cu2 = 20
+let cu2 = 24
 let ce = 6
 let cr0 = 4
 let cl0 = 8
