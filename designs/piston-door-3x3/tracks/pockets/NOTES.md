@@ -4,7 +4,11 @@ Brief (coordinator for vjeux, 2026-10-19 05:47Z): run cosearch2's `door cosearch
 mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; first the tool items
 (periodic rest rule, off-plane lever, region closure). Box: devvm49255 (dedicated, 166 cores).
 
-**Result (pockets2, 2026-10-19 09:24Z-12:30Z): BEST.txt = `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks,
+**pockets3 (15:09Z..): THE FIRST 7x8 = BEST.txt = `finds/e78-56b-40.txt`, 56b (7x8x1), 40 blocks, SCULK, FULL,
+rotation-safe, open 98 / close 24, verify --extra-offsets 28 WORKS** (e78k's r1 made a door by `door fill --keep`
+across regions, then shrunk 45 -> 40; section 9).
+
+**Result (pockets2, 2026-10-19 09:24Z-12:30Z): `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks,
 solid, FULL seamless, rotation-safe, open 39 / close 27, verify at 32 positions** (e88's 43-block record t7b,
 43/31, with its right wall re-wired: same size, 8 ticks faster, so it ranks first by the tie-break), and
 **`finds/s27-bls49.txt`, SCULK 8x8 = 64b, 49 blocks** (archived on main; not the sculk 8x8 leader: c77's
@@ -276,7 +280,24 @@ Results:
 
 ## 9. pockets3 (2026-10-19 13:42Z ->, same box, branch and clone; the wiring service)
 
+**THE FIRST 7x8 (15:09Z): `finds/e78-56b-45.txt`, 56b (7x8x1), 45 blocks, SCULK, FULL, open 105 / close 111,
+verified on main at 32 positions x 4 orientations (archive/e78-56b-45-45b.txt)**: e78k's r1 (ring56's jf layout
+in 7x8, wool door, K by a piston relay, one flaw at open t45) + 3 changes found by `door fill --keep` over the 14
+bottom cells (<= 3 changed, 38 states): relay piston (3,-3) -> calibrated sensor E, its head cell (4,-3) ->
+calibrated sensor E, (-2,-3) -> normal piston facing up. A retry machine (e78k: the sensors' re-arm cycles replay
+the sequence until it converges). Every REGION-LOCAL search had failed (7, 11, 8-cell right cluster, left 9...);
+the fix is CROSS-region. Then shrunk with `--keep --max-blocks N` (pre-filtered, ~20 s per step):
+**`finds/e78-56b-42.txt`** 42 blocks, open 98 / close 24 (three independent 44-block edits combined: bottom observer
+W (2,-3) + note (4,-3) - wool (-1,-1); top-right observer (3,3) W - (3,4) - wool (4,4); top-left observer (-1,3) E -
+(-1,4) - wool (-2,4)); 41 (- obsidian (-2,-1)); **`finds/e78-56b-40.txt` 40 blocks, open 98 / close 24, verify 32
+positions + rotations** (- wool shield (3,-2), right wall = observers (3,3) W -> (4,3) W -> (4,2) UP). 40 -> 39: none at
+<= 3 changes. Speed (`--max-open`): 41 and 40 blocks at open 45 / close 56 exist (runs/e78s-fast3, e78s-fast40: the
+note/bulb (-1,-3) + plain sensor (0,-3) + calibrated (-1,-1); or (-2,-3)/(-1,-3) out + piston (-2,-2)) but are NOT
+rotation-safe (turned 90: still moving after closing). c77 has the stone line (e78st-56b-42, 51/15).
+
 Tools (explore/pockets, merged on main):
+* `d4eb7406` door fill `--max-blocks` pruned before simulation (the judge's count per filling), `--max-open` /
+  `--max-close` (speed search, checked on the 1-position screen first).
 * `ba5f30b8` (main 6e74c92a) `door fill --keep`: region cells keep their seed blocks unless the filling
   changes them; `--k` counts the CHANGED cells (another palette state, or air where a block was) =
   `ideal-rs --vary` with a `keep` alternative and at most k cells off it, judged as the REAL door (no plan).
@@ -313,4 +334,9 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
 * mechspace z1-s78 flat top 10 (pockets batch, between-ticks, k=3, lever both polarities, `runs/msz1-k3`):
   0873 / 1281 best partial 8 inputs left, 0667 7 left (the held stack (-2,1)/(-2,2) never real).
 * t78 h8Q (hs23-0008 + real lever/A/BR, 6 inputs off-plane): k<=5 drives SU(0,-2) (2 blocks), SE(-1,3)
-  both edges (3), B o6+o24 (1); top-right pocket 4 (TR+MR exactly t30/t18 + SD(1,4)) at k=5 running.
+  both edges (3), B o6+o24 (1); top-right pocket 4 at k=5 = every filling (483M): SD(1,4) all groups (3 blocks),
+  TR o30+c18 (4), TR+MR o30 (5), MR close c18 NEVER; best partial 4 inputs left (36 blocks). 24-plan hs23 batch
+  k=3: 7..13 undriven groups each, best partials 7..10 left.
+* ring56 t9e (7x9, B window + A2 + A3 ideal, left/BR/U pinned): pockets k=3 over the top-left 11 cells: none of
+  B/A2/A3 (the top-left is blind until B moves); the top-right region (2,5) (2,6) (3,5) (3,6) cleared + (4,5) (4,6)
+  at k=6 x 24 states running (runs/t9e-tr6) for the orphan partial t8.
