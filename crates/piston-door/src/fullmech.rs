@@ -35,6 +35,9 @@ pub enum FK {
     Piston { sticky: bool, f: u8, ext: bool },
     RedstoneBlock,
     Observer { f: u8 },
+    /// Slime / honey (only with --slime: the flat board is slime-free).
+    Slime,
+    Honey,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
@@ -64,6 +67,8 @@ impl FPc {
         match self.k {
             FK::Stone => format!("stone({},{})", self.x, self.y),
             FK::Obsidian => format!("obsidian({},{})", self.x, self.y),
+            FK::Slime => format!("slime({},{})", self.x, self.y),
+            FK::Honey => format!("honey({},{})", self.x, self.y),
             FK::RedstoneBlock => format!("rb({},{})", self.x, self.y),
             FK::Observer { f } => format!("obs{}({},{})", FNAME[f as usize], self.x, self.y),
             FK::Piston { sticky, f, ext } => format!("{}{}{}({},{})", if sticky { "S" } else { "N" }, FNAME[f as usize], if ext { "+" } else { "" }, self.x, self.y),
@@ -105,6 +110,8 @@ pub struct Key {
     pub g: Vec<Block>,
     pub inp: u32,
     pub pos: Vec<BlockPos>,
+    /// Where each input's source sits (the piston's cell when it was switched on).
+    pub src: Vec<Option<BlockPos>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -153,6 +160,7 @@ impl Ctx {
             }
         }
         w.piston.tracked = key.pos.iter().enumerate().map(|(i, p)| (*p, key.inp >> i & 1 == 1)).collect();
+        w.piston.ideal_src = key.src.clone();
         w
     }
 
@@ -173,7 +181,9 @@ impl Ctx {
             }
             pos.push(*p);
         }
-        Key { g, inp, pos }
+        let mut src = w.piston.ideal_src.clone();
+        src.resize(pos.len(), None);
+        Key { g, inp, pos, src }
     }
 
     fn ok(&self, w: &World) -> bool {
@@ -432,6 +442,12 @@ pub fn build_driven(bx: Bx, pieces: &[FPc], o: &Opts, undriven: &[FPc]) -> Optio
             FK::Observer { f } => {
                 planned.insert((p.x, p.y), Block::Observer { facing: fdir(f), powered: false });
             }
+            FK::Slime => {
+                planned.insert((p.x, p.y), Block::Simple(Simple::SlimeBlock));
+            }
+            FK::Honey => {
+                planned.insert((p.x, p.y), Block::Simple(Simple::HoneyBlock));
+            }
             FK::Piston { sticky, f, ext } => {
                 planned.insert((p.x, p.y), Block::Piston { sticky, facing: fdir(f), extended: ext });
                 if ext {
@@ -487,6 +503,7 @@ pub fn build_driven(bx: Bx, pieces: &[FPc], o: &Opts, undriven: &[FPc]) -> Optio
     ctx.door = door;
     ctx.ring = ring().iter().map(|(c, b)| (ctx.idx(c.0, c.1), ctx.idx(b.0, b.1))).collect();
     let mut w = World::new(min, size);
+    w.piston.ideal_src = tracked.iter().map(|(p, on)| on.then_some(*p)).collect();
     w.piston.tracked = tracked;
     let mut blocks: Vec<(BlockPos, Block)> = planned.iter().map(|(c, b)| (wp(c.0, c.1), *b)).collect();
     blocks.sort_by_key(|(p, _)| (p.y, p.x));
@@ -637,6 +654,128 @@ pub fn exact_verdict(bx: Bx, pcs: &[Pc], extra: &[FPc], pulses: &[u8], cap: usiz
     }
 }
 
+// ---- export: mechanism design + exact ideal plan (`door ideal` format) ----
+
+/// Ticks one action takes from a settled state until it is settled again (the pulse included).
+fn action_ticks(ctx: &Ctx, key: &Key, a: A) -> Option<(Key, u32, Vec<(u32, u8, bool, BlockPos)>)> {
+    // returns the next key, the ticks used, and the input switches (tick, id, on, piston cell)
+    let mut w = ctx.world_of(key);
+    let mut sw: Vec<(u32, u8, bool, BlockPos)> = Vec::new();
+    let mut t = 0u32;
+    let switch = |w: &mut World, sw: &mut Vec<(u32, u8, bool, BlockPos)>, t: u32, id: u8, on: bool| {
+        // on: the source goes behind the piston's current cell; off: it leaves where it was
+        let p = if on { w.piston.tracked[id as usize].0 } else { w.piston.ideal_src.get(id as usize).copied().flatten().unwrap_or(w.piston.tracked[id as usize].0) };
+        sw.push((t, id, on, p));
+        redsim::piston::set_input(w, id as usize, on);
+    };
+    match a {
+        A::L(i) => {
+            let on = key.inp >> i & 1 == 0;
+            switch(&mut w, &mut sw, 0, i, on);
+        }
+        A::P(i, k) => {
+            switch(&mut w, &mut sw, 0, i, true);
+            for _ in 0..k {
+                w.tick();
+                t += 1;
+            }
+            switch(&mut w, &mut sw, t, i, false);
+        }
+        A::S { a, b, ka, kb, d } => {
+            let end = (ka as u32).max(d as u32 + kb as u32);
+            for tt in 0..=end {
+                if tt == ka as u32 {
+                    switch(&mut w, &mut sw, tt, a, false);
+                }
+                if tt == d as u32 + kb as u32 {
+                    switch(&mut w, &mut sw, tt, b, false);
+                }
+                if tt == 0 {
+                    switch(&mut w, &mut sw, tt, a, true);
+                }
+                if tt == d as u32 {
+                    switch(&mut w, &mut sw, tt, b, true);
+                }
+                if tt == end {
+                    break;
+                }
+                w.tick();
+                t += 1;
+            }
+        }
+    }
+    while !w.idle() {
+        w.tick();
+        t += 1;
+        if t > 400 {
+            return None;
+        }
+    }
+    Some((ctx.key_of(&w), t, sw))
+}
+
+/// The mechanism as a design (door port at the 3x3; a redstone block behind every piston
+/// extended at rest, z = 1, its rest input) and its exact ideal plan: every input switch as a
+/// redstone block set / cleared behind the piston's current cell, at the tick the exact model
+/// needs (each action starts when the previous one has settled, plus `gap`).
+pub fn export(ctx: &Ctx, rest: &Key, f: &Found, name: &str, design_path: &str, gap: u32) -> Option<(String, String)> {
+    let bx = ctx.bx;
+    let mut palette: Vec<(char, String)> = Vec::new();
+    let mut letter = |s: String, palette: &mut Vec<(char, String)>| -> char {
+        if let Some((c, _)) = palette.iter().find(|(_, t)| *t == s) {
+            return *c;
+        }
+        let c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".chars().nth(palette.len()).unwrap_or('?');
+        palette.push((c, s));
+        c
+    };
+    let mut layers = Vec::new();
+    let bw = bx.w as usize;
+    for row in 0..bx.h as usize {
+        let mut l0 = String::new();
+        let mut l1 = String::new();
+        for col in 0..bw {
+            let b = rest.g[row * bw + col];
+            l0.push(if b.is_air() { '.' } else { letter(b.to_string(), &mut palette) });
+            let x = bx.x0 + col as i8;
+            let y = bx.y0 + row as i8;
+            let on = rest.pos.iter().enumerate().any(|(i, p)| *p == wp(x, y) && rest.inp >> i & 1 == 1);
+            l1.push(if on { letter("minecraft:redstone_block".into(), &mut palette) } else { '.' });
+        }
+        let l1t = l1.trim_end_matches('.').to_string();
+        layers.push((bx.y0 + row as i8, l0, l1t));
+    }
+    let mut d = format!("name: {name}\nport door: 0 0 0\norigin: {} 0 0\npalette:\n", bx.x0);
+    for (c, s) in &palette {
+        d.push_str(&format!("  {c} {s}\n"));
+    }
+    for (y, l0, l1) in &layers {
+        d.push_str(&format!("layer {y}:\n  {}\n", l0.trim_end_matches('.')));
+        if !l1.is_empty() {
+            d.push_str(&format!("  {l1}\n"));
+        }
+    }
+    let mut plan = format!("# exact plan from door fullmech ({name}): every input = a redstone block behind the piston (z = 1)\ndesign {design_path}\n");
+    let mut key = rest.clone();
+    for (phase, seq) in [("open", &f.open), ("close", &f.close)] {
+        let mut t0 = 0u32;
+        for &a in seq.iter() {
+            let (nk, used, sw) = action_ticks(ctx, &key, a)?;
+            for (t, _id, on, p) in sw {
+                let (x, y) = (p.x, p.y - OY);
+                if on {
+                    plan.push_str(&format!("{phase} {} set {x} {y} 1 minecraft:redstone_block\n", t0 + t));
+                } else {
+                    plan.push_str(&format!("{phase} {} clear {x} {y} 1\n", t0 + t));
+                }
+            }
+            t0 += used + gap;
+            key = nk;
+        }
+    }
+    Some((d, plan))
+}
+
 // ---- input reduction: helpers that replace a piston's wiring ----
 
 /// For each piston of a working mechanism, try to drop its input: one helper (a redstone block
@@ -708,6 +847,8 @@ pub struct AnnealOpts {
     pub max_pistons: usize,
     /// Helper kinds allowed: redstone blocks, observers, stone, obsidian.
     pub helpers: bool,
+    /// Slime and honey allowed.
+    pub slime: bool,
     pub pulses: Vec<u8>,
     pub pairs: bool,
 }
@@ -801,8 +942,10 @@ fn score(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> (f64, Option<Found>) {
     (5.0 + 0.3 * np + 0.1 * nh, None)
 }
 
-fn random_piece(r: &mut Rng, c: (i8, i8), helpers: bool) -> FPc {
-    let k = if helpers && r.below(5) == 0 {
+fn random_piece(r: &mut Rng, c: (i8, i8), helpers: bool, slime: bool) -> FPc {
+    let k = if slime && r.below(4) == 0 {
+        if r.below(4) == 0 { FK::Honey } else { FK::Slime }
+    } else if helpers && r.below(5) == 0 {
         match r.below(4) {
             0 => FK::RedstoneBlock,
             1 => FK::Observer { f: r.below(4) as u8 },
@@ -845,7 +988,7 @@ fn mutate(r: &mut Rng, bx: Bx, pieces: &[FPc], o: &AnnealOpts) -> Vec<FPc> {
     match r.below(6) {
         0 | 1 if np < o.max_pistons && !free.is_empty() => {
             let c = free[r.below(free.len())];
-            v.push(random_piece(r, c, o.helpers));
+            v.push(random_piece(r, c, o.helpers, o.slime));
         }
         2 if !v.is_empty() => {
             let i = r.below(v.len());
@@ -866,13 +1009,13 @@ fn mutate(r: &mut Rng, bx: Bx, pieces: &[FPc], o: &AnnealOpts) -> Vec<FPc> {
                     _ => FK::Piston { sticky, f, ext: !ext },
                 };
             } else {
-                v[i] = random_piece(r, (v[i].x, v[i].y), o.helpers);
+                v[i] = random_piece(r, (v[i].x, v[i].y), o.helpers, o.slime);
             }
         }
         _ => {
             if !free.is_empty() {
                 let c = free[r.below(free.len())];
-                v.push(random_piece(r, c, o.helpers));
+                v.push(random_piece(r, c, o.helpers, o.slime));
             }
         }
     }
@@ -900,7 +1043,7 @@ pub fn anneal(o: &AnnealOpts) -> Vec<(Vec<FPc>, Found)> {
                             break;
                         }
                         let c = free[r.below(free.len())];
-                        cur.push(random_piece(&mut r, c, o.helpers));
+                        cur.push(random_piece(&mut r, c, o.helpers, o.slime));
                     }
                     let (mut cs, _) = score(o.bx, &cur, so, o.cap);
                     let mut temp = 3.0;
@@ -957,6 +1100,9 @@ pub struct CliOpts {
     pub seconds: u64,
     pub seed: u64,
     pub helpers: bool,
+    pub slime: bool,
+    /// Write every exact mechanism (design + ideal plan) under this directory, per box.
+    pub export: Option<std::path::PathBuf>,
 }
 
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
@@ -1017,7 +1163,7 @@ pub fn cli(o: &CliOpts) -> Result<()> {
         let mut report = String::new();
         for (dx, dy) in offs {
             let bx = Bx { x0: -dx, y0: -dy, w, h };
-            let ao = AnnealOpts { bx, seconds: per, threads: o.threads, seed: o.seed, cap: o.cap, max_pistons: o.pmax, helpers: o.helpers, pulses: o.pulses.clone(), pairs: o.pairs };
+            let ao = AnnealOpts { bx, seconds: per, threads: o.threads, seed: o.seed, cap: o.cap, max_pistons: o.pmax, helpers: o.helpers, slime: o.slime, pulses: o.pulses.clone(), pairs: o.pairs };
             let found = anneal(&ao);
             let line = format!("anneal {w}x{h} door offset ({dx},{dy}): {} mechanisms open+close exactly in {per}s", found.len());
             println!("{line}");
@@ -1171,6 +1317,31 @@ pub fn cli(o: &CliOpts) -> Result<()> {
                 print!("{s}");
                 report.push_str(&s);
             }
+        }
+        if let Some(dir) = &o.export {
+            let sub = dir.join(format!("{w}x{h}"));
+            std::fs::create_dir_all(&sub)?;
+            let mut index = String::from("id\tbox_x0\tbox_y0\tpieces\topen\tclose\tmacro_solves\n");
+            for (n, (bx, v, f, m)) in found.iter().enumerate() {
+                let fp: Vec<FPc> = v.iter().map(FPc::from_pc).collect();
+                let Some((ctx, rest)) = build(*bx, &fp, &so) else { continue };
+                let id = format!("fm-{w}x{h}-{n:03}");
+                let dpath = sub.join(format!("{id}.txt"));
+                if let Some((d, plan)) = export(&ctx, &rest, f, &id, &dpath.display().to_string(), 2) {
+                    std::fs::write(&dpath, d)?;
+                    std::fs::write(sub.join(format!("{id}.ideal")), plan)?;
+                    index.push_str(&format!(
+                        "{id}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                        bx.x0,
+                        bx.y0,
+                        fp.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                        f.open.iter().map(|a| ctx.fmt_action(*a)).collect::<Vec<_>>().join(" "),
+                        f.close.iter().map(|a| ctx.fmt_action(*a)).collect::<Vec<_>>().join(" "),
+                        m
+                    ));
+                }
+            }
+            std::fs::write(sub.join("INDEX.tsv"), index)?;
         }
         if o.reduce {
             for (bx, v, _, _) in found.iter() {

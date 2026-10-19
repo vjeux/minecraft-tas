@@ -142,13 +142,22 @@ pub fn tick_block_entities(w: &mut World) {
     moving::tick_all(w);
 }
 
-/// Mechanism search: switch the ideal input of tracked piston `id` (it re-checks its power at
-/// once, as when a neighbor's signal changes).
+/// Mechanism search: switch the ideal input of tracked piston `id`: its source appears behind
+/// the piston's current cell (or goes away), and the piston re-checks its power at once (the
+/// block placed next to it updates it; the piston below, powered by quasi-connectivity, is not
+/// updated).
 pub fn set_input(w: &mut World, id: usize, on: bool) {
     w.piston.tracked[id].1 = on;
     let p = w.piston.tracked[id].0;
-    let k = w.get(p).kind();
-    w.neighbor_changed(p, k);
+    if w.piston.ideal_src.len() < w.piston.tracked.len() {
+        w.piston.ideal_src.resize(w.piston.tracked.len(), None);
+    }
+    let src = if on { Some(p) } else { w.piston.ideal_src[id] };
+    w.piston.ideal_src[id] = if on { Some(p) } else { None };
+    if let Some(s) = src {
+        let k = w.get(s).kind();
+        w.neighbor_changed(s, k);
+    }
 }
 
 /// `isRedstoneConductor` of the piston blocks: never.
