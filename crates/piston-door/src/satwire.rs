@@ -472,10 +472,52 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
     // behind it). Adopted from wire64's `--real-power` (the in-plane redstone-block reading
     // below is kept as a fallback for designs without probes).
     let probes = plane_cells(lo, hi, z);
-    let power_now = |w: &mut Worker, f: &HashMap<C2, String>| -> Result<HashMap<C2, bool>> {
+    // A piston ignores its FRONT face (`PistonBaseBlock.getNeighborSignal` skips `facing`), but the
+    // simulator's best-neighbor signal counts it: a door block strongly powered in front of a
+    // retracted pull piston (TL at (-1,2) in front of L2 in families 8x8-118, wire64) would be
+    // recorded as power the model can never (and must never) produce. When every in-plane source
+    // of the piston's cell is its front neighbor (and no input sits behind or in front of the
+    // plane next to it), the direct power is dropped; quasi-connectivity is unchanged.
+    let emits = |f: &HashMap<C2, String>, sig: &[(u8, u8)], n: C2, to: C2| -> bool {
+        let Some(st) = f.get(&n) else { return false };
+        let d = (to.0 - n.0, to.1 - n.1);
+        let on = |k: &str| prop(st, k) == Some("true");
+        let back = |st: &str| prop(st, "facing").and_then(dparse).map(|fc| (-fc.0, -fc.1));
+        match short(st) {
+            "redstone_block" => true,
+            "lever" => on("powered"),
+            "observer" | "repeater" | "comparator" => on("powered") && back(st) == Some(d),
+            "redstone_torch" => on("lit") && d != DN,
+            "redstone_wall_torch" => on("lit") && back(st) != Some(d),
+            "redstone_wire" => {
+                let p: u8 = prop(st, "power").and_then(|v| v.parse().ok()).unwrap_or(0);
+                let side = match d {
+                    E => prop(st, "east"),
+                    W => prop(st, "west"),
+                    _ => None,
+                };
+                p > 0 && (d == DN || side.is_some_and(|v| v != "none"))
+            }
+            _ => matches!(mk(st), MK::Cond) && probes.iter().position(|p| p[0] == n.0 && p[1] == n.1).is_some_and(|i| sig[i].1 > 0),
+        }
+    };
+    let power_now = |w: &mut Worker, fr: &(HashMap<C2, String>, HashSet<C2>)| -> Result<HashMap<C2, bool>> {
+        let (f, oop) = fr;
         let sig = w.signals(sb, &probes)?;
         let on = |c: C2| probes.iter().position(|p| p[0] == c.0 && p[1] == c.1).is_some_and(|i| sig[i].0 > 0);
-        Ok(f.iter().filter(|(_, st)| matches!(mk(st), MK::Piston { .. })).map(|(c, _)| (*c, on(*c) || on(add(*c, U)))).collect())
+        Ok(f.iter()
+            .filter_map(|(c, st)| match mk(st) {
+                MK::Piston { f: fc, .. } => {
+                    let front = add(*c, fc);
+                    let front_only = on(*c)
+                        && !oop.contains(c)
+                        && emits(f, &sig, front, *c)
+                        && !DIRS.iter().any(|d| *d != fc && emits(f, &sig, add(*c, *d), *c));
+                    Some((*c, (on(*c) && !front_only) || on(add(*c, U))))
+                }
+                _ => None,
+            })
+            .collect())
     };
     #[allow(unused)]
     let pow_of = |(f, oop): &(HashMap<C2, String>, HashSet<C2>)| -> HashMap<C2, bool> {
@@ -499,7 +541,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         let mut held: HashMap<C2, String> = HashMap::new();
         let mut prev = mech(&before.0, &HashMap::new(), &mut held);
         let mut frames = Vec::new();
-        let mut power = vec![power_now(w, &before.0)?];
+        let mut power = vec![power_now(w, &before)?];
         for t in 0..=ticks {
             for (et, p, st) in &evs {
                 if *et == t {
@@ -520,7 +562,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             let mf = mech(&f.0, &prev, &mut held);
             prev = mf.clone();
             frames.push(mf);
-            power.push(power_now(w, &f.0)?);
+            power.push(power_now(w, &f)?);
             w.step(sb, 1)?;
         }
         power.truncate(frames.len());
