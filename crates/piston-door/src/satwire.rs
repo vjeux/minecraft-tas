@@ -304,7 +304,7 @@ pub fn unsupported(n: &str) -> bool {
 fn is_wiring_state(s: &str) -> bool {
     matches!(
         short(s),
-        "redstone_wire" | "repeater" | "comparator" | "observer" | "redstone_torch" | "redstone_wall_torch" | "lever" | "redstone_block" | "note_block" | "redstone_lamp" | "target" | "waxed_copper_bulb" | "dropper" | "dispenser" | "iron_trapdoor"
+        "redstone_wire" | "repeater" | "comparator" | "observer" | "redstone_torch" | "redstone_wall_torch" | "lever" | "redstone_block" | "note_block" | "redstone_lamp" | "target" | "waxed_copper_bulb" | "dropper" | "dispenser" | "iron_trapdoor" | "sculk_sensor" | "calibrated_sculk_sensor"
     )
 }
 
@@ -1122,6 +1122,7 @@ pub struct ProbOpts {
 
 /// Free cells, palettes per cell, lever candidates.
 pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
+    let mut rec = rec;
     // blocks whose redstone behavior is not modeled: refuse rather than treat them as conductors
     for ph in &rec.phases {
         for fr in &ph.frames {
@@ -1130,8 +1131,12 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             }
         }
     }
-    if let Some((c, s)) = rec.wiring.iter().find(|(_, s)| unsupported(short(s))) {
-        bail!("satwire does not model {} (wiring cell {c:?})", short(s));
+    // a wired source's unmodeled wiring (a sculk sensor bridge, a target block): the synthesis
+    // re-wires the recorded piston power without it (`--check` / `--hint` then miss those cells)
+    let unmodeled: Vec<(C2, String)> = rec.wiring.iter().filter(|(_, s)| unsupported(short(s))).map(|(c, s)| (*c, short(s).to_string())).collect();
+    if !unmodeled.is_empty() {
+        println!("unmodeled wiring dropped (its cells become free cells): {unmodeled:?}");
+        rec.wiring.retain(|_, s| !unsupported(short(s)));
     }
     let z = rec.z;
     let (dx, dy) = (rec.door[0], rec.door[1]);
