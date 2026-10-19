@@ -90,16 +90,37 @@ pub fn parse_row(s: &str) -> anyhow::Result<Vec<Cell>> {
     s.split(',').filter(|t| !t.is_empty()).map(Cell::parse).collect()
 }
 
+/// **Comparator fading ring**: see [`ULoop`] with `Head::Dust2` and `Tail::Fade` (the sweep's
+/// `fade` family). Kept as a named constructor for the single design.
+#[derive(Clone, Debug)]
+pub struct Fade {
+    pub c: usize,
+    pub loss: usize,
+}
+
+impl Fade {
+    pub fn uloop(&self) -> ULoop {
+        let row = vec![Cell::Cmp; self.c];
+        let head = if self.loss == 0 { Head::Corner } else { Head::Dust2 };
+        ULoop { head, top: row.clone(), bottom: row, tail: Tail::Fade { lit: true } }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Head {
     Torch { lit: bool },
     Corner,
+    /// Two dust (the bottom row's output and the top row's input): a lossy turn (one level).
+    Dust2,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Tail {
     Dust,
     Torch { lit: bool },
+    /// Fading-ring refill: dust beside F, a wall torch on F's east face and a dust beside both
+    /// (the torch lights when the ring is empty and feeds 15 into the ring).
+    Fade { lit: bool },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -116,11 +137,14 @@ impl ULoop {
             Head::Torch { lit: true } => "T",
             Head::Torch { lit: false } => "t",
             Head::Corner => "C",
+            Head::Dust2 => "D",
         };
         let t = match self.tail {
             Tail::Dust => "d",
             Tail::Torch { lit: true } => "T",
             Tail::Torch { lit: false } => "t",
+            Tail::Fade { lit: true } => "F",
+            Tail::Fade { lit: false } => "f",
         };
         let row = |r: &[Cell]| r.iter().map(|c| c.label()).collect::<Vec<_>>().join(",");
         format!("{h}-{}-{}-{t}", row(&self.top), row(&self.bottom))
@@ -153,11 +177,20 @@ impl ULoop {
         let head = match self.head {
             Head::Torch { lit } => format!("a wall torch on block A{}", if lit { "" } else { " (unlit at placement)" }),
             Head::Corner => "block A + dust beside it".into(),
+            Head::Dust2 => "two dust (one level lost per lap)".into(),
         };
         let tail = match self.tail {
             Tail::Dust => "dust beside F".into(),
             Tail::Torch { lit } => format!("a wall torch on F{}", if lit { "" } else { " (unlit at placement)" }),
+            Tail::Fade { .. } => "dust beside F (a wall torch on F lights when the ring is empty and refills it through a dust beside it)".into(),
         };
+        if matches!(self.tail, Tail::Fade { .. }) {
+            return format!(
+                "Comparator FADING ring (clk-rt): {head} -> top row [{}] -> block F -> {tail} -> bottom row [{}] -> back; the compare-mode comparators keep a signal strength, each dust-to-dust step loses one level per lap, and the torch refills the ring at 0",
+                row(&self.top),
+                row(&self.bottom)
+            );
+        }
         let t = self.torches();
         let kind = if t % 2 == 1 {
             format!("{t} torch(es) = an inverter loop of delay {} gt (period 2 x delay)", 2 * self.loop_rt())
@@ -183,6 +216,11 @@ impl ULoop {
                 b.dust([0, y, -1]);
                 b.port("output", [0, y, -1]);
             }
+            Head::Dust2 => {
+                b.dust([0, y, 0]);
+                b.dust([0, y, -1]);
+                b.port("output", [0, y, -1]);
+            }
         }
         // `input`: the side the signal comes from (the game's facing for diodes); a torch faces
         // away from its block, i.e. along the row.
@@ -203,6 +241,12 @@ impl ULoop {
         match self.tail {
             Tail::Dust => b.dust([k + 1, y, 0]),
             Tail::Torch { lit } => b.wall_torch([k + 1, y, 0], "south", lit),
+            Tail::Fade { lit } => {
+                b.dust([k + 1, y, 0]);
+                b.wall_torch([k + 2, y, -1], "east", lit);
+                b.dust([k + 2, y, 0]);
+                b.port("output", [k + 2, y, -1]);
+            }
         }
         Ok(b)
     }

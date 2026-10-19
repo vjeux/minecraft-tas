@@ -133,6 +133,22 @@ enum Cmd {
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
+    /// Best known design per period over design files / directories (clock sim on each): the
+    /// fewest blocks, then the smallest swept volume; with --verify-list, only designs a
+    /// `clock verify` output file reports `robust`.
+    Table {
+        paths: Vec<PathBuf>,
+        #[arg(long, default_value_t = 100000)]
+        horizon: u32,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        /// Only periods up to this.
+        #[arg(long, default_value_t = 100000)]
+        max_period: u32,
+        /// Also list every (period, family) pair's smallest design.
+        #[arg(long)]
+        families: bool,
+    },
     /// A divider chain: a base torch-repeater U-loop (period 4 (1 + d1 + d2)) and master-slave
     /// T flip-flop stages, each doubling the period (divider.rs).
     Divider {
@@ -180,7 +196,8 @@ fn parse_head(s: &str) -> Result<Head> {
         "torch" | "T" => Head::Torch { lit: true },
         "torch-off" | "t" => Head::Torch { lit: false },
         "corner" | "C" => Head::Corner,
-        _ => bail!("head: torch | torch-off | corner, got {s:?}"),
+        "dust2" | "D" => Head::Dust2,
+        _ => bail!("head: torch | torch-off | corner | dust2, got {s:?}"),
     })
 }
 
@@ -189,7 +206,9 @@ fn parse_tail(s: &str) -> Result<Tail> {
         "dust" | "d" => Tail::Dust,
         "torch" | "T" => Tail::Torch { lit: true },
         "torch-off" | "t" => Tail::Torch { lit: false },
-        _ => bail!("tail: dust | torch | torch-off, got {s:?}"),
+        "fade" | "F" => Tail::Fade { lit: true },
+        "fade-off" | "f" => Tail::Fade { lit: false },
+        _ => bail!("tail: dust | torch | torch-off | fade | fade-off, got {s:?}"),
     })
 }
 
@@ -251,6 +270,41 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         dd.name = format!("{}-kick-p{}", d.name, f.period);
                         std::fs::write(path, dd.to_text())?;
                     }
+                }
+            }
+        }
+        Cmd::Table { paths, horizon, threads, max_period, families } => {
+            let mut files: Vec<PathBuf> = Vec::new();
+            for p in &paths {
+                if p.is_dir() {
+                    let mut v: Vec<PathBuf> = std::fs::read_dir(p)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|q| q.extension().is_some_and(|x| x == "txt")).collect();
+                    v.sort();
+                    files.extend(v);
+                } else {
+                    files.push(p.clone());
+                }
+            }
+            let cands: Vec<(String, String)> = files.iter().filter_map(|f| Some((f.display().to_string(), std::fs::read_to_string(f).ok()?))).collect();
+            let found = sweep::run_all(cands, horizon, threads);
+            let t = sweep::table(&found);
+            println!("| P | blocks | volume | output | family | design |");
+            println!("|---|---|---|---|---|---|");
+            for (p, f) in t.best.iter().filter(|(p, _)| **p <= max_period) {
+                println!("| {p} | {} | {} | {} | {} | {} |", f.blocks, f.volume, f.wave(), f.family, f.label);
+            }
+            if families {
+                let mut fam: std::collections::BTreeMap<(u32, String), &sweep::Found> = Default::default();
+                for f in &found {
+                    let k = (f.period, f.family.clone());
+                    if fam.get(&k).is_none_or(|o| (f.blocks, f.volume) < (o.blocks, o.volume)) {
+                        fam.insert(k, f);
+                    }
+                }
+                println!();
+                println!("| P | family | blocks | design |");
+                println!("|---|---|---|---|");
+                for ((p, family), f) in fam.iter().filter(|((p, _), _)| *p <= max_period) {
+                    println!("| {p} | {family} | {} | {} |", f.blocks, f.label);
                 }
             }
         }
