@@ -272,8 +272,9 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             cx.a.add(&[s[i].k[AIR]]);
         }
         if o.seamless && g.is_ring(i) {
-            // FRAME 12/12 (vjeux 10-19 03:36Z): when open, every ring cell holds a plain block
-            let ok = if o.frame12 { cx.or(&[s[i].k[STONE], s[i].k[OBSI], s[i].k[GLASS]]) } else { cx.or(&[s[i].k[AIR], s[i].k[STONE], s[i].k[OBSI], s[i].k[GLASS]]) };
+            // FRAME 12/12 (vjeux 10-19 03:36Z): when open, every ring cell holds a plain
+            // door-type block (stone: the door blocks' type)
+            let ok = if o.frame12 { s[i].k[STONE] } else { cx.or(&[s[i].k[AIR], s[i].k[STONE], s[i].k[OBSI], s[i].k[GLASS]]) };
             cx.a.add(&[ok]);
         }
     }
@@ -449,7 +450,10 @@ pub fn approx_block(s: &str) -> Option<String> {
     match name {
         "minecraft:comparator" => Some(format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", prop("facing").unwrap_or("east".into()))),
         "minecraft:crying_obsidian" => Some("minecraft:obsidian".into()),
-        "minecraft:iron_trapdoor" | "minecraft:waxed_copper_bulb" => Some("minecraft:glass".into()),
+        // a copper bulb is a full conductor (its lit toggle only shows to comparators/observers)
+        "minecraft:waxed_copper_bulb" => Some("minecraft:stone".into()),
+        // an iron trapdoor does not conduct (its open toggle only shows to observers)
+        "minecraft:iron_trapdoor" => Some("minecraft:glass".into()),
         "minecraft:redstone_wire" => Some(format!("minecraft:redstone_wire[east=side,north=none,power={},south=none,west=side]", prop("power").unwrap_or("0".into()))),
         _ => None,
     }
@@ -574,7 +578,7 @@ pub fn cli(a: &Args) -> Result<()> {
         Some("default") => None,
         _ => if o.flags == FlagMode::Ignore { Some(rustsat_cadical::Config::Sat) } else { Some(rustsat_cadical::Config::Unsat) },
     };
-    let (mut sat, b) = build(Sat::with_config(o.flags, cfg), &o, &g);
+    let (mut sat, b) = build(Sat::with_config_seed(o.flags, cfg, a.s("seed").and_then(|s| s.parse().ok())), &o, &g);
     sat.drop_caches();
     println!("built {}x{} door@{:?} t={} rounds={}: {} vars {} clauses {} flags, {} lever candidates, {:.1}s", w, h, (dx, dy), t, rounds, sat.vars(), sat.clauses, sat.flags.len(), g.levers.len(), t0.elapsed().as_secs_f64());
     let out_dir = a.s("out").unwrap_or("/tmp/boxproof").to_string();
