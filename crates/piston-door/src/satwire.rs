@@ -2970,6 +2970,31 @@ pub struct RunOpts {
 
 /// Judge a candidate: Ok(report line) or Err(reason).
 /// Note blocks take their instrument from the block below: let the game compute it.
+/// Write every dust in the shape the game gives it when placed (its connections), so placing the
+/// design changes no wire state an observer could see.
+fn normalize_wires(w: &mut Worker, d: &mut Design) -> Result<()> {
+    let wires: Vec<Pos> = d.blocks.iter().filter(|(_, s)| short(s) == "redstone_wire").map(|(p, _)| *p).collect();
+    if wires.is_empty() {
+        return Ok(());
+    }
+    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    w.set_blocks(sb, &d.block_list(), PlaceMode::Raw)?;
+    w.update(sb, &wires, "shape")?;
+    for p in &wires {
+        let r = w.get_region(sb, *p, *p)?;
+        if let Some(s) = r.get(*p) {
+            if short(s) != "redstone_wire" {
+                continue;
+            }
+            let power = prop(&d.blocks[p], "power").unwrap_or("0").to_string();
+            let side = |k: &str| prop(s, k).unwrap_or("none").to_string();
+            d.blocks.insert(*p, format!("minecraft:redstone_wire[east={},north={},power={power},south={},west={}]", side("east"), side("north"), side("south"), side("west")));
+        }
+    }
+    let _ = w.drop_sandbox(sb);
+    Ok(())
+}
+
 fn normalize_notes(w: &mut Worker, d: &mut Design) -> Result<()> {
     let notes: Vec<Pos> = d.blocks.iter().filter(|(_, s)| short(s) == "note_block").map(|(p, _)| *p).collect();
     if notes.is_empty() {
@@ -3126,6 +3151,7 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
         }
         let (w, sb) = ws.as_mut().map(|(w, sb)| (w, *sb)).unwrap();
         normalize_notes(w, &mut s.design)?;
+        normalize_wires(w, &mut s.design)?;
         log(format!(
             "[{:6.1}s] iter {it}: SAT (solve {dt:.1}s): {} wiring blocks; timing open: {}; close: {}{}\n{}",
             t0.elapsed().as_secs_f64(),
