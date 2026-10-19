@@ -238,7 +238,9 @@ public final class Protocol {
             JsonArray b = e.getAsJsonArray();
             pos.set(b.get(0).getAsInt(), b.get(1).getAsInt(), b.get(2).getAsInt());
             checkInside(sb, pos);
-            if (sb.level.setBlock(pos, parse(b.get(3).getAsString()), flags)) {
+            // immutable(): a block event queued by an onPlace (a piston placed with updates)
+            // keeps the position object; a shared MutableBlockPos would move it to the next block.
+            if (sb.level.setBlock(pos.immutable(), parse(b.get(3).getAsString()), flags)) {
                 changed++;
             }
         }
@@ -260,7 +262,7 @@ public final class Protocol {
                 for (int x = Math.min(a[0], b[0]); x <= Math.max(a[0], b[0]); x++) {
                     pos.set(x, y, z);
                     checkInside(sb, pos);
-                    if (sb.level.setBlock(pos, state, flags)) {
+                    if (sb.level.setBlock(pos.immutable(), state, flags)) {
                         changed++;
                     }
                 }
