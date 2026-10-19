@@ -1,51 +1,19 @@
-//! The circuits (the contraption studies, docs/circuits.md): every design of
-//! `designs/circuits/<study>/archive/` (the judge's archive, as the studies fill it) and of
-//! `designs/circuits/calibration/` (the judge's calibration circuits, verified in the real game),
-//! with its kind, its study's axis and metrics. A verdict line recorded in the design
-//! (`# CIRCUIT: ...`) or in the archive's `verdicts-v1.tsv` (`file` and `summary` columns) is the
-//! judge's; otherwise the metrics come from the redsim screen (`mctas circuit sim`), run here.
+//! The circuits (the contraption studies, docs/circuits.md): every design the judge archived in
+//! `designs/circuits/<study>/archive/` (its `verdicts.tsv` row: kind, axis, metrics, robustness,
+//! the judge line; `captions.tsv`), with the variants folded as `mctas circuit catalog` folds them
+//! (within one kind and axis value, a design that only adds block kinds to a smaller one), plus
+//! the judge's calibration circuits in `designs/circuits/calibration/` (metrics from the redsim
+//! screen, `mctas circuit sim`, run here).
 
 use anyhow::Result;
 use circuit::Circuit as Design;
+use circuit::archive::{STUDIES, archive_dir, read_rows};
 use circuit::verify::{Options, sim};
 use site_model::{Build, Circuit};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub const ROOT: &str = "designs/circuits";
-
-/// The design files to export: (study folder name, file path, from the calibration set).
-fn sources(repo: &Path) -> Vec<(String, PathBuf, bool)> {
-    let mut out = Vec::new();
-    let root = repo.join(ROOT);
-    let Ok(rd) = std::fs::read_dir(&root) else { return out };
-    let mut dirs: Vec<PathBuf> = rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
-    dirs.sort();
-    for d in dirs {
-        let name = d.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-        let (folder, calibration) = if name == "calibration" { (d.clone(), true) } else { (d.join("archive"), false) };
-        let Ok(rd) = std::fs::read_dir(&folder) else { continue };
-        let mut files: Vec<PathBuf> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
-        files.sort();
-        for f in files {
-            out.push((name.clone(), f, calibration));
-        }
-    }
-    out
-}
-
-/// `file -> summary` from an archive's verdicts-v1.tsv (header row with `file` and `summary`).
-fn verdicts(folder: &Path) -> BTreeMap<String, String> {
-    let Ok(text) = std::fs::read_to_string(folder.join("verdicts-v1.tsv")) else { return BTreeMap::new() };
-    let mut lines = text.lines();
-    let header: Vec<&str> = lines.next().unwrap_or("").split('\t').collect();
-    let (Some(fi), Some(si)) = (header.iter().position(|h| *h == "file"), header.iter().position(|h| *h == "summary")) else { return BTreeMap::new() };
-    lines.filter_map(|l| {
-        let f: Vec<&str> = l.split('\t').collect();
-        Some((f.get(fi)?.to_string(), f.get(si)?.to_string()))
-    })
-    .collect()
-}
 
 fn captions(folder: &Path) -> BTreeMap<String, String> {
     std::fs::read_to_string(folder.join("captions.tsv"))
@@ -64,6 +32,18 @@ fn comment_caption(text: &str) -> String {
         .filter(|l| !(l.starts_with("archived") || l.starts_with("verified") || l.starts_with("CIRCUIT:") || l.starts_with("FAIL:") || l.is_empty()))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)].
+pub fn parse_metrics(s: &str) -> Vec<(String, String)> {
+    s.split(", ")
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(|p| match p.split_once(' ') {
+            Some((k, v)) => (k.to_string(), v.to_string()),
+            None => (p.to_string(), String::new()),
+        })
+        .collect()
 }
 
 /// The metrics of a `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD>, <verdict>` line:
@@ -86,94 +66,195 @@ pub fn parse_verdict_metrics(line: &str, kind: &str) -> Vec<(String, String)> {
     out
 }
 
-/// The first number in a metric value (`4 gt` -> 4).
+/// The first number in a text (`L = 4 gt` -> 4).
 fn number(v: &str) -> Option<i64> {
-    let s: String = v.trim().chars().skip_while(|c| !c.is_ascii_digit() && *c != '-').take_while(|c| c.is_ascii_digit() || *c == '-').collect();
+    let s: String = v.trim().chars().skip_while(|c| !c.is_ascii_digit()).take_while(|c| c.is_ascii_digit()).collect();
     s.parse().ok()
 }
 
-pub fn export(repo: &Path) -> Result<(Vec<Build>, Vec<String>)> {
-    let mut builds = Vec::new();
-    let mut notes = Vec::new();
-    let mut seen: BTreeSet<String> = BTreeSet::new();
-    let mut folder_cache: BTreeMap<PathBuf, (BTreeMap<String, String>, BTreeMap<String, String>)> = BTreeMap::new();
-    for (study_dir, path, calibration) in sources(repo) {
-        let folder = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-        let (verd, caps) = folder_cache.entry(folder.clone()).or_insert_with(|| (verdicts(&folder), captions(&folder))).clone();
+/// What a design file adds to its row: block kinds, input and output names, its box.
+struct Parsed {
+    kinds: Vec<String>,
+    inputs: Vec<String>,
+    outputs: Vec<String>,
+    dims: Option<(String, u32)>,
+}
+
+fn parse(path: &Path) -> Option<(Design, Parsed)> {
+    let c = Design::load(path).ok()?;
+    let (lo, hi) = c.bounds();
+    let d = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
+    let p = Parsed {
+        kinds: c.kinds().into_iter().collect(),
+        inputs: c.inputs.iter().map(|i| i.name.clone()).collect(),
+        outputs: c.outputs.iter().map(|o| o.name.clone()).collect(),
+        dims: Some((format!("{}x{}x{}", d[0], d[1], d[2]), (d[0] * d[1] * d[2]).max(0) as u32)),
+    };
+    Some((c, p))
+}
+
+fn flags_of(metrics: &[(String, String)], robustness: &str, verdict: &str) -> Vec<String> {
+    let mut f = Vec::new();
+    if robustness == "robust" || verdict.trim_end().ends_with(", robust") {
+        f.push("robust".to_string());
+    }
+    if metrics.iter().any(|(k, v)| k == "latency" && number(v) == Some(0)) || verdict.contains("instant") {
+        f.push("instant".to_string());
+    }
+    f
+}
+
+/// The archived circuits of every study.
+fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
+    let mut out = Vec::new();
+    for (study, _title) in STUDIES {
+        let dir = archive_dir(root, study);
+        let rows = match read_rows(&dir) {
+            Ok(r) => r,
+            Err(e) => {
+                notes.push(format!("{}: {e:#}", dir.display()));
+                continue;
+            }
+        };
+        if rows.is_empty() {
+            continue;
+        }
+        let caps = captions(&dir);
+        // the catalog's fold: within one kind and axis value
+        let mut groups: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
+        for (i, r) in rows.iter().enumerate() {
+            groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(i);
+        }
+        let mut host: BTreeMap<usize, usize> = BTreeMap::new();
+        for g in groups.values() {
+            let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|&i| (rows[i].blocks, rows[i].volume, rows[i].file.clone(), rows[i].kinds.split('+').filter(|k| !k.is_empty()).map(String::from).collect())).collect();
+            for (k, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
+                if let Some(h) = h {
+                    host.insert(g[k], g[h]);
+                }
+            }
+        }
+        let id_of = |r: &circuit::archive::Row| format!("circuits/{study}/{}", r.file.trim_end_matches(".txt"));
+        for (i, r) in rows.iter().enumerate() {
+            let path = dir.join(&r.file);
+            let text = std::fs::read_to_string(&path).unwrap_or_default();
+            let parsed = parse(&path).map(|(_, p)| p);
+            let metrics = parse_metrics(&r.metrics);
+            let mut flags = flags_of(&metrics, &r.robustness, &r.summary);
+            let host_id = host.get(&i).map(|&h| id_of(&rows[h]));
+            if host_id.is_some() {
+                flags.push("variant".into());
+            }
+            let id = id_of(r);
+            let kinds = parsed.as_ref().map(|p| p.kinds.clone()).unwrap_or_else(|| r.kinds.split('+').filter(|k| !k.is_empty()).map(String::from).collect());
+            out.push(Build {
+                id: id.clone(),
+                kind: "circuit".into(),
+                group: r.kind.clone(),
+                name: r.file.trim_end_matches(".txt").to_string(),
+                page: format!("{id}.html"),
+                design: format!("designs/circuits/{study}/{}", r.file),
+                blocks: r.blocks as u32,
+                volume: Some(r.volume.max(0) as u32),
+                dims: Some(r.dims.clone()).filter(|d| !d.is_empty()),
+                kinds,
+                caption: caps.get(&r.file).cloned().unwrap_or_else(|| comment_caption(&text)),
+                flags,
+                circuit: Some(Circuit {
+                    study: study.to_string(),
+                    kind: r.kind.clone(),
+                    axis: r.axis.clone(),
+                    value: number(&r.axis),
+                    metrics,
+                    verdict: r.summary.clone(),
+                    inputs: parsed.as_ref().map(|p| p.inputs.clone()).unwrap_or_default(),
+                    outputs: parsed.as_ref().map(|p| p.outputs.clone()).unwrap_or_default(),
+                    family: r.family.clone(),
+                    robustness: r.robustness.clone(),
+                    host: host_id,
+                    archived: r.archived.clone(),
+                }),
+                ..Default::default()
+            });
+        }
+    }
+    out
+}
+
+/// The judge's calibration circuits (verified in the game by clockinfra; metrics from redsim).
+fn calibration(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
+    let mut out = Vec::new();
+    let dir = root.join("calibration");
+    let Ok(rd) = std::fs::read_dir(&dir) else { return out };
+    let mut files: Vec<PathBuf> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+    files.sort();
+    for path in files {
         let file = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
         let stem = file.trim_end_matches(".txt").to_string();
         let text = std::fs::read_to_string(&path).unwrap_or_default();
-        let c = match Design::load(&path) {
-            Ok(c) => c,
-            Err(e) => {
-                notes.push(format!("{}: {e:#}", path.display()));
-                continue;
-            }
+        let Some((c, p)) = parse(&path) else {
+            notes.push(format!("{}: does not parse as a circuit", path.display()));
+            continue;
         };
         let Some(kind) = c.kind.clone() else {
             notes.push(format!("{}: no `circuit:` kind", path.display()));
             continue;
         };
         let kind_name = kind.name();
-        let study = kind.study().to_string();
-        // the judge's line (recorded), else the redsim screen's
-        let recorded = verd.get(&file).cloned().or_else(|| text.lines().take(6).find_map(|l| l.trim().strip_prefix("# ").filter(|r| r.starts_with("CIRCUIT:")).map(String::from)));
-        let (metrics, verdict) = match &recorded {
-            Some(line) => (parse_verdict_metrics(line, &kind_name), line.clone()),
-            None => match sim(&c, &Options::default()) {
-                Ok(r) => {
-                    let line = r.summary(&c);
-                    let m = r.outcome.as_ref().filter(|o| o.pass).map(|o| o.metrics.clone()).unwrap_or_default();
-                    if r.outcome.as_ref().is_some_and(|o| !o.pass) {
-                        notes.push(format!("{}: redsim screen fails: {}", path.display(), r.outcome.as_ref().map(|o| o.why.clone()).unwrap_or_default()));
-                    }
-                    (m, format!("{line} (redsim screen at site build time)"))
+        let (metrics, verdict) = match sim(&c, &Options::default()) {
+            Ok(r) => {
+                let m = r.outcome.as_ref().filter(|o| o.pass).map(|o| o.metrics.clone()).unwrap_or_default();
+                if let Some(o) = r.outcome.as_ref().filter(|o| !o.pass) {
+                    notes.push(format!("{}: redsim screen fails: {}", path.display(), o.why));
                 }
-                Err(e) => (Vec::new(), format!("redsim screen failed: {e:#}")),
-            },
+                (m, format!("{} (redsim screen at site build time)", r.summary(&c)))
+            }
+            Err(e) => (Vec::new(), format!("redsim screen failed: {e:#}")),
         };
         let axis = metrics.first().map(|(k, v)| if v.is_empty() { k.clone() } else { format!("{k} {v}") }).unwrap_or_else(|| kind_name.clone());
-        let value = metrics.first().and_then(|(_, v)| number(v));
-        let sub = if calibration { "calibration".to_string() } else { study_dir.clone() };
-        let id = format!("circuits/{sub}/{stem}");
-        if !seen.insert(id.clone()) {
-            continue;
-        }
-        let (lo, hi) = c.bounds();
-        let d = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
-        let mut flags: Vec<String> = Vec::new();
-        if calibration {
-            flags.push("calibration".into());
-        }
-        if verdict.contains(", robust") {
-            flags.push("robust".into());
-        }
-        if metrics.iter().any(|(k, v)| k == "latency" && number(v) == Some(0)) || verdict.contains("instant") {
-            flags.push("instant".into());
-        }
-        let inputs: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
-        let outputs: Vec<String> = c.outputs.iter().map(|o| o.name.clone()).collect();
-        builds.push(Build {
+        let mut flags = flags_of(&metrics, "", &verdict);
+        flags.push("calibration".into());
+        let id = format!("circuits/calibration/{stem}");
+        let (dims, volume) = p.dims.clone().unzip();
+        out.push(Build {
             id: id.clone(),
             kind: "circuit".into(),
             group: kind_name.clone(),
-            name: stem.clone(),
+            name: stem,
             page: format!("{id}.html"),
-            design: format!("designs/circuits/{sub}/{file}"),
+            design: format!("designs/circuits/calibration/{file}"),
             blocks: c.blocks() as u32,
-            volume: Some((d[0] * d[1] * d[2]).max(0) as u32),
-            dims: Some(format!("{}x{}x{}", d[0], d[1], d[2])),
-            kinds: c.kinds().into_iter().collect(),
-            caption: caps.get(&file).cloned().unwrap_or_else(|| comment_caption(&text)),
+            volume,
+            dims,
+            kinds: p.kinds.clone(),
+            caption: comment_caption(&text),
             flags,
-            door: None,
-            clock: None,
-            circuit: Some(Circuit { study, kind: kind_name, axis, value, metrics, verdict, inputs, outputs }),
-            trace: None,
-            picture: None,
+            circuit: Some(Circuit {
+                study: kind.study().to_string(),
+                kind: kind_name,
+                value: metrics.first().and_then(|(_, v)| number(v)),
+                axis,
+                metrics,
+                verdict,
+                inputs: p.inputs,
+                outputs: p.outputs,
+                ..Default::default()
+            }),
+            ..Default::default()
         });
     }
-    builds.sort_by(|a, b| (&a.group, a.blocks, &a.name).cmp(&(&b.group, b.blocks, &b.name)));
+    out
+}
+
+pub fn export(repo: &Path) -> Result<(Vec<Build>, Vec<String>)> {
+    let root = repo.join(ROOT);
+    let mut notes = Vec::new();
+    let mut builds = archived(&root, &mut notes);
+    builds.extend(calibration(&root, &mut notes));
+    builds.sort_by(|a, b| {
+        let s = |x: &Build| x.circuit.as_ref().map(|c| (c.study.clone(), c.value.unwrap_or(i64::MAX))).unwrap_or_default();
+        (s(a), &a.group, a.blocks, &a.name).cmp(&(s(b), &b.group, b.blocks, &b.name))
+    });
     Ok((builds, notes))
 }
 
@@ -197,6 +278,7 @@ mod tests {
     fn verdict_metrics() {
         let m = parse_verdict_metrics("CIRCUIT: sub-rising-4 rising-edge L 2 gt, delay 1 gt, min-pulse 1 gt, 5 blocks, 3x2x1, robust", "rising-edge");
         assert_eq!(m, vec![("L".into(), "2 gt".into()), ("delay".into(), "1 gt".into()), ("min-pulse".into(), "1 gt".into())]);
+        assert_eq!(parse_metrics("L 2 gt, delay 1 gt"), m[..2].to_vec());
         let g = parse_verdict_metrics("CIRCUIT: cal-torch-not gate not fn not, latency 2 gt, glitches 0, 3 blocks, 4x2x1, robust", "gate not");
         assert_eq!(g[0], ("fn".into(), "not".into()));
         assert_eq!(g.len(), 3);
@@ -205,8 +287,9 @@ mod tests {
 
     #[test]
     fn numbers_and_captions() {
-        assert_eq!(number("4 gt"), Some(4));
-        assert_eq!(number("not"), None);
+        assert_eq!(number("L = 4 gt"), Some(4));
+        assert_eq!(number("xor"), None);
         assert_eq!(comment_caption("# archived 2026\nname: x\n# Input -> dust -> torch.\n"), "Input -> dust -> torch.");
+        assert_eq!(flags_of(&[("latency".into(), "0 gt".into())], "robust", ""), vec!["robust", "instant"]);
     }
 }

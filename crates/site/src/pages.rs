@@ -274,12 +274,34 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
     }
     if let Some(c) = &b.circuit {
         s.push_str(&row("Study", &esc(&c.study)));
+        s.push_str(&row("Kind", &esc(&c.kind)));
         if !c.axis.is_empty() {
             s.push_str(&row("Axis", &esc(&c.axis)));
         }
         s.push_str(&row("Blocks placed", &b.blocks.to_string()));
+        if let (Some(v), Some(dm)) = (b.volume, &b.dims) {
+            s.push_str(&row("Box", &format!("{} (volume {v})", esc(dm))));
+        }
         for (k, v) in &c.metrics {
             s.push_str(&row(k, &esc(v)));
+        }
+        if !c.family.is_empty() {
+            s.push_str(&row("Family (blocks that change state)", &esc(&c.family.replace('+', " + "))));
+        }
+        if !c.robustness.is_empty() {
+            s.push_str(&row("Robustness", &esc(&c.robustness)));
+        }
+        if !c.inputs.is_empty() || !c.outputs.is_empty() {
+            s.push_str(&row("Inputs / outputs", &esc(&format!("{} / {}", c.inputs.join(", "), c.outputs.join(", ")))));
+        }
+        if let Some(h) = &c.host {
+            s.push_str(&row("Variant of", &format!("{} (fewer blocks, a subset of its block kinds, same kind and value)", link_build(site, h, prefix))));
+        }
+        if !c.archived.is_empty() {
+            s.push_str(&row("Archived", &esc(&c.archived)));
+        }
+        if !c.verdict.is_empty() {
+            s.push_str(&row("Judge", &format!("<code>{}</code>", esc(&c.verdict))));
         }
     }
     let flags: Vec<String> = b.flags.iter().map(|f| flag_label(f).to_string()).collect();

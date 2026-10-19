@@ -57,9 +57,16 @@ pub struct BuildArgs {
     #[arg(long, default_value = "site")]
     pub out: PathBuf,
     /// webrender's viewer bundle (a folder with mcview.js + mcview_bg.wasm), copied to viewer/.
-    /// Without it the pages show text cards where the 3D views go.
+    /// Without it the pages show the interim pictures or text cards where the 3D views go.
     #[arg(long)]
     pub viewer: Option<PathBuf>,
+    /// Take the viewer bundle from a git ref instead: its `web/viewer/` files
+    /// (e.g. `origin/explore/webrender`, or `HEAD` once merged).
+    #[arg(long, conflicts_with = "viewer")]
+    pub viewer_ref: Option<String>,
+    /// No 3D viewer even when the checkout has one (`web/viewer/`, used by default).
+    #[arg(long)]
+    pub no_viewer: bool,
     /// A prebuilt filtering UI (wasm-bindgen output of web/site), copied to pkg/ instead of
     /// building it.
     #[arg(long)]

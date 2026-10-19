@@ -356,11 +356,14 @@ fn refresh(write_hash: bool) {
     more();
 }
 
-/// Append the next page of cards.
+/// Append the next page of cards (or say why there is none).
 fn more() {
     let Some((html, shown, total)) = with_app(|a| {
         if !a.error.is_empty() {
             return (String::new(), 0, 0);
+        }
+        if a.hits.is_empty() {
+            return (empty_message(a), 0, 0);
         }
         let end = (a.shown + PAGE).min(a.hits.len());
         let html: String = a.hits[a.shown..end].iter().map(|h| hit_card(&a.site, *h, "")).collect();
@@ -378,6 +381,26 @@ fn more() {
         m.set_hidden(shown >= total);
         m.set_text_content(Some(&format!("Show more ({} more)", total.saturating_sub(shown))));
     }
+}
+
+/// No result: for a time search, the nearest periods that exist (links); else a hint.
+fn empty_message(a: &App) -> String {
+    if !a.q.time.trim().is_empty() {
+        if let Ok((lo, hi)) = site_model::parse_time_query(&a.q.time) {
+            let near = a.site.nearest_periods(lo, hi, 6);
+            let links: Vec<String> = near
+                .iter()
+                .map(|(p, n)| {
+                    let mut q = a.q.clone();
+                    q.time = format!("{p} gt");
+                    format!("<a href=\"#{}\">{}</a> ({n})", esc(&q.to_fragment()), esc(&gt_time(*p)))
+                })
+                .collect();
+            let what = if lo == hi { gt_time(lo) } else { format!("{} to {}", gt_time(lo), gt_time(hi)) };
+            return format!("<p class=\"empty\">No clock or family member with a period of {} matches. Nearest periods that exist: {}.</p>", esc(&what), links.join(", "));
+        }
+    }
+    "<p class=\"empty\">Nothing matches these filters. Remove one, or reset them all.</p>".to_string()
 }
 
 fn chip(act: &str, val: &str, label: &str, count: usize, state: &str) -> String {
@@ -428,7 +451,7 @@ fn draw_dynamic() {
         let blocks_html: String = blocks.iter().map(|(k, n)| chip("block", k, &k.replace('_', " "), *n, state(k))).collect();
         let flags_html: String = FLAGS
             .iter()
-            .filter(|(k, _, kind)| q.kind.is_empty() || q.kind == *kind || q.flags_in.contains(*k) || q.flags_out.contains(*k))
+            .filter(|(k, _, kind)| q.kind.is_empty() || kind.split(',').any(|x| x == q.kind) || q.flags_in.contains(*k) || q.flags_out.contains(*k))
             .filter_map(|(k, _, _)| {
                 let n = f.flags.get(*k).copied().unwrap_or(0);
                 let st = if q.flags_in.contains(*k) { "in" } else if q.flags_out.contains(*k) { "out" } else { "" };

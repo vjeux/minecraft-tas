@@ -171,6 +171,7 @@ tr:target { background: var(--accent-soft); }
 pre.design { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; overflow: auto; max-height: 520px; }
 details summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 .loading { color: var(--muted); }
+.empty { grid-column: 1 / -1; padding: 16px; background: var(--card); border: 1px dashed var(--line); border-radius: var(--radius); }
 /* boards */
 ul.toc { columns: 3 260px; padding-left: 18px; }
 .board { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
