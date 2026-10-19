@@ -61,9 +61,22 @@ fn parse_pos(s: &str) -> Result<Pos> {
     Ok([v[0], v[1], v[2]])
 }
 
+/// The judge's name for a function (docs/circuits.md: imply = a -> b, imply-ba = b -> a); None
+/// for single-input functions of two inputs (the judge fails those: use a one-input design).
+pub fn judge_name(f: &str) -> Option<String> {
+    Some(match f {
+        "IMPLY (a -> b)" => "imply".into(),
+        "IMPLY (b -> a)" => "imply-ba".into(),
+        "NIMPLY (a & !b)" => "nimply".into(),
+        "NIMPLY (b & !a)" => "nimply-ba".into(),
+        "NOT a" | "NOT b" | "BUFFER a" | "BUFFER b" | "FALSE" | "TRUE" => return None,
+        f => f.to_ascii_lowercase(),
+    })
+}
+
 /// The functions not worth keeping (constants and wires).
 fn trivial(f: &str) -> bool {
-    matches!(f, "FALSE" | "TRUE" | "BUFFER" | "BUFFER a" | "BUFFER b")
+    matches!(f, "FALSE" | "TRUE" | "BUFFER" | "BUFFER a" | "BUFFER b" | "NOT a" | "NOT b") || f.starts_with('[')
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -116,7 +129,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         }
                     }
                     des.ports.insert("output".into(), h.output);
-                    let fun = key.trim_end_matches(" fastest").split_whitespace().next().unwrap_or("").to_lowercase();
+                    let base = key.trim_end_matches(" fastest");
+                    let Some(fun) = judge_name(base) else { continue };
                     des.meta.insert("circuit".into(), format!("gate {fun}"));
                     let text = format!("{}{}", circuit_delay::comment(&format!("{key} gate (track gates census, {}): {}", h.note, describe(&h.blocks))), des.to_text());
                     std::fs::write(dir.join(format!("{name}.txt")), text)?;
@@ -157,9 +171,21 @@ fn census_one(sp: &Space, hold: u32, threads: usize) -> Result<std::collections:
         }
         v
     };
+    let names: Vec<(String, Pos)> = if n_in == 1 { vec![("input".to_string(), ins[0])] } else { ins.iter().enumerate().map(|(i, p)| (format!("input.{}", (b'a' + i as u8) as char), *p)).collect() };
+    // the best scores confirmed by the judge so far (a candidate that cannot improve is not judged)
+    let seen: std::sync::Mutex<std::collections::BTreeMap<String, (u32, u32)>> = Default::default();
     Ok(census::search(sp, threads, |blocks| {
         let mut v = Vec::new();
         for (oi, r) in judge(blocks, None) {
+            let b = blocks.len() as u32;
+            let (k1, s1) = (r.function.clone(), (b, r.latency));
+            let (k2, s2) = (format!("{} fastest", r.function), (r.latency, b));
+            {
+                let s = seen.lock().unwrap();
+                if !s.get(&k1).is_none_or(|x| s1 < *x) && !s.get(&k2).is_none_or(|x| s2 < *x) {
+                    continue;
+                }
+            }
             let minimal = (0..blocks.len()).all(|i| {
                 let less: Vec<(Pos, Block)> = blocks.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, b)| *b).collect();
                 !judge(&less, Some(oi)).iter().any(|(_, r2)| r2.function == r.function)
@@ -167,10 +193,21 @@ fn census_one(sp: &Space, hold: u32, threads: usize) -> Result<std::collections:
             if !minimal {
                 continue;
             }
-            let b = blocks.len() as u32;
-            let note = format!("latency {} gt, glitches {}", r.latency, r.glitches);
-            v.push((r.function.clone(), (b, r.latency), note.clone(), outs[oi]));
-            v.push((format!("{} fastest", r.function), (r.latency, b), note, outs[oi]));
+            // the official judge's redsim screen (its own walk and hold) must pass too
+            let Some(fun) = judge_name(&r.function) else { continue };
+            let d = circuit_delay::judge::design("candidate", &format!("gate {fun}"), blocks, &names, outs[oi]);
+            let Some((true, metrics, _)) = circuit_delay::judge::judge_sim(d) else { continue };
+            {
+                let mut s = seen.lock().unwrap();
+                if s.get(&k1).is_none_or(|x| s1 < *x) {
+                    s.insert(k1.clone(), s1);
+                }
+                if s.get(&k2).is_none_or(|x| s2 < *x) {
+                    s.insert(k2.clone(), s2);
+                }
+            }
+            v.push((k1, s1, metrics.clone(), outs[oi]));
+            v.push((k2, s2, metrics, outs[oi]));
         }
         v
     }))

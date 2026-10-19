@@ -8,6 +8,7 @@ pub mod census;
 pub mod delay;
 pub mod families;
 pub mod harness;
+pub mod judge;
 
 use anyhow::{Result, bail};
 use clap::{Parser, Subcommand};
@@ -216,10 +217,15 @@ pub fn delay_census(sp: &census::Space, max_n: u32, threads: usize) -> std::coll
         }
         v
     };
+    // the best scores confirmed by the judge so far (a candidate that cannot improve is not judged)
+    let seen: std::sync::Mutex<std::collections::BTreeMap<u32, (u32, u32)>> = Default::default();
     census::search(sp, threads, |blocks| {
         let mut v = Vec::new();
         for (oi, r, f) in judge(blocks, None) {
             if r != f {
+                continue;
+            }
+            if seen.lock().unwrap().get(&r).is_some_and(|s| s.0 <= blocks.len() as u32) {
                 continue;
             }
             // minimal: removing any free block changes the delay at that output
@@ -230,14 +236,21 @@ pub fn delay_census(sp: &census::Space, max_n: u32, threads: usize) -> std::coll
             if !minimal {
                 continue;
             }
-            let raw: Vec<(redsim::BlockPos, redsim::Block)> = blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
-            let runner = |ch: &[harness::Change], fr: u32| -> Option<(Vec<bool>, Vec<bool>)> {
-                let (lv, ins) = harness::run_raw_multi(&raw, &inp, &[outs_bp[oi]], bounds, ch, fr, 2).ok()?;
-                Some((ins[0].clone(), lv[0].iter().map(|l| *l > 0).collect()))
-            };
-            let m = delay::min_pulse(r, 12, &runner).unwrap_or(99);
-            let free = (blocks.len() - nfixed) as u32;
-            v.push((format!("N={r}"), (blocks.len() as u32, m), format!("min-pulse {m} gt ({free} free blocks)"), outs[oi]));
+            // the official judge's redsim screen: every pulse and gap of its stimulus in one run
+            let d = judge::design("candidate", "delay", blocks, &[("input".to_string(), sp.inputs[0])], outs[oi]);
+            let Some((true, metrics, _)) = judge::judge_sim(d) else { continue };
+            if !metrics.starts_with(&format!("N {r} gt")) {
+                continue;
+            }
+            let num = |key: &str| -> u32 { metrics.split(", ").find_map(|kv| kv.strip_prefix(key)).and_then(|v| v.trim_end_matches(" gt").trim().parse().ok()).unwrap_or(99) };
+            let score = (blocks.len() as u32, num("min-pulse ") + num("min-gap "));
+            {
+                let mut s = seen.lock().unwrap();
+                if s.get(&r).is_none_or(|x| score < *x) {
+                    s.insert(r, score);
+                }
+            }
+            v.push((format!("N={r}"), score, metrics, outs[oi]));
         }
         v
     })
