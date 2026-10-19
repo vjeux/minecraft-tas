@@ -1,0 +1,14 @@
+name: pulse-dual-edge-observer-lamp-L2
+# An observer watching a redstone lamp lit by the input: the lamp lights at once and goes out 4 gt
+# after the input falls, so the observer fires 2 gt after the rising edge and 6 gt after the
+# falling one, even for a 1 gt input (min-pulse 1, where an observer watching the input needs 4).
+circuit: dual-edge
+origin: 0 0 0
+port output: 0 0 -1
+port input: 0 0 2
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:redstone_lamp[lit=false]
+layer 0:
+  A
+  B
