@@ -2802,18 +2802,33 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         }
         let tp = std::time::Instant::now();
         let touches_context = |cells: &[(i32, i32)]| cells.iter().any(|(x, y)| [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(ddx, ddy)| rest_occ.contains(&(x + ddx, y + ddy))));
-        // work items: (subset of pocket cell indices, lever option, first cell's state when the
-        // item is split: subsets of 3+ cells are split by their first cell's state so 150 threads
-        // stay busy)
-        let mut items: Vec<(Vec<usize>, Option<LeverAt>, Option<usize>)> = Vec::new();
-        let mut push = |items: &mut Vec<(Vec<usize>, Option<LeverAt>, Option<usize>)>, sub: &Vec<usize>, lev: Option<LeverAt>| {
-            let n0 = if ring.contains(&pk[sub[0]]) { stone_pal.len() } else { pal.len() };
-            if sub.len() >= 3 {
-                for f in 0..n0 {
-                    items.push((sub.clone(), lev, Some(f)));
+        // work items: (subset of pocket cell indices, lever option, the fixed states of the first
+        // cells when the item is split: big subsets are split by their first 1-3 cells' states so
+        // 150 threads stay busy to the end)
+        let mut items: Vec<(Vec<usize>, Option<LeverAt>, Vec<usize>)> = Vec::new();
+        let mut push = |items: &mut Vec<(Vec<usize>, Option<LeverAt>, Vec<usize>)>, sub: &Vec<usize>, lev: Option<LeverAt>| {
+            let fixed = match sub.len() {
+                0..=2 => 0,
+                3..=4 => 1,
+                5 => 2,
+                _ => 3,
+            };
+            let ns: Vec<usize> = sub.iter().take(fixed).map(|&i| if ring.contains(&pk[i]) { stone_pal.len() } else { pal.len() }).collect();
+            let mut pre = vec![0usize; fixed];
+            loop {
+                items.push((sub.clone(), lev, pre.clone()));
+                let mut j = 0;
+                while j < fixed {
+                    pre[j] += 1;
+                    if pre[j] < ns[j] {
+                        break;
+                    }
+                    pre[j] = 0;
+                    j += 1;
                 }
-            } else {
-                items.push((sub.clone(), lev, None));
+                if j == fixed {
+                    break;
+                }
             }
         };
         for sub in subsets_upto(pk.len(), pa.k) {
@@ -2853,14 +2868,33 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         }
         let total: u64 = items
             .iter()
-            .map(|(sub, _, first)| sub.iter().enumerate().map(|(j, &i)| if j == 0 && first.is_some() { 1 } else if ring.contains(&pk[i]) { stone_pal.len() as u64 } else { pal.len() as u64 }).product::<u64>())
+            .map(|(sub, _, pre)| sub.iter().enumerate().map(|(j, &i)| if j < pre.len() { 1 } else if ring.contains(&pk[i]) { stone_pal.len() as u64 } else { pal.len() as u64 }).product::<u64>())
             .sum();
         println!("pocket {pi}: {} cells, {} subset/lever items, {} fillings to screen", pk.len(), items.len(), total);
         let next = AtomicUsize::new(0);
         let screened = AtomicU64::new(0);
         let ok_door = AtomicU64::new(0);
         let found: Mutex<std::collections::HashMap<u64, Vec<Filling>>> = Mutex::new(std::collections::HashMap::new());
+        let active = AtomicUsize::new(a.threads);
         std::thread::scope(|s| {
+            // progress every --report seconds (long pockets)
+            s.spawn(|| {
+                let mut last = std::time::Instant::now();
+                while active.load(Ordering::Relaxed) > 0 {
+                    std::thread::sleep(std::time::Duration::from_millis(250));
+                    if last.elapsed().as_secs() >= a.report.max(5) {
+                        last = std::time::Instant::now();
+                        println!(
+                            "  pocket {pi}: {} screened ({} of {} items started), {} keep the door working, {:.0} s",
+                            screened.load(Ordering::Relaxed),
+                            next.load(Ordering::Relaxed).min(items.len()),
+                            items.len(),
+                            ok_door.load(Ordering::Relaxed),
+                            tp.elapsed().as_secs_f64()
+                        );
+                    }
+                }
+            });
             for _ in 0..a.threads {
                 s.spawn(|| {
                     let mut local: std::collections::HashMap<u64, Vec<Filling>> = std::collections::HashMap::new();
@@ -2869,21 +2903,16 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                         if ii >= items.len() {
                             break;
                         }
-                        let (sub, lev, first) = &items[ii];
+                        let (sub, lev, pre) = &items[ii];
                         let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
                         let pals: Vec<&Vec<Block>> = cells.iter().map(|c| if ring.contains(c) { &stone_pal } else { &pal }).collect();
                         if pals.iter().any(|p| p.is_empty()) {
                             continue;
                         }
                         let mut idx = vec![0usize; cells.len()];
-                        // a split item: the first cell's state is fixed, the odometer runs over the rest
-                        let j0 = match first {
-                            Some(f) => {
-                                idx[0] = *f;
-                                1
-                            }
-                            None => 0,
-                        };
+                        // a split item: the first cells' states are fixed, the odometer runs over the rest
+                        idx[..pre.len()].copy_from_slice(pre);
+                        let j0 = pre.len();
                         loop {
                             let mut g = seed.clone();
                             for (j, c) in cells.iter().enumerate() {
@@ -2998,6 +3027,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                         e.sort_by_key(|f| f.cost());
                         e.truncate(pa.keep);
                     }
+                    active.fetch_sub(1, Ordering::Relaxed);
                 });
             }
         });
