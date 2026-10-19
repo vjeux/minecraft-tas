@@ -2568,6 +2568,20 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                 sets.iter().map(|(k, v)| format!("{{{}}} x{} (best {} blocks)", (0..64).filter(|i| (**k >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "), v.len(), v[0].cost())).collect::<Vec<_>>().join(", ")
             }
         );
+        // the cheapest filling of each driven set, as a design (inspection: --debug-fill)
+        for (si, (cov, v)) in sets.iter().enumerate() {
+            let f = &v[0];
+            let mut g = seed.clone();
+            for (q, b) in &f.blocks {
+                g.set(q.0, q.1, *b);
+            }
+            if let Some((lx, ly)) = f.lever {
+                place_lever(&mut g, lx, ly);
+            }
+            let mut d = door_of(&g, prob.spec).to_design(&format!("pocket{pi}-set{si}"));
+            d.meta.insert("covers".into(), (0..64).filter(|i| (**cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
+            let _ = d.save(&a.out_dir.join(format!("pocket{pi}-set{si}.txt")));
+        }
         let mut all: Vec<Filling> = found.into_values().flatten().collect();
         all.sort_by_key(|f| f.cost());
         accepted.push(all);
