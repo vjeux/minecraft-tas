@@ -311,7 +311,17 @@ pub fn env_run(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, env: &Env, 
     let mut volatile: HashSet<Pos> = HashSet::new();
     let mut res = RunResult::default();
     let mut closed_snap = rest.clone();
-    for cycle in 0..opts.cycles {
+    // Periodic rest, like the judge (vjeux 2026-10-19: internal state doesn't matter as long as the
+    // door works repeatedly): the build may close into another internal state as long as some
+    // closed state repeats an earlier one within cycles + MAX_PERIOD_EXTRA; the surroundings
+    // (`env`: hallway, shell, repeater rig) must be back exactly after every close.
+    let env_cells: HashSet<Pos> = env.blocks.iter().map(|(p, _)| *p).collect();
+    let mut seen_closed: Vec<Region> = vec![rest.clone()];
+    let mut periodic = false;
+    for cycle in 0..opts.cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= opts.cycles && periodic {
+            break;
+        }
         disturb(w, sb, spec, opts, (wlo, whi), &closed_snap, &mut volatile, "closed").with_context(|| format!("cycle {cycle}"))?;
         flip(w, sb, spec, opts.input, true)?;
         let open = w.step_record(sb, MAX_TICKS, true, wlo, whi)?;
@@ -345,9 +355,21 @@ pub fn env_run(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, env: &Env, 
                 .collect();
             bail!("cycle {cycle}: door not restored: {}", bad.join("; "));
         }
-        let diffs = region_diffs(&last, &rest, &volatile, 6);
-        if !diffs.is_empty() {
-            bail!("cycle {cycle}: not back to its rest state: {}", diffs.join("; "));
+        let env_diffs: Vec<String> = rest
+            .iter()
+            .filter(|(p, _)| env_cells.contains(p) && !volatile.contains(p))
+            .filter(|(p, s)| last.get(*p) != Some(*s))
+            .take(6)
+            .map(|(p, s)| format!("{p:?} {} -> {}", short(s), short(last.get(p).unwrap_or("?"))))
+            .collect();
+        if !env_diffs.is_empty() {
+            bail!("cycle {cycle}: the surroundings are not back: {}", env_diffs.join("; "));
+        }
+        let same = |a: &Region| a.iter().all(|(p, s)| volatile.contains(&p) || last.get(p) == Some(s));
+        if seen_closed.iter().any(same) {
+            periodic = true;
+        } else {
+            seen_closed.push(last.clone());
         }
         entity_check(w, sb, d, "while closing").with_context(|| format!("cycle {cycle}"))?;
         let t0 = input_frame(&close.frames, opts.input, false);
@@ -355,6 +377,10 @@ pub fn env_run(w: &mut Worker, sb: u32, d: &Design, spec: &DoorSpec, env: &Env, 
             .unwrap_or(close.ticked);
         res.close_ticks.push(ct.saturating_sub(t0));
         closed_snap = last;
+    }
+    if !periodic {
+        let diffs = region_diffs(&closed_snap, &rest, &volatile, 6);
+        bail!("not back to its rest state, nor to any closed state it had before, within {} cycles: {}", opts.cycles + crate::MAX_PERIOD_EXTRA, diffs.join("; "));
     }
     res.snow_cells = volatile.len();
     Ok(res)
