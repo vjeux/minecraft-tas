@@ -87,5 +87,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
   shuttle ideal; the shuttle's push/pull (>= 5 gt apart) and P_M share every source left of it.
 - [vmid](vmid/NOTES.md): 7x8 mechanisms whose middle-row side blocks leave VERTICALLY (no row-1 wall): vm1 (twin elevators), vc1 / vb2 / vb3 (the carried puller: a corner piston pushed into the ring pulls ML in 2 rows), all ideal at 32 positions; `door connect` and cosearch on them, no wired door yet
 - [q78](q78/NOTES.md): 7x8 = 56 from ring56's q8seed (blocked: elevator A vs W feeds) and e78 (jf with the top row
-  lever-held, sides wired as in p2-sculk-r): WOOL e78 with B', A1, A2, A3 wired by sculk (two B' sensors, gate
-  observer, left sensor+lamp+observer, torch frequency filter); only K ideal, 1 gt off (e78/e78wsT.txt)
+  lever-held, sides wired as in p2-sculk-r). DONE: the first 7x8 (sculk, e78k/p3 = archive e78-56b-45) and the
+  first SOLID 7x8 (e78s/archive/e78k-h2-45b, FULL); best solid FULL e78k-h5-41b (36/19), fast e78k-h6-42b (29/15):
+  B1 fed from the right, gate on the B' feeder, B2/A3 from a B'-watcher loop that re-fires the lamp observer
+  ([e78s/NOTES.md](q78/e78s/NOTES.md), [HANDOFF](q78/HANDOFF.md))
