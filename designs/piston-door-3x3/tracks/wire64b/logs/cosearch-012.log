@@ -1,0 +1,25 @@
+ideal reference designs/piston-door-3x3/tracks/wire64b/w63/7x8-012-sym.ideal: 52 piston events per cycle
+seed designs/piston-door-3x3/tracks/wire64b/w63/w63-012-seed.txt: 21 blocks in the box, screen 37/79
+10 piston cells locked, 44 cells free
+box x -2..4, y -3..5 (7x9 = 63), 44 free cells, palette 37 states, 16 threads, 2100 s
+[  120s] 38327604 screens (319339/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[  240s] 76333672 screens (318001/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[  360s] 116848725 screens (324525/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[  480s] 155340149 screens (323571/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[  600s] 191924247 screens (319819/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[  720s] 227116927 screens (315385/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[  840s] 261624843 screens (311404/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[  960s] 291626927 screens (303725/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 1080s] 323133846 screens (299146/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 1200s] 354715879 screens (295545/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 1320s] 391438342 screens (296493/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 1440s] 426512790 screens (296137/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 1560s] 461627128 screens (295863/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 1680s] 496138500 screens (295268/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 1800s] 531046464 screens (294974/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 1920s] 562135163 screens (292727/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 43/79+10ev(59b)
+[ 2040s] 591402699 screens (289852/s), 0 perfect screens, 0 redsim judge runs, 0 finds; best 43/79+10ev(54b) 43/79+10ev(55b) 43/79+10ev(56b) 43/79+10ev(57b) 43/79+10ev(58b) 45/79+6ev(58b)
+best partial 0: 43/79 (54 blocks) -> designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-0.txt
+best partial 1: 43/79 (55 blocks) -> designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-1.txt
+best partial 2: 43/79 (56 blocks) -> designs/piston-door-3x3/tracks/wire64b/w63/finds/partial-2.txt
+605534237 screens in 2100 s; 0 finds

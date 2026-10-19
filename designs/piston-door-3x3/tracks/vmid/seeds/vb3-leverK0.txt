@@ -1,0 +1,33 @@
+name: vb3-leverK0
+# vmid's vb3 (mech/vb3.txt) with the lever outside the box at (-2,-3) under a glass block (-2,-2):
+# the 2-cell bottom-left region that feeds U' (BL's down-pull), the only lever region from which
+# every piston can act in time (NOTES "Wiring verdicts"). Seed for cosearch --assist --no-mech.
+port door: 0 0 0
+port lever: -2 -3 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:glass
+  L minecraft:lever[face=ceiling,facing=west,powered=false]
+layer -3:
+  L......
+layer -2:
+  G.UU...
+layer -1:
+  EU...W.
+layer 0:
+  ..SSS.W
+layer 1:
+  ..SSS.W
+layer 2:
+  E.SSS..
+layer 3:
+  .E.....
+layer 4:
+  ...DD..
+layer 5:
+  ...D...

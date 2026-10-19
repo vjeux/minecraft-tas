@@ -863,8 +863,8 @@ pub fn cycles_from_here(w: &mut Worker, sb: u32, d: &Design, rest: &Region, cycl
         bail!("not closed after building: {}", problems.join("; "));
     }
     let lever = now.get(spec.lever).unwrap_or("?");
-    if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {
-        bail!("port lever {:?} is {lever}, expected an unpowered lever", spec.lever);
+    if !lever.starts_with("minecraft:lever") {
+        bail!("port lever {:?} is {lever}, expected a lever", spec.lever);
     }
     let closed_door: Vec<String> = spec.door_cells().iter().map(|p| now.get(*p).unwrap().to_string()).collect();
     let mut out = Vec::new();

@@ -68,13 +68,22 @@ pub fn tick(w: &mut World, state: Block, p: BlockPos) {
 
 const PX: f64 = 1.0 / 16.0;
 
+/// Vertical extents of a block's collision boxes (empty collision context) that overlap the
+/// column of a falling block centered in the cell (x, z in 0.01..0.99).
+fn context_free_boxes(b: &Block) -> Vec<(f64, f64)> {
+    bh::collision_boxes(b)
+        .into_iter()
+        .filter(|c| (c[1] as f64) > 0.16 && (c[0] as f64) < 15.84 && (c[5] as f64) > 0.16 && (c[4] as f64) < 15.84)
+        .map(|c| (c[2] as f64 * PX, c[3] as f64 * PX))
+        .collect()
+}
+
 /// The vertical extents (relative to the cell) of the parts of a block's collision shape that
-/// overlap the column of a falling block centered in it (x, z in 0.01..0.99).
-fn shape_boxes(w: &World, b: Block, p: BlockPos) -> Vec<(f64, f64)> {
+/// overlap the column of a falling block centered in it (x, z in 0.01..0.99), for an entity whose
+/// bottom is at `e_bottom` (scaffolding depends on it).
+fn shape_boxes(w: &World, b: Block, p: BlockPos, e_bottom: f64) -> Vec<(f64, f64)> {
     match b {
         Block::Air => vec![],
-        Block::Simple(Simple::HoneyBlock) => vec![(0.0, 15.0 * PX)],
-        Block::Simple(Simple::SoulSand) => vec![(0.0, 14.0 * PX)],
         Block::Piston { extended: false, .. } => vec![(0.0, 1.0)],
         Block::Piston { facing, extended: true, .. } => match facing {
             Dir::Up => vec![(0.0, 12.0 * PX)],
@@ -83,13 +92,13 @@ fn shape_boxes(w: &World, b: Block, p: BlockPos) -> Vec<(f64, f64)> {
         },
         Block::PistonHead { facing, short, .. } => head_boxes(facing, short),
         Block::MovingPiston { .. } => moving_boxes(w, p),
-        _ => {
-            if bh::sturdy(w, &b, p, Dir::Up, bh::Support::Full) && bh::sturdy(w, &b, p, Dir::Down, bh::Support::Full) {
-                vec![(0.0, 1.0)]
-            } else {
-                vec![]
-            }
-        }
+        Block::Scaffolding { .. } => crate::redstone::blocks::scaffolding::entity_boxes(&b, p.y, e_bottom)
+            .into_iter()
+            .map(|c| (c[2] as f64 * PX, c[3] as f64 * PX))
+            .collect(),
+        // every other block: its collision shape (honey 15 px, soul sand 14 px, slabs,
+        // trapdoors, fence gates 24 px, ...)
+        _ => context_free_boxes(&b),
     }
 }
 
@@ -112,8 +121,12 @@ fn moving_boxes(w: &World, p: BlockPos) -> Vec<(f64, f64)> {
     let mut out = Vec::new();
     // a retracting source piston keeps its extended base shape
     if !be.extending && be.source {
-        if let Block::Piston { sticky, facing, .. } = be.moved {
-            out.extend(shape_boxes(w, Block::Piston { sticky, facing, extended: true }, p));
+        if let Block::Piston { facing, .. } = be.moved {
+            out.extend(match facing {
+                Dir::Up => vec![(0.0, 12.0 * PX)],
+                Dir::Down => vec![(4.0 * PX, 1.0)],
+                _ => vec![(0.0, 1.0)],
+            });
         }
     }
     let moved = if be.source {
@@ -124,48 +137,76 @@ fn moving_boxes(w: &World, p: BlockPos) -> Vec<(f64, f64)> {
     };
     let ext = if be.extending { prog - 1.0 } else { 1.0 - prog };
     let dy = be.direction.step()[1] as f64 * ext;
+    // the moved state's collision shape with the empty context (no entity)
     let boxes = match moved {
         Block::PistonHead { facing, short, .. } => head_boxes(facing, short),
+        Block::Piston { extended: false, .. } => vec![(0.0, 1.0)],
+        Block::Piston { facing, extended: true, .. } => match facing {
+            Dir::Up => vec![(0.0, 12.0 * PX)],
+            Dir::Down => vec![(4.0 * PX, 1.0)],
+            _ => vec![(0.0, 1.0)],
+        },
         Block::MovingPiston { .. } => vec![],
-        m => shape_boxes(w, m, p),
+        m => context_free_boxes(&m),
     };
     out.extend(boxes.into_iter().map(|(a, b)| (a + dy, b + dy)));
     out
 }
 
 /// `Entity.collide` for a pure vertical movement `dy` (the `VoxelShape.collide` tolerances).
+/// `BlockCollisions` also visits the neighboring columns for blocks with large collision shapes:
+/// a moving piston's shape (offset by its progress) can reach into the entity's column.
 fn collide_y(w: &World, e: &FallingBlock, dy: f64) -> f64 {
     if dy.abs() < 1.0e-7 {
         return 0.0;
     }
     let bx = e.x.floor() as i32;
     let bz = e.z.floor() as i32;
+    let (ex0, ex1, ez0, ez1) = (e.x - 0.49, e.x + 0.49, e.z - 0.49, e.z + 0.49);
     let (lo, hi) = if dy < 0.0 { (e.y + dy, e.y + 0.98) } else { (e.y, e.y + 0.98 + dy) };
     let mut allowed = dy;
     for by in (lo.floor() as i32 - 1)..=(hi.floor() as i32 + 1) {
-        let p = BlockPos::new(bx, by, bz);
-        let b = w.get(p);
-        for (a, t) in shape_boxes(w, b, p) {
-            let (bot, top) = (by as f64 + a, by as f64 + t);
-            // BlockCollisions: only shapes touching the swept box
-            if top <= lo || bot >= hi {
+        for (dx, dz) in [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)] {
+            let p = BlockPos::new(bx + dx, by, bz + dz);
+            let b = w.get(p);
+            let boxes: Vec<(f64, f64)> = if let Block::MovingPiston { .. } = b {
+                crate::piston::shape::moving(w, p)
+                    .into_iter()
+                    .filter(|c| {
+                        let c = c.0;
+                        let (x0, x1) = (p.x as f64 + c[0] as f64 * PX, p.x as f64 + c[1] as f64 * PX);
+                        let (z0, z1) = (p.z as f64 + c[4] as f64 * PX, p.z as f64 + c[5] as f64 * PX);
+                        x0 < ex1 && x1 > ex0 && z0 < ez1 && z1 > ez0
+                    })
+                    .map(|c| (c.0[2] as f64 * PX, c.0[3] as f64 * PX))
+                    .collect()
+            } else if dx == 0 && dz == 0 {
+                shape_boxes(w, b, p, e.y)
+            } else {
                 continue;
-            }
-            if dy < 0.0 {
-                if e.y + 1.0e-7 >= top {
-                    let d = top - e.y;
-                    if d <= 1.0e-7 {
-                        allowed = allowed.max(d);
+            };
+            for (a, t) in boxes {
+                let (bot, top) = (by as f64 + a, by as f64 + t);
+                // BlockCollisions: only shapes touching the swept box
+                if top <= lo || bot >= hi {
+                    continue;
+                }
+                if dy < 0.0 {
+                    if e.y + 1.0e-7 >= top {
+                        let d = top - e.y;
+                        if d <= 1.0e-7 {
+                            allowed = allowed.max(d);
+                        }
+                    }
+                } else if e.y + 0.98 - 1.0e-7 <= bot {
+                    let d = bot - (e.y + 0.98);
+                    if d >= -1.0e-7 {
+                        allowed = allowed.min(d);
                     }
                 }
-            } else if e.y + 0.98 - 1.0e-7 <= bot {
-                let d = bot - (e.y + 0.98);
-                if d >= -1.0e-7 {
-                    allowed = allowed.min(d);
+                if allowed.abs() < 1.0e-7 {
+                    return 0.0;
                 }
-            }
-            if allowed.abs() < 1.0e-7 {
-                return 0.0;
             }
         }
     }
@@ -217,9 +258,11 @@ pub fn tick_entities(w: &mut World) {
             if !matches!(current, Block::MovingPiston { .. }) {
                 let may_replace = is_free(current);
                 let would_continue = is_free(w.get(p.below()));
+                // canSurvive = blockState.canSurvive(level, pos) && !wouldContinueFalling
+                let can_survive = bh::can_survive(w, &e.block, p) && !would_continue;
                 e.removed = true;
                 w.gravity.entities[i] = e;
-                if may_replace && !would_continue {
+                if may_replace && can_survive {
                     if !w.set_block_and_update(p, e.block) {
                         w.drops.push((p, e.block));
                     }

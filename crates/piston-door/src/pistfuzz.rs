@@ -95,6 +95,20 @@ pub fn run(sim: &mut dyn Sim, sc: &Scenario) -> Result<Vec<Frame>> {
 
 /// The first difference between two runs.
 pub fn compare(a: &[Frame], b: &[Frame]) -> Option<String> {
+    compare_upto(a, b, false).0
+}
+
+/// [`compare`], optionally stopping after the first frame where the game dropped an item: item
+/// entities are not modeled, and with sculk sensors around they are heard (an item landing is a
+/// `hit_ground` vibration), so nothing after a drop is comparable. Returns the difference and
+/// the frames compared.
+pub fn compare_upto(a: &[Frame], b: &[Frame], stop_at_drop: bool) -> (Option<String>, usize) {
+    let n = if stop_at_drop { a.iter().position(|f| f.drops).map(|i| i + 1).unwrap_or(a.len()) } else { a.len() };
+    let (a, b) = if n < a.len() { (&a[..n], &b[..n.min(b.len())]) } else { (a, b) };
+    (compare_frames(a, b), a.len())
+}
+
+fn compare_frames(a: &[Frame], b: &[Frame]) -> Option<String> {
     for (t, (fa, fb)) in a.iter().zip(b.iter()).enumerate() {
         if fa == fb {
             continue;
@@ -430,6 +444,9 @@ pub struct GenOpts {
     /// Redstone components next to the pistons (dust, torches, repeaters, comparators, levers,
     /// lamps, note blocks, targets), judge-style placement.
     pub mixed: bool,
+    /// Shaped blocks among the solids: slabs, trapdoors, scaffolding, fence gates (moved by
+    /// pistons, landed on by falling blocks).
+    pub shapes: bool,
 }
 
 const HORIZ: [&str; 4] = ["north", "south", "west", "east"];
@@ -481,7 +498,23 @@ pub fn gen_piston(seed: u64, o: GenOpts) -> Scenario {
         let s: String = if roll < 380 {
             continue;
         } else if roll < 520 {
-            "minecraft:stone".into()
+            if o.shapes && r.chance(0.45) {
+                // collision / support shapes that pistons move and falling blocks land on
+                match r.below(6) {
+                    0 => format!("minecraft:smooth_stone_slab[type={},waterlogged=false]", r.pick(&["bottom", "top", "double"])),
+                    1 | 2 => format!(
+                        "minecraft:{}_trapdoor[facing={},half={},open={},powered=false,waterlogged=false]",
+                        r.pick(&["oak", "iron"]),
+                        r.pick(&HORIZ),
+                        r.pick(&["bottom", "top"]),
+                        r.chance(0.5)
+                    ),
+                    3 | 4 => format!("minecraft:scaffolding[bottom=false,distance={},waterlogged=false]", r.pick(&["0", "0", "1", "7"])),
+                    _ => format!("minecraft:oak_fence_gate[facing={},in_wall=false,open={},powered=false]", r.pick(&HORIZ), r.chance(0.5)),
+                }
+            } else {
+                "minecraft:stone".into()
+            }
         } else if roll < 760 {
             let sticky = r.chance(0.5);
             let f = *r.pick(fac);
@@ -635,6 +668,326 @@ pub fn gen_piston(seed: u64, o: GenOpts) -> Scenario {
         hi: [ox + sx - 1 + m, oy + sy - 1 + m, oz + sz - 1 + if o.flat { 1 } else { m }],
         blocks,
         judge: o.mixed,
+        steps,
+    }
+}
+
+/// A random sculk setup (track sculk, `--sculk`): plain and calibrated sculk sensors among
+/// pistons, wool (occludes vibrations), amethyst (resonates), note blocks, trapdoors, empty
+/// dispensers (they click: `block_activate`), redstone blocks, observers; then wiring: dust on
+/// solids, repeaters, comparators reading sensors (the frequency), observers watching sensors,
+/// levers, and frequency filters (a dust line from a redstone block or a lever into a calibrated
+/// sensor's back). Inputs: redstone blocks set and cleared near pistons, lever clicks, blocks
+/// placed or removed, over 130 ticks (a sensor cycle is 40). Every sensor stands in chunks -1..0
+/// of the sandbox (x, z in -16..15): `areAdjacentChunksTicking` holds there (forced chunks
+/// -2..1); `border` lets the box reach the sandbox's edge chunks instead.
+pub fn gen_sculk(seed: u64, flat: bool, border: bool) -> Scenario {
+    let mut r = Rng::new(seed ^ 0x5C01_7C01);
+    let (sx, sy, sz) = if flat { (13, 10, 1) } else { (10, 7, 6) };
+    let (ox, oz) = if border {
+        (-32 + r.below((64 - sx) as u64) as i32, -32 + r.below((64 - sz) as u64) as i32)
+    } else {
+        (-16 + r.below((33 - sx) as u64) as i32, -16 + r.below((33 - sz) as u64) as i32)
+    };
+    let oy = 60 + r.below(100) as i32;
+    let inside = |p: P3| p[0] >= ox && p[0] < ox + sx && p[1] >= oy && p[1] < oy + sy && p[2] >= oz && p[2] < oz + sz;
+    let mut all: Vec<P3> = Vec::new();
+    for y in 0..sy {
+        for z in 0..sz {
+            for x in 0..sx {
+                all.push([ox + x, oy + y, oz + z]);
+            }
+        }
+    }
+    let fac = facings(flat);
+    let hfac: &[&str] = if flat { &["east", "west"] } else { &HORIZ };
+    // calm boxes (fewer pistons and redstone blocks: fewer drops, longer comparable runs) or busy
+    let calm = r.chance(0.6);
+    let (air, stone, pist) = if calm { (520u64, 600u64, 640u64) } else { (340, 440, 600) };
+    let mut cells: BTreeMap<P3, String> = BTreeMap::new();
+    let mut levers: Vec<P3> = Vec::new();
+    let mut sensors: Vec<P3> = Vec::new();
+    for &p in &all {
+        if cells.contains_key(&p) {
+            continue;
+        }
+        let roll = r.below(1000);
+        let s: String = if roll < air {
+            continue;
+        } else if roll < stone {
+            "minecraft:stone".into()
+        } else if roll < pist {
+            let sticky = r.chance(0.5);
+            let f = *r.pick(fac);
+            let name = if sticky { "sticky_piston" } else { "piston" };
+            let front = add(p, step_of(f));
+            if r.chance(0.2) && inside(front) && !cells.contains_key(&front) {
+                cells.insert(front, format!("minecraft:piston_head[facing={f},short=false,type={}]", if sticky { "sticky" } else { "normal" }));
+                format!("minecraft:{name}[extended=true,facing={f}]")
+            } else {
+                format!("minecraft:{name}[extended=false,facing={f}]")
+            }
+        } else {
+            // the rest, by weight (out of 400)
+            let q = r.below(400);
+            if q < 70 {
+                sensors.push(p);
+                "minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]".into()
+            } else if q < 120 {
+                sensors.push(p);
+                format!("minecraft:calibrated_sculk_sensor[facing={},power=0,sculk_sensor_phase=inactive,waterlogged=false]", r.pick(hfac))
+            } else if q < 160 {
+                format!("minecraft:{}", r.pick(&["white_wool", "orange_wool", "black_wool"]))
+            } else if q < 190 {
+                "minecraft:amethyst_block".into()
+            } else if q < 230 {
+                if calm && r.chance(0.7) { "minecraft:obsidian".into() } else { "minecraft:redstone_block".into() }
+            } else if q < 260 {
+                format!("minecraft:observer[facing={},powered=false]", r.pick(fac))
+            } else if q < 280 {
+                "minecraft:note_block[instrument=harp,note=0,powered=false]".into()
+            } else if q < 300 {
+                format!(
+                    "minecraft:{}_trapdoor[facing={},half={},open=false,powered=false,waterlogged=false]",
+                    r.pick(&["oak", "iron"]),
+                    r.pick(&HORIZ),
+                    r.pick(&["bottom", "top"])
+                )
+            } else if q < 320 {
+                format!("minecraft:dispenser[facing={},triggered=false]", r.pick(fac))
+            } else if q < 340 {
+                "minecraft:redstone_lamp[lit=false]".into()
+            } else if q < 355 {
+                "minecraft:obsidian".into()
+            } else {
+                "minecraft:stone".into()
+            }
+        };
+        cells.insert(p, s);
+    }
+    // frequency filters: a dust line on a stone floor from a redstone block or a lever into a
+    // calibrated sensor's back (power 15 - (n - 1) at the back)
+    let calibrated: Vec<P3> = cells.iter().filter(|(_, s)| s.starts_with("minecraft:calibrated")).map(|(p, _)| *p).collect();
+    for c in calibrated {
+        if !r.chance(0.5) {
+            continue;
+        }
+        let s = cells[&c].clone();
+        let f = s.split("facing=").nth(1).and_then(|t| t.split(&[',', ']'][..]).next()).unwrap_or("north").to_string();
+        let back = step_of(match f.as_str() {
+            "north" => "south",
+            "south" => "north",
+            "west" => "east",
+            _ => "west",
+        });
+        let n = 1 + r.below(8) as i32;
+        let mut cur = c;
+        let mut line: Vec<P3> = Vec::new();
+        let mut ok = true;
+        for _ in 0..n {
+            cur = add(cur, back);
+            line.push(cur);
+        }
+        let end = add(cur, back);
+        for q in line.iter().chain(std::iter::once(&end)) {
+            let below = add(*q, [0, -1, 0]);
+            if !inside(*q) || !inside(below) || cells.get(q).is_some_and(|s| s.contains("sculk")) || cells.get(&below).is_some_and(|s| s.contains("sculk")) {
+                ok = false;
+            }
+        }
+        if !ok {
+            continue;
+        }
+        for q in &line {
+            cells.insert(*q, "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
+            cells.insert(add(*q, [0, -1, 0]), "minecraft:stone".into());
+        }
+        cells.insert(add(end, [0, -1, 0]), "minecraft:stone".into());
+        if r.chance(0.5) {
+            cells.insert(end, "minecraft:redstone_block".into());
+        } else {
+            let lf = match back {
+                [1, 0, 0] => "east",
+                [-1, 0, 0] => "west",
+                [0, 0, 1] => "south",
+                _ => "north",
+            };
+            // a floor lever (stands on the stone below), facing along the line
+            cells.insert(end, format!("minecraft:lever[face=floor,facing={lf},powered=false]"));
+            levers.push(end);
+        }
+    }
+    // wiring next to the sensors and on solids
+    let sensors: Vec<P3> = sensors.into_iter().filter(|p| cells.get(p).is_some_and(|s| s.contains("sculk"))).collect();
+    // amethyst next to some sensors (resonance: a `resonate_<frequency>` event when it fires) and
+    // wool shells around others (occlusion)
+    for sp in &sensors {
+        if r.chance(0.25) {
+            let d = *r.pick(&["north", "south", "west", "east", "up", "down"]);
+            let q = add(*sp, step_of(d));
+            if inside(q) && !cells.contains_key(&q) {
+                cells.insert(q, "minecraft:amethyst_block".into());
+            }
+        }
+        if r.chance(0.15) {
+            for d in ["north", "south", "west", "east", "up", "down"] {
+                let q = add(*sp, step_of(d));
+                if inside(q) && !cells.contains_key(&q) && r.chance(0.8) {
+                    cells.insert(q, "minecraft:white_wool".into());
+                }
+            }
+        }
+    }
+    for sp in &sensors {
+        if !r.chance(0.6) {
+            continue;
+        }
+        let d = *r.pick(hfac);
+        let q = add(*sp, step_of(d));
+        let below = add(q, [0, -1, 0]);
+        if !inside(q) || cells.contains_key(&q) {
+            continue;
+        }
+        let toward = match d {
+            "north" => "south",
+            "south" => "north",
+            "west" => "east",
+            _ => "west",
+        };
+        match r.below(4) {
+            0 | 1 => {
+                // a comparator reading the sensor (input from the sensor's side), on a floor
+                if inside(below) && !cells.get(&below).is_some_and(|s| s.contains("sculk")) {
+                    cells.insert(below, "minecraft:stone".into());
+                    cells.insert(q, format!("minecraft:comparator[facing={toward},mode={},powered=false]", if r.chance(0.7) { "compare" } else { "subtract" }));
+                    let out = add(q, step_of(d));
+                    let ob = add(out, [0, -1, 0]);
+                    if inside(out) && !cells.contains_key(&out) && inside(ob) && r.chance(0.6) {
+                        cells.insert(ob, "minecraft:stone".into());
+                        cells.insert(out, "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
+                    }
+                }
+            }
+            2 => {
+                // an observer watching the sensor
+                cells.insert(q, format!("minecraft:observer[facing={toward},powered=false]"));
+            }
+            _ => {
+                // dust next to the sensor (it points into it)
+                if inside(below) && !cells.get(&below).is_some_and(|s| s.contains("sculk")) {
+                    cells.insert(below, "minecraft:stone".into());
+                    cells.insert(q, "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
+                }
+            }
+        }
+    }
+    let solid: Vec<P3> = cells.iter().filter(|(_, s)| s.as_str() == "minecraft:stone").map(|(p, _)| *p).collect();
+    let n = 2 + r.below(6);
+    for _ in 0..n {
+        if solid.is_empty() {
+            break;
+        }
+        let sp = *r.pick(&solid);
+        let up = add(sp, [0, 1, 0]);
+        let side_f = *r.pick(hfac);
+        let side = add(sp, step_of(side_f));
+        match r.below(5) {
+            0 | 1 => {
+                if inside(up) && !cells.contains_key(&up) {
+                    cells.insert(up, "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
+                }
+            }
+            2 => {
+                if inside(up) && !cells.contains_key(&up) {
+                    cells.insert(up, format!("minecraft:repeater[delay={},facing={},locked=false,powered=false]", 1 + r.below(4), r.pick(hfac)));
+                }
+            }
+            3 => {
+                if inside(side) && !cells.contains_key(&side) {
+                    cells.insert(side, format!("minecraft:lever[face=wall,facing={side_f},powered=false]"));
+                    levers.push(side);
+                }
+            }
+            _ => {
+                if inside(up) && !cells.contains_key(&up) {
+                    cells.insert(up, "minecraft:redstone_torch[lit=true]".into());
+                }
+            }
+        }
+    }
+    let blocks: Vec<(P3, String)> = cells.into_iter().collect();
+    let mut hot: Vec<P3> = Vec::new();
+    for (p, s) in &blocks {
+        if s.contains("piston[") {
+            let f = s.split("facing=").nth(1).and_then(|t| t.split(&[',', ']'][..]).next()).unwrap_or("up");
+            let fr = step_of(f);
+            for d in ["north", "south", "west", "east", "up", "down"] {
+                let v = step_of(d);
+                if v == fr {
+                    continue;
+                }
+                hot.push(add(*p, v));
+                if d != "down" {
+                    hot.push(add(add(*p, v), [0, 1, 0]));
+                }
+            }
+        }
+    }
+    hot.retain(|p| inside(*p));
+    let mut timed: Vec<(u32, Step)> = Vec::new();
+    let n = 6 + r.below(12);
+    for _ in 0..n {
+        let t = r.below(100) as u32;
+        if !levers.is_empty() && r.chance(0.3) {
+            timed.push((t, Step::Use(*r.pick(&levers))));
+            continue;
+        }
+        let p = if !hot.is_empty() && r.chance(0.75) { *r.pick(&hot) } else { *r.pick(&all) };
+        // an extended piston's base removed: its head breaks without a drop (`block_destroy`)
+        if r.chance(0.1) {
+            let ext: Vec<P3> = blocks.iter().filter(|(_, s)| s.contains("piston[extended=true")).map(|(q, _)| *q).collect();
+            if !ext.is_empty() {
+                timed.push((t, Step::Set(*r.pick(&ext), "minecraft:air".into())));
+                continue;
+            }
+        }
+        // only air, stone and redstone blocks get replaced (a removed piston head breaks its
+        // piston: a drop, and drops end the comparison)
+        if blocks.iter().any(|(q, s)| *q == p && !matches!(s.as_str(), "minecraft:stone" | "minecraft:redstone_block")) {
+            continue;
+        }
+        match r.below(12) {
+            0..=6 => {
+                timed.push((t, Step::Set(p, "minecraft:redstone_block".into())));
+                if r.chance(0.7) {
+                    let k = r.below(6) as u32;
+                    timed.push((t + k, Step::Set(p, "minecraft:air".into())));
+                }
+            }
+            7..=8 => timed.push((t, Step::Set(p, "minecraft:air".into()))),
+            9 => timed.push((t, Step::Set(p, "minecraft:white_wool".into()))),
+            _ => timed.push((t, Step::Set(p, "minecraft:stone".into()))),
+        }
+    }
+    timed.sort_by_key(|(t, _)| *t);
+    let total = 130;
+    let mut steps = Vec::new();
+    let mut now = 0;
+    for (t, s) in timed {
+        if t > now {
+            steps.push(Step::Tick(t - now));
+            now = t;
+        }
+        steps.push(s);
+    }
+    steps.push(Step::Tick(total - now));
+    let m = 2;
+    Scenario {
+        name: format!("sculk-{}{}-{seed}", if flat { "flat" } else { "box" }, if border { "-border" } else { "" }),
+        lo: [ox - m, oy - m, oz - if flat { 1 } else { m }],
+        hi: [ox + sx - 1 + m, oy + sy - 1 + m, oz + sz - 1 + if flat { 1 } else { m }],
+        blocks,
+        judge: true,
         steps,
     }
 }
@@ -846,6 +1199,7 @@ pub struct CliOpts {
     pub gravity: bool,
     pub observers: bool,
     pub mixed: bool,
+    pub shapes: bool,
     pub against: String,
     pub workers: usize,
     pub shrink: bool,
@@ -856,6 +1210,10 @@ pub struct CliOpts {
     pub out_dir: std::path::PathBuf,
     pub max_fail: usize,
     pub trace: bool,
+    /// Generate sculk scenarios (`gen_sculk`) instead of piston ones.
+    pub sculk: bool,
+    /// Sculk scenarios anywhere in the sandbox, its edge chunks included.
+    pub border: bool,
 }
 
 /// Print each tick's changes of a run.
@@ -877,6 +1235,27 @@ pub fn print_trace(sc: &Scenario, frames: &[Frame]) {
         println!("f{:>3} ev{} st{} mv{}{}{}{line}", t + 1, f.block_events, f.block_ticks, f.moving_count, if f.drops { " DROPS" } else { "" }, if f.idle { " idle" } else { "" });
         prev = f.blocks.clone();
     }
+}
+
+/// Does the scenario contain a sculk sensor (placed or set)? Then a drop ends the comparison.
+pub fn has_sensor(sc: &Scenario) -> bool {
+    sc.blocks.iter().any(|(_, s)| s.contains("sculk_sensor"))
+        || sc.steps.iter().any(|s| matches!(s, Step::Set(_, b) | Step::SetCmd(_, b) if b.contains("sculk_sensor")))
+}
+
+/// Sensor activations seen in a run (a cell turning `sculk_sensor_phase=active`).
+pub fn count_activations(frames: &[Frame]) -> usize {
+    let mut n = 0;
+    let mut prev: Option<&Frame> = None;
+    for f in frames {
+        for (p, s) in &f.blocks {
+            if s.contains("sculk_sensor_phase=active") && !prev.and_then(|q| q.blocks.get(p)).is_some_and(|t| t.contains("sculk_sensor_phase=active")) {
+                n += 1;
+            }
+        }
+        prev = Some(f);
+    }
+    n
 }
 
 fn other_run(o: &CliOpts, w: &mut Worker, sb: &mut Option<u32>, sc: &Scenario) -> Result<Vec<Frame>> {
@@ -923,7 +1302,11 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
                 "box" => false,
                 _ => s % 2 == 0,
             };
-            scenarios.push(gen_piston(s, GenOpts { flat, slime: o.slime, gravity: o.gravity, observers: o.observers, mixed: o.mixed }));
+            if o.sculk {
+                scenarios.push(gen_sculk(s, flat, o.border));
+                continue;
+            }
+            scenarios.push(gen_piston(s, GenOpts { flat, slime: o.slime, gravity: o.gravity, observers: o.observers, mixed: o.mixed, shapes: o.shapes }));
         }
     }
     for s in &skipped {
@@ -959,6 +1342,7 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
     let t0 = std::time::Instant::now();
     let sandboxes: Vec<std::sync::Mutex<(Option<u32>, Option<u32>)>> = (0..pool.len()).map(|_| std::sync::Mutex::new((None, None))).collect();
     let failures = std::sync::atomic::AtomicUsize::new(0);
+    let activations = std::sync::atomic::AtomicUsize::new(0);
     let results = pool.map(scenarios, |w, wi, sc| -> Result<(Scenario, Option<String>, usize)> {
         if failures.load(std::sync::atomic::Ordering::Relaxed) >= o.max_fail {
             return Ok((sc, None, 0));
@@ -977,20 +1361,22 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
             println!("-- {}:", o.against);
             print_trace(&sc, &b);
         }
-        let d = compare(&a, &b);
+        let stop = has_sensor(&sc);
+        let (d, compared) = compare_upto(&a, &b, stop);
         if d.is_none() {
-            return Ok((sc, None, a.len()));
+            activations.fetch_add(count_activations(&a[..compared.min(a.len())]), std::sync::atomic::Ordering::Relaxed);
+            return Ok((sc, None, compared));
         }
         failures.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if !o.shrink {
-            return Ok((sc, d, a.len()));
+            return Ok((sc, d, compared));
         }
         let (mut s0, mut s1) = (sbs.0, sbs.1);
         let mut fails = |c: &Scenario| -> bool {
             let a = run_bridge(w, &mut s0, c);
             let b = other_run(o, w, &mut s1, c);
             match (a, b) {
-                (Ok(a), Ok(b)) => compare(&a, &b).is_some(),
+                (Ok(a), Ok(b)) => compare_upto(&a, &b, has_sensor(c)).0.is_some(),
                 (Ok(_), Err(_)) => true,
                 _ => false,
             }
@@ -998,12 +1384,12 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
         let small = shrink(&sc, &mut fails);
         let a = run_bridge(w, &mut s0, &small)?;
         let d2 = match other_run(o, w, &mut s1, &small) {
-            Ok(b) => compare(&a, &b),
+            Ok(b) => compare_upto(&a, &b, has_sensor(&small)).0,
             Err(e) => Some(format!("model failed: {e:#}")),
         };
         sbs.0 = s0;
         sbs.1 = s1;
-        Ok((small, d2.or(d), a.len()))
+        Ok((small, d2.or(d), compared))
     });
     let (mut ok, mut bad, mut errors, mut frames, mut unmodeled) = (0usize, 0usize, 0usize, 0usize, 0usize);
     for r in results {
@@ -1012,7 +1398,12 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
                 ok += 1;
                 frames += f;
             }
-            Ok((_, Some(d), _)) if d.starts_with("SKIP") => unmodeled += 1,
+            Ok((sc, Some(d), _)) if d.starts_with("SKIP") => {
+                if unmodeled < 5 {
+                    println!("skipped {}: {}", sc.name, d.trim_start_matches("SKIP "));
+                }
+                unmodeled += 1
+            }
             Ok((sc, Some(d), f)) => {
                 bad += 1;
                 frames += f;
@@ -1027,8 +1418,10 @@ pub fn cli(version: &str, o: &CliOpts) -> Result<()> {
             }
         }
     }
+    let acts = activations.load(std::sync::atomic::Ordering::Relaxed);
     println!(
-        "pistfuzz: {ok} identical, {bad} mismatching, {errors} errors, {unmodeled} skipped (an input redsim does not model) of {n} ({frames} ticks compared, {:.1}s, against {})",
+        "pistfuzz: {ok} identical, {bad} mismatching, {errors} errors, {unmodeled} skipped (an input redsim does not model) of {n} ({frames} ticks compared{}, {:.1}s, against {})",
+        if acts > 0 { format!(", {acts} sculk sensor activations in identical runs") } else { String::new() },
         t0.elapsed().as_secs_f64(),
         o.against
     );

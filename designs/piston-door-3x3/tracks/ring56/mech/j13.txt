@@ -1,0 +1,49 @@
+name: ring56-j13
+# j12 with the right half stripped to O3 (4,-1) and the gate observer (2,-2) over a note block (2,-3): K, B' and the gate driven by ideal inputs to measure the windows.
+port door: 0 0 0
+port lever: -2 6 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:dropper[facing=west,triggered=false]
+  E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:iron_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false]
+  J minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  O minecraft:oak_log[axis=y]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  i minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  n minecraft:note_block[instrument=harp,note=0,powered=false]
+  a minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  b minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  c minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+layer -3:
+  ...Gn..
+layer -2:
+  sCOGo..
+layer -1:
+  BIS..HB
+layer 0:
+  F.JJJ.H
+layer 1:
+  F.JJJ.H
+layer 2:
+  JSJJJSB
+layer 3:
+  rJ....N
+layer 4:
+  JasssJc
+layer 5:
+  B.bbbb.
+layer 6:
+  L

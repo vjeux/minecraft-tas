@@ -1,0 +1,416 @@
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-000.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,3) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SD(2,4) SW(4,1)
+  5 ...v...
+  4 ...vv..
+  3 .>.....
+  2 >.###..
+  1 >.###.<
+  0 >.###..
+ -1 .......
+ -2 ...^^..
+  open 12 + close 9 (255 states, 9 of 10 inputs used)
+  open:  P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [55s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-001.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,3) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ...v...
+  3 .>.....
+  2 >.###.<
+  1 >.###.<
+  0 >.###..
+ -1 .......
+ -2 ...^^..
+  open 11 + close 8 (237 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [55s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-002.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,3) SU(1,-2) SD(1,4) SD(1,5) SD(2,4) SW(4,0) SW(4,1)
+  5 ...v...
+  4 ...vv..
+  3 .>.....
+  2 >.###..
+  1 >.###.<
+  0 >.###.<
+ -1 .......
+ -2 ...^...
+  open 11 + close 8 (237 states, 8 of 10 inputs used)
+  open:  P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [69s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-003.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,3) SU(1,-2) SD(1,4) SD(1,5) SW(4,0) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ...v...
+  3 .>.....
+  2 >.###.<
+  1 >.###.<
+  0 >.###.<
+ -1 .......
+ -2 ...^...
+  open 11 + close 8 (238 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SW(4,0) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,2) P1SW(4,0) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [53s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-004.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,3) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SD(2,4) SW(4,1)
+  5 ...v...
+  4 ...vv..
+  3 .>=....
+  2 >.###..
+  1 >.###.<
+  0 >.###..
+ -1 .......
+ -2 ...^^..
+  open 12 + close 9 (292 states, 9 of 10 inputs used)
+  open:  P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSE+(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) LSE+(-1,3) P1SD(1,4) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [22s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-005.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,3) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ...v...
+  3 .>=....
+  2 >.###.<
+  1 >.###.<
+  0 >.###..
+ -1 .......
+ -2 ...^^..
+  open 11 + close 8 (272 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSE+(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) LSE+(-1,3) P1SD(1,4) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [61s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-006.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,3) SU(1,-2) SD(1,4) SD(1,5) SD(2,4) SW(4,0) SW(4,1)
+  5 ...v...
+  4 ...vv..
+  3 .>=....
+  2 >.###..
+  1 >.###.<
+  0 >.###.<
+ -1 .......
+ -2 ...^...
+  open 11 + close 8 (272 states, 8 of 10 inputs used)
+  open:  P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSE+(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P1SU(1,-2) LSE+(-1,3) P1SD(1,4) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [47s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-007.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,3) SU(1,-2) SD(1,4) SD(1,5) SW(4,0) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ...v...
+  3 .>=....
+  2 >.###.<
+  1 >.###.<
+  0 >.###.<
+ -1 .......
+ -2 ...^...
+  open 11 + close 8 (273 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SW(4,0) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSE+(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,2) P1SW(4,0) P1SD(1,4) P1SU(1,-2) LSE+(-1,3) P1SD(1,4) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [68s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-008.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW(3,3) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ...v...
+  3 .....<.
+  2 >.###.<
+  1 >.###.<
+  0 >.###..
+ -1 .......
+ -2 ...^^..
+  open 11 + close 8 (252 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SW(3,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SW(3,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [33s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-009.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW+(3,3) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ...v...
+  3 ....=<.
+  2 >.###.<
+  1 >.###.<
+  0 >.###..
+ -1 .......
+ -2 ...^^..
+  open 11 + close 8 (815 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSW+(3,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) LSW+(3,3) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) [0.1s]
+  piston removal + one helper: 0 working variants with one piston fewer [27s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-010.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SD(0,4) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW(3,3) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ..vv...
+  3 .....<.
+  2 ..###.<
+  1 >.###.<
+  0 >.###..
+ -1 .......
+ -2 ...^^..
+  open 11 + close 8 (244 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,1) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SD(0,4) P1SW(3,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,1) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SD(0,4) P1SW(3,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [40s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-011.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SD(0,4) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW+(3,3) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ..vv...
+  3 ....=<.
+  2 ..###.<
+  1 >.###.<
+  0 >.###..
+ -1 .......
+ -2 ...^^..
+  open 11 + close 8 (757 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,1) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SD(0,4) LSW+(3,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,1) P1SU(2,-2) P1SD(1,4) LSW+(3,3) P1SD(1,4) P1SU(1,-2) P1SD(0,4) [0.1s]
+  piston removal + one helper: 0 working variants with one piston fewer [26s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-012.txt: 10 pieces in 7x8: SE(-2,1) SE(-2,2) SE(-1,3) SU(0,-2) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SD(2,4) SW(4,1)
+  5 ...v...
+  4 ...vv..
+  3 .>.....
+  2 >.###..
+  1 >.###.<
+  0 ..###..
+ -1 .......
+ -2 ..^^^..
+  open 12 + close 9 (245 states, 9 of 10 inputs used)
+  open:  P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) P1SE(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) P1SE(-1,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [30s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-013.txt: 10 pieces in 7x8: SE(-2,1) SE(-2,2) SE(-1,3) SU(0,-2) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ...v...
+  3 .>.....
+  2 >.###.<
+  1 >.###.<
+  0 ..###..
+ -1 .......
+ -2 ..^^^..
+  open 11 + close 8 (229 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) P1SE(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) P1SE(-1,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [70s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-014.txt: 10 pieces in 7x8: SE(-2,1) SE(-2,2) SE+(-1,3) SU(0,-2) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SD(2,4) SW(4,1)
+  5 ...v...
+  4 ...vv..
+  3 .>=....
+  2 >.###..
+  1 >.###.<
+  0 ..###..
+ -1 .......
+ -2 ..^^^..
+  open 12 + close 9 (280 states, 9 of 10 inputs used)
+  open:  P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) LSE+(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) LSE+(-1,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [30s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-015.txt: 10 pieces in 7x8: SE(-2,1) SE(-2,2) SE+(-1,3) SU(0,-2) SU(1,-2) SD(1,4) SD(1,5) SU(2,-2) SW(4,1) SW(4,2)
+  5 ...v...
+  4 ...v...
+  3 .>=....
+  2 >.###.<
+  1 >.###.<
+  0 ..###..
+ -1 .......
+ -2 ..^^^..
+  open 11 + close 8 (262 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) LSE+(-1,3) P1SD(1,5) P1SD(1,4) P1SD(1,5) P1SD(1,4)
+  close: P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SU(0,-2) LSE+(-1,3) P1SD(1,4) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [27s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-016.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,-1) SU(1,-3) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) SW(4,1)
+  4 ...vv..
+  3 .......
+  2 >.###..
+  1 >.###.<
+  0 >.###..
+ -1 .>.....
+ -2 ...^^..
+ -3 ...^...
+  open 12 + close 9 (256 states, 9 of 10 inputs used)
+  open:  P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P3SU(1,-3) P1SE(-2,0) P1SE(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [63s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-017.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,-1) SU(1,-3) SU(1,-2) SD(1,4) SU(2,-2) SW(4,1) SW(4,2)
+  4 ...v...
+  3 .......
+  2 >.###.<
+  1 >.###.<
+  0 >.###..
+ -1 .>.....
+ -2 ...^^..
+ -3 ...^...
+  open 11 + close 8 (238 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P3SU(1,-3) P1SE(-2,0) P1SE(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [70s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-018.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,-1) SU(1,-3) SU(1,-2) SD(1,4) SD(2,4) SW(4,0) SW(4,1)
+  4 ...vv..
+  3 .......
+  2 >.###..
+  1 >.###.<
+  0 >.###.<
+ -1 .>.....
+ -2 ...^...
+ -3 ...^...
+  open 11 + close 8 (238 states, 8 of 10 inputs used)
+  open:  P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P3SU(1,-3) P1SE(-2,0) P1SE(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [58s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-019.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE(-1,-1) SU(1,-3) SU(1,-2) SD(1,4) SW(4,0) SW(4,1) SW(4,2)
+  4 ...v...
+  3 .......
+  2 >.###.<
+  1 >.###.<
+  0 >.###.<
+ -1 .>.....
+ -2 ...^...
+ -3 ...^...
+  open 11 + close 8 (239 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SW(4,0) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SE(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,2) P1SE(-2,2) P1SW(4,0) P1SD(1,4) P3SU(1,-3) P1SE(-2,0) P1SE(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [58s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-020.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,-1) SU(1,-3) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) SW(4,1)
+  4 ...vv..
+  3 .......
+  2 >.###..
+  1 >.###.<
+  0 >.###..
+ -1 .>=....
+ -2 ...^^..
+ -3 ...^...
+  open 12 + close 9 (294 states, 9 of 10 inputs used)
+  open:  P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSE+(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SE(-2,2) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P3SU(1,-3) LSE+(-1,-1) P3SU(1,-3) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [25s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-021.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,-1) SU(1,-3) SU(1,-2) SD(1,4) SU(2,-2) SW(4,1) SW(4,2)
+  4 ...v...
+  3 .......
+  2 >.###.<
+  1 >.###.<
+  0 >.###..
+ -1 .>=....
+ -2 ...^^..
+ -3 ...^...
+  open 11 + close 8 (274 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSE+(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,2) P1SE(-2,2) P1SU(2,-2) P1SD(1,4) P3SU(1,-3) LSE+(-1,-1) P3SU(1,-3) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [53s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-022.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,-1) SU(1,-3) SU(1,-2) SD(1,4) SD(2,4) SW(4,0) SW(4,1)
+  4 ...vv..
+  3 .......
+  2 >.###..
+  1 >.###.<
+  0 >.###.<
+ -1 .>=....
+ -2 ...^...
+ -3 ...^...
+  open 11 + close 8 (274 states, 8 of 10 inputs used)
+  open:  P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSE+(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P3SU(1,-3) LSE+(-1,-1) P3SU(1,-3) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [62s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-023.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SE+(-1,-1) SU(1,-3) SU(1,-2) SD(1,4) SW(4,0) SW(4,1) SW(4,2)
+  4 ...v...
+  3 .......
+  2 >.###.<
+  1 >.###.<
+  0 >.###.<
+ -1 .>=....
+ -2 ...^...
+ -3 ...^...
+  open 11 + close 8 (275 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,2) P1SW(4,0) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSE+(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,2) P1SE(-2,2) P1SW(4,0) P1SD(1,4) P3SU(1,-3) LSE+(-1,-1) P3SU(1,-3) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [83s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-024.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SU(1,-3) SU(1,-2) SD(1,4) SD(2,4) SW(3,-1) SW(4,0) SW(4,1)
+  4 ...vv..
+  3 .......
+  2 >.###..
+  1 >.###.<
+  0 >.###.<
+ -1 .....<.
+ -2 ...^...
+ -3 ...^...
+  open 11 + close 8 (253 states, 8 of 10 inputs used)
+  open:  P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) P1SW(3,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P3SU(1,-3) P1SE(-2,0) P1SW(3,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [39s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-025.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-2,2) SU(1,-3) SU(1,-2) SD(1,4) SD(2,4) SW+(3,-1) SW(4,0) SW(4,1)
+  4 ...vv..
+  3 .......
+  2 >.###..
+  1 >.###.<
+  0 >.###.<
+ -1 ....=<.
+ -2 ...^...
+ -3 ...^...
+  open 11 + close 8 (813 states, 8 of 10 inputs used)
+  open:  P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SE(-2,0) LSW+(3,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,1) P1SE(-2,2) P1SD(2,4) P1SD(1,4) P3SU(1,-3) LSW+(3,-1) P3SU(1,-3) P1SE(-2,0) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [35s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-026.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-1,-1) SD(0,4) SU(1,-3) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) SW(4,1)
+  4 ..vvv..
+  3 .......
+  2 ..###..
+  1 >.###.<
+  0 >.###..
+ -1 .>.....
+ -2 ...^^..
+ -3 ...^...
+  open 12 + close 9 (246 states, 9 of 10 inputs used)
+  open:  P1SE(-2,1) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SD(0,4) P1SE(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SE(-2,1) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P3SU(1,-3) P1SD(0,4) P1SE(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [41s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-027.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-1,-1) SD(0,4) SU(1,-3) SU(1,-2) SD(1,4) SU(2,-2) SW(4,1) SW(4,2)
+  4 ..vv...
+  3 .......
+  2 ..###.<
+  1 >.###.<
+  0 >.###..
+ -1 .>.....
+ -2 ...^^..
+ -3 ...^...
+  open 11 + close 8 (230 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,1) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SD(0,4) P1SE(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,2) P1SE(-2,1) P1SU(2,-2) P1SD(1,4) P3SU(1,-3) P1SD(0,4) P1SE(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [54s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-028.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE+(-1,-1) SD(0,4) SU(1,-3) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) SW(4,1)
+  4 ..vvv..
+  3 .......
+  2 ..###..
+  1 >.###.<
+  0 >.###..
+ -1 .>=....
+ -2 ...^^..
+ -3 ...^...
+  open 12 + close 9 (281 states, 9 of 10 inputs used)
+  open:  P1SE(-2,1) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SD(0,4) LSE+(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SE(-2,1) P1SW(4,1) P1SD(2,4) P1SU(2,-2) P1SD(1,4) P3SU(1,-3) P1SD(0,4) LSE+(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [37s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-029.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE(-1,-1) SD(0,4) SU(1,-3) SU(1,-2) SD(1,4) SD(2,4) SW(4,0) SW(4,1)
+  4 ..vvv..
+  3 .......
+  2 ..###..
+  1 >.###.<
+  0 >.###.<
+ -1 .>.....
+ -2 ...^...
+ -3 ...^...
+  open 11 + close 8 (230 states, 8 of 10 inputs used)
+  open:  P1SW(4,1) P1SE(-2,1) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SD(0,4) P1SE(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,1) P1SE(-2,1) P1SD(2,4) P1SD(1,4) P3SU(1,-3) P1SD(0,4) P1SE(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [93s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-030.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE+(-1,-1) SD(0,4) SU(1,-3) SU(1,-2) SD(1,4) SU(2,-2) SW(4,1) SW(4,2)
+  4 ..vv...
+  3 .......
+  2 ..###.<
+  1 >.###.<
+  0 >.###..
+ -1 .>=....
+ -2 ...^^..
+ -3 ...^...
+  open 11 + close 8 (263 states, 8 of 10 inputs used)
+  open:  P1SW(4,2) P1SE(-2,1) P1SU(2,-2) P1SD(1,4) P1SU(1,-2) P1SD(0,4) LSE+(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,2) P1SE(-2,1) P1SU(2,-2) P1SD(1,4) P3SU(1,-3) P1SD(0,4) LSE+(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [32s]
+designs/piston-door-3x3/tracks/pistmodel/fullmech/7x8/fm-7x8-031.txt: 10 pieces in 7x8: SE(-2,0) SE(-2,1) SE+(-1,-1) SD(0,4) SU(1,-3) SU(1,-2) SD(1,4) SD(2,4) SW(4,0) SW(4,1)
+  4 ..vvv..
+  3 .......
+  2 ..###..
+  1 >.###.<
+  0 >.###.<
+ -1 .>=....
+ -2 ...^...
+ -3 ...^...
+  open 11 + close 8 (263 states, 8 of 10 inputs used)
+  open:  P1SW(4,1) P1SE(-2,1) P1SD(2,4) P1SD(1,4) P1SU(1,-2) P1SD(0,4) LSE+(-1,-1) P1SU(1,-3) P1SU(1,-2) P1SU(1,-3) P1SU(1,-2)
+  close: P1SW(4,1) P1SE(-2,1) P1SD(2,4) P1SD(1,4) P3SU(1,-3) P1SD(0,4) LSE+(-1,-1) P3SU(1,-3) [0.0s]
+  piston removal + one helper: 0 working variants with one piston fewer [38s]

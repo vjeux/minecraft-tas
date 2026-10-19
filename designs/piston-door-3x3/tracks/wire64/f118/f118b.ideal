@@ -1,0 +1,45 @@
+# 8x8-118 with the real top-left core (f118b.txt); N4 pulses by poking O4's watched cell (-3,4)
+design designs/piston-door-3x3/tracks/wire64/f118/f118b.txt
+let q1 = 0
+let q2 = 17
+let q3 = 34
+let lv3 = 18
+let lv5 = 30
+open 0 set -2 -1 0 minecraft:redstone_block
+open 0 set -2 3 0 minecraft:redstone_block
+open 2 clear -2 -1 0
+open 2 clear -2 3 0
+open q1 set -3 4 0 minecraft:glass
+open q1 clear -3 4 0
+open lv3 clear -4 1 0
+open q2 set -3 4 0 minecraft:glass
+open q2 clear -3 4 0
+open lv5 clear 0 6 0
+open q3 set -3 4 0 minecraft:glass
+open q3 clear -3 4 0
+open 36 set 1 -3 0 minecraft:redstone_block
+open 36 set 1 4 1 minecraft:redstone_block
+open 36 set 3 4 0 minecraft:redstone_block
+open 36 set 4 -1 0 minecraft:redstone_block
+open 36 set 5 1 0 minecraft:redstone_block
+open 38 clear 1 -3 0
+open 38 clear 1 4 1
+open 38 clear 3 4 0
+open 38 clear 4 -1 0
+open 38 clear 5 1 0
+close 0 set -4 1 0 minecraft:redstone_block
+close 6 set -2 -1 0 minecraft:redstone_block
+close 8 clear -2 -1 0
+close 12 set 0 6 0 minecraft:redstone_block
+close 18 set -2 3 0 minecraft:redstone_block
+close 18 set 1 -3 0 minecraft:redstone_block
+close 20 clear -2 3 0
+close 20 clear 1 -3 0
+close 24 set 1 4 1 minecraft:redstone_block
+close 24 set 3 4 0 minecraft:redstone_block
+close 24 set 4 -1 0 minecraft:redstone_block
+close 24 set 5 1 0 minecraft:redstone_block
+close 26 clear 1 4 1
+close 26 clear 3 4 0
+close 26 clear 4 -1 0
+close 26 clear 5 1 0

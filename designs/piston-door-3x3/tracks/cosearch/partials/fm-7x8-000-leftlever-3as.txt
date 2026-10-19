@@ -1,0 +1,45 @@
+name: cosearch-live-77of79
+assisted: -2,0;2,4;4,1
+port door: 0 0 0
+port lever: -3 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=down,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:iron_trapdoor[facing=west,half=bottom,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  P minecraft:piston[extended=false,facing=west]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  W minecraft:white_glazed_terracotta[facing=north]
+  d minecraft:dropper[facing=west,triggered=false]
+  o minecraft:oak_log[axis=y]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:smooth_stone_slab[type=top,waterlogged=false]
+  w minecraft:white_glazed_terracotta[facing=west]
+layer -2:
+  ..sOHHWN
+layer -1:
+  .PCS..rK
+layer 0:
+  .G.KKK.B
+layer 1:
+  .GrKKK.J
+layer 2:
+  .G.KKK
+layer 3:
+  .dG...IS
+layer 4:
+  .BCwFFwo
+layer 5:
+  LRSDFWAE

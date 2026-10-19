@@ -1,0 +1,16 @@
+# P is pulsed by observer O (2 gt). A: X stays in P's line, whose end is S's held head: a blocked push, P never
+# moves. B: Q pulls X out of the line during O's pulse: X's departure updates P, which extends at that tick.
+design designs/gadgets/stopper-release.txt
+probe p 0 1 0
+set -2 1 0 minecraft:glass
+clear -2 1 0
+expect_trace p rrrrrrrr
+design designs/gadgets/stopper-release.txt
+probe p 0 1 0
+probe x 1 1 0
+set -2 1 0 minecraft:glass
+clear -2 1 0
+set 1 4 0 minecraft:redstone_block
+expect_trace x ##
+clear 1 4 0
+expect_trace p E~~rrrrrr

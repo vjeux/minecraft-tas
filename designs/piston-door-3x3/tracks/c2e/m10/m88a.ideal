@@ -1,0 +1,16 @@
+# m88a: m10b-uk widened to 8x8 (x -3..4): L0 fed from the left column (note block (-2,-2) -> observer (-3,-2) -> observer (-3,-1) -> stone (-3,0)); only the top ideal (A hold, A last pull, L1/L2).
+design designs/piston-door-3x3/tracks/c2e/m10/m88a.txt
+let ah0 = 8
+let ah = 4
+let l12 = 20
+let af = 20
+open 0 use 4 5 0
+open ah0 set 1 3 -1 minecraft:redstone_block
+open ah0+ah clear 1 3 -1
+open l12 set -2 2 -1 minecraft:redstone_block
+open l12+2 clear -2 2 -1
+open af set 1 4 -1 minecraft:redstone_block
+open af+2 clear 1 4 -1
+close 0 use 4 5 0
+close 0 set -2 2 -1 minecraft:redstone_block
+close 2 clear -2 2 -1

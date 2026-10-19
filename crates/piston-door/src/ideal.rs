@@ -230,7 +230,15 @@ fn run_at(
     let mv = |p: Pos| [p[0] + off[0], p[1] + off[1], p[2] + off[2]];
     // Worst open / close ticks over the cycles, measured like `door verify` does.
     let (mut worst_open, mut worst_close) = (0u32, 0u32);
-    for cycle in 0..opts.cycles {
+    // Periodic rest, like the judge (vjeux 2026-10-19: internal state doesn't matter as long as the
+    // door works repeatedly): every close must leave the door closed, and some closed state must
+    // repeat an earlier one (the rest state included) within cycles + MAX_PERIOD_EXTRA.
+    let mut seen_closed: Vec<mctas::sim::Region> = vec![rest.clone()];
+    let mut periodic = false;
+    for cycle in 0..opts.cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= opts.cycles && periodic {
+            break;
+        }
         for (phase, evs) in [("open", open_ev), ("close", close_ev)] {
             let trace = if first && cycle == 0 { opts.trace } else { None };
             let mut frames: Vec<mctas::sim::Region> = Vec::new();
@@ -298,17 +306,26 @@ fn run_at(
                     bail!("cycle {cycle}: not open: {}", problems.join("; "));
                 }
             } else {
-                let diffs: Vec<String> = rest
-                    .iter()
-                    .filter(|(p, s)| now.get(*p) != Some(*s))
-                    .take(6)
-                    .map(|(p, s)| format!("{:?} {} -> {}", [p[0] - off[0], p[1] - off[1], p[2] - off[2]], short(s), short(now.get(p).unwrap_or("?"))))
-                    .collect();
-                if !diffs.is_empty() {
-                    bail!("cycle {cycle}: not back at rest after closing: {}", diffs.join("; "));
+                let problems = crate::closed_problems(&now, spec);
+                if !problems.is_empty() {
+                    bail!("cycle {cycle}: not closed after the close events: {}", problems.join("; "));
+                }
+                if seen_closed.iter().any(|s| crate::same_region(s, &now)) {
+                    periodic = true;
+                } else {
+                    seen_closed.push(now.clone());
                 }
             }
         }
+    }
+    if !periodic {
+        let diffs: Vec<String> = rest
+            .iter()
+            .filter(|(p, s)| seen_closed.last().and_then(|n| n.get(*p)) != Some(*s))
+            .take(6)
+            .map(|(p, s)| format!("{:?} {} -> {}", [p[0] - off[0], p[1] - off[1], p[2] - off[2]], short(s), short(seen_closed.last().and_then(|n| n.get(p)).unwrap_or("?"))))
+            .collect();
+        bail!("never back at a closed state it had before within {} cycles (drifts: {})", opts.cycles + crate::MAX_PERIOD_EXTRA, diffs.join("; "));
     }
     Ok((worst_open, worst_close))
 }

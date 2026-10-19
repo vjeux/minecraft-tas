@@ -394,6 +394,8 @@ pub fn palette(spec: &str) -> Result<Vec<(String, u32)>> {
         ("slab", 2),
         ("leaves", 1),
         ("log", 1),
+        ("scaffold", 2),
+        ("scaffold7", 0),
         ("analog", 2),
         ("door", 1),
         // plain blocks of every equivalence class and pistons: `--palette core,plain:10,piston:4`
@@ -510,6 +512,10 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
         "hopper" => st(format!("hopper[enabled={},facing={}]", tf(r, 0.8), r.pick(&["down", "north", "east", "south", "west"]))),
         "slab" => st(format!("smooth_stone_slab[type={},waterlogged=false]", r.pick(&["bottom", "top", "top", "double"]))),
         "leaves" => st(format!("oak_leaves[distance={},persistent=true,waterlogged=false]", r.range(1, 7))),
+        // scaffolding: distance 7 (only from placement) makes it fall as an entity at its first
+        // tick (`scaffold7:1` adds those)
+        "scaffold" => st(format!("scaffolding[bottom={},distance={},waterlogged=false]", tf(r, 0.5), r.range(0, 6))),
+        "scaffold7" => st(format!("scaffolding[bottom={},distance=7,waterlogged=false]", tf(r, 0.5))),
         "log" => st(format!("oak_log[axis={}]", r.pick(&["x", "y", "z"]))),
         "analog" => match r.below(4) {
             0 => st(format!("cake[bites={}]", r.range(0, 6))),

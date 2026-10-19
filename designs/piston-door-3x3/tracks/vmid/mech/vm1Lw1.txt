@@ -1,0 +1,48 @@
+name: vm1Lw1
+# vm1L (level-held side pullers) with the bottom wired for real: K1 observer (-2,1) watches TL's
+# puller and fires BL's puller; an observer at (-1,-1) watches BL's parking cell (-1,0) and, through
+# a note block (-1,-2) and an observer (0,-2), fires BM's puller; an observer at (4,0) watches MR's
+# puller and, through stone (4,-1), dust (3,-1) on stone (3,-2), fires BR's puller. The top stays
+# ideal (vm1Lw1.ideal).
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=true,facing=east]
+  f minecraft:piston_head[facing=east,short=false,type=sticky]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  V minecraft:sticky_piston[extended=true,facing=west]
+  v minecraft:piston_head[facing=west,short=false,type=sticky]
+  R minecraft:redstone_block
+  O minecraft:observer[facing=up,powered=false]
+  w minecraft:observer[facing=west,powered=false]
+  N minecraft:note_block
+  r minecraft:redstone_wire
+  T minecraft:stone
+layer -2:
+  .NwUUT.
+  .......
+layer -1:
+  .O...rT
+  .......
+layer 0:
+  E.SSS.O
+  .......
+layer 1:
+  O.SSSvV
+  .......
+layer 2:
+  FfSSSvV
+  R.....R
+layer 3:
+  .....W.
+  .......
+layer 4:
+  ..DD...
+  .......
+layer 5:
+  ..DD...
+  .......

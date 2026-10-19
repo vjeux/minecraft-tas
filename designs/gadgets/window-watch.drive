@@ -1,0 +1,28 @@
+# The note block N carries the 8 gt window from the delay-4 repeater (2 gt input) into P: P extends at t8
+# and its sticky retract at t16 pulls the block back (blk at (2,1) empties at t16). Observer W watching N
+# fires exactly at t10..t11 (as the pushed block lands) and t18..t19 (after the pull has started).
+design designs/gadgets/window-watch.txt
+probe n 0 2 0
+set -2 3 0 minecraft:redstone_block
+expect_trace n 00
+clear -2 3 0
+expect_trace n 0000011111111000000000
+design designs/gadgets/window-watch.txt
+probe w 1 2 0
+set -2 3 0 minecraft:redstone_block
+expect_trace w 00
+clear -2 3 0
+expect_trace w 0000000110000001100000
+design designs/gadgets/window-watch.txt
+probe p 0 1 0
+probe blk 2 1 0
+set -2 3 0 minecraft:redstone_block
+expect_trace p rr
+clear -2 3 0
+expect_trace p rrrrrEEEEEEEE~~rrrrrrr
+design designs/gadgets/window-watch.txt
+probe blk 2 1 0
+set -2 3 0 minecraft:redstone_block
+expect_trace blk ..
+clear -2 3 0
+expect_trace blk .....~~######.........

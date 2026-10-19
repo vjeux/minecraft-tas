@@ -416,6 +416,9 @@ pub enum Block {
     Slab { kind: u8 },
     /// Persistent oak leaves (`persistent=false` ones decay at random: out of scope).
     Leaves { distance: u8, persistent: bool },
+    /// Scaffolding (`ScaffoldingBlock`): `distance` 0-7 to a sturdy floor, `bottom` = distance > 0
+    /// with no scaffold below.
+    Scaffolding { distance: u8, bottom: bool },
     /// Oak log (a leaves distance source).
     Log { axis: u8 },
     /// Skeleton skull (`powered` follows its neighbor signal; pistons pop it).
@@ -433,7 +436,15 @@ pub enum Block {
     /// Gravity blocks (pistmodel, `gravity.rs`): index into `FALLING` (sand, red sand, gravel,
     /// white concrete powder).
     Falling { id: u8 },
+    // ---- sculk (agent sculk, `sculk.rs`) ----
+    /// Sculk sensor (`calibrated`: the calibrated sculk sensor, whose horizontal `facing` names
+    /// its back, the frequency input, at `facing.opposite()`; a plain sensor keeps North).
+    /// `phase`: 0 inactive, 1 active, 2 cooldown (`SculkSensorPhase`).
+    Sculk { calibrated: bool, facing: Dir, phase: u8, power: u8 },
 }
+
+/// `SculkSensorPhase` names, by `Block::Sculk::phase`.
+pub const SCULK_PHASES: [&str; 3] = ["inactive", "active", "cooldown"];
 
 /// Gravity blocks (`Block::Falling`), by id.
 pub const FALLING: [&str; 4] = ["sand", "red_sand", "gravel", "white_concrete_powder"];
@@ -467,6 +478,7 @@ pub enum Kind {
     Hopper,
     Slab,
     Leaves,
+    Scaffolding,
     Log,
     Skull,
     WallSkull,
@@ -478,6 +490,8 @@ pub enum Kind {
     PistonHead,
     MovingPiston,
     Falling(u8),
+    /// Sculk sensor (true: calibrated).
+    Sculk(bool),
 }
 
 fn b(s: bool) -> &'static str {
@@ -512,6 +526,7 @@ impl Block {
             Block::Hopper { .. } => Kind::Hopper,
             Block::Slab { .. } => Kind::Slab,
             Block::Leaves { .. } => Kind::Leaves,
+            Block::Scaffolding { .. } => Kind::Scaffolding,
             Block::Log { .. } => Kind::Log,
             Block::Skull { .. } => Kind::Skull,
             Block::WallSkull { .. } => Kind::WallSkull,
@@ -523,6 +538,7 @@ impl Block {
             Block::PistonHead { .. } => Kind::PistonHead,
             Block::MovingPiston { .. } => Kind::MovingPiston,
             Block::Falling { id } => Kind::Falling(id),
+            Block::Sculk { calibrated, .. } => Kind::Sculk(calibrated),
         }
     }
 
@@ -727,6 +743,10 @@ impl Block {
                 waterlogged_ok()?;
                 Block::Leaves { distance: int_of("distance", 7, 1, 7)?, persistent: bool_of("persistent", false)? }
             }
+            "scaffolding" => {
+                waterlogged_ok()?;
+                Block::Scaffolding { distance: int_of("distance", 7, 0, 7)?, bottom: bool_of("bottom", false)? }
+            }
             "oak_log" => Block::Log {
                 axis: match get("axis") {
                     None | Some("y") => 1,
@@ -760,6 +780,19 @@ impl Block {
                 facing: dir_of("facing", Dir::North)?,
             },
             n if FALLING.contains(&n) => Block::Falling { id: FALLING.iter().position(|x| *x == n).unwrap() as u8 },
+            "sculk_sensor" | "calibrated_sculk_sensor" => {
+                waterlogged_ok()?;
+                let calibrated = name == "calibrated_sculk_sensor";
+                Block::Sculk {
+                    calibrated,
+                    facing: if calibrated { hdir_of("facing", Dir::North)? } else { Dir::North },
+                    phase: match get("sculk_sensor_phase") {
+                        None => 0,
+                        Some(v) => SCULK_PHASES.iter().position(|p| *p == v).ok_or_else(|| format!("bad sculk_sensor_phase={v}"))? as u8,
+                    },
+                    power: int_of("power", 0, 0, 15)?,
+                }
+            }
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
         })
     }
@@ -844,6 +877,7 @@ impl fmt::Display for Block {
             Block::Hopper { facing, enabled } => write!(f, "minecraft:hopper[enabled={},facing={}]", b(enabled), facing.name()),
             Block::Slab { kind } => write!(f, "minecraft:smooth_stone_slab[type={},waterlogged=false]", ["bottom", "top", "double"][kind as usize]),
             Block::Leaves { distance, persistent } => write!(f, "minecraft:oak_leaves[distance={distance},persistent={},waterlogged=false]", b(persistent)),
+            Block::Scaffolding { distance, bottom } => write!(f, "minecraft:scaffolding[bottom={},distance={distance},waterlogged=false]", b(bottom)),
             Block::Log { axis } => write!(f, "minecraft:oak_log[axis={}]", ["x", "y", "z"][axis as usize]),
             Block::Skull { rotation, powered } => write!(f, "minecraft:skeleton_skull[powered={},rotation={rotation}]", b(powered)),
             Block::WallSkull { facing, powered } => write!(f, "minecraft:skeleton_wall_skull[facing={},powered={}]", facing.name(), b(powered)),
@@ -859,6 +893,15 @@ impl fmt::Display for Block {
             }
             Block::MovingPiston { sticky, facing } => write!(f, "minecraft:moving_piston[facing={},type={}]", facing.name(), if sticky { "sticky" } else { "normal" }),
             Block::Falling { id } => write!(f, "minecraft:{}", FALLING[id as usize]),
+            Block::Sculk { calibrated: false, power, phase, .. } => {
+                write!(f, "minecraft:sculk_sensor[power={power},sculk_sensor_phase={},waterlogged=false]", SCULK_PHASES[phase as usize])
+            }
+            Block::Sculk { calibrated: true, facing, power, phase } => write!(
+                f,
+                "minecraft:calibrated_sculk_sensor[facing={},power={power},sculk_sensor_phase={},waterlogged=false]",
+                facing.name(),
+                SCULK_PHASES[phase as usize]
+            ),
         }
     }
 }
