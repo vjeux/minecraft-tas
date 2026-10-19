@@ -87,6 +87,10 @@ pub struct SearchArgs {
     pub assist: Option<std::path::PathBuf>,
     #[arg(long, default_value_t = 4.0)]
     pub assist_weight: f64,
+    /// Move the plan's in-plane input positions (cells the design leaves empty) behind the
+    /// pistons they feed (z+1), freeing those cells for real wiring.
+    #[arg(long)]
+    pub offplane: bool,
     /// Drive shaping weight per plan edge (0 = off): while an input is assisted, every on/off
     /// edge of its plan input that the real wiring alone also delivers to the input's piston
     /// (within `--drive-slack` ticks) earns this many points, every extra real edge costs half.
@@ -227,6 +231,9 @@ pub struct Problem {
     /// what the REAL wiring alone would feed its piston (the assist blocks removed for the check).
     pub drive_weight: f64,
     pub drive_slack: u32,
+    /// Pockets mode: the seed's lever is removed; a candidate without a lever still screens (the
+    /// plan drives every input by ticks after the "flip").
+    pub no_lever: bool,
     /// Max drive points per input (its plan edges over the screened cycles): a released input
     /// earns them all (the screen checks the door works without it).
     pub drive_max: Vec<i32>,
@@ -571,9 +578,15 @@ fn real_drive(p: &Problem, g: &Grid, w: &mut World) -> u64 {
             };
             for n in ns {
                 for c in [n, BlockPos::new(n.x, n.y - 1, z)] {
-                    if let Block::Piston { facing, .. } = w.get(c)
-                        && redsim::piston::base::neighbor_signal(w, c, facing)
-                    {
+                    let b = w.get(c);
+                    let fed = match b {
+                        Block::Piston { facing, .. } => redsim::piston::base::neighbor_signal(w, c, facing),
+                        // other receivers next to the input (trapdoors, lamps, note blocks,
+                        // bulbs, droppers...): their own neighbor-signal check
+                        Block::Trapdoor { .. } | Block::Lamp { .. } | Block::Note { .. } | Block::Bulb { .. } | Block::Dispenser { .. } | Block::Door { .. } | Block::FenceGate { .. } | Block::Rail { .. } if c == n => w.has_neighbor_signal(c),
+                        _ => false,
+                    };
+                    if fed {
                         real |= 1u64 << k;
                         break 'k;
                     }
@@ -712,7 +725,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<u6
     }
     pts -= 2 * unsupported;
     let lever = BlockPos::new(g.lever.0, g.lever.1, g.z);
-    if !matches!(w.get(lever), Block::Lever { powered: false, .. }) {
+    if !matches!(w.get(lever), Block::Lever { powered: false, .. }) && !(p.no_lever && w.get(lever).is_air()) {
         return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
     }
     pts += 1;
@@ -742,11 +755,9 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<u6
         }).count() as i32;
         pts += open_n;
         if open_n >= 7 {
-            // the ring: only air, door blocks or quartz-like blocks (FULL seamless, open)
-            let clean = p.ring.iter().filter(|(x, y)| {
-                let s = w.get(at(*x, *y));
-                s.is_air() || (cs::quartz_like(&s) && !cs::is_moving(&s))
-            }).count() as i32;
+            // the frame: the 12 cells around the opening must hold plain full blocks when open
+            // (door blocks or static quartz-like blocks: vjeux 03:36Z, FULL FRAME)
+            let clean = p.ring.iter().filter(|(x, y)| cs::frame_filled(&w.get(at(*x, *y)))).count() as i32;
             pts += clean;
             // nothing of the build outside the box
             let outside = plane_cells(p, z).iter().filter(|q| !in_box(p, q.x, q.y) && *q != &lever && !w.get(**q).is_air()).count() as i32;
@@ -1333,15 +1344,8 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         None => (lo, hi),
     };
     let door_cells: Vec<(i32, i32)> = spec0.door_cells().iter().map(|q| (q[0], q[1])).collect();
-    let geo = crate::properties::Geo::new(spec0);
-    let mut ring = Vec::new();
-    for x in lo[0] - 1..=hi[0] + 1 {
-        for y in lo[1] - 1..=hi[1] + 1 {
-            if geo.in_s([x, y, spec0.door[2]]) {
-                ring.push((x, y));
-            }
-        }
-    }
+    // the 12 frame cells around the opening (FULL FRAME: plain full blocks when open)
+    let ring: Vec<(i32, i32)> = crate::sheet::frame_cells(spec0.door).iter().map(|q| (q[0], q[1])).collect();
     let lever_cell = match &a.lever {
         Some(s) => {
             let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -1397,6 +1401,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         drive_weight: a.drive_weight,
         drive_slack: a.drive_slack,
         drive_max: Vec::new(),
+        no_lever: false,
     };
     let mut prob = prob;
     if let Some(r) = &a.reference {
@@ -1414,7 +1419,13 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         prob.reference = ev;
     }
     if let Some(path) = &a.assist {
-        let asst = load_assist(path, spec0.door[2])?;
+        let asst = if a.offplane {
+            let (raw, skipped) = load_assist_raw(path)?;
+            let g0 = grid_from_door(&doors[0].2, &prob)?;
+            assist_from_raw(&offplane_raw(&raw, &g0), spec0.door[2], skipped)
+        } else {
+            load_assist(path, spec0.door[2])?
+        };
         prob.assist_in_plane = asst.in_plane;
         prob.assist_pistons = asst.cells;
         prob.assist_events = asst.events;
@@ -1652,21 +1663,73 @@ pub struct Assist {
 }
 
 pub fn load_assist(path: &std::path::Path, door_z: i32) -> Result<Assist> {
+    let (raw, skipped) = load_assist_raw(path)?;
+    Ok(assist_from_raw(&raw, door_z, skipped))
+}
+
+/// A plan's input events per phase (tick, position, state; air = cleared), `use` events skipped.
+pub fn load_assist_raw(path: &std::path::Path) -> Result<([Vec<(u32, BlockPos, Block)>; 2], usize)> {
     let text = std::fs::read_to_string(path)?;
     let s = crate::ideal::Schedule::parse(&text)?;
-    let mut a = Assist { cells: Vec::new(), events: [Vec::new(), Vec::new()], in_plane: HashSet::new(), skipped: 0, pos: Vec::new(), rest: Vec::new(), edges: Vec::new() };
+    let mut raw: [Vec<(u32, BlockPos, Block)>; 2] = [Vec::new(), Vec::new()];
+    let mut skipped = 0;
     for (ph, open) in [(0usize, true), (1usize, false)] {
         for (t, pos, st) in s.resolved(open)? {
             if st.as_deref() == Some("@use") {
-                a.skipped += 1;
+                skipped += 1;
                 continue;
             }
-            if pos[2] == door_z {
+            let b = match st {
+                Some(x) => cs::convert_state(&x).map_err(|e| anyhow::anyhow!(e))?,
+                None => Block::Air,
+            };
+            raw[ph].push((t, cs::bp(pos), b));
+        }
+    }
+    Ok((raw, skipped))
+}
+
+/// `--offplane`: every in-plane input position that is not a block of the design moves behind
+/// the pistons it feeds: one position (x, y, z+1) per in-plane neighbor n of it holding a piston
+/// at rest or standing on one (the redstone block behind n powers the piston at n directly and
+/// the one below n by quasi-connectivity, exactly as the in-plane block did). Frees the plan's
+/// in-plane input cells for real wiring.
+pub fn offplane_raw(raw: &[Vec<(u32, BlockPos, Block)>; 2], g: &Grid) -> [Vec<(u32, BlockPos, Block)>; 2] {
+    let z = g.z;
+    let is_p = |x: i32, y: i32| matches!(g.get(x, y), Block::Piston { .. });
+    let mut out: [Vec<(u32, BlockPos, Block)>; 2] = [Vec::new(), Vec::new()];
+    for ph in 0..2 {
+        for (t, q, b) in &raw[ph] {
+            if q.z != z || !g.get(q.x, q.y).is_air() {
+                out[ph].push((*t, *q, *b));
+                continue;
+            }
+            let mut moved = false;
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let (nx, ny) = (q.x + dx, q.y + dy);
+                if is_p(nx, ny) || is_p(nx, ny - 1) {
+                    out[ph].push((*t, BlockPos::new(nx, ny, z + 1), *b));
+                    moved = true;
+                }
+            }
+            if !moved {
+                out[ph].push((*t, *q, *b));
+            }
+        }
+    }
+    out
+}
+
+pub fn assist_from_raw(raw: &[Vec<(u32, BlockPos, Block)>; 2], door_z: i32, skipped: usize) -> Assist {
+    let mut a = Assist { cells: Vec::new(), events: [Vec::new(), Vec::new()], in_plane: HashSet::new(), skipped, pos: Vec::new(), rest: Vec::new(), edges: Vec::new() };
+    for ph in 0..2 {
+        for &(t, pos, b) in &raw[ph] {
+            if pos.z == door_z {
                 // an in-plane input: its cell is reserved (no block may go there) while the
                 // input stays assisted
-                a.in_plane.insert((pos[0], pos[1]));
+                a.in_plane.insert((pos.x, pos.y));
             }
-            let cell = (pos[0], pos[1]);
+            let cell = (pos.x, pos.y);
             let k = match a.cells.iter().position(|c| *c == cell) {
                 Some(k) => k,
                 None => {
@@ -1674,11 +1737,7 @@ pub fn load_assist(path: &std::path::Path, door_z: i32) -> Result<Assist> {
                     a.cells.len() - 1
                 }
             };
-            let b = match st {
-                Some(x) => cs::convert_state(&x).map_err(|e| anyhow::anyhow!(e))?,
-                None => Block::Air,
-            };
-            a.events[ph].push((t, k, cs::bp(pos), b));
+            a.events[ph].push((t, k, pos, b));
         }
         a.events[ph].sort_by_key(|e| e.0);
     }
@@ -1723,7 +1782,7 @@ pub fn load_assist(path: &std::path::Path, door_z: i32) -> Result<Assist> {
         }
         a.edges.push(edges);
     }
-    Ok(a)
+    a
 }
 
 /// Three characters for a block in a plane picture (`cosearch trace --grid`).
@@ -1904,6 +1963,13 @@ pub struct PocketArgs {
     /// Only these pockets (indices as printed), default all.
     #[arg(long)]
     pub only_pockets: Option<String>,
+    /// Keep the seed's real lever (its wiring is already real): no lever candidates.
+    #[arg(long)]
+    pub keep_lever: bool,
+    /// Clear these cells of the seed first (door coordinates `x,y;...`; non-mechanism blocks only)
+    /// so they join the pockets: re-wire a region of an existing partial.
+    #[arg(long)]
+    pub region_cells: Option<String>,
     /// Debug: screen this design as one filling (same assist) and print each input's real drive
     /// trace and the plan groups it matches, then stop.
     #[arg(long)]
@@ -2179,8 +2245,27 @@ fn subsets_upto(n: usize, k: usize) -> Vec<Vec<usize>> {
 
 pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
     let a = &pa.s;
-    let (prob, seeds, dx, dy) = setup(a)?;
-    let seed = seeds[0].clone();
+    let (mut prob, seeds, dx, dy) = setup(a)?;
+    let mut seed = seeds[0].clone();
+    // the lever is placed by the fillings (lever candidates); without one the plan still drives
+    // every input by ticks after the "flip" (`--keep-lever`: the seed's real lever stays)
+    if !pa.keep_lever {
+        prob.no_lever = true;
+        seed.set(seed.lever.0, seed.lever.1, Block::Air);
+    }
+    if let Some(rc) = &pa.region_cells {
+        for t in rc.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+            let v: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            anyhow::ensure!(v.len() == 2, "--region-cells x,y;x,y");
+            let (x, y) = (v[0] + dx, v[1] + dy);
+            let b = seed.get(x, y);
+            anyhow::ensure!(!matches!(b, Block::Piston { .. } | Block::PistonHead { .. } | Block::Lever { .. }) && !prob.door_cells.contains(&(x, y)), "--region-cells: ({},{}) holds {b:?}", v[0], v[1]);
+            seed.set(x, y, Block::Air);
+            if !prob.free.contains(&(x, y)) && x >= prob.lo[0] && x <= prob.hi[0] && y >= prob.lo[1] && y <= prob.hi[1] {
+                prob.free.push((x, y));
+            }
+        }
+    }
     std::fs::create_dir_all(&a.out_dir)?;
     let max = 11 + prob.cycles as i32 * 34;
     let s0 = screen(&prob, &seed);
@@ -2290,6 +2375,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
         pockets.push(comp);
     }
     let lever_cands: Vec<(i32, i32)> = match &pa.lever_cells {
+        _ if pa.keep_lever => Vec::new(),
         Some(s) => s
             .split(';')
             .filter_map(|t| {
@@ -2503,6 +2589,20 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                 }
             }
             g.assist = seed.assist & !released_by(cov);
+            // a released in-plane input's cell holds nothing any more (its rest block was the plan's)
+            for k in 0..prob.assist_pistons.len() {
+                if (seed.assist >> k) & 1 == 1 && (g.assist >> k) & 1 == 0 {
+                    for q in &prob.assist_pos[k] {
+                        if q.z == z {
+                            g.set(q.x, q.y, Block::Air);
+                        }
+                    }
+                }
+            }
+            let has_lever = matches!(g.get(g.lever.0, g.lever.1), Block::Lever { .. });
+            if g.assist == 0 && !has_lever {
+                continue;
+            }
             let sc = screen(&prob, &g);
             if sc.pts >= max {
                 if g.assist == 0 {

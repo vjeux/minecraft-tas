@@ -1014,22 +1014,33 @@ pub struct Eval {
     pub hallway: Option<std::result::Result<(), String>>,
     pub volume: Option<(i32, [i32; 3])>,
     pub blocks: usize,
+    /// Frame cells filled when open (vjeux 03:36Z: all 12 cells around the opening must hold
+    /// plain full blocks when open), None when not measured.
+    pub frame: Option<i32>,
+}
+
+/// A frame cell counts when it holds a plain full block (a door block or a quartz-like building
+/// block), not moving (`sheet.rs`'s `filled`).
+pub fn frame_filled(b: &Block) -> bool {
+    !b.is_air() && full_cube(b) && !is_moving(b) && quartz_like(b)
 }
 
 impl Eval {
     pub fn record_ok(&self) -> bool {
-        self.judge.is_ok() && matches!(self.full, Some(Ok(()))) && matches!(self.hallway, Some(Ok(())))
+        self.judge.is_ok() && matches!(self.full, Some(Ok(()))) && matches!(self.hallway, Some(Ok(()))) && self.frame == Some(12)
     }
 }
 
 pub fn evaluate(door: &RsDoor, opts: &JudgeOpts, props_even_if_broken: bool) -> Eval {
     let judge = judge(door, opts);
-    let mut e = Eval { judge, full: None, hallway: None, volume: None, blocks: door.block_count() };
+    let mut e = Eval { judge, full: None, hallway: None, volume: None, blocks: door.block_count(), frame: None };
     if e.judge.is_ok() || props_even_if_broken {
         match record(door) {
             Ok(rec) => {
                 e.full = Some(seamless_full(&rec));
                 e.volume = volume(&rec);
+                let open = rec.open_state();
+                e.frame = Some(crate::sheet::frame_cells(door.spec.door).iter().filter(|p| open.get(**p).is_some_and(|b| frame_filled(&b))).count() as i32);
             }
             Err(why) => e.full = Some(Err(why)),
         }
@@ -1058,7 +1069,8 @@ pub fn eval_line(name: &str, e: &Eval, ms: f64) -> String {
         Some(Err(w)) => format!("hallway breaks it ({w})"),
     };
     let vol = e.volume.map(|(v, d)| format!("{v}b ({}x{}x{})", d[0], d[1], d[2])).unwrap_or("-".into());
-    format!("{name}: {j} | {full} | {hall} | {vol}, {} blocks | {ms:.1} ms", e.blocks)
+    let frame = e.frame.map(|f| format!("frame {f}/12")).unwrap_or("frame -".into());
+    format!("{name}: {j} | {full} | {hall} | {frame} | {vol}, {} blocks | {ms:.1} ms", e.blocks)
 }
 
 /// Load a design file (or `@builtin`) as a redsim door.
@@ -1361,7 +1373,7 @@ fn rs_verdict(d: &Design, opts: &JudgeOpts, judge_only: bool) -> std::result::Re
         return Ok((Verdict { judge: Err((0, None, "illegal")), full: None, hallway: None, volume: None }, "illegal".into()));
     }
     let r = RsDoor::from_design(d)?;
-    let e = if judge_only { Eval { judge: judge(&r, opts), full: None, hallway: None, volume: None, blocks: r.block_count() } } else { evaluate(&r, opts, false) };
+    let e = if judge_only { Eval { judge: judge(&r, opts), full: None, hallway: None, volume: None, blocks: r.block_count(), frame: None } } else { evaluate(&r, opts, false) };
     let detail = eval_line(&d.name, &e, 0.0);
     let judge = match &e.judge {
         Ok(c) => Ok(c.clone()),
