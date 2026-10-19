@@ -18,6 +18,7 @@ pub mod crafter;
 pub mod rename;
 pub mod ring;
 pub mod trace;
+pub mod trace_export;
 pub mod unarchive;
 
 use clap::{Parser, Subcommand};
@@ -59,6 +60,9 @@ enum Cmd {
     /// A redstone-less boat ring: a boat circling a water ring around an A x B island, pushed by
     /// four one-way currents cut by rows of wooden pressure plates (which it presses).
     BoatRing(boat::RingArgs),
+    /// Record real-game traces of archived clocks for the in-browser viewer (JSON Lines, one file
+    /// per clock in designs/clocks/traces/; format agreed with webrender).
+    TraceExport(trace_export::ExportArgs),
 }
 
 /// `mctas clock misc <args...>`.
@@ -80,5 +84,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::Unarchive(u) => unarchive::run(u),
         Cmd::Trace(t) => trace::run(t),
         Cmd::BoatRing(r) => boat::run(r),
+        Cmd::TraceExport(e) => trace_export::run(e),
     }
 }
