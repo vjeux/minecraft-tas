@@ -1,0 +1,13 @@
+design designs/piston-door-3x3/tracks/seq56/p75.txt
+let ts = 0
+let tb = 0
+open 0 use 3 6 0
+open ts set -2 2 1 minecraft:redstone_block
+open ts+2 clear -2 2 1
+open tb set 2 -2 1 minecraft:redstone_block
+open tb+2 clear 2 -2 1
+close 0 use 3 6 0
+close ts set -2 2 1 minecraft:redstone_block
+close ts+2 clear -2 2 1
+close tb set 2 -2 1 minecraft:redstone_block
+close tb+2 clear 2 -2 1

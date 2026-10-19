@@ -44,3 +44,11 @@ Box target 7x8 = 56 (x -2..4, y -2..5), fallback 7x9 = 63.
   L1 retracts once (level piston: its watcher at (-2,2) fires exactly once). The lever block also
   hands the lever's LEVEL to the bottom region ((-1,-1), (-2,-2)). Cost: TL up puts P_TL at (0,4),
   so the elevator piston A (1,4) is then reachable only from the right ((2,4)) or through B's cell.
+
+## 4. Single-U (vjeux's hint: one sticky piston facing UP in the box's bottom row)
+- m3.txt / m3.ideal: 7x8 box x -2..4, y -3..4, center DOWN: TM up by T (1,4); C down to (1,-1) by the
+  elevator A' (1,-2) + B' (1,-3) (B' = the ONLY bottom-row piston, sticky facing up); BM pulled
+  down by A' and parked at (2,-1) by K' (3,-1); BL down by U0 (0,-2) (row -2, not the bottom row);
+  TL/ML by L2/L1 (-2,2..1); TR/MR/BR by a 3-stack (4,2..0). Static frame stones (0,3), (2,3), (-1,0).
+  `door ideal`: WORKS (4 positions x 2 cycles, open 33 / close 15); `door sheet`: frame 12/12.
+- Regions: top-left (5 cells) - L1 - bottom-left (8) - B'/A' - bottom-right (7); top-left - T - top-right (5).

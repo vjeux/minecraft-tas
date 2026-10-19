@@ -1,0 +1,28 @@
+name: seq56-m3
+# seq56 m3: single-U 7x8 (x -2..4, y -3..4), center DOWN. Only bottom-row piston: B' (1,-3) sticky up.
+# TM up by T (1,4); elevator A' (1,-2) + B' (1,-3) brings C to (1,-1); BM parked at (2,-1) by K' (3,-1);
+# BL down by U0 (0,-2); TL/ML by L2/L1; TR/MR/BR by R2/R1/R0. Static frame stones (0,3) (2,3) (-1,0).
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+layer -3:
+  ...U...
+layer -2:
+  ..UU...
+layer -1:
+  .....W.
+layer 0:
+  .SSSS.W
+layer 1:
+  E.SSS.W
+layer 2:
+  E.SSS.W
+layer 3:
+  ..S.S..
+layer 4:
+  ...D...
