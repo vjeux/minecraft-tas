@@ -1143,6 +1143,11 @@ pub enum CosearchCmd {
     },
     /// The joint mechanism + wiring search (cosearch_search.rs).
     Search(crate::cosearch_search::SearchArgs),
+    /// Pocket-exhaustive wiring (cosearch_search.rs `pockets_run`): every filling of up to `--k`
+    /// blocks of each free pocket, simulated with the rest of the door driven by the plan, kept
+    /// when it drives plan inputs inside their timing windows; then one filling per pocket
+    /// combined and verified.
+    Pockets(crate::cosearch_search::PocketArgs),
     /// Print every block change tick by tick in redsim (placement, then `--flips` lever flips):
     /// compare with `door trace` (the real game) to locate a model disagreement.
     Trace {
@@ -1206,6 +1211,7 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
             agree(version, &designs, mutants, seed, flat_only, extra_offsets, workers, threads, &out, judge_only)?;
         }
         CosearchCmd::Search(a) => crate::cosearch_search::run(version, &a)?,
+        CosearchCmd::Pockets(a) => crate::cosearch_search::pockets_run(version, &a)?,
         CosearchCmd::Trace { design, offset, flips, cells, assist, assist_cells, grid } => {
             let (_, door) = load_door(&design)?;
             let opts = JudgeOpts::with_extra(28);
