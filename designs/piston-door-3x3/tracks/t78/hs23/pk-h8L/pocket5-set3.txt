@@ -1,0 +1,32 @@
+name: pocket5-set3
+covers: (2,-2)o30 (4,-1)o30 (2,-2)c6 (4,-1)c18
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=east]
+  E minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  ....BB
+layer -2:
+  ...BB.Os
+layer -1:
+  .A...ES
+layer 0:
+  ..EEEE.C
+layer 1:
+  .DPEEE.C
+layer 2:
+  LDPEEE.C
+layer 3:
+  ..A..E
+layer 4:
+  ....s
