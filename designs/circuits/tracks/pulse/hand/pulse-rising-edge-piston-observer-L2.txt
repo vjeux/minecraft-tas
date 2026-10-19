@@ -1,0 +1,16 @@
+name: pulse-rising-edge-piston-observer-L2
+# A sticky piston (facing up) under an observer (facing up); the input powers the piston and the
+# output cell is where the observer lands: on the rising edge the observer is pushed into the
+# output cell and fires 2 gt after it lands (2 gt pulse, 5 gt after the edge); on the falling edge
+# it is pulled back and fires one cell lower, unseen by the output. Inputs of 4 gt or more.
+circuit: rising-edge
+origin: 0 0 0
+port output: 0 2 0
+port input: 0 0 1
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=up,powered=false]
+layer 0:
+  A
+layer 1:
+  B
