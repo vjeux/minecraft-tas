@@ -32,6 +32,8 @@ pub struct Opts {
     pub frame12: bool,
     /// the door rests CLOSED with the lever ON (opens on lever off; `--lever-on`)
     pub lever_on_rest: bool,
+    /// periodic rest state over two cycles (`--periodic`)
+    pub periodic: bool,
     pub flags: FlagMode,
     pub max_blocks: Option<usize>,
 }
@@ -333,18 +335,53 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
         s = cx.tick(&s, lr);
         check_static(&mut cx, &s, &is_sup, &rest, &mut rest_ok);
     }
-    for i in 0..n {
-        idle(&mut cx, &s[i]);
-        let same = cx.same(&s[i], &rest[i]);
-        cx.a.add(&[same]);
-        let fs: Vec<Lit> = (0..4).map(|d| cx.eqv(s[i].f[d], rest[i].f[d])).collect();
-        for x in fs {
-            cx.a.add(&[x]);
+    if !o.periodic {
+        for i in 0..n {
+            idle(&mut cx, &s[i]);
         }
-        let e = cx.eqv(s[i].st, rest[i].st);
-        let both_st = cx.or(&[rest[i].k[PISTON], rest[i].k[HEAD]]);
-        let ok = cx.or(&[e, !both_st]);
-        cx.a.add(&[ok]);
+        let eq = state_eq(&mut cx, &s, &rest);
+        cx.a.add(&[eq]);
+    } else {
+        // PERIODIC rest (the judge since main 96a62d6): the closed state after a cycle may
+        // differ from the rest state as long as the door keeps working and some closed state
+        // repeats an earlier one; modeled over two cycles: C1 == R, or C2 == R, or C2 == C1
+        let c1 = s.clone();
+        for i in 0..n {
+            idle(&mut cx, &c1[i]);
+            if g.is_door(i) {
+                cx.a.add(&[c1[i].k[STONE]]);
+            }
+        }
+        let mut s2 = cx.flip(&c1, !lr);
+        for _ in 0..o.t {
+            s2 = cx.tick(&s2, !lr);
+            check_static(&mut cx, &s2, &is_sup, &rest, &mut rest_ok);
+        }
+        for i in 0..n {
+            idle(&mut cx, &s2[i]);
+            if g.is_door(i) {
+                cx.a.add(&[s2[i].k[AIR]]);
+            }
+            if o.seamless && g.is_ring(i) {
+                let ok = if o.frame12 { s2[i].k[STONE] } else { cx.or(&[s2[i].k[AIR], s2[i].k[STONE], s2[i].k[OBSI], s2[i].k[GLASS]]) };
+                cx.a.add(&[ok]);
+            }
+        }
+        let mut c2 = cx.flip(&s2, lr);
+        for _ in 0..o.t {
+            c2 = cx.tick(&c2, lr);
+            check_static(&mut cx, &c2, &is_sup, &rest, &mut rest_ok);
+        }
+        for i in 0..n {
+            idle(&mut cx, &c2[i]);
+            if g.is_door(i) {
+                cx.a.add(&[c2[i].k[STONE]]);
+            }
+        }
+        let a = state_eq(&mut cx, &c1, &rest);
+        let b = state_eq(&mut cx, &c2, &rest);
+        let c = state_eq(&mut cx, &c2, &c1);
+        cx.a.add(&[a, b, c]);
     }
     if let Some(mb) = o.max_blocks {
         let blocks: Vec<Lit> = (0..n).map(|i| !rest[i].k[AIR]).collect();
@@ -355,6 +392,21 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
     }
     let _ = t;
     (cx.a, Built { ctx_lsel: lsel, rest, open_end })
+}
+
+/// Two whole states are the same block states (kinds, facings, sticky types, powered...).
+fn state_eq(cx: &mut Ctx<Sat>, a: &[Cell<Lit>], b: &[Cell<Lit>]) -> Lit {
+    let mut all = Vec::new();
+    for i in 0..a.len() {
+        all.push(cx.same(&a[i], &b[i]));
+        for d in 0..4 {
+            all.push(cx.eqv(a[i].f[d], b[i].f[d]));
+        }
+        let e = cx.eqv(a[i].st, b[i].st);
+        let both_st = cx.or(&[b[i].k[PISTON], b[i].k[HEAD]]);
+        all.push(cx.or(&[e, !both_st]));
+    }
+    cx.and(&all)
 }
 
 fn idle(cx: &mut Ctx<Sat>, c: &Cell<Lit>) {
@@ -500,6 +552,10 @@ pub fn approx_block(s: &str) -> Option<String> {
     match name {
         "minecraft:comparator" => Some(s.replace("mode=subtract", "mode=compare")),
         "minecraft:crying_obsidian" => Some("minecraft:obsidian".into()),
+        // logs: plain pushable conductors like stone (no leaves in the model)
+        n if n.ends_with("_log") || n.ends_with("_wood") => Some("minecraft:stone".into()),
+        // wool, concrete, terracotta: plain pushable conductors
+        n if n.ends_with("_wool") || n.ends_with("_concrete") || n.ends_with("terracotta") && !n.contains("glazed") => Some("minecraft:stone".into()),
         // an iron trapdoor does not conduct (its open toggle only shows to observers)
         "minecraft:iron_trapdoor" => Some("minecraft:glass".into()),
         "minecraft:redstone_wire" => Some(format!("minecraft:redstone_wire[east=side,north=none,power={},south=none,west=side]", prop("power").unwrap_or("0".into()))),
@@ -617,7 +673,7 @@ pub fn cli(a: &Args) -> Result<()> {
     }
     // the original design, for screening partial placements (`--fix-all`): freed cells only change
     let base = if a.has("fix-all") { a.s("fix").map(|p| mctas::design::Design::load(std::path::Path::new(p))).transpose()? } else { None };
-    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), frame12: a.has("frame12"), lever_on_rest: a.has("lever-on"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
+    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), frame12: a.has("frame12"), lever_on_rest: a.has("lever-on"), periodic: a.has("periodic"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
     let t0 = Instant::now();
     let cfg = match a.s("cfg") {
         Some("sat") => Some(rustsat_cadical::Config::Sat),

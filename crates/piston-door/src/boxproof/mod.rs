@@ -244,9 +244,10 @@ fn watch(a: &Args) -> Result<()> {
             }
         }
         let mut hits = Vec::new();
+        let pats: Vec<&str> = pat.split('|').filter(|p| !p.is_empty()).collect();
         for f in &files {
             if let Ok(t) = std::fs::read_to_string(f) {
-                for l in t.lines().filter(|l| l.contains(&pat)) {
+                for l in t.lines().filter(|l| pats.iter().any(|p| l.contains(p))) {
                     hits.push(format!("{}: {l}", f.display()));
                 }
             }

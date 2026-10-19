@@ -1,0 +1,38 @@
+# ceil c070w: c070 with the real top, t7b's right chain (MR+BR) and the TL-watcher chain into E
+# (E1 real at ~t7). Assisted: U (-1,-1), D (-3,1), M (E moved to (-1,1)), E2, BL/BM down.
+design designs/piston-door-3x3/tracks/ceil/wip/c070w.txt
+let u = 13
+let d1 = 19
+let m = 25
+let d2 = 31
+let e2 = 37
+let bl = 40
+let bm = 40
+let uc = 13
+let e2c = 20
+let blc = 20
+let bmc = 20
+open 0 use 1 5 0
+open u set -2 -1 0 minecraft:redstone_block
+open u+2 clear -2 -1 0
+open d1 set -3 0 0 minecraft:redstone_block
+open d1+2 clear -3 0 0
+open m set -1 1 1 minecraft:redstone_block
+open m+2 clear -1 1 1
+open d2 set -3 0 0 minecraft:redstone_block
+open d2+2 clear -3 0 0
+open e2 set -2 1 1 minecraft:redstone_block
+open e2+2 clear -2 1 1
+open bl set 0 -3 0 minecraft:redstone_block
+open bl+2 clear 0 -3 0
+open bm set 1 -3 0 minecraft:redstone_block
+open bm+2 clear 1 -3 0
+close 0 use 1 5 0
+close uc set -2 -1 0 minecraft:redstone_block
+close uc+2 clear -2 -1 0
+close e2c set -2 1 1 minecraft:redstone_block
+close e2c+2 clear -2 1 1
+close blc set 0 -3 0 minecraft:redstone_block
+close blc+2 clear 0 -3 0
+close bmc set 1 -3 0 minecraft:redstone_block
+close bmc+2 clear 1 -3 0
