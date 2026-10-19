@@ -48,7 +48,7 @@ pub struct CensusArgs {
 
 type P3 = [i32; 3];
 
-fn rot(p: P3) -> P3 {
+pub fn rot(p: P3) -> P3 {
     [-p[2], p[1], p[0]]
 }
 

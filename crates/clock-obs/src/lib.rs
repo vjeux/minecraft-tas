@@ -13,8 +13,10 @@
 
 pub mod census;
 pub mod cores;
+pub mod divider;
 pub mod grow;
 pub mod pick;
+pub mod report;
 pub mod rings;
 pub mod sim;
 
@@ -97,6 +99,12 @@ pub enum Cmd {
     /// Group clocks by their steady-state CORE (the changing cells + the static blocks they
     /// need, up to translation, rotation and phase): structures vs distinct machines per period
     Cores(cores::CoresArgs),
+    /// Long periods: a copper bulb + comparator divider chain out of an observer's back of a base
+    /// clock (P = P0 x 2^bulbs)
+    Divider(divider::DividerArgs),
+    /// The verified clocks of clock verify logs, matched to their design files: a markdown table
+    /// (and the coordinator's one-line format)
+    Report(report::ReportArgs),
 }
 
 pub fn run_args(args: Args) -> Result<()> {
@@ -145,5 +153,7 @@ pub fn run_args(args: Args) -> Result<()> {
         Cmd::Grow(a) => grow::run(a),
         Cmd::Pick(a) => pick::run(a),
         Cmd::Cores(a) => cores::run(a),
+        Cmd::Divider(a) => divider::run(a),
+        Cmd::Report(a) => report::run(a),
     }
 }
