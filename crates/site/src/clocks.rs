@@ -14,6 +14,18 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub const ARCHIVE: &str = "designs/clocks/archive";
+/// Real-game recordings for the viewer (`<design stem>.trace`, JSON Lines: designs/clocks/traces/README.md).
+pub const TRACES: &str = "designs/clocks/traces";
+/// The catalog's real-game pictures (`<stem>.jpg`, family members `<base stem>.n<k>.jpg`).
+pub const IMG: &str = "designs/clocks/img";
+/// Where the pictures are served from (linked, not copied: ~170 MB): the repository on GitHub.
+pub const RAW_BASE: &str = "https://raw.githubusercontent.com/vjeux/minecraft-tas/main/";
+
+/// The URL of `designs/clocks/img/<stem>.jpg` when the repository has it.
+fn picture(repo: &Path, stem: &str) -> Option<String> {
+    let rel = format!("{IMG}/{stem}.jpg");
+    repo.join(&rel).is_file().then(|| format!("{RAW_BASE}{rel}"))
+}
 
 /// The knobs of the clock export.
 pub struct ClockOptions {
@@ -292,6 +304,11 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             Some((f, n)) => (Some(f.clone()), Some(*n)),
             None => (None, None),
         };
+        // a real-game recording for the viewer's replay (entities and fluids redsim does not model)
+        let trace = repo.join(TRACES).join(format!("{st}.trace")).is_file().then(|| format!("designs/clocks/traces/{st}.trace"));
+        if trace.is_some() {
+            flags.push("traced".into());
+        }
         builds.push(Build {
             id: format!("clocks/{st}"),
             kind: "clock".into(),
@@ -325,6 +342,8 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 instance: inst.is_some() && !is_base,
             }),
             circuit: None,
+            trace,
+            picture: picture(repo, &st),
         });
     }
     builds.sort_by(|a, b| {
@@ -396,6 +415,11 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             volume,
             status: status.to_string(),
             build: build_of_member.get(&(f.id.clone(), job.n)).cloned(),
+            // the base design's picture, or the catalog's picture of this member (n_lo + 1)
+            picture: {
+                let base_stem = stem(&r.file);
+                if job.n == f.base { picture(repo, base_stem) } else { picture(repo, &format!("{base_stem}.n{}", job.n)) }
+            },
         });
     }
     Ok(ClockExport { builds, cards, members, notes })

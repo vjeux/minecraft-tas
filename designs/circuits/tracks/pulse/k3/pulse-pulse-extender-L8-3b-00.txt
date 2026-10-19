@@ -1,0 +1,16 @@
+name: pulse-pulse-extender-L8-3b-00
+# Pulse census (clk-obs pulse prototype on redsim, k = 3 + input): pulse-extender L=8 delay=8 min-pulse=1.
+circuit: pulse-extender
+origin: 0 0 0
+port output: 0 1 -1
+port input: 0 1 1
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  C minecraft:redstone_wall_torch[facing=north,lit=true]
+layer 0:
+  A
+layer 1:
+  B
+layer 2:
+  C

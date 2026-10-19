@@ -1,6 +1,6 @@
 [package]
 name = "circuit-memory"
-description = "Contraption study 5, track memory (mctas circuit memory ...): RS / D latches, counters and dividers; owned by the track, see docs/circuits.md"
+description = "Contraption study 5, track memory (mctas circuit memory ...): RS / D latches, counters and dividers: census specs mirroring the judge's stimuli on track tff's census engine; owned by the track, see docs/circuits.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,3 +8,9 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clap.workspace = true
+circuit = { path = "../circuit" }
+circuit-tff = { path = "../circuit-tff" }
+clock = { path = "../clock" }
+redsim = { path = "../redsim" }
+mctas = { path = "../mctas" }
