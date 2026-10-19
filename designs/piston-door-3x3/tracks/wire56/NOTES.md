@@ -66,6 +66,35 @@ at extend e (block-event), retract e+2, landing e+4 (block-entity phase); seen =
   s4 (lifted P4) in s3+2..s3+3, s5 = s3+6 EXACTLY with a 2 gt pulse (K1 and K0 parity), s6 in
   s3+10..s3+12; PTR+PMR three pulses with gaps 6 or 7 (K3 parity), any start.
 
+## Lemma (7x8-028 = v2 7x8-013, and 029 = v2 7x8-014): no static wiring in x=-2..4, y=-2..5
+Cells: P4 (1,4), P5 (1,5), PT (3,3), PTR (4,2), PMR (4,1); K2 = (2,4) (3,4) (4,4) (2,5) (3,5)
+(4,5) (4,3).
+1. P4 at rest and lifted (1,3) is fed only from (2,4): its other feeds (0,5)/(2,5) (QC via (1,5))
+   always power P5 too and P5 is updated first (P4's event is dropped); (1,6) is outside the box;
+   lifted P4's QC cell (1,4) is empty between s3 and s5, its other neighbours are ring cells.
+2. (2,4) cannot be a conductor (it QC-powers PT through (3,4)), dust/torches have no support
+   there ((2,3) is swept), so it is an observer facing east or a delay-1 repeater/comparator with
+   input east (a longer pulse re-pulls C on close): it reads only (3,4).
+3. (3,4) is PT's quasi cell and sits on PT: no conductor, no dust/repeater (an extended PT has no
+   full top face), no torch (powers PT): only an observer facing east, watching (4,4).
+4. PMR is fed from K3 only through (4,0), and K3 sees nothing but PMR, so K2 must fire PMR: only
+   by emitting down into (4,2) from (4,3) (QC), which also fires PTR. (4,3) touches PT, so it is no
+   conductor: an observer facing up watching (4,4).
+5. So P4 = changes of (4,4) + 4 and PTR+PMR = the same changes + 2 (both observers see the same
+   updates of the same cell). P4 must get exactly 3 pulses (s1, s4, s6; extra pulses push C or T
+   out), so PMR gets 3 pulses with gaps s4-s1 in 9..14 and s6-s4 in 7..10 (measured windows,
+   t2.ideal). K3's watcher (4,0) counts 2 pulses for an isolated PMR pulse and 3 for a pair 5..7 gt
+   apart, 4 for 8..10: odd only if s6-s4 = 7, an odd gap.
+6. Every K2 signal is even-timed: the lever flips between ticks, observers/repeaters/comparators
+   /torches delay 2k gt, and the pistons K2 can watch are fired by those signals (events and
+   landings at even ticks). Odd ticks need a piston the lever powers directly (k1) or leaves/
+   scaffolding next to a moving log. Lever outside the box (coordinator's idea 1): the cells of
+   points 1-4 stay mandatory; a lever powering PTR/PMR/PT/P5/P4 directly makes that piston
+   level-driven (PTR's head would sit in ring cell (3,2) when open; PT extended at rest is 029,
+   whose P4/PTR chain is the same). Leaves (idea 2): no log moves in 028/029 (door blocks are the
+   only moving plain blocks; a log door block T parking at (2,3) is next to (2,4) only, which point
+   1 reserves for P4's observer). Hence no 7x8 wiring for 013/014 under static redstone.
+
 ## 5. Why K2 cannot be wired: 7x8-028 is not wirable in 7x8 (18:45Z)
 K2 (top-right, 7 cells (2,5) (3,5) (4,5) (2,4) (3,4) (4,4) (4,3)) holds the lever and must fire
 P4 three times (s1, s4, s6), PT once, P5 twice, PTR+PMR (K3's only input) an odd number of times.
@@ -94,3 +123,33 @@ P4 three times (s1, s4, s6), PT once, P5 twice, PTR+PMR (K3's only input) an odd
 - Side finding: an immovable block at the ring corner (-1,3) (obsidian) makes PT's push a no-op
   whenever the top ring row is T, C, TL (the open state), so extra PT pulses become harmless before
   s1 on both edges and after TL parks: PT does not need to be the bottleneck.
+
+## 6. 7x8-038 and 7x8-039 (memory-only, oc): not wirable in the plane (19:55Z)
+- Gadget `designs/gadgets/qc-shared.drive` (PASS): a lower piston whose only feeds are quasi-
+  connected through the cell of the piston above it cannot fire alone: every such source powers
+  the upper piston directly and updates it first (observer output: front block, then its
+  neighbours), the upper piston's push carries the lower one and its event is dropped.
+- 038: P4 (1,4) sits between the pistons (0,4) and (2,4); its only feeds are (0,5)/(2,5) (QC via
+  P5's cell (1,5)), so by qc-shared P4 never fires at rest without P5 carrying it. Both of 038's
+  paths fire P4 at rest with P5 idle (open step 2 `PSD(1,4)` pulls T up). Dead.
+- 039: P4' (1,-2) (center elevator below) has pistons on all three free sides ((0,-2), (2,-2),
+  P5' (1,-3)) and its quasi cell (1,-1) is the ring cell in front of it (neighbours: ring and door
+  cells): no feed at all, and the open path fires it first. Dead.
+- Same check on the permissive 9-piston entries: 001 (P4' flanked by (0,-2)/(2,-2)) and 002 (P4
+  flanked by (0,4)/(2,4)) die the same way; 000, 003, 004 keep a free cell beside the elevator's
+  lower piston.
+- Tool idea for families/topology: model "shared QC" (a piston fed only through another piston's
+  cell fires only together with it, and second) and "no feed" pistons, which the macro model and
+  the region analysis currently accept.
+- 000/003/004 (the remaining 7x8 candidates) need the macro model's cheapest close paths of 45-46
+  events (PT fired up to 13 times, the left pistons 7 times per edge) next to 21-22 to open: an
+  edge-dependent sequencer of that size does not fit 26 free cells; not attempted.
+- Lemma note: an obsidian block at (-1,3) makes PT pulses harmless at rest and when open (row 3
+  empty, or full and blocked), so (4,3) could be a conductor; it is then powered only by (4,4)
+  emitting down, and P4 still reads (4,4) through (3,4): the same event train, same odd-gap wall.
+
+## Verdict (20:00Z)
+No flat FULL-seamless slime-free door in 7x8 from families' catalog: 013/014 (lemma above), 038,
+039, 001, 002 (unfeedable elevator piston, gadget qc-shared), 000/003/004 (45-event close trains).
+What carries over to other boxes: odd pulse counts without memory from observer busy windows
+(section 4), the 2-flip-flop memory link (7 cells), and the qc-shared rule.

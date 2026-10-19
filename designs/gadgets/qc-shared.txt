@@ -1,0 +1,20 @@
+name: gadget-qc-shared
+# The elevator rule (wire56): a lower piston P4 (1,1) whose only feeds are quasi-connected through
+# the cell of the piston above it, P5 (1,2), cannot be fired alone. Every QC source of P4 (a source
+# beside (1,2)) powers P5 directly, and the source updates P5 before P4 (observer output: the
+# block in front first, then its neighbours W,E,D,U), so P5's push runs first, carries P4 down one
+# cell, and P4's own event is dropped. Observer O (2,2) faces east and watches (3,2), where the
+# script places a block. Floor F under the push line.
+origin: 0 0 0
+palette:
+  F minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=down]
+  O minecraft:observer[facing=east,powered=false]
+layer -1:
+  .F
+layer 0:
+  ...
+layer 1:
+  .P.
+layer 2:
+  .PO
