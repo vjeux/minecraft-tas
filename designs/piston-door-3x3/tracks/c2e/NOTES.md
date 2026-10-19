@@ -131,3 +131,15 @@ pull and 1 per push (open 5, close 4: parity differs). Only a watcher of (0,0) w
   head / BR, and (3,-2) can only be powered by an observer at (2,-2) watching U, which moves too late (same
   circle). So with the hold at t4 a 2-row bottom (7x8 or 8x8, K left or right) has no trigger for BM's sideways
   move; c79's row -3 (7x9, m79p) is what breaks the circle.
+
+## 12. ring56's jf (7x9): K is dead in this bottom-right layout (07:25Z)
+tracks/c2e/jf/ (copies of ring56's p2/j9/j12/jf). p2 (everything real but K) WORKS with K ideal at open 16..21,
+close 8..9 or 16..20 (logs/p2-k-windows.log); B' (B1 24, B2 34) and the F2 gate (26, 36) are real. K (3,-1) has
+two feeds: (4,-1), which must stay the watcher of BR's puller (the bottom-right's only link to the top: facing
+up, output down), and (3,-2), which needs an UPWARD emitter. The only upward emitter that fires there is an
+observer facing down watching (3,-3), and (3,-3) must be the observer feeding the dropper (2,-3) (B''s only
+feed; the gate watches the dropper). So K fires 2 gt after every B' pulse, but it must come >= 3 gt BEFORE B1.
+That holds with j6's top (the right wakes at 18) and with j12's dust top (the right wakes at 4) alike. A
+torch at (3,-2) on the watcher's block makes K level-held, but the watcher gives a pulse, not a level, so K
+pushes BM back. A lever on K's front face fires K at t0. Not tried: a different bottom-right (e.g. B' fed
+from the left, or the gate watching something else) that frees (3,-3) for K.
