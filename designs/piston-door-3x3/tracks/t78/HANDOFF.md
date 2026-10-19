@@ -8,7 +8,7 @@
 - Tools on explore/t78 (merge-ready, separate commit 0f8c4596): `door ideal-rs --holds-rank N` and
   `--offplane-dir DIR [--offplane-below Y]`. selftest 24/24 after merging main de6ecbce (c33f771b).
 
-## Next steps
+## Next steps (see NOTES section 5 for the shared E-pulse blocker)
 1. r70: get E's 3 taps without an echo: e.g. the calibrated sensor (3,4) wool-shielded from E's late moves, or
    E2 from a second source (QC through (1,5) also powers D: needs a gate), or make the echo taps blocked.
 2. r70: U from a plain sensor out of the lever's range (8) hearing an early piston at the right distance;

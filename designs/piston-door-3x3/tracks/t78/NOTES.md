@@ -87,3 +87,16 @@ prints the `satwire --keep-ideal` list). Results in a78/ (holds-rank30-sym-cpt.t
   (c) timing: with E's taps W+2/W+12/W+22 from one calibrated sensor, U's sensor must wake exactly 7 ticks after
       the E-sensor. With the lever as the common source that needs d(U-sensor) = d(E-sensor) + 7, impossible
       near U in a 7-wide box (the E-sensor sits next to the lever, max d to (-2,5) is ~7.6).
+
+## 5. The shared blocker: E's three pulses (r70, c78L0, c070x)
+E (the carried piston under D) needs exactly 3 pulses per edge (E1, M = U+3, E2 >= U+10) through ONE feed
+(r70: observer (2,4) facing east; E home direct, E lowered by QC). Sources tried or reasoned:
+- calibrated sensor + observer: 3 taps W+2 / W+12 / W+22, but it re-arms at W+20 and hears E2's own move
+  (the observer sits between E and the sensor, so no wool can shield it); the echo's 2nd tap shoves C down.
+- lamp / note block / copper bulb relays give 2 / 2 / 1 taps per wake.
+- plain sensor + bulb + observer (40-gt dead time, one tap per wake) gives E1 + E2 (c070x b1), M then needs a
+  second feed: in r70 the only one is (2,3) via (3,3)->(4,3), and anything at (4,3) powers or QCs (4,2).
+- A level XOR: the relay's power = lever level XOR one sensor window gives 3 changes on BOTH edges; f must be XOR.
+- Frequency filters (calibrated back signal: 10 = extensions + lever-on, 9 = retractions + lever-off) would let a
+  sensor skip the lever and the door's early moves; a cake with 2 bites read by a comparator is the only
+  block-state 10 found (too bulky for these pockets so far).
