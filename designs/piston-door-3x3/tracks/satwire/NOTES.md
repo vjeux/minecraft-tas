@@ -230,3 +230,20 @@ lever/observer chains; not diagnosed yet).
   doors without their sensors (m79s 7x9, m79s8 8x8): exact timing UNSAT (and one-warp 4 for the
   8x8); c79-49-bl5-br3's timing without its target block: a 49b door at once (ties), 28 wiring
   minimal with one-warp 4.
+* More judge-driven model fixes (each found with `--explain` on a rejected candidate, each keeping
+  the known answer at 66/67): `--exact-order` also resolves the COMPARATOR race (its NORMAL-priority
+  tick runs after the observer that scheduled it: a 2 gt observer pulse never passes a comparator;
+  e88-t7b 42b candidates used it); a DROPPER re-reads its power when a diode/observer whose output
+  block is next to it changes (a 4-cell observer/dropper/note loop looked settled); CLOCK nogood: a
+  candidate the judge finds "still moving" is replayed and only the wiring cells still changing at
+  the end are blocked (the e88 7x8 candidates were all such loops).
+* `--retime` exercised on ring56's j8: "TIMING FAILS (retimed ideal plan: not open): blocked 6
+  too-close pairs" per candidate: the replay rejects the timings the order-only model admits.
+* e88-t7b re-wiring: the old-binary runs reached 22-wiring (42b) candidates; all were rejected by the
+  judge (comparator race, bottom puller (1,-2) never fires) and the fixed model rejects them too;
+  fixed-model runs (exact, local nogood, cluster warps 6, all with `--hint`) restarted at 05:32 local.
+* e88-t7b's mechanism in 7x8 (bottom wiring row cut): exact timing UNSAT (also with `--hint`),
+  cluster warps 2 UNSAT; cluster warps 4 is SAT but every candidate so far is a clock (44 judged).
+* Coordinator batches: n79 (mechspace 7x9 set, 61 plans, `--retime`): no door so far (10 plans fail
+  `--full-frame`'s frame check, the rest UNSAT); a78 (427 7x8 sym plans): running in batch
+  (`/tmp/a78s`), all UNSAT so far.

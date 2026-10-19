@@ -1276,11 +1276,13 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             }
         }
     }
-    // sticky pistons never pull wiring: the cell two ahead of any sticky piston holds nothing movable
+    // sticky pistons never pull wiring: the cell two ahead of a sticky piston that is extended in
+    // some recorded frame holds nothing movable (a sticky piston that never extends pulls nothing:
+    // a full-frame block may stand there)
     for ph in rec.all_phases() {
         for f in &ph.frames {
             for (c, s) in f {
-                if let MK::Piston { f: fc, sticky: true, .. } = mk(s) {
+                if let MK::Piston { f: fc, sticky: true, ext: true } = mk(s) {
                     let x = add(add(*c, fc), fc);
                     if let Some(ks) = kinds.get_mut(&x) {
                         ks.retain(|k| !k.movable());
@@ -1290,6 +1292,9 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         }
     }
     // lever candidates
+    if let Some((c, _)) = kinds.iter().find(|(_, ks)| ks.is_empty()) {
+        bail!("cell {c:?} can hold nothing: a --full-frame block two ahead of a sticky piston (it would be pulled)");
+    }
     let mut levers = Vec::new();
     let sturdy_possible = |c: C2| static_sturdy.contains(&c) || sturdy_up.contains(&c) || kinds.get(&c).is_some_and(|ks| ks.iter().any(|k| k.sturdy()));
     let lever_state = |face: &str, facing: &str| format!("minecraft:lever[face={face},facing={facing},powered=false]");
