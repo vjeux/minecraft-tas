@@ -374,7 +374,10 @@ pub fn single_layer(d: &Design) -> bool {
     let Some(door) = d.ports.get("door") else { return false };
     // The door's plane: z = door.z, or x = door.x for an east/west-facing door (`door-axis: z`).
     let axis = if d.meta.get("door-axis").is_some_and(|v| v.trim() == "z") { 0 } else { 2 };
-    d.blocks.keys().all(|p| p[axis] == door[axis])
+    // The lever may hang on the front or back face of a block in the plane and the door still
+    // counts as one wide (vjeux, 2026-10-19).
+    let lever = d.ports.get("lever").copied();
+    d.blocks.keys().all(|p| p[axis] == door[axis] || Some(*p) == lever)
 }
 
 /// How far a design reaches beyond its 3x3 opening on every side (piston heads included), along
