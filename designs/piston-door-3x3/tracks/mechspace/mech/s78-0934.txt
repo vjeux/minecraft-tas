@@ -1,0 +1,30 @@
+name: s78-0934
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=east]
+  E minecraft:sticky_piston[extended=true,facing=west]
+  F minecraft:stone
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:smooth_stone
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...BB
+layer -1:
+  ..S
+layer 0:
+  DPFFFS
+layer 1:
+  DPFFFpE
+layer 2:
+  DPFFFpE
+layer 3:
+  .A..S.C
+layer 4:
+  ...s
+layer 5:
+  ...s

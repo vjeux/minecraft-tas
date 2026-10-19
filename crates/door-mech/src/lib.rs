@@ -1213,7 +1213,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let items = ms::read_list(&f, bxs[0].0, bxs[0].1)?;
                     let mut lines = Vec::new();
                     for (bx, v) in &items {
-                        for w in ms::ext_variants(bx, v, 4096) {
+                        let vs = if std::env::var("MECHSPACE_SIDE_ONLY").is_ok() { ms::side_ext_variants(bx, v) } else { ms::ext_variants(bx, v, 4096) };
+                        for w in vs {
                             lines.push(ms::line_of(bx, &w));
                         }
                     }

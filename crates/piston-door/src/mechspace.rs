@@ -1941,6 +1941,42 @@ pub fn reach_test(bx: &Bx, v: &[Pc]) -> bool {
     reach_ok(bx, v, &frame)
 }
 
+/// Lever-holdable side stacks (c79 style): the layout with its left side pullers (x = -2, facing
+/// east, rows 0..2), its right ones (x = 4, facing west), or both, extended at rest.
+pub fn side_ext_variants(bx: &Bx, v: &[Pc]) -> Vec<Vec<Pc>> {
+    let mut out = Vec::new();
+    for mask in 1..4u8 {
+        let mut w: Vec<Pc> = v.to_vec();
+        let mut any = false;
+        let mut ok = true;
+        for p in w.iter_mut() {
+            let K::Piston { sticky, f, .. } = p.k else { continue };
+            let left = p.x == -2 && f == 0 && (0..3).contains(&p.y);
+            let right = p.x == 4 && f == 1 && (0..3).contains(&p.y);
+            if (left && mask & 1 != 0) || (right && mask & 2 != 0) {
+                p.k = K::Piston { sticky, f, ext: true };
+                any = true;
+            }
+        }
+        // heads must be free cells
+        let occ: HashSet<(i8, i8)> = w.iter().map(|p| (p.x, p.y)).collect();
+        for p in &w {
+            if let K::Piston { f, ext: true, .. } = p.k {
+                let (dx, dy) = families::F[f as usize];
+                let h = (p.x + dx, p.y + dy);
+                if occ.contains(&h) || !bx.has(h.0, h.1) || families::in_t(h.0, h.1) {
+                    ok = false;
+                }
+            }
+        }
+        if any && ok && Mech::new(*bx, &w).is_some() {
+            w.sort();
+            out.push(w);
+        }
+    }
+    out
+}
+
 /// Every retracted / extended-at-rest combination of a layout's pistons (a head needs a free cell
 /// in the box outside the 3x3), as `x0 y0 pieces` lines; at most `max` of them.
 pub fn ext_variants(bx: &Bx, v: &[Pc], max: usize) -> Vec<Vec<Pc>> {

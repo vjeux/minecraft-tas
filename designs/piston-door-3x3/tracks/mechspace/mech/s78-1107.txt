@@ -1,0 +1,27 @@
+name: s78-1107
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:smooth_stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .A.A
+layer -1:
+  ..S..B
+layer 0:
+  CPDDD.B
+layer 1:
+  CPDDD.B
+layer 2:
+  CPDDD.B
+layer 3:
+  .sS.S
+layer 4:
+  ...s
+layer 5:
+  ...s

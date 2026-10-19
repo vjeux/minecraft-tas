@@ -1,0 +1,52 @@
+# mech-synth ideal schedule (open/close on both edges)
+design designs/piston-door-3x3/tracks/mechspace/mech/s78-0227-sym.txt
+# open:  PSdown@(1,4,0) PSeast@(-1,3,0) PSdown@(1,5,0) PSdown@(1,4,0) PSdown@(1,5,0) PSdown@(1,4,0) LSwest+@(4,0,0) LSwest+@(4,1,0) PSeast@(-2,0,0) PSeast@(-2,2,0) PSeast@(-2,1,0) PSup@(1,-2,0) PSdown@(2,4,0)
+# close: PSdown@(1,4,0) PSeast@(-1,3,0) PSdown@(1,5,0) PSdown@(1,4,0) PSdown@(1,5,0) PSdown@(1,4,0) LSwest+@(4,0,0) LSwest+@(4,1,0) PSeast@(-2,0,0) PSeast@(-2,2,0) PSeast@(-2,1,0) PSup@(1,-2,0) PSdown@(2,4,0)
+open 0 set 1 4 1 minecraft:redstone_block
+open 2 clear 1 4 1
+open 6 set -1 4 0 minecraft:redstone_block
+open 8 clear -1 4 0
+open 12 set 0 5 0 minecraft:redstone_block
+open 14 clear 0 5 0
+open 18 set 1 3 1 minecraft:redstone_block
+open 20 clear 1 3 1
+open 24 set 0 5 0 minecraft:redstone_block
+open 26 clear 0 5 0
+open 30 set 1 4 1 minecraft:redstone_block
+open 32 clear 1 4 1
+open 36 clear 4 -1 0
+open 42 clear 5 1 0
+open 48 set -2 -1 0 minecraft:redstone_block
+open 48 set -3 2 0 minecraft:redstone_block
+open 48 set -3 1 0 minecraft:redstone_block
+open 48 set 1 -3 0 minecraft:redstone_block
+open 48 set 2 4 1 minecraft:redstone_block
+open 50 clear -2 -1 0
+open 50 clear -3 2 0
+open 50 clear -3 1 0
+open 50 clear 1 -3 0
+open 50 clear 2 4 1
+close 0 set 1 4 1 minecraft:redstone_block
+close 2 clear 1 4 1
+close 6 set -1 4 0 minecraft:redstone_block
+close 8 clear -1 4 0
+close 12 set 0 5 0 minecraft:redstone_block
+close 14 clear 0 5 0
+close 18 set 1 3 1 minecraft:redstone_block
+close 20 clear 1 3 1
+close 24 set 0 5 0 minecraft:redstone_block
+close 26 clear 0 5 0
+close 30 set 1 4 1 minecraft:redstone_block
+close 32 clear 1 4 1
+close 36 set 4 -1 0 minecraft:redstone_block
+close 42 set 5 1 0 minecraft:redstone_block
+close 48 set -2 -1 0 minecraft:redstone_block
+close 48 set -3 2 0 minecraft:redstone_block
+close 48 set -3 1 0 minecraft:redstone_block
+close 48 set 1 -3 0 minecraft:redstone_block
+close 48 set 2 4 1 minecraft:redstone_block
+close 50 clear -2 -1 0
+close 50 clear -3 2 0
+close 50 clear -3 1 0
+close 50 clear 1 -3 0
+close 50 clear 2 4 1
