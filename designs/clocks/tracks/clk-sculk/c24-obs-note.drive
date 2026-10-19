@@ -1,0 +1,8 @@
+mark c24-obs-note
+design designs/clocks/tracks/clk-sculk/c24-obs-note.txt
+probe C 0 0 0
+quiet 3
+set 2 0 1 minecraft:redstone_block
+step 1
+clear 2 0 1
+edges C 150

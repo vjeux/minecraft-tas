@@ -1,0 +1,4 @@
+mark p41s-rep-obs-note
+design designs/clocks/tracks/clk-sculk/p41s-rep-obs-note.txt
+probe C 0 2 0
+edges C 300

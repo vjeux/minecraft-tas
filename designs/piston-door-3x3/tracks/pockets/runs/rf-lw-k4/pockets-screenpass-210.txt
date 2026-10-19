@@ -1,0 +1,43 @@
+name: pockets-screenpass-210
+verdict: redsim: WORKS open 39 close 27 | FULL | hallway ok | frame 12/12 | 63b (7x9x1), 44 blocks | 0.0 ms
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=true,facing=down]
+  G minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  W minecraft:white_glazed_terracotta[facing=east]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -4:
+  .GooN
+layer -3:
+  .RCDAG
+layer -2:
+  .OODorG
+layer -1:
+  .s..G.A
+layer 0:
+  s.GGG.E
+layer 1:
+  s.GGG.E
+layer 2:
+  WGGGGGG
+layer 3:
+  RoPPPBR
+layer 4:
+  S.FFF
+layer 5:
+  ...L

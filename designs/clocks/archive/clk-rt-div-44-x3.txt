@@ -1,0 +1,33 @@
+# archived 2026-10-19T16:26Z from /tmp/clk-in6/clk-rt--div--div-44-x3.txt by mctas clock archive
+# CLOCK: clk-rt-div-44-x3 period 288 gt, on 144/288, edges 1, warmup 12, family redstone_torch+redstone_wire+repeater, 63 blocks, 12x2x6, robust
+# Divider chain (clk-rt): a base torch + repeater U-loop (delays 4/4: period 36 gt) and 3
+# master-slave T flip-flop stage(s); each stage = two latch repeaters (master, slave) locked
+# alternately by repeaters reading the previous stage's torch (not S) and block (S), the slave's
+# block holds a torch whose output runs back (dust) to the master: one toggle per period of the
+# previous stage, period 36 x 2^3 = 288 gt
+name: clk-rt-div-44-x3
+port output: -9 1 2
+origin: -9 0 -2
+palette:
+  A minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  B minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  C minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  D minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  T minecraft:target
+  r minecraft:redstone_wire
+layer 0:
+  ......SS
+  ...SS.SSS.S
+  SS.SSS.SS.SS
+  SSS.SS.S
+  .SS.S
+  .S
+layer 1:
+  ......rr
+  ...rr.rBARDS
+  rr.rBARBASCr
+  rBARBATr
+  RBATr
+  Tr

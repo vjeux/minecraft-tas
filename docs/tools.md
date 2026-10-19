@@ -3,7 +3,8 @@
 Every tool is a `mctas` subcommand, written in Rust (`./target/release/mctas ...` after
 `cargo build --release`); `--help` on any command lists all of its flags. The rules the judge
 enforces are in [rules.md](rules.md); how the simulator, the bridge and the videos work is in
-[internals.md](internals.md).
+[internals.md](internals.md). The clock study's commands (`mctas clock sim | verify | ...`), its
+judge and its design format are in [clocks.md](clocks.md).
 
 ## The workflow behind the records
 
@@ -34,7 +35,7 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 |---|---|
 | `door verify <design> [--extra-offsets 28] [--timeline] [--cycles N] [--archive] [--no-rotations] [--orientations] [--tile <spec>]` | the judge ([rules.md](rules.md)); prints blocks, category, open/close ticks and the rotation check. `--archive` keeps a copy of a working design in `archive/` next to it (skips duplicates); `--cycles 40` catches slow failures like oxidizing copper; `--orientations` runs all 8 orientations; `--tile wide:N\|period:P:N\|stack:N\|vperiod:Q:N\|step:dx,dy,dz:N` judges the design as a tile module ([rules.md](rules.md#tileable-doors-door-verify---tile); `--tile-out` writes the arrangement) |
 | `door trace <design> [--close] [--ticks N]` | print every block change tick by tick after each lever flip: how a door actually moves |
-| `door drive <script>...` | place a design, apply scripted inputs (`set`, `clear`, `use`, `step`, `quiet`, `print`, `plane`, probes, `expect`), print a plane per tick; any failed `expect` fails the command. Validates mechanisms with ideal inputs and runs the gadget tests |
+| `door drive <script>...` | place a design, apply scripted inputs (`set`, `clear`, `use`, `step`, `quiet`, `print`, `plane`, probes, `expect`), print a plane per tick; any failed `expect` fails the command. Validates mechanisms with ideal inputs and runs the gadget tests. Block entities (item clocks): `place <design>` places like the clock judge without settling (a design's `nbt:` lines merged after the raw paste), `data x y z <snbt>` (= `data merge block`), `items x y z`, `probe_items <name> x y z` (a container's item count) |
 | `door ideal <schedule> [--set name=value] [--sweep name=lo..hi] [--between-ticks]` | judge a mechanism driven by scheduled ideal inputs (`ideal.rs`) and sweep its timing windows: which input ticks work. Since 2026-10-19 an off-plane redstone-block input at `t >= 2` acts in the TILE-TICK phase of tick `t`, where a wired observer's output arrives (built from a wall torch on a support block, so the game and redsim agree); the old rule (between ticks, after tick `t`: 1 gt optimistic for observer-driven inputs) is `--between-ticks` or a `phase between` line in the plan; other tools that parse plans keep the old rule unless the plan says `phase tile` |
 | `door ideal-rs <schedule> [--set] [--sweep] [--vary x,y=state\|state\|keep\|air] [--drop N] [--ok-only] [--trace]` | the same on redsim in milliseconds (`ideal_rs.rs`); `--vary` screens every combination of block alternatives per cell (in memory: e.g. sculk sensors, observers, wool around a missing input: 10-20k variants/s), `--drop N` every removal of up to N blocks (a redsim minimizer). Found bridge-p2-sculk and bridge-e88-sculk ([tracks/bridge](../designs/piston-door-3x3/tracks/bridge/NOTES.md)) |
 | `door reuse-check <design>` | verify many times in one reused sandbox: catches state leaking across runs (torch burnout memory) |
@@ -144,7 +145,10 @@ Rows run north to south (z grows downward), columns west to east (x grows rightw
 spaces are air; every other character must be in the palette. A door design names the ports
 `door` and `lever` ([rules.md](rules.md#the-door)); `@name` loads a built-in. Entity doors add
 `entity: <type> x y z [snbt]` lines (category entity, [rules.md](rules.md#categories)); tile
-modules add a `relay:` block.
+modules add a `relay:` block. Block-entity data (container contents of item clocks) are
+`nbt: x y z {snbt}` lines (world coordinates like `port:`), merged into the block entity right
+after the raw paste exactly like `data merge block x y z {snbt}`, e.g.
+`nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}`.
 
 The search palettes (`synth`, `resynth`, `grow`, `regrow`) take shorthands: `leaves`, `log`, and
 the exotic components (`trapdoor`, `ctrap`, `gate`, `skull`, `shelf`, `rail`, `arail`, `disp`,

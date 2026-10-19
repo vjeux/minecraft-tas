@@ -1,0 +1,4 @@
+mark c22s-rep-obs-note
+design designs/clocks/tracks/clk-sculk/c22s-rep-obs-note.txt
+probe C 0 1 0
+edges C 120

@@ -1,0 +1,18 @@
+design designs/piston-door-3x3/tracks/pockets/svc/c77-kb1.txt
+phase tile
+# c77's kb1g (explore/c77 5010f6e2): B' = both-edge pulses s1, s2 + an OPEN-ONLY pulse g (a gate)
+let s1 = 18
+let s2 = 23
+let g = 30
+open 0 use 1 5 0
+close 0 use 1 5 0
+open s1 set 1 -3 1 minecraft:redstone_block
+open s1+2 clear 1 -3 1
+open s2 set 1 -3 1 minecraft:redstone_block
+open s2+2 clear 1 -3 1
+open g set 1 -3 1 minecraft:redstone_block
+open g+2 clear 1 -3 1
+close s1 set 1 -3 1 minecraft:redstone_block
+close s1+2 clear 1 -3 1
+close s2 set 1 -3 1 minecraft:redstone_block
+close s2+2 clear 1 -3 1
