@@ -14,6 +14,7 @@
 //! and a vibration posted at T lands at T + max(1, floor(distance)), so P >= 21 / P >= 41.
 
 mod build;
+mod caption;
 mod climb;
 mod gens;
 mod outputs;
@@ -80,6 +81,8 @@ enum Cmd {
     /// Check (and with --fix move) each design's output to a cell whose own period is the
     /// clock's (the "period = output's period" ruling); flags composites.
     Outputs(outputs::OutputsArgs),
+    /// Rewrite generated designs' headers into a one-line caption (what `clock archive` keeps).
+    Caption(caption::CaptionArgs),
     /// Simulate designs and print one line each, sorted by period (`--best`: the smallest per
     /// period only).
     Table {
@@ -131,6 +134,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::RingBig(a) => gens::ring_big(&a),
         Cmd::Climb(a) => climb::climb(&a),
         Cmd::Outputs(a) => outputs::outputs(&a),
+        Cmd::Caption(a) => caption::caption(&a),
         Cmd::Table { files, best, md } => table(&files, best, md),
         Cmd::Select { files, out_dir, min_p, max_p, known, per_period, mechanisms, minimal, no_composite } => select(&files, &out_dir, min_p, max_p, &known, per_period, mechanisms, minimal, no_composite),
     }
