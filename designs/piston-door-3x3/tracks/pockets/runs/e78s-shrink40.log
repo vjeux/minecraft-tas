@@ -1,0 +1,6 @@
+fill /tmp/e78-41.txt: 25 region cells (25 free, 0 fixed), base 41 blocks (design 41), k 0..=3, global palette 36 states, gaps allowed, KEEP mode (k = changed cells)
+2625 subsets pass the connectivity rule; 108057061 fillings to screen in 83170 work items
+FIND designs/piston-door-3x3/tracks/pockets/runs/e78s-shrink40/e78-41-fill-40b-0.txt: e78-41-fill-40b-0: WORKS open 98 close 24 | FULL | hallway ok | frame 12/12 | 56b (7x8x1), 40 blocks | 0.0 ms | (3,-2) air (4,2) observer[facing=up,powered=false] (4,3) observer[facing=west,powered=false]
+FIND designs/piston-door-3x3/tracks/pockets/runs/e78s-shrink40/e78-41-fill-40b-1.txt: e78-41-fill-40b-1: WORKS open 98 close 24 | FULL | hallway ok | frame 12/12 | 56b (7x8x1), 40 blocks | 0.0 ms | (3,-2) air (4,2) observer[facing=up,powered=false] (4,3) repeater[delay=1,facing=west,locked=false,powered=false]
+FIND designs/piston-door-3x3/tracks/pockets/runs/e78s-shrink40/e78-41-fill-40b-2.txt: e78-41-fill-40b-2: WORKS open 98 close 24 | FULL | hallway ok | frame 12/12 | 56b (7x8x1), 40 blocks | 0.0 ms | (3,-2) air (4,2) observer[facing=up,powered=false] (4,3) repeater[delay=2,facing=west,locked=false,powered=false]
+done in 19 s: 1549795 screened, 106507266 pruned, 3 passed the screen, 3 finds

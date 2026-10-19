@@ -1,0 +1,22 @@
+fill designs/piston-door-3x3/tracks/pockets/svc/c77-kb1.txt: 6 region cells (6 free, 0 fixed), base 40 blocks (design 40), k 5..=5, global palette 46 states, gaps allowed
+6 subsets pass the connectivity rule; 1235777856 fillings to screen in 584016 work items
+[   120s] 25355350 screened (211165/s), 123771676 pruned, item 70541/584016, 0 pass the 1-position screen, 0 finds
+[   240s] 52261876 screened (217608/s), 183152050 pruned, item 111325/584016, 0 pass the 1-position screen, 0 finds
+[   360s] 73375566 screened (203666/s), 297231290 pruned, item 175214/584016, 0 pass the 1-position screen, 0 finds
+[   480s] 92244591 screened (192043/s), 337811182 pruned, item 203303/584016, 0 pass the 1-position screen, 0 finds
+[   600s] 112027438 screened (186559/s), 449725731 pruned, item 265555/584016, 0 pass the 1-position screen, 0 finds
+[   721s] 128829420 screened (178783/s), 487164238 pruned, item 291181/584016, 0 pass the 1-position screen, 0 finds
+[   841s] 141843588 screened (168721/s), 556113941 pruned, item 329914/584016, 0 pass the 1-position screen, 0 finds
+[   961s] 154592653 screened (160901/s), 612770196 pruned, item 362714/584016, 0 pass the 1-position screen, 0 finds
+[  1081s] 166620437 screened (154150/s), 639661579 pruned, item 381105/584016, 0 pass the 1-position screen, 0 finds
+[  1201s] 177861309 screened (148094/s), 659746707 pruned, item 395910/584016, 0 pass the 1-position screen, 0 finds
+[  1321s] 189337068 screened (143318/s), 715712512 pruned, item 427784/584016, 0 pass the 1-position screen, 0 finds
+[  1441s] 201232864 screened (139631/s), 764462172 pruned, item 456445/584016, 0 pass the 1-position screen, 0 finds
+[  1561s] 213712257 screened (136883/s), 780746491 pruned, item 470035/584016, 0 pass the 1-position screen, 0 finds
+[  1681s] 223159375 screened (132723/s), 793740917 pruned, item 480638/584016, 0 pass the 1-position screen, 0 finds
+[  1801s] 233265647 screened (129484/s), 808400670 pruned, item 492347/584016, 0 pass the 1-position screen, 0 finds
+[  1922s] 241962722 screened (125917/s), 819214144 pruned, item 501565/584016, 0 pass the 1-position screen, 0 finds
+[  2042s] 252403971 screened (123621/s), 901409012 pruned, item 545348/584016, 0 pass the 1-position screen, 0 finds
+[  2162s] 264662096 screened (122425/s), 917242773 pruned, item 558617/584016, 0 pass the 1-position screen, 0 finds
+[  2282s] 276633486 screened (121228/s), 933840608 pruned, item 572125/584016, 0 pass the 1-position screen, 0 finds
+done in 2351 s: 287755976 screened, 948021880 pruned, 0 passed the screen, 0 finds

@@ -1,0 +1,21 @@
+# t78 i1: b0 + note block (0,-3) under the gate observer; ideal: P_M pulse at pm, B power [bon,boff), note block power [gon,goff)
+design designs/piston-door-3x3/tracks/t78/wip/b0.txt
+let pm = 23
+let bon = 29
+let boff = 37
+let gon = 29
+let goff = 37
+open 0 use 1 5 0
+close 0 use 1 5 0
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+2 clear -1 -1 1
+close pm set -1 -1 1 minecraft:redstone_block
+close pm+2 clear -1 -1 1
+open bon set 1 -3 1 minecraft:redstone_block
+open boff clear 1 -3 1
+close bon set 1 -3 1 minecraft:redstone_block
+close boff clear 1 -3 1
+open gon set 0 -3 1 minecraft:redstone_block
+open goff clear 0 -3 1
+close gon set 0 -3 1 minecraft:redstone_block
+close goff clear 0 -3 1

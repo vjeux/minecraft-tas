@@ -1,0 +1,15 @@
+# t78 br7i: br7 with ideal P_M pulse (pm) and ideal SP hold [s1, s2)
+design designs/piston-door-3x3/tracks/t78/wip/br7.txt
+let pm = 18
+let s1 = 29
+let s2 = 38
+open 0 use 1 5 0
+close 0 use 1 5 0
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+2 clear -1 -1 1
+close pm set -1 -1 1 minecraft:redstone_block
+close pm+2 clear -1 -1 1
+open s1 set -2 -3 1 minecraft:redstone_block
+open s2 clear -2 -3 1
+close s1 set -2 -3 1 minecraft:redstone_block
+close s2 clear -2 -3 1
