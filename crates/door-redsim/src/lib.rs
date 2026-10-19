@@ -216,6 +216,10 @@ pub enum DoorCmd {
         /// each edge (or none), and print which starts work: which inputs a sensor could drive.
         #[arg(long)]
         holds: Option<i64>,
+        /// The old input rule: plan blocks appear between ticks, after tick t (default: in tick
+        /// t's tile-tick phase, where an observer's output arrives; see ideal.rs).
+        #[arg(long)]
+        between_ticks: bool,
     },
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
@@ -415,7 +419,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
-        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds } => match compact_dir {
+        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds, between_ticks } => match { crate::ideal::cli_phase(between_ticks); compact_dir } {
             Some(dir) => {
                 std::fs::create_dir_all(&dir)?;
                 for s in &schedule {
