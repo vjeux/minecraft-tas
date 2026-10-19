@@ -132,3 +132,26 @@ see each other, and the bottom cannot reach either: one lever wakes only one top
   the corner W(3,3)). WORKS with ideal inputs at 4 positions. Windows: TL up, the left stack and BR are
   FREE (0..60); BM >= 36; the elevator may start 0..12 after the flip. Still one piston below the door.
   The open problem is the same: a 30-tick, 6-tap elevator sequencer from one pulse in ~4 free cells.
+
+## 9. 8x8 and the parity wall (06:00Z)
+
+* `mech/t8x.txt` (+ `t8x.ideal`): 8x8 = t8's 7x8 mechanism + a wiring column x=5. Lever (ON at rest)
+  outside on the east face of the stone (5,1): the stone and ONE cross dust (5,2) level-hold all three
+  right pullers (MR directly, BR by QC, TR through the dust). Observers (4,3) facing down and (4,-1)
+  facing up = one clean pulse per edge into the top-right and the bottom-right. Ideal WORKS, frame
+  12/12 (static frame cells are stone = the door block, as the judge now requires).
+* cosearch on t8x (assist mode, 29 focus cells) wired everything but the left stack within 20 min
+  (best 77/79 with that single assist: `mech/q7.txt`; C still not lifted there); on t8L (7x8) it
+  reached 75/79 with the left stack + BR's puller assisted.
+* THE PARITY WALL: the side without the lever hears the rest of the door only through the elevator
+  (an observer on B at (0,5), or on A at (0,4) when TL is not pulled up). B moves twice per edge (B1
+  lowers A, B2 lifts it) and high A twice (A1, A3); low A moves once but no cell outside the door
+  touches it. So that side gets an EVEN number of pulses per edge and a pull-type puller nets zero
+  unless the pulse timing makes the doubles cancel unevenly (c79's left side seems to rely on that).
+  Pieces that move ONCE per edge: the corner puller (P_T / E) and U; their watchers sit on the side
+  that fires them. Ways out: (a) watch U from the non-lever bottom (one pulse per edge after a merger)
+  and climb a wiring column on THAT side (8 wide: the extra column goes on the non-lever side, not the
+  lever side); (b) a divide-by-2 (copper bulb + comparator + bulb) turning B's two merged pulses per
+  edge into a door-state level for level-held pullers; (c) make U lever-held through dust into the
+  static F2 (QC) so its watchers are clean crossings, which needs an edge-aware (asymmetric) top
+  because the symmetric train needs BM's move >= 36 ticks after the flip.
