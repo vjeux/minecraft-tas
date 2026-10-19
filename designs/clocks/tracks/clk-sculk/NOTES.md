@@ -62,19 +62,33 @@ tick in the same tick, so exactly A+20 needs an observer, torch or piston).
 Generated and verified batches: `verified/` (see its README).
 
 ## Families and what reaches which periods (so far)
-* calibrated + observer chains + emitter: 24-34 (3-7 blocks).
+* calibrated + observer chains + emitter: 24-34 (3-7 blocks); + an empty dispenser (+4 gt): the
+  cooldown pulse delayed 6 + 4 gt fires exactly at re-arm: P=21 in 5 blocks (c21-obs3-disp), the
+  floor; plain: P=41 in 5 (p41-obs3-disp).
 * calibrated + repeater lines (+ observer / torch / piston): 21-40.
 * plain versions of both: 41-79.
 * 3-sensor rings (calibrated): note-block resonator as the kick 31-46 (6-7 blocks); pure amethyst
   rings 30-46 (7-9 blocks, wool shields the kick); n-sensor rings on a circle: P = sum of hops,
   4 sensors 48-60, 5: 64-75, 6: 78-90, 8: 104-124, 12: 164-184 (2 blocks per <= 16 gt);
   plain rings need >= 6-7 sensors (47-56 with 14-16 blocks).
-* hybrids with a sticky piston: period doubling (P 48 with 4 blocks, 88 with 4) and the
-  moving-observer long periods (72, 85, 86, 90, 92, 94, 126, 216 with 4-7 blocks).
+* hybrids with a sticky piston: period doubling (P 48 with 4 blocks, 88 with 4: the piston spits
+  its block on alternate short pulses, so a trapdoor or a moved block toggles every other sensor
+  cycle: the output must be that cell) and the moving-observer long periods (72, 85, 86, 90, 92,
+  94, 126, 216 ... 468 with 4-7 blocks).
+* dividers found by `clock census` (sculk palette, boxes up to 4x1x2 / 3x3x1 with k <= 4, 3x1x2
+  with k <= 5): a fast observer pair (P 6) whose dispenser a plain sensor gates by powering it
+  (P42 in 4 blocks: the sensor fires every 7th pair cycle); a calibrated c28 loop whose dispenser a
+  plain sensor behind it also hears (P140 in 4 blocks: the plain sensor's 40 gt dead time divides
+  the 28 gt loop 5:3; its power into the calibrated sensor's back is a frequency filter at 10, the
+  dispenser's own frequency, so it passes); P23 in 4 blocks (a QC piston under an observer).
+* The output rule (coordinator 16:10Z): a clock's period is its output's period. `mctas clock
+  sculk outputs` measures each cell's own period: dividers and doublers declare their slow cell as
+  the output; a design where no cell has the full period is a composite of independent parts
+  (e.g. 30 and 20 -> 60) and is excluded (../composite/).
 
 ## Open questions / next
-* Exhaustive minimality (P=21 at 6 blocks? 25-27 at 4?): `clock census` with a sculk palette.
-* Frequency-filter clocks (a calibrated sensor's back input selecting 9 vs 10), wool shutters
-  moved by pistons, bells and doors as emitters.
-* Independent sub-clocks multiply: two non-interacting clocks in one build have P = lcm (e.g. 24
-  and 25 -> 600 with ~7 blocks): a rules question for the coordinator, not pursued.
+* Exhaustive minimality: the census (k <= 4 in 3x2x2, 3x3x1, 4x1x2, 2x2x2; k <= 5 in 3x1x2) finds
+  no 4-block P=21 or P=22 (self-start or one block placed last), and nothing below 3 blocks.
+* Frequency-filter clocks where the filter matters (a back signal of 9 vs 10), wool shutters moved
+  by pistons.
+* Independent sub-clocks (lcm) are EXCLUDED (coordinator ruling 16:10Z).
