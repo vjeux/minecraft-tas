@@ -1,0 +1,10 @@
+[package]
+name = "circuit-pulse"
+description = "Contraption study 1, track pulse (mctas circuit pulse ...): edge detectors, pulse limiters and extenders; owned by the track, see docs/circuits.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true

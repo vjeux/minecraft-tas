@@ -1,0 +1,27 @@
+name: clk-obs-p98-obs-stk-9b-36ada6
+# clk-obs grow: P=98 (redsim), family observer+sticky_piston, kick last 0 0 0, swept volume 15.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+layer -2:
+  A
+  A
+  .
+layer -1:
+  B
+  .
+  C
+layer 0:
+  C
+  C
+  .
+layer 1:
+  D
+  E
+  B

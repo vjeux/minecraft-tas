@@ -1,0 +1,28 @@
+name: clk-obs-p23-lamp-obs-pis-8b-201ec1
+# clk-obs grow: P=23 (redsim), family observer+piston+redstone_lamp, kick last 0 0 0, swept volume 12.
+origin: 0 0 0
+port output: 0 -1 1
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:redstone_lamp[lit=false]
+  C minecraft:piston[extended=false,facing=down]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:piston[extended=false,facing=up]
+  F minecraft:observer[facing=down,powered=false]
+layer -1:
+  .
+  A
+  B
+layer 0:
+  C
+  D
+  E
+layer 1:
+  F
+  A
+  .
+layer 2:
+  B
+  .
+  .

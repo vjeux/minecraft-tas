@@ -1,0 +1,34 @@
+name: clk-misc-boat-ring4
+# A REDSTONE-LESS clock: a boat circles a 2-wide water ring (around a 3x3 island) pushed by water currents, and presses
+# wooden pressure plates. Pressure plates block water, so four rows of plates cut the ring into four one-way currents:
+# right after each plate row a row of water sources flows forward, around the next corner and one row down the next side
+# to the next plate row. The boat rides each current (submerged, ~0.11 b/t), is thrown against the outer wall at each
+# corner and slid along it by the current's turn, and crawls over each plate row (pressing it; next to the sources it
+# counts as under water, x0.45 friction). Only stone, water, 8 oak pressure plates and the boat: no redstone, no ice.
+port output: 3 0 0
+entity: minecraft:oak_boat 4.8 0.0 1.0
+palette:
+  S minecraft:stone
+  A minecraft:water[level=0]
+  P minecraft:oak_pressure_plate[powered=false]
+origin: -1 -1 -1
+layer 0:
+  .........
+  .SSSSSSS.
+  .SSSSSSS.
+  .SS...SS.
+  .SS...SS.
+  .SS...SS.
+  .SSSSSSS.
+  .SSSSSSS.
+  .........
+layer 1:
+  .SSSSSSS.
+  S...PA..S
+  S...PA..S
+  SAASSS..S
+  SPPSSSPPS
+  S..SSSAAS
+  S..AP...S
+  S..AP...S
+  .SSSSSSS.

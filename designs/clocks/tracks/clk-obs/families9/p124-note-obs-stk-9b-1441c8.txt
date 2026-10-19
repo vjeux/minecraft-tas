@@ -1,0 +1,26 @@
+name: clk-obs-p124-note-obs-stk-9b-1441c8
+# clk-obs grow: P=124 (redsim), family note_block+observer+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 24.
+origin: 0 0 0
+port output: 0 -1 2
+port start: 0 0 2 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:note_block[instrument=harp,note=0,powered=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:redstone_block
+  G minecraft:sticky_piston[extended=false,facing=south]
+  H minecraft:observer[facing=east,powered=false]
+layer -2:
+  ..
+  ..
+  A.
+layer -1:
+  B.
+  B.
+  .F
+layer 0:
+  CG
+  DH
+  E.
