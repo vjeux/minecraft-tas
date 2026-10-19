@@ -820,6 +820,10 @@ pub enum DoorCmd {
         /// CEGAR iterations.
         #[arg(long, default_value_t = 300)]
         iters: usize,
+        /// Diagnose UNSAT: guard constraint groups (supports, each cell's semantics, scheduling,
+        /// trace ends) with selectors and print the conflicting groups.
+        #[arg(long)]
+        diag: bool,
         /// Keep this design's wiring cells and lever as they are; solve only the other cells.
         #[arg(long)]
         fixed: Option<PathBuf>,
@@ -1232,6 +1236,13 @@ pub enum DoorCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Pure-Rust door judge on redsim (no JVM: the judge's checks, FULL seamless, the hallway
+    /// check, the volume), its agreement with the real judge, and the joint mechanism + wiring
+    /// search on top of it (track cosearch, cosearch.rs / cosearch_search.rs).
+    Cosearch {
+        #[command(subcommand)]
+        cmd: crate::cosearch::CosearchCmd,
+    },
     /// Differential fuzzing of the redsim model (crates/redsim) against the real game: random
     /// circuits run in both, every block state compared after placement and every tick and flip;
     /// mismatches are shrunk and saved as case files (`door redsim-case` replays one).
@@ -1610,6 +1621,76 @@ pub enum DoorCmd {
         /// Print every tick's block changes of the bridge run (for single replays).
         #[arg(long)]
         trace: bool,
+    },
+    /// Mechanism search on the EXACT model (track pistmodel, crates/piston-door/src/fullmech.rs):
+    /// every transition is the real tick-level game (redsim: spitting, 0-ticks, event order,
+    /// carried pistons and power sources), inputs tracked per piston; FULL seamless open +
+    /// close back to rest. `--check` solves the mechanism of designs; `--boxes` re-solves
+    /// families' candidates per box.
+    Fullmech {
+        #[arg(long, num_args = 1..)]
+        check: Vec<PathBuf>,
+        /// Boxes W x H, comma separated (e.g. 7x7,7x8).
+        #[arg(long)]
+        boxes: Option<String>,
+        #[arg(long, default_value_t = 10)]
+        pistons: usize,
+        /// Non-core perimeter blocks that may take a 2-move path (families' --two).
+        #[arg(long, default_value_t = 0)]
+        two: usize,
+        /// Pulse lengths (ticks) offered as actions.
+        #[arg(long, default_value = "1,3")]
+        pulses: String,
+        /// Also level toggles.
+        #[arg(long)]
+        levels: bool,
+        /// States per A* search.
+        #[arg(long, default_value_t = 3000)]
+        cap: usize,
+        #[arg(long, default_value_t = 32)]
+        threads: usize,
+        #[arg(long, default_value_t = 0)]
+        limit: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// State cap of the macro model's verdict per candidate.
+        #[arg(long, default_value_t = 20000)]
+        macro_cap: usize,
+        /// Skip the candidates the macro model already solves.
+        #[arg(long)]
+        only_new: bool,
+        /// Input reduction: for each working mechanism, try to replace each piston's input by
+        /// one helper (redstone block or observer) in a free cell of the box.
+        #[arg(long)]
+        reduce: bool,
+        #[arg(long, default_value_t = 4000)]
+        reduce_cap: usize,
+        /// Also overlapping pulse pairs of nearby pistons as actions (same-tick timing).
+        #[arg(long)]
+        pairs: bool,
+        /// Simulated annealing over mechanisms in this box (W x H), not tied to families' exit
+        /// plans: pistons anywhere (carried, stacked), helpers with --helpers.
+        #[arg(long)]
+        anneal: Option<String>,
+        /// Door offsets for --anneal: "dx,dy;dx,dy" or all.
+        #[arg(long)]
+        offsets: Option<String>,
+        #[arg(long, default_value_t = 600)]
+        seconds: u64,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Helpers (redstone blocks, observers, stone, obsidian) in --anneal.
+        #[arg(long)]
+        helpers: bool,
+        /// Write every exact mechanism of --boxes (design + `door ideal` plan) under DIR/WxH/.
+        #[arg(long)]
+        export: Option<PathBuf>,
+        /// Slime and honey in --anneal (not for the flat board, which is slime-free).
+        #[arg(long)]
+        slime: bool,
+        /// Replay exported `door ideal` plans in the real simulator (2 cycles, 4 positions).
+        #[arg(long, num_args = 1..)]
+        verify_ideal: Vec<PathBuf>,
     },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
@@ -2706,8 +2787,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, diag, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
+            sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
             if check && mechanism.len() > 1 {
                 let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels };
                 let next = std::sync::atomic::AtomicUsize::new(0);
@@ -2779,6 +2861,16 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let mut p = sw::build_prob(rec, &po)?;
             if let Some(fp) = &fixed {
                 sw::fix_partial(&mut p, &load_design(fp)?)?;
+            }
+            if fixed.is_none() && !from_wired && !check && !p.rec.wiring.is_empty() {
+                let mut d = mctas::design::Design::default();
+                for (cc, st) in &p.rec.wiring {
+                    d.blocks.insert([cc.0, cc.1, p.z], st.clone());
+                }
+                if let Some((lp, ls)) = &p.rec.lever {
+                    d.blocks.insert(*lp, ls.clone());
+                }
+                sw::fix_partial(&mut p, &d)?;
             }
             if check {
                 sw::fix_wiring(&mut p)?;
@@ -3141,6 +3233,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 println!("{} {} {} {}", p[0], p[1], p[2], s.strip_prefix("minecraft:").unwrap_or(s));
             }
         }
+        DoorCmd::Cosearch { cmd } => crate::cosearch::run(version, cmd)?,
         DoorCmd::RedsimFuzz { n, seed, size, density, palette, out, no_shrink, max_report, workers } => {
             let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
             anyhow::ensure!(sz.len() == 3, "--size x,y,z");
@@ -3469,6 +3562,19 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             if !ok {
                 std::process::exit(1);
             }
+        }
+        DoorCmd::Fullmech { check, boxes, pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal } => {
+            let boxes = match boxes {
+                Some(b) => crate::families::parse_boxes(&b)?,
+                None => Vec::new(),
+            };
+            let anneal = match anneal {
+                Some(b) => crate::families::parse_boxes(&b)?.first().copied(),
+                None => None,
+            };
+            let pulses: Vec<u8> = pulses.split(',').filter(|s| !s.is_empty()).map(|s| s.trim().parse::<u8>()).collect::<std::result::Result<_, _>>()?;
+            let o = crate::fullmech::CliOpts { check, boxes, pmax: pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, slime, export, verify_ideal };
+            crate::fullmech::cli(&o)?;
         }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
