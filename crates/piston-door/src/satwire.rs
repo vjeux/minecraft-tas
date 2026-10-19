@@ -905,7 +905,9 @@ impl Prob {
         match before {
             MK::Piston { ext: false, f, .. } => {
                 if changed {
-                    Some(true)
+                    // its own extension (the base turns extended) needs power; being pushed or
+                    // pulled away by another piston does not care
+                    return if matches!(after, MK::Piston { ext: true, f: g, .. } if g == f) { Some(true) } else { None };
                 } else if self.can_extend(ph.frame(tau - 1), c, f) && self.can_extend(ph.frame(tau), c, f) {
                     // (blocked in frame tau too: a piston in front extended in this same tick,
                     // its block event ran first)
@@ -2139,8 +2141,11 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                 for (tau, wl) in m.warp_at(tr, k) {
                   for (ga, ph) in &opts {
                     let MK::Piston { f: fc, .. } = ph.frame(tau - 1).get(&c).map_or(MK::Air, |s| mk(s)) else { continue };
-                    let mreq = if p.motion { p.motion_req_ph(ph, tau, c) } else { None };
-                    if p.motion && mreq.is_none() && !check_mode {
+                    // motion mode: the power matters only where the motion needs it AND the recording
+                    // agrees (a recorded disagreement is the game tolerating it: a QC-held piston
+                    // without an update, the 2nd tick of a short pulse...)
+                    let mreq = if p.motion { p.motion_req_ph(ph, tau, c).filter(|v| *v == ph.pow(tau).get(&c).copied().unwrap_or(false)) } else { None };
+                    if p.motion && mreq.is_none() {
                         continue;
                     }
                     let req = match mreq {

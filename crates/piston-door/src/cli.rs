@@ -2890,7 +2890,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 qc: !no_qc,
                 levels,
                 blocked_dc: !exact && !check,
-                motion: !recorded_power && !check,
+                motion: !recorded_power,
             };
             let mut p = sw::build_prob(rec, &po)?;
             if let Some(fp) = &fixed {
