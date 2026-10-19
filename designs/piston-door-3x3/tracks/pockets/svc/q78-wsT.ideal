@@ -1,0 +1,10 @@
+# q78 e78wsT + K ideal (start 8..11, end 12..13)
+design designs/piston-door-3x3/tracks/pockets/svc/q78-wsT.txt
+let k = 10
+let kl = 2
+open 0 use 1 5 0
+close 0 use 1 5 0
+open k set 3 -1 1 minecraft:redstone_block
+open k+kl clear 3 -1 1
+close k set 3 -1 1 minecraft:redstone_block
+close k+kl clear 3 -1 1
