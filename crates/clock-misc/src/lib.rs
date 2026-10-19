@@ -12,6 +12,7 @@
 //! The official judge is `mctas clock verify` (crates/clock, docs/clocks.md); this crate builds
 //! and searches.
 
+pub mod crafter;
 pub mod ring;
 
 use clap::{Parser, Subcommand};
@@ -29,6 +30,11 @@ enum Cmd {
     /// ring of height 3 + n in the x-y plane with one relay block at its top left, on the observer
     /// that powers it; checked on redsim. `--list` shows the relays, `--check K` runs n = 0..=K.
     Ring(ring::RingArgs),
+    /// A crafter item loop (extendable family `clk-misc-crafter-loop`): a crafter crafting back
+    /// and forth between a slime block and 9 slime balls, 2n + 1 hoppers carrying the results back,
+    /// a comparator on the feeding hopper and two observers triggering the crafter. Prints or
+    /// writes the design (the real game judges it: redsim does not model crafting).
+    CrafterLoop(crafter::LoopArgs),
 }
 
 /// `mctas clock misc <args...>`.
@@ -43,5 +49,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
     };
     match a.cmd {
         Cmd::Ring(r) => ring::run(r),
+        Cmd::CrafterLoop(l) => crafter::run(l),
     }
 }
