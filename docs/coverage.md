@@ -19,7 +19,7 @@ modeled / not searched · **—** not applicable · **?** not yet audited.
 | fullmech (`door fullmech`, pistmodel) | the catalog re-solved exactly | **✓** redsim with ideal inputs (1/3-tick pulses, levels, same-tick pairs) | families' generator (+ `--reduce`: an input replaced by a carried/static redstone block or observer; `--anneal`) | within the generator's space, state cap 30k |
 | topology (`door topology`) | rank mechanisms by wirability | **~ heuristic, NOT sound**: wiring regions, piston links, pulse parity, memory links >= 7 cells, no-feed filter; its parity premise is false (observer busy window, mechanics.md section 8) | — | no: a ranking only |
 | satwire (`door satwire`) | wiring for a FIXED mechanism | **~** time-unrolled SAT encoding (details in tracks/satwire/NOTES.md "COVERAGE"); every SAT model is screened by redsim and judged by the real judge (CEGAR), so a FOUND door is real; an UNSAT is only relative to the encoding | free cells of a box; palette below; one lever among candidates (outside the box or off-plane allowed); recorded piston power per tick with a time warp (stalls/skips) | yes within palette + box + encoding |
-| cosearch (`door cosearch search`) | joint mechanism + wiring search | **✓** redsim (exact), then the real judge | any cell of the box: palette below; moves: set/remove/re-face/move/swap, repeater delay, comparator mode, carried redstone block or observer in front of a piston, piston add/move/re-face/extend toggle | no (annealing + exhaustive k <= 3 edits) |
+| cosearch (`door cosearch search`) | joint mechanism + wiring search | **✓** acceptance: the redsim judge (32 positions x 3 cycles, FULL seamless, hallway), then the real judge (`--confirm`); guidance: **~** a one-position, 2-cycle screen with partial credit per door cell and phase (a door slower than `--max-ticks` 160 per phase is screened out; the screen's ring check skips the hole rule, the final check has it) | the door plane only (pistons face E/W/U/D, nothing off-plane), every cell of the box (or `--focus` / `--focus-cells`): palette below; moves: set/remove/re-face/move/swap, repeater delay, comparator mode, carried redstone block or observer in front of a piston, piston add/move/re-face/extend toggle (`--lock-pistons` keeps the seed's, `--no-mech` forbids all), lever moves (`--lever-moves`) | no: simulated annealing + exhaustive enumeration of every edit of <= k focus cells (`--enum-k`, k <= 5; e.g. all 56^4 fillings of 4 cells in 103 s on 40 threads) |
 | boxproof (whole-box SAT) | prove or find a door in a box | **?** (target: redsim's semantics, validated by differential tests) | **?** | **?** |
 
 ## Game behaviors (rows from redsim's source inventory, Minecraft 26.3)
@@ -47,13 +47,13 @@ Flat doors only below; "flat-impossible" marks behaviors that need a block outsi
 | waxed copper bulb (rising-edge toggle) | ✓ | ✓ | — | — | ✓ | ✓ | ? |
 | note block | ✓ | ✓ | — | — | ✓ | ✓ | ? |
 | target block | ✓ | ✓ | — | — | ✗ | ✓ | ? |
-| iron / oak trapdoor, doors, fence gates | ✓ | ✓ (trapdoors in the default resynth/regrow palette) | — | — | iron trapdoor ✓ | ✗ | ? |
-| dropper / dispenser (immovable, QC power sensor) | ✓ | ✓ (synth palette) | — | — | dropper ✓ | ✗ | ? |
+| iron / oak trapdoor, doors, fence gates | ✓ | ✓ (trapdoors in the default resynth/regrow palette) | — | — | iron trapdoor ✓ | iron trapdoor ✓ (E/W, bottom/top); oak trapdoors, doors, gates ✗ | ? |
+| dropper / dispenser (immovable, QC power sensor) | ✓ | ✓ (synth palette) | — | — | dropper ✓ | dropper ✓ (U/D/E/W); dispenser ✗ | ? |
 | hopper (enabled state), crafter | ✓ (no items) | ✓ (judge) | — | — | ✗ | ✗ | ? |
 | powered / activator rails | ✓ | ✗ (not in palettes) | — | — | ✗ | ✗ | ? |
-| slabs (top/bottom), non-conducting full blocks (glass...) | ✓ | glass ✓, slabs ✗ | — | — | glass ✓, slabs ✗ | glass ✓, slabs ✗ | ? |
-| leaves + log (the only 1 gt delay) | ✓ | ✓ (grow palette) | — | — | ✗ | ✗ | ? |
-| buttons; lever | ✓ | lever | — | — | lever | lever | ? |
+| slabs (top/bottom), non-conducting full blocks (glass...) | ✓ | glass ✓, slabs ✗ | — | — | glass ✓, slabs ✗ | glass ✓, smooth stone slabs ✓ (top/bottom) | ? |
+| leaves + log (the only 1 gt delay) | ✓ | ✓ (grow palette) | — | — | ✗ | ✓ (persistent oak leaves, oak log x/y) | ? |
+| buttons; lever | ✓ | lever | — | — | lever | lever ✓ (moved by `--lever` / `--lever-moves`); buttons ✗ | ? |
 | redstone block as static wiring | ✓ | ✓ | — | ✓ (`--reduce`) | ✗ | ✓ | ? |
 | **Pistons and moving blocks** | | | | | | | |
 | pistons in the mechanism | ✓ | ✓ | ✓ (macro) | ✓ | fixed input | ✓ | ? |
@@ -63,8 +63,8 @@ Flat doors only below; "flat-impossible" marks behaviors that need a block outsi
 | 0-tick pistons | ✓ | ✓ | ✗ | ~ same-tick pairs | ✗ | ✓ | ? |
 | helper blocks (stoppers, line fillers) | ✓ | ✓ | ✗ (next) | ✗ | — | ✓ | ? |
 | carried power sources (redstone block, observer) | ✓ | ✓ | ✗ | ✓ (`--reduce`) | ✗ | ✓ | ? |
-| immovable blocks (obsidian, crying obsidian, block entities) | ✓ | ✓ | obsidian | obsidian | obsidian | ✗ (not in the palette) | ? |
-| push limit 12, glazed terracotta | ✓ | ✓ | ✓ / ✗ | ✓ | — | ✓ / ✗ | ? |
+| immovable blocks (obsidian, crying obsidian, block entities) | ✓ | ✓ | obsidian | obsidian | obsidian | ✓ obsidian, crying obsidian, droppers | ? |
+| push limit 12, glazed terracotta | ✓ | ✓ | ✓ / ✗ | ✓ | — | ✓ / ✓ | ? |
 | slime / honey (excluded from the flat seamless target by vjeux) | ✓ | ✓ | ✗ (off) | ✗ | ✗ | ✗ | — |
 | **Search-space features** | | | | | | | |
 | lever outside the box (not counted in the volume) | — | ✗ | — | — | ✓ | ✓ | ? |
@@ -84,8 +84,10 @@ sculk (its own category), fluids.
    UNSAT means "no wiring in this encoding".
 2. **The catalog's mechanism space**: no helpers, carry 1 cell, no 0-ticks, <= 2 moves per block,
    state-capped candidates (7x8: 1861 unresolved). The community 7x8 may sit outside it.
-3. **cosearch's palette** lacks obsidian, trapdoors, droppers, slabs, leaves/log, glazed
-   terracotta (cheap to add).
+3. **cosearch** is not exhaustive (annealing; exhaustive only over <= 5 edited focus cells) and
+   stays in the door plane; its palette gaps (obsidian, trapdoors, droppers, slabs, leaves/log,
+   glazed terracotta) are closed (explore/cosearch 0dc82bf); still missing: oak trapdoors, doors,
+   fence gates, dispensers, hoppers, rails, buttons, off-plane blocks.
 4. **topology** is a heuristic: never cite it as a reason to skip a mechanism.
 5. **redsim** item transfer (container flip-flops): in progress.
 
