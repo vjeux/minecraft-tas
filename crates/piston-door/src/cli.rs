@@ -932,6 +932,29 @@ pub enum DoorCmd {
         #[arg(long)]
         verbose: bool,
     },
+    /// Connectivity check (connect.rs): can a flat mechanism be wired inside a box at all? Free-cell
+    /// regions after the run's footprint and the ring; each piston fed from a region next to it or
+    /// its quasi cell (directly, through a plain ring stone or a door block); a region wakes when it
+    /// can watch a change; every event order searched, both edges starting from the lever's region
+    /// only. Parity and room are ignored: a necessary condition. Reads families' CATALOG.tsv and
+    /// tries every placement of each entry in each box.
+    Connect {
+        tsv: PathBuf,
+        /// Only ids starting with one of these (e.g. `7x8,7x9-1`)
+        #[arg(long, value_delimiter = ',')]
+        only: Vec<String>,
+        /// Boxes "WxH,..." (each entry is placed at every offset that fits)
+        #[arg(long, default_value = "7x9")]
+        boxes: String,
+        /// State cap per edge search
+        #[arg(long, default_value_t = 300000)]
+        cap: usize,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        /// Print each placement's region report
+        #[arg(long)]
+        verbose: bool,
+    },
     MechSynth {
         /// Base design (its mechanism blocks; wiring is dropped). Door port = min corner.
         base: PathBuf,
@@ -2801,6 +2824,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         }
         DoorCmd::Topology { tsv, only, verbose } => {
             crate::topology::catalog_cli(&tsv, &only, verbose)?;
+        }
+        DoorCmd::Connect { tsv, only, boxes, cap, threads, verbose } => {
+            let b = crate::families::parse_boxes(&boxes)?;
+            crate::connect::catalog_cli(&tsv, &only, &b, cap, threads, verbose)?;
         }
         DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels, topology, seamless_open, oc } => {
             crate::mechsynth::SEAMLESS.store(seamless, std::sync::atomic::Ordering::Relaxed);
