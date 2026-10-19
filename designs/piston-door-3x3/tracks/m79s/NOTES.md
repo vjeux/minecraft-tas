@@ -70,3 +70,14 @@
   (1,3..5) is the only element shared by the two top halves).
 - Next runs (sculk + WOOL palette, which the sculk track's runs lacked: wool occlusion kills re-arm echoes):
   ring56's t8L and t10s 7x8 seeds (sk/), all inputs assisted.
+
+## cosearch2's f131F-b2 (7x9, wire131's mechanism, ONE input left: N's train) (09:13Z)
+- N's input is the iron trapdoor (-2,4) watched by the observer (-1,4): 3 toggles per edge (open on/off/on,
+  close off/on/off). f131/p131F-shift.ideal: the train WORKS for EVERY common shift d 0..12 and spacings
+  g, h 8..14 (all 637 combinations), so a calibrated sensor IN (-2,4) (state changes T, T+10, T+20, seen by
+  the same observer) is exactly N's train.
+- But f131/c-*.txt / p.txt (sensor in (-2,4)) never settle: the design's own settle motion (TRp (2,4)
+  retracts at t1 and re-extends at t4 during placement) wakes the sensor, its taps move the left pullers
+  next to it, and the calibrated re-arm (T+20) hears them: an echo loop. Needs wool around the sensor
+  ((-2,3) and (-1,4) are the observers that must stay) or a different N watcher. cosearch (sculk + wool,
+  20 threads) running on it.
