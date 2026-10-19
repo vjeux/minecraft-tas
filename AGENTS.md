@@ -11,7 +11,8 @@ the track notebooks ([tracks/README.md](designs/piston-door-3x3/tracks/README.md
   with logic: the shell only types one command. When a tool is one flag short of the job, add
   the flag. Edit files with the editor tools, not sed/perl.
 - A new `mctas door` command goes in the door CLI crate of its area (`crates/door-*`: a variant
-  in its `DoorCmd`, an arm in its `run`); its work goes in piston-door, since the door crates are
+  in its `DoorCmd`, a line in its `run`, its `<Name>Args` and `cmd_<name>` in `src/cmd/<family>.rs`;
+  no function over 150 lines); its work goes in piston-door, since the door crates are
   compiled unoptimized for fast builds ([internals.md#build](docs/internals.md#build)).
 - **Never message anyone.** Report to whoever started you (your coordinator or vjeux).
 - Never push untested code. A commit exists only when `git log -1` shows it.

@@ -1,0 +1,21 @@
+# archived 2026-10-19T15:46Z from /tmp/clk-in/clk-rt--burnout-tr9.txt by mctas clock archive
+# CLOCK: clk-rt-burnout-tr9 period 220 gt, on 32/220, edges 8, warmup 0, family redstone_torch+redstone_wire+repeater, 9 blocks, 3x2x2, robust
+# BURNOUT clock, 9 blocks (clk-rt): the 9-block torch + repeater loop with a delay-1 repeater.
+# Inner loop period 8 (7 x 8 = 56 <= 60): the torch burns out at its 8th turn-off and relights
+# 160 gt later (the repeater still powers it at that turn-off): period 4 + 56 + 160 = 220.
+name: clk-rt-burnout-tr9
+origin: 0 0 -1
+port output: 1 1 0
+palette:
+  S minecraft:stone
+  A minecraft:stone
+  F minecraft:stone
+  T minecraft:redstone_wall_torch[facing=north,lit=true]
+  R minecraft:repeater[facing=west,delay=1,locked=false,powered=false]
+  w minecraft:redstone_wire
+layer 0:
+  .S.
+  .SS
+layer 1:
+  TRF
+  Aww

@@ -25,11 +25,20 @@ lives in `$MCTAS_HOME` (default `~/.cache/mctas`), never in this repository.
 profile (workspace `Cargo.toml`) keeps the edit-build loop short without slowing the binary:
 * **One crate per door area.** The `mctas door` commands live in `crates/door-{judge,search,mech,
   sat,redsim,vanilla,video}`, each with its own clap `DoorCmd` and its `run`;
-  `crates/mctas-cli/src/door.rs` flattens them into one command list. A new command goes in its
-  area's crate (a variant in `DoorCmd`, an arm in `run`); what several commands share
+  `crates/mctas-cli/src/door.rs` flattens them into one command list. What several commands share
   (`SearchArgs`, `load_design`) is in `crates/piston-door/src/cli.rs`. (They were one 61-command enum
   and one match in piston-door: clap's generated parser alone was one 785 KB function, and every
   build waited ~2.5 minutes for LLVM on it.)
+* **One function per command, one module per family.** A door crate's `src/lib.rs` holds only
+  `DoorCmd` (one variant per command, `Name(cmd::<family>::NameArgs)`, whose doc comment is the
+  command's help) and `run`, one dispatch line per variant. The command itself is in
+  `src/cmd/<family>.rs`: its arguments (`#[derive(clap::Args)] pub struct NameArgs`) and its body
+  (`pub fn cmd_name([version: &str, ]args: NameArgs) -> Result<()>`), which reaches piston-door's
+  modules as `crate::<module>` through lib.rs's `use piston_door::*`. A new command is a variant, a
+  line in `run`, and its `NameArgs` + `cmd_name` in the module of its family (a new family: a new
+  file, listed in `cmd/mod.rs`); a helper of one command stays next to it in its module. No function
+  in `crates/door-*` or `crates/mctas*` may exceed 150 lines (`crates/mctas-cli/tests/fn_length.rs`,
+  part of `cargo test`): split a long command into helpers, and put its real work in piston-door.
 * **The door crates are compiled unoptimized** (`opt-level = 0`): they parse arguments and call
   piston-door, mctas and redsim, which are optimized. Keep any heavy loop in a piston-door function:
   code in a door crate (and generic library code a door crate instantiates with its own closures)
@@ -113,9 +122,10 @@ order, echoing `id`. Errors: `{"id":..,"ok":false,"error":"..."}`. On startup th
 | `drop` | `sandbox` | destroys the level |
 | `set` | `sandbox`, `blocks: [[x,y,z,"state"],...]`, `mode: "raw"\|"update"\|<flags>` | `changed` |
 | `fill` | `sandbox`, `from`, `to`, `state`, `mode` | `changed` |
-| `get` | `sandbox`, `from`, `to`, `moving?` | `from`, `size`, `palette`, `flags`, `data` (base64 u16 LE, x fastest, then z, then y), `time`, `moving?` |
+| `get` | `sandbox`, `from`, `to`, `moving?`, `block_entities?` | `from`, `size`, `palette`, `flags`, `data` (base64 u16 LE, x fastest, then z, then y), `time`, `moving?`, `block_entities?` (every block entity in the box, one line `x y z <type> <SNBT>` each, block order, keys sorted) |
+| `bedata` | `sandbox`, `pos`, `nbt` (SNBT) | `changed`, `nbt`: merges into the block entity exactly like `data merge block` (old data merged with the tag, `BlockDataAccessor.setData` = loadWithComponents + setChanged, only when it changes); fails without a block entity |
 | `use` | `sandbox`, `pos`, `face?` | `result` (levers/buttons toggled directly; other blocks get a mock player's right click) |
-| `step` | `sandbox` or `sandboxes`, `ticks`, `until_idle?`, `record?: {from,to}` | `results: [{sandbox, ticked, time, idle?, palette/flags/frames?}]` |
+| `step` | `sandbox` or `sandboxes`, `ticks`, `until_idle?`, `record?: {from,to,block_entities?}` | `results: [{sandbox, ticked, time, idle?, palette/flags/frames?, be_palette/be_frames?}]` (`block_entities: true`: the box's block-entity dump after every tick, deduplicated: `be_frames[i]` indexes `be_palette`) |
 | `status` | `sandbox` | `time`, `block_ticks`, `fluid_ticks`, `block_events`, `moving_pistons`, `entities`, `idle` |
 | `entities` | `sandbox` | `entities: [{type, pos, uuid, motion, yaw, pitch, design, still, collides, on_ground, box, state}]` |
 | `summon` | `sandbox`, `entities: [{type, pos: [x,y,z] (decimals), nbt?}]` | `uuids` (a design's entities: deterministic UUIDs and entity randoms, tagged `mctas_design`; mobs refused) |

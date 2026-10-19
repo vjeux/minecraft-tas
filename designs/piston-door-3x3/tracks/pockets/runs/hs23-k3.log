@@ -1,0 +1,1222 @@
+===== hs23-0008-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0008-oc.ideal: 11 input cells off the plane ([(-3, 1), (-3, 2), (-1, -2), (1, -4), (1, -1), (-1, 4), (2, -2), (2, 4), (4, -1), (5, 2), (5, 1)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0008-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (-3,1) open  t0 off: window [+0, +24]
+  input (-3,2) open  t0 off: window [+0, +24]
+  input (-1,-2) open  t6 pulse 2 gt: window [-6, +24]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (4,-1) open  t30 pulse 2 gt: window [-3, +3]
+  input (5,2) open  t30 pulse 2 gt: window [-3, +3]
+  input (5,1) open  t30 pulse 2 gt: window [-3, +3]
+  input (-3,1) close t0 on: window [+0, +24]
+  input (-3,2) close t0 on: window [+0, +24]
+  input (-1,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (2,4) close t18 pulse 2 gt: window [-5, +24]
+  input (4,-1) close t18 pulse 2 gt: window [+0, +0]
+  input (5,2) close t18 pulse 2 gt: window [+0, +0]
+  input (5,1) close t18 pulse 2 gt: window [+0, +0]
+19 pocket cells in 7 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 42 swept cells
+  pocket 0: 4 cells [(-2, -3), (-2, -2), (-1, -3), (0, -3)]
+  pocket 1: 1 cells [(-2, 0)]
+  pocket 2: 2 cells [(-2, 3), (-2, 4)]
+  pocket 3: 1 cells [(-1, -1)]
+  pocket 4: 1 cells [(0, 4)]
+  pocket 5: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 6: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 4 cells, 317 subset/lever items, 709200 fillings to screen
+pocket 0: 828717 screened, 143499 keep the door working, 12.5 s; driven input sets: {(-1,-2)o6 (-1,-2)c6} x24 (best 2 blocks), {(-1,-2)c6} x24 (best 2 blocks), {(-1,-2)o6} x24 (best 2 blocks)
+pocket 1: 1 cells, 9 subset/lever items, 450 fillings to screen
+pocket 1: 607 screened, 113 keep the door working, 0.3 s; driven input sets: {(-3,1)o0 (-3,1)c0} x11 (best 2 blocks)
+pocket 2: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 2: 40506 screened, 1828 keep the door working, 2.5 s; driven input sets: {(-3,2)o0 (-3,2)c0} x6 (best 2 blocks)
+pocket 3: 1 cells, 7 subset/lever items, 350 fillings to screen
+pocket 3: 427 screened, 87 keep the door working, 0.3 s; driven input sets: {(-1,-2)o6 (-1,-2)c6} x10 (best 2 blocks)
+pocket 4: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 4: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 5: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+pocket 5: 1512725 screened, 345511 keep the door working, 19.8 s; driven input sets: {(4,-1)o30 (2,-2)c6 (4,-1)c18} x2 (best 3 blocks), {(4,-1)o30 (4,-1)c18} x24 (best 2 blocks), {(2,-2)c6} x24 (best 2 blocks)
+pocket 6: 4 cells, 317 subset/lever items, 704300 fillings to screen
+pocket 6: 918793 screened, 180808 keep the door working, 12.8 s; driven input sets: {(5,2)o30 (5,1)o30 (5,2)c18 (5,1)c18} x24 (best 2 blocks), {(2,4)o30 (2,4)c6 (2,4)c18} x24 (best 2 blocks), {(2,4)c6 (2,4)c18} x24 (best 2 blocks), {(5,1)o30 (5,1)c18} x24 (best 1 blocks), {(5,2)o30 (5,2)c18} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (2,-2)o30 (-1,4)c12
+combination 1: true partial, 10 inputs still assisted [-3,2 -1,-2 1,-4 1,-1 -1,4 2,-2 2,4 4,-1 5,2 5,1] (26 blocks)
+combination 20: true partial, 9 inputs still assisted [-3,2 -1,-2 1,-4 1,-1 -1,4 2,-2 2,4 4,-1 5,2] (27 blocks)
+7596 combinations verified, 0 finds, 53 s total
+===== hs23-0087-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0087-oc.ideal: 11 input cells off the plane ([(4, 0), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 3), (0, -2), (2, 4), (3, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0087-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,0) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,3) open  t18 pulse 2 gt: window [-5, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-12, +24]
+  input (3,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,0) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +2]
+  input (-1,3) close t12 pulse 2 gt: window [-2, +6]
+  input (2,4) close t18 pulse 2 gt: window [-6, +24]
+  input (3,-2) close t18 pulse 2 gt: window [-18, +24]
+19 pocket cells in 5 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+pocket 0: 1533369 screened, 326078 keep the door working, 18.0 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 31 subset/lever items, 33400 fillings to screen
+pocket 1: 49525 screened, 1833 keep the door working, 2.5 s; driven input sets: {(-3,2)o6 (-3,1)o6 (-3,2)c6 (-3,1)c6} x8 (best 3 blocks), {(-3,2)o6 (-3,2)c6} x24 (best 2 blocks)
+pocket 2: 1 cells, 7 subset/lever items, 350 fillings to screen
+pocket 2: 515 screened, 38 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 606 subset/lever items, 1394950 fillings to screen
+pocket 3: 1934868 screened, 320902 keep the door working, 20.8 s; driven input sets: {(3,-2)o30 (3,-2)c18} x24 (best 2 blocks), {(3,-2)o30} x24 (best 2 blocks), {(3,-2)c18} x24 (best 2 blocks)
+pocket 4: 4 cells, 317 subset/lever items, 704300 fillings to screen
+pocket 4: 896520 screened, 215495 keep the door working, 13.8 s; driven input sets: {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (1,-4)o6 (1,-1)o12 (-1,3)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (2,4)c6 (-1,3)c12 (2,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,3 0,-2 2,4 3,-2] (25 blocks)
+230 combinations verified, 0 finds, 55 s total
+===== hs23-0088-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0088-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 3), (2, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0088-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,3) open  t18 pulse 2 gt: window [-5, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +3]
+  input (-1,3) close t12 pulse 2 gt: window [-4, +5]
+  input (1,4) close t18 pulse 2 gt: window [-5, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+20 pocket cells in 5 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 40 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 969 subset/lever items, 2268150 fillings to screen
+  pocket 0: 2030860 screened (741 of 969 items started), 499353 keep the door working, 30 s
+pocket 0: 2701053 screened, 649301 keep the door working, 42.8 s; driven input sets: {(1,-4)o6 (1,-4)o24 (2,-2)o30 (2,-2)c6} x6 (best 3 blocks), {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(1,-4)o6} x2 (best 3 blocks), {(2,-2)c6} x4 (best 3 blocks)
+pocket 1: 2 cells, 31 subset/lever items, 33400 fillings to screen
+pocket 1: 49525 screened, 1833 keep the door working, 4.5 s; driven input sets: {(-3,2)o6 (-3,1)o6 (-3,2)c6 (-3,1)c6} x8 (best 3 blocks), {(-3,2)o6 (-3,2)c6} x24 (best 2 blocks)
+pocket 2: 1 cells, 7 subset/lever items, 350 fillings to screen
+pocket 2: 515 screened, 38 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 1912375 screened (580 of 958 items started), 344502 keep the door working, 30 s
+pocket 3: 3224611 screened, 651607 keep the door working, 53.6 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 4: 772002 screened, 211221 keep the door working, 23.0 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (1,-1)o12 (-1,3)o18 (1,-1)o18 (1,4)o30 (1,4)c6 (-1,3)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,3 2,-2 1,4 3,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-3,2 -3,1 1,-4 1,-1 -1,3 2,-2 1,4 3,4] (27 blocks)
+25103 combinations verified, 0 finds, 163 s total
+===== hs23-0095-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0095-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0095-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+19 pocket cells in 5 pockets; 37 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 6 cells, 779 subset/lever items, 1812750 fillings to screen
+  pocket 0: 2033338 screened (769 of 779 items started), 429892 keep the door working, 30 s
+pocket 0: 2088617 screened, 434438 keep the door working, 32.3 s; driven input sets: {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 3.3 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 2018195 screened (610 of 958 items started), 381174 keep the door working, 30 s
+pocket 3: 3224612 screened, 651607 keep the door working, 48.1 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 4: 771984 screened, 211249 keep the door working, 20.8 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 3,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-2,-1 -3,2 -3,1 1,-1 -1,4 2,-2 1,4 3,4] (28 blocks)
+2138 combinations verified, 0 finds, 108 s total
+===== hs23-0100-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0100-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0100-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+19 pocket cells in 5 pockets; 37 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+pocket 0: 1527016 screened, 327412 keep the door working, 29.5 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 4.0 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 1033 subset/lever items, 2445300 fillings to screen
+  pocket 3: 1806865 screened (565 of 1033 items started), 331078 keep the door working, 30 s
+pocket 3: 3392509 screened, 672138 keep the door working, 59.0 s; driven input sets: {(1,-4)o6} x4 (best 3 blocks), {(0,-2)c6} x1 (best 3 blocks)
+pocket 4: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 4: 771984 screened, 211249 keep the door working, 23.5 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 1,4 3,4] (25 blocks)
+3533 combinations verified, 0 finds, 120 s total
+===== hs23-0104-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0104-oc.ideal: 11 input cells off the plane ([(5, 1), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (2, 4), (2, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0104-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (5,1) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (2,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (2,4) close t18 pulse 2 gt: window [-5, +24]
+  input (2,-2) close t18 pulse 2 gt: window [-16, +24]
+20 pocket cells in 5 pockets; 40 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 7 cells [(2, -3), (3, -3), (3, -2), (4, -3), (4, -2), (4, -1), (4, 0)]
+  pocket 4: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+pocket 0: 1533546 screened, 325873 keep the door working, 28.5 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 3.8 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 7 cells, 1350 subset/lever items, 3213300 fillings to screen
+  pocket 3: 1919296 screened (662 of 1350 items started), 334555 keep the door working, 30 s
+  pocket 3: 3720494 screened (1290 of 1350 items started), 736106 keep the door working, 60 s
+pocket 3: 3945760 screened, 789649 keep the door working, 67.0 s; driven input sets: {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(1,-4)o6 (1,-4)o24} x1 (best 3 blocks), {(2,-2)o30 (2,-2)c18} x24 (best 2 blocks), {(2,-2)o30} x24 (best 3 blocks), {(5,1)o0} x2 (best 3 blocks), {(2,-2)c18} x24 (best 2 blocks)
+pocket 4: 4 cells, 317 subset/lever items, 704300 fillings to screen
+pocket 4: 896480 screened, 215507 keep the door working, 19.8 s; driven input sets: {(5,1)o0 (5,2)o0 (5,1)c0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(5,1)o0 (5,2)o0 (5,1)c0 (5,2)c0} x24 (best 2 blocks), {(5,2)o0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(5,1)o0 (5,2)o0 (2,4)c6 (2,4)c18} x2 (best 3 blocks), {(2,4)o30 (2,4)c6 (2,4)c18} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(2,4)c6 (2,4)c18} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (0,-2)o30 (-3,1)c6 (-1,4)c12
+combination 1: true partial, 10 inputs still assisted [5,2 -2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 2,4 2,-2] (26 blocks)
+combination 5501: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 2,4 2,-2] (25 blocks)
+65067 combinations verified, 0 finds, 147 s total
+===== hs23-0105-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0105-oc.ideal: 11 input cells off the plane ([(4, 0), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (2, 4), (2, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0105-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,0) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (2,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,0) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (2,4) close t18 pulse 2 gt: window [-5, +24]
+  input (2,-2) close t18 pulse 2 gt: window [-16, +24]
+19 pocket cells in 5 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+  pocket 0: 1533528 screened (553 of 553 items started), 325873 keep the door working, 30 s
+pocket 0: 1533546 screened, 325873 keep the door working, 30.3 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 3.3 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 1145 subset/lever items, 2722850 fillings to screen
+  pocket 3: 2063992 screened (655 of 1145 items started), 359380 keep the door working, 30 s
+pocket 3: 3641437 screened, 723185 keep the door working, 52.5 s; driven input sets: {(2,-2)o30 (2,-2)c18} x24 (best 2 blocks), {(2,-2)o30} x24 (best 2 blocks), {(2,-2)c18} x22 (best 3 blocks)
+pocket 4: 4 cells, 317 subset/lever items, 704300 fillings to screen
+pocket 4: 896512 screened, 215505 keep the door working, 16.5 s; driven input sets: {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(4,0)o0 (5,2)o0 (2,4)c6 (2,4)c18} x2 (best 3 blocks), {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0} x24 (best 2 blocks), {(5,2)o0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(2,4)o30 (2,4)c6 (2,4)c18} x24 (best 2 blocks), {(2,4)c6 (2,4)c18} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,1)c6 (-1,4)c12
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 2,4 2,-2] (25 blocks)
+82565 combinations verified, 0 finds, 146 s total
+===== hs23-0106-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0106-oc.ideal: 11 input cells off the plane ([(5, 1), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (2, 4), (2, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0106-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (5,1) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (2,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (2,4) close t18 pulse 2 gt: window [-5, +24]
+  input (2,-2) close t18 pulse 2 gt: window [-16, +24]
+20 pocket cells in 5 pockets; 40 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 7 cells [(2, -3), (3, -3), (3, -2), (4, -3), (4, -2), (4, -1), (4, 0)]
+  pocket 4: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+pocket 0: 1533546 screened, 325873 keep the door working, 28.0 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 3.3 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 7 cells, 1350 subset/lever items, 3213300 fillings to screen
+  pocket 3: 1925732 screened (665 of 1350 items started), 342422 keep the door working, 30 s
+  pocket 3: 3728781 screened (1293 of 1350 items started), 749020 keep the door working, 60 s
+pocket 3: 3939186 screened, 791760 keep the door working, 67.4 s; driven input sets: {(1,-4)o6 (1,-4)o24} x1 (best 3 blocks), {(2,-2)o30 (2,-2)c18} x24 (best 2 blocks), {(2,-2)c18} x24 (best 2 blocks), {(5,1)o0} x2 (best 3 blocks), {(2,-2)o30} x24 (best 3 blocks)
+pocket 4: 4 cells, 317 subset/lever items, 704300 fillings to screen
+pocket 4: 896480 screened, 215507 keep the door working, 24.0 s; driven input sets: {(5,1)o0 (5,2)o0 (5,1)c0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(5,1)o0 (5,2)o0 (5,1)c0 (5,2)c0} x24 (best 2 blocks), {(5,2)o0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(5,1)o0 (5,2)o0 (2,4)c6 (2,4)c18} x2 (best 3 blocks), {(2,4)o30 (2,4)c6 (2,4)c18} x24 (best 2 blocks), {(2,4)c6 (2,4)c18} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (0,-2)o30 (-3,1)c6 (-1,4)c12
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 2,4 2,-2] (25 blocks)
+15219 combinations verified, 0 finds, 140 s total
+===== hs23-0107-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0107-oc.ideal: 11 input cells off the plane ([(4, 0), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (1, 5), (3, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0107-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,0) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,5) open  t30 pulse 2 gt: window [-11, +24]
+  input (3,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,0) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,5) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (1,5) close t18 pulse 2 gt: window [-5, +24]
+  input (3,-2) close t18 pulse 2 gt: window [-18, +24]
+19 pocket cells in 5 pockets; 39 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 42 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 4 cells [(2, 4), (3, 4), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+  pocket 0: 1513511 screened (553 of 553 items started), 323835 keep the door working, 30 s
+pocket 0: 1533433 screened, 326078 keep the door working, 33.5 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 5.3 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 606 subset/lever items, 1394950 fillings to screen
+  pocket 3: 1858735 screened (596 of 606 items started), 304688 keep the door working, 30 s
+pocket 3: 1934846 screened, 320902 keep the door working, 35.8 s; driven input sets: {(3,-2)o30 (3,-2)c18} x24 (best 2 blocks), {(3,-2)o30} x24 (best 2 blocks), {(3,-2)c18} x24 (best 2 blocks)
+pocket 4: 4 cells, 334 subset/lever items, 739450 fillings to screen
+  pocket 4: 980607 screened (334 of 334 items started), 230481 keep the door working, 30 s
+pocket 4: 982551 screened, 230714 keep the door working, 33.3 s; driven input sets: {(1,5)o30 (1,5)c6 (1,5)c18} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(4,0)o0 (5,2)o0} x2 (best 3 blocks), {(1,5)c6 (1,5)c18} x10 (best 3 blocks), {(1,5)c6} x1 (best 3 blocks), {(1,5)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (4,0)c0 (-3,1)c6 (-1,4)c12
+combination 1: true partial, 11 inputs still assisted [4,0 5,2 -2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 1,5 3,-2] (28 blocks)
+combination 27: true partial, 10 inputs still assisted [4,0 -2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 1,5 3,-2] (26 blocks)
+4247 combinations verified, 0 finds, 111 s total
+===== hs23-0108-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0108-oc.ideal: 11 input cells off the plane ([(4, 0), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (1, 5), (3, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0108-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,0) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,5) open  t30 pulse 2 gt: window [-11, +24]
+  input (3,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,0) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,5) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (1,5) close t18 pulse 2 gt: window [-5, +24]
+  input (3,-2) close t18 pulse 2 gt: window [-18, +24]
+19 pocket cells in 6 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 42 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 1 cells [(2, 4)]
+  pocket 5: 3 cells [(3, 3), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+  pocket 0: 1504692 screened (553 of 553 items started), 322343 keep the door working, 30 s
+pocket 0: 1533433 screened, 326078 keep the door working, 34.8 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 3.8 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 606 subset/lever items, 1394950 fillings to screen
+  pocket 3: 1755722 screened (557 of 606 items started), 272830 keep the door working, 30 s
+pocket 3: 1934846 screened, 320902 keep the door working, 37.1 s; driven input sets: {(3,-2)o30 (3,-2)c18} x24 (best 2 blocks), {(3,-2)c18} x24 (best 2 blocks), {(3,-2)o30} x24 (best 2 blocks)
+pocket 4: 1 cells, 9 subset/lever items, 450 fillings to screen
+pocket 4: 573 screened, 119 keep the door working, 0.3 s; driven input sets: {(1,5)c6 (1,5)c18} x2 (best 2 blocks), {(1,5)o30} x2 (best 2 blocks)
+pocket 5: 3 cells, 122 subset/lever items, 233950 fillings to screen
+pocket 5: 305778 screened, 65634 keep the door working, 10.0 s; driven input sets: {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(4,0)o0 (5,2)o0} x2 (best 3 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,1)c6 (-1,4)c12
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 1,5 3,-2] (25 blocks)
+195 combinations verified, 0 finds, 86 s total
+===== hs23-0109-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0109-oc.ideal: 11 input cells off the plane ([(4, 0), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (2, 4), (3, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0109-oc.txt: 25 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,0) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (3,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,0) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (2,4) close t18 pulse 2 gt: window [-5, +24]
+  input (3,-2) close t18 pulse 2 gt: window [-18, +24]
+19 pocket cells in 5 pockets; 38 lever candidates in the plane, 3 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+  pocket 0: 1533264 screened (553 of 553 items started), 326000 keep the door working, 30 s
+pocket 0: 1533433 screened, 326078 keep the door working, 30.6 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 4.0 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 606 subset/lever items, 1394950 fillings to screen
+  pocket 3: 1933456 screened (606 of 606 items started), 320532 keep the door working, 30 s
+pocket 3: 1934846 screened, 320902 keep the door working, 31.8 s; driven input sets: {(3,-2)o30 (3,-2)c18} x24 (best 2 blocks), {(3,-2)o30} x24 (best 2 blocks), {(3,-2)c18} x24 (best 2 blocks)
+pocket 4: 4 cells, 317 subset/lever items, 704300 fillings to screen
+pocket 4: 896520 screened, 215505 keep the door working, 21.8 s; driven input sets: {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(4,0)o0 (5,2)o0 (2,4)c6 (2,4)c18} x2 (best 3 blocks), {(5,2)o0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30 (2,4)c6 (2,4)c18} x24 (best 2 blocks), {(2,4)c6 (2,4)c18} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,1)c6 (-1,4)c12
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 2,4 3,-2] (24 blocks)
+3819 combinations verified, 0 finds, 92 s total
+===== hs23-0110-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0110-oc.ideal: 11 input cells off the plane ([(4, 0), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (2, 4), (3, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0110-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,0) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (3,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,0) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (2,4) close t18 pulse 2 gt: window [-5, +24]
+  input (3,-2) close t18 pulse 2 gt: window [-18, +24]
+18 pocket cells in 5 pockets; 36 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 42 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 3 cells [(3, 3), (3, 4), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+  pocket 0: 1533028 screened (553 of 553 items started), 326020 keep the door working, 30 s
+pocket 0: 1533433 screened, 326078 keep the door working, 31.3 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 4.0 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 606 subset/lever items, 1394950 fillings to screen
+  pocket 3: 1931456 screened (606 of 606 items started), 320167 keep the door working, 30 s
+pocket 3: 1934846 screened, 320902 keep the door working, 32.0 s; driven input sets: {(3,-2)o30 (3,-2)c18} x24 (best 2 blocks), {(3,-2)o30} x24 (best 2 blocks), {(3,-2)c18} x24 (best 2 blocks)
+pocket 4: 3 cells, 121 subset/lever items, 233900 fillings to screen
+pocket 4: 305413 screened, 65476 keep the door working, 8.5 s; driven input sets: {(5,2)o0 (2,4)o30 (5,2)c0 (2,4)c6 (2,4)c18} x4 (best 3 blocks), {(5,2)o0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(2,4)o30 (2,4)c6 (2,4)c18} x16 (best 2 blocks), {(2,4)c6 (2,4)c18} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (4,0)o0 (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (4,0)c0 (-3,1)c6 (-1,4)c12
+combination 1: true partial, 10 inputs still assisted [4,0 -2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 2,4 3,-2] (26 blocks)
+1075 combinations verified, 0 finds, 77 s total
+===== hs23-0111-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0111-oc.ideal: 11 input cells off the plane ([(5, 0), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0111-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (5,0) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (5,0) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+20 pocket cells in 5 pockets; 39 lever candidates in the plane, 3 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 969 subset/lever items, 2268150 fillings to screen
+  pocket 0: 1846002 screened (683 of 969 items started), 458022 keep the door working, 30 s
+pocket 0: 2701122 screened, 649296 keep the door working, 50.3 s; driven input sets: {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(2,-2)c6} x4 (best 3 blocks), {(1,-4)o6} x2 (best 3 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 3.8 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 880 subset/lever items, 2065250 fillings to screen
+  pocket 3: 1957064 screened (686 of 880 items started), 364817 keep the door working, 30 s
+pocket 3: 2553681 screened, 489335 keep the door working, 43.5 s; driven input sets: {(5,0)o0 (5,0)c0} x24 (best 3 blocks), {(2,-2)c6} x24 (best 2 blocks), {(5,0)o0} x2 (best 3 blocks)
+pocket 4: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 4: 771902 screened, 211178 keep the door working, 22.3 s; driven input sets: {(5,0)o0 (5,1)o0 (5,0)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,0)o0 (5,1)o0 (5,0)c0 (5,1)c0} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(5,0)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 3,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-2,-1 -3,2 -3,1 1,-1 -1,4 2,-2 1,4 3,4] (28 blocks)
+2992 combinations verified, 0 finds, 123 s total
+===== hs23-0112-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0112-oc.ideal: 11 input cells off the plane ([(5, 0), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0112-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (5,0) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (5,0) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+20 pocket cells in 5 pockets; 39 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 7 cells [(2, -3), (2, -2), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+  pocket 0: 1467814 screened (544 of 553 items started), 317207 keep the door working, 30 s
+pocket 0: 1527016 screened, 327412 keep the door working, 37.0 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 4.3 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 7 cells, 1859 subset/lever items, 4480900 fillings to screen
+  pocket 3: 1411401 screened (504 of 1859 items started), 346029 keep the door working, 30 s
+  pocket 3: 2940415 screened (1028 of 1859 items started), 701088 keep the door working, 60 s
+  pocket 3: 4487660 screened (1569 of 1859 items started), 1105696 keep the door working, 90 s
+pocket 3: 5312722 screened, 1353320 keep the door working, 113.4 s; driven input sets: {(5,0)o0 (5,0)c0} x24 (best 2 blocks), {(0,-2)c6} x5 (best 3 blocks), {(1,-4)o6} x3 (best 3 blocks)
+pocket 4: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 4: 771902 screened, 211178 keep the door working, 26.3 s; driven input sets: {(5,0)o0 (5,1)o0 (5,0)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,0)o0 (5,1)o0 (5,0)c0 (5,1)c0} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(5,0)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 10 inputs still assisted [5,1 -2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 1,4 3,4] (26 blocks)
+combination 141: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 1,4 3,4] (25 blocks)
+1493 combinations verified, 0 finds, 183 s total
+===== hs23-0113-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0113-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (2, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0113-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (2,4) close t18 pulse 2 gt: window [-16, +24]
+20 pocket cells in 5 pockets; 39 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 40 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 4), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 969 subset/lever items, 2268150 fillings to screen
+  pocket 0: 1794767 screened (670 of 969 items started), 447175 keep the door working, 30 s
+pocket 0: 2701107 screened, 649321 keep the door working, 48.8 s; driven input sets: {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(2,-2)c6} x4 (best 3 blocks), {(1,-4)o6} x2 (best 3 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 4.0 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 2144761 screened (643 of 958 items started), 407091 keep the door working, 30 s
+pocket 3: 3224581 screened, 651664 keep the door working, 48.0 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 4 cells, 334 subset/lever items, 739450 fillings to screen
+pocket 4: 969035 screened, 224889 keep the door working, 23.8 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(2,4)o30 (2,4)c18} x24 (best 3 blocks), {(5,1)o0} x2 (best 3 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 2,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-2,-1 -3,2 -3,1 1,-1 -1,4 2,-2 1,4 2,4] (28 blocks)
+1007 combinations verified, 0 finds, 126 s total
+===== hs23-0114-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0114-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (2, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0114-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (2,4) close t18 pulse 2 gt: window [-16, +24]
+20 pocket cells in 5 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 40 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 969 subset/lever items, 2268150 fillings to screen
+  pocket 0: 1977396 screened (727 of 969 items started), 484699 keep the door working, 30 s
+pocket 0: 2701107 screened, 649321 keep the door working, 46.8 s; driven input sets: {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(2,-2)c6} x4 (best 3 blocks), {(1,-4)o6} x2 (best 3 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 3.0 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 2064338 screened (620 of 958 items started), 395333 keep the door working, 30 s
+pocket 3: 3224581 screened, 651664 keep the door working, 46.3 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 4 cells, 331 subset/lever items, 731950 fillings to screen
+pocket 4: 934536 screened, 286378 keep the door working, 23.0 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0} x2 (best 3 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (2,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18 (2,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 2,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-2,-1 -3,2 -3,1 1,-1 -1,4 2,-2 1,4 2,4] (28 blocks)
+605 combinations verified, 0 finds, 120 s total
+===== hs23-0115-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0115-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (2, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0115-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (2,4) close t18 pulse 2 gt: window [-16, +24]
+20 pocket cells in 5 pockets; 39 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 40 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 4), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 969 subset/lever items, 2268150 fillings to screen
+  pocket 0: 1945030 screened (716 of 969 items started), 473268 keep the door working, 30 s
+pocket 0: 2701107 screened, 649321 keep the door working, 46.0 s; driven input sets: {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(1,-4)o6} x2 (best 3 blocks), {(2,-2)c6} x4 (best 3 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 3.5 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 2188784 screened (658 of 958 items started), 410866 keep the door working, 30 s
+pocket 3: 3224581 screened, 651664 keep the door working, 45.6 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 4 cells, 334 subset/lever items, 739450 fillings to screen
+pocket 4: 962120 screened, 211578 keep the door working, 22.0 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(2,4)o30 (2,4)c18} x24 (best 2 blocks), {(5,1)o0} x2 (best 3 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 2,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-2,-1 -3,2 -3,1 1,-1 -1,4 2,-2 1,4 2,4] (28 blocks)
+539 combinations verified, 0 finds, 118 s total
+===== hs23-0116-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0116-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0116-oc.txt: 25 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+20 pocket cells in 5 pockets; 38 lever candidates in the plane, 3 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 40 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 969 subset/lever items, 2268150 fillings to screen
+  pocket 0: 2022503 screened (741 of 969 items started), 493510 keep the door working, 30 s
+pocket 0: 2701122 screened, 649296 keep the door working, 42.8 s; driven input sets: {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(1,-4)o6} x2 (best 3 blocks), {(2,-2)c6} x4 (best 3 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 2.5 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 3113893 screened (921 of 958 items started), 627248 keep the door working, 30 s
+pocket 3: 3224632 screened, 651607 keep the door working, 33.0 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 4: 771984 screened, 211249 keep the door working, 13.8 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 3,4] (24 blocks)
+combination 2: true partial, 8 inputs still assisted [-3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 3,4] (26 blocks)
+combination 7: true partial, 7 inputs still assisted [-3,2 -3,1 1,-1 -1,4 2,-2 1,4 3,4] (29 blocks)
+5667 combinations verified, 0 finds, 95 s total
+===== hs23-0117-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0117-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (2, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0117-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (2,4) close t18 pulse 2 gt: window [-16, +24]
+20 pocket cells in 6 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 40 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 3 cells [(3, 3), (3, 4), (4, 4)]
+  pocket 5: 1 cells [(4, 2)]
+pocket 0: 7 cells, 969 subset/lever items, 2268150 fillings to screen
+  pocket 0: 2360929 screened (847 of 969 items started), 582846 keep the door working, 30 s
+pocket 0: 2701107 screened, 649321 keep the door working, 36.5 s; driven input sets: {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(2,-2)c6} x4 (best 3 blocks), {(1,-4)o6} x2 (best 3 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 2.3 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 2458047 screened (746 of 958 items started), 474197 keep the door working, 30 s
+pocket 3: 3224581 screened, 651664 keep the door working, 45.3 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 3 cells, 122 subset/lever items, 233950 fillings to screen
+pocket 4: 296057 screened, 92955 keep the door working, 11.0 s; driven input sets: {(2,4)o30 (2,4)c18} x24 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks)
+pocket 5: 1 cells, 9 subset/lever items, 450 fillings to screen
+pocket 5: 645 screened, 71 keep the door working, 0.3 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x10 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 2,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-2,-1 -3,2 -3,1 1,-1 -1,4 2,-2 1,4 2,4] (28 blocks)
+520 combinations verified, 0 finds, 96 s total
+===== hs23-0143-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0143-oc.ideal: 11 input cells off the plane ([(4, 0), (5, 2), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 3), (0, -2), (2, 4), (3, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0143-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.1 s):
+  input (4,0) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,3) open  t18 pulse 2 gt: window [-5, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-12, +24]
+  input (3,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,0) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +2]
+  input (-1,3) close t12 pulse 2 gt: window [-2, +6]
+  input (2,4) close t18 pulse 2 gt: window [-6, +24]
+  input (3,-2) close t18 pulse 2 gt: window [-18, +24]
+19 pocket cells in 4 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 3 cells [(-2, 4), (-1, 4), (0, 4)]
+  pocket 2: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 3: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 6 cells, 553 subset/lever items, 1260000 fillings to screen
+pocket 0: 1533433 screened, 326078 keep the door working, 20.8 s; driven input sets: {(-2,-1)o6 (-2,-1)c6 (0,-2)c6} x6 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 3 cells, 118 subset/lever items, 228850 fillings to screen
+pocket 1: 309574 screened, 36016 keep the door working, 4.3 s; driven input sets: none
+pocket 2: 6 cells, 606 subset/lever items, 1394950 fillings to screen
+pocket 2: 1934868 screened, 320902 keep the door working, 21.0 s; driven input sets: {(3,-2)o30 (3,-2)c18} x24 (best 2 blocks), {(3,-2)c18} x24 (best 2 blocks), {(3,-2)o30} x24 (best 2 blocks)
+pocket 3: 4 cells, 317 subset/lever items, 704300 fillings to screen
+pocket 3: 896520 screened, 215495 keep the door working, 11.5 s; driven input sets: {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,2)o6 (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,3)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,2)c6 (-3,1)c6 (2,4)c6 (-1,3)c12 (2,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,3 0,-2 2,4 3,-2] (25 blocks)
+205 combinations verified, 0 finds, 58 s total
+===== hs23-0144-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0144-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-2, -1), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 3), (2, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0144-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-2,-1) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,3) open  t18 pulse 2 gt: window [-5, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-2,-1) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +3]
+  input (-1,3) close t12 pulse 2 gt: window [-4, +5]
+  input (1,4) close t18 pulse 2 gt: window [-5, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+20 pocket cells in 4 pockets; 38 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 40 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 3 cells [(-2, 4), (-1, 4), (0, 4)]
+  pocket 2: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 3: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 969 subset/lever items, 2268150 fillings to screen
+  pocket 0: 2644106 screened (962 of 969 items started), 640949 keep the door working, 30 s
+pocket 0: 2701123 screened, 649301 keep the door working, 32.8 s; driven input sets: {(1,-4)o6 (1,-4)o24 (2,-2)o30 (2,-2)c6} x6 (best 3 blocks), {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(-2,-1)o6 (-2,-1)c6} x24 (best 2 blocks), {(2,-2)c6} x4 (best 3 blocks), {(1,-4)o6} x2 (best 3 blocks)
+pocket 1: 3 cells, 118 subset/lever items, 228850 fillings to screen
+pocket 1: 309673 screened, 36009 keep the door working, 4.8 s; driven input sets: none
+pocket 2: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 2: 3042545 screened (912 of 958 items started), 604637 keep the door working, 30 s
+pocket 2: 3224611 screened, 651607 keep the door working, 33.8 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 3: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 3: 772002 screened, 211221 keep the door working, 13.5 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks)
+plan groups no filling drives: (-3,2)o6 (-3,1)o6 (1,-1)o12 (-1,3)o18 (1,-1)o18 (1,4)o30 (-3,2)c6 (-3,1)c6 (1,4)c6 (-1,3)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-2,-1 -3,2 -3,1 1,-4 1,-1 -1,3 2,-2 1,4 3,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-2,-1 -3,2 -3,1 1,-1 -1,3 2,-2 1,4 3,4] (28 blocks)
+1935 combinations verified, 0 finds, 86 s total
+===== hs23-0175-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0175-oc.ideal: 11 input cells off the plane ([(4, 0), (5, 2), (-3, 0), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (0, -2), (2, 4), (3, -2)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0175-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,0) open  t0 off: window [+0, +24]
+  input (5,2) open  t0 off: window [+0, +24]
+  input (-3,0) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +10]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (0,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (2,4) open  t30 pulse 2 gt: window [-11, +24]
+  input (3,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,0) close t0 on: window [+0, +24]
+  input (5,2) close t0 on: window [+0, +24]
+  input (-3,0) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (0,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (2,4) close t6 pulse 2 gt: window [-6, +3]
+  input (-1,4) close t12 pulse 2 gt: window [-3, +5]
+  input (2,4) close t18 pulse 2 gt: window [-5, +24]
+  input (3,-2) close t18 pulse 2 gt: window [-18, +24]
+19 pocket cells in 5 pockets; 39 lever candidates in the plane, 3 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 42 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-2, -1), (-1, -3), (-1, -2), (0, -3)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -1), (4, -3), (4, -2), (4, -1)]
+  pocket 4: 4 cells [(3, 3), (3, 4), (4, 3), (4, 4)]
+pocket 0: 6 cells, 880 subset/lever items, 2065250 fillings to screen
+pocket 0: 2429121 screened, 484490 keep the door working, 25.0 s; driven input sets: {(-3,0)o6 (-3,0)c6} x24 (best 2 blocks), {(0,-2)c6} x24 (best 2 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 2.0 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 606 subset/lever items, 1394950 fillings to screen
+pocket 3: 1934846 screened, 320902 keep the door working, 20.0 s; driven input sets: {(3,-2)o30 (3,-2)c18} x24 (best 2 blocks), {(3,-2)c18} x24 (best 2 blocks), {(3,-2)o30} x24 (best 2 blocks)
+pocket 4: 4 cells, 317 subset/lever items, 704300 fillings to screen
+pocket 4: 896520 screened, 215505 keep the door working, 11.5 s; driven input sets: {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(5,2)o0 (5,2)c0 (2,4)c6 (2,4)c18} x24 (best 3 blocks), {(4,0)o0 (5,2)o0 (2,4)c6 (2,4)c18} x2 (best 3 blocks), {(4,0)o0 (5,2)o0 (4,0)c0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30 (2,4)c6 (2,4)c18} x24 (best 2 blocks), {(2,4)c6 (2,4)c18} x24 (best 2 blocks), {(5,2)o0 (5,2)c0} x24 (best 2 blocks), {(2,4)o30} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,1)c6 (-1,4)c12
+combination 1: true partial, 9 inputs still assisted [-3,0 -3,2 -3,1 1,-4 1,-1 -1,4 0,-2 2,4 3,-2] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-3,2 -3,1 1,-4 1,-1 -1,4 0,-2 2,4 3,-2] (27 blocks)
+48279 combinations verified, 0 finds, 72 s total
+===== hs23-0176-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0176-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-3, 0), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0176-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-3,0) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-3,0) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+20 pocket cells in 5 pockets; 39 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-2, -1), (-1, -3), (-1, -2), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 1354 subset/lever items, 3218400 fillings to screen
+  pocket 0: 2905074 screened (1062 of 1354 items started), 633341 keep the door working, 30 s
+pocket 0: 3755499 screened, 813770 keep the door working, 40.8 s; driven input sets: {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(-3,0)o6 (-3,0)c6} x24 (best 2 blocks), {(1,-4)o6} x3 (best 3 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2044 keep the door working, 2.3 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 3099857 screened (917 of 958 items started), 623221 keep the door working, 30 s
+pocket 3: 3224632 screened, 651607 keep the door working, 32.8 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 4: 771984 screened, 211249 keep the door working, 13.0 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-3,0 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 3,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 3,4] (27 blocks)
+combination 3: true partial, 7 inputs still assisted [-3,2 -3,1 1,-1 -1,4 2,-2 1,4 3,4] (30 blocks)
+16849 combinations verified, 0 finds, 98 s total
+===== hs23-0211-oc: box -2,-3:4,4
+assist designs/piston-door-3x3/tracks/mechspace/mech/hs23-0211-oc.ideal: 11 input cells off the plane ([(4, -1), (5, 1), (-3, 0), (-3, 2), (-3, 1), (1, -4), (1, -1), (-1, 4), (2, -2), (1, 4), (3, 4)]), 24 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/mechspace/mech/hs23-0211-oc.txt: 26 blocks in the box, screen 8/79
+seed screen 79/79 with 11 inputs assisted
+windows (23 groups, 0.0 s):
+  input (4,-1) open  t0 off: window [+0, +24]
+  input (5,1) open  t0 off: window [+0, +24]
+  input (-3,0) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,2) open  t6 pulse 2 gt: window [-3, +3]
+  input (-3,1) open  t6 pulse 2 gt: window [-3, +3]
+  input (1,-4) open  t6 pulse 2 gt: window [-6, +4]
+  input (1,-1) open  t12 pulse 2 gt: window [-4, +4]
+  input (-1,4) open  t18 pulse 2 gt: window [-6, +9]
+  input (1,-1) open  t18 pulse 2 gt: window [-4, +4]
+  input (1,-4) open  t24 pulse 2 gt: window [-4, +2]
+  input (2,-2) open  t30 pulse 2 gt: window [-2, +24]
+  input (1,4) open  t30 pulse 2 gt: window [-10, +24]
+  input (3,4) open  t30 pulse 2 gt: window [-24, +24]
+  input (4,-1) close t0 on: window [+0, +24]
+  input (5,1) close t0 on: window [+0, +24]
+  input (-3,0) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,2) close t6 pulse 2 gt: window [+0, +0]
+  input (-3,1) close t6 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t6 pulse 2 gt: window [-6, +24]
+  input (1,4) close t6 pulse 2 gt: window [-4, +4]
+  input (-1,4) close t12 pulse 2 gt: window [-5, +4]
+  input (1,4) close t18 pulse 2 gt: window [-4, +24]
+  input (3,4) close t18 pulse 2 gt: window [-18, +24]
+20 pocket cells in 5 pockets; 39 lever candidates in the plane, 4 static front-face supports (+ the fillings' own blocks), polarity [false, true]; 41 swept cells
+  pocket 0: 7 cells [(-2, -3), (-2, -2), (-2, -1), (-1, -3), (-1, -1), (0, -3), (0, -2)]
+  pocket 1: 2 cells [(-2, 3), (-2, 4)]
+  pocket 2: 1 cells [(0, 4)]
+  pocket 3: 6 cells [(2, -3), (3, -3), (3, -2), (3, -1), (4, -3), (4, -2)]
+  pocket 4: 4 cells [(3, 3), (4, 2), (4, 3), (4, 4)]
+pocket 0: 7 cells, 1859 subset/lever items, 4480900 fillings to screen
+  pocket 0: 2460024 screened (915 of 1859 items started), 672516 keep the door working, 30 s
+  pocket 0: 5039549 screened (1847 of 1859 items started), 1252900 keep the door working, 60 s
+pocket 0: 5114329 screened, 1265579 keep the door working, 62.8 s; driven input sets: {(-3,0)o6 (-3,0)c6} x24 (best 2 blocks), {(1,-4)o6 (1,-4)o24} x3 (best 3 blocks), {(2,-2)c6} x6 (best 3 blocks), {(1,-4)o6} x3 (best 3 blocks), {(-3,0)o6} x1 (best 3 blocks), {(1,-1)o12} x13 (best 3 blocks)
+pocket 1: 2 cells, 26 subset/lever items, 28250 fillings to screen
+pocket 1: 40305 screened, 2043 keep the door working, 2.3 s; driven input sets: {(-3,2)o6 (-3,2)c6} x11 (best 2 blocks)
+pocket 2: 1 cells, 5 subset/lever items, 250 fillings to screen
+pocket 2: 346 screened, 29 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 6 cells, 958 subset/lever items, 2270050 fillings to screen
+  pocket 3: 2839141 screened (848 of 958 items started), 566327 keep the door working, 30 s
+pocket 3: 3224632 screened, 651607 keep the door working, 37.8 s; driven input sets: {(2,-2)c6} x24 (best 2 blocks)
+pocket 4: 4 cells, 263 subset/lever items, 574200 fillings to screen
+pocket 4: 771984 screened, 211249 keep the door working, 12.5 s; driven input sets: {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(5,1)o0 (3,4)o30 (5,1)c0 (3,4)c18} x12 (best 3 blocks), {(4,-1)o0 (5,1)o0 (4,-1)c0 (5,1)c0} x24 (best 2 blocks), {(4,-1)o0 (5,1)o0 (3,4)c18} x2 (best 3 blocks), {(5,1)o0 (5,1)c0 (3,4)c18} x24 (best 2 blocks), {(3,4)o30 (3,4)c18} x10 (best 2 blocks), {(5,1)o0 (5,1)c0} x24 (best 2 blocks), {(3,4)o30} x24 (best 2 blocks), {(3,4)c18} x24 (best 2 blocks)
+plan groups no filling drives: (-3,1)o6 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18
+combination 1: true partial, 9 inputs still assisted [-3,0 -3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 3,4] (25 blocks)
+combination 2: true partial, 8 inputs still assisted [-3,2 -3,1 1,-4 1,-1 -1,4 2,-2 1,4 3,4] (27 blocks)
+combination 3: true partial, 7 inputs still assisted [-3,2 -3,1 1,-1 -1,4 2,-2 1,4 3,4] (30 blocks)
+63571 combinations verified, 0 finds, 147 s total
+
+batch summary (24 seeds):
+  hs23-0008-oc [-2,-3:4,4]: 23 groups, 7 undriven ((1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (2,-2)o30 (-1,4)c12), best partial 9 inputs left, 0 finds, 53 s
+  hs23-0087-oc [-2,-3:4,4]: 23 groups, 9 undriven ((1,-4)o6 (1,-1)o12 (-1,3)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (2,4)c6 (-1,3)c12 (2,4)c18), best partial 9 inputs left, 0 finds, 55 s
+  hs23-0088-oc [-2,-3:4,4]: 23 groups, 7 undriven ((1,-1)o12 (-1,3)o18 (1,-1)o18 (1,4)o30 (1,4)c6 (-1,3)c12 (1,4)c18), best partial 8 inputs left, 0 finds, 163 s
+  hs23-0095-oc [-2,-3:4,4]: 23 groups, 10 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 8 inputs left, 0 finds, 108 s
+  hs23-0100-oc [-2,-3:4,4]: 23 groups, 11 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 9 inputs left, 0 finds, 120 s
+  hs23-0104-oc [-2,-3:4,4]: 23 groups, 7 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (0,-2)o30 (-3,1)c6 (-1,4)c12), best partial 9 inputs left, 0 finds, 147 s
+  hs23-0105-oc [-2,-3:4,4]: 23 groups, 9 undriven ((-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,1)c6 (-1,4)c12), best partial 9 inputs left, 0 finds, 146 s
+  hs23-0106-oc [-2,-3:4,4]: 23 groups, 7 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (0,-2)o30 (-3,1)c6 (-1,4)c12), best partial 9 inputs left, 0 finds, 140 s
+  hs23-0107-oc [-2,-3:4,4]: 23 groups, 10 undriven ((-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (4,0)c0 (-3,1)c6 (-1,4)c12), best partial 10 inputs left, 0 finds, 111 s
+  hs23-0108-oc [-2,-3:4,4]: 23 groups, 9 undriven ((-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,1)c6 (-1,4)c12), best partial 9 inputs left, 0 finds, 86 s
+  hs23-0109-oc [-2,-3:4,4]: 23 groups, 9 undriven ((-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,1)c6 (-1,4)c12), best partial 9 inputs left, 0 finds, 92 s
+  hs23-0110-oc [-2,-3:4,4]: 23 groups, 11 undriven ((4,0)o0 (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (4,0)c0 (-3,1)c6 (-1,4)c12), best partial 10 inputs left, 0 finds, 77 s
+  hs23-0111-oc [-2,-3:4,4]: 23 groups, 10 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 8 inputs left, 0 finds, 123 s
+  hs23-0112-oc [-2,-3:4,4]: 23 groups, 11 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 9 inputs left, 0 finds, 183 s
+  hs23-0113-oc [-2,-3:4,4]: 23 groups, 10 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 8 inputs left, 0 finds, 126 s
+  hs23-0114-oc [-2,-3:4,4]: 23 groups, 12 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (2,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18 (2,4)c18), best partial 8 inputs left, 0 finds, 120 s
+  hs23-0115-oc [-2,-3:4,4]: 23 groups, 10 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 8 inputs left, 0 finds, 118 s
+  hs23-0116-oc [-2,-3:4,4]: 23 groups, 10 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 7 inputs left, 0 finds, 95 s
+  hs23-0117-oc [-2,-3:4,4]: 23 groups, 10 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 8 inputs left, 0 finds, 96 s
+  hs23-0143-oc [-2,-3:4,4]: 23 groups, 13 undriven ((-3,2)o6 (-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,3)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,2)c6 (-3,1)c6 (2,4)c6 (-1,3)c12 (2,4)c18), best partial 9 inputs left, 0 finds, 58 s
+  hs23-0144-oc [-2,-3:4,4]: 23 groups, 11 undriven ((-3,2)o6 (-3,1)o6 (1,-1)o12 (-1,3)o18 (1,-1)o18 (1,4)o30 (-3,2)c6 (-3,1)c6 (1,4)c6 (-1,3)c12 (1,4)c18), best partial 8 inputs left, 0 finds, 86 s
+  hs23-0175-oc [-2,-3:4,4]: 23 groups, 9 undriven ((-3,1)o6 (1,-4)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (1,-4)o24 (0,-2)o30 (-3,1)c6 (-1,4)c12), best partial 8 inputs left, 0 finds, 72 s
+  hs23-0176-oc [-2,-3:4,4]: 23 groups, 10 undriven ((-3,1)o6 (1,-1)o12 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 7 inputs left, 0 finds, 98 s
+  hs23-0211-oc [-2,-3:4,4]: 23 groups, 9 undriven ((-3,1)o6 (-1,4)o18 (1,-1)o18 (2,-2)o30 (1,4)o30 (-3,1)c6 (1,4)c6 (-1,4)c12 (1,4)c18), best partial 7 inputs left, 0 finds, 147 s

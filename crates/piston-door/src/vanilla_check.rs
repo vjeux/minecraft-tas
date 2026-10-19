@@ -719,7 +719,7 @@ pub fn rest_state(w: &mut Worker, d: &Design) -> Result<Option<Design>> {
         Ok((settle.idle == Some(true) && (allow_drops || entities == 0)).then_some(r))
     };
     let Some(r) = once(w, d, true)? else { return Ok(None) };
-    let mut out = Design { name: d.name.clone(), meta: d.meta.clone(), ports: d.ports.clone(), blocks: Default::default(), entities: d.entities.clone() };
+    let mut out = Design { name: d.name.clone(), meta: d.meta.clone(), ports: d.ports.clone(), blocks: Default::default(), entities: d.entities.clone(), block_entities: d.block_entities.clone() };
     for (p, s) in r.blocks() {
         if s.starts_with("minecraft:moving_piston") {
             return Ok(None);

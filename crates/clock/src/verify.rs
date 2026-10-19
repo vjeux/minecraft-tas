@@ -11,6 +11,7 @@ use crate::sim::{Output, Verdict};
 use crate::wave::{self, CellWave, Interner, PeriodAnalysis};
 use crate::{Action, Clock, Kick, Placement, Pos};
 use anyhow::{Context, Result, anyhow};
+use std::collections::HashMap;
 use mctas::sim::{PlaceMode, Pool, Region, SandboxOptions, Worker, WorkerConfig};
 
 /// Knobs of [`verify`].
@@ -122,8 +123,10 @@ pub fn rotated(w: &mut Worker, c: &Clock, turns: u8) -> Result<Clock> {
     let mut d = c.design.clone();
     d.blocks = c.design.blocks.keys().zip(turned.iter()).map(|(p, s)| (crate::rotate_pos(*p, turns), s.clone())).collect();
     d.ports = c.design.ports.iter().map(|(k, p)| (k.clone(), crate::rotate_pos(*p, turns))).collect();
+    d.block_entities = c.design.block_entities.iter().map(|(p, s)| (crate::rotate_pos(*p, turns), s.clone())).collect();
     if let Some(Kick::Place { ticks, .. }) = &c.kick {
-        d.meta.insert("port start".into(), format!("{} {ticks}", turned.last().unwrap()));
+        let at = if c.kick_at > 0 { format!(" at {}", c.kick_at) } else { String::new() };
+        d.meta.insert("port start".into(), format!("{} {ticks}{at}", turned.last().unwrap()));
     }
     Clock::from_design(d)
 }
@@ -132,9 +135,18 @@ fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
     let blocks = c.design.block_list();
     let last = c.withheld();
     let kept: Vec<(Pos, String)> = blocks.iter().filter(|(p, _)| Some(*p) != last).cloned().collect();
+    let merge = |w: &mut Worker| -> Result<()> {
+        for (p, nbt) in &c.design.block_entities {
+            if Some(*p) != last {
+                w.merge_block_entity(sb, *p, nbt).with_context(|| format!("nbt: {} {} {} {nbt}", p[0], p[1], p[2]))?;
+            }
+        }
+        Ok(())
+    };
     match c.placement {
         Placement::Judge => {
             w.set_blocks(sb, &kept, PlaceMode::Raw)?;
+            merge(w)?;
             let wires: Vec<Pos> = kept.iter().filter(|(_, s)| s.starts_with("minecraft:redstone_wire")).map(|(p, _)| *p).collect();
             w.update(sb, &wires, "shape")?;
             let positions: Vec<Pos> = kept.iter().map(|(p, _)| *p).collect();
@@ -144,6 +156,7 @@ fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
             for b in &kept {
                 w.set_blocks(sb, std::slice::from_ref(b), PlaceMode::Update)?;
             }
+            merge(w)?;
         }
     }
     Ok(())
@@ -151,8 +164,11 @@ fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
 
 fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
     match a {
-        Action::Place { pos, state } => {
+        Action::Place { pos, state, nbt } => {
             w.set_blocks(sb, &[(*pos, state.clone())], PlaceMode::Update)?;
+            if let Some(n) = nbt {
+                w.merge_block_entity(sb, *pos, n)?;
+            }
         }
         Action::Use { pos } => {
             w.use_block(sb, *pos)?;
@@ -184,6 +200,11 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     // after placement and the inputs due at 0): exactly what `clock sim` records.
     let mut frames: Vec<Region> = Vec::new();
     let mut signals: Vec<Vec<u8>> = Vec::new();
+    // the compared block-entity part of every cell, per frame (comparator outputs, containers)
+    let mut extras: Vec<HashMap<Pos, String>> = Vec::new();
+    let extras_of = |infos: Vec<mctas::sim::BlockEntityInfo>| -> HashMap<Pos, String> {
+        infos.into_iter().filter_map(|b| wave::be_extra_from_nbt(&b.kind, &b.nbt).map(|e| (b.pos, e))).collect()
+    };
     let mut actions = c.actions();
     let mut t = 0u32;
     loop {
@@ -194,24 +215,33 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         // the state at t (after its inputs): replace the recorded frame when inputs were applied
         let f = w.get_region(sb, from, to)?;
         let sg = probe_now(w, sb, &probes)?;
+        let ex = extras_of(w.block_entities(sb, from, to)?);
         if frames.len() as u32 == t + 1 {
             *frames.last_mut().unwrap() = f;
             *signals.last_mut().unwrap() = sg;
+            *extras.last_mut().unwrap() = ex;
         } else {
             frames.push(f);
             signals.push(sg);
+            extras.push(ex);
         }
         let next = actions.first().map(|(at, _)| *at).unwrap_or(o.horizon).min(o.horizon);
         if next <= t {
             break;
         }
-        let st = w.step_probe(sb, next - t, false, &probes, Some((from, to)))?;
+        let st = w.step_probe_be(sb, next - t, false, &probes, Some((from, to)), true)?;
         frames.extend(st.frames);
         signals.extend(st.signals);
+        for dump in &st.block_entities {
+            extras.push(extras_of(mctas::sim::parse_block_entities(dump)?));
+        }
         t = next;
         if t >= o.horizon && actions.is_empty() {
             break;
         }
+    }
+    if extras.len() != frames.len() {
+        return Err(anyhow!("block-entity frames ({}) do not match the block frames ({}): the bridge is older than this judge (rebuild it: mctas setup)", extras.len(), frames.len()));
     }
     let ents = w.entities(sb)?;
     if let Some(e) = ents.first() {
@@ -225,6 +255,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     let mut per_frame: Vec<Vec<u32>> = Vec::with_capacity(frames.len());
     for (t, f) in frames.iter().enumerate() {
         let mut v = Vec::with_capacity(f.data.len());
+        let mut vis = Vec::with_capacity(f.data.len());
         let first = cells.is_empty();
         for (p, s) in f.iter() {
             if first {
@@ -236,9 +267,13 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
                 }
                 crate::grow(&mut slo, &mut shi, p);
             }
-            v.push(int.state(s));
+            let extra = extras[t].get(&p).map(|e| e.as_str());
+            // the visible state decides the period; the full one (container contents) feeds the
+            // family and the tables
+            vis.push(int.state(&wave::with_extra(s, wave::visible_extra(extra))));
+            v.push(int.state(&wave::with_extra(s, extra)));
         }
-        ids.push(int.frame(&v));
+        ids.push(int.frame(&vis));
         per_frame.push(v);
     }
     let end = c.free_from() as usize;
@@ -255,7 +290,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
             let idx = cells.iter().position(|q| *q == op).ok_or_else(|| anyhow!("output outside the box"))?;
             let seq: Vec<bool> = (w0..w0 + p)
                 .map(|t| {
-                    let s = int.name(per_frame[t][idx]);
+                    let s = wave::block_part(int.name(per_frame[t][idx]));
                     if wave::family_name(s).is_some() { wave::active(s) } else { signals.get(t).and_then(|v| v.first()).copied().unwrap_or(0) > 0 }
                 })
                 .collect();
@@ -278,10 +313,21 @@ fn probe_now(w: &mut Worker, sb: u32, probes: &[Pos]) -> Result<Vec<u8>> {
 
 /// The judge: see the module doc.
 pub fn verify(c: &Clock, o: &VerifyOptions) -> Result<VerifyReport> {
+    let pool = spawn_pool(o)?;
+    verify_in_pool(&pool, c, o)
+}
+
+/// The judge's JVM workers (`o.workers`, capped by MCTAS_MAX_WORKERS), to judge many clocks.
+pub fn spawn_pool(o: &VerifyOptions) -> Result<Pool> {
+    let builds = o.positions * if o.rotations { 4 } else { 1 };
+    Pool::spawn(o.workers.min(builds).max(1), &WorkerConfig { version: o.version.clone(), ..Default::default() })
+}
+
+/// [`verify`] with existing workers.
+pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<VerifyReport> {
     let offsets = crate::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
-    let pool = Pool::spawn(o.workers.min(jobs.len()).max(1), &WorkerConfig { version: o.version.clone(), ..Default::default() })?;
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
         let rc = rotated(w, c, t)?.translated(off);
         run_one(w, &rc, o)
