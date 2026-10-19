@@ -1,0 +1,8 @@
+mark c30-obs2-disp
+design designs/clocks/tracks/clk-sculk/c30-obs2-disp.txt
+probe C 0 0 0
+quiet 3
+set 2 0 2 minecraft:redstone_block
+step 1
+clear 2 0 2
+edges C 150
