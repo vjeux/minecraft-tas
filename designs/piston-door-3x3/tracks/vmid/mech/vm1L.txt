@@ -1,0 +1,43 @@
+name: vm1L
+# vm1 with the side pullers LEVEL-held: TL's puller (-2,2) and TR's + MR's pullers (4,2)/(4,1)
+# extended at rest (heads in the ring, hidden behind the closed door), held by an ideal redstone
+# block behind them (z = 1, cleared on open, set back on close; MR rides TR's block by QC). A
+# level-held piston moves once per edge, so an observer watching it fires once: the parity-clean
+# link to the bottom regions (gadget torch-link).
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=true,facing=east]
+  f minecraft:piston_head[facing=east,short=false,type=sticky]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  V minecraft:sticky_piston[extended=true,facing=west]
+  v minecraft:piston_head[facing=west,short=false,type=sticky]
+  R minecraft:redstone_block
+layer -2:
+  ...UU..
+  .......
+layer -1:
+  .......
+  .......
+layer 0:
+  E.SSS..
+  .......
+layer 1:
+  ..SSSvV
+  .......
+layer 2:
+  FfSSSvV
+  R.....R
+layer 3:
+  .....W.
+  .......
+layer 4:
+  ..DD...
+  .......
+layer 5:
+  ..DD...
+  .......
