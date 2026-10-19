@@ -1,0 +1,37 @@
+# ceil c035w: c035 with the real top (lever on the TM puller) and t7b's wall wiring (TL/TR park
+# watchers -> repeater -> observer up -> ML+BL / MR pullers). Bottom ideal: A (1,-2), B (1,-3),
+# P_M (-1,-1), BR's down-puller SU(2,-2).
+design designs/piston-door-3x3/tracks/ceil/wip/c035w.txt
+let w = 0
+let pm = 6
+let b1 = 12
+let a1 = 18
+let b2 = 24
+let z = 30
+let br = 30
+let zc = 12
+let brc = 12
+open 0 use 1 5 0
+open w set 0 -2 0 minecraft:redstone_block
+open w+2 clear 0 -2 0
+open pm set -1 -2 0 minecraft:redstone_block
+open pm+2 clear -1 -2 0
+open b1 set 1 -4 0 minecraft:redstone_block
+open b1+2 clear 1 -4 0
+open a1 set 1 -1 1 minecraft:redstone_block
+open a1+2 clear 1 -1 1
+open b2 set 1 -4 0 minecraft:redstone_block
+open b2+2 clear 1 -4 0
+open z set 0 -2 0 minecraft:redstone_block
+open z+2 clear 0 -2 0
+open br set 3 -2 0 minecraft:redstone_block
+open br+2 clear 3 -2 0
+close 0 use 1 5 0
+close w set 0 -2 0 minecraft:redstone_block
+close w+2 clear 0 -2 0
+close pm set -1 -2 0 minecraft:redstone_block
+close pm+2 clear -1 -2 0
+close zc set 0 -2 0 minecraft:redstone_block
+close zc+2 clear 0 -2 0
+close brc set 3 -2 0 minecraft:redstone_block
+close brc+2 clear 3 -2 0

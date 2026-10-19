@@ -1,0 +1,31 @@
+assist designs/piston-door-3x3/tracks/pockets/plans/m79a-trA.ideal: 4 input cells off the plane ([(4, 1), (1, 3), (2, 4), (1, 5)]), 5 / 3 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/c2e/m10/m79a.txt: 48 blocks in the box, screen 79/79
+15 piston cells locked, 38 cells free
+seed screen 79/79 with 4 inputs assisted
+windows (7 groups, 0.0 s):
+  input (4,1) open  t0 off: window [+0, +2]
+  input (1,3) open  t2 pulse 4 gt: window [-2, +1]
+  input (2,4) open  t8 off: window [-8, +24]
+  input (1,5) open  t10 off: window [-1, +24]
+  input (4,1) close t0 on: window [+0, +2]
+  input (2,4) close t8 on: window [-8, +4]
+  input (1,5) close t10 on: window [-2, +0]
+10 pocket cells in 5 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 53 swept cells
+  pocket 0: 1 cells [(-2, 5)]
+  pocket 1: 1 cells [(-1, 3)]
+  pocket 2: 1 cells [(2, -2)]
+  pocket 3: 6 cells [(2, 5), (3, 3), (3, 4), (3, 5), (4, 2), (4, 3)]
+  pocket 4: 1 cells [(3, -1)]
+pocket 0: 1 cells, 1 subset/lever items, 30 fillings to screen
+pocket 0: 30 screened, 6 keep the door working, 0.0 s; driven input sets: none
+pocket 1: 1 cells, 1 subset/lever items, 30 fillings to screen
+pocket 1: 32 screened, 13 keep the door working, 0.0 s; driven input sets: none
+pocket 2: 1 cells, 1 subset/lever items, 30 fillings to screen
+pocket 2: 30 screened, 23 keep the door working, 0.0 s; driven input sets: none
+pocket 3: 6 cells, 281 subset/lever items, 51142680 fillings to screen
+pocket 3: 90342517 screened, 9284919 keep the door working, 399.1 s; driven input sets: {(4,1)o0 (1,3)o2 (2,4)o8 (4,1)c0 (2,4)c8} x64 (best 5 blocks), {(2,4)o8 (1,5)o10 (2,4)c8 (1,5)c10} x64 (best 3 blocks), {(4,1)o0 (2,4)o8 (4,1)c0 (2,4)c8} x64 (best 4 blocks), {(1,3)o2 (2,4)o8 (2,4)c8} x64 (best 5 blocks), {(4,1)o0 (4,1)c0} x64 (best 2 blocks), {(2,4)o8 (2,4)c8} x64 (best 2 blocks)
+pocket 4: 1 cells, 1 subset/lever items, 30 fillings to screen
+pocket 4: 30 screened, 26 keep the door working, 0.0 s; driven input sets: none
+combination 1: true partial, 3 inputs still assisted [1,3 2,4 1,5] (45 blocks)
+combination 2: true partial, 2 inputs still assisted [1,3 1,5] (47 blocks)
+8576 combinations verified, 0 finds, 403 s total

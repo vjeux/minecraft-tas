@@ -1,0 +1,46 @@
+name: pocket3-set2
+covers: (4,1)o0 (2,4)o8 (4,1)c0 (2,4)c8
+port door: 0 0 0
+port lever: 4 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:piston_head[facing=west,short=false,type=sticky]
+  D minecraft:dropper[facing=south,triggered=false]
+  E minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  F minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  G minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  H minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  I minecraft:sticky_piston[extended=false,facing=east]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=true,facing=down]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:sticky_piston[extended=true,facing=west]
+  N minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  NoDNo.N
+layer -2:
+  FOBJ.PF
+layer -1:
+  OI..N.A
+layer 0:
+  I.NNNCM
+layer 1:
+  I.NNNCM
+layer 2:
+  I.NNNNN
+layer 3:
+  N.NspSR
+layer 4:
+  GNEpKHN
+layer 5:
+  .roK..L

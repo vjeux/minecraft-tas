@@ -1,0 +1,18 @@
+assist designs/piston-door-3x3/tracks/m79s/s78/s78b.ideal: 3 input cells off the plane ([(-1, -1), (-2, 2), (-2, 0)]), 6 / 6 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/m79s/finds/s78-a1/partial-full-live.txt: 43 blocks in the box, screen 79/79
+13 piston cells locked, 33 cells free
+seed screen 79/79 with 2 inputs assisted
+windows (4 groups, 0.0 s):
+  input (-1,-1) open  t8 pulse 2 gt: window [-4, +0]
+  input (-2,0) open  t11 pulse 2 gt: window [-11, +24]
+  input (-1,-1) close t8 pulse 2 gt: window [-1, +1]
+  input (-2,0) close t11 pulse 2 gt: window [-11, +24]
+4 pocket cells in 2 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 52 swept cells
+  pocket 0: 3 cells [(-2, -2), (-2, -1), (-1, -2)]
+  pocket 1: 1 cells [(2, 5)]
+pocket 0: 3 cells, 65 subset/lever items, 234545 fillings to screen
+pocket 0: 331981 screened, 67850 keep the door working, 3.8 s; driven input sets: {(-2,0)o11 (-2,0)c11} x64 (best 2 blocks)
+pocket 1: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 1: 76 screened, 26 keep the door working, 0.3 s; driven input sets: none
+plan groups no filling drives: (-1,-1)o8 (-1,-1)c8
+64 combinations verified, 0 finds, 4 s total

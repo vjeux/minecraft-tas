@@ -1,0 +1,51 @@
+name: cosearch-full-5as
+assisted: -2,0;-2,1;-1,3;-3,1;1,-2
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:comparator[facing=west,mode=subtract,powered=false]
+  B minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  C minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:observer[facing=west,powered=false]
+  F minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:iron_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=true,facing=down]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:stone
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:white_glazed_terracotta[facing=north]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:smooth_stone_slab[type=bottom,waterlogged=false]
+  T minecraft:white_glazed_terracotta[facing=south]
+  U minecraft:white_glazed_terracotta[facing=west]
+  V minecraft:white_wool
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  c minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  i minecraft:iron_trapdoor[facing=east,half=top,open=false,powered=false,waterlogged=false]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  w minecraft:white_glazed_terracotta[facing=east]
+layer -2:
+  BNIOHWCW
+layer -1:
+  .TTM.VQU
+layer 0:
+  SG.MMM.J
+layer 1:
+  GG.MMM.J
+layer 2:
+  DERMMMVw
+layer 3:
+  FAsPPPER
+layer 4:
+  cVrKKKio
+layer 5:
+  ....L
