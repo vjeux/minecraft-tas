@@ -74,6 +74,9 @@ pub struct MechspaceArgs {
     /// community 7x8 1; each one doubles a block's choices).
     #[arg(long, default_value_t = 2)]
     ext_max: usize,
+    /// Generator: a second extended-puller exit may sit anywhere (default: next to the first).
+    #[arg(long)]
+    ext_apart: bool,
     /// Generator: exactly one piston in the box's bottom row, sticky facing up.
     #[arg(long)]
     bottom_su: bool,
@@ -256,7 +259,7 @@ pub fn cmd_mechspace(version: &str, args: MechspaceArgs) -> Result<()> {
 
 /// The model's switches (families' and mechspace's atomics, --door-offset).
 fn mechspace_switches(args: &MechspaceArgs) -> Result<()> {
-    let MechspaceArgs { no_door_bodies, full_frame, no_ext_pullers, ext_max, bottom_su, frame9, ref door_offset, lift_ext, carry_in, .. } = *args;
+    let MechspaceArgs { no_door_bodies, full_frame, no_ext_pullers, ext_max, ext_apart, bottom_su, frame9, ref door_offset, lift_ext, carry_in, .. } = *args;
     crate::families::LIFT_EXT.store(lift_ext, std::sync::atomic::Ordering::Relaxed);
     crate::families::CARRY_IN.store(carry_in, std::sync::atomic::Ordering::Relaxed);
     use crate::mechspace as ms;
@@ -274,6 +277,7 @@ fn mechspace_switches(args: &MechspaceArgs) -> Result<()> {
     }
     crate::families::EXT_PULLERS.store(!no_ext_pullers, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_MAX.store(ext_max, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_ADJACENT.store(!ext_apart, std::sync::atomic::Ordering::Relaxed);
     if no_ext_pullers {
         eprintln!("[mechspace] generator: 1-move exits use retracted pullers only (--no-ext-pullers)");
     }
@@ -528,6 +532,10 @@ pub struct FamiliesArgs {
     /// 7x8 1; each one doubles a block's choices).
     #[arg(long, default_value_t = 2)]
     ext_max: usize,
+    /// A second extended-puller exit may sit anywhere (default: next to the first, as one level
+    /// holds both, like c79's MR/TR pullers; halves the candidates).
+    #[arg(long)]
+    ext_apart: bool,
     /// Audit bound (a): a piston extended at rest may be reused as a lifted / carried provider.
     #[arg(long)]
     lift_ext: bool,
@@ -538,9 +546,10 @@ pub struct FamiliesArgs {
 }
 
 pub fn cmd_families(version: &str, args: FamiliesArgs) -> Result<()> {
-    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, lift_ext, carry_in } = args;
+    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, lift_ext, carry_in } = args;
     crate::families::EXT_PULLERS.store(!no_ext_pullers, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_MAX.store(ext_max, std::sync::atomic::Ordering::Relaxed);
+    crate::families::EXT_ADJACENT.store(!ext_apart, std::sync::atomic::Ordering::Relaxed);
     crate::families::LIFT_EXT.store(lift_ext, std::sync::atomic::Ordering::Relaxed);
     crate::families::CARRY_IN.store(carry_in, std::sync::atomic::Ordering::Relaxed);
     let vmid: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {
