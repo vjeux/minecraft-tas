@@ -1,0 +1,33 @@
+# ceil c153: families 8x8-153 with the e88 ceiling-held top. SE+(-3,1) / SU+(0,-3) held at rest by
+# ideal redstone blocks (-4,1,0) / (0,-4,0). TL's two catalog pulses (30, 36) dropped. Rest ideal.
+design designs/piston-door-3x3/tracks/ceil/wip/c153.txt
+open 0 use 1 5 0
+open 0 set -1 -1 0 minecraft:redstone_block
+open 2 clear -1 -1 0
+open 6 set -1 -1 0 minecraft:redstone_block
+open 8 clear -1 -1 0
+open 12 set -1 2 0 minecraft:redstone_block
+open 14 clear -1 2 0
+open 18 clear -4 1 0
+open 24 clear 0 -4 0
+open 36 set -2 1 1 minecraft:redstone_block
+open 36 set -2 -1 0 minecraft:redstone_block
+open 36 set 2 -2 0 minecraft:redstone_block
+open 36 set 5 1 0 minecraft:redstone_block
+open 36 set 4 -1 0 minecraft:redstone_block
+open 38 clear -2 1 1
+open 38 clear -2 -1 0
+open 38 clear 2 -2 0
+open 38 clear 5 1 0
+open 38 clear 4 -1 0
+close 0 use 1 5 0
+close 0 set -4 1 0 minecraft:redstone_block
+close 6 set 0 -4 0 minecraft:redstone_block
+close 12 set -2 -1 0 minecraft:redstone_block
+close 14 clear -2 -1 0
+close 18 set 2 -2 0 minecraft:redstone_block
+close 18 set 5 1 0 minecraft:redstone_block
+close 18 set 4 -1 0 minecraft:redstone_block
+close 20 clear 2 -2 0
+close 20 clear 5 1 0
+close 20 clear 4 -1 0
