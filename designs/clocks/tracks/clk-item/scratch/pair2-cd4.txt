@@ -1,0 +1,16 @@
+# Hopper pair, 2 stones (1 + 1), cooldowns offset by 4: test for a digital P=16.
+name: pair2-cd4
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}],TransferCooldown:0}
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}],TransferCooldown:4}
+origin: 0 0 -1
+palette:
+  S minecraft:stone
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  A minecraft:hopper[enabled=true,facing=east]
+  B minecraft:hopper[enabled=true,facing=west]
+layer 0:
+  S
+layer 1:
+  C
+  AB
