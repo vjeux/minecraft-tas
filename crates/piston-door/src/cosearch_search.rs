@@ -2495,7 +2495,13 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
         let mut o = tr.clone();
         for ph in 0..2 {
             for (t, r) in o[ph].iter_mut().enumerate() {
-                *r &= !base_tr[ph].get(t).copied().unwrap_or(0);
+                // the base's share, widened by 2 ticks (the mechanism's timing shifts a little
+                // when the filling replaces the plan)
+                let mut b = 0u64;
+                for dt in t.saturating_sub(2)..=t + 2 {
+                    b |= base_tr[ph].get(dt).copied().unwrap_or(0);
+                }
+                *r &= !b;
             }
         }
         o
