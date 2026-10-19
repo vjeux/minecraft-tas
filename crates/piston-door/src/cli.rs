@@ -2994,6 +2994,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let t = tag.clone().unwrap_or_else(|| format!("list-{}x{}", bxs[0].0, bxs[0].1));
                     ms::export(version, &items, &out_dir, &t, cap, gap, workers, extra_offsets)?;
                 }
+                "helpers" => {
+                    let cat = ms::catalog_set(&catalog)?;
+                    let f = input.ok_or_else(|| anyhow::anyhow!("helpers needs --input"))?;
+                    anyhow::ensure!(bxs.len() == 1, "helpers needs one --boxes WxH");
+                    let base = ms::read_list(&f, bxs[0].0, bxs[0].1)?;
+                    let mut items = ms::helper_variants(&base, two.max(1));
+                    eprintln!("[mechspace] {} base candidates -> {} helper variants", base.len(), items.len());
+                    if limit > 0 && items.len() > limit {
+                        items.truncate(limit);
+                    }
+                    let t = tag.clone().unwrap_or_else(|| format!("helpers-{}x{}", bxs[0].0, bxs[0].1));
+                    let o = mk(t);
+                    let found = ms::run_list(&items, &o, false)?;
+                    ms::handle_found(&found, &o, &cat)?;
+                }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }
         }

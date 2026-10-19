@@ -2112,6 +2112,47 @@ pub fn export(version: &str, items: &[(String, Bx, Vec<Pc>)], out: &std::path::P
     Ok(())
 }
 
+/// Helper variants of each candidate: one (or two) plain blocks (stone = pushable filler,
+/// obsidian = immovable stopper) added at every free cell of the box outside the 3x3.
+pub fn helper_variants(items: &[(Bx, Vec<Pc>)], count: usize) -> Vec<(Bx, Vec<Pc>)> {
+    let mut out = Vec::new();
+    let mut seen: HashSet<Vec<Pc>> = HashSet::new();
+    for (bx, v) in items {
+        let occ: HashSet<(i8, i8)> = v
+            .iter()
+            .flat_map(|p| match p.k {
+                K::Piston { ext: true, f, .. } => vec![(p.x, p.y), (p.x + families::F[f as usize].0, p.y + families::F[f as usize].1)],
+                _ => vec![(p.x, p.y)],
+            })
+            .collect();
+        let free: Vec<(i8, i8)> = (0..bx.n()).map(|i| bx.xy(i)).filter(|&(x, y)| !families::in_t(x, y) && !occ.contains(&(x, y))).collect();
+        let kinds = [K::Stone, K::Obsidian];
+        for (ai, &a) in free.iter().enumerate() {
+            for ka in kinds {
+                let mut w = v.clone();
+                w.push(Pc { x: a.0, y: a.1, k: ka });
+                w.sort();
+                if count >= 2 {
+                    for &b in &free[ai + 1..] {
+                        for kb in kinds {
+                            let mut w2 = w.clone();
+                            w2.push(Pc { x: b.0, y: b.1, k: kb });
+                            w2.sort();
+                            if seen.insert(w2.clone()) {
+                                out.push((*bx, w2));
+                            }
+                        }
+                    }
+                }
+                if seen.insert(w.clone()) {
+                    out.push((*bx, w));
+                }
+            }
+        }
+    }
+    out
+}
+
 /// The canonical piece lists of every mechanism of families' CATALOG.tsv.
 pub fn catalog_set(path: &std::path::Path) -> Result<HashMap<Vec<Pc>, String>> {
     let text = std::fs::read_to_string(path)?;
