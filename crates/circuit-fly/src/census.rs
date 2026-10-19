@@ -36,6 +36,11 @@ pub struct CensusOptions {
     pub out: PathBuf,
     /// Keep observers whose output feeds nothing (spacers).
     pub loose: bool,
+    /// This process's share of the chunks: (k, n) = every chunk whose index is k mod n.
+    pub shard: (usize, usize),
+    /// Child processes to split the work into (each with its own allocator: one process with
+    /// ~100 threads spends most of its time in the allocator's locks).
+    pub procs: usize,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -374,8 +379,21 @@ fn subsets(dims: [i32; 3], kmin: usize, k: usize) -> Vec<Vec<Pos>> {
 pub fn census(o: &CensusOptions) -> Result<Vec<Found>> {
     let pal = Palette::new(&o.palette)?;
     let subs = subsets(o.dims, o.kmin, o.k);
-    // chunks: (subset, state of its first cell)
-    let chunks: Vec<(usize, usize)> = (0..subs.len()).flat_map(|s| (0..pal.blocks.len()).map(move |f| (s, f))).collect();
+    // chunks: (subset, the states of its first `depth` cells), deep enough for ~32 chunks a worker
+    let n = pal.blocks.len();
+    let mut depth = 1usize;
+    while subs.len() * n.pow(depth as u32) < o.workers.max(1) * 32 && depth < 3 {
+        depth += 1;
+    }
+    let chunks: Vec<(usize, Vec<usize>)> = (0..subs.len())
+        .flat_map(|s| {
+            let d = depth.min(subs[s].len());
+            (0..n.pow(d as u32)).map(move |code| (s, (0..d).map(|i| code / n.pow(i as u32) % n).collect::<Vec<usize>>()))
+        })
+        .enumerate()
+        .filter(|(i, _)| i % o.shard.1.max(1) == o.shard.0)
+        .map(|(_, c)| c)
+        .collect();
     eprintln!("census {}x{}x{} k {}..={}: {} cell sets, {} palette states, {} chunks, {} workers", o.dims[0], o.dims[1], o.dims[2], o.kmin, o.k, subs.len(), pal.blocks.len(), chunks.len(), o.workers);
     let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
@@ -392,13 +410,13 @@ pub fn census(o: &CensusOptions) -> Result<Vec<Found>> {
                     if i >= chunks.len() {
                         break;
                     }
-                    let (si, first) = chunks[i];
-                    let cells = &subs[si];
+                    let (si, prefix) = &chunks[i];
+                    let cells = &subs[*si];
                     let mut assign: Vec<usize> = vec![0; cells.len()];
-                    assign[0] = first;
+                    assign[..prefix.len()].copy_from_slice(prefix);
                     let mut local = 0usize;
                     let mut hits: Vec<Found> = Vec::new();
-                    dfs(1, cells, &mut assign, &pal, o, &mut buf, &mut enc0, &mut local, &mut hits);
+                    dfs(prefix.len(), cells, &mut assign, &pal, o, &mut buf, &mut enc0, &mut local, &mut hits);
                     sims.fetch_add(local, Ordering::Relaxed);
                     if !hits.is_empty() {
                         found.lock().unwrap().extend(hits);
@@ -567,15 +585,103 @@ pub fn mask_text(mask: u8) -> String {
     if mask == 15 { "4/4".into() } else { (0..4).filter(|r| mask >> r & 1 == 1).map(|r| r.to_string()).collect::<Vec<_>>().join(",") }
 }
 
-/// The census command over several boxes: run, write found.tsv and one design per type.
-pub fn run_census(o: &CensusOptions, boxes: &[[i32; 3]]) -> Result<()> {
+fn pos_text(p: Pos) -> String {
+    format!("{},{},{}", p[0], p[1], p[2])
+}
+
+fn parse_pos(s: &str) -> Result<Pos> {
+    let v: Vec<i32> = s.split(',').map(|w| w.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+    if v.len() != 3 {
+        bail!("bad position {s:?}");
+    }
+    Ok([v[0], v[1], v[2]])
+}
+
+/// A found machine as one raw line (shard files): box, cells (pos=palette index), kick, period,
+/// d, first change, mask.
+fn found_line(b: [i32; 3], f: &Found) -> String {
+    let cells: Vec<String> = f.cells.iter().map(|(p, s)| format!("{}={s}", pos_text(*p))).collect();
+    let kick = match f.kick {
+        Kick::Last(p) => format!("L{}", pos_text(p)),
+        Kick::Temp(p) => format!("T{}", pos_text(p)),
+    };
+    format!("{}\t{}\t{kick}\t{}\t{}\t{}\t{}", pos_text(b), cells.join(";"), f.period, pos_text(f.d), f.first_change, f.mask)
+}
+
+fn parse_found(line: &str) -> Result<([i32; 3], Found)> {
+    let w: Vec<&str> = line.split('\t').collect();
+    if w.len() != 7 {
+        bail!("bad shard line {line:?}");
+    }
+    let cells = w[1]
+        .split(';')
+        .map(|c| {
+            let (p, s) = c.split_once('=').ok_or_else(|| anyhow::anyhow!("bad cell {c:?}"))?;
+            Ok((parse_pos(p)?, s.parse::<usize>()?))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let kick = match w[2].split_at(1) {
+        ("L", p) => Kick::Last(parse_pos(p)?),
+        ("T", p) => Kick::Temp(parse_pos(p)?),
+        _ => bail!("bad kick {:?}", w[2]),
+    };
+    Ok((parse_pos(w[0])?, Found { cells, kick, period: w[3].parse()?, d: parse_pos(w[4])?, first_change: w[5].parse()?, mask: w[6].parse()? }))
+}
+
+/// The census command over several boxes: run (in `o.procs` child processes when asked), write
+/// found.tsv and one design per type.
+pub fn run_census(o: &CensusOptions, boxes: &[[i32; 3]], argv: &[String]) -> Result<()> {
     let pal = Palette::new(&o.palette)?;
     let mut found: Vec<([i32; 3], Found)> = Vec::new();
-    for b in boxes {
-        let ob = CensusOptions { dims: *b, ..o.clone() };
-        found.extend(census(&ob)?.into_iter().map(|f| (*b, f)));
+    if o.procs > 1 && o.shard.1 <= 1 {
+        // the parent: one child per shard, the same arguments plus --shard k/n and its own --out
+        let exe = std::env::current_exe()?;
+        let mut children = Vec::new();
+        for k in 0..o.procs {
+            let dir = o.out.join(format!("shard-{k}"));
+            let mut args: Vec<String> = Vec::new();
+            let mut skip = false;
+            for a in argv {
+                if skip {
+                    skip = false;
+                    continue;
+                }
+                if a == "--procs" || a == "--out" || a == "--shard" {
+                    skip = true;
+                    continue;
+                }
+                if a.starts_with("--procs=") || a.starts_with("--out=") || a.starts_with("--shard=") {
+                    continue;
+                }
+                args.push(a.clone());
+            }
+            args.extend(["--shard".to_string(), format!("{k}/{}", o.procs), "--out".to_string(), dir.display().to_string()]);
+            let child = std::process::Command::new(&exe).args(["circuit", "fly"]).args(&args).stdout(std::process::Stdio::null()).spawn()?;
+            children.push((child, dir));
+        }
+        for (mut c, dir) in children {
+            let st = c.wait()?;
+            if !st.success() {
+                bail!("census shard {} failed ({st})", dir.display());
+            }
+            let text = std::fs::read_to_string(dir.join("raw.tsv"))?;
+            for line in text.lines() {
+                found.push(parse_found(line)?);
+            }
+        }
+    } else {
+        for b in boxes {
+            let ob = CensusOptions { dims: *b, ..o.clone() };
+            found.extend(census(&ob)?.into_iter().map(|f| (*b, f)));
+        }
+        if o.shard.1 > 1 {
+            std::fs::create_dir_all(&o.out)?;
+            let raw: String = found.iter().map(|(b, f)| found_line(*b, f) + "\n").collect();
+            std::fs::write(o.out.join("raw.tsv"), raw)?;
+            return Ok(());
+        }
     }
-    found.sort_by_key(|(_, f)| (f.cells.len(), f.period * 1000 / f.d.iter().map(|c| c.abs()).sum::<i32>().max(1) as u32, std::cmp::Reverse(f.mask.count_ones())));
+    found.sort_by_key(|(_, f)| (f.cells.len(), f.period * 1000 / f.d.iter().map(|c| c.abs()).sum::<i32>().max(1) as u32, std::cmp::Reverse(f.mask.count_ones()), f.cells.clone()));
     std::fs::create_dir_all(o.out.join("designs"))?;
     let mut tsv = String::from("blocks\tspeed\tperiod\tcells\td\tfirst_move\trotations\tkick\tbox\ttype\tdesign\n");
     let mut seen: HashMap<String, String> = HashMap::new();
