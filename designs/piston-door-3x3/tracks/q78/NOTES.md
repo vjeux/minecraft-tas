@@ -58,3 +58,15 @@ Frees (0,4) so A can be fed from the LEFT while W keeps the top-right. ideal-rs 
   sensor fires at t10 = BL+7 as in p2, but B''s sensor (0,-3) hears A' (diagonal neighbour, t7 -> t8) and its
   echo comes at t31 (ideal holds show B' needs [7..18, +10] and a 2nd hold ending at 44..46). Screens of p2's
   bottom variants (wool and stone, 300k+): 0. Running: cosearch on the bottom rows of e78s / e78ws, pockets.
+* B' as ONE HOLD (`e78bhs.ideal`, `e78bhk.ideal`, `e78bhs30.ideal`): the bottom becomes ONE train for both edges
+  (no gate): A1 at a1, K at k >= a1+3 (2 gt), B' held from EXACTLY k+2 for 7..32 gt (10 and 30 both work),
+  A2 (A'-high) after, A3 (A'-low) any late tick on both edges (on close it pushes BM+C+TM home; on close B''s
+  hold is blocked by K's moving BM and never retries). Two 2 gt B' pulses instead of the hold fail.
+  Every B' feed cell ((0,-3), (2,-3), or a conductor there powered from (0,-2)/(2,-2)) is next to A', so a
+  B' sensor hears A1 first (+1 tick); dust there points into A'.
+* WOOL door, B' WIRED (`e78wsB.ideal` + `--vary` cells, ideal-rs WORKS with A1/K/A2/A3 ideal): calibrated
+  sensors (2,-3) facing west and (0,-3) facing east next to B', wool (-1,-1) (and (3,-2) to free A1's tick:
+  A1 4/5/7 or 21..24, K = A1+3..4, A2 23..60, A3 late). Their windows (t6..16 and t8..18, they hear the sides'
+  pullers / A1) let B' spit A' up at t16 when the first sensor ends (B1), and their re-arm hears A2 at t31:
+  windows t33..43 hold B' (head up) and its t43 retraction lowers A' (B2). A1 + K real: not found yet (the BL
+  watcher gives A' two pulses; pockets2's left A' filling works in the wool door only without my sensors).

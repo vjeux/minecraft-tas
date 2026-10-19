@@ -1,0 +1,10 @@
+design designs/piston-door-3x3/tracks/q78/e78/e78ws.txt
+# wool e78 + pockets2's left A' filling + B' sensors; only K ideal
+let k = 14
+let kl = 2
+open 0 use 1 5 0
+close 0 use 1 5 0
+open k set 3 -1 1 minecraft:redstone_block
+open k+kl clear 3 -1 1
+close k set 3 -1 1 minecraft:redstone_block
+close k+kl clear 3 -1 1

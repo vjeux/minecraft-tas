@@ -1,0 +1,19 @@
+design designs/piston-door-3x3/tracks/q78/e78/e78ws.txt
+# wool e78: A1 from p2's left chain (BL watcher -> flag piston -> observer -> log), B' by two sensors; K, A2, A3 ideal
+let k = 12
+let a2 = 30
+let a3 = 90
+open 0 use 1 5 0
+close 0 use 1 5 0
+open k set 3 -1 1 minecraft:redstone_block
+open k+2 clear 3 -1 1
+open a2 set 1 -1 1 minecraft:redstone_block
+open a2+2 clear 1 -1 1
+open a3 set 1 -2 1 minecraft:redstone_block
+open a3+2 clear 1 -2 1
+close k set 3 -1 1 minecraft:redstone_block
+close k+2 clear 3 -1 1
+close a2 set 1 -1 1 minecraft:redstone_block
+close a2+2 clear 1 -1 1
+close a3 set 1 -2 1 minecraft:redstone_block
+close a3+2 clear 1 -2 1

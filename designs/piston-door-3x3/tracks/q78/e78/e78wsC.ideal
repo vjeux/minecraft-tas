@@ -1,0 +1,14 @@
+design designs/piston-door-3x3/tracks/q78/e78/e78ws.txt
+# wool e78: B' real (sensors screened in by --vary), A1 and K real (screened), A2 (A'-high) and A3 (A'-low, late) ideal
+let a2 = 30
+let a3 = 90
+open 0 use 1 5 0
+close 0 use 1 5 0
+open a2 set 1 -1 1 minecraft:redstone_block
+open a2+2 clear 1 -1 1
+open a3 set 1 -2 1 minecraft:redstone_block
+open a3+2 clear 1 -2 1
+close a2 set 1 -1 1 minecraft:redstone_block
+close a2+2 clear 1 -1 1
+close a3 set 1 -2 1 minecraft:redstone_block
+close a3+2 clear 1 -2 1
