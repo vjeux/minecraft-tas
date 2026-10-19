@@ -799,6 +799,7 @@ dependencies = [
  "mctas",
  "regex",
  "serde_json",
+ "site",
 ]
 
 [[package]]
@@ -1081,6 +1082,28 @@ name = "simd-adler32"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
+
+[[package]]
+name = "site"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "clap",
+ "clock",
+ "mctas",
+ "piston-door",
+ "serde",
+ "serde_json",
+ "site-model",
+]
+
+[[package]]
+name = "site-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "slab"

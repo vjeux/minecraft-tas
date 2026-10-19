@@ -32,27 +32,39 @@ impl Default for Options {
 }
 
 /// The checkers' test spacing: the time the circuit takes to come back to rest after every input
-/// turns on for 40 gt and after they turn off (on redsim), plus 10 gt; `None` when redsim does not
-/// model it or it never comes back to rest within 2000 gt.
+/// turns on (held until rest, at most 1000 gt) and after they turn off (on redsim), plus 10 gt;
+/// `None` when redsim does not model it or it never rests.
 pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
     if c.inputs.is_empty() {
         return None;
     }
-    let mut s = Schedule::new(c.inputs.len());
+    let n = c.inputs.len();
     let on = c.clock.free_from() + SETTLE;
-    for i in 0..c.inputs.len() {
-        s.pulse(i, on, 40);
+    let hold = 1000u32;
+    let last_change = |t: &Trace, from: u32, to: u32| -> u32 { (from as usize + 1..=to as usize).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0) };
+    // every input on and held: the time to rest
+    let mut s = Schedule::new(n);
+    for i in 0..n {
+        s.set(i, on, true);
     }
-    s.ticks = on + 40 + 2000;
+    s.ticks = on + hold;
     let t = run::sim_trace(c, &s, margin).ok()?;
-    let last_change = |from: usize, to: usize| -> Option<usize> { (from + 1..to).rev().find(|&f| t.cells[f] != t.cells[f - 1]) };
-    let (on, off, end) = (on as usize, on as usize + 40, s.ticks as usize + 1);
-    let r_on = last_change(on, off).map(|f| f - on).unwrap_or(0);
-    let r_off = last_change(off, end).map(|f| f - off).unwrap_or(0);
-    if off + r_off >= end - 1 {
+    let r_on = last_change(&t, on, on + hold);
+    if r_on + 10 >= hold {
         return None;
     }
-    Some((r_on.max(r_off) + 10) as u32)
+    // then every input off: the time to rest again
+    let off = on + r_on + 10;
+    for i in 0..n {
+        s.set(i, off, false);
+    }
+    s.ticks = off + hold;
+    let t = run::sim_trace(c, &s, margin).ok()?;
+    let r_off = last_change(&t, off, off + hold);
+    if r_off + 10 >= hold {
+        return None;
+    }
+    Some(r_on.max(r_off) + 10)
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
@@ -97,8 +109,14 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
-/// The box of every non-air cell over the run, the input cells left out: width x height x depth.
+/// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
+/// flying machine: the design's own box, not its path).
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
+    if c.kind == Some(Kind::FlyingMachine)
+        && let Some((lo, hi)) = c.clock.design.bounds()
+    {
+        return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
+    }
     let ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];

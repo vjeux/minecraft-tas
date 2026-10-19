@@ -60,6 +60,9 @@ enum Cmd {
     /// A redstone-less boat ring: a boat circling a water ring around an A x B island, pushed by
     /// four one-way currents cut by rows of wooden pressure plates (which it presses).
     BoatRing(boat::RingArgs),
+    /// A redstone-less vertical boat loop: lower current, plate row, upward bubble column (lift),
+    /// upper current, drop back (L = upper floor length, H = height).
+    BoatLift(boat::LiftArgs),
     /// Record real-game traces of archived clocks for the in-browser viewer (JSON Lines, one file
     /// per clock in designs/clocks/traces/; format agreed with webrender).
     TraceExport(trace_export::ExportArgs),
@@ -84,6 +87,7 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::Unarchive(u) => unarchive::run(u),
         Cmd::Trace(t) => trace::run(t),
         Cmd::BoatRing(r) => boat::run(r),
+        Cmd::BoatLift(l) => boat::run_lift(l),
         Cmd::TraceExport(e) => trace_export::run(e),
     }
 }
