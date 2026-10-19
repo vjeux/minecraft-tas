@@ -1,0 +1,35 @@
+# m69L: m69a (6x9) with R0 (4,0) and R1 (4,1) LEVER-HELD: extended at closed rest (heads in the right frame cells
+# (3,0) (3,1)), the door's lever ON at rest on R1's BACK at (5,1) (outside the volume): it powers R1 directly and R0
+# by QC; open = lever off -> both retract pulling BR, MR right at t1; close = lever on -> push them back. R2 keeps
+# its own input.
+name: c78l-m69L
+port door: 0 0 0
+port lever: 5 1 0
+origin: -1 0 0
+palette:
+  Q minecraft:stone
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:sticky_piston[extended=true,facing=west]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+layer -3:
+  ..U...
+layer -2:
+  .UU...
+layer -1:
+  ....T.
+layer 0:
+  QQQQpN
+layer 1:
+  QQQQpNL
+layer 2:
+  QQQQ.T
+layer 3:
+  E...T.
+layer 4:
+  .DD...
+layer 5:
+  .D....

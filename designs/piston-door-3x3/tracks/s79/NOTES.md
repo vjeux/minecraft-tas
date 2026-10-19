@@ -361,3 +361,14 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   U0' only fires at open 2 / close 2, when U1' fires anyway). The other turn ((x,y) -> (2-y, x)) has the
   opposite problem (top pair fine with t0 = t1 = 2 and ct0 = ct1 = 28; U1' over U0' breaks at open 24 /
   close 22). Needs a re-timed plan or a mechanism tweak (or fullmech's exact export).
+- **9x6 (w86 owns) satwire support (21:40Z-)**: w86 re-timed the turned plan (`c69/m69u.ideal`, copy of
+  explore/w86 m69t/m69u.ideal: WORKS). satwire solid + sculk: UNSAT at once, core open (1,-2) = the bottom
+  middle puller has no feed. `c69/m69v.*`: that puller LEVER-HELD (extended at closed rest, the door lever
+  under it at (1,-3), face=ceiling): WORKS (32 positions both phases, JVM). satwire needed a patch for a lever
+  under a piston (246dd898, sturdy_down); then solid UNSAT core close (4,1)+(3,3). w86's flipped m69g (top
+  trio lever-held, lever on top of (1,4), `c69/w86/m69g.*` copy): solid UNSAT core open (3,0) (carried s0 has
+  no feed); with s0 kept ideal: core close (5,0)+(3,-1) (right half: elevator outer piston + corner).
+  Without w86's obsidian (3,4) the plan breaks in tile phase (W' under carried s0 pushes the right column).
+  Sculk: m69v core open (3,2) + close (3,3) (4,2) (5,2) (3,2); m69g (s0 ideal) core close (5,0) (4,0) (3,-1).
+  In every 9x6 m69 version (solid and sculk) the left half wires and the right half (horizontal elevator +
+  corner + s1') is the wall. w86 is building a variant with the right elevator in row 1.
