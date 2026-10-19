@@ -296,6 +296,7 @@ note/bulb (-1,-3) + plain sensor (0,-3) + calibrated (-1,-1); or (-2,-3)/(-1,-3)
 rotation-safe (turned 90: still moving after closing). c77 has the stone line (e78st-56b-42, 51/15).
 
 Tools (explore/pockets, merged on main):
+* `28df017e` door fill prints a summary table at the end (finds by volume, blocks, open, close).
 * `d4eb7406` door fill `--max-blocks` pruned before simulation (the judge's count per filling), `--max-open` /
   `--max-close` (speed search, checked on the 1-position screen first).
 * `ba5f30b8` (main 6e74c92a) `door fill --keep`: region cells keep their seed blocks unless the filling
@@ -339,4 +340,17 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
   k=3: 7..13 undriven groups each, best partials 7..10 left.
 * ring56 t9e (7x9, B window + A2 + A3 ideal, left/BR/U pinned): pockets k=3 over the top-left 11 cells: none of
   B/A2/A3 (the top-left is blind until B moves); the top-right region (2,5) (2,6) (3,5) (3,6) cleared + (4,5) (4,6)
-  at k=6 x 24 states running (runs/t9e-tr6) for the orphan partial t8.
+  at k=6 x 24 states started (runs/t9e-tr6) for the orphan partial t8, stopped at ~10% to free the box for the
+  solid 7x8 work (no owner left; rerun when the box is idle).
+* SOLID (sculk-less) 7x8, vjeux's ask (16:06Z): every sensor-to-solid swap fails: wool 40 with all 3 sensors forced
+  non-sculk + <= 1 change 0 of 16.7M, each sensor alone + <= 2 changes 0 (8.3-8.6M each); c77's e78st-56b-40 with the
+  bottom 15 cells cleared, k <= 3 non-sculk 0 of 2.9M, sensors removed + --keep <= 3 0 of 11.2M. The sensors'
+  re-arm cycles ARE the retry timing (partials/e78.md). For c77: stone 40 minus S0 / S2 / S4 at --keep k <= 5 with a
+  pruned 28-state solid palette (runs/st40-s*-k5; S0's screen passes are all NOT rotation-safe). For e78k's s11
+  (solid from scratch, 39 blocks, only B2 = a 2-gt pulse into B' at t >= 29 ideal): --keep <= 3 over its 25 wiring
+  cells, 42 solid states (runs/s11-keep3).
+* Cross-region --keep on other one-input near-doors (the e78 recipe): c78l L3a (TP + L) 0 of 57.7M; c70b m2 (BL)
+  0 of 47.1M, m2w 0 of 47.1M, m2 with the 5 bottom-left cells cleared at k <= 5 x 47 states 0 of 70.8M (255M
+  fillings); c78z p5-0 (P2) started, stopped for s11 (rerun). Candidates still unscreened this way: f131 pn31 (7x9,
+  only P3: svc/f131-pn31.txt, /tmp-free plan in tracks/f131/ppn31.ideal), satwire m79q-sat-topright (7x9, only
+  L1/L2: plans/p79q-sat-L.ideal).

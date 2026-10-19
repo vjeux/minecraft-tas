@@ -1,0 +1,2 @@
+fill designs/piston-door-3x3/tracks/pockets/svc/f131-pn31.txt: 29 region cells (29 free, 0 fixed), base 50 blocks (design 50), k 0..=3, global palette 42 states, gaps allowed, KEEP mode (k = changed cells)
+4089 subsets pass the connectivity rule; 275459813 fillings to screen in 154256 work items
