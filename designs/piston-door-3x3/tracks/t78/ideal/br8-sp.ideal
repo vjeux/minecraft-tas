@@ -1,0 +1,12 @@
+# door cosearch plan-from designs/piston-door-3x3/archive/bridge-e88-sculk-52b.txt: every piston cell's real power per lever edge, as a redstone
+# block behind it (z+1) while powered (a cell fed exactly like the one above it is left to that
+# block's quasi-connectivity)
+design designs/piston-door-3x3/archive/bridge-e88-sculk-52b.txt
+open 17 set -2 -3 1 minecraft:redstone_block
+open 19 clear -2 -3 1
+open 29 set -2 -3 1 minecraft:redstone_block
+open 39 clear -2 -3 1
+close 17 set -2 -3 1 minecraft:redstone_block
+close 19 clear -2 -3 1
+close 29 set -2 -3 1 minecraft:redstone_block
+close 39 clear -2 -3 1

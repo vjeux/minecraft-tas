@@ -41,3 +41,22 @@ ideal/s49*.ideal, ideal/s79o.ideal (inputs moved off-plane for satwire --keep-id
   close (-1,3),(4,1),(-2,1),(1,4); s49 compacted UNSAT core close (2,4),(-1,3); --retime UNSAT;
   all six side pullers + SU kept: still UNSAT (core open (-1,3), open (1,4), close (-1,3));
   original 6 gt plans: s53o / s49o UNSAT, core close (-1,3), (1,4), (-2,1).
+
+## 3. a78 batch (explore/mechspace 9ac0f311: 427 7x8 layouts with sym + oc plans)
+New tool flags (commit 0f8c4596): `door ideal-rs <plans...> --holds-rank N` (per input, which
+sensor modes hold10/hold30/taps3/taps2 work with the SAME start on both edges, starts 0..N; one line
+per plan, fewest exact-only inputs first; 427 plans in 13 s) and `--offplane-dir DIR
+[--offplane-below Y]` (moves the in-plane inputs of rows < door.y+Y behind the pistons they feed and
+prints the `satwire --keep-ideal` list). Results in a78/ (holds-rank30-sym-cpt.txt, offplane-keep.txt).
+- sym, compacted: 179 plans with 2 exact-only inputs, 240 with 3; the best are all elevator layouts
+  (SE(-1,3)+SD(1,4)+SD(1,5)+static (2,3), or SD(1,4)+SD(1,5)+SW(3,3)+static (0,3)) plus inert extra
+  pistons (no plan input). Bottom (SU, second bottom piston, SE(-2,0), SW(4,0)): taps3 at any start.
+  Elevator inputs: a single exact start at most (taps3:6, taps2:0).
+- satwire with the bottom kept: a78-159 sym UNSAT core close (3,3),(1,4),(4,1); a78-135 sym UNSAT
+  core close (1,4),(-2,1),(-1,3),(4,1); a78-159 with all 6 side pullers + SU kept UNSAT core open
+  (-2,1),(-2,0) (two KEPT pistons: their off-plane blocks QC each other).
+- oc, compacted: 203 plans with 2 exact-only; in oc plans SE(-1,3) and the TL puller SD(0,4) become
+  sensor-friendly (taps3 at any start) for some layouts (a78-010).
+- Screen artifact (cosearch pockets, br7 + sculk palette): a calibrated sensor at (-2,-2) above SP
+  walled by wool "drives" SP's hold only because it hears SP's own assisted extension; the pocket's
+  verification rejects it (0 finds), ideal-rs confirms the sensor never wakes without the assist.

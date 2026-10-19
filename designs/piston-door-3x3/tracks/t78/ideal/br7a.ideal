@@ -1,0 +1,12 @@
+# t78 br7a: br7 (bridge-e88 8x8 minus column -3 = 7x8) with ideal P_M pulse (t18) and SP hold (t29..38)
+design designs/piston-door-3x3/tracks/t78/wip/br7.txt
+open 0 use 1 5 0
+close 0 use 1 5 0
+open 18 set -1 -1 1 minecraft:redstone_block
+open 20 clear -1 -1 1
+close 18 set -1 -1 1 minecraft:redstone_block
+close 20 clear -1 -1 1
+open 29 set -2 -3 1 minecraft:redstone_block
+open 38 clear -2 -3 1
+close 29 set -2 -3 1 minecraft:redstone_block
+close 38 clear -2 -3 1

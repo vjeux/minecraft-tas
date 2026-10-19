@@ -1,0 +1,6 @@
+open: 30 frames, powered piston-ticks t1:1,-2 t1:-2,0 t1:-2,2 t1:1,4 t1:-2,1 t2:1,4 t2:-2,2 t2:-2,0 t2:-2,1 t2:1,-2 t4:-1,3 t5:-1,3 t6:1,5 t6:1,4 t7:1,5 t11:1,5 t15:1,4 t22:4,1 t22:4,0 t22:4,2 t23:4,0 t23:4,2 t23:4,1
+close: 13 frames, powered piston-ticks t1:-2,0 t1:-2,1 t1:1,-2 t1:-2,2 t1:1,4 t2:-2,2 t2:-2,0 t2:1,4 t2:1,-2 t2:-2,1 t4:4,1 t4:-1,3 t4:4,2 t4:4,0 t5:4,2 t5:-1,3 t5:4,0 t5:4,1 t6:1,4
+8 independent-timing clusters: c1: -2,2 -1,2 0,2 | c2: -2,1 -1,1 0,1 | c3: 1,-2 1,-1 1,0 | c4: -1,3 0,3 1,1 1,2 1,3 1,4 1,5 | c5: 2,1 3,1 4,1 | c6: 2,2 3,2 4,2 | c7: 2,0 3,0 4,0 | c8: -2,0 -1,0 0,0
+[   1.1s] encoded: 26 free cells, 81 lever candidates, offsets 0..=8, horizon 43 ticks, 624766 vars, 2351127 clauses
+[  10.7s] UNSAT (solve 9.7s): no wiring exists within this palette, box and model (wiring <= 26, 0 judged designs blocked)
+  core (pistons whose recorded power cannot be produced together): open piston (-2,2), open piston (-1,3)
