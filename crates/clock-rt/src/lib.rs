@@ -143,6 +143,9 @@ enum Cmd {
         k_in: usize,
         #[arg(long, default_value_t = 1)]
         k_out: usize,
+        /// Nested counters: sizes innermost first (overrides --k-out), e.g. 2,2.
+        #[arg(long)]
+        ks: Option<String>,
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -200,6 +203,18 @@ enum Cmd {
         threads: usize,
         #[arg(long)]
         out_dir: Option<PathBuf>,
+    },
+    /// One rectangle ring design (ring.rs): --cells = the perimeter clockwise from the north-west
+    /// corner (b, d, c, 1-4[*], T/t).
+    Ring {
+        #[arg(long, default_value_t = 3)]
+        w: i32,
+        #[arg(long, default_value_t = 3)]
+        h: i32,
+        #[arg(long)]
+        cells: String,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Rectangle rings (ring.rs): every assignment of a w x h perimeter (straight cells from
     /// --straight, corners from --corner, at most --max-powered loaded repeaters) judged by clock
@@ -379,15 +394,29 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Counter { k_in, k_out, out } => {
-            let name = format!("clk-rt-count-i{k_in}-o{k_out}");
-            let b = counter::build(k_in, k_out, &name);
+        Cmd::Counter { k_in, k_out, ks, out } => {
+            let ks: Vec<usize> = match ks {
+                Some(s) => s.split(',').map(|t| t.trim().parse::<usize>()).collect::<std::result::Result<_, _>>()?,
+                None => vec![k_out],
+            };
+            let tag = ks.iter().map(|k| k.to_string()).collect::<Vec<_>>().join("-");
+            let name = if ks.len() == 1 { format!("clk-rt-count-i{k_in}-o{}", ks[0]) } else { format!("clk-rt-count-i{k_in}-o{tag}") };
+            let b = counter::build_nested(k_in, &ks, &name);
             if b.conflict {
                 bail!("conflicting blocks");
             }
-            let cap = format!(
-                "Comparator COUNTER clock (clk-rt): an inner comparator fading ring ({k_in} + {k_in} compare comparators, one level lost per lap, a wall torch refills it) whose refill pulse, turned into strength 1 by a subtract comparator (side = 14 from a redstone block + 2 dust), decrements a LOSSLESS comparator ring ({k_out} + {k_out} comparators, one in subtract mode) by exactly one level; when the counter is empty its own torch refills it: period = about 14 inner periods"
-            );
+            let cap = if ks.len() == 1 {
+                format!(
+                    "Comparator COUNTER clock (clk-rt): an inner comparator fading ring ({k_in} + {k_in} compare comparators, one level lost per lap, a wall torch refills it) whose refill pulse, turned into strength 1 by a subtract comparator (side = 14 from a redstone block + 2 dust), decrements a LOSSLESS comparator ring ({k} + {k} comparators, one in subtract mode) by exactly one level; when the counter is empty its own torch refills it: period = about 14 inner periods",
+                    k = ks[0]
+                )
+            } else {
+                format!(
+                    "NESTED comparator COUNTER clock (clk-rt): an inner comparator fading ring ({k_in} + {k_in} comparators) and {} lossless counter rings (sizes {tag}, innermost first), each decremented by one level per refill pulse of the level inside it (the pulse cut to strength 1 by a subtract comparator with side 14) and refilled by its own torch at 0: period = about 14^{} inner periods",
+                    ks.len(),
+                    ks.len()
+                )
+            };
             let text = b.design().to_text();
             match out {
                 Some(p) => write_design(&p, &text, &name, "", &cap)?,
@@ -570,6 +599,16 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     let cap = format!("ODD period {p}: {}; a second pulse started by a {} (a second parity class: every redstone-tick delay is even)", hit.caption, hit.how);
                     write_design(&dir.join(format!("odd-ring{w}x{h}-p{p}.txt")), &f.design, &format!("clk-rt-odd-ring{w}x{h}-p{p}-{}b", f.blocks), "", &cap)?;
                 }
+            }
+        }
+        Cmd::Ring { w, h, cells, out } => {
+            let cells = parse_row(&cells)?;
+            let name = format!("clk-rt-{}", ring::label(w, h, &cells));
+            let Some(b) = ring::build(w, h, &cells, &name) else { bail!("the ring does not build (perimeter {} cells)", ring::perimeter(w, h).len()) };
+            let text = b.design().to_text();
+            match out {
+                Some(p) => write_design(&p, &text, &name, "", &ring::caption(w, h, &cells))?,
+                None => print!("{text}"),
             }
         }
         Cmd::SweepRing { w, h, straight, corner, max_powered, horizon, threads, out_dir, waves } => {
