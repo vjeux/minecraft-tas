@@ -1,0 +1,42 @@
+name: cosearch-partial-2-79of79
+port door: 0 0 0
+port lever: 6 1 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=down,powered=false]
+  B minecraft:observer[facing=east,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:dropper[facing=up,triggered=false]
+  E minecraft:observer[facing=west,powered=false]
+  F minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  G minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=east]
+  I minecraft:iron_trapdoor[facing=west,half=bottom,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  M minecraft:sticky_piston[extended=true,facing=west]
+  N minecraft:stone
+  O minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  P minecraft:piston_head[facing=west,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  o minecraft:oak_log[axis=y]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...J
+layer -1:
+  ..N.N.C
+layer 0:
+  H.NNNPM
+layer 1:
+  H.NNNPMNL
+layer 2:
+  SNNNNPMr
+layer 3:
+  Co...K.A
+layer 4:
+  REssICAR
+layer 5:
+  RGBsOFBD

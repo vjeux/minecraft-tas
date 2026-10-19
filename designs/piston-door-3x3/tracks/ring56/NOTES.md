@@ -190,3 +190,22 @@ see each other, and the bottom cannot reach either: one lever wakes only one top
   (2,5), B's only free feed cell (the left side owns (0,5)), so B itself cannot be wired that way: the
   next step is a B feed at (2,5) that keeps an A trigger, e.g. the trapdoor (4,4) re-powered from a
   delay line, or B fed from the left through (0,5) with the left side's lamp chain moved to watch A.
+* Runs 12/13 ended (60 min each, out-of-box-safe screen): t8xL's best is `mech/t8xL-b.txt`, 79/79 with A,
+  B and U assisted (the corner puller wired, every head inside the box); q8seed stayed at 75/79 with
+  A, B, the corner puller and U assisted (its bottom-right normal piston (4,-2) facing east pokes out).
+
+## 12. Report (08:17Z)
+
+No working door yet. Best results, all on explore/ring56 under tracks/ring56/mech/:
+* t8xL (8x8 = 64): only the elevator (A at 3 times, B at 2) and U lack wiring; the right side is held
+  by the lever through one stone and one dust (zero wiring), and the left side (TL up + ML/BL pullers)
+  is wired by cosearch's B-observer -> repeater -> lamps parity chain. t8xL-b adds the corner puller.
+* q8seed (7x8 = 56): the same left side in 7 wide; A, B, U and BR's puller left.
+* jf / p2 (7x9): everything but the corner piston K (its only feeds are (3,-2) and (4,-1)).
+* Tools: cosearch screen fixes (lever polarity; heads poking out of the box mid-cycle).
+Why the elevator resists: in the t8 family A can only be fed from (2,4) and B only from (2,5) once the
+left side owns (0,5); A must fire three times and B twice, and the corner puller can only be fed
+through (3,4) (A's trigger cell) or (4,3) (the top-right's only wake), so every cheap trigger couples
+two of A, B and the corner puller. Next: give the elevator a cell budget (one more top row, 8x9 is no
+record, so rather a c79-style center where B is a lever-held level that moves once per edge and A
+gets pulses); or a T flip-flop (bulb + comparator) on W_TR's pulse to make B a level in t8x.
