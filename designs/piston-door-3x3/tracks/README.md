@@ -18,6 +18,7 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [flat-b](flat-b/NOTES.md) | the flat board with a different mechanism | the 19-block mechanism upside down: 48 -> 44 (flat-b-v7) |
 | [flat-seam](flat-seam/NOTES.md) | the smallest-VOLUME flat + FULL seamless + hallway door (slime-free) | `resynth --fit` compaction, gadget `pulse-merge`; **e89b 8x9 = 72** (49 blocks, cd19 without row 5, the flat seamless record), h44 9x9 = 81 (pist19r floor), s55 9x10 = 90 |
 | [families](families/NOTES.md) | the complete catalog of flat seamless MECHANISMS per box | `door families`: exit-plan generator + exact macro solve; [CATALOG.md](families/CATALOG.md) |
+| [satwire](satwire/NOTES.md) | SAT synthesis of a door's wiring for a fixed mechanism (`door satwire`) | time-unrolled redstone model + CaDiCaL + CEGAR with redsim and the judge; e89b's wiring re-found from scratch and proven minimal (29) for its timing; known-answer replay 61/64 flat doors |
 | [fresh-a](fresh-a/NOTES.md) | a door from first principles | slime-free 122 (a side group drags the top-middle out) |
 | [fresh-b](fresh-b/NOTES.md) | a fresh design, minimum blocks | the mirrored pump family: mp6 46 (solid record), mp8 43, opens and closes in 16 |
 | [fresh-c](fresh-c/NOTES.md) | symmetric control: the same signals on both lever edges | fc1 42, **fc2 40** (solid record 08:10-15:15), fc2f 41 (22 / 9) |
