@@ -1,0 +1,6 @@
+fill designs/piston-door-3x3/tracks/pockets/svc/e78k-h2.txt: 25 region cells (25 free, 0 fixed), base 45 blocks (design 45), k 0..=3, global palette 42 states, gaps allowed, KEEP mode (k = changed cells)
+2625 subsets pass the connectivity rule; 171909363 fillings to screen in 96952 work items
+FIND designs/piston-door-3x3/tracks/pockets/runs/h2-shrink44/e78k-h2-fill-44b-0.txt: e78k-h2-fill-44b-0: WORKS open 44 close 15 | FULL | hallway ok | frame 12/12 | 56b (7x8x1), 44 blocks | 0.0 ms | (-1,3) observer[facing=east,powered=false] (-2,4) air (-1,4) air
+done in 25 s: 4923403 screened, 166985960 pruned, 1 passed the screen, 1 finds
+finds by (volume, blocks, open, close):
+  56b, 44 blocks, open 44 / close 15: 1 find(s)

@@ -1,0 +1,19 @@
+# U-loop (clk-rt): a wall torch on block A -> top row [comparator, comparator] -> block F -> a wall
+# torch on F -> bottom row [comparator, comparator] -> A; 2 torches = a pulse ring of loop delay 12
+# gt
+name: clk-rt-uloop-p12-c-rt-12b
+uloop: T-c,c-c,c-T
+port output: 0 1 -1
+origin: 0 0 -1
+palette:
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  c minecraft:comparator[facing=west,mode=compare,powered=false]
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+layer 0:
+  .SS
+  .SS
+layer 1:
+  RccS
+  SCCr

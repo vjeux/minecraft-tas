@@ -295,6 +295,39 @@ pub fn offsets(n: usize) -> Vec<Pos> {
     v
 }
 
+/// A duration in game ticks with its real time (20 gt = 1 s): `20 gt (1 s)`, `30 gt (1.5 s)`,
+/// `2304 gt (1 min 55.2 s)`, minutes past 60 s, hours past 60 min.
+pub fn gt_time(gt: u32) -> String {
+    format!("{gt} gt ({})", real_time(gt))
+}
+
+/// Just the real time of `gt` game ticks: `1.5 s`, `1 min 55.2 s`, `2 h 5 min`.
+pub fn real_time(gt: u32) -> String {
+    let num = |x: f64| -> String {
+        let s = format!("{x:.2}");
+        let s = s.trim_end_matches('0').trim_end_matches('.');
+        s.to_string()
+    };
+    let secs = gt as f64 / 20.0;
+    if secs < 60.0 {
+        return format!("{} s", num(secs));
+    }
+    let total_min = (secs / 60.0).floor();
+    let s = secs - total_min * 60.0;
+    let (h, m) = ((total_min / 60.0).floor(), total_min % 60.0);
+    let mut parts = Vec::new();
+    if h > 0.0 {
+        parts.push(format!("{h} h"));
+    }
+    if m > 0.0 || h == 0.0 {
+        parts.push(format!("{m} min"));
+    }
+    if s > 0.0 {
+        parts.push(format!("{} s", num(s)));
+    }
+    parts.join(" ")
+}
+
 /// Parse a block state with redsim, saying which blocks it does not model.
 pub fn redsim_block(state: &str) -> Result<redsim::Block> {
     redsim::Block::parse(state).map_err(|e| anyhow!("{e}"))

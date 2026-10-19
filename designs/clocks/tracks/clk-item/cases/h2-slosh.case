@@ -1,0 +1,8 @@
+# clk-item h2-slosh: two hoppers facing each other (east/west), one item, a compare-mode comparator reading the west hopper. The item hops every 7 gt (the receiver was empty: cooldown 7 since the sender ticked first), so the comparator is on 7 gt, off 7 gt: a 14 gt clock of 4 blocks.
+box -2 0 -1 2 2 1
+block -1 0 0 minecraft:stone
+block -1 1 0 minecraft:comparator[facing=east,mode=compare,powered=false]
+block 0 1 0 minecraft:hopper[enabled=true,facing=east]
+block 1 1 0 minecraft:hopper[enabled=true,facing=west]
+item 0 1 0 0 stone 1
+run 60

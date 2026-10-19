@@ -1,0 +1,29 @@
+# Hopper ring of 10 (2x5) with two items five hops apart, 12 blocks (clk-item): the state repeats every half turn, 5 hops of 7 gt = 35 gt. Two items spread on a ring of 2k hoppers: 7k gt (every multiple of 7 from 14 up).
+# redsim: P=35 gt, warmup 3, family comparator+hopper, 12 blocks, output on 7/35 gt, 1 rising edge(s)
+
+name: loop10x2-p35
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: 1 1 4 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 -1
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  S
+  .
+  .
+  .
+  .
+  .
+layer 1:
+  C
+  HA
+  hA
+  hA
+  hA
+  hB

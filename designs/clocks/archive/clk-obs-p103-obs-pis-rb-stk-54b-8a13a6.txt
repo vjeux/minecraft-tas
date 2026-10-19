@@ -1,0 +1,68 @@
+# archived 2026-10-19T17:43Z from designs/clocks/tracks/clk-obs/families/p103-obs-pis-rb-stk-54b-8a13a6.txt by mctas clock archive
+# CLOCK: clk-obs-p103-obs-pis-rb-stk-54b-8a13a6 period 103 gt, on 2/103, edges 1, warmup 2, family observer+piston+redstone_block+sticky_piston, 54 blocks, 3x27x1, robust
+name: clk-obs-p103-obs-pis-rb-stk-54b-8a13a6
+# Construction for P = 103: odd piston stage + observer tower (crates/clock-obs/src/construct.rs). redsim: P = 103, family observer+piston+redstone_block+sticky_piston.
+origin: 0 0 0
+port output: 0 1 0
+port start: 1 3 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=east,powered=false]
+  D minecraft:redstone_block
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:piston[extended=false,facing=up]
+layer 0:
+  AD.
+layer 1:
+  B.F
+layer 2:
+  BC.
+layer 3:
+  BE.
+layer 4:
+  BE.
+layer 5:
+  BE.
+layer 6:
+  BE.
+layer 7:
+  BE.
+layer 8:
+  BE.
+layer 9:
+  BE.
+layer 10:
+  BE.
+layer 11:
+  BE.
+layer 12:
+  BE.
+layer 13:
+  BE.
+layer 14:
+  BE.
+layer 15:
+  BE.
+layer 16:
+  BE.
+layer 17:
+  BE.
+layer 18:
+  BE.
+layer 19:
+  BE.
+layer 20:
+  BE.
+layer 21:
+  BE.
+layer 22:
+  BE.
+layer 23:
+  BE.
+layer 24:
+  BE.
+layer 25:
+  BE.
+layer 26:
+  CE.

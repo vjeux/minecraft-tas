@@ -1,0 +1,16 @@
+# A plain sculk sensor drives repeater(s) of delay [4,4,3], then observer in line, trapdoor, 5 from the sensor (travel time)
+name: clk-sculk-chain-p59-13
+# how: chain plain line reps [4,4,3], observer in line, trapdoor (travel 5)
+port output: 0 1 0
+origin: 0 0 0
+palette:
+  O minecraft:oak_trapdoor[facing=north,half=bottom,open=true,powered=true,waterlogged=false]
+  R minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=west,powered=false]
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  s minecraft:stone
+layer 0:
+  .sss
+layer 1:
+  SrrRoO

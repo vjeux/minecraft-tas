@@ -1,0 +1,23 @@
+name: clk-obs-p18-note-obs-10b-2db63a
+# A ring of 9 observers and one note relay (10 cells): the observer before the relay powers it, the next one watches it. P=18 (redsim), family note_block+observer.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+layer 0:
+  A
+  B
+  A
+  A
+  C
+layer 1:
+  D
+  E
+  E
+  E
+  E

@@ -1,0 +1,20 @@
+name: clk-obs-p10-note-obs-stk-5b-04366b
+# P10: 2 note blocks, 2 observers, 1 sticky piston; changing in place: note_block, observer, sticky_piston. Found by the clk-obs exhaustive census of every 5-block structure (all orientations, every block placed last as a kick); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  B
+layer 1:
+  C
+  .
+layer 2:
+  D
+  E

@@ -1,0 +1,17 @@
+# Vertical dropper ring: hoppers go down the left and east along the bottom, two droppers lift up the right side, hoppers go west along the top; a comparator in the middle (standing on the bottom hopper) reads the left-middle hopper and fires the right-middle dropper (and the dropper under it through it).
+name: vring
+port output: 1 1 0
+nbt: 0 2 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  d minecraft:hopper[enabled=true,facing=down]
+  e minecraft:hopper[enabled=true,facing=east]
+  w minecraft:hopper[enabled=true,facing=west]
+  U minecraft:dropper[facing=up,triggered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+layer 0:
+  eeU
+layer 1:
+  dCU
+layer 2:
+  dww
