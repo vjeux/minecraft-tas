@@ -1,24 +1,18 @@
-# c77 handoff (2026-10-19 16:35Z)
+# c77 handoff (2026-10-19 17:56Z)
 
-## Results (all verified with `door verify --extra-offsets 28`, rotation-safe, FULL seamless)
-- **e78st-56b-38-1s.txt** (= BEST.txt): 7x8 (56b), 38 blocks, sculk (ONE calibrated sensor), stone door, open 48 / close 15.
-- e78st-56b-41-2s (2 sensors), e78st-56b-40 / -42 / -44 (3 sensors, open 51 / close 15; -44 archived as archive/e78st-56b-44-44b.txt).
-- c074-64b-42.txt: 8x8 (64b), 42 blocks, sculk (archive/c77-c074-64b-42-42b.txt).
+## Results (all verified `door verify --extra-offsets 28`, rotation-safe, FULL seamless)
+- **e78st-56b-38-1s.txt** (= BEST.txt, archived as e78st-56b-38? check archive): 7x8, 38 blocks, sculk (ONE calibrated sensor), stone door, 48/15. pockets3's minus-obsidian = archive/e78st-56b-37-37b.txt (37).
+- e78st-56b-41-2s (2 sensors), e78st-56b-40 / -42 / -44 (3 sensors, 51/15; -44 archived).
+- c074-64b-42.txt: 8x8, 42 blocks, sculk (archive/c77-c074-64b-42-42b.txt).
+- community/community-7x8-rep4.txt: c70b's transcription of the community 7x8 made to work (hidden cell (3,3) = repeater d4): 48 blocks, solid, FULL (properties), verified at 28. Stone-material copy shrinks to 47 (community/cst47.txt).
 
-## How the stone 7x8 was made
-1. e78-56b-45 (wool door, archived) -> wool door/frame turned to stone (breaks it) -> `door fill --keep` k=3 over 17 bottom/top cells re-tuned it (e78st-56b-44).
-2. pockets3's row-3 top (observers (-1,3) E / (3,3) W on the ceiling heads) -> 42; minus normal piston (-2,-3) and obsidian (-2,-1) -> 40.
-3. Solid conversion, one sensor at a time (`door fill --keep` with that sensor's cell pre-cleared, 42 non-sculk states incl. pistons, --gaps, k<=4):
-   S0 (0,-3) -> observer W on a normal piston (-1,-3) facing up (head-pop relay) + obsidian (-2,-1) (41-2s);
-   S4 (4,-3) -> lamp (3,-3) lit by S2 + observer (3,-2) facing down on it = K; S4 chain removed (38-1s).
+## Solid 7x8 (team): e78k's h5 (41, FULL) / h6 (42, 29/15) on explore/q78 tracks/q78/e78s/.
+- My fills on h5/h6 (all 0): top-right delay swap + re-tune (k<=3, exactly 4 over 17 cells), speed searches (k<=3, 25 cells), bottom-right clear-and-refill (killed; shrink covered it at 10 kinds).
+- The last sensor of my stone line (S2) is not replaceable locally (k<=5 exhaustive over 10 cells, pockets3).
 
-## Open: the LAST sensor S2 (2,-3) facing north = the solid 7x8 (vjeux's ask)
-- Seed: e78s/e78st38-s2.txt (the 38 with S2 cleared). S2's jobs: B' power [8,18) (B' moves at t17 open / t13 close when the (0,-3) observer updates it), the lamp for K (10/22/34/46), gate observer (2,-2) facing down -> F2 taps (A2/A3 through BM, open only), and an OPEN-ONLY re-wake at t32 (hears A' re-firing at t30) holding B' [32,42) (= B2).
-- Tried: k<=3 over 10 and 13 cells (0). pockets3 (1d42739b, devvm49255) runs k=4 (28 states) and k=5 (24 states, 2.0G) over (2,-3) (2,-2) (3,-3) (3,-2) (4,-3) (4,-2) (4,-1) (-2,-3) (-2,-2) (0,-3).
-- ideal-rs plans are unreliable for this bottom: the doors depend on same-tick event order (K's pull vs A''s push at t12); the plan's torch inputs reorder them. Use real-wiring fills.
+## Running (mine)
+- runs/st37-k5: exactly 5 changes on the sculk 37's bottom (10 cells, 18 states incl. calibrated), --max-blocks 36.
 
-## Running processes (mine)
-- door fill --keep k<=3 from e78st-56b-38-1s (shrink to 37), runs/e78st38-keep3.log.
-
-## Files
-- e78s/: seeds and plans (kb1*, e78st*, s0b/s4k/s2all ideals); runs/: fill logs (big logs summarized, raw in /tmp).
+## Notes
+- door fill's FULL/frame check rejects doors whose frame is the door material (white concrete): use stone material for fills (told pockets3).
+- ideal-rs plans are unreliable on the e78 bottom (same-tick order); screen real wirings.
