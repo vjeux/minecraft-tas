@@ -1,0 +1,30 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/q78-e78s.ideal: 4 input cells off the plane ([(1, -2), (3, -1), (1, -3), (1, -1)]), 12 / 8 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/runs/e78s-kb/pockets-partial-1as.txt: 40 blocks in the box, screen 79/79
+seed screen 79/79 with 1 inputs assisted
+windows (4 groups, 0.1 s):
+  input (1,-3) open  t20 pulse 2 gt: window [-3, +1]
+  input (1,-3) open  t30 pulse 2 gt: window [-3, +24]
+  input (1,-3) close t20 pulse 2 gt: window [-3, +1]
+  input (1,-3) close t26 pulse 2 gt: window [+0, +0]
+8 pocket cells in 4 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 49 swept cells
+  pocket 0: 4 cells [(-2, -3), (-1, -3), (0, -3), (0, -2)]
+  pocket 1: 1 cells [(-1, 3)]
+  pocket 2: 2 cells [(2, -3), (2, -2)]
+  pocket 3: 1 cells [(3, 3)]
+pocket 0: 4 cells, 3975 subset/lever items, 14776335 fillings to screen
+  pocket 0: 2523494 screened (581 of 3975 items started), 186906 keep the door working, 30 s
+  pocket 0: 7156769 screened (1663 of 3975 items started), 285377 keep the door working, 60 s
+  pocket 0: 9493335 screened (2135 of 3975 items started), 331106 keep the door working, 90 s
+  pocket 0: 11522599 screened (2526 of 3975 items started), 472964 keep the door working, 120 s
+  pocket 0: 13532829 screened (2911 of 3975 items started), 613430 keep the door working, 150 s
+  pocket 0: 15725492 screened (3360 of 3975 items started), 770649 keep the door working, 180 s
+  pocket 0: 18088223 screened (3823 of 3975 items started), 944261 keep the door working, 210 s
+pocket 0: 19198352 screened, 1025970 keep the door working, 239.9 s; driven input sets: none
+pocket 1: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 1: 61 screened, 45 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 2 cells, 3 subset/lever items, 3843 fillings to screen
+pocket 2: 5601 screened, 852 keep the door working, 6.8 s; driven input sets: none
+pocket 3: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 3: 61 screened, 43 keep the door working, 0.3 s; driven input sets: none
+plan groups no filling drives: (1,-3)o20 (1,-3)o30 (1,-3)c20 (1,-3)c26
+0 combinations verified, 0 finds, 247 s total
