@@ -1419,6 +1419,29 @@ impl<'a> Model<'a> {
         l
     }
     /// Mechanism cell changes during SAT tick k (observers see it).
+    /// The note-block instrument class of the mechanism cell c changes during SAT tick k (stone
+    /// family: basedrum; logs: bass; glass: hat; anything else: harp).
+    fn inst_chg(&mut self, tr: usize, k: i32, c: C2) -> Lit {
+        if let Some(l) = self.mc.get(&(tr, k, c, 10)) {
+            return *l;
+        }
+        let class = |s: Option<&String>| -> u8 {
+            match s.map(|s| short(s)) {
+                Some(n) if n.ends_with("_log") || n.ends_with("_wood") => 2,
+                Some(n) if n.contains("glass") => 3,
+                Some(n) if matches!(mk(&format!("minecraft:{n}")), MK::Cond) && !n.contains("note_block") => 1,
+                _ => 0,
+            }
+        };
+        let logs = LOG_DOORS.load(std::sync::atomic::Ordering::Relaxed);
+        let fix = |v: u8| if logs && v == 1 { 2 } else { v };
+        let ws = self.warp_at(tr, k);
+        let ph = &self.p.rec.phases[tr];
+        let lits: Vec<Lit> = ws.iter().filter(|(tau, _)| *tau >= 1 && fix(class(ph.frame(*tau).get(&c))) != fix(class(ph.frame(*tau - 1).get(&c)))).map(|(_, l)| *l).collect();
+        let l = self.e.or(&lits);
+        self.mc.insert((tr, k, c, 10), l);
+        l
+    }
     fn mchg(&mut self, tr: usize, k: i32, c: C2) -> Lit {
         if let Some(l) = self.mc.get(&(tr, k, c, 9)) {
             return *l;
@@ -1587,7 +1610,17 @@ impl<'a> Model<'a> {
                 let m = if self.is_mech(w) { self.mchg(tr, k, w) } else { f };
                 let z = self.p.z;
                 let lv = if k == 0 { self.lever_on_lits(0, 0, |l| l.pos == [w.0, w.1, z]) } else { f };
-                self.e.or(&[m, lv])
+                // a note block's instrument follows the block below it: a mechanism change below that
+                // flips its instrument class changes the note block (observers see it)
+                let below = add(w, DN);
+                let nb = if self.p.is_free(w) && self.p.can(w, |x| x == Kind::Note) && self.is_mech(below) {
+                    let isn = self.pred(w, P_NOTE);
+                    let ic = self.inst_chg(tr, k, below);
+                    self.e.and(&[isn, ic])
+                } else {
+                    f
+                };
+                self.e.or(&[m, lv, nb])
             }
             _ if !self.p.is_free(w) || k == 0 && what == 0 => f,
             0 => {
