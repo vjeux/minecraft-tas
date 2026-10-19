@@ -342,6 +342,11 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
   B/A2/A3 (the top-left is blind until B moves); the top-right region (2,5) (2,6) (3,5) (3,6) cleared + (4,5) (4,6)
   at k=6 x 24 states started (runs/t9e-tr6) for the orphan partial t8, stopped at ~10% to free the box for the
   solid 7x8 work (no owner left; rerun when the box is idle).
+* SOLID 7x8 FOUND by e78k (16:51Z, explore/q78 e755e4de tracks/q78/e78s/h2.txt, 45 blocks, 44/15: rr2 + a B'-watcher
+  loop); shrunk here to **`finds/e78s-56b-44.txt` 44 blocks SOLID, 44/15, verify 32 positions + rotations** (top-left
+  observer (-1,3) E into the row-3 dust, row-4 wiring gone); no 43 at <= 3 changes. c77's stone line: e78st-56b-38-1s
+  (one sensor) minus obsidian (-2,-1) = **`finds/e78st-56b-37.txt` 37 blocks sculk, 48/15, verified** (75 finds at 37
+  from --keep --max-blocks 37: the 46/14 ones turn (0,-3) back into a calibrated sensor); no 36 at <= 3.
 * SOLID (sculk-less) 7x8, vjeux's ask (16:06Z): every sensor-to-solid swap fails: wool 40 with all 3 sensors forced
   non-sculk + <= 1 change 0 of 16.7M, each sensor alone + <= 2 changes 0 (8.3-8.6M each); c77's e78st-56b-40 with the
   bottom 15 cells cleared, k <= 3 non-sculk 0 of 2.9M, sensors removed + --keep <= 3 0 of 11.2M. The sensors'

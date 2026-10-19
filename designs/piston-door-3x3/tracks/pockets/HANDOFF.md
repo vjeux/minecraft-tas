@@ -1,37 +1,33 @@
-# pockets3 HANDOFF (the wiring service + owner of cosearch*.rs / fill.rs; updated 2026-10-19 15:47Z)
+# pockets3 HANDOFF (the wiring service + owner of cosearch*.rs / fill.rs; updated 2026-10-19 16:57Z)
 
 ## State
-- **THE FIRST 7x8: `finds/e78-56b-40.txt` = BEST.txt, 56b (7x8x1), 40 blocks, SCULK, FULL, rotation-safe, open 98 /
-  close 24, verify --extra-offsets 28 WORKS** (archived on main: e78-56b-45-45b, the 45-block original; the 42 and 40
-  were pinged). Chain: e78k's r1 (explore/q78 tracks/q78/e78k/r1.txt) + 3 cross-region changes (door fill --keep over
-  14 bottom cells) = e78-56b-45 (105/111); `--keep --max-blocks` steps: 44 x3 edits -> 42 (98/24) -> 41 -> 40.
-  Coordinator split (15:31Z): c77 keeps the STONE e78 line (e78st-56b-42, 51/15, solid attempts), pockets3 the WOOL.
+- 7x8 = 56 doors now exist in all three lines (all verify --extra-offsets 28, 32 positions + rotations):
+  - SOLID: e78k's h2 (explore/q78 e755e4de, 45, 44/15) -> **`finds/e78s-56b-44.txt` 44 blocks, 44/15** (mine).
+  - SCULK stone (c77's line): e78st-56b-38-1s (one sensor) -> **`finds/e78st-56b-37.txt` 37 blocks, 48/15** (mine).
+  - SCULK wool (mine): **`finds/e78-56b-40.txt` = BEST.txt, 40 blocks, 98/24** (archived on main with 45/42 too).
+  All found/shrunk with `door fill --keep` (+ `--max-blocks N` pre-filter). The wool line is locally minimal (no 39
+  within 4 changes over all 25 wiring cells); the sensors' re-arm cycles are its retry timing (partials/e78.md).
 - Role (vjeux's 12:21Z protocol): live board in Space memory 2034923423883327, `minecraft-tas/board/` (README.md,
   roster.md, partials/*.md). Owners message this session; ping the coordinator (f1a42990-e9ee-4714-8593-b34b64ed175d)
-  only for a verified door or a tool commit. Door team now: e78k (e78 owner, fast clean variant), c77 (stone e78),
-  c78l (c78z/L3a), shrink, pockets3. Ended: t78, ring56, c70, mechspace, satwire3 (wrapping up).
+  only for a verified door or a tool commit. Door team now: e78k (solid e78), c77 (stone e78, solid attempts), c78l
+  (c78z/c78FR satwire), c70b (8x7 c070x), shrink, pockets3. Ended: t78, ring56, c70, mechspace, satwire3.
 - Tool commits: ba5f30b8 (--keep), 7ddfc5a4 (in-plane guard) merged on main; d4eb7406 (--max-blocks pre-filter,
-  --max-open/--max-close) sent to the coordinator (branch already merged with main d7c0d3f3 = CLI refactor: door fill's
-  flags live in crates/door-redsim/src/cmd/fill.rs FillArgs).
+  --max-open/--max-close) and 28df017e (summary table) sent (door fill's flags live in
+  crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
 
 ## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
-- `e78s-shrink39k4`: e78-56b-40, exactly 4 changed over 25 wiring cells, --max-blocks 39 (21G fillings pre-filtered,
-  ~35 min from 15:33Z). A find = a 39-block 7x8: verify --extra-offsets 28, ping.
-- `e78s-fast3r`: rotation-safe speed search on the 40 (<= 3 changed, --max-open 90); so far 41 blocks 79/54.
-- `L3a-keep25`: c78l's L3a (TP + L ideal) cross-region --keep over 25 wiring cells, <= 3 changed.
-- `t9e-tr6`: ring56's t9e top-right region at k=6 x 24 states (orphan partial t8): post the driven sets to
-  partials/t8.md under Helpers (ring56 asked).
-- `h8Q-k5`: combination phase (best partial 4 left; MR close c18 never drivable from pocket 4): results already on
-  partials/hs23.md.
+- `h2-shrink43k4`: the solid 44, exactly 4 changed over 25 cells, 42 solid states, --max-blocks 43 (~1 h from 16:54Z).
+- `st37-shrink36k4`: the stone 37, exactly 4 changed, sculk palette, --max-blocks 36.
+- `st38-s2-k5`: for c77, e78st38-s2 (the 38 with its last sensor S2 cleared), 10 cells, exactly 5 changed, 24 solid
+  states (2.0G fillings, from 16:33Z, hours): a find = a SOLID stone 7x8 (verify, ping, tell c77).
 
 ## Exact next steps
-1. Shrink the wool e78 below 40: exactly-4 result; if none, k=4 with a pruned palette on the bottom 14 cells, or
-   cross-region pairs with `door ideal-rs --drop 2` on each 41-variant.
-2. Speed (rotation-safe): open 98 = attempt-4 convergence (e78k's trace); a fast variant needs B1 >= t21 in attempt 1
-   and B2 landing A' at the gate's G3 start (e78k works on the clean variant from timing windows).
-3. Apply the cross-region --keep recipe to every near-door (c78l L3a: running; others when owners ask).
-4. mechspace z1-s78 batch: 6 of 10 seeds done (runs/msz1-k3.log: best partials 7-8 left), stopped when mechspace
-   ended; remaining 0265 0937 0174 0755 (+1255) if anyone revives that line.
+1. Shrink the solid 44 (k=4 result; then k=5 on e78k's likely-removable cells with a ~15-state palette and the
+   pre-filter: ~4.6G enumerations ~10 min) and the stone 37 the same way.
+2. Answer designers' screen requests first (e78k solid, c77 stone S2, c70b 8x7 m2/m2x, c78l c78FR).
+3. Cross-region --keep (<= 3) is exhausted on: c78l L3a, c70b m2/m2w (+ m2 5-cell k <= 5), f131 pn31 (solid, 136M),
+   e78k s11 (and subsets at k=4). Not yet: c78z p5-0 (stopped), satwire m79q-sat-topright (plans/p79q-sat-L.ideal).
+4. Orphans: t9e top-right k=6 (partials/t8.md), mechspace z1-s78 seeds 0265 0937 0174 0755 (+1255).
 
 ## How to run a wiring job (recipe)
 1. Copy the owner's design + plan into `tracks/pockets/svc/<owner>-<name>.txt/.ideal` (design line rewritten), or
