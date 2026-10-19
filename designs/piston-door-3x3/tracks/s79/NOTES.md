@@ -49,3 +49,23 @@ sculk). The vertical mirror (corner at the top, floors for dust) keeps the seale
 - From the bottom-right, U can be QC-powered only through BR parked at (2,-1) (a conductor fed by an
   emitter at (3,-1)); any emitter into (2,-1) also QC-powers BRp, and U is not a neighbour of (2,-1):
   it only re-checks when BRp's base changes, by which time (2,-1) is BRp's moving head. Dead.
+
+## 3. c78x: BR leaving RIGHT (one up-facing sticky in the bottom row), U FIRST on open (02:40Z-)
+`c78v*.txt/.ideal`, `c78w*`, `c78x.txt` + `c78x.ideal`: c79 with BRp removed, R0 (4,0) a pull-type sticky
+facing west (BR parks at (3,0)), (2,-1) static; U's east cell (2,-2) is then free, so U can be fed from
+the bottom-right and the bottom-left can WATCH U from (0,-2). For the bottom-left to see the open edge,
+U must move FIRST on open: U (head into the empty (1,-1)) pulls BM down from (1,0), and the elevator's
+s pushes only TM + C down afterwards (e >= u0 + 3), with a hold >= 3 gt (push lands, then s pulls TM back).
+- ideal-rs: c78x WORKS (open 23 / close 23) with M at t16 ((3,5) and (2,5) delay 4); windows: U-first plan
+  <= 5, s open push plan 8..9 hold 3..4 (only these with U first), s close push 0..10, K open 8..18 /
+  close 7..19, U2 open >= 13 / close 16..17 or >= 20, R0 and L0 any. M at t14: s push 6..7 (u0 <= 4).
+- The c79 top (s pushed at t2) is the "blocked" mode: U's first pulse is then blocked by s's head and
+  invisible, so the bottom-left never learns the open edge (it watches only U).
+- Bottom-left watching U (observer (0,-2) east -> conductor (-1,-2) -> K): it fires K twice per U pulse
+  (U's extension at X -> K at X+2, U's retraction LANDING at X+4 -> K at X+6). On open the X+6 pulse is
+  the real pull (BM is still moving at X+4), but on close the X+2 pulse pushes BM in and the X+6 pulse
+  pulls it back unless U2 comes at X+4..5, while on open U2 must follow the X+6 pull: edge-asymmetric.
+  `--vary` over the 4 cells (honest blocks incl. bulbs, lamps, droppers, sensors, torches, dust): 0 of
+  130k drive K (L0 ideal); pockets' 3-block hits use headless extended pistons (not legal play).
+- Top: the s open push at t9..10 with a 3..4 gt hold has no source in the top-right (only (3,3) is free;
+  (2,4)/(3,4) carry the repeaters; the natural ticks are 2/4 (lever observers), 8/10 ((3,5)), 16 (M)).
