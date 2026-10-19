@@ -438,6 +438,18 @@ pub enum DoorCmd {
         #[arg(long)]
         quiet: bool,
     },
+    /// Draw mechanisms by eye (sheet.rs): for each ideal schedule (or design), the door's plane at
+    /// rest and once the opening settles (replayed in redsim, no Minecraft), as one markdown page.
+    Sheet {
+        #[arg(required = true, num_args = 1..)]
+        files: Vec<PathBuf>,
+        /// Write the page here instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Page title.
+        #[arg(long)]
+        heading: Option<String>,
+    },
     /// Judge a mechanism driven by ideal inputs from a schedule (see ideal.rs); sweep its timing.
     Ideal {
         schedule: PathBuf,
@@ -2412,6 +2424,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 None => anyhow::bail!("no route"),
             }
+        }
+        DoorCmd::Sheet { files, out, heading } => {
+            crate::sheet::cli(&files, out.as_deref(), heading.as_deref())?;
         }
         DoorCmd::Ideal { schedule, set, sweep, independent, extra_offsets, cycles, trace, workers } => {
             crate::ideal::cli(version, &schedule, &set, &sweep, independent, extra_offsets, cycles, trace, workers)?;
