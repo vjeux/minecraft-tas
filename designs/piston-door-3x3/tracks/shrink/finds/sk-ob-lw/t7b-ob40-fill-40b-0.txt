@@ -1,0 +1,42 @@
+name: t7b-ob40-fill-40b-0
+note: door fill of designs/piston-door-3x3/tracks/shrink/wip/t7b-ob40.txt: (-2,2) white_wool (-2,3) observer[facing=up,powered=false] (-2,4) sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=true,facing=down]
+  F minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  W minecraft:white_wool
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -4:
+  .Foo
+layer -3:
+  .RrCP
+layer -2:
+  .OOC.oD
+layer -1:
+  .s..F.A
+layer 0:
+  s.FFF.D
+layer 1:
+  s.FFF.D
+layer 2:
+  WFFFFFF
+layer 3:
+  A.pppBR
+layer 4:
+  S.EEE
+layer 5:
+  ...L
