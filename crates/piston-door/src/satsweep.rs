@@ -22,7 +22,7 @@ use crate::satwire as sw;
 use anyhow::{Context, Result};
 use mctas::design::Design;
 use mctas::sim::{Pos, Worker, WorkerConfig};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -38,6 +38,8 @@ pub struct SweepOpts {
     pub settle: i32,
     pub core_tries: usize,
     pub box_dims: Option<(i32, i32)>,
+    /// `--box x0,y0,z0:x1,y1,z1`: one fixed wiring box (overrides `box_dims`).
+    pub fixed_box: Option<(i32, i32, i32, i32)>,
     pub variants: Vec<String>,
     pub gaps: Vec<u32>,
     pub triple_gaps: Vec<u32>,
@@ -50,9 +52,15 @@ pub struct SweepOpts {
     /// `--menu-core`: one group for the core (inputs pulsed more than once and the single pulses
     /// between them): each alternative shifts one core pulse, changes its width, or holds two.
     pub menu_core: bool,
+    /// `--menu-coshift`: the single-pulse inputs of one step on one side of the door shifted
+    /// together (one group per step and side) instead of one by one.
+    pub menu_coshift: bool,
     /// Round every pulse width up to an even number of ticks.
     pub even: bool,
     /// Stretch every pulse shorter than this many ticks to it (0: keep the plan's widths).
+    /// Exact recorded piston power (satwire `--recorded-power`) instead of motion-derived
+    /// requirements.
+    pub recorded_power: bool,
     pub widen: u32,
     pub no_validate: bool,
     pub minimize: bool,
@@ -311,8 +319,43 @@ fn menu_items(s: &Schedule, o: &SweepOpts) -> Result<Vec<(String, usize, String,
                 }
             }
         }
+        // SIDE GROUPS (`--menu-coshift`): single-pulse inputs of one step on one side of the door
+        // (left of it, right of it, above/below it) shifted TOGETHER: ideal inputs next to a
+        // column of pullers QC-couple them, so shifting one alone breaks the plan
+        let mut coshifted: BTreeSet<Pos> = BTreeSet::new();
+        if o.menu_coshift {
+            let door = s.design().ports.get("door").copied().unwrap_or([0, 0, 0]);
+            let side = |p: Pos| -> &'static str {
+                if p[0] < door[0] { "left" } else if p[0] > door[0] + 2 { "right" } else { "mid" }
+            };
+            let mut steps: BTreeMap<(u32, &'static str), Vec<usize>> = BTreeMap::new();
+            for (i, p) in ps.iter().enumerate() {
+                if p.state.is_empty() || p.off.is_none() || count.get(&p.pos).copied().unwrap_or(0) != 1 || (o.menu_core && is_core(p)) {
+                    continue;
+                }
+                steps.entry((p.on, side(p.pos))).or_default().push(i);
+            }
+            for ((t, sd), idx) in &steps {
+                if idx.len() < 2 {
+                    continue;
+                }
+                for &d in &o.menu_shifts {
+                    if *t as i64 + d < 0 || d == 0 {
+                        continue;
+                    }
+                    let mut v = ps.clone();
+                    for &i in idx {
+                        let off = v[i].off.unwrap();
+                        v[i].on = (v[i].on as i64 + d) as u32;
+                        v[i].off = Some((off as i64 + d) as u32);
+                    }
+                    items.push((format!("step{t}-{sd}"), tr, format!("shift{d:+}"), mk_sched(tr, &v)));
+                }
+                coshifted.extend(idx.iter().map(|&i| ps[i].pos));
+            }
+        }
         for (pos, n) in &count {
-            if *n != 1 {
+            if *n != 1 || coshifted.contains(pos) {
                 continue;
             }
             let Some(i) = ps.iter().position(|p| p.pos == *pos && !p.state.is_empty()) else { continue };
@@ -408,7 +451,10 @@ pub fn cli(inputs: &[PathBuf], o: &SweepOpts) -> Result<()> {
         let text = std::fs::read_to_string(inp).with_context(|| format!("{}", inp.display()))?;
         let s = Schedule::parse(&text).with_context(|| format!("{}", inp.display()))?;
         let bb = mech_bbox(s.design())?;
-        let boxes = placements(bb, o.box_dims);
+        let boxes = match o.fixed_box {
+            Some(b) => vec![b],
+            None => placements(bb, o.box_dims),
+        };
         if boxes.is_empty() {
             println!("{}: mechanism {}x{} does not fit the box", inp.display(), bb.2 - bb.0 + 1, bb.3 - bb.1 + 1);
             continue;
@@ -491,11 +537,14 @@ fn run_job(j: &Job, o: &SweepOpts, log_path: &Path) -> (String, String, String, 
                     return Ok(("INVALID".into(), "-".into(), msg.chars().take(120).collect(), "-".into()));
                 }
             }
-            let mut rec = sw::record_ideal(&mut w, &j.sched, 80)?;
+            // record until 40 ticks after the plan's last event (slow plans run past 80 ticks)
+            let last = [true, false].iter().filter_map(|op| j.sched.events_of(*op, j.sched.vars()).ok()).flat_map(|v| v.into_iter().map(|e| e.0)).max().unwrap_or(0);
+            let rec_ticks = (last + 40).max(80);
+            let mut rec = sw::record_ideal(&mut w, &j.sched, rec_ticks)?;
             if !o.menu_shifts.is_empty() || o.menu_triples || !o.menu_widths.is_empty() || o.menu_core {
                 let items = menu_items(&j.sched, o)?;
                 log(format!("menu: {} alternative recordings", items.len()));
-                for l in sw::add_menu(&mut w, &mut rec, &items, 80)? {
+                for l in sw::add_menu(&mut w, &mut rec, &items, rec_ticks + 24, !o.recorded_power)? {
                     log(l);
                 }
             }
@@ -523,8 +572,8 @@ fn run_job(j: &Job, o: &SweepOpts, log_path: &Path) -> (String, String, String, 
             settle: o.settle,
             qc: true,
             levels: 15,
-            blocked_dc: true,
-            motion: true,
+            blocked_dc: !o.recorded_power,
+            motion: !o.recorded_power,
         };
         let p = sw::build_prob(rec, &po)?;
         let out = o.out_dir.join(format!("{}.txt", j.name));

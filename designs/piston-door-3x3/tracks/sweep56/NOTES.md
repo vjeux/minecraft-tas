@@ -89,3 +89,22 @@ other phase played without snapshots) and kept when they start and end like the 
 groups whose cells meet an earlier group's are dropped. satwire's owner (session 1e942b23) adds
 motion-derived requirements and measured windows on top (agreed design: menus as they are,
 windows replace the shift lists).
+* 18:47Z merged explore/satwire b9d7ff1 (motion-derived requirements, the default; menus compose:
+  `motion_req_ph` runs per alternative phase). Under motion requirements a menu group's cells are
+  the FRAME differences only (power differences were the ideal inputs' QC side effects, which
+  glued every toggle to its neighbors and dropped the groups).
+* Calibration, e89b-sym in its own 8x9 box, motion on: base UNSAT; per-input shifts +4..+12 UNSAT:
+  the right-column toggles' shifted alternatives fail the start/end check (the ideal inputs at
+  (4,-1), (5,1), (5,2) QC-couple the column: each also powers the piston below the one it feeds,
+  so shifting one alone re-extends its neighbor). `--menu-coshift`: one group per step and side of
+  the door (all its single-pulse inputs shifted together), so the right column can move as a unit
+  after the top puller (satwire's diagnosis: the top-right pocket's only trigger is an observer on
+  the top puller, and the plan fires both at t36).
+* Bugs found and fixed on the way: satsweep recorded 80 ticks per phase, too short for vmid's plans
+  (last event at t91): their first rows were spurious UNSATs (empty cores), rerun. `--hall-ring` is
+  UNSAT before any piston requirement on vmid's vb1/vb2/vb3/vc1: a never-swept ring cell sits two
+  ahead of a sticky piston (vb3: probably (-1,1), ahead of the carried SU at (-1,-1)), so the
+  hallway check's stone there would be pulled; without `--hall-ring` they get real cores.
+  Rewriting SWEEP.tsv while sweeps append to it loses their rows (their fds keep the old inode):
+  fm-7x8-016 and fm-7x8-030 (recorded power, widen 2) were still solving after 54 min and were
+  killed by the task bound; fm-7x8-017-groups was killed after 80 min.

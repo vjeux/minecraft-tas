@@ -887,6 +887,9 @@ pub enum DoorCmd {
         /// Wiring box size "WxH" (every placement around the mechanism); default: its bounding box.
         #[arg(long)]
         box_dims: Option<String>,
+        /// One fixed wiring box "x0,y0,z0:x1,y1,z1" (overrides --box-dims).
+        #[arg(long = "box")]
+        fixed_box: Option<String>,
         /// base,gap,triple
         #[arg(long, default_value = "base")]
         variants: String,
@@ -899,6 +902,9 @@ pub enum DoorCmd {
         /// Stretch pulses shorter than N ticks to N (pistmodel's 1 gt pulses -> 2 gt).
         #[arg(long, default_value_t = 0)]
         widen: u32,
+        /// Exact recorded piston power instead of satwire's motion-derived requirements.
+        #[arg(long)]
+        recorded_power: bool,
         /// Round every pulse width up to an even number of ticks (3 gt -> 4 gt).
         #[arg(long)]
         even: bool,
@@ -916,6 +922,10 @@ pub enum DoorCmd {
         /// or two pulses of one input held as one level), the solver picking one.
         #[arg(long)]
         menu_core: bool,
+        /// Menu: single-pulse inputs of one step on one side of the door shift TOGETHER (one
+        /// group per step and side; ideal inputs beside a column of pullers QC-couple them).
+        #[arg(long)]
+        menu_coshift: bool,
         /// Skip the ideal-input replay of each variant.
         #[arg(long)]
         no_validate: bool,
@@ -2914,7 +2924,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
         }
-        DoorCmd::Satsweep { plans, jobs, palette, forbid_ring, hall_ring, lever_oop, dmax, skip, settle, core_tries, box_dims, variants, gaps, triple_gaps, widen, even, menu_shifts, menu_triples, menu_widths, menu_core, no_validate, minimize, tsv, out_dir, extra_offsets } => {
+        DoorCmd::Satsweep { plans, jobs, palette, forbid_ring, hall_ring, lever_oop, dmax, skip, settle, core_tries, box_dims, fixed_box, variants, gaps, triple_gaps, widen, recorded_power, even, menu_shifts, menu_triples, menu_widths, menu_core, menu_coshift, no_validate, minimize, tsv, out_dir, extra_offsets } => {
             let nums = |s: &str| -> Result<Vec<u32>> { s.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<u32>().map_err(anyhow::Error::from)).collect() };
             let box_dims = match box_dims.as_deref() {
                 Some(b) => {
@@ -2934,15 +2944,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 settle,
                 core_tries,
                 box_dims,
+                fixed_box: fixed_box.as_deref().map(crate::satwire::parse_box).transpose()?,
                 variants: variants.split(',').map(|s| s.trim().to_string()).collect(),
                 gaps: nums(&gaps)?,
                 triple_gaps: nums(&triple_gaps)?,
                 widen,
+                recorded_power,
                 even,
                 menu_shifts: menu_shifts.split(',').filter(|t| !t.trim().is_empty()).map(|t| t.trim().parse::<i64>().map_err(anyhow::Error::from)).collect::<Result<Vec<i64>>>()?,
                 menu_triples,
                 menu_widths: nums(&menu_widths)?,
                 menu_core,
+                menu_coshift,
                 no_validate,
                 minimize,
                 tsv,

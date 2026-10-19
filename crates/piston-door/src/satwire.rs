@@ -593,9 +593,18 @@ pub fn record_ideal_only(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32,
             None => ticks,
         };
         if only.is_some_and(|o| o != ph) {
-            for t in 0..=ticks {
-                for (et, p, st) in &evs {
-                    if *et == t {
+            // played without snapshots: step in bulk between the event ticks
+            let mut t = 0u32;
+            let mut ticks_ev: Vec<u32> = evs.iter().map(|e| e.0).filter(|et| *et <= ticks).collect();
+            ticks_ev.sort();
+            ticks_ev.dedup();
+            for et in ticks_ev {
+                if et > t {
+                    w.step(sb, et - t)?;
+                    t = et;
+                }
+                for (et2, p, st) in &evs {
+                    if *et2 == et {
                         if st.as_deref() == Some("@use") {
                             w.use_block(sb, *p)?;
                             continue;
@@ -604,7 +613,9 @@ pub fn record_ideal_only(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32,
                         w.set_blocks(sb, &[(*p, state)], PlaceMode::Update)?;
                     }
                 }
-                w.step(sb, 1)?;
+            }
+            if ticks + 1 > t {
+                w.step(sb, ticks + 1 - t)?;
             }
             continue;
         }
@@ -1207,7 +1218,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
 /// alternative's frames or piston power differ from the base). A group whose cells meet an earlier
 /// group's (same trace) is dropped (its alternatives do not compose). Every phase of a trace is
 /// then padded to one length. Returns one log line per group.
-pub fn add_menu(w: &mut Worker, rec: &mut Rec, items: &[(String, usize, String, crate::ideal::Schedule)], ticks: u32) -> Result<Vec<String>> {
+pub fn add_menu(w: &mut Worker, rec: &mut Rec, items: &[(String, usize, String, crate::ideal::Schedule)], ticks: u32, motion: bool) -> Result<Vec<String>> {
     let mut log = Vec::new();
     let mut by: BTreeMap<(usize, String), Vec<(String, Phase)>> = BTreeMap::new();
     for (g, tr, label, s) in items {
@@ -1242,10 +1253,15 @@ pub fn add_menu(w: &mut Worker, rec: &mut Rec, items: &[(String, usize, String, 
                         cells.insert(*c);
                     }
                 }
-                let (pa, pb) = (&ph.power[j], &base.power[j]);
-                for c in pa.keys().chain(pb.keys()) {
-                    if pa.get(c).copied().unwrap_or(false) != pb.get(c).copied().unwrap_or(false) {
-                        cells.insert(*c);
+                // piston power differences matter only without motion-derived requirements
+                // (`--recorded-power`): the ideal inputs' QC side effects would glue every
+                // toggle to its neighbors
+                if !motion {
+                    let (pa, pb) = (&ph.power[j], &base.power[j]);
+                    for c in pa.keys().chain(pb.keys()) {
+                        if pa.get(c).copied().unwrap_or(false) != pb.get(c).copied().unwrap_or(false) {
+                            cells.insert(*c);
+                        }
                     }
                 }
             }
