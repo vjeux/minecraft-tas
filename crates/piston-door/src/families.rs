@@ -37,6 +37,8 @@ const AIR: u8 = 0;
 const DOOR: u8 = 1;
 const STONE: u8 = 2;
 const OBS: u8 = 3;
+/// A redstone block (strip track): pushable, powers the pistons beside it (not through their front).
+const RB: u8 = 4;
 const BODY: u8 = 16;
 const HEAD: u8 = 48;
 /// East, west, up, down (mechsynth's D indices 0..3).
@@ -65,6 +67,8 @@ pub enum K {
     Obsidian,
     /// f: 0 E, 1 W, 2 U, 3 D.
     Piston { sticky: bool, f: u8, ext: bool },
+    /// A redstone block carried in the row line (strip track, `--rblocks`).
+    Redstone,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
@@ -79,6 +83,7 @@ impl Pc {
         match self.k {
             K::Stone => format!("stone({},{})", self.x, self.y),
             K::Obsidian => format!("obsidian({},{})", self.x, self.y),
+            K::Redstone => format!("R({},{})", self.x, self.y),
             K::Piston { sticky, f, ext } => format!("{}{}{}({},{})", if sticky { "S" } else { "N" }, FNAME[f as usize], if ext { "+" } else { "" }, self.x, self.y),
         }
     }
@@ -147,7 +152,21 @@ pub struct Mech {
     pub pid: Vec<usize>,
     /// Extended (powered) at rest, by piston id.
     pub ext_rest: Vec<bool>,
+    /// Cells a piston may not act from (strip track's `--forbid-fire`: door-plane x columns
+    /// that no wiring can reach); empty = no restriction.
+    pub forbid: Vec<bool>,
+    /// The mechanism has redstone blocks: pistons next to one (not through their front) are
+    /// powered, and every state is settled (powered pistons extend, unpowered ones retract).
+    pub has_r: bool,
 }
+
+/// `families --rows --forbid-fire`: x columns (door coordinates) no piston may fire from.
+pub static FORBID_X: std::sync::OnceLock<Vec<i8>> = std::sync::OnceLock::new();
+/// `families --rows --rblocks N`: redstone blocks per row candidate.
+pub static RMAX: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+/// `families --rows --r-both`: a redstone block powers the pistons on BOTH sides, front included
+/// (lockstep rows 0 and 1: the block in the row above quasi-powers both neighbours).
+pub static RBOTH: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct E {
@@ -188,6 +207,7 @@ impl Mech {
             match p.k {
                 K::Stone => g[bx.idx(p.x, p.y)] = STONE,
                 K::Obsidian => g[bx.idx(p.x, p.y)] = OBS,
+                K::Redstone => g[bx.idx(p.x, p.y)] = RB,
                 K::Piston { sticky, f, ext } => {
                     let id = info.len();
                     if id >= 16 {
@@ -207,22 +227,42 @@ impl Mech {
             }
         }
         let ext_rest: Vec<bool> = (0..info.len()).map(|id| pow & (1 << id) != 0).collect();
-        let m = Mech { bx, pieces, info, pid, ext_rest };
+        let forbid = match FORBID_X.get() {
+            Some(xs) if !xs.is_empty() => (0..bx.n()).map(|i| xs.contains(&bx.xy(i).0)).collect(),
+            _ => Vec::new(),
+        };
+        let has_r = pieces.iter().any(|p| matches!(p.k, K::Redstone));
+        let mut m = Mech { bx, pieces, info, pid, ext_rest, forbid, has_r };
+        let mut st = St { g, pow, pp, qc: 0 };
+        if has_r {
+            // a piston held out at rest by a redstone block beside it is not wired: no level bit
+            for id in 0..m.info.len() {
+                if m.ext_rest[id] && m.rpow(&st, id) {
+                    st.pow &= !(1u16 << id);
+                    m.ext_rest[id] = false;
+                }
+            }
+            // the rest state must already be settled (pistons beside a block extended)
+            let mut t = st.clone();
+            if !m.settle(&mut t) || t != st {
+                return None;
+            }
+        }
         if QC.load(Ordering::Relaxed) {
             // a piston held powered at rest QC-arms a retracted piston right below it: unstable
             for id in 0..m.info.len() {
                 if !m.ext_rest[id] {
                     continue;
                 }
-                if let Some(b) = m.step(pp[id] as usize, 3) {
-                    let c = g[b];
+                if let Some(b) = m.step(st.pp[id] as usize, 3) {
+                    let c = st.g[b];
                     if (BODY..HEAD).contains(&c) && !m.ext_rest[(c - BODY) as usize] {
                         return None;
                     }
                 }
             }
         }
-        Some((m, St { g, pow, pp, qc: 0 }))
+        Some((m, st))
     }
 
     fn step(&self, i: usize, f: u8) -> Option<usize> {
@@ -239,7 +279,7 @@ impl Mech {
 
     fn pushable(&self, s: &St, c: u8) -> bool {
         match c {
-            DOOR | STONE => true,
+            DOOR | STONE | RB => true,
             OBS => false,
             c if (BODY..HEAD).contains(&c) => !self.ext(s, (c - BODY) as usize),
             _ => false,
@@ -398,6 +438,79 @@ impl Mech {
         let bit = 1u16 << id;
         let powered = s.pow & bit != 0;
         let ext = self.ext(s, id);
+        if !self.forbid.is_empty() && self.forbid[p] {
+            return Out::Illegal;
+        }
+        if self.has_r && self.rpow(s, id) {
+            return Out::Illegal; // driven by its redstone block, not by wiring
+        }
+        let out = self.apply_inner(s, e, id, sticky, f, p, bit, powered, ext);
+        match out {
+            Out::Ok(mut n) if self.has_r => {
+                if self.settle(&mut n) { Out::Ok(n) } else { Out::Illegal }
+            }
+            o => o,
+        }
+    }
+
+    /// Is piston `id` powered by a redstone block beside it (its back; with `--r-both` also its
+    /// front)?
+    pub fn rpow(&self, s: &St, id: usize) -> bool {
+        let (_, f) = self.info[id];
+        let p = s.pp[id] as usize;
+        let both = RBOTH.get().copied().unwrap_or(false);
+        for d in 0..4u8 {
+            if d == f && !both {
+                continue;
+            }
+            if let Some(j) = self.step(p, d) {
+                if s.g[j] == RB {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Settle a state with redstone blocks: a piston powered (level bit or a block beside it)
+    /// and retracted extends if it can; one unpowered and extended retracts (sticky pull). False
+    /// = a move out of the box or no fixpoint.
+    pub fn settle(&self, s: &mut St) -> bool {
+        for _ in 0..32 {
+            let mut changed = false;
+            for id in 0..self.info.len() {
+                let (sticky, f) = self.info[id];
+                let p = s.pp[id] as usize;
+                let eff = s.pow & (1 << id) != 0 || self.rpow(s, id);
+                let ext = self.ext(s, id);
+                if eff && !ext {
+                    match self.push_list(s, self.step(p, f), f) {
+                        Err(true) => return false,
+                        Err(false) => {}
+                        Ok(list) => {
+                            self.move_list(s, &list, f);
+                            s.g[self.step(p, f).unwrap()] = HEAD + id as u8;
+                            changed = true;
+                        }
+                    }
+                } else if !eff && ext {
+                    let h = self.step(p, f).unwrap();
+                    s.g[h] = AIR;
+                    if sticky {
+                        self.pull(s, p, f);
+                    }
+                    changed = true;
+                }
+            }
+            if !changed {
+                return true;
+            }
+        }
+        false
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn apply_inner(&self, s: &St, e: E, id: usize, sticky: bool, f: u8, p: usize, bit: u16, powered: bool, ext: bool) -> Out {
         let mut n = s.clone();
         match e.act {
             Act::L => {
@@ -529,6 +642,7 @@ impl Mech {
                     DOOR => '#',
                     STONE => 's',
                     OBS => 'O',
+                    RB => 'R',
                     c if (BODY..HEAD).contains(&c) => {
                         let (sticky, f) = self.info[(c - BODY) as usize];
                         let ch = ['>', '<', '^', 'v'][f as usize];
@@ -1463,7 +1577,12 @@ impl Gen {
 
 /// Candidate mechanisms of one box offset: for each center exit direction, every core option
 /// times every exit choice of the 7 other perimeter blocks (`two` of them may take 2 moves).
-pub fn generate(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize) -> Vec<Vec<Pc>> {
+pub fn generate(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize) -> Vec<Vec<Pc>> {
+    generate_v(bx, pmax, lifts, pushes, two, 0, &[])
+}
+
+/// [`generate`] with general carrying (`carry` = depth, 0 = elevator lifts only).
+pub fn generate_c(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, carry: usize) -> Vec<Vec<Pc>> {
     generate_v(bx, pmax, lifts, pushes, two, carry, &[])
 }
 
@@ -1819,6 +1938,7 @@ pub fn to_world(m: &Mech) -> (World, Vec<u8>) {
         let k = match p.k {
             K::Stone => Kind::Stone,
             K::Obsidian => Kind::Obsidian,
+            K::Redstone => Kind::Stone,
             K::Piston { sticky, f, ext } => Kind::Piston { sticky, f, ext },
         };
         b.push(([p.x, p.y, 0], k));
@@ -1922,7 +2042,48 @@ pub struct Opts {
 
 /// `--check <design>`: the mechanism of a design (wiring dropped) solved in its own bounding
 /// box grown by `margin`: open/close schedules, symmetric train, extent.
-pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize) -> Result<()> {
+/// `--check <design> --verify`: write the checked mechanism's ideal-input plans (separate open/close
+/// schedules, and the symmetric train when there is one) to `out_dir/ideal/` and replay each in the
+/// simulator (`door ideal` format: the files can be edited and re-run by hand).
+pub struct CheckVerify {
+    pub version: String,
+    pub out_dir: std::path::PathBuf,
+    pub gap: u32,
+    pub extra: u32,
+    pub name: String,
+}
+
+fn verify_one(v: &CheckVerify, m: &Mech, sol: &Sol, sym: Option<&Vec<E>>) -> Result<()> {
+    let cfg = mctas::sim::WorkerConfig { version: v.version.clone(), heap_mb: 768, ..Default::default() };
+    let pool = mctas::sim::Pool::spawn(1, &cfg)?;
+    let mut wk = pool.worker(0);
+    let (w, map) = to_world(m);
+    let msol = mechsynth::Solution { open: ms_seq(&map, &sol.open), close: ms_seq(&map, &sol.close), sym: sym.map(|s| ms_seq(&map, s)), states: 0 };
+    let dir = v.out_dir.join("ideal");
+    std::fs::create_dir_all(&dir)?;
+    for use_sym in [false, true] {
+        if use_sym && sym.is_none() {
+            continue;
+        }
+        let tag = if use_sym { "sym" } else { "oc" };
+        let name = format!("{}-{tag}", v.name);
+        let plan = mechsynth::ideal_plan(&w, &msol, use_sym, v.gap, &name)?;
+        let mut dd = plan.design.clone();
+        dd.name = name.clone();
+        let dpath = dir.join(format!("{name}.txt"));
+        dd.save(&dpath)?;
+        let text = plan.text.replace(&format!("design {name}.txt"), &format!("design {}", dpath.display()));
+        let ipath = dir.join(format!("{name}.ideal"));
+        std::fs::write(&ipath, text)?;
+        match mechsynth::verify_plan(&mut wk, &plan, v.extra) {
+            Ok(()) => println!("  {tag}: WORKS with ideal inputs ({} + {})", dpath.display(), ipath.display()),
+            Err(e) => println!("  {tag}: BROKEN with ideal inputs: {e:#} ({})", ipath.display()),
+        }
+    }
+    Ok(())
+}
+
+pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize, verify: Option<CheckVerify>) -> Result<()> {
     let d = crate::cli::load_design(path)?;
     let w = mechsynth::world_of_design(&d)?;
     let mut pieces = Vec::new();
@@ -1976,10 +2137,18 @@ pub fn check(path: &std::path::Path, margin: i8, cap: usize, sym_cap: usize) -> 
             match best_sym(&m, &rest, &sol, sym_cap, 6) {
                 Some((s, lv)) => {
                     println!("  sym {}{}: {}", s.len(), if lv { " (levels)" } else { " (pulses only)" }, m.fmt_seq(&s));
+                    if let Some(v) = &verify {
+                        verify_one(v, &m, &sol, Some(&s))?;
+                    }
                     sol.sym = Some(s);
                     sol.sym_levels = lv;
                 }
-                None => println!("  no symmetric train"),
+                None => {
+                    println!("  no symmetric train");
+                    if let Some(v) = &verify {
+                        verify_one(v, &m, &sol, None)?;
+                    }
+                }
             }
             let w = wiring(&m, &rest, &sol);
             println!("  wire {} regions {:?} forced {} riders {}: {}", w.class, w.regions, w.forced, w.riders, w.why);
@@ -2416,7 +2585,18 @@ pub fn row_candidates(a: i8, b: i8, kmax: usize) -> Vec<Vec<Pc>> {
         }
         let x = cells[i];
         rec(i + 1, cells, lo, hi, kmax, cur, occ, out);
-        if occ.contains(&x) || cur.len() >= kmax {
+        if occ.contains(&x) {
+            return;
+        }
+        let nr = cur.iter().filter(|p| matches!(p.k, K::Redstone)).count();
+        if nr < RMAX.get().copied().unwrap_or(0) {
+            cur.push(Pc { x, y: 0, k: K::Redstone });
+            occ.insert(x);
+            rec(i + 1, cells, lo, hi, kmax, cur, occ, out);
+            cur.pop();
+            occ.remove(&x);
+        }
+        if cur.len() - nr >= kmax {
             return;
         }
         for sticky in [true, false] {

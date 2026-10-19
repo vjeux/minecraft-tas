@@ -1,0 +1,63 @@
+# Strip door r046 x 3 rows, inputs IN THE PLANE where a 5-tall strip box could have them:
+# rows 1 and 2 run the same train from the top row (a redstone block at (x,3) fires row 2's piston
+# at (x,2) directly and row 1's at (x,1) by quasi-connectivity), row 0 from the bottom row
+# ((x,-1)). The inner pair (C at x = 2: push at s3, pull at s4) is ONE level input: a block held
+# in the ceiling / floor ring cell (2,3) / (2,-1) from s3 to s4 (C extends, then retracts with the
+# sticky pull), i.e. what a redstone block pushed in from a corner and pulled back would do.
+design designs/piston-door-3x3/tracks/flat-seam/strip/r046x3.txt
+let s1 = 0
+let s2 = 6
+let s3 = 12
+let s4 = 18
+let s5 = 24
+let s6 = 30
+let s7 = 36
+let s8 = 42
+let s9 = 48
+let c1 = 0
+let c2 = 6
+let c3 = 12
+open s1 set 6 3 0 minecraft:redstone_block
+open s1+2 clear 6 3 0
+open s2 set 4 3 0 minecraft:redstone_block
+open s2+2 clear 4 3 0
+open s3 set 2 3 0 minecraft:redstone_block
+open s4 clear 2 3 0
+open s5 set 4 3 0 minecraft:redstone_block
+open s5+2 clear 4 3 0
+open s6 set 3 3 0 minecraft:redstone_block
+open s6+2 clear 3 3 0
+open s7 set 6 3 0 minecraft:redstone_block
+open s7+2 clear 6 3 0
+open s8 set 5 3 0 minecraft:redstone_block
+open s8+2 clear 5 3 0
+open s9 set 4 3 0 minecraft:redstone_block
+open s9+2 clear 4 3 0
+open s1 set 6 -1 0 minecraft:redstone_block
+open s1+2 clear 6 -1 0
+open s2 set 4 -1 0 minecraft:redstone_block
+open s2+2 clear 4 -1 0
+open s3 set 2 -1 0 minecraft:redstone_block
+open s4 clear 2 -1 0
+open s5 set 4 -1 0 minecraft:redstone_block
+open s5+2 clear 4 -1 0
+open s6 set 3 -1 0 minecraft:redstone_block
+open s6+2 clear 3 -1 0
+open s7 set 6 -1 0 minecraft:redstone_block
+open s7+2 clear 6 -1 0
+open s8 set 5 -1 0 minecraft:redstone_block
+open s8+2 clear 5 -1 0
+open s9 set 4 -1 0 minecraft:redstone_block
+open s9+2 clear 4 -1 0
+close c1 set -4 3 0 minecraft:redstone_block
+close c1+2 clear -4 3 0
+close c2 set -2 3 0 minecraft:redstone_block
+close c2+2 clear -2 3 0
+close c3 set 4 3 0 minecraft:redstone_block
+close c3+2 clear 4 3 0
+close c1 set -4 -1 0 minecraft:redstone_block
+close c1+2 clear -4 -1 0
+close c2 set -2 -1 0 minecraft:redstone_block
+close c2+2 clear -2 -1 0
+close c3 set 4 -1 0 minecraft:redstone_block
+close c3+2 clear 4 -1 0

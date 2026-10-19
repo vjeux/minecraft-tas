@@ -151,35 +151,41 @@ impl SearchArgs {
 }
 #[derive(Subcommand)]
 pub enum DoorCmd {
-    /// Record a video of every design in a folder (several at once), upload each, then write the
-    /// folder's catalog (README.md, see `door catalog`).
+    /// Publish a video of every design in a folder (`<out>/<stem>.mp4`, uploaded), cut from each
+    /// design's one clip (recorded first when missing or stale, several at once), then write the
+    /// folder's catalog (README.md, see `door catalog`). A video is cut again only when its clip,
+    /// card or label changed (seconds, no Minecraft).
     VideoAll {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         dir: PathBuf,
-        /// Local folder for the videos (existing ones are skipped).
+        /// Local folder for the videos.
         #[arg(long)]
         out: PathBuf,
+        /// The clips folder (one recording per design, shared with `door video` and `door
+        /// gallery`; default ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// Client recordings (and cuts) at once.
         #[arg(long, default_value_t = 4)]
         jobs: usize,
         /// GitHub release tag to upload each new video to.
         #[arg(long)]
         upload: Option<String>,
-        /// Look of the videos: `card` (title card, door camera swinging around the door,
-        /// size label: the volume big, the blocks placed small), `clean` (the same camera, no card
-        /// or label) or `classic` (the original still camera framing the whole build).
+        /// `card` (title card, then the clip with the size label: the volume big, the blocks
+        /// placed small) or `clean` (the clip itself).
         #[arg(long, default_value = "card")]
         style: String,
-        /// Orbit amplitude of the door camera in degrees each way (0 = still).
-        #[arg(long, default_value_t = 20.0)]
+        /// Orbit amplitude of the door camera in degrees each way (0 = still; part of the clip's
+        /// settings: the gallery's GIFs need a still camera).
+        #[arg(long, default_value_t = 0.0)]
         orbit: f64,
-        /// Re-record videos that already exist.
-        #[arg(long)]
+        /// Record every clip again.
+        #[arg(long, conflicts_with = "relabel")]
         redo: bool,
-        /// Re-record existing videos of doors still moving when the clip used to stop (40 ticks
-        /// after each flip); videos now always play until the door has settled.
+        /// Record nothing: cut every video that has a clip again (new labels in seconds).
         #[arg(long)]
-        redo_cut: bool,
-        /// Only list the videos that would be recorded (records and writes nothing).
+        relabel: bool,
+        /// Only list the work (cuts and recordings); records and writes nothing.
         #[arg(long)]
         dry_run: bool,
     },
@@ -211,20 +217,24 @@ pub enum DoorCmd {
         #[arg(long)]
         label: Option<PathBuf>,
     },
-    /// The best design of each board (size boards, speed boards) as a looping GIF (door camera,
-    /// real client; labeled with its size, the volume, big and its blocks placed small), uploaded
-    /// to the release, plus the night's timeline chart. No page of its own: `door leaderboard`
-    /// shows each board leader's GIF.
+    /// The best design of each board (size boards, speed boards) as a looping GIF (labeled with
+    /// its size, the volume, big and its blocks placed small), cut from the design's one clip (the
+    /// clips of `door video-all`, recorded here only when missing), uploaded to the release, plus
+    /// the night's timeline chart. No page of its own: `door leaderboard` shows each board
+    /// leader's GIF.
     Gallery {
         #[arg(long, default_value = "designs/piston-door-3x3/archive")]
         archive: PathBuf,
-        /// Folder for the clips and GIFs (rendered when missing).
+        /// Folder for the GIFs.
         #[arg(long)]
         videos: PathBuf,
-        /// GitHub release tag to upload the GIFs and clips to.
+        /// The clips folder (shared with `door video` and `video-all`; default ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// GitHub release tag to upload the GIFs to.
         #[arg(long)]
         upload: Option<String>,
-        /// Client renders at once.
+        /// Client recordings at once (leaders without a clip).
         #[arg(long, default_value_t = 2)]
         jobs: usize,
         /// Worker JVMs to verify archived designs missing from the verdict cache.
@@ -240,9 +250,13 @@ pub enum DoorCmd {
         /// GIF playback speed (clips are recorded at 10 ticks/s: 2 = game speed).
         #[arg(long, default_value_t = 1.5)]
         speed: f64,
-        /// Re-render clips and GIFs that exist.
-        #[arg(long)]
+        /// Record the leaders' clips again (and rebuild their GIFs). Not needed for new labels:
+        /// a GIF is rebuilt whenever its clip or label changed.
+        #[arg(long, conflicts_with = "gif_only")]
         redo: bool,
+        /// Record nothing: rebuild every GIF from the clips there are.
+        #[arg(long)]
+        gif_only: bool,
     },
     /// A board's record progression by blocks placed (solid: archive/records.tsv, plus a newer
     /// record; the history before sizes were volumes) as one video: every design filmed by the
@@ -298,6 +312,20 @@ pub enum DoorCmd {
         /// Also list every working design with its ticks, not just the frontier.
         #[arg(long)]
         all: bool,
+    },
+    /// Where each strip-row mechanism's pistons fire (rowsfire.rs): replays every row of agent
+    /// families' ROWS.tsv (`door families --rows`) in the 1-D macro model and prints, per piston
+    /// action of the open and close schedules, the cell the piston stands on when it fires.
+    /// In a 5-tall strip box rows 0 and 1 cannot be fired from the door columns x 0..2 (the floor
+    /// and ceiling ring are there): `--wirable` keeps the rows with no such firing.
+    RowsFire {
+        tsv: PathBuf,
+        /// Only rows with no firing from x 0..2.
+        #[arg(long)]
+        wirable: bool,
+        /// Only ids starting with one of these (e.g. `r046,r075`).
+        #[arg(long, value_delimiter = ',')]
+        only: Vec<String>,
     },
     /// The shape of every working design relative to its door: layers in front of and behind the
     /// door plane (thickness), rows below and above the opening, columns left and right of it,
@@ -598,6 +626,17 @@ pub enum DoorCmd {
         /// Print what the router finds for each receiver alone (per lever spot).
         #[arg(long)]
         debug: bool,
+        /// Routing box "x0,y0,z0:x1,y1,z1" (world coordinates; lever spots too) instead of the
+        /// design's bounds +- --margin: e.g. a flat box (z0 = z1 = the door's z) for flat doors.
+        #[arg(long = "box")]
+        region_box: Option<String>,
+        /// Cells no wiring may use "x,y,z;...".
+        #[arg(long, default_value = "")]
+        forbid: String,
+        /// Also forbid the door plane's hallway ring (the 12 cells face-adjacent to the opening at
+        /// the door's z): static wiring there shows in the open doorway (not seamless).
+        #[arg(long)]
+        forbid_ring: bool,
         /// The positional file is a mech-synth catalog: wire these entries ("355,356").
         #[arg(long, default_value = "")]
         catalog_ids: String,
@@ -718,6 +757,86 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
+    /// SAT synthesis of a flat door's WIRING for a fixed mechanism (satwire.rs): the mechanism
+    /// and each piston's power per tick come from an ideal schedule (`.ideal`) or a wired design
+    /// (`--from-wired`, wiring stripped); placement one-hot per free cell of the box, two traces
+    /// (lever on from rest, off from open), time-unrolled redstone semantics; every model is
+    /// judged by the real simulator (CEGAR) and the wiring is minimized.
+    Satwire {
+        /// An ideal schedule (`.ideal`) or a design (with --from-wired).
+        #[arg(required = true, num_args = 1..)]
+        mechanism: Vec<PathBuf>,
+        /// Parallel jobs (--check over many designs).
+        #[arg(long, default_value_t = 8)]
+        jobs: usize,
+        /// The mechanism is a wired design: record its pistons' real power, strip its wiring.
+        #[arg(long)]
+        from_wired: bool,
+        /// Wiring box "x0,y0,z0:x1,y1,z1" (default: the mechanism's bounding box).
+        #[arg(long = "box")]
+        bx: Option<String>,
+        /// Ring cells (and the cells behind hallway holes) hold only plain blocks.
+        #[arg(long)]
+        forbid_ring: bool,
+        /// Lever candidate cells "x,y,z;..." (default: free cells and the cells around the box).
+        #[arg(long)]
+        lever: Option<String>,
+        /// Also offer levers in front of / behind wiring blocks (out of the plane).
+        #[arg(long)]
+        lever_oop: bool,
+        /// Palette: block,dust,rep (rep1..rep4),obs,torch,note,bulb,cmp.
+        #[arg(long, default_value = "block,dust,rep,obs,torch")]
+        palette: String,
+        #[arg(long)]
+        max_blocks: Option<usize>,
+        /// Most recorded static ticks replayed (stalls) per trace: the solver retimes the schedule.
+        #[arg(long, default_value_t = 8)]
+        dmax: i32,
+        /// Most recorded static ticks skipped per trace (pauses of the schedule shortened).
+        #[arg(long, default_value_t = 8)]
+        skip: i32,
+        /// Ticks after the mechanism settles that the wiring must also settle in.
+        #[arg(long, default_value_t = 6)]
+        settle: i32,
+        /// Ticks recorded per flip.
+        #[arg(long, default_value_t = 80)]
+        rec_ticks: u32,
+        /// Forbid quasi-connected power as a piston's wanted power.
+        #[arg(long)]
+        no_qc: bool,
+        /// Dust levels modeled (15 = exact; fewer = conservative, shorter dust runs).
+        #[arg(long, default_value_t = 15)]
+        levels: u8,
+        /// Fix the source design's own wiring and report where the model disagrees with it.
+        #[arg(long)]
+        check: bool,
+        /// CEGAR iterations.
+        #[arg(long, default_value_t = 300)]
+        iters: usize,
+        /// Diagnose UNSAT: guard constraint groups (supports, each cell's semantics, scheduling,
+        /// trace ends) with selectors and print the conflicting groups.
+        #[arg(long)]
+        diag: bool,
+        /// Keep this design's wiring cells and lever as they are; solve only the other cells.
+        #[arg(long)]
+        fixed: Option<PathBuf>,
+        /// The mechanism is a families catalog entry: MECHANISM = CATALOG.tsv, this = the entry id.
+        #[arg(long)]
+        families: Option<String>,
+        /// With --families: ticks per macro step of the ideal schedule.
+        #[arg(long, default_value_t = 6)]
+        gap: u32,
+        /// With --families: use the open/close schedules even when a symmetric train exists.
+        #[arg(long)]
+        oc: bool,
+        /// Stop at the first judged design (no minimization).
+        #[arg(long)]
+        first: bool,
+        #[arg(long, default_value_t = 28)]
+        extra_offsets: u32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// The catalog of flat (1-wide) seamless mechanisms per box (families.rs): every door block
     /// leaves the 3x3 in 1-2 unit moves (center 2), each move provided by a pull or push piston
     /// (reused, or lifted by one elevator piston); every candidate solved exactly in the macro
@@ -794,6 +913,17 @@ pub enum DoorCmd {
         /// `both`.
         #[arg(long)]
         vmid: Option<String>,
+        /// Strip mode: x columns (door coordinates) no piston may fire from, e.g.
+        /// `--forbid-fire=-1,1,3` (cells no wiring can reach in a 5-tall strip box).
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        forbid_fire: Vec<i8>,
+        /// Strip mode: redstone blocks per row (pushable pieces that power the pistons beside
+        /// them, not through their front; every state settled).
+        #[arg(long, default_value_t = 0)]
+        rblocks: usize,
+        /// Strip mode: a redstone block also powers the piston whose FRONT touches it.
+        #[arg(long)]
+        r_both: bool,
     },
     /// Mechanism synthesis (mechsynth.rs): enumerate up to --add blocks (pistons, slime...) on a
     /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
@@ -891,6 +1021,16 @@ pub enum DoorCmd {
         /// enumeration keeps only the wirable mechanisms.
         #[arg(long)]
         topology: Option<String>,
+        /// Open states must also be FULL seamless for a flat door (macro proxy): the door plane's
+        /// 12 hallway-ring cells hold only door blocks, plain stone or air (no heads, no slime or
+        /// honey), and an empty ring cell has no circuitry right behind it.
+        #[arg(long)]
+        seamless_open: bool,
+        /// Replay a hand-written mechanism path instead of searching: "<open events> | <close
+        /// events>" (same event syntax as --sym-bfs); writes oc.txt/oc.ideal to --out-dir and
+        /// replays the ideal inputs in the simulator with --verify 1.
+        #[arg(long)]
+        oc: Option<String>,
     },
     /// Local search for fewer blocks (see search.rs): removals, repeater delays, moves,
     /// substitutions and dust re-routing. Candidates are screened at a few positions and accepted
@@ -943,7 +1083,8 @@ pub enum DoorCmd {
         #[command(flatten)]
         search: SearchArgs,
     },
-    /// Record the door opening and closing with the real Minecraft client (needs Xvfb).
+    /// Record the door opening and closing with the real Minecraft client (needs Xvfb) and publish
+    /// it: the design's one clip (recorded only when missing or stale) cut into the video.
     Video {
         design: PathBuf,
         #[arg(long)]
@@ -954,16 +1095,27 @@ pub enum DoorCmd {
         /// Upload to this GitHub release tag of vjeux/minecraft-tas.
         #[arg(long)]
         upload: Option<String>,
-        /// `card` (title card, door camera swinging around the door, size label),
-        /// `clean` (same camera, no card or label) or `classic` (still camera, whole build).
+        /// `card` (title card, then the clip with the size label), `clean` (the clip itself) or
+        /// `classic` (still camera framing the whole build, recorded on its own, no clip).
         #[arg(long, default_value = "card")]
         style: String,
-        /// Orbit amplitude of the door camera in degrees each way (0 = still).
-        #[arg(long, default_value_t = 20.0)]
+        /// Orbit amplitude of the door camera in degrees each way (0 = still; part of the clip's
+        /// settings).
+        #[arg(long, default_value_t = 0.0)]
         orbit: f64,
         /// Frame size, WIDTHxHEIGHT.
         #[arg(long, default_value = "1280x720")]
         size: String,
+        /// The clips folder (shared with `door video-all` and `door gallery`; default
+        /// ~/videos/clips).
+        #[arg(long)]
+        clips: Option<PathBuf>,
+        /// Record the clip again even when it is there.
+        #[arg(long, conflicts_with = "relabel")]
+        redo: bool,
+        /// Never record: cut the video from the clip there is (fails without one).
+        #[arg(long)]
+        relabel: bool,
     },
     /// One open/close cycle tick by tick, still camera, with captions: the lever flips, every
     /// tick after each flip until nothing moves anymore (the state the judge checks), a 3x3 map
@@ -1032,9 +1184,98 @@ pub enum DoorCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Pure-Rust door judge on redsim (no JVM: the judge's checks, FULL seamless, the hallway
+    /// check, the volume), its agreement with the real judge, and the joint mechanism + wiring
+    /// search on top of it (track cosearch, cosearch.rs / cosearch_search.rs).
+    Cosearch {
+        #[command(subcommand)]
+        cmd: crate::cosearch::CosearchCmd,
+    },
+    /// Differential fuzzing of the redsim model (crates/redsim) against the real game: random
+    /// circuits run in both, every block state compared after placement and every tick and flip;
+    /// mismatches are shrunk and saved as case files (`door redsim-case` replays one).
+    RedsimFuzz {
+        /// Random circuits to run.
+        #[arg(long, default_value_t = 1000)]
+        n: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Box size x,y,z.
+        #[arg(long, default_value = "6,3,6")]
+        size: String,
+        /// Chance that a cell of the box gets a component.
+        #[arg(long, default_value_t = 0.45)]
+        density: f64,
+        /// Families with weights: `core`, `extra`, `all`, or `<family>[:w],...` (dust, repeater,
+        /// comparator, torch, walltorch, observer, rblock, lamp, bulb, note, target, lever, button,
+        /// stone, glass, simple, trapdoor, gate, skull, rail, dispenser, crafter, hopper, slab,
+        /// leaves, log, analog, door).
+        #[arg(long, default_value = "core")]
+        palette: String,
+        /// Where shrunk mismatch cases go.
+        #[arg(long, default_value = "designs/redsim/fails")]
+        out: PathBuf,
+        /// Do not shrink mismatches.
+        #[arg(long)]
+        no_shrink: bool,
+        /// Shrink and save at most this many mismatches.
+        #[arg(long, default_value_t = 8)]
+        max_report: usize,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
+    /// Replay a redsim case file in the game and in redsim; print the differing frames.
+    RedsimCase {
+        case: PathBuf,
+        #[arg(long, default_value_t = 3)]
+        max: usize,
+        /// Write it as a redsim regression fixture (the game's trace as the expectation).
+        #[arg(long)]
+        fixture: Option<PathBuf>,
+        /// One-line description for the fixture.
+        #[arg(long, default_value = "")]
+        note: String,
+    },
+    /// Judge designs in redsim (crates/redsim) instead of the game: the judge's checks at the
+    /// default positions (+ --extra-offsets), microseconds per tick. With --judge, also run the
+    /// real judge and report any verdict disagreement (redsim as a search pre-screen must never
+    /// reject a working door).
+    RedsimVerify {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 3)]
+        cycles: usize,
+        /// Also run the real judge (same offsets) and compare.
+        #[arg(long)]
+        judge: bool,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
     /// Apply an edit script to a design and write the (canonicalized) result. Script lines:
     /// `set x y z <state>` (an extended piston gets its head too), `clear x y z` (a piston
     /// takes its head along), `port <name> x y z`; `#` starts a comment line.
+    /// Wire a pulse-driven mechanism with a tree of observers rooted at an observer watching the
+    /// lever (obschain.rs): every driver observer (spec options) fires at its time, watching a
+    /// tree observer one step earlier; exact-length observer paths through free cells, fewest
+    /// observers (branch and bound within --secs).
+    ObsChain {
+        spec: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Paths tried per driver.
+        #[arg(long, default_value_t = 12)]
+        max_paths: usize,
+        #[arg(long, default_value_t = 60)]
+        secs: u64,
+        /// Added to every group's time (the root's distance budget).
+        #[arg(long, default_value_t = 0)]
+        shift: i32,
+        /// Randomized restarts (option and direction orders shuffled), --secs split between them;
+        /// the best wiring over all restarts is kept.
+        #[arg(long, default_value_t = 1)]
+        restarts: usize,
+    },
     Patch {
         design: PathBuf,
         script: PathBuf,
@@ -1276,6 +1517,129 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 100)]
         tick_rate: u32,
     },
+    /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
+    /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
+    /// queue size compared after every tick against the bridge; failures shrunk and saved.
+    Pistfuzz {
+        #[arg(long, default_value_t = 100)]
+        count: u64,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// flat, box or mix.
+        #[arg(long, default_value = "mix")]
+        mode: String,
+        /// Slime and honey in the palette.
+        #[arg(long)]
+        slime: bool,
+        /// Sand, gravel, red sand in the palette.
+        #[arg(long)]
+        gravity: bool,
+        /// Observers in the palette.
+        #[arg(long)]
+        observers: bool,
+        /// Redstone components next to the pistons (dust, torches, repeaters, comparators,
+        /// levers, lamps, note blocks, targets), placed like the judge does.
+        #[arg(long)]
+        mixed: bool,
+        /// Replay every gadget drive script of designs/gadgets (entity gadgets skipped).
+        #[arg(long)]
+        gadgets: bool,
+        /// Replay door designs: placement, settle, then lever flips (`--cycles`).
+        #[arg(long, num_args = 1..)]
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 2)]
+        cycles: u32,
+        /// What the bridge is compared with: `model` (redsim) or `bridge` (a second run: the
+        /// harness's own determinism).
+        #[arg(long, default_value = "model")]
+        against: String,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        /// Shrink every failure to a minimal scenario.
+        #[arg(long)]
+        shrink: bool,
+        /// Replay scenario files instead of generating.
+        #[arg(long, num_args = 1..)]
+        replay: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/pistmodel/fuzz")]
+        out_dir: PathBuf,
+        /// Stop after this many failures.
+        #[arg(long, default_value_t = 20)]
+        max_fail: usize,
+        /// Print every tick's block changes of the bridge run (for single replays).
+        #[arg(long)]
+        trace: bool,
+    },
+    /// Mechanism search on the EXACT model (track pistmodel, crates/piston-door/src/fullmech.rs):
+    /// every transition is the real tick-level game (redsim: spitting, 0-ticks, event order,
+    /// carried pistons and power sources), inputs tracked per piston; FULL seamless open +
+    /// close back to rest. `--check` solves the mechanism of designs; `--boxes` re-solves
+    /// families' candidates per box.
+    Fullmech {
+        #[arg(long, num_args = 1..)]
+        check: Vec<PathBuf>,
+        /// Boxes W x H, comma separated (e.g. 7x7,7x8).
+        #[arg(long)]
+        boxes: Option<String>,
+        #[arg(long, default_value_t = 10)]
+        pistons: usize,
+        /// Non-core perimeter blocks that may take a 2-move path (families' --two).
+        #[arg(long, default_value_t = 0)]
+        two: usize,
+        /// Pulse lengths (ticks) offered as actions.
+        #[arg(long, default_value = "1,3")]
+        pulses: String,
+        /// Also level toggles.
+        #[arg(long)]
+        levels: bool,
+        /// States per A* search.
+        #[arg(long, default_value_t = 3000)]
+        cap: usize,
+        #[arg(long, default_value_t = 32)]
+        threads: usize,
+        #[arg(long, default_value_t = 0)]
+        limit: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// State cap of the macro model's verdict per candidate.
+        #[arg(long, default_value_t = 20000)]
+        macro_cap: usize,
+        /// Skip the candidates the macro model already solves.
+        #[arg(long)]
+        only_new: bool,
+        /// Input reduction: for each working mechanism, try to replace each piston's input by
+        /// one helper (redstone block or observer) in a free cell of the box.
+        #[arg(long)]
+        reduce: bool,
+        #[arg(long, default_value_t = 4000)]
+        reduce_cap: usize,
+        /// Also overlapping pulse pairs of nearby pistons as actions (same-tick timing).
+        #[arg(long)]
+        pairs: bool,
+        /// Simulated annealing over mechanisms in this box (W x H), not tied to families' exit
+        /// plans: pistons anywhere (carried, stacked), helpers with --helpers.
+        #[arg(long)]
+        anneal: Option<String>,
+        /// Door offsets for --anneal: "dx,dy;dx,dy" or all.
+        #[arg(long)]
+        offsets: Option<String>,
+        #[arg(long, default_value_t = 600)]
+        seconds: u64,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Helpers (redstone blocks, observers, stone, obsidian) in --anneal.
+        #[arg(long)]
+        helpers: bool,
+        /// Write every exact mechanism of --boxes (design + `door ideal` plan) under DIR/WxH/.
+        #[arg(long)]
+        export: Option<PathBuf>,
+        /// Slime and honey in --anneal (not for the flat board, which is slime-free).
+        #[arg(long)]
+        slime: bool,
+        /// Replay exported `door ideal` plans in the real simulator (2 cycles, 4 positions).
+        #[arg(long, num_args = 1..)]
+        verify_ideal: Vec<PathBuf>,
+    },
     /// Differential fuzzing: random small contraptions (not doors), settled by the simulator,
     /// run in both worlds and compared tick for tick; diverging ones are saved.
     VanillaFuzz {
@@ -1322,6 +1686,13 @@ pub enum DoorCmd {
         lever: String,
         #[arg(long)]
         verbose: bool,
+    },
+    /// Every tick of one open/close cycle (design position) that breaks SUPER seamless: the
+    /// circuitry seen in the tunnel T or the hallway ring S (props' reading); `*` marks what is
+    /// still seen when a ring cell counts only while its T neighbour holds no door block (the
+    /// covered reading, tier `supercov`).
+    SeamlessWhy {
+        designs: Vec<PathBuf>,
     },
     /// Redstone Squid catalogue properties (properties.rs) of the given designs, or of every
     /// working design on HEAD and the explore/* branches (the leaderboard's list, verdicts from
@@ -1392,6 +1763,11 @@ pub enum DoorCmd {
         /// any, is the one lever; every copy then holds the relay).
         #[arg(long)]
         tile_extra: Option<PathBuf>,
+        /// Also decide the "on the ground" board: the swept shape (nothing below the door's
+        /// bottom row at rest or at any tick of a cycle) and the ground check (the judge's
+        /// positions with the door standing on a stone floor).
+        #[arg(long)]
+        ground: bool,
     },
     /// Tile board (tile.rs): every design with a `tiling:` header (e.g. `tiling: period:8:3`) on
     /// HEAD and the explore/* branches, judged as a tile module; ranked per tiling kind by blocks
@@ -1669,9 +2045,19 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
             }
         }
-        DoorCmd::VideoAll { dir, out, jobs, upload, style, orbit, redo, redo_cut, dry_run } => {
-            let opts = video_style(&style, orbit)?;
-            crate::video::record_all(version, &dir, &out, jobs, upload.as_deref(), &opts, redo, redo_cut, dry_run)?;
+        DoorCmd::VideoAll { dir, out, clips, jobs, upload, style, orbit, redo, relabel, dry_run } => {
+            let card = video_card(&style)?;
+            let o = crate::clips::AllOptions {
+                clips: clips.unwrap_or_else(crate::clips::default_dir),
+                settings: crate::clips::ClipSettings { orbit, ..Default::default() },
+                card,
+                jobs,
+                upload,
+                redo,
+                relabel,
+                dry_run,
+            };
+            crate::clips::record_all(version, &dir, &out, &o)?;
         }
         DoorCmd::Catalog { archive, videos, release, workers } => {
             let o = crate::catalog::CatalogOptions { archive: &archive, workers, videos: videos.as_deref(), release: Some(release.as_str()) };
@@ -1694,8 +2080,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("wrote {}", out.display());
         }
-        DoorCmd::Gallery { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo } => {
-            let o = crate::showcase::GalleryOptions { archive, videos, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo };
+        DoorCmd::Gallery { archive, videos, clips, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo, gif_only } => {
+            let clips = clips.unwrap_or_else(crate::clips::default_dir);
+            let o = crate::showcase::GalleryOptions { archive, videos, clips, upload, jobs, workers, orbit, gif_width, gif_fps, speed, redo, gif_only };
             crate::showcase::gallery(version, &o)?;
         }
         DoorCmd::Montage { archive, videos, out, upload, jobs, workers, speed, redo, board } => {
@@ -1713,6 +2100,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let (board, checks): (Vec<_>, Vec<_>) = entries.into_iter().partition(|e| !e.source.starts_with("check:"));
             let _ = n_board;
             print!("{}", crate::leaderboard::frontier_report(&board, &checks, !any_category, all));
+        }
+        DoorCmd::RowsFire { tsv, wirable, only } => {
+            crate::rowsfire::cli(&tsv, wirable, &only)?;
         }
         DoorCmd::Shapes { designs, dir, branches, refs, extra_offsets, max_blocks, workers, cache_dir, rule, table_max, no_table } => {
             let repo = std::path::Path::new(".");
@@ -2013,6 +2403,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             verify,
             screen_top,
             debug,
+            region_box,
+            forbid,
+            forbid_ring,
             catalog_ids,
             catalog_base,
             compress,
@@ -2062,6 +2455,34 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             // The source schedules: the files themselves, or catalog entries of the first file.
             let schedule = schedules.first().cloned().context("no schedule file")?;
             let text = std::fs::read_to_string(&schedule).with_context(|| format!("reading {}", schedule.display()))?;
+            if region_box.is_some() || !forbid.is_empty() || forbid_ring {
+                let first = crate::ideal::Schedule::parse(&text)?;
+                let d = first.design();
+                let (blo, bhi) = d.bounds().context("empty design")?;
+                let (lo, hi) = match &region_box {
+                    Some(b) => {
+                        let (a, z) = b.split_once(':').context("--box x0,y0,z0:x1,y1,z1")?;
+                        let p = |s: &str| -> Result<[i32; 3]> {
+                            let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>().map_err(anyhow::Error::from)).collect::<Result<_>>()?;
+                            anyhow::ensure!(v.len() == 3, "--box corner {s:?}: expected x,y,z");
+                            Ok([v[0], v[1], v[2]])
+                        };
+                        (p(a)?, p(z)?)
+                    }
+                    None => ([blo[0] - margin, blo[1] - margin, blo[2] - margin], [bhi[0] + margin, bhi[1] + margin, bhi[2] + margin]),
+                };
+                let mut cells = crate::synth::parse_cells(&forbid)?;
+                if forbid_ring {
+                    let door = *d.ports.get("door").context("--forbid-ring: the design has no door port")?;
+                    for t in 0..=2 {
+                        for c in [[-1, t, 0], [3, t, 0], [t, -1, 0], [t, 3, 0]] {
+                            cells.push([door[0] + c[0], door[1] + c[1], door[2] + c[2]]);
+                        }
+                    }
+                }
+                println!("routing region {lo:?}..{hi:?}, {} forbidden cells", cells.len());
+                *mechwire::REGION.write().unwrap() = Some(mechwire::Region { lo, hi, forbid: cells });
+            }
             let mut sources: Vec<(String, crate::ideal::Schedule, std::collections::BTreeMap<String, i64>)> = Vec::new();
             if catalog_ids.is_empty() {
                 for path in &schedules {
@@ -2314,7 +2735,99 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, diag, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, iters, families, gap, oc, first, extra_offsets, out } => {
+            use crate::satwire as sw;
+            sw::DIAG.store(diag, std::sync::atomic::Ordering::Relaxed);
+            if check && mechanism.len() > 1 {
+                let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels };
+                let next = std::sync::atomic::AtomicUsize::new(0);
+                let out = std::sync::Mutex::new(Vec::new());
+                std::thread::scope(|sc| {
+                    for _ in 0..jobs.min(mechanism.len()) {
+                        sc.spawn(|| {
+                            let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
+                            let Ok(mut w) = Worker::spawn(&cfg) else { return };
+                            loop {
+                                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                let Some(p) = mechanism.get(i) else { break };
+                                let line = sw::check_line(&mut w, p, &po);
+                                println!("{}: {line}", p.display());
+                                out.lock().unwrap().push((p.clone(), line));
+                            }
+                        });
+                    }
+                });
+                let res = out.into_inner().unwrap();
+                let mut groups: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+                for (_, l) in &res {
+                    let key = if l.starts_with("MISMATCH") { "MISMATCH".to_string() } else { l.split(" (").next().unwrap_or(l).to_string() };
+                    *groups.entry(key).or_default() += 1;
+                }
+                println!("== {} designs", res.len());
+                for (k, n) in groups {
+                    println!("{n:5}  {k}");
+                }
+                return Ok(());
+            }
+            let mechanism = mechanism[0].clone();
+            let cfg = mctas::sim::WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() };
+            let mut fam_box = None;
+            let rec = {
+                let mut w = Worker::spawn(&cfg)?;
+                if let Some(id) = &families {
+                    let (s, b) = sw::families_schedule(&mechanism, id, !oc, gap)?;
+                    fam_box = Some(b);
+                    sw::record_ideal(&mut w, &s, rec_ticks)?
+                } else if from_wired || check {
+                    let d = load_design(&mechanism)?;
+                    sw::record_wired(&mut w, &d, rec_ticks)?
+                } else {
+                    let text = std::fs::read_to_string(&mechanism)?;
+                    let s = crate::ideal::Schedule::parse(&text)?;
+                    sw::record_ideal(&mut w, &s, rec_ticks)?
+                }
+            };
+            for (i, ph) in rec.phases.iter().enumerate() {
+                let on: Vec<String> = (1..ph.power.len())
+                    .flat_map(|j| ph.power[j].iter().filter(|(_, v)| **v).map(move |(c, _)| format!("t{j}:{},{}", c.0, c.1)))
+                    .collect();
+                println!("{}: {} frames, powered piston-ticks {}", ["open", "close"][i], ph.frames.len(), on.join(" "));
+            }
+            let po = sw::ProbOpts {
+                bx: bx.as_deref().map(sw::parse_box).transpose()?.or(fam_box),
+                palette: sw::palette(&palette)?,
+                forbid_ring,
+                levers: lever.as_deref().map(crate::synth::parse_cells).transpose()?,
+                lever_oop,
+                dmax: if check { 0 } else { dmax },
+                skip: if check { 0 } else { skip },
+                settle,
+                qc: !no_qc,
+                levels,
+            };
+            let mut p = sw::build_prob(rec, &po)?;
+            if let Some(fp) = &fixed {
+                sw::fix_partial(&mut p, &load_design(fp)?)?;
+            }
+            if fixed.is_none() && !from_wired && !check && !p.rec.wiring.is_empty() {
+                let mut d = mctas::design::Design::default();
+                for (cc, st) in &p.rec.wiring {
+                    d.blocks.insert([cc.0, cc.1, p.z], st.clone());
+                }
+                if let Some((lp, ls)) = &p.rec.lever {
+                    d.blocks.insert(*lp, ls.clone());
+                }
+                sw::fix_partial(&mut p, &d)?;
+            }
+            if check {
+                sw::fix_wiring(&mut p)?;
+                return sw::check(&p);
+            }
+            let name = match &families { Some(id) => format!("satwire-{id}"), None => format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default()) };
+            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
+            sw::run(&p, &o)?;
+        }
+        DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both } => {
             let vmid: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {
                 None => Vec::new(),
                 Some("ml") => vec![vec![(0, 1)]],
@@ -2329,11 +2842,29 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 return crate::families::resolve_cli(&f, b[0].0, b[0].1, cap, threads);
             }
             if rows {
+                let _ = crate::families::RMAX.set(rblocks);
+                let _ = crate::families::RBOTH.set(r_both);
+                if !forbid_fire.is_empty() {
+                    let _ = crate::families::FORBID_X.set(forbid_fire.clone());
+                    eprintln!("[families rows] no piston fires from x in {forbid_fire:?}");
+                }
                 let o = crate::families::RowOpts { kmax: row_pistons, arm, cap, sym_cap, threads, out_dir, max_w: row_max_width, gap };
                 return crate::families::rows_cli(&o);
             }
             if let Some(p) = check {
-                return crate::families::check(&p, check_margin, cap, sym_cap);
+                return crate::families::check(
+                    &p,
+                    check_margin,
+                    cap,
+                    sym_cap,
+                    verify.then(|| crate::families::CheckVerify {
+                        version: version.to_string(),
+                        out_dir: out_dir.clone(),
+                        gap,
+                        extra: extra_offsets as u32,
+                        name: p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "check".into()),
+                    }),
+                );
             }
             let o = crate::families::Opts {
                 boxes: crate::families::parse_boxes(&boxes)?,
@@ -2359,9 +2890,13 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Topology { tsv, only, verbose } => {
             crate::topology::catalog_cli(&tsv, &only, verbose)?;
         }
-        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels, topology } => {
+        DoorCmd::MechSynth { base, add, lo, hi, kinds, ext, cap, threads, max_blocks, sym_len, sym_tries, out_dir, top, verify, extra_offsets, gap, workers, just_base, require, pulses_only, edges, split_only, seamless, no_ring_fire, sym_bfs, sym_levels, topology, seamless_open, oc } => {
             crate::mechsynth::SEAMLESS.store(seamless, std::sync::atomic::Ordering::Relaxed);
             crate::mechsynth::NO_RING_FIRE.store(no_ring_fire, std::sync::atomic::Ordering::Relaxed);
+            crate::mechsynth::SEAMLESS_OPEN.store(seamless_open, std::sync::atomic::Ordering::Relaxed);
+            if let Some(oc) = &oc {
+                return crate::mechsynth::oc_cli(version, &base, oc, out_dir.as_deref(), verify, extra_offsets, gap);
+            }
             if let Some(seq) = &sym_bfs {
                 return crate::mechsynth::sym_cli(version, &base, seq, sym_levels, cap, out_dir.as_deref(), verify, extra_offsets, gap);
             }
@@ -2548,11 +3083,17 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             println!("{line}\n{passes}/{times} passed in {} sandbox(es)", if fresh { "fresh" } else { "one reused" });
         }
-        DoorCmd::Video { design, out, tps, upload, style, orbit, size } => {
+        DoorCmd::Video { design, out, tps, upload, style, orbit, size, clips, redo, relabel } => {
             let d = load_design(&design)?;
             let (width, height) = size.split_once('x').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))).ok_or_else(|| anyhow::anyhow!("--size wants WIDTHxHEIGHT"))?;
-            let opts = crate::video::VideoOptions { tps, width, height, ..video_style(&style, orbit)? };
-            crate::video::record(version, &d, &out, &opts)?;
+            if style == "classic" {
+                let opts = crate::video::VideoOptions { tps, width, height, ..crate::video::VideoOptions::classic() };
+                crate::video::record(version, &d, &out, &opts)?;
+            } else {
+                let s = crate::clips::ClipSettings { width, height, tps, orbit, ..Default::default() };
+                let dir = clips.unwrap_or_else(crate::clips::default_dir);
+                crate::clips::video_one(version, &dir, &d, &s, &out, video_card(&style)?, redo, relabel)?;
+            }
             println!("recorded {}", out.display());
             if let Some(tag) = upload {
                 let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
@@ -2583,6 +3124,10 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             rd.save(&out)?;
             println!("{} turned {} degrees{} ({}-facing door) written to {}", d.name, turns as u32 % 4 * 90, if mirror { ", mirrored" } else { "" }, if spec.along_z { "east/west" } else { "north/south" }, out.display());
         }
+        DoorCmd::ObsChain { spec, out, max_paths, secs, shift, restarts } => {
+            let mut w = Worker::spawn(&cfg)?;
+            crate::obschain::run(&mut w, &spec, &out, max_paths, secs, shift, restarts)?;
+        }
         DoorCmd::Patch { design, script, out } => {
             let d0 = load_design(&design)?;
             let text = std::fs::read_to_string(&script)?;
@@ -2612,6 +3157,105 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             for (p, s) in ps {
                 println!("{} {} {} {}", p[0], p[1], p[2], s.strip_prefix("minecraft:").unwrap_or(s));
             }
+        }
+        DoorCmd::Cosearch { cmd } => crate::cosearch::run(version, cmd)?,
+        DoorCmd::RedsimFuzz { n, seed, size, density, palette, out, no_shrink, max_report, workers } => {
+            let sz: Vec<i32> = size.split(',').map(|t| t.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+            anyhow::ensure!(sz.len() == 3, "--size x,y,z");
+            let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() })?;
+            let o = redsim_fuzz::FuzzOptions {
+                n,
+                seed,
+                size: [sz[0], sz[1], sz[2]],
+                density,
+                palette: redsim_fuzz::palette(&palette)?,
+                out,
+                shrink: !no_shrink,
+                max_report,
+            };
+            redsim_fuzz::fuzz(&pool, &o, &|s| eprintln!("{s}"))?;
+        }
+        DoorCmd::RedsimCase { case, max, fixture, note } => {
+            let mut w = Worker::spawn(&cfg)?;
+            let same = redsim_fuzz::replay(&mut w, &case, max)?;
+            if let Some(path) = fixture {
+                anyhow::ensure!(same || !note.is_empty(), "writing a fixture of a mismatching case needs a --note");
+                let c = redsim_fuzz::Case::parse(&std::fs::read_to_string(&case)?)?;
+                let text = redsim_fuzz::fixture(&mut w, &c, &note)?;
+                std::fs::write(&path, text)?;
+                eprintln!("fixture written to {}", path.display());
+            }
+        }
+        DoorCmd::RedsimVerify { designs, extra_offsets, cycles, judge, workers } => {
+            let mut offsets = VerifyOptions::default().offsets;
+            offsets.extend(crate::extra_offsets(extra_offsets));
+            let loaded: Vec<(PathBuf, Design)> = designs.iter().map(|p| Ok((p.clone(), load_design(p)?))).collect::<Result<_>>()?;
+            let t0 = std::time::Instant::now();
+            let screens: Vec<crate::redsim_screen::Screen> = std::thread::scope(|s| {
+                let hs: Vec<_> = loaded
+                    .chunks(loaded.len().div_ceil(16).max(1))
+                    .map(|part| s.spawn(|| part.iter().map(|(_, d)| crate::redsim_screen::screen(d, &offsets, cycles, 400, true)).collect::<Vec<_>>()))
+                    .collect();
+                hs.into_iter().flat_map(|h| h.join().unwrap()).collect()
+            });
+            eprintln!("redsim judged {} designs in {:.2}s", loaded.len(), t0.elapsed().as_secs_f64());
+            let verdicts: Vec<Option<std::result::Result<(u32, u32), String>>> = if judge {
+                let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
+                let opts = VerifyOptions { offsets: offsets.clone(), cycles: cycles as u32, ..Default::default() };
+                let sbs: Vec<std::sync::Mutex<Option<u32>>> = (0..pool.len()).map(|_| std::sync::Mutex::new(None)).collect();
+                pool.map(loaded.iter().map(|(_, d)| d.clone()).collect(), |w, wi, d| {
+                    let mut s = sbs[wi].lock().unwrap();
+                    let sb = match *s {
+                        Some(sb) => sb,
+                        None => {
+                            let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-4, -4, 3, 3], seed: 0 })?;
+                            *s = Some(sb);
+                            sb
+                        }
+                    };
+                    Ok(match crate::verify_in(w, sb, &d, &opts) {
+                        Ok(r) => Ok((r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0), r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0))),
+                        Err(e) => Err(format!("{e:#}")),
+                    })
+                })
+                .into_iter()
+                .map(|r| Some(r.unwrap_or_else(|e| Err(format!("error: {e:#}")))))
+                .collect()
+            } else {
+                vec![None; loaded.len()]
+            };
+            let (mut pass, mut fail, mut unsup, mut disagree) = (0, 0, 0, 0);
+            for (((p, _), s), v) in loaded.iter().zip(screens.iter()).zip(verdicts.iter()) {
+                let line = match s {
+                    crate::redsim_screen::Screen::Pass { open, close } => {
+                        pass += 1;
+                        format!("PASS open {open} close {close}")
+                    }
+                    crate::redsim_screen::Screen::Fail(m) => {
+                        fail += 1;
+                        format!("FAIL {m}")
+                    }
+                    crate::redsim_screen::Screen::Unsupported(m) => {
+                        unsup += 1;
+                        format!("UNSUPPORTED {m}")
+                    }
+                };
+                let judge_note = match (s, v) {
+                    (_, None) => String::new(),
+                    (crate::redsim_screen::Screen::Unsupported(_), Some(_)) => String::new(),
+                    (crate::redsim_screen::Screen::Pass { .. }, Some(Ok(_))) | (crate::redsim_screen::Screen::Fail(_), Some(Err(_))) => " [judge agrees]".into(),
+                    (_, Some(Ok((o, c)))) => {
+                        disagree += 1;
+                        format!(" [DISAGREE: judge passes, open {o} close {c}]")
+                    }
+                    (_, Some(Err(e))) => {
+                        disagree += 1;
+                        format!(" [DISAGREE: judge fails: {}]", e.chars().take(160).collect::<String>())
+                    }
+                };
+                println!("{}: {}{judge_note}", p.display(), line.chars().take(220).collect::<String>());
+            }
+            eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
         DoorCmd::Gen { name, out } => {
             let d0 = crate::designs::build(&name).ok_or_else(|| anyhow::anyhow!("no design {name}; have {:?}", crate::designs::names()))?;
@@ -2844,8 +3488,25 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
+        DoorCmd::Fullmech { check, boxes, pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal } => {
+            let boxes = match boxes {
+                Some(b) => crate::families::parse_boxes(&b)?,
+                None => Vec::new(),
+            };
+            let anneal = match anneal {
+                Some(b) => crate::families::parse_boxes(&b)?.first().copied(),
+                None => None,
+            };
+            let pulses: Vec<u8> = pulses.split(',').filter(|s| !s.is_empty()).map(|s| s.trim().parse::<u8>()).collect::<std::result::Result<_, _>>()?;
+            let o = crate::fullmech::CliOpts { check, boxes, pmax: pistons, two, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, slime, export, verify_ideal };
+            crate::fullmech::cli(&o)?;
+        }
         DoorCmd::VanillaFuzz { count, seed, cycles, max_ticks, out_dir } => {
             vanilla_fuzz_cmd(version, &cfg, count, seed, cycles, max_ticks, &out_dir)?;
+        }
+        DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace } => {
+            let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace };
+            crate::pistfuzz::cli(version, &o)?;
         }
         DoorCmd::Buildable { designs, budget, workers, helpers, positions, seed, out_dir, table, lever, verbose } => {
             let lever = match lever.as_str() {
@@ -2856,6 +3517,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             };
             let o = crate::buildable::CliOptions { budget, workers, helpers, positions, seed, verbose, lever };
             crate::buildable::run_cli(version, &designs, &o, out_dir.as_deref(), table.as_deref())?;
+        }
+        DoorCmd::SeamlessWhy { designs } => {
+            let mut w = mctas::sim::Worker::spawn(&cfg)?;
+            for path in &designs {
+                let d = load_design(path)?;
+                let sb = w.create(&mctas::sim::SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+                let rec = crate::properties::record(&mut w, sb, &d);
+                let _ = w.drop_sandbox(sb);
+                let rec = rec?;
+                let s = crate::properties::seamless(&rec);
+                println!("== {} ({} blocks): {}{}", path.display(), crate::block_count(&d), s.label, s.why.map(|w| format!(" -- {w}")).unwrap_or_default());
+                for line in crate::properties::super_report(&rec) {
+                    println!("  {line}");
+                }
+            }
         }
         DoorCmd::Properties { designs, archive_dir, refs, workers, out_tsv, out_md, dynamic, redo } => {
             use crate::properties as pr;
@@ -3009,7 +3685,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 std::fs::write(path, out)?;
             }
         }
-        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out, tile_extra } => {
+        DoorCmd::Verify { design, timeline: show, cycles, archive, extra_offsets, archive_dir, no_rotations, orientations, tile, tile_levers, tile_out, tile_extra, ground } => {
             let d = load_design(&design)?;
             if let Some(spec) = tile {
                 let mut t = crate::tile::Tile::parse(&spec)?;
@@ -3068,6 +3744,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                         match crate::rotation_check(&mut w, &d, &ropts)? {
                             None => println!("rotation-safe: also works turned 90, 180 and 270 degrees ({} positions each)", ropts.offsets.len()),
                             Some((turns, why)) => println!("NOT rotation-safe (listed on the separate board): turned {} degrees: {why}", turns as u32 * 90),
+                        }
+                    }
+                    if ground {
+                        let swept = crate::swept_shape(&mut w, &d)?;
+                        let gopts = VerifyOptions { keep_frames: false, ..opts.clone() };
+                        if swept.below > 0 {
+                            println!("NOT on the ground: {} row(s) below the door at rest or while moving", swept.below);
+                        } else {
+                            match crate::ground_check(&mut w, &d, &gopts)? {
+                                None => println!("on the ground: nothing below the door at any tick, works on a stone floor ({} positions)", gopts.offsets.len()),
+                                Some(why) => println!("NOT on the ground: fails standing on a stone floor: {}", why.chars().take(200).collect::<String>()),
+                            }
                         }
                     }
                     if orientations {
@@ -3435,15 +4123,14 @@ fn tile_verify_cmd(
     Ok(())
 }
 
-/// Video options of a `--style` name.
-fn video_style(style: &str, orbit: f64) -> Result<crate::video::VideoOptions> {
-    use crate::video::{Camera, VideoOptions};
-    Ok(match style {
-        "card" => VideoOptions { camera: Camera::Door { orbit }, ..Default::default() },
-        "clean" => VideoOptions::clean(orbit),
-        "classic" => VideoOptions::classic(),
-        _ => anyhow::bail!("unknown --style {style} (card, clean or classic)"),
-    })
+/// Whether a published video's `--style` has the title card and label (`card`) or is the clip
+/// itself (`clean`).
+fn video_card(style: &str) -> Result<bool> {
+    match style {
+        "card" => Ok(true),
+        "clean" => Ok(false),
+        _ => anyhow::bail!("unknown --style {style} (card or clean; door video also takes classic)"),
+    }
 }
 
 /// `door vanilla-check`: one vanilla server and one simulator worker for all the designs.

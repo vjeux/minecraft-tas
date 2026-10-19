@@ -1,0 +1,19 @@
+name: gadget-memory-link
+# An EVEN link made odd (wire56): two pulses per edge -> exactly ONE 2 gt pulse per edge, short
+# enough to close a pull-type piston too (memory-window shows that one flip-flop's window cannot).
+# B1 (waxed copper bulb) toggles on each input pulse; C1 (comparator reading B1) gives one window
+# per edge and powers B2, which toggles once per edge (rising edges only, so the window's fall does
+# nothing); C2 reads B2: its output flips once per edge; the observer O watching C2 fires once per
+# edge into the pull-type sticky piston P (two cells from K). 7 blocks: B1 C1 B2 C2 O + 2 floors.
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:stone
+layer 0:
+  ..S.S
+layer 1:
+  .BCBCOP.K

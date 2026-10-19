@@ -1,0 +1,48 @@
+name: box72-v1
+# 7x10 attempt: flat43 center + left torch link (lever on the lamp (-2,-1), torch (-2,0) holds ML's
+# puller (-2,1) extended; W0 (-2,2) watches it). Top: left observer column -> B window repeater RB
+# (0,6) into O16's cell (1,6) (QC B); O16 watches RB, its output S26 (2,6) lights dust (2,5) on
+# S24 (2,4) -> A on RB's edges (onPlace at A's landings); S26 -> dust (3,6) -> P_T path.
+port door: 0 0 0
+port lever: -2 -2 0
+origin: -2 0 0
+palette:
+  C minecraft:stone
+  S minecraft:stone
+  G minecraft:glass
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=true,facing=east]
+  H minecraft:piston_head[facing=east,short=false,type=sticky]
+  T minecraft:redstone_torch[lit=true]
+  R minecraft:redstone_lamp[lit=false]
+  L minecraft:lever[face=ceiling,facing=west,powered=false]
+  v minecraft:observer[facing=down,powered=false]
+  ^ minecraft:observer[facing=up,powered=false]
+  < minecraft:observer[facing=west,powered=false]
+  > minecraft:observer[facing=east,powered=false]
+  4 minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  1 minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  w minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer -3:
+  ...S
+layer -2:
+  L.UU
+layer -1:
+  R<
+layer 0:
+  T.CCC.W
+layer 1:
+  EHCCC.W
+layer 2:
+  v.CCC.W
+layer 3:
+  vS...WS
+layer 4:
+  v<DDS.^
+layer 5:
+  vSGDwG^
+layer 6:
+  S14<Sd<

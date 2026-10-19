@@ -1,0 +1,39 @@
+name: flat-seam-e89el
+port door: 0 0 0
+port lever: -1 -4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  D minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  ..LRBBI
+layer -3:
+  ..oOGErB
+layer -2:
+  ooOIGO.O
+layer -1:
+  O.F..S.O
+layer 0:
+  OF.III.H
+layer 1:
+  IF.III.H
+layer 2:
+  CF.III.H
+layer 3:
+  O......A
+layer 4:
+  OBBBsBSD

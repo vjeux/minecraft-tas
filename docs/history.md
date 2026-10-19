@@ -379,6 +379,46 @@ Read in the 26.3 source, each proven by a [gadget](../designs/gadgets/) or a jud
   floor, but closes in 15 at 229 blocks; open 8 works with scripted inputs (speed-2). An
   ideal-input machine does 4 / 3 (close floor: 1). The symmetric family's open floor is 22 (fc2f).
 
+### Below 72: flat, slime-free, FULL seamless + hallway (2026-10-18 evening)
+
+**Community existence (vjeux, 00:00Z): flat doors 7 wide x 8 tall = 56 and 7 wide x 9 tall = 63
+exist** (no designs; never look them up). So every "7 wide is blocked" verdict below is an
+artifact of our bounds, not of the box: look for what the bounds exclude.
+
+Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and under which bounds
+(every "none" is bounded; tricks that may break a bound are in
+[mechanics.md](mechanics.md#wiring-tricks-for-tight-flat-boxes-found-2026-10-18-evening-below-72-hunt)):
+
+* **e89b is minimal for its own mechanism and exact timing**: `door satwire` re-found it from
+  scratch and proved 28 wiring blocks UNSAT in 8x9 (palette block, dust, rep, obs, torch). Open:
+  other components, off-plane lever, retimed schedules.
+* **5-tall strips (11x5 = 55, 12x5 = 60) cannot be wired with fixed parts** (strip, "Lemma"):
+  every row mechanism fires twice from the inner door column and once from the ring column beside
+  it, and the corner cell would need both roles; 0 rows up to 12 wide, <= 7 pistons per row.
+  Redstone blocks carried in the rows: 0 rows (<= 2 blocks + 5 pistons). 11x6 fails by hand.
+  satwire: r046x3-plane UNSAT.
+* **7 wide**: row y=1 is blocked end to end (side pistons + their gaps + door), so each side's
+  top and middle pistons are fed only from above and the bottom one only from below; 7x9/7x10
+  give 3 regions whose links collide (flat-seam, box72). m2w (box72) wires the whole top of a 7x10
+  and needs a 2 -> 1 converter in the bottom 3 rows.
+* **cd19 (e89's family) in 8 rows**: column x=1 splits the box; e89's row -4 is its only
+  crossing; a real observer watching B' double-fires into A's fatal window (flat-seam).
+* **7x8 (56)**: box56's pulse-parity proof (0/99 catalog entries) is void: its even-link premise
+  fails (observer busy window). 7x8-028/029 (v2 013/014) are blocked by one cell, K2's (4,4),
+  which must serve the middle core piston (last gap 8|10 gt) and the bottom-right input (5..7 gt)
+  (wire56). 038/039 and 001/002 have a piston fed only through another piston's cell, which can
+  never fire alone (gadget `qc-shared`), or no feed at all; 000/003/004 need 45-46-event close
+  trains (wire56). Sweep of the rest with timing variants: sweep56.
+* **8x8 (64)**: 8x8-102 (v2 130): its bottom regions are reachable only through E3 (two pulses 7+
+  gt apart) and R1 (4 gt apart), with no room for a converter (wire64, box64). v2 8x8-118..129:
+  the elevator sits above BL's puller, so quasi-connectivity re-fires it (families). 139..142
+  blocked by their own close paths (wire64).
+* **No mechanism** (families catalog, <= 11 pistons, in-plane, lifts only, QC model): 6x11 and 11x6
+  (so 6x9, 9x6, 6x10, 10x6), 5x14 and 14x5 in 2D (strips only via walking row mechanisms). 7x7:
+  none found, 1,639 candidates unresolved. Carrying, helpers and 0-ticks are being added.
+* **SUPER seamless** (covered reading) is impossible for solid doors: emptying the center needs a
+  head or sticky face in the tunnel (seamless).
+
 ## Tools built that night
 
 All `mctas door <command>` ([tools.md](tools.md)): the judge and the boards (`verify`,

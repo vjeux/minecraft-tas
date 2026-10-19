@@ -1,0 +1,19 @@
+# The gap watcher W fires twice when the piston pulls the block into its gap (the head enters, then
+# the block arrives) and once when it pushes it back; the observer M watching the delay-2 repeater
+# fires exactly once per lever flip in both cases (the repeater is on for 4 gt: t8..t11).
+design designs/gadgets/pulse-merge.txt
+probe w 3 2 0
+probe rep 5 2 0
+probe m 6 2 0
+use 0 1 0
+expect_trace w 000110011000000000000000
+use 0 1 0
+expect_trace w 000110000000000000000000
+design designs/gadgets/pulse-merge.txt
+probe w 3 2 0
+probe rep 5 2 0
+probe m 6 2 0
+use 0 1 0
+expect_trace m 000000000110000000000000
+use 0 1 0
+expect_trace m 000000000110000000000000
