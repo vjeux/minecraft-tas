@@ -4,17 +4,30 @@ Brief (coordinator for vjeux, 2026-10-19 05:47Z): run cosearch2's `door cosearch
 mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; first the tool items
 (periodic rest rule, off-plane lever, region closure). Box: devvm49255 (dedicated, 166 cores).
 
-**Result (pockets2, 10:34Z): BEST.txt = `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks, solid, FULL
-seamless, rotation-safe, open 39 / close 27, verify at 32 positions** (e88's 43-block record t7b, 43/31,
-with its right wall re-wired: same size, 8 ticks faster; section 8). Earlier (pockets): `finds/c79-49-bl5-br3.txt`,
+**Result (pockets2, 2026-10-19 09:24Z-12:30Z): BEST.txt = `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks,
+solid, FULL seamless, rotation-safe, open 39 / close 27, verify at 32 positions** (e88's 43-block record t7b,
+43/31, with its right wall re-wired: same size, 8 ticks faster, so it ranks first by the tie-break), and
+**`finds/s27-bl52.txt`, solid 8x8 = 64b, 52 blocks, FULL, rotation-safe, verify at 32 positions** (c88b's s27
++ a 6-block bottom-left found by pockets; also `finds/s26-bl53.txt`, 53); 40 sculk 7x9 doors at 51 (c79 + a
+3-block sculk TL/ML), 64 t7b wall variants at 43, 3 s26 bottom-lefts at 53. Section 8.
+Earlier (pockets): `finds/c79-49-bl5-br3.txt`,
 63b (7x9x1), 49 blocks, solid, slime-free, FULL seamless,
 15/15, verify at 32 positions** (ties satwire-63b-49-49b; section 6). Plus two more 49s (`finds/c79-49-tl1`,
 `-tl12`), two 50s, and 127 more 51-block wirings of the community 7x9. No 7x8 or 8x8 door: every
 7x8/8x8 mechanism and hot seed tried stays a few inputs short (sections 2, 4, 5, 7).
 
-* Lesson: run the region searches with the FULL palette (`--fill-palette all,sculk,calibrated,wool`) at
+* Lessons (pockets2): run small pockets with `--gaps` (a disconnected filling, an observer feeding a QC
+  cell through air, is invisible otherwise: c88 s26's BR driver); a plan built by `plan-from` can be off
+  (s27's top-right close pulse: the erased door works only at c0..16, plan-from said c22: sweep it with
+  ideal-rs before searching); compacting mech-synth plans does NOT help the pocket search.
+* Next ideas (pockets2): t7b 42 needs its coupled bottom (BR merger + BL = 13 cells): a plan input on a
+  NON-piston receiver (the note block (2,-4) that BL's observer watches) would split it; e78wsT's K needs
+  its torch-off 1 gt later (a sensor hearing BR's puller from 3 blocks while still strongly powering the
+  torch's support (4,-3)); c070x's U + M must come from one source 3 gt apart; s27-bl52's B line + support
+  (k=6, `runs/b52-tlb-k6`) and top-right (k=4, `runs/b52-tr-k4`) for a 51.
+* Lesson (pockets): run the region searches with the FULL palette (`--fill-palette all,sculk,calibrated,wool`) at
   small k first; the 49 came from a target block (4,-1) that the 12-state palettes never tried.
-* Next ideas: a cross-region 48 (no single region of the 49 shrinks); 8x8 m10-family with the extra column
+* Next ideas (pockets): a cross-region 48 (no single region of the 49 shrinks); 8x8 m10-family with the extra column
   on the RIGHT (room for the hold's delayed T chain and a torch-held B: m88a's hold at t7..8 has no source
   with the extra column on the left); compact the mech-synth "oc" plans (door windows) before pockets
   (inputs up to t66 need delay lines no pocket holds); a joint 5-block filling for e88 t3n's bottom-left
