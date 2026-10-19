@@ -5,6 +5,7 @@
 //! and steady-state tracking, shared by both runners), [`report`] (the verdict), [`sim`] (redsim
 //! runner).
 
+pub mod archive;
 pub mod census;
 pub mod ident;
 pub mod machine;
@@ -114,6 +115,28 @@ enum Cmd {
         #[arg(long)]
         copy_hosts: Option<PathBuf>,
     },
+    /// Judge designs in the real game and archive those that fly (or shuttle): a copy with a
+    /// header in the archive, a verdicts.tsv row, a caption; an archived type with the same class
+    /// and speed is refused (SAME TYPE).
+    Archive {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = archive::ARCHIVE)]
+        dir: PathBuf,
+        /// Caption (default: the design's first comment block).
+        #[arg(long)]
+        caption: Option<String>,
+        #[arg(long, default_value_t = 16)]
+        workers: usize,
+    },
+    /// Write the catalog (CATALOG.md + variants.md) from the archive's verdicts (no game).
+    Catalog {
+        #[arg(long, default_value = archive::ARCHIVE)]
+        dir: PathBuf,
+        #[arg(long, default_value = archive::CATALOG)]
+        out: PathBuf,
+        #[arg(long, default_value = archive::VARIANTS)]
+        variants: PathBuf,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -186,6 +209,11 @@ pub fn run(args: Vec<String>) -> Result<()> {
             census::run_census(&o, &boxes, &argv)?;
         }
         Cmd::Types { designs, workers, copy_hosts } => types(&designs, workers, copy_hosts.as_deref())?,
+        Cmd::Archive { designs, dir, caption, workers } => {
+            let o = verify::VerifyOptions { workers, ..Default::default() };
+            archive::archive(&designs, &dir, caption.as_deref(), &o)?;
+        }
+        Cmd::Catalog { dir, out, variants } => archive::catalog(&dir, &out, &variants)?,
     }
     Ok(())
 }
@@ -203,7 +231,7 @@ struct TypeRow {
 }
 
 /// The kind class of a run: `one-way +x`-style direction classes fold to horizontal / up / down.
-fn class_of(r: &report::FlyReport) -> String {
+pub(crate) fn class_of(r: &report::FlyReport) -> String {
     match (r.verdict, r.direction()) {
         (report::Verdict::Flies, Some([_, 1, _])) => "up".into(),
         (report::Verdict::Flies, Some([_, -1, _])) => "down".into(),
