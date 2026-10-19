@@ -529,6 +529,7 @@ fn checks() -> Vec<Check> {
     let mut s = args("circuit sim");
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
     s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
+    s.push("designs/circuits/selftest/floating-not.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -545,7 +546,8 @@ fn checks() -> Vec<Check> {
                 }
             }
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim refused"))
+            has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim and a floating dust refused"))
         }),
     });
     v.push(Check {

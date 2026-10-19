@@ -611,6 +611,10 @@ fn tff(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     if a.iter().any(|(_, o)| o.is_none()) {
         return Outcome::fail("the first 8 pulses must each toggle the output exactly once", table);
     }
+    // a long pulse (a lever held) must toggle it too
+    if let Some((l, _)) = offsets.iter().filter(|(l, _)| *l > a[0].0).find(|(_, o)| o.is_none()) {
+        return Outcome::fail(format!("a {l} gt pulse does not toggle it exactly once (long pulses must: a lever held down)"), table);
+    }
     // the edge: the offset stays when the pulse length changes (rising) or moves with it (falling)
     let a_len = a[0].0;
     let a_off = a.iter().map(|(_, o)| o.unwrap()).max().unwrap();
