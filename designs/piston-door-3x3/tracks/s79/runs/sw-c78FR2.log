@@ -9,3 +9,1226 @@ close: 32 frames, powered piston-ticks t1:4,0 t2:4,0 t2:1,-2 t2:1,4 t3:4,0 t3:1,
 8 independent-timing clusters: c1: 1,1 1,2 1,3 1,4 1,5 2,3 3,3 | c2: 2,1 3,1 4,1 | c3: -2,1 -1,1 0,1 | c4: -2,0 -1,0 0,0 | c5: 2,0 3,0 4,0 | c6: -2,2 -1,2 0,2 | c7: 2,2 3,2 4,2 | c8: 1,-2 1,-1 1,0
 --fixed: 9 wiring cells kept + the lever
 [  25.5s] encoded: 25 free cells, 90 lever candidates, offsets 0..=8, horizon 86 ticks, 4236564 vars, 32451854 clauses
+[3282.3s] iter 0: SAT (solve 3243.7s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@15; c4: 12@11; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 10@9; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@3
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 25 too-close pairs
+[4308.6s] iter 1: SAT (solve 1025.2s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@15; c4: 12@11; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 10@9; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@6
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 26 too-close pairs
+[4311.0s] iter 2: SAT (solve 1.4s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@15; c4: 12@11; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@16 10@18; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@12
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 23 too-close pairs
+[4312.9s] iter 3: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@15; c4: 12@11; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@16 10@18; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@12
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 22 too-close pairs
+[4314.8s] iter 4: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@11; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@16 10@18; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@12
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 21 too-close pairs
+[4316.7s] iter 5: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@15; c4: 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@16 10@18; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@12
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 21 too-close pairs
+[4318.4s] iter 6: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@16 10@18; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@12
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 20 too-close pairs
+[4320.3s] iter 7: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@12
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 20 too-close pairs
+[4322.5s] iter 8: SAT (solve 1.4s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@15; c4: 8@16 10@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@10
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 20 too-close pairs
+[4324.4s] iter 9: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@10
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 19 too-close pairs
+[4326.2s] iter 10: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21; c8: 4@10
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 18 too-close pairs
+[4328.2s] iter 11: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@20; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21; c8: 4@10
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 16 too-close pairs
+[4940.8s] iter 12: SAT (solve 611.8s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@15; c4: 8@16 10@18; c5: 3@10; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@11
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 19 too-close pairs
+[4942.6s] iter 13: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@10; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@11
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 18 too-close pairs
+[4944.3s] iter 14: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21; c8: 4@11
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 17 too-close pairs
+[4946.0s] iter 15: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21; c8: 4@11
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 17 too-close pairs
+[5834.7s] iter 16: SAT (solve 888.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@28 28@34; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@6 10@9 12@10; c5: 3@6; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@17 24@18 26@30 28@32; c2: 10@5 12@16 14@17; c3: 4@12 6@14 8@16; c4: 8@10 10@11; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@5
+  6          
+  5  cBwP⇐{Z 
+  4  uKWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 24 too-close pairs
+[6582.7s] iter 17: SAT (solve 747.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21; c8: 4@3
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 17 too-close pairs
+[6584.2s] iter 18: SAT (solve 0.8s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 16 too-close pairs
+[6585.7s] iter 19: SAT (solve 0.7s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 16 too-close pairs
+[6587.5s] iter 20: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@25 23@26 24@27 26@34 28@36; c2: 10@11 12@19 14@21; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@34 28@35; c2: 10@5 12@15 14@16; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  ekWP⇐{Z 
+  4  cBwPWgZ 
+  3  udH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 15 too-close pairs
+[6742.9s] iter 21: SAT (solve 154.7s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@29 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@11; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@14 14@17; c3: 4@12 6@14 8@16; c4: 8@9; c5: 3@4; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@3
+  6          
+  5  cBwP{⇐Z 
+  4  uZWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 22 too-close pairs
+[7352.5s] iter 22: SAT (solve 608.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@15; c4: 8@6 10@17 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@17 24@18 26@28 28@33; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@16; c4: 10@9; c5: 3@8; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP⇐{k 
+  4  uZWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 22 too-close pairs
+[7354.2s] iter 23: SAT (solve 0.8s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@15; c4: 8@6 10@17 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@17 24@18 26@28 28@33; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@16; c4: 10@9; c5: 3@8; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP⇐{k 
+  4  uZWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 21 too-close pairs
+[7355.8s] iter 24: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@18 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@17 24@18 26@28 28@33; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@16; c4: 10@9; c5: 3@8; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP⇐{k 
+  4  uZWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 20 too-close pairs
+[7357.4s] iter 25: SAT (solve 0.8s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@18 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@17 24@18 26@28 28@33; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@16 10@17; c5: 3@8; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP⇐{k 
+  4  uZWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 19 too-close pairs
+[7359.1s] iter 26: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@18 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@17 24@18 26@28 28@33; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@8; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP⇐{k 
+  4  uZWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 18 too-close pairs
+[7360.9s] iter 27: SAT (solve 0.8s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@18 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@17 24@18 26@28 28@33; c2: 10@5 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@8; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21; c8: 4@9
+  6          
+  5  cBwP⇐{k 
+  4  uZWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 18 too-close pairs
+[7454.2s] iter 28: SAT (solve 92.5s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@15; c4: 12@15; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@21; c8: 6@7; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@22
+  6          
+  5  wkWP{⇐Z 
+  4  cBwPWWZ 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 19 too-close pairs
+[7456.0s] iter 29: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@15; c4: 12@18; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@21; c8: 6@7; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@22
+  6          
+  5  wkWP{⇐Z 
+  4  cBwPWWZ 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 18 too-close pairs
+[7457.7s] iter 30: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 12@18; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@21; c8: 6@7; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@22
+  6          
+  5  wkWP{⇐Z 
+  4  cBwPWWZ 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 18 too-close pairs
+[7459.4s] iter 31: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 12@19; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@21; c8: 6@7; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@22
+  6          
+  5  wkWP{⇐Z 
+  4  cBwPWWZ 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 17 too-close pairs
+[7592.3s] iter 32: SAT (solve 132.2s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@6 10@8; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@20
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 23 too-close pairs
+[7594.0s] iter 33: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@6 10@8 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@20
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 22 too-close pairs
+[7595.7s] iter 34: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@15; c4: 8@6 10@8 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 21 too-close pairs
+[7597.4s] iter 35: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 21 too-close pairs
+[7599.1s] iter 36: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 20 too-close pairs
+[7600.8s] iter 37: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@17; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 19 too-close pairs
+[7602.6s] iter 38: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 18 too-close pairs
+[7604.2s] iter 39: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 17 too-close pairs
+[7606.1s] iter 40: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 16 too-close pairs
+[7607.8s] iter 41: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@16 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 15 too-close pairs
+[7609.5s] iter 42: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@8 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@16 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 15 too-close pairs
+[7611.2s] iter 43: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@32 28@34; c2: 10@11 12@20 14@21; c3: 4@12 6@14 8@16; c4: 8@6 10@18 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@16 14@17; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@28 28@29; c2: 10@5 12@16 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWdk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dWHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 14 too-close pairs
+[7926.0s] iter 44: SAT (solve 313.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@17; c3: 4@12 6@14 8@15; c4: 8@6 12@15; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@18; c3: 4@12 6@14 8@16; c5: 3@9; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 21 too-close pairs
+[7927.9s] iter 45: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@17; c3: 4@12 6@14 8@15; c4: 8@6 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@18; c3: 4@12 6@14 8@16; c5: 3@9; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 20 too-close pairs
+[7929.8s] iter 46: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@19; c3: 4@12 6@14 8@15; c4: 8@6 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@18; c3: 4@12 6@14 8@16; c5: 3@9; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 19 too-close pairs
+[7931.5s] iter 47: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@19; c3: 4@12 6@14 8@15; c4: 8@6 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@22; c3: 4@12 6@14 8@16; c5: 3@9; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 18 too-close pairs
+[7933.1s] iter 48: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@6 12@18; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@22; c3: 4@12 6@14 8@16; c5: 3@9; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 18 too-close pairs
+[7934.8s] iter 49: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@6 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@22; c3: 4@12 6@14 8@16; c5: 3@9; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 17 too-close pairs
+[7936.5s] iter 50: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@6 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c5: 3@9; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 16 too-close pairs
+[7938.2s] iter 51: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@6 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 15 too-close pairs
+[7940.0s] iter 52: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@6 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 15 too-close pairs
+[7941.7s] iter 53: SAT (solve 0.9s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@31 28@34; c2: 10@11 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@6 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@17 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@29; c2: 10@5 12@17 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP««Z 
+  4  uZWPWQZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dcHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 14 too-close pairs
+[7999.8s] iter 54: SAT (solve 57.4s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@15; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@5; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 21 too-close pairs
+[8001.8s] iter 55: SAT (solve 1.2s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@5; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@21
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 20 too-close pairs
+[8003.6s] iter 56: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c5: 3@5; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 19 too-close pairs
+[8005.4s] iter 57: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c5: 3@5; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 18 too-close pairs
+[8007.3s] iter 58: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@20 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 17 too-close pairs
+[8009.1s] iter 59: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@20 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@15 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 16 too-close pairs
+[8011.2s] iter 60: SAT (solve 1.1s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@18 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@15 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 14 too-close pairs
+[8013.0s] iter 61: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@18 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@15 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 13 too-close pairs
+[8014.9s] iter 62: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@18 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@15 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 12 too-close pairs
+[8016.9s] iter 63: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@30 28@31; c2: 10@11 12@18 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@14 12@19; c5: 3@11; c6: 4@12 6@14 8@15; c7: 10@5 12@19 14@21; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@15 24@18 26@28 28@29; c2: 10@5 12@15 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22
+  6          
+  5  cBwP{⇐Z 
+  4  ukWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 12 too-close pairs
+[8096.2s] iter 64: SAT (solve 78.6s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@34 28@36; c2: 12@15 14@16; c3: 4@12 6@14 8@16; c4: 8@7 12@15; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@17; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@22; c8: 4@9
+  6          
+  5  dkWP⇐{Z 
+  4  cBwPWgZ 
+  3  ueH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 20 too-close pairs
+[8098.4s] iter 65: SAT (solve 1.4s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@34 28@36; c2: 12@15 14@16; c3: 4@12 6@14 8@16; c4: 8@7 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@17; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@22; c8: 4@12
+  6          
+  5  dkWP⇐{Z 
+  4  cBwPWgZ 
+  3  ueH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 19 too-close pairs
+[8100.4s] iter 66: SAT (solve 1.3s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@7 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@17; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c5: 3@5; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@22; c8: 4@12
+  6          
+  5  dkWP⇐{Z 
+  4  cBwPWgZ 
+  3  ueH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 18 too-close pairs
+[8102.3s] iter 67: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@7 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@17; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c5: 3@4; c6: 4@12 6@14 8@15; c7: 10@5 12@20 14@22; c8: 4@5
+  6          
+  5  dkWP⇐{Z 
+  4  cBwPWgZ 
+  3  ueH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 17 too-close pairs
+[8104.0s] iter 68: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@7 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@17; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c5: 3@4; c6: 4@12 6@14 8@16; c7: 10@5 12@20 14@22; c8: 4@5
+  6          
+  5  dkWP⇐{Z 
+  4  cBwPWgZ 
+  3  ueH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 16 too-close pairs
+[8105.9s] iter 69: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@7 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@17; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c5: 3@4; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@5
+  6          
+  5  dkWP⇐{Z 
+  4  cBwPWgZ 
+  3  ueH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 15 too-close pairs
+[8107.8s] iter 70: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@7 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@17; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c5: 3@4; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@3
+  6          
+  5  dkWP⇐{Z 
+  4  cBwPWgZ 
+  3  ueH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 15 too-close pairs
+[8111.0s] iter 71: SAT (solve 2.5s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@6 12@14; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@20; c3: 4@12 6@14 8@16; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 16 too-close pairs
+[8112.7s] iter 72: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@6 12@14; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 15 too-close pairs
+[8114.4s] iter 73: SAT (solve 0.9s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@6 12@14; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@18; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 14 too-close pairs
+[8116.1s] iter 74: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@6 12@14; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@16 14@20; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 13 too-close pairs
+[8117.9s] iter 75: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@34 28@36; c2: 12@15 14@18; c3: 4@12 6@14 8@16; c4: 8@6 12@14; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@20; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 13 too-close pairs
+[8119.8s] iter 76: SAT (solve 1.0s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@34 28@36; c2: 12@15 14@22; c3: 4@12 6@14 8@16; c4: 8@6 12@14; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@20; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 12 too-close pairs
+[8121.4s] iter 77: SAT (solve 0.9s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@34 28@36; c2: 12@15 14@22; c3: 4@12 6@14 8@16; c4: 8@6 12@14; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@20; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 11 too-close pairs
+[8123.1s] iter 78: SAT (solve 0.9s): 24 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@34 28@36; c2: 12@15 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@9 12@14; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@20; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@21 24@22 26@32 28@33; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  d.HoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 10 too-close pairs
+[8134.2s] iter 79: SAT (solve 10.4s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@29 28@30; c2: 10@11 12@19 14@22; c3: 4@12 6@14 8@15; c4: 8@7 12@14; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@34 28@35; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  SkWP{⇐k 
+  4  cBwPWdZ 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 12 too-close pairs
+[8136.2s] iter 80: SAT (solve 1.3s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@29 28@30; c2: 10@11 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@7 12@14; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@34 28@35; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  SkWP{⇐k 
+  4  cBwPWdZ 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 11 too-close pairs
+[8138.3s] iter 81: SAT (solve 1.3s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@29 28@30; c2: 10@11 12@19 14@22; c3: 4@12 6@14 8@15; c4: 8@7 12@18; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@34 28@35; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  SkWP{⇐k 
+  4  cBwPWdZ 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 11 too-close pairs
+[8140.3s] iter 82: SAT (solve 1.2s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@29 28@30; c2: 10@11 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@7 12@19; c5: 3@11; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22; c8: 4@3 6@4; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@34 28@35; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  SkWP{⇐k 
+  4  cBwPWdZ 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 10 too-close pairs
+[8147.9s] iter 83: SAT (solve 6.8s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@11 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  cBwP««k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 9 too-close pairs
+[8150.0s] iter 84: SAT (solve 1.4s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@16 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@11 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  cBwP««k 
+  4  uKWPWdZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dNHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 9 too-close pairs
+[8155.4s] iter 85: SAT (solve 4.6s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@33 28@34; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@16 12@19; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 8 too-close pairs
+[8158.4s] iter 86: SAT (solve 1.6s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@23 18@24 21@25 23@26 24@27 26@33 28@34; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@16 12@19; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWgZ 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 2, 0] is minecraft:stone): blocked 8 too-close pairs
+[8163.6s] iter 87: SAT (solve 4.5s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 12@19 14@22; c3: 4@12 6@14 8@15; c4: 8@6 10@17 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWgk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 9 too-close pairs
+[8165.4s] iter 88: SAT (solve 1.1s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@18 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWgk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 8 too-close pairs
+[8167.2s] iter 89: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 12@19 14@22; c3: 4@12 6@14 8@16; c4: 8@6 10@18 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 4@2 6@3; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  cBwP{⇐k 
+  4  uKWPWgk 
+  3  QwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 8 too-close pairs
+[8169.1s] iter 90: SAT (solve 1.3s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 12@19 14@22; c3: 4@12 6@14 8@16; c4: 10@18 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  eKWP{⇐k 
+  4  cBwPWgk 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 7 too-close pairs
+[8170.9s] iter 91: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 12@19 14@22; c3: 4@12 6@14 8@16; c4: 10@18 12@19; c5: 3@10; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  eKWP{⇐k 
+  4  cBwPWgk 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 7 too-close pairs
+[8172.6s] iter 92: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 10@18 12@19; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  eKWP{⇐k 
+  4  cBwPWgk 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 6 too-close pairs
+[8174.3s] iter 93: SAT (solve 1.0s): 25 wiring blocks; timing open: c1: 2@10 4@12 6@14 8@15 10@17 11@18 12@19 13@20 14@21 16@22 18@23 21@24 23@25 24@26 26@33 28@34; c2: 10@5 12@19 14@22; c3: 4@12 6@14 8@16; c4: 10@18 12@19; c5: 3@2; c6: 4@12 6@14 8@16; c7: 10@5 12@19 14@22; c8: 6@5; close: c1: 2@10 4@12 6@13 20@14 22@19 24@20 26@28 28@34; c2: 10@5 12@16 14@19; c3: 4@12 6@14 8@16; c4: 8@16 10@18; c6: 4@12 6@14 8@16; c7: 10@5 12@15 14@22
+  6          
+  5  eKWP{⇐k 
+  4  cBwPWgk 
+  3  uwH::PK 
+  2  P:HHH:P 
+  1  P:HHH:P 
+  0  P:HHHoP 
+ -1  dtHoH<#L
+ -2  D#eP#eN 
+ -3          
+
+  TIMING FAILS (retimed ideal plan: at offset [0, 0, 0]: cycle 0: not open: [1, 1, 0] is minecraft:stone): blocked 6 too-close pairs
+[8175.5s] UNSAT (solve 1.2s): no wiring exists within this palette, box and model (wiring <= 25, 94 judged designs blocked)

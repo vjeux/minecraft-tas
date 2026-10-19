@@ -281,3 +281,9 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
     TP2 fires at t6, before TM arrives). Restarted with 8 h bounds: c78FR, c78FRw (wool door), c78FR6
     (elevator shifted to sound-friendly ticks: s 8, TP2 12, M 16..26, s lowered 20, s 32; close s 8, TP2 14,
     s 32; `c78FR6.ideal`, works in both phases).
+- **Final satwire results (20:03Z, wrapped up for the 6x8 campaign):** c78FR (stone door) UNSAT after 94 judged
+  candidates were rejected by redsim (8175 s); c78FRw (wool door) UNSAT (7021 s); c78FR6 (shifted timing) cut at
+  ~10350 s after 97 candidates: 43 oscillate ("still moving 400 ticks", sensors re-hearing the elevator), 41
+  leave TM in (1,2), 13 fail the retimed plan. Conclusion: the c78L family (BM down, C up 2 by M + s, TM up +
+  sideways) has no wiring in 7x8 within satwire's model (sculk palette, warps 8, holds, free order); the
+  hand-wired L3a (2 ideal inputs) is the closest real partial.
