@@ -86,6 +86,8 @@ pub fn full_cube(b: &Block) -> bool {
         | Block::RespawnAnchor { .. } => true,
         Block::Slab { kind } => kind == 2,
         Block::Piston { extended, .. } => !extended,
+        // sand, gravel, concrete powder: full cubes (the gravity category's door blocks)
+        Block::Falling { .. } => true,
         _ => false,
     }
 }
