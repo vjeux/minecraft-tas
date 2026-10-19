@@ -303,16 +303,26 @@ impl Census {
             let judged = AtomicUsize::new(0);
             let start = std::time::Instant::now();
             let before = found.lock().unwrap().len();
+            // work items: (cell set, the first two cells' states) so the threads stay busy
+            let p = self.palette.len();
+            let pre = k.min(2);
+            let per: usize = p.pow(pre as u32);
+            let items = subs.len() * per;
             std::thread::scope(|sc| {
                 for _ in 0..self.jobs.max(1) {
                     sc.spawn(|| {
                         loop {
                             let i = next.fetch_add(1, Ordering::Relaxed);
-                            if i >= subs.len() {
+                            if i >= items {
                                 break;
                             }
-                            let cells: Vec<BlockPos> = subs[i].iter().map(|&j| self.free[j]).collect();
+                            let (si, mut code) = (i / per, i % per);
+                            let cells: Vec<BlockPos> = subs[si].iter().map(|&j| self.free[j]).collect();
                             let mut assign: Vec<usize> = Vec::with_capacity(k);
+                            for _ in 0..pre {
+                                assign.push(code % p);
+                                code /= p;
+                            }
                             self.dfs(&cells, &mut assign, spec, &found, &judged);
                         }
                     });
