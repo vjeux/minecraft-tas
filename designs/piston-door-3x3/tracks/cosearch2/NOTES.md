@@ -109,8 +109,11 @@ The same region runs with a 25-state palette (stone, dust, observers, note block
 torches, wall torches, lamp, redstone block, droppers): bottom-right k=4 (6M fillings, 43 s / 150
 threads): 12 finds (`c79var/br/pockets-63b-51-*.txt`, all 63b, 51 blocks, redsim judge + FULL +
 hallway + frame 12/12; `door verify` WORKS on the one checked); bottom-left k=5 (46M, 336 s): the
-50-block door again (the only 5-block full filling); top-left k=5 (283M fillings) still running on
-the dedicated box when this was written (`runs/c79var-tl.log`, out dir `c79var/tl` there).
+50-block door again (the only 5-block full filling); top-left k=5 (296M fillings, 924 s / 150
+threads): no door: the 5-block fillings drive TL/ML (5 blocks) or the elevator's two pulses (4
+blocks) separately, and two disjoint fillings do not fit the 8-cell pocket; c79's own 6-block
+answer drives both from one shared dust line, so the top-left needs k = 6 with this palette (~25x
+the k = 5 run, ~6 h on 150 threads: not run).
 
 ## 6. Next
 
