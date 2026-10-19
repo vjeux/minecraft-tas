@@ -229,4 +229,13 @@ Results:
 * q78's e78s (7x8, only the bottom ideal: A' x3, K, B' x2; `runs/e78s-k3`, `runs/e78s-k5`, --gaps):
   right pocket (x=2..4): B' all four pulses with 3 blocks (observer (3,-2) up on K -> lamp (3,-3) ->
   observer (2,-3) east), K with 2, never both within 5; left pocket: A' o8, (1,-1)o24, B' o30 alone;
-  A' o36 never. Right pocket k=7: `runs/e78s-r7`.
+  A' o36 never. The left pocket at k=4 x 30 states (`runs/e78s-l4`) drives ALL of A' + (1,-1) with 4
+  blocks (calibrated sensor (-2,-2) east, observer (-1,-2) west, lamp (-2,-1), observer (-1,-1) west);
+  with K from the right (5 blocks): **true partial with only B' ideal, 40 blocks** (`runs/e78s-kb/
+  pockets-partial-1as.txt`); B' then has no filling in the 6 cells left (`runs/e78s-b4`, k=4, full
+  palette). q78 then wired B', A1 and the late A'-low with sensors (e78wsK): ONLY K left, K's pulse must
+  END at t12..13: exhaustive k=4 x 61 states + gaps over the 4 right cells and the 3 left ones: NO K
+  driver (`runs/wsK-k4`); the wool (3,-2) is needed (the seed breaks without it), so K's feeds are (4,-1)
+  (no west-pointing emitter fits) and its QC cell (3,0).
+* ceil's c070x (8x7 = 56, plan with m = u+3; `runs/c070x-k5`, k=5 x 33 states, --gaps): BL-down and
+  BM-down with 3 blocks each, E2's open pulse with 4; never U / M (coupled: windows [0,0]) nor E2 close.
