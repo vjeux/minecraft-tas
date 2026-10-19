@@ -945,6 +945,65 @@ pub fn augment_frame(bx: Bx, v: &[Pc], open: &[E], cap: usize, cap_lean: usize) 
     Some((aug, op, cl))
 }
 
+/// Rule (A) (vjeux 05:19Z): the 3 extra frame blocks are door-type blocks that MAY MOVE, as long
+/// as they are in place when open and when closed. For a candidate without a static-extras cycle:
+/// for each hole mask of the open states that can come back to rest (fewest first, at most 16),
+/// put 3 extra door-type blocks in those frame cells at rest (interchangeable with the door
+/// blocks) and decide the variant exactly; open = 12 door-type blocks in the 12 frame cells.
+pub fn try_movable(bx: Bx, v: &[Pc], cap: usize, cap_lean: usize) -> Option<(Vec<Pc>, Vec<E>, Vec<E>)> {
+    let (m, rest) = Mech::new(bx, v)?;
+    let cx = Cx::new(&m, &rest);
+    let none = Fp::default();
+    let (opens, complete, visited) = search_lean_set(&cx, std::slice::from_ref(&rest), &Goal::Open, &none, cap_lean, true, false);
+    if !complete || opens.is_empty() {
+        return None;
+    }
+    let live = coreach_within(&m, &rest, &visited);
+    drop(visited);
+    let mut masks: std::collections::BTreeSet<(u32, Fp)> = std::collections::BTreeSet::new();
+    for k in opens.iter().filter(|k| live.contains(*k)) {
+        let b = bad_holes(&m, &unpack(&m, k));
+        let c: u32 = b.0.iter().map(|w| w.count_ones()).sum();
+        masks.insert((c, b));
+    }
+    for (_, mask) in masks.iter().take(16) {
+        let mut aug = v.to_vec();
+        for i in mask.ones() {
+            let (x, y) = bx.xy(i);
+            aug.push(Pc { x, y, k: K::Stone });
+        }
+        let Some((m2, mut rest2)) = Mech::new(bx, &aug) else { continue };
+        for i in mask.ones() {
+            rest2.g[i] = DOOR;
+        }
+        let cx2 = Cx::new(&m2, &rest2);
+        if let Verdict::Found { open, close } = decide_all(&cx2, cap.min(500_000), cap_lean.max(cap), 0).0 {
+            if open.is_empty() {
+                continue;
+            }
+            let mut c = rest2.clone();
+            let mut ok = true;
+            for (k, e) in open.iter().chain(close.iter()).enumerate() {
+                match m2.apply(&c, *e) {
+                    Out::Ok(n) => c = n,
+                    _ => {
+                        ok = false;
+                        break;
+                    }
+                }
+                if k + 1 == open.len() && (!m2.is_open(&c) || frame_count(&m2, &c) != 12) {
+                    ok = false;
+                    break;
+                }
+            }
+            if ok && c == rest2 {
+                return Some((aug, open, close));
+            }
+        }
+    }
+    None
+}
+
 /// Lean search (no paths): the visited set only, goals returned as keys. `por` = the stubborn-set
 /// reduction (else every enabled event, through `Mech::apply` directly).
 pub fn search_lean(cx: &Cx, starts: &[St], goal: &Goal, forbid: &Fp, cap: usize, all_goals: bool, por: bool) -> (Vec<Key>, bool, usize) {
@@ -1486,7 +1545,10 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
     let mut bottom_opts: Vec<Pc> = Vec::new();
     for i in 0..bx.n() {
         let (x, y) = bx.xy(i);
-        if in_t(x, y) || frame.contains(&(x, y)) || side_cells.iter().any(|&(a, b, _)| a == x && b == y) {
+        // MECHSPACE_FRAME_SLOTS: pistons may also sit in frame cells at rest (they must leave
+        // before the door opens: the open check needs door-type blocks there)
+        let frame_slots = std::env::var("MECHSPACE_FRAME_SLOTS").is_ok();
+        if in_t(x, y) || (frame.contains(&(x, y)) && !frame_slots) || side_cells.iter().any(|&(a, b, _)| a == x && b == y) {
             continue;
         }
         let mut opts = Vec::new();
@@ -1573,6 +1635,15 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
     }
     out.sort_by_key(|v| v.len());
     out.dedup();
+    // mirror images (x -> 2 - x) are the same mechanism: keep the smaller of each pair when the
+    // box is symmetric about the door
+    if bx.x0 + bx.w - 1 == 2 - bx.x0 {
+        out.retain(|v| {
+            let mut mv: Vec<Pc> = v.iter().map(|p| p.mirror()).collect();
+            mv.sort();
+            *v <= mv
+        });
+    }
     out
 }
 
@@ -1996,6 +2067,14 @@ pub fn decide_all(cx: &Cx, cap: usize, cap_lean: usize, astar: usize) -> (Verdic
 pub static SWEEP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn decide_sweep(cx: &Cx, cap_lean: usize, astar: usize) -> (Verdict, Stats) {
+    // a goal-directed reduced search (stubborn sets) proves "no open state" with far fewer states
+    if std::env::var("MECHSPACE_POR_NOOPEN").is_ok() {
+        let none = Fp::default();
+        let (g, complete, n) = search_lean(cx, std::slice::from_ref(&cx.rest), &Goal::Open, &none, cap_lean, false, true);
+        if complete && g.is_empty() {
+            return (Verdict::NoOpen, Stats { open_states: n, close_states: 0 });
+        }
+    }
     if let Some(r) = main_path(cx, 100_000, 0) {
         return r;
     }
