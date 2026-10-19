@@ -38,8 +38,8 @@ pub enum ClockCmd {
     /// the watched box. Prints one CLOCK line, then the redsim agreement check.
     Verify {
         designs: Vec<PathBuf>,
-        /// Test positions (the door judge's offsets).
-        #[arg(long, default_value_t = 8)]
+        /// Test positions (the door judge's offsets; vjeux 2026-10-19: 4 positions x 4 rotations).
+        #[arg(long, default_value_t = 4)]
         positions: usize,
         /// Only as built (default: all 4 rotations).
         #[arg(long)]
@@ -75,7 +75,7 @@ pub enum ClockCmd {
         dedupe: bool,
         #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
         dir: PathBuf,
-        #[arg(long, default_value_t = 8)]
+        #[arg(long, default_value_t = 4)]
         positions: usize,
         #[arg(long, default_value_t = 4000)]
         horizon: u32,
@@ -137,9 +137,18 @@ pub enum ClockCmd {
         strip: Option<u32>,
         #[arg(long, default_value_t = 800)]
         width: u32,
-        /// Wait after moving to a clock (ms).
+        /// Wait after moving to a clock (ms; the per-sandbox shooter, used with --strip or
+        /// --one-by-one).
         #[arg(long, default_value_t = 5000)]
         hold_ms: u64,
+        /// One-world shooter: wait after a camera move (ms, plus 15 ms per block moved).
+        #[arg(long, default_value_t = 700)]
+        settle_ms: u64,
+        /// Every clock in its own sandbox (the old shooter: ~13 s a clock); default: ONE world
+        /// for all of them, clocks frozen at their moments by staggered starts, only the camera
+        /// moves (~1 s a clock). --strip implies it.
+        #[arg(long)]
+        one_by_one: bool,
         /// Take pictures that exist again.
         #[arg(long)]
         redo: bool,
@@ -301,14 +310,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, redo } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, one_by_one, redo } => {
             let mut items = Vec::new();
             for p in &designs {
                 let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 items.push((stem, Clock::load(p)?));
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, redo, ..Default::default() };
-            for l in clock::shot::shots(version, &items, &o)? {
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo, ..Default::default() };
+            let lines = if one_by_one || strip.is_some() { clock::shot::shots(version, &items, &o)? } else { clock::shot::shots_grid(version, &items, &o)? };
+            for l in lines {
                 println!("{l}");
             }
         }

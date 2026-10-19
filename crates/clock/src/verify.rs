@@ -34,7 +34,7 @@ pub struct VerifyOptions {
 
 impl Default for VerifyOptions {
     fn default() -> Self {
-        VerifyOptions { positions: 8, rotations: true, horizon: 4000, margin: 3, min_periods: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string() }
+        VerifyOptions { positions: 4, rotations: true, horizon: 4000, margin: 3, min_periods: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string() }
     }
 }
 
