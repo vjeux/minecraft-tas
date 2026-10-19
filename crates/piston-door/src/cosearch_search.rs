@@ -2456,15 +2456,27 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
         }
         let tp = std::time::Instant::now();
         let touches_context = |cells: &[(i32, i32)]| cells.iter().any(|(x, y)| [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(ddx, ddy)| rest_occ.contains(&(x + ddx, y + ddy))));
-        // work items: (subset of pocket cell indices, lever option)
-        let mut items: Vec<(Vec<usize>, Option<(i32, i32)>)> = Vec::new();
+        // work items: (subset of pocket cell indices, lever option, first cell's state when the
+        // item is split: subsets of 3+ cells are split by their first cell's state so 150 threads
+        // stay busy)
+        let mut items: Vec<(Vec<usize>, Option<(i32, i32)>, Option<usize>)> = Vec::new();
+        let mut push = |items: &mut Vec<(Vec<usize>, Option<(i32, i32)>, Option<usize>)>, sub: &Vec<usize>, lev: Option<(i32, i32)>| {
+            let n0 = if ring.contains(&pk[sub[0]]) { stone_pal.len() } else { pal.len() };
+            if sub.len() >= 3 {
+                for f in 0..n0 {
+                    items.push((sub.clone(), lev, Some(f)));
+                }
+            } else {
+                items.push((sub.clone(), lev, None));
+            }
+        };
         for sub in subsets_upto(pk.len(), pa.k) {
             let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
             if !connected(&cells) {
                 continue;
             }
             if touches_context(&cells) {
-                items.push((sub.clone(), None));
+                push(&mut items, &sub, None);
             }
             if sub.len() < pa.k {
                 for &l in &lever_cands {
@@ -2472,12 +2484,15 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                         continue;
                     }
                     if cells.iter().any(|q| (q.0 - l.0).abs() + (q.1 - l.1).abs() == 1) {
-                        items.push((sub.clone(), Some(l)));
+                        push(&mut items, &sub, Some(l));
                     }
                 }
             }
         }
-        let total: u64 = items.iter().map(|(sub, _)| sub.iter().map(|&i| if ring.contains(&pk[i]) { stone_pal.len() as u64 } else { pal.len() as u64 }).product::<u64>()).sum();
+        let total: u64 = items
+            .iter()
+            .map(|(sub, _, first)| sub.iter().enumerate().map(|(j, &i)| if j == 0 && first.is_some() { 1 } else if ring.contains(&pk[i]) { stone_pal.len() as u64 } else { pal.len() as u64 }).product::<u64>())
+            .sum();
         println!("pocket {pi}: {} cells, {} subset/lever items, {} fillings to screen", pk.len(), items.len(), total);
         let next = AtomicUsize::new(0);
         let screened = AtomicU64::new(0);
@@ -2492,13 +2507,21 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                         if ii >= items.len() {
                             break;
                         }
-                        let (sub, lev) = &items[ii];
+                        let (sub, lev, first) = &items[ii];
                         let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
                         let pals: Vec<&Vec<Block>> = cells.iter().map(|c| if ring.contains(c) { &stone_pal } else { &pal }).collect();
                         if pals.iter().any(|p| p.is_empty()) {
                             continue;
                         }
                         let mut idx = vec![0usize; cells.len()];
+                        // a split item: the first cell's state is fixed, the odometer runs over the rest
+                        let j0 = match first {
+                            Some(f) => {
+                                idx[0] = *f;
+                                1
+                            }
+                            None => 0,
+                        };
                         loop {
                             let mut g = seed.clone();
                             for (j, c) in cells.iter().enumerate() {
@@ -2527,7 +2550,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                                 }
                             }
                             // next assignment
-                            let mut j = 0;
+                            let mut j = j0;
                             loop {
                                 if j == idx.len() {
                                     break;

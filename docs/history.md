@@ -433,6 +433,19 @@ Record: e89b, 8x9x1 = 72, 49 blocks (flat-seam). What is known to fail, and unde
   none found, 1,639 candidates unresolved. Carrying, helpers and 0-ticks are being added.
 * **SUPER seamless** (covered reading) is impossible for solid doors: emptying the center needs a
   head or sticky face in the tunnel (seamless).
+* **cosearch's "N of M inputs wired at 77/79" partials are broken doors** (cosearch2): with
+  `--assist-weight 4` the annealer traded a door cell (1 point per cycle) for an assist release; in
+  w63-2as the center never opens and the elevator is not wired (`door cosearch trace --assist
+  --grid`). Only full-points partials count (`partial-full-live.txt`, weight < 1).
+* **f131F-b2 / f131N-ff (wire131's 63b, one input left: N's train at the trapdoor (-2,4))**:
+  N has ONE free neighbour, (-2,5); all 47 states of that cell screened with everything else real
+  (`door cosearch pockets --keep-lever`): none gives the train in its windows (cosearch2 NOTES).
+* **ring56 s1 (frame-12/12 7x8) is trigger-isolated at the top** (cosearch2): everything the
+  top-left pocket can watch (ML puller, TL puller, C0) is fed only from top-left cells, everything
+  the top-right pocket can watch (TM puller, TR puller, R2) only from top-right cells, and C1/C2
+  carry no power: both need the lever, which cannot touch both. A mechanism needs a piston both top
+  pockets touch (f131X's DE). Its bottom train is drivable piecewise: B' (both pulses, both edges)
+  by 5 blocks watching BL's puller (`runs/pk-s1-k5/pocket0-set1.txt`).
 
 ## Tools built that night
 
