@@ -1,0 +1,16 @@
+name: clk-rt-uloop-p220-8b
+uloop: T-1-c-T
+port output: 0 1 -1
+origin: 0 0 -1
+palette:
+  A minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wall_torch[facing=south,lit=true]
+layer 0:
+  .S
+  .S
+layer 1:
+  RAS
+  SCr
