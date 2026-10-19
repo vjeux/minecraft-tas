@@ -1,0 +1,58 @@
+# exact plan from door fullmech (fm-8x8-020-groups): every input = a redstone block behind the piston (z = 1)
+design designs/piston-door-3x3/tracks/pistmodel/fullmech/8x8/fm-8x8-020.txt
+open 0 set -2 1 1 minecraft:redstone_block
+open 0 set 0 4 1 minecraft:redstone_block
+open 0 set 1 -2 1 minecraft:redstone_block
+open 0 set 1 4 1 minecraft:redstone_block
+open 0 set 2 -2 1 minecraft:redstone_block
+open 0 set 2 4 1 minecraft:redstone_block
+open 0 set 3 -1 1 minecraft:redstone_block
+open 1 clear -2 1 1
+open 1 clear 0 4 1
+open 1 clear 1 -2 1
+open 1 clear 1 4 1
+open 1 clear 2 -2 1
+open 1 clear 2 4 1
+open 1 clear 3 -1 1
+open 6 set 4 1 1 minecraft:redstone_block
+open 7 clear 4 1 1
+open 12 set -2 1 1 minecraft:redstone_block
+open 12 set 0 4 1 minecraft:redstone_block
+open 12 set 1 -2 1 minecraft:redstone_block
+open 12 set 1 4 1 minecraft:redstone_block
+open 12 set 2 -2 1 minecraft:redstone_block
+open 12 set 2 4 1 minecraft:redstone_block
+open 12 set 3 -1 1 minecraft:redstone_block
+open 15 clear -2 1 1
+open 15 clear 0 4 1
+open 15 clear 1 -2 1
+open 15 clear 1 4 1
+open 15 clear 2 -2 1
+open 15 clear 2 4 1
+open 15 clear 3 -1 1
+open 20 set 5 1 1 minecraft:redstone_block
+open 21 clear 5 1 1
+open 26 set 3 1 1 minecraft:redstone_block
+open 27 clear 3 1 1
+open 32 set 5 1 1 minecraft:redstone_block
+open 33 clear 5 1 1
+open 38 set 4 1 1 minecraft:redstone_block
+open 39 clear 4 1 1
+close 0 set 4 1 1 minecraft:redstone_block
+close 1 clear 4 1 1
+close 6 set -2 1 1 minecraft:redstone_block
+close 6 set 0 4 1 minecraft:redstone_block
+close 6 set 1 -2 1 minecraft:redstone_block
+close 6 set 1 4 1 minecraft:redstone_block
+close 6 set 2 -2 1 minecraft:redstone_block
+close 6 set 2 4 1 minecraft:redstone_block
+close 6 set 3 -1 1 minecraft:redstone_block
+close 7 clear -2 1 1
+close 7 clear 0 4 1
+close 7 clear 1 -2 1
+close 7 clear 1 4 1
+close 7 clear 2 -2 1
+close 7 clear 2 4 1
+close 7 clear 3 -1 1
+close 12 set 4 1 1 minecraft:redstone_block
+close 13 clear 4 1 1

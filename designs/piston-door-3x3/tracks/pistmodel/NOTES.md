@@ -33,7 +33,8 @@ tick between the bridge (the real game) and redsim.
 | mixed palette (dust, torches, wall torches, repeaters, comparators, levers clicked, lamps, note blocks, targets next to the pistons) | **97,541 / 97,541 identical** of 100,000 (seed 7000000, 4.68M ticks; 2,459 skipped: a click on a non-lever, an input redsim refuses) |
 | gadget library (designs/gadgets/*.drive: judge placement, the script's inputs, every tick) | 72 / 72 (entity and sculk gadgets skipped) |
 | archived doors (archive/*.txt: judge placement, 2 open/close cycles, every tick) | 328 / 328 (sculk, copper bulb, entity designs skipped) |
-| gravity (sand, gravel, red sand with the piston palette) | ~98.7% (2960 of the first 3000 before the failure cap): falling entities pushed by moving pistons and landing on moving blocks are not modeled |
+| gravity (sand, gravel, red sand with the piston palette) | 2975 / 3000 (seed 4000000): falling entities pushed by moving pistons (`moveCollidedEntities`) are not modeled |
+| shaped blocks next to pistons (`--shapes`: slabs, trapdoors, scaffolding, fence gates; collision boxes from redmodel's `collision_boxes`) | 2988 / 3000 (seed 9100000): the rest are falling scaffolds pushed by moving heads (same gap) |
 
 Bugs found and fixed: popped piston heads drop nothing (engine `destroy_block`, redmodel's); the
 shape-update flags of `setBlock` clear NEIGHBORS (`& -34`, redmodel's, found as a BUD-fired piston
@@ -79,6 +80,15 @@ Families' candidates re-solved exactly (<= 10 pistons, pulses 1/3, cap 30k state
   reach them all in the plane: the signal has to cross through moving blocks or be duplicated.
 * `--anneal` (simulated annealing over mechanisms not tied to exit plans, 15k evaluations in 90 s on
   7x8): nothing from scratch; it needs seeding.
+* Groups + one helper (`--groups --reduce` on a design: a redstone block or an observer E/W/U/D in
+  each free cell next to a piston or its QC cell): on all 32 7x8 mechanisms no placement brings
+  the 3 signals down to 2.
+* Piston removal + one helper (`--shrink`: drop each piston, add stone / obsidian / a redstone
+  block / an observer in each free cell): on all 32 7x8 mechanisms no working variant with 9
+  pistons.
+* 8x8 (64 mechanisms) and 8x7 (32) exported the same way ([fullmech/8x8/](fullmech/8x8/),
+  [fullmech/8x7/](fullmech/8x7/)): every one needs 3 signals; 192/192 plans replay in the real
+  simulator.
 
 ## Log
 * 22:33Z inventory; 23:02Z pistons in, 2000/2000; 23:11Z 100k/100k; 23:25Z gadgets + archived doors
