@@ -369,3 +369,6 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   trio lever-held, lever on top of (1,4), `c69/w86/m69g.*` copy): solid UNSAT core open (3,0) (carried s0 has
   no feed); with s0 kept ideal: core close (5,0)+(3,-1) (right half: elevator outer piston + corner).
   Without w86's obsidian (3,4) the plan breaks in tile phase (W' under carried s0 pushes the right column).
+  Sculk: m69v core open (3,2) + close (3,3) (4,2) (5,2) (3,2); m69g (s0 ideal) core close (5,0) (4,0) (3,-1).
+  In every 9x6 m69 version (solid and sculk) the left half wires and the right half (horizontal elevator +
+  corner + s1') is the wall. w86 is building a variant with the right elevator in row 1.
