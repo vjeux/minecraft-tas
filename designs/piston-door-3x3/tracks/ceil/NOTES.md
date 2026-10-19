@@ -72,6 +72,9 @@ Windows (`door ideal-rs --sweep`, real top + t7b's wall chains, c035w / c070w):
   facing east on ML's park (-1,0) -> stone (-3,0) under D; U's pull vs push). WORKS with both-edge
   assists: U at u, M at exactly u+3 (E on landing; ungated since E never reaches (-1,1) on close),
   E2 >= u+10, BL/BM down free.
+- Both confirmed robust: `door ideal-rs --extra-offsets 28 --cycles 3` WORKS (32 positions x 3
+  cycles) and the real game agrees (`door ideal`, JVM, 4 positions x 2 cycles: WORKS) for c077w
+  (s 8, gm 12) and c070x: moving blocks really do block the push in the game.
 - What is left is timing, not logic: M must be powered on the exact tick E lands at (-1,1) (D's two
   taps are the watcher's double pulse, 4 gt apart). pockets k=4 on c070x: BL, BM, E2-open drivable;
   U and M have single-tick windows ([+0,+0]) and no filling. M's feeds: c070x has none left in 8x7
