@@ -1,0 +1,26 @@
+# archived 2026-10-19T20:27Z from designs/clocks/tracks/clk-obs/mech2/p48-lamp-obs-stk-6b-b-088a3a.txt by mctas clock archive
+# CLOCK: clk-obs-p48-lamp-obs-stk-6b-b-088a3a period 48 gt (2.4 s), on 20/48, edges 10, warmup 2, family observer+redstone_lamp+sticky_piston, 6 blocks, 1x3x3, robust
+name: clk-obs-p48-lamp-obs-stk-6b-b-088a3a
+# P48: 3 observers, 1 redstone lamp, 2 sticky pistons; changing in place: observer, redstone_lamp, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 2 0
+port start: 0 2 0 last
+palette:
+  A minecraft:redstone_lamp[lit=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=north]
+  F minecraft:observer[facing=south,powered=false]
+layer 0:
+  A
+  B
+  .
+layer 1:
+  C
+  D
+  E
+layer 2:
+  F
+  .
+  .

@@ -1,0 +1,22 @@
+# archived 2026-10-19T19:51Z from designs/clocks/tracks/clk-obs/mech2/p15-obs-pis-stk-6b-b-311377.txt by mctas clock archive
+# CLOCK: clk-obs-p15-obs-pis-stk-6b-b-311377 period 15 gt (0.75 s), on 6/15, edges 3, warmup 2, family observer+piston+sticky_piston, 6 blocks, 3x2x3, robust
+name: clk-obs-p15-obs-pis-stk-6b-b-311377
+# P15: 1 note block, 2 observers, 1 piston, 1 sticky piston, 1 stone; changing in place: observer, piston, sticky_piston (note block, stone only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:piston[extended=false,facing=up]
+  D minecraft:stone
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  AF
+  B.
+  C.
+layer 1:
+  D.
+  E.
+  ..

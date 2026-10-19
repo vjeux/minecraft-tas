@@ -1,0 +1,24 @@
+# archived 2026-10-19T19:45Z from designs/clocks/tracks/clk-obs/mech2/p12-note-rb-stk-5b-b-04da6a.txt by mctas clock archive
+# CLOCK: clk-obs-p12-note-rb-stk-5b-b-04da6a period 12 gt (0.6 s), on 2/12, edges 2, warmup 0, family note_block+redstone_block+sticky_piston, 5 blocks, 1x3x3, robust
+name: clk-obs-p12-note-rb-stk-5b-b-04da6a
+# P12: 1 note block, 1 redstone block, 1 slime block, 2 sticky pistons; changing in place: note_block, redstone_block, sticky_piston (slime block only moved or static). Found by the clk-obs exhaustive census of every 5-block structure (all orientations, every block placed last as a kick); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 2
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:slime_block
+  C minecraft:redstone_block
+  D minecraft:note_block[instrument=harp,note=0,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  .
+  .
+layer 1:
+  B
+  C
+  D
+layer 2:
+  .
+  .
+  E
