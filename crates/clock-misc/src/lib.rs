@@ -12,6 +12,7 @@
 //! The official judge is `mctas clock verify` (crates/clock, docs/clocks.md); this crate builds
 //! and searches.
 
+pub mod cart;
 pub mod crafter;
 pub mod ring;
 
@@ -35,6 +36,10 @@ enum Cmd {
     /// a comparator on the feeding hopper and two observers triggering the crafter. Prints or
     /// writes the design (the real game judges it: redsim does not model crafting).
     CrafterLoop(crafter::LoopArgs),
+    /// A minecart ping-pong (extendable family `clk-misc-cart-pingpong`): an empty minecart
+    /// bouncing between two bumpers, powered rails at the ends, a detector rail, n more powered
+    /// rails in the middle. Prints or writes the design (judge it with `clock verify`: entities).
+    CartPingpong(cart::PingpongArgs),
 }
 
 /// `mctas clock misc <args...>`.
@@ -50,5 +55,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
     match a.cmd {
         Cmd::Ring(r) => ring::run(r),
         Cmd::CrafterLoop(l) => crafter::run(l),
+        Cmd::CartPingpong(p) => cart::run(p),
     }
 }
