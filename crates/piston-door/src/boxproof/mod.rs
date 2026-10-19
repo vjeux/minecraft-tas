@@ -157,6 +157,10 @@ fn batch(a: &Args) -> Result<()> {
                     args.push("--fix".into());
                     args.push(it[5].clone());
                 }
+                // per-item extra flags after the path
+                if it.len() > 6 {
+                    args.extend(it[6..].iter().cloned());
+                }
                 args.extend(extra.iter().cloned());
                 let t0 = std::time::Instant::now();
                 let f = std::fs::File::create(&log).unwrap();

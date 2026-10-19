@@ -507,6 +507,13 @@ pub fn cli(a: &Args) -> Result<()> {
     };
     // cells to leave free even under --fix ("x,y;x,y" in box coordinates)
     let mut fixed = fixed;
+    // cube-and-conquer over the lever: keep candidates j with j % lever-mod == lever-rem
+    if let Some(m) = a.s("lever-mod").and_then(|s| s.parse::<usize>().ok()) {
+        let r: usize = a.get("lever-rem", 0);
+        if g.levers.len() > 1 {
+            g.levers = g.levers.iter().enumerate().filter(|(j, _)| j % m == r).map(|(_, l)| l.clone()).collect();
+        }
+    }
     if let Some(fr) = a.s("free") {
         for c in fr.split(';').filter(|s| !s.is_empty()) {
             let (x, y) = c.split_once(',').map(|(a, b)| (a.trim().parse::<i32>().unwrap_or(-1), b.trim().parse::<i32>().unwrap_or(-1))).unwrap_or((-1, -1));

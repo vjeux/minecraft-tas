@@ -67,13 +67,30 @@ moving-block entity (content, progress), pending tick and pending block event.
   clauses, build 84 s); the model's door passes the redsim screen (open 34 / close 34). With ONE
   block-event round e89b is UNSAT: it needs events chained within a tick, so 2 rounds are modeled.
 
-## Sizes and solve times (find mode, flags off)
+## Sizes and solve times
+Find mode (flags ignored, CaDiCaL `sat` config since 01:42Z, CEGAR with the redsim screen):
 | instance | T/edge | vars | clauses | memory | result |
 |---|---|---|---|---|---|
-| e89b fixed placement (8x9) | 45 | 37M | 123M | 13-33 GB | SAT 14.5 s, screen Pass |
+| e89b fixed placement (8x9) | 45 | 37M | 123M | 13-33 GB | SAT 14.5 s, screen Pass (open 34 / close 34) |
 | e89b, 1 event round | 40 | 13M | 41M | 13 GB | UNSAT 144 s (1 round is not enough) |
-| 7x8 fixed pistons (fm-7x8-002/006/012) | 40 | 27M | 85M | 21 GB | running |
-| 7x8 whole box, door (2,2) / (2,3) | 36 | 10.3M | 36.7M | 11 GB | running |
+| e89b placement with 6 / 2 bottom wiring cells erased (8x9, lever given) | 40 | 13M | 45-47M | 13 GB | running (calibration: time vs free cells) |
+| e89b MECHANISM only, wiring free (8x9; and 7x8 = x -2..4, y -3..4) | 45 / 40 | 19M / 13M | 69M / 47M | 16 / 10 GB | running (default config since 01:17Z; 7x8 with `sat` config since 01:42Z) |
+| pistmodel fm-7x8-002/006/012 fixed pistons (old encoding) | 40 | 27M | 85M | 21 GB | no answer in 50 min (timeout) |
+| fm-7x8-013/014/015 fixed pistons | 40 | 13M | 47M | 10 GB | stopped after ~15 min for memory |
+| 7x8 whole box, door (2,2) / (2,3), full palette | 36 | 10.3M | 36.7M | 8-11 GB | no answer in 52 / 30 min (stopped for memory) |
+| f131L (wire64), vc1 (vmid) fixed pistons in 7x8 | 40 | 13M | 47-49M | 10 GB | running |
+| w63 (wire64b): 7x8-014 in 7x9, bottom wiring fixed, 24 top cells + lever free | 40 | 13.6M | 49M | 10 GB | running |
+
+Prove mode (flags forbidden: "no race-free door"), strict seamless ring (rest and open), T=20:
+| box | door offset | vars | clauses | result |
+|---|---|---|---|---|
+| 5x5 | (0,0) (0,1) (0,2) (1,0) (1,1) (1,2) (all, mirror) | 1.2-2.4M | 4.4-8.8M | UNSAT in 528, 104, 468, 101, 0.0, 70 s |
+| 6x6 | 8 offsets | 4.2-4.4M | 15-16M | running |
+
+So even a 5x5 box (where no door can fit: no room for a piston that reaches a door block) takes
+the solver minutes per door offset: the temporal unrolling, not the encoding size, is the cost.
+Next: sound static lemmas (a door cell can only change if some piston's line can reach it,
+counting bounds), cube-and-conquer over the lever candidates, incremental horizon.
 
 Per-tick cost after the per-cell round (`round.rs`): ~515k clauses per tick for a free 7x8 box,
 ~270k for a 7x8 box with fixed pistons.
