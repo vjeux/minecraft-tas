@@ -112,7 +112,8 @@ Wiring status (no wired door yet):
   assisted (lever bottom) / 75/79 with BL's + BR's (lever top); vd1w and vd1s 73/79 with TL's
   puller assisted; ve1 (two 3600 s runs, lock-pistons / no-mech): 0 finds, best 75/79 with the
   right-side pullers (4,2), (4,0) still assisted / 73/79 with (4,2), (0,-2). satwire on ve1
-  (`--dmax 16`): UNSAT.
+  (`--dmax 16`): UNSAT. boxproof bmc with ve1's pistons fixed (7x9, t=50, 19.5M vars / 70M
+  clauses, 14 GB): no answer in 3 h (timeout).
 * Why the links are the problem (simulator traces, `vm1Lw1`): an observer watching a pulse-driven
   puller fires TWICE (extension, then the landing of the retraction, 4 gt apart); a puller fed that
   double pulse pulls on open (the second pulse finds the block still moving) but on close pushes
