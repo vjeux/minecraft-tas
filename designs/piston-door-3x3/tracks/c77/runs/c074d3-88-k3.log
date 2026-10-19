@@ -19,3 +19,17 @@ windows (11 groups, 0.1 s):
   pocket 2: 5 cells [(2, -2), (3, -2), (3, -1), (4, -2), (4, -1)]
   pocket 3: 5 cells [(2, 5), (3, 4), (3, 5), (4, 4), (4, 5)]
 pocket 0: 7 cells, 1418 subset/lever items, 5261738 fillings to screen
+  pocket 0: 4570019 screened (1106 of 1418 items started), 1463501 keep the door working, 120 s
+pocket 0: 6066288 screened, 1890781 keep the door working, 165.3 s; driven input sets: {(0,-2)o20 (0,-2)c20} x4 (best 3 blocks), {(-1,1)o12} x4 (best 3 blocks)
+pocket 1: 9 cells, 1601 subset/lever items, 5942681 fillings to screen
+  pocket 1: 3340719 screened (722 of 1601 items started), 1430349 keep the door working, 120 s
+  pocket 1: 7472550 screened (1560 of 1601 items started), 3004356 keep the door working, 240 s
+pocket 1: 7808364 screened, 3134386 keep the door working, 256.2 s; driven input sets: {(-2,1)o4 (-2,1)o45 (-2,1)c4 (-2,1)c45} x1 (best 3 blocks), {(-1,3)o8 (-1,3)c8} x16 (best 3 blocks), {(-2,1)o4 (-2,1)c4} x5 (best 3 blocks), {(-1,3)c8} x1 (best 3 blocks)
+pocket 2: 5 cells, 558 subset/lever items, 2065338 fillings to screen
+pocket 2: 2222731 screened, 863842 keep the door working, 63.1 s; driven input sets: {(1,-2)o20 (1,-2)c20} x3 (best 3 blocks), {(1,-2)o20} x24 (best 3 blocks)
+pocket 3: 5 cells, 558 subset/lever items, 2065338 fillings to screen
+pocket 3: 2356745 screened, 1150832 keep the door working, 94.9 s; driven input sets: none
+combination 1: true partial, 4 inputs still assisted [-1,3 -1,1 0,-2 1,-2] (32 blocks)
+combination 18: true partial, 3 inputs still assisted [-1,3 0,-2 1,-2] (35 blocks)
+combination 19: true partial, 2 inputs still assisted [-1,3 0,-2] (38 blocks)
+8982 combinations verified, 0 finds, 592 s total
