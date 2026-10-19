@@ -1,0 +1,49 @@
+name: cosearch-partial-2-75of79
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=down,powered=false]
+  B minecraft:observer[facing=east,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:dropper[facing=down,triggered=false]
+  E minecraft:observer[facing=west,powered=false]
+  F minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  G minecraft:glass
+  H minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  I minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:sticky_piston[extended=true,facing=down]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:stone
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  S minecraft:smooth_stone
+  T minecraft:white_glazed_terracotta[facing=west]
+  W minecraft:white_glazed_terracotta[facing=north]
+  d minecraft:dropper[facing=east,triggered=false]
+  o minecraft:oak_log[axis=y]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  w minecraft:white_glazed_terracotta[facing=south]
+layer -3:
+  TDA..NCG
+layer -2:
+  wWrJJF.H
+layer -1:
+  ICJ.oS.w
+layer 0:
+  OdOQQQ.K
+layer 1:
+  ss.QQQ.K
+layer 2:
+  .CQQQQQC
+layer 3:
+  .RBPPPEr
+layer 4:
+  ...MMM
+layer 5:
+  ....L

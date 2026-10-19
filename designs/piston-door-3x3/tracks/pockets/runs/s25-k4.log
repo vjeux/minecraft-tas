@@ -1,0 +1,17 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/c88-s25.ideal: 1 input cells off the plane ([(2, -2)]), 2 / 2 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/c88-s25.txt: 51 blocks in the box, screen 79/79
+seed screen 79/79 with 1 inputs assisted
+windows (2 groups, 0.0 s):
+  input (2,-2) open  t30 pulse 2 gt: window [-24, +24]
+  input (2,-2) close t30 pulse 2 gt: window [-24, +24]
+5 pocket cells in 2 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 60 swept cells
+  pocket 0: 1 cells [(-2, 3)]
+  pocket 1: 4 cells [(3, -2), (4, -2), (4, -1), (4, 0)]
+pocket 0: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 0: 61 screened, 33 keep the door working, 0.3 s; driven input sets: none
+pocket 1: 4 cells, 3849 subset/lever items, 14311149 fillings to screen
+  pocket 1: 7086446 screened (1771 of 3849 items started), 1413900 keep the door working, 30 s
+  pocket 1: 10718695 screened (2611 of 3849 items started), 2898650 keep the door working, 60 s
+  pocket 1: 14358597 screened (3471 of 3849 items started), 4398829 keep the door working, 90 s
+pocket 1: 16218489 screened, 5113093 keep the door working, 110.1 s; driven input sets: {(2,-2)o30 (2,-2)c30} x1 (best 3 blocks)
+1 combinations verified, 0 finds, 110 s total

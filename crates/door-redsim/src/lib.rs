@@ -14,6 +14,72 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum DoorCmd {
+    /// Exhaustive REGION FILLING judged as a real door on redsim (fill.rs, track shrink): the
+    /// region's cells are cleared, every filling of kmin..=k of them from a palette (+ `--fix`
+    /// cells always filled) is screened by the redsim judge at the first position, passes are
+    /// judged at 4 + --extra positions with FULL seamless, the hallway check and frame 12/12. No
+    /// ideal plan: the rest of the door stays real wiring, so a region other wiring watches needs
+    /// no region closure (cosearch pockets' limit on e88-t7b's bottom).
+    Fill {
+        design: PathBuf,
+        /// Region cells, door coordinates `x,y;x,y` (ranges `x0..x1,y` allowed).
+        #[arg(long, default_value = "")]
+        cells: String,
+        /// Cells always filled, `x,y=state|state;...` (shorthands as --palette); not counted in --k.
+        #[arg(long, default_value = "")]
+        fix: String,
+        /// Per-cell palettes, `x,y=state|state;...` (shorthands as --palette).
+        #[arg(long, default_value = "")]
+        cell_palette: String,
+        #[arg(long, default_value_t = 3)]
+        k: usize,
+        #[arg(long, default_value_t = 0)]
+        kmin: usize,
+        /// Comma list of states or shorthands: stone, glass, obsidian, wool, obs, obsh, obsv, rep,
+        /// rep1..rep4, rep12, dust, note, lamp, target, torch, wtorch, cmp, bulb, trap, dropper,
+        /// sculk, calib, redblock, sticky / piston (retracted, 4 facings; stickyh, stickyv, pistonh,
+        /// pistonv: horizontal / vertical only).
+        #[arg(long, default_value = "stone,obs,rep,dust,note,lamp,target,torch,wtorch")]
+        palette: String,
+        /// Fillings may be several pieces, each touching the build.
+        #[arg(long)]
+        gaps: bool,
+        #[arg(long, default_value_t = 48)]
+        threads: usize,
+        #[arg(long, default_value_t = 2)]
+        screen_cycles: u32,
+        /// Extra judge positions of the final evaluation (28 = the record judge).
+        #[arg(long, default_value_t = 28)]
+        extra: u32,
+        #[arg(long, default_value = "designs/piston-door-3x3/tracks/shrink/finds")]
+        out_dir: PathBuf,
+        #[arg(long, default_value_t = 50)]
+        max_finds: usize,
+        /// Accept finds with at most this many blocks placed (0: any).
+        #[arg(long, default_value_t = 0)]
+        max_blocks: usize,
+        /// Accept finds with at most this community volume (0: any).
+        #[arg(long, default_value_t = 0)]
+        max_volume: i32,
+        /// Only count the fillings.
+        #[arg(long)]
+        count: bool,
+        #[arg(long, default_value_t = 30)]
+        report: u64,
+        /// Accept doors that pass the judge without FULL seamless / hallway / frame 12/12 too.
+        #[arg(long)]
+        any_seamless: bool,
+        /// Region cells may hold (wiring) pistons; put piston states in the palette to re-grow them.
+        #[arg(long)]
+        allow_pistons: bool,
+        /// Accept finds that are not rotation-safe (by default each find must also pass the judge
+        /// turned 90/180/270 degrees, on redsim).
+        #[arg(long)]
+        any_rotation: bool,
+        /// Only run the redsim rotation check on these designs and exit (calibration).
+        #[arg(long)]
+        rotation_only: bool,
+    },
     /// Flip a design's lever N times in redsim at the judge's 4 positions and check it alternates
     /// between an open state (opening clear, frame 12/12) and a closed one (cycle.rs). Accepts a
     /// door that rests open, e.g. a community design read from a screenshot of its open state.
@@ -116,6 +182,59 @@ pub enum DoorCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// `door ideal` on redsim (no JVM; piston-door ideal_rs.rs): the same schedule file and checks,
+    /// in milliseconds; `--sweep` grids run in parallel (timing windows), `--trace` prints every
+    /// block change of the first cycle at the first position; `--compact-dir` pulls every input
+    /// group as early as the mechanism allows and writes `<name>-cpt.ideal` with its windows.
+    IdealRs {
+        /// One schedule (several with `--compact-dir`).
+        #[arg(required = true)]
+        schedule: Vec<PathBuf>,
+        /// Compact each schedule (every pulse / level edge as early as it goes, the others
+        /// fixed, two passes) and write `<dir>/<name>-cpt.ideal` with each group's window.
+        #[arg(long)]
+        compact_dir: Option<PathBuf>,
+        /// Override a schedule variable, name=value (repeatable).
+        #[arg(long)]
+        set: Vec<String>,
+        /// Sweep a variable, name=lo..hi (repeatable: every combination).
+        #[arg(long)]
+        sweep: Vec<String>,
+        /// Sweep each --sweep variable on its own (others at their values) instead of the grid.
+        #[arg(long)]
+        independent: bool,
+        /// Extra pseudo-random positions on top of the default four.
+        #[arg(long, default_value_t = 0)]
+        extra_offsets: u32,
+        #[arg(long, default_value_t = 2)]
+        cycles: u32,
+        /// Print every block change of the first cycle at the first position.
+        #[arg(long)]
+        trace: bool,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        /// Block variants, `x,y[,z]=state|state|...` (repeatable: every combination, times the
+        /// --sweep grid): the design's cell is replaced in memory before each run (`air`
+        /// clears it, `keep` leaves the design's block, `minecraft:` is optional).
+        #[arg(long)]
+        vary: Vec<String>,
+        /// Print only the combinations that work (and a count on stderr).
+        #[arg(long)]
+        ok_only: bool,
+        /// Also try every subset of up to N blocks removed (door cells, the lever and piston
+        /// heads excepted), on top of each --vary combination: a redsim block minimizer.
+        #[arg(long, default_value_t = 0)]
+        drop: usize,
+        /// For every ideal input of the plan, try what a sculk sensor can give it instead (a 10
+        /// or 30 tick hold, 3 taps 10 apart, 2 taps 14 apart, one pulse), every start 0..=N on
+        /// each edge (or none), and print which starts work: which inputs a sensor could drive.
+        #[arg(long)]
+        holds: Option<i64>,
+        /// The old input rule: plan blocks appear between ticks, after tick t (default: in tick
+        /// t's tile-tick phase, where an observer's output arrives; see ideal.rs).
+        #[arg(long)]
+        between_ticks: bool,
+    },
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
     /// queue size compared after every tick against the bridge; failures shrunk and saved.
@@ -182,8 +301,44 @@ pub enum DoorCmd {
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
+    if let DoorCmd::Fill { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, max_volume, count, report, any_seamless, allow_pistons, any_rotation, rotation_only } = cmd {
+        if rotation_only {
+            let (_, door) = crate::cosearch::load_door(&design)?;
+            let opts = crate::cosearch::JudgeOpts::with_extra(extra);
+            match crate::fill::rotation_check_rs(&door, &opts) {
+                Ok(()) => println!("{}: rotation-safe on redsim (turned 90, 180, 270 degrees, {} positions each)", design.display(), opts.offsets.len()),
+                Err(e) => println!("{}: NOT rotation-safe on redsim: {e}", design.display()),
+            }
+            return Ok(());
+        }
+        let o = crate::fill::FillOpts {
+            design,
+            cells: crate::fill::parse_cells(&cells)?,
+            fixed: crate::fill::parse_cell_states(&fix)?,
+            cell_palette: crate::fill::parse_cell_states(&cell_palette)?,
+            k,
+            kmin,
+            palette: crate::fill::split_top(&palette, ','),
+            gaps,
+            threads,
+            screen_cycles,
+            extra,
+            out_dir,
+            max_finds,
+            max_blocks,
+            max_volume,
+            count,
+            report,
+            any_seamless,
+            allow_pistons,
+            any_rotation,
+        };
+        let _ = version;
+        return crate::fill::run(&o);
+    }
     let cfg = WorkerConfig { version: version.to_string(), ..Default::default() };
     match cmd {
+        DoorCmd::Fill { .. } => unreachable!("handled above"),
         DoorCmd::Cycle { design, flips, write_state, out } => {
             crate::cycle::cli(&design, flips, write_state, out.as_deref())?;
         }
@@ -290,6 +445,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
+        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds, between_ticks } => match { crate::ideal::cli_phase(between_ticks); compact_dir } {
+            Some(dir) => {
+                std::fs::create_dir_all(&dir)?;
+                for s in &schedule {
+                    let stem = s.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+                    if let Err(e) = crate::ideal_rs::compact(s, &dir.join(format!("{stem}-cpt.ideal")), extra_offsets, cycles, threads) {
+                        println!("{}: {e:#}", s.display());
+                    }
+                }
+            }
+            None => {
+                anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir)");
+                crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds)?;
+            }
+        },
         DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace, sculk, border } => {
             let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace, sculk, border };
             crate::pistfuzz::cli(version, &o)?;

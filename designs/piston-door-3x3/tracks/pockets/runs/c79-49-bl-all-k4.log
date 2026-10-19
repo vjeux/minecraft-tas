@@ -1,0 +1,34 @@
+assist designs/piston-door-3x3/tracks/pockets/plans/c79-49-bl.ideal: 3 input cells off the plane ([(-1, -1), (1, -2), (-2, 0)]), 6 / 6 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/finds/c79-49-bl5-br3.txt: 49 blocks in the box, screen 38/79
+14 piston cells locked, 40 cells free
+seed screen 79/79 with 3 inputs assisted
+windows (6 groups, 0.0 s):
+  input (-1,-1) open  t9 pulse 2 gt: window [-5, +0]
+  input (1,-2) open  t11 pulse 2 gt: window [+0, +24]
+  input (-2,0) open  t13 pulse 2 gt: window [-13, +24]
+  input (-1,-1) close t9 pulse 2 gt: window [-2, +0]
+  input (1,-2) close t11 pulse 2 gt: window [-1, +0]
+  input (-2,0) close t13 pulse 2 gt: window [-13, +24]
+10 pocket cells in 4 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 54 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-2, -1), (-1, -3), (-1, -2), (0, -2)]
+  pocket 1: 1 cells [(-2, 5)]
+  pocket 2: 1 cells [(-1, 3)]
+  pocket 3: 2 cells [(4, -3), (4, -2)]
+pocket 0: 6 cells, 969 subset/lever items, 105426240 fillings to screen
+  pocket 0: 28709338 screened (377 of 969 items started), 5185078 keep the door working, 120 s
+  pocket 0: 45285608 screened (401 of 969 items started), 11459457 keep the door working, 240 s
+  pocket 0: 64510299 screened (594 of 969 items started), 15844066 keep the door working, 360 s
+  pocket 0: 83063434 screened (700 of 969 items started), 20800488 keep the door working, 480 s
+  pocket 0: 97671578 screened (783 of 969 items started), 26113432 keep the door working, 600 s
+  pocket 0: 115243825 screened (969 of 969 items started), 30225495 keep the door working, 720 s
+  pocket 0: 127005253 screened (969 of 969 items started), 34380410 keep the door working, 840 s
+pocket 0: 129420569 screened, 34982521 keep the door working, 943.9 s; driven input sets: {(-1,-1)o9 (1,-2)o11 (-1,-1)c9 (1,-2)c11} x89 (best 3 blocks), {(-1,-1)o9 (-2,0)o13 (-1,-1)c9 (-2,0)c13} x128 (best 4 blocks), {(-1,-1)o9 (-1,-1)c9} x128 (best 2 blocks), {(-2,0)o13 (-2,0)c13} x128 (best 2 blocks), {(-1,-1)o9} x128 (best 3 blocks), {(-2,0)o13} x128 (best 3 blocks), {(1,-2)o11} x128 (best 3 blocks)
+pocket 1: 1 cells, 1 subset/lever items, 60 fillings to screen
+pocket 1: 60 screened, 16 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 1 cells, 1 subset/lever items, 60 fillings to screen
+pocket 2: 62 screened, 31 keep the door working, 0.3 s; driven input sets: none
+pocket 3: 2 cells, 2 subset/lever items, 3660 fillings to screen
+pocket 3: 3945 screened, 1861 keep the door working, 3.0 s; driven input sets: none
+combination 1: true partial, 2 inputs still assisted [1,-2 -2,0] (46 blocks)
+combination 130: true partial, 1 inputs still assisted [-2,0] (47 blocks)
+11911 combinations verified, 0 finds, 957 s total

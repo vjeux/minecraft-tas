@@ -1,0 +1,26 @@
+# m88q0: m88p0 with K MIRRORED to the right (static frame stone (0,-1), K' (3,-1) pulls BM into (2,-1)); K', B, A's last pull, L1/L2 ideal; U + L0 real.
+# B's 2 gt pulse, A's last pull and L1/L2 ideal.
+design designs/piston-door-3x3/tracks/c2e/m10/m88q0.txt
+let b = 10
+let af = 14
+let l12 = 14
+let cb = 2
+let cl = 0
+open 0 use 4 5 0
+open b set 1 5 -1 minecraft:redstone_block
+open b+2 clear 1 5 -1
+open af set 1 4 -1 minecraft:redstone_block
+open af+2 clear 1 4 -1
+open l12 set -2 2 -1 minecraft:redstone_block
+open l12+2 clear -2 2 -1
+close 0 use 4 5 0
+close cb set 1 5 -1 minecraft:redstone_block
+close cb+2 clear 1 5 -1
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1
+let k = 8
+let ck = 4
+open k set 3 -1 -1 minecraft:redstone_block
+open k+2 clear 3 -1 -1
+close ck set 3 -1 -1 minecraft:redstone_block
+close ck+2 clear 3 -1 -1

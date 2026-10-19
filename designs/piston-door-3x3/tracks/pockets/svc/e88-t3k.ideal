@@ -1,0 +1,15 @@
+# e88 t3k (explore/e88 tracks/e88/ideal/t3k.ideal): the left shuttle's sticky piston (-2,-3)
+# pushes at s1 (2 gt pulse: the redstone block spat into (0,-3)) and pulls at s2 (>= s1+5)
+design designs/piston-door-3x3/tracks/pockets/svc/e88-t3k.txt
+let s1 = 26
+let s2 = 36
+open 0 use 1 5 0
+close 0 use 1 5 0
+open s1 set -2 -3 1 minecraft:redstone_block
+open s1+2 clear -2 -3 1
+close s1 set -2 -3 1 minecraft:redstone_block
+close s1+2 clear -2 -3 1
+open s2 set -2 -3 1 minecraft:redstone_block
+open s2+2 clear -2 -3 1
+close s2 set -2 -3 1 minecraft:redstone_block
+close s2+2 clear -2 -3 1

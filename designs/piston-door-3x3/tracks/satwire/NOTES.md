@@ -18,6 +18,7 @@ mctas door satwire x.ideal --box=x0,y0,z0:x1,y1,z1 --forbid-ring \
 mctas door satwire e89b.txt --from-wired --forbid-ring          # re-wire a design's mechanism
 mctas door satwire tracks/families/CATALOG.tsv --families 8x8-119 # a catalog entry (sym train)
 mctas door satwire plan.ideal --fixed partly-wired.txt          # keep those cells, solve the rest
+mctas door satwire plan.ideal --hold auto --lever-on ...        # each pulse puller: pulse OR held on a level
 mctas door satwire --check archive/*.txt --jobs 8               # replay check of the model
 ```
 UNSAT prints a core: the pistons whose recorded power cannot be produced together; `--diag` also
@@ -137,3 +138,145 @@ lever/observer chains; not diagnosed yet).
 * Ideals checked with `door ideal` before SAT: box64 f102b (8x8-130) BROKEN (not back at rest),
   box72 m2w BROKEN (not open) -> their UNSATs are moot; m710b and wire56 m028 (7x8-013) work:
   UNSAT relative to the encoding, cores: m710b open pistons (3,3)+(1,3); m028-oc close (1,4)+(1,5).
+
+## Results 2026-10-19 (dedicated box devvm55676)
+* **BEST: 49 blocks solid 7x9 (63), FULL SEAMLESS, frame 12/12, lever ON at rest, open/close 15/15,
+  record-eligible as is (relever: repeater input 15/15)**: `archive/satwire-63b-49-49b.txt` (=
+  `BEST.txt`). pockets-63b-50's mechanism with ALL wiring erased, re-wired from scratch:
+  `--from-wired --full-frame --forbid-ring --one-warp --dmax 4 --skip 4 --sound --log-doors`,
+  palette block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,glass,leaves,upiston; door
+  and the 3 frame blocks are oak logs (the frame blocks patched from smooth stone to the same log).
+* Known answer c79 (the community 7x9): `--check` 0/482; wiring erased (11 pistons, door, 3 frame
+  blocks kept) and re-found from scratch: first judged door at 54b in 101 s, minimized to 51b (c79's
+  own count; `archive/satwire-c79-closed-51b.txt`), <= 50 UNSAT with one-warp 4.
+* m79q (m10top's 7x9 seed): the whole top-right (lever, R pair, TRp's drop, A's hold, B's 2 gt pulse
+  and pull) re-synthesized together with `--keep-ideal "1,4;-2,2"`: `p79q-sat.ideal` WORKS 32 x 2
+  with 50 blocks + L1/L2 ideal (A's last pull turned out real). Full synthesis (L1/L2 too) is open:
+  in that partial the B chain starts from TL's arrival, which only L2 causes (circular).
+* Batches over 262 mech-synth plans (mechspace incl. c78, frame/ff 90, seq56, ring56, vmid, w63top,
+  fam-8x8-131/135): 0 doors; plans whose timing came from real wiring (c79, pockets, m79p) are the
+  ones that solve. Plan timing (event order, simultaneous ideal pulses) is the blocker, not the model.
+* Model fixes of the night: lever ON at rest; dust dots (power only down); carried redstone blocks
+  (same-tick update); kept wiring keeps its rest state; un-updated QC holds may keep QC but not
+  direct power (only where the piston's room to extend is certain); room to extend reads kept wiring
+  (obsidian/droppers hold, components break); unmodeled blocks (sculk, rails, buttons, plates, glazed
+  terracotta, non-iron trapdoors) are refused.
+* New options: `--full-frame`, `--lever-on`, `--keep-ideal x,y;...` (partial synthesis), per-cluster
+  time warps (default; `--one-warp` off) with order kept only between interacting events, batch mode
+  (several plans: `--jobs N --out <dir>`, also with `--fixed`), `--local-nogood` (exact timing:
+  block only the choices near the first misbehaving piston; heuristic).
+* CEGAR false positives found and fixed while hunting 48b on the 63b mechanism: dust written in its
+  placed shape (cross dust reshaped at placement fired observers), a retraction allowed one tick late
+  must be unpowered the next tick, pulse tolerances only for ideal plans (wired timing is exact), no
+  QC-armed piston at rest even with `--sound`, `--sound` QC holds only while no wiring update reaches
+  the piston (diode/observer outputs into a neighbor count). Still open: an update-order effect
+  (a piston checks power before a dust on a neighboring conductor recomputes: R2 under a ceiling
+  lever stayed extended), not modeled; such candidates are blocked one by one.
+* 48b status: exact model (no `--sound`) UNSAT at <= 27 wiring for both c79's and pockets' timing
+  (one-warp 0 and 4); `--sound` finds 27-wiring models that all fail the judge so far (thousands of
+  CEGAR iterations; pk6/pk8 runs on devvm55676 /tmp/sw-pk6-*.log, /tmp/sw-pk8-ln.log).
+
+## Results 2026-10-19, second shift (satwire2, devvm55676)
+* The first shift's background runs, checked: no door. 48b hunt (pk6-s0/s4/s8/scl, pk8-ln on
+  pockets' timing, `--sound`): ~1600 candidates, every one rejected by the judge; m79 top (`m79gs`,
+  18 window plans with `--sound`): 18/18 UNSAT; all-plans batches (bD, bF): no door; c79s2 (c79's
+  timing, minimizing): its best stays the 52b c79 re-wiring; e89b calibration (cal1w) UNSAT; the 72b
+  re-wirings (ff72) found nothing in 1.5 h.
+* `--explain <candidate>` (new): the candidate's wiring fixed on the target recording (what the
+  solver believed) against its real run. On the 48b failures: the R pair hangs under a ceiling lever
+  on a note block that a dust on top also powers; on the lever flip the upper puller reads its power
+  while the dust still powers the note block (QC through it), the dust then turns off without
+  updating the piston (it is 3 cells away): the puller stays extended (a BUD), the lower one too.
+* `--update-order` (new): which power changes UPDATE the piston (direct power always; QC power
+  through a conductor next to the cell above, powered by a diode into it, a dust on it or a lever on
+  it, never). A retraction needs those non-updating sources off the tick before (or a wiring update,
+  or a justified neighbor mechanism change in the block-event phase); an extension needs an updating
+  source rising (or held power plus an update, a moving block next to it finishing the tick before,
+  or its own placement). Known answer `--check --update-order --sound` over the archive: 66 of 67
+  flat doors accepted (flat-v7-full rejected as before, without the update clauses); all 5 saved
+  48b judge failures rejected.
+* **48b hunt with `--update-order`: UNSAT** for pockets' timing (exact, one-warp 4 and 8, per-cluster
+  warps 6, local nogood) and c79's (exact, one-warp 4): no 48-block re-wiring of the 63b mechanism
+  exists in the encoding (`--sound` QC holds + update order, retiming <= 8). The thousands of
+  `--sound` 48s were all this BUD.
+* `--exact-order` (new, with `--sound`): torches read after the observer ticks (FIFO): a 2 gt observer
+  pulse into a torch's block has ended when the torch's tick reads it (e88-t7b re-wiring candidates
+  used `--sound`'s free read order: torch (3,-4) under dust (4,-3) never turns off in the game).
+* `--retime` (new, ideal plans): touching events of different clusters keep only their order (no
+  3 gt safe gap); each candidate's timing is replayed in redsim with the plan's inputs moved with
+  their pistons' clusters; a timing that breaks the mechanism is blocked for every wiring. Results:
+  m79 top windows (18 plans) still UNSAT with order-only constraints; n79-009 (c79's mechanism, the
+  calibration) UNSAT with and without it (mech-synth's motion pattern, every piston pulse-type and
+  retracted at rest, is not c79's: the R pair lever-held at rest, the elevator sequence).
+* mechspace single-U 7x8 sym plans (sl-027 = c78t, sl-030 = c78, sl-049, sl-053, sl-078, sl-079):
+  UNSAT in seconds with ONE-piston cores (close (-1,-1) in sl-027/030, (-2,0) in 049/053, (3,-1) in
+  078, (4,1) in 079), also without `--full-frame`/`--forbid-ring`: that piston's close pulse cannot
+  come from the 2-3 free cells next to it and its QC cell (no clock source there in a 7x8 box).
+  A layout filter worth adding to mechspace: every piston needs a free cell next to it (or next to
+  its QC cell) that can see a mechanism change at the right time.
+* c2e's m88c (8x8, A's hold the only ideal input): UNSAT, core A (1,3) alone, also with `--period2`;
+  with the hold kept ideal (`--keep-ideal "1,3"`) it is SAT and judged OK: the model agrees with the
+  design, the box has no room for the hold source.
+* `--period2` (new): two cycles (open1, close1, open2, close2) share the placement, each with its
+  own warp, each ending where the next starts: a copper bulb may toggle once per cycle.
+* `--hint` (new, with `--from-wired`): solve once with the source wiring assumed (it also checks that
+  the model accepts it), keep that assignment as the solver's phases: e88-t7b's 23-wiring model in
+  ~50 s instead of no model after 20 min; the minimization then continues below the source.
+* Unmodeled wiring of a wired source (sculk sensors, target blocks) is dropped (its cells become free)
+  instead of refusing the design: solid re-wirings of the sculk doors and of target-using finds.
+* Re-wirings (all `--from-wired --full-frame --forbid-ring --sound --exact-order --update-order
+  --lever-oop`): e88-t7b (the 43b record) minimizing below 23 wiring (42b) in 7x9 (exact, one-warp
+  4, cluster warps 6, local nogood, period2); e88-t7b's mechanism in 7x8 (its bottom wiring row cut):
+  exact timing UNSAT, warps running; pockets' and c79's mechanisms in 7x8: UNSAT at once; the sculk
+  doors without their sensors (m79s 7x9, m79s8 8x8): exact timing UNSAT (and one-warp 4 for the
+  8x8); c79-49-bl5-br3's timing without its target block: a 49b door at once (ties), 28 wiring
+  minimal with one-warp 4.
+* More judge-driven model fixes (each found with `--explain` on a rejected candidate, each keeping
+  the known answer at 66/67): `--exact-order` also resolves the COMPARATOR race (its NORMAL-priority
+  tick runs after the observer that scheduled it: a 2 gt observer pulse never passes a comparator;
+  e88-t7b 42b candidates used it); a DROPPER re-reads its power when a diode/observer whose output
+  block is next to it changes (a 4-cell observer/dropper/note loop looked settled); CLOCK nogood: a
+  candidate the judge finds "still moving" is replayed and only the wiring cells still changing at
+  the end are blocked (the e88 7x8 candidates were all such loops).
+* `--retime` exercised on ring56's j8: "TIMING FAILS (retimed ideal plan: not open): blocked 6
+  too-close pairs" per candidate: the replay rejects the timings the order-only model admits.
+* e88-t7b re-wiring: the old-binary runs reached 22-wiring (42b) candidates; all were rejected by the
+  judge (comparator race, bottom puller (1,-2) never fires) and the fixed model rejects them too;
+  fixed-model runs (exact, local nogood, cluster warps 6, one-warp 4, period2, all with `--hint`) restarted.
+* e88-t7b's mechanism in 7x8 (bottom wiring row cut): exact timing UNSAT (also with `--hint`),
+  cluster warps 2 and 4 UNSAT with the fixed model (the old cluster-4 SATs were 44 clocks);
+  cluster warps 6 still running at the end of the shift.
+* Coordinator batches: n79 (mechspace 7x9 set, 61 plans, `--retime`): no door (10 plans fail
+  `--full-frame`'s frame check, the rest UNSAT); a78 (427 7x8 sym plans, `--retime --update-order
+  --exact-order`): no door; 93 of them were UNSAT at once because of an over-wide sticky-pull rule (a
+  full-frame block two ahead of a sticky piston that never extends), fixed (38287e61) and re-run:
+  UNSAT with piston cores (left pullers (-2,0..2), the bottom pullers (1,-2)/(-1,-1)).
+* Still running on devvm55676 at the end of the shift (logs in /tmp): the 42b attempt on e88-t7b
+  (`/tmp/e88-y0|yln|yc6|yw4|yp2.log`: exact, local nogood, cluster warps 6, one-warp 4, period2; all
+  past the 23-wiring source, solving <= 22), e88 in 7x8 cluster warps 6 (`/tmp/s78-e88-n6.log`), the
+  sensor-free 8x8 sculk door (`/tmp/m79s8-c6.log`). Any JUDGE OK line there is a door to verify.
+* Next: (1) give satwire the MOTION choice, not only timing: every mech-synth plan pulses every
+  piston from rest, while the doors that wire (c79, pockets, e88) hold pullers extended at rest on the
+  lever's level; a plan variant per piston (pulse vs held) as `--menu` alternatives; (2) a mechspace
+  wireability filter from the one-piston cores (a piston whose free neighbors cannot see a mechanism
+  change at its time is unwirable); (3) warp-aware `--explain` (pin the candidate's own warp).
+
+## Results 2026-10-19, third shift (satwire3, devvm55676)
+* satwire2's last runs checked at 12:25Z: no door (the e88-t7b 42b runs only re-found the 23-wiring
+  source; e88 in 7x8 UNSAT with cluster warps 2 and 4; the sensor-free 8x8 still solving).
+* **`--hold <auto|x,y;x,y>` (new): the solver chooses PER PISTON between the recorded pulse and a
+  HOLD on a level.** A pulse puller (sticky, retracted at rest and open; open: extends once into air,
+  retracts once pulling; close: extends once pushing, spits within 2 gt) gets an alternative built from
+  the recorded frames (no ideal input, so no input side effect): extended with its head in front at
+  rest, open = only the retraction (at its recorded tick), close = the extension that stays. One
+  alternative group per trace, the two linked (same choice; the rest state follows it: `decode` writes
+  the held piston extended). `--retime`'s plan replay is skipped for a candidate with a hold (the
+  plan's inputs pulse; the judge decides).
+* Known answer (SATWIRE_UNHOLD=x,y: those held pullers of a wired recording become pulse pullers
+  first, then `--hold auto` must give them back): pockets-63b-50's top elevator piston (1,5): the hold
+  alternative equals the real recording frame by frame (frames and piston power, both traces), the
+  source wiring is accepted with the hold chosen, judged OK at 4 and 32 positions (50 blocks).
+  c79's and pockets' R pairs cannot be unheld: they retract at t1, before any pulse could (a hold
+  is also the only way to pull at the lever flip). c79 with `--hold auto` (5 pulse pullers offered a
+  hold): its own wiring accepted (pulse chosen), judged OK at 32.
+* Batch mode skips a BROKEN plan (its own ideal-input replay fails in redsim); `--keep-broken`.

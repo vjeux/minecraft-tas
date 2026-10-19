@@ -1,0 +1,41 @@
+# ceil c035s: c035w (real top + walls) with the catalog's SYMMETRIC bottom train (the same pulses on
+# both edges): A 0, P_M 6, B 12, A-high 18, B 24, A 30, BR-down 36 (+ s).
+design designs/piston-door-3x3/tracks/ceil/wip/c035w.txt
+let s = 10
+let a0 = s
+let pm = s+6
+let b1 = s+12
+let ah = s+18
+let b2 = s+24
+let a2 = s+30
+let br = s+36
+open 0 use 1 5 0
+open a0 set 0 -2 0 minecraft:redstone_block
+open a0+2 clear 0 -2 0
+open pm set -1 -2 0 minecraft:redstone_block
+open pm+2 clear -1 -2 0
+open b1 set 1 -4 0 minecraft:redstone_block
+open b1+2 clear 1 -4 0
+open ah set 1 -1 1 minecraft:redstone_block
+open ah+2 clear 1 -1 1
+open b2 set 1 -4 0 minecraft:redstone_block
+open b2+2 clear 1 -4 0
+open a2 set 0 -2 0 minecraft:redstone_block
+open a2+2 clear 0 -2 0
+open br set 3 -2 0 minecraft:redstone_block
+open br+2 clear 3 -2 0
+close 0 use 1 5 0
+close a0 set 0 -2 0 minecraft:redstone_block
+close a0+2 clear 0 -2 0
+close pm set -1 -2 0 minecraft:redstone_block
+close pm+2 clear -1 -2 0
+close b1 set 1 -4 0 minecraft:redstone_block
+close b1+2 clear 1 -4 0
+close ah set 1 -1 1 minecraft:redstone_block
+close ah+2 clear 1 -1 1
+close b2 set 1 -4 0 minecraft:redstone_block
+close b2+2 clear 1 -4 0
+close a2 set 0 -2 0 minecraft:redstone_block
+close a2+2 clear 0 -2 0
+close br set 3 -2 0 minecraft:redstone_block
+close br+2 clear 3 -2 0

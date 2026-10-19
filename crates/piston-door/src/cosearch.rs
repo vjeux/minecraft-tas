@@ -86,6 +86,8 @@ pub fn full_cube(b: &Block) -> bool {
         | Block::RespawnAnchor { .. } => true,
         Block::Slab { kind } => kind == 2,
         Block::Piston { extended, .. } => !extended,
+        // sand, gravel, concrete powder: full cubes (the gravity category's door blocks)
+        Block::Falling { .. } => true,
         _ => false,
     }
 }
@@ -204,7 +206,7 @@ pub fn watch_box(blocks: &[(Pos, Block)], spec: &DoorSpec) -> (Pos, Pos) {
 /// Cells of the simulated world beyond the watch box (blocks pushed out of it stay modeled).
 const MARGIN: i32 = 4;
 
-fn world_for(lo: Pos, hi: Pos) -> World {
+pub(crate) fn world_for(lo: Pos, hi: Pos) -> World {
     let min = BlockPos::new(lo[0] - MARGIN, lo[1] - MARGIN, lo[2] - MARGIN);
     let size = [hi[0] - lo[0] + 1 + 2 * MARGIN, hi[1] - lo[1] + 1 + 2 * MARGIN, hi[2] - lo[2] + 1 + 2 * MARGIN];
     World::new(min, size)
@@ -419,7 +421,7 @@ fn jfail(offset: usize, cycle: Option<u32>, kind: &'static str, msg: String) -> 
 }
 
 /// Door cells hold 9 identical full plain blocks; the walkway has no collision.
-fn closed_problems(snap: &Snap, spec: &DoorSpec) -> Vec<String> {
+pub(crate) fn closed_problems(snap: &Snap, spec: &DoorSpec) -> Vec<String> {
     let mut out = Vec::new();
     let cells = spec.door_cells();
     let first = snap.get(cells[0]).unwrap_or(Block::Air);
@@ -448,14 +450,14 @@ fn closed_problems(snap: &Snap, spec: &DoorSpec) -> Vec<String> {
     out
 }
 
-fn open_ok_world(w: &World, cells: &[BlockPos]) -> bool {
+pub(crate) fn open_ok_world(w: &World, cells: &[BlockPos]) -> bool {
     cells.iter().all(|p| {
         let s = w.get(*p);
         !collides(&s) && !is_moving(&s)
     })
 }
 
-fn open_problems(w: &World, cells: &[Pos]) -> Vec<String> {
+pub(crate) fn open_problems(w: &World, cells: &[Pos]) -> Vec<String> {
     cells
         .iter()
         .filter_map(|p| {
@@ -465,7 +467,7 @@ fn open_problems(w: &World, cells: &[Pos]) -> Vec<String> {
         .collect()
 }
 
-fn settled_from_flags(ok: &[bool]) -> Option<u32> {
+pub(crate) fn settled_from_flags(ok: &[bool]) -> Option<u32> {
     let mut first = None;
     for (i, &b) in ok.iter().enumerate() {
         if b {
@@ -484,7 +486,7 @@ fn model_errors(w: &World) -> Option<Fail> {
 }
 
 /// Place like the judge and settle (the world and the watch box).
-fn place_and_settle(blocks: &[(Pos, Block)], spec: &DoorSpec, max: u32) -> (World, (Pos, Pos), bool) {
+pub(crate) fn place_and_settle(blocks: &[(Pos, Block)], spec: &DoorSpec, max: u32) -> (World, (Pos, Pos), bool) {
     let (wlo, whi) = watch_box(blocks, spec);
     let mut w = world_for(wlo, whi);
     let list: Vec<(BlockPos, Block)> = blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
@@ -1111,34 +1113,57 @@ pub fn hallway_check(door: &RsDoor) -> std::result::Result<(), String> {
     let closed_door: Vec<Block> = cells.iter().map(|p| rest.get(*p).unwrap()).collect();
     let mut walk: Vec<Pos> = cells.clone();
     walk.extend(spec.corridor_cells());
-    w.use_block(bp(spec.lever));
-    let (n, idle) = step_until_idle(&mut w, 400, |_| {});
-    if !idle {
-        return Err(format!("still moving {n} ticks after opening"));
+    // Periodic rest (main 96a62d6, like props-dyn's env_run): every cycle opens and closes, the
+    // hallway is back after every close, and some closed state repeats an earlier one (the rest
+    // included) within 2 + MAX_PERIOD_EXTRA cycles (a copper bulb may stay flipped for a cycle).
+    let env_cells: HashSet<Pos> = env.iter().map(|(p, _)| *p).collect();
+    let cycles = 2;
+    let mut seen: Vec<Snap> = vec![rest.clone()];
+    let mut periodic = false;
+    let mut last_snap = rest.clone();
+    for cycle in 0..cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= cycles && periodic {
+            break;
+        }
+        w.use_block(bp(spec.lever));
+        let (n, idle) = step_until_idle(&mut w, 400, |_| {});
+        if !idle {
+            return Err(format!("cycle {cycle}: still moving {n} ticks after opening"));
+        }
+        let p = open_problems(&w, &walk);
+        if !p.is_empty() {
+            return Err(format!("cycle {cycle}: not open: {}", p.join("; ")));
+        }
+        if !w.drops.is_empty() {
+            return Err("an entity appeared while opening".into());
+        }
+        w.use_block(bp(spec.lever));
+        let (n, idle) = step_until_idle(&mut w, 400, |_| {});
+        if !idle {
+            return Err(format!("cycle {cycle}: still moving {n} ticks after closing"));
+        }
+        let now: Vec<Block> = cells.iter().map(|p| w.get(bp(*p))).collect();
+        if now != closed_door {
+            return Err(format!("cycle {cycle}: door not restored"));
+        }
+        let snap = Snap::take(&w, wlo, whi);
+        let env_d: Vec<String> = rest.iter().filter(|(p, s)| env_cells.contains(p) && snap.get(*p) != Some(*s)).take(4).map(|(p, s)| format!("{p:?} {} -> {}", st(&s), snap.get(p).map(|b| st(&b)).unwrap_or("?".into()))).collect();
+        if !env_d.is_empty() {
+            return Err(format!("cycle {cycle}: the hallway is not back: {}", env_d.join("; ")));
+        }
+        if !w.drops.is_empty() {
+            return Err("an entity appeared while closing".into());
+        }
+        if seen.iter().any(|s| *s == snap) {
+            periodic = true;
+        } else {
+            seen.push(snap.clone());
+        }
+        last_snap = snap;
     }
-    let p = open_problems(&w, &walk);
-    if !p.is_empty() {
-        return Err(format!("not open: {}", p.join("; ")));
-    }
-    if !w.drops.is_empty() {
-        return Err("an entity appeared while opening".into());
-    }
-    w.use_block(bp(spec.lever));
-    let (n, idle) = step_until_idle(&mut w, 400, |_| {});
-    if !idle {
-        return Err(format!("still moving {n} ticks after closing"));
-    }
-    let now: Vec<Block> = cells.iter().map(|p| w.get(bp(*p))).collect();
-    if now != closed_door {
-        return Err("door not restored".into());
-    }
-    let snap = Snap::take(&w, wlo, whi);
-    if snap != rest {
-        let d: Vec<String> = rest.iter().filter(|(p, s)| snap.get(*p) != Some(*s)).take(4).map(|(p, s)| format!("{p:?} {} -> {}", st(&s), snap.get(p).map(|b| st(&b)).unwrap_or("?".into()))).collect();
-        return Err(format!("not back to its rest state: {}", d.join("; ")));
-    }
-    if !w.drops.is_empty() {
-        return Err("an entity appeared while closing".into());
+    if !periodic {
+        let d: Vec<String> = rest.iter().filter(|(p, s)| last_snap.get(*p) != Some(*s)).take(4).map(|(p, s)| format!("{p:?} {} -> {}", st(&s), last_snap.get(p).map(|b| st(&b)).unwrap_or("?".into()))).collect();
+        return Err(format!("not back to its rest state, nor to any closed state it had before, within {} cycles: {}", cycles + crate::MAX_PERIOD_EXTRA, d.join("; ")));
     }
     if !w.errors.is_empty() {
         return Err(format!("MODEL: {}", w.errors.join("; ")));

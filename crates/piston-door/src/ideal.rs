@@ -17,10 +17,48 @@
 //!                                   # real wiring and ideal inputs can be mixed
 //! ```
 //! An event at tick `t` is applied after `t` game ticks of its phase (0 = at the flip), before
-//! the next tick runs, like a player acting between ticks.
+//! the next tick runs, like a player acting between ticks: that was the only rule until
+//! 2026-10-19 (`phase between`, `--between-ticks`). `door ideal` and `door ideal-rs` now default
+//! to `phase tile` (other tools that parse plans keep the old rule unless the file says `phase
+//! tile`): an off-plane redstone block input set or cleared at `t >= 2` acts in the TILE-TICK
+//! phase of tick `t`,
+//! where an observer's (repeater's, torch's) output arrives in the game: plans were 1 gt
+//! optimistic for observer-driven inputs (a plan block appeared between ticks, after tick `t`;
+//! a wired observer firing at `t` powers the piston inside tick `t`, before its block events).
+//! It is built from real blocks, so `door ideal` (the game) and `door ideal-rs` (redsim) run it
+//! alike: the input cell holds a wall redstone torch on a support one cell further off the plane;
+//! the support is a redstone block while the input is off (torch unlit) and turns to stone 2 gt
+//! before `t` (the torch lights in tick `t`'s tile ticks, and powers the piston and its QC cell
+//! like the plan block did); `clear` at `t` puts the redstone block back at `t - 2`. Inputs with
+//! an event before tick 2 (lever-adjacent, between ticks like the lever), in-plane inputs, other
+//! states, more than 3 pulses per edge (a torch would burn out) or a taken support cell keep the
+//! old rule (`door ideal` prints which).
 
 /// Marker state of a `use` event.
 const USE: &str = "@use";
+
+/// When a plan's inputs act (see the module doc).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlanPhase {
+    /// In the tile-tick phase of tick `t` (default for `.ideal` files).
+    Tile,
+    /// Between ticks, after tick `t` (the old rule; plans built in code).
+    Between,
+}
+
+/// A resolved event: (tick, pos, Some(state) = set / None = clear; `@use` = right-click).
+pub type Ev = (u32, Pos, Option<String>);
+
+/// The phase rule of schedules parsed in this process: 0 = library default (between ticks unless
+/// the file says `phase tile`: tools that build or replay plans keep their rule), 1 = `door ideal`
+/// / `door ideal-rs` (tile unless the file says `phase between`), 2 = `--between-ticks` (every
+/// schedule between ticks).
+static CLI_PHASE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// `door ideal` / `door ideal-rs`: tile phase by default, or every schedule between ticks.
+pub fn cli_phase(between_ticks: bool) {
+    CLI_PHASE.store(if between_ticks { 2 } else { 1 }, std::sync::atomic::Ordering::Relaxed);
+}
 
 use crate::DoorSpec;
 use anyhow::{Context, Result, bail};
@@ -42,6 +80,9 @@ pub struct Schedule {
     design: Design,
     vars: BTreeMap<String, i64>,
     events: Vec<Event>,
+    /// When the inputs act: `phase tile|between` in the file, default tile; `from_events` builds
+    /// between-ticks schedules (the tools that build plans in code keep their rule).
+    pub phase: PlanPhase,
 }
 
 fn eval(expr: &str, vars: &BTreeMap<String, i64>) -> Result<i64> {
@@ -103,7 +144,7 @@ impl Schedule {
             .iter()
             .map(|(open, t, p, s)| Event { open: *open, tick: t.to_string(), pos: *p, state: s.clone() })
             .collect();
-        Schedule { design, vars: BTreeMap::new(), events }
+        Schedule { design, vars: BTreeMap::new(), events, phase: PlanPhase::Between }
     }
 
     pub fn parse(text: &str) -> Result<Schedule> {
@@ -116,6 +157,8 @@ impl Schedule {
         let mut design = None;
         let mut vars = overrides.clone();
         let mut events = Vec::new();
+        let cli = CLI_PHASE.load(std::sync::atomic::Ordering::Relaxed);
+        let mut phase = if cli == 1 { PlanPhase::Tile } else { PlanPhase::Between };
         for (i, raw) in text.lines().enumerate() {
             let line = raw.split('#').next().unwrap().trim();
             if line.is_empty() {
@@ -125,6 +168,13 @@ impl Schedule {
             let p: Vec<&str> = line.split_whitespace().collect();
             match p[0] {
                 "design" => design = Some(crate::cli::load_design(std::path::Path::new(p[1])).with_context(ctx)?),
+                "phase" => {
+                    phase = match p.get(1).copied() {
+                        Some("tile") => PlanPhase::Tile,
+                        Some("between") => PlanPhase::Between,
+                        _ => bail!("expected 'phase tile' or 'phase between': {}", ctx()),
+                    }
+                }
                 "let" => {
                     // let name = value (an integer, or a sum/difference of earlier variables)
                     let rest = line[3..].trim();
@@ -152,7 +202,73 @@ impl Schedule {
                 other => bail!("unknown schedule command {other}: {}", ctx()),
             }
         }
-        Ok(Schedule { design: design.context("schedule has no 'design' line")?, vars, events })
+        if cli == 2 {
+            phase = PlanPhase::Between;
+        }
+        Ok(Schedule { design: design.context("schedule has no 'design' line")?, vars, events, phase })
+    }
+
+    /// The design and both phases' events as they run under this schedule's phase rule (see the
+    /// module doc), plus a note per input kept between ticks.
+    pub fn realize(&self, vars: &BTreeMap<String, i64>) -> Result<(Design, Vec<Ev>, Vec<Ev>, Vec<String>)> {
+        let open = self.phase(true, vars)?;
+        let close = self.phase(false, vars)?;
+        let mut design = self.design.clone();
+        if self.phase == PlanPhase::Between {
+            return Ok((design, open, close, Vec::new()));
+        }
+        let along_z = design.meta.get("door-axis").is_some_and(|v| v == "z");
+        let mut notes = Vec::new();
+        let mut cells: Vec<Pos> = open.iter().chain(close.iter()).filter(|e| e.2.as_deref() != Some(USE)).map(|e| e.1).collect();
+        cells.sort();
+        cells.dedup();
+        let inputs: std::collections::HashSet<Pos> = cells.iter().copied().collect();
+        let mut torch: BTreeMap<Pos, Pos> = BTreeMap::new();
+        for &c in &cells {
+            let evs: Vec<&Ev> = open.iter().chain(close.iter()).filter(|e| e.1 == c).collect();
+            let rb = |s: &Option<String>| s.as_deref().is_none_or(|s| s.starts_with("minecraft:redstone_block"));
+            let sets = |v: &[Ev]| v.iter().filter(|e| e.1 == c && e.2.is_some()).count();
+            let s = [c[0], c[1], c[2] + c[2].signum()];
+            let why = if along_z || c[2] == 0 {
+                Some("in the door plane")
+            } else if !evs.iter().all(|e| rb(&e.2)) {
+                Some("not a redstone block")
+            } else if evs.iter().any(|e| e.0 < 2) {
+                Some("an event before tick 2 (lever-adjacent)")
+            } else if sets(&open) > 3 || sets(&close) > 3 {
+                Some("more than 3 pulses per edge (a torch would burn out)")
+            } else if design.blocks.contains_key(&s) || inputs.contains(&s) || torch.values().any(|v| *v == s) {
+                Some("its support cell is taken")
+            } else if design.blocks.get(&c).is_some_and(|st| !st.starts_with("minecraft:redstone_block")) {
+                Some("the cell holds another block at rest")
+            } else {
+                None
+            };
+            match why {
+                Some(w) => notes.push(format!("input {c:?} acts between ticks: {w}")),
+                None => {
+                    torch.insert(c, s);
+                }
+            }
+        }
+        for (&c, &s) in &torch {
+            let on = design.blocks.remove(&c).is_some();
+            let facing = if c[2] < 0 { "south" } else { "north" };
+            design.blocks.insert(c, format!("minecraft:redstone_wall_torch[facing={facing},lit={on}]"));
+            design.blocks.insert(s, if on { "minecraft:stone" } else { "minecraft:redstone_block" }.to_string());
+        }
+        let rewrite = |evs: Vec<Ev>| -> Vec<Ev> {
+            let mut out: Vec<Ev> = evs
+                .into_iter()
+                .map(|(t, p, st)| match torch.get(&p) {
+                    Some(&s) => (t - 2, s, Some(if st.is_some() { "minecraft:stone" } else { "minecraft:redstone_block" }.to_string())),
+                    None => (t, p, st),
+                })
+                .collect();
+            out.sort_by_key(|e| e.0);
+            out
+        };
+        Ok((design, rewrite(open), rewrite(close), notes))
     }
 
     /// Resolved events of one phase: (tick, pos, state) sorted by tick (stable).
@@ -191,11 +307,10 @@ pub struct IdealOptions {
 pub fn run(w: &mut Worker, s: &Schedule, vars: &BTreeMap<String, i64>, opts: &IdealOptions) -> Result<(u32, u32)> {
     let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
     let r = (|| -> Result<(u32, u32)> {
-        let open_ev = s.phase(true, vars)?;
-        let close_ev = s.phase(false, vars)?;
+        let (design, open_ev, close_ev, _notes) = s.realize(vars)?;
         let mut worst = (0u32, 0u32);
         for (oi, off) in opts.offsets.iter().enumerate() {
-            let d = s.design.translated(*off);
+            let d = design.translated(*off);
             let spec = DoorSpec { door: *d.ports.get("door").context("design has no door port")?, lever: [0, 0, 0], along_z: false };
             let (o, c) = run_at(w, sb, &d, &spec, *off, &open_ev, &close_ev, opts, oi == 0).with_context(|| format!("at offset {off:?}"))?;
             worst = (worst.0.max(o), worst.1.max(c));
@@ -375,6 +490,11 @@ pub fn cli(version: &str, path: &std::path::Path, set: &[String], sweep: &[Strin
     let opts = IdealOptions { cycles, offsets: offsets(extra_offsets), trace };
     let cfg = WorkerConfig { version: version.to_string(), heap_mb: 768, ..Default::default() };
     if sweep.is_empty() {
+        if let Ok((_, _, _, notes)) = s.realize(&vars) {
+            for n in notes {
+                eprintln!("note: {n}");
+            }
+        }
         let mut w = Worker::spawn(&cfg)?;
         match run(&mut w, &s, &vars, &opts) {
             Ok((o, c)) => println!("WORKS ({} positions x {} cycles): open after {o} ticks / closed after {c} ticks", opts.offsets.len(), cycles),

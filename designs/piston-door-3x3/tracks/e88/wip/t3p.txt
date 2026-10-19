@@ -1,0 +1,36 @@
+# e88 t3s: t3 + bottom-left shuttle: sticky piston (-2,-3) east pushes the redstone block (-1,-3)
+# into (0,-3) (powers B') and pulls it back; gate observer (0,-2) facing down watches (0,-3) and
+# powers BM parked at (0,-1) (open only) -> A' pulses 1 and 2. A' pulse 0 from observer (2,-2) east.
+name: e88-t3p
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  E minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  s minecraft:sticky_piston[extended=true,facing=down]
+  h minecraft:piston_head[facing=down,short=false,type=sticky]
+  H minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  R minecraft:redstone_block
+  O minecraft:observer[facing=down,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+layer -3:
+  .ER.F...
+layer -2:
+  ...OF...
+layer -1:
+  ..E..H..
+layer 0:
+  .E.HHH.G
+layer 1:
+  .E.HHH.G
+layer 2:
+  ..HHHHH.
+layer 3:
+  ...hhh..
+layer 4:
+  ...sss..
+layer 5:
+  ....L...
