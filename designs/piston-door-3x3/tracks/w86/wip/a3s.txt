@@ -1,0 +1,27 @@
+name: w86-a3s
+# 7x6 (42b) MECHANISM candidate, ideal inputs. Box A (one row above), floor = 3 statics, 13 sticky pistons.
+# = a3r without KR2: W's first escape move is a row-3 wiggle by RP_L after RP_L itself escaped to (-1,3)
+# (pushes TL+W right, pulls TL back), then KR (resting at (4,3)) pulls W into the corner (3,3).
+port door: 0 0 0
+port lever: -2 5 0
+origin: -2 0 0
+palette:
+  F minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer -1:
+  ..FFF..
+layer 0:
+  E.FFF.W
+layer 1:
+  E.FFF.W
+layer 2:
+  EEFFF..
+layer 3:
+  ...D..W
+layer 4:
+  FDDDDD.
+layer 5:
+  L

@@ -1,6 +1,10 @@
 # Track w86: WIDE 6-tall doors (8x6 = 48b, 9x6 = 54b), 2026-10-19 campaign "smaller than 56"
 
 ## Results
+- **wip/a3s.txt + wip/a3s.ideal: a 7x6 (42b) MECHANISM, ideal inputs, FULL frame 12/12, flat, slime-free,
+  13 sticky pistons + 3 floor statics** (= a3r without KR2: after RP_L escaped to the corner (-1,3) it wiggles
+  TL+W right along row 3 and pulls TL back; KR resting at (4,3) pulls W from (2,3) into the corner (3,3)).
+  ideal-rs WORKS 4x2, real-game door ideal WORKS 4x2, sheet frame 12/12; nothing leaves x -2..4, y -1..4.
 - **wip/a3r.txt + wip/a3r.ideal: an 8x6 (48b) MECHANISM, ideal inputs, FULL frame 12/12, flat, slime-free,
   14 sticky pistons + 3 floor statics.** `door ideal-rs` WORKS (4 positions x 2 cycles), real game `door ideal`
   WORKS (4 x 2), `door sheet`: frame 12/12 when open. Nothing ever leaves x -2..5, y -1..4. NOT wired.
