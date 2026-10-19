@@ -405,3 +405,6 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   with sensors only in the bottom-right pocket = 11M clauses / 122 s vs 30M / 568 s). m81 with that: UNSAT,
   core W' (3,-1) + M1 (5,1) + carried s1 (3,1) + RP0 (4,0) + s1 (4,1). (A restriction can only remove
   solutions: if sculk everywhere is UNSAT, every restricted run is too.)
+- w86's m83 (9x6; BR climbs by P (4,2) carried into (3,2) by K (5,2); sensors only in the two bottom pockets
+  via --sound-cells): UNSAT in 129 s with and without the left carried pair kept ideal, same core: close (1,4)
+  (held top-middle) + K (5,2) + (4,1) + RP0 (4,0): the right side's close.
