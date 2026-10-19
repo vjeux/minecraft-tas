@@ -1,0 +1,40 @@
+name: clk-obs-oddring23
+# An observer ring through an ODD-delay piston stage. O1 (top of the stage, watching the ring)
+# quasi-powers sticky piston S (O1 touches the cell above S, facing away from it); O2 watches O1
+# and powers S directly from above, so S stays powered 4 gt (O2 turns on in the tick O1 turns off)
+# and does not spit its redstone block R: R lands next to normal piston Q in the block-entity
+# phase 2 gt later, so Q fires the NEXT tick (+1 gt), and Q's head enters the cell observer J
+# watches: O1 fires at t, J at t + 5 (odd). Q retracts when S pulls R back. Eight observers carry
+# the pulse from J back to O1 (2 gt each): P = 5 + 2 x 9 = 23.
+origin: 0 0 0
+port output: 2 0 3
+port start: 1 3 3 last
+palette:
+  S minecraft:sticky_piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  Q minecraft:piston[extended=false,facing=south]
+  U minecraft:observer[facing=up,powered=false]
+  J minecraft:observer[facing=north,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=east,powered=false]
+  T minecraft:observer[facing=south,powered=false]
+layer 0:
+  SR.
+  ..Q
+  ...
+  ..J
+layer 1:
+  U..
+  ...
+  ...
+  ..D
+layer 2:
+  U..
+  ...
+  ...
+  ..D
+layer 3:
+  T..
+  T..
+  T..
+  EED
