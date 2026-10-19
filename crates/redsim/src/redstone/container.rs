@@ -240,6 +240,10 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
 pub fn dispenser_dispense(w: &mut World, pos: BlockPos) {
     if w.containers.map.get(&pos).is_some_and(|c| !c.is_empty()) {
         w.errors.push(format!("dispenser at {pos} dispenses an item (entities, not modeled)"));
+    } else if w.containers.map.contains_key(&pos) {
+        // DispenserBlock.dispenseFrom with no item: levelEvent 1001 and BLOCK_ACTIVATE
+        let s = w.get(pos);
+        w.game_event_state("block_activate", pos, s);
     }
 }
 

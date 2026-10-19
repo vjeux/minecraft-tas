@@ -1303,13 +1303,22 @@ pub fn repeater_input(w: &mut Worker, sb: u32, d: &Design, rec: &Recording) -> R
         }
     }
     let Some((rp, input, keep, to)) = choice else { return Ok(("no free cell for a repeater".into(), None)) };
+    // A door resting with its lever ON (either polarity counts, vjeux 2026-10-19): the lever (if
+    // kept) is turned off and the repeater holds the support powered at rest (its redstone block
+    // already placed); the first input removes the block, the second puts it back.
+    let rest_on = lever_state.contains("powered=true");
     let mut md = d.clone();
     if !keep {
         md.blocks.remove(&lever);
+    } else if rest_on {
+        md.blocks.insert(lever, lever_state.replace("powered=true", "powered=false"));
     }
     // The repeater faces its input: facing = the direction from the repeater to its input.
     let facing = dir_name([-to[0], 0, -to[2]]);
-    md.blocks.insert(rp, format!("minecraft:repeater[delay=1,facing={facing},locked=false,powered=false]"));
+    md.blocks.insert(rp, format!("minecraft:repeater[delay=1,facing={facing},locked=false,powered={rest_on}]"));
+    if rest_on {
+        md.blocks.insert(input, "minecraft:redstone_block".into());
+    }
     let below = [rp[0], rp[1] - 1, rp[2]];
     if !md.blocks.contains_key(&below) {
         md.blocks.insert(below, "minecraft:smooth_stone".into());
@@ -1322,11 +1331,12 @@ pub fn repeater_input(w: &mut Worker, sb: u32, d: &Design, rec: &Recording) -> R
     if !cp.is_empty() {
         return Ok((format!("no ({mode}: not closed at rest)"), None));
     }
-    w.set_blocks(sb, &[(input, "minecraft:redstone_block")], PlaceMode::Update)?;
+    let (on_s, off_s) = if rest_on { ("minecraft:air", "minecraft:redstone_block") } else { ("minecraft:redstone_block", "minecraft:air") };
+    w.set_blocks(sb, &[(input, on_s)], PlaceMode::Update)?;
     let open = record_until_idle(w, sb, rec.lo, rec.hi, 400)?;
-    w.set_blocks(sb, &[(input, "minecraft:air")], PlaceMode::Update)?;
+    w.set_blocks(sb, &[(input, off_s)], PlaceMode::Update)?;
     let close = record_until_idle(w, sb, rec.lo, rec.hi, 400)?;
-    let fire = |frames: &[Frame], on: bool| frames.iter().position(|(f, _)| f.get(rp).is_some_and(|s| s.contains(if on { "powered=true" } else { "powered=false" }))).map(|i| i as u32 + 1).unwrap_or(0);
+    let fire = |frames: &[Frame], on: bool| frames.iter().position(|(f, _)| f.get(rp).is_some_and(|s| s.contains(if on != rest_on { "powered=true" } else { "powered=false" }))).map(|i| i as u32 + 1).unwrap_or(0);
     let (t_on, t_off) = (fire(&open, true), fire(&close, false));
     let last_open = &open.last().unwrap().0;
     let last_close = &close.last().unwrap().0;

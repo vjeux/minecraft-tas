@@ -57,14 +57,17 @@ Code: `crates/piston-door/src/boxproof/` (`mctas door boxproof fuzz|case|bmc|cat
 ## Validation (differential, `door boxproof fuzz`)
 Random 5x5 boxes from the whole palette, settled in redsim, then 30 gt lever on + 30 gt lever
 off, compared after every tick with the bool model: every block state, moving-block entity
-(content, progress), pending scheduled tick and pending block event.
-* 20,000 boxes (seed 11, final palette): 7,691 compared (670 with pistons moving): 7,685
-  identical or flagged, 6 UNFLAGGED mismatches (0.08%): a lamp re-schedule (1), piston events
-  queued in the moving-block phase in a different order (2), a close-phase piston chain (3).
+(content, progress), comparator output, pending scheduled tick and pending block event.
+* With bulbs and comparators (4c73b6b), seeds 11-15, 100,000 boxes: ~42,700 compared (~3,100
+  with pistons moving), 9 UNFLAGGED mismatches (0.02%): piston events queued in the
+  moving-block phase / close-phase piston chains (5), observers seeing a dust transient inside
+  one phase (2), a bulb whose input fell and rose within one phase (1), other (1).
+* Earlier palette (seed 11, 20,000 boxes): 7,691 compared, 6 unflagged.
 * Bugs the fuzz found and fixed: the lever's own update reaches its support; pushed observers'
-  stale ticks; the note-block event kind. A calibration found the worst one: the torch phase
-  dropped an observer's toggle in FREE cells (fixed 02:20Z, 40d9258; fuzz could not see it since
-  its cells are concrete): every whole-box / fixed-pistons result before that commit is void.
+  stale ticks; the note-block event kind; copper bulbs are NOT redstone conductors. A
+  calibration found the worst one: the torch phase dropped an observer's toggle in FREE cells
+  (fixed 02:20Z, 40d9258; fuzz could not see it since its cells are concrete): every whole-box /
+  fixed-pistons result before that commit is void.
 * e89b with its placement given: SAT in 4 s (8x9, t=40/edge, 9.5M vars / 33M clauses), the model's
   door passes the redsim screen (open 34 / close 34). With ONE block-event round e89b is UNSAT:
   it needs events chained within a tick, hence 2 rounds. e89b with one wiring cell erased (palette
@@ -79,11 +82,43 @@ Proofs (`--nondet`, strict ring at rest and open, T=20/edge, palette above, 2 ev
 Even 5x5, where no door can fit, costs the solver minutes per offset: the temporal unrolling is
 the cost, not the encoding size.
 
-Find mode (`sat` config, CEGAR via the redsim screen at 32 positions), all after the fix, on box2:
-e89b's mechanism in 7x8 (x -2..4, y -3..4; 4 lever cubes), vmid vb3 (2 cubes), vb2, vc1,
-wire64 f131L, families 8x8-131 (fits 7x8), wire64b w63 top region in 7x9, whole box 7x8 door
-(2,2), and the calibration "e89b with its 6 bottom wiring cells erased": see the log for what
-came back. Each instance ~13.5M vars / 49M clauses / 12 GB.
+Find mode (`sat` config, CEGAR via the redsim screen, 1 position while searching), all after the
+fix, on box2: e89b's mechanism in 7x8 (x -2..4, y -3..4; 4 lever cubes), vmid vb3 (2 cubes),
+vb2, vc1, wire64 f131L, families 8x8-131 (fits 7x8), wire64b w63 top region in 7x9, whole box
+7x8 door (2,2): no answer in 35-50 min each; stopped at 03:47Z by the frame-12/12 target
+correction (none of those mechanisms is 12/12). Each instance ~13.5M vars / 49M clauses / 12 GB.
+
+wire131 f131F-b2 (7x9, frame 12/12 with 3 static stones, one ideal input left: N's train at
+(-2,4)), exhaustive with the real simulator (`door cosearch search --enum-k K --focus-cells`,
+palette `all` = 56 states, 1-position 2-cycle screen, lever fixed):
+| free cells | max changed | screens | time | result |
+|---|---|---|---|---|
+| the 3 pocket cells (-2,4) (-2,5) (-1,5) | 3 | 175,615 | 2 s | none, best 77/79 |
+| pocket + (-1,4) (-2,3) (0,5) (0,4) (-2,6) (-1,6) | 3 | 14.1M | 33 s | none, best 77/79 |
+| the same 9 | 4 | 1.167 B | 21 min | none, best 77/79 |
+| the same 9, PERIODIC rest rule (main 96a62d6, screen 2cd7dc3) | 4 | 1.167 B | 16 min | none |
+| the same 9, lever on the front face of (-2,6), (-1,5), (-1,4), (-2,3), (0,5), (0,4), (-2,5), (-2,4) | 3 | 14.1M each | ~11 s each | see log |
+(the k=5 run over 7 cells with a 39-state palette was stopped for the periodic re-run.)
+boxproof (bulbs + comparators exact) with all 9 cells free (any number changed): t=48 without
+split rounds and t=40 with `--split-rounds`: no answer yet.
+
+## Known-answer calibration: the community 7x9 (c79, tracks/c79)
+c79-closed (lever ON at rest, droppers, a normal piston firing into an empty cell, dust steps),
+every block fixed: UNSAT in the model at first; `door boxproof replay` (the design through the
+model and redsim tick by tick) showed why: two block events of ONE round meet at (1,-1) (the
+corner puller (-1,-1) pulls BM out, the bottom puller (1,-2) extends into the vacated cell, in
+queue order). `--split-rounds` (each round in two sub-rounds, the solver picks which pending
+events go first) admits it: c79 fully fixed SAT in 8.3 s, redsim screen Pass (open 14 / close 14).
+Then pockets of c79's wiring freed (full wiring palette, `--lever-on --frame12 --split-rounds`,
+t=22 per edge):
+| freed cells | vars / clauses | result |
+|---|---|---|
+| A3: the 3 hidden top-left dusts (-2,4) (-1,5) (0,4) | 11.5M / 40M | SAT 628 s: exactly c79's dust, screen Pass |
+| B5: top-right dropper (4,3), observers (2,4) (3,4) (3,3), dust (4,4) | 12.7M / 44M | running |
+| A3 + B5 | 13.7M / 48M | running |
+| C6: bottom chain (4,-1) (3,-1) (2,-3) (1,-3) (0,-3) (-1,-3) | 13.0M / 45M | running |
+(at t=50 the same pockets were 30-35M vars and gave no answer in 15-30 min: keep T near the door's
+own open/close time.)
 
 ## Sizes
 ~515k clauses per tick for a free 7x8 box, ~270k with fixed pistons (per-cell round, `round.rs`:
@@ -123,6 +158,14 @@ over the placement space, not yet a theorem about the game.
   fixed, its cut column x=-3 and row y=-4 gone, 25 cells next to the cuts plus every air cell
   free, wiring palette): one run with the lever just outside the box under (0,-3), three lever
   cubes with the lever free. `door boxproof watch` (background) waits for a screen Pass.
+* 03:45Z wire131 f131N-live1 (7x9) pockets: `--approx` (comparator -> 2 gt repeater, trapdoor /
+  bulb -> glass, crying obsidian -> obsidian, dot dust -> dust) with the screen on the ORIGINAL
+  design (only freed cells from the model; the merge path re-checked on e89b: Pass).
+* 03:47Z TARGET CORRECTION (vjeux): when OPEN all 12 frame cells must hold plain blocks (FRAME
+  12/12); every mechanism we had is 9-10/12, so every find run was stopped (both boxes). New
+  `--frame12` (ring cells plain and non-air when open); check: e89b's placement with
+  `--frame12` is UNSAT in 5 s (it is not 12/12), as expected. The whole-box mode needs no
+  mechanism: `bmc --w 7 --h 8 --frame12` asks directly whether any 12/12 door fits.
 
 ## Next ideas
 * The solver, not the encoding, is the wall: cost grows steeply with free cells (1 cell

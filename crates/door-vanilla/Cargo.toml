@@ -1,0 +1,13 @@
+[package]
+name = "door-vanilla"
+description = "mctas door commands: checks in the real game (the official server): vanilla-check, vanilla-build, vanilla-gadget, vanilla-fuzz, buildable"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+piston-door = { path = "../piston-door" }

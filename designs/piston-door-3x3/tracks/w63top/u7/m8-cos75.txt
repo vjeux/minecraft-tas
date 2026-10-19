@@ -1,0 +1,43 @@
+name: cosearch-live-75of79
+assisted: 4,2
+port door: 0 0 0
+port lever: -3 4 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  D minecraft:dropper[facing=down,triggered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
+  I minecraft:iron_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  O minecraft:oak_log[axis=x]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:smooth_stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  d minecraft:dropper[facing=west,triggered=false]
+  i minecraft:iron_trapdoor[facing=west,half=bottom,open=false,powered=false,waterlogged=false]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  w minecraft:white_glazed_terracotta[facing=north]
+layer -2:
+  .SPBFSFw
+layer -1:
+  .AE..HiW
+layer 0:
+  .E.HHH.G
+layer 1:
+  .E.HHH.G
+layer 2:
+  .A.HHH.G
+layer 3:
+  .d...OoA
+layer 4:
+  LDIssrSB
+layer 5:
+  .RBCs.rE
