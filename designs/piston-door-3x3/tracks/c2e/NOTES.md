@@ -107,3 +107,14 @@ start 7..8 length 3..4, A's last pull >= 17 on open, L1/L2 any.
   strongly powered from the side (no update reaches A at (1,3)), with its pulse shifted off B + 2.
 - A's hold (8..12) remains: the early lever signals sit on the right (dust (4,3) t0, TRp t8), and the only free
   cell next to them, (3,3), outputs into TRp's head (2,3).
+
+## 10. ring56's q8seed (7x8) bottom: U and BR's puller (06:40Z)
+tracks/c2e/ring/: q8seed.ideal (A, B, U, BR's puller ideal; WORKS), q8w.ideal + logs/q8w-windows.log: U open ANY
+tick, close >= 36; BR's puller ANY on both edges. The bottom-right cannot learn the lever (BR's puller (4,0)
+sits between the bottom and MR's lever-held puller (4,1), as in c78). The bottom's only signal is the left
+stack: B's watcher -> lamps -> observer (-2,3) fires the left stack THREE times per edge (31, 43, 55 on both
+edges: pull, push, pull). U fired once per left-stack pulse, 5..6 ticks after it, WORKS on both edges
+(q8-u3.ideal). Missing piece: a one-pulse-per-left-stack-pulse converter in the bottom-left. An observer on
+BL's puller (-2,-1) gives 2 pulses per move (6 per edge, even). An observer on BL's park (-1,-1) gives 2 per
+pull and 1 per push (open 5, close 4: parity differs). Only a watcher of (0,0) would give exactly 1, and
+(0,0)'s only free-able neighbor is the frame cell (0,-1). BR's puller (any tick) can then watch U from (2,-2).
