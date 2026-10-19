@@ -1,74 +1,47 @@
-# e78 HANDOFF (e78k, session da291dc5, devvm47239) — 7x8 = 56 wool door, sculk category
+# q78 / e78 HANDOFF (e78k, session da291dc5, devvm47239) — the 7x8 = 56 doors
 
-Status: no verified 7x8 yet. Board partial: `minecraft-tas/board/partials/e78.md` (Space memory) has the
-same facts with timings. All files below are on branch explore/q78 under `designs/piston-door-3x3/tracks/q78/e78k/`.
+Board partial: `minecraft-tas/board/partials/e78.md` (Space memory). Everything below is on branch explore/q78
+under `designs/piston-door-3x3/tracks/q78/`; details and timings in `e78s/NOTES.md`.
 
-## What works (ideal-rs) and what is real
-- `r1.txt` + `r1.ideal`: K is REAL. (2,-3) calibrated faces NORTH -> NORMAL piston (3,-3) facing east pops its
-  head into (4,-3) -> observer (4,-2) facing down -> cross dust (4,-1) -> K = [12,14) on both edges (TILE rule:
-  K must be [8..11,13) or [12,14)). Obsidian (-2,-1) ends K's push chain. The CLOSE works fully.
-  Only flaw: on OPEN, (2,-3) has a 2nd cycle (t33..43, it hears the gate's t31 undo); its cooldown (t43) both
-  lowers A' (B2) and retracts the relay, so K pushes BM into the empty F1 at t45 (A' lands t45, the gate's QC
-  extension is t46). `r1x.ideal` (obsidian assist in F1 t44..46) WORKS.
-  Ideal probes: relay held >= 1 gt past t43 WORKS; holding B' longer does not; a first-cycle-only relay pulse
-  ([9..10, 11..13) or [9..10, 18..26)) WORKS. Nothing adjacent to the relay can hold it (only (2,-3) and the
-  (3,-2) shield touch it; QC cells emit nothing).
-- `r2.txt`: r1 + (0,-3) = observer facing west on (-1,-3) (B' pulses at (-1,-3)'s 3 transitions) + (2,-3) facing
-  east. OPENS correctly by t36 (K's late pulses all blocked), then (-1,-3)'s 2nd cycle (it hears B2's B' at d=2)
-  re-fires B' at t42 and A' at t46: cascade.
-- `nb.txt` + `nb.ideal`: r2 with (-1,-3) = NOTE BLOCK (2 transitions). WORKS with only two ideal inputs: the
-  lamp (-1,-2) powered [L, L+10) on both edges (L = 4..7) and the note powered [L+6..L+11, L+19) on OPEN ONLY
-  (end exact: B2 lands A' at the gate's G3 start, A3 = gate QC). The close never tolerates the open window:
-  B' must be EDGE-SELECTIVE. Blockers: only (-2,-3) can power the note and a sensor there hears BR's puller
-  (t9) / A1 (t11) on both edges, no filter cell; a real lamp sensor at (-2,-2) re-activates at t29 (hears B2);
-  (-1,-1) strongly powers the lamp, which conducts into the note block.
+## Results (all volume 56, flat, slime-free, rotation-safe, `door verify --extra-offsets 28` WORKS)
+- SCULK: `e78k/p3.txt` = the first 7x8 (pockets3's 3-change fill of e78k's r1; coordinator archive
+  `archive/e78-56b-45-45b`), later shrunk by pockets3 (40) and c77 (stone e78st lines, 38 with one sensor).
+- SOLID (coordinator goal from 15:33Z), records need FULL seamless = frame 12/12 (the static frame stones
+  (-1,2) (3,2) (0,-1) must stay):
+  | file | blocks | seamless | open/close | note |
+  |---|---|---|---|---|
+  | `e78s/archive/e78k-h2-45b.txt` | 45 | FULL | 44/15 | THE FIRST SOLID 7x8 (coordinator-verified + archived on main) |
+  | `e78s/archive/e78k-h4-42b.txt` | 42 | FULL | 36/19 | top-left watcher (-1,3) E + lamp-pushing loop |
+  | `e78s/archive/e78k-h5-41b.txt` (= BEST.txt) | 41 | FULL | 36/19 | right bottom = dropper chain |
+  | `e78s/archive/e78k-h6-42b.txt` | 42 | FULL | 29/15 | pockets3's e78s-56b-43 + the h5 right bottom |
+  | `e78s/archive/e78k-h3-38b.txt` | 38 | QUART (frame 9/12) | 36/19 | NOT a record: uses the frame cells |
 
-## Searched, all 0
-- door fill e78wsT right cells k=5 (79M); shrink: e78wsT 5+1 cells k<=4 pistons (20M), 7 free cells k<=4 (60M),
-  r1 left 5 cells k<=5 (81M), + top 2 k<=4 (73M), r2 6 cells k<=4 (37M); pockets3 `door fill --keep`: r1 7 cells
-  <=4 (10M), 11 cells <=4 (94M), right cluster <=4 with repeaters/torches/comparators (54M), r2 left 9 <=4 (36M).
-- cosearch r1 / r2 (left 10 cells, 40 min each): 0 finds (best 77/79).
-- ideal-rs --vary around r1/r2/k1 (left sensors, lamp/note/bulb, amethyst, wool): 0.
+## How the solid door works (h2; h4/h5 are the same scheme)
+c77's stone e78st skeleton without sensors. Open: A1 at t7 (lamp observer (0,-2) on the lamp lit at t5), K
+(right pullers delayed 2 gt by observer (3,3) W -> note (4,3) -> observer (4,2) up; BR watcher (4,-1) drives K)
+pulls BM into F2 at t13. B1 is fed from the RIGHT: observer (2,-3) facing EAST on a note block (3,-3) (h5: a
+dropper) whose state follows K's driver -> B' 2-gt spit at t13; the gate observer (2,-2) facing down watches (2,-3),
+not B', so exactly one gate pulse 2 gt after the B' pulse = A2 at A's landing in F1. The late B2/A3 come from a
+LOOP: observer (0,-3) facing EAST on B' re-fires the left side (h2: re-fires BL's puller so the BL-park watcher
+keeps the lamp lit; h4+: a sticky piston (-1,-3) pushes the lamp up and back), so the lamp observer (0,-2)
+QC-fires B' while A' is up at F1 (B2) and its last edge fires A' (A3).
 
-## Mechanics learned (all from the source / redsim)
-- Edge selectivity comes from occlusion by parked door blocks: on CLOSE, BM sits in F2 (until t12) and C in F1
-  (until t8), so rays through F2/F1 are blocked; on OPEN the door cells (0..2, 0..1) block until t5.
-  That is why (0,-3) hears BR's puller (t8) only on open (the r1 B1 stagger).
-- Lamps change state with flag 2 (no neighbor updates, observers still see them); a sensor updates the
-  neighbors of the block below it too; a 1-gt piston extension still pulls (type 1).
-- Inherent: if K's relay and the gate share (2,-3)'s clock and A3 is the gate QC at (2,-3)'s cooldown, K's push
-  (cool+2, block-event phase) precedes A's QC extension (cool+3).
+## How it was found (reuse this)
+`door ideal-rs <design>.ideal --vary="x,y=keep|state|..." ... --ok-only --threads 64` with an .ideal that has
+only the lever uses (no ideal inputs): ideal-rs is then a fast 4-position redsim screen (~100k-250k
+combos/s on 64 threads), so 6 cells x 11-13 states (2-5M combos) take 15-60 s. h1 (= rr2 + a lamp-relight loop,
+failing only at the final lamp edge) -> 4-cell --vary -> h2; rounds of 6-cell --vary on each group -> h4/h5.
+Always verify the winners (`door verify --extra-offsets 28`) and check `door properties` for FULL.
 
-## r1w (83ba8bee): (0,-3) wool + ideal open-only B' hold
-r1 with (0,-3) = WOOL works with an ideal B' hold [10..19, 29) on open (tile); `--holds 40` also finds a
-calibrated 10-tick hold starting at t18 on BOTH edges. (0,-3) MUST be wool: it shields the lamp sensor (-1,-3)
-from B2 (B' at d=2) and from A' at (1,-2); stone/obsidian/amethyst there fail (the lamp sensor re-arms at t26,
-hears B2, and its 2nd lamp cycle pushes C out of F1). So the hold has no cell: B' touches only (0,-3) and
-(2,-3) (the relay/gate clock), and its QC cells are the A1 observer and the gate.
-
-## Advice received (coordinator, c77)
-- c77: a push fails only if the line has something immovable AT THAT MOMENT (obsidian, block entity, extended
-  piston/head, moving block); pistons never retry. For t45: either K's update arrives 1 gt later (t46, when A's
-  QC head is a moving block in F1) and nothing updates K again while powered, or K is powered without an update.
-  A calibrated hold ends at activation + 10, so "ends at t29" = a calibrated sensor activating at t19; on close
-  B' must be blocked at t19 (column moving / A' extended) and get no update before t29; on open free at t19 or
-  nudged by an open-only update. c74 (explore/c77 tracks/c77/c074-64b-42.txt) and kb1g.ideal (stone e78s:
-  B' = both-edge pulse pair s1 17..21, s2 s1+3..+6 <= 24, plus ONE open-only pulse at 26..50).
-- coordinator: shrink's MOVING OBSERVER relay (archive/t7b-ob40-40b.txt: an observer fires when it LANDS, out
-  of its face at the new cell, so the two edges can feed different cells); c88b's copper-bulb T flip-flop +
-  comparator = a door-state LEVEL at the bottom (comparators need a support block, none on row -3).
-
-## satwire3 (15:01Z)
-r1w with (0,-3) and (-1,-1) freed: UNSAT at once, core = open B' (1,-3) alone; its sculk model forbids a sensor at a calibrated back, so read it as "no non-sensor feed at (0,-3) works", not a proof.
+## Searched without a gain from h5 (41)
+My --vary rounds: every 6-cell group (bottom-left, A1+lamp, bottom-right, top-left, top-right, mixed) and a
+7-cell A1/lamp/loop group (36M): nothing below 41. `door minimize --moves all --plateau --depth 2`: 41.
+shrink (7f3f12cf): clear-and-refill k<=5 on the B'-feed cells, bottom-right 7, bottom-left 8: 0. pockets3
+(1d42739b): --keep <= 3 over 25 wiring cells: 0; exactly-4/5 runs were still going at 17:40Z.
 
 ## Next ideas
-1. An edge-selective B'-hold for r1-style designs: a B' source active [19,29) on open only (B2 at t29 lands A'
-   at G3 start; the 2nd (2,-3) cycle is then harmless as in nb).
-2. Lamp sensor that does not re-arm into B2: a filter or occluder for the lamp sensor after t26.
-3. A K relay that fires once per edge (no 2nd-cycle retraction), e.g. a block left in (4,-3) on open and
-   brought back on close.
-4. The lamp sensor (-1,-3) is the recurring blocker: any B'-adjacent source at (0,-3) unshields it, and it
-   re-arms at t26 into B2/A3. A lamp sensor that is deaf through t45 on open (filter on its back fed by a
-   source active t20..45) would free (0,-3) for the calibrated B' hold at t18/19 (both edges per --holds).
-5. Mirror bottom (q78 idea 4): K' (-1,-1) facing east parks BM in F0, F2 static wool; note the gate then powers
-   A' through F2 on BOTH edges, so the close logic changes completely.
+- Speed: h6 is 29/15 at 42; `door minimize --objective total` on h5/h6 (started 17:36Z, logs in e78s/min/).
+- Fewer blocks needs a structural change: the loop costs 3 blocks (observer (0,-3), sticky (-1,-3) and the
+  extra lamp lighter (-2,-2)+(-2,-1) instead of (-1,-1)); a loop that re-uses the BL-park watcher (-1,-1)
+  would save one. K + B1 share (4,-1) (4,-3) (3,-3); the top-right driver (3 blocks) is also K's 2-gt delay.
+- Older sculk-era notes (r1/r2/nb, satwire3's UNSAT core) are in git history of this file (before 17:40Z).
