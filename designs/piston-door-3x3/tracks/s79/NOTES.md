@@ -213,3 +213,18 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   (runs/t2a-bot-k4 on explore/pockets): nothing drives P2, not even alone. U's feeds are (2,-2) and QC via
   (2,-1) (F's repeater); (0,-2) is the U watcher (K, L0); (1,-3) is outside the box. A sensor next to U hears
   U's own t2 close spit and keeps U powered (no spit), so sound cannot sit at (2,-2)/(0,-2).
+
+## 8. c78L: TM leaves up-LEFT, C goes up 2, BM stays down: U needs only the lever level (13:46Z)
+- The P2 wall comes from BM leaving sideways (K) and C needing a second U pull. New layout `c78l/c78L0.txt`:
+  TM (1,2) -> (1,3) (s pull) -> (0,3) (new sticky TP (-1,3) facing east); C (1,1) -> (1,2) -> (1,3) (M (1,5)
+  lowers s to (1,3), s pulls, M raises s, s pulls); BM (1,0) -> (1,-1) (U's retraction) and stays. K removed;
+  statics (0,-1) (2,-1) (2,3). Close: s pushes C down 1, TP pushes TM back to (1,3), s pushes TM + C down 1,
+  U pushes BM up (M only moves on open). Frame 12/12.
+- U = lever level: repeater (3,-1) east d1 (or d2) -> (2,-1) QC, plus the old observer (3,-2) on note block
+  (4,-2) -> stone (2,-2) as the update kick on close (F's rise alone is silent). L0 from the U watcher (U moves
+  once per edge: odd). R0 lever-held, R1/R2 by the sensor chain. ALL of the bottom and the right side real.
+- `c78L1.ideal` (works in both input phases, tile and --between-ticks): ideal s (open pulls a1 0..3, a4 12..16 at
+  (1,3), a6 22+; close c1 0..17, c6 21+), M (open only, on 8..11 off 18..22), TP (open 5..8, close 3..23),
+  L1/L2 (any). The whole open sequence may shift up to +15 ticks. Open 26 / close 26.
+- Annealer on the 11 free top cells: runs/c78l-L1top1 (the first run used c78L0.ideal, which only works in the
+  tile phase: the annealer screens in the old phase, seed 40/79).
