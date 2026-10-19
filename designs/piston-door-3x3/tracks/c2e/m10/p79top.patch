@@ -1,0 +1,5 @@
+set 1 5 0 minecraft:sticky_piston[facing=down,extended=false]
+set 1 4 0 minecraft:air
+set 2 5 0 minecraft:air
+set 3 5 0 minecraft:redstone_wire[east=side,west=side,north=none,south=none]
+set 3 3 0 minecraft:repeater[delay=4,facing=east]

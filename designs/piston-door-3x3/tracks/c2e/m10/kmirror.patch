@@ -1,0 +1,4 @@
+set 0 -1 0 minecraft:stone
+set -1 -1 0 minecraft:air
+set 2 -1 0 minecraft:air
+set 3 -1 0 minecraft:sticky_piston[facing=west,extended=false]
