@@ -16,6 +16,29 @@ keeps it a mechanism, only the wiring changes: quasi-connectivity is "above"-spe
 | 6x9 / 9x6 | 54 | YES | c78l m69a (explore/s79 tracks/s79/c69/m69a.txt), 12 sticky; 9x6 = m69a turned |
 | 6x6, 7x5, 5xN | 36-35 | open | next |
 
+## 10x5 / 5x10 (50) and 7x5 / 5x7 (35): NO within the strip model
+A box 5 tall (y -1..3) has no row above the ceiling ring or below the floor ring, so no sticky
+piston can stand 2 cells beyond a door block to PULL it out vertically; families' strip model
+(`door families --rows`) therefore solves each door row on its own: EVERY placement of up to k
+E/W pistons (sticky / normal, retracted / extended) in the row's two arms, exact macro solve.
+Re-run exactly for every row width <= 10 (arms a + b <= 7, so k <= 7 fills every arm cell):
+`door families --rows --row-pistons 7 --arm 7 --row-max-width 10 [--rblocks 0|1|2]`: 0 row
+mechanisms at every width (e.g. width 10: arms 3+4 65,377 / 2+5 66,177 / 1+6 59,577 / 0+7 113,227
+candidates, all 0; with 1 or 2 redstone blocks per row as pieces: 0 too). A 7x5 or 10x5 door needs
+one row mechanism per door row, so: NO. 5x7 / 5x10 are the same rows turned 90 degrees (columns:
+pistons stacked in a column also couple by quasi-connectivity, which only removes options): NO.
+What this does NOT cover (all would need a new model): (1) vertical pistons standing in the ring
+rows or corners that PUSH a whole door column by one cell (the floor/ceiling ring cell gets a
+door block; the pusher must then leave the ring: a ring escape along the ring row), mixed with
+row mechanisms; (2) rows coupled through such vertical moves; (3) slime / honey, gravity blocks,
+entities. The smallest strip doors in the model are 11x3 / 11x4 / 11x5 (k = 5 per row,
+tracks/families NOTES).
+
+## 6x6 (36)
+families' default generator builds 0 candidates in 6x6 (one machine column and one machine row:
+the two door columns / rows against the box edge have no 1-move pull exit, and the default budget
+allows one 2-move block); the every-flag generator (two 7, ring escapes, P <= 13): running.
+
 Every one of them is OUTSIDE the default generator (families v3, P <= 10, two 1): `door audit
 --member smaller/ideal-mechs.txt` (piece lists of ideal-input designs):
 
