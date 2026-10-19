@@ -1,0 +1,24 @@
+name: clk-obs-p39-bulb-obs-pis-stk-7b-b-88bec5
+# P39: 1 copper bulb, 2 observers, 1 piston, 2 sticky pistons, 1 stone; changing in place: copper_bulb, observer, piston, sticky_piston (stone only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 0 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:stone
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:piston[extended=false,facing=down]
+layer -1:
+  A
+  B
+  .
+layer 0:
+  C
+  D
+  .
+layer 1:
+  B
+  E
+  F

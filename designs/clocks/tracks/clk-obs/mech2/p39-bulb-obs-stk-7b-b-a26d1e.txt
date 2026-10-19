@@ -1,0 +1,29 @@
+name: clk-obs-p39-bulb-obs-stk-7b-b-a26d1e
+# P39: 1 copper bulb, 2 observers, 1 redstone lamp, 3 sticky pistons; changing in place: copper_bulb, observer, sticky_piston (redstone lamp only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 0
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:waxed_copper_bulb[lit=false,powered=false]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:observer[facing=up,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=south]
+layer -1:
+  .
+  .
+  A
+layer 0:
+  B
+  C
+  D
+layer 1:
+  E
+  F
+  .
+layer 2:
+  G
+  .
+  .

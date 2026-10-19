@@ -1,0 +1,15 @@
+name: clk-obs-p20-lamp-obs-6b-b-2bd311
+# P20: 4 observers, 2 redstone lamps; changing in place: observer, redstone_lamp. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:redstone_lamp[lit=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=east,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+layer 0:
+  AD
+  BE
+  CA
