@@ -219,6 +219,9 @@ impl CellWave {
 pub struct PeriodAnalysis {
     pub cells: Vec<CellWave>,
     pub family: Vec<String>,
+    /// Blocks that only move during the period (pushed or pulled, their own state unchanged):
+    /// not in the family.
+    pub moved: Vec<String>,
 }
 
 /// Analyze one period: `states[t][i]` = the state of `cells[i]` at tick `W + t` (t in 0..P).
@@ -229,6 +232,9 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
         return out;
     }
     let mut fam: Vec<String> = Vec::new();
+    let mut moved: Vec<String> = Vec::new();
+    let n = states.len();
+    let type_of = |s: &str| -> String { block_part(s).split('[').next().unwrap_or("").to_string() };
     for (i, pos) in cells.iter().enumerate() {
         let first = states[0][i];
         if states.iter().all(|s| s[i] == first) {
@@ -241,18 +247,102 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
                 seen.push(st);
             }
         }
-        let mut kinds: Vec<String> = seen.iter().filter_map(|s| family_name(block_part(s))).collect();
+        // A block counts in the family when its own state changes IN PLACE (the same block in the
+        // cell before and after: lit, powered, power, open, extended, phase, a comparator's
+        // strength, a container's contents), or when it is a redstone block that moves (a moving
+        // power source). A block that only moves (a lamp a piston pushes, never lit) is listed
+        // apart as moved.
+        let mut kinds: Vec<String> = Vec::new();
+        let mut cell_moved: Vec<String> = Vec::new();
+        for t in 0..n {
+            let (a, b) = (states[t][i], states[(t + 1) % n][i]);
+            if a != b && type_of(a) == type_of(b) {
+                if let Some(k) = family_name(block_part(a)) {
+                    kinds.push(k);
+                }
+            }
+        }
+        for s in &seen {
+            if let Some(k) = family_name(block_part(s)) {
+                if k == "redstone_block" {
+                    kinds.push(k);
+                } else if !kinds.contains(&k) {
+                    cell_moved.push(k);
+                }
+            }
+        }
         kinds.sort();
         kinds.dedup();
+        cell_moved.retain(|k| !kinds.contains(k));
         let seq: Vec<bool> = states.iter().map(|s| active(block_part(s[i]))).collect();
         let (on, edges, widths) = bool_wave(&seq);
         fam.extend(kinds.iter().cloned());
+        moved.extend(cell_moved);
         out.cells.push(CellWave { pos: *pos, states: seen, kinds, on, edges, widths });
     }
     fam.sort();
     fam.dedup();
+    moved.sort();
+    moved.dedup();
+    moved.retain(|k| !fam.contains(k));
     out.family = fam;
+    out.moved = moved;
     out
+}
+
+/// How many groups the changing cells split into: two cells are linked when they are at most 2
+/// apart (Chebyshev distance: blocks touching, a dust step, quasi-connectivity), and a sculk sensor
+/// links every changing cell within its listening range (8, calibrated 16). Independent sub-clocks
+/// side by side are 2 or more groups; one mechanism is one.
+pub fn spatial_groups(positions: &[Pos], sensors: &[(Pos, i32)]) -> usize {
+    let n = positions.len();
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn find(p: &mut Vec<usize>, i: usize) -> usize {
+        let mut r = i;
+        while p[r] != r {
+            r = p[r];
+        }
+        let mut j = i;
+        while p[j] != r {
+            let next = p[j];
+            p[j] = r;
+            j = next;
+        }
+        r
+    }
+    let cheb = |a: Pos, b: Pos| (0..3).map(|k| (a[k] - b[k]).abs()).max().unwrap_or(0);
+    for i in 0..n {
+        for j in i + 1..n {
+            let near = cheb(positions[i], positions[j]) <= 2 || sensors.iter().any(|(s, r)| cheb(*s, positions[i]) <= *r && cheb(*s, positions[j]) <= *r);
+            if near {
+                let (a, b) = (find(&mut parent, i), find(&mut parent, j));
+                parent[a] = b;
+            }
+        }
+    }
+    (0..n).filter(|&i| find(&mut parent, i) == i).count()
+}
+
+/// The sculk sensors of a design with their listening ranges.
+pub fn sensors_of(blocks: &std::collections::BTreeMap<Pos, String>) -> Vec<(Pos, i32)> {
+    blocks
+        .iter()
+        .filter_map(|(p, s)| {
+            if s.contains("calibrated_sculk_sensor") {
+                Some((*p, 16))
+            } else if s.contains("sculk_sensor") {
+                Some((*p, 8))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// The smallest d dividing `seq.len()` such that the cyclic sequence repeats every d.
+pub fn cyclic_period<T: PartialEq>(seq: &[T]) -> usize {
+    let n = seq.len();
+    (1..=n.max(1)).filter(|d| n % d == 0).find(|&d| (0..n).all(|t| seq[t] == seq[(t + d) % n])).unwrap_or(n.max(1))
 }
 
 /// The family signature: `observer+sticky_piston`, or `-` for none.
