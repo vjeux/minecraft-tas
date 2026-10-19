@@ -323,6 +323,46 @@ pub fn trace(c: &Clock, o: &SimOptions, ticks: u32) -> Vec<String> {
     out
 }
 
+/// The census's fast screen (no waveform, no strings): place `blocks` like the judge (raw writes,
+/// wire shapes, self updates), the block at index `last` withheld and placed last with updates
+/// when given, then run until the whole state repeats. `Some((state_warmup, state_period))` for a
+/// state that keeps changing; `None` when it goes still, never repeats within `horizon`, or the
+/// model meets something it does not model exactly (an error, a drop, a write beyond `margin`).
+pub fn quick_period(blocks: &[(BlockPos, Block)], last: Option<usize>, margin: i32, horizon: u32) -> Option<(u32, u32)> {
+    let mut lo = blocks[0].0;
+    let mut hi = blocks[0].0;
+    for (p, _) in blocks {
+        lo = BlockPos::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
+        hi = BlockPos::new(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
+    }
+    let min = BlockPos::new(lo.x - margin, lo.y - margin, lo.z - margin);
+    let size = [hi.x - lo.x + 1 + 2 * margin, hi.y - lo.y + 1 + 2 * margin, hi.z - lo.z + 1 + 2 * margin];
+    let mut w = World::new(min, size);
+    let silent: Vec<(BlockPos, Block)> = blocks.iter().enumerate().filter(|(i, _)| Some(*i) != last).map(|(_, b)| *b).collect();
+    w.place_raw(&silent);
+    w.place_updates(&silent);
+    if let Some(i) = last {
+        w.set_block(blocks[i].0, blocks[i].1, flags::ALL);
+    }
+    let hoppers = blocks.iter().any(|(_, b)| matches!(b, Block::Hopper { .. }));
+    let mut seen: HashMap<u128, u32> = HashMap::new();
+    for t in 0..=horizon {
+        if !w.errors.is_empty() || !w.drops.is_empty() {
+            return None;
+        }
+        if !hoppers && w.idle() && !w.sculk.busy() {
+            return None;
+        }
+        let d = digest(&w);
+        if let Some(&t0) = seen.get(&d) {
+            return if t - t0 > 1 { Some((t0, t - t0)) } else { None };
+        }
+        seen.insert(d, t);
+        w.tick();
+    }
+    None
+}
+
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let blocks = match parse_blocks(c) {

@@ -21,6 +21,7 @@
 
 pub mod canon;
 pub mod catalog;
+pub mod census;
 pub mod sim;
 pub mod verify;
 pub mod wave;

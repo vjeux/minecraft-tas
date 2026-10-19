@@ -77,7 +77,9 @@ impl Containers {
         let mut all: Vec<(&BlockPos, &ContainerBe)> = self.map.iter().collect();
         all.sort_by_key(|(p, _)| **p);
         for (p, c) in all {
-            (p, &c.slots, c.cooldown, now - c.ticked, c.hopper).hash(h);
+            // tickedGameTime only matters (and only advances) for hoppers: a dropper's stays 0
+            let ticked = if c.hopper { now - c.ticked } else { 0 };
+            (p, &c.slots, c.cooldown, ticked, c.hopper).hash(h);
         }
         0xfeu8.hash(h);
         let order: Vec<BlockPos> = self.tickers.iter().chain(self.pending.iter()).filter(|(_, live)| *live).map(|(p, _)| *p).collect();
