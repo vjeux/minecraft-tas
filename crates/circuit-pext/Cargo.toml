@@ -1,0 +1,10 @@
+[package]
+name = "circuit-pext"
+description = "Contraption study 6, track pext (mctas circuit pext ...): piston extenders; owned by the track, see docs/circuits.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true

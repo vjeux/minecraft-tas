@@ -53,3 +53,5 @@ opt-level = 0
 opt-level = 0
 [profile.release.package.clock-cli]
 opt-level = 0
+[profile.release.package.circuit-cli]
+opt-level = 0
