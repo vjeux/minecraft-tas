@@ -1555,7 +1555,11 @@ pub fn enum_sets(bx: Bx, o: &EnumOpts) -> Vec<Vec<Pc>> {
         for f in 0..4u8 {
             let (dx, dy) = families::F[f as usize];
             let (h1, h2) = ((x + dx, y + dy), (x + 2 * dx, y + 2 * dy));
-            if !(target(h1.0, h1.1) || target(h2.0, h2.1)) || !bx.has(h1.0, h1.1) {
+            // MECHSPACE_K3: also a piston whose third cell ahead is a frame or door cell (the top
+            // of a 3-piston elevator)
+            let h3 = (x + 3 * dx, y + 3 * dy);
+            let k3 = std::env::var("MECHSPACE_K3").is_ok() && target(h3.0, h3.1);
+            if !(target(h1.0, h1.1) || target(h2.0, h2.1) || k3) || !bx.has(h1.0, h1.1) {
                 continue;
             }
             for sticky in [true, false] {
