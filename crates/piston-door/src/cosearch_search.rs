@@ -102,6 +102,11 @@ pub struct SearchArgs {
     /// continue from a partial whose other inputs are already wired.
     #[arg(long)]
     pub assist_cells: Option<String>,
+    /// Plan inputs that stay assisted for good (door coordinates `x,y;x,y`): they cost nothing,
+    /// are never released and do not block a find (another track wires them): to wire one part
+    /// of a door while the rest of its inputs stay ideal.
+    #[arg(long)]
+    pub pin_assist: Option<String>,
     /// Shaping: a working door whose piston schedule the candidates should follow (each piston
     /// extension / retraction of the reference, same cell, within `--ref-slack` ticks, earns
     /// `--ref-weight` points; a perfect screen still only needs the door checks).
@@ -214,6 +219,8 @@ pub struct Problem {
     pub assist_pistons: Vec<(i32, i32)>,
     pub assist_events: [Vec<(u32, usize, BlockPos, Block)>; 2],
     pub assist_weight: f64,
+    /// `--pin-assist`: plan inputs that stay assisted, free (bit k = the plan's piston k).
+    pub pin_mask: u64,
     /// Plan input cells IN the door plane: reserved while their input is assisted.
     pub assist_in_plane: HashSet<(i32, i32)>,
     /// Assisted inputs' blocks present at rest (an off-plane level input: its block is placed with
@@ -480,7 +487,7 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
         s.ev_w = p.ref_weight;
     }
     if !p.assist_pistons.is_empty() {
-        s.assisted = g.assist.count_ones() as i32;
+        s.assisted = (g.assist & !p.pin_mask).count_ones() as i32;
         s.asw = p.assist_weight;
         s.dr = p.drive_weight * drive;
     }
@@ -933,6 +940,9 @@ fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>, kind
         *kind = 1;
         let k = rng.below(p.assist_pistons.len());
         let (cx, cy) = p.assist_pistons[k];
+        if (p.pin_mask >> k) & 1 == 1 {
+            return None;
+        }
         if (g.assist >> k) & 1 == 0 && p.assist_in_plane.contains(&(cx, cy)) && !g.get(cx, cy).is_air() {
             // re-assisting an in-plane input needs its cell free again
             return None;
@@ -1260,6 +1270,23 @@ fn try_find(p: &Problem, g: &Grid, sh: &Shared, jopts: &cs::JudgeOpts, a: &Searc
     }
     sh.full_evals.fetch_add(1, Ordering::Relaxed);
     let door = door_of(g, p.spec);
+    if p.pin_mask != 0 {
+        // pinned inputs stay plan-driven: the door alone cannot be judged here; save it for
+        // `door ideal` with a plan holding only the pinned inputs
+        let k = sh.finds.fetch_add(1, Ordering::Relaxed);
+        let name = format!("cosearch-pinned-{}-{k}", door.block_count());
+        let d = door.to_design(&name);
+        let path = a.out_dir.join(format!("{name}.txt"));
+        let _ = std::fs::create_dir_all(&a.out_dir);
+        let _ = d.save(&path);
+        let msg = format!("pinned find (screen perfect with the pinned inputs ideal): {}", path.display());
+        println!("{msg}");
+        sh.log.lock().unwrap().push(msg);
+        if k + 1 >= a.max_finds {
+            sh.stop.store(true, Ordering::Relaxed);
+        }
+        return;
+    }
     let e = cs::evaluate(&door, jopts, false);
     if e.record_ok() {
         let k = sh.finds.fetch_add(1, Ordering::Relaxed);
@@ -1392,6 +1419,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         assist_pistons: Vec::new(),
         assist_events: [Vec::new(), Vec::new()],
         assist_weight: a.assist_weight,
+        pin_mask: 0,
         assist_in_plane: HashSet::new(),
         assist_rest: Vec::new(),
         assist_rest_all: Vec::new(),
@@ -1435,6 +1463,17 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
             prob.assist_events[0].len(),
             prob.assist_events[1].len()
         );
+        if let Some(cells) = &a.pin_assist {
+            for t in cells.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                anyhow::ensure!(v.len() == 2, "--pin-assist x,y;x,y");
+                match prob.assist_pistons.iter().position(|c| *c == (v[0] + dx, v[1] + dy)) {
+                    Some(k) => prob.pin_mask |= 1u64 << k,
+                    None => bail!("--pin-assist: no plan input at {t}"),
+                }
+            }
+            println!("pinned (stay ideal, free): {cells}");
+        }
     }
     let mut seeds = Vec::new();
     for (name, _, r) in &doors {
@@ -1461,6 +1500,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
                     }
                 }
             }
+            g.assist |= prob.pin_mask;
         }
         let s = screen(&prob, &g);
         println!("seed {name}: {} blocks in the box, screen {}/{}", g.count(), s.pts, s.max);
