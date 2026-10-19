@@ -437,8 +437,9 @@ fn judge_at(blocks: &[(Pos, Block)], spec: &DoorSpec, opts: &JudgeOpts, oi: usiz
         }
     }
     match rest.get(spec.lever) {
-        Some(Block::Lever { powered: false, .. }) => {}
-        other => return Err(jfail(oi, None, "lever", format!("port lever {:?} is {}, expected an unpowered lever", spec.lever, other.map(|b| st(&b)).unwrap_or("?".into())))),
+        // Either rest polarity counts (vjeux, 2026-10-19), like `crate::verify`.
+        Some(Block::Lever { .. }) => {}
+        other => return Err(jfail(oi, None, "lever", format!("port lever {:?} is {}, expected a lever", spec.lever, other.map(|b| st(&b)).unwrap_or("?".into())))),
     }
     let door_cells = spec.door_cells();
     let closed_door: Vec<Block> = door_cells.iter().map(|p| rest.get(*p).unwrap()).collect();
