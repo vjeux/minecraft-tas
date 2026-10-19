@@ -103,6 +103,11 @@ Recorder: the power of a piston = the real signal into its cell, minus a source 
 front neighbor (wire64's fix), or into the cell above (QC).
 
 Known-answer test (`door satwire --check --jobs 8` over every FLAT archived door, 65 designs on
+this branch): 61 of 64 in-scope REPRODUCED exactly (after: ambiguous observer off-tick
+coincidences and comparator races branch instead of being forbidden, droppers re-read direct or
+quasi-connected power on a neighbor change or an adjacent lever flip, a 1 gt pulse may be 2 gt);
+left: fl81f (6 ticks: observer (2,5) fires at t14 in the game, not in the model: a transient of the
+watched cell), flat-v5-52b (2 piston ticks), flat-v7-full (rejected). Before those fixes, on
 this branch after merging main): 57 REPRODUCED exactly (e89b, every flat-b, flat-v2..v8 but v5/v7f,
 s55, flat43-full + every lamp/dropper relever variant but the two `@support` ones, h44, h45, fl81m,
 fl81n, f43-b1, lamp-sweep, fv58n, ...), 1 not flat, 4 MISMATCH (flat-v5-52b 2 ticks, fl81f 6 ticks,

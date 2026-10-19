@@ -312,6 +312,8 @@ pub struct Rec {
     pub lever: Option<(Pos, String)>,
     /// In-plane bounds of the source design (wired source), lever excluded.
     pub src_box: Option<(i32, i32, i32, i32)>,
+    /// Wired source: every in-plane block after each tick (wiring included), per phase.
+    pub full: Vec<Vec<HashMap<C2, String>>>,
 }
 
 fn place_settled(w: &mut Worker, d: &Design) -> Result<u32> {
@@ -418,7 +420,7 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
             sbx = (sbx.0.min(p[0]), sbx.1.min(p[1]), sbx.2.max(p[0]), sbx.3.max(p[1]));
         }
     }
-    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: Some(sbx) })
+    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: Some(sbx), full })
 }
 
 /// Replay an ideal schedule: the mechanism frames, and the power the redstone blocks give each
@@ -607,7 +609,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
     for (c, st) in &phases[0].frames[0] {
         rest.insert([c.0, c.1, z], st.clone());
     }
-    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: None })
+    Ok(Rec { z, door: spec.door, rest, phases, wiring, lever, src_box: None, full: Vec::new() })
 }
 
 // ---------------------------------------------------------------- the SAT encoder
@@ -1353,12 +1355,15 @@ impl<'a> Model<'a> {
             }
             3 => {
                 let a = self.chg(tr, k, w, 1);
+                let on_e = self.chg(tr, k, w, 5);
+                self.e.or(&[a, on_e])
+            }
+            5 => {
                 let ob = self.pred(w, P_OBS);
                 let o1 = self.out(tr, k, w);
                 let o0 = self.out(tr, k - 1, w);
                 let se = Self::get(&self.sched_e, (tr, k, w), f);
-                let on_e = self.e.and(&[ob, o1, !o0, se]);
-                self.e.or(&[a, on_e])
+                self.e.and(&[ob, o1, !o0, se])
             }
             _ => {
                 let o1 = self.out(tr, k, w);
@@ -1669,14 +1674,37 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     }
                     qt.push(m.oop(tr, k, q));
                     let qc = m.e.or(&qt);
-                    // quasi-connected power re-arms a dropper only when a block update reaches it
-                    // (a BUD): not modeled; its `triggered` follows its direct power
-                    let _ = (isd, qc);
-                    let qd = m.e.f();
-                    let inn = m.e.or(&[i, qd]);
-                    let a = m.e.and(&[isi, inn]);
+                    // a dropper re-reads its power (direct, or quasi-connected: the cell above)
+                    // only when a block update reaches it: when a neighbor changes state, its own
+                    // direct power changes, or the lever next to it (or on a neighbor) flips; it
+                    // keeps its `triggered` state otherwise (a BUD)
                     let v = m.npow[&(tr, k, c)];
-                    m.e.eq(v, a);
+                    let isnt = m.e.and(&[isi, !isd]);
+                    let nt = m.e.and(&[isnt, i]);
+                    let dexpr = if k == -1 {
+                        m.e.or(&[i, qc])
+                    } else {
+                        let i_p = m.any_in(tr, k - 1, c, None);
+                        let mut up = vec![m.e.xor(i, i_p)];
+                        for d in DIRS {
+                            let n = add(c, d);
+                            up.push(m.chg(tr, k, n, 0));
+                            up.push(m.chg(tr, k, n, 2));
+                            if k == 0 {
+                                let z = m.p.z;
+                                up.push(m.lever_on_lits(0, 0, |l| l.att == [n.0, n.1, z]));
+                            }
+                        }
+                        let upd = m.e.or(&up);
+                        let rd = m.e.or(&[i, qc]);
+                        let a1 = m.e.and(&[upd, rd]);
+                        let tp = m.npow[&(tr, k - 1, c)];
+                        let a2 = m.e.and(&[!upd, tp]);
+                        m.e.or(&[a1, a2])
+                    };
+                    let dd = m.e.and(&[isd, dexpr]);
+                    let rhs = m.e.or(&[nt, dd]);
+                    m.e.eq(v, rhs);
                 }
                 if ks.contains(&Kind::Bulb) {
                     let isb = m.pred(c, P_BULB);
@@ -1721,8 +1749,6 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             if k >= 1 {
                                 let x = m.e.xor(o_p, s_k);
                                 m.e.eq_if(g, o_k, x);
-                                let amb = m.chg(tr, k, w, 1);
-                                m.e.add(&[!g, !s_k, !o_p, !amb]);
                             }
                             let pre = m.chg(tr, k, w, 0);
                             let post_s = m.chg(tr, k, w, 3);
@@ -1730,7 +1756,17 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             let onp = if k >= 1 { o_p } else { o_k };
                             let s1 = m.sched(tr, k + 1, c);
                             let a = m.e.and(&[pre, !onp]);
-                            let b = m.e.and(&[post_s, !o_k]);
+                            // an ambiguous change of the watched cell coinciding with this observer's
+                            // off-tick: seen before (ignored) or after it (a new pulse): either
+                            let _ = post_s;
+                            let offfire = if k >= 1 { m.e.and(&[s_k, o_p]) } else { f };
+                            let amb = m.chg(tr, k, w, 1);
+                            let one = m.chg(tr, k, w, 5);
+                            let ch = m.e.var();
+                            let nb = m.e.or(&[!offfire, ch]);
+                            let amb_ok = m.e.and(&[amb, nb]);
+                            let seen = m.e.or(&[amb_ok, one]);
+                            let b = m.e.and(&[seen, !o_k]);
                             let be = m.e.and(&[post_e, !o_k]);
                             let fire_on = if k >= 1 { m.e.and(&[s_k, !o_p]) } else { f };
                             let s_part = m.e.or(&[a, b]);
@@ -1838,11 +1874,11 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                                 let blp2 = m.e.and(&[bb, blp]);
                                 let i_p = m.e.or(&[s0p, blp2]);
                                 let g1 = m.e.and(&[g, s_k]);
-                                m.e.eq_if(g1, o_k, i_p);
+                                // an input change in the same tick as its tick: it reads either value
+                                m.e.add(&[!g1, !i_p, !i_k, o_k]);
+                                m.e.add(&[!g1, i_p, i_k, !o_k]);
                                 let g2 = m.e.and(&[g, !s_k]);
                                 m.e.eq_if(g2, o_k, o_p);
-                                let race = m.e.xor(i_k, i_p);
-                                m.e.add(&[!g, !s_k, !race]);
                             }
                             let s1 = m.sched(tr, k + 1, c);
                             let mis = m.e.xor(o_k, i_k);
@@ -1894,7 +1930,15 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         let b = ph.frame(tau).get(&c);
                         a == b && a.is_some_and(|s| matches!(mk(s), MK::Piston { ext: false, .. }))
                     };
-                    if blocked {
+                    // the 2nd tick of a pulse of at most 2 gt (or the tick right after a 1 gt pulse):
+                    // a 1 gt and a 2 gt pulse do the same (a push spits, a gap-extension pulls)
+                    let pulse_tol = p.blocked_dc && k >= 1 && {
+                        let ph = &p.rec.phases[tr];
+                        let pw = |j: i32| ph.pow(j).get(&c).copied().unwrap_or(false);
+                        let same = |j: i32| ph.frame(j).get(&c) == ph.frame(tau - 1).get(&c) || j >= tau;
+                        tau >= 2 && !pw(tau - 2) && pw(tau - 1) && !pw(tau + 1) && same(tau - 2)
+                    };
+                    if blocked || pulse_tol {
                         continue;
                     }
                     if req {
@@ -2288,6 +2332,44 @@ pub fn check(p: &Prob) -> Result<()> {
         }
         println!("check: conflicting constraint groups: {}", cs.iter().map(|g| g.0.clone()).collect::<Vec<_>>().join(" | "));
         return Ok(());
+    }
+    // the model's wiring states against the recorded ones, tick by tick: the first divergences
+    if !p.rec.full.is_empty() {
+        let f0 = m.e.f();
+        for tr in 0..2 {
+            let mut div = Vec::new();
+            for (k, fr) in p.rec.full[tr].iter().enumerate() {
+                let k = k as i32;
+                if k > p.h {
+                    break;
+                }
+                for (c, kind) in &p.fixed {
+                    let Some(real) = fr.get(c) else { continue };
+                    let rb = |key: &str| prop(real, key) == Some("true");
+                    let (model, rv): (String, String) = match kind {
+                        Kind::Rep(..) | Kind::Obs(_) | Kind::Cmp(_) => (m.e.val(m.out(tr, k, *c)).to_string(), rb("powered").to_string()),
+                        Kind::Torch | Kind::WTorch(_) | Kind::Lamp => (m.e.val(m.out(tr, k, *c)).to_string(), rb("lit").to_string()),
+                        Kind::Dust => {
+                            let lvl = (m.lo()..=15).rev().find(|j| m.e.val(m.lvl(tr, k, *c, *j))).unwrap_or(0);
+                            (lvl.to_string(), prop(real, "power").unwrap_or("0").to_string())
+                        }
+                        Kind::Note | Kind::Trap => (m.e.val(Model::get(&m.npow, (tr, k, *c), f0)).to_string(), rb("powered").to_string()),
+                        Kind::Dropper => (m.e.val(Model::get(&m.npow, (tr, k, *c), f0)).to_string(), rb("triggered").to_string()),
+                        Kind::Bulb => (m.e.val(Model::get(&m.blit, (tr, k, *c), f0)).to_string(), rb("lit").to_string()),
+                        _ => continue,
+                    };
+                    if model != rv {
+                        div.push(format!("t{k} {c:?} {kind:?}: model {model} game {rv}"));
+                    }
+                }
+                if div.len() >= 6 {
+                    break;
+                }
+            }
+            if !div.is_empty() {
+                println!("check: {} first divergences: {}", ["open", "close"][tr], div.join("; "));
+            }
+        }
     }
     let mut bad = 0;
     for c in &m.checks {
