@@ -1,0 +1,11 @@
+fill designs/piston-door-3x3/tracks/pockets/finds/e78-56b-40.txt: 25 region cells (25 free, 0 fixed), base 40 blocks (design 40), k 4..=4, global palette 36 states, gaps allowed, KEEP mode (k = changed cells)
+12650 subsets pass the connectivity rule; 21341574144 fillings to screen in 16421400 work items
+[   300s] 42294361 screened (140914/s), 3287148160 pruned, item 2561561/16421400, 0 pass the 1-position screen, 0 finds
+[   600s] 81470959 screened (135718/s), 6424908578 pruned, item 5006042/16421400, 0 pass the 1-position screen, 0 finds
+[   900s] 101793559 screened (113067/s), 7972930688 pruned, item 6212518/16421400, 0 pass the 1-position screen, 0 finds
+[  1200s] 121419596 screened (101155/s), 9911349883 pruned, item 7718726/16421400, 0 pass the 1-position screen, 0 finds
+[  1500s] 146266655 screened (97482/s), 12212587364 pruned, item 9507953/16421400, 0 pass the 1-position screen, 0 finds
+[  1801s] 165787842 screened (92074/s), 14690248485 pruned, item 11429145/16421400, 0 pass the 1-position screen, 0 finds
+[  2101s] 183872249 screened (87532/s), 17941796020 pruned, item 13943994/16421400, 0 pass the 1-position screen, 0 finds
+[  2401s] 197960486 screened (82461/s), 20841031344 pruned, item 16187946/16421400, 0 pass the 1-position screen, 0 finds
+done in 2428 s: 199095371 screened, 21142478773 pruned, 0 passed the screen, 0 finds

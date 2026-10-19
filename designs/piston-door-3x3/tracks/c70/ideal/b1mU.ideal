@@ -1,0 +1,22 @@
+# c70: t78 b1m (E1+E2 real: sensor (-2,4) -> waxed bulb (-2,3) -> observer (-2,2); M observer (-1,3) up into the static (-1,2))
+# U driven by a REAL observer X (-1,-1,1) facing south (test only, off-plane): the plan toggles its watched cell (-1,-1,2) at gu.
+# M: the plan toggles (-1,4) (glass) at gm on open (observer (-1,3) taps 2 gt later); on close at gmc.
+design designs/piston-door-3x3/tracks/c70/wip/b1mU.txt
+let gu = 12
+let gm = 14
+let guc = 12
+let gmc = 30
+open 0 use 1 5 0
+open gu set -1 -1 2 minecraft:glass
+open gm set -1 4 0 minecraft:glass
+open 40 set 0 -2 1 minecraft:redstone_block
+open 42 clear 0 -2 1
+open 40 set 1 -2 1 minecraft:redstone_block
+open 42 clear 1 -2 1
+close 0 use 1 5 0
+close guc clear -1 -1 2
+close gmc clear -1 4 0
+close 40 set 0 -2 1 minecraft:redstone_block
+close 42 clear 0 -2 1
+close 40 set 1 -2 1 minecraft:redstone_block
+close 42 clear 1 -2 1

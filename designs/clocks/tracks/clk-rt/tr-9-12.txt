@@ -1,0 +1,19 @@
+# Torch + repeater loop, 9 blocks (draft, clk-rt): wall torch T on A -> repeater R reads T
+# directly -> R strongly powers F -> dust beside F -> dust pointing into A. One inversion, loop
+# delay 2 + 2d: period 4 (1 + d) = 12 with the delay-2 repeater (16 / 20 with delay 3 / 4).
+name: clk-rt-tr-9-12
+origin: 0 0 -1
+port output: 1 1 0
+palette:
+  S minecraft:stone
+  A minecraft:stone
+  F minecraft:stone
+  T minecraft:redstone_wall_torch[facing=north,lit=true]
+  R minecraft:repeater[facing=west,delay=2,locked=false,powered=false]
+  w minecraft:redstone_wire
+layer 0:
+  .S.
+  .SS
+layer 1:
+  TRF
+  Aww

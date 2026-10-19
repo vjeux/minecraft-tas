@@ -1,0 +1,13 @@
+name: clk-obs-p16-obs-8b-1f6547
+# Construction for P = 16: observer ring (crates/clock-obs/src/construct.rs). redsim: P = 16, family observer.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=east,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+layer 0:
+  ACCC
+  BBBD

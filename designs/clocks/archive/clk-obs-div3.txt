@@ -1,0 +1,20 @@
+# archived 2026-10-19T17:29Z from /tmp/clk-in7/clk-obs--div3.txt by mctas clock archive
+# CLOCK: clk-obs-div3 period 48 gt, on 24/48, edges 1, warmup 0, family comparator+copper_bulb+observer, 9 blocks, 7x2x1, robust
+name: clk-obs-div3
+# Divider chain (copper bulbs + comparators) on the observer pair: the pair A-B runs at 6 gt;
+# A powers bulb B1 behind it, which toggles on every pulse (12 gt); comparator C1 reads B1 and
+# powers bulb B2 (toggles every 12 gt: 24); C2 reads B2 and powers B3 (48). Each stage (bulb +
+# comparator + its floor) doubles the period: P = 6 x 2^bulbs.
+origin: -5 0 0
+port output: -5 0 0
+port start: 1 0 0 last
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  U minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  S minecraft:stone
+layer -1:
+  .S.S...
+layer 0:
+  UCUCUAB

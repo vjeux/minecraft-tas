@@ -1,0 +1,19 @@
+# archived 2026-10-19T19:09Z from designs/clocks/tracks/clk-obs/families/p40-bulb-note-obs-stk-7b-96d678.txt by mctas clock archive
+# CLOCK: clk-obs-p40-bulb-note-obs-stk-7b-96d678 period 40 gt (2 s), on 20/40, edges 10, warmup 3, family copper_bulb+note_block+observer+sticky_piston, 7 blocks, 2x1x5, robust
+name: clk-obs-p40-bulb-note-obs-stk-7b-96d678
+# P40: 1 copper bulb, 2 note blocks, 3 observers, 1 sticky piston; changing in place: copper_bulb, note_block, observer, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 1 0 3
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:note_block[instrument=harp,note=0,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=north]
+  E minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  AC
+  B.
+  CD
+  .B
+  .E

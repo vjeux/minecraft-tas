@@ -1,0 +1,14 @@
+# c70b m2x: m2 with U chain removed; U by a test observer X (-1,-1,1) facing south (plan toggles (-1,-1,2) at gu/guc -> X fires at gu+2); BL ideal
+design designs/piston-door-3x3/tracks/c70b/wip/m2x.txt
+let gu = 9
+let guc = 9
+let bl = 26
+let blc = 26
+open 0 use 1 5 0
+open gu set -1 -1 2 minecraft:glass
+open bl set 0 -2 1 minecraft:redstone_block
+open bl+2 clear 0 -2 1
+close 0 use 1 5 0
+close guc clear -1 -1 2
+close blc set 0 -2 1 minecraft:redstone_block
+close blc+2 clear 0 -2 1

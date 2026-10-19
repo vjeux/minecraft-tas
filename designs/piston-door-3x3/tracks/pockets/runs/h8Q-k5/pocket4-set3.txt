@@ -1,0 +1,37 @@
+name: pocket4-set3
+covers: (1,4)o30
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=true,facing=east]
+  F minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=up]
+  R minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  ....B..C
+layer -2:
+  ...BB.oP
+layer -1:
+  .s...Fo
+layer 0:
+  ..FFFF.D
+layer 1:
+  .EpFFF.D
+layer 2:
+  LEpFFF.D
+layer 3:
+  ..s..FOA
+layer 4:
+  ....SRoN

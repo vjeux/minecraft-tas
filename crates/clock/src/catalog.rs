@@ -13,6 +13,8 @@ use std::path::{Path, PathBuf};
 pub const ARCHIVE_DIR: &str = "designs/clocks/archive";
 pub const VERDICTS: &str = "verdicts-v1.tsv";
 pub const CAPTIONS: &str = "captions.tsv";
+/// Designs removed as duplicates of an archived type: kept file, alias file, alias name.
+pub const ALIASES: &str = "aliases.tsv";
 pub const CATALOG: &str = "designs/clocks/CATALOG.md";
 pub const COVERAGE: &str = "designs/clocks/coverage.md";
 /// Hand-edited: `family<TAB>periods<TAB>why` rows (a reason or the census that proves it).
@@ -150,6 +152,77 @@ fn default_caption(text: &str) -> String {
     lines.join(" ")
 }
 
+/// The type key of an archived design, from its file (the current canonical form; rows written by
+/// older versions kept an older key), else the row's.
+pub fn archived_type_key(dir: &Path, r: &Row) -> String {
+    match Clock::load(&dir.join(&r.file)) {
+        Ok(c) => canon::design_type_key(&c.design),
+        Err(_) => r.type_key.clone(),
+    }
+}
+
+/// `clock archive --dedupe`: keep ONE archived design per type (the earliest archived: the first
+/// row of verdicts-v1.tsv), remove the others (design, pictures, verdict and caption rows) and
+/// record them in `aliases.tsv` (kept file, alias file, alias name), which the catalog lists as
+/// "also found as". Returns one line per removed design.
+pub fn dedupe(dir: &Path, img_dir: &Path) -> Result<Vec<String>> {
+    let rows = read_rows(dir)?;
+    let mut kept: BTreeMap<(u32, String), Row> = BTreeMap::new();
+    let mut removed: Vec<(Row, Row)> = Vec::new();
+    for r in &rows {
+        // an extendable family's base is its own entry: never removed, never removes another
+        if Clock::load(&dir.join(&r.file)).is_ok_and(|c| c.design.meta.contains_key("extend family")) {
+            continue;
+        }
+        let tk = (r.period, archived_type_key(dir, r));
+        match kept.get(&tk) {
+            Some(k) => removed.push((k.clone(), r.clone())),
+            None => {
+                kept.insert(tk, r.clone());
+            }
+        }
+    }
+    if removed.is_empty() {
+        return Ok(vec!["no duplicate types".into()]);
+    }
+    let gone: BTreeSet<String> = removed.iter().map(|(_, r)| r.file.clone()).collect();
+    let mut lines = Vec::new();
+    let mut aliases = std::fs::read_to_string(dir.join(ALIASES)).unwrap_or_else(|_| "kept\talias_file\talias_name\n".into());
+    for (k, r) in &removed {
+        let name = Clock::load(&dir.join(&r.file)).map(|c| c.name().to_string()).unwrap_or_else(|_| r.file.trim_end_matches(".txt").to_string());
+        aliases.push_str(&format!("{}\t{}\t{name}\n", k.file, r.file));
+        let stem = r.file.trim_end_matches(".txt");
+        for p in [dir.join(&r.file), img_dir.join(format!("{stem}.jpg")), img_dir.join(format!("{stem}.strip.jpg"))] {
+            let _ = std::fs::remove_file(p);
+        }
+        lines.push(format!("REMOVED {} ({name}): same type as {} (kept, archived first)", r.file, k.file));
+    }
+    std::fs::write(dir.join(ALIASES), aliases)?;
+    // rewrite the verdict and caption files without the removed designs
+    let vp = dir.join(VERDICTS);
+    let text = std::fs::read_to_string(&vp)?;
+    let kept_lines: Vec<&str> = text.lines().filter(|l| l.split('\t').nth(1).is_none_or(|f| !gone.contains(f))).collect();
+    std::fs::write(&vp, kept_lines.join("\n") + "\n")?;
+    let cp = dir.join(CAPTIONS);
+    if let Ok(text) = std::fs::read_to_string(&cp) {
+        let kept_lines: Vec<&str> = text.lines().filter(|l| l.split('\t').next().is_none_or(|f| !gone.contains(f))).collect();
+        std::fs::write(&cp, kept_lines.join("\n") + "\n")?;
+    }
+    Ok(lines)
+}
+
+/// Alias rows written by [`dedupe`]: kept file -> (alias file, alias name).
+pub fn read_aliases(dir: &Path) -> BTreeMap<String, Vec<String>> {
+    let mut m: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for l in std::fs::read_to_string(dir.join(ALIASES)).unwrap_or_default().lines().skip(1) {
+        let f: Vec<&str> = l.split('\t').collect();
+        if f.len() >= 3 {
+            m.entry(f[0].to_string()).or_default().push(f[2].to_string());
+        }
+    }
+    m
+}
+
 /// Result of [`archive`].
 pub struct Archived {
     pub file: PathBuf,
@@ -169,18 +242,56 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     if let Some(r) = rows.iter().find(|r| r.hash == hash) {
         return Ok(Archived { file: dir.join(&r.file), summary: r.summary.clone(), new: false });
     }
+    // one archived design per TYPE and period (the structure up to translation, rotation and mirror
+    // image; the same structure can run at another period in another orientation or from another
+    // start: that is another catalog entry)
+    let tk = canon::design_type_key(&c.design);
+    let same_type: Vec<&Row> = rows.iter().filter(|r| archived_type_key(dir, r) == tk).collect();
+    let sim_period = {
+        let r = crate::sim::simulate(&c, &crate::sim::SimOptions::default());
+        (r.verdict == Verdict::Clock).then_some(r.period)
+    };
+    // (an extendable family's base is archived even when its n = base instance already is: the
+    // family card is another entry, the instance leaves the gallery)
+    let is_family = c.design.meta.contains_key("extend family");
+    if let Some(r) = same_type.iter().find(|r| Some(r.period) == sim_period).filter(|_| !is_family) {
+        return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
+    }
     let rep = verify_in_pool(pool, &c, o)?;
     if rep.verdict != Verdict::Clock {
         bail!("not archived: {}", rep.summary());
+    }
+    if let (Some(b), true) = (rep.base(), sim_period.is_none() && !is_family) {
+        if let Some(r) = same_type.iter().find(|r| r.period == b.period) {
+            return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
+        }
+    }
+    // an extendable family: n = low, low+1, low+2, the middle and the high end judged in the game
+    // first (period and blocks must follow the formulas), then recorded in extend.tsv
+    let family = crate::extend::Family::of(&c)?;
+    let mut family_rows = Vec::new();
+    if let Some(f) = &family {
+        let checked = crate::extend::check(pool, path, f, &f.sample(), o)?;
+        if let Some((_, _, line)) = checked.iter().find(|(_, ok, _)| !ok) {
+            bail!("not archived: extend family {}: {line}", f.id);
+        }
+        family_rows = checked.into_iter().map(|(i, _, _)| i).collect();
     }
     let base = rep.base().unwrap().clone();
     std::fs::create_dir_all(dir)?;
     let stem: String = c.name().chars().map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '-' }).collect();
     let stem = if stem.is_empty() { "clock".to_string() } else { stem };
     let mut file = format!("{stem}.txt");
+    // a name taken by ANOTHER structure: name + '-' + a short hash of the type (stable: the same
+    // structure gets the same name on every branch); then -2, -3...
+    if dir.join(&file).exists() {
+        let h = tk.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
+        file = format!("{stem}-{:06x}.txt", h & 0xffffff);
+    }
+    let base_file = file.trim_end_matches(".txt").to_string();
     let mut n = 2;
     while dir.join(&file).exists() {
-        file = format!("{stem}-{n}.txt");
+        file = format!("{base_file}-{n}.txt");
         n += 1;
     }
     let summary = rep.summary();
@@ -188,7 +299,6 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     std::fs::write(dir.join(&file), format!("{header}{text}"))?;
     let [w, h, d] = base.dims;
     let (on, edges, pulses) = base.output.as_ref().map(|o| (o.wave.on, o.wave.edges, format!("{:?}", o.wave.widths))).unwrap_or_default();
-    let tk = canon::type_key(c.design.blocks.iter());
     let row = Row {
         hash,
         file: file.clone(),
@@ -203,7 +313,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         volume: (w * h * d) as i64,
         robustness: rep.robustness.clone(),
         start: c.start_label(),
-        chiral: canon::mirror_type_key(c.design.blocks.iter()) != tk,
+        chiral: canon::chiral(c.design.blocks.iter()),
         type_key: tk,
         summary: summary.clone(),
     };
@@ -219,6 +329,13 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         caps.push_str(&format!("{file}\t{}\n", cap.replace(['\t', '\n'], " ")));
         std::fs::write(&cp, caps)?;
     }
+    if !family_rows.is_empty() {
+        crate::extend::record(dir, &family_rows)?;
+    }
+    let summary = match &family {
+        Some(f) => format!("{summary}; extend family {}: P = {} gt, n = {}..{} (judged: n = {})", f.id, f.period.text(), f.n_lo, f.n_hi, family_rows.iter().map(|r| r.n.to_string()).collect::<Vec<_>>().join(", ")),
+        None => summary,
+    };
     Ok(Archived { file: dir.join(file), summary, new: true })
 }
 
@@ -247,13 +364,24 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file)).cloned().collect();
     // one instance per type: the smallest (blocks, volume, then file name)
     let mut by_type: BTreeMap<(u32, String), Row> = BTreeMap::new();
+    // each archived design's type (recomputed from its file: rotations and mirror images are one
+    // type) and the names of the other designs of that type (aliases, also those removed by
+    // `clock archive --dedupe`)
+    let type_of: BTreeMap<String, String> = rows.iter().map(|r| (r.file.clone(), archived_type_key(dir, r))).collect();
+    let removed_aliases = read_aliases(dir);
     for r in &rows {
-        let k = (r.period, r.type_key.clone());
+        let k = (r.period, type_of[&r.file].clone());
         let better = by_type.get(&k).is_none_or(|b| (r.blocks, r.volume, &r.file) < (b.blocks, b.volume, &b.file));
         if better {
             by_type.insert(k, r.clone());
         }
     }
+    let aliases_of = |r: &Row| -> Vec<String> {
+        let tk = &type_of[&r.file];
+        let mut v: Vec<String> = rows.iter().filter(|o| o.file != r.file && o.period == r.period && &type_of[&o.file] == tk).map(|o| o.file.trim_end_matches(".txt").to_string()).collect();
+        v.extend(removed_aliases.get(&r.file).cloned().unwrap_or_default());
+        v
+    };
     let periods: BTreeSet<u32> = rows.iter().map(|r| r.period).collect();
     let mut fam_count: BTreeMap<String, usize> = BTreeMap::new();
     for r in by_type.values() {
@@ -271,7 +399,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     }
     let matrix = |link: bool| -> String {
         let mut s = String::new();
-        s.push_str(&format!("| P (gt) | {} |\n", families.join(" | ")));
+        s.push_str(&format!("| period | {} |\n", families.join(" | ")));
         s.push_str(&format!("|---|{}\n", "---|".repeat(families.len())));
         for p in &periods {
             let cells: Vec<String> = families
@@ -282,96 +410,110 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
                     None => String::new(),
                 })
                 .collect();
-            s.push_str(&format!("| {p} | {} |\n", cells.join(" | ")));
+            s.push_str(&format!("| {} | {} |\n", crate::gt_time(*p), cells.join(" | ")));
         }
         s
     };
-    let mut md = String::new();
-    md.push_str("# Clock catalog\n\nGenerated by `mctas clock catalog` from `designs/clocks/archive/` (verdicts-v1.tsv, captions.tsv): never edit by hand. What a clock is and how it is judged: [docs/clocks.md](../../docs/clocks.md).\n\n");
-    md.push_str(&format!(
-        "{} archived clocks, {} distinct types (up to translation and rotation), {} families, {} periods.\n\n",
-        rows.len(),
-        by_type.len(),
-        families.len(),
-        periods.len()
-    ));
-    md.push_str("## Coverage: period x family (fewest blocks)\n\n");
-    md.push_str(&matrix(true));
-    let imp = std::fs::read_to_string(IMPOSSIBLE).unwrap_or_default();
-    let imp_rows: Vec<Vec<&str>> = imp.lines().filter(|l| !l.trim().is_empty() && !l.starts_with("family\t") && !l.starts_with('#')).map(|l| l.split('\t').collect()).filter(|v: &Vec<&str>| v.len() >= 3).collect();
-    md.push_str("\n## Periods a family cannot reach\n\n");
-    if imp_rows.is_empty() {
-        md.push_str("None recorded yet (`designs/clocks/impossible.tsv`: family, periods, why: a reason from the source or the census that proves it).\n");
-    } else {
-        md.push_str("| family | periods | why |\n|---|---|---|\n");
-        for v in imp_rows {
-            md.push_str(&format!("| {} | {} | {} |\n", v[0], v[1], v[2]));
-        }
-    }
-    // pictures (`clock shot`): designs/clocks/img/<archive file stem>.jpg, linked relative to the
-    // catalog's folder
+    // CATALOG.md is the GALLERY only (vjeux: "just keep the screenshots in this page"): per period
+    // (ascending) a grid of pictures, each linked to its design, with one caption line; the
+    // coverage matrix lives in coverage.md, the impossibility notes in impossible.tsv.
     let out_dir = out.parent().map(|p| p.to_path_buf()).unwrap_or_default();
     let img_dir = out_dir.join("img");
-    let pic = |file: &str, width: u32| -> String {
-        let stem = file.trim_end_matches(".txt");
-        if img_dir.join(format!("{stem}.jpg")).exists() { format!("<img src=\"img/{stem}.jpg\" width=\"{width}\">") } else { String::new() }
-    };
-    let strip = |file: &str| -> String {
-        let stem = file.trim_end_matches(".txt");
-        if img_dir.join(format!("{stem}.strip.jpg")).exists() { format!(" [motion](img/{stem}.strip.jpg)") } else { String::new() }
-    };
-    md.push_str("\n## Gallery\n\nEvery archived clock in the real game (`mctas clock shot`: the most active moment of a period), by period; click a picture for its design.\n");
-    for p in &periods {
-        let mut rs: Vec<&Row> = rows.iter().filter(|r| r.period == *p).collect();
-        rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
-        let cells: Vec<String> = rs
-            .iter()
-            .filter_map(|r| {
-                let stem = r.file.trim_end_matches(".txt");
-                img_dir.join(format!("{stem}.jpg")).exists().then(|| {
-                    format!("<a href=\"archive/{}\"><img src=\"img/{stem}.jpg\" width=\"260\" title=\"P {} gt, {}, {} blocks, {}\"></a>", r.file, r.period, r.family, r.blocks, r.dims)
-                })
-            })
-            .collect();
-        if !cells.is_empty() {
-            md.push_str(&format!("\n**P = {p} gt**\n\n{}\n", cells.join("\n")));
+    let cell = |r: &Row| -> String {
+        let stem = r.file.trim_end_matches(".txt");
+        let al = aliases_of(r);
+        let also = if al.is_empty() { String::new() } else { format!("<br><sub>also found as {}</sub>", al.join(", ")) };
+        let caption = format!("{} · {} · {} blocks", crate::gt_time(r.period), r.family, r.blocks);
+        if img_dir.join(format!("{stem}.jpg")).exists() {
+            format!("<td align=\"center\"><a href=\"archive/{}\"><img src=\"img/{stem}.jpg\" width=\"260\" alt=\"{stem}\"></a><br><sub>{caption}</sub>{also}</td>", r.file)
+        } else {
+            format!("<td align=\"center\"><a href=\"archive/{}\">{stem}</a><br><sub>{caption} (picture pending)</sub>{also}</td>", r.file)
         }
+    };
+    let grid = |rs: &[&Row]| -> String {
+        let mut s = String::from("<table>\n");
+        for chunk in rs.chunks(3) {
+            s.push_str("<tr>");
+            for r in chunk {
+                s.push_str(&cell(r));
+            }
+            s.push_str("</tr>\n");
+        }
+        s.push_str("</table>\n");
+        s
+    };
+    let mut md = String::new();
+    md.push_str(&format!(
+        "# Clock gallery\n\n{} clocks ({} periods, {} families), each in the real game at the most active moment of its period; **orange glass = where the output signal is** (placed only for the picture). Click a picture for its design. Generated by `mctas clock catalog` ([docs/clocks.md](../../docs/clocks.md); the period x family matrix: [coverage.md](coverage.md)).\n",
+        by_type.len(),
+        periods.len(),
+        families.len()
+    ));
+    // extendable families (archived base designs with `extend` headers) and their verified
+    // instances (archive/extend.tsv): one card each; their instances leave the per-period gallery
+    let mut fams: Vec<(Row, crate::extend::Family)> = Vec::new();
+    for r in &rows {
+        if let Ok(c) = Clock::load(&dir.join(&r.file)) {
+            if let Ok(Some(f)) = crate::extend::Family::of(&c) {
+                fams.push((r.clone(), f));
+            }
+        }
+    }
+    fams.sort_by(|a, b| (a.1.period.eval(a.1.base), &a.1.id).cmp(&(b.1.period.eval(b.1.base), &b.1.id)));
+    let instances = crate::extend::read_instances(dir);
+    let fam_files: BTreeSet<String> = fams.iter().map(|(r, _)| r.file.clone()).collect();
+    let is_instance = |r: &Row| -> Option<(String, i64)> {
+        if fam_files.contains(&r.file) {
+            return fams.iter().find(|(fr, _)| fr.file == r.file).map(|(_, f)| (f.id.clone(), f.base));
+        }
+        let tk = &type_of[&r.file];
+        instances.iter().find(|x| x.period == r.period && &x.type_key == tk).map(|x| (x.family.clone(), x.n))
+    };
+    if !fams.is_empty() {
+        md.push_str("\n## Extendable clocks\n\nOne card per family: the base design, its period and size for any n, how to extend it, the n range verified in the game (`mctas clock extend-check`); their instances are not repeated in the periods below.\n\n<table>\n");
+        for chunk in fams.chunks(2) {
+            md.push_str("<tr>");
+            for (r, f) in chunk {
+                let stem = r.file.trim_end_matches(".txt");
+                let pic = if img_dir.join(format!("{stem}.jpg")).exists() { format!("<a href=\"archive/{}\"><img src=\"img/{stem}.jpg\" width=\"360\" alt=\"{stem}\"></a><br>", r.file) } else { format!("<a href=\"archive/{}\">{stem}</a> (picture pending)<br>", r.file) };
+                let verified: Vec<i64> = instances.iter().filter(|x| x.family == f.id).map(|x| x.n).collect();
+                let checked = if verified.is_empty() { String::new() } else { format!(" (judged in the game: n = {})", verified.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ")) };
+                md.push_str(&format!(
+                    "<td align=\"center\" valign=\"top\">{pic}<b>{}</b><br><sub>P = {} gt ({}) · {} blocks · {}<br>extend: {}<br>n = {}..{}: P = {}..{} gt{checked}</sub></td>",
+                    f.id,
+                    f.period.text(),
+                    f.period.seconds(),
+                    f.blocks.text(),
+                    r.family,
+                    f.rule,
+                    f.n_lo,
+                    f.n_hi,
+                    f.period.eval(f.n_lo),
+                    f.period.eval(f.n_hi)
+                ));
+            }
+            md.push_str("</tr>\n");
+        }
+        md.push_str("</table>\n");
+    }
+    for p in &periods {
+        let mut rs: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).filter(|r| is_instance(r).is_none()).collect();
+        rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
+        let reach: Vec<String> = fams
+            .iter()
+            .filter_map(|(_, f)| (f.n_lo..=f.n_hi).find(|n| f.period.eval(*n) == *p as i64).map(|n| format!("{} (n = {n})", f.id)))
+            .collect();
+        if rs.is_empty() && reach.is_empty() {
+            continue;
+        }
+        let also = if reach.is_empty() { String::new() } else { format!("\nAlso reachable by: {}.\n", reach.join(", ")) };
+        md.push_str(&format!("\n## {}\n{also}\n{}", crate::gt_time(*p), if rs.is_empty() { String::new() } else { grid(&rs) }));
     }
     if !composite.is_empty() {
-        md.push_str("\n## Composite clocks (beat clocks: the output combines sub-clocks that run alone)\n\nMarked `# composite` in their design; not in the coverage matrix.\n\n| period | family | blocks | box | picture | design |\n|---|---|---|---|---|---|\n");
-        for r in all_rows.iter().filter(|r| composite.contains(&r.file)) {
-            md.push_str(&format!("| {} | {} | {} | {} | {} | [{}](archive/{}) |\n", r.period, r.family, r.blocks, r.dims, pic(&r.file, 160), r.file.trim_end_matches(".txt"), r.file));
-        }
+        let rs: Vec<&Row> = all_rows.iter().filter(|r| composite.contains(&r.file)).collect();
+        md.push_str(&format!("\n## Composite clocks\n\nBeat clocks: the output combines sub-clocks that run alone (marked `# composite`).\n\n{}", grid(&rs)));
     }
-    md.push_str("\n## By period\n");
-    for p in &periods {
-        let types: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).collect();
-        let fams: BTreeSet<&str> = types.iter().map(|r| r.family.as_str()).collect();
-        md.push_str(&format!("\n### P = {p} gt: {} type{}, {} famil{}\n\n", types.len(), if types.len() == 1 { "" } else { "s" }, fams.len(), if fams.len() == 1 { "y" } else { "ies" }));
-        md.push_str("| picture | family | blocks | box | volume | duty | edges | start | judge | design | how it works |\n|---|---|---|---|---|---|---|---|---|---|---|\n");
-        let mut sorted = types.clone();
-        sorted.sort_by(|a, b| (a.family.as_str(), a.blocks, a.volume).cmp(&(b.family.as_str(), b.blocks, b.volume)));
-        for r in sorted {
-            let smallest = best.get(&(*p, r.family.clone())).is_some_and(|b| b.hash == r.hash);
-            md.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | {} | {} | {}{} | [{}](archive/{}){} | {} |\n",
-                pic(&r.file, 200),
-                if smallest { format!("**{}**", r.family) } else { r.family.clone() },
-                r.blocks,
-                r.dims,
-                r.volume,
-                duty(r),
-                r.edges,
-                r.start,
-                r.robustness,
-                if r.chiral { ", chiral" } else { "" },
-                r.file.trim_end_matches(".txt"),
-                r.file,
-                strip(&r.file),
-                caps.get(&r.file).cloned().unwrap_or_default().replace('|', "/")
-            ));
-        }
-    }
+    let _ = (&caps, &best, duty as fn(&Row) -> String, IMPOSSIBLE);
     std::fs::write(out, &md).with_context(|| format!("writing {}", out.display()))?;
     let cov = format!(
         "# Clock coverage: period x family (fewest blocks)\n\nGenerated by `mctas clock catalog` (designs/clocks/CATALOG.md has every type, the boxes and the links); {} clocks, {} types, {} families.\n\n{}",

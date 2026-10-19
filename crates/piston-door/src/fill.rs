@@ -543,6 +543,7 @@ pub fn run(o: &FillOpts) -> Result<()> {
     let finds = AtomicUsize::new(0);
     let stop = AtomicBool::new(false);
     let seen_finds: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
+    let summary: Mutex<BTreeMap<(i32, usize, u32, u32), usize>> = Mutex::new(BTreeMap::new());
     let t0 = std::time::Instant::now();
     let stem = o.design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "fill".into());
     std::thread::scope(|sc| {
@@ -649,6 +650,10 @@ pub fn run(o: &FillOpts) -> Result<()> {
                                         dd.meta.insert("note".into(), format!("door fill of {}: {key}", o.design.display()));
                                         let _ = std::fs::write(&path, dd.to_text());
                                         println!("FIND {}: {} | {key}", path.display(), cs::eval_line(&name, &e, 0.0));
+                                        // the summary table: finds per (volume, blocks, open, close)
+                                        let worst = |f: fn(&(u32, u32)) -> u32| e.judge.as_ref().map(|c| c.iter().map(f).max().unwrap_or(0)).unwrap_or(0);
+                                        let row = (e.volume.map(|v| v.0).unwrap_or(0), e.blocks, worst(|c| c.0), worst(|c| c.1));
+                                        *summary.lock().unwrap().entry(row).or_insert(0) += 1;
                                         if k + 1 >= o.max_finds {
                                             stop.store(true, Ordering::Relaxed);
                                         }
@@ -693,5 +698,13 @@ pub fn run(o: &FillOpts) -> Result<()> {
         passed.load(Ordering::Relaxed),
         finds.load(Ordering::Relaxed)
     );
+    // every find grouped by size, blocks and speed (worst cycle), smallest first
+    let summary = summary.into_inner().unwrap();
+    if !summary.is_empty() {
+        println!("finds by (volume, blocks, open, close):");
+        for ((v, b, op, cl), n) in &summary {
+            println!("  {v}b, {b} blocks, open {op} / close {cl}: {n} find(s)");
+        }
+    }
     Ok(())
 }
