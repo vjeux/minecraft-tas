@@ -194,11 +194,110 @@ fn parse_vary(v: &str) -> Result<(Pos, Vec<Option<Option<String>>>)> {
     Ok((p, out))
 }
 
+/// Compact "a..b,c" form of a sorted list of ticks.
+fn ranges(v: &[i64]) -> String {
+    let mut out: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < v.len() {
+        let mut j = i;
+        while j + 1 < v.len() && v[j + 1] == v[j] + 1 {
+            j += 1;
+        }
+        out.push(if j > i { format!("{}..{}", v[i], v[j]) } else { v[i].to_string() });
+        i = j + 1;
+    }
+    if out.is_empty() { "-".to_string() } else { out.join(",") }
+}
+
+/// `--holds`: for every ideal input cell of the plan, replace its events by what a sculk sensor
+/// can give it and report which starts work: `hold10` / `hold30` (the cell powered for a
+/// calibrated / plain sensor's window), `taps3` (3 two-tick pulses 10 apart: an observer on a
+/// calibrated sensor), `taps2` (2 pulses 14 apart: sensor -> lamp -> observer), `pulse` (one
+/// two-tick pulse, for reference). The start on open and on close are swept independently over
+/// `none` and 0..=max_tick; the other inputs keep their plan events. "both" lists the starts that
+/// work with the SAME tick on both edges (one sensor hearing the same event at both flips).
+fn holds_cli(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: u32, threads: usize, max_tick: i64) -> Result<()> {
+    let ev_open = s.events_of(true, vars)?;
+    let ev_close = s.events_of(false, vars)?;
+    let cells = s.input_cells();
+    let modes: [(&str, Vec<(i64, i64)>); 5] = [
+        ("pulse", vec![(0, 2)]),
+        ("hold10", vec![(0, 10)]),
+        ("hold30", vec![(0, 30)]),
+        ("taps3", vec![(0, 2), (10, 12), (20, 22)]),
+        ("taps2", vec![(0, 2), (14, 16)]),
+    ];
+    let starts: Vec<i64> = std::iter::once(-1).chain(0..=max_tick).collect();
+    for p in &cells {
+        let state = ev_open
+            .iter()
+            .chain(ev_close.iter())
+            .find(|e| e.1 == *p && e.2.is_some())
+            .and_then(|e| e.2.clone())
+            .unwrap_or_else(|| "minecraft:redstone_block".to_string());
+        let base: Vec<(bool, u32, Pos, Option<String>)> = ev_open
+            .iter()
+            .map(|e| (true, e.0, e.1, e.2.clone()))
+            .chain(ev_close.iter().map(|e| (false, e.0, e.1, e.2.clone())))
+            .filter(|e| e.2 != *p)
+            .collect();
+        for (name, shape) in &modes {
+            let mut jobs: Vec<(i64, i64)> = Vec::new();
+            for &ho in &starts {
+                for &hc in &starts {
+                    if ho >= 0 || hc >= 0 {
+                        jobs.push((ho, hc));
+                    }
+                }
+            }
+            let results = cs::par_map(&jobs, threads, |(ho, hc)| {
+                let mut evs = base.clone();
+                for (open, h) in [(true, *ho), (false, *hc)] {
+                    if h < 0 {
+                        continue;
+                    }
+                    for (a, b) in shape {
+                        evs.push((open, (h + a) as u32, *p, Some(state.clone())));
+                        evs.push((open, (h + b) as u32, *p, None));
+                    }
+                }
+                let sched = Schedule::from_events(s.design().clone(), &evs);
+                run(&sched, &BTreeMap::new(), offsets, cycles, false).is_ok()
+            });
+            let ok: Vec<(i64, i64)> = jobs.iter().zip(results).filter(|(_, r)| *r).map(|(j, _)| *j).collect();
+            let mut opens: Vec<i64> = ok.iter().map(|j| j.0).collect();
+            opens.sort();
+            opens.dedup();
+            let mut closes: Vec<i64> = ok.iter().map(|j| j.1).collect();
+            closes.sort();
+            closes.dedup();
+            let both: Vec<i64> = ok.iter().filter(|j| j.0 == j.1).map(|j| j.0).collect();
+            let fmt = |v: &[i64]| {
+                let none = v.first() == Some(&-1);
+                let rest: Vec<i64> = v.iter().copied().filter(|t| *t >= 0).collect();
+                format!("{}{}", if none { "none," } else { "" }, ranges(&rest))
+            };
+            println!(
+                "input {},{},{} {name}: {} of {} (open start, close start) pairs work; open {}; close {}; both {}",
+                p[0],
+                p[1],
+                p[2],
+                ok.len(),
+                jobs.len(),
+                fmt(&opens),
+                fmt(&closes),
+                ranges(&both)
+            );
+        }
+    }
+    Ok(())
+}
+
 /// CLI: run once, or sweep variables (`name=lo..hi`; several = grid, `--independent` = one axis
 /// at a time) and/or block variants (`--vary`: every combination of alternatives per cell,
 /// applied in memory before each run: screening hand-built wiring variants in milliseconds).
 #[allow(clippy::too_many_arguments)]
-pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize, vary: &[String], ok_only: bool, drop: usize) -> Result<()> {
+pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize, vary: &[String], ok_only: bool, drop: usize, holds: Option<i64>) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut overrides = BTreeMap::new();
     for kv in set {
@@ -208,6 +307,9 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
     let s = Schedule::parse_with(&text, &overrides)?;
     let vars = s.vars().clone();
     let offsets = crate::ideal::offsets(extra_offsets);
+    if let Some(max_tick) = holds {
+        return holds_cli(&s, &vars, &offsets, cycles, threads, max_tick);
+    }
     let mut variants: Vec<(Vec<String>, Vec<Edit>)> = vec![(Vec::new(), Vec::new())];
     for v in vary {
         let (p, alts) = parse_vary(v)?;

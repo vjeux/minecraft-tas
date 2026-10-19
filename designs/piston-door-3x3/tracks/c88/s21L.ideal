@@ -1,0 +1,25 @@
+# s21L: s21 with B LEVEL-held (extended at rest; ideal level = redstone block (2,5) cleared on open at
+# lo, set on close at lc). A real (pockets2's chain). Still ideal: A's top pull (atp/atc), R, BR.
+design designs/piston-door-3x3/tracks/c88/s21L.txt
+let r = 30
+let b = 30
+let lo = 16
+let lc = 16
+let atp = 24
+let atc = 24
+open 0 use -4 1 0
+open lo clear 2 5 0
+open atp set 1 4 -1 minecraft:redstone_block
+open atp+2 clear 1 4 -1
+open r set 4 2 -1 minecraft:redstone_block
+open r+2 clear 4 2 -1
+open b set 2 -2 -1 minecraft:redstone_block
+open b+2 clear 2 -2 -1
+close 0 use -4 1 0
+close lc set 2 5 0 minecraft:redstone_block
+close atc set 1 4 -1 minecraft:redstone_block
+close atc+2 clear 1 4 -1
+close r set 4 2 -1 minecraft:redstone_block
+close r+2 clear 4 2 -1
+close b set 2 -2 -1 minecraft:redstone_block
+close b+2 clear 2 -2 -1

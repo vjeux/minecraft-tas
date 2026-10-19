@@ -1,0 +1,39 @@
+name: pockets-partial-3as
+assisted: -1,-1;-1,1;-2,1
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=true,facing=down]
+  G minecraft:stone
+  I minecraft:iron_trapdoor[facing=west,half=top,open=false,powered=false,waterlogged=false]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=up]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ..BDDO.E
+layer -1:
+  .SD..G.A
+layer 0:
+  Go.GGG.E
+layer 1:
+  ss.GGG.E
+layer 2:
+  PAGGGGGA
+layer 3:
+  IRopppBr
+layer 4:
+  .BCFFF
+layer 5:
+  ....L

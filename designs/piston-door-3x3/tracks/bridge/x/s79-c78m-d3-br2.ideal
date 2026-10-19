@@ -1,0 +1,8 @@
+design designs/piston-door-3x3/tracks/bridge/x/s79-c78m-d3.txt
+let br = 2
+open 0 use 4 6 0
+open br set 2 -2 -1 minecraft:redstone_block
+open br+2 clear 2 -2 -1
+close 0 use 4 6 0
+close br set 2 -2 -1 minecraft:redstone_block
+close br+2 clear 2 -2 -1

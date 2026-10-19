@@ -1,0 +1,23 @@
+design designs/piston-door-3x3/tracks/bridge/e78/t3k7.txt
+# P_M as 3 calibrated taps (pm, pm+10, pm+20) or 2 lamp taps (pm, pm+pd), shuttle hold [s, s+10]
+let pm = 19
+let pd = 10
+let s = 26
+open 0 use 1 5 0
+close 0 use 1 5 0
+open pm set -1 -1 1 minecraft:redstone_block
+open pm+2 clear -1 -1 1
+open pm+pd set -1 -1 1 minecraft:redstone_block
+open pm+pd+2 clear -1 -1 1
+open pm+20 set -1 -1 1 minecraft:redstone_block
+open pm+22 clear -1 -1 1
+open s set -2 -3 1 minecraft:redstone_block
+open s+10 clear -2 -3 1
+close pm set -1 -1 1 minecraft:redstone_block
+close pm+2 clear -1 -1 1
+close pm+pd set -1 -1 1 minecraft:redstone_block
+close pm+pd+2 clear -1 -1 1
+close pm+20 set -1 -1 1 minecraft:redstone_block
+close pm+22 clear -1 -1 1
+close s set -2 -3 1 minecraft:redstone_block
+close s+10 clear -2 -3 1

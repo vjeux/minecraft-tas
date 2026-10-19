@@ -1,0 +1,29 @@
+design designs/piston-door-3x3/tracks/bridge/x/s1k.txt
+# stage 1: top/side inputs ideal (2 gt), bottom real (p2's)
+let tl = 2
+let tm = 2
+let ml = 2
+let tr = 18
+let br = 18
+open 0 use -2 5 0
+close 0 use -2 5 0
+open tl set 0 4 1 minecraft:redstone_block
+open tl+2 clear 0 4 1
+open tm set 1 4 1 minecraft:redstone_block
+open tm+2 clear 1 4 1
+open ml set -2 1 1 minecraft:redstone_block
+open ml+2 clear -2 1 1
+open tr set 4 2 1 minecraft:redstone_block
+open tr+2 clear 4 2 1
+open br set 4 0 1 minecraft:redstone_block
+open br+2 clear 4 0 1
+close tl set 0 4 1 minecraft:redstone_block
+close tl+2 clear 0 4 1
+close tm set 1 4 1 minecraft:redstone_block
+close tm+2 clear 1 4 1
+close ml set -2 1 1 minecraft:redstone_block
+close ml+2 clear -2 1 1
+close tr set 4 2 1 minecraft:redstone_block
+close tr+2 clear 4 2 1
+close br set 4 0 1 minecraft:redstone_block
+close br+2 clear 4 0 1
