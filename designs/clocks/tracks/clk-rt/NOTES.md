@@ -11,7 +11,10 @@ Tools: `mctas clock rt <command>` (crates/clock-rt):
 | `uloop --head torch\|corner\|dust2 --top 2,1* --bottom 3,d --tail dust\|torch\|fade` | one U-loop design (families.rs) |
 | `sweep-uloop --kmax K [--alphabet ...] [--powered] [--per-family] --out-dir D` | every U-loop up to row length K judged by clock sim: best per period, every waveform, best per (period, family) |
 | `sweep-ring --w W --h H [--straight ...] [--corner ...]` | every assignment of a W x H rectangle ring (ring.rs: corner blocks, torches, repeaters, comparators, dust) |
-| `sweep-odd --kmax K` / `sweep-odd-ring --w W --h H` | odd periods: every loading of every loop with an odd half loop delay, kicked at odd ticks (odd.rs) |
+| `sweep-odd --kmax K` / `sweep-odd-ring --w W --h H [--single-load]` | odd periods: every loading of every loop with an odd half loop delay, kicked at odd ticks (odd.rs) |
+| `odd-rect --from 5 --to 99` / `odd-range` | one odd clock per odd P: a 3 x h rectangle ring (or U-loop) of repeaters with delays summing to P, two pulses, the best odd-tick kick |
+| `counter --k-in K [--k-out K \| --ks 2,2]` | comparator counter clocks, nested (counter.rs) |
+| `ring --w W --h H --cells b,1*,b,...` | one rectangle ring design |
 | `sweep-burnout --kmax K [--max-at N]` | fast loops (torches burn out), self-started and kicked: every burnout period |
 | `kick <design> [--odd]` | try temporary-block kicks (redstone block by a dust, torch under a block) at every tick |
 | `divider --d1 D1 --d2 D2 --stages K` / `divider --fade C --stages K` | divider chain: base U-loop or fading ring + K master-slave T flip-flop stages |
@@ -27,11 +30,12 @@ generated names carry the family: `uloop<n>t-` (n torches), `fade-`, `ring<w>x<h
 | P (gt) | blocks | family | design | structure |
 |---|---|---|---|---|
 | 4 | 8 | comparator+redstone_wire | `cmp-sub-4b.txt` | subtract comparator, rear = redstone block, output block + 2 dust into its side (15 -> 1 -> 15) |
-| 5 | 18 | redstone_wire+repeater | `odd/ring-p5.txt` | ODD: 5 delay-1 repeaters + dust in a ring, one pulse loaded at placement, a second one by a 1 gt redstone block `at 3` |
+| 5 | 16 | redstone_wire+repeater | `odd/rect/odd-rect-p5.txt` | ODD: 3x4 rectangle ring, 5 delay-1 repeaters + 4 corner blocks + dust, two 2 gt pulses (the second by a 1 gt temporary torch under a corner block at tick 1) |
 | 6 | 13 | redstone_wire+repeater | `ring/3x3/ring3x3-p6-rw-r.txt` | 3x3 rectangle ring: 3 corner blocks + a dust corner, 3 delay-1 repeaters + 1 dust |
-| 7 | 22 | redstone_wire+repeater | `odd/ring-p7.txt` | ODD: 7 delay-1 repeaters, two 2 gt pulses, kick `at 5` |
-| 8 | 10 | redstone_wire+repeater | `sweeps/uloop-k2/uloop-p8.txt` | pulse ring, 2 delay-2 repeaters |
-| 9 | 18 | redstone_wire+repeater | `odd/ring-p9.txt` | ODD: 3 delay-2 + 3 delay-1 repeaters, two 4 gt pulses, kick `at 5` |
+| 7 | 19 | repeater | `odd/rect/odd-rect-p7.txt` | ODD: 3x5 ring, 7 delay-1 repeaters, corner blocks + a relay block |
+| 8 | 10 | redstone_wire+repeater | `sweeps/uloop-k2/uloop-p8.txt` | pulse ring, 2 delay-2 repeaters (pure comparator: 3x3 ring of 4 comparators, 12b, kicked) |
+| 9 .. 23 odd | 16 | (redstone_wire+)repeater | `odd/rect/odd-rect-p9.txt` .. | ODD: 3x4 ring, 5-6 repeaters with delays summing to P, two pulses |
+| 25 .. 99 odd | 19 .. 55 | repeater | `odd/rect/` | ODD: 3 x h rings, P / 4 repeaters, corner + relay blocks |
 | 10 .. 20 | 8 | redstone_torch+repeater | `uloop-p10` .. `p20` | 2-torch U-ring: torch on A -> repeater -> block F -> torch on F -> repeater -> A |
 | 22, 26, 30, 34 | 12 | redstone_torch+repeater, repeater | `uloop-p22` .., `ring3x3-p22-r` .. | 2-torch ring with 4 repeaters; 3x3 ring of 4 repeaters + 4 corner blocks |
 | 24, 28, 32, 36 | 9 | redstone_torch+redstone_wire+repeater | `uloop-p24` .. | 1-torch inverter: corner head, 2 repeaters, torch tail |
@@ -50,11 +54,14 @@ generated names carry the family: `uloop<n>t-` (n torches), `fade-`, `ring<w>x<h
 | 440 | 8 | redstone_torch+repeater | `burnout/burn-p440.txt` | 2-torch burnout, odd kick `1 at 15`: the two burnout halves land in different parity classes |
 | 40 .. 2304 | 27 .. 117 | redstone_torch+redstone_wire+repeater | `div/div-*.txt` | DIVIDERS: base U-loop + master-slave T flip-flop stages |
 | 228 .. 5408 | 36 .. 106 | comparator+redstone_torch+redstone_wire+repeater | `div/div-fade*.txt` | DIVIDERS on a fading ring: P1012 64b, P1360 76b, P2704 88b, P5408 106b (P10816 124b: sim) |
+| 1596, 2380, 3164, 4732 | 44, 52, 60, 76 | comparator+redstone_torch+redstone_wire | `counter/count-i2-o2.txt` .. | comparator COUNTER (below): a fading ring's refill pulse decrements a lossless comparator ring, x14 |
+| 22344 | 70 | comparator+redstone_torch+redstone_wire | `counter/count-i2-o2-2.txt` | NESTED counters: fading ring P114 x14 x14 (18.6 minutes) |
 
-Every even period from 4 to 100 has a robust clock; odd: 5, 7, 9, 205. Every (period, family)
-pair's smallest U-loop: `sweeps/uloop-k2/uloop-p<P>-<fam>.txt` (127 designs, 119 robust:
-`sweeps/uloop-k2-verify.txt`; the 8 others are rotation-/position-dependent: equal-tick repeater
-races); 3x3 rings: `ring/3x3/` (78, 77 robust: `ring/3x3-verify.txt`).
+Every period from 4 to 100 has a robust clock (even: the families above; odd: the two-pulse
+rings). Every (period, family) pair's smallest U-loop: `sweeps/uloop-k2/uloop-p<P>-<fam>.txt`
+(127 designs, 119 robust: `sweeps/uloop-k2-verify.txt`; the 8 others are rotation-/position-
+dependent: equal-tick repeater races); 3x3 rings: `ring/3x3/` (78, 77 robust:
+`ring/3x3-verify.txt`); odd rectangle rings: `odd/rect/` (48 robust: `odd/rect-verify.txt`).
 
 ### Block-count curves
 - 1-torch inverter U-loop with k repeaters per row: 4k + 5 blocks, P = 4 (1 + sum of delays) up to
@@ -63,13 +70,39 @@ races); 3x3 rings: `ring/3x3/` (78, 77 robust: `ring/3x3-verify.txt`).
   P = 2 mod 4 workhorse (inverter loops are always 0 mod 4).
 - Pulse ring of repeaters (corner head, dust tail): 4k + 6 blocks, P = 2 x sum (one pulse); with
   corner BLOCKS (a repeater reads a block from any side): 3x3 ring of 4 repeaters at 12 blocks.
+- Odd periods (two pulses in a ring of delay 2P): about P / 2 + 6 blocks (P / 4 repeaters).
 - Comparator fading ring with k comparators per row: 4k + 10 blocks, P = 56k + 2 (about 14 laps of
   4k gt): about P / 14 blocks, the best linear family.
 - Dividers: + 18 blocks per doubling: 9 + 18k blocks for P = 4 (1 + d1 + d2) x 2^k on a U-loop
-  base, 4c + 10 + 18k for (56c + 2) x 2^k on a fading base: exponential. A stage beats lengthening
-  the loop once P > ~250 (fading) or ~150 (inverter).
+  base, 4c + 10 + 18k for (56c + 2) x 2^k on a fading base.
   Verified: P40 (27b), P288 (63b), P1152 (99b), P2304 (117b); fading base P228 (36b), P1012 (64b),
   P1360 (76b), P2704 (88b), P5408 (106b).
+- Comparator counters: + 26 blocks per factor 14 (a counter ring of 2 + 2 comparators + its
+  decrement shaper): P1596 at 44 blocks, P22344 at 70, (3 levels: P312816 = 4.3 h at 96, sim).
+  Per block, a counter level multiplies the period by 14^(1/26) = 1.107, a divider stage by
+  2^(1/18) = 1.039.
+
+## Comparator counter
+
+```text
+  z=-1:  E  c> .. c>  F  To      counter: corner head (A + dust E: lossless), compare comparators,
+  z= 0:  A  <s <c ..  D1 Jo      the bottom row's last comparator s in SUBTRACT mode
+  z= 1:     x                    x: dust at strength 1 during the inner pulse (s's side)
+  z= 2:  R w w Ce                Ce: subtract comparator, rear = the inner torch, side = 14
+  z= 3:      Ti Ji               (redstone block R + two dust): output 1 while the torch is on
+  z>=4:      inner clock         (rotated: its output torch Ti hangs on its block's north face)
+```
+The counter ring is a fading ring without the loss (a corner head): it holds its level forever.
+While the inner clock's torch is on, Ce outputs 15 - 14 = 1 into s's side, so s outputs one level
+less; the lower level runs around the ring (lap L = 4 gt per comparator pair) and comes back to
+s's rear. A decrement is CLEAN when the pulse lasts L - 1, L or L + 1 gt: shorter, s reverts to
+the old level before the new one comes back (a dip circulates); longer, s subtracts again from the
+new level. A fading ring's refill pulse lasts 4k gt (k comparators per row), so the inner ring and
+the counter get the same k. When the counter is empty its own torch To refills it to 14 (pulse
+4k + 2 gt): 14 inner periods per period. Nesting: the next counter reads To at Ce's rear (the
+level rotated so To sits at Ti's place); To's 10 gt pulse against a lap of 8 (k = 2) decrements
+once in the game (32 builds) and in redsim, although 10 = L + 2 is the edge case of the window
+(the side falls in the same tick as s re-evaluates; the order is fixed by the scheduling chain).
 
 ## Comparator fading ring
 

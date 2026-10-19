@@ -136,6 +136,24 @@ enum Cmd {
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
+    /// A comparator counter over an arbitrary inner clock design (counter.rs `over`): the inner
+    /// design's --tap cell (a block or torch carrying its pulse, on its edge) feeds the shaper.
+    CounterOver {
+        #[arg(long)]
+        inner: PathBuf,
+        /// x,y,z of the tap cell in the inner design's coordinates.
+        #[arg(long)]
+        tap: String,
+        #[arg(long, default_value_t = 2)]
+        k: usize,
+        /// Levels per decrement: count = ceil(14 / dec) (1 -> 14, 2 -> 7, 3 -> 5).
+        #[arg(long, default_value_t = 1)]
+        dec: usize,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// A comparator COUNTER clock (counter.rs): an inner fading ring decrements a lossless
     /// comparator ring by one level per refill pulse; the counter's refill torch is the output.
     Counter {
@@ -392,6 +410,25 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         write_design(&path, &f.design, &name, "", &cap)?;
                     }
                 }
+            }
+        }
+        Cmd::CounterOver { inner, tap, k, dec, name, out } => {
+            let d = mctas::design::Design::load(&inner)?;
+            let t: Vec<i32> = tap.split(',').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(t.len() == 3, "--tap x,y,z");
+            let count = 14usize.div_ceil(dec);
+            let name = name.unwrap_or_else(|| format!("clk-rt-count{count}-k{k}-over-{}", d.name.trim_start_matches("clk-rt-")));
+            let Some(m) = counter::over(&d, [t[0], t[1], t[2]], k, dec, &name) else { bail!("no turn of the inner design fits beyond the shaper") };
+            let src = std::fs::read_to_string(&inner).unwrap_or_default();
+            let lead: Vec<&str> = src.lines().take_while(|l| l.starts_with('#')).map(|l| l.trim_start_matches('#').trim()).collect();
+            let cap = format!(
+                "Comparator COUNTER over another clock (clk-rt): a lossless comparator ring ({k} + {k} comparators, one in subtract mode) loses {dec} level(s) per pulse of the inner clock (its pulse cut to strength {dec} by a subtract comparator with side {}) and its torch refills it to 14 at 0: period = {count} inner periods. Inner clock: {}",
+                15 - dec,
+                lead.join(" ")
+            );
+            match out {
+                Some(p) => write_design(&p, &m.to_text(), &name, "", &cap)?,
+                None => print!("{}", m.to_text()),
             }
         }
         Cmd::Counter { k_in, k_out, ks, out } => {
