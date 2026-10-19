@@ -1,43 +1,43 @@
-name: cosearch-live-79of79
-assisted: 3,-1
+name: cosearch-live-77of79
 port door: 0 0 0
 port lever: -2 6 0
 origin: -2 0 0
 palette:
-  A minecraft:observer[facing=east,powered=false]
-  B minecraft:observer[facing=up,powered=false]
-  C minecraft:observer[facing=west,powered=false]
-  D minecraft:dropper[facing=west,triggered=false]
-  E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
-  F minecraft:sticky_piston[extended=false,facing=east]
-  G minecraft:sticky_piston[extended=false,facing=up]
-  H minecraft:sticky_piston[extended=false,facing=west]
-  I minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=up]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:redstone_wire[east=up,north=none,power=0,south=none,west=side]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
   J minecraft:stone
   L minecraft:lever[face=floor,facing=east,powered=false]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
   O minecraft:oak_log[axis=y]
-  R minecraft:redstone_lamp[lit=false]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
   S minecraft:smooth_stone
   o minecraft:observer[facing=down,powered=false]
-  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
-  s minecraft:sticky_piston[extended=false,facing=down]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:smooth_stone_slab[type=bottom,waterlogged=false]
 layer -3:
-  ...GDAB
+  ..OHsGH
 layer -2:
-  sCOGoER
+  FBOHB.o
 layer -1:
-  B.S..HB
+  AFS..ID
 layer 0:
-  F.JJJ.H
+  G.JJJ.I
 layer 1:
-  F.JJJ.H
+  G.JJJ.I
 layer 2:
-  JSJJJSB
+  JSJJJSA
 layer 3:
-  r.....I
+  RJ....N
 layer 4:
-  J.sss.B
+  JEFFFJC
 layer 5:
-  BCCCCCC
+  A.rrrrA
 layer 6:
   L
