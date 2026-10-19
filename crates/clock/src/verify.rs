@@ -230,7 +230,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
             signals.push(sg);
             extras.push(ex);
         }
-        let next = actions.first().map(|(at, _)| *at).unwrap_or(o.horizon).min(o.horizon);
+        // in segments: the bridge returns a segment's frames as one message (a long horizon at
+        // once ran it out of memory: clk-rt, P10816 at 34000 gt)
+        const SEGMENT: u32 = 2000;
+        let next = actions.first().map(|(at, _)| *at).unwrap_or(o.horizon).min(o.horizon).min(t + SEGMENT);
         if next <= t {
             break;
         }
@@ -345,10 +348,18 @@ pub fn spawn_pool(o: &VerifyOptions) -> Result<Pool> {
 /// [`verify`] with existing workers.
 pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<VerifyReport> {
     // No `port output`: pick the output cell once (redsim's auto output on the unrotated clock)
-    // and carry it through every rotation and position, so builds compare the same cell.
+    // and carry it through every rotation and position, so builds compare the same cell. The
+    // horizon grows with redsim's period: warmup + 4 periods (capped at 20000 gt; coordinator,
+    // 2026-10-19: a P2304 divider was "not periodic within 4000 gt").
     let mut fixed = c.clone();
+    let r = crate::sim::simulate(c, &crate::sim::SimOptions::default());
+    let mut o = o.clone();
+    if r.verdict == Verdict::Clock {
+        let need = r.warmup.max(r.state_warmup) + (o.min_periods as u32 + 1) * r.period + 100;
+        o.horizon = o.horizon.max(need.min(20_000));
+    }
+    let o = &o;
     if fixed.output.is_none() {
-        let r = crate::sim::simulate(c, &crate::sim::SimOptions::default());
         if let (Verdict::Clock, Some(out)) = (r.verdict, r.output) {
             fixed.design.ports.insert("output".into(), out.pos);
             fixed.output = Some(out.pos);

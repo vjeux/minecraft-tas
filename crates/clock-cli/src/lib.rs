@@ -103,9 +103,14 @@ pub enum ClockCmd {
         k: usize,
         #[arg(long, default_value_t = 1)]
         kmin: usize,
-        /// Longest period looked for (sets the horizon: 4 periods + 1000 gt of warmup).
+        /// Longest period looked for (the horizon: 4 periods + --warmup gt); a candidate whose
+        /// whole state does not repeat within 4x it is dropped early (e.g. `--max-period 3
+        /// --warmup 60`: the P <= 3 question).
         #[arg(long, default_value_t = 500)]
         max_period: u32,
+        /// Warmup allowance in the horizon (gt).
+        #[arg(long, default_value_t = 1000)]
+        warmup: u32,
         #[arg(long, default_value_t = 2)]
         margin: i32,
         /// Self-starting only (no block placed last).
@@ -350,7 +355,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
         }
-        ClockCmd::Census { dims, palette, k, kmin, max_period, margin, no_kick, workers, out } => {
+        ClockCmd::Census { dims, palette, k, kmin, max_period, warmup, margin, no_kick, workers, out } => {
             let d: Vec<i32> = dims.split('x').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
             if d.len() != 3 || d.iter().any(|x| *x < 1) {
                 bail!("--box AxBxC, got {dims:?}");
@@ -361,7 +366,8 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 palette: clock::census::expand_palette(&palette)?,
                 k,
                 kmin,
-                horizon: 4 * max_period + 1000,
+                horizon: 4 * max_period + warmup,
+                max_period,
                 margin,
                 kick_last: !no_kick,
                 workers,

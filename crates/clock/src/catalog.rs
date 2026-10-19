@@ -167,10 +167,10 @@ pub fn archived_type_key(dir: &Path, r: &Row) -> String {
 /// "also found as". Returns one line per removed design.
 pub fn dedupe(dir: &Path, img_dir: &Path) -> Result<Vec<String>> {
     let rows = read_rows(dir)?;
-    let mut kept: BTreeMap<String, Row> = BTreeMap::new();
+    let mut kept: BTreeMap<(u32, String), Row> = BTreeMap::new();
     let mut removed: Vec<(Row, Row)> = Vec::new();
     for r in &rows {
-        let tk = archived_type_key(dir, r);
+        let tk = (r.period, archived_type_key(dir, r));
         match kept.get(&tk) {
             Some(k) => removed.push((k.clone(), r.clone())),
             None => {
@@ -238,14 +238,26 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     if let Some(r) = rows.iter().find(|r| r.hash == hash) {
         return Ok(Archived { file: dir.join(&r.file), summary: r.summary.clone(), new: false });
     }
-    // one archived design per TYPE (the structure up to translation, rotation and mirror image)
+    // one archived design per TYPE and period (the structure up to translation, rotation and mirror
+    // image; the same structure can run at another period in another orientation or from another
+    // start: that is another catalog entry)
     let tk = canon::design_type_key(&c.design);
-    if let Some(r) = rows.iter().find(|r| archived_type_key(dir, r) == tk) {
-        return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it): not archived", r.file), new: false });
+    let same_type: Vec<&Row> = rows.iter().filter(|r| archived_type_key(dir, r) == tk).collect();
+    let sim_period = {
+        let r = crate::sim::simulate(&c, &crate::sim::SimOptions::default());
+        (r.verdict == Verdict::Clock).then_some(r.period)
+    };
+    if let Some(r) = same_type.iter().find(|r| Some(r.period) == sim_period) {
+        return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
     }
     let rep = verify_in_pool(pool, &c, o)?;
     if rep.verdict != Verdict::Clock {
         bail!("not archived: {}", rep.summary());
+    }
+    if let (Some(b), true) = (rep.base(), sim_period.is_none()) {
+        if let Some(r) = same_type.iter().find(|r| r.period == b.period) {
+            return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
+        }
     }
     let base = rep.base().unwrap().clone();
     std::fs::create_dir_all(dir)?;
@@ -334,7 +346,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     }
     let aliases_of = |r: &Row| -> Vec<String> {
         let tk = &type_of[&r.file];
-        let mut v: Vec<String> = rows.iter().filter(|o| o.file != r.file && &type_of[&o.file] == tk).map(|o| o.file.trim_end_matches(".txt").to_string()).collect();
+        let mut v: Vec<String> = rows.iter().filter(|o| o.file != r.file && o.period == r.period && &type_of[&o.file] == tk).map(|o| o.file.trim_end_matches(".txt").to_string()).collect();
         v.extend(removed_aliases.get(&r.file).cloned().unwrap_or_default());
         v
     };
