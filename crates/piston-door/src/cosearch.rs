@@ -449,7 +449,14 @@ fn judge_at(blocks: &[(Pos, Block)], spec: &DoorSpec, opts: &JudgeOpts, oi: usiz
     let door_bp: Vec<BlockPos> = door_cells.iter().map(|p| bp(*p)).collect();
     let lever = bp(spec.lever);
     let mut cycles = Vec::new();
-    for cycle in 0..opts.cycles {
+    // Periodic rest state (vjeux: internal state doesn't matter as long as the door works
+    // repeatedly), exactly like `crate::verify`.
+    let mut seen_closed: Vec<Snap> = vec![rest.clone()];
+    let mut periodic = false;
+    for cycle in 0..opts.cycles + crate::MAX_PERIOD_EXTRA {
+        if cycle >= opts.cycles && periodic {
+            break;
+        }
         w.use_block(lever);
         let mut ok = Vec::new();
         let (n, idle) = step_until_idle(&mut w, opts.max_ticks, |w| ok.push(open_ok_world(w, &walk_bp)));
@@ -487,20 +494,28 @@ fn judge_at(blocks: &[(Pos, Block)], spec: &DoorSpec, opts: &JudgeOpts, oi: usiz
             return Err(jfail(oi, Some(cycle), "not-restored", format!("cycle {cycle}: door not restored: {}", bad.join("; "))));
         }
         let snap = Snap::take(&w, wlo, whi);
-        if snap != rest {
-            let diffs: Vec<String> = rest
-                .iter()
-                .filter(|(p, s)| snap.get(*p) != Some(*s))
-                .take(8)
-                .map(|(p, s)| format!("{p:?} {} -> {}", st(&s), snap.get(p).map(|b| st(&b)).unwrap_or("?".into())))
-                .collect();
-            return Err(jfail(oi, Some(cycle), "rest-state", format!("cycle {cycle}: the build did not return to its rest state: {}", diffs.join("; "))));
+        let cp = closed_problems(&snap, &spec);
+        if !cp.is_empty() {
+            return Err(jfail(oi, Some(cycle), "rest-state", format!("cycle {cycle}: not closed after the lever was switched back: {}", cp.join("; "))));
+        }
+        if seen_closed.iter().any(|s| *s == snap) {
+            periodic = true;
+        } else {
+            seen_closed.push(snap);
         }
         if !w.drops.is_empty() {
             return Err(jfail(oi, Some(cycle), "entities-close", format!("cycle {cycle}: entities appeared while closing (something broke)")));
         }
         let close_ticks = settled_from_flags(&ok).unwrap_or(0);
         cycles.push((open_ticks, close_ticks));
+    }
+    if !periodic {
+        return Err(jfail(
+            oi,
+            None,
+            "rest-state",
+            format!("the build never comes back to a closed state it had before within {} cycles (the build did not return to its rest state)", opts.cycles + crate::MAX_PERIOD_EXTRA),
+        ));
     }
     Ok(cycles)
 }
@@ -984,7 +999,8 @@ pub fn hallway_check(door: &RsDoor) -> std::result::Result<(), String> {
     if !problems.is_empty() {
         return Err(format!("not closed at rest: {}", problems.join("; ")));
     }
-    if !matches!(rest.get(spec.lever), Some(Block::Lever { powered: false, .. })) {
+    // Either rest polarity counts (vjeux, 2026-10-19), like `crate::verify`.
+    if !matches!(rest.get(spec.lever), Some(Block::Lever { .. })) {
         return Err("lever".into());
     }
     if !w.drops.is_empty() {

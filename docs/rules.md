@@ -17,6 +17,15 @@ A design file (format: [tools.md](tools.md#design-files)) names two ports:
 
 The **walkway** is the opening extended 3 blocks in front of and 3 behind the door (54 cells).
 
+**The target (vjeux, 2026-10-19), beyond the judge:** 1 wide (every block in the door's plane; a
+lever hanging on a block's front or back face still counts as 1 wide), nothing in front of or behind
+the door, no slime or honey, and a FULL FRAME when open: the 12 frame cells around the opening (3 on
+the ceiling, 3 on the floor, 3 on each wall, in the door plane) hold the SAME block as the 9 door
+blocks. The 3 extra blocks may move around as long as they are in place when the door is open and
+when it is closed. No piston may rest in a quasi-connected "armed" state (the judge's placement
+updates every block, so such states cannot exist). `mctas door sheet <file>` prints `frame N/12`
+(empty or wrong cells marked `!`) and `mctas door cycle <file>` checks the frame on a real door.
+
 ## The judge: `mctas door verify <design> --extra-offsets 28`
 
 A door counts only if this passes when built from **main**: 3 open/close cycles at 32 world

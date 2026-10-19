@@ -56,8 +56,36 @@ the state cap), not by the generator bound and not by the cap.
 vm1 (explore/vmid, 11 pistons, ML leaves up through a column-0 elevator) is re-found by `decide`
 in 7x8 (15 + 9 events, 14 s) and flagged NEW (not in the v3 catalog).
 
+### The wirable sub-model (`--no-door-bodies`, 03:20Z)
+Families' "unresolved" blow-up is junk from pistons dragged INTO the 3x3 (rider shuffles): on
+unresolved 7x8 #0 the full model has 1.84M reachable states and only 9,026 can return to rest. The
+sub-model disables any transition that leaves a piston BODY inside the 3x3 (heads may enter). On
+the corrected 58-list it finds exactly the 31 mechanisms whose ideal plans replay and proves the 27
+plan-less rider shuffles impossible. State spaces collapse (#500 / #1200: > 20M -> 120 / 240).
+In it, all v3-unresolved candidates are decided: 7x8 1861 (1834 no-open, 27 no-close, 0 found),
+7x9 1945 (1902 / 41 / 2 over 20M states, 0 found), 7x7 1639 (all no-open). Main path: plain
+enumeration of the reachable set R, then the states of R that can return to rest found BACKWARD
+from rest (pre-images kept inside R); per hole mask a restricted re-search.
+
+### New 7x8 mechanisms (all replay-checked in the simulator with ideal inputs)
+* new-7x8-c2e.tsv (4, 11 pistons, vmid-any P <= 12 sweep): a column-2 elevator lifts MR out upward.
+* new-7x8-t1a.tsv (16, 10 pistons, --two 1 sweep): BL pulled down by an extended-at-rest SU+(0,-2).
+* `door connect` (wire64b): t1-001 / t1-002 wirable in their 7x8 placement, most others in 7x9.
+
+### FULL FRAME (vjeux 03:36Z) and the single-U hint (04:04Z)
+* `--full-frame`: a frame cell left air when open must stay air on the whole cycle; static stones are
+  then added there and the augmented mechanism is re-decided and replayed (frame 12/12, stones
+  static): `augment_frame`, `frame-export`. `--frame9`: all 9 door blocks in frame cells.
+  The 4 c2e mechanisms pass with 3 stones.
+* Single-U sweep (`--bottom-su --door-offset 2,2 --ext-pullers --frame9`): exactly one piston in
+  the bottom row (sticky, facing up), extended-at-rest pullers for every 1-move exit, P <= 14,
+  two = 0: 59,584 candidates; in the sub-model: 76 frame-12 cycles: the 009 family (and mirror) and
+  a NEW layout (TL up by SD(0,4), TM up then right by the corner piston SW(3,3), static (-1,2)).
+  Running: the same in the full model (bodies may cross the opening; slow), two = 1 (P <= 12).
+
 ## Log
 * 01:03Z selftest 0 mismatches; 01:19Z pretest 0 missing; 01:27Z refit; 01:48Z corrected list.
+* 03:20Z sub-model; 03:05Z c2e; 03:21Z t1a; 03:50Z full frame; 04:25Z single-U sweep.
 * What did not work: the reduction alone on junk-heavy cores (pistons shoving each other: one big
   interacting group, no reduction); full backward search (the co-reachable set is > 20M even where
   the forward set is 1.8M: unreachable junk can also come back). Measured on families' unresolved

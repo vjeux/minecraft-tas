@@ -12,7 +12,7 @@
 //! the opening's columns; in the open plane an empty frame cell is drawn `!`.
 
 use crate::DoorSpec;
-use crate::cosearch::{RsDoor, Snap, bp, convert_state, full_cube, step_until_idle, watch_box};
+use crate::cosearch::{RsDoor, Snap, bp, convert_state, step_until_idle, watch_box};
 use crate::ideal::Schedule;
 use anyhow::{Context, Result};
 use mctas::blockstate::BlockState;
@@ -81,15 +81,16 @@ pub fn frame_cells(door: Pos) -> Vec<Pos> {
     out
 }
 
-fn filled(b: &Block) -> bool {
-    // A frame cell counts when it holds a plain full block (a door block or a quartz-like
-    // building block); pistons, observers and other circuitry do not.
-    !b.is_air() && full_cube(b) && !crate::cosearch::is_moving(b) && crate::cosearch::quartz_like(b)
+fn filled(b: &Block, door: &Block) -> bool {
+    // A frame cell counts when it holds THE door block (vjeux, 2026-10-19: the 12 frame cells hold
+    // the same block as the 9 door blocks when open; the 3 extra ones may move around as long as
+    // they are back in place at open and at rest). Moving blocks and circuitry do not count.
+    b == door
 }
 
 /// `filled` for other modules (door cycle).
-pub fn filled_frame(b: &Block) -> bool {
-    filled(b)
+pub fn filled_frame(b: &Block, door: &Block) -> bool {
+    filled(b, door)
 }
 
 /// The sheet glyph of a redsim block.
@@ -157,16 +158,18 @@ fn replay(w: &mut World, s: &Schedule, open: bool) -> std::result::Result<(), St
 /// `fill_test` for a real door (lever): stone in the frame cells empty when open (air at rest),
 /// then the exact redsim judge (4 positions x 3 cycles, `door verify`'s checks) and the frame
 /// check on the recorded open state. Writes `<title>-ff.txt` when it works.
-fn fill_design(design: &Design, rest_get: &dyn Fn(BlockPos) -> Block, empty: &[Pos], title: &str, out_dir: Option<&Path>) -> String {
+fn fill_design(design: &Design, rest_get: &dyn Fn(BlockPos) -> Block, empty: &[Pos], title: &str, out_dir: Option<&Path>, door_block: &Block, door_state: &str) -> String {
     if empty.is_empty() {
         return "already 12/12".into();
     }
     let mut d2 = design.clone();
     for p in empty {
-        if !rest_get(bp(*p)).is_air() {
-            return format!("FAIL: frame cell {p:?} is not air at rest");
+        let r = rest_get(bp(*p));
+        // Air, or a plain static block that is not the door block (smooth stone...): replace it.
+        if !r.is_air() && !crate::cosearch::quartz_like(&r) {
+            return format!("FAIL: frame cell {p:?} is not air or a plain block at rest");
         }
-        d2.blocks.insert(*p, "minecraft:stone".to_string());
+        d2.blocks.insert(*p, door_state.to_string());
     }
     let rs = match RsDoor::from_design(&d2) {
         Ok(r) => r,
@@ -180,7 +183,7 @@ fn fill_design(design: &Design, rest_get: &dyn Fn(BlockPos) -> Block, empty: &[P
         Err(e) => return format!("FAIL: {e}"),
     };
     let open = rec.open_state();
-    let bad: Vec<Pos> = frame_cells(rs.spec.door).into_iter().filter(|p| !open.get(*p).is_some_and(|b| filled(&b))).collect();
+    let bad: Vec<Pos> = frame_cells(rs.spec.door).into_iter().filter(|p| !open.get(*p).is_some_and(|b| filled(&b, door_block))).collect();
     if !bad.is_empty() {
         return format!("FAIL: frame cells still empty when open {bad:?}");
     }
@@ -188,22 +191,27 @@ fn fill_design(design: &Design, rest_get: &dyn Fn(BlockPos) -> Block, empty: &[P
         let _ = std::fs::create_dir_all(dir);
         let _ = std::fs::write(dir.join(format!("{title}-ff.txt")), d2.to_text());
     }
-    format!("OK (redsim judge, 4 positions x 3 cycles): +{} stone at {:?}", empty.len(), empty)
+    format!("OK (redsim judge, 4 positions x 3 cycles): +{} door blocks at {:?}", empty.len(), empty)
 }
 
-/// Put stone in the frame cells the open state leaves empty, replay two open/close cycles of
-/// the schedule in redsim: opening clear, frame 12/12 when open, back at rest when closed.
+/// Put door blocks in the frame cells the open state leaves empty, replay two open/close cycles
+/// of the schedule in redsim: opening clear, frame 12/12 when open, back at rest when closed.
 /// Writes `<title>-ff.txt` + `<title>-ff.ideal` into `out_dir` when it works.
-fn fill_test(design: &Design, s: &Schedule, text: &str, empty: &[Pos], title: &str, out_dir: Option<&Path>) -> String {
+#[allow(clippy::too_many_arguments)]
+fn fill_test(design: &Design, s: &Schedule, text: &str, empty: &[Pos], title: &str, out_dir: Option<&Path>, door_block: &Block, door_state: &str) -> String {
     if empty.is_empty() {
         return "already 12/12".into();
     }
     let mut d2 = design.clone();
     for p in empty {
         if let Some(b) = design.blocks.get(p) {
-            return format!("FAIL: frame cell {p:?} holds {b} at rest");
+            // Air, or a plain static block that is not the door block (smooth stone...): replace it.
+            let plain = convert_state(b).is_ok_and(|x| crate::cosearch::quartz_like(&x));
+            if !plain {
+                return format!("FAIL: frame cell {p:?} holds {b} at rest");
+            }
         }
-        d2.blocks.insert(*p, "minecraft:stone".to_string());
+        d2.blocks.insert(*p, door_state.to_string());
     }
     let Some(door) = design.ports.get("door").copied() else { return "FAIL: no door port".into() };
     let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false };
@@ -220,7 +228,7 @@ fn fill_test(design: &Design, s: &Schedule, text: &str, empty: &[Pos], title: &s
         if !spec.door_cells().iter().all(|c| w.get(bp(*c)).is_air()) {
             return format!("FAIL (cycle {cycle}): the opening is not clear");
         }
-        let bad: Vec<Pos> = frame.iter().copied().filter(|p| !filled(&w.get(bp(*p)))).collect();
+        let bad: Vec<Pos> = frame.iter().copied().filter(|p| !filled(&w.get(bp(*p)), door_block)).collect();
         if !bad.is_empty() {
             return format!("FAIL (cycle {cycle}): frame cells empty when open {bad:?}");
         }
@@ -252,14 +260,17 @@ fn fill_test(design: &Design, s: &Schedule, text: &str, empty: &[Pos], title: &s
 }
 
 #[allow(clippy::too_many_arguments)]
-fn plane(get: &dyn Fn(BlockPos) -> Block, z: i32, x0: i32, y0: i32, x1: i32, y1: i32, door: Pos, mark_frame: bool) -> Vec<String> {
+fn plane(get: &dyn Fn(BlockPos) -> Block, z: i32, x0: i32, y0: i32, x1: i32, y1: i32, door: Pos, mark_frame: Option<&Block>) -> Vec<String> {
     let frame = frame_cells(door);
     let mut out = Vec::new();
     for y in (y0..=y1).rev() {
         let mut line = format!("{y:>3} ");
         for x in x0..=x1 {
             let b = get(BlockPos::new(x, y, z));
-            let c = if mark_frame && frame.contains(&[x, y, z]) && !filled(&b) { '!' } else { glyph(&b.to_string()) };
+            let c = match mark_frame {
+                Some(db) if frame.contains(&[x, y, z]) && !filled(&b, db) => '!',
+                _ => glyph(&b.to_string()),
+            };
             line.push(c);
         }
         out.push(line);
@@ -282,6 +293,9 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
         (crate::cli::load_design(path)?, None)
     };
     let door = *design.ports.get("door").context("design has no door port")?;
+    // The door block (the 9 door cells hold identical blocks at rest): the frame must hold it too.
+    let door_state = design.blocks.get(&door).cloned().unwrap_or_else(|| "minecraft:stone".to_string());
+    let door_block = convert_state(&door_state).map_err(|e| anyhow::anyhow!("{}: door block: {e}", path.display()))?;
     let z = door[2];
     let (mut x0, mut y0, mut x1, mut y1) = (door[0], door[1], door[0] + 2, door[1] + 2);
     for p in design.blocks.keys().filter(|p| p[2] == z) {
@@ -301,7 +315,7 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
     let title = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
     let frame = frame_cells(door);
     let count = |get: &dyn Fn(BlockPos) -> Block| -> (usize, Vec<Pos>) {
-        let empty: Vec<Pos> = frame.iter().copied().filter(|p| !filled(&get(bp(*p)))).collect();
+        let empty: Vec<Pos> = frame.iter().copied().filter(|p| !filled(&get(bp(*p)), &door_block)).collect();
         (12 - empty.len(), empty)
     };
     if schedule.is_none() && design.ports.contains_key("lever") {
@@ -312,11 +326,11 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
         let rest_get = |p: BlockPos| rec.rest.get(p.arr()).unwrap_or(air);
         let open_snap = rec.open_state();
         let open_get = |p: BlockPos| open_snap.get(p.arr()).unwrap_or(air);
-        let rest = plane(&rest_get, z, x0, y0, x1, y1, door, false);
-        let open_lines = plane(&open_get, z, x0, y0, x1, y1, door, true);
+        let rest = plane(&rest_get, z, x0, y0, x1, y1, door, None);
+        let open_lines = plane(&open_get, z, x0, y0, x1, y1, door, Some(&door_block));
         let (n, empty) = count(&open_get);
         let fill = if fill {
-            Some(fill_design(&design, &rest_get, &empty, &title, fill_dir))
+            Some(fill_design(&design, &rest_get, &empty, &title, fill_dir, &door_block, &door_state))
         } else {
             None
         };
@@ -332,11 +346,11 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
     let list: Vec<(BlockPos, Block)> = blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
     w.place_like_judge(&list);
     step_until_idle(&mut w, 300, |_| {});
-    let rest = plane(&|p| w.get(p), z, x0, y0, x1, y1, door, false);
+    let rest = plane(&|p| w.get(p), z, x0, y0, x1, y1, door, None);
     let open = schedule.as_ref().map(|s| -> std::result::Result<(Vec<String>, usize, Vec<Pos>), String> {
         replay(&mut w, s, true)?;
         let open_ok = spec.door_cells().iter().all(|c| w.get(bp(*c)).is_air());
-        let mut lines = plane(&|p| w.get(p), z, x0, y0, x1, y1, door, true);
+        let mut lines = plane(&|p| w.get(p), z, x0, y0, x1, y1, door, Some(&door_block));
         if !open_ok {
             lines.push("    (opening NOT clear)".into());
         }
@@ -344,7 +358,7 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
         Ok((lines, n, empty))
     });
     let fill = match (&schedule, &open, fill) {
-        (Some(s), Some(Ok((_, _, empty))), true) => Some(fill_test(&design, s, &text, empty, &title, fill_dir)),
+        (Some(s), Some(Ok((_, _, empty))), true) => Some(fill_test(&design, s, &text, empty, &title, fill_dir, &door_block, &door_state)),
         _ => None,
     };
     Ok(Drawn { title, pistons, below, rest, open, fill })

@@ -427,8 +427,8 @@ fn multi_at(
     }
     for l in levers {
         let lever = rest.get(*l).unwrap_or("?");
-        if !lever.starts_with("minecraft:lever") || !lever.contains("powered=false") {
-            bail!("lever {l:?} is {lever}, expected an unpowered lever");
+        if !lever.starts_with("minecraft:lever") {
+            bail!("lever {l:?} is {lever}, expected a lever");
         }
     }
     let closed: Vec<Vec<String>> = specs.iter().map(|s| s.door_cells().iter().map(|p| rest.get(*p).unwrap().to_string()).collect()).collect();
