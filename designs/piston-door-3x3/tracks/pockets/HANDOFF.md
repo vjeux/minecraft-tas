@@ -51,4 +51,5 @@
   runs/ (logs + finds of every screen).
 - Never commit: tracks/mechspace/mech/*, tracks/s79/*, tracks/t78/*, tracks/ring56/* (restored untracked copies),
   archive/properties-v1.tsv (a local cache `door properties` rewrites: `git checkout --` it before merging).
-- Careful: `pkill -f <pattern>` also matches the shell running it; kill by PID from `pgrep -af`.
+- Careful: `pkill -f <pattern>` / `pgrep -f` also match the shell running them (killed my own shell twice); anchor:
+  `pgrep -af '^./target/release/mctas door fill .*<out-dir>'`, then `kill <pid>`.
