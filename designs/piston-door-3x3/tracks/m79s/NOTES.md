@@ -1,16 +1,27 @@
 # Track m79s: finish m79q (7x9 = 63, u7-m10 mechanism, B pull-type) into a working door
 
-## RESULT (08:00Z): m79s-sculk-63b-50.txt (= BEST.txt): 63b (7x9x1), 50 blocks, sculk, slime-free, flat
-- `door verify --extra-offsets 28` WORKS (32 positions x 3 cycles), rotation-safe (32 positions each turn),
-  open 43 / close 35; `door properties`: FULL seamless, dentless; redsim: hallway ok, frame 12/12.
-- = satwire's m79q-sat (right side, bottom, B + A's last pull from TL's arrival) + the last ideal input
-  (L1/L2) wired by SCULK, found by `door cosearch search` (assist sat-noA.ideal, `--palette
-  all,sculk,calibrated,wool`, `--lock-pistons`, 64 threads, first finds after ~5 min; seeds: sat + cand/v4):
-  calibrated sensor (-2,5) (facing north) hears the right side's t1 moves (activation t11, power 7);
-  observer (-2,4) facing up -> WOOL (-2,3) -> L2 direct + L1 by QC: 3 taps per activation (t13 pull, t23
-  push, t33 pull on open; push/pull/push on close); the sensor's window also lights the dust (-1,5) ->
-  wool (0,5) -> B (held while active); wool (0,4)/(0,5)/(-2,3) occlude the re-arm echo (L2, L1, B, A).
-
+## RESULTS
+1. **m79s-sculk-63b-50.txt (= BEST.txt), archived m79s-sculk-63b-50-50b**: 63b (7x9x1), 50 blocks, sculk,
+   slime-free, flat, FULL seamless + hallway, frame 12/12, open 43 / close 35, verify 32 positions x 3
+   cycles, rotation-safe. satwire's m79q-sat (B and A's last pull follow TL's arrival) + its last ideal
+   input (L1/L2) wired by a calibrated sculk sensor (-2,5) + observer (-2,4) -> wool (-2,3); the sensor's
+   window also holds B (dust (-1,5) -> wool (0,5)); wool (-2,3), (0,4), (0,5) occlude the re-arm echo.
+2. **m79s-sculk-64b.txt, archived m79s-sculk-8x8-64b-50b (the first 8x8 door)**: 64b (8x8x1, x -3..4,
+   y -2..5), 50 blocks, sculk, FULL + hallway, frame 12/12, open 41 / close 33, verify 32 positions x 3
+   cycles, rotation-safe, NO ideal input: s78b's mechanism (below) with
+   - U delayed +2 gt (observer (2,-2) facing east instead of the stone), which moves K's windows to open
+     end <= plan 12 / close start 9..11;
+   - K: PLAIN sensor (-3,-2) (lever out of its range 8, hears R0 at t1, d 7.3 -> t8) -> lamp (-3,-1) ->
+     observer (-2,-1) facing west -> K at t10 on both edges; the lamp gives only 2 edges (lit, dark 34 gt
+     later), both before the sensor re-arms (t48), so no echo; K's second pulse is blocked on open (BM, C,
+     (2,-1), obsidian (3,-1)) and pulls nothing on close;
+   - L0 + L1 + L2: calibrated sensor (-3,5) (the lever is occluded by wool (0,5); hears R1 at t1 -> t9) ->
+     observer (-3,4) up -> wool (-3,3) -> dust (-3,2) (points into L2) on stone (-3,1) (L1 directly, L0 by
+     QC through L1's cell); 3 taps 10 gt apart (pull/push/pull on open, push/pull/push on close);
+   - B held during the sensor window: dust (-2,5) on GLASS (-2,4) -> dust (-1,5) -> wool (0,5) (a stone at
+     (-2,4) QC-holds L2 through (-2,3) and breaks it);
+   - wool (-3,3), (-2,3), (0,4), (0,5) occlude L0/L1/L2, K, A, B from the top sensor; the top cascade
+     ends (t43) before the bottom sensor re-arms (t48).
 ## State (07:50Z)
 - satwire's m79q-sat-topright (copied: sat-topright.txt, sat.ideal): its top-right does NOT drive B. B and
   A's last pull are driven by the still-ideal L1/L2 input: observer (-1,3) watches TL's wall cell (-1,2)
@@ -81,3 +92,33 @@
   next to it, and the calibrated re-arm (T+20) hears them: an echo loop. Needs wool around the sensor
   ((-2,3) and (-1,4) are the observers that must stay) or a different N watcher. cosearch (sculk + wool,
   20 threads) running on it.
+- f131F is agent f131's (coordinator 09:45Z): left to them. My finding for them: the comparator (3,4) that
+  relays the redstone block (4,4) to TRp makes TRp retract and re-extend during the settle (a comparator's
+  block entity starts at 0); a delay-1 repeater there (f131/v3.txt) does the same job with no settle motion
+  (p-v3.ideal WORKS), after which a calibrated sensor in (-2,4) settles at rest but echoes after the open.
+
+## 7x8 with this mechanism: the bottom-left wall (09:47Z)
+- s78c (7x8, U delayed, K and L0 EXTENDED at rest, both held by a redstone torch (-2,-1) standing on
+  (-2,-2): powering (-2,-2) while open turns the torch off, K pulls BM and L0 pulls BL; on close the torch
+  relights and both push back): s78c.ideal WORKS with the level at (-2,-2) set at plan 7..10 on open and
+  cleared at 5..9 on close (L1/L2 ideal). So the 7x8 needs ONE lever-like level at (-2,-2).
+- But nothing in the 7x8 bottom row can supply it: row -2 holds no dust, repeater, comparator or torch (no
+  floor), so (-2,-2) can only be strongly powered by an observer at (-1,-2) (a 2 gt pulse) or be a source
+  itself (a sensor: a 10/30 gt window; the torch cannot stand on it); a window ends inside the open state
+  and the relit torch makes L0 push BL back (K's re-push is blocked by the obsidian line, L0's is not).
+  The pulse-type alternatives fail as before (K and L0 share (-2,-1); an observer there feeds only one of
+  them). So the m79 mechanism needs the 8th column (the 64) or a different bottom.
+- Pockets/annealers in 7x8 (sculk + wool, 2.5 h total): s78b L1/L2 real (2 left: K, L0), m10f nothing,
+  ring56 t8L/t10s nothing.
+
+## Next ideas
+- Solid versions: none with this mechanism (the top-left only sees L2's and B's head cells, which the lever
+  cannot reach first). A solid 7x9/8x8 needs a mechanism whose sealed region contains a lever-reachable mover.
+- 7x8: a bottom whose corner piston and BL puller are fed from two different cells, or BL leaving down;
+  mechspace's c78-* (the community 7x9 squeezed into 7x8: the bottom is sealed from the lever) with the
+  bottom woken by a plain sensor + lamp + observer (this track's K trick) and the top as in c79.
+- Tricks worth reusing (all proven here): wool occludes sculk echoes (a wool static or conductor block on
+  every line from the late movers); a plain sensor + lamp + observer = 2 clean taps, both inside the
+  sensor's 40 gt dead time (no echo); a calibrated sensor + observer = 3 taps 10 gt apart (an odd count for
+  a pull-type piston); a sensor's distance sets the parity (activation = event tick + floor(d)); out-of-range
+  (plain 8) or wool-occluded levers make a sensor hear the t1 pistons instead.
