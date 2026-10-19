@@ -571,19 +571,26 @@ fn real_drive(p: &Problem, g: &Grid, w: &mut World) -> u64 {
     }
     let mut real = 0u64;
     for k in 0..p.assist_pistons.len() {
+        // the plan's block powers EVERY receiver next to it (a piston at the cell, the one below
+        // it by QC): the real wiring stands in for it only when it powers all of them
+        let mut any = false;
+        let mut all = true;
         for &(c, direct) in &p.assist_recv[k] {
             let b = w.get(c);
             let fed = match b {
-                Block::Piston { facing, .. } => redsim::piston::base::neighbor_signal(w, c, facing),
+                Block::Piston { facing, .. } => Some(redsim::piston::base::neighbor_signal(w, c, facing)),
                 // other receivers next to the input (trapdoors, lamps, note blocks, bulbs,
                 // droppers...): their own neighbor-signal check
-                Block::Trapdoor { .. } | Block::Lamp { .. } | Block::Note { .. } | Block::Bulb { .. } | Block::Dispenser { .. } | Block::Door { .. } | Block::FenceGate { .. } | Block::Rail { .. } if direct => w.has_neighbor_signal(c),
-                _ => false,
+                Block::Trapdoor { .. } | Block::Lamp { .. } | Block::Note { .. } | Block::Bulb { .. } | Block::Dispenser { .. } | Block::Door { .. } | Block::FenceGate { .. } | Block::Rail { .. } if direct => Some(w.has_neighbor_signal(c)),
+                _ => None,
             };
-            if fed {
-                real |= 1u64 << k;
-                break;
+            if let Some(f) = fed {
+                any = true;
+                all &= f;
             }
+        }
+        if any && all {
+            real |= 1u64 << k;
         }
     }
     let _ = z;
@@ -2005,6 +2012,10 @@ pub struct PocketArgs {
     /// Keep the seed's real lever (its wiring is already real): no lever candidates.
     #[arg(long)]
     pub keep_lever: bool,
+    /// A find needs the redsim judge + FULL + frame 12/12 only, not the hallway check (the
+    /// community door's lever on top of its block fails redsim's hallway check).
+    #[arg(long)]
+    pub no_hallway: bool,
     /// Clear these cells of the seed first (door coordinates `x,y;...`; non-mechanism blocks only)
     /// so they join the pockets: re-wire a region of an existing partial.
     #[arg(long)]
@@ -2535,10 +2546,40 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                             let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
                             let sc = screen_core(&prob, &g, &mut evs, &mut traces, true);
                             screened.fetch_add(1, Ordering::Relaxed);
+                            // the inputs this filling feeds at all (any real power in what ran)
+                            let fed: u64 = traces.iter().flatten().fold(0, |acc, r| acc | r) & seed.assist;
+                            let mut driven: Option<u64> = None;
                             if sc.pts >= max {
                                 ok_door.fetch_add(1, Ordering::Relaxed);
-                                if let Some(driven) = match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol)
-                                    && driven != 0
+                                driven = match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).filter(|d| *d != 0);
+                            }
+                            if fed != 0 {
+                                // double drive (the plan's block AND the real wiring on the same
+                                // piston) can break a door the filling alone would run: screen
+                                // again with the fed inputs released
+                                let mut g2 = g.clone();
+                                g2.assist = seed.assist & !fed;
+                                let mut evs2 = Vec::new();
+                                let mut tr2: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
+                                let sc2 = screen_core(&prob, &g2, &mut evs2, &mut tr2, true);
+                                screened.fetch_add(1, Ordering::Relaxed);
+                                if sc2.pts >= max
+                                    && let Some(d2) = match_groups(&prob, &groups, seed.assist, &tr2, pa.width_tol)
+                                {
+                                    // every group of a released input counts as covered: the door
+                                    // ran without its plan
+                                    let mut d2 = d2;
+                                    for (gi, gr) in groups.iter().enumerate() {
+                                        if (fed >> gr.k) & 1 == 1 {
+                                            d2 |= 1u64 << gi;
+                                        }
+                                    }
+                                    if driven.is_none_or(|d| (d2 | d) != d) {
+                                        driven = Some(d2 | driven.unwrap_or(0));
+                                    }
+                                }
+                            }
+                            if let Some(driven) = driven {
                                 {
                                     let f = Filling { blocks: cells.iter().enumerate().map(|(j, c)| (*c, pals[j][idx[j]])).collect(), lever: *lev, driven };
                                     let v = local.entry(driven).or_default();
@@ -2612,6 +2653,18 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
     // ---- combinations
     let need: u64 = if groups.len() >= 64 { u64::MAX } else { (1u64 << groups.len()) - 1 };
     let coverable: u64 = accepted.iter().flatten().fold(0, |acc, f| acc | f.driven);
+    // groups the remaining real wiring of the seed already drives (a door whose region was
+    // erased: its other wiring keeps feeding some of the plan's pulses)
+    let base_cov: u64 = {
+        let mut evs = Vec::new();
+        let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
+        let _ = screen_core(&prob, &seed, &mut evs, &mut traces, true);
+        match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).unwrap_or(0)
+    };
+    if base_cov != 0 {
+        println!("groups the seed's own wiring already drives: {}", (0..64).filter(|i| (base_cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
+    }
+    let coverable = coverable | base_cov;
     if coverable & need != need {
         println!(
             "plan groups no filling drives: {}",
@@ -2644,7 +2697,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
     let jopts = cs::JudgeOpts::with_extra(a.judge_extra);
     let mut finds = 0usize;
     let mut verified: HashSet<Vec<usize>> = HashSet::new();
-    let mut stack: Vec<(Vec<usize>, u64, u64)> = vec![(Vec::new(), 0, 0)];
+    let mut stack: Vec<(Vec<usize>, u64, u64)> = vec![(Vec::new(), base_cov, 0)];
     while let Some((chosen, cov, skipped)) = stack.pop() {
         if combos_tried >= pa.max_combos || finds >= a.max_finds {
             break;
@@ -2685,7 +2738,7 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
                     let door = door_of(&g, prob.spec);
                     let e = cs::evaluate(&door, &jopts, false);
                     println!("combination {combos_tried}: perfect screen; redsim judge: {}", cs::eval_line("combo", &e, 0.0));
-                    if e.record_ok() {
+                    if e.record_ok() || (pa.no_hallway && e.judge.is_ok() && matches!(e.full, Some(Ok(()))) && e.frame == Some(12)) {
                         let vol = e.volume.map(|v| v.0).unwrap_or(0);
                         let name = format!("pockets-{vol}b-{}-{finds}", door.block_count());
                         let d = door.to_design(&name);
