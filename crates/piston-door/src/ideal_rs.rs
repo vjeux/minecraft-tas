@@ -218,3 +218,170 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
     }
     Ok(())
 }
+
+/// One input group of a plan: a pulse (a `set` and the next `clear` of the same cell) or a lone
+/// level edge, in one phase (0 open, 1 close): indices into that phase's event list.
+#[derive(Clone, Debug)]
+struct Group {
+    phase: usize,
+    evi: Vec<usize>,
+}
+
+fn plan_groups(ev: &[Vec<Ev>; 2]) -> Vec<Group> {
+    let mut out = Vec::new();
+    for (phase, evs) in ev.iter().enumerate() {
+        let mut used = vec![false; evs.len()];
+        for i in 0..evs.len() {
+            if used[i] || evs[i].2.as_deref() == Some("@use") {
+                continue;
+            }
+            used[i] = true;
+            let mut g = vec![i];
+            if evs[i].2.is_some()
+                && let Some(j) = (i + 1..evs.len()).find(|&j| !used[j] && evs[j].1 == evs[i].1)
+                && evs[j].2.is_none()
+            {
+                used[j] = true;
+                g.push(j);
+            }
+            out.push(Group { phase, evi: g });
+        }
+    }
+    out
+}
+
+fn shifted(ev: &[Vec<Ev>; 2], g: &Group, d: i64) -> Option<[Vec<Ev>; 2]> {
+    let mut e2 = ev.clone();
+    for &i in &g.evi {
+        let t = e2[g.phase][i].0 as i64 + d;
+        if t < 0 {
+            return None;
+        }
+        e2[g.phase][i].0 = t as u32;
+    }
+    Some(e2)
+}
+
+fn schedule_of(design: &crate::Design, ev: &[Vec<Ev>; 2]) -> Schedule {
+    let mut all: Vec<(bool, u32, Pos, Option<String>)> = Vec::new();
+    for (phase, evs) in ev.iter().enumerate() {
+        for (t, p, s) in evs {
+            all.push((phase == 0, *t, *p, s.clone()));
+        }
+    }
+    Schedule::from_events(design.clone(), &all)
+}
+
+/// `door ideal-rs --compact OUT`: pull every input group (a pulse, or a lone level edge) as EARLY
+/// as the mechanism allows, one group at a time in plan order with the others where they stand
+/// (two passes), then write the plan with literal ticks and print every group's window (its own
+/// shifts that keep the door working, the others fixed). mech-synth plans fire one piston every
+/// ~6 gt (inputs up to t66: delay lines no wiring pocket holds); compacted plans put what can
+/// happen together at the same tick, before a wiring search.
+pub fn compact(path: &std::path::Path, out: &std::path::Path, extra_offsets: u32, cycles: u32, threads: usize) -> Result<()> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let s = Schedule::parse(&text)?;
+    let vars = s.vars().clone();
+    let offsets = crate::ideal::offsets(extra_offsets);
+    let design_line = text.lines().find(|l| l.trim_start().starts_with("design ")).context("no design line")?.trim().to_string();
+    let mut ev: [Vec<Ev>; 2] = [s.events_of(true, &vars)?, s.events_of(false, &vars)?];
+    let works = |e: &[Vec<Ev>; 2]| run(&schedule_of(s.design(), e), &BTreeMap::new(), &offsets, cycles, false);
+    let (o0, c0) = works(&ev).map_err(|e| anyhow::anyhow!("the plan itself is BROKEN: {e}"))?;
+    let groups = plan_groups(&ev);
+    let span = |e: &[Vec<Ev>; 2]| e.iter().map(|v| v.iter().map(|x| x.0).max().unwrap_or(0)).max().unwrap_or(0);
+    println!("{}: {} groups, last input t{}, open {o0} / close {c0}", path.display(), groups.len(), span(&ev));
+    for pass in 0..2 {
+        let mut order: Vec<usize> = (0..groups.len()).collect();
+        order.sort_by_key(|&gi| ev[groups[gi].phase][groups[gi].evi[0]].0);
+        let mut moved = 0;
+        for gi in order {
+            let g = &groups[gi];
+            let start = ev[g.phase][g.evi[0]].0 as i64;
+            if start == 0 {
+                continue;
+            }
+            let ds: Vec<i64> = (-start..0).collect();
+            let res = cs::par_map(&ds, threads, |&d| shifted(&ev, g, d).is_some_and(|e2| works(&e2).is_ok()));
+            if let Some((d, _)) = ds.iter().zip(res.iter()).find(|(_, ok)| **ok) {
+                // (no re-sort: the groups index the events; the runner sorts by tick itself)
+                ev = shifted(&ev, g, *d).unwrap();
+                moved += 1;
+            }
+        }
+        println!("pass {}: {moved} groups moved earlier, last input t{}", pass + 1, span(&ev));
+        if moved == 0 {
+            break;
+        }
+    }
+    // their windows (the same groups: indices into the unsorted event lists)
+    let (o1, c1) = works(&ev).map_err(|e| anyhow::anyhow!("compacted plan BROKEN (bug): {e}"))?;
+    // tidy: identical events of one tick once; a clear and a set of the same cell at one tick
+    // (two pulses merged by the compaction) become one continuous pulse; kept only if the plan
+    // still works that way
+    let mut tidy = ev.clone();
+    for evs in tidy.iter_mut() {
+        evs.sort_by_key(|x| x.0);
+        let mut out: Vec<Ev> = Vec::new();
+        for e in evs.iter() {
+            if out.iter().any(|o| o.0 == e.0 && o.1 == e.1 && o.2 == e.2) {
+                continue;
+            }
+            out.push(e.clone());
+        }
+        let mut i = 0;
+        while i < out.len() {
+            if out[i].2.is_none()
+                && let Some(j) = (i + 1..out.len()).find(|&j| out[j].0 == out[i].0 && out[j].1 == out[i].1 && out[j].2.is_some())
+            {
+                out.remove(j);
+                out.remove(i);
+                continue;
+            }
+            i += 1;
+        }
+        *evs = out;
+    }
+    let tidy_ok = works(&tidy);
+    let (ev, groups, o1, c1) = match tidy_ok {
+        Ok((o, c)) => {
+            let g = plan_groups(&tidy);
+            (tidy, g, o, c)
+        }
+        Err(_) => (ev, groups, o1, c1),
+    };
+    let mut lines = vec![format!("# door ideal-rs --compact {}: every input group pulled as early as it goes (others fixed, 2 passes);", path.display()), format!("# open {o1} / close {c1} (was {o0} / {c0}); windows: the group's own shifts that keep it working"), design_line];
+    for g in &groups {
+        let ds: Vec<i64> = (-24..=24).filter(|d| *d != 0).collect();
+        let res = cs::par_map(&ds, threads, |&d| shifted(&ev, g, d).is_some_and(|e2| works(&e2).is_ok()));
+        let ok = |d: i64| d == 0 || ds.iter().zip(res.iter()).any(|(x, r)| *x == d && *r);
+        let (mut lo, mut hi) = (0i64, 0i64);
+        while lo > -24 && ok(lo - 1) {
+            lo -= 1;
+        }
+        while hi < 24 && ok(hi + 1) {
+            hi += 1;
+        }
+        let (t, q, st) = &ev[g.phase][g.evi[0]];
+        let what = match (st, g.evi.len()) {
+            (Some(_), 2) => format!("pulse {} gt", ev[g.phase][g.evi[1]].0 - t),
+            (Some(_), _) => "on".to_string(),
+            (None, _) => "off".to_string(),
+        };
+        lines.push(format!("# {} t{t} {:?} {what}: window [{lo:+}, {hi:+}]", if g.phase == 0 { "open " } else { "close" }, q));
+    }
+    for (phase, evs) in ev.iter().enumerate() {
+        let mut evs = evs.clone();
+        evs.sort_by_key(|x| x.0);
+        for (t, q, st) in &evs {
+            let ph = if phase == 0 { "open" } else { "close" };
+            lines.push(match st.as_deref() {
+                Some("@use") => format!("{ph} {t} use {} {} {}", q[0], q[1], q[2]),
+                Some(b) => format!("{ph} {t} set {} {} {} {b}", q[0], q[1], q[2]),
+                None => format!("{ph} {t} clear {} {} {}", q[0], q[1], q[2]),
+            });
+        }
+    }
+    std::fs::write(out, lines.join("\n") + "\n")?;
+    println!("wrote {} (last input t{}, open {o1} / close {c1})", out.display(), span(&ev));
+    Ok(())
+}
