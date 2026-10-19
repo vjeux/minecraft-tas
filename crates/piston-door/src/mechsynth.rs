@@ -453,6 +453,12 @@ pub struct Graph {
 /// When set, pistons are pulse-driven only (no level events): the cheapest control, one observer
 /// chain from the lever (`--pulses-only`).
 pub static PULSES_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Ideal plans with every input a redstone block at z = 1 right behind its piston (pockets2's
+/// `door cosearch pockets` names one piston per input that way).
+pub static INPUTS_Z1: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Ideal plans: consecutive level toggles of different pistons that commute share one tick (a
+/// lever-held stack releases at once).
+pub static GROUP_LEVELS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--seamless-open`: open states must also pass `World::ring_clean`.
 pub static SEAMLESS_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Where the split symmetric search puts the "edge" pulses: 0 both, 1 start, 2 end (`--edges`).
@@ -1361,8 +1367,9 @@ fn input_cell_avoid(states: &[&World], id: usize, avoid: &[P]) -> Option<P> {
     let (pos, k) = w0.b[id];
     let Kind::Piston { f, .. } = k else { return None };
     let mut best: Option<(i32, P)> = None;
+    let z1 = INPUTS_Z1.load(Ordering::Relaxed);
     for d in 0..6u8 {
-        if d == f {
+        if d == f || (z1 && d != 4) {
             continue;
         }
         let c = add(pos, D[d as usize]);
@@ -1432,10 +1439,11 @@ fn steps_of(starts: &[&World], seq: &[Ev]) -> Vec<usize> {
         }
         c
     };
+    let group_levels = GROUP_LEVELS.load(Ordering::Relaxed);
     for (i, e) in seq.iter().enumerate() {
         let joins = i > 0
-            && e.act == Act::P
-            && cur.iter().all(|x| x.act == Act::P && x.id != e.id)
+            && (e.act == Act::P || group_levels)
+            && cur.iter().all(|x| x.act == e.act && x.id != e.id)
             && start.iter().all(|st| {
                 let mut a = cur.clone();
                 a.push(*e);

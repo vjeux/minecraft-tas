@@ -991,7 +991,12 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             use crate::mechspace as ms;
             if std::env::var("MECHSPACE_HELD_FIRST").is_ok() {
                 ms::HELD_FIRST.store(true, std::sync::atomic::Ordering::Relaxed);
+                crate::mechsynth::GROUP_LEVELS.store(true, std::sync::atomic::Ordering::Relaxed);
                 eprintln!("[mechspace] export: held-first plans (pistons extended at rest released first on open, back first on close)");
+            }
+            if std::env::var("MECHSPACE_Z1").is_ok() {
+                crate::mechsynth::INPUTS_Z1.store(true, std::sync::atomic::Ordering::Relaxed);
+                eprintln!("[mechspace] export: every input a redstone block at z = 1 behind its piston");
             }
             if no_door_bodies {
                 ms::NO_DOOR_BODIES.store(true, std::sync::atomic::Ordering::Relaxed);
