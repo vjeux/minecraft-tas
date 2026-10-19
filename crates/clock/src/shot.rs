@@ -37,11 +37,25 @@ pub struct ShotOptions {
     pub settle_ms: u64,
     /// Re-take pictures that exist.
     pub redo: bool,
+    /// Per design stem, the judge's (warmup, period) from an archived design's `# CLOCK:` line:
+    /// used for clocks redsim does not model (no game run to find them).
+    pub hints: std::collections::HashMap<String, (u32, u32)>,
+}
+
+/// The (warmup, period) of an archived design's judge line (`# CLOCK: <name> period P gt ...,
+/// warmup W, ...`), if any.
+pub fn judge_hint(text: &str) -> Option<(u32, u32)> {
+    let line = text.lines().find(|l| l.starts_with("# CLOCK:"))?;
+    let num_after = |key: &str| -> Option<u32> {
+        let i = line.find(key)? + key.len();
+        line[i..].split(|ch: char| !ch.is_ascii_digit()).next()?.parse().ok()
+    };
+    Some((num_after("warmup ")?, num_after(" period ")?))
 }
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 5000, settle_ms: 700, redo: false }
+        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 5000, settle_ms: 700, redo: false, hints: Default::default() }
     }
 }
 
@@ -143,7 +157,7 @@ fn screenshot_marked(w: &mut Worker, sb: u32, marker: Option<Pos>, camera_to: Op
 
 type Pos3 = [f64; 3];
 
-fn plan(version: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
+fn plan(version: &str, stem: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
     let so = SimOptions::default();
     let r = simulate(c, &so);
     let (main, strip, lo, hi, output) = match activity(c, &so) {
@@ -168,17 +182,24 @@ fn plan(version: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
             (o.tick.unwrap_or(w0 + best), strip, r.swept.0, r.swept.1, r.output.as_ref().map(|o| o.pos))
         }
         None => {
-            // redsim does not model it (or says it is no clock): one game build gives W and P
-            let vo = VerifyOptions { positions: 1, rotations: false, version: version.to_string(), ..Default::default() };
-            let mut w = Worker::spawn(&WorkerConfig { version: version.to_string(), ..Default::default() })?;
-            let k = match run_one(&mut w, c, &vo)? {
-                Ok(k) => k,
-                Err(e) => bail!("{}: not a clock in the game: {e}", c.name()),
-            };
-            let (lo, _) = c.bounds();
-            let hi = [lo[0] + k.dims[0] - 1, lo[1] + k.dims[1] - 1, lo[2] + k.dims[2] - 1];
-            let strip: Vec<u32> = o.strip.map(|n| (0..n).map(|i| k.warmup + i * k.period / n.max(1)).collect()).unwrap_or_default();
-            (o.tick.unwrap_or(k.warmup + k.period / 2), strip, lo, hi, k.output.as_ref().map(|o| o.pos))
+            // redsim does not model it (or says it is no clock): the archive's judge line gives W
+            // and P when there is one (no game run needed), else one game build does
+            if let Some(&(w0, per)) = o.hints.get(stem) {
+                let (lo, hi) = c.bounds();
+                let strip: Vec<u32> = o.strip.map(|n| (0..n).map(|i| w0 + i * per / n.max(1)).collect()).unwrap_or_default();
+                (o.tick.unwrap_or(w0 + per / 2), strip, lo, hi, c.output)
+            } else {
+                let vo = VerifyOptions { positions: 1, rotations: false, version: version.to_string(), ..Default::default() };
+                let mut w = Worker::spawn(&WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                let k = match run_one(&mut w, c, &vo)? {
+                    Ok(k) => k,
+                    Err(e) => bail!("{}: not a clock in the game: {e}", c.name()),
+                };
+                let (lo, _) = c.bounds();
+                let hi = [lo[0] + k.dims[0] - 1, lo[1] + k.dims[1] - 1, lo[2] + k.dims[2] - 1];
+                let strip: Vec<u32> = o.strip.map(|n| (0..n).map(|i| k.warmup + i * k.period / n.max(1)).collect()).unwrap_or_default();
+                (o.tick.unwrap_or(k.warmup + k.period / 2), strip, lo, hi, k.output.as_ref().map(|o| o.pos))
+            }
         }
     };
     let mut ticks = vec![main];
@@ -209,7 +230,7 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
             lines.push(format!("HAVE {}", shot_path(&o.out_dir, stem).display()));
             continue;
         }
-        match plan(version, c, &ShotOptions { strip: None, ..o.clone() }) {
+        match plan(version, stem, c, &ShotOptions { strip: None, ..o.clone() }) {
             Ok(p) => todo.push((stem, c, p)),
             Err(e) => lines.push(format!("SKIP {stem}: {e:#}")),
         }
@@ -222,8 +243,8 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
     // world) ends when its rows reach DEPTH blocks: the client gets every chunk of a batch from its
     // center (the client's render distance, 6 chunks, caps what the server sends it, and a frozen
     // level never re-centers it: so a batch fits within 80 blocks of its center)
-    const ROW: i32 = 160;
-    const DEPTH: i32 = 160;
+    const ROW: i32 = 112;
+    const DEPTH: i32 = 112;
     let sculk = |c: &Clock| c.design.blocks.values().any(|s| s.contains("sculk_sensor"));
     todo.sort_by_key(|(_, c, _)| sculk(c));
     let mut batches: Vec<Vec<Cell>> = vec![Vec::new()];
@@ -256,6 +277,17 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
     std::fs::create_dir_all(&run)?;
     let cfg = WorkerConfig { version: version.to_string(), listen: Some(port), stderr_log: Some(run.join("server.log")), ..Default::default() };
     let mut w = Worker::spawn(&cfg)?;
+    // every batch's world is built BEFORE the client joins (the server does no network work while
+    // it builds and steps: a client waiting through that times out)
+    let tb = Instant::now();
+    let mut worlds: Vec<(u32, Vec<Option<Pos>>)> = Vec::with_capacity(batches.len());
+    let mut g_max = 0u32;
+    for batch in &batches {
+        let (sb, markers, g) = build_batch(&mut w, &todo, batch)?;
+        g_max = g_max.max(g);
+        worlds.push((sb, markers));
+    }
+    let t_world = tb.elapsed().as_secs_f64();
     let t0 = Instant::now();
     let mut client = Client::launch(&client_build, &display, port, rw, rh, &run.join("client"))?;
     let deadline = Instant::now() + Duration::from_secs(240);
@@ -272,12 +304,9 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
     let mut raws: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut marked: Vec<bool> = vec![false; todo.len()];
     let mut prev: Option<u32> = None;
-    let (mut t_world, mut t_cam, mut g_max) = (0.0f64, 0.0f64, 0u32);
-    for batch in &mut batches {
-        let tb = Instant::now();
-        let (sb, markers, g) = build_batch(&mut w, &todo, batch)?;
-        g_max = g_max.max(g);
-        t_world += tb.elapsed().as_secs_f64();
+    let mut t_cam = 0.0f64;
+    let mut lost: Vec<usize> = Vec::new();
+    for (batch, (sb, markers)) in batches.iter_mut().zip(worlds) {
         let tc = Instant::now();
         // the camera arrives from another level: the client gets every chunk of the batch, the
         // markers included (written raw on the frozen level, never broadcast otherwise)
@@ -315,6 +344,12 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
             let dist = prev_eye.map(|q| ((q[0] - eye[0]).powi(2) + (q[2] - eye[2]).powi(2)).sqrt()).unwrap_or(64.0);
             w.hold((o.settle_ms as f64 + dist * 15.0).min(3000.0) as u64)?;
             prev_eye = Some(eye);
+            // a client that lost the connection pictures its error screen: those clocks are taken
+            // again in their own sandboxes
+            if w.viewers()? == 0 {
+                lost.push(c.i);
+                continue;
+            }
             let raw = run.join(format!("{stem}.png"));
             video::screenshot(&display, rw, rh, &raw)?;
             raws.push((raw, shot_path(&o.out_dir, stem)));
@@ -348,8 +383,19 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
         bail!("encoding: {e}");
     }
     let t_enc = t2.elapsed().as_secs_f64();
+    // a picture that came out (nearly) uniform (chunks the client never got): taken again in its
+    // own sandbox
+    let blank: Vec<usize> = (0..todo.len()).filter(|&i| lost.contains(&i) || std::fs::metadata(shot_path(&o.out_dir, todo[i].0)).map(|m| m.len() < 12_000).unwrap_or(true)).collect();
     for (i, (stem, _, p)) in todo.iter().enumerate() {
-        lines.push(format!("SHOT {} (tick {}{})", shot_path(&o.out_dir, stem).display(), p.ticks[0], if marked[i] { ", marker" } else { ", no marker" }));
+        if !blank.contains(&i) {
+            lines.push(format!("SHOT {} (tick {}{})", shot_path(&o.out_dir, stem).display(), p.ticks[0], if marked[i] { ", marker" } else { ", no marker" }));
+        }
+    }
+    if !blank.is_empty() {
+        let again: Vec<(String, Clock)> = blank.iter().map(|&i| (todo[i].0.clone(), todo[i].1.clone())).collect();
+        for l in shots(version, &again, &ShotOptions { redo: true, strip: None, ..o.clone() })? {
+            lines.push(format!("{l} (blank in the one-world pass: taken again in its own sandbox)"));
+        }
     }
     let n = todo.len() as f64;
     lines.push(format!(
@@ -437,7 +483,7 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
             lines.push(format!("HAVE {}", shot_path(&o.out_dir, stem).display()));
             continue;
         }
-        match plan(version, c, o) {
+        match plan(version, stem, c, o) {
             Ok(p) => todo.push((stem, c, p)),
             Err(e) => lines.push(format!("SKIP {stem}: {e:#}")),
         }
