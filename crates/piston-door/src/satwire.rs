@@ -864,6 +864,10 @@ pub struct Prob {
     pub fixed_lever: Option<usize>,
     /// Only the fixed cells hold wiring (`--check`); else (`--fixed`) the other cells are free.
     pub fixed_only: bool,
+    /// Independent-timing clusters of mechanism cells (`--one-warp` turns them off): each has
+    /// its own time warp, so events of different clusters can be split or shifted apart.
+    pub cluster: HashMap<C2, usize>,
+    pub ncl: usize,
     /// (trace, cell) -> the alternative group (`rec.groups`) its frames come from.
     pub cell_group: HashMap<(usize, C2), usize>,
 }
@@ -892,6 +896,35 @@ impl Prob {
     pub fn static_tick(&self, tr: usize, tau: i32) -> bool {
         let ph = &self.rec.phases[tr];
         tau <= 0 || tau > ph.k() || self.rec.trace_phases(tr).iter().all(|ph| ph.frame(tau) == ph.frame(tau - 1) && ph.pow(tau) == ph.pow(tau - 1))
+    }
+    /// The independent-timing cluster of a mechanism cell (0: static cells, or clusters off).
+    pub fn cl(&self, c: C2) -> usize {
+        self.cluster.get(&c).copied().unwrap_or(0)
+    }
+    /// Recorded tick tau changes nothing in cluster `cl` (its cells' frames and powers), in the base
+    /// recording and in every alternative.
+    pub fn static_tick_c(&self, tr: usize, tau: i32, cl: usize) -> bool {
+        if self.ncl <= 1 {
+            return self.static_tick(tr, tau);
+        }
+        let ph0 = &self.rec.phases[tr];
+        if tau <= 0 || tau > ph0.k() {
+            return true;
+        }
+        self.rec.trace_phases(tr).iter().all(|ph| {
+            let (a, b) = (ph.frame(tau - 1), ph.frame(tau));
+            let (pa, pb) = (ph.pow(tau - 1), ph.pow(tau));
+            let cells: HashSet<C2> = a.keys().chain(b.keys()).chain(pa.keys()).chain(pb.keys()).copied().filter(|c| self.cl(*c) == cl).collect();
+            cells.iter().all(|c| a.get(c) == b.get(c) && pa.get(c).copied().unwrap_or(false) == pb.get(c).copied().unwrap_or(false))
+        })
+    }
+    pub fn settled_from_c(&self, tr: usize, cl: usize) -> i32 {
+        let k = self.rec.phases[tr].k();
+        let mut t = k;
+        while t >= 1 && self.static_tick_c(tr, t, cl) {
+            t -= 1;
+        }
+        t + 1
     }
     /// First recorded tick from which everything stays static.
     pub fn settled_from(&self, tr: usize) -> i32 {
@@ -954,6 +987,11 @@ impl Prob {
         let mut x = c;
         for _ in 0..13 {
             x = add(x, f);
+            // a cell of another timing cluster: its state at this recorded tick is not its state
+            // at this SAT tick: count it as room (the safe side: power stays off)
+            if self.ncl > 1 && self.cl(x) != 0 && self.cl(x) != self.cl(c) {
+                return true;
+            }
             match fr.get(&x) {
                 None => return true,
                 Some(s) => match mk(s) {
@@ -989,6 +1027,7 @@ pub struct ProbOpts {
     pub levels: u8,
     pub blocked_dc: bool,
     pub motion: bool,
+    pub clusters: bool,
 }
 
 /// Free cells, palettes per cell, lever candidates.
@@ -1182,6 +1221,67 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
     }
     let kmax = rec.phases.iter().map(|p| p.k()).max().unwrap_or(0);
     let h = kmax + o.dmax + o.settle;
+    // independent-timing clusters: the cells moved together by one piston motion (its base and the
+    // consecutive cells of its line that change within 3 gt), merged across motions
+    let mut parent: HashMap<C2, C2> = HashMap::new();
+    fn find(p: &mut HashMap<C2, C2>, c: C2) -> C2 {
+        let mut r = c;
+        while let Some(&q) = p.get(&r) {
+            if q == r {
+                break;
+            }
+            r = q;
+        }
+        p.insert(c, r);
+        r
+    }
+    if o.clusters {
+        for ph in rec.phases.iter() {
+            let ch = |c: C2, t: i32| ph.frame(t - 1).get(&c) != ph.frame(t).get(&c);
+            for t in 1..=ph.k() {
+                let (a, b) = (ph.frame(t - 1), ph.frame(t));
+                let cells: Vec<C2> = a.keys().chain(b.keys()).copied().filter(|c| a.get(c) != b.get(c)).collect();
+                for pc in cells {
+                    parent.entry(pc).or_insert(pc);
+                    let fc = match (a.get(&pc).map(|s| mk(s)), b.get(&pc).map(|s| mk(s))) {
+                        (Some(MK::Piston { f, .. }), _) | (_, Some(MK::Piston { f, .. })) => f,
+                        _ => continue,
+                    };
+                    let mut x = pc;
+                    for _ in 0..14 {
+                        x = add(x, fc);
+                        if (t..=t + 3).any(|j| ch(x, j)) {
+                            parent.entry(x).or_insert(x);
+                            let (ra, rb) = (find(&mut parent, pc), find(&mut parent, x));
+                            if ra != rb {
+                                parent.insert(ra, rb);
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let keys: Vec<C2> = parent.keys().copied().collect();
+    let mut roots: BTreeMap<C2, usize> = BTreeMap::new();
+    let mut cluster: HashMap<C2, usize> = HashMap::new();
+    for c in keys {
+        let r = find(&mut parent, c);
+        let n = roots.len() + 1;
+        let id = *roots.entry(r).or_insert(n);
+        cluster.insert(c, id);
+    }
+    let ncl = roots.len() + 1;
+    if ncl > 2 {
+        let mut sizes: BTreeMap<usize, Vec<C2>> = BTreeMap::new();
+        for (c, id) in &cluster {
+            sizes.entry(*id).or_default().push(*c);
+        }
+        let desc: Vec<String> = sizes.iter().map(|(id, v)| { let mut v = v.clone(); v.sort(); format!("c{id}: {}", v.iter().map(|c| format!("{},{}", c.0, c.1)).collect::<Vec<_>>().join(" ")) }).collect();
+        println!("{} independent-timing clusters: {}", ncl - 1, desc.join(" | "));
+    }
     let fixed: HashMap<C2, Kind> = hall_fixed.into_iter().map(|c| (c, Kind::Block)).collect();
     let mut cell_group: HashMap<(usize, C2), usize> = HashMap::new();
     for (gi, g) in rec.groups.iter().enumerate() {
@@ -1189,7 +1289,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             cell_group.insert((g.tr, *c), gi);
         }
     }
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, cell_group })
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, cell_group, cluster, ncl })
 }
 
 /// `--menu`: record each alternative schedule, keep the trace `tr` of those that start and end
@@ -1325,7 +1425,7 @@ pub struct Model<'a> {
     pub kl: HashMap<(C2, Kind), Lit>,
     preds: HashMap<(C2, u8), Lit>,
     pub lever: Vec<Lit>,
-    pub warp: [Vec<Vec<(i32, Lit)>>; 2],
+    pub warp: [Vec<Vec<Vec<(i32, Lit)>>>; 2],
     out: HashMap<Key, Lit>,
     sched: HashMap<Key, Lit>,
     /// Observers: the tick due at s was scheduled only by a block-event-phase change (a moving
@@ -1403,7 +1503,7 @@ impl<'a> Model<'a> {
         if let Some(l) = self.mc.get(&(tr, k, c, what)) {
             return *l;
         }
-        let ws = self.warp_at(tr, k);
+        let ws = self.warp_at_c(tr, k, self.p.cl(c));
         let p = self.p;
         let opts = p.frame_opts(tr, c);
         let mut lits = Vec::new();
@@ -1450,7 +1550,7 @@ impl<'a> Model<'a> {
         };
         let logs = LOG_DOORS.load(std::sync::atomic::Ordering::Relaxed);
         let fix = |v: u8| if logs && v == 1 { 2 } else { v };
-        let ws = self.warp_at(tr, k);
+        let ws = self.warp_at_c(tr, k, self.p.cl(c));
         let ph = &self.p.rec.phases[tr];
         let lits: Vec<Lit> = ws.iter().filter(|(tau, _)| *tau >= 1 && fix(class(ph.frame(*tau).get(&c))) != fix(class(ph.frame(*tau - 1).get(&c)))).map(|(_, l)| *l).collect();
         let l = self.e.or(&lits);
@@ -1461,7 +1561,7 @@ impl<'a> Model<'a> {
         if let Some(l) = self.mc.get(&(tr, k, c, 9)) {
             return *l;
         }
-        let ws = self.warp_at(tr, k);
+        let ws = self.warp_at_c(tr, k, self.p.cl(c));
         let p = self.p;
         let mut lits: Vec<Lit> = Vec::new();
         for (ga, ph) in p.frame_opts(tr, c) {
@@ -1483,7 +1583,10 @@ impl<'a> Model<'a> {
     }
     /// The (recorded tick, literal) pairs SAT tick k may play.
     fn warp_at(&self, tr: usize, k: i32) -> Vec<(i32, Lit)> {
-        if k <= 0 { vec![(0, self.e.t())] } else { self.warp[tr][k as usize].clone() }
+        self.warp_at_c(tr, k, 0)
+    }
+    fn warp_at_c(&self, tr: usize, k: i32, cl: usize) -> Vec<(i32, Lit)> {
+        if k <= 0 { vec![(0, self.e.t())] } else { self.warp[tr][cl][k as usize].clone() }
     }
     fn is_mech(&self, c: C2) -> bool {
         self.p.mech.contains(&c)
@@ -1756,39 +1859,42 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     }
     // the time warp: SAT tick k plays recorded tick tau (k <= 0: tau 0); a static recorded tick
     // may be replayed (a stall) and static ticks may be skipped; motion plays at full speed
-    let mut warp: [Vec<Vec<(i32, Lit)>>; 2] = [Vec::new(), Vec::new()];
+    let mut warp: [Vec<Vec<Vec<(i32, Lit)>>>; 2] = [Vec::new(), Vec::new()];
     for tr in 0..2 {
-        warp[tr].push(vec![(0, e.t())]);
-        for k in 1..=p.h {
-            let v: Vec<(i32, Lit)> = p.window(tr, k).map(|tau| (tau, e.var())).collect();
-            let lits: Vec<Lit> = v.iter().map(|x| x.1).collect();
-            e.exactly_one(&lits);
-            warp[tr].push(v);
-        }
-        for k in 0..p.h {
-            for (tau, l) in warp[tr][k as usize].clone() {
-                let mut next = Vec::new();
-                for (t2, l2) in &warp[tr][k as usize + 1] {
-                    let ok = if *t2 == tau {
-                        p.static_tick(tr, tau)
-                    } else if *t2 > tau {
-                        (tau + 1..*t2).all(|s| p.static_tick(tr, s))
-                    } else {
-                        false
-                    };
-                    if ok {
-                        next.push(*l2);
+        for cl in 0..p.ncl {
+            let mut wc: Vec<Vec<(i32, Lit)>> = vec![vec![(0, e.t())]];
+            for k in 1..=p.h {
+                let v: Vec<(i32, Lit)> = p.window(tr, k).map(|tau| (tau, e.var())).collect();
+                let lits: Vec<Lit> = v.iter().map(|x| x.1).collect();
+                e.exactly_one(&lits);
+                wc.push(v);
+            }
+            for k in 0..p.h {
+                for (tau, l) in wc[k as usize].clone() {
+                    let mut next = Vec::new();
+                    for (t2, l2) in &wc[k as usize + 1] {
+                        let ok = if *t2 == tau {
+                            p.static_tick_c(tr, tau, cl)
+                        } else if *t2 > tau {
+                            (tau + 1..*t2).all(|s| p.static_tick_c(tr, s, cl))
+                        } else {
+                            false
+                        };
+                        if ok {
+                            next.push(*l2);
+                        }
                     }
+                    next.push(!l);
+                    e.add(&next);
                 }
-                next.push(!l);
-                e.add(&next);
             }
-        }
-        let end = p.settled_from(tr);
-        for (tau, l) in warp[tr][p.h as usize].clone() {
-            if tau < end {
-                e.add(&[!l]);
+            let end = p.settled_from_c(tr, cl);
+            for (tau, l) in wc[p.h as usize].clone() {
+                if tau < end {
+                    e.add(&[!l]);
+                }
             }
+            warp[tr].push(wc);
         }
     }
     let mut m = Model {
@@ -2311,7 +2417,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         for &k in &ks {
             for &c in &mech {
                 let opts = p.frame_opts(tr, c);
-                for (tau, wl) in m.warp_at(tr, k) {
+                for (tau, wl) in m.warp_at_c(tr, k, p.cl(c)) {
                   for (ga, ph) in &opts {
                     let MK::Piston { f: fc, .. } = ph.frame(tau - 1).get(&c).map_or(MK::Air, |s| mk(s)) else { continue };
                     // motion mode: the power matters only where the motion needs it AND the recording
@@ -2444,7 +2550,11 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             let kk = p.rec.phases[tr].k();
             for k in 1..=h {
                 let want = k.min(kk);
-                let l = m.warp[tr][k as usize].iter().find(|x| x.0 == want).map(|x| x.1).unwrap_or(m.e.f());
+                for cl in 0..p.ncl {
+                    let l = m.warp[tr][cl][k as usize].iter().find(|x| x.0 == want).map(|x| x.1).unwrap_or(m.e.f());
+                    m.e.add(&[l]);
+                }
+                let l = m.e.t();
                 m.e.add(&[l]);
             }
         }
@@ -2493,18 +2603,21 @@ pub fn decode(m: &Model, name: &str) -> Sol {
     d.ports.insert("door".into(), p.rec.door);
     d.ports.insert("lever".into(), lc.pos);
     let warp = |tr: usize| -> String {
-        let mut prev = 0;
-        let mut v = Vec::new();
-        for k in 1..=p.h {
-            let tau = m.warp[tr][k as usize].iter().find(|x| m.e.val(x.1)).map(|x| x.0).unwrap_or(-1);
-            if tau == prev {
-                v.push(format!("t{k}=stall"));
-            } else if tau > prev + 1 {
-                v.push(format!("t{k}=skip{}", tau - prev - 1));
+        // per cluster: each recorded motion tick tau that plays at another SAT tick k (tau@k)
+        let mut parts = Vec::new();
+        for cl in 0..p.ncl {
+            let mut v = Vec::new();
+            for k in 1..=p.h {
+                let tau = m.warp[tr][cl][k as usize].iter().find(|x| m.e.val(x.1)).map(|x| x.0).unwrap_or(-1);
+                if tau != k && tau >= 1 && !p.static_tick_c(tr, tau, cl) {
+                    v.push(format!("{tau}@{k}"));
+                }
             }
-            prev = tau;
+            if !v.is_empty() {
+                parts.push(format!("c{cl}: {}", v.join(" ")));
+            }
         }
-        if v.is_empty() { "as recorded".into() } else { v.join(" ") }
+        if parts.is_empty() { "as recorded".into() } else { parts.join("; ") }
     };
     let wiring = kinds.len();
     let alts: Vec<String> = p
