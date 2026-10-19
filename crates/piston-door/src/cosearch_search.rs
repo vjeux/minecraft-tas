@@ -1326,7 +1326,16 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
     anyhow::ensure!(!a.seeds.is_empty(), "give at least one seed design");
     let mut doors = Vec::new();
     for s in &a.seeds {
-        let (d, r) = cs::load_door(s)?;
+        // a mechanism file without a lever port: `--lever x,y` (door coordinates) names one
+        let mut d = crate::cli::load_design(s)?;
+        if !d.ports.contains_key("lever")
+            && let (Some(lv), Some(door)) = (&a.lever, d.ports.get("door").copied())
+        {
+            let v: Vec<i32> = lv.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 2, "--lever x,y");
+            d.ports.insert("lever".into(), [door[0] + v[0], door[1] + v[1], door[2]]);
+        }
+        let r = RsDoor::from_design(&d).map_err(|e| anyhow::anyhow!("{}: {e}", s.display()))?;
         anyhow::ensure!(crate::single_layer(&d), "{}: not flat", s.display());
         doors.push((s.display().to_string(), d, r));
     }
