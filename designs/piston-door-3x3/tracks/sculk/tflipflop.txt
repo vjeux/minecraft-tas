@@ -1,0 +1,23 @@
+name: sff-test
+# sculk T flip-flop test: lever (0,1) on stone (0,0) feeding a delay chain (3 repeaters, keeps the
+# world busy 24 ticks); sensor (6,2) hears the lever (d = 6.08); waxed copper bulb (7,2) toggles
+# on each activation; comparator (8,2) facing west reads it; lamp (9,2) shows the level.
+port door: 20 0 0
+port lever: 0 1 0
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  K minecraft:sculk_sensor
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  M minecraft:redstone_lamp[lit=false]
+  R minecraft:repeater[delay=4,facing=west]
+layer -1:
+  .SSS................
+layer 0:
+  SRRR................SSS
+layer 1:
+  L.....SSS...........SSS
+layer 2:
+  ......KBCM..........SSS

@@ -1,0 +1,35 @@
+name: c78t-022-sym
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:piston_head[facing=up,short=false,type=sticky]
+  B minecraft:piston_head[facing=west,short=false,type=sticky]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:sticky_piston[extended=true,facing=east]
+  F minecraft:sticky_piston[extended=true,facing=up]
+  G minecraft:sticky_piston[extended=true,facing=west]
+  H minecraft:stone
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:smooth_stone
+  p minecraft:piston_head[facing=east,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  ...R
+layer -2:
+  .R.F
+layer -1:
+  .EpAS.R
+layer 0:
+  C.HHHBG
+layer 1:
+  C.HHHBGR
+layer 2:
+  C.HHHS
+layer 3:
+  ..SP
+layer 4:
+  ..RDs
+layer 5:
+  ...s

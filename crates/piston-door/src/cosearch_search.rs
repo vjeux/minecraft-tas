@@ -65,7 +65,9 @@ pub struct SearchArgs {
     #[arg(long, default_value_t = 160)]
     pub max_ticks: u32,
     /// Palette: comma list of families (stone, glass, dust, rblock, torch, walltorch, repeater,
-    /// comparator, observer, sticky, piston, lamp, note, target, bulb) or `all`.
+    /// comparator, observer, sticky, piston, lamp, note, target, bulb, obsidian, trapdoor, dropper,
+    /// slab, leaves, log, glazed; sculk boards: sculk, calibrated, wool, amethyst) or `all` (every
+    /// non-sculk family; `all,sculk,calibrated` adds sensors).
     #[arg(long, default_value = "all")]
     pub palette: String,
     /// Lock the mechanism: no piston is added, removed, moved or re-faced (wiring only).
@@ -448,7 +450,9 @@ fn parse_box(s: &str) -> Result<([i32; 2], [i32; 2])> {
 
 pub fn palette(spec: &str) -> Result<Vec<Block>> {
     let all = "stone,glass,dust,rblock,torch,walltorch,repeater,comparator,observer,sticky,piston,lamp,note,target,bulb,obsidian,trapdoor,dropper,slab,leaves,log,glazed";
-    let spec = if spec == "all" { all } else { spec };
+    // "all" may also stand among other families ("all,sculk,calibrated": the sculk board)
+    let spec: String = spec.split(',').map(str::trim).map(|f| if f == "all" { all } else { f }).collect::<Vec<_>>().join(",");
+    let all = format!("{all},sculk,calibrated,wool,amethyst");
     let mut out = vec![Block::Air];
     for fam in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
         let states: Vec<String> = match fam {
@@ -480,6 +484,17 @@ pub fn palette(spec: &str) -> Result<Vec<Block>> {
             "log" => vec!["oak_log[axis=x]".into(), "oak_log[axis=y]".into()],
             // pushed but never pulled (sticky pistons leave it, slime cannot drag it)
             "glazed" => ["north", "east", "south", "west"].map(|f| format!("white_glazed_terracotta[facing={f}]")).to_vec(),
+            // sculk (its own board, redsim's sculk.rs): a sensor hears game events (pistons
+            // moving, levers, note blocks...) within 8 blocks, wirelessly; active 30 gt then 10 gt
+            // cooldown; weak power on every side, strong into the block below
+            "sculk" => vec!["sculk_sensor".into()],
+            // calibrated: 16 blocks, active 10 gt, no output into its back (facing.opposite()),
+            // whose signal (if any) admits only that frequency (piston extend 10, retract 9)
+            "calibrated" => ["north", "east", "south", "west"].map(|f| format!("calibrated_sculk_sensor[facing={f}]")).to_vec(),
+            // wool hides a vibration whose 6 nudged lines all cross wool
+            "wool" => vec!["white_wool".into()],
+            // amethyst next to an activated sensor re-emits the vibration (resonate_<frequency>)
+            "amethyst" => vec!["amethyst_block".into()],
             f => bail!("unknown palette family {f:?} ({all})"),
         };
         for s in states {
@@ -799,6 +814,23 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
     let mut seen: Vec<Vec<Block>> = vec![rest.clone()];
     let mut periodic = false;
     let rec_cells = if p.reference.is_empty() { Vec::new() } else { plane_cells_wide(&w, z) };
+    // the ring of plane cells just outside the box (the lever excepted): the community volume
+    // is the bounding box over EVERY tick of the cycle, so a piston head or a pushed block that
+    // pokes out of the box mid-cycle makes the door bigger than the box (the open-state check
+    // below does not see it)
+    let halo: Vec<BlockPos> = {
+        let mut v = Vec::new();
+        for y in p.lo[1] - 1..=p.hi[1] + 1 {
+            for x in p.lo[0] - 1..=p.hi[0] + 1 {
+                let q = BlockPos::new(x, y, z);
+                if !in_box(p, x, y) && q != lever {
+                    v.push(q);
+                }
+            }
+        }
+        v
+    };
+    let mut escaped = false;
     for cycle in 0..p.cycles {
         w.use_block(lever);
         let rec = cycle == 0 && !rec_cells.is_empty();
@@ -806,12 +838,18 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
         let mut t = 0;
         let measure = cycle == 0 && measure;
         let idle = run_phase(p, g, &mut w, 0, if measure { Some(&mut traces[0]) } else { None }, |w| {
+            if !escaped && halo.iter().any(|q| !w.get(*q).is_air()) {
+                escaped = true;
+            }
             if rec {
                 t += 1;
                 tick_events(&prev, w, 0, t, evs);
                 prev = piston_cells(w, &rec_cells);
             }
         });
+        if escaped {
+            return Score { pts: (pts - 2).min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
+        }
         let open_n = p.door_cells.iter().filter(|(x, y)| {
             let s = w.get(at(*x, *y));
             !cs::collides(&s) && !cs::is_moving(&s)
@@ -834,12 +872,18 @@ fn screen_core_w(p: &Problem, g: &Grid, evs: &mut Vec<Event>, traces: &mut [Vec<
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
         let idle = run_phase(p, g, &mut w, 1, if measure { Some(&mut traces[1]) } else { None }, |w| {
+            if !escaped && halo.iter().any(|q| !w.get(*q).is_air()) {
+                escaped = true;
+            }
             if rec {
                 t += 1;
                 tick_events(&prev, w, 1, t, evs);
                 prev = piston_cells(w, &rec_cells);
             }
         });
+        if escaped {
+            return Score { pts: (pts - 2).min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0, dr: 0.0 };
+        }
         let back = p.door_cells.iter().filter(|(x, y)| w.get(at(*x, *y)) == p.door_block).count() as i32;
         pts += back;
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
@@ -985,6 +1029,7 @@ fn refaced(b: &Block, rng: &mut Rng) -> Option<Block> {
         Block::Glazed { .. } => Block::Glazed { facing: [Dir::North, Dir::East, Dir::South, Dir::West][rng.below(4)] },
         Block::Simple(Simple::Obsidian) => Block::Simple(Simple::CryingObsidian),
         Block::Simple(Simple::CryingObsidian) => Block::Simple(Simple::Obsidian),
+        Block::Sculk { calibrated: true, phase, power, .. } => Block::Sculk { calibrated: true, facing: [Dir::North, Dir::East, Dir::South, Dir::West][rng.below(4)], phase, power },
         _ => return None,
     })
 }

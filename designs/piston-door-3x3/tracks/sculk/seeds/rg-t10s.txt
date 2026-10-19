@@ -1,0 +1,37 @@
+name: ring56-t10s
+# t10 with the REAL lever (ON at rest) hung on the west face of TL's puller: TL's and ML's pullers are
+# level pistons (TL's directly, ML's by QC). Observers on them give ONE pulse per edge: (-2,3) facing down
+# (top-left) and (-2,0) facing up (bottom-left). OA (0,4) and OB (0,5) face west: A's feed (high: direct,
+# low at C1: QC through (1,4) + its front update) and B's feed. Seed for the wiring search.
+port door: 0 0 0
+port lever: -3 2 0
+origin: -3 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  X minecraft:sticky_piston[extended=true,facing=east]
+  h minecraft:piston_head[facing=east,short=false,type=sticky]
+  Q minecraft:smooth_stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  d minecraft:observer[facing=down,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  w minecraft:observer[facing=west,powered=false]
+layer -2:
+  ...UU...
+layer -1:
+  .....Q..
+layer 0:
+  .uQSSS.W
+layer 1:
+  .XhSSS.W
+layer 2:
+  LXhSSSQ.
+layer 3:
+  .dE.....
+layer 4:
+  ...wDD..
+layer 5:
+  ...wD...
