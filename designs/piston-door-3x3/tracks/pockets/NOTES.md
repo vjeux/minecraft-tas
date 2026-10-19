@@ -46,4 +46,27 @@ mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; fi
 FULL frame as given: w63top m10 / m10r / m10a, seq56 m4 / m5. 12/12 after `door sheet --fill` (static
 stone = the door block in the 3 empty frame cells, written to `tracks/pockets/mech/*-ff.*`): w63top m8, m9,
 ring56 t8, t10, jf, mechspace c78-001..006 (their smooth-stone statics were the wrong block for the frame
-rule: frame cells must hold the door block itself).
+rule: frame cells must hold the door block itself), pistmodel fm-8x8-000..063 (`mech/fm8/`).
+
+## 4. More c2e / m10top seeds (coordinator hot seeds)
+
+* m79p (m10top bd34158: m79a with B pull-type, A's hold real = the hold family found in section 2):
+  B's open pulse must start at t9..t10 (window [-1,0]); top-left (7 free cells, k=6 x 12 states,
+  23.5M screens): L1/L2 (4 blocks) or A's last pull (5 blocks) separately, never together, close L1/L2
+  never. B's pulse: by hand, every source B can see before it moves is at the right (the left sees
+  nothing before B) and every element that fits there changes at t0..t4 or emits into (2,5) (QC on
+  TRp, whose drop at t1 the hold needs).
+* m79q (m10top a3871e5: B's chain real but 1 gt early): B's chain cells (2,5),(3,5),(4,5) x 55 states
+  (`--fill-palette all`), k=3, B shifted +1: nothing. Every element that fits is even (observers 2,
+  lamps 4, repeaters even, comparators/torches 2, bulbs 0); the one odd event (TRp's retraction at t1)
+  is visible only from (2,5) facing down (output leaves the box) or from the lamp's cell.
+  Tool note: m79q's real B trace (t8-9) fails the screen released while a plan pulse at the same
+  ticks passes: an observer fires inside the tick, a plan block appears between ticks, so plan
+  windows of observer-driven inputs can be 1 gt optimistic.
+
+## 5. Coverage batches (k=3, ~37 states, lever both polarities + front face; `runs/b78-k3.log`, `runs/fm8-y2-k3.log`)
+
+No mechanism is fully wired at k=3 (fillings of <= 3 blocks per pocket); what stays undriven is the
+center train (A, B, U, K), as expected (c79's own regions need 4-8 blocks):
+m4 8 of 18 groups undriven, m5 5/17, m8-ff 13/19, m9-ff 16/20, c78-002-ff 13/23, t8-ff 7/22, jf-ff 5/20
+((1,4)o2 (1,-1)o16 (1,-2)o28 (1,-2)c0 (1,4)c2); fm-8x8 (24 flat ones): 11-17 undriven each.
