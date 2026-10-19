@@ -1,0 +1,40 @@
+# Two pulses 12 gt apart toggle the bulb on, then off: the comparator gives ONE window (t2..t14).
+# OPEN (K two cells from P): the window's rising edge extends P into the gap, its falling edge
+# retracts it and pulls K one cell in (a pull-type piston accepts any pulse length to pull).
+# CLOSE (K right in front of P): the window extends P, which pushes K back out (lands 2 gt later),
+# then the falling edge 12 gt later is a NORMAL sticky retract (the pushed block is no longer
+# moving): K is PULLED BACK. A window closes nothing; a pull-type piston needs a SHORT pulse
+# (<= 2 gt: push and spit) on close, so an even link needs a second flip-flop (see memory-link).
+design designs/gadgets/memory-window.txt
+probe bulb 1 1 0
+probe cmp 2 1 0
+probe k4 4 1 0
+probe k5 5 1 0
+setblock 0 1 0 minecraft:redstone_block
+expect bulb 1
+quiet 2
+setblock 0 1 0 minecraft:air
+quiet 10
+expect cmp 1
+setblock 0 1 0 minecraft:redstone_block
+expect bulb 0
+quiet 2
+setblock 0 1 0 minecraft:air
+settle
+expect cmp 0
+expect_state 4 1 0 stone
+expect_state 5 1 0 air
+setblock 0 1 0 minecraft:redstone_block
+expect bulb 1
+quiet 2
+setblock 0 1 0 minecraft:air
+quiet 3
+expect_state 5 1 0 stone
+quiet 7
+setblock 0 1 0 minecraft:redstone_block
+expect bulb 0
+quiet 2
+setblock 0 1 0 minecraft:air
+settle
+expect_state 4 1 0 stone
+expect_state 5 1 0 air

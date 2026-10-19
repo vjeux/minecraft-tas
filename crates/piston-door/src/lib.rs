@@ -51,6 +51,7 @@ pub mod cosearch_search;
 pub mod search;
 pub mod shapes;
 pub mod showcase;
+pub mod redsim_screen;
 pub mod synth;
 pub mod tickvideo;
 pub mod tile;
@@ -60,6 +61,7 @@ pub mod vanilla_check;
 pub mod vanilla_build;
 pub mod vanilla_gadget;
 pub mod pistfuzz;
+pub mod fullmech;
 pub mod world;
 
 use anyhow::{Context, Result, bail};
