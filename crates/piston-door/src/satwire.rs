@@ -1930,6 +1930,8 @@ pub fn render(p: &Prob, s: &Sol) -> String {
 
 pub struct RunOpts {
     pub iters: usize,
+    /// Most re-solves spent shrinking an UNSAT core to the pistons that conflict (0: raw core).
+    pub core_tries: usize,
     pub minimize: bool,
     pub max_blocks: Option<usize>,
     pub extra: u32,
@@ -1994,8 +1996,8 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
     let tot = m.e.totalizer(&used);
     let mut bound = o.max_blocks.unwrap_or(used.len()).min(used.len());
     let cfg = mctas::sim::WorkerConfig { version: o.version.clone(), heap_mb: 1024, ..Default::default() };
-    let mut w = Worker::spawn(&cfg)?;
-    let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+    // The judge's JVM starts with the first model (an UNSAT run never holds a worker).
+    let mut ws: Option<(Worker, u32)> = None;
     let mut best: Option<(Design, usize)> = None;
     let mut fails = 0usize;
     for it in 0..o.iters {
@@ -2016,7 +2018,7 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
                     if base.is_empty() || true {
                         let mut i = 0;
                         let mut tries = 0;
-                        while i < cs.len() && tries < 40 {
+                        while i < cs.len() && tries < o.core_tries {
                             tries += 1;
                             let mut a = base.clone();
                             a.extend(cs.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, s)| s.2));
@@ -2045,9 +2047,15 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
             break;
         }
         let mut s = decode(&m, &o.name);
-        normalize_notes(&mut w, &mut s.design)?;
+        if ws.is_none() {
+            let mut w = Worker::spawn(&cfg)?;
+            let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
+            ws = Some((w, sb));
+        }
+        let (w, sb) = ws.as_mut().map(|(w, sb)| (w, *sb)).unwrap();
+        normalize_notes(w, &mut s.design)?;
         log(format!("[{:6.1}s] iter {it}: SAT (solve {dt:.1}s): {} wiring blocks; timing open: {}; close: {}\n{}", t0.elapsed().as_secs_f64(), s.wiring, s.warp[0], s.warp[1], render(p, &s)));
-        match judge(&mut w, sb, &s.design, 0) {
+        match judge(w, sb, &s.design, 0) {
             Ok(rep) => {
                 log(format!("  JUDGE OK (4 positions): {rep}"));
                 if let Some(path) = &o.out {
@@ -2072,11 +2080,12 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
             }
         }
     }
-    let _ = w.drop_sandbox(sb);
     let Some((d, _)) = best else { return Ok(None) };
+    let Some((w, sb)) = ws.as_mut() else { return Ok(Some(d)) };
+    let _ = w.drop_sandbox(*sb);
     if o.extra > 0 {
         let sb = w.create(&SandboxOptions { chunks: [-2, -2, 1, 1], seed: 0 })?;
-        match judge(&mut w, sb, &d, o.extra) {
+        match judge(w, sb, &d, o.extra) {
             Ok(rep) => log(format!("JUDGE OK with --extra-offsets {}: {rep}", o.extra)),
             Err(e) => log(format!("JUDGE FAILS with --extra-offsets {}: {}", o.extra, e.chars().take(300).collect::<String>())),
         }

@@ -810,6 +810,9 @@ pub enum DoorCmd {
         /// Fix the source design's own wiring and report where the model disagrees with it.
         #[arg(long)]
         check: bool,
+        /// Re-solves spent shrinking an UNSAT core to the conflicting pistons (0: the raw core).
+        #[arg(long, default_value_t = 40)]
+        core_tries: usize,
         /// CEGAR iterations.
         #[arg(long, default_value_t = 300)]
         iters: usize,
@@ -2635,7 +2638,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 None => println!("nothing found"),
             }
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, iters, families, gap, oc, first, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, from_wired, bx, forbid_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;
             if check && mechanism.len() > 1 {
                 let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian")?, forbid_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels };
@@ -2713,7 +2716,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 return sw::check(&p);
             }
             let name = match &families { Some(id) => format!("satwire-{id}"), None => format!("satwire-{}", mechanism.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default()) };
-            let o = sw::RunOpts { iters, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
+            let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
         }
         DoorCmd::Families { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve } => {
