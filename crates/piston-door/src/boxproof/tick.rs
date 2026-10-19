@@ -270,8 +270,8 @@ impl<'g, A: Alg> Ctx<'g, A> {
             if let Some(due) = obs_due {
                 let nd = self.not(due[o]);
                 let race = self.and(&[stay, sees, due[o], pre[o].on]);
-                self.a.flag(race, "observer turning off sees a change in the same phase");
                 fire = self.and(&[fire, nd]);
+                fire = self.relax(race, fire, "observer turning off sees a change in the same phase");
             }
             self.sched(bk, o, 2, fire);
         }
@@ -287,26 +287,28 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let free = self.not(busy);
             let rin = self.rin(post, &der, i, lon);
             let mis = self.xor(post[i].on, rin);
+            let mut rr = self.fl();
+            let mut tr = self.fl();
             if let Some(early) = &early {
                 let nd = self.not(ncd[i]);
                 let only0 = self.and(&[nc0[i], nd]);
                 let rin_e = self.rin(post, early, i, lon);
                 let rch = self.xor(rin, rin_e);
-                let rr = self.and(&[only0, isr, rch, free]);
-                self.a.flag(rr, "repeater checked before dust settled");
+                rr = self.and(&[only0, isr, rch, free]);
                 let tin_e = self.tin(post, early, i, lon);
                 let tin_f = self.tin(post, &der, i, lon);
                 let tch = self.xor(tin_e, tin_f);
-                let tr = self.and(&[only0, ist, tch, free]);
-                self.a.flag(tr, "torch checked before dust settled");
+                tr = self.and(&[only0, ist, tch, free]);
             }
             for dl in 0..4 {
                 let c = self.and(&[nc[i], isr, post[i].dl[dl], mis, free]);
+                let c = self.relax(rr, c, "repeater checked before dust settled");
                 self.sched(bk, i, 2 * (dl + 1), c);
             }
             let tin = self.tin(post, &der, i, lon);
             let tm = self.eqv(post[i].on, tin);
             let c = self.and(&[nc[i], ist, tm, free]);
+            let c = self.relax(tr, c, "torch checked before dust settled");
             self.sched(bk, i, 2, c);
         }
         let c4 = self.a.cost();
@@ -335,13 +337,13 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 continue;
             }
             let pw = self.ppow(post, &der, p, lon);
+            let mut erace = self.fl();
             if let Some(early) = &early {
                 let nd = self.not(anyd);
                 let only0 = self.and(&[upd, nd]);
                 let pe = self.ppow(post, early, p, lon);
                 let ch = self.xor(pe, pw);
-                let r = self.and(&[only0, ch]);
-                self.a.flag(r, "piston checked before dust settled");
+                erace = self.and(&[only0, ch]);
             }
             let mut res = Vec::new();
             let mut e2 = Vec::new();
@@ -368,6 +370,10 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let r2 = self.and(&[rt, e2]);
             let ne2 = self.not(e2);
             let r1 = self.and(&[rt, ne2]);
+            let why = "piston checked before dust settled";
+            let e0 = self.relax(erace, e0, why);
+            let r1 = self.relax(erace, r1, why);
+            let r2 = self.relax(erace, r2, why);
             bk.qn[p][0] = self.or(&[bk.qn[p][0], e0]);
             bk.qn[p][1] = self.or(&[bk.qn[p][1], r1]);
             bk.qn[p][2] = self.or(&[bk.qn[p][2], r2]);
@@ -432,12 +438,14 @@ impl<'g, A: Alg> Ctx<'g, A> {
         let mut bk = self.new_book(s, false);
         let due: Vec<A::B> = (0..n).map(|i| s[i].sch[0]).collect();
         let none = vec![fl; n];
-        // ---- phase 1a: repeaters
+        // ---- phase 1a: repeaters (each reads its input when it runs; another repeater of the
+        // same phase changing it is a race: flagged, or relaxed to either outcome)
         let der0 = self.derive(s, lon);
         let mut post = s.to_vec();
         let mut nc0 = vec![fl; n];
         let mut rdue = vec![fl; n];
         let mut rin0 = vec![fl; n];
+        let mut rrace = vec![fl; n];
         let mut dchg_r = vec![fl; n];
         for i in 0..n {
             let d = self.and(&[due[i], s[i].k[REP]]);
@@ -450,10 +458,29 @@ impl<'g, A: Alg> Ctx<'g, A> {
             let t = self.t();
             let v = self.ite(s[i].on, inp, t);
             post[i].on = self.ite(d, v, s[i].on);
+        }
+        if self.flags_on {
+            let dt = self.derive(&post, lon);
+            for i in 0..n {
+                if self.a.val(rdue[i]) == Some(false) {
+                    continue;
+                }
+                let r1 = self.rin(&post, &dt, i, lon);
+                let ch = self.xor(r1, rin0[i]);
+                rrace[i] = self.and(&[rdue[i], ch]);
+                post[i].on = self.relax(rrace[i], post[i].on, "repeater input changes within the repeater phase");
+            }
+        }
+        for i in 0..n {
+            let d = rdue[i];
+            if self.a.val(d) == Some(false) {
+                continue;
+            }
             let non = self.not(s[i].on);
-            let ninp = self.not(inp);
+            let ninp = self.not(rin0[i]);
             for dl in 0..4 {
                 let c = self.and(&[d, non, ninp, s[i].dl[dl]]);
+                let c = self.relax(rrace[i], c, "repeater input changes within the repeater phase");
                 self.sched(&mut bk, i, 2 * (dl + 1), c);
             }
             let tg = self.xor(post[i].on, s[i].on);
@@ -467,24 +494,17 @@ impl<'g, A: Alg> Ctx<'g, A> {
             self.a.and(&[due[i], t])
         }).collect();
         let der1 = self.settle(s, &mut post, lon, &nc0, &dchg_r, &[], &wtt, None, Phase::Rep, &mut bk);
-        for i in 0..n {
-            if !self.flags_on || self.a.val(rdue[i]) == Some(false) {
-                continue;
-            }
-            let r1 = self.rin(&post, &der1, i, lon);
-            let ch = self.xor(r1, rin0[i]);
-            let race = self.and(&[rdue[i], ch]);
-            self.a.flag(race, "repeater input changes within the repeater phase");
-        }
-        // ---- phase 1b: observers and torches
+        // ---- phase 1b: observers, torches, lamps (torches and lamps read their input when
+        // they run: same race treatment)
         let s1 = post.clone();
         let mut post = s1.clone();
         let mut nc0 = vec![fl; n];
         let mut odue = vec![fl; n];
         let mut tdue = vec![fl; n];
+        let mut ldue = vec![fl; n];
         let mut tin0 = vec![fl; n];
+        let mut lin0 = vec![fl; n];
         let mut dchg_n = vec![fl; n];
-        let mut lamp_chk: Vec<(usize, A::B, A::B)> = Vec::new();
         for i in 0..n {
             let od = self.and(&[due[i], s1[i].k[OBSV]]);
             if self.a.val(od) != Some(false) {
@@ -501,15 +521,13 @@ impl<'g, A: Alg> Ctx<'g, A> {
             }
             let ld = self.and(&[due[i], s1[i].k[LAMP]]);
             if self.a.val(ld) != Some(false) {
+                ldue[i] = ld;
                 let inp = self.nin(&s1, &der1, i, lon);
+                lin0[i] = inp;
                 let ninp = self.not(inp);
                 let off = self.and(&[ld, s1[i].on, ninp]);
                 let noff = self.not(off);
                 post[i].on = self.and(&[post[i].on, noff]);
-                dchg_n[i] = self.or(&[dchg_n[i], off]);
-                if self.flags_on {
-                    lamp_chk.push((i, ld, inp));
-                }
             }
             let tk = self.or(&[s1[i].k[TORCH], s1[i].k[WTORCH]]);
             let td = self.and(&[due[i], tk]);
@@ -519,30 +537,39 @@ impl<'g, A: Alg> Ctx<'g, A> {
                 tin0[i] = inp;
                 let ni = self.not(inp);
                 post[i].on = self.ite(td, ni, s1[i].on);
-                let tg = self.xor(post[i].on, s1[i].on);
-                let tg = self.and(&[td, tg]);
-                dchg_n[i] = self.or(&[dchg_n[i], tg]);
-                for j in self.g.diamond2(i) {
-                    self.add_nc(&mut nc0, j, tg);
+            }
+        }
+        if self.flags_on {
+            let dt = self.derive(&post, lon);
+            for i in 0..n {
+                if self.a.val(tdue[i]) != Some(false) {
+                    let t1 = self.tin(&post, &dt, i, lon);
+                    let ch = self.xor(t1, tin0[i]);
+                    let race = self.and(&[tdue[i], ch]);
+                    post[i].on = self.relax(race, post[i].on, "torch input changes within the torch phase");
+                }
+                if self.a.val(ldue[i]) != Some(false) {
+                    let l1 = self.nin(&post, &dt, i, lon);
+                    let ch = self.xor(l1, lin0[i]);
+                    let race = self.and(&[ldue[i], ch]);
+                    post[i].on = self.relax(race, post[i].on, "lamp input changes within the lamp phase");
                 }
             }
         }
-        let der2 = self.settle(&s1, &mut post, lon, &nc0, &dchg_n, &[], &tdue, Some(&odue), Phase::Norm, &mut bk);
         for i in 0..n {
-            if !self.flags_on || self.a.val(tdue[i]) == Some(false) {
+            let tl = self.or(&[tdue[i], ldue[i]]);
+            if self.a.val(tl) == Some(false) {
                 continue;
             }
-            let t1 = self.tin(&post, &der2, i, lon);
-            let ch = self.xor(t1, tin0[i]);
-            let race = self.and(&[tdue[i], ch]);
-            self.a.flag(race, "torch input changes within the torch phase");
+            let tg = self.xor(post[i].on, s1[i].on);
+            let ttg = self.and(&[tdue[i], tg]);
+            let ltg = self.and(&[ldue[i], tg]);
+            dchg_n[i] = self.or(&[dchg_n[i], ttg, ltg]);
+            for j in self.g.diamond2(i) {
+                self.add_nc(&mut nc0, j, ttg);
+            }
         }
-        for (i, ld, inp0) in lamp_chk {
-            let inp1 = self.nin(&post, &der2, i, lon);
-            let ch = self.xor(inp0, inp1);
-            let race = self.and(&[ld, ch]);
-            self.a.flag(race, "lamp input changes within the lamp phase");
-        }
+        let _der2 = self.settle(&s1, &mut post, lon, &nc0, &dchg_n, &[], &tdue, Some(&odue), Phase::Norm, &mut bk);
         // ---- phase 2: block events
         let mut q: Vec<[A::B; 3]> = (0..n).map(|i| {
             let mut e = [fl; 3];

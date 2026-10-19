@@ -30,6 +30,12 @@ pub trait Alg {
     fn require(&mut self, a: Self::B, why: &'static str);
     /// A situation the model does not decide exactly (an order race, an unmodeled case).
     fn flag(&mut self, a: Self::B, why: &'static str);
+    /// A free value (SAT: a fresh variable; bools: `false`, unused there).
+    fn fresh(&mut self) -> Self::B;
+    /// Whether races become nondeterministic choices (sound over-approximation).
+    fn nondet(&self) -> bool {
+        false
+    }
     fn val(&self, a: Self::B) -> Option<bool>;
     /// Clauses so far (profiling).
     fn cost(&self) -> usize {
@@ -73,6 +79,9 @@ impl Alg for Conc {
             self.flags.push(why);
         }
     }
+    fn fresh(&mut self) -> bool {
+        false
+    }
     fn val(&self, a: bool) -> Option<bool> {
         Some(a)
     }
@@ -85,6 +94,9 @@ pub enum FlagMode {
     Forbid,
     /// record only
     Ignore,
+    /// a race lets the affected outcome take EITHER value (a fresh variable): a sound
+    /// over-approximation where it applies; sites without a relaxation are forbidden
+    Nondet,
 }
 
 pub struct Sat {
@@ -109,7 +121,16 @@ impl Default for Sat {
 
 impl Sat {
     pub fn new(mode: FlagMode) -> Sat {
-        let mut s = Sat { s: rustsat_cadical::CaDiCaL::default(), n: 1, tru: Lit::positive(0), cache: HashMap::new(), bigcache: HashMap::new(), xcache: HashMap::new(), clauses: 0, mode, flags: Vec::new(), reqs: 0 };
+        Self::with_config(mode, None)
+    }
+    /// A solver with one of CaDiCaL's preset configurations (`sat` for find mode, `unsat` for
+    /// proofs).
+    pub fn with_config(mode: FlagMode, cfg: Option<rustsat_cadical::Config>) -> Sat {
+        let mut solver = rustsat_cadical::CaDiCaL::default();
+        if let Some(c) = cfg {
+            let _ = solver.set_configuration(c);
+        }
+        let mut s = Sat { s: solver, n: 1, tru: Lit::positive(0), cache: HashMap::new(), bigcache: HashMap::new(), xcache: HashMap::new(), clauses: 0, mode, flags: Vec::new(), reqs: 0 };
         let t = s.tru;
         s.s.add_unit(t).unwrap();
         s
@@ -326,9 +347,15 @@ impl Alg for Sat {
             return;
         }
         self.flags.push((a, why));
-        if self.mode == FlagMode::Forbid {
+        if self.mode != FlagMode::Ignore {
             self.add(&[!a]);
         }
+    }
+    fn fresh(&mut self) -> Lit {
+        self.var()
+    }
+    fn nondet(&self) -> bool {
+        self.mode == FlagMode::Nondet
     }
     fn val(&self, a: Lit) -> Option<bool> {
         if a == self.tru {

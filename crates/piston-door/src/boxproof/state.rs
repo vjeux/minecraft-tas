@@ -192,6 +192,22 @@ impl<'g, A: Alg> Ctx<'g, A> {
         self.a.not(d)
     }
 
+    /// A race on an outcome: in nondeterministic mode (`FlagMode::Nondet`) the outcome may take
+    /// either value (sound: the game's real order gives one of them); otherwise the race is a
+    /// flag (forbidden in prove mode, recorded in find mode) and the parallel value is kept.
+    pub fn relax(&mut self, race: A::B, det: A::B, why: &'static str) -> A::B {
+        if self.a.val(race) == Some(false) {
+            return det;
+        }
+        if self.a.nondet() {
+            let v = self.a.fresh();
+            self.ite(race, v, det)
+        } else {
+            self.a.flag(race, why);
+            det
+        }
+    }
+
     /// In-plane levers standing at `pos`, powered.
     pub fn levers_at(&mut self, pos: (i32, i32), lon: bool) -> A::B {
         if !lon {

@@ -25,6 +25,9 @@ pub struct Opts {
     pub lever: Option<LeverCand>,
     pub oop: bool,
     pub seamless: bool,
+    /// also hold the ring to plain blocks at REST (the brief's stricter reading; `door
+    /// properties` FULL only looks at the open state in the door plane)
+    pub ring_rest: bool,
     pub flags: FlagMode,
     pub max_blocks: Option<usize>,
 }
@@ -124,7 +127,7 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             continue;
         }
         let door = g.is_door(i);
-        let ring = o.seamless && g.is_ring(i);
+        let ring = o.seamless && o.ring_rest && g.is_ring(i);
         let mut ks = Vec::new();
         for k in 0..NK {
             let allowed = if door {
@@ -175,7 +178,7 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
         c.on = onv;
         rest.push(c);
     }
-    let mut cx = Ctx { a: sat, g, lsel: lsel.clone(), flags_on: o.flags == FlagMode::Forbid };
+    let mut cx = Ctx { a: sat, g, lsel: lsel.clone(), flags_on: o.flags != FlagMode::Ignore };
     // lever cells: an in-box lever cell holds LEVER exactly when its candidate is chosen
     for i in 0..n {
         let js: Vec<Lit> = g.levers.iter().enumerate().filter(|(_, l)| !l.oop && g.idx(l.pos.0, l.pos.1) == Some(i)).map(|(j, _)| lsel[j]).collect();
@@ -267,7 +270,7 @@ pub fn build(sat: Sat, o: &Opts, g: &Geo) -> (Sat, Built) {
             cx.a.add(&[s[i].k[AIR]]);
         }
         if o.seamless && g.is_ring(i) {
-            let ok = cx.or(&[s[i].k[AIR], s[i].k[STONE], s[i].k[OBSI]]);
+            let ok = cx.or(&[s[i].k[AIR], s[i].k[STONE], s[i].k[OBSI], s[i].k[GLASS]]);
             cx.a.add(&[ok]);
         }
     }
@@ -501,9 +504,16 @@ pub fn cli(a: &Args) -> Result<()> {
         }
         None => vec![None; g.n()],
     };
-    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), flags: if a.has("prove") { FlagMode::Forbid } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
+    let o = Opts { w, h, door: (dx, dy), t, rounds, palette, fixed, lever: None, oop, seamless: !a.has("no-seamless"), ring_rest: a.has("ring-rest"), flags: if a.has("prove") { FlagMode::Forbid } else if a.has("nondet") { FlagMode::Nondet } else { FlagMode::Ignore }, max_blocks: a.s("max-blocks").and_then(|s| s.parse().ok()) };
     let t0 = Instant::now();
-    let (mut sat, b) = build(Sat::new(o.flags), &o, &g);
+    let cfg = match a.s("cfg") {
+        Some("sat") => Some(rustsat_cadical::Config::Sat),
+        Some("unsat") => Some(rustsat_cadical::Config::Unsat),
+        Some("plain") => Some(rustsat_cadical::Config::Plain),
+        Some("default") => None,
+        _ => if o.flags == FlagMode::Ignore { Some(rustsat_cadical::Config::Sat) } else { Some(rustsat_cadical::Config::Unsat) },
+    };
+    let (mut sat, b) = build(Sat::with_config(o.flags, cfg), &o, &g);
     sat.drop_caches();
     println!("built {}x{} door@{:?} t={} rounds={}: {} vars {} clauses {} flags, {} lever candidates, {:.1}s", w, h, (dx, dy), t, rounds, sat.vars(), sat.clauses, sat.flags.len(), g.levers.len(), t0.elapsed().as_secs_f64());
     let out_dir = a.s("out").unwrap_or("/tmp/boxproof").to_string();
@@ -549,7 +559,7 @@ pub fn cli(a: &Args) -> Result<()> {
                 sat.add(&cl);
             }
             SolverResult::Unsat => {
-                println!("UNSAT in {dt:.1}s (iter {it}): no door in this model ({}x{}, door at {:?}, t={} per edge, rounds {}, races {})", w, h, (dx, dy), t, rounds, if o.flags == FlagMode::Forbid { "forbidden" } else { "allowed" });
+                println!("UNSAT in {dt:.1}s (iter {it}): no door in this model ({}x{}, door at {:?}, t={} per edge, rounds {}, races {})", w, h, (dx, dy), t, rounds, if o.flags == FlagMode::Forbid { "forbidden" } else if o.flags == FlagMode::Nondet { "nondeterministic (either order)" } else { "ignored" });
                 return Ok(());
             }
             SolverResult::Interrupted => bail!("interrupted"),
