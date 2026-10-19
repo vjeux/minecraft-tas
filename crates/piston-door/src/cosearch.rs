@@ -1155,6 +1155,17 @@ pub enum CosearchCmd {
         /// Only these cells (x,y,z;x,y,z...), default every cell.
         #[arg(long)]
         cells: Option<String>,
+        /// Apply a `door ideal` plan's inputs like `search --assist` (odd flips: the open edge's
+        /// events, even flips: the close edge's).
+        #[arg(long)]
+        assist: Option<std::path::PathBuf>,
+        /// Only the plan inputs at these cells (door coordinates `x,y;x,y`).
+        #[arg(long)]
+        assist_cells: Option<String>,
+        /// Print the door plane as a picture after every tick that changed it, over this box
+        /// (door coordinates `x0,y0:x1,y1`), instead of the change list.
+        #[arg(long)]
+        grid: Option<String>,
     },
 }
 
@@ -1195,12 +1206,45 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
             agree(version, &designs, mutants, seed, flat_only, extra_offsets, workers, threads, &out, judge_only)?;
         }
         CosearchCmd::Search(a) => crate::cosearch_search::run(version, &a)?,
-        CosearchCmd::Trace { design, offset, flips, cells } => {
+        CosearchCmd::Trace { design, offset, flips, cells, assist, assist_cells, grid } => {
             let (_, door) = load_door(&design)?;
             let opts = JudgeOpts::with_extra(28);
             let off = opts.offsets[offset.min(opts.offsets.len() - 1)];
             let blocks: Vec<(Pos, Block)> = door.blocks.iter().map(|(p, b)| (add(*p, off), *b)).collect();
             let spec = door.spec.translated(off);
+            let d0 = door.spec.door;
+            // the assist plan's events, only the chosen input cells
+            let mut asst: [Vec<(u32, BlockPos, Block)>; 2] = [Vec::new(), Vec::new()];
+            if let Some(path) = &assist {
+                let a = crate::cosearch_search::load_assist(path, d0[2])?;
+                let keep: Option<Vec<(i32, i32)>> = assist_cells.as_ref().map(|s| {
+                    s.split(';')
+                        .filter_map(|t| {
+                            let v: Vec<i32> = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                            (v.len() == 2).then(|| (v[0] + d0[0], v[1] + d0[1]))
+                        })
+                        .collect()
+                });
+                for ph in 0..2 {
+                    for (t, k, pos, b) in &a.events[ph] {
+                        if keep.as_ref().is_none_or(|c| c.contains(&a.cells[*k])) {
+                            asst[ph].push((*t, BlockPos::new(pos.x + off[0], pos.y + off[1], pos.z + off[2]), *b));
+                        }
+                    }
+                }
+            }
+            let gbox: Option<([i32; 2], [i32; 2])> = match &grid {
+                Some(g) => {
+                    let (a, b) = anyhow::Context::context(g.split_once(':'), "--grid x0,y0:x1,y1")?;
+                    let p = |t: &str| -> Result<[i32; 2]> {
+                        let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                        anyhow::ensure!(v.len() == 2, "--grid x0,y0:x1,y1");
+                        Ok([v[0], v[1]])
+                    };
+                    Some((p(a)?, p(b)?))
+                }
+                None => None,
+            };
             let only: Option<HashSet<Pos>> = cells.map(|c| {
                 c.split(';')
                     .filter_map(|t| {
@@ -1214,7 +1258,28 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
             let list: Vec<(BlockPos, Block)> = blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
             w.place_like_judge(&list);
             let mut prev = Snap::take(&w, wlo, whi);
+            let picture = |w: &World| -> String {
+                let Some((a, b)) = gbox else { return String::new() };
+                let mut s = String::new();
+                for y in (a[1]..=b[1]).rev() {
+                    s.push_str(&format!("{y:>4} |"));
+                    for x in a[0]..=b[0] {
+                        let q = BlockPos::new(x + d0[0] + off[0], y + d0[1] + off[1], d0[2] + off[2]);
+                        s.push_str(&crate::cosearch_search::cell3(&w.get(q)));
+                        s.push('|');
+                    }
+                    s.push('\n');
+                }
+                s
+            };
             let show = |label: &str, prev: &Snap, now: &Snap, w: &World| {
+                if gbox.is_some() {
+                    let changed = now.iter().any(|(p, b)| prev.get(p) != Some(b) && p[2] == d0[2] + off[2]);
+                    if changed || !w.drops.is_empty() {
+                        println!("{label}{}\n{}", if w.drops.is_empty() { String::new() } else { format!(" DROPS {:?}", w.drops) }, picture(w));
+                    }
+                    return;
+                }
                 let ch: Vec<String> = now
                     .iter()
                     .filter(|(p, b)| prev.get(*p) != Some(*b) && only.as_ref().is_none_or(|o| o.contains(p)))
@@ -1239,13 +1304,20 @@ pub fn run(version: &str, cmd: CosearchCmd) -> Result<()> {
                     prev = now;
                     t = 0;
                 }
+                let evs: &[(u32, BlockPos, Block)] = if flip == 0 { &[] } else { &asst[((flip - 1) % 2) as usize] };
+                let mut i = 0;
                 loop {
+                    while i < evs.len() && evs[i].0 == t {
+                        w.set_block_and_update(evs[i].1, evs[i].2);
+                        println!("  assist t{t}: {:?} := {}", [evs[i].1.x - off[0], evs[i].1.y - off[1], evs[i].1.z - off[2]], st(&evs[i].2).trim_start_matches("minecraft:"));
+                        i += 1;
+                    }
                     w.tick();
                     t += 1;
                     let now = Snap::take(&w, wlo, whi);
                     show(&format!("{} t{t}", if flip == 0 { "settle" } else { "after flip" }), &prev, &now, &w);
                     prev = now;
-                    if w.idle() || t >= 400 {
+                    if (i >= evs.len() && w.idle()) || t >= 400 {
                         break;
                     }
                 }
