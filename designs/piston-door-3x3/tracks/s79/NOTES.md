@@ -128,3 +128,27 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
   0..10, 16..18, 20..30; L0 any single 2 gt pulse; R0 any single 2 gt pulse (3 gt fails).
 - With the real dropper L0, U patterns of three >= 2 gt pulses work (`s79b/y3.ideal` sweep, e.g.
   t5..t9, t12..t14, t16..t20) but not two.
+- **Three blockers left with U real** (screens, redsim `ideal-rs --vary`):
+  1. TOP: U moving at t5 (the earliest a bottom-right sensor allows: R1's t1 move is 2.24 from (3,-1),
+     activation t3 BE, U acts t5) means s's open push must come at >= t8 (s's push check at t6/t7
+     finds U's head in (1,-1): refused, no event, no retry) with a REAL hold >= 3 gt ending by t13
+     (M at t16 is the 2-repeater maximum; s must have landed before M's pull). c78z's top gives t6
+     (refused) and t10 (2 gt: spit, no pull-back); the spit + re-extend + pull trick from t8 lands at
+     t16 (one tick late). 0 of 577k variants of (3,3), (3,4), (2,4) (observers x4, repeaters E/W
+     d1-4, lamps, note blocks, dust, sensors, calibrated sensors), (4,4), (4,3), (-1,3), (-2,5) and
+     the repeater delays give it (s79 had 0 of 667k for the 1 gt plan). Odd-start holds need a
+     piston-timed source ((3,3) facing down watching R2's head fires t3..t5, its 2-observer chain
+     t7: one tick short; a d2 repeater from it gives [t7, t11) with no update at t8).
+  2. L0: the U-watcher fires twice per >= 2 gt U pulse (extension; landing 4 gt later), so 2 U
+     pulses = 4 watcher pulses at t7, t11, t37, t41 on BOTH edges, and every bottom-left L0 driver
+     fed from it (dropper, lamp merge, bulb, reshaper) gives L0 an even count; an extra U move to
+     fix the parity is always harmful (pushes C back up / pulls BM down) or blocked (invisible).
+     Sensor taps for L0 self-echo (the 3rd tap moves L0 right after the sensor re-arms).
+  3. R0: needs exactly one 2 gt pulse per edge (3 gt fails: the close push pulls back). Its only
+     feeder (4,-1) sees (4,-2) and the sensor window (two edges -> two pulses); a copper bulb
+     flips `powered` on both edges (two observer pulses); sensor-phase taps (3, odd) self-echo, and
+     a calibrated sensor at (4,-2) back-filtered by the note block is deaf only until t33, then U2
+     re-triggers it. pockets (2 cells, k=3, sculk/calibrated/wool, --gaps): only headless-piston
+     fillings (not legal play).
+- Wool door blocks pass the judge (`closed_problems` rejects only mechanism blocks), so the door and
+  the 3 static frame blocks can be wool and occlude vibrations (q78 uses a wool C0 too).
