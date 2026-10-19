@@ -1,0 +1,7 @@
+set 4 -2 0 minecraft:sticky_piston[extended=false,facing=down]
+set 3 -2 0 minecraft:observer[facing=east,powered=false]
+set 2 -2 0 minecraft:stone
+clear 3 -3 0
+set 2 -3 0 minecraft:sticky_piston[extended=false,facing=down]
+clear 2 -4 0
+set 1 -4 0 minecraft:observer[facing=east,powered=false]
