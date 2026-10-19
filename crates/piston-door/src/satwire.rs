@@ -476,6 +476,21 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
     let door_cells: HashSet<C2> = spec.door_cells().iter().map(|p| (p[0], p[1])).collect();
     let mut wiring = BTreeMap::new();
     let mut lever = None;
+    // a NORMAL piston that only ever pushes its own head into an empty cell (a wire-free relay an
+    // observer watches: c79's (3,-2), shrink's t7b-pw42) is wiring too: an update piston (its
+    // head cell leaves the mechanism)
+    let mut heads: HashSet<C2> = HashSet::new();
+    let upiston_relay = |c: C2, s: &str| -> Option<C2> {
+        if short(s) != "piston" || prop(s, "extended") != Some("false") {
+            return None;
+        }
+        let f = prop(s, "facing").and_then(dparse)?;
+        let hc = add(c, f);
+        let own = |t: &str| matches!(short(t), "piston_head" | "moving_piston") && prop(t, "facing").and_then(dparse) == Some(f);
+        let base_ok = |t: &str| (short(t) == "piston" && prop(t, "facing").and_then(dparse) == Some(f)) || (short(t) == "moving_piston" && prop(t, "facing").and_then(dparse) == Some(f));
+        let ok = full.iter().all(|ph| ph.iter().all(|fr| fr.get(&c).is_some_and(|t| base_ok(t)) && fr.get(&hc).is_none_or(|t| mk(t) == MK::Air || own(t))));
+        ok.then_some(hc)
+    };
     for (p, s) in rest_region.iter() {
         if p[2] != z || s.ends_with(":air") {
             if short(s) == "lever" {
@@ -486,6 +501,11 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
         let c = (p[0], p[1]);
         if short(s) == "lever" {
             lever = Some((p, s.to_string()));
+            continue;
+        }
+        if let Some(hc) = upiston_relay(c, s) {
+            wiring.insert(c, s.to_string());
+            heads.insert(hc);
             continue;
         }
         let stat = full.iter().all(|ph| ph.iter().all(|f| f.get(&c).map(String::as_str) == Some(s)));
@@ -500,7 +520,7 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
     for ph in 0..2 {
         let frames: Vec<HashMap<C2, String>> = full[ph]
             .iter()
-            .map(|f| f.iter().filter(|(c, s)| !wiring.contains_key(c) && short(s) != "lever" && Some((c.0, c.1, z)) != lever_c).map(|(c, s)| (*c, s.clone())).collect())
+            .map(|f| f.iter().filter(|(c, s)| !wiring.contains_key(c) && !heads.contains(c) && short(s) != "lever" && Some((c.0, c.1, z)) != lever_c).map(|(c, s)| (*c, s.clone())).collect())
             .collect();
         let idx = |c: C2| -> Option<usize> { probes.iter().position(|p| p[0] == c.0 && p[1] == c.1) };
         let pistons = |f: &HashMap<C2, String>| -> Vec<C2> { f.iter().filter(|(_, s)| matches!(mk(s), MK::Piston { .. })).map(|(c, _)| *c).collect() };
@@ -1767,6 +1787,7 @@ const P_IND: u8 = 12;
 const P_DROP: u8 = 13;
 const P_LEAVES: u8 = 14;
 const P_UPISTON: u8 = 15;
+const P_STURDY_UP: u8 = 16;
 
 fn pred_fn(t: u8) -> fn(Kind) -> bool {
     match t {
@@ -1785,6 +1806,7 @@ fn pred_fn(t: u8) -> fn(Kind) -> bool {
         P_DROP => |k| k == Kind::Dropper,
         P_LEAVES => |k| k == Kind::Leaves,
         P_UPISTON => |k| matches!(k, Kind::UPiston(_)),
+        P_STURDY_UP => |k| k.sturdy() || k == Kind::UPiston(DN),
         _ => |k| k.movable(),
     }
 }
@@ -2012,7 +2034,9 @@ impl<'a> Model<'a> {
     /// A static block at c offers a sturdy face (`up`: its top face) at every tick.
     fn sturdy_static(&mut self, c: C2, up: bool) -> Lit {
         if self.p.is_free(c) {
-            self.pred(c, P_STURDY)
+            // (a top face: an update piston facing down keeps a full top face, its back, extended
+            // or not: dust and diodes may stand on it)
+            self.pred(c, if up { P_STURDY_UP } else { P_STURDY })
         } else {
             self.e.konst(self.p.static_sturdy.contains(&c) || (up && self.p.sturdy_up.contains(&c)))
         }
@@ -2333,7 +2357,25 @@ impl<'a> Model<'a> {
                 } else {
                     f
                 };
-                self.e.or(&[m, lv, nb, up])
+                // ... and so does its HEAD cell (the head pops in on extension, is removed on
+                // retraction, both in the block-event phase): an observer watching the cell in front
+                // of an update piston sees it (a wire-free relay; the moving head's end 2 gt later
+                // finds that observer still on)
+                let mut hd = Vec::new();
+                if self.p.is_free(w) {
+                    for d in DIRS {
+                        let n = add(w, neg(d));
+                        if self.p.is_free(n) && self.p.can(n, |x| x == Kind::UPiston(d)) {
+                            let isu = self.kl[&(n, Kind::UPiston(d))];
+                            let o1 = self.out(tr, k, n);
+                            let o0 = self.out(tr, k - 1, n);
+                            let x = self.e.xor(o1, o0);
+                            hd.push(self.e.and(&[isu, x]));
+                        }
+                    }
+                }
+                let hd = self.e.or(&hd);
+                self.e.or(&[m, lv, nb, up, hd])
             }
             _ if !self.p.is_free(w) || k == 0 && what == 0 => f,
             0 => {
@@ -4306,7 +4348,7 @@ pub fn fix_wiring(p: &mut Prob) -> Result<()> {
     for (c, k) in p.fixed.clone() {
         if let Some(sd) = k.support() {
             let s = add(c, sd);
-            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy()) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
+            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy() || (sd == DN && *ks == Kind::UPiston(DN))) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
             if !ok {
                 println!("check: {k:?} at {c:?} has no static sturdy support at {s:?} ({:?})", p.rec.phases[0].frames[0].get(&s));
             }
@@ -4538,7 +4580,7 @@ pub fn fix_partial(p: &mut Prob, d: &Design) -> Result<()> {
     for (c, k) in p.fixed.clone() {
         if let Some(sd) = k.support() {
             let s = add(c, sd);
-            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy()) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
+            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy() || (sd == DN && *ks == Kind::UPiston(DN))) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
             if !ok {
                 println!("--fixed: {k:?} at {c:?} has no static sturdy support at {s:?} ({:?})", p.rec.phases[0].frames[0].get(&s));
             }
