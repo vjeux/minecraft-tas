@@ -79,6 +79,18 @@ pub struct SearchArgs {
     /// community volume excludes the lever), hung on that block.
     #[arg(long)]
     pub lever_moves: bool,
+    /// Ideal assist: the pistons a `door ideal` plan drives with inputs OFF the door plane start
+    /// driven by the plan; a move releases (or re-assists) one piston; every assisted piston costs
+    /// `--assist-weight` points and a find needs none left. The search wires the door piston by
+    /// piston with the rest of the mechanism still moving as planned.
+    #[arg(long)]
+    pub assist: Option<std::path::PathBuf>,
+    #[arg(long, default_value_t = 4.0)]
+    pub assist_weight: f64,
+    /// Start with only these plan inputs assisted (door coordinates `x,y;x,y`; default all): to
+    /// continue from a partial whose other inputs are already wired.
+    #[arg(long)]
+    pub assist_cells: Option<String>,
     /// Shaping: a working door whose piston schedule the candidates should follow (each piston
     /// extension / retraction of the reference, same cell, within `--ref-slack` ticks, earns
     /// `--ref-weight` points; a perfect screen still only needs the door checks).
@@ -130,6 +142,8 @@ pub struct Grid {
     pub cells: Vec<Block>,
     /// The lever's cell (world x, y); it may move (`--lever-moves`).
     pub lever: (i32, i32),
+    /// Pistons still driven by the `--assist` plan (bit i = the plan's piston i).
+    pub assist: u64,
 }
 
 impl Grid {
@@ -184,6 +198,13 @@ pub struct Problem {
     pub ref_slack: u32,
     pub ref_weight: f64,
     pub lever_moves: bool,
+    /// `--assist`: the plan's driven pistons (cells) and its input events per phase (tick,
+    /// piston index, input cell, state set there).
+    pub assist_pistons: Vec<(i32, i32)>,
+    pub assist_events: [Vec<(u32, usize, BlockPos, Block)>; 2],
+    pub assist_weight: f64,
+    /// Plan input cells IN the door plane: reserved while their input is assisted.
+    pub assist_in_plane: HashSet<(i32, i32)>,
 }
 
 /// A piston starting to extend or retract: (phase, extending, cell, tick).
@@ -398,14 +419,17 @@ pub struct Score {
     /// Reference piston events matched, and their weight.
     pub ev: i32,
     pub ev_w: f64,
+    /// Pistons still driven by the assist plan, and their cost.
+    pub assisted: i32,
+    pub asw: f64,
 }
 
 impl Score {
     fn energy(&self) -> f64 {
-        -(self.pts as f64) - self.ev_w * self.ev as f64 + 0.02 * self.blocks as f64
+        -(self.pts as f64) - self.ev_w * self.ev as f64 + 0.02 * self.blocks as f64 + self.asw * self.assisted as f64
     }
     pub fn perfect(&self) -> bool {
-        self.pts >= self.max
+        self.pts >= self.max && self.assisted == 0
     }
 }
 
@@ -422,7 +446,38 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
         s.ev = match_events(&p.reference, &evs, p.ref_slack) as i32;
         s.ev_w = p.ref_weight;
     }
+    if !p.assist_pistons.is_empty() {
+        s.assisted = g.assist.count_ones() as i32;
+        s.asw = p.assist_weight;
+    }
     s
+}
+
+/// One phase after a flip: the assisted pistons' plan inputs applied at their ticks (before the
+/// tick, like `door ideal`), ticking until idle (at least once) and until every input was
+/// applied; `on_tick` sees the world after every tick. Returns whether it went idle.
+fn run_phase(p: &Problem, g: &Grid, w: &mut World, phase: usize, mut on_tick: impl FnMut(&World)) -> bool {
+    let evs = &p.assist_events[phase];
+    let mut i = 0;
+    let mut t = 0u32;
+    loop {
+        while i < evs.len() && evs[i].0 == t {
+            let (_, k, pos, b) = evs[i];
+            if (g.assist >> k) & 1 == 1 {
+                w.set_block_and_update(pos, b);
+            }
+            i += 1;
+        }
+        w.tick();
+        t += 1;
+        on_tick(w);
+        if i >= evs.len() && w.idle() {
+            return true;
+        }
+        if t >= p.max_ticks {
+            return false;
+        }
+    }
 }
 
 fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
@@ -437,11 +492,11 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
     w.place_like_judge(&placed);
     let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |_| {});
     if !idle || !w.errors.is_empty() {
-        return Score { pts: 0, max, blocks, ev: 0, ev_w: 0.0 };
+        return Score { pts: 0, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     if !w.drops.is_empty() {
         // something popped at placement (a dust or a repeater without a floor...)
-        return Score { pts: 1, max, blocks, ev: 0, ev_w: 0.0 };
+        return Score { pts: 1, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     let z = g.z;
     let at = |x: i32, y: i32| BlockPos::new(x, y, z);
@@ -459,11 +514,11 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
     pts -= 2 * unsupported;
     let lever = BlockPos::new(g.lever.0, g.lever.1, g.z);
     if !matches!(w.get(lever), Block::Lever { powered: false, .. }) {
-        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     pts += 1;
     if door_ok < 9 || unsupported > 0 {
-        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+        return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
     }
     pts += 1;
     // the plane's cells (the box + 1) compared after each close
@@ -474,7 +529,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
         let rec = cycle == 0 && !rec_cells.is_empty();
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
-        let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |w| {
+        let idle = run_phase(p, g, &mut w, 0, |w| {
             if rec {
                 t += 1;
                 tick_events(&prev, w, 0, t, evs);
@@ -498,13 +553,13 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
             pts -= outside;
         }
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
         }
         pts += 1;
         w.use_block(lever);
         let mut prev = if rec { piston_cells(&w, &rec_cells) } else { Vec::new() };
         let mut t = 0;
-        let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |w| {
+        let idle = run_phase(p, g, &mut w, 1, |w| {
             if rec {
                 t += 1;
                 tick_events(&prev, w, 1, t, evs);
@@ -514,7 +569,7 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
         let back = p.door_cells.iter().filter(|(x, y)| w.get(at(*x, *y)) == p.door_block).count() as i32;
         pts += back;
         if !idle || !w.drops.is_empty() || !w.errors.is_empty() {
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
         }
         let now: Vec<Block> = plane_cells(p, z).iter().map(|q| w.get(*q)).collect();
         let same = now.iter().zip(rest.iter()).filter(|(a, b)| a == b).count() as i32;
@@ -523,10 +578,10 @@ fn screen_core(p: &Problem, g: &Grid, evs: &mut Vec<Event>) -> Score {
             pts += 3;
         } else {
             pts -= (n - same).min(3);
-            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0 };
+            return Score { pts: pts.min(max - 1), max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 };
         }
     }
-    Score { pts, max, blocks, ev: 0, ev_w: 0.0 }
+    Score { pts, max, blocks, ev: 0, ev_w: 0.0, assisted: 0, asw: 0.0 }
 }
 
 fn plane_cells(p: &Problem, z: i32) -> Vec<BlockPos> {
@@ -613,9 +668,78 @@ fn refaced(b: &Block, rng: &mut Rng) -> Option<Block> {
     })
 }
 
+/// The update-piston proposal (vjeux): a normal or sticky piston facing an EMPTY free cell,
+/// placed so its base or head cell touches a sensor: a piston's quasi cell (the cell above it), an
+/// observer's watched cell, a dropper or a note block. Its extension / retraction is then a block
+/// update (a BUD trigger) or an observer pulse.
+fn update_piston(p: &Problem, g: &mut Grid, rng: &mut Rng) -> Option<(i32, i32)> {
+    let mut sensors: Vec<(i32, i32)> = Vec::new();
+    for &(x, y) in &p.free {
+        match g.get(x, y) {
+            Block::Piston { .. } => sensors.push((x, y + 1)),
+            Block::Observer { facing, .. } => {
+                let s = facing.step();
+                sensors.push((x + s[0], y + s[1]));
+            }
+            Block::Dispenser { .. } | Block::Note { .. } => sensors.push((x, y)),
+            _ => {}
+        }
+    }
+    // the seed's locked pistons count too
+    for x in g.gx..g.gx + g.w {
+        for y in g.gy..g.gy + g.h {
+            if matches!(g.get(x, y), Block::Piston { .. }) && !p.free.contains(&(x, y)) {
+                sensors.push((x, y + 1));
+            }
+        }
+    }
+    if sensors.is_empty() {
+        return None;
+    }
+    let (sx, sy) = sensors[rng.below(sensors.len())];
+    // the piston's base (b) or head (h) cell next to the sensor
+    let d = PLANE_DIRS[rng.below(4)].step();
+    let f = PLANE_DIRS[rng.below(4)];
+    let fs = f.step();
+    let (bx, by) = if rng.below(2) == 0 {
+        (sx + d[0], sy + d[1])
+    } else {
+        // head next to the sensor: base one step back
+        (sx + d[0] - fs[0], sy + d[1] - fs[1])
+    };
+    let (hx, hy) = (bx + fs[0], by + fs[1]);
+    let ok = |x: i32, y: i32| p.free.contains(&(x, y)) && g.get(x, y).is_air() && (x, y) != g.lever && !reserved(p, g, x, y);
+    if !ok(bx, by) || !ok(hx, hy) || p.ring.contains(&(hx, hy)) {
+        return None;
+    }
+    g.set(bx, by, Block::Piston { sticky: rng.below(2) == 0, facing: f, extended: false });
+    Some((bx, by))
+}
+
+/// Move kinds (for the improvement statistics): cell edit, assist toggle, lever move, update piston.
+pub const MOVE_KINDS: [&str; 4] = ["cell", "assist", "lever", "update-piston"];
+
 /// One random move at `at` (or a random focus cell). Returns the cell when something changed.
-fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>) -> Option<(i32, i32)> {
+fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>, kind: &mut usize) -> Option<(i32, i32)> {
+    *kind = 0;
+    if p.mech && at.is_none() && rng.below(8) == 0 {
+        *kind = 3;
+        return update_piston(p, g, rng);
+    }
+    if !p.assist_pistons.is_empty() && at.is_none() && rng.below(10) == 0 {
+        // release (or re-assist) one planned input
+        *kind = 1;
+        let k = rng.below(p.assist_pistons.len());
+        let (cx, cy) = p.assist_pistons[k];
+        if (g.assist >> k) & 1 == 0 && p.assist_in_plane.contains(&(cx, cy)) && !g.get(cx, cy).is_air() {
+            // re-assisting an in-plane input needs its cell free again
+            return None;
+        }
+        g.assist ^= 1u64 << k;
+        return Some(p.assist_pistons[k]);
+    }
     if p.lever_moves && at.is_none() && rng.below(25) == 0 {
+        *kind = 2;
         return move_lever(p, g, rng).then_some(g.lever);
     }
     let (x, y) = match at {
@@ -625,9 +749,17 @@ fn mutate(p: &Problem, g: &mut Grid, rng: &mut Rng, at: Option<(i32, i32)>) -> O
     if mutate_cell(p, g, rng, x, y) { Some((x, y)) } else { None }
 }
 
+/// An in-plane plan input cell whose input is still assisted: no block may go there.
+fn reserved(p: &Problem, g: &Grid, x: i32, y: i32) -> bool {
+    if p.assist_in_plane.is_empty() || !p.assist_in_plane.contains(&(x, y)) {
+        return false;
+    }
+    p.assist_pistons.iter().position(|c| *c == (x, y)).is_some_and(|k| (g.assist >> k) & 1 == 1)
+}
+
 fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool {
     let cur = g.get(x, y);
-    if (x, y) == g.lever {
+    if (x, y) == g.lever || reserved(p, g, x, y) {
         return false;
     }
     if matches!(cur, Block::PistonHead { .. }) {
@@ -675,7 +807,7 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
         }
         let d = PLANE_DIRS[rng.below(4)].step();
         let (nx, ny) = (x + d[0], y + d[1]);
-        if !p.free.contains(&(nx, ny)) || !g.get(nx, ny).is_air() {
+        if !p.free.contains(&(nx, ny)) || !g.get(nx, ny).is_air() || reserved(p, g, nx, ny) {
             return false;
         }
         g.set(x, y, Block::Air);
@@ -686,7 +818,7 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
         let d = PLANE_DIRS[rng.below(4)].step();
         let (nx, ny) = (x + d[0], y + d[1]);
         let other = g.get(nx, ny);
-        if !p.free.contains(&(nx, ny)) || other == cur || head_of(&cur, x, y).is_some() || head_of(&other, nx, ny).is_some() || matches!(other, Block::PistonHead { .. }) {
+        if !p.free.contains(&(nx, ny)) || reserved(p, g, nx, ny) || other == cur || head_of(&cur, x, y).is_some() || head_of(&other, nx, ny).is_some() || matches!(other, Block::PistonHead { .. }) {
             return false;
         }
         if !p.mech && (is_piston(&cur) || is_piston(&other)) {
@@ -715,7 +847,7 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
         let s = f.step();
         let k = 1 + rng.below(2) as i32;
         let (cx, cy) = (px + s[0] * k, py + s[1] * k);
-        if !p.free.contains(&(cx, cy)) || !g.get(cx, cy).is_air() {
+        if !p.free.contains(&(cx, cy)) || !g.get(cx, cy).is_air() || reserved(p, g, cx, cy) {
             return false;
         }
         let b = if rng.below(2) == 0 { Block::RedstoneBlock } else { Block::Observer { facing: PLANE_DIRS[rng.below(4)], powered: false } };
@@ -730,7 +862,7 @@ fn mutate_cell(p: &Problem, g: &mut Grid, rng: &mut Rng, x: i32, y: i32) -> bool
             Block::Piston { sticky, facing, extended: false } => {
                 let s = facing.step();
                 let (hx, hy) = (x + s[0], y + s[1]);
-                if !p.free.contains(&(hx, hy)) || !g.get(hx, hy).is_air() {
+                if !p.free.contains(&(hx, hy)) || !g.get(hx, hy).is_air() || reserved(p, g, hx, hy) {
                     return false;
                 }
                 g.set(x, y, Block::Piston { sticky, facing, extended: true });
@@ -756,7 +888,7 @@ fn grid_from_door(door: &RsDoor, p: &Problem) -> Result<Grid> {
     let gy = p.lo[1] - 2;
     let w = p.hi[0] - p.lo[0] + 5;
     let h = p.hi[1] - p.lo[1] + 5;
-    let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize], lever: (door.spec.lever[0], door.spec.lever[1]) };
+    let mut g = Grid { gx, gy, w, h, z, cells: vec![Block::Air; (w * h) as usize], lever: (door.spec.lever[0], door.spec.lever[1]), assist: 0 };
     let lever = door.spec.lever;
     for (q, b) in &door.blocks {
         anyhow::ensure!(q[2] == z, "not flat: {q:?}");
@@ -963,6 +1095,8 @@ struct Shared {
     seen: Mutex<HashSet<u64>>,
     best: Mutex<Vec<(Score, Grid)>>,
     log: Mutex<Vec<String>>,
+    /// Strict screen improvements per move kind (MOVE_KINDS).
+    improved: [AtomicU64; 4],
 }
 
 fn grid_hash(g: &Grid) -> u64 {
@@ -1048,12 +1182,16 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         ref_slack: a.ref_slack,
         ref_weight: a.ref_weight,
         lever_moves: a.lever_moves,
+        assist_pistons: Vec::new(),
+        assist_events: [Vec::new(), Vec::new()],
+        assist_weight: a.assist_weight,
+        assist_in_plane: HashSet::new(),
     };
     let mut prob = prob;
     if let Some(r) = &a.reference {
         let (_, rd) = cs::load_door(r)?;
         anyhow::ensure!(rd.spec.door == spec0.door, "the reference needs the same door port");
-        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new(), lever: (0, 0) };
+        let g = Grid { gx: 0, gy: 0, w: 0, h: 0, z: rd.spec.door[2], cells: Vec::new(), lever: (0, 0), assist: 0 };
         let _ = g;
         let ev = piston_events(&prob, &rd.blocks, rd.spec);
         println!("reference {}: {} piston events per cycle", r.display(), ev.len());
@@ -1063,6 +1201,47 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         let ev = ideal_events(&prob, r)?;
         println!("ideal reference {}: {} piston events per cycle", r.display(), ev.len());
         prob.reference = ev;
+    }
+    if let Some(path) = &a.assist {
+        let text = std::fs::read_to_string(path)?;
+        let s = crate::ideal::Schedule::parse(&text)?;
+        let mut skipped = 0;
+        for (ph, open) in [(0usize, true), (1usize, false)] {
+            for (t, pos, st) in s.resolved(open)? {
+                if st.as_deref() == Some("@use") {
+                    skipped += 1;
+                    continue;
+                }
+                if pos[2] == spec0.door[2] {
+                    // an in-plane input: its cell is reserved (no block may go there) while the
+                    // input stays assisted
+                    prob.assist_in_plane.insert((pos[0], pos[1]));
+                }
+                let cell = (pos[0], pos[1]);
+                let k = match prob.assist_pistons.iter().position(|c| *c == cell) {
+                    Some(k) => k,
+                    None => {
+                        prob.assist_pistons.push(cell);
+                        prob.assist_pistons.len() - 1
+                    }
+                };
+                let b = match st {
+                    Some(x) => cs::convert_state(&x).map_err(|e| anyhow::anyhow!(e))?,
+                    None => Block::Air,
+                };
+                prob.assist_events[ph].push((t, k, cs::bp(pos), b));
+            }
+            prob.assist_events[ph].sort_by_key(|e| e.0);
+        }
+        anyhow::ensure!(prob.assist_pistons.len() <= 64, "at most 64 assisted inputs");
+        println!(
+            "assist {}: {} input cells off the plane ({:?}), {} / {} events, {skipped} in-plane or `use` events ignored",
+            path.display(),
+            prob.assist_pistons.len(),
+            prob.assist_pistons.iter().map(|(x, y)| (x - dx, y - dy)).collect::<Vec<_>>(),
+            prob.assist_events[0].len(),
+            prob.assist_events[1].len()
+        );
     }
     let mut seeds = Vec::new();
     for (name, _, r) in &doors {
@@ -1076,6 +1255,20 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
             place_lever(&mut g, x, y);
         }
         clean_seed(&prob, &mut g);
+        if !prob.assist_pistons.is_empty() {
+            g.assist = if prob.assist_pistons.len() == 64 { u64::MAX } else { (1u64 << prob.assist_pistons.len()) - 1 };
+            if let Some(cells) = &a.assist_cells {
+                g.assist = 0;
+                for t in cells.split(';').map(str::trim).filter(|t| !t.is_empty()) {
+                    let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 2, "--assist-cells x,y;x,y");
+                    match prob.assist_pistons.iter().position(|c| *c == (v[0] + dx, v[1] + dy)) {
+                        Some(k) => g.assist |= 1u64 << k,
+                        None => bail!("--assist-cells: no plan input at {t}"),
+                    }
+                }
+            }
+        }
         let s = screen(&prob, &g);
         println!("seed {name}: {} blocks in the box, screen {}/{}", g.count(), s.pts, s.max);
         if let Some(dir) = &a.write_seeds {
@@ -1124,6 +1317,7 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         seen: Mutex::new(HashSet::new()),
         best: Mutex::new(Vec::new()),
         log: Mutex::new(Vec::new()),
+        improved: [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
     };
     let jopts = cs::JudgeOpts::with_extra(28);
     let t0 = std::time::Instant::now();
@@ -1184,16 +1378,29 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
             if el >= last + a.report {
                 last = el;
                 let best = sh.best.lock().unwrap();
-                let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}+{}ev({}b)", s.pts, s.max, s.ev, g.count())).collect();
+                let top: Vec<String> = best.iter().take(6).map(|(s, g)| format!("{}/{}+{}ev-{}as({}b)", s.pts, s.max, s.ev, s.assisted, g.count())).collect();
                 println!(
-                    "[{el:>5}s] {} screens ({:.0}/s), {} perfect screens, {} redsim judge runs, {} finds; best {}",
+                    "[{el:>5}s] {} screens ({:.0}/s), {} perfect screens, {} redsim judge runs, {} finds; improvements by move {}; best {}",
                     sh.evals.load(Ordering::Relaxed),
                     sh.evals.load(Ordering::Relaxed) as f64 / t0.elapsed().as_secs_f64(),
                     sh.perfect.load(Ordering::Relaxed),
                     sh.full_evals.load(Ordering::Relaxed),
                     sh.finds.load(Ordering::Relaxed),
+                    MOVE_KINDS.iter().zip(sh.improved.iter()).map(|(n, c)| format!("{n}={}", c.load(Ordering::Relaxed))).collect::<Vec<_>>().join(" "),
                     top.join(" ")
                 );
+                // the current best, for inspection while the run goes on
+                if let Some((s, g)) = best.first() {
+                    let still: Vec<String> = (0..prob.assist_pistons.len())
+                        .filter(|k| (g.assist >> k) & 1 == 1)
+                        .map(|k| format!("{},{}", prob.assist_pistons[k].0 - dx, prob.assist_pistons[k].1 - dy))
+                        .collect();
+                    let mut d = door_of(g, prob.spec).to_design(&format!("cosearch-live-{}of{}", s.pts, s.max));
+                    if !still.is_empty() {
+                        d.meta.insert("assisted".into(), still.join(";"));
+                    }
+                    let _ = d.save(&a.out_dir.join("partial-live.txt"));
+                }
             }
         }
         sh.stop.store(true, Ordering::Relaxed);
@@ -1204,7 +1411,8 @@ pub fn run(version: &str, a: &SearchArgs) -> Result<()> {
         let d = door_of(g, prob.spec).to_design(&format!("cosearch-partial-{i}-{}of{}", s.pts, s.max));
         let path = a.out_dir.join(format!("partial-{i}.txt"));
         d.save(&path)?;
-        println!("best partial {i}: {}/{} ({} blocks) -> {}", s.pts, s.max, g.count(), path.display());
+        let still: Vec<(i32, i32)> = (0..prob.assist_pistons.len()).filter(|k| (g.assist >> k) & 1 == 1).map(|k| (prob.assist_pistons[k].0 - dx, prob.assist_pistons[k].1 - dy)).collect();
+        println!("best partial {i}: {}/{} +{} events, {} assisted {still:?} ({} blocks) -> {}", s.pts, s.max, s.ev, s.assisted, g.count(), path.display());
     }
     println!("{} screens in {:.0} s; {} finds", sh.evals.load(Ordering::Relaxed), t0.elapsed().as_secs_f64(), sh.finds.load(Ordering::Relaxed));
     Ok(())
@@ -1252,6 +1460,7 @@ fn anneal(
             let nm = 1 + rng.below(3);
             let mut changed = false;
             let mut last: Option<(i32, i32)> = None;
+            let mut kinds = [false; 4];
             for _ in 0..nm {
                 // the next move is next to the previous one half of the time (local pairs)
                 let at = match last {
@@ -1261,9 +1470,11 @@ fn anneal(
                     }
                     _ => None,
                 };
-                if let Some(c) = mutate(p, &mut cand, &mut rng, at) {
+                let mut kind = 0;
+                if let Some(c) = mutate(p, &mut cand, &mut rng, at, &mut kind) {
                     changed = true;
                     last = Some(c);
+                    kinds[kind] = true;
                 }
             }
             if !changed {
@@ -1272,6 +1483,14 @@ fn anneal(
             let s = screen(p, &cand);
             sh.evals.fetch_add(1, Ordering::Relaxed);
             let de = s.energy() - cs_.energy();
+            if de < 0.0 {
+                // a strict improvement: credit the move kinds that made it
+                for (k, used) in kinds.iter().enumerate() {
+                    if *used {
+                        sh.improved[k].fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            }
             if de <= 0.0 || rng.f64() < (-de / temp).exp() {
                 cur = cand;
                 cs_ = s;
