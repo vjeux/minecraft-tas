@@ -171,6 +171,10 @@ pub static EXT_PULLERS: std::sync::atomic::AtomicBool = std::sync::atomic::Atomi
 /// extended pullers allowed (7x8, P <= 10, two 1: 124k candidates retracted-only, 690k with 1,
 /// 1.75M with 2 (61 s on 4 threads, 2.3 GB), unbounded > 7 min single-threaded unfinished).
 pub static EXT_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(2);
+/// `--ext-apart` turns this off: by default a second 1-move exit by an extended puller must sit
+/// next to the first (8-neighbourhood), as one level holds both (c79's MR/TR pullers (4,1)/(4,2)
+/// are adjacent). 7x8 (P <= 10, two 1, --ext-max 2): 845k candidates instead of 1.75M.
+pub static EXT_ADJACENT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 /// `--bottom-su` (mechspace): exactly one piston in the box's bottom row, sticky facing up.
 pub static BOTTOM_SU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--lift-ext` (audit bound a): a piston extended at rest may be reused lifted / carried (it
@@ -1319,7 +1323,7 @@ struct Gen {
     /// Middle-row side blocks that must leave vertically (`--vmid`).
     vmid: Vec<(i8, i8)>,
     out: HashSet<Vec<Pc>>,
-    memo: HashSet<(usize, usize, Vec<Pc>)>,
+    memo: HashSet<(usize, (usize, Option<(i8, i8)>), Vec<Pc>)>,
     order: Vec<(i8, i8)>,
     /// `door audit`: only pieces of this set may be added (membership of a known door's
     /// mechanism in the generator's space, without enumerating the whole space).
@@ -1591,9 +1595,9 @@ impl Gen {
     }
 
     /// The other perimeter blocks: a 1-move exit by a pull-type puller (retracted, or extended at
-    /// rest while `ext_left` allows), or, while the budget allows (`two_left`), a 2-move path
-    /// with any providers.
-    fn others(&mut self, i: usize, v: Vec<Pc>, two_left: usize, ext_left: usize) {
+    /// rest while `ext.0` allows, next to the first such puller `ext.1` under `--ext-adjacent`),
+    /// or, while the budget allows (`two_left`), a 2-move path with any providers.
+    fn others(&mut self, i: usize, v: Vec<Pc>, two_left: usize, ext: (usize, Option<(i8, i8)>)) {
         if n_pistons(&v) > self.pmax {
             return;
         }
@@ -1601,7 +1605,7 @@ impl Gen {
             self.out.insert(v);
             return;
         }
-        if !self.memo.insert((i, ext_left, v.clone())) {
+        if !self.memo.insert((i, ext, v.clone())) {
             return;
         }
         let b = self.order[i];
@@ -1613,7 +1617,7 @@ impl Gen {
                     continue;
                 }
                 for w in self.provide_path(&v, b, &path) {
-                    self.others(i + 1, w, two_left, ext_left);
+                    self.others(i + 1, w, two_left, ext);
                 }
             }
             return;
@@ -1624,12 +1628,21 @@ impl Gen {
                 continue;
             }
             let a = (b.0 + 2 * d.0, b.1 + 2 * d.1);
-            for ext in [false, true] {
-                if ext && (!EXT_PULLERS.load(Ordering::Relaxed) || ext_left == 0) {
-                    continue;
+            for is_ext in [false, true] {
+                if is_ext {
+                    if !EXT_PULLERS.load(Ordering::Relaxed) || ext.0 == 0 {
+                        continue;
+                    }
+                    if let Some(f) = ext.1
+                        && EXT_ADJACENT.load(Ordering::Relaxed)
+                        && ((f.0 - a.0).abs() > 1 || (f.1 - a.1).abs() > 1)
+                    {
+                        continue;
+                    }
                 }
-                if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext } }) {
-                    self.others(i + 1, w, two_left, ext_left - usize::from(ext));
+                let ext2 = if is_ext { (ext.0 - 1, ext.1.or(Some(a))) } else { ext };
+                if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext: is_ext } }) {
+                    self.others(i + 1, w, two_left, ext2);
                 }
             }
         }
@@ -1639,7 +1652,7 @@ impl Gen {
                     continue;
                 }
                 for w in self.provide_path(&v, b, &path) {
-                    self.others(i + 1, w, two_left - 1, ext_left);
+                    self.others(i + 1, w, two_left - 1, ext);
                 }
             }
         }
@@ -1708,7 +1721,7 @@ fn generate_one_in(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, c
                         if n_pistons(&c) > pmax {
                             continue;
                         }
-                        g.others(0, c, two, EXT_MAX.load(Ordering::Relaxed));
+                        g.others(0, c, two, (EXT_MAX.load(Ordering::Relaxed), None));
                     }
                     g.out
                 })
