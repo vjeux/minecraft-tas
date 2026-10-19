@@ -91,7 +91,11 @@
    the only right-side pusher reaching row 1 is s1 at home (head stops at (3,1)): any block pushed through it
    ends in row 1 and leaves MR displaced at (1,1), out of s1's reach, so C's first step left must come from a
    carried left puller (U1 into (-1,1), m79's left). satwire m83: core open carried U1; left pair ideal: core
-   close RP0 (its pocket (5,-1),(5,0),(5,1) sees only K's moves, at the wrong times).
+   close RP0 (its pocket (5,-1),(5,0),(5,1) sees only K's moves, at the wrong times). c78l with sculk sensors
+   only in the bottom pockets (--sound-cells): UNSAT with or without the left pair ideal, core close (1,4) + K +
+   s1 + RP0: the right side's close needs 7 events (s1, P3t', K on, P, K off, RP0 twice) from one flip that the
+   right region only sees through the crossing cells (3,4)/(4,3); a signal there that times them also disturbs
+   the lever-held (1,4). Verdict for idea (1): NO (solid and with pocket sensors).
 
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back

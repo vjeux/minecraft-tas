@@ -20,6 +20,8 @@ seeing the close flip when (3,4) is taken (m78), carried pistons in the left wal
 elevator, the right carrier pair and the held top (logs: explore/s79 runs/sw-m7*s.log).
 
 ## Exact next steps
+0. (23:59Z) Coordinator's idea (1) done: m82/m83 (P (4,2) carried into (3,2) by K (5,2)): NO, solid and with
+   sensors in the bottom pockets (NOTES obstacle 7). m81 with --sound-cells (c78l): NO.
 1. The structural problem (NOTES obstacle 6): with the lever trio the side receiving BM through row 0 also has its own
    row-0 block, so one block must climb from (+-,0). Untried climber: a down-facing puller carried ONE cell sideways
    into the wall top (P resting at (4,2), carrier at (5,2), it pulls (3,0) -> (3,1)), but it sits under P3t' (QC)
