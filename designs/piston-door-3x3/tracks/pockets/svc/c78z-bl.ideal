@@ -1,0 +1,3 @@
+# door cosearch plan-from designs/piston-door-3x3/tracks/pockets/svc/s79-c78z.txt --region -2,-2;-1,-2;0,-2;-2,-1: a redstone block behind each piston cell
+# (z+1) at exactly the ticks the region alone feeds it
+design designs/piston-door-3x3/tracks/pockets/svc/s79-c78z.txt
