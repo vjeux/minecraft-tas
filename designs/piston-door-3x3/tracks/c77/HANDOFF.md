@@ -1,15 +1,18 @@
-# c77 handoff (2026-10-19 20:45Z)
+# c77 handoff (2026-10-19 23:25Z)
 
-## 7x7 (49b) campaign: w1 = first sub-56 mechanism (ideal inputs, not wired)
-- seven/w1.txt + w1.ideal / w1v.ideal: `door ideal-rs --between-ticks` WORKS (16 pos x 3 cycles), `door ideal
-  --between-ticks` (real game) WORKS. 13 sticky pistons, FULL by construction. Board: partials/7x7-w1.md (schedule,
-  windows, obstruction). NOTES.md "7x7" section has the mechanism and why the wiggle piston P (1,-1) is boxed in.
-- c70b (9182fde5) is adding w1's two move types (ring-resting pistons escaping to corners, the center-column wiggle) to
-  the families generator and will rank 7x7 variants by feedability: wire the best one (pockets3 = wiring service).
-- Selftest anchor for w1 requested from the coordinator (selftest belongs to boxproof).
+## 7x7 (49b): first sub-56 MECHANISM, not wired
+- seven/w1.txt + w1.ideal (+ w1v.ideal windows): 13 sticky pistons, FULL 12/12, `door ideal-rs --between-ticks` WORKS
+  (16 pos x 3 cycles) and real-game `door ideal --between-ticks` WORKS. Selftest anchor ideal:7x7-w1 is on main.
+- Mechanism: P (ring cell (1,-1)) pushes BM/C/TM up and pulls BM back (the center emptied by a pull); ring pistons
+  P / Q escape 2 cells sideways into the bottom corners (Q push-spits P, margin pullers pull them in); close reverses.
+- Variants: w2 (12 pistons, observer helper (4,0)); c70b's mm01 (11 pistons, seven/mm01-11.txt + .ideal).
+- Wiring wall: the center-pulling piston P has no free neighbour at its firing ticks in this whole family (argument in
+  NOTES.md; pockets3 k=4 solid+sculk screens: P never driven). fullmech --groups: w1 needs only 5 signals.
+- Next: c70b's mechmut with a timing-aware feed metric (neighbours AT the firing ticks), then wire the best variant.
+  Board: partials/7x7-w1.md.
 
-## Earlier results (verified at 28): e78st-56b-38-1s (BEST, sculk 7x8), community-56b-47-elig (eligible solid 7x8),
+## Records / doors (verified at 28)
+- e78st-56b-38-1s (BEST: sculk 7x8, one sensor; -37 archived by pockets3), community-56b-47-elig (eligible solid 7x8),
   c074-64b-42 (sculk 8x8). Details in NOTES.md.
 
 ## Running processes: none.
-## 7x7 next: wire mm01-11 (only P unfed) — pockets3 asked (sculk at (0,-2)); w2 is the observer-helper variant.
