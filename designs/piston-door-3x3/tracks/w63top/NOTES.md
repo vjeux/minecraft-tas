@@ -130,3 +130,9 @@
   ((0,5) observer on B -> (-1,5) -> (0,4) on the static (0,3), and -> (-2,4) on (-2,3) for L2+L1);
   the bottom (U twice, K, L0) from R0's watcher (4,-1) in the 9 bottom cells, the left half woken
   by watching U from (0,-2) (U pulls BM first, m8-style, so K can follow U).
+- m10's A wall (with c79-style levels): the TR relay (m10r) needs TR in (2,3) before the hold, and B
+  must pull A up >= 6-7 gt after the hold starts, so B >= TRp + ~10 gt. B's level line has room
+  for ONE repeater after TRp's source ((2,5) under B; (3,5) needs the solid (3,4) under it, and an
+  immediate TRp needs (3,4) to be the lever's attachment or the lever at (3,5)): B - TRp <= 8.
+  Open: feed B from the left through (0,5), or hold A from the left ((0,3)/(0,4)) with the lever
+  on the left and the right side woken by watching B.
