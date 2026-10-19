@@ -1,0 +1,24 @@
+name: p654-10b-77513d1b-e84f4b24
+family: comparator+hopper
+mechanism: 77513d1b
+period: 654
+waveform: output on 234 of 654 gt, 30 rising edge(s)
+port output: 1 0 1
+nbt: 1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:2}]}
+nbt: 2 0 2 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer -1:
+  .
+  .S
+  .
+layer 0:
+  HHA
+  hCA
+  hBB

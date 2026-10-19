@@ -1,0 +1,19 @@
+# Analog P=8, 4 blocks: hopper pair (facing each other) holding 3 swords (1 + 2) with the transfer cooldowns 5 gt apart (TransferCooldown 7 and 2 in the nbt). Neither hopper ever empties, so neither cooldown is reset by the empty-receive rule: each pushes one sword every 8 gt, 5 gt after the other, and the comparator reading the 1-or-2 hopper alternates 3 and 6 (never 0).
+# redsim: P=8 gt, warmup 2, family comparator+hopper, 4 blocks, output analog (strength only)
+
+name: hop2x3cd-p8a
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1}],TransferCooldown:7}
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}],TransferCooldown:2}
+origin: 0 0 -1
+palette:
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=west]
+layer 0:
+  S
+  .
+layer 1:
+  C
+  Hh

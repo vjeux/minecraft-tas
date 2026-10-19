@@ -1,0 +1,5 @@
+design designs/clocks/tracks/clk-rt/cmp-sub-4b.txt
+probe C 0 1 0
+probe X 1 1 1
+probe D 0 1 1
+trace 12

@@ -355,6 +355,78 @@ fn checks() -> Vec<Check> {
             Ok("membership as documented".into())
         }),
     });
+    // 8. the clock judge (docs/clocks.md): known periods on redsim, the real game agreeing, a
+    // non-clock rejected
+    const CAL: &str = "designs/clocks/calibration";
+    let cal: Vec<(&str, &str)> = vec![
+        // (periods print with their real time since 2026-10-19, vjeux: "20 gt (1 s)")
+        ("observer-pair", "cal-observer-pair period 6 gt (0.3 s), on 2/6, edges 1, warmup 0, family observer, 2 blocks, 2x1x1"),
+        ("comparator-subtract", "cal-comparator-subtract period 4 gt (0.2 s), on 2/4, edges 1, warmup 2, family comparator+redstone_wire, 9 blocks, 3x2x2"),
+        ("torch-repeater", "cal-torch-repeater period 20 gt (1 s), on 10/20, edges 1, warmup 0, family redstone_torch+redstone_wire+repeater, 14 blocks, 3x2x3"),
+        ("bulb-observer", "cal-bulb-observer period 28 gt (1.4 s), on 14/28, edges 1, warmup 0, family copper_bulb+observer+redstone_wire+repeater, 13 blocks, 3x2x3"),
+        ("observer-piston", "cal-observer-piston period 8 gt (0.4 s), on 4/8, edges 2, warmup 3, family observer+redstone_wire+sticky_piston, 8 blocks, 3x4x1"),
+        ("sculk-piston", "cal-sculk-piston period 49 gt (2.45 s), on 30/49, edges 1, warmup 5, family repeater+sculk_sensor+sticky_piston, 6 blocks, 5x2x2"),
+        ("hopper-pair", "cal-hopper-pair period 14 gt (0.7 s), on 7/14, edges 1, warmup 3, family comparator+hopper, 4 blocks, 3x2x1"),
+        ("burnout-torch", "cal-burnout-torch period 220 gt (11 s), on 32/220, edges 8, warmup 0, family redstone_torch+redstone_wire+repeater, 10 blocks, 3x2x2"),
+    ];
+    let mut s = args("clock sim -q");
+    s.extend(cal.iter().map(|(f, _)| format!("{CAL}/{f}.txt")));
+    let n = cal.len();
+    v.push(Check {
+        name: "clock:sim-calibration".into(),
+        what: "`clock sim` (exact redsim period) on the 8 calibration clocks: their known period, warmup, output waveform, family, blocks and box",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(move |o| {
+            for (f, want) in &cal {
+                if !o[0].lines().any(|l| l.starts_with("CLOCK: ") && l.contains(want)) {
+                    return Err(format!("{f}: expected `{want}`: {}", tail(&o[0])));
+                }
+            }
+            Ok(format!("{n} calibration clocks: known periods"))
+        }),
+    });
+    const NOKICK: &str = "designs/clocks/selftest/observer-pair-no-kick.txt";
+    v.push(Check {
+        name: "clock:sim-negative".into(),
+        what: "`clock sim` says STOPS for the observer pair placed silently (no start kick: nothing ever fires)",
+        quick: true,
+        jvm: false,
+        steps: vec![args(&format!("clock sim -q {NOKICK}"))],
+        timeout: 60,
+        pred: Box::new(|o| has(&o[0], "STOPS: ").map(|_| "STOPS (not a clock)".into())),
+    });
+    v.push(Check {
+        name: "clock:verify-calibration".into(),
+        what: "`clock verify` (the real game, 2 positions x 4 rotations) on the observer pair and the subtract comparator: robust, P6 and P4, and redsim agrees",
+        quick: false,
+        jvm: true,
+        steps: vec![args(&format!("clock verify {CAL}/observer-pair.txt {CAL}/comparator-subtract.txt --positions 2 --horizon 1000 --workers 8"))],
+        timeout: 600,
+        pred: Box::new(|o| {
+            for want in ["CLOCK: cal-observer-pair period 6 gt (0.3 s)", "CLOCK: cal-comparator-subtract period 4 gt (0.2 s)"] {
+                let l = o[0].lines().find(|l| l.starts_with(want)).ok_or(format!("no `{want}`: {}", tail(&o[0])))?;
+                if !l.ends_with("robust") {
+                    return Err(format!("not robust: {l}"));
+                }
+            }
+            if o[0].matches("redsim AGREES").count() != 2 {
+                return Err(format!("redsim does not agree on both: {}", tail(&o[0])));
+            }
+            Ok("robust P6 + P4, redsim agrees".into())
+        }),
+    });
+    v.push(Check {
+        name: "clock:verify-negative".into(),
+        what: "`clock verify` rejects the observer pair placed silently (no start kick)",
+        quick: false,
+        jvm: true,
+        steps: vec![args(&format!("?clock verify {NOKICK} --positions 1 --no-rotations --no-sim --workers 1"))],
+        timeout: 600,
+        pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("CLOCK:")) { Err("accepted a non-clock".into()) } else { Ok("rejected".into()) }),
+    });
     v
 }
 

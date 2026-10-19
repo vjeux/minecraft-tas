@@ -1,0 +1,26 @@
+# Jukebox carousel, 8 blocks (clk-item): 3 copies of disc 11 go around a jukebox J. While a song plays, J
+# emits 15: it locks the extractor hopper below it and the inserter hopper beside it, and powers a dust line
+# whose second dust's floor powers the lift dropper. When the song ends (lengthInTicks + 20 gt) the extractor
+# pushes its waiting disc into the lift and pulls the played one, the inserter puts the next disc into J; the
+# new song powers the dust again and the lift raises the waiting disc into the inserter 4 gt later.
+name: jukebox-carousel8n
+port output: 0 1 0
+nbt: 0 1 0 {RecordItem:{id:"minecraft:music_disc_11",count:1},ticks_since_song_started:0L}
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:music_disc_11",count:1}]}
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:music_disc_11",count:1}]}
+origin: 0 0 -1
+palette:
+  S minecraft:stone
+  N minecraft:note_block[instrument=harp,note=0,powered=true]
+  J minecraft:jukebox[has_record=true]
+  H minecraft:hopper[enabled=false,facing=east]
+  L minecraft:dropper[facing=up,triggered=true]
+  I minecraft:hopper[enabled=false,facing=west]
+  D minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
+  E minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=side]
+layer 0:
+  SN
+  HL
+layer 1:
+  DE
+  JI

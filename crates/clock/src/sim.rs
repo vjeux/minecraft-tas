@@ -38,6 +38,9 @@ pub enum Verdict {
     Unmodeled,
     /// Not a clock by the rules: a drop (item entity), a write beyond the margin, a bad kick.
     Invalid,
+    /// Independent sub-clocks side by side: the output's own period is shorter than the whole
+    /// structure's (coordinator's ruling: rejected).
+    Composite,
 }
 
 impl Verdict {
@@ -48,6 +51,7 @@ impl Verdict {
             Verdict::NoRepeat => "NO-REPEAT",
             Verdict::Unmodeled => "UNMODELED",
             Verdict::Invalid => "INVALID",
+            Verdict::Composite => "COMPOSITE",
         }
     }
 }
@@ -124,9 +128,9 @@ impl SimReport {
             Verdict::Clock => {
                 let (on, edges) = self.output.as_ref().map(|o| (o.wave.on, o.wave.edges)).unwrap_or((0, 0));
                 format!(
-                    "CLOCK: {} period {} gt, on {on}/{}, edges {edges}, warmup {}, family {}, {} blocks, {w}x{h}x{d}, {}",
+                    "CLOCK: {} period {}, on {on}/{}, edges {edges}, warmup {}, family {}, {} blocks, {w}x{h}x{d}, {}",
                     self.name,
-                    self.period,
+                    crate::gt_time(self.period),
                     self.period,
                     self.warmup,
                     wave::signature(&self.analysis.family),
@@ -363,6 +367,31 @@ pub fn quick_period(blocks: &[(BlockPos, Block)], last: Option<usize>, margin: i
     None
 }
 
+/// One period replayed on redsim for a picture: (whole-state warmup W, the clock's period P, for
+/// each tick W..W+P the number of changing cells that are ON and the number of moving blocks: a
+/// moving block is invisible in a still picture). `None` unless redsim says CLOCK.
+pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<(u32, u32)>)> {
+    let r = simulate(c, o);
+    if r.verdict != Verdict::Clock {
+        return None;
+    }
+    let blocks = parse_blocks(c).ok()?;
+    let mut s = start(c, &blocks, o.margin).ok()?;
+    let w0 = r.state_warmup.max(r.warmup);
+    let cells: Vec<BlockPos> = r.analysis.cells.iter().map(|w| bp(w.pos)).collect();
+    let mut counts = Vec::new();
+    for t in 0..(w0 + r.period) {
+        between_ticks(&mut s, t).ok()?;
+        if t >= w0 {
+            let on = cells.iter().filter(|p| wave::active(&s.world.get(**p).to_string())).count() as u32;
+            let moving = cells.iter().filter(|p| matches!(s.world.get(**p), Block::MovingPiston { .. })).count() as u32;
+            counts.push((on, moving));
+        }
+        s.world.tick();
+    }
+    Some((w0, r.period, counts))
+}
+
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let blocks = match parse_blocks(c) {
@@ -405,9 +434,11 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         .collect();
     let mut period_states: Vec<Vec<String>> = Vec::with_capacity(p as usize);
     let mut out_seq: Vec<bool> = Vec::with_capacity(p as usize);
+    let mut out_level: Vec<i32> = Vec::with_capacity(p as usize);
     let mut key_w = Vec::new();
     let out_pos = c.output;
-    // a digest of the block states after every tick (the visible warmup and period)
+    // a digest of the full cell states after every tick (block state + comparator strength +
+    // container contents): the clock's warmup and period
     let mut frames: Vec<u128> = Vec::with_capacity((w0 + p + 1) as usize);
     for t in 0..=(w0 + p) {
         if let Err((v, why)) = between_ticks(&mut s, t) {
@@ -422,7 +453,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             for q in &cells {
                 let b = s.world.get(bp(*q));
                 b.hash(&mut h);
-                wave::visible_extra(wave::be_extra_redsim(&s.world, bp(*q), &b).as_deref()).hash(&mut h);
+                wave::be_extra_redsim(&s.world, bp(*q), &b).hash(&mut h);
             }
             frames.push(((h.a as u128) << 64) | h.b as u128);
         }
@@ -441,8 +472,10 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             );
             if let Some(op) = out_pos {
                 let st = s.world.get(bp(op));
-                let on = if self_reporting(&st.to_string()) { wave::active(&st.to_string()) } else { s.world.best_neighbor_signal(bp(op)) > 0 };
+                let level = s.world.best_neighbor_signal(bp(op));
+                let on = if self_reporting(&st.to_string()) { wave::active(&st.to_string()) } else { level > 0 };
                 out_seq.push(on);
+                out_level.push(level);
             }
         }
         if t == w0 + p {
@@ -453,18 +486,20 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         }
         s.world.tick();
     }
-    // The clock's period: the smallest divisor of the whole-state period P over which the VISIBLE
-    // state (block states + comparator output strengths) repeats; its warmup: the first tick from
-    // which it does (both are what the real-game judge measures). Hidden state (container
-    // contents, pending ticks, torch memory) may cycle slower: `state_period`.
+    // The clock's period F: the smallest divisor of the whole-state period over which every cell's
+    // full state (block state + comparator strength + container contents) repeats; its warmup: the
+    // first tick from which it does (what the real-game judge measures). Pending ticks and the
+    // torch memory may cycle slower (`state_period`: their order among ticks due together is not
+    // physics).
     let (w0u, pu) = (w0 as usize, p as usize);
-    let vis_p = (1..=pu).filter(|d| pu % d == 0).find(|&d| (w0u..w0u + pu).all(|t| frames[t] == frames[w0u + (t - w0u + d) % pu])).unwrap_or(pu);
+    let full_p = (1..=pu).filter(|d| pu % d == 0).find(|&d| (w0u..w0u + pu).all(|t| frames[t] == frames[w0u + (t - w0u + d) % pu])).unwrap_or(pu);
     let mut vis_w = w0u;
-    while vis_w > c.free_from() as usize && frames[vis_w - 1] == frames[vis_w - 1 + vis_p] {
+    while vis_w > c.free_from() as usize && frames[vis_w - 1] == frames[vis_w - 1 + full_p] {
         vis_w -= 1;
     }
-    let refs: Vec<Vec<&str>> = period_states[..vis_p].iter().map(|v| v.iter().map(|s| s.as_str()).collect()).collect();
-    out_seq.truncate(vis_p);
+    let refs: Vec<Vec<&str>> = period_states[..full_p].iter().map(|v| v.iter().map(|s| s.as_str()).collect()).collect();
+    out_seq.truncate(full_p);
+    out_level.truncate(full_p);
     let analysis = wave::analyze(&cells, &refs);
     let mut rep = SimReport {
         name: c.name().to_string(),
@@ -472,7 +507,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         why: String::new(),
         warmup: vis_w as u32,
         state_warmup: w0,
-        period: vis_p as u32,
+        period: full_p as u32,
         state_period: p,
         analysis,
         output: None,
@@ -485,18 +520,44 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         rep.why = if p == 1 { format!("goes still at tick {w0}") } else { format!("no block changes in its period (the state repeats every {p} gt from tick {w0})") };
         return rep;
     }
-    rep.output = match out_pos {
+    // The output: `port output`, else the changing cell with the longest own period (then the most
+    // edges); its own period must be the clock's (coordinator's ruling 2026-10-19: else the design
+    // is independent sub-clocks side by side: COMPOSITE).
+    let cell_period = |pos: Pos| -> usize {
+        match cells.iter().position(|q| *q == pos) {
+            Some(i) => wave::cyclic_period(&refs.iter().map(|v| v[i]).collect::<Vec<_>>()),
+            None => full_p,
+        }
+    };
+    let (output, out_period) = match out_pos {
         Some(op) => {
             let (on, edges, widths) = wave::bool_wave(&out_seq);
             let states = rep.analysis.cells.iter().find(|w| w.pos == op).map(|w| w.states.clone()).unwrap_or_default();
-            Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths } })
+            // a component reports its own state; a plain block or air: the power it receives
+            let own = if states.is_empty() { wave::cyclic_period(&out_level) } else { cell_period(op) };
+            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths } }), own)
         }
-        None => rep
-            .analysis
-            .cells
-            .iter()
-            .max_by(|a, b| (a.edges, a.on).cmp(&(b.edges, b.on)).then(b.pos.cmp(&a.pos)))
-            .map(|w| Output { pos: w.pos, auto: true, wave: w.clone() }),
+        None => {
+            let best = rep.analysis.cells.iter().max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos)));
+            match best {
+                Some(w) => (Some(Output { pos: w.pos, auto: true, wave: w.clone() }), cell_period(w.pos)),
+                None => (None, full_p),
+            }
+        }
     };
+    rep.output = output;
+    // Composite (coordinator's ruling 2026-10-19): the output repeats faster than the whole
+    // structure AND the changing cells split into independent groups (sub-clocks side by side).
+    // One mechanism whose output fires twice per cycle (an observer watching both strokes of a
+    // piston) is a normal clock of the whole cycle. (A declared output that never changes says
+    // nothing about the structure: not judged here.)
+    let groups = wave::spatial_groups(&rep.analysis.cells.iter().map(|w| w.pos).collect::<Vec<_>>(), &wave::sensors_of(&c.design.blocks));
+    if out_period < full_p && out_period > 1 && groups > 1 {
+        rep.verdict = Verdict::Composite;
+        let pos = rep.output.as_ref().map(|o| o.pos).unwrap_or([0, 0, 0]);
+        rep.why = format!(
+            "composite: the output {pos:?} repeats every {out_period} gt but the whole structure every {full_p} gt, and its changing cells form {groups} independent groups (sub-clocks side by side: the period would be their lcm); keep one sub-clock, or declare the combining cell as `port output` (a beat clock, marked `# composite`)"
+        );
+    }
     rep
 }

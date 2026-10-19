@@ -1,0 +1,19 @@
+# U-loop (clk-rt): block A + dust beside it -> top row [delay-2 repeater (powered at placement)] ->
+# block F -> a wall torch on F -> bottom row [comparator] -> A; 1 torch(es) = an inverter loop of
+# delay 8 gt (period 2 x delay)
+name: clk-rt-uloop-p16-c-rt-rw-r-9b
+uloop: C-2*-c-T
+port output: 0 1 -1
+origin: 0 0 -1
+palette:
+  A minecraft:repeater[delay=2,facing=west,locked=false,powered=true]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  R minecraft:redstone_wall_torch[facing=south,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wire
+layer 0:
+  SS
+  .S
+layer 1:
+  rAS
+  SCR
