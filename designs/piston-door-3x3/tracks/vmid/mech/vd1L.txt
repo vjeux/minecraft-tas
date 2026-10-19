@@ -1,0 +1,48 @@
+name: vd1L
+# vd1 with every single-move puller LEVEL-held (extended at rest, heads in the ring behind the closed
+# door) and the ML elevator's lifter E2 level-held too (E1 rests lowered at (0,3)): a level-held
+# piston moves once per edge, so an observer watching it fires once, which gives single-pulse links
+# between the regions (E2: top-left <-> top-right, TL's puller: top-left <-> left, BR's puller:
+# top-right -> bottom-right). Ideal levels: redstone blocks behind them at z = 1 (vd1L.ideal).
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  d minecraft:sticky_piston[extended=true,facing=down]
+  h minecraft:piston_head[facing=down,short=false,type=sticky]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  u minecraft:sticky_piston[extended=true,facing=up]
+  g minecraft:piston_head[facing=up,short=false,type=sticky]
+  F minecraft:sticky_piston[extended=true,facing=east]
+  f minecraft:piston_head[facing=east,short=false,type=sticky]
+  V minecraft:sticky_piston[extended=true,facing=west]
+  v minecraft:piston_head[facing=west,short=false,type=sticky]
+  R minecraft:redstone_block
+layer -3:
+  ...U...
+  .......
+layer -2:
+  ..uU...
+  ..R....
+layer -1:
+  ..g.vV.
+  .....R.
+layer 0:
+  ..SSSvV
+  .......
+layer 1:
+  ..SSSvV
+  ......R
+layer 2:
+  FfSSS..
+  R......
+layer 3:
+  ..Dhh..
+  .......
+layer 4:
+  ..hdd..
+  ...RR..
+layer 5:
+  ..d....
+  ..R....
