@@ -401,3 +401,7 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   w86's m81 (m78's simple left + m80's right; solid core W' only): SCULK UNSAT in 568 s, core open MB0 (-3,0),
   (1,4), U1 (-2,1), M1 (5,1), (-1,0), carried s1 (3,1) + close U0 (-2,0), s1 (4,1), MB0, (-1,0): W' leaves the
   core with sound, but the sensors then disturb the left elevator / right carrier / held top.
+- Tool: `door satwire --sound-cells "x,y;x,y"` (fd4fe6ef): sculk sensors only in the listed cells (speed: m81
+  with sensors only in the bottom-right pocket = 11M clauses / 122 s vs 30M / 568 s). m81 with that: UNSAT,
+  core W' (3,-1) + M1 (5,1) + carried s1 (3,1) + RP0 (4,0) + s1 (4,1). (A restriction can only remove
+  solutions: if sculk everywhere is UNSAT, every restricted run is too.)
