@@ -170,6 +170,13 @@ mirroring each other: shifting time by P maps every even-class event onto an odd
 - Flat rings of repeaters + corner cells hold an even number of cells (a rectilinear loop has an
   even number of corners and the cell cycle has even length): an odd count needs a dust cell.
 
+**No clock with torches alone, or dust alone.** A torch strongly powers only the block directly
+above it (its weak signal reaches dust and diodes, not a plain block beside it), and it reads only
+the block it hangs or stands on: with torches and plain blocks only, every torch's input is a torch
+one level lower, so there is no feedback loop. Dust never schedules a tick. The smallest
+torch + dust clock found: a 3-torch ring with dust links in a 3x4 rectangle, P12 at 14 blocks
+(`ring/torch-dust/`); a 4-torch dust ring burns out into P872 (16 blocks).
+
 **Torch burnout** (`RedstoneTorchBlock`, global `RECENT_TOGGLES` list per level): only turn-offs
 are logged; the 8th turn-off within 60 gt burns the torch out and schedules a re-check 160 gt
 later; the re-check relights it if its input is off (entries older than 60 gt are purged at the
