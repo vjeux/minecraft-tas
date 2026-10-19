@@ -2291,6 +2291,11 @@ pub struct PocketArgs {
     /// trace and the plan groups it matches, then stop.
     #[arg(long)]
     pub debug_fill: Option<std::path::PathBuf>,
+    /// Fillings may have GAPS (several pieces, each touching the build), not only one connected
+    /// piece: an observer powering a quasi cell through air (c88 s26's BR: observer (4,0) up ->
+    /// air (4,-1) -> piston (4,-2) up, QC'd), a sculk sensor next to a separate wool block.
+    #[arg(long)]
+    pub gaps: bool,
 }
 
 /// One plan pulse (on, then off) or level edge of one input in one phase, with its window.
@@ -2535,18 +2540,32 @@ fn connected(cells: &[(i32, i32)]) -> bool {
     if cells.is_empty() {
         return false;
     }
+    components(cells).len() == 1
+}
+
+/// The connected pieces of a cell set (4-neighbourhood).
+fn components(cells: &[(i32, i32)]) -> Vec<Vec<(i32, i32)>> {
     let mut seen = vec![false; cells.len()];
-    let mut stack = vec![0];
-    seen[0] = true;
-    while let Some(i) = stack.pop() {
-        for j in 0..cells.len() {
-            if !seen[j] && (cells[i].0 - cells[j].0).abs() + (cells[i].1 - cells[j].1).abs() == 1 {
-                seen[j] = true;
-                stack.push(j);
+    let mut out = Vec::new();
+    for s in 0..cells.len() {
+        if seen[s] {
+            continue;
+        }
+        seen[s] = true;
+        let mut comp = vec![cells[s]];
+        let mut stack = vec![s];
+        while let Some(i) = stack.pop() {
+            for j in 0..cells.len() {
+                if !seen[j] && (cells[i].0 - cells[j].0).abs() + (cells[i].1 - cells[j].1).abs() == 1 {
+                    seen[j] = true;
+                    stack.push(j);
+                    comp.push(cells[j]);
+                }
             }
         }
+        out.push(comp);
     }
-    seen.iter().all(|s| *s)
+    out
 }
 
 fn subsets_upto(n: usize, k: usize) -> Vec<Vec<usize>> {
@@ -2941,10 +2960,12 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         };
         for sub in subsets_upto(pk.len(), kp) {
             let cells: Vec<(i32, i32)> = sub.iter().map(|&i| pk[i]).collect();
-            if !connected(&cells) {
+            // one connected piece touching the build, or (--gaps) pieces that each touch it
+            let ok_shape = if pa.gaps { components(&cells).iter().all(|c| touches_context(c)) } else { connected(&cells) && touches_context(&cells) };
+            if !ok_shape && !(pa.gaps || connected(&cells)) {
                 continue;
             }
-            if touches_context(&cells) {
+            if ok_shape {
                 push(&mut items, &sub, None);
             }
             if sub.len() < kp {
