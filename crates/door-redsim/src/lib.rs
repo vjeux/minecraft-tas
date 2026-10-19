@@ -118,9 +118,16 @@ pub enum DoorCmd {
     },
     /// `door ideal` on redsim (no JVM; piston-door ideal_rs.rs): the same schedule file and checks,
     /// in milliseconds; `--sweep` grids run in parallel (timing windows), `--trace` prints every
-    /// block change of the first cycle at the first position.
+    /// block change of the first cycle at the first position; `--compact-dir` pulls every input
+    /// group as early as the mechanism allows and writes `<name>-cpt.ideal` with its windows.
     IdealRs {
-        schedule: PathBuf,
+        /// One schedule (several with `--compact-dir`).
+        #[arg(required = true)]
+        schedule: Vec<PathBuf>,
+        /// Compact each schedule (every pulse / level edge as early as it goes, the others
+        /// fixed, two passes) and write `<dir>/<name>-cpt.ideal` with each group's window.
+        #[arg(long)]
+        compact_dir: Option<PathBuf>,
         /// Override a schedule variable, name=value (repeatable).
         #[arg(long)]
         set: Vec<String>,
@@ -327,9 +334,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             }
             eprintln!("{pass} pass, {fail} fail, {unsup} unsupported{}", if judge { format!(", {disagree} disagreements with the judge") } else { String::new() });
         }
-        DoorCmd::IdealRs { schedule, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop } => {
-            crate::ideal_rs::cli(&schedule, &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop)?;
-        }
+        DoorCmd::IdealRs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop } => match compact_dir {
+            Some(dir) => {
+                std::fs::create_dir_all(&dir)?;
+                for s in &schedule {
+                    let stem = s.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+                    if let Err(e) = crate::ideal_rs::compact(s, &dir.join(format!("{stem}-cpt.ideal")), extra_offsets, cycles, threads) {
+                        println!("{}: {e:#}", s.display());
+                    }
+                }
+            }
+            None => {
+                anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir)");
+                crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop)?;
+            }
+        },
         DoorCmd::Pistfuzz { count, seed, mode, slime, gravity, observers, mixed, shapes, gadgets, designs, cycles, against, workers, shrink, replay, out_dir, max_fail, trace, sculk, border } => {
             let o = crate::pistfuzz::CliOpts { count, seed, mode, slime, gravity, observers, mixed, shapes, against, workers, shrink, replay, gadgets, designs, cycles, out_dir, max_fail, trace, sculk, border };
             crate::pistfuzz::cli(version, &o)?;
