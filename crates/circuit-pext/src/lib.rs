@@ -11,11 +11,12 @@
 
 pub mod game;
 pub mod rs;
+pub mod search;
 pub mod spec;
 
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
-use spec::Pext;
+use spec::{Pext, Pos};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -55,6 +56,56 @@ enum Cmd {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// Every way to add kmin..=k blocks of a palette in a region's free cells of a base design
+    /// (redsim screen, then the full judge); keeps the minimal finds (no added block removable),
+    /// smallest first. With --out-dir, each find is written as a design.
+    Grow {
+        base: PathBuf,
+        /// Region corner (x,y,z).
+        #[arg(long, value_parser = parse_pos)]
+        lo: Pos,
+        #[arg(long, value_parser = parse_pos)]
+        hi: Pos,
+        /// Palette (shorthands as in `mctas clock census`, plus `cross`).
+        #[arg(long, default_value = "stone,cross,repeater,torch,observer")]
+        palette: String,
+        #[arg(long, default_value_t = 1)]
+        k: usize,
+        #[arg(long, default_value_t = 1)]
+        kmin: usize,
+        #[arg(long, default_value_t = 64)]
+        threads: usize,
+        /// Only cells in this z plane (flat designs).
+        #[arg(long)]
+        plane_z: Option<i32>,
+        /// Keep non-minimal finds too.
+        #[arg(long)]
+        all: bool,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// Print at most this many finds.
+        #[arg(long, default_value_t = 40)]
+        show: usize,
+    },
+    /// Greedy shrink on redsim: remove blocks, or swap one for a palette state and remove
+    /// another, while the extender keeps working; writes each step to --out.
+    Minimize {
+        design: PathBuf,
+        #[arg(long, default_value = "stone,cross,repeater,torch,observer,slime,sticky,piston")]
+        palette: String,
+        #[arg(long, default_value_t = 64)]
+        threads: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+}
+
+fn parse_pos(s: &str) -> std::result::Result<Pos, String> {
+    let v: Vec<i32> = s.split(',').map(|w| w.trim().parse::<i32>().map_err(|e| e.to_string())).collect::<std::result::Result<_, _>>()?;
+    if v.len() != 3 {
+        return Err(format!("x,y,z expected, got {s:?}"));
+    }
+    Ok([v[0], v[1], v[2]])
 }
 
 /// The entry point clockinfra's `mctas circuit pext` calls with every argument after `pext`.
@@ -73,7 +124,55 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let o = game::Options { positions, rotations: !no_rotations, cycles, workers, ..Default::default() };
             cmd_verify(&designs, &o, verbose)
         }
+        Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, out_dir, show } => {
+            let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all };
+            cmd_grow(&base, &o, show)
+        }
+        Cmd::Minimize { design, palette, threads, out } => {
+            let p = Pext::load(&design)?;
+            let steps = search::minimize(&p, &search::MinOptions { palette: search::palette(&palette)?, threads })?;
+            for (i, d) in steps.iter().enumerate() {
+                let np = Pext::from_design(d.clone())?;
+                let prep = rs::Prepared::new(&np, 4).map_err(|e| anyhow!("{e}"))?;
+                let (r, _) = rs::judge(&prep, &rs::Params::default(), false);
+                println!("step {}: {}", i + 1, summary(&np, &r));
+            }
+            match (steps.last(), out) {
+                (Some(d), Some(path)) => {
+                    let mut d = d.clone();
+                    d.name = format!("{}-min", p.name());
+                    d.save(&path)?;
+                    println!("wrote {}", path.display());
+                }
+                (None, _) => println!("no smaller design found"),
+                _ => {}
+            }
+            Ok(())
+        }
     }
+}
+
+fn cmd_grow(base: &PathBuf, o: &search::GrowOptions, show: usize) -> Result<()> {
+    let p = Pext::load(base)?;
+    let t0 = std::time::Instant::now();
+    let finds = search::grow(&p, o, &|k, d, n| eprintln!("  k={k}: {d}/{n} units ({:.0} s)", t0.elapsed().as_secs_f64()))?;
+    println!("{} minimal finds in {:.1} s", finds.len(), t0.elapsed().as_secs_f64());
+    if let Some(dir) = &o.out_dir {
+        std::fs::create_dir_all(dir)?;
+    }
+    for (i, f) in finds.iter().enumerate() {
+        let name = format!("{}-g{}", p.name(), i + 1);
+        let d = search::find_design(&p, f, &name);
+        if let Some(dir) = &o.out_dir {
+            d.save(&dir.join(format!("{name}.txt")))?;
+        }
+        if i < show {
+            let c = f.report.first();
+            let added: Vec<String> = f.added.iter().map(|(q, s)| format!("{},{},{} {}", q[0], q[1], q[2], clock::short(s))).collect();
+            println!("{name}: {} blocks, extend {} retract {}: {}", f.blocks, c.extend, c.retract, added.join("; "));
+        }
+    }
+    Ok(())
 }
 
 /// `4x3x1` of the design's box with the target cell.

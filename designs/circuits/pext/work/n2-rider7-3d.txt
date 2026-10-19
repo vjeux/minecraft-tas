@@ -1,0 +1,19 @@
+# N=2, slime + observer, 7 blocks: the observer beside S1 powers it (B stands on it).
+name: pext-n2-rider7-3d
+circuit: piston-extender 2
+travel: 1 0 0
+port input: 0 0 0 lever
+port payload: 3 1 0
+origin: 0 0 0
+palette:
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=west]
+  O minecraft:observer[facing=south,powered=false]
+  S minecraft:slime_block
+  s minecraft:sticky_piston[facing=east]
+layer 0:
+  LsSSS
+  ..O
+layer 1:
+  ..sG
+  .

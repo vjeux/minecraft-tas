@@ -74,11 +74,20 @@ pub struct Params {
     pub max_phase: u32,
     /// Ticks the placement may take to settle.
     pub max_settle: u32,
+    /// Snapshot every tick (the retract tick); off = a fast screen (retract reads 0).
+    pub track: bool,
 }
 
 impl Default for Params {
     fn default() -> Self {
-        Params { cycles: 3, max_phase: 400, max_settle: 400 }
+        Params { cycles: 3, max_phase: 400, max_settle: 400, track: true }
+    }
+}
+
+impl Params {
+    /// The search screen: 2 cycles, short phases, no per-tick snapshots.
+    pub fn screen() -> Params {
+        Params { cycles: 2, max_phase: 120, max_settle: 60, track: false }
     }
 }
 
@@ -170,19 +179,25 @@ fn check_world(w: &World, t: u32, what: &str) -> Result<(), (Verdict, String)> {
     Ok(())
 }
 
-fn run_phase(w: &mut World, prep: &Prepared, max: u32, what: &str, trace: &mut Option<Vec<String>>) -> Result<Phase, (Verdict, String)> {
-    let mut prev = w.blocks();
+fn run_phase(w: &mut World, prep: &Prepared, params: &Params, what: &str, trace: &mut Option<Vec<String>>) -> Result<Phase, (Verdict, String)> {
+    let max = params.max_phase;
+    let track = params.track || trace.is_some();
+    let mut prev = if track { w.blocks() } else { Vec::new() };
     let mut ph = Phase { at: Vec::new(), changed: Vec::new() };
     for t in 1..=max {
         w.tick();
         check_world(w, t, what)?;
-        let now = w.blocks();
-        ph.changed.push(now != prev);
         ph.at.push(w.get(prep.target) == prep.payload_block);
-        if let Some(lines) = trace {
-            lines.push(format!("{what} t={t}: {}", diff(&prev, &now)));
+        if track {
+            let now = w.blocks();
+            ph.changed.push(now != prev);
+            if let Some(lines) = trace {
+                lines.push(format!("{what} t={t}: {}", diff(&prev, &now)));
+            }
+            prev = now;
+        } else {
+            ph.changed.push(false);
         }
-        prev = now;
         if w.idle() {
             return Ok(ph);
         }
@@ -281,7 +296,7 @@ fn count_payload(w: &World, prep: &Prepared) -> usize {
 
 fn lever_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPos, Block)], trace: &mut Option<Vec<String>>) -> Result<Cycle, (Verdict, String)> {
     use_input(w, prep, "on")?;
-    let on = run_phase(w, prep, params.max_phase, "on", trace)?;
+    let on = run_phase(w, prep, params, "on", trace)?;
     let n = on.ticks();
     if !on.at.last().copied().unwrap_or(false) {
         let at = w.blocks().into_iter().find(|(_, b)| *b == prep.payload_block).map(|(p, _)| format!("{},{},{}", p.x, p.y, p.z)).unwrap_or_else(|| "nowhere".into());
@@ -292,7 +307,7 @@ fn lever_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPo
     }
     let extend = on.at.iter().rposition(|a| !*a).map(|i| i as u32 + 2).unwrap_or(1);
     use_input(w, prep, "off")?;
-    let off = run_phase(w, prep, params.max_phase, "off", trace)?;
+    let off = run_phase(w, prep, params, "off", trace)?;
     let now = w.blocks();
     if now != rest {
         return Err((Verdict::Fails, format!("off: settled after {} gt but not at rest: {}", off.ticks(), diff(rest, &now))));
@@ -302,7 +317,7 @@ fn lever_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPo
 
 fn button_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPos, Block)], trace: &mut Option<Vec<String>>) -> Result<Cycle, (Verdict, String)> {
     use_input(w, prep, "press")?;
-    let ph = run_phase(w, prep, params.max_phase, "press", trace)?;
+    let ph = run_phase(w, prep, params, "press", trace)?;
     let Some(first) = ph.at.iter().position(|a| *a) else {
         return Err((Verdict::Fails, "press: the payload never reached the target".into()));
     };
