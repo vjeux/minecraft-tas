@@ -59,11 +59,20 @@ sensors = calibrated facing W/E/N + plain; ~10-20k combinations/s on 20 threads)
 - t8xL-b (8x8): A at a1 4..6, a2 20..27, a3 34..42; B's two 2 gt pulses must be 12 apart (16 for
   b1 15..16), tied to the left side's parity chain. With that chain's repeater (-1,5) at delay 2
   B may be 10 apart (calibrated observer taps) and at delay 3 14 apart (sensor -> lamp -> observer),
-  and B may even be ONE 10 gt hold (b 15..30, A2 = b+2, A3 >= b+12, delay 1 or 2). But A's three
-  taps would need a sensor active at t0..2 (t2+2, +12, +22 with b = t2+9..11): nothing that early is
-  within reach of the top-right; with W held by the same sensor instead of its real chain: 0. Screens
-  with only U ideal (A and B real), A+U ideal, B+U ideal (52,920 each), B with the left repeater
-  varied (306,180), sensor/observer placements for A and B at once (40,000): 0 work. U (1,-2): any
+  and B may even be ONE 10 gt hold (b 15..30, A2 = b+2, A3 >= b+12, delay 1 or 2). With W freed from
+  its real chain the WHOLE elevator fits sensor outputs (`ring56/t8xLb-h4.ideal`, 264 combos): A =
+  the 3 taps of an observer on a calibrated sensor (t2+2, t2+12, t2+22, any t2 0..21), W = ONE 2 gt
+  pulse at t2+4..6 (a second W pulse 4, 6 or 14 later is harmless, 10 is not), B = a 10 gt hold at
+  b = t2+7..9 (left repeater delay 1 or 2); U = the 3 taps of a calibrated sensor too, activated at
+  15 or >= 35 on close (`t8xLb-u3.ideal`: 1647 of 3721 (open, close) pairs). The layout fails: A's
+  only feed is an observer at (2,4) watching (3,4); a sensor there holds W (3,3) below it for 10 gt,
+  a sensor at (4,4) behind an observer (3,4) QC-holds W through (3,4) (facing east fixes that), and
+  every placement (4,4), (4,5) behind 2-3 observers re-arms at T+20 and re-hears the elevator (B's
+  release, A's own taps) 2-3 cells away through the observer chain, which no wool can shield: an
+  endless echo (A taps every ~27 gt). Screens: A real with W/B ideal 26,784 + 60,264 + 321,408,
+  whole top-right 504,000 + 97,200 + 43,200: 0 work. Screens with only U ideal (A and B real), A+U
+  ideal, B+U ideal (52,920 each), B with the left repeater varied (306,180), sensor/observer
+  placements for A and B at once (40,000): 0 work. U (1,-2): any
   2 gt pulse on open, >= 36 on close; 10/30 gt holds fail on both edges (U must spit on close).
 - q8seed (7x8): the same top elevator as t8xL (A x3 from (2,4) only, B x2 from (2,5) only) plus U
   and BR's puller: not attempted beyond the t8xL-b result.
