@@ -20,3 +20,22 @@ close >= 13: one both-edge pulse works), BL+BM (any tick both edges) ideal.
   when TLc's spit places ML at (-1,1) (a free E push); E retracts when o drops, so E2 must come >= 13.
 - PARITY: TLc driven by a top-derived observer acts at an odd tick A; M's observer must turn on at A+3
   (even), so M's chain needs one landing-triggered piston (acts the tick after a BE-phase landing).
+
+## M solved twice, E1 + TLc not (12:00Z-12:50Z)
+- M by sculk (wip/c074s1.txt): calibrated sensor (-1,-2) facing west (back on BL's puller) hears the
+  lever at t7, observer (-1,-1) facing down -> static (-1,0): M fires exactly when D spits E at A+4 if
+  TLc acts at A = 6 (plan tlo 5). ideal-rs WORKS with E1, TLc, E2, BL, BM ideal.
+- D held by a PLAIN sculk sensor (wip/c074d2.txt, ideal/c074d3.ideal): sensor (-3,0) under D hears the
+  lever at t6 and holds D 30 gt; o's first pulse updates D once TLc has lifted ML, D pushes E and HOLDS
+  it (no spit), o's second pulse is swallowed, D pulls E back at t37. M then works at ANY plan tick
+  9..30 (any both-edge pulse: harmless on close), E2 one both-edge pulse >= 37, E1/TLc pairs (plan,
+  same on both edges) (1,4) (1,5) (2,5) (2,6) (3,6) (3,7) (4,7) (4,8) (5,8); BL/BM any.
+- E1 + TLc in the 8x7 top-left: impossible so far. E's only feeds are (-2,3) (must emit DOWN only: a
+  conductor there powers TLc east of it) and (-2,0) (bottom-left: no source before t6). The only early
+  top source is X = observer (-1,4) facing east on TL's puller (on t3, both edges); X outputs into
+  (-2,4), and anything there that emits east QC-arms TLc (which TL's t3 landing then fires at t4).
+  X -> TRAPDOOR (-2,4) (non-conductor) -> observer (-2,3) facing up gives a clean E1 at t5 (plan 4),
+  but then TLc has no feed left ((-2,3), (-1,4), (-2,4) all taken). Exhaustive: pockets k=4 full
+  palette on the top-left (c074s1 plan, 89M fillings): only E2c; ideal-rs --vary 21 states^5 (4.1M)
+  on the top-left with E1 and TLc real (c074d3 plan): 0.
+- Next: the same with an 8th row on top (8x8 = 64, box y -2..5): pockets k=3 running.
