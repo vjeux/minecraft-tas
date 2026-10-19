@@ -212,6 +212,92 @@ pub fn type_keys(dir: &Path, rows: &[Row]) -> BTreeMap<String, String> {
     crate::ident::archive_keys(dir, &files)
 }
 
+/// One extendable family for [`card_groups`]: its period formula, its base design's block kinds,
+/// its size key (blocks at its smallest n, volume, archive order) and its `extend group`.
+pub struct CardItem {
+    pub formula: String,
+    pub kinds: BTreeSet<String>,
+    pub size: (i64, i64, usize),
+    pub group: Option<String>,
+}
+
+/// One extendable card: its families (indices; the pictured one, the simplest, first), the block
+/// kinds they all share, and the `extend group` it renders (None: a lone family, or families
+/// grouped by the one-kind rule).
+pub struct Card {
+    pub members: Vec<usize>,
+    pub core: BTreeSet<String>,
+    pub group: Option<String>,
+}
+
+/// Group extendable families into cards. Families with an `extend group:` header form one card
+/// per group (vjeux: "can we not have 300 variations of this one?"). The others: families with the
+/// same period formula whose base designs differ by one block kind (a relay: note block, crafter,
+/// rail, door...) share one card (coordinator, 2026-10-19): each joins the (formula, its kinds minus
+/// one kind) group with the most families (at least 2; ties: the first core in order); the rest
+/// are cards of their own. Members are ordered simplest first (fewest blocks, volume, archived
+/// first).
+pub fn card_groups(items: &[CardItem]) -> Vec<Card> {
+    let core_of = |members: &[usize]| -> BTreeSet<String> {
+        let mut it = members.iter().map(|&i| items[i].kinds.clone());
+        let first = it.next().unwrap_or_default();
+        it.fold(first, |a, b| a.intersection(&b).cloned().collect())
+    };
+    let mut cards: Vec<Card> = Vec::new();
+    let mut explicit: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (i, it) in items.iter().enumerate() {
+        if let Some(g) = &it.group {
+            explicit.entry(g.clone()).or_default().push(i);
+        }
+    }
+    for (g, mut members) in explicit {
+        members.sort_by_key(|&i| items[i].size);
+        let core = core_of(&members);
+        cards.push(Card { members, core, group: Some(g) });
+    }
+    let free: Vec<usize> = (0..items.len()).filter(|&i| items[i].group.is_none()).collect();
+    let mut by_core: BTreeMap<(String, Vec<String>), Vec<usize>> = BTreeMap::new();
+    for &i in &free {
+        let it = &items[i];
+        for x in &it.kinds {
+            let core: Vec<String> = it.kinds.iter().filter(|k| *k != x).cloned().collect();
+            if !core.is_empty() {
+                by_core.entry((it.formula.clone(), core)).or_default().push(i);
+            }
+        }
+    }
+    let mut chosen: BTreeMap<(String, Vec<String>), Vec<usize>> = BTreeMap::new();
+    let mut alone: Vec<usize> = Vec::new();
+    for &i in &free {
+        let it = &items[i];
+        let best = it
+            .kinds
+            .iter()
+            .filter_map(|x| {
+                let core: Vec<String> = it.kinds.iter().filter(|k| *k != x).cloned().collect();
+                let key = (it.formula.clone(), core);
+                by_core.get(&key).filter(|v| v.len() >= 2).map(|v| (v.len(), key))
+            })
+            .max_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
+        match best {
+            Some((_, key)) => chosen.entry(key).or_default().push(i),
+            None => alone.push(i),
+        }
+    }
+    for ((_, core), mut members) in chosen {
+        if members.len() == 1 {
+            alone.extend(members);
+            continue;
+        }
+        members.sort_by_key(|&i| items[i].size);
+        cards.push(Card { members, core: core.into_iter().collect(), group: None });
+    }
+    for i in alone {
+        cards.push(Card { members: vec![i], core: items[i].kinds.clone(), group: None });
+    }
+    cards
+}
+
 /// The dominance fold within one period (vjeux: "the left one is strictly smaller than the right
 /// one"): `items[i]` = (blocks, volume, name, block kinds); for each item, the index of the item it
 /// folds under: among the items with strictly fewer blocks whose kinds are a subset of its own,
@@ -520,6 +606,37 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         }
     }
     let unfolded = || by_type.values().filter(|r| !folded.contains_key(&r.file));
+    // the extendable cards: families sharing a period formula whose base designs differ by one
+    // block kind share a card, the smallest family pictured
+    let order: BTreeMap<&str, usize> = rows.iter().enumerate().map(|(i, r)| (r.file.as_str(), i)).collect();
+    let fam_items: Vec<CardItem> = fams
+        .iter()
+        .map(|(r, f)| CardItem {
+            formula: f.period.text(),
+            kinds: kinds_of.get(&r.file).cloned().unwrap_or_default(),
+            size: (f.blocks.eval(f.n_lo), r.volume, order.get(r.file.as_str()).copied().unwrap_or(usize::MAX)),
+            group: f.group.clone(),
+        })
+        .collect();
+    let mut cards = card_groups(&fam_items);
+    cards.sort_by(|a, b| {
+        let (fa, fb) = (&fams[a.members[0]].1, &fams[b.members[0]].1);
+        (fa.period.eval(fa.base), &fa.id).cmp(&(fb.period.eval(fb.base), &fb.id))
+    });
+    // a card's name: the family's, the group's `extend group title:` (else its id), or "<shared
+    // kinds> + one of N blocks"
+    let card_title = |card: &Card| -> String {
+        if card.members.len() == 1 {
+            return fams[card.members[0]].1.id.clone();
+        }
+        if let Some(t) = card.members.iter().find_map(|&i| fams[i].1.group_title.clone()) {
+            return t;
+        }
+        if let Some(g) = &card.group {
+            return g.clone();
+        }
+        format!("{} (one block swapped: {} versions)", fams[card.members[0]].1.id, card.members.len())
+    };
     let mut fam_count: BTreeMap<String, usize> = BTreeMap::new();
     for r in unfolded() {
         *fam_count.entry(r.family.clone()).or_default() += 1;
@@ -587,7 +704,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     // never split) and the composite page.
     let mut md = String::new();
     md.push_str(&format!(
-        "# Clock catalog\n\n{} clock types ({} periods, {} families) pictured in the real game at the most active moment of their period, plus {} variants (a clock of the same period with fewer blocks uses a subset of their block kinds: listed under it); **orange glass = where the output signal is** (placed only for the picture); click a picture for its design. Generated by `mctas clock catalog` ([docs/clocks.md](../../docs/clocks.md); the period x family matrix: [coverage.md](coverage.md)).\n",
+        "# Clock catalog\n\n{} clock types ({} periods, {} families) pictured in the real game at the most active moment of their period, plus {} variants (larger clocks of a period that only add block kinds to a smaller one: [listed apart](gallery/variants.md)); **orange glass = where the output signal is** (placed only for the picture); click a picture for its design. Generated by `mctas clock catalog` ([docs/clocks.md](../../docs/clocks.md); the period x family matrix: [coverage.md](coverage.md)).\n",
         by_type.len() - folded.len(),
         periods.len(),
         families.len(),
@@ -597,9 +714,13 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         // one card per family (vjeux: "show the 0 version and the 1 version so we know what to
         // expect; make the gt formula bigger"): the period formula as a heading, the two smallest
         // members side by side (the base design's picture, or `img/<base stem>.n<k>.jpg` taken by
-        // `clock shot` from the family's generator), then the seconds, blocks, rule and n range
-        md.push_str("\n## Extendable clocks\n\nA family grows by a repeated step. Each card shows its two smallest members in the real game, its period for any n, its size, how to extend it and the n range judged in the game (`mctas clock extend-check`); the members are not repeated in the period galleries.\n");
-        for (r, f) in &fams {
+        // `clock shot` from the family's generator), then the seconds, blocks, rule and n range.
+        // Families with the same period formula whose base designs differ by one block kind (a
+        // relay: note block, crafter, rail, door...) share ONE card ([`card_groups`]), pictured with
+        // the smallest of them, the others listed with links.
+        md.push_str("\n## Extendable clocks\n\nA family grows by a repeated step. Each card shows its two smallest members in the real game, its period for any n, its size, how to extend it and the n range judged in the game (`mctas clock extend-check`); the members are not repeated in the period galleries. Families that differ by one block kind only share a card.\n");
+        for card in &cards {
+            let (r, f) = &fams[card.members[0]];
             let stem = r.file.trim_end_matches(".txt");
             let member = |n: i64| -> String {
                 let pic_stem = if n == f.base { stem.to_string() } else { format!("{stem}.n{n}") };
@@ -613,37 +734,163 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
                     format!("<td align=\"center\" valign=\"top\">(picture pending)<br>{label}</td>")
                 }
             };
+            let judged = |f: &crate::extend::Family| -> String {
+                let mut v: Vec<i64> = instances.iter().filter(|x| x.family == f.id).map(|x| x.n).collect();
+                v.sort();
+                v.dedup();
+                if v.is_empty() { String::new() } else { format!("; judged in the game: n = {}", v.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ")) }
+            };
             let ns: Vec<i64> = [f.n_lo, f.n_lo + 1].into_iter().filter(|n| *n <= f.n_hi).collect();
-            let mut verified: Vec<i64> = instances.iter().filter(|x| x.family == f.id).map(|x| x.n).collect();
-            verified.sort();
-            verified.dedup();
-            let checked = if verified.is_empty() { String::new() } else { format!("; judged in the game: n = {}", verified.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ")) };
-            let gt = |n: i64| crate::gt_time(f.period.eval(n).max(0) as u32);
+            let gt = |f: &crate::extend::Family, n: i64| crate::gt_time(f.period.eval(n).max(0) as u32);
+            let pictures = ns.iter().map(|n| member(*n)).collect::<String>();
+            if card.members.len() == 1 {
+                md.push_str(&format!(
+                    "\n### P = {} gt\n\n**{}** ([base design](archive/{})) · P = {} · {} blocks · {}\n\n<table><tr>{pictures}</tr></table>\n\nExtend: {}.<br>\nn = {}..{}: P = {} .. {}{}.\n",
+                    f.period.text(),
+                    f.id,
+                    r.file,
+                    f.period.seconds(),
+                    f.blocks.text(),
+                    r.family,
+                    f.rule.trim_end_matches('.'),
+                    f.n_lo,
+                    f.n_hi,
+                    gt(f, f.n_lo),
+                    gt(f, f.n_hi),
+                    judged(f)
+                ));
+                continue;
+            }
+            // a card of several families: the general formula (`extend group period:`, else the one
+            // formula they share, else `a + b·n` over their a, else each formula) as the heading, the
+            // simplest family's two smallest members pictured, then every family in a collapsed table
+            let fs: Vec<&crate::extend::Family> = card.members.iter().map(|&i| &fams[i].1).collect();
+            let mut texts: Vec<String> = Vec::new();
+            for g in &fs {
+                if !texts.contains(&g.period.text()) {
+                    texts.push(g.period.text());
+                }
+            }
+            let lin: Vec<(i64, i64)> = fs.iter().filter_map(|g| match g.period { crate::extend::Formula::Linear { a, b } => Some((a, b)), _ => None }).collect();
+            let heading = match fs.iter().find_map(|g| g.group_period.clone()) {
+                Some(gp) => gp,
+                None if texts.len() == 1 => texts[0].clone(),
+                None if lin.len() == fs.len() && lin.iter().all(|x| x.1 == lin[0].1) => {
+                    let mut a: Vec<i64> = lin.iter().map(|x| x.0).collect();
+                    a.sort();
+                    a.dedup();
+                    format!("a + {}n gt, a in {{{}}}", lin[0].1, a.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))
+                }
+                None => texts.join(" · "),
+            };
+            let heading = if heading.ends_with(" gt") || heading.contains(" gt,") { heading } else { format!("{heading} gt") };
+            let note = fs.iter().find_map(|g| g.group_note.clone()).map(|n| format!(" · {n}")).unwrap_or_default();
+            let secs = if texts.len() == 1 { format!(" · P = {}", f.period.seconds()) } else { String::new() };
+            // families that differ by one swapped block each (a relay): the blocks that work, in a
+            // line (vjeux: "write down the list of items that work in the description")
+            let swaps: Vec<Vec<String>> = card.members.iter().map(|&i| kinds_of.get(&fams[i].0.file).map(|k| k.difference(&card.core).cloned().collect()).unwrap_or_default()).collect();
+            let works = if swaps.iter().all(|s| s.len() == 1) {
+                let names: Vec<String> = swaps.iter().map(|s| s[0].replace('_', " ")).collect();
+                format!("Works with any one of these {} blocks in place of the {}: {}.\n\n", names.len(), names[0], names.join(", "))
+            } else {
+                String::new()
+            };
+            // the periods the cards reach together (each over its judged n range)
+            let together = {
+                let mut ps: Vec<i64> = fs.iter().flat_map(|g| (g.n_lo..=g.n_hi.min(g.n_lo + 400)).map(|n| g.period.eval(n))).filter(|p| *p > 0).collect();
+                ps.sort();
+                ps.dedup();
+                let (mut best, mut start) = ((0usize, 0usize), 0usize);
+                for i in 1..=ps.len() {
+                    if i == ps.len() || ps[i] != ps[i - 1] + 1 {
+                        if i - start > best.1 - best.0 {
+                            best = (start, i);
+                        }
+                        start = i;
+                    }
+                }
+                if best.1 - best.0 >= 5 {
+                    let (lo, hi) = (ps[best.0], ps[best.1 - 1]);
+                    let below: Vec<i64> = ps.iter().copied().filter(|p| *p < lo).collect();
+                    let mut parts: Vec<String> = Vec::new();
+                    let mut i = 0;
+                    while i < below.len() {
+                        let mut j = i;
+                        while j + 1 < below.len() && below[j + 1] == below[j] + 1 {
+                            j += 1;
+                        }
+                        parts.push(if j > i { format!("{}-{}", below[i], below[j]) } else { below[i].to_string() });
+                        i = j + 1;
+                    }
+                    let also = if parts.is_empty() { String::new() } else if parts.len() <= 12 { format!(", and {} gt", parts.join(", ")) } else { format!(", and {} periods below", below.len()) };
+                    format!("Together they run at every period from {} to {}{also}.\n\n", crate::gt_time(lo as u32), crate::gt_time(hi as u32))
+                } else {
+                    String::new()
+                }
+            };
+            let extra = |file: &str| -> String {
+                let x: Vec<String> = kinds_of.get(file).map(|k| k.difference(&card.core).map(|s| format!("+{s}")).collect()).unwrap_or_default();
+                if x.is_empty() { String::new() } else { format!(" ({})", x.join(", ")) }
+            };
+            let judged_list = |g: &crate::extend::Family| -> String {
+                let mut v: Vec<i64> = instances.iter().filter(|x| x.family == g.id).map(|x| x.n).collect();
+                v.sort();
+                v.dedup();
+                if v.is_empty() { "-".to_string() } else { v.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ") }
+            };
+            let mut table: Vec<usize> = card.members.clone();
+            table.sort_by(|&a, &b| {
+                let (fa, fb) = (&fams[a].1, &fams[b].1);
+                (fa.period.eval(fa.n_lo), &fa.id).cmp(&(fb.period.eval(fb.n_lo), &fb.id))
+            });
+            let rows_md: String = table
+                .iter()
+                .map(|&i| {
+                    let (mr, mf) = &fams[i];
+                    format!(
+                        "| [{}](archive/{}){} | {} gt | {} | {}..{} ({} .. {}) | {} |\n",
+                        mf.id,
+                        mr.file,
+                        extra(&mr.file),
+                        mf.period.text(),
+                        mf.blocks.text(),
+                        mf.n_lo,
+                        mf.n_hi,
+                        gt(mf, mf.n_lo),
+                        gt(mf, mf.n_hi),
+                        judged_list(mf)
+                    )
+                })
+                .collect();
             md.push_str(&format!(
-                "\n### P = {} gt\n\n**{}** ([base design](archive/{})) · P = {} · {} blocks · {}\n\n<table><tr>{}</tr></table>\n\nExtend: {}.<br>\nn = {}..{}: P = {} .. {}{checked}.\n",
-                f.period.text(),
+                "\n### P = {heading}\n\n**{}** · {} cards{note}{secs}\n\n<table><tr>{pictures}</tr></table>\n\n{works}{together}Pictured: [{}](archive/{}){}: P = {} gt, {} blocks, n = {}..{}{}. Extend: {}.\n\n<details><summary>All {} cards of {} (formula, size, n range, design)</summary>\n\n| card | P | blocks | n (P) | judged in the game: n |\n|---|---|---|---|---|\n{rows_md}\n</details>\n",
+                card_title(card),
+                card.members.len(),
                 f.id,
                 r.file,
-                f.period.seconds(),
+                extra(&r.file),
+                f.period.text(),
                 f.blocks.text(),
-                r.family,
-                ns.iter().map(|n| member(*n)).collect::<String>(),
-                f.rule.trim_end_matches('.'),
                 f.n_lo,
                 f.n_hi,
-                gt(f.n_lo),
-                gt(f.n_hi)
+                judged(f),
+                f.rule.trim_end_matches('.'),
+                card.members.len(),
+                card_title(card)
             ));
         }
     }
     // one section per period (on the gallery pages: paths from designs/clocks/gallery/)
     let mut sections: Vec<(u32, String, usize, usize)> = Vec::new();
+    let mut variants_md = String::new();
     for p in &periods {
         let all: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).filter(|r| is_instance(r).is_none()).collect();
         let mut rs: Vec<&Row> = all.iter().copied().filter(|r| !folded.contains_key(&r.file)).collect();
         rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
-        // one line of variants per host: name (blocks, +the kinds the host does not use)
-        let mut variants = String::new();
+        // the variants of each host go to ONE separate page, gallery/variants.md (vjeux: the inline
+        // lines were "completely unreadable"): per period, per host a small table (variant, blocks,
+        // the kinds it adds)
+        let mut vsec = String::new();
         for h in &rs {
             let mut vs: Vec<&Row> = all.iter().copied().filter(|r| folded.get(&r.file) == Some(&h.file)).collect();
             if vs.is_empty() {
@@ -651,24 +898,38 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
             }
             vs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
             let hk = kinds_of.get(&h.file).cloned().unwrap_or_default();
-            let items: Vec<String> = vs
-                .iter()
-                .map(|v| {
-                    let extra: Vec<String> = kinds_of.get(&v.file).map(|k| k.difference(&hk).map(|s| format!("+{s}")).collect()).unwrap_or_default();
-                    format!("[{}](../archive/{}) ({} blocks{})", v.file.trim_end_matches(".txt"), v.file, v.blocks, if extra.is_empty() { String::new() } else { format!(", {}", extra.join(", ")) })
-                })
-                .collect();
-            variants.push_str(&format!("\n<sub>variants of **{}** ({} blocks): {}</sub>\n", h.file.trim_end_matches(".txt"), h.blocks, items.join(" · ")));
+            vsec.push_str(&format!(
+                "\n**[{}](../archive/{})** ({} blocks: {}), {} variant{}:\n\n| variant | blocks | adds |\n|---|---|---|\n",
+                h.file.trim_end_matches(".txt"),
+                h.file,
+                h.blocks,
+                hk.iter().cloned().collect::<Vec<_>>().join(", "),
+                vs.len(),
+                if vs.len() == 1 { "" } else { "s" }
+            ));
+            for v in &vs {
+                let extra: Vec<String> = kinds_of.get(&v.file).map(|k| k.difference(&hk).cloned().collect()).unwrap_or_default();
+                vsec.push_str(&format!("| [{}](../archive/{}) | {} | {} |\n", v.file.trim_end_matches(".txt"), v.file, v.blocks, if extra.is_empty() { "-".to_string() } else { extra.join(", ") }));
+            }
         }
-        let reach: Vec<String> = fams
+        if !vsec.is_empty() {
+            variants_md.push_str(&format!("\n## {}\n{vsec}", crate::gt_time(*p)));
+        }
+        let reach: Vec<String> = cards
             .iter()
-            .filter_map(|(_, f)| (f.n_lo..=f.n_hi).find(|n| f.period.eval(*n) == *p as i64).map(|n| format!("{} (n = {n})", f.id)))
+            .filter_map(|card| {
+                card.members.iter().find_map(|&i| {
+                    let f = &fams[i].1;
+                    (f.n_lo..=f.n_hi).find(|n| f.period.eval(*n) == *p as i64).map(|n| (n, f))
+                })
+                .map(|(n, f)| if card.members.len() == 1 { format!("{} (n = {n})", f.id) } else { format!("{} ({}, n = {n})", card_title(card), f.id) })
+            })
             .collect();
         if rs.is_empty() && reach.is_empty() {
             continue;
         }
         let also = if reach.is_empty() { String::new() } else { format!("\nAlso reachable by: {}.\n", reach.join(", ")) };
-        let text = format!("\n## {}\n{also}\n{}{variants}", crate::gt_time(*p), if rs.is_empty() { String::new() } else { grid(&rs, "../") });
+        let text = format!("\n## {}\n{also}\n{}", crate::gt_time(*p), if rs.is_empty() { String::new() } else { grid(&rs, "../") });
         sections.push((*p, text, rs.len(), all.len() - rs.len()));
     }
     // pages: consecutive periods while a page stays under 120 KB and 300 pictures
@@ -705,15 +966,17 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         })
         .collect();
     let span = |lo: u32, hi: u32| -> String { if lo == hi { crate::gt_time(lo) } else { format!("{} to {}", crate::gt_time(lo), crate::gt_time(hi)) } };
-    md.push_str("\n## Galleries by period\n\n| periods | clock types (+ variants listed under them) | page |\n|---|---|---|\n");
+    md.push_str("\n## Galleries by period\n\n| periods | clock types | page |\n|---|---|---|\n");
     for (k, pg) in pages.iter().enumerate() {
         let (lo, hi) = range(pg);
         let n: usize = pg.iter().map(|i| sections[*i].2).sum();
-        let v: usize = pg.iter().map(|i| sections[*i].3).sum();
-        md.push_str(&format!("| {} | {n}{} | [{}](gallery/{}) |\n", span(lo, hi), if v > 0 { format!(" (+{v})") } else { String::new() }, names[k].trim_end_matches(".md"), names[k]));
+        md.push_str(&format!("| {} | {n} | [{}](gallery/{}) |\n", span(lo, hi), names[k].trim_end_matches(".md"), names[k]));
     }
     if !composite.is_empty() {
         md.push_str(&format!("| composite (beat) clocks | {} | [composite](gallery/composite.md) |\n", composite.len()));
+    }
+    if !folded.is_empty() {
+        md.push_str(&format!("\nVariants: larger clocks of the same period that only add block kinds to a smaller one ({}): [list](gallery/variants.md).\n", folded.len()));
     }
     for (k, pg) in pages.iter().enumerate() {
         let (lo, hi) = range(pg);
@@ -725,17 +988,23 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
             nav.push_str(&format!(" · next: [{}]({})", names[k + 1].trim_end_matches(".md"), names[k + 1]));
         }
         let n: usize = pg.iter().map(|i| sections[*i].2).sum();
-        let v: usize = pg.iter().map(|i| sections[*i].3).sum();
         let mut page = format!(
-            "# Clocks: {} ({n} clock types{})\n\n{nav}\n\nOrange glass = where the output signal is (placed only for the picture); click a picture for its design. A clock whose period has a smaller clock using a subset of its block kinds is listed as a variant under that clock. Generated by `mctas clock catalog`.\n",
-            span(lo, hi),
-            if v > 0 { format!(" + {v} variants") } else { String::new() }
+            "# Clocks: {} ({n} clock types)\n\n{nav}\n\nOrange glass = where the output signal is (placed only for the picture); click a picture for its design. Larger clocks of a period that only add block kinds to a smaller one are listed on [variants](variants.md). Generated by `mctas clock catalog`.\n",
+            span(lo, hi)
         );
         for i in pg {
             page.push_str(&sections[*i].1);
         }
         page.push_str(&format!("\n{nav}\n"));
         std::fs::write(gallery.join(&names[k]), page)?;
+    }
+    if !variants_md.is_empty() {
+        let page = format!(
+            "# Clock variants\n\n[catalog index](../CATALOG.md)\n\nA variant is a clock with the same period as a smaller clock (its host: fewer blocks) whose block kinds it all uses, plus others; the galleries show only the hosts. {} variants of {} hosts, by period. Generated by `mctas clock catalog`.\n{variants_md}\n[catalog index](../CATALOG.md)\n",
+            folded.len(),
+            folded.values().collect::<BTreeSet<_>>().len()
+        );
+        std::fs::write(gallery.join("variants.md"), page)?;
     }
     if !composite.is_empty() {
         let rs: Vec<&Row> = all_rows.iter().filter(|r| composite.contains(&r.file)).collect();
@@ -792,6 +1061,39 @@ mod tests {
         assert_eq!(crate::turn_motion("{Motion:[0.4d,0.0d,0.0d]}", 1), "{Motion:[0.0d,0.0d,0.4d]}");
         assert_eq!(crate::turn_motion("{Motion:[0.4d,0.0d,0.0d]}", 2), "{Motion:[-0.4d,0.0d,0.0d]}");
         assert_eq!(crate::turn_motion("{Invulnerable:1b}", 1), "{Invulnerable:1b}");
+    }
+
+    /// The coordinator's example: the ten observer rings with one relay block each (P = 10 + 4n)
+    /// share one card, the smallest pictured; the plain observer ring (P = 8 + 4n) and a family
+    /// with another formula keep their own; an `extend group` joins families whatever their
+    /// formulas (vjeux: "can we not have 300 variations of this one?").
+    #[test]
+    fn extendable_card_groups() {
+        let k = |v: &[&str]| -> BTreeSet<String> { v.iter().map(|s| s.to_string()).collect() };
+        let mut items = Vec::new();
+        for (i, relay) in ["note_block", "crafter", "oak_door", "powered_rail"].iter().enumerate() {
+            items.push(CardItem { formula: "10 + 4n".into(), kinds: k(&["observer", relay]), size: (if *relay == "oak_door" { 7 } else { 6 }, 6, 10 - i), group: None });
+        }
+        items.push(CardItem { formula: "8 + 4n".into(), kinds: k(&["observer"]), size: (4, 4, 0), group: None });
+        items.push(CardItem { formula: "20 + 8n".into(), kinds: k(&["observer", "copper_bulb"]), size: (5, 5, 1), group: None });
+        let drop = |f: &str, extra: &[&str], size: i64| {
+            let mut kinds = k(&["comparator", "dropper", "hopper", "stone"]);
+            kinds.extend(extra.iter().map(|s| s.to_string()));
+            CardItem { formula: f.into(), kinds, size: (size, size, 20), group: Some("dropring".into()) }
+        };
+        items.push(drop("27 + 14n", &[], 10));
+        items.push(drop("35 + 14n", &["repeater"], 14));
+        items.push(drop("51 + 14n", &["repeater"], 18));
+        let cards = card_groups(&items);
+        assert_eq!(cards.len(), 4);
+        let relay = cards.iter().find(|c| c.members.len() == 4).unwrap();
+        assert_eq!(relay.core, k(&["observer"]));
+        assert_eq!(relay.group, None);
+        // the smallest (6 blocks), then volume, then the earliest archived: powered_rail (order 7)
+        assert_eq!(relay.members[0], 3);
+        let group = cards.iter().find(|c| c.group.as_deref() == Some("dropring")).unwrap();
+        assert_eq!(group.members, vec![6, 7, 8]);
+        assert_eq!(group.core, k(&["comparator", "dropper", "hopper", "stone"]));
     }
 
     /// vjeux's dominance examples (2026-10-19): the observer pair (2 blocks) folds the observer +

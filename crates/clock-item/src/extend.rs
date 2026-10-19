@@ -138,6 +138,24 @@ pub struct Card {
 
 const DROP_CAPTION: &str = "Dropper ring (clk-item): a hopper ring with dropper(s) in its bottom row; the comparator in the inner column reads the top-row hopper above it and fires the dropper below it (through the repeaters, each on stone). One stone waits in the dropper until the other passes the read hopper; then they swap roles. The ring runs counter-clockwise; P = 20 + 14 (W - 3) + 7 (depth - 3) + 7 [one dropper] + 2 x (sum of repeater delays): fourteen cards of this ring (one per P mod 14) reach every P from 42 up.";
 
+/// The catalog card group of a card (its `extend group` headers, set by clockinfra 2026-10-19:
+/// one catalog card per mechanism): (id, title, general period formula, note).
+pub fn group_of(id: &str) -> Option<(&'static str, &'static str, Option<&'static str>, &'static str)> {
+    if id.starts_with("clk-item-dropring") {
+        return Some(("clk-item-dropring", "dropper ring", Some("20 + 14 (W - 3) + 7 (depth - 3) + 7 [one dropper] + 2 Σ delays"), "W = ring width, depth = 3 + its repeaters, one or two droppers"));
+    }
+    if id.starts_with("clk-item-ringlock") {
+        return Some(("clk-item-ringlock", "ring lock", Some("7L + 8N - 34"), "a 3 x d hopper ring (L = 2d + 2 hoppers) locked by N stones in its corner, 5 <= N <= (7L - 2) / 8 - 3"));
+    }
+    if id.starts_with("clk-item-lockring") {
+        return Some(("clk-item-lockring", "lock ring", None, "a 2x2 hopper ring with 2 or 3 swords, its lock repeater at delay n + 1"));
+    }
+    if id == "clk-item-hopper-ring" || id == "clk-item-hopper-ring-2" {
+        return Some(("clk-item-hopper-ring", "hopper ring", None, "one item going round (14 + 14n), or two items half a ring apart (7 + 7n)"));
+    }
+    None
+}
+
 /// Every card of track clk-item (FAMILIES.md).
 pub fn cards() -> Vec<Card> {
     let mut v = vec![

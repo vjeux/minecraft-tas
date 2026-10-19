@@ -124,6 +124,48 @@ pub struct Family {
     /// The n of the design carrying the headers.
     pub base: i64,
     pub generator: String,
+    /// The card group (`extend group:`): families of one mechanism split into several cards share
+    /// one catalog card (vjeux: "can we not have 300 variations of this one?"), with the group's
+    /// optional `extend group title:`, `extend group period:` (the general formula, the card's
+    /// heading) and `extend group note:` (taken from the first member carrying them).
+    pub group: Option<String>,
+    pub group_title: Option<String>,
+    pub group_period: Option<String>,
+    pub group_note: Option<String>,
+}
+
+/// The `extend group` header lines of a family base design, rewritten in place (`clock group`):
+/// the old ones are dropped; `id` = None clears the group. The lines go after `extend family:`.
+pub fn set_group(path: &Path, id: Option<&str>, title: Option<&str>, period: Option<&str>, note: Option<&str>) -> Result<()> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let mut out: Vec<String> = Vec::new();
+    let mut placed = false;
+    for l in text.lines() {
+        if l.starts_with("extend group") {
+            continue;
+        }
+        out.push(l.to_string());
+        if l.starts_with("extend family:") {
+            placed = true;
+            if let Some(id) = id {
+                out.push(format!("extend group: {id}"));
+                for (k, v) in [("title", title), ("period", period), ("note", note)] {
+                    if let Some(v) = v {
+                        out.push(format!("extend group {k}: {v}"));
+                    }
+                }
+            }
+        }
+    }
+    if !placed {
+        bail!("{}: no `extend family:` line (not a family base design)", path.display());
+    }
+    let mut s = out.join("\n");
+    s.push('\n');
+    std::fs::write(path, s)?;
+    let c = Clock::load(path)?;
+    Family::of(&c)?.ok_or_else(|| anyhow!("{}: not a family after the edit", path.display()))?;
+    Ok(())
 }
 
 impl Family {
@@ -151,6 +193,10 @@ impl Family {
             n_hi,
             base,
             generator: m.get("extend generator").cloned().unwrap_or_default().trim().to_string(),
+            group: m.get("extend group").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+            group_title: m.get("extend group title").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+            group_period: m.get("extend group period").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+            group_note: m.get("extend group note").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
         }))
     }
 

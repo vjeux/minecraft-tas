@@ -9,6 +9,8 @@ name: clk-misc-oak_door-ring-n0
 extend base: 0
 extend blocks: 7 + 2n
 extend family: clk-misc-oak_door-ring
+extend group: observer-relay-ring
+extend group title: observer ring with a relay block
 extend generator: mctas clock misc ring --relay oak_door --n {n} --out {out}
 extend n: 0..47
 extend period: 10 + 4n

@@ -5,6 +5,10 @@ extend base: 0
 extend blocks: 12 + 2n
 extend family: clk-item-ringlock-rows
 extend generator: mctas clock item gen ringlockd --n0 5 --n {n} --out {out}
+extend group: clk-item-ringlock
+extend group note: a 3 x d hopper ring (L = 2d + 2 hoppers) locked by N stones in its corner, 5 <= N <= (7L - 2) / 8 - 3
+extend group period: 7L + 8N - 34
+extend group title: ring lock
 extend n: 0..30
 extend period: 76 + 14n
 extend rule: lengthen the 3-wide ring by one row (2 hoppers), still 5 stones
