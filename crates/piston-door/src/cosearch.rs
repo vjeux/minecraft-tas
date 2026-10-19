@@ -121,19 +121,49 @@ pub fn is_moving(b: &Block) -> bool {
     matches!(b, Block::MovingPiston { .. })
 }
 
-/// `properties::quartz_like` on redsim blocks (quartz-likes redsim does not list are stone).
+/// `properties::quartz_like` on redsim blocks (quartz-likes redsim does not list are stone). Every
+/// quartz-like block redsim models natively is listed: a door built of white concrete, quartz,
+/// granite... was read as circuitry (cosearch eval: "not FULL", frame 0/12 on the community 7x8).
 pub fn quartz_like(b: &Block) -> bool {
     matches!(
         b,
-        Block::Simple(Simple::Stone)
-            | Block::Simple(Simple::SmoothStone)
-            | Block::Simple(Simple::Cobblestone)
-            | Block::Simple(Simple::WhiteWool)
-            | Block::Simple(Simple::OakPlanks)
-            | Block::Simple(Simple::GoldBlock)
-            | Block::Simple(Simple::IronBlock)
-            | Block::Simple(Simple::EmeraldBlock)
-            | Block::Log { .. }
+        Block::Simple(
+            Simple::Stone
+                | Simple::SmoothStone
+                | Simple::Cobblestone
+                | Simple::WhiteWool
+                | Simple::OrangeWool
+                | Simple::BlackWool
+                | Simple::OakPlanks
+                | Simple::SprucePlanks
+                | Simple::GoldBlock
+                | Simple::IronBlock
+                | Simple::EmeraldBlock
+                | Simple::DiamondBlock
+                | Simple::LapisBlock
+                | Simple::CoalBlock
+                | Simple::AmethystBlock
+                | Simple::Granite
+                | Simple::PolishedGranite
+                | Simple::Diorite
+                | Simple::Andesite
+                | Simple::MossyCobblestone
+                | Simple::StoneBricks
+                | Simple::Tuff
+                | Simple::Calcite
+                | Simple::Bricks
+                | Simple::Sandstone
+                | Simple::NetherBricks
+                | Simple::EndStone
+                | Simple::Blackstone
+                | Simple::QuartzBlock
+                | Simple::Prismarine
+                | Simple::PurpurBlock
+                | Simple::Terracotta
+                | Simple::MudBricks
+                | Simple::WhiteConcrete
+                | Simple::BlackConcrete
+        ) | Block::Log { .. }
     )
 }
 
