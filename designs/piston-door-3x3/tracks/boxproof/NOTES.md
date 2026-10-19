@@ -114,9 +114,11 @@ t=22 per edge):
 | freed cells | vars / clauses | result |
 |---|---|---|
 | A3: the 3 hidden top-left dusts (-2,4) (-1,5) (0,4) | 11.5M / 40M | SAT 628 s: exactly c79's dust, screen Pass |
-| B5: top-right dropper (4,3), observers (2,4) (3,4) (3,3), dust (4,4) | 12.7M / 44M | running |
+| B5: top-right dropper (4,3), observers (2,4) (3,4) (3,3), dust (4,4) | 12.7M / 44M | SAT 1262 s: c79 with a note block instead of the dropper at (4,3), screen Pass |
 | A3 + B5 | 13.7M / 48M | running |
-| C6: bottom chain (4,-1) (3,-1) (2,-3) (1,-3) (0,-3) (-1,-3) | 13.0M / 45M | running |
+| C6: bottom chain (4,-1) (3,-1) (2,-3) (1,-3) (0,-3) (-1,-3) | 13.0M / 45M | SAT 886 s (screen: door not restored), then 0.1 s later a model that passes: droppers at (1,-3) and (3,-1) instead of two smooth stones |
+(B5 and C6 first came back UNSAT: the comparator tick wiped a free cell's observer pulse; fixed
+in fc86166, the third bug of that pattern, found only because the answer was known.)
 (at t=50 the same pockets were 30-35M vars and gave no answer in 15-30 min: keep T near the door's
 own open/close time.)
 
