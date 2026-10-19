@@ -1,0 +1,4 @@
+fill designs/piston-door-3x3/tracks/pockets/svc/e78k-h5.txt: 25 region cells (25 free, 0 fixed), base 41 blocks (design 41), k 5..=5, global palette 13 states, gaps allowed, KEEP mode (k = changed cells)
+53130 subsets pass the connectivity rule; 20030286276 fillings to screen in 8980023 work items
+[   600s] 203989965 screened (339936/s), 5484825947 pruned, item 2558239/8980023, 0 pass the 1-position screen, 0 finds
+[  1200s] 465684974 screened (388017/s), 8542230263 pruned, item 4048367/8980023, 0 pass the 1-position screen, 0 finds

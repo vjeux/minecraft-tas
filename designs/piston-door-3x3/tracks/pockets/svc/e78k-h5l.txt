@@ -1,0 +1,40 @@
+name: e78k-h5l-seed
+# SEED (40 blocks, NOT working): h5 with the h1-style left loop: lamp lit by observer (-1,-1) up (BL-park watcher), B' watcher (0,-3) E -> stone (-1,-3) relights the lamp.
+# Opens all but the last step: the lamp's final off-edge (lamp observer (0,-2)) re-extends A' and pushes C back up from F1 (not open: (1,0) is stone). A fix at <= 40 blocks beats h5.
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:dropper[facing=north,triggered=false]
+  E minecraft:sticky_piston[extended=true,facing=down]
+  F minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=true]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -3:
+  .FosDoD
+layer -2:
+  .RBsOO
+layer -1:
+  .AF..CA
+layer 0:
+  S.FFF.C
+layer 1:
+  S.FFF.C
+layer 2:
+  FFFFFFA
+layer 3:
+  roPPPBN
+layer 4:
+  ..EEE
+layer 5:
+  ...L

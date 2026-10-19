@@ -2,7 +2,8 @@
 
 ## State
 - 7x8 = 56 doors now exist in all three lines (all verify --extra-offsets 28, 32 positions + rotations):
-  - SOLID: e78k's h2 (explore/q78 e755e4de, 45, 44/15) -> **`finds/e78s-56b-44.txt` 44 blocks, 44/15** (mine).
+  - SOLID (FULL frame 12/12 required by the coordinator, 17:06Z): e78k's h2 45 -> **`finds/e78s-56b-43.txt` 43, 29/15**
+    (mine, = BEST.txt); e78k's FULL line h5 41 (36/19) / h6 42 (29/15) leads (explore/q78 tracks/q78/e78s/).
   - SCULK stone (c77's line): e78st-56b-38-1s (one sensor) -> **`finds/e78st-56b-37.txt` 37 blocks, 48/15** (mine).
   - SCULK wool (mine): **`finds/e78-56b-40.txt` = BEST.txt, 40 blocks, 98/24** (archived on main with 45/42 too).
   All found/shrunk with `door fill --keep` (+ `--max-blocks N` pre-filter). The wool line is locally minimal (no 39
@@ -16,10 +17,9 @@
   crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
 
 ## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
-- `h2-shrink43k4`: the solid 44, exactly 4 changed over 25 cells, 42 solid states, --max-blocks 43 (~1 h from 16:54Z).
-- `st37-shrink36k4`: the stone 37, exactly 4 changed, sculk palette, --max-blocks 36.
-- `st38-s2-k5`: for c77, e78st38-s2 (the 38 with its last sensor S2 cleared), 10 cells, exactly 5 changed, 24 solid
-  states (2.0G fillings, from 16:33Z, hours): a find = a SOLID stone 7x8 (verify, ping, tell c77).
+- `h5-all5`: e78k's h5 (41 FULL), exactly 5 changed over all 25 wiring cells, 13 states, --max-blocks 40 (20G).
+- `h6-bot5`: e78k's h6 (42 FULL, 29/15), exactly 5 over the 15 bottom cells, 20 states, --max-blocks 41.
+  A find = a FULL solid 7x8 below the leader: door verify --extra-offsets 28, ping the coordinator, tell e78k.
 
 ## Exact next steps
 1. Shrink the solid 44 (k=4 result; then k=5 on e78k's likely-removable cells with a ~15-state palette and the

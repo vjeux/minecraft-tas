@@ -345,7 +345,16 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
   solid 7x8 work (no owner left; rerun when the box is idle).
 * SOLID 7x8 FOUND by e78k (16:51Z, explore/q78 e755e4de tracks/q78/e78s/h2.txt, 45 blocks, 44/15: rr2 + a B'-watcher
   loop); shrunk here to **`finds/e78s-56b-44.txt` 44 blocks SOLID, 44/15, verify 32 positions + rotations** (top-left
-  observer (-1,3) E into the row-3 dust, row-4 wiring gone); no 43 at <= 3 changes. c77's stone line: e78st-56b-38-1s
+  observer (-1,3) E into the row-3 dust, row-4 wiring gone); then **`finds/e78s-56b-43.txt` 43 blocks, open 29 / close
+  15** (exactly 4 changed with --max-blocks 43: (-2,-3) sticky up, (0,-3) dropper, (-2,-2) out, (-2,-1) observer W).
+  The coordinator's rule (17:06Z): the solid target needs FULL frame 12/12 (all 12 frame cells hold the door block
+  when open), so e78k's h3 (38, frame 9/12: (0,-1) and (3,2) removed) does not count; his FULL line: h4 42 (36/19) ->
+  h5 41 (36/19) -> h6 42 (29/15, = my 43 + h5's right bottom). h5 -> 40: none within <= 3 / exactly 4 over 25 cells,
+  exactly 5 over the bottom 15 (19 states) or the top/right 10 (26 states); h6 -> 41: none within <= 3 / exactly 4.
+* Tool fix (e724cae1): FULL + frame 12/12 in cosearch eval / door fill / pockets follow the door's own material
+  (properties' quartz-like names; frame = the door's block name): the community 7x8 in white concrete reported
+  "not FULL | frame 0/12". Selftest fixture designs/piston-door-3x3/selftest/e78s-43-white-concrete.txt.
+* c77's stone line: e78st-56b-38-1s
   (one sensor) minus obsidian (-2,-1) = **`finds/e78st-56b-37.txt` 37 blocks sculk, 48/15, verified** (75 finds at 37
   from --keep --max-blocks 37: the 46/14 ones turn (0,-3) back into a calibrated sensor); no 36 at <= 3.
 * SOLID (sculk-less) 7x8, vjeux's ask (16:06Z): every sensor-to-solid swap fails: wool 40 with all 3 sensors forced
