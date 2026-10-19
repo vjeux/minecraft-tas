@@ -2935,6 +2935,9 @@ pub fn run_log(p: &Prob, o: &RunOpts, log: &(dyn Fn(String) + Sync)) -> Result<O
             Err(e) => {
                 fails += 1;
                 log(format!("  JUDGE FAILS: {}", e.chars().take(300).collect::<String>()));
+                if let Some(path) = &o.out {
+                    let _ = s.design.save(&path.with_extension("fail.txt"));
+                }
                 let mut cl: Vec<Lit> = Vec::new();
                 for c in &p.free {
                     let k = s.kinds.get(c).copied().unwrap_or(Kind::Empty);
