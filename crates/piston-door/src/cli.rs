@@ -762,6 +762,12 @@ pub enum DoorCmd {
     /// (`--from-wired`, wiring stripped); placement one-hot per free cell of the box, two traces
     /// (lever on from rest, off from open), time-unrolled redstone semantics; every model is
     /// judged by the real simulator (CEGAR) and the wiring is minimized.
+    /// Whole-box bounded model checking of flat doors (track boxproof): `fuzz` (the model vs
+    /// redsim on random boxes), `case`, `bmc` (find a door / prove none fits a box).
+    Boxproof {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     Satwire {
         /// An ideal schedule (`.ideal`) or a design (with --from-wired).
         #[arg(required = true, num_args = 1..)]
@@ -2938,6 +2944,9 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                 }
                 None => println!("nothing found"),
             }
+        }
+        DoorCmd::Boxproof { args } => {
+            return crate::boxproof::cli(&args);
         }
         DoorCmd::Satwire { mechanism, jobs, fixed, diag, sound, log_doors, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, extra_offsets, out } => {
             use crate::satwire as sw;

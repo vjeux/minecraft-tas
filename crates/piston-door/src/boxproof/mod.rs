@@ -1,0 +1,305 @@
+//! `mctas door boxproof ...`: whole-box bounded model checking of flat (one z layer) 3x3 doors.
+//! See designs/piston-door-3x3/tracks/boxproof/NOTES.md for the model, its coverage and results.
+
+pub mod alg;
+pub mod bmc;
+pub mod diff;
+pub mod round;
+pub mod state;
+pub mod tick;
+
+use anyhow::{Result, bail};
+use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+
+pub struct Args {
+    pub pos: Vec<String>,
+    pub kv: BTreeMap<String, String>,
+}
+
+impl Args {
+    pub fn parse(v: &[String]) -> Args {
+        let mut pos = Vec::new();
+        let mut kv = BTreeMap::new();
+        let mut i = 0;
+        while i < v.len() {
+            if let Some(k) = v[i].strip_prefix("--") {
+                if let Some((a, b)) = k.split_once('=') {
+                    kv.insert(a.to_string(), b.to_string());
+                } else if i + 1 < v.len() && !v[i + 1].starts_with("--") {
+                    kv.insert(k.to_string(), v[i + 1].clone());
+                    i += 1;
+                } else {
+                    kv.insert(k.to_string(), "true".into());
+                }
+            } else {
+                pos.push(v[i].clone());
+            }
+            i += 1;
+        }
+        Args { pos, kv }
+    }
+    pub fn get<T: std::str::FromStr>(&self, k: &str, d: T) -> T {
+        self.kv.get(k).and_then(|v| v.parse().ok()).unwrap_or(d)
+    }
+    pub fn has(&self, k: &str) -> bool {
+        self.kv.contains_key(k)
+    }
+    pub fn s(&self, k: &str) -> Option<&str> {
+        self.kv.get(k).map(|s| s.as_str())
+    }
+}
+
+pub fn cli(raw: &[String]) -> Result<()> {
+    let a = Args::parse(raw);
+    match a.pos.first().map(|s| s.as_str()) {
+        Some("fuzz") => fuzz(&a),
+        Some("case") => case(&a),
+        Some("bmc") => bmc::cli(&a),
+        Some("catalog") => catalog(&a),
+        Some("batch") => batch(&a),
+        Some("fill-column") => fill_column(&a),
+        _ => bail!("usage: door boxproof fuzz|case|bmc|catalog|batch [--flags]"),
+    }
+}
+
+/// Families catalog rows -> mechanism designs (pistons + the 9 door blocks), one per row:
+/// `catalog --tsv catalog.tsv --out DIR [--only 7x8]`. Prints `id w h dx dy path` per row.
+fn catalog(a: &Args) -> Result<()> {
+    let tsv = a.s("tsv").ok_or_else(|| anyhow::anyhow!("--tsv"))?;
+    let out = a.s("out").unwrap_or("/tmp/bp/mech");
+    let only = a.s("only");
+    std::fs::create_dir_all(out)?;
+    let text = std::fs::read_to_string(tsv)?;
+    let mut lines = text.lines();
+    let head: Vec<&str> = lines.next().unwrap_or("").split('\t').collect();
+    let col = |n: &str| head.iter().position(|h| *h == n);
+    let (ci, cb, co, cp) = (col("id").unwrap(), col("box").unwrap(), col("door_offset").unwrap(), col("pieces").unwrap());
+    for l in lines {
+        let f: Vec<&str> = l.split('\t').collect();
+        if f.len() <= cp {
+            continue;
+        }
+        if let Some(o) = only {
+            if f[cb] != o {
+                continue;
+            }
+        }
+        let (w, h) = f[cb].split_once('x').map(|(a, b)| (a.parse::<i32>().unwrap_or(0), b.parse::<i32>().unwrap_or(0))).unwrap_or((0, 0));
+        let (dx, dy) = f[co].split_once(',').map(|(a, b)| (a.parse::<i32>().unwrap_or(0), b.parse::<i32>().unwrap_or(0))).unwrap_or((0, 0));
+        let mut blocks: Vec<((i32, i32), String)> = Vec::new();
+        for y in 0..3 {
+            for x in 0..3 {
+                blocks.push(((x, y), "minecraft:stone".into()));
+            }
+        }
+        for p in f[cp].split_whitespace() {
+            let sticky = p.starts_with('S');
+            let fc = match p.chars().nth(1) {
+                Some('E') => "east",
+                Some('W') => "west",
+                Some('U') => "up",
+                _ => "down",
+            };
+            let inner = p.split_once('(').map(|x| x.1.trim_end_matches(')')).unwrap_or("");
+            let (x, y) = inner.split_once(',').map(|(a, b)| (a.trim().parse::<i32>().unwrap_or(0), b.trim().parse::<i32>().unwrap_or(0))).unwrap_or((0, 0));
+            blocks.push(((x, y), format!("minecraft:{}piston[extended=false,facing={fc}]", if sticky { "sticky_" } else { "" })));
+        }
+        let mut s = format!("name: {}\nport door: 0 0 0\norigin: {} 0 0\npalette:\n", f[ci], -dx);
+        let mut pal: Vec<String> = Vec::new();
+        for (_, st) in &blocks {
+            if !pal.contains(st) {
+                pal.push(st.clone());
+            }
+        }
+        let chars: Vec<char> = "ABCDEFGHIJ".chars().collect();
+        for (i, p) in pal.iter().enumerate() {
+            s.push_str(&format!("  {} {p}\n", chars[i]));
+        }
+        for y in -dy..h - dy {
+            let row: String = (-dx..w - dx).map(|x| blocks.iter().find(|(q, _)| *q == (x, y)).map(|(_, st)| chars[pal.iter().position(|p| p == st).unwrap()]).unwrap_or('.')).collect();
+            s.push_str(&format!("layer {y}:\n  {row}\n"));
+        }
+        let path = format!("{out}/{}.txt", f[ci]);
+        std::fs::write(&path, s)?;
+        println!("{} {w} {h} {dx} {dy} {path}", f[ci]);
+    }
+    Ok(())
+}
+
+/// Run many `bmc` instances as child processes: `batch --list FILE (lines "id w h dx dy path")
+/// --jobs N --timeout S -- <bmc flags>`; one log per instance in --logs.
+fn batch(a: &Args) -> Result<()> {
+    let list = std::fs::read_to_string(a.s("list").ok_or_else(|| anyhow::anyhow!("--list"))?)?;
+    let jobs: usize = a.get("jobs", 8);
+    let timeout: u64 = a.get("timeout", 3600);
+    let logs = a.s("logs").unwrap_or("/tmp/bp/logs").to_string();
+    std::fs::create_dir_all(&logs)?;
+    let extra: Vec<String> = a.s("bmc").unwrap_or("").split_whitespace().map(String::from).collect();
+    let items: Vec<Vec<String>> = list.lines().filter(|l| !l.trim().is_empty()).map(|l| l.split_whitespace().map(String::from).collect()).collect();
+    let next = Arc::new(AtomicUsize::new(0));
+    let items = Arc::new(items);
+    let exe = std::env::current_exe()?;
+    let mut hs = Vec::new();
+    for _ in 0..jobs {
+        let (next, items, extra, logs, exe) = (next.clone(), items.clone(), extra.clone(), logs.clone(), exe.clone());
+        hs.push(std::thread::spawn(move || {
+            loop {
+                let k = next.fetch_add(1, Ordering::SeqCst);
+                if k >= items.len() {
+                    break;
+                }
+                let it = &items[k];
+                let log = format!("{logs}/{}.log", it[0]);
+                let mut args: Vec<String> = vec!["door".into(), "boxproof".into(), "bmc".into(), "--w".into(), it[1].clone(), "--h".into(), it[2].clone(), "--dx".into(), it[3].clone(), "--dy".into(), it[4].clone(), "--out".into(), format!("{logs}/{}", it[0])];
+                if it.len() > 5 && it[5] != "-" {
+                    args.push("--fix".into());
+                    args.push(it[5].clone());
+                }
+                // per-item extra flags after the path
+                if it.len() > 6 {
+                    args.extend(it[6..].iter().cloned());
+                }
+                args.extend(extra.iter().cloned());
+                let t0 = std::time::Instant::now();
+                let f = std::fs::File::create(&log).unwrap();
+                let mut child = std::process::Command::new(&exe).args(&args).stdout(f.try_clone().unwrap()).stderr(f).spawn().unwrap();
+                let status = loop {
+                    if let Ok(Some(s)) = child.try_wait() {
+                        break format!("exit {s}");
+                    }
+                    if t0.elapsed().as_secs() > timeout {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        break "TIMEOUT".to_string();
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                };
+                let res = std::fs::read_to_string(&log).unwrap_or_default();
+                let last = res.lines().filter(|l| l.starts_with("SAT") || l.starts_with("UNSAT") || l.starts_with("built")).last().unwrap_or("").to_string();
+                println!("{} {:.0}s {status}: {last}", it[0], t0.elapsed().as_secs_f64());
+            }
+        }));
+    }
+    for h in hs {
+        let _ = h.join();
+    }
+    Ok(())
+}
+
+/// Fill the LAST cell of markdown table rows: `fill-column --file F --map M` where M has lines
+/// `<row first-cell prefix>\t<new cell>`; a row whose last cell is `?` and whose first cell
+/// starts with a prefix gets the new cell (a doc helper for docs/coverage.md's tool columns).
+fn fill_column(a: &Args) -> Result<()> {
+    let file = a.s("file").ok_or_else(|| anyhow::anyhow!("--file"))?;
+    let map: Vec<(String, String)> = std::fs::read_to_string(a.s("map").ok_or_else(|| anyhow::anyhow!("--map"))?)?
+        .lines()
+        .filter_map(|l| l.split_once('\t').map(|(k, v)| (k.to_string(), v.to_string())))
+        .collect();
+    let text = std::fs::read_to_string(file)?;
+    let mut out = String::new();
+    let mut n = 0;
+    for line in text.lines() {
+        let mut l = line.to_string();
+        if let Some(rest) = line.strip_prefix("| ") {
+            if let Some(stem) = line.strip_suffix(" ? |") {
+                if let Some((_, v)) = map.iter().find(|(k, _)| rest.starts_with(k.as_str())) {
+                    l = format!("{stem} {v} |");
+                    n += 1;
+                }
+            }
+        }
+        out.push_str(&l);
+        out.push('\n');
+    }
+    std::fs::write(file, out)?;
+    println!("{n} rows filled");
+    Ok(())
+}
+
+/// Random boxes vs redsim, in parallel.
+fn fuzz(a: &Args) -> Result<()> {
+    let count: usize = a.get("count", 1000);
+    let threads: usize = a.get("threads", 16).min(48);
+    let w: i32 = a.get("w", 5);
+    let h: i32 = a.get("h", 5);
+    let t: usize = a.get("ticks", 30);
+    let seed: u64 = a.get("seed", 1);
+    let show: usize = a.get("show", 5);
+    let next = Arc::new(AtomicUsize::new(0));
+    let stats = Arc::new(Mutex::new(BTreeMap::<String, usize>::new()));
+    let shown = Arc::new(Mutex::new(0usize));
+    let mut hs = Vec::new();
+    for _ in 0..threads {
+        let next = next.clone();
+        let stats = stats.clone();
+        let shown = shown.clone();
+        hs.push(std::thread::spawn(move || {
+            loop {
+                let k = next.fetch_add(1, Ordering::SeqCst);
+                if k >= count {
+                    break;
+                }
+                let mut r = diff::Rng(seed.wrapping_mul(1_000_003).wrapping_add(k as u64));
+                let (g, cells, lev) = diff::random_box(&mut r, w, h);
+                let o = diff::run_case(&g, &cells, &lev, t);
+                let key = if let Some(s) = &o.skipped {
+                    format!("skipped: {}", s.split(':').next().unwrap_or(s))
+                } else if let Some((step, d)) = &o.mismatch {
+                    let flagged = !o.flags.is_empty();
+                    let mut sh = shown.lock().unwrap();
+                    if !flagged && *sh < show {
+                        *sh += 1;
+                        println!("MISMATCH case {k} (seed {seed}) step {step}: {}", d.iter().take(4).cloned().collect::<Vec<_>>().join(" | "));
+                    }
+                    if flagged { format!("mismatch, flagged ({})", o.flags.join("; ")) } else { "MISMATCH (unflagged)".into() }
+                } else if !o.violations.is_empty() {
+                    format!("violation (not a door run): {}", o.violations.join("; "))
+                } else if !o.flags.is_empty() {
+                    format!("match, flagged ({})", o.flags.join("; "))
+                } else if o.moved {
+                    "match (pistons moved)".into()
+                } else {
+                    "match (static)".into()
+                };
+                *stats.lock().unwrap().entry(key).or_default() += 1;
+            }
+        }));
+    }
+    for h in hs {
+        let _ = h.join();
+    }
+    let st = stats.lock().unwrap();
+    for (k, v) in st.iter() {
+        println!("{v:6}  {k}");
+    }
+    Ok(())
+}
+
+/// One fuzz case in detail.
+fn case(a: &Args) -> Result<()> {
+    let w: i32 = a.get("w", 5);
+    let h: i32 = a.get("h", 5);
+    let t: usize = a.get("ticks", 30);
+    let seed: u64 = a.get("seed", 1);
+    let k: u64 = a.get("k", 0);
+    let mut r = diff::Rng(seed.wrapping_mul(1_000_003).wrapping_add(k));
+    let (g, cells, lev) = diff::random_box(&mut r, w, h);
+    for y in (0..h).rev() {
+        let row: Vec<String> = (0..w).map(|x| cells[g.idx(x, y).unwrap()].trim_start_matches("minecraft:").to_string()).collect();
+        println!("y={y}: {}", row.join(" | "));
+    }
+    println!("lever {lev:?}");
+    let o = diff::run_case(&g, &cells, &lev, t);
+    println!("skipped {:?}\nflags {:?}\nviolations {:?}", o.skipped, o.flags, o.violations);
+    if let Some((step, d)) = o.mismatch {
+        println!("mismatch at step {step}:");
+        for l in d {
+            println!("  {l}");
+        }
+    } else {
+        println!("match");
+    }
+    Ok(())
+}
