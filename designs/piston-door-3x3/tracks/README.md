@@ -60,6 +60,6 @@ up to is [docs/history.md](../../../docs/history.md); the rankings are
 | [vanilla-check](vanilla-check/NOTES.md) | prove the simulator matches vanilla | `door vanilla-check`, `vanilla-fuzz`; no divergence |
 | [wire19sf](wire19sf/NOTES.md) | wire the 19-block slime-free mechanism | w45 -> w42 42 (slime-free record at the time, buildable) |
 | [wire21](wire21/NOTES.md) | wire the 21-block pulse-only mechanism | m05 40 (ties fc2) |
-| [wire64b](wire64b/NOTES.md) | wire families 8x8-105 / 104 flat FULL seamless (64), then 7x9 = 63 | 105 ideal works (+ pulse-only parker variant); K1 timer is the wall; 104 blocked at one cell; satwire ideal-recorder fix + `--grid` |
+| [wire64b](wire64b/NOTES.md) | wire families 8x8-105 / 104 flat FULL seamless (64), then 7 wide (7x9 = 63) | `door connect` (connectivity + order filter, every placement of each catalog entry: 24 7x8 entries survive in 7x9 with the extra row at the bottom, 014/015 in 7x8); 7x8-014 in 7x9 rows -2..6: both bottom pockets wired for real (4 blocks each, observer busy window: side stacks fired 3x 6-7 gt apart), works at 32 positions with the top ideal; the top (22 cells) not wired yet (satwire UNSAT on 4 plans) |
 
 - [box64](box64/NOTES.md): flat FULL-seamless doors in 8x8 / 9x7 boxes (volume <= 64): ideal-input mechanism checks in the box, region/crossing analysis of the wiring
