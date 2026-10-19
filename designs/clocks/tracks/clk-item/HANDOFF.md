@@ -39,7 +39,11 @@ positions x 4 rotations) and is archived in `designs/clocks/archive/` by `clock 
 ## Results (archived; r = rotation-dependent, p = position-dependent)
 - Cards (FAMILIES.md): hopper rings (14 + 14n, 7 + 7n), ring locks (76 + 14n, 104 + 8n,
   300 + 8n), lock pair (11 + 2n), lock rings 2x2 (33 + 2n, 41 + 2n), powder snow dispenser
-  (16 + 4n), 14 dropper-ring cards (every P from 42 to ~460, and 27, 31, 33-36, 38, 40).
+  (16 + 4n), 14 dropper-ring cards (every P from 42 to ~460, and 27, 31, 33-36, 38, 40), and the
+  LATCH hopper clock (17 blocks, P = 16N - 2 for N = 2..320 stones: up to 5118 gt): a waxed copper
+  bulb remembers the direction; comparators light torches when their hopper is empty; the torches
+  (one under the bulb, one under a stone beside it) toggle the bulb; a comparator on the bulb locks
+  A through a dust on the stone above A, whose wall torch locks B.
 - Individual: 8 analog (pair + 3 swords, 4b), 8 DIGITAL (the same pair read by a subtract
   comparator against a constant 3 from a dead-end hopper, 7b), 9 (pair + lock, 8b), 12 (powder
   snow dispenser, 5b), 14 (hop2, 4b), 15/17/20 (self-locking pair, 9b), 18 (pair + lock, 1 stone),
@@ -59,12 +63,12 @@ positions x 4 rotations) and is archived in `designs/clocks/archive/` by `clock 
 - Pair + lock fills k = 5 (stone, dust, repeater, torch; 1 stone / 2 swords / 3 swords): the
   periods above only (no 10; 37 and 39 came later from the same wiring on a 2x2 ring).
 - Two-torch burnout loops: always position/rotation-dependent (12 of 12 judged).
-- Classic shuttle / latch hopper clock (P ~ 16N): no completion with <= 3 wiring blocks; a bulb
-  latch version needs ~20 blocks (not built).
+- Classic shuttle hopper clock (two sticky pistons + redstone block given): no completion with <= 3
+  wiring blocks; the bulb latch (clk-item-latch) does the same job in 17 blocks.
 
 ## Next ideas
 - P10: not found. Every redstone delay is even and a hop is 7 (empty receiver) or 8 gt, so 10 needs
   an 8-gt hop + 2 gt per cycle; the analog pair + delayed lock variants re-synchronize to 8.
-- Latch hopper clock (copper bulb T flip-flop toggled by "A empty or B empty"): P = 16N + c up to
-  N = 320 (~5000 gt) but ~20+ blocks in every layout I drew (the OR and the lock routing).
+- Latch hopper clock: built (clk-item-latch, 17 blocks). Smaller layouts may exist (the OR of the
+  two empty-torches and the lock routing cost 6 blocks).
 - Crafter clocks: handed to clk-misc (session da291dc5).

@@ -18,6 +18,7 @@ of each in the game (low, low+1, low+2, middle, high). Generator: `mctas clock i
 | clk-item-lockring-2s | 33 + 2n | 11 | 0..3 | lock repeater delay n + 1 (2x2 ring, 2 swords): 33-39 |
 | clk-item-lockring-3s | 41 + 2n | 11 | 0..3 | lock repeater delay n + 1 (2x2 ring, 3 swords): 41-47 |
 | clk-item-snowdisp | 16 + 4n | 5 | 0..2 | repeater delay n + 1 (JVM only, kicked) |
+| clk-item-latch | 30 + 16n | 17 | 0..318 | one more stone (N = n + 2, up to 320): the latch hopper clock, P = 16N - 2 |
 | clk-item-dropring-2d | 34 + 14n | 12 + 2n | 0..30 | one column of the dropper ring (W = 4 + n), two droppers |
 | clk-item-dropring-1d | 27 + 14n | 10 + 2n | 0..30 | W = 3 + n, one dropper |
 | clk-item-dropring-2d-r1 | 43 + 14n | 16 + 2n | 0..30 | W = 4 + n, repeater delay 1 |
