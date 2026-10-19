@@ -574,6 +574,23 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         matrix(false)
     );
     std::fs::write(coverage, cov)?;
+    // pictures of designs no longer archived (removed duplicates, family instances): pruned, so
+    // img/ holds exactly the archived designs' pictures
+    let mut pruned = 0;
+    if let Ok(rd) = std::fs::read_dir(&img_dir) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            let stem = name.trim_end_matches(".jpg").trim_end_matches(".strip");
+            if name.ends_with(".jpg") && !dir.join(format!("{stem}.txt")).exists() {
+                if std::fs::remove_file(e.path()).is_ok() {
+                    pruned += 1;
+                }
+            }
+        }
+    }
+    if pruned > 0 {
+        eprintln!("pruned {pruned} picture(s) of designs no longer in the archive");
+    }
     Ok(CatalogStats { clocks: rows.len(), types: by_type.len(), families: families.len(), periods: periods.len() })
 }
 

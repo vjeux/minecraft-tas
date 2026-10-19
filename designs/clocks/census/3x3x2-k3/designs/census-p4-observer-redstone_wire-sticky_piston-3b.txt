@@ -1,0 +1,14 @@
+name: census-p4-observer-redstone_wire-sticky_piston-3b
+census: box 3x3x2 k<=3 (0,0,0=sticky_piston[extended=false,facing=down];0,1,0=observer[facing=down,powered=false];0,2,0=redstone_wire[east=none,north=none,power=0,south=none,west=none])
+port start: 0 0 0 last
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  S
+layer 1:
+  O
+layer 2:
+  R
