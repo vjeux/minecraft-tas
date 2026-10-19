@@ -30,7 +30,7 @@ tick between the bridge (the real game) and redsim.
 | run | result |
 |---|---|
 | random piston setups (7x7x1 flat / 6x6x3 at random world positions; pistons of every facing, extended at start, stone, obsidian, crying obsidian, glazed terracotta, redstone blocks, observers, slime, honey; redstone blocks set / cleared incl. 0-5 gt pulses, pistons placed mid-run) | **100,000 / 100,000 identical** (first run 179/200: one engine bug) |
-| mixed palette (dust, torches, wall torches, repeaters, comparators, levers clicked, lamps, note blocks, targets next to the pistons) | 2,929 / 2,929 identical (71 skipped: a click on a non-lever, an input redsim refuses) |
+| mixed palette (dust, torches, wall torches, repeaters, comparators, levers clicked, lamps, note blocks, targets next to the pistons) | **97,541 / 97,541 identical** of 100,000 (seed 7000000, 4.68M ticks; 2,459 skipped: a click on a non-lever, an input redsim refuses) |
 | gadget library (designs/gadgets/*.drive: judge placement, the script's inputs, every tick) | 72 / 72 (entity and sculk gadgets skipped) |
 | archived doors (archive/*.txt: judge placement, 2 open/close cycles, every tick) | 328 / 328 (sculk, copper bulb, entity designs skipped) |
 | gravity (sand, gravel, red sand with the piston palette) | ~98.7% (2960 of the first 3000 before the failure cap): falling entities pushed by moving pistons and landing on moving blocks are not modeled |

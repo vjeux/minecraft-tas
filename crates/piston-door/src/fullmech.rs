@@ -957,6 +957,102 @@ pub fn min_groups(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> Option<(Vec<F
     Some((und, gv, best, ctx, rest))
 }
 
+/// Piston removal with one repair: for each piston, the mechanism without it, then with one
+/// helper (stone, obsidian, a redstone block, an observer of each in-plane facing) in each free
+/// cell, solved exactly. Returns every working result (one piston fewer than the original):
+/// piece list, solution, what changed.
+pub fn shrink_mech(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usize) -> Vec<(Vec<FPc>, Found, String)> {
+    let pistons: Vec<FPc> = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).copied().collect();
+    let mut kinds: Vec<FK> = vec![FK::Stone, FK::Obsidian, FK::RedstoneBlock];
+    for f in 0..4u8 {
+        kinds.push(FK::Observer { f });
+    }
+    let mut jobs: Vec<(FPc, Option<FPc>)> = Vec::new();
+    for p in &pistons {
+        let rest: Vec<FPc> = pieces.iter().filter(|q| *q != p).copied().collect();
+        jobs.push((*p, None));
+        for c in free_cells(bx, &rest) {
+            for &k in &kinds {
+                jobs.push((*p, Some(FPc { x: c.0, y: c.1, k })));
+            }
+        }
+    }
+    let next = AtomicUsize::new(0);
+    let out: Mutex<Vec<(Vec<FPc>, Found, String)>> = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= jobs.len() {
+                    break;
+                }
+                let (p, add) = jobs[i];
+                let mut v: Vec<FPc> = pieces.iter().filter(|q| **q != p).copied().collect();
+                if let Some(a) = add {
+                    v.push(a);
+                }
+                if let Some((ctx, rest)) = build(bx, &v, o) {
+                    if let Ok(Some(f)) = solve(&ctx, &rest, cap) {
+                        let what = match add {
+                            None => format!("without {}", p.code()),
+                            Some(a) => format!("{} replaced by {}", p.code(), a.code()),
+                        };
+                        out.lock().unwrap().push((v, f, what));
+                    }
+                }
+            });
+        }
+    });
+    out.into_inner().unwrap()
+}
+
+/// One helper (redstone block, or observer of each in-plane facing) in each free cell next to a
+/// piston or to the cell above one; returns the placements whose input merging needs fewer
+/// independent signals than the mechanism alone (`base`).
+pub fn groups_helpers(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usize) -> (usize, Vec<(FPc, usize, String)>) {
+    let Some((_, gv, _, _, _)) = min_groups(bx, pieces, o, cap) else { return (99, Vec::new()) };
+    let base = gv.len();
+    let piston_cells: Vec<(i8, i8)> = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).map(|p| (p.x, p.y)).collect();
+    let near = |c: (i8, i8)| piston_cells.iter().any(|q| (c.0 - q.0).abs() + (c.1 - q.1).abs() == 1 || (c.0 - q.0).abs() + (c.1 - q.1 - 1).abs() == 1);
+    let free: Vec<(i8, i8)> = free_cells(bx, pieces).into_iter().filter(|c| near(*c)).collect();
+    let kinds = [FK::RedstoneBlock, FK::Observer { f: 0 }, FK::Observer { f: 1 }, FK::Observer { f: 2 }, FK::Observer { f: 3 }];
+    let mut jobs = Vec::new();
+    for &c in &free {
+        for k in kinds {
+            jobs.push(FPc { x: c.0, y: c.1, k });
+        }
+    }
+    let next = AtomicUsize::new(0);
+    let out: Mutex<Vec<(FPc, usize, String)>> = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= jobs.len() {
+                    break;
+                }
+                let h = jobs[i];
+                let mut v = pieces.to_vec();
+                v.push(h);
+                if let Some((und, gv, f, ctx, _)) = min_groups(bx, &v, o, cap) {
+                    if gv.len() < base {
+                        let desc = format!(
+                            "undriven {}; groups {}; {}",
+                            und.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                            gv.iter().map(|g| g.iter().map(|p| p.code()).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | "),
+                            describe(&ctx, &f).replace('\n', " ")
+                        );
+                        out.lock().unwrap().push((h, gv.len(), desc));
+                    }
+                }
+            });
+        }
+    });
+    let mut v = out.into_inner().unwrap();
+    v.sort_by_key(|(h, n, _)| (*n, *h));
+    (base, v)
+}
+
 // ---- input reduction: helpers that replace a piston's wiring ----
 
 /// For each piston of a working mechanism, try to drop its input: one helper (a redstone block
@@ -1295,6 +1391,8 @@ pub struct CliOpts {
     pub verify_ideal: Vec<std::path::PathBuf>,
     /// Input merging (min_groups) for every solved mechanism.
     pub groups: bool,
+    /// Piston removal + one helper (shrink_mech) in --check.
+    pub shrink: bool,
 }
 
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
@@ -1438,8 +1536,26 @@ pub fn cli(o: &CliOpts) -> Result<()> {
                 ),
                 None => println!("  input merging: no exact solution"),
             }
+            if o.reduce {
+                let t2 = std::time::Instant::now();
+                let (base, r) = groups_helpers(bx, &pieces, &so, o.reduce_cap, o.threads);
+                println!("  groups + one helper: {} placements need fewer than {base} signals [{:.0}s]", r.len(), t2.elapsed().as_secs_f64());
+                for (h, n, d) in r.iter().take(8) {
+                    println!("  - helper {} -> {n} signals: {d}", h.code());
+                }
+            }
         }
-        if o.reduce {
+        if o.shrink {
+            let t1 = std::time::Instant::now();
+            let r = shrink_mech(bx, &pieces, &so, o.reduce_cap, o.threads);
+            println!("  piston removal + one helper: {} working variants with one piston fewer [{:.0}s]", r.len(), t1.elapsed().as_secs_f64());
+            for (v, f, what) in r.iter().take(10) {
+                if let Some((c2, _)) = build(bx, v, &so) {
+                    println!("  - {what}: {}", describe(&c2, f).replace('\n', "\n    "));
+                }
+            }
+        }
+        if o.reduce && !o.groups {
             let t1 = std::time::Instant::now();
             let r = reduce(bx, &pieces, &so, o.reduce_cap, o.threads);
             let mut by_piston: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
