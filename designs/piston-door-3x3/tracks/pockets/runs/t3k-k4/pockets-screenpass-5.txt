@@ -1,0 +1,43 @@
+name: pockets-screenpass-5
+positions: works at 2 of 4
+verdict: redsim: FAILS at offset #2: cycle 0: not open after the lever was switched on: [6, -10, -6] is minecraft:stone | - | - | frame - | -, 52 blocks | 0.0 ms
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  D minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  E minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:sticky_piston[extended=true,facing=down]
+  I minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  W minecraft:white_wool
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  SsR.FooA
+layer -2:
+  WOWOFoEr
+layer -1:
+  ABs..I.A
+layer 0:
+  As.III.G
+layer 1:
+  As.III.G
+layer 2:
+  AAIIIIIA
+layer 3:
+  ACoPPPBD
+layer 4:
+  oooHHH
+layer 5:
+  ....L
