@@ -12,6 +12,7 @@ pub mod build;
 pub mod divider;
 pub mod families;
 pub mod kick;
+pub mod odd;
 pub mod ring;
 pub mod shrink;
 pub mod sweep;
@@ -128,6 +129,28 @@ enum Cmd {
         #[arg(long, default_value_t = 2)]
         max_len: u32,
         #[arg(long, default_value_t = 20000)]
+        horizon: u32,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+    },
+    /// Odd periods on rectangle rings (ring.rs): every assignment with an odd half loop delay and
+    /// an even torch count, every loading; one-pulse loadings kicked at odd ticks (odd.rs).
+    SweepOddRing {
+        #[arg(long, default_value_t = 3)]
+        w: i32,
+        #[arg(long, default_value_t = 4)]
+        h: i32,
+        #[arg(long, default_value = "1,2,b,d")]
+        straight: String,
+        #[arg(long, default_value = "b,d")]
+        corner: String,
+        #[arg(long, default_value_t = 2)]
+        max_len: u32,
+        #[arg(long, default_value_t = 2)]
+        per_base: usize,
+        #[arg(long, default_value_t = 4000)]
         horizon: u32,
         #[arg(long, default_value_t = 16)]
         threads: usize,
@@ -252,7 +275,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             let text = b.design().to_text();
             match out {
-                Some(p) => std::fs::write(&p, &text)?,
+                Some(p) => write_design(&p, &text, &name, &u.label(), &u.caption())?,
                 None => print!("{text}"),
             }
         }
@@ -298,6 +321,56 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         dd.name = format!("{}-kick-p{}", d.name, f.period);
                         std::fs::write(path, dd.to_text())?;
                     }
+                }
+            }
+        }
+        Cmd::SweepOddRing { w, h, straight, corner, max_len, per_base, horizon, threads, out_dir } => {
+            let st = parse_row(&straight)?;
+            let co = parse_row(&corner)?;
+            let all = ring::assignments(w, h, &st, &co, 0);
+            let mut cands: Vec<odd::Cand> = Vec::new();
+            for cells in &all {
+                let torches = cells.iter().filter(|c| matches!(c, Cell::Torch { .. })).count();
+                let half: u32 = cells.iter().map(|c| c.rt()).sum();
+                if half % 2 == 0 || torches % 2 == 1 {
+                    continue;
+                }
+                let base = ring::label(w, h, cells);
+                // every loading: each repeater powered or not, each torch lit or not
+                let slots: Vec<usize> = (0..cells.len()).filter(|&i| matches!(cells[i], Cell::Rep { .. } | Cell::Torch { .. })).collect();
+                for mask in 0u32..(1 << slots.len()) {
+                    let mut v = cells.clone();
+                    for (b, &i) in slots.iter().enumerate() {
+                        let on = mask >> b & 1 == 1;
+                        v[i] = match v[i] {
+                            Cell::Rep { d, .. } => Cell::Rep { d, on },
+                            Cell::Torch { .. } => Cell::Torch { lit: on },
+                            x => x,
+                        };
+                    }
+                    let name = format!("clk-rt-odd-{}", ring::label(w, h, &v));
+                    let Some(b) = ring::build(w, h, &v, &name) else { continue };
+                    if b.conflict {
+                        continue;
+                    }
+                    cands.push(odd::Cand { name, base: base.clone(), text: b.design().to_text(), half, caption: ring::caption(w, h, &v) });
+                }
+            }
+            let t0 = std::time::Instant::now();
+            let best = odd::search(cands, max_len, horizon, threads, per_base);
+            eprintln!("searched in {:.1} s", t0.elapsed().as_secs_f64());
+            println!("| P | blocks | volume | output | kick | design |");
+            println!("|---|---|---|---|---|---|");
+            for (p, hit) in &best {
+                let f = &hit.found;
+                println!("| {p} | {} | {} | {} | {} | {} |", f.blocks, f.volume, f.wave(), hit.how, f.label);
+            }
+            if let Some(dir) = out_dir {
+                std::fs::create_dir_all(&dir)?;
+                for (p, hit) in &best {
+                    let f = &hit.found;
+                    let cap = format!("ODD period {p}: {}; a second pulse started by a {} (a second parity class: every redstone-tick delay is even)", hit.caption, hit.how);
+                    write_design(&dir.join(format!("odd-ring{w}x{h}-p{p}.txt")), &f.design, &format!("clk-rt-odd-ring{w}x{h}-p{p}-{}b", f.blocks), "", &cap)?;
                 }
             }
         }
