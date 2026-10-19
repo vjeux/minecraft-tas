@@ -394,6 +394,9 @@ pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<(u32, u32)>)
 
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
+    if !c.design.entities.is_empty() {
+        return SimReport::fail(c, Verdict::Unmodeled, "not modeled by redsim: entities (minecarts...): judge it with clock verify".into());
+    }
     let blocks = match parse_blocks(c) {
         Ok(b) => b,
         Err(e) => return SimReport::fail(c, Verdict::Unmodeled, format!("not modeled by redsim: {e}")),

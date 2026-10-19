@@ -21,7 +21,24 @@ pub fn expand_palette(spec: &str) -> Result<Vec<String>> {
     let mut out: Vec<String> = Vec::new();
     let h4 = ["north", "east", "south", "west"];
     let d6 = ["down", "up", "north", "south", "west", "east"];
-    for item in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+    // entries are comma-separated, but a block state's own properties are too: split only on
+    // commas outside [...] and {...} (clk-misc: `minecraft:crafter[orientation=...,triggered=false]`)
+    let mut items: Vec<String> = Vec::new();
+    let (mut depth, mut cur) = (0i32, String::new());
+    for ch in spec.chars() {
+        match ch {
+            '[' | '{' => depth += 1,
+            ']' | '}' => depth -= 1,
+            _ => {}
+        }
+        if ch == ',' && depth == 0 {
+            items.push(std::mem::take(&mut cur));
+        } else {
+            cur.push(ch);
+        }
+    }
+    items.push(cur);
+    for item in items.iter().map(|s| s.trim()).filter(|s| !s.is_empty()) {
         let mut add = |v: Vec<String>| {
             for s in v {
                 if !out.contains(&s) {
@@ -555,6 +572,13 @@ pub fn report(dirs: &[PathBuf]) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn palette_states_with_commas() {
+        let p = expand_palette("minecraft:repeater[delay=2,facing=north],stone").unwrap();
+        assert_eq!(p.len(), 2, "{p:?}");
+        assert!(p[0].starts_with("minecraft:repeater[") && p[0].contains("delay=2"), "{p:?}");
+    }
 
     #[test]
     fn subsets_touch_the_low_faces() {
