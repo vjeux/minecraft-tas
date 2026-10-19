@@ -96,3 +96,19 @@ only U (1 gt first pulse at plan 0..3 + U2 at >= 20 / 16..17) and R0 (any) ideal
 - Moving the s push later needs a 3+ gt hold starting at t8..10 and ending by t13 (M at t16 is the
   latest the 2-repeater chain gives): `--vary` over the top-right cells, (3,5)'s delay and sensors /
   observers at (-1,3), (-2,5): 0 of 667k.
+- JVM `door ideal c78z.ideal`: WORKS (4 positions x 2 cycles), open 35 / close 35 (redsim agrees).
+- Why U-first at tick 5 (plan 4) fails: U's head is still in (1,-1) when (3,3) powers s at t6, so s's
+  push is refused (no block event is even queued) and nothing updates s after U's retraction; s then
+  pushes only at t10 ((2,4)'s pulse) and spits TM at (1,1).
+
+## 5. Next ideas (not done)
+- A top whose s push comes at t8..10 held 3+ gt and released by t13 (M at t16 is the latest a
+  2-repeater chain gives): needs a source the c79 top-right lacks (all its ticks are even: lever t0,
+  observers +2, lamp off +4, (3,5) at 2d); an open-only calibrated sensor (its back fed with the lever
+  level at a strength no door event has, e.g. 13) in the top-left feeding (0,3)/(1,4) could give it.
+- Or a U-first source in the bottom-right at tick <= 4 with a 1 gt pulse: only something powered and
+  updated in tick 3's block-entity phase next to U would do; none exists in the 5 cells.
+- The 2 gt alternative to the 1 gt pulse: U pulses X (U-first/U1), X+3 (harmless on open while BM is
+  still landing, U2 on close), Z >= 18 (U2 on open, blocked by s + M's head on close): needs an odd
+  offset of 3 between two bottom-right pulses (two sensors whose floor-distances differ by 3, one
+  hearing U-first itself) and still s's push >= X+2.
