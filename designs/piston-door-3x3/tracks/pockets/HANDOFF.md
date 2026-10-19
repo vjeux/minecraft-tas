@@ -23,7 +23,9 @@
   m69 k=4: right stack + U0 + s1/P3t drivable, bottom elevator + top-left never; w1 k=3: only TR + MR (top-right 5
   cells), P/Q/bottom boxed in; a3s k=4: 2 of 30 groups. These mechanisms lack free feed cells: wiring needs variants.
 - pockets with plans that never `use` the lever: run WITHOUT --keep-lever (w1's lever ON at rest QC-powers its TL
-  puller); a plan with `phase tile` ignores --between-ticks: strip the line (svc/c77-w1bt.ideal).
+  puller); a plan with `phase tile` ignores --between-ticks: strip the line (svc/c77-w1bt.ideal). Designers' plans
+  often feed pistons from IN-PLANE input cells, which pockets reserves: use `--offplane` (moves them behind the fed
+  pistons; I did it by hand in svc/w86-m69v.ideal and svc/c77-mm01v.ideal before finding the flag).
 
 ## Exact next steps
 1. Shrink the solid 44 (k=4 result; then k=5 on e78k's likely-removable cells with a ~15-state palette and the
