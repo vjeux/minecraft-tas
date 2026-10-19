@@ -1,0 +1,51 @@
+# s7: s5/s6 mechanism (left pullers level-held, right side pulsed late, B level), SYMMETRIC bottom:
+# U1 (u1), K (k), U2 (u2) on both edges; A's push+hold at ap..ap+4 (open), its top pull at bb+2 (open),
+# its close push at acp (close); B at bb. U1 before A's push pulls BM down (open) / pushes C up (close).
+design designs/piston-door-3x3/tracks/c88/s5.txt
+let lv = 0
+let r = 30
+let b = 30
+let u1 = 2
+let k = 6
+let u2 = 16
+let ap = 12
+let ah = 4
+let bb = 20
+let atp = bb+2
+let acp = 3
+open 0 use 4 6 0
+open lv clear -2 0 -1
+open lv clear -2 1 -1
+open lv clear -2 2 -1
+open ap set 1 3 -1 minecraft:redstone_block
+open ap+ah clear 1 3 -1
+open bb clear 1 5 -1
+open atp set 1 4 -1 minecraft:redstone_block
+open atp+2 clear 1 4 -1
+open r set 4 2 -1 minecraft:redstone_block
+open r+2 clear 4 2 -1
+open b set 2 -2 -1 minecraft:redstone_block
+open b+2 clear 2 -2 -1
+open u1 set 1 -2 -1 minecraft:redstone_block
+open u1+2 clear 1 -2 -1
+open k set -1 -1 -1 minecraft:redstone_block
+open k+2 clear -1 -1 -1
+open u2 set 1 -2 -1 minecraft:redstone_block
+open u2+2 clear 1 -2 -1
+close 0 use 4 6 0
+close lv set -2 0 -1 minecraft:redstone_block
+close lv set -2 1 -1 minecraft:redstone_block
+close lv set -2 2 -1 minecraft:redstone_block
+close acp set 1 4 -1 minecraft:redstone_block
+close acp+2 clear 1 4 -1
+close bb set 1 5 -1 minecraft:redstone_block
+close r set 4 2 -1 minecraft:redstone_block
+close r+2 clear 4 2 -1
+close b set 2 -2 -1 minecraft:redstone_block
+close b+2 clear 2 -2 -1
+close u1 set 1 -2 -1 minecraft:redstone_block
+close u1+2 clear 1 -2 -1
+close k set -1 -1 -1 minecraft:redstone_block
+close k+2 clear -1 -1 -1
+close u2 set 1 -2 -1 minecraft:redstone_block
+close u2+2 clear 1 -2 -1

@@ -597,12 +597,14 @@ impl<'g, A: Alg> Ctx<'g, A> {
             cdue[i] = d;
             let r = self.crear(s, der, i, lon);
             r0[i] = r;
+            // else-branches: the cell's values so far (a free cell may be a repeater or an
+            // observer that already toggled in this phase)
             for j in 0..15 {
-                post[i].lvl[j] = self.ite(d, r[j], s[i].lvl[j]);
+                post[i].lvl[j] = self.ite(d, r[j], post[i].lvl[j]);
             }
-            post[i].on = self.ite(d, r[0], s[i].on);
+            post[i].on = self.ite(d, r[0], post[i].on);
             let nd = self.not(d);
-            post[i].dl[0] = self.and(&[nd, s[i].dl[0]]);
+            post[i].dl[0] = self.and(&[nd, post[i].dl[0]]);
         }
         if self.flags_on && cdue.iter().any(|&d| self.a.val(d) != Some(false)) {
             let dt = self.derive(post, lon);
@@ -662,7 +664,7 @@ impl<'g, A: Alg> Ctx<'g, A> {
             rin0[i] = inp;
             let t = self.t();
             let v = self.ite(s[i].on, inp, t);
-            post[i].on = self.ite(d, v, s[i].on);
+            post[i].on = self.ite(d, v, post[i].on);
         }
         if self.flags_on {
             let dt = self.derive(&post, lon);

@@ -1,0 +1,20 @@
+# s24: A push + B level real; ideal: A top pull (atp/atc, (1,4,-1)), right pullers (r), BR (b)
+design designs/piston-door-3x3/tracks/c88/s24.txt
+let r = 30
+let b = 30
+let atp = 24
+let atc = 24
+open 0 use -4 1 0
+open atp set 1 4 -1 minecraft:redstone_block
+open atp+2 clear 1 4 -1
+open r set 4 2 -1 minecraft:redstone_block
+open r+2 clear 4 2 -1
+open b set 2 -2 -1 minecraft:redstone_block
+open b+2 clear 2 -2 -1
+close 0 use -4 1 0
+close atc set 1 4 -1 minecraft:redstone_block
+close atc+2 clear 1 4 -1
+close r set 4 2 -1 minecraft:redstone_block
+close r+2 clear 4 2 -1
+close b set 2 -2 -1 minecraft:redstone_block
+close b+2 clear 2 -2 -1

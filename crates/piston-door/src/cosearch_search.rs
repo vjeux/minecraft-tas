@@ -2296,6 +2296,11 @@ pub struct PocketArgs {
     /// air (4,-1) -> piston (4,-2) up, QC'd), a sculk sensor next to a separate wool block.
     #[arg(long)]
     pub gaps: bool,
+    /// `--region-cells` may erase RETRACTED pistons too (wiring pistons that move no door block, e.g.
+    /// s27-trbl51's sticky piston (3,5) whose head pops for an observer); heads, extended pistons,
+    /// levers and door cells stay refused.
+    #[arg(long)]
+    pub region_pistons: bool,
 }
 
 /// One plan pulse (on, then off) or level edge of one input in one phase, with its window.
@@ -2612,7 +2617,8 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             anyhow::ensure!(v.len() == 2, "--region-cells x,y;x,y");
             let (x, y) = (v[0] + dx, v[1] + dy);
             let b = seed.get(x, y);
-            anyhow::ensure!(!matches!(b, Block::Piston { .. } | Block::PistonHead { .. } | Block::Lever { .. }) && !prob.door_cells.contains(&(x, y)), "--region-cells: ({},{}) holds {b:?}", v[0], v[1]);
+            let wiring_piston = pa.region_pistons && matches!(b, Block::Piston { extended: false, .. });
+            anyhow::ensure!(wiring_piston || (!matches!(b, Block::Piston { .. } | Block::PistonHead { .. } | Block::Lever { .. }) && !prob.door_cells.contains(&(x, y))), "--region-cells: ({},{}) holds {b:?}{}", v[0], v[1], if matches!(b, Block::Piston { extended: false, .. }) { " (a wiring piston: pass --region-pistons)" } else { "" });
             seed.set(x, y, Block::Air);
             if !prob.free.contains(&(x, y)) && x >= prob.lo[0] && x <= prob.hi[0] && y >= prob.lo[1] && y <= prob.hi[1] {
                 prob.free.push((x, y));

@@ -146,9 +146,8 @@ pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: 
 
 /// `run` on the schedule's design with some cells replaced first (in memory, no JVM).
 pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], offsets: &[Pos], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
-    let open_ev = s.events_of(true, vars).map_err(|e| format!("{e:#}"))?;
-    let close_ev = s.events_of(false, vars).map_err(|e| format!("{e:#}"))?;
-    let d = s.design();
+    let (d, open_ev, close_ev, _notes) = s.realize(vars).map_err(|e| format!("{e:#}"))?;
+    let d = &d;
     let door = *d.ports.get("door").ok_or("design has no door port")?;
     let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z") };
     let mut cells: BTreeMap<Pos, String> = d.blocks.clone();
@@ -523,6 +522,11 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
         variants = next;
     }
     if sweep.is_empty() && vary.is_empty() && drop == 0 {
+        if let Ok((_, _, _, notes)) = s.realize(&vars) {
+            for n in notes {
+                eprintln!("note: {n}");
+            }
+        }
         match run(&s, &vars, &offsets, cycles, trace) {
             Ok((o, c)) => println!("WORKS in redsim ({} positions x {cycles} cycles): open after {o} ticks / closed after {c} ticks", offsets.len()),
             Err(e) => {

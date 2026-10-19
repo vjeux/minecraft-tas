@@ -1,0 +1,48 @@
+# verified WORKS by door leaderboard: 50 blocks, category sculk
+# archived 2026-10-19 10:34Z from HEAD:designs/piston-door-3x3/tracks/m79s/s78/s88i.txt (repo at aa13ac3)
+name: s88i
+port door: 0 0 0
+port lever: 4 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:dropper[facing=up,triggered=true]
+  E minecraft:observer[facing=west,powered=false]
+  F minecraft:obsidian
+  G minecraft:glass
+  H minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  I minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  J minecraft:sticky_piston[extended=false,facing=down]
+  K minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:sticky_piston[extended=true,facing=down]
+  O minecraft:oak_log[axis=y]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:sticky_piston[extended=true,facing=west]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  T minecraft:stone
+  W minecraft:white_wool
+  o minecraft:observer[facing=down,powered=false]
+  p minecraft:piston_head[facing=west,short=false,type=sticky]
+  r minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  s minecraft:smooth_stone
+layer -2:
+  S...MAAR
+layer -1:
+  REK..OFB
+layer 0:
+  .K.OOOpQ
+layer 1:
+  TK.OOOpQ
+layer 2:
+  HK.OOOOD
+layer 3:
+  WWoOJPIr
+layer 4:
+  BGsW.NOO
+layer 5:
+  CHHWJ.rL

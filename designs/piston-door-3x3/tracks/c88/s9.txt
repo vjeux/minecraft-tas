@@ -1,0 +1,35 @@
+name: c88-s9
+# s9: s8's mechanism with the LEVER on the LEFT, real: lever (-4,1) on the west face of (-3,1) (outside
+# the 8x8 box x -3..4, y -2..5; the volume excludes the lever). (-3,1) powers ML's puller directly and L0
+# by quasi-connectivity; dust (-3,2) powers TL's puller: the three left pullers are level-held (extended
+# at rest, heads in the left wall). Everything else ideal (s9.ideal): U, K, A, B pulses, right side late.
+port door: 0 0 0
+port lever: -4 1 0
+origin: -4 0 0
+palette:
+  D minecraft:redstone_wire[east=side,north=side,power=15,south=side,west=side]
+  E minecraft:sticky_piston[extended=true,facing=east]
+  e minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:sticky_piston[extended=false,facing=up]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  Q minecraft:stone
+  S minecraft:smooth_stone
+layer -2:
+  .....KK..
+layer -1:
+  ...J.....
+layer 0:
+  ..EeQQQQ.
+layer 1:
+  LSEeQQQ.W
+layer 2:
+  .DEeQQQ.W
+layer 3:
+  ....QsQ..
+layer 4:
+  .........
+layer 5:
+  .....s...

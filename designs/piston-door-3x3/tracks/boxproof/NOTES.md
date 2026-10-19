@@ -102,6 +102,17 @@ palette `all` = 56 states, 1-position 2-cycle screen, lever fixed):
 boxproof (bulbs + comparators exact) with all 9 cells free (any number changed): t=48 without
 split rounds and t=40 with `--split-rounds`: no answer yet.
 
+## One-input-left partials (c79 family, find mode, `--lever-on --frame12 --split-rounds`)
+| design | free cells | runs | result |
+|---|---|---|---|
+| c2e m79a (7x9, A's hold) | (-1,3) (3,3) (-2,5) | t=24 x3 (full / wiring palette), t=30, nondet t=26 | UNSAT in all (588-1780 s) |
+| c2e m88c (8x8, A's hold) | (-2,3) (3,3) (-3,1) | t=26 x2, t=32, nondet t=26 | UNSAT in all (1268-7327 s) |
+| m88c | + chain (-1,5) (-2,5) (-2,4) (-1,4) (0,4) | t=26 | running |
+| m88c (cosearch, real simulator) | the same 8 | k <= 3: 9.5M screens; k <= 4: 656M screens / 87 min | none, best = the seed's 71/79 |
+| m10top m79p (7x9, 3 inputs) | 10 top cells | find + nondet t=28 | superseded by m79q |
+| satwire m79q (7x9, A's last pull + L1/L2) | top-left x -2..0, y 3..5 minus (0,3) | find x2 + nondet t=28; cosearch k <= 3 (9.5M, best = seed 49/79), k <= 4 running | running |
+Each UNSAT is relative to the model (palette, races in find mode, 2 rounds, horizon T).
+
 ## Known-answer calibration: the community 7x9 (c79, tracks/c79)
 c79-closed (lever ON at rest, droppers, a normal piston firing into an empty cell, dust steps),
 every block fixed: UNSAT in the model at first; `door boxproof replay` (the design through the
@@ -114,9 +125,11 @@ t=22 per edge):
 | freed cells | vars / clauses | result |
 |---|---|---|
 | A3: the 3 hidden top-left dusts (-2,4) (-1,5) (0,4) | 11.5M / 40M | SAT 628 s: exactly c79's dust, screen Pass |
-| B5: top-right dropper (4,3), observers (2,4) (3,4) (3,3), dust (4,4) | 12.7M / 44M | running |
-| A3 + B5 | 13.7M / 48M | running |
-| C6: bottom chain (4,-1) (3,-1) (2,-3) (1,-3) (0,-3) (-1,-3) | 13.0M / 45M | running |
+| B5: top-right dropper (4,3), observers (2,4) (3,4) (3,3), dust (4,4) | 12.7M / 44M | SAT 1262 s: c79 with a note block instead of the dropper at (4,3), screen Pass |
+| A3 + B5 | 13.7M / 48M | SAT after 2000 s, 25 CEGAR rejections (all "center stays": the free split-rounds order picks an event order the game does not produce), then a pass at ~45 min: A3 exact + B5's note-block variant |
+| C6: bottom chain (4,-1) (3,-1) (2,-3) (1,-3) (0,-3) (-1,-3) | 13.0M / 45M | SAT 886 s (screen: door not restored), then 0.1 s later a model that passes: droppers at (1,-3) and (3,-1) instead of two smooth stones |
+(B5 and C6 first came back UNSAT: the comparator tick wiped a free cell's observer pulse; fixed
+in fc86166, the third bug of that pattern, found only because the answer was known.)
 (at t=50 the same pockets were 30-35M vars and gave no answer in 15-30 min: keep T near the door's
 own open/close time.)
 
