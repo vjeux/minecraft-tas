@@ -41,6 +41,9 @@ enum Cmd {
     /// bouncing between two bumpers, powered rails at the ends, a detector rail, n more powered
     /// rails in the middle. Prints or writes the design (judge it with `clock verify`: entities).
     CartPingpong(cart::PingpongArgs),
+    /// A minecart loop (extendable family `clk-misc-cart-loop`): an empty minecart circling a
+    /// 4 x (4 + n) rail loop with powered rails and a detector rail.
+    CartLoop(cart::LoopArgs),
     /// Set each design's `name:` to `<prefix>-<file stem>` (search tools name their picks after
     /// their own track; the archive keys designs by name).
     Rename(rename::RenameArgs),
@@ -60,6 +63,7 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::Ring(r) => ring::run(r),
         Cmd::CrafterLoop(l) => crafter::run(l),
         Cmd::CartPingpong(p) => cart::run(p),
+        Cmd::CartLoop(l) => cart::run_loop(l),
         Cmd::Rename(r) => rename::run(r),
     }
 }

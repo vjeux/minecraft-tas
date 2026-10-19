@@ -92,3 +92,77 @@ pub fn run(a: PingpongArgs) -> Result<()> {
     }
     Ok(())
 }
+
+#[derive(ClapArgs, Debug, Clone)]
+pub struct LoopArgs {
+    /// The family's n: the loop is 4 x (4 + n) cells.
+    #[arg(long, default_value_t = 0)]
+    pub n: u32,
+    /// The family's period formula, once measured (written into the `extend` headers).
+    #[arg(long, default_value = "")]
+    pub period: String,
+    /// Write the design here (else print it).
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+}
+
+/// `cart-loop`: an empty minecart circling a 4 x (4 + n) rail loop: plain rails curve at the
+/// corners; one powered rail on each short side and n + 1 on each long side (on redstone blocks)
+/// keep the cart at its 0.4 b/t cap; a detector rail on the east side, long enough a lap for one
+/// off / on per lap (its 20 gt check).
+pub fn build_loop(n: u32, period: &str) -> String {
+    let deep = 4 + n as i32;
+    let mut d = Design { name: format!("clk-misc-cart-loop-n{n}"), ..Default::default() };
+    let mut put = |x: i32, z: i32, rail: &str, below: &str| {
+        d.blocks.insert([x, 0, z], format!("minecraft:{rail}"));
+        d.blocks.insert([x, -1, z], format!("minecraft:{below}"));
+    };
+    let pew = "powered_rail[powered=true,shape=east_west,waterlogged=false]";
+    let pns = "powered_rail[powered=true,shape=north_south,waterlogged=false]";
+    put(0, 0, "rail[shape=south_east,waterlogged=false]", "stone");
+    put(1, 0, pew, "redstone_block");
+    put(2, 0, "rail[shape=east_west,waterlogged=false]", "stone");
+    put(3, 0, "rail[shape=south_west,waterlogged=false]", "stone");
+    put(3, 1, "detector_rail[powered=false,shape=north_south,waterlogged=false]", "stone");
+    put(0, 1, "rail[shape=north_south,waterlogged=false]", "stone");
+    for z in 2..deep - 1 {
+        put(0, z, pns, "redstone_block");
+        put(3, z, pns, "redstone_block");
+    }
+    put(0, deep - 1, "rail[shape=north_east,waterlogged=false]", "stone");
+    put(1, deep - 1, "rail[shape=east_west,waterlogged=false]", "stone");
+    put(2, deep - 1, pew, "redstone_block");
+    put(3, deep - 1, "rail[shape=north_west,waterlogged=false]", "stone");
+    d.ports.insert("output".into(), [3, 0, 1]);
+    d.entities.push(mctas::design::EntitySpec { kind: "minecraft:minecart".into(), pos: [1.5, 0.0625, 0.5], nbt: Some("{Motion:[0.4d,0.0d,0.0d]}".into()) });
+    if !period.is_empty() {
+        d.meta.insert("extend family".into(), "clk-misc-cart-loop".into());
+        d.meta.insert("extend period".into(), period.to_string());
+        d.meta.insert("extend blocks".into(), "25 + 4n".into());
+        d.meta.insert("extend rule".into(), "lengthen both long sides by one powered rail (on a redstone block)".into());
+        d.meta.insert("extend n".into(), "0..20".into());
+        d.meta.insert("extend base".into(), n.to_string());
+        d.meta.insert("extend generator".into(), format!("mctas clock misc cart-loop --n {{n}} --period {} --out {{out}}", period.replace(' ', "")));
+    }
+    let caption = format!(
+        "# {}minecart loop (n = {n}): an empty minecart circles a 4 x {deep} rail loop; plain rails curve at the corners, powered rails\n\
+         # (on redstone blocks, one per short side and {} per long side) keep it at its 0.4 b/t cap; a detector rail on the east side is\n\
+         # powered while the cart is on it and turns off at its next 20 gt check once the cart has left (one off / on per lap).\n",
+        if period.is_empty() { String::new() } else { format!("Extendable family clk-misc-cart-loop, P = {period} gt, 25 + 4n pieces: ") },
+        n + 1
+    );
+    let text = d.to_text();
+    match text.split_once('\n') {
+        Some((first, rest)) => format!("{first}\n{caption}{rest}"),
+        None => format!("{caption}{text}"),
+    }
+}
+
+pub fn run_loop(a: LoopArgs) -> Result<()> {
+    let text = build_loop(a.n, &a.period);
+    match &a.out {
+        Some(p) => std::fs::write(p, &text)?,
+        None => print!("{text}"),
+    }
+    Ok(())
+}
