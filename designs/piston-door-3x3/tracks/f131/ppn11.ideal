@@ -1,0 +1,30 @@
+# pn10: PN (-1,5) shot a real (lever watcher QC through (-1,6)), PN's b/c from the observer (0,5)
+# watching DE (real); ideal: DE window [ow, ow+dl) as a redstone block at (1,6) (stands for a powered
+# bulb), P3, L1/L2, S_R+.
+design designs/piston-door-3x3/tracks/f131/pn10.txt
+let ow = 12
+let cw = 12
+let dl = 12
+let cdl = 12
+let op = 8
+let cp = 8
+let ol = 8
+let cl = 8
+let os = 24
+let cs = 50
+open 0 use -3 6 0
+close 0 use -3 6 0
+open ow set 1 5 1 minecraft:redstone_block
+open ow+dl clear 1 5 1
+close cw set 1 5 1 minecraft:redstone_block
+close cw+cdl clear 1 5 1
+open op set -1 3 1 minecraft:redstone_block
+open op+2 clear -1 3 1
+close cp set -1 3 1 minecraft:redstone_block
+close cp+2 clear -1 3 1
+open ol set -2 2 1 minecraft:redstone_block
+open ol+2 clear -2 2 1
+close cl set -2 2 1 minecraft:redstone_block
+close cl+2 clear -2 2 1
+open os clear 4 6 1
+close cs set 4 6 1 minecraft:redstone_block

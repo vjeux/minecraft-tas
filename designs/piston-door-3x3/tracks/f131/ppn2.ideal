@@ -1,0 +1,23 @@
+# pn1 (PN at (-1,5) facing down = D1's trigger via (0,4), (0,5) observer watching DE), with P3's pulse
+# ideal (behind (-1,3)) and L1/L2 still on N's ideal train (N no longer feeds D1).
+design designs/piston-door-3x3/tracks/f131/pn1.txt
+let on1 = 0
+let on2 = 12
+let on3 = 22
+let cn1 = 0
+let cn2 = 12
+let cn3 = 22
+let op = 8
+let cp = 8
+open 0 use -3 6 0
+close 0 use -3 6 0
+open on1 set -2 4 1 minecraft:redstone_block
+open on2 clear -2 4 1
+open on3 set -2 4 1 minecraft:redstone_block
+close cn1 clear -2 4 1
+close cn2 set -2 4 1 minecraft:redstone_block
+close cn3 clear -2 4 1
+open op set -1 3 1 minecraft:redstone_block
+open op+2 clear -1 3 1
+close cp set -1 3 1 minecraft:redstone_block
+close cp+2 clear -1 3 1

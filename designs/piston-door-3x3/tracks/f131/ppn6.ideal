@@ -1,0 +1,46 @@
+# pn4 with PN's shots b/c as two 2 gt pulses (ob, oc / cb, cc) instead of a window; DE window [oe, oee].
+design designs/piston-door-3x3/tracks/f131/pn4.txt
+let oa = 2
+let ca = 2
+let ob = 14
+let oc = 22
+let cb = 14
+let cc = 22
+let op = 8
+let cp = 8
+let ol = 2
+let cl = 2
+let oe = 14
+let dl = 8
+let ce = 14
+let cdl = 8
+let os = 24
+let cs = 24
+open 0 use -3 6 0
+close 0 use -3 6 0
+open oa set -1 5 1 minecraft:redstone_block
+open oa+2 clear -1 5 1
+close ca set -1 5 1 minecraft:redstone_block
+close ca+2 clear -1 5 1
+open ob set -1 5 1 minecraft:redstone_block
+open ob+2 clear -1 5 1
+open oc set -1 5 1 minecraft:redstone_block
+open oc+2 clear -1 5 1
+close cb set -1 5 1 minecraft:redstone_block
+close cb+2 clear -1 5 1
+close cc set -1 5 1 minecraft:redstone_block
+close cc+2 clear -1 5 1
+open op set -1 3 1 minecraft:redstone_block
+open op+2 clear -1 3 1
+close cp set -1 3 1 minecraft:redstone_block
+close cp+2 clear -1 3 1
+open ol set -2 2 1 minecraft:redstone_block
+open ol+2 clear -2 2 1
+close cl set -2 2 1 minecraft:redstone_block
+close cl+2 clear -2 2 1
+open oe set 1 5 1 minecraft:redstone_block
+open oe+dl clear 1 5 1
+close ce set 1 5 1 minecraft:redstone_block
+close ce+cdl clear 1 5 1
+open os clear 4 6 1
+close cs set 4 6 1 minecraft:redstone_block

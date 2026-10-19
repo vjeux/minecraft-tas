@@ -1,0 +1,25 @@
+# pn3: PN (-1,5) normal piston facing down = D1's trigger through (0,4); PN's first pulse is real (the
+# lever watcher (-2,6) QC-powers it through (-1,6)); ideal: PN's window, P3's pulse, L1/L2's pulse.
+design designs/piston-door-3x3/tracks/f131/pn3.txt
+let ow = 14
+let owe = 22
+let cw = 14
+let cwe = 22
+let op = 8
+let cp = 8
+let ol = 2
+let cl = 2
+open 0 use -3 6 0
+close 0 use -3 6 0
+open ow set -1 5 1 minecraft:redstone_block
+open owe clear -1 5 1
+close cw set -1 5 1 minecraft:redstone_block
+close cwe clear -1 5 1
+open op set -1 3 1 minecraft:redstone_block
+open op+2 clear -1 3 1
+close cp set -1 3 1 minecraft:redstone_block
+close cp+2 clear -1 3 1
+open ol set -2 2 1 minecraft:redstone_block
+open ol+2 clear -2 2 1
+close cl set -2 2 1 minecraft:redstone_block
+close cl+2 clear -2 2 1

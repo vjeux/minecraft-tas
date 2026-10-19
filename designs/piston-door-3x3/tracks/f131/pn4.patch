@@ -1,0 +1,7 @@
+set -2 6 0 minecraft:observer[facing=down,powered=false]
+clear -1 6 0
+clear 0 6 0
+clear 1 6 0
+clear 2 6 0
+clear 3 6 0
+set 4 6 1 minecraft:redstone_block
