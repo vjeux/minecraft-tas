@@ -1,0 +1,38 @@
+# t78 r70-v: r70-u + E observer (2,4) facing east (drives E at home directly and E at (1,3) by QC through (1,4)); sensors placed by --vary
+# t78 r70-mech: ceil's c070x (8x7) rotated a quarter turn in the door plane ((x,y) -> (y, 2-x)) = a 7x8 mechanism:
+# right stack SW(4,0..2) lever-held (c070x's ceiling), D (1,5) / E (1,4) facing down (c070x's left double puller),
+# U (-1,3) facing east, the U-head watcher (0,4) facing down -> stone (0,5) beside D, bottom pullers SU(0,-2)/SU(1,-2)
+# (c070x's BR/MR pullers), left pullers SE(-2,1)/SE(-2,2) (c070x's BL/BM pullers), statics (2,3) (2,-1) (-1,0).
+# Inputs ideal (r70-mech.ideal): the held stack's level, E1/E2, M, U, the pullers.
+name: t78-r70-v
+port door: 0 0 0
+port lever: 5 1 0
+origin: -2 0 0
+palette:
+  E minecraft:observer[facing=east,powered=false]
+  o minecraft:observer[facing=up,powered=false]
+  R minecraft:redstone_block
+  D minecraft:stone
+  W minecraft:sticky_piston[extended=true,facing=west]
+  H minecraft:piston_head[facing=west,short=false,type=sticky]
+  d minecraft:sticky_piston[extended=false,facing=down]
+  u minecraft:sticky_piston[extended=false,facing=up]
+  e minecraft:sticky_piston[extended=false,facing=east]
+  O minecraft:observer[facing=down,powered=false]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+layer -2:
+  ..uu...
+layer -1:
+  ....D..
+layer 0:
+  .DDDDHW.
+layer 1:
+  e.DDDHWL
+layer 2:
+  e.DDDHW
+layer 3:
+  .e..D.R
+layer 4:
+  .oOdE..
+layer 5:
+  ..Dd...

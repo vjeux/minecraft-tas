@@ -60,3 +60,21 @@ prints the `satwire --keep-ideal` list). Results in a78/ (holds-rank30-sym-cpt.t
 - Screen artifact (cosearch pockets, br7 + sculk palette): a calibrated sensor at (-2,-2) above SP
   walled by wool "drives" SP's hold only because it hears SP's own assisted extension; the pocket's
   verification rejects it (0 finds), ideal-rs confirms the sensor never wakes without the assist.
+
+## 4. r70: c070x rotated into 7x8 (r70/)
+- (x,y) -> (y, 2-x) turns ceil's 8x7 c070x into a 7x8 mechanism (box x -2..4, y -2..5): right stack SW(4,0..2)
+  extended at rest (c070x's lever-held ceiling), D (1,5) / E (1,4) facing down, U (-1,3) facing east, the U-head
+  watcher (0,4) facing down into stone (0,5) beside D, bottom SU(0,-2)/SU(1,-2), left SE(-2,1)/SE(-2,2), statics
+  (2,3) (2,-1) (-1,0). r70-mech.ideal WORKS (between-ticks phase, open 43 / close 43).
+- Tile-tick phase: an ideal U input loses the race (the watcher's D push shoves E + T). With a REAL observer on
+  U (r70-u: observer (-1,4) facing up, the plan toggles glass at (-1,5)) it works: U tap at T, M (ideal) at
+  exactly T+3, T 10..20 (11 combos). The same must hold for c070x itself (told c70).
+- Wiring advantages: E at (1,3) is QC-powered through (1,4) by an observer (2,4) facing east, which also drives
+  E at home (E1, E2) -> one observer for all three E pulses; or M direct through the static (2,3).
+- Walls hit: QC is vertical, so one lever holds only 2 of the right stack ((5,1): (4,1)+(4,0); (5,2) or a floor
+  lever on (4,3): (4,2)+(4,1)); feeding (4,2) from (4,3) also QC-fires (4,1) (r70-t1 fails that way).
+  E needs exactly 3 taps (E1, M = U+3, E2 >= U+10) through (2,4): a calibrated sensor at (3,4) gives them
+  (W+2, W+12, W+22), but it re-arms at W+20 and hears E2's own extension (echo): its second echo tap shoves C.
+  A lamp gives only 2 taps. U's sensor must wake exactly 7 ticks after (3,4)'s and hear nothing earlier.
+- --vary screens on r70-v (U observer + E observer real, sensors/wool at (-1,5),(-2,5),(-2,4),(0,5),(3,4),(3,5),
+  (4,4),(2,5),(-2,3),(3,3), pullers at 2..6): 0 of 103,680; the stone/wool-door variant r70-w: 0 of 1,200.

@@ -1,0 +1,39 @@
+# t78 r70-mech: c070x's plan rotated (U at u, M at m = u+3, E1 7, E2 30, pullers 7 / 40); the lever (5,1) holds (4,1) + (4,0) (QC), (4,2) ideal level
+design designs/piston-door-3x3/tracks/t78/r70/r70-t1.txt
+let ug = 11
+let bb = 20
+let e1 = 7
+let e2 = 30
+let m = 16
+open 0 use 5 1 0
+open e1 set 1 4 1 minecraft:redstone_block
+open e1+2 clear 1 4 1
+open 7 set 0 -2 1 minecraft:redstone_block
+open 7 set 1 -2 1 minecraft:redstone_block
+open 9 clear 0 -2 1
+open 9 clear 1 -2 1
+open ug set -1 5 0 minecraft:glass
+open m set 1 3 1 minecraft:redstone_block
+open m+2 clear 1 3 1
+open e2 set 1 4 1 minecraft:redstone_block
+open e2+2 clear 1 4 1
+open bb set -2 2 1 minecraft:redstone_block
+open bb set -2 1 1 minecraft:redstone_block
+open bb+2 clear -2 2 1
+open bb+2 clear -2 1 1
+close 0 use 5 1 0
+close e1 set 1 4 1 minecraft:redstone_block
+close e1+2 clear 1 4 1
+close 7 set 0 -2 1 minecraft:redstone_block
+close 7 set 1 -2 1 minecraft:redstone_block
+close 9 clear 0 -2 1
+close 9 clear 1 -2 1
+close ug clear -1 5 0
+close m set 1 3 1 minecraft:redstone_block
+close m+2 clear 1 3 1
+close e2 set 1 4 1 minecraft:redstone_block
+close e2+2 clear 1 4 1
+close bb set -2 2 1 minecraft:redstone_block
+close bb set -2 1 1 minecraft:redstone_block
+close bb+2 clear -2 2 1
+close bb+2 clear -2 1 1

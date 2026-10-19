@@ -1,0 +1,24 @@
+# t78 r70-v: only the held (4,2) level and the free pullers ideal; U trigger, E1, M, E2 from sensors (--vary)
+design designs/piston-door-3x3/tracks/t78/r70/r70-w.txt
+let bp = 20
+let sp = 20
+open 0 use 5 1 0
+open 0 clear 4 3 0
+open bp set 0 -2 1 minecraft:redstone_block
+open bp set 1 -2 1 minecraft:redstone_block
+open bp+2 clear 0 -2 1
+open bp+2 clear 1 -2 1
+open sp set -2 2 1 minecraft:redstone_block
+open sp set -2 1 1 minecraft:redstone_block
+open sp+2 clear -2 2 1
+open sp+2 clear -2 1 1
+close 0 use 5 1 0
+close 0 set 4 3 0 minecraft:redstone_block
+close bp set 0 -2 1 minecraft:redstone_block
+close bp set 1 -2 1 minecraft:redstone_block
+close bp+2 clear 0 -2 1
+close bp+2 clear 1 -2 1
+close sp set -2 2 1 minecraft:redstone_block
+close sp set -2 1 1 minecraft:redstone_block
+close sp+2 clear -2 2 1
+close sp+2 clear -2 1 1
