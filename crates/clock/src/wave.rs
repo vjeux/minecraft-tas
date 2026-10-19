@@ -219,6 +219,9 @@ impl CellWave {
 pub struct PeriodAnalysis {
     pub cells: Vec<CellWave>,
     pub family: Vec<String>,
+    /// Blocks that only move during the period (pushed or pulled, their own state unchanged):
+    /// not in the family.
+    pub moved: Vec<String>,
 }
 
 /// Analyze one period: `states[t][i]` = the state of `cells[i]` at tick `W + t` (t in 0..P).
@@ -229,6 +232,9 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
         return out;
     }
     let mut fam: Vec<String> = Vec::new();
+    let mut moved: Vec<String> = Vec::new();
+    let n = states.len();
+    let type_of = |s: &str| -> String { block_part(s).split('[').next().unwrap_or("").to_string() };
     for (i, pos) in cells.iter().enumerate() {
         let first = states[0][i];
         if states.iter().all(|s| s[i] == first) {
@@ -241,17 +247,46 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
                 seen.push(st);
             }
         }
-        let mut kinds: Vec<String> = seen.iter().filter_map(|s| family_name(block_part(s))).collect();
+        // A block counts in the family when its own state changes IN PLACE (the same block in the
+        // cell before and after: lit, powered, power, open, extended, phase, a comparator's
+        // strength, a container's contents), or when it is a redstone block that moves (a moving
+        // power source). A block that only moves (a lamp a piston pushes, never lit) is listed
+        // apart as moved.
+        let mut kinds: Vec<String> = Vec::new();
+        let mut cell_moved: Vec<String> = Vec::new();
+        for t in 0..n {
+            let (a, b) = (states[t][i], states[(t + 1) % n][i]);
+            if a != b && type_of(a) == type_of(b) {
+                if let Some(k) = family_name(block_part(a)) {
+                    kinds.push(k);
+                }
+            }
+        }
+        for s in &seen {
+            if let Some(k) = family_name(block_part(s)) {
+                if k == "redstone_block" {
+                    kinds.push(k);
+                } else if !kinds.contains(&k) {
+                    cell_moved.push(k);
+                }
+            }
+        }
         kinds.sort();
         kinds.dedup();
+        cell_moved.retain(|k| !kinds.contains(k));
         let seq: Vec<bool> = states.iter().map(|s| active(block_part(s[i]))).collect();
         let (on, edges, widths) = bool_wave(&seq);
         fam.extend(kinds.iter().cloned());
+        moved.extend(cell_moved);
         out.cells.push(CellWave { pos: *pos, states: seen, kinds, on, edges, widths });
     }
     fam.sort();
     fam.dedup();
+    moved.sort();
+    moved.dedup();
+    moved.retain(|k| !fam.contains(k));
     out.family = fam;
+    out.moved = moved;
     out
 }
 

@@ -113,6 +113,29 @@ pub enum ClockCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// (COORDINATOR ONLY: the X displays are shared) The clock running in the real client, a
+    /// still camera framing its swept box, >= 2 periods (and >= --min-secs of footage) after its
+    /// warmup, with a corner label (period; family, blocks, box; duty, start; name) and an optional
+    /// title card; H.264. The clean clip is kept as <out>.clip.mp4 (--relabel recuts from it), its
+    /// first frame as <out>.png. --dry-run prints the plan and writes the label image only.
+    Video {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        periods: u32,
+        #[arg(long, default_value_t = 8.0)]
+        min_secs: f64,
+        /// Ticks per second while filming (default 10; faster for long periods, <= 60 s).
+        #[arg(long)]
+        tps: Option<f64>,
+        #[arg(long)]
+        card: bool,
+        #[arg(long)]
+        relabel: bool,
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Write designs/clocks/CATALOG.md (per period: the distinct types, families and the smallest
     /// of each; the period x family coverage matrix; the impossibility table from
     /// designs/clocks/impossible.tsv) and designs/clocks/coverage.md (the matrix alone, mirrored
@@ -218,6 +241,23 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
+        ClockCmd::Video { design, out, periods, min_secs, tps, card, relabel, dry_run } => {
+            let c = Clock::load(&design)?;
+            let o = clock::video::ClockVideoOptions { periods, min_secs, tps, card, relabel, dry_run, ..Default::default() };
+            let p = clock::video::video(version, &c, &out, &o)?;
+            println!(
+                "{} {}: P {} gt, skip {} ticks (warmup + kick), film {} ticks ({} periods) at {} tps = {:.1} s{}",
+                if dry_run { "PLAN" } else { "VIDEO" },
+                out.display(),
+                p.period,
+                p.skip,
+                p.ticks,
+                p.ticks / p.period.max(1),
+                p.tps,
+                p.ticks as f64 / p.tps,
+                if dry_run { format!("; label: {}", out.with_extension("label.png").display()) } else { String::new() }
+            );
+        }
         ClockCmd::Catalog { dir, out, coverage } => {
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
@@ -276,6 +316,9 @@ fn print_sim(c: &Clock, r: &SimReport, ms: f64) {
             if o.auto { " (auto: no `port output`, the cell with the most edges)" } else { "" },
             o.wave.describe(r.period)
         );
+    }
+    if !r.analysis.moved.is_empty() {
+        println!("  moved only (not in the family): {}", r.analysis.moved.join(", "));
     }
     println!("  {} changing cells:", r.analysis.cells.len());
     for w in &r.analysis.cells {

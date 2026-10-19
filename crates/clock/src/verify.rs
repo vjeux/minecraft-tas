@@ -131,7 +131,8 @@ pub fn rotated(w: &mut Worker, c: &Clock, turns: u8) -> Result<Clock> {
     Clock::from_design(d)
 }
 
-fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
+/// Place a clock like the judge (the kick's inputs are applied by [`apply`] at their ticks).
+pub fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
     let blocks = c.design.block_list();
     let last = c.withheld();
     let kept: Vec<(Pos, String)> = blocks.iter().filter(|(p, _)| Some(*p) != last).cloned().collect();
@@ -162,7 +163,8 @@ fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
     Ok(())
 }
 
-fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
+/// Apply one input of the start kick between ticks.
+pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
     match a {
         Action::Place { pos, state, nbt } => {
             w.set_blocks(sb, &[(*pos, state.clone())], PlaceMode::Update)?;
