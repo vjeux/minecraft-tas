@@ -79,6 +79,46 @@ pub fn ringlock_n_max(d: i32) -> u32 {
     ((7 * l - 2) / 8 - 3) as u32
 }
 
+/// The latch hopper clock (17 blocks): hoppers A (east) / B (west) pass `stones` stones back and
+/// forth; comparators on A and B light torches when their hopper is empty; the torches toggle a
+/// waxed copper bulb (one directly below it, one under a stone beside it); a comparator reading the
+/// bulb lights a dust on the stone above A (locks A), whose wall torch locks B when the bulb is off.
+/// P = 16 N - 2 for 2 <= N <= 320 (the stones start in A, as stacks of 64).
+pub fn latch(stones: u32) -> Option<Design> {
+    if !(2..=320).contains(&stones) {
+        return None;
+    }
+    let palette: [(char, &str); 9] = [
+        ('S', "minecraft:stone"),
+        ('A', "minecraft:hopper[enabled=true,facing=east]"),
+        ('B', "minecraft:hopper[enabled=true,facing=west]"),
+        ('C', "minecraft:comparator[facing=south,mode=compare,powered=false]"),
+        ('T', "minecraft:redstone_torch[lit=true]"),
+        ('K', "minecraft:waxed_copper_bulb[lit=true,powered=false]"),
+        ('Q', "minecraft:comparator[facing=north,mode=compare,powered=false]"),
+        ('D', "minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]"),
+        ('E', "minecraft:redstone_wall_torch[facing=east,lit=true]"),
+    ];
+    let mut d = design_from_rows(
+        &format!("latch-{stones}"),
+        &[(0, &["..", "SS", ".."]), (1, &["SS", "CC", "AB"]), (2, &["TT", "S.", "SE"]), (3, &["KS", "Q.", "D."])],
+        &palette,
+        [0, 0, -2],
+    );
+    let mut stacks = Vec::new();
+    let mut left = stones;
+    let mut slot = 0;
+    while left > 0 {
+        let c = left.min(64);
+        stacks.push(format!("{{Slot:{slot}b,id:\"minecraft:stone\",count:{c}}}"));
+        left -= c;
+        slot += 1;
+    }
+    d.block_entities.insert([0, 1, 0], format!("{{Items:[{}]}}", stacks.join(",")));
+    d.ports.insert("output".into(), [0, 3, -1]);
+    Some(d)
+}
+
 /// An extendable family card: the generator arguments (after `mctas clock item gen`, `{n}` and
 /// `{out}` replaced), P(n) = p0 + dp n, blocks(n) = b0 + db n over n_lo..=n_hi, the extension rule
 /// and the caption.
@@ -110,6 +150,7 @@ pub fn cards() -> Vec<Card> {
         Card { id: "clk-item-lockpair", args: "lockpair --n {n} --out {out}", p0: 11, dp: 2, b0: 9, db: 0, n_lo: 0, n_hi: 2, redsim: true, rule: "one more tick of delay on the lock repeater (same blocks)", caption: "Hopper pair with a delayed lock (clk-item): 2 swords start in the west-facing hopper B; the comparator reading the east-facing hopper A powers a stone, the dust beside it feeds a repeater (delay n + 1) pointing into B, which locks B from 2 + 2 (n + 1) gt after A gets a sword until that long after it empties: P = 9 + 2 (n + 1). Delay 4 gives 25 (the lock misses a move)." },
         Card { id: "clk-item-lockring-2s", args: "lockring --d 2 --m 2 --n {n} --out {out}", p0: 33, dp: 2, b0: 11, db: 0, n_lo: 0, n_hi: 3, redsim: true, rule: "one more tick of delay on the lock repeater (same blocks)", caption: "2x2 hopper ring with a delayed lock and 2 swords (clk-item): the lock pair's wiring on a 4-hopper ring: the comparator reads the first ring hopper and powers a stone, the dust beside it feeds a repeater (delay n + 1) into the second ring hopper, locking it while the first holds a sword; the 2 swords start in the last ring hopper: P = 31 + 2 (n + 1) (37 and 39 included)." },
         Card { id: "clk-item-lockring-3s", args: "lockring --d 2 --m 3 --n {n} --out {out}", p0: 41, dp: 2, b0: 11, db: 0, n_lo: 0, n_hi: 3, redsim: true, rule: "one more tick of delay on the lock repeater (same blocks)", caption: "2x2 hopper ring with a delayed lock and 3 swords (clk-item): the lock pair's wiring on a 4-hopper ring (comparator on the first ring hopper, a repeater of delay n + 1 locking the second); the 3 swords start in the last ring hopper: P = 39 + 2 (n + 1)." },
+        Card { id: "clk-item-latch", args: "latch --n {n} --out {out}", p0: 30, dp: 16, b0: 17, db: 0, n_lo: 0, n_hi: 318, redsim: true, rule: "one more stone in hopper A (same blocks; up to 5 stacks of 64)", caption: "Latch hopper clock, item-count tuned (clk-item): two hoppers facing each other pass N = n + 2 stones from one to the other and back, one per 8 gt; a waxed copper bulb remembers the direction: the comparators reading the hoppers light a torch when their hopper is EMPTY, and those torches (one under the bulb, one under a stone beside it) toggle the bulb when the source runs dry; a comparator reading the bulb lights a dust on the stone above hopper A (locks A) and that stone's wall torch locks hopper B when the bulb is off. P = 16 N - 2 gt with 17 blocks: up to 5118 gt (4.3 min) with 320 stones." },
     ];
     // The dropper rings, one card per residue of P mod 14: (id, args, P0, blocks0).
     let drops: [(&'static str, &'static str, i64, i64); 14] = [

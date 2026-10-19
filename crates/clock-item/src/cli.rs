@@ -870,6 +870,7 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                 "snowdisp" => (crate::extend::snowdisp((n + 1) as u8), Some(12 + 4 * (n as u32 + 1))),
                 "lockring" => (crate::extend::lockring(d, (n + 1) as u8, m as u32), Some(31 + 8 * (m as u32).saturating_sub(2) + 2 * (n as u32 + 1))),
                 "lockpair" => (crate::extend::lockpair((n + 1) as u8), Some(9 + 2 * (n as u32 + 1))),
+                "latch" => (crate::extend::latch((n + 2) as u32), Some(16 * (n as u32 + 2) - 2)),
                 other => bail!("unknown family {other:?} (loop, dropring, ringlock, ringlockd, snowdisp, lockpair)"),
             };
             let mut des = des.ok_or_else(|| anyhow!("no such {family} design (n = {n})"))?;
