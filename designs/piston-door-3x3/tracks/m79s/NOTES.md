@@ -58,3 +58,15 @@
   bottom-left. Annealers running anyway (pistons locked, and a second run with piston moves).
 - Solid 7x9 (no sculk) annealer, 30 min, top focus, lever moves: nothing (the top-left is sealed: it sees
   only L2's head cell, B's head cell (1,4) and the static (0,3), none of which moves before L2/B).
+- s78-a1 (pistons locked, 40 threads): L1/L2 real in 7x8 (calibrated sensor (-2,5) + observer (-2,4) +
+  wool, the 63's trick; finds/s78-a1/partial-full-live.txt): K and L0 left. s78-a2 (piston moves allowed,
+  37 min, 94M screens): no release.
+- Eligible variant of the 63 (`door relever --seamless full+hall`): none: a note block in the lever cell
+  (4,5) no longer powers the log (4,4) -> dust (4,3) -> the R pair's dropper (not closed at rest); repeater
+  input into (4,4) would miss the dust (3,5) (TRp's hold).
+- Solid 7x9 with this mechanism: impossible by the case analysis above (the top-left sees only L2's and
+  B's head cells and the static (0,3); B and A's last pull need the pull-type head pattern (open 2 taps
+  4 gt apart, close 1 tap) with a master piston that the lever must reach first; the elevator column
+  (1,3..5) is the only element shared by the two top halves).
+- Next runs (sculk + WOOL palette, which the sculk track's runs lacked: wool occlusion kills re-arm echoes):
+  ring56's t8L and t10s 7x8 seeds (sk/), all inputs assisted.
