@@ -1,0 +1,27 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/ceil-c070x.ideal: 5 input cells off the plane ([(-1, -1), (-1, 1), (-2, 1), (0, -2), (1, -2)]), 10 / 10 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/ceil-c070x.txt: 31 blocks in the box, screen 79/79
+seed screen 79/79 with 5 inputs assisted
+windows (10 groups, 0.1 s):
+  input (-1,-1) open  t13 pulse 2 gt: window [+0, +0]
+  input (-1,1) open  t16 pulse 2 gt: window [+0, +0]
+  input (-2,1) open  t40 pulse 2 gt: window [-17, +24]
+  input (0,-2) open  t40 pulse 2 gt: window [-24, +24]
+  input (1,-2) open  t40 pulse 2 gt: window [-24, +24]
+  input (-1,-1) close t13 pulse 2 gt: window [-4, +24]
+  input (-1,1) close t16 pulse 2 gt: window [-16, +24]
+  input (-2,1) close t40 pulse 2 gt: window [-24, +24]
+  input (0,-2) close t40 pulse 2 gt: window [-24, +24]
+  input (1,-2) close t40 pulse 2 gt: window [-24, +24]
+17 pocket cells in 4 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 40 swept cells
+  pocket 0: 5 cells [(-3, -2), (-3, -1), (-2, -2), (-2, -1), (-1, -2)]
+  pocket 1: 5 cells [(-3, 2), (-3, 3), (-3, 4), (-2, 4), (-1, 4)]
+  pocket 2: 5 cells [(2, -2), (3, -2), (3, -1), (4, -2), (4, -1)]
+  pocket 3: 2 cells [(3, 4), (4, 4)]
+pocket 0: 5 cells, 1560 subset/lever items, 45395064 fillings to screen
+  pocket 0: 5169072 screened (222 of 1560 items started), 773226 keep the door working, 30 s
+  pocket 0: 11415028 screened (372 of 1560 items started), 1496350 keep the door working, 60 s
+  pocket 0: 17381946 screened (497 of 1560 items started), 2298947 keep the door working, 90 s
+  pocket 0: 22705085 screened (606 of 1560 items started), 2921020 keep the door working, 120 s
+  pocket 0: 28249154 screened (726 of 1560 items started), 3518527 keep the door working, 150 s
+  pocket 0: 34267302 screened (858 of 1560 items started), 4032616 keep the door working, 180 s
+  pocket 0: 40210131 screened (1005 of 1560 items started), 4445380 keep the door working, 210 s
