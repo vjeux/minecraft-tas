@@ -1,0 +1,40 @@
+name: seq56-w1
+# 7x9 (x -2..4, y -3..5) partial wiring of m1 with TM parked RIGHT at (2,3) by K (3,3) west.
+port door: 0 0 0
+port lever: -1 4 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  E minecraft:sticky_piston[extended=true,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  T minecraft:redstone_wall_torch[facing=west,lit=true]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+  a minecraft:observer[facing=west,powered=false]
+  b minecraft:observer[facing=east,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  n minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  x minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer -3:
+  SCanaS.
+layer -2:
+  rrUUUx.
+layer -1:
+  S......
+layer 0:
+  u.SSS..
+layer 1:
+  E.SSS.W
+layer 2:
+  E.SSS.W
+layer 3:
+  TS...K.
+layer 4:
+  .La.aS.
+layer 5:
+  ....bN.
