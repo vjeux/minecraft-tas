@@ -1,0 +1,36 @@
+name: ring56-t8y
+# 7x8 (x -2..4, y -2..5), ONE piston below the door (U (1,-2): BM into F1). TL, ML, BL pulled LEFT (pullers
+# x=-2, pull-type); TR, MR held by the lever (ON at rest) on the east face of TR's puller (TR directly, MR by
+# QC); BR pulled right (pull-type W (4,0)); TM up into C1 (A (1,4)) then RIGHT into C2 (corner W (3,3));
+# C up 2 by the elevator A on B (1,5). Static frame C0 (0,3), F0 (0,-1), F2 (2,-1) = the door block (stone).
+# Unlike t8 (TL up), the cells (0,4) and (0,5) next to the elevator are free on BOTH sides, and the static
+# C0 is a conductor next to A's low position (c79's trick with its static C2).
+port door: 0 0 0
+port lever: 5 2 0
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  U minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  X minecraft:sticky_piston[extended=true,facing=west]
+  h minecraft:piston_head[facing=west,short=false,type=sticky]
+  L minecraft:lever[face=wall,facing=east,powered=true]
+  d minecraft:observer[facing=down,powered=false]
+layer -2:
+  ...U...
+layer -1:
+  ..S.S..
+layer 0:
+  E.SSS.W
+layer 1:
+  E.SSShX
+layer 2:
+  E.SSShXL
+layer 3:
+  ..S..Wd
+layer 4:
+  ...D...
+layer 5:
+  ...D...

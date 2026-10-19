@@ -209,3 +209,39 @@ through (3,4) (A's trigger cell) or (4,3) (the top-right's only wake), so every 
 two of A, B and the corner puller. Next: give the elevator a cell budget (one more top row, 8x9 is no
 record, so rather a c79-style center where B is a lever-held level that moves once per edge and A
 gets pulses); or a T flip-flop (bulb + comparator) on W_TR's pulse to make B a level in t8x.
+
+## 13. Topology of single-U 7x8 doors, and exhaustive pockets on t8 (09:55Z)
+
+* Main now has a working 7x9 from this track's jf/p2 mechanism: `bridge-p2-sculk-49b` (track bridge
+  finished K with two calibrated sculk sensors; `-r` is the rotation-safe one). My screen fix 17239ae8
+  (heads poking out of the box mid-cycle) is on main too.
+* WHY 7 WIDE IS HARD (single U, all six side blocks sideways): each side column x=-2 / x=4 holds three
+  pullers and x=-1 / x=3 are frame cells, so every side is split into a top pocket and a bottom pocket.
+  A lever can level-hold two adjacent pullers (one directly, the one below by QC), and an observer on a
+  held puller gives a clean pulse only at ITS end (the top puller watched from y=3, the bottom one from
+  y=-1); the third puller of that side sits in the other, blind half. Top and bottom then meet only
+  through the middle column (the elevator: A/B watched or fed from (0,4) (0,5) (2,4) (2,5); U from
+  (0,-2) / (2,-2)), or through a side column that has only two pullers with a free conductor cell
+  (t8: TL goes UP, so (-2,2) is a stone that fires ML's puller directly and BL's by QC from the top,
+  and BL's puller watched from (-2,-1) carries the signal to the bottom). c79 escapes it with BR going
+  DOWN ((4,0) becomes the observer on MR's puller), t10 with BL down (two pistons below the door).
+* `mech/t8y.txt` (TL left, C0 static: A and B feedable from both sides) WORKS with ideal inputs, but its
+  top and bottom halves are disconnected (both side columns full): unwirable with one lever without
+  sculk. t8 is the right topology: lever on TR's puller (TR + MR), top-right clean pulse -> elevator ->
+  top-left watches B -> (-2,2) -> ML/BL -> bottom-left watches BL's puller -> U -> bottom-right watches
+  U -> BR's puller.
+* Exhaustive pockets on `mech/t8Ls.txt` (= t8L with stone frame statics, `t8Ls.ideal`), full palette
+  incl. sculk / calibrated / wool, k=3 (all 4 pockets, 1-3 M fillings each): bottom-left drives U (3
+  blocks); bottom-right BR's puller (2) and U (3); top-left TL's puller (3) and ML/BL (3) separately
+  (watching the plan-driven B); top-right A1 (2-3), P_T (2-3), A2 open (2); NEVER B (all four pulses),
+  A3, A2 close. The top-right must drive A x3, P_T and B x2 from ONE pulse (the observer on TR's
+  puller) while blind to the elevator: (2,4) and (2,5) are both the only feed cells (A at both heights,
+  B) and the only cells that can see A, B or TM landing in C2. k=4 on the top-right (141 M fillings):
+  running.
+* k=4 on t8Ls's top-right (exhaustive, 197 M fillings, 49 min / 64 threads, full palette + sculk):
+  A1+A3 on both edges with 4 blocks (`pk/t8Ls-k4/pocket3-set0.txt`: the observer on TR's puller fires a
+  sticky piston (4,4) that shoves an observer into (2,4) -> A; the B watcher (2,5) -> observer (3,5)
+  QC-fires the same piston again for A3); B1 on both edges with 4 (`set3`); P_T both edges with 4;
+  B2 and A2-close NEVER. No filling covers more than 4 of the 12 groups, and the pocket has 6 cells:
+  the t8 top-right in 7x8 cannot drive the elevator (B's only feed (2,5) is also the only cell that
+  sees B, the cell every A3 filling uses). k=6 (all six cells) with 22 hand-picked states: running.
