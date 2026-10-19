@@ -1,5 +1,16 @@
 # Track m79s: finish m79q (7x9 = 63, u7-m10 mechanism, B pull-type) into a working door
 
+## RESULT (08:00Z): m79s-sculk-63b-50.txt (= BEST.txt): 63b (7x9x1), 50 blocks, sculk, slime-free, flat
+- `door verify --extra-offsets 28` WORKS (32 positions x 3 cycles), rotation-safe (32 positions each turn),
+  open 43 / close 35; `door properties`: FULL seamless, dentless; redsim: hallway ok, frame 12/12.
+- = satwire's m79q-sat (right side, bottom, B + A's last pull from TL's arrival) + the last ideal input
+  (L1/L2) wired by SCULK, found by `door cosearch search` (assist sat-noA.ideal, `--palette
+  all,sculk,calibrated,wool`, `--lock-pistons`, 64 threads, first finds after ~5 min; seeds: sat + cand/v4):
+  calibrated sensor (-2,5) (facing north) hears the right side's t1 moves (activation t11, power 7);
+  observer (-2,4) facing up -> WOOL (-2,3) -> L2 direct + L1 by QC: 3 taps per activation (t13 pull, t23
+  push, t33 pull on open; push/pull/push on close); the sensor's window also lights the dust (-1,5) ->
+  wool (0,5) -> B (held while active); wool (0,4)/(0,5)/(-2,3) occlude the re-arm echo (L2, L1, B, A).
+
 ## State (07:50Z)
 - satwire's m79q-sat-topright (copied: sat-topright.txt, sat.ideal): its top-right does NOT drive B. B and
   A's last pull are driven by the still-ideal L1/L2 input: observer (-1,3) watches TL's wall cell (-1,2)
