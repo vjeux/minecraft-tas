@@ -1,0 +1,24 @@
+# archived 2026-10-19T20:12Z from /tmp/gen/arch2/hyb3-p49-2.txt by mctas clock archive
+# CLOCK: clk-sculk-hyb3-p49-2 period 49 gt (2.45 s), on 20/49, edges 2, warmup 39, family calibrated_sculk_sensor+observer+sticky_piston, 7 blocks, 2x3x2, robust
+# A calibrated sculk sensor watched by a chain of 3 observer(s) (each watching the previous); the last observer powers a stone and a sticky piston beside the stone, 1 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a observer beside the chain (moves parts of it: the hybrid)
+name: clk-sculk-hyb3-p49-2
+# how: obs cal k=3 path 0,1,0 -1,1,0 -1,0,0 stone at the output, emitter sticky-up beside it (travel 1) + observer[facing=up,powered=false] at -1,1,-1
+port output: 0 0 0
+port start: 0 -1 -1 minecraft:redstone_block 1
+origin: -1 0 -1
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  C minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=up]
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:stone
+layer -1:
+  S
+  s
+layer 0:
+  .
+  AC
+layer 1:
+  A
+  oO
