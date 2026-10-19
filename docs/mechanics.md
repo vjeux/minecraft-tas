@@ -445,6 +445,26 @@ Notes for builders of fast doors:
   or one tick later. A piston whose push fails when its event runs never retries. (Interleaving
   goes one event per chain per round, so a chain that must act second can also be made longer:
   `open-4-close3` pads T's chain with one piston to run it after C's in the same tick.)
+* **T flip-flop level for a level-held piston** (c88 `tracks/c88/s24.txt`, the solid 8x8 c88-s26):
+  a waxed copper bulb toggled by ONE pulse per lever edge (an observer on the lever's dust ->
+  stone -> bulb) read by a comparator is a level that is on at rest and off when open (the judge's
+  periodic rest accepts it); repeaters after the comparator delay it like any level (t16 here).
+  It made the elevator's top piston B level-held far from the lever, so B moves once per edge and
+  its watcher fires ONE pulse per edge (a pulsed B's watcher fires twice: extend, then landing).
+* **Fire a QC-only piston with an update, or deliberately without one** (c88 s22/s25): a piston
+  powered only through its above cell reacts only when something updates it. An emitter INTO the
+  above cell updates that cell's neighbors, the piston included (observer (0,4) into (1,4) fires A
+  at (1,3)); powering a solid block NEXT to the above cell ((0,4) or (2,4)) updates that block's
+  neighbors only, so the piston stays put (s22's A never pushed). s25 uses the second on purpose: a
+  stone (2,4) powered from (3,4) fires A's top pull at (1,4) (its neighbor) but leaves A at (1,3)
+  alone on close (QC-powered, never updated), which removes c79's close hazard.
+* **Odd-parity reshaper** (c88 s26): an observer on a once-pulsed sticky piston fires twice (extend,
+  then landing 4 gt later). Feed that double pulse into the empty quasi cell of a NORMAL piston
+  and watch the normal piston with an observer: the downstream train is odd on both edges (3 on
+  open), and three pulses toggle a pulsed sticky piston (BR's puller here).
+* **Copper bulb + observer counts input EDGES, not pulses**: the bulb's `powered` flips on both
+  input edges, so `bulb-pulse` gives one pulse only for inputs <= 2 gt; a 30 gt sculk window into a
+  bulb under an observer gives two pulses (c88 s15sk).
 
 ## 9. Floors for the fastest 3x3 door
 
