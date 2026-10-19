@@ -2632,14 +2632,14 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
             combos_tried += 1;
             let mut g = seed.clone();
             for &c in &chosen {
-                let f = &cands[c];
-                for (q, b) in &f.blocks {
+                for (q, b) in &cands[c].blocks {
                     g.set(q.0, q.1, *b);
                 }
-                if let Some((lx, ly)) = f.lever {
-                    g.set(g.lever.0, g.lever.1, Block::Air);
-                    place_lever(&mut g, lx, ly);
-                }
+            }
+            // the lever last (hung on whatever block the fillings put next to it)
+            if let Some((lx, ly)) = chosen.iter().find_map(|&c| cands[c].lever) {
+                g.set(g.lever.0, g.lever.1, Block::Air);
+                place_lever(&mut g, lx, ly);
             }
             g.assist = seed.assist & !released_by(cov);
             // a released in-plane input's cell holds nothing any more (its rest block was the plan's)
@@ -2697,13 +2697,20 @@ pub fn pockets_run(version: &str, pa: &PocketArgs) -> Result<()> {
         }
         let i = open.trailing_zeros() as usize;
         let used: HashSet<(i32, i32)> = chosen.iter().flat_map(|&c| cands[c].blocks.iter().map(|(q, _)| *q).chain(cands[c].lever)).collect();
-        let has_lever = chosen.iter().any(|&c| cands[c].lever.is_some());
+        // one lever: fillings may share it when they hang it on the same cell
+        let chosen_lever: Option<(i32, i32)> = chosen.iter().find_map(|&c| cands[c].lever);
         let mut kids: Vec<(Vec<usize>, u64, u64)> = Vec::new();
         for (c, f) in cands.iter().enumerate() {
-            if (f.driven >> i) & 1 == 0 || (has_lever && f.lever.is_some()) {
+            if (f.driven >> i) & 1 == 0 {
                 continue;
             }
-            if f.blocks.iter().map(|(q, _)| *q).chain(f.lever).any(|q| used.contains(&q)) {
+            if let (Some(a), Some(b)) = (chosen_lever, f.lever)
+                && a != b
+            {
+                continue;
+            }
+            let shared = |q: &(i32, i32)| chosen_lever.is_some() && f.lever == chosen_lever && Some(*q) == chosen_lever;
+            if f.blocks.iter().map(|(q, _)| *q).chain(f.lever).any(|q| used.contains(&q) && !shared(&q)) {
                 continue;
             }
             let mut ch = chosen.clone();
