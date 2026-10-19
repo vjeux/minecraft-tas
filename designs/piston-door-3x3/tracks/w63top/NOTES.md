@@ -86,3 +86,23 @@
   81) with P_T pre at A1-2 + real A1+4 and the right stack run A1-8, A1-2, A1+4.
 - What the lamp plan still lacks: A1's interval (power into (3,5) at A1-2 for 8 gt) and the stack
   run before A1, both from the right column, which has no clean input (the wall above).
+
+## Pivot (04:12Z): single-U 7x8 mechanisms, extended-at-rest family
+- u7/m7.txt + u7/m7.ideal (levels via u7/m7i.txt): the 009 block moves with every side puller,
+  U and the T parker P (3,3) EXTENDED AT REST (heads in frame cells) and driven by LEVELS, only the
+  elevator A (1,4) / B (1,5) pulsed. `door ideal --extra-offsets 28`: WORKS at 32 positions x 2
+  cycles, open 41 / close 43; `door sheet`: frame 12/12 (static (0,3), (0,-1), (2,-1)). Windows
+  (A1 = z): P's level change z+5..z+7 (both edges), B1 9..14, A2 12..19, B2 19..24, A3 26..36,
+  U's level change >= z+28 (on close U must push the column back after A3), side levels any time.
+- But m7 cannot be wired with one lever: with 3-high side stacks the bottom pistons (L0, R0, U)
+  touch only the bottom rows, and nothing the top moves is visible from there (and vice versa).
+  Every catalog single-U mechanism (the 9 in the 04:03Z artifact) has the same split.
+- Wiring tricks for this family (by hand, from the source rules):
+  * a WALL TORCH hung on a static frame stone at (-1,2) (torch at (-2,2)) powers L1 directly and
+    L0 by QC (it emits into (-2,1)): a level-held 2-stack, turned off by powering the stone, e.g.
+    a lever at (-1,3) on top of it (the lever then also weakly powers (0,3), (-2,3), (-1,4));
+  * a level-held piston moves once per edge, so an observer on its base fires exactly ONE pulse
+    per edge (retract: base -> moving -> landed 2 gt later, inside the busy window): the clean
+    top->bottom link (box72's torch link), e.g. R0's watcher at (4,-1) driving L0 and U below.
+  * still open: every elevator design has its T parker's QC cell next to A's driver (the w63 top
+    wall, mirrored for a parker at (-1,3)).
