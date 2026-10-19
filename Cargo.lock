@@ -363,6 +363,7 @@ dependencies = [
  "clap",
  "clock",
  "mctas",
+ "serde_json",
 ]
 
 [[package]]
