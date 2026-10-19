@@ -86,6 +86,11 @@ only fit is TRp at t2, A t5..t8, B at t10: one tick early.
   hold (via the static (0,3)) and the rest of the elevator from its 8 cells; the lever chain (3,5)->(2,5)
   gives A's drop/rise at 16 gt on both edges. Breaks the top wall; the bottom then needs the c79 order
   (K before U) or a level-held U.
+- B's repeater chain shortened (dust (3,5) + repeater (2,5) d1): B drops at t2 pulling A up to (1,4), the
+  top-left watches A from (0,4) and wakes early; on close B's level push (A + TM down) does the whole
+  elevator close. Then the top-left must deliver B's two pulses (via (0,5)), A's hold (via the static
+  (0,3)) and L1/L2, but A's LAST pull needs (0,4) (the watcher's cell) or QC through (1,5) (which fires B
+  first, A only QC-armed): one output short. Untested.
 - The lever in the BOTTOM-LEFT (L0 lever-held, U held by QC through the static (0,-1)) with every other
   region woken in a chain from U.
 - A door-block-type change (oak logs, `satwire --log-doors`) for 1 gt leaves delays next to a log path.
