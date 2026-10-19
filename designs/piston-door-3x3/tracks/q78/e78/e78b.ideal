@@ -1,0 +1,10 @@
+design designs/piston-door-3x3/tracks/q78/e78/e78b.txt
+# e78a with the right side's feed removed: MR+BR ideal (one input at (4,2,1): MR directly, BR by QC)
+let r = 18
+let rl = 2
+open 0 use 1 5 0
+close 0 use 1 5 0
+open r set 4 1 1 minecraft:redstone_block
+open r+rl clear 4 1 1
+close r set 4 1 1 minecraft:redstone_block
+close r+rl clear 4 1 1
