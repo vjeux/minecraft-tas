@@ -554,6 +554,8 @@ pub fn approx_block(s: &str) -> Option<String> {
         "minecraft:crying_obsidian" => Some("minecraft:obsidian".into()),
         // logs: plain pushable conductors like stone (no leaves in the model)
         n if n.ends_with("_log") || n.ends_with("_wood") => Some("minecraft:stone".into()),
+        // wool, concrete, terracotta: plain pushable conductors
+        n if n.ends_with("_wool") || n.ends_with("_concrete") || n.ends_with("terracotta") && !n.contains("glazed") => Some("minecraft:stone".into()),
         // an iron trapdoor does not conduct (its open toggle only shows to observers)
         "minecraft:iron_trapdoor" => Some("minecraft:glass".into()),
         "minecraft:redstone_wire" => Some(format!("minecraft:redstone_wire[east=side,north=none,power={},south=none,west=side]", prop("power").unwrap_or("0".into()))),
