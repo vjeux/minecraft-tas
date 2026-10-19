@@ -1,0 +1,14 @@
+fill designs/piston-door-3x3/tracks/pockets/svc/e78k-r1.txt: 11 region cells (11 free, 0 fixed), base 43 blocks (design 43), k 0..=4, global palette 23 states, gaps allowed, KEEP mode (k = changed cells)
+561 subsets pass the connectivity rule; 94384433 fillings to screen in 178431 work items
+[   120s] 11702710 screened (97491/s), 0 pruned, item 22166/178431, 0 pass the 1-position screen, 0 finds
+[   240s] 23109306 screened (96211/s), 0 pruned, item 43729/178431, 0 pass the 1-position screen, 0 finds
+[   360s] 33278740 screened (92385/s), 0 pruned, item 62952/178431, 0 pass the 1-position screen, 0 finds
+[   480s] 40731789 screened (84804/s), 0 pruned, item 77047/178431, 0 pass the 1-position screen, 0 finds
+[   600s] 47174297 screened (78578/s), 0 pruned, item 89226/178431, 0 pass the 1-position screen, 0 finds
+[   720s] 55147591 screened (76556/s), 0 pruned, item 104291/178431, 0 pass the 1-position screen, 0 finds
+[   841s] 60689368 screened (72206/s), 0 pruned, item 114768/178431, 0 pass the 1-position screen, 0 finds
+[   961s] 70490674 screened (73380/s), 0 pruned, item 133297/178431, 0 pass the 1-position screen, 0 finds
+[  1081s] 76607150 screened (70887/s), 0 pruned, item 144856/178431, 0 pass the 1-position screen, 0 finds
+[  1201s] 85273309 screened (71014/s), 0 pruned, item 161237/178431, 0 pass the 1-position screen, 0 finds
+[  1321s] 92793982 screened (70256/s), 0 pruned, item 175461/178431, 0 pass the 1-position screen, 0 finds
+done in 1365 s: 94384433 screened, 0 pruned, 0 passed the screen, 0 finds

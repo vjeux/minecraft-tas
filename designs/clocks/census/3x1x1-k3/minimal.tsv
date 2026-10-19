@@ -1,0 +1,3 @@
+period	state_period	warmup	family	blocks	dims	volume	on	edges	pulses	start	type	encoding	minimal
+6	6	0	observer	2	2x1x1	2	2	1	[2]	last 0,0,0	0,0,0=observer[facing=east];1,0,0=observer[facing=west]	0,0,0=observer[facing=east,powered=false];1,0,0=observer[facing=west,powered=false]	true
+12	12	0	copper_bulb+observer	3	3x1x1	3	4	2	[2, 2]	last 0,0,0	0,0,0=observer[facing=east];1,0,0=observer[facing=west];2,0,0=waxed_copper_bulb	0,0,0=observer[facing=east,powered=false];1,0,0=observer[facing=west,powered=false];2,0,0=waxed_copper_bulb[lit=false,powered=false]	true
